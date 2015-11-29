@@ -144,7 +144,7 @@ class InstrumentLibrary(core.StateBase, core.CommandDispatcher):
         self.init_state(state)
 
         if state is None and add_default_instruments:
-            for p in glob.glob('/storage/home/share/instruments/*.sf2'):
+            for p in glob.glob('/usr/share/sounds/sf2/*.sf2'):
                 self.add_soundfont(p)
 
         if self.ui_state is None:
