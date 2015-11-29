@@ -1,0 +1,5 @@
+#!/bin/bash
+
+LIBDIR=$(readlink -f "$(dirname "$0")/..")
+export PYTHONPATH="$LIBDIR:$PYTHONPATH"
+exec python3 -m noisicaa.editor_main "$@"

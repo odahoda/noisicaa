@@ -1,0 +1,16 @@
+#!/bin/bash
+
+BASEDIR=$(readlink -f "$(dirname "$0")")
+
+(
+    set -e
+    $BASEDIR/runpylint -E noisicaa
+    $BASEDIR/runtests
+)
+
+if [ $? -gt 0 ]; then
+   echo
+   echo "****** THERE WERE ERRORS ******"
+   echo
+   exit 1
+fi
