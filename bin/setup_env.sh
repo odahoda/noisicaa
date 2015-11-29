@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DEST=$(readlink -f "$(dirname "$0")/ENV")
+DEST=$(readlink -f "$(dirname "$0")/../ENV")
 BUILDDIR=/tmp/build
 LIBSDIR=$(readlink -f "$(dirname "$0")/../libs")
 
@@ -8,8 +8,8 @@ LIBSDIR=$(readlink -f "$(dirname "$0")/../libs")
 #LADSPA_DEPS="cython3 ladspa-sdk"
 
 PYVERSION=3.4
-SIPVERSION=4.16.9
-PYQTVERSION=5.5
+SIPVERSION=4.17
+PYQTVERSION=5.5.1
 
 PACKAGES="python$PYVERSION python$PYVERSION-venv python$PYVERSION-dev qt5-qmake qtbase5-dev sip-dev libxml2-dev libxslt1-dev portaudio19-dev"
 
@@ -54,6 +54,19 @@ function main() {
 	echo >&2 "Missing some packages: ${MISSING[@]}"
 	exit 1
     fi
+
+    if [ ! -f $LIBSDIR/sip-$SIPVERSION.tar.gz ]; then
+	echo >&2 "Missing $LIBSDIR/sip-$SIPVERSION.tar.gz"
+	echo >&2 "Please download sip-$SIPVERSION.tar.gz from http://sourceforge.net/projects/pyqt/files/sip/"
+	exit 1
+    fi
+
+    if [ ! -f $LIBSDIR/PyQt-gpl-$PYQTVERSION.tar.gz ]; then
+	echo >&2 "Missing $LIBSDIR/PyQt-gpl-$PYQTVERSION.tar.gz"
+	echo >&2 "Please download $LIBSDIR/PyQt-gpl-$PYQTVERSION.tar.gz from http://sourceforge.net/projects/pyqt/files/PyQt5/"
+	exit 1
+    fi
+
 
     set -ex
 

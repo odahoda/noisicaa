@@ -1,0 +1,4 @@
+__pycache__/
+ENV/
+*~
+data/symbols/*.stripped.svg
