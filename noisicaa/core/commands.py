@@ -2,6 +2,8 @@
 
 import logging
 
+from .state import StateBase
+
 logger = logging.getLogger(__name__)
 
 
@@ -9,24 +11,27 @@ class CommandError(Exception):
     pass
 
 
-class Command(object):
+class Command(StateBase):
     # TODO: Some way to declare valid attributes
-    def __init__(self, **args):
-        self._args = args
+    def __init__(self, state=None):
+        super().__init__()
+        self.init_state(state)
 
     def __str__(self):
         return '%s{%s}' % (
             type(self).__name__,
-            ', '.join('%s=%r' % (k, v) for k, v in sorted(self._args.items())))
+            ', '.join('%s=%r' % (k, v) for k, v in sorted(self.state.items())))
+    __repr__ = __str__
 
-    def __getattribute__(self, name):
-        if name.startswith('_'):
-            return object.__getattribute__(self, name)
-
-        try:
-            return self._args[name]
-        except KeyError:
-            return object.__getattribute__(self, name)
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        for prop_name in self.list_property_names():
+            if prop_name == 'id':
+                continue
+            if getattr(self, prop_name) != getattr(other, prop_name):
+                return False
+        return True
 
 
 class CommandTarget(object):

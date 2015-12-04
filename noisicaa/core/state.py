@@ -50,7 +50,9 @@ class Property(PropertyBase):
             if not self.allow_none:
                 raise ValueError("None not allowed")
         elif not isinstance(value, self.type):
-            raise TypeError("Excepted %s" % self.type.__name__)
+            raise TypeError(
+                "Excepted %s, got %s" % (
+                    self.type.__name__, type(value).__name__))
 
         super().__set__(instance, value)
 
@@ -154,7 +156,7 @@ class DictProperty(PropertyBase):
         return value
 
     def __set__(self, instance, value):
-        raise RuntimeError("ObjectListProperty cannot be assigned.")
+        raise RuntimeError("DictProperty cannot be assigned.")
 
     def to_state(self, instance):
         return instance.state.get(self.name, {})
@@ -365,6 +367,10 @@ class StateBase(TreeNode, metaclass=StateMeta):
                 prop = cls.__dict__[k]
                 assert prop.name == k
                 yield prop
+
+    def list_property_names(self):
+        for prop in self.list_properties():
+            yield prop.name
 
     def list_children(self):
         for prop in self.list_properties():

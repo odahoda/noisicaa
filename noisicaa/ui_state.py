@@ -3,18 +3,18 @@
 import logging
 import base64
 
-from noisicaa.core import (
-    StateBase, DictProperty, Command, CommandDispatcher,
-)
+from noisicaa import core
 
 logger = logging.getLogger(__name__)
 
 
-class UpdateUIState(Command):
-    def __init__(self, **kwargs):
-        super().__init__()
+class UpdateUIState(core.Command):
+    args = core.DictProperty()
 
-        self.args = kwargs
+    def __init__(self, state=None, **kwargs):
+        super().__init__(state=state)
+        if state is None:
+            self.args = kwargs
 
     def __str__(self):
         return '%s{%s}' % (
@@ -46,10 +46,11 @@ class UpdateUIState(Command):
             for listener in state.change_listeners:
                 listener(changes)
 
+core.Command.register_subclass(UpdateUIState)
 
 
-class UIState(StateBase, CommandDispatcher):
-    ui_state = DictProperty()
+class UIState(core.StateBase, core.CommandDispatcher):
+    ui_state = core.DictProperty()
 
     def __init__(self, state=None):
         super().__init__()

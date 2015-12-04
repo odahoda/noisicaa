@@ -70,9 +70,7 @@ class MeasureItemTest(uitest_utils.UITest):
         self.assertEqual(self.project.dispatch_command.call_count, 1)
         (target, cmd), _ = self.project.dispatch_command.call_args
         self.assertEqual(target, '/sheet:test')
-        self.assertIsInstance(cmd, music.InsertMeasure)
-        self.assertEqual(cmd.tracks, [0])
-        self.assertEqual(cmd.pos, 0)
+        self.assertEqual(cmd, music.InsertMeasure(tracks=[0], pos=0))
 
     def test_menu_remove_measure(self):
         self.project.dispatch_command.side_effect = None
@@ -94,9 +92,8 @@ class MeasureItemTest(uitest_utils.UITest):
         self.assertEqual(self.project.dispatch_command.call_count, 1)
         (target, cmd), _ = self.project.dispatch_command.call_args
         self.assertEqual(target, '/sheet:test')
-        self.assertIsInstance(cmd, music.RemoveMeasure)
-        self.assertEqual(cmd.tracks, [0])
-        self.assertEqual(cmd.pos, 0)
+        self.assertEqual(cmd, music.RemoveMeasure(tracks=[0], pos=0))
+
 
 if __name__ == '__main__':
     unittest.main()

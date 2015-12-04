@@ -31,9 +31,12 @@ logger = logging.getLogger(__name__)
 
 
 class AddSheet(core.Command):
-    def __init__(self, name=None):
-        super().__init__()
-        self.name = name
+    name = core.Property(str, allow_none=True)
+
+    def __init__(self, name=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.name = name
 
     def run(self, project):
         assert isinstance(project, Project)
@@ -53,22 +56,32 @@ class AddSheet(core.Command):
         sheet = Sheet(name)
         project.sheets.append(sheet)
 
+core.Command.register_subclass(AddSheet)
+
 
 class ClearSheet(core.Command):
-    def __init__(self, name):
-        super().__init__()
-        self.name = name
+    name = core.Property(str)
+
+    def __init__(self, name=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.name = name
 
     def run(self, project):
         assert isinstance(project, Project)
 
         project.get_sheet(self.name).clear()
 
+core.Command.register_subclass(ClearSheet)
+
 
 class DeleteSheet(core.Command):
-    def __init__(self, name):
-        super().__init__()
-        self.name = name
+    name = core.Property(str)
+
+    def __init__(self, name=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.name = name
 
     def run(self, project):
         assert isinstance(project, Project)
@@ -83,12 +96,18 @@ class DeleteSheet(core.Command):
 
         raise ValueError("No sheet %r" % self.name)
 
+core.Command.register_subclass(DeleteSheet)
+
 
 class RenameSheet(core.Command):
-    def __init__(self, name, new_name):
-        super().__init__()
-        self.name = name
-        self.new_name = new_name
+    name = core.Property(str)
+    new_name = core.Property(str)
+
+    def __init__(self, name=None, new_name=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.name = name
+            self.new_name = new_name
 
     def run(self, project):
         assert isinstance(project, Project)
@@ -102,23 +121,32 @@ class RenameSheet(core.Command):
         sheet = project.get_sheet(self.name)
         sheet.name = self.new_name
 
+core.Command.register_subclass(RenameSheet)
+
 
 class SetCurrentSheet(core.Command):
-    def __init__(self, name):
-        super().__init__()
-        self.name = name
+    name = core.Property(str)
+
+    def __init__(self, name=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.name = name
 
     def run(self, project):
         assert isinstance(project, Project)
 
         project.current_sheet = project.get_sheet_index(self.name)
 
+core.Command.register_subclass(SetCurrentSheet)
 
 
 class AddTrack(core.Command):
-    def __init__(self, track_type):
-        super().__init__()
-        self.track_type = track_type
+    track_type = core.Property(str)
+
+    def __init__(self, track_type=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.track_type = track_type
 
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
@@ -139,11 +167,16 @@ class AddTrack(core.Command):
 
         return len(sheet.tracks) - 1
 
+core.Command.register_subclass(AddTrack)
+
 
 class RemoveTrack(core.Command):
-    def __init__(self, track):
-        super().__init__()
-        self.track = track
+    track = core.Property(int)
+
+    def __init__(self, track=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.track = track
 
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
@@ -151,12 +184,18 @@ class RemoveTrack(core.Command):
         del sheet.tracks[self.track]
         sheet.update_tracks()
 
+core.Command.register_subclass(RemoveTrack)
+
 
 class MoveTrack(core.Command):
-    def __init__(self, track, direction):
-        super().__init__()
-        self.track = track
-        self.direction = direction
+    track = core.Property(int)
+    direction = core.Property(int)
+
+    def __init__(self, track=None, direction=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.track = track
+            self.direction = direction
 
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
@@ -185,12 +224,18 @@ class MoveTrack(core.Command):
 
         return track.index
 
+core.Command.register_subclass(MoveTrack)
+
 
 class InsertMeasure(core.Command):
-    def __init__(self, tracks, pos):
-        super().__init__()
-        self.tracks = tracks
-        self.pos = pos
+    tracks = core.ListProperty(int)
+    pos = core.Property(int)
+
+    def __init__(self, tracks=None, pos=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.tracks.extend(tracks)
+            self.pos = pos
 
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
@@ -206,12 +251,18 @@ class InsertMeasure(core.Command):
             else:
                 track.append_measure()
 
+core.Command.register_subclass(InsertMeasure)
+
 
 class RemoveMeasure(core.Command):
-    def __init__(self, tracks, pos):
-        super().__init__()
-        self.tracks = tracks
-        self.pos = pos
+    tracks = core.ListProperty(int)
+    pos = core.Property(int)
+
+    def __init__(self, tracks=None, pos=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.tracks.extend(tracks)
+            self.pos = pos
 
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
@@ -224,6 +275,8 @@ class RemoveMeasure(core.Command):
                 track.remove_measure(self.pos)
                 if self.tracks:
                     track.append_measure()
+
+core.Command.register_subclass(RemoveMeasure)
 
 
 class Sheet(core.StateBase, core.CommandTarget):
@@ -375,6 +428,7 @@ class Project(core.StateBase, core.CommandDispatcher):
         self.header_data = None
         self.path = None
         self.data_dir = None
+        self.command_log_fp = None
 
         self.address = '/'
         self.set_root()
@@ -428,10 +482,13 @@ class Project(core.StateBase, core.CommandDispatcher):
             checkpoint_path = checkpoints[0][1]
             self.read_checkpoint(checkpoint_path)
 
+        command_log_fp = open(os.path.join(data_dir, ".log"), 'ab')
+
         self.file_lock = file_lock
-        self.header_data = data
         self.path = path
         self.data_dir = data_dir
+        self.header_data = data
+        self.command_log_fp = command_log_fp
 
     def create(self, path):
         assert self.path is None
@@ -449,18 +506,25 @@ class Project(core.StateBase, core.CommandDispatcher):
             fileutil.FileInfo(filetype='project-header',
                               version=self.VERSION))
 
+        command_log_fp = open(os.path.join(data_dir, ".log"), 'wb')
+
         file_lock = self.acquire_file_lock(os.path.join(data_dir, "lock"))
 
         self.file_lock = file_lock
         self.path = path
         self.data_dir = data_dir
         self.header_data = header_data
+        self.command_log_fp = command_log_fp
         self.changed_since_last_checkpoint = False
 
     def close(self):
+        if self.command_log_fp is not None:
+            self.command_log_fp.close()
+
         if self.file_lock is not None:
             self.release_file_lock(self.file_lock)
 
+        self.command_log_fp = None
         self.file_lock = None
         self.header_data = None
         self.path = None
@@ -553,7 +617,18 @@ class Project(core.StateBase, core.CommandDispatcher):
         if self.closed:
             raise RuntimeError("Command %s executed on closed project." % cmd)
 
+        assert self.command_log_fp is not None
+
         result = super().dispatch_command(target, cmd)
         self.changed_since_last_checkpoint = True
+
+        serialized = json.dumps(
+            cmd.serialize(),
+            ensure_ascii=False, indent='  ', sort_keys=True, cls=JSONEncoder)
+        self.command_log_fp.write(('Time: %s\n' % time.ctime()).encode('utf-8'))
+        self.command_log_fp.write(('Target: %s\n' % target).encode('utf-8'))
+        self.command_log_fp.write(serialized.encode('utf-8'))
+        self.command_log_fp.write('\n---------------------------------\n\n'.encode('utf-8'))
+
         logger.info("Executed command %s on %s", cmd, target)
         return result

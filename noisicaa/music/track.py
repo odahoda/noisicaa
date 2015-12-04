@@ -9,7 +9,6 @@ from noisicaa.audioproc.source.notes import NoteSource
 from noisicaa.audioproc.source.fluidsynth import FluidSynthSource
 
 from noisicaa.instr.library import Instrument
-from noisicaa.instr.soundfont import SoundFont
 
 from .time import Duration
 
@@ -18,14 +17,21 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateTrackProperties(core.Command):
+    name = core.Property(str, allow_none=True)
+    visible = core.Property(bool, allow_none=True)
+    muted = core.Property(bool, allow_none=True)
+    volume = core.Property(float, allow_none=True)
+    transpose_octaves = core.Property(int, allow_none=True)
+
     def __init__(self, name=None, visible=None, muted=None, volume=None,
-                 transpose_octaves=None):
-        super().__init__()
-        self.name = name
-        self.visible = visible
-        self.muted = muted
-        self.volume = volume
-        self.transpose_octaves = transpose_octaves
+                 transpose_octaves=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.name = name
+            self.visible = visible
+            self.muted = muted
+            self.volume = volume
+            self.transpose_octaves = transpose_octaves
 
     def run(self, track):
         assert isinstance(track, Track)
@@ -45,6 +51,8 @@ class UpdateTrackProperties(core.Command):
         if self.transpose_octaves is not None:
             track.transpose_octaves = self.transpose_octaves
 
+core.Command.register_subclass(UpdateTrackProperties)
+
 
 class ClearInstrument(core.Command):
     def run(self, track):
@@ -52,16 +60,23 @@ class ClearInstrument(core.Command):
 
         track.instrument = None
 
+core.Command.register_subclass(ClearInstrument)
+
 
 class SetInstrument(core.Command):
-    def __init__(self, instr):
-        super().__init__()
-        self.instr = instr
+    instr = core.DictProperty()
+
+    def __init__(self, instr=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.instr.update(instr)
 
     def run(self, track):
         assert isinstance(track, Track)
 
         track.instrument = Instrument.from_json(self.instr)
+
+core.Command.register_subclass(SetInstrument)
 
 
 class Measure(core.StateBase, core.CommandTarget):

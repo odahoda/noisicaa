@@ -17,13 +17,20 @@ logger = logging.getLogger(__name__)
 
 
 class ChangeNote(core.Command):
-    def __init__(self, idx, pitch=None, duration=None, dots=None, tuplet=None):
-        super().__init__()
-        self.idx = idx
-        self.pitch = pitch
-        self.duration = duration
-        self.dots = dots
-        self.tuplet = tuplet
+    idx = core.Property(int)
+    pitch = core.Property(str, allow_none=True)
+    duration = core.Property(Duration, allow_none=True)
+    dots = core.Property(int, allow_none=True)
+    tuplet = core.Property(int, allow_none=True)
+
+    def __init__(self, idx=None, pitch=None, duration=None, dots=None, tuplet=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.idx = idx
+            self.pitch = pitch
+            self.duration = duration
+            self.dots = dots
+            self.tuplet = tuplet
 
     def run(self, measure):
         assert isinstance(measure, ScoreMeasure)
@@ -47,13 +54,20 @@ class ChangeNote(core.Command):
                 raise ValueError("Invalid tuplet type")
             note.tuplet = self.tuplet
 
+core.Command.register_subclass(ChangeNote)
+
 
 class InsertNote(core.Command):
-    def __init__(self, idx, pitch, duration):
-        super().__init__()
-        self.idx = idx
-        self.pitch = pitch
-        self.duration = duration
+    idx = core.Property(int)
+    pitch = core.Property(str)
+    duration = core.Property(Duration)
+
+    def __init__(self, idx=None, pitch=None, duration=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.idx = idx
+            self.pitch = pitch
+            self.duration = duration
 
     def run(self, measure):
         assert isinstance(measure, ScoreMeasure)
@@ -62,11 +76,16 @@ class InsertNote(core.Command):
         note = Note(pitches=[Pitch(self.pitch)], base_duration=self.duration)
         measure.notes.insert(self.idx, note)
 
+core.Command.register_subclass(InsertNote)
+
 
 class DeleteNote(core.Command):
-    def __init__(self, idx):
-        super().__init__()
-        self.idx = idx
+    idx = core.Property(int)
+
+    def __init__(self, idx=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.idx = idx
 
     def run(self, measure):
         assert isinstance(measure, ScoreMeasure)
@@ -74,12 +93,18 @@ class DeleteNote(core.Command):
         assert 0 <= self.idx < len(measure.notes)
         del measure.notes[self.idx]
 
+core.Command.register_subclass(DeleteNote)
+
 
 class AddPitch(core.Command):
-    def __init__(self, idx, pitch):
-        super().__init__()
-        self.idx = idx
-        self.pitch = pitch
+    idx = core.Property(int)
+    pitch = core.Property(str)
+
+    def __init__(self, idx=None, pitch=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.idx = idx
+            self.pitch = pitch
 
     def run(self, measure):
         assert isinstance(measure, ScoreMeasure)
@@ -90,12 +115,18 @@ class AddPitch(core.Command):
         if pitch not in note.pitches:
             note.pitches.append(pitch)
 
+core.Command.register_subclass(AddPitch)
+
 
 class RemovePitch(core.Command):
-    def __init__(self, idx, pitch_idx):
-        super().__init__()
-        self.idx = idx
-        self.pitch_idx = pitch_idx
+    idx = core.Property(int)
+    pitch_idx = core.Property(int)
+
+    def __init__(self, idx=None, pitch_idx=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.idx = idx
+            self.pitch_idx = pitch_idx
 
     def run(self, measure):
         assert isinstance(measure, ScoreMeasure)
@@ -105,34 +136,52 @@ class RemovePitch(core.Command):
         assert 0 <= self.pitch_idx < len(note.pitches)
         del note.pitches[self.pitch_idx]
 
+core.Command.register_subclass(RemovePitch)
+
 
 class SetClef(core.Command):
-    def __init__(self, clef):
-        super().__init__()
-        self.clef = clef
+    clef = core.Property(str)
+
+    def __init__(self, clef=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.clef = clef
 
     def run(self, measure):
         assert isinstance(measure, ScoreMeasure)
 
         measure.clef = Clef(self.clef)
 
+core.Command.register_subclass(SetClef)
+
 
 class SetKeySignature(core.Command):
-    def __init__(self, key_signature):
-        super().__init__()
-        self.key_signature = key_signature
+    key_signature = core.Property(str)
+
+    def __init__(self, key_signature=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.key_signature = key_signature
 
     def run(self, measure):
         assert isinstance(measure, ScoreMeasure)
 
         measure.key_signature = KeySignature(self.key_signature)
 
+core.Command.register_subclass(SetKeySignature)
+
+
 class SetAccidental(core.Command):
-    def __init__(self, idx, pitch_idx, accidental):
-        super().__init__()
-        self.idx = idx
-        self.pitch_idx = pitch_idx
-        self.accidental = accidental
+    idx = core.Property(int)
+    pitch_idx = core.Property(int)
+    accidental = core.Property(str)
+
+    def __init__(self, idx=None, pitch_idx=None, accidental=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.idx = idx
+            self.pitch_idx = pitch_idx
+            self.accidental = accidental
 
     def run(self, measure):
         assert isinstance(measure, ScoreMeasure)
@@ -141,6 +190,8 @@ class SetAccidental(core.Command):
         note = measure.notes[self.idx]
         assert 0 <= self.pitch_idx < len(note.pitches)
         note.pitches[self.pitch_idx].accidental = self.accidental
+
+core.Command.register_subclass(SetAccidental)
 
 
 class Note(core.StateBase, core.CommandTarget):

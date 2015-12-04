@@ -2,33 +2,39 @@
 
 import logging
 
-from noisicaa.core import (
-    Property,
-    Command
-)
+from noisicaa import core
 
 from .time_signature import TimeSignature
 from .track import Track, Measure, EventSource
 
 logger = logging.getLogger(__name__)
 
-# pylint: disable=multiple-statements
-class SetTimeSignature(Command):
-    def __init__(self, upper, lower):
-        super().__init__()
-        self.upper = upper
-        self.lower = lower
+
+class SetTimeSignature(core.Command):
+    upper = core.Property(int)
+    lower = core.Property(int)
+
+    def __init__(self, upper=None, lower=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.upper = upper
+            self.lower = lower
 
     def run(self, measure):
         assert isinstance(measure, SheetPropertyMeasure)
 
         measure.time_signature = TimeSignature(self.upper, self.lower)
 
+core.Command.register_subclass(SetTimeSignature)
 
-class SetBPM(Command):
-    def __init__(self, bpm):
-        super().__init__()
-        self.bpm = bpm
+
+class SetBPM(core.Command):
+    bpm = core.Property(int)
+
+    def __init__(self, bpm=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.bpm = bpm
 
     def run(self, measure):
         assert isinstance(measure, SheetPropertyMeasure)
@@ -38,10 +44,12 @@ class SetBPM(Command):
 
         measure.bpm = self.bpm
 
+core.Command.register_subclass(SetBPM)
+
 
 class SheetPropertyMeasure(Measure):
-    bpm = Property(int, default=120)
-    time_signature = Property(TimeSignature, default=TimeSignature(4, 4))
+    bpm = core.Property(int, default=120)
+    time_signature = core.Property(TimeSignature, default=TimeSignature(4, 4))
 
     def __init__(self, state=None):
         super().__init__(state)
