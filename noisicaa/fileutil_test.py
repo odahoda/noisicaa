@@ -3,12 +3,14 @@
 import unittest
 import textwrap
 
-from .file import File, FileInfo
+from . import fileutil
 
 class FileTest(unittest.TestCase):
     def testWriteJson(self):
-        fp = File('/tmp/foo')
-        fp.write_json({'a': [0, 1, 2]}, FileInfo(filetype='test', version=1))
+        fp = fileutil.File('/tmp/foo')
+        fp.write_json(
+            {'a': [0, 1, 2]},
+            fileutil.FileInfo(filetype='test', version=1))
 
     def testRead(self):
         contents = textwrap.dedent("""\
@@ -24,7 +26,7 @@ class FileTest(unittest.TestCase):
         with open('/tmp/foo2', 'wb') as fp:
             fp.write(contents)
 
-        fp = File('/tmp/foo2')
+        fp = fileutil.File('/tmp/foo2')
         header, content = fp.read()
         self.assertEqual(header.version, 1)
         self.assertEqual(header.filetype, 'test')
@@ -46,7 +48,7 @@ class FileTest(unittest.TestCase):
         with open('/tmp/foo2', 'wb') as fp:
             fp.write(contents)
 
-        fp = File('/tmp/foo2')
+        fp = fileutil.File('/tmp/foo2')
         header, content = fp.read_json()
         self.assertEqual(header.version, 1)
         self.assertEqual(header.filetype, 'test')

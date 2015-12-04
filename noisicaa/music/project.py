@@ -11,7 +11,7 @@ import portalocker
 
 from noisicaa import core
 from noisicaa.audioproc.compose.mix import Mix
-from noisicaa import file as fileutil
+from noisicaa import fileutil
 
 from .exceptions import (
     CorruptedProjectError,

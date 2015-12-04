@@ -12,7 +12,7 @@ if __name__ == '__main__':
     import pyximport
     pyximport.install()
 
-from noisicaa.file import File
+from noisicaa import fileutil
 from . import project
 
 
@@ -43,7 +43,7 @@ class ProjectTest(unittest.TestCase):
         self.assertTrue(self.fake_os.path.isfile('/foo.emp'))
         self.assertTrue(self.fake_os.path.isdir('/foo.data'))
 
-        f = File('/foo.emp')
+        f =  fileutil.File('/foo.emp')
         file_info, contents = f.read_json()
         self.assertEqual(file_info.version, 1)
         self.assertEqual(file_info.filetype, 'project-header')
@@ -80,7 +80,7 @@ class ProjectTest(unittest.TestCase):
         p.create('/foo.emp')
         path = p.write_checkpoint()
 
-        f = File(path)
+        f = fileutil.File(path)
         file_info, contents = f.read_json()
         self.assertEqual(file_info.version, 1)
         self.assertEqual(file_info.filetype, 'project-checkpoint')
