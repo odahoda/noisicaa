@@ -39,7 +39,7 @@ class AddSheet(core.Command):
             self.name = name
 
     def run(self, project):
-        assert isinstance(project, Project)
+        assert isinstance(project, BaseProject)
 
         if self.name is not None:
             name = self.name
@@ -68,7 +68,7 @@ class ClearSheet(core.Command):
             self.name = name
 
     def run(self, project):
-        assert isinstance(project, Project)
+        assert isinstance(project, BaseProject)
 
         project.get_sheet(self.name).clear()
 
@@ -84,7 +84,7 @@ class DeleteSheet(core.Command):
             self.name = name
 
     def run(self, project):
-        assert isinstance(project, Project)
+        assert isinstance(project, BaseProject)
 
         assert len(project.sheets) > 1
         for idx, sheet in enumerate(project.sheets):
@@ -110,7 +110,7 @@ class RenameSheet(core.Command):
             self.new_name = new_name
 
     def run(self, project):
-        assert isinstance(project, Project)
+        assert isinstance(project, BaseProject)
 
         if self.name == self.new_name:
             return
@@ -133,7 +133,7 @@ class SetCurrentSheet(core.Command):
             self.name = name
 
     def run(self, project):
-        assert isinstance(project, Project)
+        assert isinstance(project, BaseProject)
 
         project.current_sheet = project.get_sheet_index(self.name)
 
@@ -411,10 +411,7 @@ class JSONDecoder(json.JSONDecoder):
         return obj
 
 
-class Project(core.StateBase, core.CommandDispatcher):
-    VERSION = 1
-    SUPPORTED_VERSIONS = [1]
-
+class BaseProject(core.StateBase, core.CommandDispatcher):
     sheets = core.ObjectListProperty(cls=Sheet)
     current_sheet = core.Property(int, default=0)
 
@@ -424,14 +421,51 @@ class Project(core.StateBase, core.CommandDispatcher):
         if state is None:
             self.sheets.append(Sheet(name="Sheet 1"))
 
+        self.address = '/'
+        self.set_root()
+
+    def get_current_sheet(self):
+        return self.sheets[self.current_sheet]
+
+    def get_sheet(self, name):
+        for sheet in self.sheets:
+            if sheet.name == name:
+                return sheet
+        raise ValueError("No sheet %r" % name)
+
+    def get_sheet_index(self, name):
+        for idx, sheet in enumerate(self.sheets):
+            if sheet.name == name:
+                return idx
+        raise ValueError("No sheet %r" % name)
+
+    def get_sub_target(self, name):
+        if name.startswith('sheet:'):
+            sheet_name = name[6:]
+            for sheet in self.sheets:
+                if sheet.name == sheet_name:
+                    return sheet
+
+        return super().get_sub_target(name)
+
+    def dispatch_command(self, target, cmd):
+        result = super().dispatch_command(target, cmd)
+        logger.info("Executed command %s on %s", cmd, target)
+        return result
+
+
+class Project(BaseProject):
+    VERSION = 1
+    SUPPORTED_VERSIONS = [1]
+
+    def __init__(self, state=None):
+        super().__init__(state=state)
+
         self.file_lock = None
         self.header_data = None
         self.path = None
         self.data_dir = None
         self.command_log_fp = None
-
-        self.address = '/'
-        self.set_root()
 
         self.changed_since_last_checkpoint = False
 
@@ -589,30 +623,6 @@ class Project(core.StateBase, core.CommandDispatcher):
 
         return path
 
-    def get_current_sheet(self):
-        return self.sheets[self.current_sheet]
-
-    def get_sheet(self, name):
-        for sheet in self.sheets:
-            if sheet.name == name:
-                return sheet
-        raise ValueError("No sheet %r" % name)
-
-    def get_sheet_index(self, name):
-        for idx, sheet in enumerate(self.sheets):
-            if sheet.name == name:
-                return idx
-        raise ValueError("No sheet %r" % name)
-
-    def get_sub_target(self, name):
-        if name.startswith('sheet:'):
-            sheet_name = name[6:]
-            for sheet in self.sheets:
-                if sheet.name == sheet_name:
-                    return sheet
-
-        return super().get_sub_target(name)
-
     def dispatch_command(self, target, cmd):
         if self.closed:
             raise RuntimeError("Command %s executed on closed project." % cmd)
@@ -630,5 +640,4 @@ class Project(core.StateBase, core.CommandDispatcher):
         self.command_log_fp.write(serialized.encode('utf-8'))
         self.command_log_fp.write('\n---------------------------------\n\n'.encode('utf-8'))
 
-        logger.info("Executed command %s on %s", cmd, target)
         return result

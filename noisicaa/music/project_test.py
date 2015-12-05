@@ -22,6 +22,81 @@ def store_retrieve(obj):
     return deserialized
 
 
+class BaseProjectTest(unittest.TestCase):
+    def testSerialize(self):
+        p = project.BaseProject()
+        self.assertIsInstance(p.serialize(), dict)
+
+    def testDeserialize(self):
+        p = project.BaseProject()
+        state = store_retrieve(p.serialize())
+        p2 = project.Project(state=state)
+        self.assertEqual(len(p2.sheets), 1)
+
+    def testAddSheet(self):
+        p = project.BaseProject()
+        cmd = project.AddSheet(name='Sheet 2')
+        p.dispatch_command(p.address, cmd)
+        self.assertEqual(len(p.sheets), 2)
+        self.assertEqual(p.sheets[0].name, 'Sheet 1')
+        self.assertEqual(p.sheets[1].name, 'Sheet 2')
+
+    def testAddSheetDuplicateName(self):
+        p = project.BaseProject()
+        cmd = project.AddSheet(name='Sheet 1')
+        with self.assertRaises(ValueError):
+            p.dispatch_command(p.address, cmd)
+
+    def testDeleteSheet(self):
+        p = project.BaseProject()
+        cmd = project.AddSheet(name='Sheet 2')
+        p.dispatch_command(p.address, cmd)
+        cmd = project.DeleteSheet(name='Sheet 1')
+        p.dispatch_command(p.address, cmd)
+        self.assertEqual(len(p.sheets), 1)
+        self.assertEqual(p.sheets[0].name, 'Sheet 2')
+
+    def testDeleteSheetLastSheet(self):
+        p = project.BaseProject()
+        cmd = project.AddSheet(name='Sheet 2')
+        p.dispatch_command(p.address, cmd)
+        cmd = project.SetCurrentSheet(name='Sheet 2')
+        p.dispatch_command(p.address, cmd)
+        cmd = project.DeleteSheet(name='Sheet 2')
+        p.dispatch_command(p.address, cmd)
+        self.assertEqual(len(p.sheets), 1)
+        self.assertEqual(p.sheets[0].name, 'Sheet 1')
+        self.assertEqual(p.current_sheet, 0)
+
+    def testRenameSheet(self):
+        p = project.BaseProject()
+        cmd = project.RenameSheet(name='Sheet 1', new_name='Foo')
+        p.dispatch_command(p.address, cmd)
+        self.assertEqual(p.sheets[0].name, 'Foo')
+
+    def testRenameSheetUnchanged(self):
+        p = project.BaseProject()
+        cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 1')
+        p.dispatch_command(p.address, cmd)
+        self.assertEqual(p.sheets[0].name, 'Sheet 1')
+
+    def testRenameSheetDuplicateName(self):
+        p = project.BaseProject()
+        cmd = project.AddSheet(name='Sheet 2')
+        p.dispatch_command(p.address, cmd)
+        cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 2')
+        with self.assertRaises(ValueError):
+            p.dispatch_command(p.address, cmd)
+
+    def testSetCurrentSheet(self):
+        p = project.BaseProject()
+        cmd = project.AddSheet(name='Sheet 2')
+        p.dispatch_command(p.address, cmd)
+        cmd = project.SetCurrentSheet(name='Sheet 2')
+        p.dispatch_command(p.address, cmd)
+        self.assertEqual(p.current_sheet, 1)
+
+
 class ProjectTest(unittest.TestCase):
     def setUp(self):
         self.stubs = stubout.StubOutForTesting()
@@ -63,16 +138,6 @@ class ProjectTest(unittest.TestCase):
         self.assertEqual(p.path, '/foo.emp')
         self.assertEqual(p.data_dir, '/foo.data')
 
-    def testSerialize(self):
-        p = project.Project()
-        self.assertIsInstance(p.serialize(), dict)
-
-    def testDeserialize(self):
-        p = project.Project()
-        state = store_retrieve(p.serialize())
-        p2 = project.Project(state=state)
-        self.assertEqual(len(p2.sheets), 1)
-
     def testWriteCheckpoint(self):
         p = project.Project()
         p.create('/foo.emp')
@@ -83,85 +148,6 @@ class ProjectTest(unittest.TestCase):
         self.assertEqual(file_info.version, 1)
         self.assertEqual(file_info.filetype, 'project-checkpoint')
         self.assertIsInstance(contents, dict)
-
-    def testAddSheet(self):
-        p = project.Project()
-        p.create('/foo.emp')
-
-        cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
-        self.assertEqual(len(p.sheets), 2)
-        self.assertEqual(p.sheets[0].name, 'Sheet 1')
-        self.assertEqual(p.sheets[1].name, 'Sheet 2')
-
-    def testAddSheetDuplicateName(self):
-        p = project.Project()
-        p.create('/foo.emp')
-
-        cmd = project.AddSheet(name='Sheet 1')
-        with self.assertRaises(ValueError):
-            p.dispatch_command(p.address, cmd)
-
-    def testDeleteSheet(self):
-        p = project.Project()
-        p.create('/foo.emp')
-
-        cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
-        cmd = project.DeleteSheet(name='Sheet 1')
-        p.dispatch_command(p.address, cmd)
-        self.assertEqual(len(p.sheets), 1)
-        self.assertEqual(p.sheets[0].name, 'Sheet 2')
-
-    def testDeleteSheetLastSheet(self):
-        p = project.Project()
-        p.create('/foo.emp')
-
-        cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
-        cmd = project.SetCurrentSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
-        cmd = project.DeleteSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
-        self.assertEqual(len(p.sheets), 1)
-        self.assertEqual(p.sheets[0].name, 'Sheet 1')
-        self.assertEqual(p.current_sheet, 0)
-
-    def testRenameSheet(self):
-        p = project.Project()
-        p.create('/foo.emp')
-
-        cmd = project.RenameSheet(name='Sheet 1', new_name='Foo')
-        p.dispatch_command(p.address, cmd)
-        self.assertEqual(p.sheets[0].name, 'Foo')
-
-    def testRenameSheetUnchanged(self):
-        p = project.Project()
-        p.create('/foo.emp')
-
-        cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 1')
-        p.dispatch_command(p.address, cmd)
-        self.assertEqual(p.sheets[0].name, 'Sheet 1')
-
-    def testRenameSheetDuplicateName(self):
-        p = project.Project()
-        p.create('/foo.emp')
-
-        cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
-        cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 2')
-        with self.assertRaises(ValueError):
-            p.dispatch_command(p.address, cmd)
-
-    def testSetCurrentSheet(self):
-        p = project.Project()
-        p.create('/foo.emp')
-
-        cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
-        cmd = project.SetCurrentSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
-        self.assertEqual(p.current_sheet, 1)
 
 
 class ScoreEventSource(unittest.TestCase):
