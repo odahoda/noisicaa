@@ -6,6 +6,7 @@ import email.message
 import email.parser
 import email.policy
 import os.path
+import struct
 
 from . import logging
 
@@ -128,3 +129,110 @@ class File(object):
             raise BadFileFormatError("Expected Content-Type application/json")
         return file_info, json.loads(content.decode(file_info.encoding),
                                      cls=decoder)
+
+
+class LogFile(object):
+    ENTRY_BEGIN = b'~B'
+    ENTRY_END = b'~E'
+
+    def __init__(self, path, mode):
+        if mode not in ('a', 'w', 'r'):
+            raise ValueError("Invalid mode %r" % mode)
+
+        self.path = path
+        self.mode = mode
+        self._fp = open(self.path, mode + 'b')
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
+    def close(self):
+        assert self._fp is not None, "LogFile already closed."
+        self._fp.close()
+        self._fp = None
+
+    @property
+    def closed(self):
+        return self._fp is None
+
+    def append(self, data, entry_type):
+        assert self._fp is not None, "LogFile already closed."
+        assert self.mode in ('a', 'w'), "LogFile not opened for writing."
+
+        if not isinstance(data, bytes):
+            raise TypeError("Expected bytes, got %s." % type(data).__name__)
+        if not isinstance(entry_type, bytes):
+            raise TypeError("Expected bytes, got %s." % type(entry_type).__name__)
+        if len(entry_type) != 1:
+            raise ValueError("entry_type must be a single byte.")
+
+        data = data.replace(b'~', b'~~')
+
+        self._fp.write(self.ENTRY_BEGIN)
+        self._fp.write(entry_type)
+        self._fp.write(struct.pack('>L', len(data)))
+        self._fp.write(data)
+        self._fp.write(self.ENTRY_END)
+        self._fp.write(entry_type)
+        self._fp.write(struct.pack('>L', len(data)))
+
+    def read(self):
+        assert self._fp is not None, "LogFile already closed."
+        assert self.mode == 'r', "LogFile not opened for reading."
+
+        entry_begin = self._fp.read(len(self.ENTRY_BEGIN))
+        if not entry_begin:
+            raise EOFError
+
+        if entry_begin != self.ENTRY_BEGIN:
+            raise CorruptedFileError('No entry begin marker found.')
+
+        entry_type = self._fp.read(1)
+        if len(entry_type) != 1:
+            raise CorruptedFileError('Truncated entry.')
+
+        length = self._fp.read(4)
+        if len(length) != 4:
+            raise CorruptedFileError('Truncated entry.')
+        length, = struct.unpack('>L', length)
+
+        data = self._fp.read(length)
+        if len(data) != length:
+            raise CorruptedFileError('Truncated entry.')
+
+        data = data.replace(b'~~', b'~')
+
+        entry_end = self._fp.read(len(self.ENTRY_END))
+        if len(entry_end) != len(self.ENTRY_END):
+            raise CorruptedFileError('Truncated entry.')
+        if entry_end != self.ENTRY_END:
+            raise CorruptedFileError('No entry end marker found.')
+
+        entry_type_end = self._fp.read(1)
+        if len(entry_type_end) != 1:
+            raise CorruptedFileError('Truncated entry.')
+        if entry_type_end != entry_type:
+            raise CorruptedFileError(
+                'Entry type mismatch (%r != %r).' % (entry_type_end, entry_type))
+
+        length_end = self._fp.read(4)
+        if len(length_end) != 4:
+            raise CorruptedFileError('Truncated entry.')
+        length_end, = struct.unpack('>L', length_end)
+        if length_end != length:
+            raise CorruptedFileError(
+                'Length mismatch (%r != %r).' % (length_end, length))
+
+        return data, entry_type
+
+    def __iter__(self):
+        while True:
+            try:
+                yield self.read()
+            except EOFError:
+                break
+

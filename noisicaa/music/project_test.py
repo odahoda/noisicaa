@@ -25,6 +25,7 @@ def store_retrieve(obj):
 class ProjectTest(unittest.TestCase):
     def setUp(self):
         self.stubs = stubout.StubOutForTesting()
+        self.addCleanup(self.stubs.SmartUnsetAll)
 
         # Setup fake filesystem.
         self.fs = fake_filesystem.FakeFilesystem()
@@ -34,16 +35,13 @@ class ProjectTest(unittest.TestCase):
         self.stubs.SmartSet(project.fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
-    def tearDown(self):
-        self.stubs.SmartUnsetAll()
-
     def testCreate(self):
         p = project.Project()
         p.create('/foo.emp')
         self.assertTrue(self.fake_os.path.isfile('/foo.emp'))
         self.assertTrue(self.fake_os.path.isdir('/foo.data'))
 
-        f =  fileutil.File('/foo.emp')
+        f = fileutil.File('/foo.emp')
         file_info, contents = f.read_json()
         self.assertEqual(file_info.version, 1)
         self.assertEqual(file_info.filetype, 'project-header')
