@@ -94,6 +94,28 @@ class LogFileTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 fp.append(b'12345678', b'LA')
 
+    def test_bad_header(self):
+        with self.fake_open('/test.log', 'wb') as fp:
+            fp.write(b'This is a totally random file.')
+        with self.assertRaises(fileutil.BadFileFormatError):
+            fileutil.LogFile('/test.log', 'r')
+        with self.assertRaises(fileutil.BadFileFormatError):
+            fileutil.LogFile('/test.log', 'a')
+
+    def test_bad_version(self):
+        with self.fake_open('/test.log', 'wb') as fp:
+            fp.write(b'NOISILOG\nUNO\n')
+        with self.assertRaises(fileutil.CorruptedFileError):
+            fileutil.LogFile('/test.log', 'r')
+
+    def test_unsupported_version(self):
+        with self.fake_open('/test.log', 'wb') as fp:
+            fp.write(b'NOISILOG\n1234\n')
+        with self.assertRaises(fileutil.UnsupportedVersionError):
+            fileutil.LogFile('/test.log', 'r')
+        with self.assertRaises(fileutil.UnsupportedVersionError):
+            fileutil.LogFile('/test.log', 'a')
+
     def test_append(self):
         fp = fileutil.LogFile('/test.log', 'w')
         try:
@@ -104,7 +126,7 @@ class LogFileTest(unittest.TestCase):
         self.assertTrue(self.fake_os.path.exists('/test.log'))
         self.assertEqual(
             self.fake_open('/test.log', 'rb').read(),
-            b'~BL\x00\x00\x00\x0812345678~EL\x00\x00\x00\x08')
+            b'NOISILOG\n1\n~BL\x00\x00\x00\x0812345678~EL\x00\x00\x00\x08')
 
     def test_contextmanager(self):
         fp = fileutil.LogFile('/test.log', 'w')
@@ -147,7 +169,7 @@ class LogFileTest(unittest.TestCase):
         with self.fake_open('/test.log', 'rb') as fp:
             contents = fp.read()
 
-        while len(contents) > 1:
+        while len(contents) - 1 > len(b'NOISILOG\n1\n'):
             contents = contents[:-1]
             with self.fake_open('/test.log', 'wb') as fp:
                 fp.write(contents)
@@ -158,25 +180,58 @@ class LogFileTest(unittest.TestCase):
 
     def test_read_corrupted(self):
         with self.fake_open('/test.log', 'wb') as fp:
-            fp.write(b'~BL\x00\x00\x00\x0812345678-EL\x00\x00\x00\x08')
-            #                                     ^
+            fp.write(
+                b'NOISILOG\n1\n~BL\x00\x00\x00\x0812345678-EL\x00\x00\x00\x08')
+            #                                             ^
         with fileutil.LogFile('/test.log', 'r') as fp:
             with self.assertRaises(fileutil.CorruptedFileError):
                 fp.read()
 
         with self.fake_open('/test.log', 'wb') as fp:
-            fp.write(b'~BL\x00\x00\x00\x0812345678~EE\x00\x00\x00\x08')
-            #                                       ^
+            fp.write(
+                b'NOISILOG\n1\n~BL\x00\x00\x00\x0812345678~EE\x00\x00\x00\x08')
+            #                                               ^
         with fileutil.LogFile('/test.log', 'r') as fp:
             with self.assertRaises(fileutil.CorruptedFileError):
                 fp.read()
 
         with self.fake_open('/test.log', 'wb') as fp:
-            fp.write(b'~BL\x00\x00\x00\x0812345678~EL\x00\x00\x00\x09')
-            #                                                       ^
+            fp.write(
+                b'NOISILOG\n1\n~BL\x00\x00\x00\x0812345678~EL\x00\x00\x00\x09')
+            #                                                               ^
         with fileutil.LogFile('/test.log', 'r') as fp:
             with self.assertRaises(fileutil.CorruptedFileError):
                 fp.read()
+
+    def test_mode_append(self):
+        fileutil.LogFile('/test.log', 'w').close()
+
+        with fileutil.LogFile('/test.log', 'a') as fp:
+            fp.append(b'12345678', b'L')
+
+        with fileutil.LogFile('/test.log', 'a') as fp:
+            fp.append(b'~~12~', b'B')
+
+        with fileutil.LogFile('/test.log', 'r') as fp:
+            self.assertEqual(
+                [(data, entry_type) for data, entry_type in fp],
+                [(b'12345678', b'L'),
+                 (b'~~12~', b'B')])
+
+    def test_mode_append_corrupted(self):
+        with self.fake_open('/test.log', 'wb') as fp:
+            fp.write(
+                b'NOISILOG\n1\nThis is not an entry')
+
+        with self.assertRaises(fileutil.CorruptedFileError):
+            fileutil.LogFile('/test.log', 'a')
+
+        with self.fake_open('/test.log', 'wb') as fp:
+            fp.write(
+                b'NOISILOG\n1\n~BL\x00\x00\x00\x0812345678')
+
+        with self.assertRaises(fileutil.CorruptedFileError):
+            fileutil.LogFile('/test.log', 'a')
 
 
 if __name__ == '__main__':

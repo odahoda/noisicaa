@@ -7,6 +7,7 @@ import email.parser
 import email.policy
 import os.path
 import struct
+import io
 
 from . import logging
 
@@ -23,6 +24,9 @@ class BadFileFormatError(Error):
     pass
 
 class CorruptedFileError(Error):
+    pass
+
+class UnsupportedVersionError(Error):
     pass
 
 
@@ -132,8 +136,14 @@ class File(object):
 
 
 class LogFile(object):
+    MAGIC = b'NOISILOG\n'
     ENTRY_BEGIN = b'~B'
     ENTRY_END = b'~E'
+    VERSION = 1
+    SUPPORTED_VERSIONS = {1}
+    MARKER_SIZE = len(ENTRY_BEGIN) + 1 + struct.calcsize('>L')
+
+    assert len(ENTRY_BEGIN) == len(ENTRY_END)
 
     def __init__(self, path, mode):
         if mode not in ('a', 'w', 'r'):
@@ -141,7 +151,55 @@ class LogFile(object):
 
         self.path = path
         self.mode = mode
-        self._fp = open(self.path, mode + 'b')
+
+        if mode == 'w':
+            self._fp = open(self.path, 'wb')
+            self._fp.write(self.MAGIC)
+            self._fp.write(('%d\n' % self.VERSION).encode('ascii'))
+            self.version = self.VERSION
+
+        elif mode == 'r':
+            self._fp = open(self.path, 'rb')
+            self.version = self._read_header()
+            if self.version not in self.SUPPORTED_VERSIONS:
+                raise UnsupportedVersionError(
+                    "Unsupported version V%d" % self.version)
+
+        elif mode == 'a':  # pragma: no branch
+            self._fp = open(self.path, 'r+b')
+            self.version = self._read_header()
+            if self.version != self.VERSION:
+                raise UnsupportedVersionError(
+                    "Can only append to V% logs." % self.VERSION)
+
+            entry_begin = self._fp.read(len(self.ENTRY_BEGIN))
+            if not entry_begin:
+                # No entries yet, already at EOF.
+                pass
+            else:
+                if entry_begin != self.ENTRY_BEGIN:
+                    raise CorruptedFileError("No entry begin marker.")
+
+                # Check if the file ends with a properly terminated entry.
+                self._fp.seek(-self.MARKER_SIZE, io.SEEK_END)
+                entry_end = self._fp.read(len(self.ENTRY_END))
+                if entry_end != self.ENTRY_END:
+                    raise CorruptedFileError("No entry end marker.")
+                self._fp.seek(self.MARKER_SIZE - len(self.ENTRY_END), io.SEEK_CUR)
+
+    def _read_header(self):
+        magic = self._fp.read(len(self.MAGIC))
+        if magic != self.MAGIC:
+            raise BadFileFormatError("Not a log file.")
+        version = b''
+        while True:
+            c = self._fp.read(1)
+            if not c or c == b'\n':
+                break
+            if c not in b'0123456789':
+                raise CorruptedFileError("Malformed version number.")
+            version += c
+        return int(str(version, 'ascii'))
 
     def __enter__(self):
         return self
