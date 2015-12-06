@@ -11,7 +11,7 @@ if __name__ == '__main__':
     import pyximport
     pyximport.install()
 
-from noisicaa import fileutil
+from noisicaa.core import fileutil
 from . import project
 
 
@@ -114,7 +114,7 @@ class ProjectTest(unittest.TestCase):
         self.fake_os = fake_filesystem.FakeOsModule(self.fs)
         self.fake_open = fake_filesystem.FakeFileOpen(self.fs)
         self.stubs.SmartSet(project, 'os', self.fake_os)
-        self.stubs.SmartSet(project.fileutil, 'os', self.fake_os)
+        self.stubs.SmartSet(fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
     def test_create(self):

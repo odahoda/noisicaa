@@ -8,8 +8,7 @@ import email.policy
 import os.path
 import struct
 import io
-
-from . import logging
+import logging
 
 logger = logging.getLogger(__name__)
 

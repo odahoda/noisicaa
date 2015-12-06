@@ -9,8 +9,8 @@ import json
 import portalocker
 
 from noisicaa import core
+from noisicaa.core import fileutil
 from noisicaa.audioproc.compose.mix import Mix
-from noisicaa import fileutil
 
 from .exceptions import (
     CorruptedProjectError,
