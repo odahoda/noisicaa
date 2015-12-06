@@ -234,5 +234,33 @@ class LogFileTest(unittest.TestCase):
             fileutil.LogFile('/test.log', 'a')
 
 
+class MimeLogFileTest(unittest.TestCase):
+    def setUp(self):
+        self.stubs = stubout.StubOutForTesting()
+        self.addCleanup(self.stubs.SmartUnsetAll)
+
+        # Setup fake filesystem.
+        self.fake_fs = fake_filesystem.FakeFilesystem()
+        self.fake_os = fake_filesystem.FakeOsModule(self.fake_fs)
+        self.fake_open = fake_filesystem.FakeFileOpen(self.fake_fs)
+        self.stubs.SmartSet(fileutil, 'os', self.fake_os)
+        self.stubs.SmartSet(builtins, 'open', self.fake_open)
+
+    def test_append_read(self):
+        with fileutil.MimeLogFile('/test.log', 'w') as fp:
+            fp.append(
+                'lididö',
+                content_type='text/plain',
+                encoding='punycode',
+                headers={'Foo': 'bar'},
+                entry_type=b'T')
+
+        with fileutil.MimeLogFile('/test.log', 'r') as fp:
+            content, headers, entry_type = fp.read()
+            self.assertEqual(content, 'lididö')
+            self.assertEqual(headers['Foo'], 'bar')
+            self.assertEqual(entry_type, b'T')
+
+
 if __name__ == '__main__':
     unittest.main()

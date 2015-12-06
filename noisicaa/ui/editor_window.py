@@ -547,7 +547,7 @@ class EditorWindow(QMainWindow):
 
     def onSaveProject(self):
         project = self.getCurrentProject()
-        project.write_checkpoint()
+        project.create_checkpoint()
 
     def onAddScoreTrack(self):
         view = self._project_tabs.currentWidget()

@@ -4,7 +4,6 @@ import logging
 import os
 import os.path
 import time
-import glob
 import json
 
 import portalocker
@@ -285,8 +284,7 @@ class Sheet(core.StateBase, core.CommandTarget):
     property_track = core.ObjectProperty(SheetPropertyTrack)
 
     def __init__(self, name=None, num_tracks=1, state=None):
-        super().__init__()
-        self.init_state(state)
+        super().__init__(state)
         if state is None:
             self.name = name
 
@@ -416,8 +414,7 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
     current_sheet = core.Property(int, default=0)
 
     def __init__(self, state=None):
-        super().__init__()
-        self.init_state(state)
+        super().__init__(state)
         if state is None:
             self.sheets.append(Sheet(name="Sheet 1"))
 
@@ -466,8 +463,7 @@ class Project(BaseProject):
         self.path = None
         self.data_dir = None
         self.command_log_fp = None
-
-        self.changed_since_last_checkpoint = False
+        self.checkpoint_sequence_number = 1
 
     @property
     def name(self):
@@ -478,10 +474,6 @@ class Project(BaseProject):
     @property
     def closed(self):
         return self.path is None
-
-    @property
-    def has_unsaved_changes(self):
-        return self.changed_since_last_checkpoint
 
     def open(self, path):
         assert self.path is None
@@ -507,22 +499,33 @@ class Project(BaseProject):
 
         file_lock = self.acquire_file_lock(os.path.join(data_dir, "lock"))
 
-        checkpoints = []
-        for cpath in glob.glob(os.path.join(data_dir, 'checkpoint.*')):
-            timestamp = int(os.path.basename(cpath).split('.')[1])
-            checkpoints.append((timestamp, cpath))
-        checkpoints.sort(reverse=True)
-        if len(checkpoints) > 0:
-            checkpoint_path = checkpoints[0][1]
-            self.read_checkpoint(checkpoint_path)
+        try:
+            fp = fileutil.File(os.path.join(data_dir, 'state.latest'))
+            file_info, state_data = fp.read_json()
+        except fileutil.Error as exc:
+            raise FileOpenError(str(exc))
 
-        command_log_fp = open(os.path.join(data_dir, ".log"), 'ab')
+        if file_info.filetype != 'project-state':
+            raise CorruptedProjectError("File %s corrupted.")
+
+        if file_info.version not in self.SUPPORTED_VERSIONS:
+            raise UnsupportedFileVersionError()
+
+        checkpoint_sequence_number = state_data['sequence_number']
+        checkpoint_path = os.path.join(data_dir, state_data['checkpoint'])
+        command_log_path = os.path.join(data_dir, state_data['log'])
+
+        self.read_checkpoint(checkpoint_path)
+        self.replay_command_log(command_log_path)
+
+        command_log_fp = fileutil.MimeLogFile(command_log_path, 'a')
 
         self.file_lock = file_lock
         self.path = path
         self.data_dir = data_dir
         self.header_data = data
         self.command_log_fp = command_log_fp
+        self.checkpoint_sequence_number = checkpoint_sequence_number
 
     def create(self, path):
         assert self.path is None
@@ -540,7 +543,12 @@ class Project(BaseProject):
             fileutil.FileInfo(filetype='project-header',
                               version=self.VERSION))
 
-        command_log_fp = open(os.path.join(data_dir, ".log"), 'wb')
+        state_data, command_log_fp = self.write_checkpoint(data_dir, 1)
+        fp = fileutil.File(os.path.join(data_dir, 'state.latest'))
+        fp.write_json(
+            state_data,
+            fileutil.FileInfo(filetype='project-state',
+                              version=self.VERSION))
 
         file_lock = self.acquire_file_lock(os.path.join(data_dir, "lock"))
 
@@ -549,7 +557,28 @@ class Project(BaseProject):
         self.data_dir = data_dir
         self.header_data = header_data
         self.command_log_fp = command_log_fp
-        self.changed_since_last_checkpoint = False
+        self.checkpoint_sequence_number = 1
+
+    def create_checkpoint(self):
+        state_data, command_log_fp = self.write_checkpoint(
+            self.data_dir, self.checkpoint_sequence_number + 1)
+
+        fp = fileutil.File(os.path.join(self.data_dir, 'state.latest.new'))
+        fp.write_json(
+            state_data,
+            fileutil.FileInfo(filetype='project-state',
+                              version=self.VERSION))
+        os.rename(os.path.join(self.data_dir, 'state.latest.new'),
+                  os.path.join(self.data_dir, 'state.latest'))
+
+        if self.command_log_fp is not None:
+            self.command_log_fp.close()
+            self.command_log_fp = None
+
+        self.command_log_fp = command_log_fp
+        self.checkpoint_sequence_number += 1
+
+        return state_data['checkpoint']
 
     def close(self):
         if self.command_log_fp is not None:
@@ -599,29 +628,46 @@ class Project(BaseProject):
 
         validateNode(self, None, self)
 
-        self.changed_since_last_checkpoint = False
+    def replay_command_log(self, command_log_path):
+        with fileutil.MimeLogFile(command_log_path, 'r') as fp:
+            for serialized, headers, entry_type in fp:
+                if entry_type != b'C':
+                    raise CorruptedProjectError(
+                        "Unexpected log entry type %s" % entry_type)
+                target = headers['Target']
+                cmd_state = json.loads(serialized, cls=JSONDecoder)
+                cmd = core.Command.create_from_state(cmd_state)
+                logger.info("Replay command %s on %s", cmd, target)
+                super().dispatch_command(target, cmd)
 
-    def write_checkpoint(self):
-        assert self.path is not None
+    def write_checkpoint(self, data_dir, sequence_number):
+        name_base = 'state.%d' % sequence_number
 
-        path = os.path.join(
-            self.data_dir, 'checkpoint.%d' % time.time())
-        logger.info("Writing checkpoint to %s", path)
+        checkpoint_name = name_base + '.checkpoint'
+        checkpoint_path = os.path.join(data_dir, checkpoint_name)
+        logger.info("Writing checkpoint to %s", checkpoint_path)
 
-        assert not os.path.exists(path)
+        assert not os.path.exists(checkpoint_path)
 
         checkpoint = self.serialize()
 
-        fp = fileutil.File(path)
+        fp = fileutil.File(checkpoint_path)
         fp.write_json(
             checkpoint,
             fileutil.FileInfo(filetype='project-checkpoint',
                               version=self.VERSION),
             encoder=JSONEncoder)
 
-        self.changed_since_last_checkpoint = False
+        command_log_name = name_base + '.log'
+        command_log_path = os.path.join(data_dir, command_log_name)
+        command_log_fp = fileutil.MimeLogFile(command_log_path, 'w')
 
-        return path
+        state_data = {
+            'sequence_number': sequence_number,
+            'checkpoint': checkpoint_name,
+            'log': command_log_name,
+        }
+        return state_data, command_log_fp
 
     def dispatch_command(self, target, cmd):
         if self.closed:
@@ -630,14 +676,20 @@ class Project(BaseProject):
         assert self.command_log_fp is not None
 
         result = super().dispatch_command(target, cmd)
-        self.changed_since_last_checkpoint = True
 
         serialized = json.dumps(
             cmd.serialize(),
             ensure_ascii=False, indent='  ', sort_keys=True, cls=JSONEncoder)
-        self.command_log_fp.write(('Time: %s\n' % time.ctime()).encode('utf-8'))
-        self.command_log_fp.write(('Target: %s\n' % target).encode('utf-8'))
-        self.command_log_fp.write(serialized.encode('utf-8'))
-        self.command_log_fp.write('\n---------------------------------\n\n'.encode('utf-8'))
+        now = time.time()
+        self.command_log_fp.append(
+            serialized,
+            content_type='application/json',
+            encoding='utf-8',
+            entry_type=b'C',
+            headers={
+                'Target': target,
+                'Time': time.ctime(now),
+                'Timestamp': '%d' % now,
+            })
 
         return result

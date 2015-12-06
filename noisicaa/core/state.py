@@ -325,10 +325,15 @@ class StateBase(TreeNode, metaclass=StateMeta):
 
     _subclasses = {}
 
-    def __init__(self):
+    def __init__(self, state=None):
         super().__init__()
         self.state = {}
         self.__listeners = {}
+
+        if state is not None:
+            self.deserialize(state)
+        else:
+            self.id = uuid.uuid4().hex
 
     def __eq__(self, other):
         if self.__class__ != other.__class__:
@@ -386,12 +391,6 @@ class StateBase(TreeNode, metaclass=StateMeta):
         for child in self.list_children():
             yield from child.walk_children()
 
-    def init_state(self, state):
-        if state is not None:
-            self.deserialize(state)
-        else:
-            self.id = uuid.uuid4().hex
-
     def reset_state(self):
         for prop in self.list_properties():
             if isinstance(prop, ObjectProperty):
@@ -421,6 +420,13 @@ class StateBase(TreeNode, metaclass=StateMeta):
             if prop.name not in state:
                 continue
             prop.from_state(self, state[prop.name])
+
+    @classmethod
+    def create_from_state(cls, state):
+        cls_name = state['__class__']
+        if cls_name == cls.__name__:
+            return cls(state=state)
+        return cls.get_subclass(cls_name)(state=state)
 
     def init_references(self):
         all_objects = {}

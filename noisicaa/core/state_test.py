@@ -106,10 +106,6 @@ class LeafNode(StateBase):
     name = Property(str, default='')
     a1 = Property(int, default=2)
 
-    def __init__(self, state=None):
-        super().__init__()
-        self.init_state(state)
-
 class LeafNodeSub1(LeafNode):
     a2 = Property(int, default=7)
 LeafNode.register_subclass(LeafNodeSub1)
@@ -120,32 +116,16 @@ LeafNode.register_subclass(LeafNodeSub2)
 
 class LeafNodeWithRef(LeafNode):
     other = ObjectReferenceProperty()
-
-    def __init__(self, state=None):
-        super().__init__()
-        self.init_state(state)
 LeafNode.register_subclass(LeafNodeWithRef)
 
 class NodeWithChild(StateBase):
     child = ObjectProperty(cls=LeafNode)
 
-    def __init__(self, state=None):
-        super().__init__()
-        self.init_state(state)
-
 class NodeWithSubclassChild(StateBase):
     child = ObjectProperty(LeafNode)
 
-    def __init__(self, state=None):
-        super().__init__()
-        self.init_state(state)
-
 class NodeWithChildren(StateBase):
     children = ObjectListProperty(LeafNode)
-
-    def __init__(self, state=None):
-        super().__init__()
-        self.init_state(state)
 
 
 class StateTest(unittest.TestCase):

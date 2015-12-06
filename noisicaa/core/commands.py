@@ -12,10 +12,8 @@ class CommandError(Exception):
 
 
 class Command(StateBase):
-    # TODO: Some way to declare valid attributes
     def __init__(self, state=None):
-        super().__init__()
-        self.init_state(state)
+        super().__init__(state)
 
     def __str__(self):
         return '%s{%s}' % (

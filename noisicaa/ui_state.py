@@ -53,8 +53,7 @@ class UIState(core.StateBase, core.CommandDispatcher):
     ui_state = core.DictProperty()
 
     def __init__(self, state=None):
-        super().__init__()
-        self.init_state(state)
+        super().__init__(state)
 
         self.change_listeners = []
 

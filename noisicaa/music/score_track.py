@@ -203,8 +203,7 @@ class Note(core.StateBase, core.CommandTarget):
     def __init__(self,
                  pitches=None, base_duration=None, dots=0, tuplet=0,
                  state=None):
-        super().__init__()
-        self.init_state(state)
+        super().__init__(state)
         if state is None:
             if pitches is not None:
                 self.pitches.extend(pitches)

@@ -81,8 +81,7 @@ core.Command.register_subclass(SetInstrument)
 
 class Measure(core.StateBase, core.CommandTarget):
     def __init__(self, state=None):
-        super().__init__()
-        self.init_state(state)
+        super().__init__(state)
 
         self.index = None
 
@@ -130,8 +129,7 @@ class Track(core.StateBase, core.CommandTarget):
     transpose_octaves = core.Property(int, default=0)
 
     def __init__(self, name=None, state=None):
-        super().__init__()
-        self.init_state(state)
+        super().__init__(state)
         if state is None:
             self.name = name
 

@@ -26,8 +26,7 @@ class Instrument(core.StateBase, core.CommandTarget):
     collection = core.ObjectReferenceProperty(allow_none=True)
 
     def __init__(self, name=None, collection=None, state=None):
-        super().__init__()
-        self.init_state(state)
+        super().__init__(state)
         if state is None:
             self.name = name
             self.collection = collection
@@ -109,8 +108,7 @@ class Collection(core.StateBase, core.CommandTarget):
     name = core.Property(str)
 
     def __init__(self, name=None, state=None):
-        super().__init__()
-        self.init_state(state)
+        super().__init__(state)
         if state is None:
             self.name = name
 
@@ -140,9 +138,7 @@ class InstrumentLibrary(core.StateBase, core.CommandDispatcher):
     collections = core.ObjectListProperty(Collection)
 
     def __init__(self, state=None, add_default_instruments=True):
-        super().__init__()
-        self.init_state(state)
-
+        super().__init__(state)
         if state is None and add_default_instruments:
             for p in glob.glob('/usr/share/sounds/sf2/*.sf2'):
                 self.add_soundfont(p)

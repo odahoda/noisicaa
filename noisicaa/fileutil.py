@@ -237,6 +237,7 @@ class LogFile(object):
         self._fp.write(self.ENTRY_END)
         self._fp.write(entry_type)
         self._fp.write(struct.pack('>L', len(data)))
+        self._fp.flush()
 
     def read(self):
         assert self._fp is not None, "LogFile already closed."
@@ -294,3 +295,55 @@ class LogFile(object):
             except EOFError:
                 break
 
+
+class MimeLogFile(LogFile):
+    def append(self, content, entry_type, content_type,
+               encoding='utf-8', headers=None):
+        policy = email.policy.compat32.clone(
+            linesep='\n',
+            max_line_length=0,
+            cte_type='8bit',
+            raise_on_defect=True)
+        message = email.message.Message(policy)
+
+        content = content.encode(encoding)
+
+        message.add_header('Checksum', hashlib.md5(content).hexdigest(),
+                           type='md5')
+        message.add_header('Content-Type', content_type, charset=encoding)
+        message.add_header('Content-Length', str(len(content)))
+        if headers is not None:  # pragma: no branch
+            for key, value in headers.items():
+                message.add_header(key, str(value))
+
+        super().append(message.as_bytes() + content, entry_type)
+
+    def read(self):
+        data, entry_type = super().read()
+
+        headers_length = data.index(b'\n\n') + 2
+
+        parser = email.parser.BytesParser()
+        message = parser.parsebytes(data[:headers_length])
+        content = data[headers_length:]
+
+        if 'Checksum' in message:
+            should_checksum = message['Checksum'].split(';')[0]
+            checksum_type = message.get_param('type', None, 'Checksum')
+            if checksum_type is None:
+                raise BadFileFormatError("Checksum type not specified")
+            if checksum_type == 'md5':
+                have_checksum = hashlib.md5(content).hexdigest()
+            else:
+                raise BadFileFormatError(
+                    "Unsupported checksum type '%s'" % checksum_type)
+
+            if have_checksum != should_checksum:
+                logger.error("%r", content)
+                raise CorruptedFileError(
+                    "Checksum mismatch (%s != %s)"
+                    % (have_checksum, should_checksum))
+
+        encoding = message.get_param('charset', 'ascii')
+
+        return content.decode(encoding), message, entry_type

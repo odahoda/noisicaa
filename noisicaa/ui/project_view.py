@@ -126,8 +126,6 @@ class ProjectView(QWidget):
 
     def closeEvent(self, event):
         logger.info("CloseEvent received.")
-        if self._project.has_unsaved_changes:
-            self._project.write_checkpoint()
 
         self._project.remove_change_listener('sheets', self.onSheetsChanged)
 

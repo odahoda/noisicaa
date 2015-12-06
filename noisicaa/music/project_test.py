@@ -3,7 +3,6 @@
 import builtins
 import json
 import unittest
-import textwrap
 
 from mox3 import stubout
 import fake_filesystem
@@ -23,17 +22,19 @@ def store_retrieve(obj):
 
 
 class BaseProjectTest(unittest.TestCase):
-    def testSerialize(self):
+    def test_serialize(self):
         p = project.BaseProject()
         self.assertIsInstance(p.serialize(), dict)
 
-    def testDeserialize(self):
+    def test_deserialize(self):
         p = project.BaseProject()
         state = store_retrieve(p.serialize())
         p2 = project.Project(state=state)
         self.assertEqual(len(p2.sheets), 1)
 
-    def testAddSheet(self):
+
+class AddSheetTest(unittest.TestCase):
+    def test_ok(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 2')
         p.dispatch_command(p.address, cmd)
@@ -41,13 +42,15 @@ class BaseProjectTest(unittest.TestCase):
         self.assertEqual(p.sheets[0].name, 'Sheet 1')
         self.assertEqual(p.sheets[1].name, 'Sheet 2')
 
-    def testAddSheetDuplicateName(self):
+    def test_duplicate_name(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 1')
         with self.assertRaises(ValueError):
             p.dispatch_command(p.address, cmd)
 
-    def testDeleteSheet(self):
+
+class DeleteSheetTest(unittest.TestCase):
+    def test_ok(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 2')
         p.dispatch_command(p.address, cmd)
@@ -56,7 +59,7 @@ class BaseProjectTest(unittest.TestCase):
         self.assertEqual(len(p.sheets), 1)
         self.assertEqual(p.sheets[0].name, 'Sheet 2')
 
-    def testDeleteSheetLastSheet(self):
+    def test_last_sheet(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 2')
         p.dispatch_command(p.address, cmd)
@@ -68,19 +71,21 @@ class BaseProjectTest(unittest.TestCase):
         self.assertEqual(p.sheets[0].name, 'Sheet 1')
         self.assertEqual(p.current_sheet, 0)
 
-    def testRenameSheet(self):
+
+class RenameSheetTest(unittest.TestCase):
+    def test_ok(self):
         p = project.BaseProject()
         cmd = project.RenameSheet(name='Sheet 1', new_name='Foo')
         p.dispatch_command(p.address, cmd)
         self.assertEqual(p.sheets[0].name, 'Foo')
 
-    def testRenameSheetUnchanged(self):
+    def test_unchanged(self):
         p = project.BaseProject()
         cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 1')
         p.dispatch_command(p.address, cmd)
         self.assertEqual(p.sheets[0].name, 'Sheet 1')
 
-    def testRenameSheetDuplicateName(self):
+    def test_duplicate_name(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 2')
         p.dispatch_command(p.address, cmd)
@@ -88,7 +93,9 @@ class BaseProjectTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             p.dispatch_command(p.address, cmd)
 
-    def testSetCurrentSheet(self):
+
+class SetCurrentSheetTest(unittest.TestCase):
+    def test_ok(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 2')
         p.dispatch_command(p.address, cmd)
@@ -110,9 +117,11 @@ class ProjectTest(unittest.TestCase):
         self.stubs.SmartSet(project.fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
-    def testCreate(self):
+    def test_create(self):
         p = project.Project()
         p.create('/foo.emp')
+        p.close()
+
         self.assertTrue(self.fake_os.path.isfile('/foo.emp'))
         self.assertTrue(self.fake_os.path.isdir('/foo.data'))
 
@@ -122,37 +131,46 @@ class ProjectTest(unittest.TestCase):
         self.assertEqual(file_info.filetype, 'project-header')
         self.assertIsInstance(contents, dict)
 
-    def testOpen(self):
-        contents = textwrap.dedent("""\
-            NOISICAA
-            Version: 1
-            File-Type: project-header
-            Content-Type: application/json; charset="utf-8"
-
-            {"data_dir": "foo.data"}""").encode('ascii')
-        self.fs.CreateFile('/foo.emp', contents=contents)
-        self.fs.CreateDirectory('/foo.data')
+    def test_open(self):
+        p = project.Project()
+        p.create('/foo.emp')
+        try:
+            p.dispatch_command('/', project.AddSheet())
+        finally:
+            p.close()
 
         p = project.Project()
         p.open('/foo.emp')
-        self.assertEqual(p.path, '/foo.emp')
-        self.assertEqual(p.data_dir, '/foo.data')
+        try:
+            self.assertEqual(p.path, '/foo.emp')
+            self.assertEqual(p.data_dir, '/foo.data')
+        finally:
+            p.close()
 
-    def testWriteCheckpoint(self):
+    def test_create_checkpoint(self):
         p = project.Project()
         p.create('/foo.emp')
-        path = p.write_checkpoint()
+        try:
+            p.create_checkpoint()
+        finally:
+            p.close()
 
-        f = fileutil.File(path)
-        file_info, contents = f.read_json()
+        self.assertTrue(self.fake_os.path.isfile('/foo.data/state.2.checkpoint'))
+        self.assertTrue(self.fake_os.path.isfile('/foo.data/state.2.log'))
+        self.assertTrue(self.fake_os.path.isfile('/foo.data/state.latest'))
+
+        f = fileutil.File('/foo.data/state.latest')
+        file_info, state_data = f.read_json()
         self.assertEqual(file_info.version, 1)
-        self.assertEqual(file_info.filetype, 'project-checkpoint')
-        self.assertIsInstance(contents, dict)
+        self.assertEqual(file_info.filetype, 'project-state')
+        self.assertEqual(state_data['sequence_number'], 2)
+        self.assertEqual(state_data['checkpoint'], 'state.2.checkpoint')
+        self.assertEqual(state_data['log'], 'state.2.log')
 
 
 class ScoreEventSource(unittest.TestCase):
     def test_get_events(self):
-        proj = project.Project()
+        proj = project.BaseProject()
         sheet = project.Sheet(name='test')
         proj.sheets.append(sheet)
         track = project.ScoreTrack(name='test', num_measures=2)

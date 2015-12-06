@@ -69,12 +69,9 @@ class ProjectViewTest(uitest_utils.UITest):
     def test_closeEventWithChanges(self):
         self.project.sheets.append(music.Sheet(name="test1"))
         view = project_view.ProjectView(self.app, self.window, self.project)
-        self.project.changed_since_last_checkpoint = True
-        self.project.write_checkpoint = mock.MagicMock()
         event = QCloseEvent()
         view.closeEvent(event)
         self.assertEqual(len(list(view.sheetViews)), 0)
-        self.assertEqual(self.project.write_checkpoint.call_count, 1)
 
     def test_onAddSheet(self):
         view = project_view.ProjectView(self.app, self.window, self.project)
