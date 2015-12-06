@@ -14,7 +14,7 @@ class UpdateUIState(core.Command):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state)
         if state is None:
-            self.args = kwargs
+            self.args.update(kwargs)
 
     def __str__(self):
         return '%s{%s}' % (

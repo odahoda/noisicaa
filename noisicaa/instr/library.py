@@ -40,7 +40,7 @@ class Instrument(core.StateBase, core.CommandTarget):
     @classmethod
     def from_json(cls, json):
         instr_type = json['__type__']
-        del json['__type__']
+        json = dict((k, v) for k, v in json.items() if k != '__type__')
         if instr_type == 'SoundFont':
             instr = SoundFontInstrument(**json)
         elif instr_type == 'Sample':
