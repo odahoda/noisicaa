@@ -39,18 +39,22 @@ First grab the latest source code:
     git clone https://github.com/odahoda/noisicaa.git
     cd noisicaa
 
-For the first time setup, run
+For the first time setup, create a new virtualenv:
+
+    pyvenv-3.4 ENV
+    . ENV/bin/activate
+And populate it with a bunch of packages that noisicaä uses:
 
     bin/setup_env.sh
 It will probably fail and ask you to install some additional packages and
 download some files into `libs/` (be careful to use the exact versions that it's
 asking for). Try again, until it is happy and starts compiling stuff.
 
-Then (and everytime you open a new `bash` to work with it) activate the
-virtual environment using
-
-    . ENV/bin/activate
-
 And finally run
 
     bin/noisicaä --dev-mode
+
+Everytime you open a new `bash` to work with it, you have to activate the
+virtual environment using
+
+    . ENV/bin/activate

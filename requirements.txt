@@ -1,0 +1,11 @@
+pylint
+coverage
+lxml
+cssutils
+numpy
+cython
+pyfakefs
+mox3
+portalocker
+toposort
+pyaudio
