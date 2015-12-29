@@ -6,6 +6,7 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+
 class Listener(object):
     """Only internally used by CallbackRegistry."""
 
@@ -49,6 +50,7 @@ class CallbackRegistry(object):
         with self._lock:
             self._listeners[listener.id] = listener
             self._target_map.setdefault(target, []).append(listener.id)
+        logger.info("Added listener %s to target %s", listener.id, target)
         return listener.id
 
     def remove_listener(self, listener_id):
@@ -65,6 +67,8 @@ class CallbackRegistry(object):
             listener = self._listeners[listener_id]
             del self._listeners[listener.id]
             self._target_map[listener.target].remove(listener.id)
+        logger.info(
+            "Removed listener %s from target %s", listener.id, listener.target)
 
     def callback(self, target, *args, **kwargs):
         """Call all callbacks registered for a given target.
