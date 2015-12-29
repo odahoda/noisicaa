@@ -3,6 +3,7 @@ import logging
 import select
 import threading
 
+from noisicaa.core import callbacks
 from . import libalsa
 
 logger = logging.getLogger(__name__)
@@ -20,9 +21,7 @@ class MidiHub(object):
         self._seq = None
         self._thread = None
         self._quit_event = None
-        self._listeners_lock = threading.Lock()
-        self._listeners = {}
-        self._device_to_listeners = {}
+        self.listeners = callbacks.CallbackRegistry()
 
     def __enter__(self):
         self.start()
@@ -72,27 +71,6 @@ class MidiHub(object):
                 continue
             print(port_info.device_id, port_info)
 
-    def add_listener(self, device_id, callback):
-        listener = _Listener(device_id, callback)
-        with self._listeners_lock:
-            self._listeners[listener.listener_id] = listener
-            self._device_to_listeners.setdefault(device_id, [])
-            self._device_to_listeners[device_id].append(listener.listener_id)
-
-        logger.info(
-            "Added listener %s on device %s", listener.listener_id, device_id)
-        return listener.listener_id
-
-    def remove_listener(self, listener_id):
-        with self._listeners_lock:
-            listener = self._listeners[listener_id]
-            del self._listeners[listener_id]
-            self._device_to_listeners[listener.device_id].remove(
-                listener.listener_id)
-        logger.info(
-            "Removed listener %s on device %s",
-            listener.listener_id, listener.device_id)
-
     def _thread_main(self):
         poller = select.poll()
 
@@ -111,8 +89,4 @@ class MidiHub(object):
 
     def dispatch_midi_event(self, event):
         logger.info("Dispatching MIDI event %s", event)
-        with self._listeners_lock:
-            listeners = self._device_to_listeners.get(event.device_id, [])
-            for listener_id in listeners:
-                listener = self._listeners[listener_id]
-                listener.callback(event)
+        self.listeners.call(event.device_id, event)

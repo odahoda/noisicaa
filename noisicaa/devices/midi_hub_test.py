@@ -26,9 +26,9 @@ class MidiHubTest(unittest.TestCase):
             print("got event %s" % event)
 
         with midi_hub.MidiHub() as hub:
-            listener_id = hub.add_listener('24/0', callback)
+            listener = hub.listeners.add('24/0', callback)
             time.sleep(10)
-            hub.remove_listener(listener_id)
+            listener.remove()
 
 
 if __name__ == '__main__':
