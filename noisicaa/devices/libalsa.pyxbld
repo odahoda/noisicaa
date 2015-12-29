@@ -1,0 +1,10 @@
+# -*- mode: python -*-
+
+def make_ext(modname, pyxfilename):
+    from distutils.extension import Extension
+    return Extension(
+        name = modname,
+        sources=[pyxfilename],
+        libraries=['asound'],
+        include_dirs=['.'],
+    )
