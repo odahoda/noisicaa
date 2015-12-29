@@ -13,14 +13,14 @@ from .state import (
     ObjectListProperty,
     ObjectReferenceProperty,
 )
+from .callbacks import CallbackRegistry
 
 
 class PropertyTest(unittest.TestCase):
     def setUp(self):
         class TestObj(object):
-            # pylint: disable=unused-argument
-            def get_change_listeners(self, prop_name):
-                return []
+            def __init__(self):
+                self.listeners = CallbackRegistry()
 
         self.obj = TestObj()
         self.obj.state = {}
@@ -350,7 +350,7 @@ class StateTest(unittest.TestCase):
         changes = []
         def listener(old_value, new_value):
             changes.append((old_value, new_value))
-        a.add_change_listener('name', listener)
+        a.listeners.add('name', listener)
         a.name = 'b'
         a.name = 'b'
         a.name = 'c'
@@ -371,7 +371,7 @@ class StateTest(unittest.TestCase):
         changes = []
         def listener(action, *args):
             changes.append((action, args))
-        a.add_change_listener('children', listener)
+        a.listeners.add('children', listener)
         a.children.append(n1)
         a.children.append(n2)
         a.children[1] = n3

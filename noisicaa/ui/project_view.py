@@ -68,7 +68,8 @@ class ProjectView(QWidget):
         layout.addLayout(bottom_layout)
         self.setLayout(layout)
 
-        self._project.add_change_listener('sheets', self.onSheetsChanged)
+        self._sheet_listener = self._project.listeners.add(
+            'sheets', self.onSheetsChanged)
 
     @property
     def sheetViews(self):
@@ -127,7 +128,7 @@ class ProjectView(QWidget):
     def closeEvent(self, event):
         logger.info("CloseEvent received.")
 
-        self._project.remove_change_listener('sheets', self.onSheetsChanged)
+        self._sheet_listener.remove()
 
         while self._sheets_widget.count() > 0:
             sheet_view = self._sheets_widget.widget(0)

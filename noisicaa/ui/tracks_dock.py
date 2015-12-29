@@ -33,10 +33,11 @@ class TracksModel(QAbstractListModel):
         self._sheet = sheet
         self._project = sheet.project
 
-        self._sheet.add_change_listener('tracks', self.onTracksChanged)
+        self._tracks_listener = self._sheet.listeners.add(
+            'tracks', self.onTracksChanged)
 
     def close(self):
-        self._sheet.remove_change_listener('tracks', self.onTracksChanged)
+        self._tracks_listener.remove()
 
     def onTracksChanged(self, action, *args):
         # This could probably be done more efficiently...
