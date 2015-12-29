@@ -35,7 +35,7 @@ class CallbackRegistry(object):
         self._target_map = {}
         self._lock = threading.Lock()
 
-    def add_listener(self, target, callback):
+    def add(self, target, callback):
         """Register a new callback.
 
         Args:
@@ -53,7 +53,7 @@ class CallbackRegistry(object):
         logger.info("Added listener %s to target %s", listener.id, target)
         return listener.id
 
-    def remove_listener(self, listener_id):
+    def remove(self, listener_id):
         """Remove a callback.
 
         Args:
