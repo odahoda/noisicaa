@@ -70,7 +70,7 @@ class CallbackRegistry(object):
         logger.info(
             "Removed listener %s from target %s", listener.id, listener.target)
 
-    def callback(self, target, *args, **kwargs):
+    def call(self, target, *args, **kwargs):
         """Call all callbacks registered for a given target.
 
         This method should only be called by the owner of the registry.
