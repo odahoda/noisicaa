@@ -219,18 +219,17 @@ class TrackItem(object):
         self._ghost_measure_item = self.measure_item_cls(  # pylint: disable=not-callable
                 self._app, self._project, self._sheet_view, self, None)
 
-        self._track.add_change_listener('name', self.onNameChanged)
-        self._track.add_change_listener('instrument', self.onInstrumentChanged)
-        self._track.add_change_listener('measures', self.onMeasuresChanged)
-        self._track.add_change_listener('muted', self.onMutedChanged)
-        self._track.add_change_listener('volume', self.onVolumeChanged)
+        self._listeners = [
+            self._track.listeners.add('name', self.onNameChanged),
+            self._track.listeners.add('instrument', self.onInstrumentChanged),
+            self._track.listeners.add('measures', self.onMeasuresChanged),
+            self._track.listeners.add('muted', self.onMutedChanged),
+            self._track.listeners.add('volume', self.onVolumeChanged),
+        ]
 
     def close(self):
-        self._track.remove_change_listener('name', self.onNameChanged)
-        self._track.remove_change_listener('instrument', self.onInstrumentChanged)
-        self._track.remove_change_listener('measures', self.onMeasuresChanged)
-        self._track.remove_change_listener('muted', self.onMutedChanged)
-        self._track.remove_change_listener('volume', self.onVolumeChanged)
+        for listener in self._listeners:
+            listener.remove()
 
         while len(self._measures) > 0:
             measure = self._measures.pop(0)
@@ -1244,6 +1243,7 @@ class SheetView(QGraphicsView):
             self._project.playback_pipeline)
         self.master_mixer.outputs['out'].add_tag_listener(self.onPlaybackTags)
 
+        self._track_visible_listeners = []
         self._tracks = []
         for track in self._sheet.tracks:
             self.insertTrack(len(self._tracks), track)
@@ -1276,7 +1276,8 @@ class SheetView(QGraphicsView):
 
         self.updateSheet()
 
-        self._sheet.add_change_listener('tracks', self.onTracksChanged)
+        self._tracks_listener = self._sheet.listeners.add(
+            'tracks', self.onTracksChanged)
 
     def setInfoMessage(self, msg):
         self._window.setInfoMessage(msg)
@@ -1288,20 +1289,21 @@ class SheetView(QGraphicsView):
     def insertTrack(self, idx, track):
         track_item = self.createTrackItem(track)
         self._tracks.insert(idx, track_item)
-        track.add_change_listener('visible', self.onTrackVisibleChanged)
+        self._track_visible_listeners.insert(
+            idx, track.listeners.add('visible', self.onTrackVisibleChanged))
 
     def removeTrack(self, idx):
         track_item = self._tracks[idx]
-        track_item.track.remove_change_listener(
-            'visible', self.onTrackVisibleChanged)
+        self._track_visible_listeners[idx].remove()
         track_item.close()
         #track_item.setParentItem(None)
         #if track_item.scene() is not None:
         #    self.scene().removeItem(track_item)
         del self._tracks[idx]
+        del self._track_visible_listeners[idx]
 
     def closeEvent(self, event):
-        self._sheet.remove_change_listener('tracks', self.onTracksChanged)
+        self._tracks_listener.remove()
 
         while len(self._tracks) > 0:
             self.removeTrack(0)

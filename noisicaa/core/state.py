@@ -3,6 +3,7 @@
 import logging
 import uuid
 
+from .callbacks import CallbackRegistry
 from .tree import TreeNode
 
 logger = logging.getLogger(__name__)
@@ -26,8 +27,7 @@ class PropertyBase(object):
         old_value = instance.state.get(self.name, None)
         instance.state[self.name] = value
         if value != old_value:
-            for listener in instance.get_change_listeners(self.name):
-                listener(old_value, value)
+            instance.listeners.call(self.name, old_value, value)
 
     def __delete__(self, instance):
         raise RuntimeError("You can't delete properties")
@@ -97,9 +97,7 @@ class SimpleObjectList(object):
 
     def __delitem__(self, idx):
         del self._objs[idx]
-
-        for listener in self._instance.get_change_listeners(self._prop.name):
-            listener('delete', idx)
+        self._instance.listeners.call(self._prop.name, 'delete', idx)
 
     def append(self, obj):
         self.insert(len(self._objs), obj)
@@ -107,15 +105,11 @@ class SimpleObjectList(object):
     def insert(self, idx, obj):
         self._check_type(obj)
         self._objs.insert(idx, obj)
-
-        for listener in self._instance.get_change_listeners(self._prop.name):
-            listener('insert', idx, obj)
+        self._instance.listeners.call(self._prop.name, 'insert', idx, obj)
 
     def clear(self):
         self._objs.clear()
-
-        for listener in self._instance.get_change_listeners(self._prop.name):
-            listener('clear')
+        self._instance.listeners.call(self._prop.name, 'clear')
 
     def extend(self, value):
         for v in value:
@@ -234,9 +228,7 @@ class ObjectList(object):
     def __delitem__(self, idx):
         self._objs[idx].detach()
         del self._objs[idx]
-
-        for listener in self._instance.get_change_listeners(self._prop.name):
-            listener('delete', idx)
+        self._instance.listeners.call(self._prop.name, 'delete', idx)
 
     def append(self, obj):
         self.insert(len(self._objs), obj)
@@ -244,17 +236,13 @@ class ObjectList(object):
     def insert(self, idx, obj):
         obj.attach(self._instance)
         self._objs.insert(idx, obj)
-
-        for listener in self._instance.get_change_listeners(self._prop.name):
-            listener('insert', idx, obj)
+        self._instance.listeners.call(self._prop.name, 'insert', idx, obj)
 
     def clear(self):
         for obj in self._objs:
             obj.detach()
         self._objs.clear()
-
-        for listener in self._instance.get_change_listeners(self._prop.name):
-            listener('clear')
+        self._instance.listeners.call(self._prop.name, 'clear')
 
 
 class ObjectListProperty(ObjectPropertyBase):
@@ -328,7 +316,7 @@ class StateBase(TreeNode, metaclass=StateMeta):
     def __init__(self, state=None):
         super().__init__()
         self.state = {}
-        self.__listeners = {}
+        self.listeners = CallbackRegistry()
 
         if state is not None:
             self.deserialize(state)
@@ -444,29 +432,3 @@ class StateBase(TreeNode, metaclass=StateMeta):
                         refid = refid[1]
                         refobj = all_objects[refid]
                         prop.__set__(node, refobj)
-
-    def get_change_listeners(self, prop_name):
-        return self.__listeners.get(prop_name, [])
-
-    def add_change_listener(self, prop_name, listener):
-        if listener in self.__listeners.get(prop_name, []):
-            raise ValueError("Listener already registered.")
-
-        for prop in self.list_properties():
-            if prop.name == prop_name:
-                logger.info("Add listener %s for property %s to %s",
-                            listener, prop_name, self)
-                self.__listeners.setdefault(prop_name, []).append(listener)
-                break
-        else:
-            raise ValueError("Invalid property %s" % prop_name)
-
-    def remove_change_listener(self, prop_name, listener):
-        if listener not in self.__listeners.get(prop_name, []):
-            raise ValueError("Listener is not registered.")
-
-        logger.info("Remove listener %s for property %s from %s",
-                    listener, prop_name, self)
-        self.__listeners[prop_name].remove(listener)
-        if len(self.__listeners[prop_name]) == 0:
-            del self.__listeners[prop_name]

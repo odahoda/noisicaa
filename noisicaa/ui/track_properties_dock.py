@@ -63,6 +63,8 @@ class TrackPropertiesDockWidget(DockWidget):
         self._window = window
         self._track = None
 
+        self._listeners = []
+
         self._name = QLineEdit(self)
         self._name.textEdited.connect(self.onNameEdited)
 
@@ -118,45 +120,43 @@ class TrackPropertiesDockWidget(DockWidget):
         self._window.currentTrackChanged.connect(self.onCurrentTrackChanged)
 
     def onCurrentTrackChanged(self, track):
-        if self._track is not None:
-            self._track.remove_change_listener('name', self.onNameChanged)
-
-            if isinstance(self._track, ScoreTrack):
-                self._track.remove_change_listener('volume', self.onVolumeChanged)
-                self._track.remove_change_listener('muted', self.onMutedChanged)
-                self._track.remove_change_listener('instrument',
-                                                   self.onInstrumentChanged)
-                self._track.remove_change_listener('transpose_octaves',
-                                                   self.onTransposeOctavesChanged)
+        for listener in self._listeners:
+            listener.remove()
+        self._listeners.clear()
 
         self._track = track
         if self._track:
             self._body.setCurrentIndex(1)
             self._name.setText(self._track.name)
-            self._track.add_change_listener('name', self.onNameChanged)
+            self._listeners.append(
+                self._track.listeners.add('name', self.onNameChanged))
 
             if isinstance(self._track, ScoreTrack):
                 self._volume.setVisible(True)
                 self._volume.setValue(self._track.volume)
                 self._volume.setEnabled(not self._track.muted)
-                self._track.add_change_listener('volume', self.onVolumeChanged)
+                self._listeners.append(
+                    self._track.listeners.add('volume', self.onVolumeChanged))
 
                 self._muted.setVisible(True)
                 self._muted.setChecked(self._track.muted)
-                self._track.add_change_listener('muted', self.onMutedChanged)
+                self._listeners.append(
+                    self._track.listeners.add('muted', self.onMutedChanged))
 
                 self._instrument.setVisible(True)
                 if self._track.instrument is not None:
                     self._instrument.setText(self._track.instrument.name)
                 else:
                     self._instrument.setText('---')
-                self._track.add_change_listener('instrument',
-                                                self.onInstrumentChanged)
+                self._listeners.append(
+                    self._track.listeners.add(
+                        'instrument', self.onInstrumentChanged))
 
                 self._transpose_octaves.setVisible(True)
                 self._transpose_octaves.setValue(self._track.transpose_octaves)
-                self._track.add_change_listener('transpose_octaves',
-                                                self.onTransposeOctavesChanged)
+                self._listeners.append(
+                    self._track.listeners.add(
+                        'transpose_octaves', self.onTransposeOctavesChanged))
             else:
                 self._volume.setVisible(False)
                 self._muted.setVisible(False)
