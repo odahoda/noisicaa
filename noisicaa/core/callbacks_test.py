@@ -25,7 +25,7 @@ class CallbackRegistryTest(unittest.TestCase):
         self.assertEqual(listener2.call_args_list, [])
 
         # listener1 is not called again.
-        registry.remove(lid1)
+        lid1.remove()
         registry.call('foo', 'arg2')
         self.assertEqual(listener1.call_args_list, [mock.call('arg1')])
 
@@ -34,7 +34,7 @@ class CallbackRegistryTest(unittest.TestCase):
         self.assertEqual(listener2.call_args_list, [mock.call('arg3')])
 
         # listener2 is not called again.
-        registry.remove(lid2)
+        lid2.remove()
         registry.call('bar', 'arg4')
         self.assertEqual(listener2.call_args_list, [mock.call('arg3')])
 

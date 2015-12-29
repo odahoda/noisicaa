@@ -10,10 +10,14 @@ logger = logging.getLogger(__name__)
 class Listener(object):
     """Only internally used by CallbackRegistry."""
 
-    def __init__(self, target, callback):
+    def __init__(self, registry, target, callback):
+        self._registry = registry
         self.id = str(uuid.uuid4())
         self.target = target
         self.callback = callback
+
+    def remove(self):
+        self._registry.remove(self)
 
 
 class CallbackRegistry(object):
@@ -28,6 +32,8 @@ class CallbackRegistry(object):
 
     The arguments with which the callbacks are called is also defined by the
     owner of the registry.
+
+    This class is thread-safe.
     """
 
     def __init__(self):
@@ -43,28 +49,30 @@ class CallbackRegistry(object):
           callback: A callable with will be called.
 
         Returns:
-          A listener ID, which should be used to unregister this callback.
+          A listener, which should be used to unregister this callback.
         """
 
-        listener = Listener(target, callback)
+        listener = Listener(self, target, callback)
         with self._lock:
             self._listeners[listener.id] = listener
             self._target_map.setdefault(target, []).append(listener.id)
         logger.info("Added listener %s to target %s", listener.id, target)
-        return listener.id
+        return listener
 
-    def remove(self, listener_id):
+    def remove(self, listener):
         """Remove a callback.
 
+        Alternatively you can just call remove() on the listener returned by
+        add_listener().
+
         Args:
-          listener_id: The ID as returned by add_listener().
+          listener: The listener instance as returned by add_listener().
 
         Raises:
-          KeyError: if the listener_id is not a valid callback.
+          KeyError: if the listener is not a valid callback.
         """
 
         with self._lock:
-            listener = self._listeners[listener_id]
             del self._listeners[listener.id]
             self._target_map[listener.target].remove(listener.id)
         logger.info(
