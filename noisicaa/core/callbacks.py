@@ -36,7 +36,17 @@ class CallbackRegistry(object):
     This class is thread-safe.
     """
 
-    def __init__(self):
+    def __init__(self, register_cb=None):
+        """Create a new registry.
+
+        Args:
+          register_cb: Optional callable, which will be called before a listener
+              is added or after it was removed. It will be called with arguments
+              (target, listener_id, add_or_remove). add_or_remove is True, when
+              the listener has been added or False when removed.
+        """
+
+        self._register_cb = register_cb
         self._listeners = {}
         self._target_map = {}
         self._lock = threading.Lock()
@@ -53,6 +63,8 @@ class CallbackRegistry(object):
         """
 
         listener = Listener(self, target, callback)
+        if self._register_cb is not None:
+            self._register_cb(target, listener.id, True)
         with self._lock:
             self._listeners[listener.id] = listener
             self._target_map.setdefault(target, []).append(listener.id)
@@ -75,6 +87,8 @@ class CallbackRegistry(object):
         with self._lock:
             del self._listeners[listener.id]
             self._target_map[listener.target].remove(listener.id)
+        if self._register_cb is not None:
+            self._register_cb(listener.target, listener.id, False)
         logger.info(
             "Removed listener %s from target %s", listener.id, listener.target)
 

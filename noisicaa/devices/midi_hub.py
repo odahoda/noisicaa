@@ -9,11 +9,8 @@ from . import libalsa
 logger = logging.getLogger(__name__)
 
 
-class _Listener(object):
-    def __init__(self, device_id, callback):
-        self.listener_id = str(uuid.uuid4())
-        self.device_id = device_id
-        self.callback = callback
+class Error(Exception):
+    pass
 
 
 class MidiHub(object):
@@ -21,7 +18,41 @@ class MidiHub(object):
         self._seq = None
         self._thread = None
         self._quit_event = None
-        self.listeners = callbacks.CallbackRegistry()
+        self._started = False
+        self.listeners = callbacks.CallbackRegistry(self._listener_changed)
+
+        self._connected = None
+
+    def _listener_changed(self, target, listener_id, add_or_remove):
+        assert self._started, "MidiHub must be started before adding listeners."
+
+        if add_or_remove:
+            refcount = self._connected.setdefault(target, 0)
+            if refcount == 0:
+                for port_info in self._seq.list_all_ports():
+                    if port_info.device_id == target:
+                        logger.info("Connecting to %s", port_info)
+                        self._seq.connect(port_info)
+                        break
+                else:
+                    raise Error("Device %s not found" % target)
+
+            self._connected[target] += 1
+
+        else:
+            assert target in self._connected
+            self._connected[target] -= 1
+
+            if self._connected[target] == 0:
+                del self._connected[target]
+
+                for port_info in self._seq.list_all_ports():
+                    if port_info.device_id == target:
+                        logger.info("Disconnecting from %s", port_info)
+                        self._seq.disconnect(port_info)
+                        break
+                else:
+                    raise Error("Device %s not found" % target)
 
     def __enter__(self):
         self.start()
@@ -40,17 +71,23 @@ class MidiHub(object):
         # encoded bytes.
         self._seq = libalsa.AlsaSequencer('noisicaä')
 
+        self._connected = {}
+
+        #port_info = next(
+        #    p for p in self._seq.list_all_ports()
+        #    if 'read' in p.capabilities and 'hardware' in p.types)
+        #self._seq.connect(port_info)
+
         self._quit_event = threading.Event()
         self._thread = threading.Thread(target=self._thread_main, name="MidiHub")
         self._thread.start()
         logger.info("MidiHub started.")
 
-        port_info = next(
-            p for p in self._seq.list_all_ports()
-            if 'read' in p.capabilities and 'hardware' in p.types)
-        self._seq.connect(port_info)
+        self._started = True
 
     def stop(self):
+        self._started = False
+
         logger.info("Stopping MidiHub...")
         if self._thread is not None:
             self._quit_event.set()
