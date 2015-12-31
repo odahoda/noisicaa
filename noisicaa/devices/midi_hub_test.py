@@ -15,6 +15,11 @@ from . import midi_events
 from . import midi_hub
 
 
+# TODO:
+# - device disconnects and reconnects while listened to.
+# - virtual clock to control event sequence.
+
+
 class MockSequencer(object):
     def __init__(self, name):
         self._ci = libalsa.ClientInfo(10, 'test client')

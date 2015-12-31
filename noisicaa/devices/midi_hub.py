@@ -1,7 +1,13 @@
+import argparse
 import uuid
 import logging
 import select
+import time
 import threading
+
+if __name__ == '__main__':
+    import pyximport
+    pyximport.install()
 
 from noisicaa.core import callbacks
 from . import libalsa
@@ -106,7 +112,7 @@ class MidiHub(object):
                 continue
             if 'midi_generic' not in port_info.types:
                 continue
-            print(port_info.device_id, port_info)
+            yield (port_info.device_id, port_info)
 
     def _thread_main(self):
         poller = select.poll()
@@ -127,3 +133,33 @@ class MidiHub(object):
     def dispatch_midi_event(self, event):
         logger.info("Dispatching MIDI event %s", event)
         self.listeners.call(event.device_id, event)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--list',
+        action='store_true',
+        help="List devices.")
+    parser.add_argument(
+        '--dev',
+        help="Device to listen to.")
+    args = parser.parse_args()
+
+    with MidiHub() as hub:
+        if args.list:
+            for dev_id, port_info in hub.list_devices():
+                print("%s: %s / %s" % (
+                    dev_id, port_info.client_info.name, port_info.name))
+
+        else:
+            def event_cb(midi_event):
+                print(midi_event)
+            listener = hub.listeners.add(args.dev, event_cb)
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print("***BREAK")
+            listener.remove()
+
