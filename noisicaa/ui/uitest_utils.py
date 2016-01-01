@@ -28,9 +28,38 @@ class MockSettings(object):
         return list(self._data.keys())
 
 
+class MockSequencer(object):
+    def __init__(self):
+        self._ports = []
+
+    def add_port(self, port_info):
+        self._ports.append(port_info)
+
+    def list_all_ports(self):
+        yield from self._ports
+
+    def get_pollin_fds(self):
+        return []
+
+    def connect(self, port_info):
+        pass
+
+    def disconnect(self, port_info):
+        pass
+
+    def close(self):
+        pass
+
+    def get_event(self):
+        return None
+
+
 class MockApp(BaseEditorApp):
     def __init__(self):
         super().__init__(RuntimeSettings(), MockSettings())
+
+    def createSequencer(self):
+        return MockSequencer()
 
 
 class UITest(unittest.TestCase):

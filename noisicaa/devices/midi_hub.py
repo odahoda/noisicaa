@@ -20,8 +20,8 @@ class Error(Exception):
 
 
 class MidiHub(object):
-    def __init__(self):
-        self._seq = None
+    def __init__(self, seq):
+        self._seq = seq
         self._thread = None
         self._quit_event = None
         self._started = False
@@ -71,12 +71,6 @@ class MidiHub(object):
     def start(self):
         logger.info("Starting MidiHub...")
 
-        # Do other clients handle non-ASCII names?
-        # 'aconnect' seems to work (or just spits out whatever bytes it gets
-        # and the console interprets it as UTF-8), 'aconnectgui' shows the
-        # encoded bytes.
-        self._seq = libalsa.AlsaSequencer('noisicaä')
-
         self._connected = {}
 
         #port_info = next(
@@ -101,9 +95,6 @@ class MidiHub(object):
             self._thread = None
             self._quit_event = None
 
-        if self._seq is not None:
-            self._seq.close()
-            self._seq = None
         logger.info("MidiHub stopped.")
 
     def list_devices(self):

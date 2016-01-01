@@ -4,7 +4,7 @@ from .exceptions import (
 from .key_signature import KeySignature
 from .time_signature import TimeSignature
 from .clef import Clef
-from .pitch import Pitch
+from .pitch import Pitch, NOTE_TO_MIDI
 from .time import Duration
 from .project import (
     Project,

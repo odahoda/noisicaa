@@ -1,15 +1,20 @@
 class MidiEvent(object):
-    def __init__(self, timestamp, device_id):
+    NOTE_ON = 'note-on'
+    NOTE_OFF = 'note-off'
+    CONTROLLER_CHANGE = 'controller-change'
+
+    def __init__(self, type, timestamp, device_id):
+        self.type = type
         self.timestamp = timestamp
         self.device_id = device_id
 
     def __eq__(self, other):
-        return (self.timestamp, self.device_id) == (other.timestamp, other.device_id)
+        return (self.type, self.timestamp, self.device_id) == (other.type, other.timestamp, other.device_id)
 
 
 class NoteOnEvent(MidiEvent):
     def __init__(self, timestamp, device_id, channel, note, velocity):
-        super().__init__(timestamp, device_id)
+        super().__init__(MidiEvent.NOTE_ON, timestamp, device_id)
         self.channel = channel
         self.note = note
         self.velocity = velocity
@@ -26,7 +31,7 @@ class NoteOnEvent(MidiEvent):
 
 class NoteOffEvent(MidiEvent):
     def __init__(self, timestamp, device_id, channel, note, velocity):
-        super().__init__(timestamp, device_id)
+        super().__init__(MidiEvent.NOTE_OFF, timestamp, device_id)
         self.channel = channel
         self.note = note
         self.velocity = velocity
@@ -43,7 +48,7 @@ class NoteOffEvent(MidiEvent):
 
 class ControlChangeEvent(MidiEvent):
     def __init__(self, timestamp, device_id, channel, controller, value):
-        super().__init__(timestamp, device_id)
+        super().__init__(MidiEvent.CONTROLLER_CHANGE, timestamp, device_id)
         self.channel = channel
         self.controller = controller
         self.value = value
@@ -60,7 +65,7 @@ class ControlChangeEvent(MidiEvent):
 
 class DeviceChangeEvent(MidiEvent):
     def __init__(self, timestamp, device_id, evt, client_id, port_id):
-        super().__init__(timestamp, device_id)
+        super().__init__(evt, timestamp, device_id)
         self.evt = evt
         self.client_id = client_id
         self.port_id = port_id

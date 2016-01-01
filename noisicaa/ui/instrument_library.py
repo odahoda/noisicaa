@@ -134,7 +134,7 @@ class InstrumentLibraryDialog(QDialog):
 
         layout.addStretch(1)
 
-        self.piano = PianoWidget(self)
+        self.piano = PianoWidget(self, self._app)
         self.piano.setVisible(False)
         self.piano.noteOn.connect(self.onNoteOn)
         self.piano.noteOff.connect(self.onNoteOff)

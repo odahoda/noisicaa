@@ -21,7 +21,7 @@ from . import midi_hub
 
 
 class MockSequencer(object):
-    def __init__(self, name):
+    def __init__(self):
         self._ci = libalsa.ClientInfo(10, 'test client')
         self._pi = libalsa.PortInfo(
             self._ci, 14,
@@ -70,30 +70,25 @@ class MockSequencer(object):
 
 class MidiHubTest(unittest.TestCase):
     def setUp(self):
-        self._patcher = mock.patch(
-            'noisicaa.devices.libalsa.AlsaSequencer', MockSequencer)
-        self._mock_sequencer = self._patcher.start()
-
-    def tearDown(self):
-        self._patcher.stop()
+        self.seq = MockSequencer()
 
     def test_start_stop(self):
-        hub = midi_hub.MidiHub()
+        hub = midi_hub.MidiHub(self.seq)
         hub.start()
         hub._seq.wait_until_done()
         hub.stop()
 
     def test_stop_before_start(self):
-        hub = midi_hub.MidiHub()
+        hub = midi_hub.MidiHub(self.seq)
         hub.stop()
 
     def test_list_devices(self):
-        with midi_hub.MidiHub() as hub:
+        with midi_hub.MidiHub(self.seq) as hub:
             hub.list_devices()
 
     def test_listener(self):
         callback = mock.Mock()
-        with midi_hub.MidiHub() as hub:
+        with midi_hub.MidiHub(self.seq) as hub:
             listener = hub.listeners.add('10/14', callback)
             hub._seq.wait_until_done()
             listener.remove()
@@ -102,14 +97,14 @@ class MidiHubTest(unittest.TestCase):
             midi_events.NoteOnEvent(1000, '10/14', 0, 65, 120))
 
     def test_listen_before_start(self):
-        hub = midi_hub.MidiHub()
+        hub = midi_hub.MidiHub(self.seq)
         with self.assertRaises(AssertionError):
             hub.listeners.add('10/14', mock.Mock())
 
     def test_listener_same_device(self):
         callback1 = mock.Mock()
         callback2 = mock.Mock()
-        with midi_hub.MidiHub() as hub:
+        with midi_hub.MidiHub(self.seq) as hub:
             listener1 = hub.listeners.add('10/14', callback1)
             listener2 = hub.listeners.add('10/14', callback2)
             hub._seq.wait_until_done()
@@ -122,7 +117,7 @@ class MidiHubTest(unittest.TestCase):
             midi_events.NoteOnEvent(1000, '10/14', 0, 65, 120))
 
     def test_listener_unknown_device(self):
-        with midi_hub.MidiHub() as hub:
+        with midi_hub.MidiHub(self.seq) as hub:
             with self.assertRaises(midi_hub.Error):
                 hub.listeners.add('111/222', mock.Mock())
 

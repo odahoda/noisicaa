@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
 )
 
 from noisicaa import music
+from noisicaa import devices
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
@@ -25,7 +26,6 @@ from ..audioproc.compose.mix import Mix
 from ..audioproc.sink.pyaudio import PyAudioSink
 from ..audioproc.sink.null import NullSink
 from ..instr.library import InstrumentLibrary
-
 
 logger = logging.getLogger('ui.editor_app')
 
@@ -81,6 +81,8 @@ class BaseEditorApp(QApplication):
         self.global_mixer = None
         self.sink = None
         self.playback_sources = None
+        self.sequencer = None
+        self.midi_hub = None
 
     def setup(self):
         self.default_style = self.style().objectName()
@@ -102,6 +104,11 @@ class BaseEditorApp(QApplication):
         self.playback_sources = {}
         self.pipeline.start()
 
+        self.sequencer = self.createSequencer()
+
+        self.midi_hub = self.createMidiHub()
+        self.midi_hub.start()
+
         self.new_project_action = QAction(
             "New", self,
             shortcut=QKeySequence.New,
@@ -117,13 +124,29 @@ class BaseEditorApp(QApplication):
 
     def cleanup(self):
         logger.info("Cleaning up.")
-        self.pipeline.stop()
+        if self.midi_hub is not None:
+            self.midi_hub.stop()
+            self.midi_hub = None
+
+        if self.sequencer is not None:
+            self.sequencer.close()
+            self.sequencer = None
+
+        if self.pipeline is not None:
+            self.pipeline.stop()
+            self.pipeline = None
 
     def createAudioSink(self):
         sink = NullSink(sleep=0.1)
         self.pipeline.set_sink(sink)
         sink.setup()
         return sink
+
+    def createSequencer(self):
+        return None
+
+    def createMidiHub(self):
+        return devices.MidiHub(self.sequencer)
 
     def exit(self, exit_code):
         logger.info("exit(%d) received", exit_code)
@@ -232,6 +255,13 @@ class EditorApp(BaseEditorApp):
 
         self.aboutToQuit.connect(self.shutDown)
 
+    def cleanup(self):
+        super().cleanup()
+
+        if self._sequencer is not None:
+            self._sequencer.close()
+            self._sequencer = None
+
     def shutDown(self):
         logger.info("Shutting down.")
 
@@ -253,3 +283,10 @@ class EditorApp(BaseEditorApp):
         self.pipeline.set_sink(sink)
         sink.setup()
         return sink
+
+    def createSequencer(self):
+        # Do other clients handle non-ASCII names?
+        # 'aconnect' seems to work (or just spits out whatever bytes it gets
+        # and the console interprets it as UTF-8), 'aconnectgui' shows the
+        # encoded bytes.
+        return devices.AlsaSequencer('noisicaä')
