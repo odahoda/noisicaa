@@ -41,6 +41,7 @@ from PyQt5.QtSvg import QSvgRenderer, QGraphicsSvgItem
 
 from ..ui_state import UpdateUIState
 from .instrument_library import InstrumentLibraryDialog
+from .render_sheet_dialog import RenderSheetDialog
 from noisicaa.music import (
     AddSheet, DeleteSheet, SetCurrentSheet,
     ScoreTrack,
@@ -1562,6 +1563,10 @@ class SheetView(QGraphicsView):
         measure = self._project.get_object(address)
         self._tracks[measure.track.index].onPlaybackTag(
             measure.index, event, idx)
+
+    def onRender(self):
+        dialog = RenderSheetDialog(self, self._app, self._sheet)
+        dialog.exec_()
 
     def event(self, event):
         if isinstance(event, PlaybackTagEvent):

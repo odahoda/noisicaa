@@ -210,3 +210,6 @@ class ProjectView(QWidget):
         view = self.currentSheetView()
         view.onAddTrack(track_type)
 
+    def onRender(self):
+        view = self.currentSheetView()
+        view.onRender()

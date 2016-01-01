@@ -7,7 +7,7 @@ from .clef import Clef
 from .pitch import Pitch, NOTE_TO_MIDI
 from .time import Duration
 from .project import (
-    Project,
+    BaseProject, Project,
     Sheet,
 
     AddSheet, DeleteSheet, SetCurrentSheet,

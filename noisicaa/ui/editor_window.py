@@ -195,6 +195,11 @@ class EditorWindow(QMainWindow):
             statusTip="Import a file into the current project.",
             triggered=self.onImport)
 
+        self._render_action = QAction(
+            "Render", self,
+            statusTip="Render sheet into an audio file.",
+            triggered=self.onRender)
+
         self._save_project_action = QAction(
             "Save", self,
             shortcut=QKeySequence.Save,
@@ -285,6 +290,7 @@ class EditorWindow(QMainWindow):
         self._project_menu.addAction(self._close_current_project_action)
         self._project_menu.addSeparator()
         self._project_menu.addAction(self._import_action)
+        self._project_menu.addAction(self._render_action)
         self._project_menu.addSeparator()
         self._project_menu.addAction(self._open_instrument_library_action)
         self._project_menu.addSeparator()
@@ -544,6 +550,10 @@ class EditorWindow(QMainWindow):
             errorbox.setIcon(QMessageBox.Warning)
             errorbox.addButton("Close", QMessageBox.AcceptRole)
             errorbox.exec_()
+
+    def onRender(self):
+        view = self._project_tabs.currentWidget()
+        view.onRender()
 
     def onSaveProject(self):
         project = self.getCurrentProject()
