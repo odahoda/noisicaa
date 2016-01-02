@@ -203,7 +203,7 @@ class Note(core.StateBase, core.CommandTarget):
     def __init__(self,
                  pitches=None, base_duration=None, dots=0, tuplet=0,
                  state=None):
-        super().__init__(state)
+        super().__init__(state=state)
         if state is None:
             if pitches is not None:
                 self.pitches.extend(pitches)
@@ -265,7 +265,7 @@ class ScoreMeasure(Measure):
     notes = core.ObjectListProperty(cls=Note)
 
     def __init__(self, state=None):
-        super().__init__(state)
+        super().__init__(state=state)
         if state is None:
             pass
 
@@ -336,8 +336,8 @@ class ScoreTrack(Track):
     measure_cls = ScoreMeasure
     transpose_octaves = core.Property(int, default=0)
 
-    def __init__(self, name=None, num_measures=1, state=None):
-        super().__init__(name, state)
+    def __init__(self, name=None, instrument=None, num_measures=1, state=None):
+        super().__init__(name=name, instrument=instrument, state=state)
 
         if state is None:
             for _ in range(num_measures):

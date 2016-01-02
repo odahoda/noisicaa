@@ -11,6 +11,7 @@ import portalocker
 from noisicaa import core
 from noisicaa.core import fileutil
 from noisicaa.audioproc.compose.mix import Mix
+from noisicaa.instr.library import SoundFontInstrument
 
 from .exceptions import (
     CorruptedProjectError,
@@ -22,7 +23,7 @@ from .clef import Clef
 from .key_signature import KeySignature
 from .time_signature import TimeSignature
 from .track import Track
-from .score_track import ScoreTrack
+from .score_track import ScoreTrack, Note
 from .sheet_property_track import SheetPropertyTrack
 from .time import Duration
 
@@ -316,10 +317,18 @@ class Sheet(core.StateBase, core.CommandTarget):
     def get_time_signature(self, measure_idx):
         return self.property_track.measures[measure_idx].time_signature
 
-    def create_playback_source(self, pipeline):
+    def create_playback_source(self, pipeline, setup=True, recursive=False):
         mixer = Mix()
         pipeline.add_node(mixer)
-        mixer.setup()
+        if setup:
+            mixer.setup()
+
+        if recursive:
+            for track in self.tracks:
+                track_src = track.create_playback_source(
+                    pipeline, setup, recursive)
+                mixer.append_input(track_src.outputs['out'])
+
         return mixer
 
     def equalize_tracks(self, remove_trailing_empty_measures=0):
@@ -413,10 +422,11 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
     sheets = core.ObjectListProperty(cls=Sheet)
     current_sheet = core.Property(int, default=0)
 
-    def __init__(self, state=None):
+    def __init__(self, num_sheets=1, state=None):
         super().__init__(state)
         if state is None:
-            self.sheets.append(Sheet(name="Sheet 1"))
+            for i in range(1, num_sheets + 1):
+                self.sheets.append(Sheet(name="Sheet %d" % i))
 
         self.address = '/'
         self.set_root()
@@ -449,6 +459,84 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
         result = super().dispatch_command(target, cmd)
         logger.info("Executed command %s on %s", cmd, target)
         return result
+
+    @classmethod
+    def make_demo(cls):
+        project = cls(num_sheets=0)
+        sheet = Sheet(name="Demo Sheet", num_tracks=0)
+        project.sheets.append(sheet)
+
+        while len(sheet.property_track.measures) < 4:
+            sheet.property_track.append_measure()
+
+        for m in sheet.property_track.measures:
+            m.bpm = 140
+
+        instr1 = SoundFontInstrument(
+            name="Flute",
+            path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=73)
+        track1 = ScoreTrack(name="Track 1", instrument=instr1, num_measures=4)
+        sheet.tracks.append(track1)
+
+        instr2 = SoundFontInstrument(
+            name="Yamaha Grand Piano",
+            path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=0)
+        track2 = ScoreTrack(name="Track 2", instrument=instr2, num_measures=4)
+        sheet.tracks.append(track2)
+        sheet.update_tracks()
+
+        track1.measures[0].notes.append(
+            Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
+        track1.measures[0].notes.append(
+            Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+        track1.measures[0].notes.append(
+            Note(pitches=[Pitch('E5')], base_duration=Duration(1, 4)))
+        track1.measures[0].notes.append(
+            Note(pitches=[Pitch('F5')], base_duration=Duration(1, 4)))
+
+        track1.measures[1].notes.append(
+            Note(pitches=[Pitch('C5')], base_duration=Duration(1, 2)))
+        track1.measures[1].notes.append(
+            Note(pitches=[Pitch('F5')], base_duration=Duration(1, 8)))
+        track1.measures[1].notes.append(
+            Note(pitches=[Pitch('E5')], base_duration=Duration(1, 8)))
+        track1.measures[1].notes.append(
+            Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+
+        track1.measures[2].notes.append(
+            Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
+        track1.measures[2].notes.append(
+            Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+        track1.measures[2].notes.append(
+            Note(pitches=[Pitch('E5')], base_duration=Duration(1, 4)))
+        track1.measures[2].notes.append(
+            Note(pitches=[Pitch('F5')], base_duration=Duration(1, 4)))
+
+        track1.measures[3].notes.append(
+            Note(pitches=[Pitch('C5')], base_duration=Duration(1, 2)))
+        track1.measures[3].notes.append(
+            Note(pitches=[Pitch('F5')], base_duration=Duration(1, 8)))
+        track1.measures[3].notes.append(
+            Note(pitches=[Pitch('E5')], base_duration=Duration(1, 8)))
+        track1.measures[3].notes.append(
+            Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+
+
+        track2.measures[0].notes.append(
+            Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
+                 base_duration=Duration(1, 1)))
+        track2.measures[1].notes.append(
+            Note(pitches=[Pitch('F3'), Pitch('A4'), Pitch('C4')],
+                 base_duration=Duration(1, 1)))
+
+        track2.measures[2].notes.append(
+            Note(pitches=[Pitch('A3'), Pitch('C4'), Pitch('E4')],
+                 base_duration=Duration(1, 1)))
+        track2.measures[3].notes.append(
+            Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
+                 base_duration=Duration(1, 1)))
+
+        return project
 
 
 class Project(BaseProject):
