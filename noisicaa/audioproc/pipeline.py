@@ -162,6 +162,7 @@ def demo():  # pragma: no cover
     from .compose.timeslice import TimeSlice
     from .compose.mix import Mix
     from .sink.pyaudio import PyAudioSink
+    from .sink.encode import EncoderSink
     from noisicaa import music
 
     logging.basicConfig(level=logging.DEBUG)
@@ -190,6 +191,7 @@ def demo():  # pragma: no cover
     # #concat.append_input(slice_noise.outputs['out'])
     # concat.append_input(sheet_mixer.outputs['out'])
 
+    #sink = EncoderSink('flac', '/tmp/foo.flac')
     sink = PyAudioSink()
     pipeline.set_sink(sink)
     sink.inputs['in'].connect(sheet_mixer.outputs['out'])
