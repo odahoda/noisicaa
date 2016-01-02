@@ -7,22 +7,24 @@ if __name__ == '__main__':
     import pyximport
     pyximport.install()
 
+from noisicaa import music
+from ..exceptions import EndOfStreamError
 from . import notes
-from noisicaa.music import Sheet, ScoreTrack
 
 
 class NotesTest(unittest.TestCase):
     def testBasicRun(self):
-        sheet = Sheet(name='test')
-        track = ScoreTrack(name='test')
-        sheet.tracks.append(track)
-        node = notes.NoteSource(track)
+        project = music.BaseProject.make_demo()
+        node = notes.NoteSource(project.sheets[0].tracks[0])
         node.outputs['out'].connect()
         node.setup()
         try:
-            node.start()
-            for _ in range(100):
-                node.run()
+            node.outputs['out'].start()
+            while True:
+                try:
+                    node.run()
+                except EndOfStreamError:
+                    break
         finally:
             node.cleanup()
 

@@ -12,7 +12,7 @@ from .. import libfluidsynth
 from ..exceptions import SetupError
 from ..ports import EventInputPort, AudioOutputPort
 from ..node import Node
-from ..events import NoteOnEvent, NoteOffEvent
+from ..events import NoteOnEvent, NoteOffEvent, EndOfStreamEvent
 
 logger = logging.getLogger(__name__)
 
@@ -136,17 +136,19 @@ class FluidSynthSource(Node):
                     tp = event.timepos
 
                 logger.info("Consuming event %s", event)
+                tags |= event.tags
+
                 if isinstance(event, NoteOnEvent):
                     self._synth.noteon(
                         0, event.note.midi_note, event.volume)
                 elif isinstance(event, NoteOffEvent):
                     self._synth.noteoff(
                         0, event.note.midi_note)
+                elif isinstance(event, EndOfStreamEvent):
+                    break
                 else:
                     raise NotImplementedError(
                         "Event class %s not supported" % type(event).__name__)
-
-                tags |= event.tags
 
             if tp < self._timepos + 4096:
                 samples += bytes(

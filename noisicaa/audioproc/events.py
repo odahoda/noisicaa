@@ -38,3 +38,6 @@ class NoteOffEvent(NoteEvent):
         super().__init__(timepos, note)
 
 
+class EndOfStreamEvent(Event):
+    def __init__(self, timepos, tags=None):
+        super().__init__(timepos, tags)

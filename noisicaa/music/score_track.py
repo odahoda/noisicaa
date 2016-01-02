@@ -5,7 +5,7 @@ import fractions
 
 from noisicaa import core
 
-from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
+from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent, EndOfStreamEvent
 
 from .pitch import Pitch
 from .clef import Clef
@@ -293,10 +293,9 @@ class ScoreEventSource(EventSource):
 
         while self._current_micro_timepos < 1000000 * end_timepos:
             measure = self._track.measures[self._current_measure]
+            timepos = self._current_micro_timepos // 1000000
 
             if self._current_micro_timepos >= 1000000 * start_timepos:
-                timepos = self._current_micro_timepos // 1000000
-
                 t = 0
                 for idx, note in enumerate(measure.notes):
                     if t == self._current_tick:
@@ -329,6 +328,7 @@ class ScoreEventSource(EventSource):
                 self._current_tick = 0
                 self._current_measure += 1
                 if self._current_measure >= len(self._track.measures):
+                    yield EndOfStreamEvent(timepos)
                     self._current_measure = 0
 
 

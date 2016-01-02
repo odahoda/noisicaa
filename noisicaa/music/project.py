@@ -317,8 +317,8 @@ class Sheet(core.StateBase, core.CommandTarget):
     def get_time_signature(self, measure_idx):
         return self.property_track.measures[measure_idx].time_signature
 
-    def create_playback_source(self, pipeline, setup=True, recursive=False):
-        mixer = Mix()
+    def create_playback_source(self, pipeline, setup=True, recursive=False, stop_on_end_of_stream=False):
+        mixer = Mix(stop_on_end_of_stream=stop_on_end_of_stream)
         pipeline.add_node(mixer)
         if setup:
             mixer.setup()
@@ -466,7 +466,7 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
         sheet = Sheet(name="Demo Sheet", num_tracks=0)
         project.sheets.append(sheet)
 
-        while len(sheet.property_track.measures) < 4:
+        while len(sheet.property_track.measures) < 5:
             sheet.property_track.append_measure()
 
         for m in sheet.property_track.measures:
@@ -475,13 +475,13 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
         instr1 = SoundFontInstrument(
             name="Flute",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=73)
-        track1 = ScoreTrack(name="Track 1", instrument=instr1, num_measures=4)
+        track1 = ScoreTrack(name="Track 1", instrument=instr1, num_measures=5)
         sheet.tracks.append(track1)
 
         instr2 = SoundFontInstrument(
             name="Yamaha Grand Piano",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=0)
-        track2 = ScoreTrack(name="Track 2", instrument=instr2, num_measures=4)
+        track2 = ScoreTrack(name="Track 2", instrument=instr2, num_measures=5)
         sheet.tracks.append(track2)
         sheet.update_tracks()
 
@@ -521,6 +521,9 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
         track1.measures[3].notes.append(
             Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
 
+        track1.measures[4].notes.append(
+            Note(pitches=[Pitch('C5')], base_duration=Duration(1, 1)))
+
 
         track2.measures[0].notes.append(
             Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
@@ -533,6 +536,10 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
             Note(pitches=[Pitch('A3'), Pitch('C4'), Pitch('E4')],
                  base_duration=Duration(1, 1)))
         track2.measures[3].notes.append(
+            Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
+                 base_duration=Duration(1, 1)))
+
+        track2.measures[4].notes.append(
             Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
                  base_duration=Duration(1, 1)))
 
