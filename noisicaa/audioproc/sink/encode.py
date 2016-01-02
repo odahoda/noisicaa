@@ -104,6 +104,7 @@ class EncoderSink(Node):
         self.path = path
 
         self._encoder = self.formats[self.output_format](path)
+        self._frames_processed = None
 
         self._input = AudioInputPort('in')
         self.add_input(self._input)
@@ -119,6 +120,7 @@ class EncoderSink(Node):
     def start(self):
         super().start()
         self._encoder.start()
+        self._frames_processed = 0
 
     def stop(self):
         self._encoder.stop()
@@ -132,3 +134,5 @@ class EncoderSink(Node):
     def consume(self, framesize=4096):
         fr = self._input.get_frame(framesize)
         self._encoder.consume(fr)
+        self._frames_processed += len(fr)
+        return self._frames_processed

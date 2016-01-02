@@ -8,6 +8,7 @@ import time
 from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtGui import QIcon, QFont, QPalette, QColor
 from PyQt5.QtWidgets import (
+    QMessageBox,
     QWidget,
     QPushButton,
     QHBoxLayout,
@@ -21,6 +22,10 @@ from PyQt5.QtWidgets import (
     QProgressBar,
     QLabel,
 )
+
+from noisicaa.audioproc.exceptions import EndOfStreamError
+from noisicaa.audioproc.pipeline import Pipeline
+from noisicaa.audioproc.sink.encode import EncoderSink
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +57,7 @@ class RenderSheetDialog(QDialog):
 
         self.file_format = QComboBox(self.top_area)
         self.file_format.addItem("FLAC", userData="flac")
-        self.file_format.addItem("OGG", userData="ogg")
+        #self.file_format.addItem("OGG", userData="ogg")
         self.file_format.currentIndexChanged.connect(self.onFileFormatChanged)
 
         self.progress = QProgressBar(
@@ -133,6 +138,7 @@ class RenderSheetDialog(QDialog):
         self.abort_button.setVisible(True)
 
         self._renderer = Renderer(
+            self._sheet,
             os.path.join(self.output_directory.text(), self.file_name.text()),
             self.file_format.currentData())
         self._renderer.progress.connect(self.progress.setValue)
@@ -158,6 +164,14 @@ class RenderSheetDialog(QDialog):
             palette.setColor(QPalette.WindowText, QColor(255, 60, 60))
             self.status.setPalette(palette)
 
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Renderer failed")
+            msg.setText("Rendering failed with an error:")
+            msg.setInformativeText(self._renderer.reason)
+            msg.setIcon(QMessageBox.Critical)
+            msg.addButton("Ok", QMessageBox.AcceptRole)
+            msg.exec_()
+
         self._renderer = None
 
         self.progress.setVisible(False)
@@ -180,19 +194,25 @@ class Renderer(QObject):
     SUCCESS = 'success'
     FAILED = 'failed'
 
-    def __init__(self, path, file_format):
+    def __init__(self, sheet, path, file_format):
         super().__init__()
 
+        self.sheet = sheet
         self.path = path
         self.file_format = file_format
 
         self._status = None
+        self._reason = None
         self._thread = None
         self._aborted = threading.Event()
 
     @property
     def status(self):
         return self._status
+
+    @property
+    def reason(self):
+        return self._reason or "Unknown error"
 
     def start(self):
         assert self._thread is None
@@ -204,14 +224,52 @@ class Renderer(QObject):
 
     def _render(self):
         try:
-            for p in range(101):
-                if self._aborted.is_set():
-                    self._status = self.ABORTED
-                    return
+            total_samples = self.sheet.property_track.get_num_samples(44100)
 
-                self.progress.emit(p)
-                time.sleep(0.05)
+            pipeline = Pipeline()
+            sheet_mixer = self.sheet.create_playback_source(
+                pipeline, setup=True, recursive=True)
+
+            sink = EncoderSink(self.file_format, self.path)
+            pipeline.set_sink(sink)
+            sink.inputs['in'].connect(sheet_mixer.outputs['out'])
+            sink.setup()
+            sink.start()
+            try:
+                self.progress.emit(0)
+                last_update = time.time()
+                while True:
+                    if self._aborted.is_set():
+                        logger.info("Aborted.")
+                        self._status = self.ABORTED
+                        return
+
+                    try:
+                        num_samples = sink.consume()
+                    except EndOfStreamError:
+                        logger.info("End of stream reached.")
+                        break
+
+                    now = time.time()
+                    if now - last_update > 0.1:
+                        self.progress.emit(
+                            min(100, int(100 * num_samples / total_samples)))
+                        last_update = now
+
+            finally:
+                logger.info("Cleaning up nodes...")
+                for node in reversed(pipeline.sorted_nodes):
+                    node.stop()
+                    node.cleanup()
 
             self._status = self.SUCCESS
+
+        except Exception as exc:
+            logger.exception("Sheet renderer failed with an exception:")
+            self._status = self.FAILED
+            self._reason = str(exc)
+
         finally:
             self.done.emit()
+
+

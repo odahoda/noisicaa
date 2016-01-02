@@ -6,6 +6,7 @@ from noisicaa import core
 
 from .time_signature import TimeSignature
 from .track import Track, Measure, EventSource
+from .time import Duration
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,12 @@ class SheetPropertyMeasure(Measure):
     def empty(self):
         return True
 
+    def get_num_samples(self, sample_rate):
+        return int(
+            sample_rate
+            * Duration(self.time_signature.upper, self.time_signature.lower)
+            * 4 * 60 // self.bpm)
+
 Measure.register_subclass(SheetPropertyMeasure)
 
 
@@ -98,5 +105,8 @@ class SheetPropertyTrack(Track):
 
     def create_event_source(self):
         return SheetPropertyEventSource(self)
+
+    def get_num_samples(self, sample_rate):
+        return sum((m.get_num_samples(sample_rate) for m in self.measures), 0)
 
 Track.register_subclass(SheetPropertyTrack)

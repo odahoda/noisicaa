@@ -88,3 +88,4 @@ class PyAudioSink(Node):
 
         samples = self._resampler.convert(fr.as_bytes(), len(fr))
         self._stream.write(samples)
+        return fr.timepos

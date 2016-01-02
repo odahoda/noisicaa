@@ -165,6 +165,8 @@ class Track(core.StateBase, core.CommandTarget):
         instr = self.instrument
         instr_source = FluidSynthSource(
             instr.path, instr.bank, instr.preset)
+        instr_source.outputs['out'].volume = self.volume
+        instr_source.outputs['out'].muted = self.muted
         pipeline.add_node(instr_source)
         instr_source.inputs['in'].connect(note_source.outputs['out'])
         if setup:
