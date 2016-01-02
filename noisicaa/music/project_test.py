@@ -2,6 +2,7 @@
 
 import builtins
 import json
+import pprint
 import unittest
 
 from mox3 import stubout
@@ -31,6 +32,10 @@ class BaseProjectTest(unittest.TestCase):
         state = store_retrieve(p.serialize())
         p2 = project.Project(state=state)
         self.assertEqual(len(p2.sheets), 1)
+
+    def test_demo(self):
+        p = project.BaseProject.make_demo()
+        pprint.pprint(p.serialize())
 
 
 class AddSheetTest(unittest.TestCase):

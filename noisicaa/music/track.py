@@ -128,10 +128,11 @@ class Track(core.StateBase, core.CommandTarget):
     volume = core.Property(float, default=100.0)
     transpose_octaves = core.Property(int, default=0)
 
-    def __init__(self, name=None, state=None):
+    def __init__(self, name=None, instrument=None, state=None):
         super().__init__(state)
         if state is None:
             self.name = name
+            self.instrument = instrument
 
         self.update_measures()
         self.index = None
@@ -148,23 +149,26 @@ class Track(core.StateBase, core.CommandTarget):
     def project(self):
         return self.sheet.project
 
-    def create_playback_source(self, pipeline):
+    def create_playback_source(self, pipeline, setup=True, recursive=False):
         if self.instrument is None:
             source = SilenceSource()
             pipeline.add_node(source)
-            source.setup()
+            if setup:
+                source.setup()
             return source
 
         note_source = NoteSource(self)
         pipeline.add_node(note_source)
-        note_source.setup()
+        if setup:
+            note_source.setup()
 
         instr = self.instrument
         instr_source = FluidSynthSource(
             instr.path, instr.bank, instr.preset)
         pipeline.add_node(instr_source)
         instr_source.inputs['in'].connect(note_source.outputs['out'])
-        instr_source.setup()
+        if setup:
+            instr_source.setup()
 
         return instr_source
 

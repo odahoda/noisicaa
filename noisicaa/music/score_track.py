@@ -5,7 +5,7 @@ import fractions
 
 from noisicaa import core
 
-from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
+from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent, EndOfStreamEvent
 
 from .pitch import Pitch
 from .clef import Clef
@@ -203,7 +203,7 @@ class Note(core.StateBase, core.CommandTarget):
     def __init__(self,
                  pitches=None, base_duration=None, dots=0, tuplet=0,
                  state=None):
-        super().__init__(state)
+        super().__init__(state=state)
         if state is None:
             if pitches is not None:
                 self.pitches.extend(pitches)
@@ -265,7 +265,7 @@ class ScoreMeasure(Measure):
     notes = core.ObjectListProperty(cls=Note)
 
     def __init__(self, state=None):
-        super().__init__(state)
+        super().__init__(state=state)
         if state is None:
             pass
 
@@ -293,10 +293,9 @@ class ScoreEventSource(EventSource):
 
         while self._current_micro_timepos < 1000000 * end_timepos:
             measure = self._track.measures[self._current_measure]
+            timepos = self._current_micro_timepos // 1000000
 
             if self._current_micro_timepos >= 1000000 * start_timepos:
-                timepos = self._current_micro_timepos // 1000000
-
                 t = 0
                 for idx, note in enumerate(measure.notes):
                     if t == self._current_tick:
@@ -329,6 +328,7 @@ class ScoreEventSource(EventSource):
                 self._current_tick = 0
                 self._current_measure += 1
                 if self._current_measure >= len(self._track.measures):
+                    yield EndOfStreamEvent(timepos)
                     self._current_measure = 0
 
 
@@ -336,8 +336,8 @@ class ScoreTrack(Track):
     measure_cls = ScoreMeasure
     transpose_octaves = core.Property(int, default=0)
 
-    def __init__(self, name=None, num_measures=1, state=None):
-        super().__init__(name, state)
+    def __init__(self, name=None, instrument=None, num_measures=1, state=None):
+        super().__init__(name=name, instrument=instrument, state=state)
 
         if state is None:
             for _ in range(num_measures):

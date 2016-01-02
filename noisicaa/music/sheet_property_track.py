@@ -76,7 +76,7 @@ class SheetPropertyTrack(Track):
     measure_cls = SheetPropertyMeasure
 
     def __init__(self, name=None, num_measures=1, state=None):
-        super().__init__(name, state)
+        super().__init__(name=name, state=state)
 
         if state is None:
             for _ in range(num_measures):

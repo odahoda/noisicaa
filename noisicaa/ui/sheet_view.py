@@ -1218,6 +1218,13 @@ class PlaybackTagEvent(QEvent):
         self.tag = tag
 
 
+class PlaybackStopEvent(QEvent):
+    _event_type = QEvent.registerEventType()
+
+    def __init__(self):
+        super().__init__(self._event_type)
+
+
 class Layer(enum.IntEnum):
     BG = 0
     MAIN = 1
@@ -1241,7 +1248,10 @@ class SheetView(QGraphicsView):
 
         logger.info("Create playback source for sheet %s", self._sheet.name)
         self.master_mixer = self._sheet.create_playback_source(
-            self._project.playback_pipeline)
+            self._project.playback_pipeline, stop_on_end_of_stream=True)
+        self.master_mixer.listeners.add(
+            'stop',
+            lambda: QCoreApplication.postEvent(self, PlaybackStopEvent()))
         self.master_mixer.outputs['out'].add_tag_listener(self.onPlaybackTags)
 
         self._track_visible_listeners = []
@@ -1571,6 +1581,9 @@ class SheetView(QGraphicsView):
     def event(self, event):
         if isinstance(event, PlaybackTagEvent):
             self.onPlaybackTag(event)
+            return True
+        if isinstance(event, PlaybackStopEvent):
+            self.onPlaybackStop()
             return True
         return super().event(event)
 

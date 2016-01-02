@@ -162,49 +162,37 @@ def demo():  # pragma: no cover
     from .compose.timeslice import TimeSlice
     from .compose.mix import Mix
     from .sink.pyaudio import PyAudioSink
-    from ..project import ScoreTrack, ScoreMeasure
+    from noisicaa import music
 
     logging.basicConfig(level=logging.DEBUG)
 
     pipeline = Pipeline()
 
-    track = ScoreTrack('Track 1')
-    track.measures.clear()
-    measure = ScoreMeasure()
-    track.measures.append(measure)
-
-    notes = NoteSource(track)
-    pipeline.add_node(notes)
-
-    melody = FluidSynthSource(
-        '/usr/share/sounds/sf2/FluidR3_GM.sf2', 0, 1)
-    pipeline.add_node(melody)
-    melody.inputs['in'].connect(notes.outputs['out'])
-
-    melody_boost = Scale(2.0)
-    pipeline.add_node(melody_boost)
-    melody_boost.inputs['in'].connect(melody.outputs['out'])
+    project = music.BaseProject.make_demo()
+    sheet = project.sheets[0]
+    sheet_mixer = sheet.create_playback_source(
+        pipeline, setup=False, recursive=True)
 
     #noise = WavFileSource('/storage/home/share/sounds/new/2STEREO2.wav') #NoiseSource()
-    noise = WhiteNoiseSource()
-    pipeline.add_node(noise)
+    # noise = WhiteNoiseSource()
+    # pipeline.add_node(noise)
 
-    noise_boost = Scale(0.1)
-    pipeline.add_node(noise_boost)
-    noise_boost.inputs['in'].connect(noise.outputs['out'])
+    # noise_boost = Scale(0.1)
+    # pipeline.add_node(noise_boost)
+    # noise_boost.inputs['in'].connect(noise.outputs['out'])
 
-    slice_noise = TimeSlice(200000)
-    pipeline.add_node(slice_noise)
-    slice_noise.inputs['in'].connect(noise_boost.outputs['out'])
+    # slice_noise = TimeSlice(200000)
+    # pipeline.add_node(slice_noise)
+    # slice_noise.inputs['in'].connect(noise_boost.outputs['out'])
 
-    concat = Mix()
-    pipeline.add_node(concat)
-    concat.append_input(slice_noise.outputs['out'])
-    concat.append_input(melody_boost.outputs['out'])
+    # concat = Mix()
+    # pipeline.add_node(concat)
+    # #concat.append_input(slice_noise.outputs['out'])
+    # concat.append_input(sheet_mixer.outputs['out'])
 
     sink = PyAudioSink()
     pipeline.set_sink(sink)
-    sink.inputs['in'].connect(concat.outputs['out'])
+    sink.inputs['in'].connect(sheet_mixer.outputs['out'])
 
     pipeline.start()
     try:
