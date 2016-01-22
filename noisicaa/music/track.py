@@ -116,12 +116,53 @@ class EventSource(object):
         raise NotImplementedError
 
 
+class MeasureList(core.StateBase, core.CommandTarget):
+    measures = core.ObjectListProperty(cls=Measure)
+
+    def __init__(self, state=None):
+        super().__init__(state)
+
+    def __len__(self):
+        return len(self.measures)
+
+    def __eq__(self, other):
+        if len(self) != len(other):
+            return False
+        for a, b in zip(self._objs, other):
+            if a != b:
+                return False
+        return True
+
+    def __getitem__(self, idx):
+        return self.measures[idx]
+
+    def __setitem__(self, idx, obj):
+        self.__delitem__(idx)
+        self.insert(idx, obj)
+
+    def __delitem__(self, idx):
+        del self.measures[idx]
+
+    def append(self, obj):
+        self.measures.insert(0, obj)
+
+    def insert(self, idx, obj):
+        self.measures.insert(idx, obj)
+
+    def clear(self):
+        self.measures.clear()
+
+    def extend(self, value):
+        for v in value:
+            self.append(v)
+
+
 class Track(core.StateBase, core.CommandTarget):
     measure_cls = None
 
     name = core.Property(str)
     instrument = core.ObjectProperty(cls=Instrument)
-    measures = core.ObjectListProperty(cls=Measure)
+    measures = core.ObjectProperty(cls=MeasureList)
 
     visible = core.Property(bool, default=True)
     muted = core.Property(bool, default=False)
@@ -130,6 +171,10 @@ class Track(core.StateBase, core.CommandTarget):
 
     def __init__(self, name=None, instrument=None, state=None):
         super().__init__(state)
+
+        if self.measures is None:
+            self.measures = MeasureList()
+
         if state is None:
             self.name = name
             self.instrument = instrument
