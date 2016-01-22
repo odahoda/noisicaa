@@ -6,7 +6,7 @@ import pprint
 import unittest
 
 from mox3 import stubout
-import fake_filesystem
+from pyfakefs import fake_filesystem
 
 if __name__ == '__main__':
     import pyximport
