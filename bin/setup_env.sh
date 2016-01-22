@@ -16,7 +16,7 @@ PYVERSION=3.4
 SIPVERSION=4.17
 PYQTVERSION=5.5.1
 
-PACKAGES="python$PYVERSION python$PYVERSION-venv python$PYVERSION-dev qt5-qmake qtbase5-dev sip-dev libxml2-dev libxslt1-dev portaudio19-dev libavutil-dev libavutil-ffmpeg54 libswresample-dev libswresample-ffmpeg1 libfluidsynth1 libfluidsynth-dev libqt5svg5-dev inkscape timgm6mb-soundfont fluid-soundfont-gs fluid-soundfont-gm"
+PACKAGES="python$PYVERSION python$PYVERSION-venv python$PYVERSION-dev qt5-qmake qtbase5-dev sip-dev libxml2-dev libxslt1-dev portaudio19-dev libavutil-dev libavutil-ffmpeg54 libswresample-dev libswresample-ffmpeg1 libfluidsynth1 libfluidsynth-dev libqt5svg5-dev inkscape timgm6mb-soundfont fluid-soundfont-gs fluid-soundfont-gm flac"
 
 function pkg-status() {
     PKG="$1"
