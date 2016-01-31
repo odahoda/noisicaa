@@ -5,7 +5,6 @@ class TreeNode(object):
         super().__init__()
 
         self.parent = None
-        #self.root = self
 
     @property
     def root(self):
@@ -19,9 +18,8 @@ class TreeNode(object):
     def attach(self, parent):
         assert self.parent is None
         self.parent = parent
-        #self.root = parent.root
 
     def detach(self):
         assert self.parent is not None
         self.parent = None
-        #self.root = self
+

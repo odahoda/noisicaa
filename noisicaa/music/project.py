@@ -163,7 +163,6 @@ class AddTrack(core.Command):
         track_cls = track_cls_map[self.track_type]
         track = track_cls(name=track_name, num_measures=num_measures)
         sheet.tracks.append(track)
-        sheet.update_tracks()
 
         return len(sheet.tracks) - 1
 
@@ -182,7 +181,6 @@ class RemoveTrack(core.Command):
         assert isinstance(sheet, Sheet)
 
         del sheet.tracks[self.track]
-        sheet.update_tracks()
 
 core.Command.register_subclass(RemoveTrack)
 
@@ -212,7 +210,6 @@ class MoveTrack(core.Command):
             new_pos = track.index - 1
             del sheet.tracks[track.index]
             sheet.tracks.insert(new_pos, track)
-            sheet.update_tracks()
 
         elif self.direction > 0:
             if track.index == len(sheet.tracks) - 1:
@@ -220,7 +217,6 @@ class MoveTrack(core.Command):
             new_pos = track.index + 1
             del sheet.tracks[track.index]
             sheet.tracks.insert(new_pos, track)
-            sheet.update_tracks()
 
         return track.index
 
@@ -294,8 +290,6 @@ class Sheet(core.StateBase, core.CommandTarget):
             for i in range(num_tracks):
                 self.tracks.append(ScoreTrack(name="Track %d" % i))
 
-        self.update_tracks()
-
     @property
     def address(self):
         return self.parent.address + 'sheet:' + self.name
@@ -353,7 +347,6 @@ class Sheet(core.StateBase, core.CommandTarget):
                 if len(track.measures) < max_length:
                     continue
                 track.remove_measure(max_length - 1)
-                track.update_measures()
 
             remove_trailing_empty_measures -= 1
 
@@ -362,12 +355,6 @@ class Sheet(core.StateBase, core.CommandTarget):
         for track in self.all_tracks:
             while len(track.measures) < max_length:
                 track.append_measure()
-                track.update_measures()
-
-    def update_tracks(self):
-        # This sure is very inefficient. Do we care?
-        for idx, track in enumerate(self.tracks):
-            track.index = idx
 
     def get_sub_target(self, name):
         if name.startswith('track:'):
@@ -483,7 +470,6 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=0)
         track2 = ScoreTrack(name="Track 2", instrument=instr2, num_measures=5)
         sheet.tracks.append(track2)
-        sheet.update_tracks()
 
         track1.measures[0].notes.append(
             Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))

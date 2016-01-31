@@ -180,7 +180,6 @@ class ScoreEventSource(unittest.TestCase):
         proj.sheets.append(sheet)
         track = project.ScoreTrack(name='test', num_measures=2)
         sheet.tracks.append(track)
-        sheet.update_tracks()
         sheet.equalize_tracks()
 
         source = track.create_event_source()

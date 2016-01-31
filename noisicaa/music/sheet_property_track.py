@@ -88,7 +88,6 @@ class SheetPropertyTrack(Track):
         if state is None:
             for _ in range(num_measures):
                 self.measures.append(SheetPropertyMeasure())
-            self.update_measures()
 
     @property
     def address(self):

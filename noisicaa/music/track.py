@@ -83,8 +83,6 @@ class Measure(core.StateBase, core.CommandTarget):
     def __init__(self, state=None):
         super().__init__(state)
 
-        self.index = None
-
     @property
     def address(self):
         return self.parent.address + '/measure:%d' % self.index
@@ -116,53 +114,12 @@ class EventSource(object):
         raise NotImplementedError
 
 
-class MeasureList(core.StateBase, core.CommandTarget):
-    measures = core.ObjectListProperty(cls=Measure)
-
-    def __init__(self, state=None):
-        super().__init__(state)
-
-    def __len__(self):
-        return len(self.measures)
-
-    def __eq__(self, other):
-        if len(self) != len(other):
-            return False
-        for a, b in zip(self._objs, other):
-            if a != b:
-                return False
-        return True
-
-    def __getitem__(self, idx):
-        return self.measures[idx]
-
-    def __setitem__(self, idx, obj):
-        self.__delitem__(idx)
-        self.insert(idx, obj)
-
-    def __delitem__(self, idx):
-        del self.measures[idx]
-
-    def append(self, obj):
-        self.measures.insert(0, obj)
-
-    def insert(self, idx, obj):
-        self.measures.insert(idx, obj)
-
-    def clear(self):
-        self.measures.clear()
-
-    def extend(self, value):
-        for v in value:
-            self.append(v)
-
-
 class Track(core.StateBase, core.CommandTarget):
     measure_cls = None
 
     name = core.Property(str)
     instrument = core.ObjectProperty(cls=Instrument)
-    measures = core.ObjectProperty(cls=MeasureList)
+    measures = core.ObjectListProperty(cls=Measure)
 
     visible = core.Property(bool, default=True)
     muted = core.Property(bool, default=False)
@@ -172,15 +129,9 @@ class Track(core.StateBase, core.CommandTarget):
     def __init__(self, name=None, instrument=None, state=None):
         super().__init__(state)
 
-        if self.measures is None:
-            self.measures = MeasureList()
-
         if state is None:
             self.name = name
             self.instrument = instrument
-
-        self.update_measures()
-        self.index = None
 
     @property
     def address(self):
@@ -219,11 +170,6 @@ class Track(core.StateBase, core.CommandTarget):
 
         return instr_source
 
-    def update_measures(self):
-        # This sure is very inefficient. Do we care?
-        for idx, measure in enumerate(self.measures):
-            measure.index = idx
-
     def append_measure(self):
         self.insert_measure(-1)
 
@@ -240,14 +186,10 @@ class Track(core.StateBase, core.CommandTarget):
         else:
             ref = None
         measure = self.create_empty_measure(ref)
-        measure.index = idx
-        for i, m in enumerate(self.measures):
-            m.index = i if i < idx else i + 1
         self.measures.insert(idx, measure)
 
     def remove_measure(self, idx):
         del self.measures[idx]
-        self.update_measures()
 
     def create_empty_measure(self, ref):  # pylint: disable=unused-argument
         return self.measure_cls()  # pylint: disable=not-callable

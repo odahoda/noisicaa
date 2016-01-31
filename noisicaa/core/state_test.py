@@ -12,6 +12,7 @@ from .state import (
     ObjectProperty,
     ObjectListProperty,
     ObjectReferenceProperty,
+    ObjectNotAttachedError,
 )
 from .callbacks import CallbackRegistry
 
@@ -388,6 +389,53 @@ class StateTest(unittest.TestCase):
              ('delete', (0,)),
              ('clear', ()),
             ])
+
+    def testObjectListIndex(self):
+        a = LeafNode()
+        with self.assertRaises(ObjectNotAttachedError):
+            a.index
+
+        b = LeafNode()
+
+        c = NodeWithChildren()
+        c.children.append(a)
+        self.assertEqual(a.index, 0)
+
+        c.children.append(b)
+        self.assertEqual(b.index, 1)
+
+        del c.children[0]
+        with self.assertRaises(ObjectNotAttachedError):
+            a.index
+        self.assertEqual(b.index, 0)
+
+        c.children.insert(0, a)
+        self.assertEqual(a.index, 0)
+        self.assertEqual(b.index, 1)
+
+    def testObjectListSiblings(self):
+        l = NodeWithChildren()
+        l.children.append(LeafNode())
+        l.children.append(LeafNode())
+        l.children.append(LeafNode())
+
+        self.assertTrue(l.children[0].is_first)
+        self.assertFalse(l.children[1].is_first)
+        self.assertFalse(l.children[2].is_first)
+
+        self.assertFalse(l.children[0].is_last)
+        self.assertFalse(l.children[1].is_last)
+        self.assertTrue(l.children[2].is_last)
+
+        self.assertIs(l.children[0].next_sibling, l.children[1])
+        self.assertIs(l.children[1].next_sibling, l.children[2])
+        with self.assertRaises(IndexError):
+            l.children[2].next_sibling
+
+        with self.assertRaises(IndexError):
+            l.children[0].prev_sibling
+        self.assertIs(l.children[1].prev_sibling, l.children[0])
+        self.assertIs(l.children[2].prev_sibling, l.children[1])
 
 
 if __name__ == '__main__':

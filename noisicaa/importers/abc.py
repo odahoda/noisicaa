@@ -100,7 +100,6 @@ class ABCImporter(object):
             sheet.tracks.append(voice)
         sheet.equalize_tracks()
         sheet.bpm = self.tempo
-        sheet.update_tracks()
         proj.sheets.append(sheet)
 
     def parse_information_field(self, field, contents):
@@ -247,7 +246,6 @@ class ABCImporter(object):
             self.current_voice = self.voices['1']
 
         self.current_voice.measures.append(measure)
-        self.current_voice.update_measures()
 
     decoration_start_chars = 'HIJKLMNOPQRSTUVWhijklmnopqrstuvw.~+!'
     def parse_decoration(self, line):

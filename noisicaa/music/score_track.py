@@ -342,7 +342,6 @@ class ScoreTrack(Track):
         if state is None:
             for _ in range(num_measures):
                 self.measures.append(ScoreMeasure())
-            self.update_measures()
 
     def create_empty_measure(self, ref):
         measure = super().create_empty_measure(ref)

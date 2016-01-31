@@ -8,6 +8,15 @@ from .tree import TreeNode
 
 logger = logging.getLogger(__name__)
 
+class Error(Exception):
+    pass
+
+class ObjectNotAttachedError(Error):
+    pass
+
+class NotListMemberError(Error):
+    pass
+
 
 class PropertyBase(object):
     def __init__(self, default=None):
@@ -190,9 +199,11 @@ class ObjectProperty(ObjectPropertyBase):
         current = self.__get__(instance, instance.__class__)
         if current is not None:
             current.detach()
+            current.clear_parent_container()
         super().__set__(instance, value)
         if value is not None:
             value.attach(instance)
+            value.set_parent_container(self)
 
     def to_state(self, instance):
         obj = instance.state.get(self.name, None)
@@ -205,6 +216,7 @@ class ObjectProperty(ObjectPropertyBase):
         if value is not None:
             obj = self.create(value)
             obj.attach(instance)
+            obj.set_parent_container(self)
             instance.state[self.name] = obj
         else:
             instance.state[self.name] = None
@@ -227,7 +239,10 @@ class ObjectList(object):
 
     def __delitem__(self, idx):
         self._objs[idx].detach()
+        self._objs[idx].clear_parent_container()
         del self._objs[idx]
+        for i in range(idx, len(self._objs)):
+            self._objs[i].set_index(i)
         self._instance.listeners.call(self._prop.name, 'delete', idx)
 
     def append(self, obj):
@@ -235,12 +250,16 @@ class ObjectList(object):
 
     def insert(self, idx, obj):
         obj.attach(self._instance)
+        obj.set_parent_container(self)
         self._objs.insert(idx, obj)
+        for i in range(idx, len(self._objs)):
+            self._objs[i].set_index(i)
         self._instance.listeners.call(self._prop.name, 'insert', idx, obj)
 
     def clear(self):
         for obj in self._objs:
             obj.detach()
+            obj.clear_parent_container()
         self._objs.clear()
         self._instance.listeners.call(self._prop.name, 'clear')
 
@@ -317,6 +336,8 @@ class StateBase(TreeNode, metaclass=StateMeta):
         super().__init__()
         self.state = {}
         self.listeners = CallbackRegistry()
+        self.__parent_container = None
+        self.__index = None
 
         if state is not None:
             self.deserialize(state)
@@ -351,6 +372,49 @@ class StateBase(TreeNode, metaclass=StateMeta):
     @classmethod
     def get_valid_classes(cls):
         return [cls.__name__] + list(sorted(StateBase._subclasses.items()))
+
+    def set_parent_container(self, prop):
+        self.__parent_container = prop
+
+    def clear_parent_container(self):
+        self.__parent_container = None
+        self.__index = None
+
+    def set_index(self, index):
+        if self.__parent_container is None:
+            raise ObjectNotAttachedError
+        self.__index = index
+
+    @property
+    def index(self):
+        if self.__parent_container is None:
+            raise ObjectNotAttachedError
+        assert self.__index is not None
+        return self.__index
+
+    @property
+    def is_first(self):
+        if self.__index is None:
+            raise NotListMemberError
+        return self.__index == 0
+
+    @property
+    def is_last(self):
+        if self.__index is None:
+            raise NotListMemberError
+        return self.__index == len(self.__parent_container) - 1
+
+    @property
+    def prev_sibling(self):
+        if self.is_first:
+            raise IndexError("First list member has no previous sibling.")
+        return self.__parent_container[self.index - 1]
+
+    @property
+    def next_sibling(self):
+        if self.is_last:
+            raise IndexError("Last list member has no next sibling.")
+        return self.__parent_container[self.index + 1]
 
     def list_properties(self):
         for cls in self.__class__.__mro__:
