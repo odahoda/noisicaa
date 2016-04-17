@@ -9,3 +9,5 @@ mox3
 portalocker
 toposort
 pyaudio
+vext==0.5.19
+vext.pyqt5
