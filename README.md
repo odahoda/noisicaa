@@ -46,9 +46,8 @@ For the first time setup, create a new virtualenv:
 And populate it with a bunch of packages that noisicaä uses:
 
     bin/setup_env.sh
-It will probably fail and ask you to install some additional packages and
-download some files into `libs/` (be careful to use the exact versions that it's
-asking for). Try again, until it is happy and starts compiling stuff.
+It will probably fail and ask you to install some additional packages. Try
+again, until it is happy and starts compiling stuff.
 
 And finally run
 
