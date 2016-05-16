@@ -23,7 +23,8 @@ def main(argv):
     args = parser.parse_args(argv[1:])
 
     log_level = logging.DEBUG if args.debug else logging.ERROR
-    logging.basicConfig(level=log_level)
+    logging.basicConfig()
+    logging.getLogger().setLevel(log_level)
 
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
