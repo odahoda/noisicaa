@@ -11,11 +11,11 @@ LIBSDIR="$BASEDIR/libs"
 #LILV_DEPS="lv2-dev libserd-dev libsord-dev libsratom-dev swig"
 #LADSPA_DEPS="cython3 ladspa-sdk"
 
-PYVERSION=3.4
+PYVERSION=3.5
 
 PACKAGES_QT5="python3-pyqt5 python3-pyqt5.qtsvg"
 
-PACKAGES="python$PYVERSION python$PYVERSION-venv python$PYVERSION-dev libxml2-dev libxslt1-dev portaudio19-dev libavutil-dev libavutil-ffmpeg54 libswresample-dev libswresample-ffmpeg1 libfluidsynth1 libfluidsynth-dev inkscape timgm6mb-soundfont fluid-soundfont-gs fluid-soundfont-gm flac $PACKAGES_QT5"
+PACKAGES="python$PYVERSION python$PYVERSION-venv python$PYVERSION-dev libxml2-dev libxslt1-dev portaudio19-dev libavutil-dev libavutil-ffmpeg54 libswresample-dev libswresample-ffmpeg1 libfluidsynth1 libfluidsynth-dev inkscape timgm6mb-soundfont fluid-soundfont-gs fluid-soundfont-gm flac zlib1g-dev $PACKAGES_QT5"
 
 function pkg-status() {
     PKG="$1"
