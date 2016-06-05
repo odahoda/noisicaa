@@ -4,12 +4,20 @@ import enum
 import logging
 import os
 import os.path
+import pickle
 import select
 import socket
 import tempfile
 import threading
 import time
 import uuid
+
+
+def serialize(obj):
+    return pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+
+def deserialize(dat):
+    return pickle.loads(dat)
 
 
 class ConnState(enum.Enum):
