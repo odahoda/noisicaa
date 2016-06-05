@@ -40,6 +40,12 @@ class Server(object):
         self._server_thread = None
         self._connections = {}
 
+        self._command_handlers = {}
+
+    def add_command_handler(self, cmd, handler):
+        assert cmd not in self._command_handlers
+        self._command_handlers[cmd] = handler
+
     def setup(self):
         self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._socket.bind(self.address)
@@ -118,7 +124,8 @@ class Server(object):
                                 self._closed = True
 
                             elif header.startswith(b'CALL '):
-                                conn.command, length = header[5:].split(b' ')
+                                command, length = header[5:].split(b' ')
+                                conn.command = command.decode('ascii')
                                 conn.payload_length = int(length)
                                 self.logger.info("CALL %s received (%d bytes payload)", conn.command, conn.payload_length)
                                 if conn.payload_length > 0:
@@ -130,7 +137,7 @@ class Server(object):
                                     conn.outbuf.extend(response)
                                     self._poller.modify(
                                         fd, select.EPOLLIN | select.EPOLLOUT | select.EPOLLHUP)
-                                    
+
                             else:
                                 self.logger.error("Received unknown message '%s'", header)
                         elif conn.state == ConnState.READ_PAYLOAD:
@@ -172,8 +179,15 @@ class Server(object):
             self.handle_connections()
 
     def handle_command(self, command, payload):
-        print(command, payload)
-        return payload
+        try:
+            handler = self._command_handlers[command]
+        except KeyError:
+            self.logger.error(
+                "Unexpected command %s received.", command)
+            return None
+        else:
+            return handler(payload)
+
 
 class Stub(object):
     def __init__(self, server_address):
@@ -203,7 +217,7 @@ class Stub(object):
             cmd = cmd.encode('ascii')
         self._socket.sendall(b'CALL %s %d\n' % (cmd, len(payload)))
         self._socket.sendall(payload)
-        
+
         buf = bytearray()
         state = 0
         length = None

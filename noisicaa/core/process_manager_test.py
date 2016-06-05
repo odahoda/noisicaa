@@ -13,10 +13,10 @@ class ProcessManagerTest(unittest.TestCase):
     def test_simple(self):
         class Child(process_manager.ProcessImpl):
             def run(self, foo):
-                assert foo == "bar"
+                assert foo == 'bar'
 
         with process_manager.ProcessManager() as mgr:
-            stub = mgr.start_process(Child, "bar")
+            stub = mgr.start_process('test', Child, 'bar')
             stub.wait()
             self.assertEqual(stub.returncode, 0)
 
@@ -27,7 +27,7 @@ class ProcessManagerTest(unittest.TestCase):
                     time.sleep(1)
 
         with process_manager.ProcessManager() as mgr:
-            stub = mgr.start_process(Child)
+            stub = mgr.start_process('test', Child)
 
     def test_left_over_sigterm_fails(self):
         class Child(process_manager.ProcessImpl):
@@ -37,7 +37,7 @@ class ProcessManagerTest(unittest.TestCase):
                     time.sleep(1)
 
         with process_manager.ProcessManager() as mgr:
-            stub = mgr.start_process(Child)
+            stub = mgr.start_process('test', Child)
             mgr.terminate_all_children(timeout=0.2)
 
     def test_capture_stdout(self):
@@ -45,10 +45,10 @@ class ProcessManagerTest(unittest.TestCase):
             def run(self):
                 for i in range(10):
                     print(i)
-                sys.stderr.write("goo")
+                sys.stderr.write('goo')
 
         with process_manager.ProcessManager() as mgr:
-            stub = mgr.start_process(Child)
+            stub = mgr.start_process('test', Child)
             stub.wait()
 
 

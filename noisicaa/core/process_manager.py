@@ -3,12 +3,15 @@
 import enum
 import logging
 import os
+import pickle
 import select
 import signal
 import sys
 import time
 import traceback
 import threading
+
+from . import ipc
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +62,8 @@ class ProcessManager(object):
         self._output_poller = None
         self._output_poll_thread = None
 
+        self._server = ipc.Server('manager')
+
     def setup(self):
         self._old_sigchld_handler = signal.signal(
             signal.SIGCHLD, self.sigchld_handler)
@@ -68,10 +73,15 @@ class ProcessManager(object):
             target=self._collect_output)
         self._output_poll_thread.start()
 
+        self._server.setup()
+        self._server.start()
+
     def cleanup(self):
         self._shutting_down.set()
 
         self.terminate_all_children()
+
+        self._server.cleanup()
 
         if self._old_sigchld_handler is not None:
             signal.signal(signal.SIGCHLD, self._old_sigchld_handler)
@@ -99,7 +109,7 @@ class ProcessManager(object):
         try:
             for sig in [signal.SIGTERM, signal.SIGKILL]:
                 for pid in list(self._processes.keys()):
-                    logging.warning(
+                    logger.warning(
                         "Sending %s to left over child pid=%d",
                         sig.name, pid)
                     os.kill(pid, sig)
@@ -109,24 +119,31 @@ class ProcessManager(object):
                     self.collect_dead_children()
                     if not self._processes:
                         break
-                    logging.info(
+                    logger.info(
                         ("%d children still running, waiting for SIGCHLD"
                          " signal..."), len(self._processes))
                     sigchld_event.wait(min(0.05, timeout))
 
             for pid in self._processes.keys():
-                logging.error("Failed to kill child pid=%d", pid)
+                logger.error("Failed to kill child pid=%d", pid)
         finally:
             signal.signal(signal.SIGCHLD, old_sigchld_handler)
 
-    def start_process(self, cls, *args, **kwargs):
+    def start_process(self, name, cls, *args, **kwargs):
+        assert issubclass(cls, ProcessImpl)
+
         barrier_in, barrier_out = os.pipe()
+        announce_in, announce_out = os.pipe()
         stdout_in, stdout_out = os.pipe2(os.O_NONBLOCK)
         stderr_in, stderr_out = os.pipe2(os.O_NONBLOCK)
+
+        manager_address = self._server.address
 
         pid = os.fork()
         if pid == 0:
             # In child process.
+            os.close(barrier_out)
+            os.close(announce_in)
 
             os.dup2(stdout_out, 1)
             os.dup2(stderr_out, 2)
@@ -137,11 +154,22 @@ class ProcessManager(object):
             os.read(barrier_in, 1)
             os.close(barrier_in)
 
-            impl = cls()
+            impl = cls(name, manager_address)
+
+            # TODO: if crashes before ready_callback was sent, write
+            # back failure message to pipe.
+            def ready_callback():
+                stub_address = impl.server.address.encode('utf-8')
+                while stub_address:
+                    written = os.write(announce_out, stub_address)
+                    stub_address = stub_address[written:]
+                os.close(announce_out)
+
             try:
                 try:
-                    rc = impl.run(*args, **kwargs)
+                    rc = impl.main(ready_callback, *args, **kwargs)
                 except:
+                    traceback.print_exc()
                     rc = 1
             finally:
                 sys.stdout.flush()
@@ -150,6 +178,9 @@ class ProcessManager(object):
 
         else:
             # In manager process.
+            os.close(barrier_in)
+            os.close(announce_out)
+
             logger.info("Created new subprocess pid=%d.", pid)
             stub = ProcessStub(pid, stdout_in, stderr_in)
             self._processes[pid] = stub
@@ -165,6 +196,20 @@ class ProcessManager(object):
             stub.state = ProcessState.RUNNING
             os.write(barrier_out, b'1')
             os.close(barrier_out)
+
+            # Wait for it to write back its server address.
+            # TODO: need to timeout? what happens when child terminates
+            # before full address is written?
+            stub_address = b''
+            while True:
+                read = os.read(announce_in, 1024)
+                if not read:
+                    break
+                stub_address += read
+            os.close(announce_in)
+            stub.address = stub_address.decode('utf-8')
+            logger.info(
+                "Child pid=%d has IPC address %s", pid, stub.address)
 
             return stub
 
@@ -234,7 +279,7 @@ class ProcessManager(object):
                     try:
                         buf = self._fd_map[fd]
                     except KeyError:
-                        logging.error("poll() returned unknown FD %d", fd)
+                        logger.error("poll() returned unknown FD %d", fd)
                         continue
 
                     while True:
@@ -246,6 +291,31 @@ class ProcessManager(object):
 
 
 class ProcessImpl(object):
+    def __init__(self, name, manager_address):
+        self.name = name
+        self.pid = os.getpid()
+
+        self.manager = ManagerStub(manager_address)
+        self.server = ipc.Server(name)
+
+    def main(self, ready_callback, *args, **kwargs):
+        with self.manager:
+            with self.server:
+                self.server.start()
+                try:
+                    self.setup()
+                    ready_callback()
+
+                    self.run(*args, **kwargs)
+                finally:
+                    self.cleanup()
+
+    def setup(self):
+        pass
+
+    def cleanup(self):
+        pass
+
     def run(self):
         raise NotImplementedError("Subclass must override run")
 
@@ -254,6 +324,7 @@ class ProcessStub(object):
     def __init__(self, pid, stdout, stderr):
         self.state = ProcessState.NOT_STARTED
         self.pid = pid
+        self.address = None
         self.returncode = None
         self.stdout = stdout
         self.stderr = stderr
@@ -275,3 +346,7 @@ class ProcessStub(object):
             if self.state == ProcessState.FINISHED:
                 return
             time.sleep(0.1)
+
+
+class ManagerStub(ipc.Stub):
+    pass

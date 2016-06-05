@@ -6,3 +6,6 @@ from .state import (
 from .commands import (
     CommandDispatcher, CommandTarget, Command,
 )
+from .process_manager import (
+    ProcessManager, ProcessImpl
+)
