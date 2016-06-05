@@ -366,6 +366,17 @@ class Sheet(core.StateBase, core.CommandTarget):
         return super().get_sub_target(name)
 
 
+class Metadata(core.StateBase, core.CommandTarget):
+    author = core.Property(str, allow_none=True)
+    license = core.Property(str, allow_none=True)
+    copyright = core.Property(str, allow_none=True)
+    created = core.Property(int, allow_none=True)
+
+    @property
+    def address(self):
+        return self.parent.address + 'metadata'
+
+
 class JSONEncoder(json.JSONEncoder):
     def default(self, obj):  # pylint: disable=method-hidden
         if isinstance(obj, Duration):
@@ -408,10 +419,13 @@ class JSONDecoder(json.JSONDecoder):
 class BaseProject(core.StateBase, core.CommandDispatcher):
     sheets = core.ObjectListProperty(cls=Sheet)
     current_sheet = core.Property(int, default=0)
+    metadata = core.ObjectProperty(cls=Metadata)
 
     def __init__(self, num_sheets=1, state=None):
         super().__init__(state)
         if state is None:
+            self.metadata = Metadata()
+
             for i in range(1, num_sheets + 1):
                 self.sheets.append(Sheet(name="Sheet %d" % i))
 
@@ -439,6 +453,9 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
             for sheet in self.sheets:
                 if sheet.name == sheet_name:
                     return sheet
+
+        if name == 'metadata':
+            return self.metadata
 
         return super().get_sub_target(name)
 

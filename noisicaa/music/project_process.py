@@ -28,7 +28,11 @@ class ProjectProcess(core.ProcessImpl):
 
         response = {}
         for prop in properties:
-            response[prop] = getattr(obj, prop)
+            value = getattr(obj, prop)
+            if isinstance(value, core.StateBase):
+                response[prop] = ['proxy', value.address]
+            else:
+                response[prop] = ['value', value]
 
         return ipc.serialize(response)
 

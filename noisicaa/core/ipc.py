@@ -20,6 +20,10 @@ def deserialize(dat):
     return pickle.loads(dat)
 
 
+class RemoteException(Exception): pass
+class Error(Exception): pass
+class InvalidResponseError(Error): pass
+
 class ConnState(enum.Enum):
     READ_MESSAGE = 1
     READ_PAYLOAD = 2
@@ -139,7 +143,7 @@ class Server(object):
                                 if conn.payload_length > 0:
                                     conn.state = ConnState.READ_PAYLOAD
                                 else:
-                                    response = self.handle_command(conn.command, b'')
+                                    response = self.handle_command(conn.command, None)
                                     response = response or b''
                                     conn.outbuf.extend(b'ACK %d\n' % len(response))
                                     conn.outbuf.extend(response)
@@ -193,8 +197,15 @@ class Server(object):
             self.logger.error(
                 "Unexpected command %s received.", command)
             return None
-        else:
-            return handler(payload)
+
+        try:
+            result = handler(payload)
+            if result is not None:
+                return b'OK:' + result
+            else:
+                return b'OK'
+        except Exception as exc:
+            return b'EXC:' + str(exc).encode('utf-8')
 
 
 class Stub(object):
@@ -255,7 +266,15 @@ class Stub(object):
                     response = bytes(buf[:length])
                     del buf[:length]
                     state = 2
-        return response
+
+        if response == b'OK':
+            return None
+        elif response.startswith(b'OK:'):
+            return response[3:]
+        elif response.startswith(b'EXC:'):
+            raise RemoteException(response[4:].decode('utf-8'))
+        else:
+            raise InvalidResponseError(response)
 
     def ping(self):
         self._socket.sendall(b'PING\n')

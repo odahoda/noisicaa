@@ -30,5 +30,28 @@ class ProjectProcessTest(unittest.TestCase):
             proc.wait()
 
 
+class ProxyTest(unittest.TestCase):
+    def setUp(self):
+        self.mgr = core.ProcessManager()
+        self.mgr.setup()
+        self.proc = self.mgr.start_process(
+            'test', project_process.ProjectProcess)
+        self.stub = project_stub.ProjectStub(self.proc.address)
+        self.stub.connect()
+
+    def tearDown(self):
+        self.stub.shutdown()
+        self.stub.close()
+        self.mgr.cleanup()
+
+    def test_root_proxy(self):
+        proxy = self.stub.project
+        self.assertEqual(proxy.current_sheet, 0)
+
+    def test_fetch_proxy(self):
+        proxy = self.stub.project.metadata
+        self.assertIsNone(proxy.author)
+
+
 if __name__ == '__main__':
     unittest.main()
