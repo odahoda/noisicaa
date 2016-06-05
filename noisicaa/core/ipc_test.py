@@ -20,6 +20,8 @@ class IPCTest(unittest.TestCase):
     def test_command(self):
         with ipc.Server(name='test') as server:
             server.start()
+            server.add_command_handler('foo', lambda payload: payload)
+
             with ipc.Stub(server.address) as stub:
                 self.assertIsNone(stub.call('foo'))
                 self.assertEqual(stub.call('foo', b'12345'), b'12345')
