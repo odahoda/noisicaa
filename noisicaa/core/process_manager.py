@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
+import asyncio
 import enum
+import functools
 import logging
 import os
 import pickle
@@ -16,137 +18,143 @@ from . import ipc
 logger = logging.getLogger(__name__)
 
 
-# TODO
-# - message passing
-
-
 class ProcessState(enum.Enum):
     NOT_STARTED = 'not_started'
     RUNNING = 'running'
     FINISHED = 'finished'
 
 
-class OutputBuffer(object):
+class PipeAdapter(asyncio.Protocol):
     def __init__(self, handler):
-        self._buf = bytearray()
+        super().__init__()
         self._handler = handler
+        self._buf = bytearray()
 
-    def append(self, data):
+    def data_received(self, data):
         self._buf.extend(data)
-        self.emit()
-
-    def emit(self):
         while True:
-            try:
-                eol = self._buf.index(b'\n')
-            except ValueError:
-                return
+            eol = self._buf.find(b'\n')
+            if eol < 0:
+                break
+            line = self._buf[:eol].decode('utf-8')
+            del self._buf[:eol+1]
+            self._handler(line)
 
-            line = self._buf[:eol+1]
-            self._buf = self._buf[eol+1:]
-            self._handler(bytes(line))
-
-    def flush(self):
-        self.emit()
+    def eof_received(self):
         if self._buf:
-            self._handler(bytes(self._buf))
-            self._buf.clear()
+            line = self._buf.decode('utf-8')
+            del self._buf[:]
+            self._handler(line)
 
 
 class ProcessManager(object):
-    def __init__(self):
+    def __init__(self, event_loop):
+        self._event_loop = event_loop
         self._processes = {}
-        self._fd_map = {}
-        self._shutting_down = threading.Event()
-        self._old_sigchld_handler = None
-        self._output_poller = None
-        self._output_poll_thread = None
+        # self._shutting_down = threading.Event()
 
-        self._server = ipc.Server('manager')
-
-    def setup(self):
-        self._old_sigchld_handler = signal.signal(
+        # self._server = ipc.Server('manager')
+        pass
+        
+    def start(self):
+        logger.info("Starting ProcessManager...")
+        self._event_loop.add_signal_handler(
             signal.SIGCHLD, self.sigchld_handler)
 
-        self._output_poller = select.epoll()
-        self._output_poll_thread = threading.Thread(
-            target=self._collect_output)
-        self._output_poll_thread.start()
+    # def setup(self):
+    #     self._old_sigchld_handler = signal.signal(
+    #         signal.SIGCHLD, self.sigchld_handler)
 
-        self._server.setup()
-        self._server.start()
+    #     self._output_poller = select.epoll()
+    #     self._output_poll_thread = threading.Thread(
+    #         target=self._collect_output)
+    #     self._output_poll_thread.start()
 
-    def cleanup(self):
-        self._shutting_down.set()
+    #     self._server.setup()
+    #     self._server.start()
 
-        self.terminate_all_children()
+    # def cleanup(self):
+    #     self._shutting_down.set()
 
-        self._server.cleanup()
+    #     self.terminate_all_children()
 
-        if self._old_sigchld_handler is not None:
-            signal.signal(signal.SIGCHLD, self._old_sigchld_handler)
-            self._old_sigchld_handler = None
+    #     self._server.cleanup()
 
-        if self._output_poll_thread is not None:
-            self._output_poll_thread.join()
-            self._output_poll_thread = None
+    #     if self._old_sigchld_handler is not None:
+    #         signal.signal(signal.SIGCHLD, self._old_sigchld_handler)
+    #         self._old_sigchld_handler = None
 
-        if self._output_poller is not None:
-            self._output_poller = None
+    #     if self._output_poll_thread is not None:
+    #         self._output_poll_thread.join()
+    #         self._output_poll_thread = None
 
-    def __enter__(self):
-        self.setup()
-        return self
+    #     if self._output_poller is not None:
+    #         self._output_poller = None
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.cleanup()
-        return False
+    # def __enter__(self):
+    #     self.setup()
+    #     return self
 
-    def terminate_all_children(self, timeout=10):
-        sigchld_event = threading.Event()
-        old_sigchld_handler = signal.signal(
-            signal.SIGCHLD, lambda sig, frame: sigchld_event.set())
-        try:
-            for sig in [signal.SIGTERM, signal.SIGKILL]:
-                for pid in list(self._processes.keys()):
-                    logger.warning(
-                        "Sending %s to left over child pid=%d",
-                        sig.name, pid)
-                    os.kill(pid, sig)
+    # def __exit__(self, exc_type, exc_val, exc_tb):
+    #     self.cleanup()
+    #     return False
 
-                deadline = time.time() + timeout
-                while time.time() < deadline:
-                    self.collect_dead_children()
-                    if not self._processes:
-                        break
-                    logger.info(
-                        ("%d children still running, waiting for SIGCHLD"
-                         " signal..."), len(self._processes))
-                    sigchld_event.wait(min(0.05, timeout))
+    # def terminate_all_children(self, timeout=10):
+    #     sigchld_event = threading.Event()
+    #     old_sigchld_handler = signal.signal(
+    #         signal.SIGCHLD, lambda sig, frame: sigchld_event.set())
+    #     try:
+    #         for sig in [signal.SIGTERM, signal.SIGKILL]:
+    #             for pid in list(self._processes.keys()):
+    #                 logger.warning(
+    #                     "Sending %s to left over child pid=%d",
+    #                     sig.name, pid)
+    #                 os.kill(pid, sig)
 
-            for pid in self._processes.keys():
-                logger.error("Failed to kill child pid=%d", pid)
-        finally:
-            signal.signal(signal.SIGCHLD, old_sigchld_handler)
+    #             deadline = time.time() + timeout
+    #             while time.time() < deadline:
+    #                 self.collect_dead_children()
+    #                 if not self._processes:
+    #                     break
+    #                 logger.info(
+    #                     ("%d children still running, waiting for SIGCHLD"
+    #                      " signal..."), len(self._processes))
+    #                 sigchld_event.wait(min(0.05, timeout))
 
-    def start_process(self, name, cls, *args, **kwargs):
+    #         for pid in self._processes.keys():
+    #             logger.error("Failed to kill child pid=%d", pid)
+    #     finally:
+    #         signal.signal(signal.SIGCHLD, old_sigchld_handler)
+
+    async def start_process(self, name, cls, *args, **kwargs):
         assert issubclass(cls, ProcessImpl)
 
+        proc = ProcessHandle()
+
         barrier_in, barrier_out = os.pipe()
-        announce_in, announce_out = os.pipe()
+    #     announce_in, announce_out = os.pipe()
         stdout_in, stdout_out = os.pipe2(os.O_NONBLOCK)
         stderr_in, stderr_out = os.pipe2(os.O_NONBLOCK)
 
-        manager_address = self._server.address
+    #     manager_address = self._server.address
 
         pid = os.fork()
         if pid == 0:
             # In child process.
-            os.close(barrier_out)
-            os.close(announce_in)
 
+            # Close the "other ends" of the pipes.
+            os.close(barrier_out)
+    #         os.close(announce_in)
+            os.close(stdout_in)
+            os.close(stderr_in)
+
+            # Use the pipes as out STDIN/-ERR.
             os.dup2(stdout_out, 1)
             os.dup2(stderr_out, 2)
+            os.close(stdout_out)
+            os.close(stderr_out)
+
+            # TODO: ensure that sys.stdout/err use utf-8
 
             # Wait until manager told us it's ok to start. Avoid race
             # condition where child terminates and generates SIGCHLD
@@ -154,20 +162,23 @@ class ProcessManager(object):
             os.read(barrier_in, 1)
             os.close(barrier_in)
 
-            impl = cls(name, manager_address)
+            impl = cls(name)
 
-            # TODO: if crashes before ready_callback was sent, write
-            # back failure message to pipe.
-            def ready_callback():
-                stub_address = impl.server.address.encode('utf-8')
-                while stub_address:
-                    written = os.write(announce_out, stub_address)
-                    stub_address = stub_address[written:]
-                os.close(announce_out)
+    #         # TODO: if crashes before ready_callback was sent, write
+    #         # back failure message to pipe.
+    #         def ready_callback():
+    #             stub_address = impl.server.address.encode('utf-8')
+    #             while stub_address:
+    #                 written = os.write(announce_out, stub_address)
+    #                 stub_address = stub_address[written:]
+    #             os.close(announce_out)
 
             try:
                 try:
-                    rc = impl.main(ready_callback, *args, **kwargs)
+    #                 rc = impl.main(ready_callback, *args, **kwargs)
+                    rc = impl.run(*args, **kwargs)
+                except SystemExit as exc:
+                    rc = exc.code
                 except:
                     traceback.print_exc()
                     rc = 1
@@ -179,136 +190,126 @@ class ProcessManager(object):
         else:
             # In manager process.
             os.close(barrier_in)
-            os.close(announce_out)
+    #         os.close(announce_out)
+            
+            self._processes[pid] = proc
 
-            logger.info("Created new subprocess pid=%d.", pid)
-            stub = ProcessStub(pid, stdout_in, stderr_in)
-            self._processes[pid] = stub
+            proc.pid = pid
+            proc.create_loggers()
 
-            self._fd_map[stdout_in] = OutputBuffer(stub.handle_stdout)
-            self._output_poller.register(
-                stdout_in, select.POLLIN | select.POLLERR | select.POLLHUP)
-            self._fd_map[stderr_in] = OutputBuffer(stub.handle_stderr)
-            self._output_poller.register(
-                stderr_in, select.POLLIN | select.POLLERR | select.POLLHUP)
+            proc.logger.info("Created new subprocess.")
+
+            await proc.setup_std_handlers(
+                self._event_loop, stdout_in, stderr_in)
 
             # Unleash the child.
-            stub.state = ProcessState.RUNNING
-            os.write(barrier_out, b'1')
-            os.close(barrier_out)
+            proc.state = ProcessState.RUNNING
 
-            # Wait for it to write back its server address.
-            # TODO: need to timeout? what happens when child terminates
-            # before full address is written?
-            stub_address = b''
-            while True:
-                read = os.read(announce_in, 1024)
-                if not read:
-                    break
-                stub_address += read
-            os.close(announce_in)
-            stub.address = stub_address.decode('utf-8')
-            logger.info(
-                "Child pid=%d has IPC address %s", pid, stub.address)
+            # TODO: There's no simpler way than this?
+            transport, protocol = await self._event_loop.connect_write_pipe(
+                asyncio.Protocol, os.fdopen(barrier_out))
+            transport.write(b'1')
+            transport.close()
 
-            return stub
+    #         # Wait for it to write back its server address.
+    #         # TODO: need to timeout? what happens when child terminates
+    #         # before full address is written?
+    #         stub_address = b''
+    #         while True:
+    #             read = os.read(announce_in, 1024)
+    #             if not read:
+    #                 break
+    #             stub_address += read
+    #         os.close(announce_in)
+    #         proc.address = stub_address.decode('utf-8')
+    #         logger.info(
+    #             "Child pid=%d has IPC address %s", pid, proc.address)
 
-    def sigchld_handler(self, num, frame):
-        assert num == signal.SIGCHLD
+            return proc
+
+    def sigchld_handler(self):
+        logger.info("Received SIGCHLD.")
         self.collect_dead_children()
 
     def collect_dead_children(self):
         dead_children = set()
         for pid, stub in self._processes.items():
-            pid, rc, resinfo = os.wait4(pid, os.WNOHANG)
+            pid, status, resinfo = os.wait4(pid, os.WNOHANG)
             if pid == 0:
                 continue
 
-            logger.info("Child pid=%d terminated with rc=%d", pid, rc)
-
             try:
-                stub = self._processes[pid]
+                proc = self._processes[pid]
             except KeyError:
                 logger.warning("Unknown child pid=%d", pid)
                 continue
 
-            if stub.state != ProcessState.RUNNING:
-                logger.error(
-                    "Child pid=%d: Unexpected state %s",
-                    pid, stub.state)
+            if proc.state != ProcessState.RUNNING:
+                proc.logger.error("Unexpected state %s", proc.state)
                 continue
 
-            logger.info("Child pid=%d resource usage:", pid)
-            logger.info("  utime=%f", resinfo.ru_utime)
-            logger.info("  stime=%f", resinfo.ru_stime)
-            logger.info("  maxrss=%d", resinfo.ru_maxrss)
-            logger.info("  ixrss=%d", resinfo.ru_ixrss)
-            logger.info("  idrss=%d", resinfo.ru_idrss)
-            logger.info("  isrss=%d", resinfo.ru_isrss)
-            logger.info("  minflt=%d", resinfo.ru_minflt)
-            logger.info("  majflt=%d", resinfo.ru_majflt)
-            logger.info("  nswap=%d", resinfo.ru_nswap)
-            logger.info("  inblock=%d", resinfo.ru_inblock)
-            logger.info("  oublock=%d", resinfo.ru_oublock)
-            logger.info("  msgsnd=%d", resinfo.ru_msgsnd)
-            logger.info("  msgrcv=%d", resinfo.ru_msgrcv)
-            logger.info("  nsignals=%d", resinfo.ru_nsignals)
-            logger.info("  nvcsw=%d", resinfo.ru_nvcsw)
-            logger.info("  nivcsw=%d", resinfo.ru_nivcsw)
+            if os.WIFEXITED(status):
+                proc.returncode = os.WEXITSTATUS(status)
+                proc.logger.info("Terminated with rc=%d", proc.returncode)
+            elif os.WIFSIGNALED(status):
+                proc.returncode = 1
+                proc.signal = os.WTERMSIG(status)
+                proc.logger.info("Terminated by signal=%d", proc.signal)
+            elif os.WIFSTOPPED(status):
+                sig = os.WSTOPSIG(status)
+                proc.logger.info("Stopped by signal=%d", sig)
+                continue
+            else:
+                proc.logger.error("Unexpected status %d", status)
+                continue
 
-            stub.state = ProcessState.FINISHED
-            stub.returncode = rc
+            proc.resinfo = resinfo
+            proc.logger.info("Resource usage:")
+            proc.logger.info("  utime=%f", resinfo.ru_utime)
+            proc.logger.info("  stime=%f", resinfo.ru_stime)
+            proc.logger.info("  maxrss=%d", resinfo.ru_maxrss)
+            proc.logger.info("  ixrss=%d", resinfo.ru_ixrss)
+            proc.logger.info("  idrss=%d", resinfo.ru_idrss)
+            proc.logger.info("  isrss=%d", resinfo.ru_isrss)
+            proc.logger.info("  minflt=%d", resinfo.ru_minflt)
+            proc.logger.info("  majflt=%d", resinfo.ru_majflt)
+            proc.logger.info("  nswap=%d", resinfo.ru_nswap)
+            proc.logger.info("  inblock=%d", resinfo.ru_inblock)
+            proc.logger.info("  oublock=%d", resinfo.ru_oublock)
+            proc.logger.info("  msgsnd=%d", resinfo.ru_msgsnd)
+            proc.logger.info("  msgrcv=%d", resinfo.ru_msgrcv)
+            proc.logger.info("  nsignals=%d", resinfo.ru_nsignals)
+            proc.logger.info("  nvcsw=%d", resinfo.ru_nvcsw)
+            proc.logger.info("  nivcsw=%d", resinfo.ru_nivcsw)
 
-            for fd in [stub.stdout, stub.stderr]:
-                self._output_poller.unregister(fd)
-                self._fd_map[fd].flush()
-                del self._fd_map[fd]
-                os.close(fd)
-            stub.stdout = None
-            stub.stderr = None
+            proc.state = ProcessState.FINISHED
+            proc.term_event.set()
 
             dead_children.add(pid)
 
         for pid in dead_children:
             del self._processes[pid]
 
-    def _collect_output(self):
-        while not self._shutting_down.is_set():
-            for fd, event in self._output_poller.poll(0.1):
-                if event & select.POLLIN:
-                    try:
-                        buf = self._fd_map[fd]
-                    except KeyError:
-                        logger.error("poll() returned unknown FD %d", fd)
-                        continue
-
-                    while True:
-                        try:
-                            data = os.read(fd, 1024)
-                        except BlockingIOError:
-                            break
-                        buf.append(data)
-
 
 class ProcessImpl(object):
-    def __init__(self, name, manager_address):
+    def __init__(self, name):
         self.name = name
         self.pid = os.getpid()
 
-        self.manager = ManagerStub(manager_address)
-        self.server = ipc.Server(name)
+        # self.manager = ManagerStub(manager_address)
+        # self.server = ipc.Server(name)
 
-    def main(self, ready_callback, *args, **kwargs):
-        with self.manager:
-            with self.server:
-                self.server.start()
-                try:
-                    self.setup()
-                    ready_callback()
+    # def main(self, ready_callback, *args, **kwargs):
+        # with self.manager:
+        #     with self.server:
+        #         self.server.start()
+        #         try:
+        #             self.setup()
+        #             ready_callback()
 
-                    self.run(*args, **kwargs)
-                finally:
-                    self.cleanup()
+        #             self.run(*args, **kwargs)
+        #         finally:
+        #             self.cleanup()
 
     def setup(self):
         pass
@@ -320,33 +321,37 @@ class ProcessImpl(object):
         raise NotImplementedError("Subclass must override run")
 
 
-class ProcessStub(object):
-    def __init__(self, pid, stdout, stderr):
+class ProcessHandle(object):
+    def __init__(self):
         self.state = ProcessState.NOT_STARTED
-        self.pid = pid
-        self.address = None
+        self.pid = None
+#         self.address = None
         self.returncode = None
-        self.stdout = stdout
-        self.stderr = stderr
+        self.signal = None
+        self.resinfo = None
+        self.term_event = asyncio.Event()
+        self.logger = None
+        self.stdout_logger = None
+        self.stderr_logger = None
 
-    def handle_stdout(self, data):
-        logger = logging.getLogger('childproc[%d].stdout' % self.pid)
-        logger.info(
-            data.rstrip(b'\n').decode(
-                sys.stdout.encoding, 'backslashreplace'))
+    def create_loggers(self):
+        assert self.pid is not None
+        self.logger = logging.getLogger('childproc[%d]' % self.pid)
+        self._stdout_logger = self.logger.getChild('stdout')
+        self._stderr_logger = self.logger.getChild('stderr')
 
-    def handle_stderr(self, data):
-        logger = logging.getLogger('childproc[%d].stderr' % self.pid)
-        logger.info(
-            data.rstrip(b'\n').decode(
-                sys.stdout.encoding, 'backslashreplace'))
+    async def setup_std_handlers(self, event_loop, stdout, stderr):
+        await event_loop.connect_read_pipe(
+            functools.partial(PipeAdapter, self._stdout_logger.info),
+            os.fdopen(stdout))
 
-    def wait(self):
-        while True:
-            if self.state == ProcessState.FINISHED:
-                return
-            time.sleep(0.1)
+        await event_loop.connect_read_pipe(
+            functools.partial(PipeAdapter, self._stderr_logger.info),
+            os.fdopen(stderr))
+
+    async def wait(self):
+        await self.term_event.wait()
 
 
-class ManagerStub(ipc.Stub):
-    pass
+# class ManagerStub(ipc.Stub):
+#     pass
