@@ -5,13 +5,9 @@ import enum
 import functools
 import logging
 import os
-import pickle
-import select
 import signal
 import sys
-import time
 import traceback
-import threading
 
 from . import ipc
 
@@ -54,50 +50,30 @@ class ProcessManager(object):
         # self._shutting_down = threading.Event()
 
         # self._server = ipc.Server('manager')
-        pass
-        
-    def start(self):
+
+    async def setup(self):
         logger.info("Starting ProcessManager...")
         self._event_loop.add_signal_handler(
             signal.SIGCHLD, self.sigchld_handler)
 
-    # def setup(self):
-    #     self._old_sigchld_handler = signal.signal(
-    #         signal.SIGCHLD, self.sigchld_handler)
-
-    #     self._output_poller = select.epoll()
-    #     self._output_poll_thread = threading.Thread(
-    #         target=self._collect_output)
-    #     self._output_poll_thread.start()
-
     #     self._server.setup()
     #     self._server.start()
 
-    # def cleanup(self):
+    async def cleanup(self):
+        pass
     #     self._shutting_down.set()
 
     #     self.terminate_all_children()
 
     #     self._server.cleanup()
 
-    #     if self._old_sigchld_handler is not None:
-    #         signal.signal(signal.SIGCHLD, self._old_sigchld_handler)
-    #         self._old_sigchld_handler = None
+    async def __aenter__(self):
+        await self.setup()
+        return self
 
-    #     if self._output_poll_thread is not None:
-    #         self._output_poll_thread.join()
-    #         self._output_poll_thread = None
-
-    #     if self._output_poller is not None:
-    #         self._output_poller = None
-
-    # def __enter__(self):
-    #     self.setup()
-    #     return self
-
-    # def __exit__(self, exc_type, exc_val, exc_tb):
-    #     self.cleanup()
-    #     return False
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.cleanup()
+        return False
 
     # def terminate_all_children(self, timeout=10):
     #     sigchld_event = threading.Event()
@@ -179,7 +155,7 @@ class ProcessManager(object):
                     rc = impl.run(*args, **kwargs)
                 except SystemExit as exc:
                     rc = exc.code
-                except:
+                except:  # pylint: disable=bare-except
                     traceback.print_exc()
                     rc = 1
             finally:
@@ -191,7 +167,7 @@ class ProcessManager(object):
             # In manager process.
             os.close(barrier_in)
     #         os.close(announce_out)
-            
+
             self._processes[pid] = proc
 
             proc.pid = pid
@@ -206,7 +182,7 @@ class ProcessManager(object):
             proc.state = ProcessState.RUNNING
 
             # TODO: There's no simpler way than this?
-            transport, protocol = await self._event_loop.connect_write_pipe(
+            transport, _ = await self._event_loop.connect_write_pipe(
                 asyncio.Protocol, os.fdopen(barrier_out))
             transport.write(b'1')
             transport.close()
@@ -233,16 +209,11 @@ class ProcessManager(object):
 
     def collect_dead_children(self):
         dead_children = set()
-        for pid, stub in self._processes.items():
-            pid, status, resinfo = os.wait4(pid, os.WNOHANG)
-            if pid == 0:
+        for pid, proc in self._processes.items():
+            rpid, status, resinfo = os.wait4(pid, os.WNOHANG)
+            if rpid == 0:
                 continue
-
-            try:
-                proc = self._processes[pid]
-            except KeyError:
-                logger.warning("Unknown child pid=%d", pid)
-                continue
+            assert rpid == pid
 
             if proc.state != ProcessState.RUNNING:
                 proc.logger.error("Unexpected state %s", proc.state)
@@ -262,6 +233,11 @@ class ProcessManager(object):
             else:
                 proc.logger.error("Unexpected status %d", status)
                 continue
+
+            # The handle should receive an EOF when the child died and the
+            # pipe gets closed. We should wait for it asynchronously.
+            proc.stdout_buffer.eof_received()
+            proc.stderr_buffer.eof_received()
 
             proc.resinfo = resinfo
             proc.logger.info("Resource usage:")
@@ -333,20 +309,22 @@ class ProcessHandle(object):
         self.logger = None
         self.stdout_logger = None
         self.stderr_logger = None
+        self.stdout_buffer = None
+        self.stderr_buffer = None
 
     def create_loggers(self):
         assert self.pid is not None
         self.logger = logging.getLogger('childproc[%d]' % self.pid)
-        self._stdout_logger = self.logger.getChild('stdout')
-        self._stderr_logger = self.logger.getChild('stderr')
+        self.stdout_logger = self.logger.getChild('stdout')
+        self.stderr_logger = self.logger.getChild('stderr')
 
     async def setup_std_handlers(self, event_loop, stdout, stderr):
-        await event_loop.connect_read_pipe(
-            functools.partial(PipeAdapter, self._stdout_logger.info),
+        _, self.stdout_buffer = await event_loop.connect_read_pipe(
+            functools.partial(PipeAdapter, self.stdout_logger.info),
             os.fdopen(stdout))
 
-        await event_loop.connect_read_pipe(
-            functools.partial(PipeAdapter, self._stderr_logger.info),
+        _, self.stderr_buffer = await event_loop.connect_read_pipe(
+            functools.partial(PipeAdapter, self.stderr_logger.info),
             os.fdopen(stderr))
 
     async def wait(self):

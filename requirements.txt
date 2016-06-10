@@ -12,3 +12,4 @@ toposort
 pyaudio
 vext
 vext.pyqt5
+asynctest

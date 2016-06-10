@@ -1,17 +1,16 @@
 #!/usr/bin/python3
 
+import asyncio
 import enum
+import functools
 import logging
 import os
 import os.path
 import pickle
-import select
-import socket
 import tempfile
-import threading
-import time
 import uuid
 
+logger = logging.getLogger(__name__)
 
 def serialize(obj):
     return pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
@@ -28,29 +27,88 @@ class ConnState(enum.Enum):
     READ_MESSAGE = 1
     READ_PAYLOAD = 2
 
-class ServerConnection(object):
-    def __init__(self, conn):
-        self.conn = conn
-        self.inbuf = bytearray()
-        self.outbuf = bytearray()
+
+class ServerProtocol(asyncio.Protocol):
+    def __init__(self, server):
+        self.server = server
+        self.id = server.new_connection_id()
+        self.transport = None
         self.state = ConnState.READ_MESSAGE
         self.command = None
         self.payload_length = None
+        self.inbuf = bytearray()
+        self.logger = server.logger.getChild("conn-%d" % self.id)
+
+    def connection_made(self, transport):
+        self.logger.info("Accepted new connection.")
+        self.transport = transport
+
+    def connection_lost(self, exc):
+        self.logger.info("Connection closed.")
+
+    def data_received(self, data):
+        self.inbuf.extend(data)
+
+        while self.inbuf:
+            if self.state == ConnState.READ_MESSAGE:
+                try:
+                    eol = self.inbuf.index(b'\n')
+                except ValueError:
+                    break
+
+                header = bytes(self.inbuf[:eol])
+                self.inbuf = self.inbuf[eol+1:]
+                if header == b'PING':
+                    self.logger.info("PING received")
+                    self.transport.write(b'ACK 4\nPONG')
+
+                elif header.startswith(b'CALL '):
+                    command, length = header[5:].split(b' ')
+                    self.command = command.decode('ascii')
+                    self.payload_length = int(length)
+                    self.logger.info("CALL %s received (%d bytes payload)", self.command, self.payload_length)
+                    if self.payload_length > 0:
+                        self.state = ConnState.READ_PAYLOAD
+                    else:
+                        response = self.server.handle_command(
+                            self.command, None)
+                        response = response or b''
+                        self.transport.write(b'ACK %d\n' % len(response))
+                        if response:
+                            self.transport.write(response)
+                else:
+                    self.logger.error("Received unknown message '%s'", header)
+            elif self.state == ConnState.READ_PAYLOAD:
+                if len(self.inbuf) < self.payload_length:
+                    break
+                payload = bytes(self.inbuf[:self.payload_length])
+                del self.inbuf[:self.payload_length]
+                self.logger.debug("payload: %s", payload)
+                response = self.server.handle_command(self.command, payload)
+                response = response or b''
+                self.transport.write(b'ACK %d\n' % len(response))
+                if response:
+                    self.transport.write(response)
+                self.state = ConnState.READ_MESSAGE
+                self.command = None
+                self.payload_length = None
+
 
 class Server(object):
-    def __init__(self, name, socket_dir=None):
-        self.logger = logging.getLogger(__name__ + '.' + name)
+    def __init__(self, event_loop, name, socket_dir=None):
+        self.event_loop = event_loop
+        self.name = name
+
+        self.logger = logger.getChild(name)
 
         if socket_dir is None:
             socket_dir = tempfile.gettempdir()
 
-        self.name = name
         self.address = os.path.join(
             socket_dir, '%s.%s.sock' % (self.name, uuid.uuid4().hex))
 
-        self._socket = None
-        self._server_thread = None
-        self._connections = {}
+        self._next_connection_id = 0
+        self._server = None
 
         self._command_handlers = {}
 
@@ -58,137 +116,39 @@ class Server(object):
         assert cmd not in self._command_handlers
         self._command_handlers[cmd] = handler
 
-    def setup(self):
-        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self._socket.bind(self.address)
-        self._socket.listen()
+    def new_connection_id(self):
+        self._next_connection_id += 1
+        return self._next_connection_id
 
-        self._poller = select.epoll()
-        self._poller.register(self._socket.fileno(), select.EPOLLIN)
-        self._closed = False
+    async def setup(self):
+        self._server = await self.event_loop.create_unix_server(
+            functools.partial(ServerProtocol, self), path=self.address)
+        self.logger.info("Listening on socket %s", self.address)
 
-    def start(self):
-        self._server_thread = threading.Thread(target=self.mainloop)
-        self._server_thread.start()
+    async def cleanup(self):
+        if self._server is not None:
+            self._server.close()
+            await self._server.wait_closed()
+            self._server = None
+            self.logger.info("Server closed")
 
-    def cleanup(self):
-        if self._server_thread is not None:
-            self.send_close()
-            self._server_thread.join()
-            self._server_thread = None
-
-        if self._socket is not None:
-            self._socket.close()
-            self._socket = None
-
-    def __enter__(self):
-        self.setup()
+    async def __aenter__(self):
+        await self.setup()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.cleanup()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.cleanup()
         return False
 
-    def send_close(self):
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.connect(self.address)
-        sock.sendall(b'CLOSE\n')
-        sock.close()
+    # def send_close(self):
+    #     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    #     sock.connect(self.address)
+    #     sock.sendall(b'CLOSE\n')
+    #     sock.close()
 
-    def wait_for_pending_connections(self):
-        while len(self._connections) > 0:
-            time.sleep(0.01)
-
-    def handle_connections(self):
-        for fd, event in self._poller.poll(0.1):
-            if fd == self._socket.fileno():
-                conn, addr = self._socket.accept()
-                self.logger.info(
-                    "Accepted new connection on FD %d", conn.fileno())
-                conn.setblocking(0)
-                self._poller.register(
-                    conn.fileno(), select.EPOLLIN | select.EPOLLHUP)
-                self._connections[conn.fileno()] = ServerConnection(conn)
-
-            elif fd in self._connections:
-                conn = self._connections[fd]
-                if event & select.EPOLLIN:
-                    data = os.read(fd, 1024)
-                    conn.inbuf.extend(data)
-
-                    while conn.inbuf:
-                        if conn.state == ConnState.READ_MESSAGE:
-                            try:
-                                eol = conn.inbuf.index(b'\n')
-                            except ValueError:
-                                break
-
-                            header = bytes(conn.inbuf[:eol])
-                            conn.inbuf = conn.inbuf[eol+1:]
-                            if header == b'PING':
-                                self.logger.info("PING received")
-                                conn.outbuf.extend(b'PONG')
-                                self._poller.modify(
-                                    fd, select.EPOLLIN | select.EPOLLOUT | select.EPOLLHUP)
-                            elif header == b'CLOSE':
-                                self.logger.info("CLOSE received")
-                                conn.conn.close()
-                                self._closed = True
-
-                            elif header.startswith(b'CALL '):
-                                command, length = header[5:].split(b' ')
-                                conn.command = command.decode('ascii')
-                                conn.payload_length = int(length)
-                                self.logger.info("CALL %s received (%d bytes payload)", conn.command, conn.payload_length)
-                                if conn.payload_length > 0:
-                                    conn.state = ConnState.READ_PAYLOAD
-                                else:
-                                    response = self.handle_command(conn.command, None)
-                                    response = response or b''
-                                    conn.outbuf.extend(b'ACK %d\n' % len(response))
-                                    conn.outbuf.extend(response)
-                                    self._poller.modify(
-                                        fd, select.EPOLLIN | select.EPOLLOUT | select.EPOLLHUP)
-
-                            else:
-                                self.logger.error("Received unknown message '%s'", header)
-                        elif conn.state == ConnState.READ_PAYLOAD:
-                            if len(conn.inbuf) < conn.payload_length:
-                                break
-                            payload = bytes(conn.inbuf[:conn.payload_length])
-                            del conn.inbuf[:conn.payload_length]
-                            self.logger.info("payload: %s", payload)
-                            response = self.handle_command(conn.command, payload)
-                            response = response or b''
-                            conn.outbuf.extend(b'ACK %d\n' % len(response))
-                            conn.outbuf.extend(response)
-                            self._poller.modify(
-                                fd, select.EPOLLIN | select.EPOLLOUT | select.EPOLLHUP)
-                            conn.state = ConnState.READ_MESSAGE
-                            conn.command = None
-                            conn.payload_length = None
-
-                if event & select.EPOLLOUT:
-                    assert conn.outbuf
-                    sent = conn.conn.send(conn.outbuf)
-                    conn.outbuf = conn.outbuf[sent:]
-                    if not conn.outbuf:
-                        self._poller.modify(
-                            fd, select.EPOLLIN | select.EPOLLHUP)
-
-                if event & select.EPOLLHUP:
-                    self.logger.info("Connection %d closed.", fd)
-                    self._poller.unregister(fd)
-                    del self._connections[fd]
-                    conn.conn.close()
-
-            else:
-                self.logger.error(
-                    "Unexpected poll event %d for FD %d", event, fd)
-
-    def mainloop(self):
-        while not self._closed:
-            self.handle_connections()
+    # def wait_for_pending_connections(self):
+    #     while len(self._connections) > 0:
+    #         time.sleep(0.01)
 
     def handle_command(self, command, payload):
         try:
@@ -204,68 +164,92 @@ class Server(object):
                 return b'OK:' + result
             else:
                 return b'OK'
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             return b'EXC:' + str(exc).encode('utf-8')
 
 
+class ClientProtocol(asyncio.Protocol):
+    def __init__(self, stub):
+        self.stub = stub
+        self.closed_event = asyncio.Event()
+        self.state = 0
+        self.buf = bytearray()
+        self.length = None
+        self.response = None
+        self.response_queue = asyncio.Queue()
+
+    def connection_lost(self, exc):
+        self.closed_event.set()
+
+    def data_received(self, data):
+        self.buf.extend(data)
+
+        while self.buf:
+            if self.state == 0:
+                eol = self.buf.find(b'\n')
+                if eol == -1:
+                    break
+                ack, length = self.buf[:eol].split(b' ')
+                self.length = int(length)
+                self.response = None
+                del self.buf[:eol+1]
+                assert ack == b'ACK'
+                if self.length > 0:
+                    self.state = 1
+                else:
+                    self.response_queue.put_nowait(self.response)
+                    self.state = 0
+
+            elif self.state == 1:
+                if len(self.buf) < self.length:
+                    break
+                self.response = bytes(self.buf[:self.length])
+                del self.buf[:self.length]
+                self.response_queue.put_nowait(self.response)
+                self.state = 0
+
+            else:
+                raise RuntimeError("Invalid state %d" % self.state)
+
+
 class Stub(object):
-    def __init__(self, server_address):
-        self.server_address = server_address
-        self._socket = None
+    def __init__(self, event_loop, server_address):
+        self._event_loop = event_loop
+        self._server_address = server_address
+        self._transport = None
+        self._protocol = None
 
-    def connect(self):
-        assert self._socket is None
-        self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self._socket.connect(self.server_address)
+    async def connect(self):
+        assert self._transport is None and self._protocol is None
+        self._transport, self._protocol = (
+            await self._event_loop.create_unix_connection(
+                functools.partial(ClientProtocol, self), self._server_address))
+        logger.info("Connected to server at %s", self._server_address)
 
-    def close(self):
-        assert self._socket is not None
-        self._socket.close()
-        self._socket = None
+    async def close(self):
+        assert self._transport is not None
+        self._transport.close()
+        await self._protocol.closed_event.wait()
 
-    def __enter__(self):
-        self.connect()
+        self._transport = None
+        self._protocol = None
+
+    async def __aenter__(self):
+        await self.connect()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
         return False
 
-    def call(self, cmd, payload=b''):
+    async def call(self, cmd, payload=b''):
         if not isinstance(cmd, bytes):
             cmd = cmd.encode('ascii')
-        self._socket.sendall(b'CALL %s %d\n' % (cmd, len(payload)))
-        self._socket.sendall(payload)
+        self._transport.write(b'CALL %s %d\n' % (cmd, len(payload)))
+        if payload:
+            self._transport.write(payload)
 
-        buf = bytearray()
-        state = 0
-        length = None
-        response = None
-        while state != 2:
-            data = self._socket.recv(1024)
-            if not data:
-                break
-            buf.extend(data)
-
-            while buf:
-                if state == 0:
-                    eol = buf.find(b'\n')
-                    if eol == -1:
-                        break
-                    ack, length = buf[:eol].split(b' ')
-                    length = int(length)
-                    del buf[:eol+1]
-                    assert ack == b'ACK'
-                    if length > 0:
-                        state = 1
-                    else:
-                        state = 2
-                elif state == 1:
-                    if len(buf) < length:
-                        break
-                    response = bytes(buf[:length])
-                    del buf[:length]
-                    state = 2
+        response = await self._protocol.response_queue.get()
 
         if response == b'OK':
             return None
@@ -276,7 +260,7 @@ class Stub(object):
         else:
             raise InvalidResponseError(response)
 
-    def ping(self):
-        self._socket.sendall(b'PING\n')
-        response = self._socket.recv(1024)
-        assert response == b'PONG'
+    async def ping(self):
+        self._transport.write(b'PING\n')
+        response = await self._protocol.response_queue.get()
+        assert response == b'PONG', response
