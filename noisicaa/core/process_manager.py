@@ -7,6 +7,7 @@ import logging
 import os
 import signal
 import sys
+import time
 import traceback
 
 from . import ipc
@@ -47,25 +48,20 @@ class ProcessManager(object):
     def __init__(self, event_loop):
         self._event_loop = event_loop
         self._processes = {}
-        # self._shutting_down = threading.Event()
+        self._sigchld_received = asyncio.Event()
 
-        # self._server = ipc.Server('manager')
+        self._server = ipc.Server(event_loop, 'manager')
 
     async def setup(self):
         logger.info("Starting ProcessManager...")
         self._event_loop.add_signal_handler(
             signal.SIGCHLD, self.sigchld_handler)
 
-    #     self._server.setup()
-    #     self._server.start()
+        await self._server.setup()
 
     async def cleanup(self):
-        pass
-    #     self._shutting_down.set()
-
-    #     self.terminate_all_children()
-
-    #     self._server.cleanup()
+        await self.terminate_all_children()
+        await self._server.cleanup()
 
     async def __aenter__(self):
         await self.setup()
@@ -75,32 +71,31 @@ class ProcessManager(object):
         await self.cleanup()
         return False
 
-    # def terminate_all_children(self, timeout=10):
-    #     sigchld_event = threading.Event()
-    #     old_sigchld_handler = signal.signal(
-    #         signal.SIGCHLD, lambda sig, frame: sigchld_event.set())
-    #     try:
-    #         for sig in [signal.SIGTERM, signal.SIGKILL]:
-    #             for pid in list(self._processes.keys()):
-    #                 logger.warning(
-    #                     "Sending %s to left over child pid=%d",
-    #                     sig.name, pid)
-    #                 os.kill(pid, sig)
+    async def terminate_all_children(self, timeout=10):
+        for sig in [signal.SIGTERM, signal.SIGKILL]:
+            for pid in list(self._processes.keys()):
+                logger.warning(
+                    "Sending %s to left over child pid=%d",
+                    sig.name, pid)
+                os.kill(pid, sig)
 
-    #             deadline = time.time() + timeout
-    #             while time.time() < deadline:
-    #                 self.collect_dead_children()
-    #                 if not self._processes:
-    #                     break
-    #                 logger.info(
-    #                     ("%d children still running, waiting for SIGCHLD"
-    #                      " signal..."), len(self._processes))
-    #                 sigchld_event.wait(min(0.05, timeout))
+            deadline = time.time() + timeout
+            while time.time() < deadline:
+                self.collect_dead_children()
+                if not self._processes:
+                    break
+                logger.info(
+                    ("%d children still running, waiting for SIGCHLD"
+                     " signal..."), len(self._processes))
+                try:
+                    await asyncio.wait_for(
+                        self._sigchld_received.wait(), min(0.05, timeout))
+                    self._sigchld_received.clear()
+                except asyncio.TimeoutError:
+                    pass
 
-    #         for pid in self._processes.keys():
-    #             logger.error("Failed to kill child pid=%d", pid)
-    #     finally:
-    #         signal.signal(signal.SIGCHLD, old_sigchld_handler)
+        for pid in self._processes.keys():
+            logger.error("Failed to kill child pid=%d", pid)
 
     async def start_process(self, name, cls, *args, **kwargs):
         assert issubclass(cls, ProcessImpl)
@@ -108,56 +103,59 @@ class ProcessManager(object):
         proc = ProcessHandle()
 
         barrier_in, barrier_out = os.pipe()
-    #     announce_in, announce_out = os.pipe()
+        announce_in, announce_out = os.pipe()
         stdout_in, stdout_out = os.pipe2(os.O_NONBLOCK)
         stderr_in, stderr_out = os.pipe2(os.O_NONBLOCK)
 
-    #     manager_address = self._server.address
+        manager_address = self._server.address
 
         pid = os.fork()
         if pid == 0:
             # In child process.
-
-            # Close the "other ends" of the pipes.
-            os.close(barrier_out)
-    #         os.close(announce_in)
-            os.close(stdout_in)
-            os.close(stderr_in)
-
-            # Use the pipes as out STDIN/-ERR.
-            os.dup2(stdout_out, 1)
-            os.dup2(stderr_out, 2)
-            os.close(stdout_out)
-            os.close(stderr_out)
-
-            # TODO: ensure that sys.stdout/err use utf-8
-
-            # Wait until manager told us it's ok to start. Avoid race
-            # condition where child terminates and generates SIGCHLD
-            # before manager has added it to its process map.
-            os.read(barrier_in, 1)
-            os.close(barrier_in)
-
-            impl = cls(name)
-
-    #         # TODO: if crashes before ready_callback was sent, write
-    #         # back failure message to pipe.
-    #         def ready_callback():
-    #             stub_address = impl.server.address.encode('utf-8')
-    #             while stub_address:
-    #                 written = os.write(announce_out, stub_address)
-    #                 stub_address = stub_address[written:]
-    #             os.close(announce_out)
-
             try:
-                try:
-    #                 rc = impl.main(ready_callback, *args, **kwargs)
-                    rc = impl.run(*args, **kwargs)
-                except SystemExit as exc:
-                    rc = exc.code
-                except:  # pylint: disable=bare-except
-                    traceback.print_exc()
-                    rc = 1
+                # Close the "other ends" of the pipes.
+                os.close(barrier_out)
+                os.close(announce_in)
+                os.close(stdout_in)
+                os.close(stderr_in)
+
+                # Use the pipes as out STDIN/-ERR.
+                os.dup2(stdout_out, 1)
+                os.dup2(stderr_out, 2)
+                os.close(stdout_out)
+                os.close(stderr_out)
+
+                # TODO: ensure that sys.stdout/err use utf-8
+
+                # Wait until manager told us it's ok to start. Avoid race
+                # condition where child terminates and generates SIGCHLD
+                # before manager has added it to its process map.
+                os.read(barrier_in, 1)
+                os.close(barrier_in)
+
+                # Create a new event loop to replace the one we inherited.
+                event_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(event_loop)
+
+                impl = cls(name, event_loop, manager_address)
+
+                # TODO: if crashes before ready_callback was sent, write
+                # back failure message to pipe.
+                def ready_callback():
+                    stub_address = impl.server.address.encode('utf-8')
+                    while stub_address:
+                        written = os.write(announce_out, stub_address)
+                        stub_address = stub_address[written:]
+                    os.close(announce_out)
+
+                rc = event_loop.run_until_complete(
+                    impl.main(ready_callback, *args, **kwargs))
+
+            except SystemExit as exc:
+                rc = exc.code
+            except:  # pylint: disable=bare-except
+                traceback.print_exc()
+                rc = 1
             finally:
                 sys.stdout.flush()
                 sys.stderr.flush()
@@ -166,7 +164,7 @@ class ProcessManager(object):
         else:
             # In manager process.
             os.close(barrier_in)
-    #         os.close(announce_out)
+            os.close(announce_out)
 
             self._processes[pid] = proc
 
@@ -185,27 +183,30 @@ class ProcessManager(object):
             transport, _ = await self._event_loop.connect_write_pipe(
                 asyncio.Protocol, os.fdopen(barrier_out))
             transport.write(b'1')
-            transport.close()
+            transport.close()  # Does this close the FD?
 
-    #         # Wait for it to write back its server address.
-    #         # TODO: need to timeout? what happens when child terminates
-    #         # before full address is written?
-    #         stub_address = b''
-    #         while True:
-    #             read = os.read(announce_in, 1024)
-    #             if not read:
-    #                 break
-    #             stub_address += read
-    #         os.close(announce_in)
-    #         proc.address = stub_address.decode('utf-8')
-    #         logger.info(
-    #             "Child pid=%d has IPC address %s", pid, proc.address)
+            # Wait for it to write back its server address.
+            # TODO: need to timeout? what happens when child terminates
+            # before full address is written?
+            reader = asyncio.StreamReader(loop=self._event_loop)
+            transport, protocol = await self._event_loop.connect_read_pipe(
+                functools.partial(
+                    asyncio.StreamReaderProtocol,
+                    reader, loop=self._event_loop),
+                os.fdopen(announce_in))
+            stub_address = await reader.read()
+            transport.close()  # Does this close the FD?
+
+            proc.address = stub_address.decode('utf-8')
+            logger.info(
+                "Child pid=%d has IPC address %s", pid, proc.address)
 
             return proc
 
     def sigchld_handler(self):
         logger.info("Received SIGCHLD.")
         self.collect_dead_children()
+        self._sigchld_received.set()
 
     def collect_dead_children(self):
         dead_children = set()
@@ -268,32 +269,32 @@ class ProcessManager(object):
 
 
 class ProcessImpl(object):
-    def __init__(self, name):
+    def __init__(self, name, event_loop, manager_address):
         self.name = name
+        self.event_loop = event_loop
         self.pid = os.getpid()
 
-        # self.manager = ManagerStub(manager_address)
-        # self.server = ipc.Server(name)
+        self.manager = ManagerStub(event_loop, manager_address)
+        self.server = ipc.Server(event_loop, name)
 
-    # def main(self, ready_callback, *args, **kwargs):
-        # with self.manager:
-        #     with self.server:
-        #         self.server.start()
-        #         try:
-        #             self.setup()
-        #             ready_callback()
+    async def main(self, ready_callback, *args, **kwargs):
+        async with self.manager:
+            async with self.server:
+                try:
+                    await self.setup()
+                    ready_callback()
 
-        #             self.run(*args, **kwargs)
-        #         finally:
-        #             self.cleanup()
+                    return await self.run(*args, **kwargs)
+                finally:
+                    await self.cleanup()
 
-    def setup(self):
+    async def setup(self):
         pass
 
-    def cleanup(self):
+    async def cleanup(self):
         pass
 
-    def run(self):
+    async def run(self):
         raise NotImplementedError("Subclass must override run")
 
 
@@ -301,7 +302,7 @@ class ProcessHandle(object):
     def __init__(self):
         self.state = ProcessState.NOT_STARTED
         self.pid = None
-#         self.address = None
+        self.address = None
         self.returncode = None
         self.signal = None
         self.resinfo = None
@@ -331,5 +332,5 @@ class ProcessHandle(object):
         await self.term_event.wait()
 
 
-# class ManagerStub(ipc.Stub):
-#     pass
+class ManagerStub(ipc.Stub):
+    pass

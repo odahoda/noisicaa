@@ -13,7 +13,8 @@ class ObjectProxy(object):
         self._address = address
 
     def __getattr__(self, attr):
-        return self._project_stub.get_property(self._address, attr)
+        return self._project_stub._event_loop.run_until_complete(
+            self._project_stub.get_property(self._address, attr))
 
 
 class ProjectStub(ipc.Stub):
@@ -21,15 +22,16 @@ class ProjectStub(ipc.Stub):
     def project(self):
         return ObjectProxy(self, '/')
         
-    def shutdown(self):
-        self.call('SHUTDOWN')
+    async def shutdown(self):
+        await self.call('SHUTDOWN')
 
-    def get_property(self, target, prop):
-        return self.get_properties(target, [prop])[prop]
+    async def get_property(self, target, prop):
+        result = await self.get_properties(target, [prop])
+        return result[prop]
 
-    def get_properties(self, target, props):
+    async def get_properties(self, target, props):
         request = ipc.serialize([target, props])
-        response = self.call('GETPROPS', request)
+        response = await self.call('GETPROPS', request)
 
         results = {}
         for prop, (vtype, value) in ipc.deserialize(response).items():

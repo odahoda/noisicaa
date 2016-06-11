@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import asyncio
 import logging
 import threading
 import time
@@ -13,14 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 class ProjectProcess(core.ProcessImpl):
-    def setup(self):
-        self._shutting_down = threading.Event()
+    async def setup(self):
+        self._shutting_down = asyncio.Event()
         self.server.add_command_handler('GETPROPS', self.handle_getprops)
         self.server.add_command_handler('SHUTDOWN', self.handle_shutdown)
         self.project = project.Project()
 
-    def run(self):
-        self._shutting_down.wait()
+    async def run(self):
+        await self._shutting_down.wait()
 
     def handle_getprops(self, payload):
         address, properties = ipc.deserialize(payload)

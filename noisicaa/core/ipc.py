@@ -260,6 +260,9 @@ class Stub(object):
         else:
             raise InvalidResponseError(response)
 
+    def call_sync(self, cmd, payload=b''):
+        return self._event_loop.run_until_complete(self.call(cmd, payload))
+
     async def ping(self):
         self._transport.write(b'PING\n')
         response = await self._protocol.response_queue.get()
