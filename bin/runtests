@@ -20,12 +20,22 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('selectors', type=str, nargs='*')
     parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument(
+        '--log-level',
+        choices=['debug', 'info', 'warning', 'error', 'critical'],
+        default='error',
+        help="Minimum level for log messages written to STDERR.")
     parser.add_argument('--nocoverage', action='store_true', default=False)
     args = parser.parse_args(argv[1:])
 
-    log_level = logging.DEBUG if args.debug else logging.ERROR
     logging.basicConfig()
-    logging.getLogger().setLevel(log_level)
+    logging.getLogger().setLevel({
+        'debug': logging.DEBUG,
+        'info': logging.INFO,
+        'warning': logging.WARNING,
+        'error': logging.ERROR,
+        'critical': logging.CRITICAL,
+        }[args.log_level if not args.debug else 'debug'])
 
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
