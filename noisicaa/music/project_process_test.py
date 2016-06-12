@@ -11,7 +11,6 @@ from noisicaa import core
 from noisicaa.core import ipc
 
 from . import project_process
-from . import project_stub
 from . import project_client
 
 
@@ -27,7 +26,7 @@ class ProjectProcessTest(asynctest.TestCase):
         async with core.ProcessManager(self.loop) as mgr:
             proc = await mgr.start_process(
                 'project', project_process.ProjectProcess)
-            async with project_stub.ProjectStub(self.loop, proc.address) as stub:
+            async with project_client.ProjectStub(self.loop, proc.address) as stub:
                 await stub.start_session(self.server.address)
                 await stub.ping()
                 await stub.shutdown()
@@ -37,7 +36,7 @@ class ProjectProcessTest(asynctest.TestCase):
         async with core.ProcessManager(self.loop) as mgr:
             proc = await mgr.start_process(
                 'project', project_process.ProjectProcess)
-            async with project_stub.ProjectStub(self.loop, proc.address) as stub:
+            async with project_client.ProjectStub(self.loop, proc.address) as stub:
                 await stub.start_session(self.server.address)
                 self.assertEqual(
                     await stub.get_property('/', 'current_sheet'), 0)
@@ -85,7 +84,7 @@ class ProxyTest(asynctest.TestCase):
         await self.mgr.setup()
         self.proc = await self.mgr.start_process(
             'project', project_process.ProjectProcess)
-        self.stub = project_stub.ProjectStub(self.loop, self.proc.address)
+        self.stub = project_client.ProjectStub(self.loop, self.proc.address)
         await self.stub.connect()
         await self.stub.start_session(self.server.address)
 
