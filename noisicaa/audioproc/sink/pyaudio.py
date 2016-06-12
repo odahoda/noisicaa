@@ -11,11 +11,16 @@ from ..resample import (Resampler,
                         AV_SAMPLE_FMT_FLT)
 from ..ports import AudioInputPort
 from ..node import Node
+from ..node_types import NodeType
 
 logger = logging.getLogger(__name__)
 
 
 class PyAudioSink(Node):
+    desc = NodeType()
+    desc.name = 'pyaudiosink'
+    desc.port('in', 'input', 'audio')
+
     def __init__(self):
         super().__init__()
 

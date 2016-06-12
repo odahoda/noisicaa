@@ -134,6 +134,12 @@ class Pipeline(object):
         except ValueError as exc:
             raise Error(exc.args[0]) from exc
 
+    def find_node(self, node_id):
+        for node in self._nodes:
+            if node.id == node_id:
+                return node
+        raise Error("Unknown node %s" % node_id)
+
     def add_node(self, node):
         if node.pipeline is not None:
             raise Error("Node has already been added to a pipeline")

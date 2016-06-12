@@ -220,6 +220,10 @@ class Stub(object):
         self._transport = None
         self._protocol = None
 
+    @property
+    def connected(self):
+        return self._transport is not None
+
     async def connect(self):
         assert self._transport is None and self._protocol is None
         self._transport, self._protocol = (

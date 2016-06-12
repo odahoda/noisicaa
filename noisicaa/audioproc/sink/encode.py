@@ -6,6 +6,7 @@ import subprocess
 from ..exceptions import Error
 from ..ports import AudioInputPort
 from ..node import Node
+from ..node_types import NodeType
 from ..resample import (Resampler,
                         AV_CH_LAYOUT_STEREO,
                         AV_SAMPLE_FMT_S16,
@@ -93,6 +94,12 @@ class FlacEncoder(Encoder):
 
 
 class EncoderSink(Node):
+    desc = NodeType()
+    desc.name = 'encodersink'
+    desc.port('in', 'input', 'audio')
+    desc.parameter('format', 'string')
+    desc.parameter('path', 'string')
+
     formats = {
         'flac': FlacEncoder,
     }

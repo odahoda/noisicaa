@@ -5,11 +5,17 @@ import time
 
 from ..ports import AudioInputPort
 from ..node import Node
+from ..node_types import NodeType
 
 logger = logging.getLogger(__name__)
 
 
 class NullSink(Node):
+    desc = NodeType()
+    desc.name = 'nullsink'
+    desc.port('in', 'input', 'audio')
+    desc.parameter('sleep', 'float')
+
     def __init__(self, sleep=0):
         super().__init__()
 

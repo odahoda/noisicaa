@@ -5,11 +5,16 @@ import random
 
 from ..ports import AudioOutputPort
 from ..node import Node
+from ..node_types import NodeType
 
 logger = logging.getLogger(__name__)
 
 
 class WhiteNoiseSource(Node):
+    desc = NodeType()
+    desc.name = 'whitenoise'
+    desc.port('out', 'output', 'audio')
+
     def __init__(self, name=None):
         super().__init__(name)
 

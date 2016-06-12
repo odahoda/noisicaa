@@ -12,6 +12,7 @@ from noisicaa.core import ipc
 
 from . import audioproc_process
 from . import audioproc_client
+from . import node_types
 
 
 class TestClient(audioproc_client.AudioProcClientMixin):
@@ -52,18 +53,38 @@ class ProxyTest(asynctest.TestCase):
         await self.audioproc_process.setup()
         self.client = TestClient(self.loop)
         await self.client.setup()
-        self.stub = await self.client.get_stub(
-            self.audioproc_process.server.address)
+        await self.client.connect(self.audioproc_process.server.address)
 
     async def tearDown(self):
-        await self.stub.end_session()
-        await self.stub.shutdown()
-        await self.stub.close()
+        await self.client.shutdown()
+        await self.client.disconnect()
         await self.client.cleanup()
         await self.audioproc_process.cleanup()
 
-    async def test_foo(self):
-        pass
+    async def test_list_node_types(self):
+        result = await self.client.list_node_types()
+        self.assertTrue(
+            all(isinstance(nt, node_types.NodeType) for nt in result),
+            result)
+
+    async def test_add_node(self):
+        node_id = await self.client.add_node('whitenoise')
+        self.assertIsInstance(node_id, str)
+
+    async def test_remove_node(self):
+        node_id = await self.client.add_node('whitenoise')
+        await self.client.remove_node(node_id)
+
+    async def test_connect_ports(self):
+        node1_id = await self.client.add_node('whitenoise')
+        node2_id = await self.client.add_node('nullsink')
+        await self.client.connect_ports(node1_id, 'out', node2_id, 'in')
+
+    async def test_disconnect_ports(self):
+        node1_id = await self.client.add_node('whitenoise')
+        node2_id = await self.client.add_node('nullsink')
+        await self.client.connect_ports(node1_id, 'out', node2_id, 'in')
+        await self.client.disconnect_ports(node1_id, 'out', node2_id, 'in')
 
 
 if __name__ == '__main__':
