@@ -56,8 +56,9 @@ class ListenerProxy(object):
             logger.error("LISTENER_CALLBACK failed with exception: %s", exc)
 
 
-class ProjectProcess(core.ProcessImpl):
+class ProjectProcessMixin(object):
     async def setup(self):
+        await super().setup()
         self._shutting_down = asyncio.Event()
         self.server.add_command_handler(
             'START_SESSION', self.handle_start_session)
@@ -129,3 +130,7 @@ class ProjectProcess(core.ProcessImpl):
 
     def handle_test(self):
         self.project.current_sheet = (self.project.current_sheet or 0) + 1
+
+
+class ProjectProcess(ProjectProcessMixin, core.ProcessImpl):
+    pass

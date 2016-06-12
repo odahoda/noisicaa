@@ -76,31 +76,5 @@ class ProjectProcessTest(asynctest.TestCase):
                 await proc.wait()
 
 
-class ProxyTest(asynctest.TestCase):
-    async def setUp(self):
-        self.server = ipc.Server(self.loop, 'client')
-        await self.server.setup()
-        self.mgr = core.ProcessManager(self.loop)
-        await self.mgr.setup()
-        self.proc = await self.mgr.start_process(
-            'project', project_process.ProjectProcess)
-        self.stub = project_client.ProjectStub(self.loop, self.proc.address)
-        await self.stub.connect()
-        await self.stub.start_session(self.server.address)
-
-    async def tearDown(self):
-        await self.stub.close()
-        await self.mgr.cleanup()
-        await self.server.cleanup()
-
-    def test_root_proxy(self):
-        proxy = self.stub.project
-        self.assertEqual(proxy.current_sheet, 0)
-
-    def test_fetch_proxy(self):
-        proxy = self.stub.project.metadata
-        self.assertIsNone(proxy.author)
-
-
 if __name__ == '__main__':
     unittest.main()
