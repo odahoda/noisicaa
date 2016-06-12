@@ -8,20 +8,16 @@ import os
 import os.path
 import pickle
 import tempfile
+import traceback
 import uuid
 
 logger = logging.getLogger(__name__)
-
-def serialize(obj):
-    return pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
-
-def deserialize(dat):
-    return pickle.loads(dat)
 
 
 class RemoteException(Exception): pass
 class Error(Exception): pass
 class InvalidResponseError(Error): pass
+
 
 class ConnState(enum.Enum):
     READ_MESSAGE = 1
@@ -95,6 +91,10 @@ class ServerProtocol(asyncio.Protocol):
 
 
 class Server(object):
+    serialize = functools.partial(
+        pickle.dumps, protocol=pickle.HIGHEST_PROTOCOL)
+    deserialize = pickle.loads
+
     def __init__(self, event_loop, name, socket_dir=None):
         self.event_loop = event_loop
         self.name = name
@@ -129,6 +129,7 @@ class Server(object):
         if self._server is not None:
             self._server.close()
             await self._server.wait_closed()
+            os.unlink(self.address)
             self._server = None
             self.logger.info("Server closed")
 
@@ -153,19 +154,15 @@ class Server(object):
     def handle_command(self, command, payload):
         try:
             handler = self._command_handlers[command]
-        except KeyError:
-            self.logger.error(
-                "Unexpected command %s received.", command)
-            return None
 
-        try:
-            result = handler(payload)
+            args, kwargs = self.deserialize(payload)
+            result = handler(*args, **kwargs)
             if result is not None:
-                return b'OK:' + result
+                return b'OK:' + self.serialize(result)
             else:
                 return b'OK'
         except Exception as exc:  # pylint: disable=broad-except
-            return b'EXC:' + str(exc).encode('utf-8')
+            return b'EXC:' + str(traceback.format_exc()).encode('utf-8')
 
 
 class ClientProtocol(asyncio.Protocol):
@@ -213,6 +210,10 @@ class ClientProtocol(asyncio.Protocol):
 
 
 class Stub(object):
+    serialize = functools.partial(
+        pickle.dumps, protocol=pickle.HIGHEST_PROTOCOL)
+    deserialize = pickle.loads
+
     def __init__(self, event_loop, server_address):
         self._event_loop = event_loop
         self._server_address = server_address
@@ -242,9 +243,10 @@ class Stub(object):
         await self.close()
         return False
 
-    async def call(self, cmd, payload=b''):
+    async def call(self, cmd, *args, **kwargs):
         if not isinstance(cmd, bytes):
             cmd = cmd.encode('ascii')
+        payload = self.serialize([args, kwargs])
         self._transport.write(b'CALL %s %d\n' % (cmd, len(payload)))
         if payload:
             self._transport.write(payload)
@@ -254,7 +256,7 @@ class Stub(object):
         if response == b'OK':
             return None
         elif response.startswith(b'OK:'):
-            return response[3:]
+            return self.deserialize(response[3:])
         elif response.startswith(b'EXC:'):
             raise RemoteException(response[4:].decode('utf-8'))
         else:
