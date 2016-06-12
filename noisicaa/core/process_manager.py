@@ -133,11 +133,7 @@ class ProcessManager(object):
                 os.read(barrier_in, 1)
                 os.close(barrier_in)
 
-                # Create a new event loop to replace the one we inherited.
-                event_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(event_loop)
-
-                impl = cls(name, event_loop, manager_address)
+                impl = cls(name, manager_address)
 
                 # TODO: if crashes before ready_callback was sent, write
                 # back failure message to pipe.
@@ -148,8 +144,7 @@ class ProcessManager(object):
                         stub_address = stub_address[written:]
                     os.close(announce_out)
 
-                rc = event_loop.run_until_complete(
-                    impl.main(ready_callback, *args, **kwargs))
+                rc = impl.main(ready_callback, *args, **kwargs)
 
             except SystemExit as exc:
                 rc = exc.code
@@ -269,16 +264,30 @@ class ProcessManager(object):
 
 
 class ProcessImpl(object):
-    def __init__(self, name, event_loop, manager_address):
+    def __init__(self, name, manager_address):
         self.name = name
-        self.event_loop = event_loop
+        self.manager_address = manager_address
+        self.event_loop = None
         self.pid = os.getpid()
 
-        self.manager = ManagerStub(event_loop, manager_address)
-        self.server = ipc.Server(event_loop, name)
+        self.manager = None
+        self.server = None
 
-    async def main(self, ready_callback, *args, **kwargs):
+    def create_event_loop(self):
+        return asyncio.new_event_loop()
+
+    def main(self, ready_callback, *args, **kwargs):
+        # Create a new event loop to replace the one we inherited.
+        self.event_loop = self.create_event_loop()
+        asyncio.set_event_loop(self.event_loop)
+
+        self.event_loop.run_until_complete(
+            self.main_async(ready_callback, *args, **kwargs))
+
+    async def main_async(self, ready_callback, *args, **kwargs):
+        self.manager = ManagerStub(self.event_loop, self.manager_address)
         async with self.manager:
+            self.server = ipc.Server(self.event_loop, self.name)
             async with self.server:
                 try:
                     await self.setup()
