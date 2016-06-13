@@ -15,18 +15,21 @@ from . import audioproc_client
 from . import node_types
 
 
-class TestClient(audioproc_client.AudioProcClientMixin):
+class TestClientImpl(object):
     def __init__(self, event_loop):
         super().__init__()
         self.event_loop = event_loop
         self.server = ipc.Server(self.event_loop, 'client')
 
     async def setup(self):
-        await super().setup()
         await self.server.setup()
 
     async def cleanup(self):
         await self.server.cleanup()
+
+
+class TestClient(audioproc_client.AudioProcClientMixin, TestClientImpl):
+    pass
 
 
 class TestAudioProcProcessImpl(object):

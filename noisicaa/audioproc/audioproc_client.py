@@ -15,6 +15,7 @@ class AudioProcClientMixin(object):
         self._session_id = None
 
     async def setup(self):
+        await super().setup()
         self.server.add_command_handler(
             'PIPELINE_MUTATION', self.handle_pipeline_mutation)
 

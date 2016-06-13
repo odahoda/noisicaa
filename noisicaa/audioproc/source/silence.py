@@ -31,5 +31,5 @@ class SilenceSource(Node):
         frame.resize(4096)
         self._timepos += len(frame)
 
-        logger.info('Node %s created %s', self.name, frame)
+        logger.debug('Node %s created %s', self.name, frame)
         self._output.add_frame(frame)
