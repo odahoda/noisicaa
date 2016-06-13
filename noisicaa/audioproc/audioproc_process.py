@@ -129,8 +129,6 @@ class AudioProcProcessMixin(object):
             logger.error("Failed to connect to callback client: %s", exc)
             return
 
-        session.callback_stub_connected()
-
         with self.pipeline.reader_lock():
             for node in self.pipeline._nodes:
                 mutation = mutations.AddNode(node)
@@ -140,6 +138,8 @@ class AudioProcProcessMixin(object):
                     if port.is_connected:
                         mutation = mutations.ConnectPorts(port, port.input)
                         session.publish_mutation(mutation)
+
+        session.callback_stub_connected()
 
     def handle_end_session(self, session_id):
         session = self.get_session(session_id)
