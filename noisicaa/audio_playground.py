@@ -123,13 +123,13 @@ class Port(QtWidgets.QGraphicsRectItem):
     def mousePressEvent(self, evt):
         if evt.buttons() & Qt.LeftButton:
             if not self.selected:
+                self.set_selected(True)
                 self.scene().select_port(
                     self.node_id, self.port_name, self.port_direction)
-                self.set_selected(True)
             else:
+                self.set_selected(False)
                 self.scene().unselect_port(
                     self.node_id, self.port_name)
-                self.set_selected(False)
 
         return super().mousePressEvent(evt)
 
@@ -141,12 +141,14 @@ class Node(QtWidgets.QGraphicsRectItem):
         self.desc = desc
 
         self.setFlag(self.ItemIsMovable, True)
+        self.setFlag(self.ItemSendsGeometryChanges, True)
         self.setFlag(self.ItemIsSelectable, True)
 
         self.setRect(0, 0, 100, 60)
         self.setBrush(Qt.white)
 
         self.ports = {}
+        self.connections = set()
 
         label = QtWidgets.QGraphicsTextItem(self)
         label.setPos(2, 2)
@@ -169,9 +171,32 @@ class Node(QtWidgets.QGraphicsRectItem):
             port.setPos(x, y)
             self.ports[port_name] = port
 
+    def itemChange(self, change, value):
+        if change == self.ItemPositionHasChanged:
+            for connection in self.connections:
+                connection.update()
+
+        return super().itemChange(change, value)
+
     #def mousePressEvent(self, evt):
     #    print(evt)
     #    return super().mousePressEvent(evt)
+
+
+class Connection(QtWidgets.QGraphicsLineItem):
+    def __init__(self, parent, node1, port1, node2, port2):
+        super().__init__(parent)
+        self.node1 = node1
+        self.port1 = port1
+        self.node2 = node2
+        self.port2 = port2
+
+        self.update()
+
+    def update(self):
+        pos1 = self.port1.mapToScene(self.port1.dot_pos)
+        pos2 = self.port2.mapToScene(self.port2.dot_pos)
+        self.setLine(QtCore.QLineF(pos1, pos2))
 
 
 class Scene(QtWidgets.QGraphicsScene):
@@ -197,9 +222,17 @@ class Scene(QtWidgets.QGraphicsScene):
             self.selected_port2 = (node_id, port_name)
 
         if self.selected_port1 and self.selected_port2:
-            self.window.event_loop.create_task(
-                self.window.client.connect_ports(
-                    *self.selected_port1, *self.selected_port2))
+            connection_id = '%s:%s-%s-%s' % (
+                *self.selected_port1, *self.selected_port2)
+            if connection_id in self.window.connections:
+                self.window.event_loop.create_task(
+                    self.window.client.disconnect_ports(
+                        *self.selected_port1, *self.selected_port2))
+            else:
+                self.window.event_loop.create_task(
+                    self.window.client.connect_ports(
+                        *self.selected_port1, *self.selected_port2))
+
             node = self.window.nodes[self.selected_port1[0]]
             port = node.ports[self.selected_port1[1]]
             port.set_selected(False)
@@ -291,13 +324,12 @@ class AudioPlaygroundWindow(QtWidgets.QMainWindow):
             node2 = self.nodes[mutation.node2]
             port1 = node1.ports[mutation.port1]
             port2 = node2.ports[mutation.port2]
-            pos1 = port1.mapToScene(port1.dot_pos)
-            pos2 = port2.mapToScene(port2.dot_pos)
 
-            line = QtWidgets.QGraphicsLineItem()
-            line.setLine(QtCore.QLineF(pos1, pos2))
-            self.scene.addItem(line)
-            self.connections[connection_id] = line
+            connection = Connection(None, node1, port1, node2, port2)
+            self.scene.addItem(connection)
+            self.connections[connection_id] = connection
+            node1.connections.add(connection)
+            node2.connections.add(connection)
 
         elif isinstance(mutation, mutations.DisconnectPorts):
             connection_id = '%s:%s-%s-%s' % (
@@ -307,6 +339,8 @@ class AudioPlaygroundWindow(QtWidgets.QMainWindow):
             connection = self.connections[connection_id]
             self.scene.removeItem(connection)
             del self.connections[connection_id]
+            connection.node1.connections.remove(connection)
+            connection.node2.connections.remove(connection)
 
         else:
             logger.warning("Unknown mutation received: %s", mutation)
