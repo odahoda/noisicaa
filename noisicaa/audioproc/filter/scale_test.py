@@ -17,13 +17,10 @@ class ScaleTest(unittest.TestCase):
         node = scale.Scale(0.5)
         pipeline.add_node(node)
         node.inputs['in'].connect(source.outputs['out'])
-        node.outputs['out'].connect()
         node.setup()
         try:
-            node.outputs['out'].start()
-            self.assertEqual(node.outputs['out'].buffered_duration, 0)
-            node.run()
-            self.assertGreater(node.outputs['out'].buffered_duration, 0)
+            node.collect_inputs()
+            node.run(0)
         finally:
             node.cleanup()
 

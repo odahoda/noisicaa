@@ -19,8 +19,8 @@ class PyAudioTest(unittest.TestCase):
         node.inputs['in'].connect(source.outputs['out'])
         node.setup()
         try:
-            node.start()
-            node.consume(4096)
+            node.collect_inputs()
+            node.run(0)
         finally:
             node.cleanup()
 

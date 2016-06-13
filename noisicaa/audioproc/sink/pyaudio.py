@@ -68,29 +68,8 @@ class PyAudioSink(Node):
 
         self._resampler = None
 
-    def run(self):
-        # Sinks don't use run(), but I have to define this, to make pylint
-        # happy.
-        raise RuntimeError
-
-    def consume(self, framesize=4096):
-        t1 = time.time()
-        fr = self._input.get_frame(framesize)
-        t2 = time.time()
-
-        wall_time_ms = 1000.0 * (t2 - t1)
-        audio_time_ms = 1000.0 * len(fr) / fr.audio_format.sample_rate
-        if audio_time_ms > 0:
-            utilization = wall_time_ms / audio_time_ms
-            with self.pipeline.reader_lock():
-                for listener in self._status_listeners:
-                    listener(utilization)
-
-        # logger.debug("%.2fms to produce %.2fms of audio (%d samples)",
-        #              1000.0 * (time.time() - t1),
-        #              1000.0 * len(fr) / fr.audio_format.sample_rate,
-        #              len(fr))
-
+    def run(self, timepos):
+        fr = self._input.frame
         samples = self._resampler.convert(fr.as_bytes(), len(fr))
         self._stream.write(samples)
-        return fr.timepos
+

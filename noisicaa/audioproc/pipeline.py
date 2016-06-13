@@ -72,15 +72,12 @@ class Pipeline(object):
                 raise Error("Dangling node %s" % node)
 
             for name, port in node.inputs.items():
-                if not port.is_connected:
-                    raise Error(
-                        "Input port %s of node %s is not connected"
-                        % (name, node))
-                if port.input.owner not in self._nodes:
-                    raise Error(
-                        ("Input port %s of node %s is connected to a foreign"
-                         " node")
-                        % (name, node))
+                for upstream_port in port.inputs:
+                    if upstream_port.owner not in self._nodes:
+                        raise Error(
+                            ("Input port %s of node %s is connected to a foreign"
+                             " node")
+                            % (name, node))
 
         # will fail on cyclic graph
         self.sorted_nodes  # pylint: disable=W0104
@@ -102,20 +99,19 @@ class Pipeline(object):
                                for node in self._nodes))
 
     def mainloop(self):
-        logger.info("Setting up nodes...")
-        for node in reversed(self.sorted_nodes):
-            node.setup()
-
         try:
-            logger.info("Starting sink...")
-            self._sink.start()
+            logger.info("Starting mainloop...")
             self._started.set()
+            timepos = 0
             while not self._stopping.is_set():
-                try:
-                    self._sink.consume()
-                except EndOfStreamError:
-                    logger.info("End of stream reached.")
-                    break
+                with self.reader_lock():
+                    logger.debug("Processing frame @%d", timepos)
+                    for node in self.sorted_nodes:
+                        logger.debug("Running node %s", node.name)
+                        node.collect_inputs()
+                        node.run(timepos)
+
+                timepos += 4096
 
         except:  # pylint: disable=bare-except
             sys.excepthook(*sys.exc_info())
@@ -123,12 +119,12 @@ class Pipeline(object):
         finally:
             logger.info("Cleaning up nodes...")
             for node in reversed(self.sorted_nodes):
-                node.stop()
                 node.cleanup()
 
     @property
     def sorted_nodes(self):
-        graph = dict((node, set(node.parent_nodes)) for node in self._nodes)
+        graph = dict((node, set(node.parent_nodes))
+                     for node in self._nodes)
         try:
             return toposort.toposort_flatten(graph, sort=False)
         except ValueError as exc:
@@ -164,6 +160,7 @@ def demo():  # pragma: no cover
     from .source.notes import NoteSource
     from .source.fluidsynth import FluidSynthSource
     from .source.whitenoise import WhiteNoiseSource
+    from .source.wavfile import WavFileSource
     from .filter.scale import Scale
     from .compose.timeslice import TimeSlice
     from .compose.mix import Mix
@@ -171,18 +168,15 @@ def demo():  # pragma: no cover
     from .sink.encode import EncoderSink
     from noisicaa import music
 
-    logging.basicConfig(level=logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
 
     pipeline = Pipeline()
 
-    project = music.BaseProject.make_demo()
-    sheet = project.sheets[0]
-    sheet_mixer = sheet.create_playback_source(
-        pipeline, setup=False, recursive=True)
+    # project = music.BaseProject.make_demo()
+    # sheet = project.sheets[0]
+    # sheet_mixer = sheet.create_playback_source(
+    #     pipeline, setup=False, recursive=True)
 
-    #noise = WavFileSource('/storage/home/share/sounds/new/2STEREO2.wav') #NoiseSource()
-    # noise = WhiteNoiseSource()
-    # pipeline.add_node(noise)
 
     # noise_boost = Scale(0.1)
     # pipeline.add_node(noise_boost)
@@ -197,10 +191,20 @@ def demo():  # pragma: no cover
     # #concat.append_input(slice_noise.outputs['out'])
     # concat.append_input(sheet_mixer.outputs['out'])
 
+    noise = WhiteNoiseSource()
+    noise.setup()
+    pipeline.add_node(noise)
+
+    smpl = WavFileSource('/home/pink/Samples/fireworks.wav')
+    smpl.setup()
+    pipeline.add_node(smpl)
+
     #sink = EncoderSink('flac', '/tmp/foo.flac')
     sink = PyAudioSink()
-    pipeline.set_sink(sink)
-    sink.inputs['in'].connect(sheet_mixer.outputs['out'])
+    sink.setup()
+    pipeline.add_node(sink)
+    #sink.inputs['in'].connect(noise.outputs['out'])
+    sink.inputs['in'].connect(smpl.outputs['out'])
 
     pipeline.start()
     try:

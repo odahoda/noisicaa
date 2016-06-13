@@ -27,11 +27,6 @@ class Scale(Node):
 
         self._factor = factor
 
-    def run(self):
-        frame = self._input.get_frame(4096)
-        samples = frame.samples
-        for ch in range(frame.audio_format.num_channels):
-            ch_samples = samples[ch]
-            for i in range(len(frame)):
-                ch_samples[i] *= self._factor
-        self._output.add_frame(frame)
+    def run(self, timepos):
+        self._input.frame.mul(self._factor)
+        self._output.frame.copy_from(self._input.frame)

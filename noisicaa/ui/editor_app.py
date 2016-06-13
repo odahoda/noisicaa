@@ -22,7 +22,6 @@ from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
 from .editor_project import EditorProject
 from ..audioproc.pipeline import Pipeline
-from ..audioproc.compose.mix import Mix
 from ..audioproc.sink.pyaudio import PyAudioSink
 from ..audioproc.sink.null import NullSink
 from ..instr.library import InstrumentLibrary

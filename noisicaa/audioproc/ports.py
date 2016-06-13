@@ -31,53 +31,29 @@ class Port(object):
 class InputPort(Port):
     def __init__(self, name):
         super().__init__(name)
-        self._input = None
-        # TODO: get sample_rate from pipeline
-        self._audio_format = AudioFormat(CHANNELS_STEREO, SAMPLE_FMT_FLT, 44100)
-
-    @property
-    def audio_format(self):
-        return self._audio_format
+        self.inputs = []
 
     def connect(self, port):
         self.check_port(port)
         with self.pipeline.writer_lock():
-            port.connect()
-            self._input = port
+            self.inputs.append(port)
 
-    def disconnect(self):
-        assert self._input is not None
+    def disconnect(self, port):
         with self.pipeline.writer_lock():
-            self._input.disconnect()
-            self._input = None
+            assert port in self.inputs
+            self.inputs.remove(port)
 
     def check_port(self, port):
         if not isinstance(port, OutputPort):
             raise Error("Can only connect to OutputPort")
-        if port.is_connected:
-            raise Error("OutputPort is already connected")
 
-    @property
-    def is_connected(self):
-        return self._input is not None
-
-    @property
-    def input(self):
-        return self._input
-
-    def start(self):
-        if self._input:
-            self._input.start()
-
-    def stop(self):
-        if self._input:
-            self._input.stop()
+    def collect_inputs(self):
+        pass
 
 
 class OutputPort(Port):
     def __init__(self, name):
         super().__init__(name)
-        self._is_connected = False
         self._tag_listeners = []
 
     def add_tag_listener(self, listener):
@@ -87,26 +63,19 @@ class OutputPort(Port):
         for listener in self._tag_listeners:
             listener(tags)
 
-    @property
-    def is_connected(self):
-        return self._is_connected
-
-    def connect(self):
-        self._is_connected = True
-
-    def disconnect(self):
-        self._is_connected = False
-
-    def start(self):
-        self.owner.start()
-
-    def stop(self):
-        self.owner.stop()
-
 
 class AudioInputPort(InputPort):
     def __init__(self, name):
         super().__init__(name)
+
+        # TODO: get sample_rate from pipeline
+        self._audio_format = AudioFormat(CHANNELS_STEREO, SAMPLE_FMT_FLT, 44100)
+        self.frame = Frame(self._audio_format, 0, set())
+        self.frame.resize(4096)
+
+    @property
+    def audio_format(self):
+        return self._audio_format
 
     def check_port(self, port):
         super().check_port(port)
@@ -116,9 +85,11 @@ class AudioInputPort(InputPort):
             raise Error("OutputPort has mismatching audio format %s"
                         % port.audio_format)
 
-    def get_frame(self, duration):
-        with self.pipeline.reader_lock():
-            return self._input.get_frame(duration)
+    def collect_inputs(self):
+        self.frame.clear()
+        for upstream_port in self.inputs:
+            if not upstream_port.muted:
+                self.frame.add(upstream_port.frame)
 
 
 class AudioOutputPort(OutputPort):
@@ -127,8 +98,8 @@ class AudioOutputPort(OutputPort):
         # TODO: get sample_rate from pipeline
         self._audio_format = AudioFormat(CHANNELS_STEREO, SAMPLE_FMT_FLT, 44100)
 
-        self._buffered_duration = None
-        self._buffer = None
+        self.frame = Frame(self._audio_format, 0, set())
+        self.frame.resize(4096)
 
         self._muted = False
         self._volume = 100
@@ -136,16 +107,6 @@ class AudioOutputPort(OutputPort):
     @property
     def audio_format(self):
         return self._audio_format
-
-    def start(self):
-        self._buffer = collections.deque()
-        self._buffered_duration = 0
-        super().start()
-
-    def stop(self):
-        super().stop()
-        self._buffer = None
-        self._buffered_duration = None
 
     @property
     def muted(self):
@@ -166,71 +127,6 @@ class AudioOutputPort(OutputPort):
             raise ValueError("Invalid volume.")
         self._volume = float(value)
 
-    @property
-    def buffered_duration(self):
-        return self._buffered_duration
-
-    def create_frame(self, timepos, tags=None):
-        return Frame(self._audio_format, timepos, tags)
-
-    def add_frame(self, frame):
-        if not self._is_connected:
-            return
-        if self._buffered_duration is None:
-            logger.error("AudioOutputPort.add_frame() but port is stopped.")
-            return
-        self._buffered_duration += len(frame)
-        self._buffer.appendleft(frame)
-
-    def get_frame(self, duration):
-        if not self.owner.started:
-            frame = self.create_frame(0)
-            frame.resize(duration)
-            return frame
-
-        while self._buffered_duration < duration:
-            try:
-                self.owner.run()
-            except EndOfStreamError:
-                break
-
-        if len(self._buffer) == 0:
-            raise EndOfStreamError
-
-        frame = None
-        while duration > 0 and len(self._buffer) > 0:
-            fr = self._buffer.pop()
-            if len(fr) > duration:
-                head = fr.pop(duration)
-                self._buffer.append(fr)
-                self._buffered_duration -= duration
-                fr = head
-            else:
-                self._buffered_duration -= len(fr)
-
-            if frame is None:
-                frame = fr
-            else:
-                frame.append(fr)
-            duration -= len(fr)
-
-        assert frame is not None
-
-        if self._muted:
-            # Just throw away what we have and replace by silent frame of
-            # same size.
-            # Could be done more efficiently by clearing the current frame and
-            # throw away the tags.
-            duration = len(frame)
-            frame = self.create_frame(frame.timepos)
-            frame.resize(duration)
-        elif self._volume != 100:
-            frame.mul(self._volume / 100.0)
-
-        if frame.tags:
-            self.notify_tag_listeners(frame.tags)
-
-        return frame
 
 class EventInputPort(InputPort):
     def __init__(self, name):

@@ -12,6 +12,7 @@ from ..resample import (Resampler,
                         AV_SAMPLE_FMT_FLT)
 from ..ports import AudioOutputPort
 from ..node import Node
+from ..frame import Frame
 
 logger = logging.getLogger(__name__)
 
@@ -68,12 +69,7 @@ class WavFileSource(Node):
 
         self._resampler = None
 
-    def start(self):
-        super().start()
-        self._timepos = 0
-        self._fp.setpos(self._start_pos)
-
-    def run(self):
+    def run(self, timepos):
         samples = self._fp.readframes(4096)
         if len(samples) == 0:
             raise EndOfStreamError
@@ -82,7 +78,7 @@ class WavFileSource(Node):
             samples, len(samples) // (self._fp.getnchannels()
                                       * self._fp.getsampwidth()))
 
-        frame = self._output.create_frame(self._timepos)
+        frame = Frame(self._output.audio_format, 0, set())
         frame.append_samples(
             samples,
             len(samples) // (
@@ -90,7 +86,7 @@ class WavFileSource(Node):
                 # pylint: disable=E1101
                 frame.audio_format.num_channels
                 * frame.audio_format.bytes_per_sample))
-        self._timepos += len(frame)
+        assert len(frame) <= 4096
+        frame.resize(4096)
 
-        logger.info('Node %s created %s', self.name, frame)
-        self._output.add_frame(frame)
+        self._output.frame.copy_from(frame)

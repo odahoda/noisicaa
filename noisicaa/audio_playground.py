@@ -140,7 +140,7 @@ class Node(QtWidgets.QGraphicsRectItem):
         self.node_id = node_id
         self.desc = desc
 
-        #self.setFlag(self.ItemIsMovable, True)
+        self.setFlag(self.ItemIsMovable, True)
         self.setFlag(self.ItemIsSelectable, True)
 
         self.setRect(0, 0, 100, 60)

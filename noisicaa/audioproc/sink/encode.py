@@ -119,27 +119,12 @@ class EncoderSink(Node):
     def setup(self):
         super().setup()
         self._encoder.setup()
+        self._encoder.start()
 
     def cleanup(self):
+        self._encoder.stop()
         self._encoder.cleanup()
         super().cleanup()
 
-    def start(self):
-        super().start()
-        self._encoder.start()
-        self._frames_processed = 0
-
-    def stop(self):
-        self._encoder.stop()
-        super().stop()
-
-    def run(self):
-        # Sinks don't use run(), but I have to define this, to make pylint
-        # happy.
-        raise RuntimeError
-
-    def consume(self, framesize=4096):
-        fr = self._input.get_frame(framesize)
-        self._encoder.consume(fr)
-        self._frames_processed += len(fr)
-        return self._frames_processed
+    def run(self, framesize=4096):
+        self._encoder.consume(self._input.frame)

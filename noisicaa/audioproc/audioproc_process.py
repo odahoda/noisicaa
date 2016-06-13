@@ -86,12 +86,6 @@ class AudioProcProcessMixin(object):
         self.node_db.add(whitenoise.WhiteNoiseSource)
 
         self.pipeline = pipeline.Pipeline()
-
-        source = silence.SilenceSource()
-        self.pipeline.add_node(source)
-        sink = pyaudio.PyAudioSink()
-        self.pipeline.set_sink(sink)
-        sink.inputs['in'].connect(source.outputs['out'])
         self.pipeline.start()
 
         self.sessions = {}
@@ -135,8 +129,9 @@ class AudioProcProcessMixin(object):
                 session.publish_mutation(mutation)
             for node in self.pipeline._nodes:
                 for port in node.inputs.values():
-                    if port.is_connected:
-                        mutation = mutations.ConnectPorts(port, port.input)
+                    for upstream_port in port.inputs:
+                        mutation = mutations.ConnectPorts(
+                            port, upstream_port)
                         session.publish_mutation(mutation)
 
         session.callback_stub_connected()
@@ -157,14 +152,16 @@ class AudioProcProcessMixin(object):
         session = self.get_session(session_id)
         node = self.node_db.create(name, args)
         node.setup()
-        self.pipeline.add_node(node)
+        with self.pipeline.writer_lock():
+            self.pipeline.add_node(node)
         self.publish_mutation(mutations.AddNode(node))
         return node.id
 
     def handle_remove_node(self, session_id, node_id):
         session = self.get_session(session_id)
         node = self.pipeline.find_node(node_id)
-        self.pipeline.remove_node(node)
+        with self.pipeline.writer_lock():
+            self.pipeline.remove_node(node)
         node.cleanup()
         self.publish_mutation(mutations.RemoveNode(node))
 
@@ -173,7 +170,8 @@ class AudioProcProcessMixin(object):
         session = self.get_session(session_id)
         node1 = self.pipeline.find_node(node1_id)
         node2 = self.pipeline.find_node(node2_id)
-        node2.inputs[port2_name].connect(node1.outputs[port1_name])
+        with self.pipeline.writer_lock():
+            node2.inputs[port2_name].connect(node1.outputs[port1_name])
         self.publish_mutation(
             mutations.ConnectPorts(
                 node1.outputs[port1_name], node2.inputs[port2_name]))
@@ -183,7 +181,8 @@ class AudioProcProcessMixin(object):
         session = self.get_session(session_id)
         node1 = self.pipeline.find_node(node1_id)
         node2 = self.pipeline.find_node(node2_id)
-        node2.inputs[port2_name].disconnect()
+        with self.pipeline.writer_lock():
+            node2.inputs[port2_name].disconnect(node1.outputs[port1_name])
         self.publish_mutation(
             mutations.DisconnectPorts(
                 node1.outputs[port1_name], node2.inputs[port2_name]))

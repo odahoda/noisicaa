@@ -18,7 +18,6 @@ class Node(object):
         self._name = name or type(self).__name__
         self.inputs = {}
         self.outputs = {}
-        self._started = False
 
     @property
     def name(self):
@@ -38,13 +37,11 @@ class Node(object):
 
     @property
     def parent_nodes(self):
-        return [port.input.owner
-                for port in self.inputs.values()
-                if port.is_connected]
-
-    @property
-    def started(self):
-        return self._started
+        parents = []
+        for port in self.inputs.values():
+            for upstream_port in port.inputs:
+                parents.append(upstream_port.owner)
+        return parents
 
     def setup(self):
         """Set up the node.
@@ -60,19 +57,9 @@ class Node(object):
         """
         logger.info("%s: cleanup()", self.name)
 
-    def start(self):
-        """Start the node."""
-        logger.info("%s: start()", self.name)
-        self._started = True
+    def collect_inputs(self):
         for port in self.inputs.values():
-            port.start()
+            port.collect_inputs()
 
-    def stop(self):
-        """Stop the node."""
-        logger.info("%s: stop()", self.name)
-        for port in self.inputs.values():
-            port.stop()
-        self._started = False
-
-    def run(self):
+    def run(self, timepos):
         raise NotImplementedError

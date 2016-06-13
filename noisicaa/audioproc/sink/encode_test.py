@@ -12,16 +12,16 @@ class PyAudioTest(unittest.TestCase):
         pipeline = Pipeline()
 
         source = WhiteNoiseSource()
+        source.setup()
         pipeline.add_node(source)
 
         node = encode.EncoderSink('flac', '/tmp/foo.flac')
+        node.setup()
         pipeline.add_node(node)
         node.inputs['in'].connect(source.outputs['out'])
-        node.setup()
         try:
-            node.start()
-            node.consume(4096)
-            node.stop()
+            node.collect_inputs()
+            node.run(0)
         finally:
             node.cleanup()
 

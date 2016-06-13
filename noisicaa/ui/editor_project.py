@@ -3,7 +3,6 @@
 import logging
 
 from noisicaa import music
-from noisicaa.audioproc.compose.mix import Mix
 
 logger = logging.getLogger(__name__)
 

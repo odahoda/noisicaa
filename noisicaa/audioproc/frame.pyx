@@ -96,6 +96,25 @@ cdef class Frame:
 
         self._buf_count -= 1
 
+    def clear(self):
+        memset(self.samples, 0,
+               self.length
+               * self.audio_format.num_channels
+               * self.audio_format.bytes_per_sample)
+
+    def copy_from(self, Frame frame):
+        if frame.audio_format != self.audio_format:
+            raise ValueError(
+                "Incompatible frame format: %s" % frame.audio_format)
+
+        if frame.length != self.length:
+            raise ValueError("Frame lengths must be identical")
+
+        memcpy(self.samples, frame.samples,
+               self.length
+               * self.audio_format.num_channels
+               * self.audio_format.bytes_per_sample)
+
     def append_samples(self, uint8_t* samples, int num):
         self._append_internal(samples, num)
 

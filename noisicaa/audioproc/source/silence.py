@@ -20,16 +20,6 @@ class SilenceSource(Node):
         self._output = AudioOutputPort('out')
         self.add_output(self._output)
 
-        self._timepos = 0
+    def run(self, timepos):
+        self._output.frame.clear()
 
-    def start(self):
-        super().start()
-        self._timepos = 0
-
-    def run(self):
-        frame = self._output.create_frame(self._timepos)
-        frame.resize(4096)
-        self._timepos += len(frame)
-
-        logger.debug('Node %s created %s', self.name, frame)
-        self._output.add_frame(frame)

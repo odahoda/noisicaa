@@ -11,6 +11,7 @@ class NullTest(unittest.TestCase):
         pipeline = Pipeline()
 
         source = WhiteNoiseSource()
+        source.setup()
         pipeline.add_node(source)
 
         node = null.NullSink()
@@ -18,8 +19,8 @@ class NullTest(unittest.TestCase):
         node.inputs['in'].connect(source.outputs['out'])
         node.setup()
         try:
-            node.start()
-            node.consume(4096)
+            node.collect_inputs()
+            node.run(0)
         finally:
             node.cleanup()
 

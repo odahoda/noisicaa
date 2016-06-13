@@ -10,7 +10,6 @@ import portalocker
 
 from noisicaa import core
 from noisicaa.core import fileutil
-from noisicaa.audioproc.compose.mix import Mix
 from noisicaa.instr.library import SoundFontInstrument
 
 from .exceptions import (
