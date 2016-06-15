@@ -195,10 +195,6 @@ class Node(QtWidgets.QGraphicsRectItem):
         self.scene().window.event_loop.create_task(
             self.scene().window.client.remove_node(self.node_id))
 
-    #def mousePressEvent(self, evt):
-    #    print(evt)
-    #    return super().mousePressEvent(evt)
-
 
 class Connection(QtWidgets.QGraphicsLineItem):
     def __init__(self, parent, node1, port1, node2, port2):
@@ -266,6 +262,62 @@ class Scene(QtWidgets.QGraphicsScene):
             self.selected_port2 = None
 
 
+class CreateNodeWindow(QtWidgets.QDialog):
+    def __init__(self, window, node_type):
+        super().__init__(window)
+
+        self.window = window
+        self.node_type = node_type
+
+        self.setWindowTitle("Create {} node".format(self.node_type.name))
+        self.setModal(True)
+
+        playout = QtWidgets.QFormLayout()
+
+        self.widgets = {}
+        for pname, ptype in self.node_type.parameters:
+            if ptype == 'float':
+                widget = QtWidgets.QLineEdit(self)
+                widget.setText('0.0')
+                widget.setValidator(QtGui.QDoubleValidator())
+            else:
+                raise ValueError("Unsupported parameter type %r" % ptype)
+
+            playout.addRow(pname, widget)
+            self.widgets[pname] = widget
+
+        create_button = QtWidgets.QPushButton("Create")
+        create_button.setDefault(True)
+        create_button.clicked.connect(self.create_node)
+
+        cancel_button = QtWidgets.QPushButton("Cancel")
+        cancel_button.clicked.connect(lambda: self.done(0))
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(playout, stretch=1)
+        blayout = QtWidgets.QHBoxLayout()
+        blayout.addStretch(1)
+        blayout.addWidget(create_button)
+        blayout.addWidget(cancel_button)
+        layout.addLayout(blayout)
+        self.setLayout(layout)
+
+    def create_node(self):
+        args = {}
+        for pname, ptype in self.node_type.parameters:
+            widget = self.widgets[pname]
+            if ptype == 'float':
+                value, _ = widget.locale().toDouble(widget.text())
+            else:
+                raise ValueError("Unsupported parameter type %r" % ptype)
+
+            args[pname] = value
+
+        self.window.event_loop.create_task(
+            self.window.client.add_node(self.node_type.name, **args))
+        self.done(0)
+
+
 class AudioPlaygroundWindow(QtWidgets.QMainWindow):
     def __init__(self, event_loop):
         super().__init__()
@@ -318,7 +370,13 @@ class AudioPlaygroundWindow(QtWidgets.QMainWindow):
 
     def doubleClicked(self, item):
         node_type = item.data(Qt.UserRole)
-        self.event_loop.create_task(self.client.add_node(node_type.name))
+        if len(node_type.parameters) > 0:
+            win = CreateNodeWindow(self, node_type)
+            win.show()
+
+        else:
+            self.event_loop.create_task(
+                self.client.add_node(node_type.name))
 
     def handle_pipeline_mutation(self, mutation):
         if isinstance(mutation, mutations.AddNode):
