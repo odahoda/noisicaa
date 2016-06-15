@@ -178,6 +178,23 @@ class Node(QtWidgets.QGraphicsRectItem):
 
         return super().itemChange(change, value)
 
+    def contextMenuEvent(self, evt):
+        menu = QtWidgets.QMenu()
+        remove = menu.addAction("Remove")
+        remove.triggered.connect(self.onRemove)
+        menu.exec_(evt.screenPos())
+        evt.accept()
+
+    def onRemove(self):
+        for connection in self.connections:
+            self.scene().window.event_loop.create_task(
+                self.scene().window.client.disconnect_ports(
+                    connection.node1.node_id, connection.port1.port_name,
+                    connection.node2.node_id, connection.port2.port_name))
+
+        self.scene().window.event_loop.create_task(
+            self.scene().window.client.remove_node(self.node_id))
+
     #def mousePressEvent(self, evt):
     #    print(evt)
     #    return super().mousePressEvent(evt)
