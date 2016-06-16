@@ -13,11 +13,17 @@ from ..resample import (Resampler,
 from ..ports import AudioOutputPort
 from ..node import Node
 from ..frame import Frame
+from ..node_types import NodeType
 
 logger = logging.getLogger(__name__)
 
 
 class WavFileSource(Node):
+    desc = NodeType()
+    desc.name = 'wavfile'
+    desc.port('out', 'output', 'audio')
+    desc.parameter('path', 'path')
+
     def __init__(self, path):
         super().__init__()
 
@@ -33,59 +39,53 @@ class WavFileSource(Node):
     def setup(self):
         super().setup()
 
-        self._fp = wave.open(self._path, 'rb')
-        self._start_pos = self._fp.tell()
-        self._timepos = 0
+        fp = wave.open(self._path, 'rb')
 
-        logger.info("%s: %s", self._path, self._fp.getparams())
+        logger.info("%s: %s", self._path, fp.getparams())
 
-        if self._fp.getnchannels() == 1:
+        if fp.getnchannels() == 1:
             ch_layout = AV_CH_LAYOUT_MONO
-        elif self._fp.getnchannels() == 2:
+        elif fp.getnchannels() == 2:
             ch_layout = AV_CH_LAYOUT_STEREO
         else:
             raise Exception(
-                "Unsupported number of channels: %d" % self._fp.getnchannels())
+                "Unsupported number of channels: %d" % fp.getnchannels())
 
-        if self._fp.getsampwidth() == 1:
+        if fp.getsampwidth() == 1:
             sample_fmt = AV_SAMPLE_FMT_U8
-        elif self._fp.getsampwidth() == 2:
+        elif fp.getsampwidth() == 2:
             sample_fmt = AV_SAMPLE_FMT_S16
         else:
             raise Exception(
-                "Unsupported sample width: %d" % self._fp.getsampwidth())
+                "Unsupported sample width: %d" % fp.getsampwidth())
+
+        samples = fp.readframes(fp.getnframes())
 
         # TODO: Take output format from _output.audio_format
-        self._resampler = Resampler(
-            ch_layout, sample_fmt, self._fp.getframerate(),
+        resampler = Resampler(
+            ch_layout, sample_fmt, fp.getframerate(),
             AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_FLT, 44100)
+        self._samples = resampler.convert(
+            samples, len(samples) // (fp.getnchannels()
+                                      * fp.getsampwidth()))
+        self._pos = 0
 
-    def cleanup(self):
-        super().cleanup()
-
-        if self._fp is not None:
-            self._fp.close()
-            self._fp = None
-
-        self._resampler = None
+        fp.close()
 
     def run(self, timepos):
-        samples = self._fp.readframes(4096)
-        if len(samples) == 0:
-            raise EndOfStreamError
+        af = self._output.audio_format
 
-        samples = self._resampler.convert(
-            samples, len(samples) // (self._fp.getnchannels()
-                                      * self._fp.getsampwidth()))
+        offset = self._pos
+        length = 4096 * af.num_channels * af.bytes_per_sample
+        samples = self._samples[offset:offset+length]
+        self._pos += length
+        if self._pos >= len(self._samples):
+            self._pos = 0
 
-        frame = Frame(self._output.audio_format, 0, set())
+        frame = Frame(af, 0, set())
         frame.append_samples(
             samples,
-            len(samples) // (
-                # pylint thinks that frame.audio_format is a class object.
-                # pylint: disable=E1101
-                frame.audio_format.num_channels
-                * frame.audio_format.bytes_per_sample))
+            len(samples) // (af.num_channels * af.bytes_per_sample))
         assert len(frame) <= 4096
         frame.resize(4096)
 

@@ -262,6 +262,24 @@ class Scene(QtWidgets.QGraphicsScene):
             self.selected_port2 = None
 
 
+class QPathLineEdit(QtWidgets.QLineEdit):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        action = self.addAction(
+            QtGui.QIcon.fromTheme('document-open'),
+            self.TrailingPosition)
+        action.triggered.connect(self._selectFile)
+
+    def _selectFile(self):
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            parent=self,
+            caption="Select path...",
+            directory=self.text())
+        if not path:
+            return
+        self.setText(path)
+
 class CreateNodeWindow(QtWidgets.QDialog):
     def __init__(self, window, node_type):
         super().__init__(window)
@@ -280,10 +298,15 @@ class CreateNodeWindow(QtWidgets.QDialog):
                 widget = QtWidgets.QLineEdit(self)
                 widget.setText('0.0')
                 widget.setValidator(QtGui.QDoubleValidator())
+                playout.addRow(pname, widget)
+
+            elif ptype == 'path':
+                widget = QPathLineEdit(self)
+                playout.addRow(pname, widget)
+
             else:
                 raise ValueError("Unsupported parameter type %r" % ptype)
 
-            playout.addRow(pname, widget)
             self.widgets[pname] = widget
 
         create_button = QtWidgets.QPushButton("Create")
@@ -308,6 +331,8 @@ class CreateNodeWindow(QtWidgets.QDialog):
             widget = self.widgets[pname]
             if ptype == 'float':
                 value, _ = widget.locale().toDouble(widget.text())
+            elif ptype == 'path':
+                value = widget.text()
             else:
                 raise ValueError("Unsupported parameter type %r" % ptype)
 

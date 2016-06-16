@@ -17,6 +17,7 @@ from .sink import encode
 from .filter import scale
 from .source import whitenoise
 from .source import silence
+from .source import wavfile
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ class AudioProcProcessMixin(object):
         self.node_db.add(scale.Scale)
         self.node_db.add(silence.SilenceSource)
         self.node_db.add(whitenoise.WhiteNoiseSource)
+        self.node_db.add(wavfile.WavFileSource)
 
         self.pipeline = pipeline.Pipeline()
         self.pipeline.start()
