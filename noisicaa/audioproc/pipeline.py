@@ -21,7 +21,7 @@ class Pipeline(object):
     def __init__(self):
         self._sample_rate = 44100
         self._nodes = set()
-        self._sink = None
+        self._backend = None
         self._thread = None
         self._started = threading.Event()
         self._stopping = threading.Event()
@@ -41,7 +41,7 @@ class Pipeline(object):
     def clear(self):
         assert not self._running
         self._nodes = set()
-        self._sink = None
+        self._backend = None
 
     def start(self):
         assert not self._running
@@ -100,6 +100,9 @@ class Pipeline(object):
 
     def mainloop(self):
         try:
+            logger.info("Setting up backend...")
+            self._backend.setup()
+
             logger.info("Starting mainloop...")
             self._started.set()
             timepos = 0
@@ -120,6 +123,9 @@ class Pipeline(object):
             logger.info("Cleaning up nodes...")
             for node in reversed(self.sorted_nodes):
                 node.cleanup()
+
+            logger.info("Cleaning up backend...")
+            self._backend.cleanup()
 
     @property
     def sorted_nodes(self):
@@ -148,9 +154,12 @@ class Pipeline(object):
         node.pipeline = None
         self._nodes.remove(node)
 
-    def set_sink(self, sink):
-        self.add_node(sink)
-        self._sink = sink
+    def set_backend(self, backend):
+        self._backend = backend
+
+    @property
+    def backend(self):
+        return self._backend
 
 
 def demo():  # pragma: no cover

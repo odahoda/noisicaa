@@ -8,12 +8,10 @@ import uuid
 from noisicaa import core
 from noisicaa.core import ipc
 
+from . import backend
 from . import pipeline
 from . import mutations
 from . import node_db
-from .sink import pyaudio
-from .sink import null
-from .sink import encode
 from .filter import scale
 from .source import whitenoise
 from .source import silence
@@ -79,15 +77,20 @@ class AudioProcProcessMixin(object):
             'DISCONNECT_PORTS', self.handle_disconnect_ports)
 
         self.node_db = node_db.NodeDB()
-        self.node_db.add(pyaudio.PyAudioSink)
-        self.node_db.add(null.NullSink)
-        self.node_db.add(encode.EncoderSink)
         self.node_db.add(scale.Scale)
         self.node_db.add(silence.SilenceSource)
         self.node_db.add(whitenoise.WhiteNoiseSource)
         self.node_db.add(wavfile.WavFileSource)
 
         self.pipeline = pipeline.Pipeline()
+
+        self.backend = backend.PyAudioBackend()
+        self.pipeline.set_backend(self.backend)
+
+        self.audiosink = backend.AudioSinkNode()
+        self.audiosink.setup()
+        self.pipeline.add_node(self.audiosink)
+
         self.pipeline.start()
 
         self.sessions = {}
