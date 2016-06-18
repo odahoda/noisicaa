@@ -145,7 +145,10 @@ class Node(QtWidgets.QGraphicsRectItem):
         self.setFlag(self.ItemIsSelectable, True)
 
         self.setRect(0, 0, 100, 60)
-        self.setBrush(Qt.white)
+        if self.desc.is_system:
+            self.setBrush(QtGui.QBrush(QtGui.QColor(200, 200, 255)))
+        else:
+            self.setBrush(Qt.white)
 
         self.ports = {}
         self.connections = set()
@@ -180,8 +183,9 @@ class Node(QtWidgets.QGraphicsRectItem):
 
     def contextMenuEvent(self, evt):
         menu = QtWidgets.QMenu()
-        remove = menu.addAction("Remove")
-        remove.triggered.connect(self.onRemove)
+        if not self.desc.is_system:
+            remove = menu.addAction("Remove")
+            remove.triggered.connect(self.onRemove)
         menu.exec_(evt.screenPos())
         evt.accept()
 

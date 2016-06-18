@@ -4,6 +4,7 @@
 class NodeType(object):
     def __init__(self):
         self.name = None
+        self.is_system = False
         self.ports = []
         self.parameters = []
 
