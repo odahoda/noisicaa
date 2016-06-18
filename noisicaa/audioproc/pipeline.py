@@ -4,6 +4,7 @@ import logging
 import threading
 import pprint
 import sys
+import time
 
 import toposort
 
@@ -108,11 +109,23 @@ class Pipeline(object):
             timepos = 0
             while not self._stopping.is_set():
                 with self.reader_lock():
+                    t0 = time.time()
+                    self._backend.wait()
+
+                    t1 = time.time()
                     logger.debug("Processing frame @%d", timepos)
                     for node in self.sorted_nodes:
                         logger.debug("Running node %s", node.name)
                         node.collect_inputs()
                         node.run(timepos)
+
+                    t2 = time.time()
+                    if t2 - t0 > 0:
+                        utilization = (t2 - t1) / (t2 - t0)
+                    else:
+                        utilization = 0.0
+                    logger.debug(
+                        "Utilization: %d%%", int(100 * utilization))
 
                 timepos += 4096
 

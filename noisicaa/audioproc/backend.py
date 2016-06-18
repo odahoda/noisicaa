@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import logging
+import threading
 
 import pyaudio
 
@@ -27,7 +28,6 @@ class AudioSinkNode(Node):
         self.add_input(self._input)
 
     def run(self, timepos):
-        self.pipeline.backend.wait()
         self.pipeline.backend.write(self._input.frame)
 
 
@@ -63,6 +63,11 @@ class PyAudioBackend(Backend):
         self._audio = None
         self._stream = None
         self._resampler = None
+        self._buffer_lock = threading.Lock()
+        self._buffer = bytearray()
+        self._need_more = threading.Event()
+        self._bytes_per_sample = 2 * 2
+        self._buffer_threshold = 2048 * self._bytes_per_sample
 
     def setup(self):
         self._audio = pyaudio.PyAudio()
@@ -75,12 +80,16 @@ class PyAudioBackend(Backend):
             format=pyaudio.paInt16,
             channels=2,
             rate=sample_rate,
-            output=True)
+            output=True,
+            stream_callback=self._callback)
 
         # use format of input buffer
         self._resampler = Resampler(
             AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_FLT, 44100,
             ch_layout, sample_fmt, sample_rate)
+
+        self._buffer.clear()
+        self._need_more.set()
 
     def cleanup(self):
         if self._stream is not None:
@@ -93,9 +102,31 @@ class PyAudioBackend(Backend):
 
         self._resampler = None
 
+    def _callback(self, in_data, frame_count, time_info, status):
+        num_bytes = frame_count * self._bytes_per_sample
+        with self._buffer_lock:
+            samples = self._buffer[:num_bytes]
+            del self._buffer[:num_bytes]
+
+            if len(self._buffer) < self._buffer_threshold:
+                self._need_more.set()
+
+        if len(samples) < num_bytes:
+            # buffer underrun, pad with silence
+            logger.warning(
+                "Buffer underrun, need %d samples, but only have %d",
+                frame_count, len(samples) / self._bytes_per_sample)
+
+            samples.extend([0] * (num_bytes - len(samples)))
+
+        return (bytes(samples), pyaudio.paContinue)
+
     def wait(self):
-        pass
+        self._need_more.wait()
 
     def write(self, frame):
         samples = self._resampler.convert(frame.as_bytes(), len(frame))
-        self._stream.write(samples)
+        with self._buffer_lock:
+            self._buffer.extend(samples)
+            if len(self._buffer) >= self._buffer_threshold:
+                self._need_more.clear()
