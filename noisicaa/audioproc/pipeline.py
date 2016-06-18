@@ -28,6 +28,7 @@ class Pipeline(object):
         self._stopping = threading.Event()
         self._running = False
         self._lock = RWLock()
+        self.utilization_callback = None
 
     def reader_lock(self):
         return self._lock.reader_lock
@@ -122,10 +123,8 @@ class Pipeline(object):
                     t2 = time.time()
                     if t2 - t0 > 0:
                         utilization = (t2 - t1) / (t2 - t0)
-                    else:
-                        utilization = 0.0
-                    logger.debug(
-                        "Utilization: %d%%", int(100 * utilization))
+                        if self.utilization_callback is not None:
+                            self.utilization_callback(utilization)
 
                 timepos += 4096
 

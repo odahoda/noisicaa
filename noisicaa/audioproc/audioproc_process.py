@@ -46,7 +46,19 @@ class Session(object):
         assert callback_task.done()
         exc = callback_task.exception()
         if exc is not None:
-            logger.error("PUBLISH_MUTATION failed with exception: %s", exc)
+            logger.error(
+                "PUBLISH_MUTATION failed with exception: %s", exc)
+
+    def publish_status(self, status):
+        callback_task = self.event_loop.create_task(
+            self.callback_stub.call('PIPELINE_STATUS', status))
+        callback_task.add_done_callback(self.publish_status_done)
+
+    def publish_status_done(self, callback_task):
+        assert callback_task.done()
+        exc = callback_task.exception()
+        if exc is not None:
+            logger.error("PUBLISH_STATUS failed with exception: %s", exc)
 
     def callback_stub_connected(self):
         assert self.callback_stub.connected
@@ -83,6 +95,7 @@ class AudioProcProcessMixin(object):
         self.node_db.add(wavfile.WavFileSource)
 
         self.pipeline = pipeline.Pipeline()
+        self.pipeline.utilization_callback = self.utilization_callback
 
         self.backend = backend.PyAudioBackend()
         self.pipeline.set_backend(self.backend)
@@ -102,6 +115,11 @@ class AudioProcProcessMixin(object):
     async def run(self):
         await self._shutting_down.wait()
 
+    def utilization_callback(self, utilization):
+        self.event_loop.call_soon_threadsafe(
+            functools.partial(
+                self.publish_status, utilization=utilization))
+
     def get_session(self, session_id):
         try:
             return self.sessions[session_id]
@@ -111,6 +129,10 @@ class AudioProcProcessMixin(object):
     def publish_mutation(self, mutation):
         for session in self.sessions.values():
             session.publish_mutation(mutation)
+
+    def publish_status(self, **kwargs):
+        for session in self.sessions.values():
+            session.publish_status(kwargs)
 
     def handle_start_session(self, client_address):
         client_stub = ipc.Stub(self.event_loop, client_address)

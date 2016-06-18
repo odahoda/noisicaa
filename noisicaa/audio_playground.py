@@ -19,7 +19,7 @@ from noisicaa.core import ipc
 from noisicaa.audioproc import mutations
 from noisicaa.audioproc import audioproc_client
 from noisicaa.audioproc import audioproc_process
-
+from noisicaa.ui import load_history
 
 logger = logging.getLogger()
 
@@ -45,6 +45,9 @@ class AudioProcClient(
 
     def handle_pipeline_mutation(self, mutation):
         self.window.handle_pipeline_mutation(mutation)
+
+    def handle_pipeline_status(self, status):
+        self.window.handle_pipeline_status(status)
 
 
 class AudioProcProcessImpl(object):
@@ -370,6 +373,14 @@ class AudioPlaygroundWindow(QtWidgets.QMainWindow):
             statusTip="Quit the application",
             triggered=self.close_event.set))
 
+        statusbar = QtWidgets.QStatusBar()
+
+        self.pipeline_status = load_history.LoadHistoryWidget(100, 30)
+        self.pipeline_status.setToolTip("Load of the playback engine.")
+        statusbar.addPermanentWidget(self.pipeline_status)
+
+        self.setStatusBar(statusbar)
+
         self.scene = Scene(self)
         self.view = QtWidgets.QGraphicsView(self)
         self.view.setScene(self.scene)
@@ -448,6 +459,10 @@ class AudioPlaygroundWindow(QtWidgets.QMainWindow):
 
         else:
             logger.warning("Unknown mutation received: %s", mutation)
+
+    def handle_pipeline_status(self, status):
+        if 'utilization' in status:
+            self.pipeline_status.addValue(status['utilization'])
 
 
 def main(argv):

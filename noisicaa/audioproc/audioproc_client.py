@@ -18,6 +18,8 @@ class AudioProcClientMixin(object):
         await super().setup()
         self.server.add_command_handler(
             'PIPELINE_MUTATION', self.handle_pipeline_mutation)
+        self.server.add_command_handler(
+            'PIPELINE_STATUS', self.handle_pipeline_status)
 
     async def connect(self, address):
         assert self._stub is None
@@ -60,3 +62,6 @@ class AudioProcClientMixin(object):
 
     def handle_pipeline_mutation(self, mutation):
         logger.info("Mutation received: %s" % mutation)
+
+    def handle_pipeline_status(self, status):
+        logger.info("Status update received: %s" % status)
