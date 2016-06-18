@@ -16,6 +16,7 @@ from .filter import scale
 from .source import whitenoise
 from .source import silence
 from .source import wavfile
+from .source import fluidsynth
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,7 @@ class AudioProcProcessMixin(object):
         self.node_db.add(silence.SilenceSource)
         self.node_db.add(whitenoise.WhiteNoiseSource)
         self.node_db.add(wavfile.WavFileSource)
+        self.node_db.add(fluidsynth.FluidSynthSource)
 
         self.pipeline = pipeline.Pipeline()
         self.pipeline.utilization_callback = self.utilization_callback
@@ -103,6 +105,10 @@ class AudioProcProcessMixin(object):
         self.audiosink = backend.AudioSinkNode()
         self.audiosink.setup()
         self.pipeline.add_node(self.audiosink)
+
+        self.midisource = backend.MidiSourceNode()
+        self.midisource.setup()
+        self.pipeline.add_node(self.midisource)
 
         self.pipeline.start()
 

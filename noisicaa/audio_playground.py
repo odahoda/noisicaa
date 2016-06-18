@@ -307,6 +307,12 @@ class CreateNodeWindow(QtWidgets.QDialog):
                 widget.setValidator(QtGui.QDoubleValidator())
                 playout.addRow(pname, widget)
 
+            elif ptype == 'int':
+                widget = QtWidgets.QLineEdit(self)
+                widget.setText('0')
+                widget.setValidator(QtGui.QIntValidator())
+                playout.addRow(pname, widget)
+
             elif ptype == 'path':
                 widget = QPathLineEdit(self)
                 playout.addRow(pname, widget)
@@ -338,6 +344,8 @@ class CreateNodeWindow(QtWidgets.QDialog):
             widget = self.widgets[pname]
             if ptype == 'float':
                 value, _ = widget.locale().toDouble(widget.text())
+            elif ptype == 'int':
+                value, _ = widget.locale().toInt(widget.text())
             elif ptype == 'path':
                 value = widget.text()
             else:

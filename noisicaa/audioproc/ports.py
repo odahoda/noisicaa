@@ -54,14 +54,15 @@ class InputPort(Port):
 class OutputPort(Port):
     def __init__(self, name):
         super().__init__(name)
-        self._tag_listeners = []
+        self._muted = False
 
-    def add_tag_listener(self, listener):
-        self._tag_listeners.append(listener)
+    @property
+    def muted(self):
+        return self._muted
 
-    def notify_tag_listeners(self, tags):
-        for listener in self._tag_listeners:
-            listener(tags)
+    @muted.setter
+    def muted(self, value):
+        self._muted = bool(value)
 
 
 class AudioInputPort(InputPort):
@@ -101,20 +102,11 @@ class AudioOutputPort(OutputPort):
         self.frame = Frame(self._audio_format, 0, set())
         self.frame.resize(4096)
 
-        self._muted = False
         self._volume = 100
 
     @property
     def audio_format(self):
         return self._audio_format
-
-    @property
-    def muted(self):
-        return self._muted
-
-    @muted.setter
-    def muted(self, value):
-        self._muted = bool(value)
 
     @property
     def volume(self):
@@ -132,48 +124,24 @@ class EventInputPort(InputPort):
     def __init__(self, name):
         super().__init__(name)
 
+        self.events = []
+
     def check_port(self, port):
         super().check_port(port)
         if not isinstance(port, EventOutputPort):
             raise Error("Can only connect to EventOutputPort")
 
-    def get_events(self, duration):
-        with self.pipeline.reader_lock():
-            return self._input.get_events(duration)
+    def collect_inputs(self):
+        self.events.clear()
+        for upstream_port in self.inputs:
+            if not upstream_port.muted:
+                self.events.extend(upstream_port.events)
+
+        self.events.sort(key=lambda e: e.timepos)
 
 
 class EventOutputPort(OutputPort):
     def __init__(self, name):
         super().__init__(name)
 
-        self._buffer = None
-        self._latest_timepos = None
-
-    def start(self):
-        self._buffer = collections.deque()
-        self._latest_timepos = 0
-        super().start()
-
-    def stop(self):
-        super().stop()
-        self._buffer = None
-        self._latest_timepos = None
-
-    def get_events(self, duration):
-        if not self.owner.started:
-            return []
-
-        self.owner.run()
-        events = list(self._buffer)
-        self._buffer.clear()
-
-        tags = functools.reduce(
-            operator.__or__, (event.tags for event in events), set())
-        if tags:
-            self.notify_tag_listeners(tags)
-        return events
-
-    def add_event(self, event):
-        assert event.timepos >= self._latest_timepos
-        self._buffer.append(event)
-        self._latest_timepos = event.timepos
+        self.events = []

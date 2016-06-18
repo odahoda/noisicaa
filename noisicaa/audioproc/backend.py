@@ -11,7 +11,9 @@ from .resample import (Resampler,
                        AV_SAMPLE_FMT_FLT)
 from .node import Node
 from .node_types import NodeType
-from .ports import AudioInputPort
+from .ports import AudioInputPort, EventOutputPort
+from .events import NoteOnEvent
+from ..music.pitch import Pitch
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,25 @@ class AudioSinkNode(Node):
 
     def run(self, timepos):
         self.pipeline.backend.write(self._input.frame)
+
+
+class MidiSourceNode(Node):
+    desc = NodeType()
+    desc.name = 'midisource'
+    desc.port('out', 'output', 'events')
+    desc.is_system = True
+
+    def __init__(self):
+        super().__init__()
+
+        self._output = EventOutputPort('out')
+        self.add_output(self._output)
+
+    def run(self, timepos):
+        self._output.events.clear()
+
+        # TODO: real events from midi devices.
+        self._output.events.append(NoteOnEvent(timepos, Pitch('C4')))
 
 
 class Backend(object):
