@@ -147,15 +147,9 @@ class AudioProcProcessMixin(object):
         connect_task.add_done_callback(
             functools.partial(self._client_connected, session))
         self.sessions[session.id] = session
-        return session.id
 
-    def _client_connected(self, session, connect_task):
-        assert connect_task.done()
-        exc = connect_task.exception()
-        if exc is not None:
-            logger.error("Failed to connect to callback client: %s", exc)
-            return
-
+        # Send initial mutations to build up the current pipeline
+        # state.
         with self.pipeline.reader_lock():
             for node in self.pipeline._nodes:
                 mutation = mutations.AddNode(node)
@@ -166,6 +160,15 @@ class AudioProcProcessMixin(object):
                         mutation = mutations.ConnectPorts(
                             port, upstream_port)
                         session.publish_mutation(mutation)
+
+        return session.id
+
+    def _client_connected(self, session, connect_task):
+        assert connect_task.done()
+        exc = connect_task.exception()
+        if exc is not None:
+            logger.error("Failed to connect to callback client: %s", exc)
+            return
 
         session.callback_stub_connected()
 
