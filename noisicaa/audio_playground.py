@@ -8,6 +8,7 @@ import sys
 import argparse
 import logging
 import random
+import functools
 
 import quamash
 from PyQt5.QtCore import Qt
@@ -194,13 +195,25 @@ class Node(QtWidgets.QGraphicsRectItem):
 
     def onRemove(self):
         for connection in self.connections:
-            self.scene().window.event_loop.create_task(
+            task = self.scene().window.event_loop.create_task(
                 self.scene().window.client.disconnect_ports(
                     connection.node1.node_id, connection.port1.port_name,
                     connection.node2.node_id, connection.port2.port_name))
+            task.add_done_callback(
+                functools.partial(
+                    self.scene().window.command_done_callback,
+                    command="Disconnect ports %s:%s-%s:%s" % (
+                        connection.node1.desc.name,
+                        connection.port1.port_name,
+                        connection.node2.desc.name,
+                        connection.port2.port_name)))
 
-        self.scene().window.event_loop.create_task(
+        task = self.scene().window.event_loop.create_task(
             self.scene().window.client.remove_node(self.node_id))
+        task.add_done_callback(
+            functools.partial(
+                self.scene().window.command_done_callback,
+                command="Remove node %s" % self.desc.name))
 
 
 class Connection(QtWidgets.QGraphicsLineItem):
@@ -242,16 +255,32 @@ class Scene(QtWidgets.QGraphicsScene):
             self.selected_port2 = (node_id, port_name)
 
         if self.selected_port1 and self.selected_port2:
+            node1 = self.window.nodes[self.selected_port1[0]]
+            port1 = node1.ports[self.selected_port1[1]]
+            node2 = self.window.nodes[self.selected_port2[0]]
+            port2 = node2.ports[self.selected_port2[1]]
             connection_id = '%s:%s-%s-%s' % (
                 *self.selected_port1, *self.selected_port2)
             if connection_id in self.window.connections:
-                self.window.event_loop.create_task(
+                task = self.window.event_loop.create_task(
                     self.window.client.disconnect_ports(
                         *self.selected_port1, *self.selected_port2))
+                task.add_done_callback(
+                    functools.partial(
+                        self.window.command_done_callback,
+                        command="Disconnect ports %s:%s-%s:%s" % (
+                            node1.desc.name, port1.port_name,
+                            node2.desc.name, port2.port_name)))
             else:
-                self.window.event_loop.create_task(
+                task = self.window.event_loop.create_task(
                     self.window.client.connect_ports(
                         *self.selected_port1, *self.selected_port2))
+                task.add_done_callback(
+                    functools.partial(
+                        self.window.command_done_callback,
+                        command="Connect ports %s:%s-%s:%s" % (
+                            node1.desc.name, port1.port_name,
+                            node2.desc.name, port2.port_name)))
 
             node = self.window.nodes[self.selected_port1[0]]
             port = node.ports[self.selected_port1[1]]
@@ -353,8 +382,12 @@ class CreateNodeWindow(QtWidgets.QDialog):
 
             args[pname] = value
 
-        self.window.event_loop.create_task(
+        task = self.window.event_loop.create_task(
             self.window.client.add_node(self.node_type.name, **args))
+        task.add_done_callback(
+            functools.partial(
+                self.window.command_done_callback,
+                command="Create node %s" % self.node_type.name))
         self.done(0)
 
 
@@ -408,6 +441,20 @@ class AudioPlaygroundWindow(QtWidgets.QMainWindow):
         self.close_event.set()
         return super().closeEvent(evt)
 
+    def command_done_callback(self, task, command):
+        exc = task.exception()
+        if exc is not None:
+            logger.error("Command %s failed: %s", command, exc)
+            msg = QtWidgets.QMessageBox(self)
+            msg.setWindowTitle("Command failed")
+            msg.setText(command)
+            msg.setInformativeText(str(exc))
+            msg.setStandardButtons(QtWidgets.QMessageBox.Ok)
+            msg.setDefaultButton(QtWidgets.QMessageBox.Ok)
+            msg.setIcon(QtWidgets.QMessageBox.Warning)
+            msg.setModal(True)
+            msg.show()
+
     def set_node_types(self, node_types):
         self.node_type_list.clear()
         for node_type in node_types:
@@ -423,8 +470,12 @@ class AudioPlaygroundWindow(QtWidgets.QMainWindow):
             win.show()
 
         else:
-            self.event_loop.create_task(
+            task = self.event_loop.create_task(
                 self.client.add_node(node_type.name))
+            task.add_done_callback(
+                functools.partial(
+                    self.command_done_callback,
+                    command="Create node %s" % self.node_type.name))
 
     def handle_pipeline_mutation(self, mutation):
         if isinstance(mutation, mutations.AddNode):
@@ -496,8 +547,15 @@ def main(argv):
     event_loop = quamash.QEventLoop(app)
     asyncio.set_event_loop(event_loop)
 
+    def app_complete_callback(task):
+        exc = task.exception
+        if exc is not None:
+            logger.error("%s", exc)
+            event_loop.stop()
+
     with event_loop:
-        event_loop.create_task(app.main(event_loop))
+        task = event_loop.create_task(app.main(event_loop))
+        task.add_done_callback(app_complete_callback)
         event_loop.run_forever()
 
     return 0
