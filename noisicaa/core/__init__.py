@@ -1,6 +1,7 @@
 from .state import (
     StateBase,
     Property, ListProperty, DictProperty,
+    ObjectPropertyBase,
     ObjectProperty, ObjectListProperty, ObjectReferenceProperty,
 )
 from .commands import (

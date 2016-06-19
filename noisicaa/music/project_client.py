@@ -1,121 +1,99 @@
 #!/usr/bin/python3
 
+import asyncio
 import logging
 
 from noisicaa import core
 from noisicaa.core import ipc
 
+from . import mutations
+
 logger = logging.getLogger(__name__)
+
+
+class ObjectProxy(object):
+    def __init__(self, obj_id):
+        self.id = obj_id
 
 
 class ProjectClientMixin(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._stubs = {}
+        self._stub = None
+        self._session_id = None
+        self._session_ready = asyncio.Event()
+        self._object_map = {}
+        self.project = None
 
     async def setup(self):
+        await super().setup()
         self.server.add_command_handler(
-            'LISTENER_CALLBACK', self.handle_listener_callback)
+            'PROJECT_MUTATION', self.handle_project_mutation)
+        self.server.add_command_handler(
+            'SESSION_READY', self.handle_session_ready)
 
-    def register_stub(self, session_id, stub):
-        self._stubs[session_id] = stub
+    async def connect(self, address):
+        assert self._stub is None
+        self._stub = ipc.Stub(self.event_loop, address)
+        await self._stub.connect()
+        self._session_id, root_id = await self._stub.call(
+            'START_SESSION', self.server.address)
+        self.project = ObjectProxy(root_id)
+        self._object_map[root_id] = self.project
+        await self._session_ready.wait()
 
-    def handle_listener_callback(self, session_id, listener_id, args):
+    async def disconnect(self):
+        if self._session_id is not None:
+            await self._stub.call('END_SESSION', self._session_id)
+            self._session_id = None
+
+        if self._stub is not None:
+            await self._stub.close()
+            self._stub = None
+
+    def handle_project_mutation(self, mutation):
+        logger.info("Mutation received: %s" % mutation)
         try:
-            stub = self._stubs[session_id]
-        except KeyError:
-            logger.error(
-                "Got LISTENER_CALLBACK for unknown session %s", session_id)
-        else:
-            stub.listener_callback(listener_id, args)
+            if isinstance(mutation, mutations.SetProperties):
+                obj = self._object_map[mutation.id]
+                for prop_name, prop_type, value in mutation.properties:
+                    if prop_type == 'scalar':
+                        setattr(obj, prop_name, value)
+                    elif prop_type == 'obj':
+                        setattr(obj, prop_name, self._object_map[value] if value is not None else None)
+                    elif prop_type == 'objlist':
+                        l = [self._object_map[v] for v in value]
+                        setattr(obj, prop_name, l)
+                    else:
+                        raise ValueError(
+                            "Property type %s not supported." % prop_type)
 
-    async def get_stub(self, address):
-        stub = ProjectStub(self.event_loop, address)
-        await stub.connect()
-        session_id = await stub.start_session(self.server.address)
-        self._stubs[session_id] = stub
-        return stub
+            elif isinstance(mutation, mutations.AddObject):
+                obj = ObjectProxy(mutation.id)
+                for prop_name, prop_type, value in mutation.properties:
+                    if prop_type == 'scalar':
+                        setattr(obj, prop_name, value)
+                    elif prop_type == 'obj':
+                        setattr(obj, prop_name, self._object_map[value] if value is not None else None)
+                    elif prop_type == 'objlist':
+                        l = [self._object_map[v] for v in value]
+                        setattr(obj, prop_name, l)
+                    else:
+                        raise ValueError(
+                            "Property type %s not supported." % prop_type)
+                self._object_map[mutation.id] = obj
 
+            else:
+                raise ValueError("Unknown mutation %s received." % mutation)
+        except Exception as exc:
+            logger.exception("Handling of mutation %s failed:", mutation)
 
-class ProjectClient(core.ProcessImpl, ProjectClientMixin):
-    pass
-
-
-class ObjectProxy(object):
-    def __init__(self, project_stub, address):
-        self._project_stub = project_stub
-        self._address = address
-
-    def __getattr__(self, attr):
-        return self._project_stub._event_loop.run_until_complete(
-            self._project_stub.get_property(self._address, attr))
-
-
-class ListenerProxy(object):
-    def __init__(self, stub, listener_id, callback):
-        self._stub = stub
-        self.listener_id = listener_id
-        self.callback = callback
-
-    async def remove(self):
-        await self._stub.remove_listener(self.listener_id)
-
-
-class ProjectStub(ipc.Stub):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._session_id = None
-        self._listeners = {}
-
-    @property
-    def project(self):
-        return ObjectProxy(self, '/')
-
-    def listener_callback(self, listener_id, args):
-        try:
-            listener = self._listeners[listener_id]
-        except KeyError:
-            logger.error("Callback for unknown listener %s", listener_id)
-        else:
-            listener.callback(*args)
+    def handle_session_ready(self):
+        logger.info("Session ready received.")
+        self._session_ready.set()
 
     async def shutdown(self):
-        await self.call('SHUTDOWN')
-
-    async def start_session(self, callback_server):
-        self._session_id = await self.call('START_SESSION', callback_server)
-        return self._session_id
-
-    async def get_property(self, target, prop):
-        result = await self.get_properties(target, [prop])
-        return result[prop]
-
-    async def get_properties(self, target, props):
-        response = await self.call('GETPROPS', self._session_id, target, props)
-
-        results = {}
-        for prop, (vtype, value) in response.items():
-            if vtype == 'proxy':
-                value = ObjectProxy(self, value)
-            elif vtype == 'value':
-                pass
-            else:
-                raise ValueError("Unexpected value type %s" % vtype)
-            results[prop] = value
-
-        return results
-
-    async def add_listener(self, target, prop, callback):
-        listener_id = await self.call(
-            'ADD_LISTENER', self._session_id, target, prop)
-        proxy = ListenerProxy(self, listener_id, callback)
-        self._listeners[listener_id] = proxy
-        return proxy
-
-    async def remove_listener(self, listener_id):
-        proxy = self._listeners[listener_id]
-        await self.call('REMOVE_LISTENER', self._session_id, listener_id)
-        del self._listeners[listener_id]
+        await self._stub.call('SHUTDOWN')
 
     async def test(self):
-        await self.call('TEST')
+        await self._stub.call('TEST')

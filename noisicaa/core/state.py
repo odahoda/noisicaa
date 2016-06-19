@@ -416,6 +416,18 @@ class StateBase(TreeNode, metaclass=StateMeta):
             raise IndexError("Last list member has no next sibling.")
         return self.__parent_container[self.index + 1]
 
+    def get_property(self, prop_name):
+        for cls in self.__class__.__mro__:
+            if not issubclass(cls, StateBase):
+                continue
+            try:
+                prop = cls.__dict__[prop_name]
+            except KeyError:
+                continue
+            assert isinstance(prop, PropertyBase)
+            return prop
+        raise AttributeError("%s has not property %s" % (self.__class__.__name__, prop_name))
+
     def list_properties(self):
         for cls in self.__class__.__mro__:
             if not issubclass(cls, StateBase):

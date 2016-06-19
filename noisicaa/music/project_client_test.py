@@ -14,18 +14,21 @@ from . import project_process
 from . import project_client
 
 
-class TestClient(project_client.ProjectClientMixin):
+class TestClientImpl():
     def __init__(self, event_loop):
         super().__init__()
         self.event_loop = event_loop
         self.server = ipc.Server(self.event_loop, 'client')
 
     async def setup(self):
-        await super().setup()
         await self.server.setup()
 
     async def cleanup(self):
         await self.server.cleanup()
+
+
+class TestClient(project_client.ProjectClientMixin, TestClientImpl):
+    pass
 
 
 class TestProjectProcessImpl(object):
@@ -52,30 +55,17 @@ class ProxyTest(asynctest.TestCase):
         await self.project_process.setup()
         self.client = TestClient(self.loop)
         await self.client.setup()
-        self.stub = await self.client.get_stub(
-            self.project_process.server.address)
+        await self.client.connect(self.project_process.server.address)
 
     async def tearDown(self):
-        await self.stub.close()
+        await self.client.shutdown()
+        await self.client.disconnect()
         await self.client.cleanup()
         await self.project_process.cleanup()
 
-    def test_root_proxy(self):
-        proxy = self.stub.project
-        self.assertEqual(proxy.current_sheet, 0)
-
-    def test_fetch_proxy(self):
-        proxy = self.stub.project.metadata
-        self.assertIsNone(proxy.author)
-
-    async def test_listener(self):
-        callback_received = asyncio.Event()
-        def callback(old, new):
-            callback_received.set()
-        listener = await self.stub.add_listener('/', 'current_sheet', callback)
-        await self.stub.test()
-        await callback_received.wait()
-        await listener.remove()
+    async def test_foo(self):
+        project = self.client.project
+        self.assertTrue(hasattr(project, 'current_sheet'))
 
 
 if __name__ == '__main__':

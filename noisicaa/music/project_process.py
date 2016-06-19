@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import functools
 import asyncio
 import logging
 import threading
@@ -10,6 +11,7 @@ from noisicaa import core
 from noisicaa.core import ipc
 
 from . import project
+from . import mutations
 
 logger = logging.getLogger(__name__)
 
@@ -18,42 +20,43 @@ class InvalidSessionError(Exception): pass
 
 
 class Session(object):
-    def __init__(self, callback_stub):
-        self.id = uuid.uuid4().hex
+    def __init__(self, event_loop, callback_stub):
+        self.event_loop = event_loop
         self.callback_stub = callback_stub
-        self.listeners = {}
+        self.id = uuid.uuid4().hex
+        self.pending_mutations = []
 
     def cleanup(self):
-        for listener in self.listeners.values():
-            listener.remove()
-        self.listeners.clear()
+        pass
 
+    def publish_mutation(self, mutation):
+        if not self.callback_stub.connected:
+            self.pending_mutations.append(mutation)
+            return
 
-class ListenerProxy(object):
-    def __init__(self, event_loop, session):
-        self.event_loop = event_loop
-        self.session = session
-        self.listener = None
+        logger.info("Publish mutation %s", mutation)
 
-    @property
-    def id(self):
-        return self.listener.id
-
-    def remove(self):
-        self.listener.remove()
-        self.listener = None
-
-    def __call__(self, *args):
         callback_task = self.event_loop.create_task(
-            self.session.callback_stub.call(
-                'LISTENER_CALLBACK', self.session.id, self.listener.id, args))
-        callback_task.add_done_callback(self.callback_done)
+            self.callback_stub.call('PROJECT_MUTATION', mutation))
+        callback_task.add_done_callback(
+            functools.partial(
+                self.publish_mutation_done, mutation=mutation))
 
-    def callback_done(self, callback_task):
+    def publish_mutation_done(self, callback_task, mutation):
         assert callback_task.done()
         exc = callback_task.exception()
         if exc is not None:
-            logger.error("LISTENER_CALLBACK failed with exception: %s", exc)
+            logger.error(
+                "PROJECT_MUTATION %s failed with exception:\n%s",
+                mutation, exc)
+
+    def callback_stub_connected(self):
+        assert self.callback_stub.connected
+        while self.pending_mutations:
+            self.publish_mutation(self.pending_mutations.pop(0))
+
+        self.event_loop.create_task(
+            self.callback_stub.call('SESSION_READY'))
 
 
 class ProjectProcessMixin(object):
@@ -64,11 +67,6 @@ class ProjectProcessMixin(object):
             'START_SESSION', self.handle_start_session)
         self.server.add_command_handler(
             'END_SESSION', self.handle_end_session)
-        self.server.add_command_handler('GETPROPS', self.handle_getprops)
-        self.server.add_command_handler(
-            'ADD_LISTENER', self.handle_add_listener)
-        self.server.add_command_handler(
-            'REMOVE_LISTENER', self.handle_remove_listener)
         self.server.add_command_handler('TEST', self.handle_test)
         self.server.add_command_handler('SHUTDOWN', self.handle_shutdown)
         self.project = project.Project()
@@ -85,45 +83,60 @@ class ProjectProcessMixin(object):
 
     def handle_start_session(self, client_address):
         client_stub = ipc.Stub(self.event_loop, client_address)
-        self.event_loop.create_task(client_stub.connect())
-        session = Session(client_stub)
+        connect_task = self.event_loop.create_task(client_stub.connect())
+        session = Session(self.event_loop, client_stub)
         self.sessions[session.id] = session
-        return session.id
+        connect_task.add_done_callback(
+            functools.partial(self._client_connected, session))
+
+        # Send initial mutations to build up the current pipeline
+        # state.
+        # TODO
+        self._add_child_objects(session, self.project)
+
+        properties = []
+        for prop in self.project.list_properties():
+            if prop.name == 'id':
+                continue
+            properties.append(prop.name)
+        if properties:
+            session.publish_mutation(
+                mutations.SetProperties(self.project, properties))
+
+        return session.id, self.project.id
+
+    def _client_connected(self, session, connect_task):
+        assert connect_task.done()
+        exc = connect_task.exception()
+        if exc is not None:
+            logger.error("Failed to connect to callback client: %s", exc)
+            return
+
+        session.callback_stub_connected()
+
+    def _add_child_objects(self, session, obj):
+        for prop in obj.list_properties():
+            if prop.name == 'id':
+                continue
+
+            if isinstance(prop, core.ObjectProperty):
+                child = getattr(obj, prop.name)
+                if child is not None:
+                    self._add_child_objects(session, child)
+                    session.publish_mutation(
+                        mutations.AddObject(child))
+
+            elif isinstance(prop, core.ObjectListProperty):
+                for child in getattr(obj, prop.name):
+                    assert child is not None
+                    self._add_child_objects(session, child)
+                    session.publish_mutation(
+                        mutations.AddObject(child))
 
     def handle_end_session(self, session_id):
         session = self.get_session(session_id)
         session.cleanup()
         del self.sessions[session_id]
-
-    def handle_getprops(self, session_id, address, properties):
-        session = self.get_session(session_id)
-
-        obj = self.project.get_object(address)
-
-        response = {}
-        for prop in properties:
-            value = getattr(obj, prop)
-            if isinstance(value, core.StateBase):
-                response[prop] = ['proxy', value.address]
-            else:
-                response[prop] = ['value', value]
-
-        return response
-
-    def handle_add_listener(self, session_id, address, prop):
-        session = self.get_session(session_id)
-
-        obj = self.project.get_object(address)
-        proxy = ListenerProxy(self.event_loop, session)
-        proxy.listener = obj.listeners.add(prop, proxy)
-        session.listeners[proxy.id] = proxy
-        return proxy.id
-
-    def handle_remove_listener(self, session_id, listener_id):
-        session = self.get_session(session_id)
-        listener = session.listeners[listener_id]
-        listener.remove()
-        del session.listeners[listener_id]
 
     def handle_shutdown(self):
         self._shutting_down.set()
