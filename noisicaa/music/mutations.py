@@ -46,6 +46,7 @@ class AddObject(Mutation):
     def __init__(self, obj):
         self.id = obj.id
         self.cls = obj.__class__.__name__
+        self.address = obj.address
         self.properties = []
         for prop in obj.list_properties():
             if prop.name == 'id':
@@ -53,8 +54,8 @@ class AddObject(Mutation):
             self.properties.append(self._prop2tuple(obj, prop))
 
     def __str__(self):
-        return '<AddObject id="%s" cls="%s" %s>' % (
-            self.id, self.cls,
+        return '<AddObject id=%s address="%s" cls=%s %s>' % (
+            self.id, self.address, self.cls,
             ' '.join(
                 '%s=%s:%r' % (p, t, v)
                 for p, t, v in self.properties))

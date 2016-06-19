@@ -12,8 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class ObjectProxy(object):
-    def __init__(self, obj_id):
+    def __init__(self, obj_id, cls, address):
         self.id = obj_id
+        self.cls = cls
+        self.address = address
 
 
 class ProjectClientMixin(object):
@@ -38,7 +40,7 @@ class ProjectClientMixin(object):
         await self._stub.connect()
         self._session_id, root_id = await self._stub.call(
             'START_SESSION', self.server.address)
-        self.project = ObjectProxy(root_id)
+        self.project = ObjectProxy(root_id, 'Project', '/')
         self._object_map[root_id] = self.project
         await self._session_ready.wait()
 
@@ -69,7 +71,8 @@ class ProjectClientMixin(object):
                             "Property type %s not supported." % prop_type)
 
             elif isinstance(mutation, mutations.AddObject):
-                obj = ObjectProxy(mutation.id)
+                obj = ObjectProxy(
+                    mutation.id, mutation.cls, mutation.address)
                 for prop_name, prop_type, value in mutation.properties:
                     if prop_type == 'scalar':
                         setattr(obj, prop_name, value)
