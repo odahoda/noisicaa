@@ -21,9 +21,6 @@ from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
 from .editor_project import EditorProject
-from ..audioproc.pipeline import Pipeline
-#from ..audioproc.sink.pyaudio import PyAudioSink
-#from ..audioproc.sink.null import NullSink
 from ..instr.library import InstrumentLibrary
 
 logger = logging.getLogger('ui.editor_app')
@@ -76,10 +73,6 @@ class BaseEditorApp(QApplication):
         self._exit_code = None
         self.default_style = None
 
-        self.pipeline = None
-        self.global_mixer = None
-        self.sink = None
-        self.playback_sources = None
         self.sequencer = None
         self.midi_hub = None
 
@@ -90,18 +83,6 @@ class BaseEditorApp(QApplication):
         if style_name:
             style = QStyleFactory.create(style_name)
             self.setStyle(style)
-
-        logger.info("Creating playback pipeline.")
-        self.pipeline = Pipeline()
-
-        self.global_mixer = Mix('global_mixer')
-        self.pipeline.add_node(self.global_mixer)
-
-        self.sink = self.createAudioSink()
-        self.sink.inputs['in'].connect(self.global_mixer.outputs['out'])
-
-        self.playback_sources = {}
-        self.pipeline.start()
 
         self.sequencer = self.createSequencer()
 
@@ -130,16 +111,6 @@ class BaseEditorApp(QApplication):
         if self.sequencer is not None:
             self.sequencer.close()
             self.sequencer = None
-
-        if self.pipeline is not None:
-            self.pipeline.stop()
-            self.pipeline = None
-
-    def createAudioSink(self):
-        sink = NullSink(sleep=0.1)
-        self.pipeline.set_sink(sink)
-        sink.setup()
-        return sink
 
     def createSequencer(self):
         return None
@@ -276,12 +247,6 @@ class EditorApp(BaseEditorApp):
 
         logger.info("Remove custom excepthook.")
         sys.excepthook = self._old_excepthook
-
-    def createAudioSink(self):
-        sink = PyAudioSink()
-        self.pipeline.set_sink(sink)
-        sink.setup()
-        return sink
 
     def createSequencer(self):
         # Do other clients handle non-ASCII names?

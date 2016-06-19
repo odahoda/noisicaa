@@ -99,7 +99,7 @@ class AudioProcProcessMixin(object):
         self.pipeline = pipeline.Pipeline()
         self.pipeline.utilization_callback = self.utilization_callback
 
-        self.backend = backend.PyAudioBackend()
+        self.backend = backend.NullBackend()
         self.pipeline.set_backend(self.backend)
 
         self.audiosink = backend.AudioSinkNode()

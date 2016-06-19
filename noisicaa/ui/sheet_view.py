@@ -55,9 +55,6 @@ from noisicaa.music import (
     SetBPM,
     Pitch, Clef, KeySignature,
 )
-from ..audioproc.source.fluidsynth import FluidSynthSource
-from ..audioproc.source.silence import SilenceSource
-from ..audioproc.source.notes import NoteSource
 from ..instr.library import SoundFontInstrument
 from ..constants import DATA_DIR
 from .svg_symbol import SvgSymbol, SymbolItem
@@ -203,10 +200,6 @@ class TrackItem(object):
 
         self._instrument_selector = None
 
-        self._source = None
-        self._source_port = None
-        self._control_source = None
-
         self._prev_note_highlight = None
 
         self.onInstrumentChanged(None, self._track.instrument)
@@ -294,45 +287,11 @@ class TrackItem(object):
         logger.info("Track %s: Changed instrument from %s to %s",
                     self._track.name, old_instr, new_instr)
 
-        if self._source is not None:
-            logger.info("Removing old track source.")
-            self._sheet_view.master_mixer.remove_input(self._source_port.name)
-            self._source.cleanup()
-            self._project.playback_pipeline.remove_node(self._source)
-            self._source = None
-
-        if new_instr is not None:
-            logger.info("Creating new track source.")
-            self._source = self._track.create_playback_source(
-                self._project.playback_pipeline)
-            self._source.outputs['out'].muted = self._track.muted
-            self._source.outputs['out'].volume = self._track.volume
-            self._source_port = self._sheet_view.master_mixer.append_input(
-                self._source.outputs['out'])
-            logger.info("Track source port: %s", self._source_port)
-
-        if self._control_source is not None:
-            logger.info("Removing old control source.")
-            self._app.removePlaybackSource(self._control_source.outputs['out'])
-            self._control_source.cleanup()
-            self._project.playback_pipeline.remove_node(self._control_source)
-            self._control_source = None
-
-        if new_instr is not None:
-            logger.info("Creating new control source.")
-            self._control_source = FluidSynthSource(
-                new_instr.path, new_instr.bank, new_instr.preset)
-            self._project.playback_pipeline.add_node(self._control_source)
-            self._control_source.setup()
-            self._app.addPlaybackSource(self._control_source.outputs['out'])
-
     def onMutedChanged(self, old_value, new_value):
-        if self._source:
-            self._source.outputs['out'].muted = new_value
+        pass # TODO
 
     def onVolumeChanged(self, old_value, new_value):
-        if self._source:
-            self._source.outputs['out'].volume = new_value
+        pass # TODO
 
     def buildContextMenu(self, menu):
         track_instrument_action = QAction(
@@ -1245,14 +1204,6 @@ class SheetView(QGraphicsView):
         self._window = window
         self._project = sheet.root
         self._sheet = sheet
-
-        logger.info("Create playback source for sheet %s", self._sheet.name)
-        self.master_mixer = self._sheet.create_playback_source(
-            self._project.playback_pipeline, stop_on_end_of_stream=True)
-        self.master_mixer.listeners.add(
-            'stop',
-            lambda: QCoreApplication.postEvent(self, PlaybackStopEvent()))
-        self.master_mixer.outputs['out'].add_tag_listener(self.onPlaybackTags)
 
         self._track_visible_listeners = []
         self._tracks = []

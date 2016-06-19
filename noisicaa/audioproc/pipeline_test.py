@@ -33,7 +33,7 @@ class PipelineTest(unittest.TestCase):
         n4.add_output(OutputPort('p'))
 
         n5 = Node()
-        p.set_sink(n5)
+        p.add_node(n5)
         n5.add_input(InputPort('p1'))
         n5.add_input(InputPort('p2'))
         n5.inputs['p1'].connect(n3.outputs['p'])
@@ -65,7 +65,7 @@ class PipelineTest(unittest.TestCase):
         n3.add_output(OutputPort('p2'))
 
         n4 = Node()
-        p.set_sink(n4)
+        p.add_node(n4)
         n4.add_input(InputPort('p'))
         n4.add_output(OutputPort('p'))
 

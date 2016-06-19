@@ -3,11 +3,10 @@
 import unittest
 
 from . import editor_project
-from ..audioproc.pipeline import Pipeline
 
 class FakeApp(object):
-    def __init__(self):
-        self.pipeline = Pipeline()
+    pass
+
 
 class EditorProjectTest(unittest.TestCase):
     def testCreate(self):

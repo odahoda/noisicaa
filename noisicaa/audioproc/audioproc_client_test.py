@@ -80,12 +80,12 @@ class ProxyTest(asynctest.TestCase):
 
     async def test_connect_ports(self):
         node1_id = await self.client.add_node('whitenoise')
-        node2_id = await self.client.add_node('nullsink')
+        node2_id = await self.client.add_node('scale', factor=0.2)
         await self.client.connect_ports(node1_id, 'out', node2_id, 'in')
 
     async def test_disconnect_ports(self):
         node1_id = await self.client.add_node('whitenoise')
-        node2_id = await self.client.add_node('nullsink')
+        node2_id = await self.client.add_node('scale', factor=0.2)
         await self.client.connect_ports(node1_id, 'out', node2_id, 'in')
         await self.client.disconnect_ports(node1_id, 'out', node2_id, 'in')
 

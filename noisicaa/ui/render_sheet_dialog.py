@@ -23,10 +23,6 @@ from PyQt5.QtWidgets import (
     QLabel,
 )
 
-from noisicaa.audioproc.exceptions import EndOfStreamError
-from noisicaa.audioproc.pipeline import Pipeline
-from noisicaa.audioproc.sink.encode import EncoderSink
-
 logger = logging.getLogger(__name__)
 
 
@@ -226,41 +222,39 @@ class Renderer(QObject):
         try:
             total_samples = self.sheet.property_track.get_num_samples(44100)
 
-            pipeline = Pipeline()
-            sheet_mixer = self.sheet.create_playback_source(
-                pipeline, setup=True, recursive=True)
+            raise NotImplementedError
 
-            sink = EncoderSink(self.file_format, self.path)
-            pipeline.set_sink(sink)
-            sink.inputs['in'].connect(sheet_mixer.outputs['out'])
-            sink.setup()
-            sink.start()
-            try:
-                self.progress.emit(0)
-                last_update = time.time()
-                while True:
-                    if self._aborted.is_set():
-                        logger.info("Aborted.")
-                        self._status = self.ABORTED
-                        return
+            # sink = EncoderSink(self.file_format, self.path)
+            # pipeline.set_sink(sink)
+            # sink.inputs['in'].connect(sheet_mixer.outputs['out'])
+            # sink.setup()
+            # sink.start()
+            # try:
+            #     self.progress.emit(0)
+            #     last_update = time.time()
+            #     while True:
+            #         if self._aborted.is_set():
+            #             logger.info("Aborted.")
+            #             self._status = self.ABORTED
+            #             return
 
-                    try:
-                        num_samples = sink.consume()
-                    except EndOfStreamError:
-                        logger.info("End of stream reached.")
-                        break
+            #         try:
+            #             num_samples = sink.consume()
+            #         except EndOfStreamError:
+            #             logger.info("End of stream reached.")
+            #             break
 
-                    now = time.time()
-                    if now - last_update > 0.1:
-                        self.progress.emit(
-                            min(100, int(100 * num_samples / total_samples)))
-                        last_update = now
+            #         now = time.time()
+            #         if now - last_update > 0.1:
+            #             self.progress.emit(
+            #                 min(100, int(100 * num_samples / total_samples)))
+            #             last_update = now
 
-            finally:
-                logger.info("Cleaning up nodes...")
-                for node in reversed(pipeline.sorted_nodes):
-                    node.stop()
-                    node.cleanup()
+            # finally:
+            #     logger.info("Cleaning up nodes...")
+            #     for node in reversed(pipeline.sorted_nodes):
+            #         node.stop()
+            #         node.cleanup()
 
             self._status = self.SUCCESS
 

@@ -33,8 +33,6 @@ class ProjectView(QWidget):
         self._window = window
         self._project = project
 
-        self._current_master_mixer = None
-
         self._sheets_widget = QStackedWidget(self)
         for sheet in self._project.sheets:
             view = SheetView(self, self._app, self._window, sheet)
@@ -103,16 +101,6 @@ class ProjectView(QWidget):
         if sheet_view is not None:
             sheet_view.currentToolChanged.connect(
                 self.currentToolChanged)
-
-        if self._current_master_mixer is not None:
-            self._project.remove_playback_source(
-                self._current_master_mixer.outputs['out'])
-            self._current_master_mixer = None
-
-        if sheet_view is not None:
-            self._current_master_mixer = sheet_view.master_mixer
-            self._project.add_playback_source(
-                self._current_master_mixer.outputs['out'])
 
         self._current_sheet_view = sheet_view
 
@@ -195,14 +183,12 @@ class ProjectView(QWidget):
 
     def onPlayerStart(self):
         logger.info("Player start")
-        self._project.start_playback()
 
     def onPlayerPause(self):
         logger.info("Player pause")
 
     def onPlayerStop(self):
         logger.info("Player stop")
-        self._project.stop_playback()
         for sheet_view in self.sheetViews:
             sheet_view.onPlaybackStop()
 

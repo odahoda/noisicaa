@@ -36,7 +36,6 @@ from ..instr.library import (
     Instrument,
     InstrumentLibrary,
 )
-from ..audioproc.source.fluidsynth import FluidSynthSource
 from ..ui_state import UpdateUIState
 
 
@@ -71,8 +70,6 @@ class InstrumentLibraryDialog(QDialog):
         self.library = library
         self.ui_state = self.library.ui_state
         self.ui_state.add_change_listener(self.onUIStateChange)
-
-        self.player_source = None
 
         self.setWindowTitle("noisicaä - Instrument Library")
 
@@ -136,8 +133,6 @@ class InstrumentLibraryDialog(QDialog):
 
         self.piano = PianoWidget(self, self._app)
         self.piano.setVisible(False)
-        self.piano.noteOn.connect(self.onNoteOn)
-        self.piano.noteOff.connect(self.onNoteOff)
         layout.addWidget(self.piano)
 
         self.tabs.addTab(self.instruments_page, "Instruments")
@@ -191,10 +186,6 @@ class InstrumentLibraryDialog(QDialog):
                 instruments_list_item=self.instruments_list.currentRow(),
                 instruments_search_text=self.instruments_search.text(),
             ))
-        if self.player_source is not None:
-            self._app.removePlaybackSource(self.player_source.outputs['out'])
-            self.player_source.cleanup()
-            self.player_source = None
 
     def updateInstrumentList(self):
         self.instruments_list.clear()
@@ -223,11 +214,6 @@ class InstrumentLibraryDialog(QDialog):
                     self.hide()
 
     def onInstrumentItemSelected(self, item):
-        if self.player_source is not None:
-            self._app.removePlaybackSource(self.player_source.outputs['out'])
-            self.player_source.cleanup()
-            self.player_source = None
-
         if item is None:
             self.instrument_name.setText("")
             self.instrument_collection.setText("")
@@ -256,16 +242,8 @@ class InstrumentLibraryDialog(QDialog):
             self.instrument_location.setText(
                 "bank %d, preset %d" % (instr.bank, instr.preset))
 
-            self.player_source = FluidSynthSource(
-                instr.path, instr.bank, instr.preset)
-            self.player_source.setup()
-            self._app.addPlaybackSource(self.player_source.outputs['out'])
-
-        if self.player_source is not None:
-            self.piano.setVisible(True)
-            self.piano.setFocus(Qt.OtherFocusReason)
-        else:
-            self.piano.setVisible(False)
+        self.piano.setVisible(True)
+        self.piano.setFocus(Qt.OtherFocusReason)
 
         self.instrumentChanged.emit(instr)
 
@@ -304,11 +282,3 @@ class InstrumentLibraryDialog(QDialog):
 
     def keyReleaseEvent(self, event):
         self.piano.keyReleaseEvent(event)
-
-    def onNoteOn(self, note, volume):
-        if self.player_source is not None:
-            self.player_source.note_on(note, volume)
-
-    def onNoteOff(self, note):
-        if self.player_source is not None:
-            self.player_source.note_off(note)

@@ -310,20 +310,6 @@ class Sheet(core.StateBase, core.CommandTarget):
     def get_time_signature(self, measure_idx):
         return self.property_track.measures[measure_idx].time_signature
 
-    def create_playback_source(self, pipeline, setup=True, recursive=False, stop_on_end_of_stream=False):
-        mixer = Mix(stop_on_end_of_stream=stop_on_end_of_stream)
-        pipeline.add_node(mixer)
-        if setup:
-            mixer.setup()
-
-        if recursive:
-            for track in self.tracks:
-                track_src = track.create_playback_source(
-                    pipeline, setup, recursive)
-                mixer.append_input(track_src.outputs['out'])
-
-        return mixer
-
     def equalize_tracks(self, remove_trailing_empty_measures=0):
         if len(self.tracks) < 1:
             return
