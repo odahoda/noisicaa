@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+import uuid
 import unittest
 from unittest import mock
 
@@ -12,6 +13,7 @@ from noisicaa.core import ipc
 
 from . import project_process
 from . import project_client
+from . import project
 
 
 class TestClientImpl():
@@ -63,9 +65,25 @@ class ProxyTest(asynctest.TestCase):
         await self.client.cleanup()
         await self.project_process.cleanup()
 
-    async def test_foo(self):
+    async def test_basic(self):
+        await self.client.create_inmemory()
         project = self.client.project
         self.assertTrue(hasattr(project, 'current_sheet'))
+
+    async def test_create_close_open(self):
+        path = '/tmp/foo%s' % uuid.uuid4().hex
+        await self.client.create(path)
+        # TODO: set some property
+        await self.client.close()
+        await self.client.open(path)
+        # TODO: check property
+        await self.client.close()
+
+    async def test_call_command(self):
+        await self.client.create_inmemory()
+        await self.client.send_command(
+            self.client.project.address,
+            'ClearSheet', name=self.client.project.sheets[0].name)
 
 
 if __name__ == '__main__':

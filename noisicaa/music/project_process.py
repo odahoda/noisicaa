@@ -67,9 +67,14 @@ class ProjectProcessMixin(object):
             'START_SESSION', self.handle_start_session)
         self.server.add_command_handler(
             'END_SESSION', self.handle_end_session)
-        self.server.add_command_handler('TEST', self.handle_test)
         self.server.add_command_handler('SHUTDOWN', self.handle_shutdown)
-        self.project = project.Project()
+        self.server.add_command_handler('CREATE', self.handle_create)
+        self.server.add_command_handler(
+            'CREATE_INMEMORY', self.handle_create_inmemory)
+        self.server.add_command_handler('OPEN', self.handle_open)
+        self.server.add_command_handler('CLOSE', self.handle_close)
+        self.server.add_command_handler('COMMAND', self.handle_command)
+        self.project = None
         self.sessions = {}
 
     async def run(self):
@@ -81,6 +86,10 @@ class ProjectProcessMixin(object):
         except KeyError:
             raise InvalidSessionError
 
+    def publish_mutation(self, mutation):
+        for session in self.sessions.values():
+            session.publish_mutation(mutation)
+
     def handle_start_session(self, client_address):
         client_stub = ipc.Stub(self.event_loop, client_address)
         connect_task = self.event_loop.create_task(client_stub.connect())
@@ -88,22 +97,7 @@ class ProjectProcessMixin(object):
         self.sessions[session.id] = session
         connect_task.add_done_callback(
             functools.partial(self._client_connected, session))
-
-        # Send initial mutations to build up the current pipeline
-        # state.
-        # TODO
-        self._add_child_objects(session, self.project)
-
-        properties = []
-        for prop in self.project.list_properties():
-            if prop.name == 'id':
-                continue
-            properties.append(prop.name)
-        if properties:
-            session.publish_mutation(
-                mutations.SetProperties(self.project, properties))
-
-        return session.id, self.project.id
+        return session.id
 
     def _client_connected(self, session, connect_task):
         assert connect_task.done()
@@ -114,25 +108,6 @@ class ProjectProcessMixin(object):
 
         session.callback_stub_connected()
 
-    def _add_child_objects(self, session, obj):
-        for prop in obj.list_properties():
-            if prop.name == 'id':
-                continue
-
-            if isinstance(prop, core.ObjectProperty):
-                child = getattr(obj, prop.name)
-                if child is not None:
-                    self._add_child_objects(session, child)
-                    session.publish_mutation(
-                        mutations.AddObject(child))
-
-            elif isinstance(prop, core.ObjectListProperty):
-                for child in getattr(obj, prop.name):
-                    assert child is not None
-                    self._add_child_objects(session, child)
-                    session.publish_mutation(
-                        mutations.AddObject(child))
-
     def handle_end_session(self, session_id):
         session = self.get_session(session_id)
         session.cleanup()
@@ -141,8 +116,66 @@ class ProjectProcessMixin(object):
     def handle_shutdown(self):
         self._shutting_down.set()
 
-    def handle_test(self):
-        self.project.current_sheet = (self.project.current_sheet or 0) + 1
+    def _add_child_objects(self, obj):
+        for prop in obj.list_properties():
+            if prop.name == 'id':
+                continue
+
+            if isinstance(prop, core.ObjectProperty):
+                child = getattr(obj, prop.name)
+                if child is not None:
+                    self._add_child_objects(child)
+                    self.publish_mutation(mutations.AddObject(child))
+
+            elif isinstance(prop, core.ObjectListProperty):
+                for child in getattr(obj, prop.name):
+                    assert child is not None
+                    self._add_child_objects(child)
+                    self.publish_mutation(mutations.AddObject(child))
+
+    def _send_initial_mutations(self):
+        self._add_child_objects(self.project)
+        self.publish_mutation(mutations.AddObject(self.project))
+
+    def handle_create(self, path):
+        assert self.project is None
+        self.project = project.Project()
+        self.project.create(path)
+        self._send_initial_mutations()
+        for session in self.sessions.values():
+            self.event_loop.create_task(
+                session.callback_stub.call('PROJECT_READY'))
+        return self.project.id
+
+    def handle_create_inmemory(self):
+        assert self.project is None
+        self.project = project.BaseProject()
+        self._send_initial_mutations()
+        for session in self.sessions.values():
+            self.event_loop.create_task(
+                session.callback_stub.call('PROJECT_READY'))
+        return self.project.id
+
+    def handle_open(self, path):
+        assert self.project is None
+        self.project = project.Project()
+        self.project.open(path)
+        self._send_initial_mutations()
+        for session in self.sessions.values():
+            self.event_loop.create_task(
+                session.callback_stub.call('PROJECT_READY'))
+        return self.project.id
+
+    def handle_close(self):
+        assert self.project is not None
+        self.project.close()
+        self.project = None
+
+    def handle_command(self, target, command, kwargs):
+        assert self.project is not None
+        cmd_cls = core.Command.get_subclass(command)
+        cmd = cmd_cls(**kwargs)
+        return self.project.dispatch_command(target, cmd)
 
 
 class ProjectProcess(ProjectProcessMixin, core.ProcessImpl):

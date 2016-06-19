@@ -24,6 +24,7 @@ class ProjectClientMixin(object):
         self._stub = None
         self._session_id = None
         self._session_ready = asyncio.Event()
+        self._project_ready = asyncio.Event()
         self._object_map = {}
         self.project = None
 
@@ -33,15 +34,15 @@ class ProjectClientMixin(object):
             'PROJECT_MUTATION', self.handle_project_mutation)
         self.server.add_command_handler(
             'SESSION_READY', self.handle_session_ready)
+        self.server.add_command_handler(
+            'PROJECT_READY', self.handle_project_ready)
 
     async def connect(self, address):
         assert self._stub is None
         self._stub = ipc.Stub(self.event_loop, address)
         await self._stub.connect()
-        self._session_id, root_id = await self._stub.call(
+        self._session_id = await self._stub.call(
             'START_SESSION', self.server.address)
-        self.project = ObjectProxy(root_id, 'Project', '/')
-        self._object_map[root_id] = self.project
         await self._session_ready.wait()
 
     async def disconnect(self):
@@ -95,8 +96,44 @@ class ProjectClientMixin(object):
         logger.info("Session ready received.")
         self._session_ready.set()
 
+    def handle_project_ready(self):
+        logger.info("Project ready received.")
+        self._project_ready.set()
+
     async def shutdown(self):
         await self._stub.call('SHUTDOWN')
 
     async def test(self):
         await self._stub.call('TEST')
+
+    async def create(self, path):
+        assert self.project is None
+        self._project_ready.clear()
+        root_id = await self._stub.call('CREATE', path)
+        await self._project_ready.wait()
+        self.project = self._object_map[root_id]
+
+    async def create_inmemory(self):
+        assert self.project is None
+        self._project_ready.clear()
+        root_id = await self._stub.call('CREATE_INMEMORY')
+        await self._project_ready.wait()
+        self.project = self._object_map[root_id]
+
+    async def open(self, path):
+        assert self.project is None
+        self._project_ready.clear()
+        root_id = await self._stub.call('OPEN', path)
+        await self._project_ready.wait()
+        self.project = self._object_map[root_id]
+
+    async def close(self):
+        assert self.project is not None
+        await self._stub.call('CLOSE')
+        self.project = None
+        self._object_map.clear()
+
+    async def send_command(self, target, command, **kwargs):
+        assert self.project is not None
+        await self._stub.call('COMMAND', target, command, kwargs)
+
