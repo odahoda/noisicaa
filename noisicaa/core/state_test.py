@@ -15,13 +15,17 @@ from .state import (
     ObjectNotAttachedError,
 )
 from .callbacks import CallbackRegistry
+from .tree import TreeNode
 
 
 class PropertyTest(unittest.TestCase):
     def setUp(self):
-        class TestObj(object):
+        class TestObj(TreeNode):
             def __init__(self):
                 self.listeners = CallbackRegistry()
+                self.parent = None
+            def handle_mutation(self, mutation):
+                pass
 
         self.obj = TestObj()
         self.obj.state = {}

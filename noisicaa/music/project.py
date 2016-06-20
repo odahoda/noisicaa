@@ -407,6 +407,8 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
     metadata = core.ObjectProperty(cls=Metadata)
 
     def __init__(self, num_sheets=1, state=None):
+        self._mutation_callback = None
+
         super().__init__(state)
         if state is None:
             self.metadata = Metadata()
@@ -416,6 +418,10 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
 
         self.address = '/'
         self.set_root()
+
+    def set_mutation_callback(self, callback):
+        assert self._mutation_callback is None
+        self._mutation_callback = callback
 
     def get_current_sheet(self):
         return self.sheets[self.current_sheet]
@@ -448,6 +454,10 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
         result = super().dispatch_command(target, cmd)
         logger.info("Executed command %s on %s", cmd, target)
         return result
+
+    def handle_mutation(self, mutation):
+        if self._mutation_callback is not None:
+            self._mutation_callback(mutation)
 
     @classmethod
     def make_demo(cls):
@@ -675,6 +685,8 @@ class Project(BaseProject):
         self.header_data = None
         self.path = None
         self.data_dir = None
+
+        self._mutation_callback = None
 
         self.reset_state()
 

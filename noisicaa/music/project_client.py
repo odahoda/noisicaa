@@ -23,7 +23,6 @@ class ProjectClientMixin(object):
         super().__init__(*args, **kwargs)
         self._stub = None
         self._session_id = None
-        self._session_ready = asyncio.Event()
         self._project_ready = asyncio.Event()
         self._object_map = {}
         self.project = None
@@ -33,8 +32,6 @@ class ProjectClientMixin(object):
         self.server.add_command_handler(
             'PROJECT_MUTATION', self.handle_project_mutation)
         self.server.add_command_handler(
-            'SESSION_READY', self.handle_session_ready)
-        self.server.add_command_handler(
             'PROJECT_READY', self.handle_project_ready)
 
     async def connect(self, address):
@@ -43,7 +40,6 @@ class ProjectClientMixin(object):
         await self._stub.connect()
         self._session_id = await self._stub.call(
             'START_SESSION', self.server.address)
-        await self._session_ready.wait()
 
     async def disconnect(self):
         if self._session_id is not None:
@@ -87,14 +83,19 @@ class ProjectClientMixin(object):
                             "Property type %s not supported." % prop_type)
                 self._object_map[mutation.id] = obj
 
+            elif isinstance(mutation, mutations.UpdateObjectList):
+                obj = self._object_map[mutation.id]
+                lst = getattr(obj, mutation.prop_name)
+                if mutation.args[0] == 'insert':
+                    idx, child_id = mutation.args[1:]
+                    child = self._object_map[child_id]
+                    lst.insert(idx, child)
+                else:
+                    raise ValueError(mutation.args[0])
             else:
                 raise ValueError("Unknown mutation %s received." % mutation)
         except Exception as exc:
             logger.exception("Handling of mutation %s failed:", mutation)
-
-    def handle_session_ready(self):
-        logger.info("Session ready received.")
-        self._session_ready.set()
 
     def handle_project_ready(self):
         logger.info("Project ready received.")
@@ -135,5 +136,6 @@ class ProjectClientMixin(object):
 
     async def send_command(self, target, command, **kwargs):
         assert self.project is not None
-        await self._stub.call('COMMAND', target, command, kwargs)
-
+        result = await self._stub.call('COMMAND', target, command, kwargs)
+        logger.info("Command %s completed with result=%r", command, result)
+        return result

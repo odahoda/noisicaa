@@ -60,3 +60,14 @@ class AddObject(Mutation):
                 '%s=%s:%r' % (p, t, v)
                 for p, t, v in self.properties))
 
+class UpdateObjectList(Mutation):
+    def __init__(self, obj, prop_name, *args):
+        self.id = obj.id
+        self.prop_name = prop_name
+        self.args = args
+
+    def __str__(self):
+        return '<UpdateObjectList id=%s prop=%s %s>' % (
+            self.id, self.prop_name,
+            ' '.join(repr(a) for a in self.args))
+

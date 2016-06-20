@@ -25,7 +25,8 @@ class ConnState(enum.Enum):
 
 
 class ServerProtocol(asyncio.Protocol):
-    def __init__(self, server):
+    def __init__(self, event_loop, server):
+        self.event_loop = event_loop
         self.server = server
         self.id = server.new_connection_id()
         self.transport = None
@@ -66,12 +67,10 @@ class ServerProtocol(asyncio.Protocol):
                     if self.payload_length > 0:
                         self.state = ConnState.READ_PAYLOAD
                     else:
-                        response = self.server.handle_command(
-                            self.command, None)
-                        response = response or b''
-                        self.transport.write(b'ACK %d\n' % len(response))
-                        if response:
-                            self.transport.write(response)
+                        task = self.event_loop(
+                            self.server.handle_command(
+                                self.command, None))
+                        task.add_done_callback(self.command_complete)
                 else:
                     self.logger.error("Received unknown message '%s'", header)
             elif self.state == ConnState.READ_PAYLOAD:
@@ -80,14 +79,21 @@ class ServerProtocol(asyncio.Protocol):
                 payload = bytes(self.inbuf[:self.payload_length])
                 del self.inbuf[:self.payload_length]
                 self.logger.debug("payload: %s", payload)
-                response = self.server.handle_command(self.command, payload)
-                response = response or b''
-                self.transport.write(b'ACK %d\n' % len(response))
-                if response:
-                    self.transport.write(response)
+                task = self.event_loop.create_task(
+                    self.server.handle_command(self.command, payload))
+                task.add_done_callback(self.command_complete)
                 self.state = ConnState.READ_MESSAGE
                 self.command = None
                 self.payload_length = None
+
+    def command_complete(self, task):
+        if task.exception() is not None:
+            raise task.exception()
+
+        response = task.result() or b''
+        self.transport.write(b'ACK %d\n' % len(response))
+        if response:
+            self.transport.write(response)
 
 
 class Server(object):
@@ -122,7 +128,8 @@ class Server(object):
 
     async def setup(self):
         self._server = await self.event_loop.create_unix_server(
-            functools.partial(ServerProtocol, self), path=self.address)
+            functools.partial(ServerProtocol, self.event_loop, self),
+            path=self.address)
         self.logger.info("Listening on socket %s", self.address)
 
     async def cleanup(self):
@@ -151,12 +158,15 @@ class Server(object):
     #     while len(self._connections) > 0:
     #         time.sleep(0.01)
 
-    def handle_command(self, command, payload):
+    async def handle_command(self, command, payload):
         try:
             handler = self._command_handlers[command]
 
             args, kwargs = self.deserialize(payload)
-            result = handler(*args, **kwargs)
+            if asyncio.iscoroutinefunction(handler):
+                result = await handler(*args, **kwargs)
+            else:
+                result = handler(*args, **kwargs)
             if result is not None:
                 return b'OK:' + self.serialize(result)
             else:
@@ -228,7 +238,8 @@ class Stub(object):
         assert self._transport is None and self._protocol is None
         self._transport, self._protocol = (
             await self._event_loop.create_unix_connection(
-                functools.partial(ClientProtocol, self), self._server_address))
+                functools.partial(ClientProtocol, self),
+                self._server_address))
         logger.info("Connected to server at %s", self._server_address)
 
     async def close(self):

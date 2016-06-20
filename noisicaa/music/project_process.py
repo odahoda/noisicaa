@@ -24,39 +24,19 @@ class Session(object):
         self.event_loop = event_loop
         self.callback_stub = callback_stub
         self.id = uuid.uuid4().hex
-        self.pending_mutations = []
 
     def cleanup(self):
         pass
 
-    def publish_mutation(self, mutation):
-        if not self.callback_stub.connected:
-            self.pending_mutations.append(mutation)
-            return
-
+    async def publish_mutation(self, mutation):
+        assert self.callback_stub.connected
         logger.info("Publish mutation %s", mutation)
 
-        callback_task = self.event_loop.create_task(
-            self.callback_stub.call('PROJECT_MUTATION', mutation))
-        callback_task.add_done_callback(
-            functools.partial(
-                self.publish_mutation_done, mutation=mutation))
-
-    def publish_mutation_done(self, callback_task, mutation):
-        assert callback_task.done()
-        exc = callback_task.exception()
-        if exc is not None:
-            logger.error(
-                "PROJECT_MUTATION %s failed with exception:\n%s",
-                mutation, exc)
-
-    def callback_stub_connected(self):
-        assert self.callback_stub.connected
-        while self.pending_mutations:
-            self.publish_mutation(self.pending_mutations.pop(0))
-
-        self.event_loop.create_task(
-            self.callback_stub.call('SESSION_READY'))
+        try:
+            await self.callback_stub.call('PROJECT_MUTATION', mutation)
+        except Exception:
+            logger.exception(
+                "PROJECT_MUTATION %s failed with exception", mutation)
 
 
 class ProjectProcessMixin(object):
@@ -76,6 +56,7 @@ class ProjectProcessMixin(object):
         self.server.add_command_handler('COMMAND', self.handle_command)
         self.project = None
         self.sessions = {}
+        self.pending_mutations = []
 
     async def run(self):
         await self._shutting_down.wait()
@@ -86,27 +67,41 @@ class ProjectProcessMixin(object):
         except KeyError:
             raise InvalidSessionError
 
-    def publish_mutation(self, mutation):
-        for session in self.sessions.values():
-            session.publish_mutation(mutation)
+    def handle_project_mutation(self, mutation):
+        logger.info("mutation: %s", mutation)
+        mtype, obj = mutation[:2]
+        if mtype == 'update_objlist':
+            prop_name, cmd = mutation[2:4]
+            if cmd == 'insert':
+                idx, child = mutation[4:]
+                for mutation in self._add_child_objects(child):
+                    self.pending_mutations.append(mutation)
+                self.pending_mutations.append(mutations.AddObject(child))
+                self.pending_mutations.append(mutations.UpdateObjectList(obj, prop_name, 'insert', idx, child.id))
+            elif cmd == 'delete':
+                idx = mutation[4]
+                raise NotImplementedError
+            elif cmd == 'clear':
+                self.pending_mutations.append(mutations.UpdateObjectList(obj, prop_name, 'clear'))
+            else:
+                raise ValueError(cmd)
 
-    def handle_start_session(self, client_address):
+        else:
+            raise ValueError(mtype)
+
+    async def publish_mutation(self, mutation):
+        tasks = []
+        for session in self.sessions.values():
+            tasks.append(self.event_loop.create_task(
+                session.publish_mutation(mutation)))
+        asyncio.wait(tasks, loop=self.event_loop)
+
+    async def handle_start_session(self, client_address):
         client_stub = ipc.Stub(self.event_loop, client_address)
-        connect_task = self.event_loop.create_task(client_stub.connect())
+        await client_stub.connect()
         session = Session(self.event_loop, client_stub)
         self.sessions[session.id] = session
-        connect_task.add_done_callback(
-            functools.partial(self._client_connected, session))
         return session.id
-
-    def _client_connected(self, session, connect_task):
-        assert connect_task.done()
-        exc = connect_task.exception()
-        if exc is not None:
-            logger.error("Failed to connect to callback client: %s", exc)
-            return
-
-        session.callback_stub_connected()
 
     def handle_end_session(self, session_id):
         session = self.get_session(session_id)
@@ -124,46 +119,50 @@ class ProjectProcessMixin(object):
             if isinstance(prop, core.ObjectProperty):
                 child = getattr(obj, prop.name)
                 if child is not None:
-                    self._add_child_objects(child)
-                    self.publish_mutation(mutations.AddObject(child))
+                    yield from self._add_child_objects(child)
+                    yield mutations.AddObject(child)
 
             elif isinstance(prop, core.ObjectListProperty):
                 for child in getattr(obj, prop.name):
                     assert child is not None
-                    self._add_child_objects(child)
-                    self.publish_mutation(mutations.AddObject(child))
+                    yield from self._add_child_objects(child)
+                    yield mutations.AddObject(child)
 
-    def _send_initial_mutations(self):
-        self._add_child_objects(self.project)
-        self.publish_mutation(mutations.AddObject(self.project))
+    async def _send_initial_mutations(self):
+        for mutation in self._add_child_objects(self.project):
+            await self.publish_mutation(mutation)
+        await self.publish_mutation(mutations.AddObject(self.project))
 
-    def handle_create(self, path):
+    async def handle_create(self, path):
         assert self.project is None
         self.project = project.Project()
         self.project.create(path)
-        self._send_initial_mutations()
+        await self._send_initial_mutations()
         for session in self.sessions.values():
             self.event_loop.create_task(
                 session.callback_stub.call('PROJECT_READY'))
+        self.project.set_mutation_callback(self.handle_project_mutation)
         return self.project.id
 
-    def handle_create_inmemory(self):
+    async def handle_create_inmemory(self):
         assert self.project is None
         self.project = project.BaseProject()
-        self._send_initial_mutations()
+        await self._send_initial_mutations()
         for session in self.sessions.values():
             self.event_loop.create_task(
                 session.callback_stub.call('PROJECT_READY'))
+        self.project.set_mutation_callback(self.handle_project_mutation)
         return self.project.id
 
-    def handle_open(self, path):
+    async def handle_open(self, path):
         assert self.project is None
         self.project = project.Project()
         self.project.open(path)
-        self._send_initial_mutations()
+        await self._send_initial_mutations()
         for session in self.sessions.values():
             self.event_loop.create_task(
                 session.callback_stub.call('PROJECT_READY'))
+        self.project.set_mutation_callback(self.handle_project_mutation)
         return self.project.id
 
     def handle_close(self):
@@ -171,11 +170,16 @@ class ProjectProcessMixin(object):
         self.project.close()
         self.project = None
 
-    def handle_command(self, target, command, kwargs):
+    async def handle_command(self, target, command, kwargs):
         assert self.project is not None
+        assert not self.pending_mutations
         cmd_cls = core.Command.get_subclass(command)
         cmd = cmd_cls(**kwargs)
-        return self.project.dispatch_command(target, cmd)
+        result = self.project.dispatch_command(target, cmd)
+        for mutation in self.pending_mutations:
+            await self.publish_mutation(mutation)
+        self.pending_mutations.clear()
+        return result
 
 
 class ProjectProcess(ProjectProcessMixin, core.ProcessImpl):

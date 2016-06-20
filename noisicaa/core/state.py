@@ -36,6 +36,7 @@ class PropertyBase(object):
         old_value = instance.state.get(self.name, None)
         instance.state[self.name] = value
         if value != old_value:
+            instance.root.handle_mutation(('update_property', instance, self.name, old_value, value))
             instance.listeners.call(self.name, old_value, value)
 
     def __delete__(self, instance):
@@ -106,6 +107,7 @@ class SimpleObjectList(object):
 
     def __delitem__(self, idx):
         del self._objs[idx]
+        self._instance.root.handle_mutation(('update_list', self._instance, self._prop.name, 'delete', idx))
         self._instance.listeners.call(self._prop.name, 'delete', idx)
 
     def append(self, obj):
@@ -114,10 +116,12 @@ class SimpleObjectList(object):
     def insert(self, idx, obj):
         self._check_type(obj)
         self._objs.insert(idx, obj)
+        self._instance.root.handle_mutation(('update_list', self._instance, self._prop.name, 'insert', idx, obj))
         self._instance.listeners.call(self._prop.name, 'insert', idx, obj)
 
     def clear(self):
         self._objs.clear()
+        self._instance.root.handle_mutation(('update_list', self._instance, self._prop.name, 'clear'))
         self._instance.listeners.call(self._prop.name, 'clear')
 
     def extend(self, value):
@@ -243,6 +247,7 @@ class ObjectList(object):
         del self._objs[idx]
         for i in range(idx, len(self._objs)):
             self._objs[i].set_index(i)
+        self._instance.root.handle_mutation(('update_objlist', self._instance, self._prop.name, 'delete', idx))
         self._instance.listeners.call(self._prop.name, 'delete', idx)
 
     def append(self, obj):
@@ -254,6 +259,7 @@ class ObjectList(object):
         self._objs.insert(idx, obj)
         for i in range(idx, len(self._objs)):
             self._objs[i].set_index(i)
+        self._instance.root.handle_mutation(('update_objlist', self._instance, self._prop.name, 'insert', idx, obj))
         self._instance.listeners.call(self._prop.name, 'insert', idx, obj)
 
     def clear(self):
@@ -261,6 +267,7 @@ class ObjectList(object):
             obj.detach()
             obj.clear_parent_container()
         self._objs.clear()
+        self._instance.root.handle_mutation(('update_objlist', self._instance, self._prop.name, 'clear'))
         self._instance.listeners.call(self._prop.name, 'clear')
 
 
@@ -508,3 +515,6 @@ class StateBase(TreeNode, metaclass=StateMeta):
                         refid = refid[1]
                         refobj = all_objects[refid]
                         prop.__set__(node, refobj)
+
+    def handle_mutation(self, mutation):
+        pass

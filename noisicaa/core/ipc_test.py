@@ -36,6 +36,15 @@ class IPCTest(asynctest.TestCase):
                 with self.assertRaises(ipc.RemoteException):
                     await stub.call('foo')
 
+    async def test_async_handler(self):
+        async with ipc.Server(self.loop, name='test') as server:
+            async def handler(arg):
+                return arg + 1
+            server.add_command_handler('foo', handler)
+
+            async with ipc.Stub(self.loop, server.address) as stub:
+                self.assertEqual(await stub.call('foo', 3), 4)
+
 
 if __name__ == '__main__':
     unittest.main()
