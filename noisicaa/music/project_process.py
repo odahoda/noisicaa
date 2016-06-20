@@ -74,9 +74,8 @@ class ProjectProcessMixin(object):
             prop_name, cmd = mutation[2:4]
             if cmd == 'insert':
                 idx, child = mutation[4:]
-                for mutation in self._add_child_objects(child):
+                for mutation in self.add_object_mutations(child):
                     self.pending_mutations.append(mutation)
-                self.pending_mutations.append(mutations.AddObject(child))
                 self.pending_mutations.append(mutations.UpdateObjectList(obj, prop_name, 'insert', idx, child.id))
             elif cmd == 'delete':
                 idx = mutation[4]
@@ -101,7 +100,11 @@ class ProjectProcessMixin(object):
         await client_stub.connect()
         session = Session(self.event_loop, client_stub)
         self.sessions[session.id] = session
-        return session.id
+        if self.project is not None:
+            for mutation in self.add_object_mutations(self.project):
+                await session.publish_mutation(mutation)
+            return session.id, self.project.id
+        return session.id, None
 
     def handle_end_session(self, session_id):
         session = self.get_session(session_id)
@@ -111,7 +114,7 @@ class ProjectProcessMixin(object):
     def handle_shutdown(self):
         self._shutting_down.set()
 
-    def _add_child_objects(self, obj):
+    def add_object_mutations(self, obj):
         for prop in obj.list_properties():
             if prop.name == 'id':
                 continue
@@ -119,38 +122,31 @@ class ProjectProcessMixin(object):
             if isinstance(prop, core.ObjectProperty):
                 child = getattr(obj, prop.name)
                 if child is not None:
-                    yield from self._add_child_objects(child)
-                    yield mutations.AddObject(child)
+                    yield from self.add_object_mutations(child)
 
             elif isinstance(prop, core.ObjectListProperty):
                 for child in getattr(obj, prop.name):
                     assert child is not None
-                    yield from self._add_child_objects(child)
-                    yield mutations.AddObject(child)
+                    yield from self.add_object_mutations(child)
 
-    async def _send_initial_mutations(self):
-        for mutation in self._add_child_objects(self.project):
+        yield mutations.AddObject(obj)
+
+    async def send_initial_mutations(self):
+        for mutation in self.add_object_mutations(self.project):
             await self.publish_mutation(mutation)
-        await self.publish_mutation(mutations.AddObject(self.project))
 
     async def handle_create(self, path):
         assert self.project is None
         self.project = project.Project()
         self.project.create(path)
-        await self._send_initial_mutations()
-        for session in self.sessions.values():
-            self.event_loop.create_task(
-                session.callback_stub.call('PROJECT_READY'))
+        await self.send_initial_mutations()
         self.project.set_mutation_callback(self.handle_project_mutation)
         return self.project.id
 
     async def handle_create_inmemory(self):
         assert self.project is None
         self.project = project.BaseProject()
-        await self._send_initial_mutations()
-        for session in self.sessions.values():
-            self.event_loop.create_task(
-                session.callback_stub.call('PROJECT_READY'))
+        await self.send_initial_mutations()
         self.project.set_mutation_callback(self.handle_project_mutation)
         return self.project.id
 
@@ -158,15 +154,19 @@ class ProjectProcessMixin(object):
         assert self.project is None
         self.project = project.Project()
         self.project.open(path)
-        await self._send_initial_mutations()
-        for session in self.sessions.values():
-            self.event_loop.create_task(
-                session.callback_stub.call('PROJECT_READY'))
+        await self.send_initial_mutations()
         self.project.set_mutation_callback(self.handle_project_mutation)
         return self.project.id
 
     def handle_close(self):
         assert self.project is not None
+
+        tasks = []
+        for session in self.sessions.values():
+            tasks.append(self.event_loop.create_task(
+                session.callback_stub.call('PROJECT_CLOSED')))
+        asyncio.wait(tasks, loop=self.event_loop)
+
         self.project.close()
         self.project = None
 
