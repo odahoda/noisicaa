@@ -1,8 +1,11 @@
 #!/usr/bin/python3
 
 import argparse
+import asyncio
 import os
 import sys
+
+import quamash
 
 from . import logging
 from .runtime_settings import RuntimeSettings
@@ -30,13 +33,17 @@ def main(argv):
 
     from .ui.editor_app import EditorApp
     app = EditorApp(runtime_settings, args.path)
-    app.setup()
-    try:
-        exit_code = app.exec()
-    finally:
-        app.cleanup()
+    event_loop = quamash.QEventLoop(app)
+    asyncio.set_event_loop(event_loop)
 
-    return exit_code
+    with event_loop:
+        app.setup()
+        try:
+            event_loop.run_forever()
+        finally:
+            app.cleanup()
+
+    return 0
 
 if __name__ == '__main__':
     # Doing a regular sys.exit() often causes SIGSEGVs somewhere in the PyQT5

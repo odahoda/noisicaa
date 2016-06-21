@@ -289,7 +289,6 @@ class EditorWindow(QMainWindow):
         self.player_status = LoadHistoryWidget(100, 30)
         self.player_status.setToolTip("Load of the playback engine.")
         self.statusbar.addPermanentWidget(self.player_status)
-        self._app.sink.add_status_listener(self.player_status.addValue)
 
         self.setStatusBar(self.statusbar)
 
