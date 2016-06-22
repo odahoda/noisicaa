@@ -56,7 +56,7 @@ class MockSequencer(object):
 
 class MockApp(BaseEditorApp):
     def __init__(self):
-        super().__init__(RuntimeSettings(), MockSettings())
+        super().__init__(None, RuntimeSettings(), MockSettings())
 
     def createSequencer(self):
         return MockSequencer()

@@ -281,8 +281,12 @@ class ProcessImpl(object):
         self.event_loop = self.create_event_loop()
         asyncio.set_event_loop(self.event_loop)
 
-        self.event_loop.run_until_complete(
-            self.main_async(ready_callback, *args, **kwargs))
+        try:
+            self.event_loop.run_until_complete(
+                self.main_async(ready_callback, *args, **kwargs))
+        finally:
+            self.event_loop.stop()
+            self.event_loop.close()
 
     async def main_async(self, ready_callback, *args, **kwargs):
         self.manager = ManagerStub(self.event_loop, self.manager_address)

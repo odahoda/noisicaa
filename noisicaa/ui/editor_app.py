@@ -56,8 +56,10 @@ class ExceptHook(object):
 
 
 class BaseEditorApp(QApplication):
-    def __init__(self, runtime_settings, settings=None):
+    def __init__(self, process, runtime_settings, settings=None):
         super().__init__(['noisicaä'])
+
+        self.process = process
 
         self.runtime_settings = runtime_settings
 
@@ -67,6 +69,8 @@ class BaseEditorApp(QApplication):
                 settings.clear()
         self.settings = settings
         self.dumpSettings()
+
+        self.setQuitOnLastWindowClosed(False)
 
         self._projects = []
 
@@ -112,13 +116,16 @@ class BaseEditorApp(QApplication):
             self.sequencer.close()
             self.sequencer = None
 
+    def quit(self):
+        self.process.quit()
+
     def createSequencer(self):
         return None
 
     def createMidiHub(self):
         return devices.MidiHub(self.sequencer)
 
-    def exit(self, exit_code):
+    def exit(self, exit_code=0):
         logger.info("exit(%d) received", exit_code)
         self._exit_code = exit_code
         super().exit(exit_code)
@@ -191,8 +198,8 @@ class BaseEditorApp(QApplication):
 
 
 class EditorApp(BaseEditorApp):
-    def __init__(self, runtime_settings, paths, settings=None):
-        super().__init__(runtime_settings, settings)
+    def __init__(self, process, runtime_settings, paths, settings=None):
+        super().__init__(process, runtime_settings, settings)
 
         self.paths = paths
 
@@ -225,23 +232,18 @@ class EditorApp(BaseEditorApp):
 
         self.aboutToQuit.connect(self.shutDown)
 
-    def cleanup(self):
-        super().cleanup()
-
-        if self._sequencer is not None:
-            self._sequencer.close()
-            self._sequencer = None
-
     def shutDown(self):
         logger.info("Shutting down.")
 
-        self.win.storeState()
-        self.settings.sync()
-        self.dumpSettings()
+        if self.win is not None:
+            self.win.storeState()
+            self.settings.sync()
+            self.dumpSettings()
 
     def cleanup(self):
-        self.win.closeAll()
-        self.win = None
+        if self.win is not None:
+            self.win.closeAll()
+            self.win = None
 
         super().cleanup()
 
