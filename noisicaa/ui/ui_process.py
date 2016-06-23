@@ -23,11 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 class UIProcessMixin(object):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, runtime_settings, paths, **kwargs):
+        super().__init__(**kwargs)
 
-        self.app = self.create_app(
-            self, runtime_settings.RuntimeSettings(), [])
+        self.app = self.create_app(self, runtime_settings, paths)
 
     def create_app(self, *args, **kwargs):
         return editor_app.EditorApp(*args, **kwargs)

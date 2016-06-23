@@ -15,11 +15,15 @@ from . import process_manager
 class ProcessManagerTest(asynctest.TestCase):
     async def test_simple(self):
         class Child(process_manager.ProcessImpl):
-            async def run(self, foo):
+            def __init__(self, foo, **kwargs):
+                super().__init__(**kwargs)
                 assert foo == 'bar'
 
+            async def run(self):
+                pass
+
         async with process_manager.ProcessManager(self.loop) as mgr:
-            proc = await mgr.start_process('test', Child, 'bar')
+            proc = await mgr.start_process('test', Child, foo='bar')
             await proc.wait()
             self.assertEqual(proc.returncode, 0)
 

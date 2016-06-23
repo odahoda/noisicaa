@@ -3,6 +3,7 @@
 import asyncio
 import enum
 import functools
+import importlib
 import logging
 import os
 import signal
@@ -97,9 +98,7 @@ class ProcessManager(object):
         for pid in self._processes.keys():
             logger.error("Failed to kill child pid=%d", pid)
 
-    async def start_process(self, name, cls, *args, **kwargs):
-        assert issubclass(cls, ProcessImpl)
-
+    async def start_process(self, name, cls, **kwargs):
         proc = ProcessHandle()
 
         barrier_in, barrier_out = os.pipe()
@@ -133,7 +132,12 @@ class ProcessManager(object):
                 os.read(barrier_in, 1)
                 os.close(barrier_in)
 
-                impl = cls(name, manager_address)
+                if isinstance(cls, str):
+                    mod_name, cls_name = cls.rsplit('.', 1)
+                    mod = importlib.import_module(mod_name)
+                    cls = getattr(mod, cls_name)
+                impl = cls(
+                    name=name, manager_address=manager_address, **kwargs)
 
                 # TODO: if crashes before ready_callback was sent, write
                 # back failure message to pipe.
@@ -144,7 +148,7 @@ class ProcessManager(object):
                         stub_address = stub_address[written:]
                     os.close(announce_out)
 
-                rc = impl.main(ready_callback, *args, **kwargs)
+                rc = impl.main(ready_callback)
 
             except SystemExit as exc:
                 rc = exc.code

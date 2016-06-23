@@ -42,47 +42,11 @@ class RuntimeSettings(object):
             default=9,
             metavar="NUM",
             help="Number of old log files to keep.")
-        parser.add_argument(
-            '--runtime-settings',
-            type=str,
-            metavar="JSON",
-            help=("JSON object with runtime settings. If set, other"
-                  " flags are ignored."))
 
     def set_from_args(self, args):
-        if args.runtime_settings:
-            self.from_json(json.loads(args.runtime_settings))
-        else:
-            self.dev_mode = args.dev_mode
-            self.start_clean = args.start_clean
-            self.log_level = args.log_level
-            self.log_file = args.log_file
-            self.log_file_size = args.log_file_size
-            self.log_file_keep_old = args.log_file_keep_old
-
-    def as_args(self):
-        return ['--runtime-settings', json.dumps(self.to_json())]
-
-    def to_json(self):
-        return {
-            'dev_mode': self.dev_mode,
-            'start_clean': self.start_clean,
-            'log_level': self.log_level,
-            'log_file': self.log_file,
-            'log_file_size': self.log_file_size,
-            'log_file_keep_old': self.log_file_keep_old,
-            }
-
-    def from_json(self, j):
-        if 'dev_mode' in j:
-            self.dev_mode = j['dev_mode']
-        if 'start_clean' in j:
-            self.start_clean = j['start_clean']
-        if 'log_level' in j:
-            self.log_level = j['log_level']
-        if 'log_file' in j:
-            self.log_file = j['log_file']
-        if 'log_file_size' in j:
-            self.log_file_size = j['log_file_size']
-        if 'log_file_keep_old' in j:
-            self.log_file_keep_old = j['log_file_keep_old']
+        self.dev_mode = args.dev_mode
+        self.start_clean = args.start_clean
+        self.log_level = args.log_level
+        self.log_file = args.log_file
+        self.log_file_size = args.log_file_size
+        self.log_file_keep_old = args.log_file_keep_old
