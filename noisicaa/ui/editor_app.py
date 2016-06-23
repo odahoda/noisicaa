@@ -32,10 +32,10 @@ class ExceptHook(object):
 
     def __call__(self, exc_type, exc_value, tb):
         if issubclass(exc_type, RestartAppException):
-            self.app.exit(EXIT_RESTART)
+            self.app.quit(EXIT_RESTART)
             return
         if issubclass(exc_type, RestartAppCleanException):
-            self.app.exit(EXIT_RESTART_CLEAN)
+            self.app.quit(EXIT_RESTART_CLEAN)
             return
 
         msg = ''.join(traceback.format_exception(exc_type, exc_value, tb))
@@ -74,7 +74,6 @@ class BaseEditorApp(QApplication):
 
         self._projects = []
 
-        self._exit_code = None
         self.default_style = None
 
         self.sequencer = None
@@ -116,19 +115,14 @@ class BaseEditorApp(QApplication):
             self.sequencer.close()
             self.sequencer = None
 
-    def quit(self):
-        self.process.quit()
+    def quit(self, exit_code=0):
+        self.process.quit(exit_code)
 
     def createSequencer(self):
         return None
 
     def createMidiHub(self):
         return devices.MidiHub(self.sequencer)
-
-    def exit(self, exit_code=0):
-        logger.info("exit(%d) received", exit_code)
-        self._exit_code = exit_code
-        super().exit(exit_code)
 
     def dumpSettings(self):
         for key in self.settings.allKeys():

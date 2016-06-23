@@ -286,7 +286,7 @@ class ProcessImpl(object):
         asyncio.set_event_loop(self.event_loop)
 
         try:
-            self.event_loop.run_until_complete(
+            return self.event_loop.run_until_complete(
                 self.main_async(ready_callback, *args, **kwargs))
         finally:
             self.event_loop.stop()

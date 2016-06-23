@@ -12,14 +12,36 @@ from .runtime_settings import RuntimeSettings
 from . import logging
 from .core import process_manager
 
+logger = logging.getLogger(__name__)
+
 
 async def main_async(event_loop, runtime_settings, paths):
     manager = process_manager.ProcessManager(event_loop)
     async with manager:
-        proc = await manager.start_process(
-            'ui', 'noisicaa.ui.ui_process.UIProcess',
-            runtime_settings=runtime_settings, paths=paths)
-        await proc.wait()
+        while True:
+            proc = await manager.start_process(
+                'ui', 'noisicaa.ui.ui_process.UIProcess',
+                runtime_settings=runtime_settings, paths=paths)
+            await proc.wait()
+
+            if proc.returncode == EXIT_RESTART:
+                runtime_settings.start_clean = False
+
+            elif proc.returncode == EXIT_RESTART_CLEAN:
+                runtime_settings.start_clean = True
+
+            elif (proc.returncode != EXIT_SUCCESS
+                  and runtime_settings.dev_mode):
+                runtime_settings.start_clean = False
+
+                delay = next_retry - time.time()
+                if delay > 0:
+                    logger.warn(
+                        "Sleeping %.1fsec before restarting.", delay)
+                    await asyncio.sleep(delay)
+
+            else:
+                return proc.returncode
 
 
 def main(argv):

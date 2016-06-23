@@ -46,8 +46,10 @@ class UIProcessMixin(object):
 
     async def run(self):
         await self._shutting_down.wait()
+        return self.exit_code
 
-    def quit(self):
+    def quit(self, exit_code=0):
+        self.exit_code = exit_code
         self._shutting_down.set()
 
 
