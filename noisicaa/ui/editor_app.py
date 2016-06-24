@@ -141,21 +141,7 @@ class BaseEditorApp(QApplication):
         return (self.runtime_settings.dev_mode
                 and self.show_edit_areas_action.isChecked())
 
-    def addPlaybackSource(self, port):
-        mixer_port = self.global_mixer.append_input(port)
-        mixer_port.start()
-        self.playback_sources[port] = mixer_port
-        logger.info("Connected %s:%s to global mixer port %s.",
-                    port.owner.name, port.name, mixer_port.name)
-
-    def removePlaybackSource(self, port):
-        mixer_port = self.playback_sources[port]
-        self.global_mixer.remove_input(mixer_port.name)
-        logger.info("Disconnected %s:%s from global mixer port %s.",
-                    port.owner.name, port.name, mixer_port.name)
-
     def addProject(self, project):
-        self.addPlaybackSource(project.master_output)
         self._projects.append(project)
         self.win.addProjectView(project)
 
@@ -166,7 +152,6 @@ class BaseEditorApp(QApplication):
     def removeProject(self, project):
         self.win.removeProjectView(project)
         self._projects.remove(project)
-        self.removePlaybackSource(project.master_output)
 
         self.settings.setValue(
             'opened_projects',

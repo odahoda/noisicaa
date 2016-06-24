@@ -19,6 +19,8 @@ class Main(object):
         self.paths = []
         self.event_loop = asyncio.get_event_loop()
         self.manager = process_manager.ProcessManager(self.event_loop)
+        self.manager.server.add_command_handler(
+            'CREATE_PROJECT_PROCESS', self.handle_create_project_process)
 
     def run(self, argv):
         self.parse_args(argv)
@@ -76,6 +78,13 @@ class Main(object):
         args = parser.parse_args(args=argv[1:])
         self.runtime_settings.set_from_args(args)
         self.paths = args.path
+
+    async def handle_create_project_process(self, uri):
+        # TODO: keep map of uri->proc, only create processes for new
+        # URIs.
+        proc = await self.manager.start_process(
+            'project', 'noisicaa.music.project_process.ProjectProcess')
+        return proc.address
 
 
 if __name__ == '__main__':

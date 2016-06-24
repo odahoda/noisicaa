@@ -53,6 +53,10 @@ class ProcessManager(object):
 
         self._server = ipc.Server(event_loop, 'manager')
 
+    @property
+    def server(self):
+        return self._server
+
     async def setup(self):
         logger.info("Starting ProcessManager...")
         self._event_loop.add_signal_handler(

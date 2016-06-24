@@ -18,6 +18,20 @@ class ObjectProxy(object):
         self.address = address
 
 
+class ProjectClientBase(object):
+    def __init__(self, event_loop):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = ipc.Server(self.event_loop, 'client')
+
+    async def setup(self):
+        await self.server.setup()
+
+    async def cleanup(self):
+        await self.server.cleanup()
+
+
+
 class ProjectClientMixin(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -134,3 +148,7 @@ class ProjectClientMixin(object):
         result = await self._stub.call('COMMAND', target, command, kwargs)
         logger.info("Command %s completed with result=%r", command, result)
         return result
+
+
+class ProjectClient(ProjectClientMixin, ProjectClientBase):
+    pass

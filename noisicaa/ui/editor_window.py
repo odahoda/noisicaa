@@ -464,20 +464,40 @@ class EditorWindow(QMainWindow):
         self.openProject(path)
 
     def openProject(self, path):
-        project = EditorProject(self._app)
-        try:
-            project.open(path)
-        except music.FileError as exc:
-            errorbox = QMessageBox()
-            errorbox.setWindowTitle("Failed to open project")
-            errorbox.setText("Failed to open project from path %s." % path)
-            errorbox.setInformativeText(str(exc))
-            errorbox.setIcon(QMessageBox.Warning)
-            errorbox.addButton("Close", QMessageBox.AcceptRole)
-            errorbox.exec_()
+        task = self._app.process.event_loop.create_task(
+            self.openProjectAsync(path))
+        task.add_done_callback(self.openProjectDone)
 
-        else:
-            self._app.addProject(project)
+    def openProjectDone(self, task):
+        if task.exception() is not None:
+            raise task.exception()
+
+    async def openProjectAsync(self, path):
+        try:
+            project_process_address = await self._app.process.manager.call(
+                'CREATE_PROJECT_PROCESS', path)
+            project_client = music.ProjectClient(self._app.process.event_loop)
+            await project_client.setup()
+            await project_client.connect(project_process_address)
+            await project_client.open(path)
+        except:
+            import sys
+            sys.excepthook(*sys.exc_info())
+
+        # project = EditorProject(self._app)
+        # try:
+        #     project.open(path)
+        # except music.FileError as exc:
+        #     errorbox = QMessageBox()
+        #     errorbox.setWindowTitle("Failed to open project")
+        #     errorbox.setText("Failed to open project from path %s." % path)
+        #     errorbox.setInformativeText(str(exc))
+        #     errorbox.setIcon(QMessageBox.Warning)
+        #     errorbox.addButton("Close", QMessageBox.AcceptRole)
+        #     errorbox.exec_()
+
+        # else:
+        #     self._app.addProject(project)
 
     def onImport(self):
         path, open_filter = QFileDialog.getOpenFileName(
