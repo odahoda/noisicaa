@@ -2,10 +2,8 @@
 
 import argparse
 import asyncio
-import subprocess
 import sys
 import time
-import signal
 
 from .constants import EXIT_SUCCESS, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .runtime_settings import RuntimeSettings
@@ -15,62 +13,70 @@ from .core import process_manager
 logger = logging.getLogger(__name__)
 
 
-async def main_async(event_loop, runtime_settings, paths):
-    manager = process_manager.ProcessManager(event_loop)
-    async with manager:
-        while True:
-            proc = await manager.start_process(
-                'ui', 'noisicaa.ui.ui_process.UIProcess',
-                runtime_settings=runtime_settings, paths=paths)
-            await proc.wait()
+class Main(object):
+    def __init__(self):
+        self.runtime_settings = RuntimeSettings()
+        self.paths = []
+        self.event_loop = asyncio.get_event_loop()
+        self.manager = process_manager.ProcessManager(self.event_loop)
 
-            if proc.returncode == EXIT_RESTART:
-                runtime_settings.start_clean = False
+    def run(self, argv):
+        self.parse_args(argv)
 
-            elif proc.returncode == EXIT_RESTART_CLEAN:
-                runtime_settings.start_clean = True
+        logging.init(self.runtime_settings)
 
-            elif (proc.returncode != EXIT_SUCCESS
-                  and runtime_settings.dev_mode):
-                runtime_settings.start_clean = False
+        if self.runtime_settings.dev_mode:
+            import pyximport
+            pyximport.install()
 
-                delay = next_retry - time.time()
-                if delay > 0:
-                    logger.warn(
-                        "Sleeping %.1fsec before restarting.", delay)
-                    await asyncio.sleep(delay)
+        try:
+            self.event_loop.run_until_complete(self.run_async())
+        finally:
+            self.event_loop.stop()
+            self.event_loop.close()
 
-            else:
-                return proc.returncode
+    async def run_async(self):
+        async with self.manager:
+            while True:
+                next_retry = time.time() + 5
 
+                proc = await self.manager.start_process(
+                    'ui', 'noisicaa.ui.ui_process.UIProcess',
+                    runtime_settings=self.runtime_settings,
+                    paths=self.paths)
+                await proc.wait()
 
-def main(argv):
-    runtime_settings = RuntimeSettings()
+                if proc.returncode == EXIT_RESTART:
+                    self.runtime_settings.start_clean = False
 
-    parser = argparse.ArgumentParser(
-        prog=argv[0])
-    parser.add_argument(
-        'path',
-        nargs='*',
-        help="Project file to open.")
-    runtime_settings.init_argparser(parser)
-    args = parser.parse_args(args=argv[1:])
-    runtime_settings.set_from_args(args)
+                elif proc.returncode == EXIT_RESTART_CLEAN:
+                    self.runtime_settings.start_clean = True
 
-    logging.init(runtime_settings)
+                elif (proc.returncode != EXIT_SUCCESS
+                      and self.runtime_settings.dev_mode):
+                    self.runtime_settings.start_clean = False
 
-    if runtime_settings.dev_mode:
-        import pyximport
-        pyximport.install()
+                    delay = next_retry - time.time()
+                    if delay > 0:
+                        logger.warning(
+                            "Sleeping %.1fsec before restarting.", delay)
+                        await asyncio.sleep(delay)
 
-    event_loop = asyncio.get_event_loop()
-    try:
-        event_loop.run_until_complete(
-            main_async(event_loop, runtime_settings, args.path))
-    finally:
-        event_loop.stop()
-        event_loop.close()
+                else:
+                    return proc.returncode
+
+    def parse_args(self, argv):
+        parser = argparse.ArgumentParser(
+            prog=argv[0])
+        parser.add_argument(
+            'path',
+            nargs='*',
+            help="Project file to open.")
+        self.runtime_settings.init_argparser(parser)
+        args = parser.parse_args(args=argv[1:])
+        self.runtime_settings.set_from_args(args)
+        self.paths = args.path
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    sys.exit(Main().run(sys.argv))
