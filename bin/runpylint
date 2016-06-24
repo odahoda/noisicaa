@@ -2,5 +2,5 @@
 
 BASEDIR=$(readlink -f "$(dirname "$0")/..")
 python setup.py build
-cd $BASEDIR/build/lib.linux-x86_64-3.4/
+cd $BASEDIR/build/lib.linux-x86_64-3.5/
 exec pylint --rcfile=$BASEDIR/bin/pylintrc "$@"
