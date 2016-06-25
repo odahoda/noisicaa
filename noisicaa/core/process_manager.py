@@ -116,6 +116,10 @@ class ProcessManager(object):
         if pid == 0:
             # In child process.
             try:
+                # Remove all signal handlers.
+                for sig in signal.Signals:
+                    self._event_loop.remove_signal_handler(sig)
+
                 # Close the "other ends" of the pipes.
                 os.close(barrier_out)
                 os.close(announce_in)

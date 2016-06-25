@@ -3,6 +3,7 @@
 import functools
 import asyncio
 import logging
+import signal
 import threading
 import time
 import uuid
@@ -36,7 +37,9 @@ class UIProcessMixin(object):
 
     async def setup(self):
         self._shutting_down = asyncio.Event()
-
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            self.event_loop.add_signal_handler(
+                sig, functools.partial(self.handle_signal, sig))
         await super().setup()
         await self.app.setup()
 
@@ -51,6 +54,10 @@ class UIProcessMixin(object):
     def quit(self, exit_code=0):
         self.exit_code = exit_code
         self._shutting_down.set()
+
+    def handle_signal(self, sig):
+        logger.info("%s received.", sig.name)
+        self.quit(0)
 
 
 class UIProcess(UIProcessMixin, core.ProcessImpl):
