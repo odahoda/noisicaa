@@ -21,7 +21,7 @@ class Error(Exception):
     pass
 
 
-class Instrument(core.StateBase, core.CommandTarget):
+class Instrument(core.StateBase):
     name = core.Property(str)
     collection = core.ObjectReferenceProperty(allow_none=True)
 
@@ -104,7 +104,7 @@ class SampleInstrument(Instrument):
 Instrument.register_subclass(SampleInstrument)
 
 
-class Collection(core.StateBase, core.CommandTarget):
+class Collection(core.StateBase):
     name = core.Property(str)
 
     def __init__(self, name=None, state=None):
@@ -131,7 +131,7 @@ class SoundFontCollection(Collection):
 Collection.register_subclass(SoundFontCollection)
 
 
-class InstrumentLibrary(core.StateBase, core.CommandDispatcher):
+class InstrumentLibrary(core.StateBase):
     ui_state = core.ObjectProperty(UIState)
 
     instruments = core.ObjectListProperty(Instrument)
@@ -147,7 +147,6 @@ class InstrumentLibrary(core.StateBase, core.CommandDispatcher):
             self.ui_state = UIState()
 
         self.set_root()
-        self.add_sub_target('ui_state', self.ui_state)
 
     def add_instrument(self, instr):
         self.instruments.append(instr)

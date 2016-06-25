@@ -174,7 +174,7 @@ class TrackPropertiesDockWidget(DockWidget):
 
         if name != self._track.name:
             self._track.project.dispatch_command(
-                self._track.address,
+                self._track.id,
                 UpdateTrackProperties(name=name))
 
     def onVolumeChanged(self, old_volume, new_volume):
@@ -186,7 +186,7 @@ class TrackPropertiesDockWidget(DockWidget):
 
         if volume != self._track.volume:
             self._track.project.dispatch_command(
-                self._track.address,
+                self._track.id,
                 UpdateTrackProperties(volume=volume))
 
     def onMutedChanged(self, old_value, new_value):
@@ -199,7 +199,7 @@ class TrackPropertiesDockWidget(DockWidget):
 
         if muted != self._track.muted:
             self._track.project.dispatch_command(
-                self._track.address,
+                self._track.id,
                 UpdateTrackProperties(muted=muted))
 
     def onInstrumentChanged(self, old_instrument, new_instrument):
@@ -228,10 +228,10 @@ class TrackPropertiesDockWidget(DockWidget):
 
         if instr is None:
             self._track.project.dispatch_command(
-                self._track.address, ClearInstrument())
+                self._track.id, ClearInstrument())
         else:
             self._track.project.dispatch_command(
-                self._track.address,
+                self._track.id,
                 SetInstrument(instr=instr.to_json()))
 
     def onTransposeOctavesChanged(
@@ -244,5 +244,5 @@ class TrackPropertiesDockWidget(DockWidget):
 
         if transpose_octaves != self._track.transpose_octaves:
             self._track.project.dispatch_command(
-                self._track.address,
+                self._track.id,
                 UpdateTrackProperties(transpose_octaves=transpose_octaves))

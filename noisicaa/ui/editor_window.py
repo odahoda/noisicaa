@@ -84,8 +84,8 @@ class EditorWindow(QMainWindow):
         self._docks = []
         self._settings_dialog = SettingsDialog(self)
 
-        self._instrument_library_dialog = InstrumentLibraryDialog(
-            self, self._app, self._app.instrument_library)
+        # self._instrument_library_dialog = InstrumentLibraryDialog(
+        #     self, self._app, self._app.instrument_library)
 
         self._current_project_view = None
 

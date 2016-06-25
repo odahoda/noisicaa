@@ -12,10 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class ObjectProxy(object):
-    def __init__(self, obj_id, cls, address):
+    def __init__(self, obj_id, cls):
         self.id = obj_id
         self.cls = cls
-        self.address = address
 
 
 class ProjectClientBase(object):
@@ -74,6 +73,8 @@ class ProjectClientMixin(object):
                 for prop_name, prop_type, value in mutation.properties:
                     if prop_type == 'scalar':
                         setattr(obj, prop_name, value)
+                    elif prop_type == 'list':
+                        setattr(obj, prop_name, value)
                     elif prop_type == 'obj':
                         setattr(obj, prop_name, self._object_map[value] if value is not None else None)
                     elif prop_type == 'objlist':
@@ -84,10 +85,11 @@ class ProjectClientMixin(object):
                             "Property type %s not supported." % prop_type)
 
             elif isinstance(mutation, mutations.AddObject):
-                obj = ObjectProxy(
-                    mutation.id, mutation.cls, mutation.address)
+                obj = ObjectProxy(mutation.id, mutation.cls)
                 for prop_name, prop_type, value in mutation.properties:
                     if prop_type == 'scalar':
+                        setattr(obj, prop_name, value)
+                    elif prop_type == 'list':
                         setattr(obj, prop_name, value)
                     elif prop_type == 'obj':
                         setattr(obj, prop_name, self._object_map[value] if value is not None else None)

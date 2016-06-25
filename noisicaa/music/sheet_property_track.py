@@ -89,10 +89,6 @@ class SheetPropertyTrack(Track):
             for _ in range(num_measures):
                 self.measures.append(SheetPropertyMeasure())
 
-    @property
-    def address(self):
-        return self.parent.address + '/property_track'
-
     def create_empty_measure(self, ref):
         measure = super().create_empty_measure(ref)
 

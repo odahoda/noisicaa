@@ -193,7 +193,7 @@ class EditorApp(BaseEditorApp):
         super().setup()
 
         logger.info("Creating InstrumentLibrary.")
-        self.instrument_library = InstrumentLibrary()
+        self.instrument_library = None #InstrumentLibrary()
 
         logger.info("Creating EditorWindow.")
         self.win = EditorWindow(self)
@@ -202,7 +202,13 @@ class EditorApp(BaseEditorApp):
         if self.paths:
             logger.info("Starting with projects from cmdline.")
             for path in self.paths:
-                self.win.openProject(path)
+                if path.startswith('+'):
+                    path = path[1:]
+                    project = EditorProject(self)
+                    project.create(path)
+                    self.addProject(project)
+                else:
+                    self.win.openProject(path)
 
         else:
             reopen_projects = self.settings.value('opened_projects', [])

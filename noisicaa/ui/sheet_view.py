@@ -175,14 +175,14 @@ class MeasureItem(QGraphicsItem):
 
     def onInsertMeasure(self):
         self._project.dispatch_command(
-            self._sheet_view.sheet.address,
+            self._sheet_view.sheet.id,
             InsertMeasure(
                 tracks=[self._measure.track.index],
                 pos=self._measure.index))
 
     def onRemoveMeasure(self):
         self._project.dispatch_command(
-            self._sheet_view.sheet.address,
+            self._sheet_view.sheet.id,
             RemoveMeasure(
                 tracks=[self._measure.track.index],
                 pos=self._measure.index))
@@ -314,7 +314,7 @@ class TrackItem(object):
 
     def onRemoveTrack(self):
         self._project.dispatch_command(
-            self._track.parent.address, RemoveTrack(track=self._track.index))
+            self._track.parent.id, RemoveTrack(track=self._track.index))
 
     def onTrackInstrument(self):
         if self._instrument_selector is None:
@@ -331,10 +331,10 @@ class TrackItem(object):
     def onSelectInstrument(self, instr):
         if instr is None:
             self._project.dispatch_command(
-                self._track.address, ClearInstrument())
+                self._track.id, ClearInstrument())
         else:
             self._project.dispatch_command(
-                self._track.address,
+                self._track.id,
                 SetInstrument(instr=instr.to_json()))
 
     def onTrackProperties(self):
@@ -362,7 +362,7 @@ class TrackItem(object):
         ret = dialog.exec_()
 
         self._project.dispatch_command(
-            self._track.address,
+            self._track.id,
             UpdateTrackProperties(
                 name=name.text(),
             ))
@@ -767,17 +767,17 @@ class ScoreMeasureItem(MeasureItem):
 
     def onSetClef(self, clef):
         self._project.dispatch_command(
-            self._measure.address, SetClef(clef=clef.value))
+            self._measure.id, SetClef(clef=clef.value))
         self.recomputeLayout()
 
     def onSetKeySignature(self, key_signature):
         self._project.dispatch_command(
-            self._measure.address, SetKeySignature(key_signature=key_signature))
+            self._measure.id, SetKeySignature(key_signature=key_signature))
         self.recomputeLayout()
 
     def onSetTimeSignature(self, upper, lower):
         self._project.dispatch_command(
-            self._sheet_view.sheet.property_track.measures[self._measure.index].address,
+            self._sheet_view.sheet.property_track.measures[self._measure.index].id,
             SetTimeSignature(upper=upper, lower=lower))
         self.recomputeLayout()
 
@@ -916,7 +916,7 @@ class ScoreMeasureItem(MeasureItem):
     def mousePressEvent(self, event):
         if self._measure is None:
             self._project.dispatch_command(
-                self._sheet_view.sheet.address,
+                self._sheet_view.sheet.id,
                 InsertMeasure(tracks=[], pos=-1))
             event.accept()
             return
@@ -962,7 +962,7 @@ class ScoreMeasureItem(MeasureItem):
                         cmd = InsertNote(
                             idx=idx, pitch=pitch, duration=duration)
                 if cmd is not None:
-                    self._project.dispatch_command(self._measure.address, cmd)
+                    self._project.dispatch_command(self._measure.id, cmd)
                     self.recomputeLayout()
                     event.accept()
                     return
@@ -983,7 +983,7 @@ class ScoreMeasureItem(MeasureItem):
                     if accidental in p.valid_accidentals:
                         if p.stave_line == stave_line:
                             cmd = SetAccidental(idx=idx, accidental=accidental, pitch_idx=pitch_idx)
-                            self._project.dispatch_command(self._measure.address, cmd)
+                            self._project.dispatch_command(self._measure.id, cmd)
                             self.recomputeLayout()
                             event.accept()
                             return
@@ -1021,7 +1021,7 @@ class ScoreMeasureItem(MeasureItem):
                             cmd = ChangeNote(idx=idx, tuplet=5)
 
                 if cmd is not None:
-                    self._project.dispatch_command(self._measure.address, cmd)
+                    self._project.dispatch_command(self._measure.id, cmd)
                     self.recomputeLayout()
                     event.accept()
                     return
@@ -1118,7 +1118,7 @@ class SheetPropertyMeasureItem(MeasureItem):
     def mousePressEvent(self, event):
         if self._measure is None:
             self._project.dispatch_command(
-                self._sheet_view.sheet.address,
+                self._sheet_view.sheet.id,
                 InsertMeasure(tracks=[], pos=-1))
             event.accept()
             return
@@ -1138,7 +1138,7 @@ class SheetPropertyMeasureItem(MeasureItem):
 
     def onBPMEdited(self, value):
         self._project.dispatch_command(
-            self._measure.address, SetBPM(bpm=value))
+            self._measure.id, SetBPM(bpm=value))
         self.bpm.setText('%d bpm' % value)
 
     def onBPMClose(self):
@@ -1511,7 +1511,7 @@ class SheetView(QGraphicsView):
             raise ValueError("Unknown action %r" % action)
 
     def onAddTrack(self, track_type):
-        self._project.dispatch_command(self._sheet.address, AddTrack(
+        self._project.dispatch_command(self._sheet.id, AddTrack(
             track_type=track_type))
 
     def onPlaybackTags(self, tags):
@@ -1520,8 +1520,8 @@ class SheetView(QGraphicsView):
                 self, PlaybackTagEvent(tag))
 
     def onPlaybackTag(self, event):
-        address, event, idx = event.tag
-        measure = self._project.get_object(address)
+        id, event, idx = event.tag
+        measure = self._project.get_object(id)
         self._tracks[measure.track.index].onPlaybackTag(
             measure.index, event, idx)
 

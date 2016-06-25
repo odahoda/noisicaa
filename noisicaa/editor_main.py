@@ -10,8 +10,6 @@ from .runtime_settings import RuntimeSettings
 from . import logging
 from .core import process_manager
 
-logger = logging.getLogger(__name__)
-
 
 class Main(object):
     def __init__(self):
@@ -26,6 +24,7 @@ class Main(object):
         self.parse_args(argv)
 
         logging.init(self.runtime_settings)
+        self.logger = logging.getLogger(__name__)
 
         if self.runtime_settings.dev_mode:
             import pyximport
@@ -60,7 +59,7 @@ class Main(object):
 
                     delay = next_retry - time.time()
                     if delay > 0:
-                        logger.warning(
+                        self.logger.warning(
                             "Sleeping %.1fsec before restarting.", delay)
                         await asyncio.sleep(delay)
 

@@ -194,7 +194,7 @@ class SetAccidental(core.Command):
 core.Command.register_subclass(SetAccidental)
 
 
-class Note(core.StateBase, core.CommandTarget):
+class Note(core.StateBase):
     pitches = core.ListProperty(Pitch)
     base_duration = core.Property(Duration)
     dots = core.Property(int, default=0)
@@ -312,7 +312,7 @@ class ScoreEventSource(EventSource):
                                     pitch.name, timepos, note.duration)
                                 yield NoteOnEvent(
                                     timepos, pitch,
-                                    tags={(measure.address, 'noteon', idx)})
+                                    tags={(measure.id, 'noteon', idx)})
                                 self._active_pitches.append(pitch)
                     t += note.duration.ticks
 

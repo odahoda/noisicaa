@@ -274,7 +274,7 @@ class RemoveMeasure(core.Command):
 core.Command.register_subclass(RemoveMeasure)
 
 
-class Sheet(core.StateBase, core.CommandTarget):
+class Sheet(core.StateBase):
     name = core.Property(str, default="Sheet")
     tracks = core.ObjectListProperty(Track)
     property_track = core.ObjectProperty(SheetPropertyTrack)
@@ -288,10 +288,6 @@ class Sheet(core.StateBase, core.CommandTarget):
 
             for i in range(num_tracks):
                 self.tracks.append(ScoreTrack(name="Track %d" % i))
-
-    @property
-    def address(self):
-        return self.parent.address + 'sheet:' + self.name
 
     @property
     def project(self):
@@ -341,25 +337,12 @@ class Sheet(core.StateBase, core.CommandTarget):
             while len(track.measures) < max_length:
                 track.append_measure()
 
-    def get_sub_target(self, name):
-        if name.startswith('track:'):
-            return self.tracks[int(name[6:])]
 
-        if name == 'property_track':
-            return self.property_track
-
-        return super().get_sub_target(name)
-
-
-class Metadata(core.StateBase, core.CommandTarget):
+class Metadata(core.StateBase):
     author = core.Property(str, allow_none=True)
     license = core.Property(str, allow_none=True)
     copyright = core.Property(str, allow_none=True)
     created = core.Property(int, allow_none=True)
-
-    @property
-    def address(self):
-        return self.parent.address + 'metadata'
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -401,7 +384,7 @@ class JSONDecoder(json.JSONDecoder):
         return obj
 
 
-class BaseProject(core.StateBase, core.CommandDispatcher):
+class BaseProject(core.RootObject):
     sheets = core.ObjectListProperty(cls=Sheet)
     current_sheet = core.Property(int, default=0)
     metadata = core.ObjectProperty(cls=Metadata)
@@ -415,9 +398,6 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
 
             for i in range(1, num_sheets + 1):
                 self.sheets.append(Sheet(name="Sheet %d" % i))
-
-        self.address = '/'
-        self.set_root()
 
     def set_mutation_callback(self, callback):
         assert self._mutation_callback is None
@@ -438,21 +418,10 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
                 return idx
         raise ValueError("No sheet %r" % name)
 
-    def get_sub_target(self, name):
-        if name.startswith('sheet:'):
-            sheet_name = name[6:]
-            for sheet in self.sheets:
-                if sheet.name == sheet_name:
-                    return sheet
-
-        if name == 'metadata':
-            return self.metadata
-
-        return super().get_sub_target(name)
-
-    def dispatch_command(self, target, cmd):
-        result = super().dispatch_command(target, cmd)
-        logger.info("Executed command %s on %s", cmd, target)
+    def dispatch_command(self, obj_id, cmd):
+        obj = self.get_object(obj_id)
+        result = cmd.run(obj)
+        logger.info("Executed command %s on %s", cmd, obj_id)
         return result
 
     def handle_mutation(self, mutation):
@@ -729,11 +698,11 @@ class Project(BaseProject):
                 if entry_type != b'C':
                     raise CorruptedProjectError(
                         "Unexpected log entry type %s" % entry_type)
-                target = headers['Target']
+                obj_id = headers['Target']
                 cmd_state = json.loads(serialized, cls=JSONDecoder)
                 cmd = core.Command.create_from_state(cmd_state)
-                logger.info("Replay command %s on %s", cmd, target)
-                super().dispatch_command(target, cmd)
+                logger.info("Replay command %s on %s", cmd, obj_id)
+                super().dispatch_command(obj_id, cmd)
 
     def write_checkpoint(self, data_dir, sequence_number):
         name_base = 'state.%d' % sequence_number
@@ -764,13 +733,13 @@ class Project(BaseProject):
         }
         return state_data, command_log_fp
 
-    def dispatch_command(self, target, cmd):
+    def dispatch_command(self, obj_id, cmd):
         if self.closed:
             raise RuntimeError("Command %s executed on closed project." % cmd)
 
         assert self.command_log_fp is not None
 
-        result = super().dispatch_command(target, cmd)
+        result = super().dispatch_command(obj_id, cmd)
 
         serialized = json.dumps(
             cmd.serialize(),
@@ -782,7 +751,7 @@ class Project(BaseProject):
             encoding='utf-8',
             entry_type=b'C',
             headers={
-                'Target': target,
+                'Target': obj_id,
                 'Time': time.ctime(now),
                 'Timestamp': '%d' % now,
             })

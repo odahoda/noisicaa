@@ -79,7 +79,7 @@ class TracksModel(QAbstractListModel):
 
         track = index.internalPointer()
         self._project.dispatch_command(
-            track.address,
+            track.id,
             UpdateTrackProperties(name=value))
         self.dataChanged.emit(index, index)
         return True
@@ -90,20 +90,20 @@ class TracksModel(QAbstractListModel):
     def toggleTrackVisible(self, index):
         track = index.internalPointer()
         self._project.dispatch_command(
-            track.address,
+            track.id,
             UpdateTrackProperties(visible=not track.visible))
         self.dataChanged.emit(index, index)
 
     def toggleTrackMute(self, index):
         track = index.internalPointer()
         self._project.dispatch_command(
-            track.address,
+            track.id,
             UpdateTrackProperties(muted=not track.muted))
         self.dataChanged.emit(index, index)
 
     def addTrack(self, track_type):
         track_idx = self._project.dispatch_command(
-            self._sheet.address,
+            self._sheet.id,
             AddTrack(track_type=track_type))
         self.dataChanged.emit(self.index(track_idx),
                               self.index(self.rowCount(None) - 1))
@@ -112,7 +112,7 @@ class TracksModel(QAbstractListModel):
     def removeTrack(self, index):
         track = index.internalPointer()
         self._project.dispatch_command(
-            self._sheet.address,
+            self._sheet.id,
             RemoveTrack(track=track.index))
         self.dataChanged.emit(self.index(0),
                               self.index(self.rowCount(None) - 1))
@@ -120,7 +120,7 @@ class TracksModel(QAbstractListModel):
     def moveTrack(self, index, direction):
         track = index.internalPointer()
         track_idx = self._project.dispatch_command(
-            self._sheet.address,
+            self._sheet.id,
             MoveTrack(track=track.index, direction=direction))
         self.dataChanged.emit(self.index(0),
                               self.index(self.rowCount(None) - 1))

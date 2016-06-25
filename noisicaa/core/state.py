@@ -4,7 +4,6 @@ import logging
 import uuid
 
 from .callbacks import CallbackRegistry
-from .tree import TreeNode
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,8 @@ class PropertyBase(object):
         old_value = instance.state.get(self.name, None)
         instance.state[self.name] = value
         if value != old_value:
-            instance.root.handle_mutation(('update_property', instance, self.name, old_value, value))
+            if instance.attached_to_root:
+                instance.root.handle_mutation(('update_property', instance, self.name, old_value, value))
             instance.listeners.call(self.name, old_value, value)
 
     def __delete__(self, instance):
@@ -107,7 +107,8 @@ class SimpleObjectList(object):
 
     def __delitem__(self, idx):
         del self._objs[idx]
-        self._instance.root.handle_mutation(('update_list', self._instance, self._prop.name, 'delete', idx))
+        if self._instance.attached_to_root:
+            self._instance.root.handle_mutation(('update_list', self._instance, self._prop.name, 'delete', idx))
         self._instance.listeners.call(self._prop.name, 'delete', idx)
 
     def append(self, obj):
@@ -116,12 +117,14 @@ class SimpleObjectList(object):
     def insert(self, idx, obj):
         self._check_type(obj)
         self._objs.insert(idx, obj)
-        self._instance.root.handle_mutation(('update_list', self._instance, self._prop.name, 'insert', idx, obj))
+        if self._instance.attached_to_root:
+            self._instance.root.handle_mutation(('update_list', self._instance, self._prop.name, 'insert', idx, obj))
         self._instance.listeners.call(self._prop.name, 'insert', idx, obj)
 
     def clear(self):
         self._objs.clear()
-        self._instance.root.handle_mutation(('update_list', self._instance, self._prop.name, 'clear'))
+        if self._instance.attached_to_root:
+            self._instance.root.handle_mutation(('update_list', self._instance, self._prop.name, 'clear'))
         self._instance.listeners.call(self._prop.name, 'clear')
 
     def extend(self, value):
@@ -200,14 +203,21 @@ class ObjectProperty(ObjectPropertyBase):
                     ', '.join(self.cls.get_valid_classes()),
                     value.__class__.__name__))
 
+        # TODO: emit Remove/AddNode mutations
         current = self.__get__(instance, instance.__class__)
         if current is not None:
             current.detach()
             current.clear_parent_container()
+            if instance.attached_to_root:
+                instance.root.remove_object(current)
+
         super().__set__(instance, value)
+
         if value is not None:
             value.attach(instance)
             value.set_parent_container(self)
+            if instance.attached_to_root:
+                instance.root.add_object(value)
 
     def to_state(self, instance):
         obj = instance.state.get(self.name, None)
@@ -244,10 +254,13 @@ class ObjectList(object):
     def __delitem__(self, idx):
         self._objs[idx].detach()
         self._objs[idx].clear_parent_container()
+        if self._instance.attached_to_root:
+            self._instance.root.remove_object(self._objs[idx])
         del self._objs[idx]
         for i in range(idx, len(self._objs)):
             self._objs[i].set_index(i)
-        self._instance.root.handle_mutation(('update_objlist', self._instance, self._prop.name, 'delete', idx))
+        if self._instance.attached_to_root:
+            self._instance.root.handle_mutation(('update_objlist', self._instance, self._prop.name, 'delete', idx))
         self._instance.listeners.call(self._prop.name, 'delete', idx)
 
     def append(self, obj):
@@ -256,18 +269,24 @@ class ObjectList(object):
     def insert(self, idx, obj):
         obj.attach(self._instance)
         obj.set_parent_container(self)
+        if self._instance.attached_to_root:
+            self._instance.root.add_object(obj)
         self._objs.insert(idx, obj)
         for i in range(idx, len(self._objs)):
             self._objs[i].set_index(i)
-        self._instance.root.handle_mutation(('update_objlist', self._instance, self._prop.name, 'insert', idx, obj))
+        if self._instance.attached_to_root:
+            self._instance.root.handle_mutation(('update_objlist', self._instance, self._prop.name, 'insert', idx, obj))
         self._instance.listeners.call(self._prop.name, 'insert', idx, obj)
 
     def clear(self):
         for obj in self._objs:
             obj.detach()
             obj.clear_parent_container()
+            if self._instance.attached_to_root:
+                self._instance.root.remove_object(obj)
         self._objs.clear()
-        self._instance.root.handle_mutation(('update_objlist', self._instance, self._prop.name, 'clear'))
+        if self._instance.attached_to_root:
+            self._instance.root.handle_mutation(('update_objlist', self._instance, self._prop.name, 'clear'))
         self._instance.listeners.call(self._prop.name, 'clear')
 
 
@@ -334,8 +353,8 @@ class StateMeta(type):
         return super().__new__(mcs, name, parents, dct)
 
 
-class StateBase(TreeNode, metaclass=StateMeta):
-    id = Property(str)
+class StateBase(object, metaclass=StateMeta):
+    id = Property(str, allow_none=False)
 
     _subclasses = {}
 
@@ -343,6 +362,8 @@ class StateBase(TreeNode, metaclass=StateMeta):
         super().__init__()
         self.state = {}
         self.listeners = CallbackRegistry()
+        self._is_root = False
+        self.parent = None
         self.__parent_container = None
         self.__index = None
 
@@ -357,6 +378,28 @@ class StateBase(TreeNode, metaclass=StateMeta):
         if self.state != other.state:
             return False
         return True
+
+    @property
+    def root(self):
+        if self.parent is None:
+            if self._is_root:
+                return self
+            raise ObjectNotAttachedError
+        return self.parent.root
+
+    @property
+    def attached_to_root(self):
+        if self.parent is None:
+            return self._is_root
+        return self.parent.attached_to_root
+
+    def attach(self, parent):
+        assert self.parent is None
+        self.parent = parent
+
+    def detach(self):
+        assert self.parent is not None
+        self.parent = None
 
     @classmethod
     def register_subclass(cls, subcls):
@@ -477,7 +520,7 @@ class StateBase(TreeNode, metaclass=StateMeta):
                         obj.reset_state()
                 objs.clear()
 
-        self.state = {}
+        self.state = {'id': self.id}  # Don't forget my ID.
 
     def serialize(self):
         d = {'__class__': self.__class__.__name__}
@@ -499,11 +542,34 @@ class StateBase(TreeNode, metaclass=StateMeta):
             return cls(state=state)
         return cls.get_subclass(cls_name)(state=state)
 
+
+class RootObject(StateBase):
+    def __init__(self, state=None):
+        super().__init__(state=state)
+
+        self.__obj_map = {}
+        self._is_root = True
+
+    def get_object(self, obj_id):
+        return self.__obj_map[obj_id]
+
+    def add_object(self, obj):
+        for o in obj.walk_children():
+            assert o.id is not None
+            assert o.id not in self.__obj_map
+            self.__obj_map[o.id] = o
+
+    def remove_object(self, obj):
+        for o in obj.walk_children():
+            assert o.id is not None
+            assert o.id in self.__obj_map, o
+            del self.__obj_map[o.id]
+
     def init_references(self):
-        all_objects = {}
+        self.__obj_map.clear()
         for node in self.walk_children():
-            assert node.id not in all_objects
-            all_objects[node.id] = node
+            assert node.id not in self.__obj_map
+            self.__obj_map[node.id] = node
 
         for node in self.walk_children():
             for prop in node.list_properties():
@@ -513,8 +579,9 @@ class StateBase(TreeNode, metaclass=StateMeta):
                         assert isinstance(refid, tuple)
                         assert refid[0] == 'unresolved reference'
                         refid = refid[1]
-                        refobj = all_objects[refid]
+                        refobj = self.__obj_map[refid]
                         prop.__set__(node, refobj)
 
     def handle_mutation(self, mutation):
         pass
+

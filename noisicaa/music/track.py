@@ -79,13 +79,9 @@ class SetInstrument(core.Command):
 core.Command.register_subclass(SetInstrument)
 
 
-class Measure(core.StateBase, core.CommandTarget):
+class Measure(core.StateBase):
     def __init__(self, state=None):
         super().__init__(state)
-
-    @property
-    def address(self):
-        return self.parent.address + '/measure:%d' % self.index
 
     @property
     def track(self):
@@ -114,7 +110,7 @@ class EventSource(object):
         raise NotImplementedError
 
 
-class Track(core.StateBase, core.CommandTarget):
+class Track(core.StateBase):
     measure_cls = None
 
     name = core.Property(str)
@@ -132,10 +128,6 @@ class Track(core.StateBase, core.CommandTarget):
         if state is None:
             self.name = name
             self.instrument = instrument
-
-    @property
-    def address(self):
-        return self.parent.address + '/track:%d' % self.index
 
     @property
     def sheet(self):
@@ -196,9 +188,3 @@ class Track(core.StateBase, core.CommandTarget):
 
     def create_event_source(self):
         raise NotImplementedError
-
-    def get_sub_target(self, name):
-        if name.startswith('measure:'):
-            return self.measures[int(name[8:])]
-
-        return super().get_sub_target(name)

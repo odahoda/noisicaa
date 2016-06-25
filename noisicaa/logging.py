@@ -13,6 +13,8 @@ def init(runtime_settings):
     captureWarnings(True)
 
     root_logger = getLogger()
+    for handler in root_logger.handlers:
+        root_logger.removeHandler(handler)
     root_logger.setLevel(DEBUG)
 
     log_level = {

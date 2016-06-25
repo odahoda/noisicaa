@@ -49,7 +49,7 @@ class UpdateUIState(core.Command):
 core.Command.register_subclass(UpdateUIState)
 
 
-class UIState(core.StateBase, core.CommandDispatcher):
+class UIState(core.StateBase):
     ui_state = core.DictProperty()
 
     def __init__(self, state=None):

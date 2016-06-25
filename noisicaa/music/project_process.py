@@ -93,7 +93,7 @@ class ProjectProcessMixin(object):
         for session in self.sessions.values():
             tasks.append(self.event_loop.create_task(
                 session.publish_mutation(mutation)))
-        asyncio.wait(tasks, loop=self.event_loop)
+        await asyncio.wait(tasks, loop=self.event_loop)
 
     async def handle_start_session(self, client_address):
         client_stub = ipc.Stub(self.event_loop, client_address)
