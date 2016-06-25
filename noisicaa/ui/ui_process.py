@@ -38,10 +38,10 @@ class UIProcessMixin(object):
         self._shutting_down = asyncio.Event()
 
         await super().setup()
-        self.app.setup()
+        await self.app.setup()
 
     async def cleanup(self):
-        self.app.cleanup()
+        await self.app.cleanup()
         await super().cleanup()
 
     async def run(self):

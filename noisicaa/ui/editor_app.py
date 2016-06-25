@@ -20,8 +20,10 @@ from noisicaa import devices
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
-from .editor_project import EditorProject
 from ..instr.library import InstrumentLibrary
+
+from . import project_registry
+
 
 logger = logging.getLogger('ui.editor_app')
 
@@ -72,20 +74,22 @@ class BaseEditorApp(QApplication):
 
         self.setQuitOnLastWindowClosed(False)
 
-        self._projects = []
-
         self.default_style = None
 
+        self.project_registry = None
         self.sequencer = None
         self.midi_hub = None
 
-    def setup(self):
+    async def setup(self):
         self.default_style = self.style().objectName()
 
         style_name = self.settings.value('appearance/qtStyle', '')
         if style_name:
             style = QStyleFactory.create(style_name)
             self.setStyle(style)
+
+        self.project_registry = project_registry.ProjectRegistry(
+            self.process.event_loop, self.process.manager)
 
         self.sequencer = self.createSequencer()
 
@@ -105,7 +109,7 @@ class BaseEditorApp(QApplication):
         self.show_edit_areas_action.setChecked(
             int(self.settings.value('dev/show_edit_areas', '0')))
 
-    def cleanup(self):
+    async def cleanup(self):
         logger.info("Cleaning up.")
         if self.midi_hub is not None:
             self.midi_hub.stop()
@@ -142,7 +146,7 @@ class BaseEditorApp(QApplication):
                 and self.show_edit_areas_action.isChecked())
 
     def addProject(self, project):
-        self._projects.append(project)
+        #self._projects.append(project)
         self.win.addProjectView(project)
 
         self.settings.setValue(
@@ -151,7 +155,7 @@ class BaseEditorApp(QApplication):
 
     def removeProject(self, project):
         self.win.removeProjectView(project)
-        self._projects.remove(project)
+        #self._projects.remove(project)
 
         self.settings.setValue(
             'opened_projects',
@@ -185,12 +189,12 @@ class EditorApp(BaseEditorApp):
         self._old_excepthook = None
         self.win = None
 
-    def setup(self):
+    async def setup(self):
         logger.info("Installing custom excepthook.")
         self._old_excepthook = sys.excepthook
         sys.excepthook = ExceptHook(self)
 
-        super().setup()
+        await super().setup()
 
         logger.info("Creating InstrumentLibrary.")
         self.instrument_library = None #InstrumentLibrary()
@@ -204,16 +208,14 @@ class EditorApp(BaseEditorApp):
             for path in self.paths:
                 if path.startswith('+'):
                     path = path[1:]
-                    project = EditorProject(self)
-                    project.create(path)
-                    self.addProject(project)
+                    await self.project_registry.create_project(path)
                 else:
-                    self.win.openProject(path)
+                    await self.project_registry.open_project(path)
 
         else:
             reopen_projects = self.settings.value('opened_projects', [])
-            for path in reopen_projects:
-                self.win.openProject(path)
+            for path in reopen_projects or []:
+                await self.project_registry.open_project(path)
 
         self.aboutToQuit.connect(self.shutDown)
 
@@ -225,12 +227,12 @@ class EditorApp(BaseEditorApp):
             self.settings.sync()
             self.dumpSettings()
 
-    def cleanup(self):
+    async def cleanup(self):
         if self.win is not None:
             self.win.closeAll()
             self.win = None
 
-        super().cleanup()
+        await super().cleanup()
 
         logger.info("Remove custom excepthook.")
         sys.excepthook = self._old_excepthook

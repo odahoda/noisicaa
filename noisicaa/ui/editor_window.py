@@ -42,7 +42,6 @@ from ..ui_state import UpdateUIState
 from .command_shell import CommandShell
 from .settings import SettingsDialog
 from .project_view import ProjectView
-from .editor_project import EditorProject
 from .instrument_library import InstrumentLibraryDialog
 from .flowlayout import FlowLayout
 from ..constants import DATA_DIR
@@ -474,12 +473,7 @@ class EditorWindow(QMainWindow):
 
     async def openProjectAsync(self, path):
         try:
-            project_process_address = await self._app.process.manager.call(
-                'CREATE_PROJECT_PROCESS', path)
-            project_client = music.ProjectClient(self._app.process.event_loop)
-            await project_client.setup()
-            await project_client.connect(project_process_address)
-            await project_client.open(path)
+            await self._app.project_registry.open_project(path)
         except:
             import sys
             sys.excepthook(*sys.exc_info())
