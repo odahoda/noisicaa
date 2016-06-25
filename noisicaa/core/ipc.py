@@ -78,7 +78,6 @@ class ServerProtocol(asyncio.Protocol):
                     break
                 payload = bytes(self.inbuf[:self.payload_length])
                 del self.inbuf[:self.payload_length]
-                self.logger.debug("payload: %s", payload)
                 task = self.event_loop.create_task(
                     self.server.handle_command(self.command, payload))
                 task.add_done_callback(self.command_complete)

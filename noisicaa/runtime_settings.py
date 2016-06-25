@@ -14,8 +14,12 @@ class RuntimeSettings(object):
     def init_argparser(self, parser):
         parser.add_argument(
             '--dev-mode',
-            action='store_true',
+            dest='dev_mode', action='store_true',
             help="Run in developer mode.")
+        parser.add_argument(
+            '--no-dev-mode',
+            dest='dev_mode', action='store_false',
+            help="Run in end user mode.")
         parser.add_argument(
             '--start-clean',
             action='store_true',
@@ -42,6 +46,8 @@ class RuntimeSettings(object):
             default=9,
             metavar="NUM",
             help="Number of old log files to keep.")
+
+        parser.set_defaults(dev_mode=True)
 
     def set_from_args(self, args):
         self.dev_mode = args.dev_mode

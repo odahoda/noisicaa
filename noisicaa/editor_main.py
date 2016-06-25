@@ -53,18 +53,24 @@ class Main(object):
                 elif proc.returncode == EXIT_RESTART_CLEAN:
                     self.runtime_settings.start_clean = True
 
-                elif (proc.returncode != EXIT_SUCCESS
-                      and self.runtime_settings.dev_mode):
-                    self.runtime_settings.start_clean = False
-
-                    delay = next_retry - time.time()
-                    if delay > 0:
-                        self.logger.warning(
-                            "Sleeping %.1fsec before restarting.", delay)
-                        await asyncio.sleep(delay)
+                elif proc.returncode == EXIT_SUCCESS:
+                    return proc.returncode
 
                 else:
-                    return proc.returncode
+                    self.logger.error(
+                        "UI Process terminated with exit code %d",
+                        proc.returncode)
+                    if self.runtime_settings.dev_mode:
+                        self.runtime_settings.start_clean = False
+
+                        delay = next_retry - time.time()
+                        if delay > 0:
+                            self.logger.warning(
+                                "Sleeping %.1fsec before restarting.",
+                                delay)
+                            await asyncio.sleep(delay)
+                    else:
+                        return proc.returncode
 
     def parse_args(self, argv):
         parser = argparse.ArgumentParser(
