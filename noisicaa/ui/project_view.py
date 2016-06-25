@@ -114,7 +114,7 @@ class ProjectView(QWidget):
             sheet_view.updateView()
 
     def closeEvent(self, event):
-        logger.info("CloseEvent received.")
+        logger.info("CloseEvent received: %s", event)
 
         self._sheet_listener.remove()
 
@@ -123,7 +123,7 @@ class ProjectView(QWidget):
             self._sheets_widget.removeWidget(sheet_view)
             sheet_view.close()
 
-        self._project.close()
+        #TODO: self._project.close()
         event.accept()
 
     def onSheetsChanged(self, action, *args):

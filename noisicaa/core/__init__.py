@@ -10,3 +10,6 @@ from .commands import (
 from .process_manager import (
     ProcessManager, ProcessImpl
 )
+from .callbacks import (
+    CallbackRegistry,
+)

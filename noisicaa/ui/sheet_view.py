@@ -114,6 +114,10 @@ class MeasureItem(QGraphicsItem):
 
         self._layers = {}
 
+    def duration(self):
+        # TODO: mimic music.Measure.duration
+        return Duration(4, 4)
+
     def boundingRect(self):
         return QRectF(0, 0, self._layout.width, self._layout.height)
 
@@ -392,6 +396,10 @@ class ScoreMeasureItem(MeasureItem):
 
         self.setAcceptHoverEvents(True)
 
+    @property
+    def time_signature(self):
+        return self._sheet_view.get_time_signature(self._measure.index)
+
     _accidental_map = {
         '': 'accidental-natural',
         '#': 'accidental-sharp',
@@ -424,7 +432,7 @@ class ScoreMeasureItem(MeasureItem):
             notes_width = 0
             for note in self._measure.notes:
                 notes_width += int(400 * note.duration)
-            width += max(int(400 * self._measure.duration), notes_width)
+            width += max(int(400 * self.duration()), notes_width)
 
             width += 10
 
@@ -458,7 +466,7 @@ class ScoreMeasureItem(MeasureItem):
             black = QColor(200, 200, 200)
 
         if is_first and self._measure:
-            track = self._measure.track
+            track = self._measure.parent
 
             text = self._name_item = QGraphicsSimpleTextItem(layer)
             text.setText("> %s" % track.name)
@@ -536,14 +544,14 @@ class ScoreMeasureItem(MeasureItem):
             time_sig_upper = QGraphicsTextItem(layer)
             time_sig_upper.setFont(font)
             time_sig_upper.setHtml(
-                '<center>%d</center>' % self._measure.time_signature.upper)
+                '<center>%d</center>' % self.time_signature.upper)
             time_sig_upper.setTextWidth(50)
             time_sig_upper.setPos(x - 10, self._layout.baseline - 52)
 
             time_sig_lower = QGraphicsTextItem(layer)
             time_sig_lower.setFont(font)
             time_sig_lower.setHtml(
-                '<center>%d</center>' % self._measure.time_signature.lower)
+                '<center>%d</center>' % self.time_signature.lower)
             time_sig_lower.setTextWidth(50)
             time_sig_lower.setPos(x - 10, self._layout.baseline - 15)
             x += 40
@@ -1153,8 +1161,8 @@ class SheetPropertyTrackItem(TrackItem):
 
 
 track_cls_map = {
-    ScoreTrack: ScoreTrackItem,
-    SheetPropertyTrack: SheetPropertyTrackItem,
+    'ScoreTrack': ScoreTrackItem,
+    'SheetPropertyTrack': SheetPropertyTrackItem,
 }
 
 
@@ -1241,11 +1249,14 @@ class SheetView(QGraphicsView):
         self._tracks_listener = self._sheet.listeners.add(
             'tracks', self.onTracksChanged)
 
+    def get_time_signature(self, measure_idx):
+        return self._sheet.property_track.measures[measure_idx].time_signature
+
     def setInfoMessage(self, msg):
         self._window.setInfoMessage(msg)
 
     def createTrackItem(self, track):
-        track_item_cls = track_cls_map[track.__class__]
+        track_item_cls = track_cls_map[track.cls]
         return track_item_cls(self._app, self._project, self, track)
 
     def insertTrack(self, idx, track):
@@ -1423,7 +1434,8 @@ class SheetView(QGraphicsView):
             self.clearLayer(self._layers[layer_id])
 
         text = QGraphicsSimpleTextItem(self._layers[Layer.MAIN])
-        text.setText("%s/%s" % (self._project.name, self._sheet.name))
+        #text.setText("%s/%s" % (self._project.name, self._sheet.name))
+        text.setText("%s/%s" % (self._project.id, self._sheet.name))
         text.setPos(0, 0)
 
         track_items = [self._property_track_item] + self._tracks

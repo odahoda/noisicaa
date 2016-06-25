@@ -31,7 +31,7 @@ class TracksModel(QAbstractListModel):
         super().__init__(parent)
 
         self._sheet = sheet
-        self._project = sheet.project
+        self._project = sheet.parent
 
         self._tracks_listener = self._sheet.listeners.add(
             'tracks', self.onTracksChanged)

@@ -149,20 +149,23 @@ class BaseEditorApp(QApplication):
         self.addProject(project)
         return project
 
-    def addProject(self, project):
-        self.win.addProjectView(project)
-
+    def _updateOpenedProjects(self):
         self.settings.setValue(
             'opened_projects',
-            [project.path for project in self._projects if project.path])
+            sorted(
+                project.path
+                for project
+                in self.project_registry.projects.values()
+                if project.path))
+
+    def addProject(self, project):
+        self.win.addProjectView(project)
+        self._updateOpenedProjects()
 
     def removeProject(self, project):
         self.win.removeProjectView(project)
         #self._projects.remove(project)
-
-        self.settings.setValue(
-            'opened_projects',
-            [project.path for project in self._projects if project.path])
+        self._updateOpenedProjects()
 
 
 class EditorApp(BaseEditorApp):
