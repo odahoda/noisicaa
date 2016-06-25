@@ -137,6 +137,12 @@ class EditorWindow(QMainWindow):
         return view
 
     def createActions(self):
+        self._new_project_action = QAction(
+            "New", self,
+            shortcut=QKeySequence.New,
+            statusTip="Create a new project",
+            triggered=self.onNewProject)
+
         self._open_project_action = QAction(
             "Open", self,
             shortcut=QKeySequence.Open,
@@ -237,7 +243,7 @@ class EditorWindow(QMainWindow):
         menu_bar = self.menuBar()
 
         self._project_menu = menu_bar.addMenu("Project")
-        self._project_menu.addAction(self._app.new_project_action)
+        self._project_menu.addAction(self._new_project_action)
         self._project_menu.addAction(self._open_project_action)
         self._project_menu.addAction(self._save_project_action)
         self._project_menu.addAction(self._close_current_project_action)
@@ -447,6 +453,22 @@ class EditorWindow(QMainWindow):
         view = self._project_tabs.currentWidget()
         return view.project
 
+    def onNewProject(self):
+        path, open_filter = QFileDialog.getSaveFileName(
+            parent=self,
+            caption="Select Project File",
+            #directory=self.ui_state.get(
+            #    'instruments_add_dialog_path', ''),
+            filter="All Files (*);;noisicaä Projects (*.emp)",
+            #initialFilter=self.ui_state.get(
+            #'instruments_add_dialog_path', ''),
+        )
+        if not path:
+            return
+
+        task = self._app.process.event_loop.create_task(
+            self.call_with_exc(self._app.createProject(path)))
+
     def onOpenProject(self):
         path, open_filter = QFileDialog.getOpenFileName(
             parent=self,
@@ -460,24 +482,15 @@ class EditorWindow(QMainWindow):
         if not path:
             return
 
-        self.openProject(path)
+        self._app.process.event_loop.create_task(
+            self.call_with_exc(self._app.openProject(path)))
 
-    def openProject(self, path):
-        task = self._app.process.event_loop.create_task(
-            self.openProjectAsync(path))
-        task.add_done_callback(self.openProjectDone)
-
-    def openProjectDone(self, task):
-        if task.exception() is not None:
-            raise task.exception()
-
-    async def openProjectAsync(self, path):
+    async def call_with_exc(self, coroutine):
         try:
-            await self._app.project_registry.open_project(path)
+            return await coroutine
         except:
             import sys
             sys.excepthook(*sys.exc_info())
-
         # project = EditorProject(self._app)
         # try:
         #     project.open(path)

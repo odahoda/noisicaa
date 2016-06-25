@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import logging
+import os.path
 
 from noisicaa import music
 
@@ -15,6 +16,10 @@ class Project(object):
 
         self.process_address = None
         self.client = None
+
+    @property
+    def name(self):
+        return os.path.basename(self.path)
 
     async def create_process(self):
         self.process_address = await self.process_manager.call(

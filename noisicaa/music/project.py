@@ -528,12 +528,6 @@ class Project(BaseProject):
         self.checkpoint_sequence_number = 1
 
     @property
-    def name(self):
-        if self.path is None:
-            return '*New Project*'
-        return os.path.basename(self.path)
-
-    @property
     def closed(self):
         return self.path is None
 

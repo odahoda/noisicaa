@@ -31,7 +31,7 @@ class ProjectView(QWidget):
 
         self._app = app
         self._window = window
-        self._project = project
+        self._project = project.client.project
 
         self._sheets_widget = QStackedWidget(self)
         for sheet in self._project.sheets:

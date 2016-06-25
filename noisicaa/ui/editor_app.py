@@ -96,12 +96,6 @@ class BaseEditorApp(QApplication):
         self.midi_hub = self.createMidiHub()
         self.midi_hub.start()
 
-        self.new_project_action = QAction(
-            "New", self,
-            shortcut=QKeySequence.New,
-            statusTip="Create a new project",
-            triggered=self.newProject)
-
         self.show_edit_areas_action = QAction(
             "Show Edit Areas", self,
             checkable=True,
@@ -145,8 +139,17 @@ class BaseEditorApp(QApplication):
         return (self.runtime_settings.dev_mode
                 and self.show_edit_areas_action.isChecked())
 
+    async def createProject(self, path):
+        project = await self.project_registry.create_project(path)
+        self.addProject(project)
+        return project
+
+    async def openProject(self, path):
+        project = await self.project_registry.open_project(path)
+        self.addProject(project)
+        return project
+
     def addProject(self, project):
-        #self._projects.append(project)
         self.win.addProjectView(project)
 
         self.settings.setValue(
@@ -160,24 +163,6 @@ class BaseEditorApp(QApplication):
         self.settings.setValue(
             'opened_projects',
             [project.path for project in self._projects if project.path])
-
-    def newProject(self):
-        path, open_filter = QFileDialog.getSaveFileName(
-            parent=self.win,
-            caption="Select Project File",
-            #directory=self.ui_state.get(
-            #    'instruments_add_dialog_path', ''),
-            filter="All Files (*);;noisicaä Projects (*.emp)",
-            #initialFilter=self.ui_state.get(
-            #'instruments_add_dialog_path', ''),
-        )
-        if not path:
-            return
-
-        project = EditorProject(self)
-        project.create(path)
-
-        self.addProject(project)
 
 
 class EditorApp(BaseEditorApp):
@@ -208,14 +193,17 @@ class EditorApp(BaseEditorApp):
             for path in self.paths:
                 if path.startswith('+'):
                     path = path[1:]
-                    await self.project_registry.create_project(path)
+                    project = await self.project_registry.create_project(
+                        path)
                 else:
-                    await self.project_registry.open_project(path)
-
+                    project = await self.project_registry.open_project(
+                        path)
+                self.addProject(project)
         else:
             reopen_projects = self.settings.value('opened_projects', [])
             for path in reopen_projects or []:
-                await self.project_registry.open_project(path)
+                project = await self.project_registry.open_project(path)
+                self.addProject(project)
 
         self.aboutToQuit.connect(self.shutDown)
 
