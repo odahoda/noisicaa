@@ -7,7 +7,6 @@ from PyQt5.QtGui import QCloseEvent
 
 from noisicaa import music
 from . import uitest_utils
-from .editor_project import EditorProject
 from .tool_dock import Tool
 from .sheet_view import SheetView
 from . import project_view

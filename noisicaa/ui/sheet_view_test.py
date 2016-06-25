@@ -8,7 +8,6 @@ from PyQt5.QtWidgets import QMenu
 
 from noisicaa import music
 from . import uitest_utils
-from .editor_project import EditorProject
 from .tool_dock import Tool
 from .sheet_view import SheetView
 from . import sheet_view
