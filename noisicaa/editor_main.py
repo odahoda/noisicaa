@@ -79,7 +79,7 @@ class Main(object):
                 self.logger.error(
                     "UI Process terminated with exit code %d",
                     proc.returncode)
-                if self.runtime_settings.dev_mode:
+                if self.runtime_settings.restart_on_crash:
                     self.runtime_settings.start_clean = False
 
                     delay = next_retry - time.time()

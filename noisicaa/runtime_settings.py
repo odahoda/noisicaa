@@ -5,6 +5,7 @@ import json
 class RuntimeSettings(object):
     def __init__(self):
         self.dev_mode = False
+        self.restart_on_crash = False
         self.start_clean = False
         self.log_level = 'warning'
         self.log_file = '/tmp/noisicaä.log'
@@ -20,6 +21,14 @@ class RuntimeSettings(object):
             '--no-dev-mode',
             dest='dev_mode', action='store_false',
             help="Run in end user mode.")
+        parser.add_argument(
+            '--restart-on-crash',
+            dest='restart_on_crash', action='store_true',
+            help="Restart UI when it crashes.")
+        parser.add_argument(
+            '--no-restart-on-crash',
+            dest='restart_on_crash', action='store_false',
+            help="Terminate when UI crashes.")
         parser.add_argument(
             '--start-clean',
             action='store_true',
@@ -51,6 +60,7 @@ class RuntimeSettings(object):
 
     def set_from_args(self, args):
         self.dev_mode = args.dev_mode
+        self.restart_on_crash = args.restart_on_crash
         self.start_clean = args.start_clean
         self.log_level = args.log_level
         self.log_file = args.log_file
