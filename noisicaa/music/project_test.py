@@ -140,7 +140,7 @@ class ProjectTest(unittest.TestCase):
         p = project.Project()
         p.create('/foo.emp')
         try:
-            p.dispatch_command('/', project.AddSheet())
+            p.dispatch_command(p.id, project.AddSheet())
         finally:
             p.close()
 

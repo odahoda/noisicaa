@@ -406,6 +406,10 @@ class StateBase(object, metaclass=StateMeta):
         StateBase._subclasses.setdefault(cls, {})[subcls.__name__] = subcls
 
     @classmethod
+    def clear_subclass_registry(cls):
+        StateBase._subclasses.clear()
+
+    @classmethod
     def get_subclass(cls, name):
         return StateBase._subclasses[cls][name]
 
@@ -547,7 +551,7 @@ class RootObject(StateBase):
     def __init__(self, state=None):
         super().__init__(state=state)
 
-        self.__obj_map = {}
+        self.__obj_map = {self.id: self}
         self._is_root = True
 
     def get_object(self, obj_id):

@@ -2,6 +2,7 @@
 
 import logging
 import threading
+import time
 
 import pyaudio
 
@@ -72,7 +73,7 @@ class Backend(object):
 
 class NullBackend(Backend):
     def wait(self):
-        pass
+        time.sleep(0.01)
 
     def write(self, frame):
         pass

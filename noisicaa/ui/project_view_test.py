@@ -80,7 +80,7 @@ class ProjectViewTest(uitest_utils.UITest):
         view.onAddSheet()
         self.assertEqual(self.project.dispatch_command.call_count, 1)
         (target, cmd), _ = self.project.dispatch_command.call_args
-        self.assertEqual(target, '/')
+        self.assertEqual(target, self.project.id)
         self.assertEqual(cmd, music.AddSheet())
 
     def test_onDeleteSheet(self):
@@ -92,7 +92,7 @@ class ProjectViewTest(uitest_utils.UITest):
         view.onDeleteSheet()
         self.assertEqual(self.project.dispatch_command.call_count, 1)
         (target, cmd), _ = self.project.dispatch_command.call_args
-        self.assertEqual(target, '/')
+        self.assertEqual(target, self.project.id)
         self.assertEqual(cmd, music.DeleteSheet(name='test1'))
 
     def test_onAddTrack(self):
@@ -103,7 +103,7 @@ class ProjectViewTest(uitest_utils.UITest):
         view.onAddTrack('score')
         self.assertEqual(self.project.dispatch_command.call_count, 1)
         (target, cmd), _ = self.project.dispatch_command.call_args
-        self.assertEqual(target, '/sheet:test1')
+        #self.assertEqual(target, '/sheet:test1')
         self.assertEqual(cmd, music.AddTrack(track_type='score'))
 
     def test_onPlayerCommands(self):
