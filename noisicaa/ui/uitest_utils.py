@@ -6,6 +6,7 @@ import inspect
 import logging
 import os.path
 
+import asynctest
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPainter, QColor
@@ -62,20 +63,20 @@ class MockApp(BaseEditorApp):
         return MockSequencer()
 
 
-class UITest(unittest.TestCase):
+class UITest(asynctest.TestCase):
     # There are random crashes if we create and destroy the QApplication for
     # each test. So create a single one and re-use it for all tests. This
     # makes the tests non-hermetic, which could be a problem, but it's better
     # than fighting with the garbage collection in pyqt5.
     app = None
 
-    def setUp(self):
+    async def setUp(self):
         if UITest.app is None:
             UITest.app = MockApp()
-        UITest.app.setup()
+        await UITest.app.setup()
 
-    def tearDown(self):
-        UITest.app.cleanup()
+    async def tearDown(self):
+        await UITest.app.cleanup()
 
     _snapshot_numbers = {}
 

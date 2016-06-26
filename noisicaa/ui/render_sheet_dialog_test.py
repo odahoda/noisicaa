@@ -13,8 +13,8 @@ from . import render_sheet_dialog
 
 
 class RenderSheetDialogTest(uitest_utils.UITest):
-    def setUp(self):
-        super().setUp()
+    async def setUp(self):
+        await super().setUp()
         self.project = music.BaseProject()
         self.sheet = self.project.sheets[0]
 

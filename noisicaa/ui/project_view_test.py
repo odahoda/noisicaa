@@ -13,14 +13,14 @@ from . import project_view
 
 
 class ProjectViewTest(uitest_utils.UITest):
-    def setUp(self):
-        super().setUp()
+    async def setUp(self):
+        await super().setUp()
         self.window = None
-        self.project = EditorProject(self.app)
-        self.project.sheets.clear()
-        self.project.dispatch_command = mock.MagicMock()
-        self.project.dispatch_command.side_effect = AssertionError(
-            "Unexpected command")
+        # self.project = EditorProject(self.app)
+        # self.project.sheets.clear()
+        # self.project.dispatch_command = mock.MagicMock()
+        # self.project.dispatch_command.side_effect = AssertionError(
+        #     "Unexpected command")
 
     def test_initWithNoSheets(self):
         view = project_view.ProjectView(self.app, self.window, self.project)
