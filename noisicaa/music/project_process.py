@@ -189,13 +189,17 @@ class ProjectProcessMixin(object):
 
     async def handle_command(self, target, command, kwargs):
         assert self.project is not None
+
+        # This block must be atomic, no 'awaits'!
         assert not self.pending_mutations
         cmd_cls = core.Command.get_subclass(command)
         cmd = cmd_cls(**kwargs)
         result = self.project.dispatch_command(target, cmd)
+        pending_mutations = self.pending_mutations[:]
+        self.pending_mutations.clear()
+
         for mutation in self.pending_mutations:
             await self.publish_mutation(mutation)
-        self.pending_mutations.clear()
         return result
 
 
