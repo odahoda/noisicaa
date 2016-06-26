@@ -297,12 +297,6 @@ class Sheet(model.Sheet, core.StateBase):
     def clear(self):
         pass
 
-    def get_bpm(self, measure_idx, tick):  # pylint: disable=unused-argument
-        return self.property_track.measures[measure_idx].bpm
-
-    def get_time_signature(self, measure_idx):
-        return self.property_track.measures[measure_idx].time_signature
-
     def equalize_tracks(self, remove_trailing_empty_measures=0):
         if len(self.tracks) < 1:
             return

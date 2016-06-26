@@ -393,6 +393,14 @@ class ScoreMeasureItem(MeasureItem):
 
         self.setAcceptHoverEvents(True)
 
+        if self._measure is not None:
+            self._measure.listeners.add(
+                'notes-changed', self.recomputeLayout)
+            self._measure.listeners.add(
+                'clef', lambda *args: self.recomputeLayout)
+            self._measure.listeners.add(
+                'key_signature', lambda *args: self.recomputeLayout)
+
     # TODO: remove this if client side objects have those properties
     @property
     def time_signature(self):
@@ -774,13 +782,11 @@ class ScoreMeasureItem(MeasureItem):
     def onSetClef(self, clef):
         self.call_async(self.project_client.send_command(
             self._measure.id, 'SetClef', clef=clef.value))
-        self.recomputeLayout()
 
     def onSetKeySignature(self, key_signature):
         self.call_async(self.project_client.send_command(
             self._measure.id, 'SetKeySignature',
             key_signature=key_signature))
-        self.recomputeLayout()
 
     def onSetTimeSignature(self, upper, lower):
         self.call_async(self.project_client.send_command(
@@ -971,7 +977,6 @@ class ScoreMeasureItem(MeasureItem):
                 if cmd is not None:
                     self.call_async(self.project_client.send_command(
                         self._measure.id, cmd[0], **cmd[1]))
-                    self.recomputeLayout()
                     event.accept()
                     return
 
@@ -994,7 +999,6 @@ class ScoreMeasureItem(MeasureItem):
                                 self._measure.id, 'SetAccidental',
                                 idx=idx, accidental=accidental,
                                 pitch_idx=pitch_idx))
-                            self.recomputeLayout()
                             event.accept()
                             return
 
@@ -1033,7 +1037,6 @@ class ScoreMeasureItem(MeasureItem):
                 if cmd is not None:
                     self.call_async(self.project_client.send_command(
                         self._measure.id, cmd[0], **cmd[1]))
-                    self.recomputeLayout()
                     event.accept()
                     return
 

@@ -3,7 +3,6 @@
 import logging
 import uuid
 
-from .callbacks import CallbackRegistry
 from . import model_base
 
 # fix imports if properties
@@ -14,7 +13,6 @@ logger = logging.getLogger(__name__)
 class StateBase(model_base.ObjectBase):
     def __init__(self, state=None):
         super().__init__()
-        self.listeners = CallbackRegistry()
 
         if state is not None:
             self.deserialize(state)

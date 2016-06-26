@@ -4,6 +4,7 @@ import logging
 import os.path
 
 from noisicaa import music
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class Project(object):
         self.process_address = await self.process_manager.call(
             'CREATE_PROJECT_PROCESS', self.path)
         self.client = music.ProjectClient(self.event_loop)
+        self.client.cls_map.update(model.cls_map)
         await self.client.setup()
         await self.client.connect(self.process_address)
 

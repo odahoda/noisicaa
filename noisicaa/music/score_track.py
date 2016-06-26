@@ -238,10 +238,6 @@ class ScoreMeasure(model.ScoreMeasure, Measure):
             pass
 
     @property
-    def time_signature(self):
-        return self.sheet.get_time_signature(self.index)
-
-    @property
     def empty(self):
         return len(self.notes) == 0
 

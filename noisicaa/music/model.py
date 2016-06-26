@@ -11,7 +11,19 @@ from . import key_signature
 from . import time_signature
 
 class Measure(core.ObjectBase):
-    pass
+    @property
+    def track(self):
+        return self.parent
+
+    @property
+    def sheet(self):
+        return self.track.sheet
+
+    @property
+    def duration(self):
+        time_signature = self.sheet.get_time_signature(self.index)
+        return time.Duration(time_signature.upper, time_signature.lower)
+
 
 
 class Track(core.ObjectBase):
@@ -24,12 +36,20 @@ class Track(core.ObjectBase):
     volume = core.Property(float, default=100.0)
     transpose_octaves = core.Property(int, default=0)
 
+    @property
+    def sheet(self):
+        return self.parent
+
 
 class Note(core.ObjectBase):
     pitches = core.ListProperty(pitch.Pitch)
     base_duration = core.Property(time.Duration)
     dots = core.Property(int, default=0)
     tuplet = core.Property(int, default=0)
+
+    @property
+    def measure(self):
+        return self.parent
 
     @property
     def is_rest(self):
@@ -64,6 +84,10 @@ class ScoreMeasure(Measure):
         default=key_signature.KeySignature('C major'))
     notes = core.ObjectListProperty(cls=Note)
 
+    @property
+    def time_signature(self):
+        return self.sheet.get_time_signature(self.index)
+
 
 class ScoreTrack(Track):
     transpose_octaves = core.Property(int, default=0)
@@ -84,6 +108,12 @@ class Sheet(core.ObjectBase):
     name = core.Property(str, default="Sheet")
     tracks = core.ObjectListProperty(Track)
     property_track = core.ObjectProperty(SheetPropertyTrack)
+
+    def get_bpm(self, measure_idx, tick):  # pylint: disable=unused-argument
+        return self.property_track.measures[measure_idx].bpm
+
+    def get_time_signature(self, measure_idx):
+        return self.property_track.measures[measure_idx].time_signature
 
 
 class Metadata(core.ObjectBase):

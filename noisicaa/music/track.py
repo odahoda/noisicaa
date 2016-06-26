@@ -84,19 +84,6 @@ class Measure(model.Measure, core.StateBase):
         super().__init__(state)
 
     @property
-    def track(self):
-        return self.parent
-
-    @property
-    def sheet(self):
-        return self.track.sheet
-
-    @property
-    def duration(self):
-        time_signature = self.sheet.get_time_signature(self.index)
-        return Duration(time_signature.upper, time_signature.lower)
-
-    @property
     def empty(self):
         return False
 
@@ -119,10 +106,6 @@ class Track(model.Track, core.StateBase):
         if state is None:
             self.name = name
             self.instrument = instrument
-
-    @property
-    def sheet(self):
-        return self.parent
 
     @property
     def project(self):

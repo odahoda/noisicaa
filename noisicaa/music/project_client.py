@@ -12,54 +12,6 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
-# TODO: merge with other one
-class ObjectNotAttachedError(Exception):
-    pass
-
-
-class ObjectList(object):
-    def __init__(self, prop_name, instance):
-        self._prop_name = prop_name
-        self._instance = instance
-        self._objs = []
-
-    def __len__(self):
-        return len(self._objs)
-
-    def __getitem__(self, idx):
-        return self._objs[idx]
-
-    def __setitem__(self, idx, obj):
-        self.__delitem__(idx)
-        self.insert(idx, obj)
-
-    def __delitem__(self, idx):
-        self._objs[idx].detach()
-        self._objs[idx].clear_parent_container()
-        del self._objs[idx]
-        for i in range(idx, len(self._objs)):
-            self._objs[i].set_index(i)
-        self._instance.listeners.call(self._prop_name, 'delete', idx)
-
-    def append(self, obj):
-        self.insert(len(self._objs), obj)
-
-    def insert(self, idx, obj):
-        obj.attach(self._instance)
-        obj.set_parent_container(self)
-        self._objs.insert(idx, obj)
-        for i in range(idx, len(self._objs)):
-            self._objs[i].set_index(i)
-        self._instance.listeners.call(self._prop_name, 'insert', idx, obj)
-
-    def clear(self):
-        for obj in self._objs:
-            obj.detach()
-            obj.clear_parent_container()
-        self._objs.clear()
-        self._instance.listeners.call(self._prop_name, 'clear')
-
-
 class ObjectProxy(core.ObjectBase):
     def __init__(self, obj_id):
         super().__init__()
@@ -87,31 +39,6 @@ class ObjectProxy(core.ObjectBase):
             raise TypeError("Unsupported change type %s" % type(change))
 
 
-
-class Measure(model.Measure, ObjectProxy): pass
-class Track(model.Track, ObjectProxy): pass
-class Note(model.Note, ObjectProxy): pass
-class ScoreMeasure(model.ScoreMeasure, ObjectProxy): pass
-class ScoreTrack(model.ScoreTrack, ObjectProxy): pass
-class SheetPropertyMeasure(model.SheetPropertyMeasure, ObjectProxy): pass
-class SheetPropertyTrack(model.SheetPropertyTrack, ObjectProxy): pass
-class Sheet(model.Sheet, ObjectProxy): pass
-class Metadata(model.Metadata, ObjectProxy): pass
-class Project(model.Project, ObjectProxy): pass
-
-cls_map = {
-    'Measure': Measure,
-    'Track': Track,
-    'Note': Note,
-    'ScoreMeasure': ScoreMeasure,
-    'ScoreTrack': ScoreTrack,
-    'SheetPropertyMeasure': SheetPropertyMeasure,
-    'SheetPropertyTrack': SheetPropertyTrack,
-    'Sheet': Sheet,
-    'Metadata': Metadata,
-    'Project': Project,
-    }
-
 class ProjectClientBase(object):
     def __init__(self, event_loop):
         super().__init__()
@@ -125,7 +52,6 @@ class ProjectClientBase(object):
         await self.server.cleanup()
 
 
-
 class ProjectClientMixin(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -133,6 +59,7 @@ class ProjectClientMixin(object):
         self._session_id = None
         self._object_map = {}
         self.project = None
+        self.cls_map = {}
 
     def __set_project(self, root_id):
         assert self.project is None
@@ -200,7 +127,7 @@ class ProjectClientMixin(object):
                 self.apply_properties(obj, mutation.properties)
 
             elif isinstance(mutation, mutations.AddObject):
-                cls = cls_map[mutation.cls]
+                cls = self.cls_map[mutation.cls]
                 obj = cls(mutation.id)
                 self.apply_properties(obj, mutation.properties)
                 self._object_map[mutation.id] = obj
