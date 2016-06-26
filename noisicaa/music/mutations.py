@@ -26,12 +26,6 @@ class Mutation(object):
             return (prop.name, 'list', list(value))
 
         else:
-            import pickle
-            try:
-                pickle.dumps(value)
-            except:
-                logger.exception('%s=%r', prop.name, value)
-                raise
             return (prop.name, 'scalar', value)
 
 

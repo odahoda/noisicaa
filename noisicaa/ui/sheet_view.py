@@ -113,10 +113,6 @@ class MeasureItem(ui_base.ProjectMixin, QGraphicsItem):
 
         self._layers = {}
 
-    # TODO: remove this if client side objects have those properties
-    def duration(self):
-        return Duration(4, 4)
-
     def boundingRect(self):
         return QRectF(0, 0, self._layout.width, self._layout.height)
 
@@ -397,14 +393,9 @@ class ScoreMeasureItem(MeasureItem):
             self._measure.listeners.add(
                 'notes-changed', self.recomputeLayout)
             self._measure.listeners.add(
-                'clef', lambda *args: self.recomputeLayout)
+                'clef', lambda *args: self.recomputeLayout())
             self._measure.listeners.add(
-                'key_signature', lambda *args: self.recomputeLayout)
-
-    # TODO: remove this if client side objects have those properties
-    @property
-    def time_signature(self):
-        return self._sheet_view.get_time_signature(self._measure.index)
+                'key_signature', lambda *args: self.recomputeLayout())
 
     _accidental_map = {
         '': 'accidental-natural',
@@ -438,7 +429,7 @@ class ScoreMeasureItem(MeasureItem):
             notes_width = 0
             for note in self._measure.notes:
                 notes_width += int(400 * note.duration)
-            width += max(int(400 * self.duration()), notes_width)
+            width += max(int(400 * self._measure.duration), notes_width)
 
             width += 10
 
@@ -550,14 +541,14 @@ class ScoreMeasureItem(MeasureItem):
             time_sig_upper = QGraphicsTextItem(layer)
             time_sig_upper.setFont(font)
             time_sig_upper.setHtml(
-                '<center>%d</center>' % self.time_signature.upper)
+                '<center>%d</center>' % self._measure.time_signature.upper)
             time_sig_upper.setTextWidth(50)
             time_sig_upper.setPos(x - 10, self._layout.baseline - 52)
 
             time_sig_lower = QGraphicsTextItem(layer)
             time_sig_lower.setFont(font)
             time_sig_lower.setHtml(
-                '<center>%d</center>' % self.time_signature.lower)
+                '<center>%d</center>' % self._measure.time_signature.lower)
             time_sig_lower.setTextWidth(50)
             time_sig_lower.setPos(x - 10, self._layout.baseline - 15)
             x += 40
@@ -566,7 +557,7 @@ class ScoreMeasureItem(MeasureItem):
             x += 20
             note_time = Duration(0)
             for idx, note in enumerate(self._measure.notes):
-                overflow = note_time + note.duration > self.duration()
+                overflow = note_time + note.duration > self._measure.duration
 
                 if note.is_rest:
                     sym = {
