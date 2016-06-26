@@ -128,3 +128,18 @@ class Project(core.ObjectBase):
     current_sheet = core.Property(int, default=0)
     metadata = core.ObjectProperty(cls=Metadata)
 
+    def get_current_sheet(self):
+        return self.sheets[self.current_sheet]
+
+    def get_sheet(self, name):
+        for sheet in self.sheets:
+            if sheet.name == name:
+                return sheet
+        raise ValueError("No sheet %r" % name)
+
+    def get_sheet_index(self, name):
+        for idx, sheet in enumerate(self.sheets):
+            if sheet.name == name:
+                return idx
+        raise ValueError("No sheet %r" % name)
+

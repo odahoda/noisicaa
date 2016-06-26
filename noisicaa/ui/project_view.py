@@ -2,40 +2,32 @@
 
 import logging
 
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (
-    QWidget,
-    QHBoxLayout,
-    QVBoxLayout,
-    QToolButton,
-    QMenu,
-    QStackedWidget,
-)
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
-from noisicaa.music import (
-    AddSheet, DeleteSheet,
-)
-from .sheet_view import SheetView
-from .tool_dock import Tool
+from noisicaa import music
+from . import sheet_view
+from . import tool_dock
 from . import ui_base
 
 logger = logging.getLogger(__name__)
 
 
-class ProjectView(ui_base.ProjectMixin, QWidget):
-    currentToolChanged = pyqtSignal(Tool)
-    currentSheetChanged = pyqtSignal(object)
+class ProjectViewImpl(QtWidgets.QWidget):
+    currentToolChanged = QtCore.pyqtSignal(tool_dock.Tool)
+    currentSheetChanged = QtCore.pyqtSignal(object)
 
-    def __init__(self, project_connection, app):
-        super().__init__(
-            project_connection=project_connection, app=app)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-        self._sheets_widget = QStackedWidget(self)
+        self._sheets_widget = QtWidgets.QStackedWidget(self)
         for sheet in self.project.sheets:
-            view = SheetView(**self.context, sheet=sheet, parent=self)
+            view = self.createSheetView(
+                **self.context, sheet=sheet, parent=self)
             self._sheets_widget.addWidget(view)
-        self._sheets_widget.currentChanged.connect(self.onCurrentSheetChanged)
+        self._sheets_widget.currentChanged.connect(
+            self.onCurrentSheetChanged)
 
         self._current_sheet_view = None
 
@@ -43,23 +35,23 @@ class ProjectView(ui_base.ProjectMixin, QWidget):
         if self._sheets_widget.count() > 0:
             self.setCurrentSheetView(self._sheets_widget.widget(0))
 
-        self.sheet_menu = QMenu()
+        self.sheet_menu = QtWidgets.QMenu()
         self.updateSheetMenu()
 
         # Sheet selection should better be in a dock...
-        sheet_menu_button = QToolButton(self)
-        sheet_menu_button.setIcon(QIcon.fromTheme('start-here'))
+        sheet_menu_button = QtWidgets.QToolButton(self)
+        sheet_menu_button.setIcon(QtGui.QIcon.fromTheme('start-here'))
         sheet_menu_button.setMenu(self.sheet_menu)
-        sheet_menu_button.setPopupMode(QToolButton.InstantPopup)
+        sheet_menu_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
 
-        player_status = QWidget(self)
+        player_status = QtWidgets.QWidget(self)
 
-        bottom_layout = QHBoxLayout()
+        bottom_layout = QtWidgets.QHBoxLayout()
         bottom_layout.addWidget(sheet_menu_button)
         bottom_layout.addStretch(1)
         bottom_layout.addWidget(player_status)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self._sheets_widget)
         layout.addLayout(bottom_layout)
         self.setLayout(layout)
@@ -123,7 +115,8 @@ class ProjectView(ui_base.ProjectMixin, QWidget):
     def onSheetsChanged(self, action, *args):
         if action == 'insert':
             idx, sheet = args
-            view = SheetView(self, self.app, self.window, sheet)
+            view = self.createSheetView(
+                **self.context, sheet=sheet, parent=self)
             #view.setCurrentTool(self.currentTool())
             self._sheets_widget.insertWidget(idx, view)
             self.updateSheetMenu()
@@ -145,18 +138,18 @@ class ProjectView(ui_base.ProjectMixin, QWidget):
         self.sheet_menu.clear()
 
         action = self.sheet_menu.addAction(
-            QIcon.fromTheme('document-new'), "Add Sheet")
+            QtGui.QIcon.fromTheme('document-new'), "Add Sheet")
         action.triggered.connect(self.onAddSheet)
 
         action = self.sheet_menu.addAction(
-            QIcon.fromTheme('edit-delete'), "Delete Sheet")
+            QtGui.QIcon.fromTheme('edit-delete'), "Delete Sheet")
         action.setEnabled(len(self.project.sheets) > 1)
         action.triggered.connect(self.onDeleteSheet)
 
         self.sheet_menu.addSeparator()
         for idx, sheet in enumerate(self.project.sheets): # pylint: disable=unused-variable
             action = self.sheet_menu.addAction(
-                QIcon.fromTheme('audio-x-generic'), sheet.name)
+                QtGui.QIcon.fromTheme('audio-x-generic'), sheet.name)
             action.triggered.connect(
                 lambda _, idx=idx: self._sheets_widget.setCurrentIndex(idx))
 
@@ -168,12 +161,14 @@ class ProjectView(ui_base.ProjectMixin, QWidget):
         self.setCurrentSheetView(sheet_view)
 
     def onAddSheet(self):
-        self.project.dispatch_command('/', AddSheet())
+        self.send_command_async(
+            self.project.id, 'AddSheet')
 
     def onDeleteSheet(self):
         assert len(self.project.sheets) > 1
-        self.project.dispatch_command(
-            '/', DeleteSheet(name=self.project.get_current_sheet().name))
+        self.send_command_async(
+            self.project.id, 'DeleteSheet',
+            name=self.currentSheetView().sheet.name)
 
     def onPlayerStart(self):
         logger.info("Player start")
@@ -193,3 +188,8 @@ class ProjectView(ui_base.ProjectMixin, QWidget):
     def onRender(self):
         view = self.currentSheetView()
         view.onRender()
+
+
+class ProjectView(ui_base.ProjectMixin, ProjectViewImpl):
+    def createSheetView(self, **kwargs):  # pragma: no cover
+        return sheet_view.SheetView(**kwargs)

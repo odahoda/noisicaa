@@ -103,7 +103,7 @@ class MeasureLayout(object):
         return (self.size == other.size) and (self.baseline == other.baseline)
 
 
-class MeasureItem(ui_base.ProjectMixin, QGraphicsItem):
+class MeasureItemImpl(QGraphicsItem):
     def __init__(self, sheet_view, track_item, measure, **kwargs):
         super().__init__(**kwargs)
         self._sheet_view = sheet_view
@@ -185,7 +185,7 @@ class MeasureItem(ui_base.ProjectMixin, QGraphicsItem):
             pos=self._measure.index))
 
 
-class TrackItem(ui_base.ProjectMixin):
+class TrackItemImpl(object):
     measure_item_cls = None
 
     def __init__(self, sheet_view, track, **kwargs):
@@ -369,7 +369,7 @@ class ScoreMeasureLayout(MeasureLayout):
     pass
 
 
-class ScoreMeasureItem(MeasureItem):
+class ScoreMeasureItemImpl(MeasureItemImpl):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -1032,15 +1032,23 @@ class ScoreMeasureItem(MeasureItem):
         return super().mousePressEvent(event)
 
 
-class ScoreTrackItem(TrackItem):
+class ScoreMeasureItem(ui_base.ProjectMixin, ScoreMeasureItemImpl):
+    pass
+
+
+class ScoreTrackItemImpl(TrackItemImpl):
     measure_item_cls = ScoreMeasureItem
+
+
+class ScoreTrackItem(ui_base.ProjectMixin, ScoreTrackItemImpl):
+    pass
 
 
 class SheetPropertyMeasureLayout(MeasureLayout):
     pass
 
 
-class SheetPropertyMeasureItem(MeasureItem):
+class SheetPropertyMeasureItemImpl(MeasureItemImpl):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -1145,14 +1153,18 @@ class SheetPropertyMeasureItem(MeasureItem):
         self.bpm_editor.setVisible(False)
 
 
-class SheetPropertyTrackItem(TrackItem):
+class SheetPropertyMeasureItem(
+        ui_base.ProjectMixin, SheetPropertyMeasureItemImpl):
+    pass
+
+
+class SheetPropertyTrackItemImpl(TrackItemImpl):
     measure_item_cls = SheetPropertyMeasureItem
 
 
-track_cls_map = {
-    'ScoreTrack': ScoreTrackItem,
-    'SheetPropertyTrack': SheetPropertyTrackItem,
-}
+class SheetPropertyTrackItem(
+        ui_base.ProjectMixin, SheetPropertyTrackItemImpl):
+    pass
 
 
 class SheetScene(QGraphicsScene):
@@ -1192,8 +1204,13 @@ class Layer(enum.IntEnum):
     NUM_LAYERS = 6
 
 
-class SheetView(ui_base.ProjectMixin, QGraphicsView):
+class SheetViewImpl(QGraphicsView):
     currentToolChanged = pyqtSignal(Tool)
+
+    track_cls_map = {
+        'ScoreTrack': ScoreTrackItem,
+        'SheetPropertyTrack': SheetPropertyTrackItem,
+    }
 
     def __init__(self, sheet, **kwargs):
         super().__init__(**kwargs)
@@ -1242,7 +1259,7 @@ class SheetView(ui_base.ProjectMixin, QGraphicsView):
         self.window.setInfoMessage(msg)
 
     def createTrackItem(self, track):
-        track_item_cls = track_cls_map[type(track).__name__]
+        track_item_cls = self.track_cls_map[type(track).__name__]
         return track_item_cls(
             **self.context, sheet_view=self, track=track)
 
@@ -1654,4 +1671,5 @@ class SheetView(ui_base.ProjectMixin, QGraphicsView):
             super().keyReleaseEvent(event)
 
 
-
+class SheetView(ui_base.ProjectMixin, SheetViewImpl):
+    pass

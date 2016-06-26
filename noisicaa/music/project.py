@@ -387,21 +387,6 @@ class BaseProject(model.Project, core.RootObject):
         assert self._mutation_callback is None
         self._mutation_callback = callback
 
-    def get_current_sheet(self):
-        return self.sheets[self.current_sheet]
-
-    def get_sheet(self, name):
-        for sheet in self.sheets:
-            if sheet.name == name:
-                return sheet
-        raise ValueError("No sheet %r" % name)
-
-    def get_sheet_index(self, name):
-        for idx, sheet in enumerate(self.sheets):
-            if sheet.name == name:
-                return idx
-        raise ValueError("No sheet %r" % name)
-
     def dispatch_command(self, obj_id, cmd):
         obj = self.get_object(obj_id)
         result = cmd.run(obj)

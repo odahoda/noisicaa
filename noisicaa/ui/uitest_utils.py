@@ -13,6 +13,49 @@ from PyQt5.QtGui import QImage, QPainter, QColor
 
 from noisicaa.runtime_settings import RuntimeSettings
 from .editor_app import BaseEditorApp
+from . import model
+
+
+UNSET = object()
+
+class TestMixin(object):
+    def __init__(
+            self, __no_positional_args=UNSET, testcase=None, **kwargs):
+        assert __no_positional_args is UNSET
+        assert testcase is not None
+        self.__testcase = testcase
+        super().__init__(**kwargs)
+
+    @property
+    def context(self):
+        return {'testcase': self.__testcase}
+
+    @property
+    def app(self):
+        return self.__testcase.app
+
+    @property
+    def window(self):
+        return self.__testcase.window
+
+    @property
+    def event_loop(self):
+        return self.__testcase.loop
+
+    @property
+    def project_connection(self):
+        return self.__testcase.project_connection
+
+    @property
+    def project(self):
+        return self.__testcase.project
+
+    @property
+    def project_client(self):
+        return self.__testcase.project_client
+
+    def send_command_async(self, target_id, cmd, **kwargs):
+        self.__testcase.commands.append((target_id, cmd, kwargs))
 
 
 class MockSettings(object):
@@ -55,12 +98,23 @@ class MockSequencer(object):
         return None
 
 
+class MockProcess(object):
+    def __init__(self):
+        self.event_loop = None
+        self.manager = None
+        self.project = None
+
+
 class MockApp(BaseEditorApp):
     def __init__(self):
         super().__init__(None, RuntimeSettings(), MockSettings())
+        self.process = MockProcess()
 
     def createSequencer(self):
         return MockSequencer()
+
+
+class Bunch(object): pass
 
 
 class UITest(asynctest.TestCase):
@@ -74,6 +128,15 @@ class UITest(asynctest.TestCase):
         if UITest.app is None:
             UITest.app = MockApp()
         await UITest.app.setup()
+
+        self.window = None
+        self.project_connection = Bunch()
+        self.project_connection.name = 'test project'
+        self.project = model.Project('project')
+        self.project_client = None
+
+        self.context = {'testcase': self}
+        self.commands = []
 
     async def tearDown(self):
         await UITest.app.cleanup()

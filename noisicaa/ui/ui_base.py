@@ -41,6 +41,7 @@ class CommonMixin(object):
         if callback is not None:
             callback(task.result())
 
+
 class ProjectMixin(CommonMixin):
     def __init__(
             self, __no_positional_args=UNSET, project_connection=None,
@@ -67,3 +68,15 @@ class ProjectMixin(CommonMixin):
     def project_client(self):
         return self.__project_connection.client
 
+    def send_command_async(self, target_id, cmd, callback=None, **kwargs):
+        task = self.event_loop.create_task(
+            self.project_client.send_command(target_id, cmd, **kwargs))
+        task.add_done_callback(
+            functools.partial(
+                self.__send_command_async_cb, callback=callback))
+
+    def __send_command_async_cb(self, task, callback):
+        if task.exception() is not None:
+            raise task.exception()
+        if callback is not None:
+            callback(task.result())
