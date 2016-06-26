@@ -29,7 +29,12 @@ class Pitch(object):
                'G#', 'Ab', 'A', 'A#', 'Bb', 'B']
 
     def __init__(self, name=None):
-        if name == 'r':
+        if isinstance(name, Pitch):
+            self._is_rest = name._is_rest
+            self._value = name._value
+            self._accidental = name._accidental
+            self._octave = name._octave
+        elif name == 'r':
             self._is_rest = True
             self._value = None
             self._accidental = None
@@ -103,12 +108,13 @@ class Pitch(object):
         assert not self._is_rest
         return self._accidental
 
-    @accidental.setter
-    def accidental(self, accidental):
+    def add_accidental(self, accidental):
         assert not self._is_rest
         assert accidental in ('', '#', 'b', '##', 'bb')
         assert accidental in self.valid_accidentals
-        self._accidental = accidental
+        p = self.__class__(self)
+        p._accidental = accidental
+        return p
 
     _valid_accidental_map = {
         'C': {'', '#'},

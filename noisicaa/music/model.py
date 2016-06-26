@@ -43,7 +43,7 @@ class Track(core.ObjectBase):
 
 class Note(core.ObjectBase):
     pitches = core.ListProperty(pitch.Pitch)
-    base_duration = core.Property(time.Duration)
+    base_duration = core.Property(time.Duration, default=time.Duration(1, 4))
     dots = core.Property(int, default=0)
     tuplet = core.Property(int, default=0)
 

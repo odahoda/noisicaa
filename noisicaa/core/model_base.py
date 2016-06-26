@@ -21,11 +21,17 @@ class PropertyChange(object):
     def __init__(self, prop_name):
         self.prop_name = prop_name
 
+    def __str__(self, **kwargs):
+        return '<%s%s>' % (type(self).__name__, ''.join(' %s=%r' % (k, v) for k, v in sorted(kwargs.items())))
+
 class PropertyValueChange(PropertyChange):
     def __init__(self, prop_name, old_value, new_value):
         super().__init__(prop_name)
         self.old_value = old_value
         self.new_value = new_value
+
+    def __str__(self):
+        return super().__str__(old=self.old_value, new=self.new_value)
 
 class PropertyListChange(PropertyChange):
     pass
@@ -36,16 +42,25 @@ class PropertyListInsert(PropertyListChange):
         self.index = index
         self.new_value = new_value
 
+    def __str__(self):
+        return super().__str__(index=self.index, new=self.new_value)
+
 class PropertyListDelete(PropertyListChange):
     def __init__(self, prop_name, index, old_value):
         super().__init__(prop_name)
         self.index = index
         self.old_value = old_value
 
+    def __str__(self):
+        return super().__str__(index=self.index, old=self.old_value)
+
 class PropertyListClear(PropertyListChange):
     def __init__(self, prop_name, old_values):
         super().__init__(prop_name)
         self.old_values = old_values
+
+    def __str__(self):
+        return super().__str__()
 
 
 class PropertyBase(object):

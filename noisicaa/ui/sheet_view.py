@@ -592,9 +592,7 @@ class ScoreMeasureItem(MeasureItem):
 
                     if overflow:
                         n.setOpacity(0.4)
-                else:
-                    assert len(note.pitches) > 0
-
+                elif len(note.pitches) > 0:
                     min_stave_line = 1000
                     max_stave_line = -1000
 

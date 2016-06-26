@@ -20,7 +20,9 @@ class StateBase(model_base.ObjectBase):
             self.id = uuid.uuid4().hex
 
     def property_changed(self, change):
+        logger.info("%s: %s", self, change)
         if not self.attached_to_root:
+            logger.info("not attached")
             return
         root = self.root
         if isinstance(change, model_base.PropertyValueChange):

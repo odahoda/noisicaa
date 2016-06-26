@@ -190,7 +190,8 @@ class SetAccidental(core.Command):
         assert 0 <= self.idx < len(measure.notes)
         note = measure.notes[self.idx]
         assert 0 <= self.pitch_idx < len(note.pitches)
-        note.pitches[self.pitch_idx].accidental = self.accidental
+
+        note.pitches[self.pitch_idx] = note.pitches[self.pitch_idx].add_accidental(self.accidental)
 
 core.Command.register_subclass(SetAccidental)
 
