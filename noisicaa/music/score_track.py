@@ -259,6 +259,7 @@ class Note(core.StateBase):
             duration *= fractions.Fraction(4, 5)
         return Duration(duration)
 
+
 class ScoreMeasure(Measure):
     clef = core.Property(Clef, default=Clef.Treble)
     key_signature = core.Property(KeySignature, default=KeySignature('C major'))

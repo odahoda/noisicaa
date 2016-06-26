@@ -196,24 +196,32 @@ class ProjectClientMixin(object):
     def apply_properties(self, obj, properties):
         for prop_name, prop_type, value in properties:
             if prop_type == 'scalar':
+                old = getattr(obj, prop_name, None)
                 obj.set_attribute(prop_name, value)
+                obj.listeners.call(prop_name, old, value)
             elif prop_type == 'list':
                 obj.set_attribute(prop_name, value)
             elif prop_type == 'obj':
-                # TODO: detach prev child.
+                old = getattr(obj, prop_name, None)
+                if old is not None:
+                    old.detach(obj)
+                    # TODO: delete tree under old
                 child = None
                 if value is not None:
                     child = self._object_map[value]
                     child.attach(obj)
                 obj.set_attribute(prop_name, child)
+                obj.listeners.call(prop_name, old, child)
+
             elif prop_type == 'objlist':
-                # TODO: detach prev children.
-                # TODO: use object wrapper that knows about listeners
-                l = ObjectList(prop_name, obj)
+                l = getattr(obj, prop_name, None)
+                if l is None:
+                    l = ObjectList(prop_name, obj)
+                    obj.set_attribute(prop_name, l)
+                l.clear()
                 for child_id in value:
                     child = self._object_map[child_id]
                     l.append(child)
-                obj.set_attribute(prop_name, l)
             else:
                 raise ValueError(
                     "Property type %s not supported." % prop_type)
@@ -237,8 +245,30 @@ class ProjectClientMixin(object):
                     idx, child_id = mutation.args[1:]
                     child = self._object_map[child_id]
                     lst.insert(idx, child)
+                elif mutation.args[0] == 'delete':
+                    idx, = mutation.args[1:]
+                    child = lst[idx]
+                    del lst[idx]
+                    # TODO: delete tree under child
+                elif mutation.args[0] == 'clear':
+                    lst.clear()
                 else:
                     raise ValueError(mutation.args[0])
+
+            elif isinstance(mutation, mutations.UpdateList):
+                obj = self._object_map[mutation.id]
+                lst = getattr(obj, mutation.prop_name)
+                if mutation.args[0] == 'insert':
+                    idx, value = mutation.args[1:]
+                    lst.insert(idx, value)
+                elif mutation.args[0] == 'delete':
+                    idx, = mutation.args[1:]
+                    del lst[idx]
+                elif mutation.args[0] == 'clear':
+                    lst.clear()
+                else:
+                    raise ValueError(mutation.args[0])
+
             else:
                 raise ValueError("Unknown mutation %s received." % mutation)
         except Exception as exc:

@@ -79,9 +79,22 @@ class ProjectProcessMixin(object):
                 self.pending_mutations.append(mutations.UpdateObjectList(obj, prop_name, 'insert', idx, child.id))
             elif cmd == 'delete':
                 idx = mutation[4]
-                raise NotImplementedError
+                self.pending_mutations.append(mutations.UpdateObjectList(obj, prop_name, 'delete', idx))
             elif cmd == 'clear':
                 self.pending_mutations.append(mutations.UpdateObjectList(obj, prop_name, 'clear'))
+            else:
+                raise ValueError(cmd)
+
+        elif mtype == 'update_list':
+            prop_name, cmd = mutation[2:4]
+            if cmd == 'insert':
+                idx, value = mutation[4:]
+                self.pending_mutations.append(mutations.UpdateList(obj, prop_name, 'insert', idx, value))
+            elif cmd == 'delete':
+                idx = mutation[4]
+                self.pending_mutations.append(mutations.UpdateList(obj, prop_name, 'delete', idx))
+            elif cmd == 'clear':
+                self.pending_mutations.append(mutations.UpdateList(obj, prop_name, 'clear'))
             else:
                 raise ValueError(cmd)
 
