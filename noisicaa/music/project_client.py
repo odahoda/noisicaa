@@ -236,7 +236,6 @@ class ProjectClientMixin(object):
                 if mutation.args[0] == 'insert':
                     idx, child_id = mutation.args[1:]
                     child = self._object_map[child_id]
-                    child.parent = obj
                     lst.insert(idx, child)
                 else:
                     raise ValueError(mutation.args[0])
@@ -280,7 +279,6 @@ class ProjectClientMixin(object):
         result = await self._stub.call('COMMAND', target, command, kwargs)
         logger.info("Command %s completed with result=%r", command, result)
         return result
-
 
 class ProjectClient(ProjectClientMixin, ProjectClientBase):
     pass

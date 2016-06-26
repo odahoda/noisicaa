@@ -28,6 +28,7 @@ from .instrument_library import InstrumentLibraryDialog
 from noisicaa.music import UpdateTrackProperties, AddTrack, RemoveTrack, MoveTrack, SetInstrument, ClearInstrument, ScoreTrack
 from ..constants import DATA_DIR
 from ..instr.library import SoundFontInstrument
+from . import ui_base
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +52,9 @@ class MuteButton(QToolButton):
 
 
 class TrackPropertiesDockWidget(DockWidget):
-    def __init__(self, window):
+    def __init__(self, app, window):
         super().__init__(
+            app=app,
             parent=window,
             identifier='track-properties',
             title="Track Properties",
@@ -213,7 +215,7 @@ class TrackPropertiesDockWidget(DockWidget):
             return
 
         dialog = InstrumentLibraryDialog(
-            self, self._window._app, self._window._app.instrument_library)
+            self, self.app, self.app.instrument_library)
         dialog.instrumentChanged.connect(
             self.onInstrumentEdited)
 

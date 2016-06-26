@@ -18,24 +18,22 @@ from noisicaa.music import (
 )
 from .sheet_view import SheetView
 from .tool_dock import Tool
+from . import ui_base
 
 logger = logging.getLogger(__name__)
 
 
-class ProjectView(QWidget):
+class ProjectView(ui_base.ProjectMixin, QWidget):
     currentToolChanged = pyqtSignal(Tool)
     currentSheetChanged = pyqtSignal(object)
 
-    def __init__(self, app, window, project):
-        super().__init__(window)
-
-        self._app = app
-        self._window = window
-        self._project = project.client.project
+    def __init__(self, project_connection, app):
+        super().__init__(
+            project_connection=project_connection, app=app)
 
         self._sheets_widget = QStackedWidget(self)
-        for sheet in self._project.sheets:
-            view = SheetView(self, self._app, self._window, sheet)
+        for sheet in self.project.sheets:
+            view = SheetView(**self.context, sheet=sheet, parent=self)
             self._sheets_widget.addWidget(view)
         self._sheets_widget.currentChanged.connect(self.onCurrentSheetChanged)
 
@@ -66,7 +64,7 @@ class ProjectView(QWidget):
         layout.addLayout(bottom_layout)
         self.setLayout(layout)
 
-        self._sheet_listener = self._project.listeners.add(
+        self._sheet_listener = self.project.listeners.add(
             'sheets', self.onSheetsChanged)
 
     @property
@@ -82,10 +80,6 @@ class ProjectView(QWidget):
     def setCurrentTool(self, tool):
         if self.currentSheetView() is not None:
             self.currentSheetView().setCurrentTool(tool)
-
-    @property
-    def project(self):
-        return self._project
 
     def currentSheetView(self):
         return self._sheets_widget.currentWidget()
@@ -129,7 +123,7 @@ class ProjectView(QWidget):
     def onSheetsChanged(self, action, *args):
         if action == 'insert':
             idx, sheet = args
-            view = SheetView(self, self._app, self._window, sheet)
+            view = SheetView(self, self.app, self.window, sheet)
             #view.setCurrentTool(self.currentTool())
             self._sheets_widget.insertWidget(idx, view)
             self.updateSheetMenu()
@@ -156,11 +150,11 @@ class ProjectView(QWidget):
 
         action = self.sheet_menu.addAction(
             QIcon.fromTheme('edit-delete'), "Delete Sheet")
-        action.setEnabled(len(self._project.sheets) > 1)
+        action.setEnabled(len(self.project.sheets) > 1)
         action.triggered.connect(self.onDeleteSheet)
 
         self.sheet_menu.addSeparator()
-        for idx, sheet in enumerate(self._project.sheets): # pylint: disable=unused-variable
+        for idx, sheet in enumerate(self.project.sheets): # pylint: disable=unused-variable
             action = self.sheet_menu.addAction(
                 QIcon.fromTheme('audio-x-generic'), sheet.name)
             action.triggered.connect(
@@ -174,12 +168,12 @@ class ProjectView(QWidget):
         self.setCurrentSheetView(sheet_view)
 
     def onAddSheet(self):
-        self._project.dispatch_command('/', AddSheet())
+        self.project.dispatch_command('/', AddSheet())
 
     def onDeleteSheet(self):
-        assert len(self._project.sheets) > 1
-        self._project.dispatch_command(
-            '/', DeleteSheet(name=self._project.get_current_sheet().name))
+        assert len(self.project.sheets) > 1
+        self.project.dispatch_command(
+            '/', DeleteSheet(name=self.project.get_current_sheet().name))
 
     def onPlayerStart(self):
         logger.info("Player start")

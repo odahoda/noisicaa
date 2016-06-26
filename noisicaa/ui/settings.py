@@ -20,19 +20,18 @@ from PyQt5.QtWidgets import (
 )
 
 from ..constants import DATA_DIR
+from . import ui_base
 
-class SettingsDialog(QDialog):
-    def __init__(self, parent):
-        super().__init__(parent)
-
-        self._app = parent._app
+class SettingsDialog(ui_base.CommonMixin, QDialog):
+    def __init__(self, app, parent):
+        super().__init__(app=app, parent=parent)
 
         self.setWindowTitle("noisicaä - Settings")
 
         self.tabs = QTabWidget(self)
 
         for cls in (AppearancePage, AudioPage):
-            page = cls(self)
+            page = cls(self.app)
             self.tabs.addTab(page, page.getIcon(), page.title)
 
         close = QPushButton("Close")
@@ -49,16 +48,16 @@ class SettingsDialog(QDialog):
         self.setLayout(layout)
 
         self.setVisible(
-            int(self._app.settings.value(
+            int(self.app.settings.value(
                 'dialog/settings/visible', False)))
         self.restoreGeometry(
-            self._app.settings.value(
+            self.app.settings.value(
                 'dialog/settings/geometry', b''))
         self.tabs.setCurrentIndex(
-            int(self._app.settings.value('dialog/settings/page', 0)))
+            int(self.app.settings.value('dialog/settings/page', 0)))
 
     def storeState(self):
-        s = self._app.settings
+        s = self.app.settings
         s.beginGroup('dialog/settings')
         s.setValue('visible', int(self.isVisible()))
         s.setValue('geometry', self.saveGeometry())
@@ -66,11 +65,9 @@ class SettingsDialog(QDialog):
         s.endGroup()
 
 
-class Page(QWidget):
-    def __init__(self, parent):
-        super().__init__()
-
-        self._app = parent._app
+class Page(ui_base.CommonMixin, QWidget):
+    def __init__(self, app):
+        super().__init__(app=app)
 
         layout = QVBoxLayout()
 
@@ -81,11 +78,11 @@ class Page(QWidget):
 
 
 class AppearancePage(Page):
-    def __init__(self, parent):
+    def __init__(self, app):
         self.title = "Appearance"
         self._qt_styles = sorted(QStyleFactory.keys())
 
-        super().__init__(parent)
+        super().__init__(app)
 
     def getIcon(self):
         path = os.path.join(DATA_DIR, 'icons', 'settings_appearance.png')
@@ -104,10 +101,10 @@ class AppearancePage(Page):
         combo = QComboBox()
         layout.addWidget(combo)
 
-        current = self._app.settings.value(
-            'appearance/qtStyle', self._app.default_style)
+        current = self.app.settings.value(
+            'appearance/qtStyle', self.app.default_style)
         for index, style in enumerate(self._qt_styles):
-            if style.lower() == self._app.default_style.lower():
+            if style.lower() == self.app.default_style.lower():
                 style += " (default)"
             combo.addItem(style)
             if style.lower() == current.lower():
@@ -117,17 +114,15 @@ class AppearancePage(Page):
     def qtStyleChanged(self, index):
         style_name = self._qt_styles[index]
         style = QStyleFactory.create(style_name)
-        self._app.setStyle(style)
+        self.app.setStyle(style)
 
-        self._app.settings.setValue('appearance/qtStyle', style_name)
-
+        self.app.settings.setValue('appearance/qtStyle', style_name)
 
 
 class AudioPage(Page):
-    def __init__(self, parent=None):
+    def __init__(self, app):
         self.title = "Audio"
-        super().__init__(parent)
-
+        super().__init__(app)
 
     def getIcon(self):
         path = os.path.join(DATA_DIR, 'icons', 'settings_audio.png')

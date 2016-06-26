@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import (
 from .dock_widget import DockWidget
 from noisicaa.music import UpdateTrackProperties, AddTrack, RemoveTrack, MoveTrack
 from ..constants import DATA_DIR
-
+from . import ui_base
 
 logger = logging.getLogger(__name__)
 
@@ -210,8 +210,9 @@ class TrackList(QListView):
 
 
 class TracksDockWidget(DockWidget):
-    def __init__(self, window):
+    def __init__(self, app, window):
         super().__init__(
+            app=app,
             parent=window,
             identifier='tracks',
             title="Tracks",

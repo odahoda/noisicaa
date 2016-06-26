@@ -51,13 +51,15 @@ from .tracks_dock import TracksDockWidget
 from .track_properties_dock import TrackPropertiesDockWidget
 from ..importers.abc import ABCImporter, ImporterError
 from .load_history import LoadHistoryWidget
+from . import ui_base
 
 logger = logging.getLogger(__name__)
 
 
 class CommandShellDockWidget(DockWidget):
-    def __init__(self, parent):
+    def __init__(self, app, parent):
         super().__init__(
+            app=app,
             parent=parent,
             identifier='command_shell',
             title="Command Shell",
@@ -68,7 +70,7 @@ class CommandShellDockWidget(DockWidget):
         self.setWidget(command_shell)
 
 
-class EditorWindow(QMainWindow):
+class EditorWindow(ui_base.CommonMixin, QMainWindow):
     # Could not figure out how to define a signal that takes either an instance
     # of a specific class or None.
     currentProjectChanged = pyqtSignal(object)
@@ -76,12 +78,10 @@ class EditorWindow(QMainWindow):
     currentTrackChanged = pyqtSignal(object)
 
     def __init__(self, app):
-        super().__init__()
-
-        self._app = app
+        super().__init__(app=app)
 
         self._docks = []
-        self._settings_dialog = SettingsDialog(self)
+        self._settings_dialog = SettingsDialog(self.app, self)
 
         # self._instrument_library_dialog = InstrumentLibraryDialog(
         #     self, self._app, self._app.instrument_library)
@@ -114,9 +114,9 @@ class EditorWindow(QMainWindow):
         self.setCentralWidget(self._main_area)
 
         self.restoreGeometry(
-            self._app.settings.value('mainwindow/geometry', b''))
+            self.app.settings.value('mainwindow/geometry', b''))
         self.restoreState(
-            self._app.settings.value('mainwindow/state', b''))
+            self.app.settings.value('mainwindow/state', b''))
 
     def createStartView(self):
         view = QWidget(self)
@@ -196,10 +196,6 @@ class EditorWindow(QMainWindow):
             "Dump Project", self,
             triggered=self.dumpProject)
 
-        self._dump_pipeline_action = QAction(
-            "Dump Player Pipeline", self,
-            triggered=self.dumpPipeline)
-
         self._about_action = QAction(
             "About", self,
             statusTip="Show the application's About box",
@@ -208,7 +204,7 @@ class EditorWindow(QMainWindow):
         self._aboutqt_action = QAction(
             "About Qt", self,
             statusTip="Show the Qt library's About box",
-            triggered=self._app.aboutQt)
+            triggered=self.app.aboutQt)
 
         self._open_settings_action = QAction(
             "Settings", self,
@@ -263,15 +259,14 @@ class EditorWindow(QMainWindow):
 
         self._view_menu = menu_bar.addMenu("View")
 
-        if self._app.runtime_settings.dev_mode:
+        if self.app.runtime_settings.dev_mode:
             menu_bar.addSeparator()
             self._dev_menu = menu_bar.addMenu("Dev")
             self._dev_menu.addAction(self._dump_project_action)
-            self._dev_menu.addAction(self._dump_pipeline_action)
             self._dev_menu.addAction(self._restart_action)
             self._dev_menu.addAction(self._restart_clean_action)
             self._dev_menu.addAction(self._crash_action)
-            self._dev_menu.addAction(self._app.show_edit_areas_action)
+            self._dev_menu.addAction(self.app.show_edit_areas_action)
 
         menu_bar.addSeparator()
 
@@ -298,21 +293,21 @@ class EditorWindow(QMainWindow):
         self.setStatusBar(self.statusbar)
 
     def createDockWidgets(self):
-        self.tools_dock = ToolsDockWidget(self)
+        self.tools_dock = ToolsDockWidget(self.app, self)
         self._docks.append(self.tools_dock)
 
-        self._tracks_dock = TracksDockWidget(self)
+        self._tracks_dock = TracksDockWidget(self.app, self)
         self._docks.append(self._tracks_dock)
 
-        self._track_properties_dock = TrackPropertiesDockWidget(self)
+        self._track_properties_dock = TrackPropertiesDockWidget(self.app, self)
         self._docks.append(self._track_properties_dock)
 
-        self._docks.append(CommandShellDockWidget(self))
+        self._docks.append(CommandShellDockWidget(self.app, self))
 
     def storeState(self):
         logger.info("Saving current EditorWindow geometry.")
-        self._app.settings.setValue('mainwindow/geometry', self.saveGeometry())
-        self._app.settings.setValue('mainwindow/state', self.saveState())
+        self.app.settings.setValue('mainwindow/geometry', self.saveGeometry())
+        self.app.settings.setValue('mainwindow/state', self.saveState())
 
         self._settings_dialog.storeState()
 
@@ -339,9 +334,6 @@ class EditorWindow(QMainWindow):
             project = self.getCurrentProject()
             logger.info('Project dump:\n%s', pprint.pformat(project.serialize()))
 
-    def dumpPipeline(self):
-        self._app.pipeline.dump()
-
     def restart(self):
         raise RestartAppException("Restart requested by user.")
 
@@ -349,21 +341,21 @@ class EditorWindow(QMainWindow):
         raise RestartAppCleanException("Clean restart requested by user.")
 
     def quit(self):
-        self._app.quit()
+        self.app.quit()
 
     def openSettings(self):
         self._settings_dialog.show()
         self._settings_dialog.activateWindow()
 
     def openInstrumentLibrary(self):
-        self._app.instrument_library.dispatch_command(
+        self.app.instrument_library.dispatch_command(
             '/ui_state',
             UpdateUIState(visible=True))
 
     def closeEvent(self, event):
         logger.info("CloseEvent received")
         event.ignore()
-        self._app.quit()
+        self.app.quit()
         return
 
         for idx in range(self._project_tabs.count()):
@@ -375,7 +367,7 @@ class EditorWindow(QMainWindow):
             self._project_tabs.removeTab(idx)
 
         event.accept()
-        self._app.quit()
+        self.app.quit()
 
     def closeAll(self):
         while self._project_tabs.count() > 0:
@@ -407,7 +399,7 @@ class EditorWindow(QMainWindow):
             self.currentSheetChanged.emit(None)
 
     def addProjectView(self, project):
-        view = ProjectView(self._app, self, project)
+        view = ProjectView(**self.context, project_connection=project)
         view.setCurrentTool(self.tools_dock.currentTool())
         self.tools_dock.toolChanged.connect(view.setCurrentTool)
 
@@ -437,7 +429,7 @@ class EditorWindow(QMainWindow):
         view = self._project_tabs.currentWidget()
         closed = view.close()
         if closed:
-            self._app.removeProject(view.project)
+            self.app.removeProject(view.project)
 
     def onCurrentProjectTabChanged(self, idx):
         project_view = self._project_tabs.widget(idx)
@@ -447,7 +439,7 @@ class EditorWindow(QMainWindow):
         view = self._project_tabs.widget(idx)
         closed = view.close()
         if closed:
-            self._app.removeProject(view.project)
+            self.app.removeProject(view.project)
 
     def getCurrentProject(self):
         view = self._project_tabs.currentWidget()
@@ -466,8 +458,8 @@ class EditorWindow(QMainWindow):
         if not path:
             return
 
-        task = self._app.process.event_loop.create_task(
-            self.call_with_exc(self._app.createProject(path)))
+        task = self.app.process.event_loop.create_task(
+            self.call_with_exc(self.app.createProject(path)))
 
     def onOpenProject(self):
         path, open_filter = QFileDialog.getOpenFileName(
@@ -482,8 +474,8 @@ class EditorWindow(QMainWindow):
         if not path:
             return
 
-        self._app.process.event_loop.create_task(
-            self.call_with_exc(self._app.openProject(path)))
+        self.app.process.event_loop.create_task(
+            self.call_with_exc(self.app.openProject(path)))
 
     async def call_with_exc(self, coroutine):
         try:
