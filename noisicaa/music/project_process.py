@@ -195,10 +195,10 @@ class ProjectProcessMixin(object):
         cmd_cls = core.Command.get_subclass(command)
         cmd = cmd_cls(**kwargs)
         result = self.project.dispatch_command(target, cmd)
-        pending_mutations = self.pending_mutations[:]
+        mutations = self.pending_mutations[:]
         self.pending_mutations.clear()
 
-        for mutation in self.pending_mutations:
+        for mutation in mutations:
             await self.publish_mutation(mutation)
         return result
 
