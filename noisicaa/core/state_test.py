@@ -4,6 +4,7 @@ import unittest
 import json
 
 from . import state
+from . import model_base
 from .callbacks import CallbackRegistry
 
 
@@ -88,7 +89,7 @@ class PropertyTest(unittest.TestCase):
 
 class StateBaseTest(unittest.TestCase):
     def testMeta(self):
-        self.assertIs(type(state.StateBase), state.StateMeta)
+        self.assertIs(type(state.StateBase), model_base.ObjectMeta)
 
 
 # class RootNode(state.RootObject):

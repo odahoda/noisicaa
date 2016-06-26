@@ -25,6 +25,7 @@ from .track import Track
 from .score_track import ScoreTrack, Note
 from .sheet_property_track import SheetPropertyTrack
 from .time import Duration
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -274,11 +275,7 @@ class RemoveMeasure(core.Command):
 core.Command.register_subclass(RemoveMeasure)
 
 
-class Sheet(core.StateBase):
-    name = core.Property(str, default="Sheet")
-    tracks = core.ObjectListProperty(Track)
-    property_track = core.ObjectProperty(SheetPropertyTrack)
-
+class Sheet(model.Sheet, core.StateBase):
     def __init__(self, name=None, num_tracks=1, state=None):
         super().__init__(state)
         if state is None:
@@ -338,11 +335,8 @@ class Sheet(core.StateBase):
                 track.append_measure()
 
 
-class Metadata(core.StateBase):
-    author = core.Property(str, allow_none=True)
-    license = core.Property(str, allow_none=True)
-    copyright = core.Property(str, allow_none=True)
-    created = core.Property(int, allow_none=True)
+class Metadata(model.Metadata, core.StateBase):
+    pass
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -384,11 +378,7 @@ class JSONDecoder(json.JSONDecoder):
         return obj
 
 
-class BaseProject(core.RootObject):
-    sheets = core.ObjectListProperty(cls=Sheet)
-    current_sheet = core.Property(int, default=0)
-    metadata = core.ObjectProperty(cls=Metadata)
-
+class BaseProject(model.Project, core.RootObject):
     def __init__(self, num_sheets=1, state=None):
         self._mutation_callback = None
 

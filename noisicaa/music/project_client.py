@@ -7,6 +7,7 @@ from noisicaa import core
 from noisicaa.core import ipc
 
 from . import mutations
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -59,86 +60,57 @@ class ObjectList(object):
         self._instance.listeners.call(self._prop_name, 'clear')
 
 
-class ObjectProxy(object):
-    def __init__(self, obj_id, cls):
-        self.id = obj_id
-        self.cls = cls
-        self.attrs = {}
-        self.parent = None
-        self.is_root = False
+class ObjectProxy(core.ObjectBase):
+    def __init__(self, obj_id):
+        super().__init__()
+        self.state['id'] = obj_id
         self.listeners = core.CallbackRegistry()
-        self.__parent_container = None
-        self.__index = None
 
-    @property
-    def root(self):
-        if self.parent is None:
-            if self.is_root:
-                return self
-            raise ObjectNotAttachedError
-        return self.parent.root
+    def property_changed(self, change):
+        if isinstance(change, core.PropertyValueChange):
+            self.listeners.call(
+                change.prop_name, change.old_value, change.new_value)
 
-    def attach(self, parent):
-        assert self.parent is None
-        self.parent = parent
+        elif isinstance(change, core.PropertyListInsert):
+            self.listeners.call(
+                change.prop_name, 'insert',
+                change.index, change.new_value)
 
-    def detach(self):
-        assert self.parent is not None
-        self.parent = None
+        elif isinstance(change, core.PropertyListDelete):
+            self.listeners.call(
+                change.prop_name, 'delete', change.index)
 
-    def __getattr__(self, name):
-        try:
-            return self.attrs[name]
-        except KeyError:
-            raise AttributeError("%s has no property %s" % (self.cls, name)) from None
+        elif isinstance(change, core.PropertyListClear):
+            self.listeners.call(change.prop_name, 'clear')
 
-    def set_attribute(self, name, value):
-        # TODO: fire off listeners
-        self.attrs[name] = value
+        else:
+            raise TypeError("Unsupported change type %s" % type(change))
 
-    def set_parent_container(self, prop):
-        self.__parent_container = prop
 
-    def clear_parent_container(self):
-        self.__parent_container = None
-        self.__index = None
 
-    def set_index(self, index):
-        if self.__parent_container is None:
-            raise ObjectNotAttachedError
-        self.__index = index
+class Measure(model.Measure, ObjectProxy): pass
+class Track(model.Track, ObjectProxy): pass
+class Note(model.Note, ObjectProxy): pass
+class ScoreMeasure(model.ScoreMeasure, ObjectProxy): pass
+class ScoreTrack(model.ScoreTrack, ObjectProxy): pass
+class SheetPropertyMeasure(model.SheetPropertyMeasure, ObjectProxy): pass
+class SheetPropertyTrack(model.SheetPropertyTrack, ObjectProxy): pass
+class Sheet(model.Sheet, ObjectProxy): pass
+class Metadata(model.Metadata, ObjectProxy): pass
+class Project(model.Project, ObjectProxy): pass
 
-    @property
-    def index(self):
-        if self.__parent_container is None:
-            raise ObjectNotAttachedError
-        assert self.__index is not None
-        return self.__index
-
-    @property
-    def is_first(self):
-        if self.__index is None:
-            raise NotListMemberError
-        return self.__index == 0
-
-    @property
-    def is_last(self):
-        if self.__index is None:
-            raise NotListMemberError
-        return self.__index == len(self.__parent_container) - 1
-
-    @property
-    def prev_sibling(self):
-        if self.is_first:
-            raise IndexError("First list member has no previous sibling.")
-        return self.__parent_container[self.index - 1]
-
-    @property
-    def next_sibling(self):
-        if self.is_last:
-            raise IndexError("Last list member has no next sibling.")
-        return self.__parent_container[self.index + 1]
-
+cls_map = {
+    'Measure': Measure,
+    'Track': Track,
+    'Note': Note,
+    'ScoreMeasure': ScoreMeasure,
+    'ScoreTrack': ScoreTrack,
+    'SheetPropertyMeasure': SheetPropertyMeasure,
+    'SheetPropertyTrack': SheetPropertyTrack,
+    'Sheet': Sheet,
+    'Metadata': Metadata,
+    'Project': Project,
+    }
 
 class ProjectClientBase(object):
     def __init__(self, event_loop):
@@ -196,32 +168,26 @@ class ProjectClientMixin(object):
     def apply_properties(self, obj, properties):
         for prop_name, prop_type, value in properties:
             if prop_type == 'scalar':
-                old = getattr(obj, prop_name, None)
-                obj.set_attribute(prop_name, value)
-                obj.listeners.call(prop_name, old, value)
+                setattr(obj, prop_name, value)
+
             elif prop_type == 'list':
-                obj.set_attribute(prop_name, value)
+                lst = getattr(obj, prop_name)
+                lst.clear()
+                lst.extend(value)
+
             elif prop_type == 'obj':
-                old = getattr(obj, prop_name, None)
-                if old is not None:
-                    old.detach(obj)
-                    # TODO: delete tree under old
                 child = None
                 if value is not None:
                     child = self._object_map[value]
-                    child.attach(obj)
-                obj.set_attribute(prop_name, child)
-                obj.listeners.call(prop_name, old, child)
+                setattr(obj, prop_name, child)
 
             elif prop_type == 'objlist':
-                l = getattr(obj, prop_name, None)
-                if l is None:
-                    l = ObjectList(prop_name, obj)
-                    obj.set_attribute(prop_name, l)
-                l.clear()
+                lst = getattr(obj, prop_name)
+                lst.clear()
                 for child_id in value:
                     child = self._object_map[child_id]
-                    l.append(child)
+                    lst.append(child)
+
             else:
                 raise ValueError(
                     "Property type %s not supported." % prop_type)
@@ -234,7 +200,8 @@ class ProjectClientMixin(object):
                 self.apply_properties(obj, mutation.properties)
 
             elif isinstance(mutation, mutations.AddObject):
-                obj = ObjectProxy(mutation.id, mutation.cls)
+                cls = cls_map[mutation.cls]
+                obj = cls(mutation.id)
                 self.apply_properties(obj, mutation.properties)
                 self._object_map[mutation.id] = obj
 

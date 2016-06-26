@@ -7,6 +7,7 @@ import logging
 from noisicaa import core
 from ..ui_state import UIState
 from .soundfont import SoundFont
+from . import model
 
 
 # TODO:
@@ -21,10 +22,7 @@ class Error(Exception):
     pass
 
 
-class Instrument(core.StateBase):
-    name = core.Property(str)
-    collection = core.ObjectReferenceProperty(allow_none=True)
-
+class Instrument(model.Instrument, core.StateBase):
     def __init__(self, name=None, collection=None, state=None):
         super().__init__(state)
         if state is None:
@@ -50,11 +48,7 @@ class Instrument(core.StateBase):
         return instr
 
 
-class SoundFontInstrument(Instrument):
-    path = core.Property(str)
-    bank = core.Property(int)
-    preset = core.Property(int)
-
+class SoundFontInstrument(model.SoundFontInstrument, Instrument):
     def __init__(self, name=None, collection=None, path=None, bank=None, preset=None, state=None):
         super().__init__(name=name, collection=collection, state=state)
         if state is None:
@@ -83,9 +77,7 @@ class SoundFontInstrument(Instrument):
 Instrument.register_subclass(SoundFontInstrument)
 
 
-class SampleInstrument(Instrument):
-    path = core.Property(str)
-
+class SampleInstrument(model.SampleInstrument, Instrument):
     def __init__(self, name=None, path=None, state=None):
         super().__init__(name=name, state=state)
         if state is None:
@@ -133,7 +125,6 @@ Collection.register_subclass(SoundFontCollection)
 
 class InstrumentLibrary(core.StateBase):
     ui_state = core.ObjectProperty(UIState)
-
     instruments = core.ObjectListProperty(Instrument)
     collections = core.ObjectListProperty(Collection)
 

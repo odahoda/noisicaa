@@ -373,30 +373,6 @@ class ScoreMeasureLayout(MeasureLayout):
     pass
 
 
-# TODO: remove those if client side objects have those properties
-def note_is_rest(note):
-        return len(note.pitches) == 1 and note.pitches[0].is_rest
-
-def note_max_allowed_dots(note):
-    if note.base_duration <= Duration(1, 32):
-        return 0
-    if note.base_duration <= Duration(1, 16):
-        return 1
-    if note.base_duration <= Duration(1, 8):
-        return 2
-    return 3
-
-def note_duration(note):
-    duration = note.base_duration
-    for _ in range(note.dots):
-        duration *= fractions.Fraction(3, 2)
-    if note.tuplet == 3:
-        duration *= fractions.Fraction(2, 3)
-    elif note.tuplet == 5:
-        duration *= fractions.Fraction(4, 5)
-    return Duration(duration)
-
-
 class ScoreMeasureItem(MeasureItem):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -453,7 +429,7 @@ class ScoreMeasureItem(MeasureItem):
 
             notes_width = 0
             for note in self._measure.notes:
-                notes_width += int(400 * note_duration(note))
+                notes_width += int(400 * note.duration)
             width += max(int(400 * self.duration()), notes_width)
 
             width += 10
@@ -582,9 +558,9 @@ class ScoreMeasureItem(MeasureItem):
             x += 20
             note_time = Duration(0)
             for idx, note in enumerate(self._measure.notes):
-                overflow = note_time + note_duration(note) > self.duration()
+                overflow = note_time + note.duration > self.duration()
 
-                if note_is_rest(note):
+                if note.is_rest:
                     sym = {
                         Duration(1, 1): 'rest-whole',
                         Duration(1, 2): 'rest-half',
@@ -715,8 +691,8 @@ class ScoreMeasureItem(MeasureItem):
                     self._edit_areas.append((x1, x2, idx, True))
                     px = x2
 
-                note_time += note_duration(note)
-                x += 400 * note_duration(note)
+                note_time += note.duration
+                x += 400 * note.duration
 
             if px < self._layout.width:
                 self._edit_areas.append(
@@ -733,7 +709,7 @@ class ScoreMeasureItem(MeasureItem):
                     b.setBrush(QColor(100, 100, 255))
 
             if self._measure is not None:
-                d = sum((note_duration(n) for n in self._measure.notes), Duration(0))
+                d = sum((n.duration for n in self._measure.notes), Duration(0))
                 t = QGraphicsSimpleTextItem(layer)
                 t.setText(str(d))
                 t.setPos(0, 85)
@@ -1035,7 +1011,7 @@ class ScoreMeasureItem(MeasureItem):
                         if note.dots > 0:
                             cmd = ('ChangeNote', dict(idx=idx, dots=note.dots - 1))
                     else:
-                        if note.dots < note_max_allowed_dots(note):
+                        if note.dots < note.max_allowed_dots:
                             cmd = ('ChangeNote', dict(idx=idx, dots=note.dots + 1))
 
                 elif tool == Tool.DURATION_TRIPLET:
@@ -1274,7 +1250,7 @@ class SheetView(ui_base.ProjectMixin, QGraphicsView):
         self.window.setInfoMessage(msg)
 
     def createTrackItem(self, track):
-        track_item_cls = track_cls_map[track.cls]
+        track_item_cls = track_cls_map[type(track).__name__]
         return track_item_cls(
             **self.context, sheet_view=self, track=track)
 

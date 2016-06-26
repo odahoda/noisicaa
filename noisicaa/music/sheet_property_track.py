@@ -7,6 +7,7 @@ from noisicaa import core
 from .time_signature import TimeSignature
 from .track import Track, Measure, EventSource
 from .time import Duration
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +49,7 @@ class SetBPM(core.Command):
 core.Command.register_subclass(SetBPM)
 
 
-class SheetPropertyMeasure(Measure):
-    bpm = core.Property(int, default=120)
-    time_signature = core.Property(TimeSignature, default=TimeSignature(4, 4))
-
+class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
     def __init__(self, state=None):
         super().__init__(state)
         if state is None:
@@ -79,7 +77,7 @@ class SheetPropertyEventSource(EventSource):
         yield  # pylint: disable=unreachable
 
 
-class SheetPropertyTrack(Track):
+class SheetPropertyTrack(model.SheetPropertyTrack, Track):
     measure_cls = SheetPropertyMeasure
 
     def __init__(self, name=None, num_measures=1, state=None):

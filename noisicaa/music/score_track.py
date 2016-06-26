@@ -12,6 +12,7 @@ from .clef import Clef
 from .key_signature import KeySignature
 from .track import Track, Measure, EventSource
 from .time import Duration
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -194,12 +195,7 @@ class SetAccidental(core.Command):
 core.Command.register_subclass(SetAccidental)
 
 
-class Note(core.StateBase):
-    pitches = core.ListProperty(Pitch)
-    base_duration = core.Property(Duration)
-    dots = core.Property(int, default=0)
-    tuplet = core.Property(int, default=0)
-
+class Note(model.Note, core.StateBase):
     def __init__(self,
                  pitches=None, base_duration=None, dots=0, tuplet=0,
                  state=None):
@@ -234,37 +230,8 @@ class Note(core.StateBase):
 
         return n
 
-    @property
-    def is_rest(self):
-        return len(self.pitches) == 1 and self.pitches[0].is_rest
 
-    @property
-    def max_allowed_dots(self):
-        if self.base_duration <= Duration(1, 32):
-            return 0
-        if self.base_duration <= Duration(1, 16):
-            return 1
-        if self.base_duration <= Duration(1, 8):
-            return 2
-        return 3
-
-    @property
-    def duration(self):
-        duration = self.base_duration
-        for _ in range(self.dots):
-            duration *= fractions.Fraction(3, 2)
-        if self.tuplet == 3:
-            duration *= fractions.Fraction(2, 3)
-        elif self.tuplet == 5:
-            duration *= fractions.Fraction(4, 5)
-        return Duration(duration)
-
-
-class ScoreMeasure(Measure):
-    clef = core.Property(Clef, default=Clef.Treble)
-    key_signature = core.Property(KeySignature, default=KeySignature('C major'))
-    notes = core.ObjectListProperty(cls=Note)
-
+class ScoreMeasure(model.ScoreMeasure, Measure):
     def __init__(self, state=None):
         super().__init__(state=state)
         if state is None:
@@ -333,9 +300,8 @@ class ScoreEventSource(EventSource):
                     self._current_measure = 0
 
 
-class ScoreTrack(Track):
+class ScoreTrack(model.ScoreTrack, Track):
     measure_cls = ScoreMeasure
-    transpose_octaves = core.Property(int, default=0)
 
     def __init__(self, name=None, instrument=None, num_measures=1, state=None):
         super().__init__(name=name, instrument=instrument, state=state)

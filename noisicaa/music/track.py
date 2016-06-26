@@ -11,7 +11,7 @@ from noisicaa.audioproc.source.fluidsynth import FluidSynthSource
 from noisicaa.instr.library import Instrument
 
 from .time import Duration
-
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class SetInstrument(core.Command):
 core.Command.register_subclass(SetInstrument)
 
 
-class Measure(core.StateBase):
+class Measure(model.Measure, core.StateBase):
     def __init__(self, state=None):
         super().__init__(state)
 
@@ -110,17 +110,8 @@ class EventSource(object):
         raise NotImplementedError
 
 
-class Track(core.StateBase):
+class Track(model.Track, core.StateBase):
     measure_cls = None
-
-    name = core.Property(str)
-    instrument = core.ObjectProperty(cls=Instrument)
-    measures = core.ObjectListProperty(cls=Measure)
-
-    visible = core.Property(bool, default=True)
-    muted = core.Property(bool, default=False)
-    volume = core.Property(float, default=100.0)
-    transpose_octaves = core.Property(int, default=0)
 
     def __init__(self, name=None, instrument=None, state=None):
         super().__init__(state)
