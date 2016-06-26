@@ -173,16 +173,16 @@ class MeasureItemImpl(QGraphicsItem):
         event.accept()
 
     def onInsertMeasure(self):
-        self.call_async(self.project_client.send_command(
+        self.send_command_async(
             self._sheet_view.sheet.id, 'InsertMeasure',
             tracks=[self._measure.track.index],
-            pos=self._measure.index))
+            pos=self._measure.index)
 
     def onRemoveMeasure(self):
-        self.call_async(self.project_client.send_command(
+        self.send_command_async(
             self._sheet_view.sheet.id, 'RemoveMeasure',
             tracks=[self._measure.track.index],
-            pos=self._measure.index))
+            pos=self._measure.index)
 
 
 class TrackItemImpl(object):
@@ -311,9 +311,9 @@ class TrackItemImpl(object):
         menu.addAction(remove_track_action)
 
     def onRemoveTrack(self):
-        self.call_async(self.project_client.send_command(
+        self.send_command_async(
             self._track.parent.id, 'RemoveTrack',
-            track=self._track.index))
+            track=self._track.index)
 
     def onTrackInstrument(self):
         if self._instrument_selector is None:
@@ -329,12 +329,12 @@ class TrackItemImpl(object):
 
     def onSelectInstrument(self, instr):
         if instr is None:
-            self.call_async(self.project_client.send_command(
-                self._track.id, 'ClearInstrument'))
+            self.send_command_async(
+                self._track.id, 'ClearInstrument')
         else:
-            self.call_async(self.project_client.send_command(
+            self.send_command_async(
                 self._track.id, 'SetInstrument',
-                instr=instr.to_json()))
+                instr=instr.to_json())
 
     def onTrackProperties(self):
         dialog = QDialog()
@@ -360,9 +360,9 @@ class TrackItemImpl(object):
 
         ret = dialog.exec_()
 
-        self.call_async(self.project_client.send_command(
+        self.send_command_async(
             self._track.id, 'UpdateTrackProperties',
-            name=name.text()))
+            name=name.text())
 
 
 class ScoreMeasureLayout(MeasureLayout):
@@ -769,18 +769,18 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                 triggered=lambda _, upper=upper, lower=lower: self.onSetTimeSignature(upper, lower)))
 
     def onSetClef(self, clef):
-        self.call_async(self.project_client.send_command(
-            self._measure.id, 'SetClef', clef=clef.value))
+        self.send_command_async(
+            self._measure.id, 'SetClef', clef=clef.value)
 
     def onSetKeySignature(self, key_signature):
-        self.call_async(self.project_client.send_command(
+        self.send_command_async(
             self._measure.id, 'SetKeySignature',
-            key_signature=key_signature))
+            key_signature=key_signature)
 
     def onSetTimeSignature(self, upper, lower):
-        self.call_async(self.project_client.send_command(
+        self.send_command_async(
             self._sheet_view.sheet.property_track.measures[self._measure.index].id,
-            'SetTimeSignature', upper=upper, lower=lower))
+            'SetTimeSignature', upper=upper, lower=lower)
         self.recomputeLayout()
 
     def onPlaybackTag(self, event, idx):
@@ -917,9 +917,9 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
 
     def mousePressEvent(self, event):
         if self._measure is None:
-            self.call_async(self.project_client.send_command(
+            self.send_command_async(
                 self._sheet_view.sheet.id,
-                'InsertMeasure', tracks=[], pos=-1))
+                'InsertMeasure', tracks=[], pos=-1)
             event.accept()
             return
 
@@ -964,8 +964,8 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                         cmd = ('InsertNote', dict(
                             idx=idx, pitch=pitch, duration=duration))
                 if cmd is not None:
-                    self.call_async(self.project_client.send_command(
-                        self._measure.id, cmd[0], **cmd[1]))
+                    self.send_command_async(
+                        self._measure.id, cmd[0], **cmd[1])
                     event.accept()
                     return
 
@@ -984,10 +984,10 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                 for pitch_idx, p in enumerate(self._measure.notes[idx].pitches):
                     if accidental in p.valid_accidentals:
                         if p.stave_line == stave_line:
-                            self.call_async(self.project_client.send_command(
+                            self.send_command_async(
                                 self._measure.id, 'SetAccidental',
                                 idx=idx, accidental=accidental,
-                                pitch_idx=pitch_idx))
+                                pitch_idx=pitch_idx)
                             event.accept()
                             return
 
@@ -1024,8 +1024,8 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                             cmd = ('ChangeNote', dict(idx=idx, tuplet=5))
 
                 if cmd is not None:
-                    self.call_async(self.project_client.send_command(
-                        self._measure.id, cmd[0], **cmd[1]))
+                    self.send_command_async(
+                        self._measure.id, cmd[0], **cmd[1])
                     event.accept()
                     return
 
@@ -1125,9 +1125,9 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
 
     def mousePressEvent(self, event):
         if self._measure is None:
-            self.call_async(self.project_client.send_command(
+            self.send_command_async(
                 self._sheet_view.sheet.id,
-                'InsertMeasure', tracks=[], pos=-1))
+                'InsertMeasure', tracks=[], pos=-1)
             event.accept()
             return
 
@@ -1145,8 +1145,8 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
         super().buildContextMenu(menu)
 
     def onBPMEdited(self, value):
-        self.call_async(self.project_client.send_command(
-            self._measure.id, 'SetBPM', bpm=value))
+        self.send_command_async(
+            self._measure.id, 'SetBPM', bpm=value)
         self.bpm.setText('%d bpm' % value)
 
     def onBPMClose(self):
@@ -1230,9 +1230,6 @@ class SheetViewImpl(QGraphicsView):
         self._scene.mouseHovers.connect(self.onMouseHovers)
         self.setScene(self._scene)
 
-        self._inhibit_updates = 0
-        self._update_needed = False
-
         self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         #self.setDragMode(QGraphicsView.ScrollHandDrag)
 
@@ -1252,8 +1249,9 @@ class SheetViewImpl(QGraphicsView):
         self._tracks_listener = self._sheet.listeners.add(
             'tracks', self.onTracksChanged)
 
-    def get_time_signature(self, measure_idx):
-        return self._sheet.property_track.measures[measure_idx].time_signature
+    @property
+    def trackItems(self):
+        return list(self._tracks)
 
     def setInfoMessage(self, msg):
         self.window.setInfoMessage(msg)
@@ -1301,87 +1299,88 @@ class SheetViewImpl(QGraphicsView):
         if tool_id == self._current_tool:
             return
 
+        tool = Tool(tool_id)
+        assert tool_id >= 0
+
         self._previous_tool = self._current_tool
-        self._current_tool = Tool(tool_id)
+        self._current_tool = tool
 
         for child in self._cursor.childItems():
             child.setParentItem(None)
             if child.scene() is not None:
                 self._scene.removeItem(child)
 
-        if tool_id > 0:
-            if tool_id.is_note:
-                cursor = QGraphicsGroup(self._cursor)
+        if tool_id.is_note:
+            cursor = QGraphicsGroup(self._cursor)
 
-                if tool_id <= Tool.NOTE_HALF:
-                    body = SymbolItem('note-head-void', cursor)
-                else:
-                    body = SymbolItem('note-head-black', cursor)
+            if tool_id <= Tool.NOTE_HALF:
+                body = SymbolItem('note-head-void', cursor)
+            else:
+                body = SymbolItem('note-head-black', cursor)
 
-                if tool_id >= Tool.NOTE_HALF:
-                    arm = QGraphicsRectItem(cursor)
-                    arm.setRect(8, -63, 3, 60)
-                    arm.setBrush(Qt.black)
-                    arm.setPen(QPen(Qt.NoPen))
+            if tool_id >= Tool.NOTE_HALF:
+                arm = QGraphicsRectItem(cursor)
+                arm.setRect(8, -63, 3, 60)
+                arm.setBrush(Qt.black)
+                arm.setPen(QPen(Qt.NoPen))
 
-                if tool_id >= Tool.NOTE_8TH:
-                    for n in range(tool_id - Tool.NOTE_QUARTER):
-                        flag = SymbolItem('note-flag-down', cursor)
-                        flag.setPos(11, -63 + 12 * n)
+            if tool_id >= Tool.NOTE_8TH:
+                for n in range(tool_id - Tool.NOTE_QUARTER):
+                    flag = SymbolItem('note-flag-down', cursor)
+                    flag.setPos(11, -63 + 12 * n)
 
-                cursor.setScale(0.8)
+            cursor.setScale(0.8)
 
-            elif tool_id.is_rest:
-                sym = {
-                    Tool.REST_WHOLE: 'rest-whole',
-                    Tool.REST_HALF: 'rest-half',
-                    Tool.REST_QUARTER: 'rest-quarter',
-                    Tool.REST_8TH: 'rest-8th',
-                    Tool.REST_16TH: 'rest-16th',
-                    Tool.REST_32TH: 'rest-32th',
-                }[tool_id]
-                cursor = SymbolItem(sym, self._cursor)
-                cursor.setScale(0.8)
+        elif tool_id.is_rest:
+            sym = {
+                Tool.REST_WHOLE: 'rest-whole',
+                Tool.REST_HALF: 'rest-half',
+                Tool.REST_QUARTER: 'rest-quarter',
+                Tool.REST_8TH: 'rest-8th',
+                Tool.REST_16TH: 'rest-16th',
+                Tool.REST_32TH: 'rest-32th',
+            }[tool_id]
+            cursor = SymbolItem(sym, self._cursor)
+            cursor.setScale(0.8)
 
-            elif tool_id.is_accidental:
-                sym = {
-                    Tool.ACCIDENTAL_NATURAL: 'accidental-natural',
-                    Tool.ACCIDENTAL_SHARP: 'accidental-sharp',
-                    Tool.ACCIDENTAL_FLAT: 'accidental-flat',
-                    Tool.ACCIDENTAL_DOUBLE_SHARP: 'accidental-double-sharp',
-                    Tool.ACCIDENTAL_DOUBLE_FLAT: 'accidental-double-flat',
-                }[tool_id]
-                cursor = SymbolItem(sym, self._cursor)
-                cursor.setScale(0.8)
+        elif tool_id.is_accidental:
+            sym = {
+                Tool.ACCIDENTAL_NATURAL: 'accidental-natural',
+                Tool.ACCIDENTAL_SHARP: 'accidental-sharp',
+                Tool.ACCIDENTAL_FLAT: 'accidental-flat',
+                Tool.ACCIDENTAL_DOUBLE_SHARP: 'accidental-double-sharp',
+                Tool.ACCIDENTAL_DOUBLE_FLAT: 'accidental-double-flat',
+            }[tool_id]
+            cursor = SymbolItem(sym, self._cursor)
+            cursor.setScale(0.8)
 
-            elif tool_id.is_duration:
-                if tool_id == Tool.DURATION_DOT:
-                    body = SymbolItem('note-head-black', self._cursor)
-                    arm = QGraphicsRectItem(self._cursor)
-                    arm.setRect(8, -63, 3, 60)
-                    arm.setBrush(Qt.black)
-                    arm.setPen(QPen(Qt.NoPen))
-                    dot = QGraphicsEllipseItem(self._cursor)
-                    dot.setRect(12, -4, 9, 9)
-                    dot.setBrush(Qt.black)
-                    dot.setPen(QPen(Qt.NoPen))
-
-                else:
-                    sym = {
-                        Tool.DURATION_TRIPLET: 'duration-triplet',
-                        Tool.DURATION_QUINTUPLET: 'duration-quintuplet',
-                    }[tool_id]
-                    SymbolItem(sym, self._cursor)
+        elif tool_id.is_duration:
+            if tool_id == Tool.DURATION_DOT:
+                body = SymbolItem('note-head-black', self._cursor)
+                arm = QGraphicsRectItem(self._cursor)
+                arm.setRect(8, -63, 3, 60)
+                arm.setBrush(Qt.black)
+                arm.setPen(QPen(Qt.NoPen))
+                dot = QGraphicsEllipseItem(self._cursor)
+                dot.setRect(12, -4, 9, 9)
+                dot.setBrush(Qt.black)
+                dot.setPen(QPen(Qt.NoPen))
 
             else:
+                sym = {
+                    Tool.DURATION_TRIPLET: 'duration-triplet',
+                    Tool.DURATION_QUINTUPLET: 'duration-quintuplet',
+                }[tool_id]
+                SymbolItem(sym, self._cursor)
 
-                a = QGraphicsEllipseItem(self._cursor)
-                a.setRect(-5, -5, 11, 11)
-                a.setPen(QPen(Qt.white))
-                a.setBrush(QColor(100, 100, 100))
-                a = QGraphicsSimpleTextItem(self._cursor)
-                a.setText(str(tool_id))
-                a.setPos(10, 10)
+        else:  # pragma: no cover
+            a = QGraphicsEllipseItem(self._cursor)
+            a.setRect(-5, -5, 11, 11)
+            a.setPen(QPen(Qt.white))
+            a.setBrush(QColor(100, 100, 100))
+            a = QGraphicsSimpleTextItem(self._cursor)
+            a.setText(str(tool_id))
+            a.setPos(10, 10)
 
         self.currentToolChanged.emit(self._current_tool)
 
@@ -1426,10 +1425,6 @@ class SheetViewImpl(QGraphicsView):
                 measure_item.setLayout(layout)
 
     def updateSheet(self):
-        if self._inhibit_updates > 0:
-            self._update_needed = True
-            return
-
         for layer_id in (Layer.BG, Layer.MAIN, Layer.DEBUG, Layer.EVENTS):
             self.clearLayer(self._layers[layer_id])
 
@@ -1468,23 +1463,13 @@ class SheetViewImpl(QGraphicsView):
 
             y += track_height + 20
 
-        if self.app.showEditAreas:
+        if self.app.showEditAreas:  # pragma: no cover
             bbox = QGraphicsRectItem(self._layers[Layer.DEBUG])
             bbox.setRect(0, 0, max_x, y)
             bbox.setPen(QColor(200, 200, 200))
             bbox.setBrush(QBrush(Qt.NoBrush))
 
         self.setSceneRect(-10, -10, max_x + 20, y + 20)
-
-        self._update_needed = False
-
-    @contextlib.contextmanager
-    def inhibitUpdates(self):
-        self._inhibit_updates += 1
-        yield
-        self._inhibit_updates -= 1
-        if self._inhibit_updates == 0 and self._update_needed:
-            self.updateSheet()
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
@@ -1519,12 +1504,12 @@ class SheetViewImpl(QGraphicsView):
                 self.removeTrack(0)
             self.updateSheet()
 
-        else:
+        else:  # pragma: no cover
             raise ValueError("Unknown action %r" % action)
 
     def onAddTrack(self, track_type):
-        self.call_async(self.project_client.send_command(
-            self._sheet.id, 'AddTrack', track_type=track_type))
+        self.send_command_async(
+            self._sheet.id, 'AddTrack', track_type=track_type)
 
     def onPlaybackTags(self, tags):
         for tag in tags:
