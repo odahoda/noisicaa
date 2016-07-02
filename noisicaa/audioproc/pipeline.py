@@ -102,14 +102,15 @@ class Pipeline(object):
 
     def mainloop(self):
         try:
-            logger.info("Setting up backend...")
-            self._backend.setup()
-
             logger.info("Starting mainloop...")
             self._started.set()
             timepos = 0
             while not self._stopping.is_set():
                 with self.reader_lock():
+                    if self._backend is None:
+                        time.sleep(0.1)
+                        continue
+
                     t0 = time.time()
                     self._backend.wait()
 
@@ -135,9 +136,6 @@ class Pipeline(object):
             logger.info("Cleaning up nodes...")
             for node in reversed(self.sorted_nodes):
                 node.cleanup()
-
-            logger.info("Cleaning up backend...")
-            self._backend.cleanup()
 
     @property
     def sorted_nodes(self):
@@ -167,7 +165,18 @@ class Pipeline(object):
         self._nodes.remove(node)
 
     def set_backend(self, backend):
-        self._backend = backend
+        with self.writer_lock():
+            if self._backend is not None:
+                logger.info(
+                    "Clean up backend %s", type(self._backend).__name__)
+                self._backend.cleanup()
+                self._backend = None
+
+            if backend is not None:
+                logger.info(
+                    "Set up backend %s", type(backend).__name__)
+                backend.setup()
+                self._backend = backend
 
     @property
     def backend(self):

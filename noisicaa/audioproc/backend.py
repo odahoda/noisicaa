@@ -26,7 +26,7 @@ class AudioSinkNode(Node):
     desc.is_system = True
 
     def __init__(self):
-        super().__init__()
+        super().__init__(id='sink')
 
         self._input = AudioInputPort('in')
         self.add_input(self._input)

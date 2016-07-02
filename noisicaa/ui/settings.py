@@ -4,44 +4,36 @@
 # message "Access to a protected member .. of a client class"
 # pylint: disable=W0212
 
+import functools
 import os.path
 
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (
-    QComboBox,
-    QDialog,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QStyleFactory,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from ..constants import DATA_DIR
 from . import ui_base
 
-class SettingsDialog(ui_base.CommonMixin, QDialog):
+class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     def __init__(self, app, parent):
         super().__init__(app=app, parent=parent)
 
         self.setWindowTitle("noisicaä - Settings")
+        self.resize(600, 300)
 
-        self.tabs = QTabWidget(self)
+        self.tabs = QtWidgets.QTabWidget(self)
 
         for cls in (AppearancePage, AudioPage):
             page = cls(self.app)
             self.tabs.addTab(page, page.getIcon(), page.title)
 
-        close = QPushButton("Close")
+        close = QtWidgets.QPushButton("Close")
         close.clicked.connect(self.close)
 
-        buttons = QHBoxLayout()
+        buttons = QtWidgets.QHBoxLayout()
         buttons.addStretch(1)
         buttons.addWidget(close)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.tabs, 1)
         layout.addLayout(buttons)
 
@@ -65,11 +57,11 @@ class SettingsDialog(ui_base.CommonMixin, QDialog):
         s.endGroup()
 
 
-class Page(ui_base.CommonMixin, QWidget):
+class Page(ui_base.CommonMixin, QtWidgets.QWidget):
     def __init__(self, app):
         super().__init__(app=app)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
 
         self.createOptions(layout)
 
@@ -80,25 +72,25 @@ class Page(ui_base.CommonMixin, QWidget):
 class AppearancePage(Page):
     def __init__(self, app):
         self.title = "Appearance"
-        self._qt_styles = sorted(QStyleFactory.keys())
+        self._qt_styles = sorted(QtWidgets.QStyleFactory.keys())
 
         super().__init__(app)
 
     def getIcon(self):
         path = os.path.join(DATA_DIR, 'icons', 'settings_appearance.png')
-        return QIcon(path)
+        return QtGui.QIcon(path)
 
     def createOptions(self, layout):
         self.createQtStyle(layout)
 
     def createQtStyle(self, parent):
-        layout = QHBoxLayout()
+        layout = QtWidgets.QHBoxLayout()
         parent.addLayout(layout)
 
-        label = QLabel("Qt Style:")
+        label = QtWidgets.QLabel("Qt Style:")
         layout.addWidget(label)
 
-        combo = QComboBox()
+        combo = QtWidgets.QComboBox()
         layout.addWidget(combo)
 
         current = self.app.settings.value(
@@ -113,7 +105,7 @@ class AppearancePage(Page):
 
     def qtStyleChanged(self, index):
         style_name = self._qt_styles[index]
-        style = QStyleFactory.create(style_name)
+        style = QtWidgets.QStyleFactory.create(style_name)
         self.app.setStyle(style)
 
         self.app.settings.setValue('appearance/qtStyle', style_name)
@@ -122,11 +114,57 @@ class AppearancePage(Page):
 class AudioPage(Page):
     def __init__(self, app):
         self.title = "Audio"
+        self._backends = ['pyaudio', 'null']
         super().__init__(app)
 
     def getIcon(self):
         path = os.path.join(DATA_DIR, 'icons', 'settings_audio.png')
-        return QIcon(path)
+        return QtGui.QIcon(path)
 
     def createOptions(self, layout):
-        pass
+        backend_layout = QtWidgets.QHBoxLayout()
+        layout.addLayout(backend_layout)
+
+        label = QtWidgets.QLabel("Backend:")
+        backend_layout.addWidget(label)
+
+        combo = QtWidgets.QComboBox()
+        backend_layout.addWidget(combo, stretch=1)
+
+        current = self.app.settings.value('audio/backend', 'pyaudio')
+        for index, backend in enumerate(self._backends):
+            combo.addItem(backend)
+            if backend == current:
+                combo.setCurrentIndex(index)
+        combo.currentIndexChanged.connect(self.backendChanged)
+
+        layout.addStretch()
+
+        buttons_layout = QtWidgets.QHBoxLayout()
+        layout.addLayout(buttons_layout)
+        buttons_layout.addStretch()
+
+        test_button = QtWidgets.QPushButton("Test")
+        buttons_layout.addWidget(test_button)
+
+        test_button.clicked.connect(self.testBackend)
+
+    def backendChanged(self, index):
+        backend = self._backends[index]
+
+        self.call_async(
+            self.app.audioproc_client.set_backend(backend),
+            callback=functools.partial(
+                self._set_backend_done, backend=backend))
+
+    def _set_backend_done(self, result, backend):
+        self.app.settings.setValue('audio/backend', backend)
+
+    def testBackend(self):
+        self.call_async(self._testBackendAsync())
+
+    async def _testBackendAsync(self):
+        node = await self.app.audioproc_client.add_node(
+            'wavfile', path='/usr/share/sounds/purple/send.wav')
+        await self.app.audioproc_client.connect_ports(
+            node, 'out', 'sink', 'in')

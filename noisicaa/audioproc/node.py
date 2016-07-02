@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 class Node(object):
     desc = None
 
-    def __init__(self, name=None):
-        self.id = uuid.uuid4().hex
+    def __init__(self, name=None, id=None):
+        self.id = id or uuid.uuid4().hex
         self.pipeline = None
         self._name = name or type(self).__name__
         self.inputs = {}

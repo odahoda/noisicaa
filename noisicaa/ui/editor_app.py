@@ -129,6 +129,9 @@ class BaseEditorApp(QApplication):
         await self.audioproc_client.setup()
         await self.audioproc_client.connect(self.audioproc_process)
 
+        await self.audioproc_client.set_backend(
+            self.settings.value('audio/backend', 'pyaudio'))
+
     async def cleanup(self):
         logger.info("Cleaning up.")
 

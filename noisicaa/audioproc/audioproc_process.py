@@ -68,6 +68,10 @@ class Session(object):
 
 
 class AudioProcProcessMixin(object):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.backend = None
+
     async def setup(self):
         await super().setup()
 
@@ -88,6 +92,8 @@ class AudioProcProcessMixin(object):
             'CONNECT_PORTS', self.handle_connect_ports)
         self.server.add_command_handler(
             'DISCONNECT_PORTS', self.handle_disconnect_ports)
+        self.server.add_command_handler(
+            'SET_BACKEND', self.handle_set_backend)
 
         self.node_db = node_db.NodeDB()
         self.node_db.add(scale.Scale)
@@ -99,8 +105,7 @@ class AudioProcProcessMixin(object):
         self.pipeline = pipeline.Pipeline()
         self.pipeline.utilization_callback = self.utilization_callback
 
-        self.backend = backend.NullBackend()
-        self.pipeline.set_backend(self.backend)
+        self.backend = None
 
         self.audiosink = backend.AudioSinkNode()
         self.audiosink.setup()
@@ -222,6 +227,20 @@ class AudioProcProcessMixin(object):
         self.publish_mutation(
             mutations.DisconnectPorts(
                 node1.outputs[port1_name], node2.inputs[port2_name]))
+
+    def handle_set_backend(self, session_id, name, args):
+        self.get_session(session_id)
+
+        if name == 'pyaudio':
+            be = backend.PyAudioBackend(**args)
+        elif name == 'null':
+            be = backend.NullBackend(**args)
+        elif name is None:
+            be = None
+        else:
+            raise ValueError("Invalid backend name %s" % name)
+
+        self.pipeline.set_backend(be)
 
 
 class AudioProcProcess(AudioProcProcessMixin, core.ProcessImpl):

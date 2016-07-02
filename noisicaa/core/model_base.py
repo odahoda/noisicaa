@@ -202,7 +202,6 @@ class ObjectPropertyBase(PropertyBase):
 
 class ObjectProperty(ObjectPropertyBase):
     def __set__(self, instance, value):
-        logger.info("%s.%s=%s", type(instance), self.name, value)
         if value is not None and not isinstance(value, self.cls):
             raise TypeError(
                 "Expected %s, got %s" % (

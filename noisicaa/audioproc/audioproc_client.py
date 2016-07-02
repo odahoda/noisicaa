@@ -63,6 +63,10 @@ class AudioProcClientMixin(object):
             'DISCONNECT_PORTS', self._session_id,
             node1_id, port1_name, node2_id, port2_name)
 
+    async def set_backend(self, name, **args):
+        return await self._stub.call(
+            'SET_BACKEND', self._session_id, name, args)
+
     def handle_pipeline_mutation(self, mutation):
         logger.info("Mutation received: %s" % mutation)
 
