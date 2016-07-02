@@ -18,7 +18,7 @@ class RenderSheetDialogTest(uitest_utils.UITest):
         self.project = music.BaseProject()
         self.sheet = self.project.sheets[0]
 
-    def test_init(self):
+    async def test_init(self):
         dialog = render_sheet_dialog.RenderSheetDialog(None, self.app, self.sheet)
         self.assertTrue(dialog.close())
 
