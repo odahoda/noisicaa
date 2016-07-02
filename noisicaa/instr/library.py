@@ -5,9 +5,10 @@ import os.path
 import logging
 
 from noisicaa import core
-from ..ui_state import UIState
+#from ..ui_state import UIState
 from .soundfont import SoundFont
 from . import model
+from noisicaa.music import state
 
 
 # TODO:
@@ -22,7 +23,7 @@ class Error(Exception):
     pass
 
 
-class Instrument(model.Instrument, core.StateBase):
+class Instrument(model.Instrument, state.StateBase):
     def __init__(self, name=None, collection=None, state=None):
         super().__init__(state)
         if state is None:
@@ -96,7 +97,7 @@ class SampleInstrument(model.SampleInstrument, Instrument):
 Instrument.register_subclass(SampleInstrument)
 
 
-class Collection(core.StateBase):
+class Collection(state.StateBase):
     name = core.Property(str)
 
     def __init__(self, name=None, state=None):
@@ -123,8 +124,8 @@ class SoundFontCollection(Collection):
 Collection.register_subclass(SoundFontCollection)
 
 
-class InstrumentLibrary(core.StateBase):
-    ui_state = core.ObjectProperty(UIState)
+class InstrumentLibrary(state.StateBase):
+    #ui_state = core.ObjectProperty(UIState)
     instruments = core.ObjectListProperty(Instrument)
     collections = core.ObjectListProperty(Collection)
 
@@ -134,8 +135,8 @@ class InstrumentLibrary(core.StateBase):
             for p in glob.glob('/usr/share/sounds/sf2/*.sf2'):
                 self.add_soundfont(p)
 
-        if self.ui_state is None:
-            self.ui_state = UIState()
+        # if self.ui_state is None:
+        #     self.ui_state = UIState()
 
         self.set_root()
 

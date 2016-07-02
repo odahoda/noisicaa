@@ -38,7 +38,7 @@ from PyQt5.QtGui import QKeySequence
 from noisicaa import music
 from ..instr.library import InstrumentLibrary
 from ..exceptions import RestartAppException, RestartAppCleanException
-from ..ui_state import UpdateUIState
+#from ..ui_state import UpdateUIState
 from .command_shell import CommandShell
 from .settings import SettingsDialog
 from .project_view import ProjectView

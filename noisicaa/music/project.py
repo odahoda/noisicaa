@@ -26,11 +26,13 @@ from .score_track import ScoreTrack, Note
 from .sheet_property_track import SheetPropertyTrack
 from .time import Duration
 from . import model
+from . import state
+from . import commands
 
 logger = logging.getLogger(__name__)
 
 
-class AddSheet(core.Command):
+class AddSheet(commands.Command):
     name = core.Property(str, allow_none=True)
 
     def __init__(self, name=None, state=None):
@@ -56,10 +58,10 @@ class AddSheet(core.Command):
         sheet = Sheet(name)
         project.sheets.append(sheet)
 
-core.Command.register_subclass(AddSheet)
+commands.Command.register_subclass(AddSheet)
 
 
-class ClearSheet(core.Command):
+class ClearSheet(commands.Command):
     name = core.Property(str)
 
     def __init__(self, name=None, state=None):
@@ -72,10 +74,10 @@ class ClearSheet(core.Command):
 
         project.get_sheet(self.name).clear()
 
-core.Command.register_subclass(ClearSheet)
+commands.Command.register_subclass(ClearSheet)
 
 
-class DeleteSheet(core.Command):
+class DeleteSheet(commands.Command):
     name = core.Property(str)
 
     def __init__(self, name=None, state=None):
@@ -96,10 +98,10 @@ class DeleteSheet(core.Command):
 
         raise ValueError("No sheet %r" % self.name)
 
-core.Command.register_subclass(DeleteSheet)
+commands.Command.register_subclass(DeleteSheet)
 
 
-class RenameSheet(core.Command):
+class RenameSheet(commands.Command):
     name = core.Property(str)
     new_name = core.Property(str)
 
@@ -121,10 +123,10 @@ class RenameSheet(core.Command):
         sheet = project.get_sheet(self.name)
         sheet.name = self.new_name
 
-core.Command.register_subclass(RenameSheet)
+commands.Command.register_subclass(RenameSheet)
 
 
-class SetCurrentSheet(core.Command):
+class SetCurrentSheet(commands.Command):
     name = core.Property(str)
 
     def __init__(self, name=None, state=None):
@@ -137,10 +139,10 @@ class SetCurrentSheet(core.Command):
 
         project.current_sheet = project.get_sheet_index(self.name)
 
-core.Command.register_subclass(SetCurrentSheet)
+commands.Command.register_subclass(SetCurrentSheet)
 
 
-class AddTrack(core.Command):
+class AddTrack(commands.Command):
     track_type = core.Property(str)
 
     def __init__(self, track_type=None, state=None):
@@ -166,10 +168,10 @@ class AddTrack(core.Command):
 
         return len(sheet.tracks) - 1
 
-core.Command.register_subclass(AddTrack)
+commands.Command.register_subclass(AddTrack)
 
 
-class RemoveTrack(core.Command):
+class RemoveTrack(commands.Command):
     track = core.Property(int)
 
     def __init__(self, track=None, state=None):
@@ -182,10 +184,10 @@ class RemoveTrack(core.Command):
 
         del sheet.tracks[self.track]
 
-core.Command.register_subclass(RemoveTrack)
+commands.Command.register_subclass(RemoveTrack)
 
 
-class MoveTrack(core.Command):
+class MoveTrack(commands.Command):
     track = core.Property(int)
     direction = core.Property(int)
 
@@ -220,10 +222,10 @@ class MoveTrack(core.Command):
 
         return track.index
 
-core.Command.register_subclass(MoveTrack)
+commands.Command.register_subclass(MoveTrack)
 
 
-class InsertMeasure(core.Command):
+class InsertMeasure(commands.Command):
     tracks = core.ListProperty(int)
     pos = core.Property(int)
 
@@ -247,10 +249,10 @@ class InsertMeasure(core.Command):
             else:
                 track.append_measure()
 
-core.Command.register_subclass(InsertMeasure)
+commands.Command.register_subclass(InsertMeasure)
 
 
-class RemoveMeasure(core.Command):
+class RemoveMeasure(commands.Command):
     tracks = core.ListProperty(int)
     pos = core.Property(int)
 
@@ -272,10 +274,10 @@ class RemoveMeasure(core.Command):
                 if self.tracks:
                     track.append_measure()
 
-core.Command.register_subclass(RemoveMeasure)
+commands.Command.register_subclass(RemoveMeasure)
 
 
-class Sheet(model.Sheet, core.StateBase):
+class Sheet(model.Sheet, state.StateBase):
     def __init__(self, name=None, num_tracks=1, state=None):
         super().__init__(state)
         if state is None:
@@ -328,9 +330,13 @@ class Sheet(model.Sheet, core.StateBase):
             while len(track.measures) < max_length:
                 track.append_measure()
 
+state.StateBase.register_class(Sheet)
 
-class Metadata(model.Metadata, core.StateBase):
+
+class Metadata(model.Metadata, state.StateBase):
     pass
+
+state.StateBase.register_class(Metadata)
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -372,7 +378,7 @@ class JSONDecoder(json.JSONDecoder):
         return obj
 
 
-class BaseProject(model.Project, core.RootObject):
+class BaseProject(model.Project, state.RootObject):
     def __init__(self, num_sheets=1, state=None):
         self._mutation_callback = None
 
@@ -663,7 +669,7 @@ class Project(BaseProject):
                         "Unexpected log entry type %s" % entry_type)
                 obj_id = headers['Target']
                 cmd_state = json.loads(serialized, cls=JSONDecoder)
-                cmd = core.Command.create_from_state(cmd_state)
+                cmd = commands.Command.create_from_state(cmd_state)
                 logger.info("Replay command %s on %s", cmd, obj_id)
                 super().dispatch_command(obj_id, cmd)
 

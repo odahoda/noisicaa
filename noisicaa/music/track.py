@@ -12,11 +12,13 @@ from noisicaa.instr.library import Instrument
 
 from .time import Duration
 from . import model
+from . import state
+from . import commands
 
 logger = logging.getLogger(__name__)
 
 
-class UpdateTrackProperties(core.Command):
+class UpdateTrackProperties(commands.Command):
     name = core.Property(str, allow_none=True)
     visible = core.Property(bool, allow_none=True)
     muted = core.Property(bool, allow_none=True)
@@ -51,19 +53,19 @@ class UpdateTrackProperties(core.Command):
         if self.transpose_octaves is not None:
             track.transpose_octaves = self.transpose_octaves
 
-core.Command.register_subclass(UpdateTrackProperties)
+commands.Command.register_subclass(UpdateTrackProperties)
 
 
-class ClearInstrument(core.Command):
+class ClearInstrument(commands.Command):
     def run(self, track):
         assert isinstance(track, Track)
 
         track.instrument = None
 
-core.Command.register_subclass(ClearInstrument)
+commands.Command.register_subclass(ClearInstrument)
 
 
-class SetInstrument(core.Command):
+class SetInstrument(commands.Command):
     instr = core.DictProperty()
 
     def __init__(self, instr=None, state=None):
@@ -76,10 +78,10 @@ class SetInstrument(core.Command):
 
         track.instrument = Instrument.from_json(self.instr)
 
-core.Command.register_subclass(SetInstrument)
+commands.Command.register_subclass(SetInstrument)
 
 
-class Measure(model.Measure, core.StateBase):
+class Measure(model.Measure, state.StateBase):
     def __init__(self, state=None):
         super().__init__(state)
 
@@ -97,7 +99,7 @@ class EventSource(object):
         raise NotImplementedError
 
 
-class Track(model.Track, core.StateBase):
+class Track(model.Track, state.StateBase):
     measure_cls = None
 
     def __init__(self, name=None, instrument=None, state=None):

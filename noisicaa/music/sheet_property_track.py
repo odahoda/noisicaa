@@ -8,11 +8,13 @@ from .time_signature import TimeSignature
 from .track import Track, Measure, EventSource
 from .time import Duration
 from . import model
+from . import commands
+from . import state
 
 logger = logging.getLogger(__name__)
 
 
-class SetTimeSignature(core.Command):
+class SetTimeSignature(commands.Command):
     upper = core.Property(int)
     lower = core.Property(int)
 
@@ -27,10 +29,10 @@ class SetTimeSignature(core.Command):
 
         measure.time_signature = TimeSignature(self.upper, self.lower)
 
-core.Command.register_subclass(SetTimeSignature)
+commands.Command.register_subclass(SetTimeSignature)
 
 
-class SetBPM(core.Command):
+class SetBPM(commands.Command):
     bpm = core.Property(int)
 
     def __init__(self, bpm=None, state=None):
@@ -46,7 +48,7 @@ class SetBPM(core.Command):
 
         measure.bpm = self.bpm
 
-core.Command.register_subclass(SetBPM)
+commands.Command.register_subclass(SetBPM)
 
 
 class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
@@ -65,6 +67,7 @@ class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
             * Duration(self.time_signature.upper, self.time_signature.lower)
             * 4 * 60 // self.bpm)
 
+state.StateBase.register_class(SheetPropertyMeasure)
 Measure.register_subclass(SheetPropertyMeasure)
 
 
@@ -102,4 +105,5 @@ class SheetPropertyTrack(model.SheetPropertyTrack, Track):
     def get_num_samples(self, sample_rate):
         return sum((m.get_num_samples(sample_rate) for m in self.measures), 0)
 
+state.StateBase.register_class(SheetPropertyTrack)
 Track.register_subclass(SheetPropertyTrack)

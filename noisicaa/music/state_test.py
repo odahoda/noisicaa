@@ -4,8 +4,7 @@ import unittest
 import json
 
 from . import state
-from . import model_base
-from .callbacks import CallbackRegistry
+from noisicaa import core
 
 
 class PropertyTest(unittest.TestCase):
@@ -89,7 +88,7 @@ class PropertyTest(unittest.TestCase):
 
 class StateBaseTest(unittest.TestCase):
     def testMeta(self):
-        self.assertIs(type(state.StateBase), model_base.ObjectMeta)
+        self.assertIs(type(state.StateBase), core.ObjectMeta)
 
 
 # class RootNode(state.RootObject):

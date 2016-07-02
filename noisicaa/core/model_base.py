@@ -1,7 +1,5 @@
 #!/usr/bin/python3
 
-#!/usr/bin/python3
-
 import logging
 import uuid
 
@@ -90,9 +88,6 @@ class PropertyBase(object):
     def to_state(self, instance):
         raise NotImplementedError
 
-    def from_state(self, instance, value):
-        raise NotImplementedError
-
 
 class Property(PropertyBase):
     def __init__(self, objtype, allow_none=False, default=None):
@@ -113,9 +108,6 @@ class Property(PropertyBase):
 
     def to_state(self, instance):
         return instance.state.get(self.name, self.default)
-
-    def from_state(self, instance, value):
-        instance.state[self.name] = value
 
 
 class SimpleObjectList(object):
@@ -196,10 +188,6 @@ class ListProperty(PropertyBase):
     def to_state(self, instance):
         return list(instance.state.get(self.name, []))
 
-    def from_state(self, instance, value):
-        instance.state[self.name] = SimpleObjectList(self, instance)
-        instance.state[self.name].extend(value)
-
 
 class DictProperty(PropertyBase):
     def __get__(self, instance, owner):
@@ -215,9 +203,6 @@ class DictProperty(PropertyBase):
     def to_state(self, instance):
         return instance.state.get(self.name, {})
 
-    def from_state(self, instance, value):
-        instance.state[self.name] = value
-
 
 
 class ObjectPropertyBase(PropertyBase):
@@ -226,18 +211,7 @@ class ObjectPropertyBase(PropertyBase):
         assert isinstance(cls, type)
         self.cls = cls
 
-    def create(self, state):
-        cls_name = state['__class__']
-        if cls_name == self.cls.__name__:
-            cls = self.cls
-        else:
-            cls = self.cls.get_subclass(cls_name)
-        return cls(state=state)
-
     def to_state(self, instance):
-        raise NotImplementedError
-
-    def from_state(self, instance, value):
         raise NotImplementedError
 
 
@@ -268,14 +242,6 @@ class ObjectProperty(ObjectPropertyBase):
             return obj.serialize()
         return None
 
-    def from_state(self, instance, value):
-        if value is not None:
-            obj = self.create(value)
-            obj.attach(instance)
-            obj.set_parent_container(self)
-            instance.state[self.name] = obj
-        else:
-            instance.state[self.name] = None
 
 class ObjectList(object):
     def __init__(self, prop, instance):
@@ -342,13 +308,6 @@ class ObjectListProperty(ObjectPropertyBase):
         objs = instance.state.get(self.name, [])
         return [obj.serialize() for obj in objs]
 
-    def from_state(self, instance, value):
-        objs = ObjectList(self, instance)
-        for s in value:
-            obj = self.create(s)
-            objs.append(obj)
-        instance.state[self.name] = objs
-
 
 class ObjectReferenceProperty(PropertyBase):
     def __init__(self, allow_none=False):
@@ -369,13 +328,6 @@ class ObjectReferenceProperty(PropertyBase):
         if obj is not None:
             return 'ref:' + obj.id
         return None
-
-    def from_state(self, instance, value):
-        if value is not None:
-            assert isinstance(value, str) and value.startswith('ref:')
-            instance.state[self.name] = ('unresolved reference', value[4:])
-        else:
-            instance.state[self.name] = None
 
 
 class ObjectMeta(type):

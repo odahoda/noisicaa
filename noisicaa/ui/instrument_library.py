@@ -36,7 +36,7 @@ from ..instr.library import (
     Instrument,
     InstrumentLibrary,
 )
-from ..ui_state import UpdateUIState
+#from ..ui_state import UpdateUIState
 
 
 logger = logging.getLogger(__name__)

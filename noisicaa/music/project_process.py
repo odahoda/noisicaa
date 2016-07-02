@@ -12,6 +12,7 @@ from noisicaa.core import ipc
 
 from . import project
 from . import mutations
+from . import commands
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +193,7 @@ class ProjectProcessMixin(object):
 
         # This block must be atomic, no 'awaits'!
         assert not self.pending_mutations
-        cmd_cls = core.Command.get_subclass(command)
+        cmd_cls = commands.Command.get_subclass(command)
         cmd = cmd_cls(**kwargs)
         result = self.project.dispatch_command(target, cmd)
         mutations = self.pending_mutations[:]

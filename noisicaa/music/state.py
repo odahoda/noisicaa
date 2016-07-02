@@ -3,14 +3,13 @@
 import logging
 import uuid
 
-from . import model_base
-
-# fix imports if properties
-from .model_base import *
+from noisicaa.core import model_base
 
 logger = logging.getLogger(__name__)
 
 class StateBase(model_base.ObjectBase):
+    cls_map = {}
+
     def __init__(self, state=None):
         super().__init__()
 
@@ -18,6 +17,11 @@ class StateBase(model_base.ObjectBase):
             self.deserialize(state)
         else:
             self.id = uuid.uuid4().hex
+
+    @classmethod
+    def register_class(cls, c):
+        assert c.__name__ not in cls.cls_map
+        cls.cls_map[c.__name__] = c
 
     def property_changed(self, change):
         logger.info("%s: %s", self, change)
@@ -33,10 +37,10 @@ class StateBase(model_base.ObjectBase):
 
         elif isinstance(change, model_base.PropertyListChange):
             prop = self.get_property(change.prop_name)
-            if isinstance(prop, ObjectListProperty):
+            if isinstance(prop, model_base.ObjectListProperty):
                 mutation_type = 'update_objlist'
             else:
-                assert isinstance(prop, ListProperty)
+                assert isinstance(prop, model_base.ListProperty)
                 mutation_type = 'update_list'
 
             if isinstance(change, model_base.PropertyListInsert):
@@ -63,12 +67,12 @@ class StateBase(model_base.ObjectBase):
 
     def reset_state(self):
         for prop in self.list_properties():
-            if isinstance(prop, ObjectProperty):
+            if isinstance(prop, model_base.ObjectProperty):
                 obj = prop.__get__(self, self.__class__)
                 if obj is not None:
                     obj.reset_state()
                 prop.__set__(self, None)
-            elif isinstance(prop, ObjectListProperty):
+            elif isinstance(prop, model_base.ObjectListProperty):
                 objs = prop.__get__(self, self.__class__)
                 for obj in objs:
                     prop.__get__(self, self.__class__)
@@ -88,8 +92,44 @@ class StateBase(model_base.ObjectBase):
     def deserialize(self, state):
         for prop in self.list_properties():
             if prop.name not in state:
+                # TODO: reset prop
                 continue
-            prop.from_state(self, state[prop.name])
+
+            value = state[prop.name]
+            if isinstance(prop, model_base.Property):
+                setattr(self, prop.name, value)
+            elif isinstance(prop, model_base.ListProperty):
+                lst = getattr(self, prop.name)
+                lst.clear()
+                lst.extend(value)
+            elif isinstance(prop, model_base.DictProperty):
+                dct = getattr(self, prop.name)
+                dct.clear()
+                dct.update(value)
+            elif isinstance(prop, model_base.ObjectProperty):
+                if value is not None:
+                    cls_name = value['__class__']
+                    cls = self.cls_map[cls_name]
+                    obj = cls(state=value)
+                else:
+                    obj = None
+                setattr(self, prop.name, obj)
+            elif isinstance(prop, model_base.ObjectListProperty):
+                lst = getattr(self, prop.name)
+                lst.clear()
+                for v in value:
+                    cls_name = v['__class__']
+                    cls = self.cls_map[cls_name]
+                    obj = cls(state=v)
+                    lst.append(obj)
+            elif isinstance(prop, model_base.ObjectReferenceProperty):
+                if value is not None:
+                    assert isinstance(value, str) and value.startswith('ref:')
+                    setattr(self, prop.name, ('unresolved reference', value[4:]))
+                else:
+                    setattr(self, prop.name, None)
+            else:
+                raise TypeError("Unknown property type %s" % type(prop))
 
     @classmethod
     def create_from_state(cls, state):
@@ -129,7 +169,7 @@ class RootObject(StateBase):
 
         for node in self.walk_children():
             for prop in node.list_properties():
-                if isinstance(prop, ObjectReferenceProperty):
+                if isinstance(prop, model_base.ObjectReferenceProperty):
                     refid = prop.__get__(node, node.__class__)
                     if refid is not None:
                         assert isinstance(refid, tuple)

@@ -13,11 +13,13 @@ from .key_signature import KeySignature
 from .track import Track, Measure, EventSource
 from .time import Duration
 from . import model
+from . import state
+from . import commands
 
 logger = logging.getLogger(__name__)
 
 
-class ChangeNote(core.Command):
+class ChangeNote(commands.Command):
     idx = core.Property(int)
     pitch = core.Property(str, allow_none=True)
     duration = core.Property(Duration, allow_none=True)
@@ -55,10 +57,10 @@ class ChangeNote(core.Command):
                 raise ValueError("Invalid tuplet type")
             note.tuplet = self.tuplet
 
-core.Command.register_subclass(ChangeNote)
+commands.Command.register_subclass(ChangeNote)
 
 
-class InsertNote(core.Command):
+class InsertNote(commands.Command):
     idx = core.Property(int)
     pitch = core.Property(str)
     duration = core.Property(Duration)
@@ -77,10 +79,10 @@ class InsertNote(core.Command):
         note = Note(pitches=[Pitch(self.pitch)], base_duration=self.duration)
         measure.notes.insert(self.idx, note)
 
-core.Command.register_subclass(InsertNote)
+commands.Command.register_subclass(InsertNote)
 
 
-class DeleteNote(core.Command):
+class DeleteNote(commands.Command):
     idx = core.Property(int)
 
     def __init__(self, idx=None, state=None):
@@ -94,10 +96,10 @@ class DeleteNote(core.Command):
         assert 0 <= self.idx < len(measure.notes)
         del measure.notes[self.idx]
 
-core.Command.register_subclass(DeleteNote)
+commands.Command.register_subclass(DeleteNote)
 
 
-class AddPitch(core.Command):
+class AddPitch(commands.Command):
     idx = core.Property(int)
     pitch = core.Property(str)
 
@@ -116,10 +118,10 @@ class AddPitch(core.Command):
         if pitch not in note.pitches:
             note.pitches.append(pitch)
 
-core.Command.register_subclass(AddPitch)
+commands.Command.register_subclass(AddPitch)
 
 
-class RemovePitch(core.Command):
+class RemovePitch(commands.Command):
     idx = core.Property(int)
     pitch_idx = core.Property(int)
 
@@ -137,10 +139,10 @@ class RemovePitch(core.Command):
         assert 0 <= self.pitch_idx < len(note.pitches)
         del note.pitches[self.pitch_idx]
 
-core.Command.register_subclass(RemovePitch)
+commands.Command.register_subclass(RemovePitch)
 
 
-class SetClef(core.Command):
+class SetClef(commands.Command):
     clef = core.Property(str)
 
     def __init__(self, clef=None, state=None):
@@ -153,10 +155,10 @@ class SetClef(core.Command):
 
         measure.clef = Clef(self.clef)
 
-core.Command.register_subclass(SetClef)
+commands.Command.register_subclass(SetClef)
 
 
-class SetKeySignature(core.Command):
+class SetKeySignature(commands.Command):
     key_signature = core.Property(str)
 
     def __init__(self, key_signature=None, state=None):
@@ -169,10 +171,10 @@ class SetKeySignature(core.Command):
 
         measure.key_signature = KeySignature(self.key_signature)
 
-core.Command.register_subclass(SetKeySignature)
+commands.Command.register_subclass(SetKeySignature)
 
 
-class SetAccidental(core.Command):
+class SetAccidental(commands.Command):
     idx = core.Property(int)
     pitch_idx = core.Property(int)
     accidental = core.Property(str)
@@ -193,10 +195,10 @@ class SetAccidental(core.Command):
 
         note.pitches[self.pitch_idx] = note.pitches[self.pitch_idx].add_accidental(self.accidental)
 
-core.Command.register_subclass(SetAccidental)
+commands.Command.register_subclass(SetAccidental)
 
 
-class Note(model.Note, core.StateBase):
+class Note(model.Note, state.StateBase):
     def __init__(self,
                  pitches=None, base_duration=None, dots=0, tuplet=0,
                  state=None):
@@ -231,6 +233,8 @@ class Note(model.Note, core.StateBase):
 
         return n
 
+state.StateBase.register_class(Note)
+
 
 class ScoreMeasure(model.ScoreMeasure, Measure):
     def __init__(self, state=None):
@@ -242,6 +246,7 @@ class ScoreMeasure(model.ScoreMeasure, Measure):
     def empty(self):
         return len(self.notes) == 0
 
+state.StateBase.register_class(ScoreMeasure)
 Measure.register_subclass(ScoreMeasure)
 
 
@@ -319,4 +324,5 @@ class ScoreTrack(model.ScoreTrack, Track):
     def create_event_source(self):
         return ScoreEventSource(self)
 
+state.StateBase.register_class(ScoreTrack)
 Track.register_subclass(ScoreTrack)
