@@ -23,6 +23,9 @@ class Node(object):
     def name(self):
         return self._name
 
+    def send_notification(self, notification):
+        self.pipeline.add_notification(self.id, notification)
+
     def add_input(self, port):
         if not isinstance(port, InputPort):
             raise Error("Must be InputPort")

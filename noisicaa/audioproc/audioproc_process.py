@@ -94,6 +94,8 @@ class AudioProcProcessMixin(object):
             'DISCONNECT_PORTS', self.handle_disconnect_ports)
         self.server.add_command_handler(
             'SET_BACKEND', self.handle_set_backend)
+        self.server.add_command_handler(
+            'PLAY_FILE', self.handle_play_file)
 
         self.node_db = node_db.NodeDB()
         self.node_db.add(scale.Scale)
@@ -241,6 +243,32 @@ class AudioProcProcessMixin(object):
             raise ValueError("Invalid backend name %s" % name)
 
         self.pipeline.set_backend(be)
+
+    def handle_play_file(self, session_id, path):
+        self.get_session(session_id)
+
+        node = wavfile.WavFileSource(
+            path=path, loop=False, end_notification='end')
+        node.setup()
+
+        self.pipeline.notification_listener.add(
+            node.id,
+            functools.partial(self.play_file_done, node_id=node.id))
+
+        with self.pipeline.writer_lock():
+            sink = self.pipeline.find_node('sink')
+            self.pipeline.add_node(node)
+            sink.inputs['in'].connect(node.outputs['out'])
+
+        return node.id
+
+    def play_file_done(self, notification, node_id):
+        with self.pipeline.writer_lock():
+            node = self.pipeline.find_node(node_id)
+            sink = self.pipeline.find_node('sink')
+            sink.inputs['in'].disconnect(node.outputs['out'])
+            self.pipeline.remove_node(node)
+        node.cleanup()
 
 
 class AudioProcProcess(AudioProcProcessMixin, core.ProcessImpl):

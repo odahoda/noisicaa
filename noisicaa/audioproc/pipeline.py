@@ -10,6 +10,7 @@ import toposort
 
 from ..rwlock import RWLock
 from .exceptions import Error, EndOfStreamError
+from noisicaa import core
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,9 @@ class Pipeline(object):
         self._running = False
         self._lock = RWLock()
         self.utilization_callback = None
+
+        self._notifications = []
+        self.notification_listener = core.CallbackRegistry()
 
     def reader_lock(self):
         return self._lock.reader_lock
@@ -111,6 +115,8 @@ class Pipeline(object):
                         time.sleep(0.1)
                         continue
 
+                    assert not self._notifications
+
                     t0 = time.time()
                     self._backend.wait()
 
@@ -121,11 +127,21 @@ class Pipeline(object):
                         node.collect_inputs()
                         node.run(timepos)
 
-                    t2 = time.time()
-                    if t2 - t0 > 0:
-                        utilization = (t2 - t1) / (t2 - t0)
-                        if self.utilization_callback is not None:
-                            self.utilization_callback(utilization)
+                    notifications = self._notifications
+                    self._notifications = []
+
+                for node_id, notification in notifications:
+                    logger.info(
+                        "Node %s fired notification %s",
+                        node_id, notification)
+                    self.notification_listener.call(
+                        node_id, notification)
+
+                t2 = time.time()
+                if t2 - t0 > 0:
+                    utilization = (t2 - t1) / (t2 - t0)
+                    if self.utilization_callback is not None:
+                        self.utilization_callback(utilization)
 
                 timepos += 4096
 
@@ -136,6 +152,9 @@ class Pipeline(object):
             logger.info("Cleaning up nodes...")
             for node in reversed(self.sorted_nodes):
                 node.cleanup()
+
+    def add_notification(self, node_id, notification):
+        self._notifications.append((node_id, notification))
 
     @property
     def sorted_nodes(self):

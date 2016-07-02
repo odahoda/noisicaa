@@ -164,7 +164,5 @@ class AudioPage(Page):
         self.call_async(self._testBackendAsync())
 
     async def _testBackendAsync(self):
-        node = await self.app.audioproc_client.add_node(
-            'wavfile', path='/usr/share/sounds/purple/send.wav')
-        await self.app.audioproc_client.connect_ports(
-            node, 'out', 'sink', 'in')
+        node = await self.app.audioproc_client.play_file(
+            '/usr/share/sounds/purple/send.wav')

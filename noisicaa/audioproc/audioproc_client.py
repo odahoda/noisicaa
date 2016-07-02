@@ -67,6 +67,10 @@ class AudioProcClientMixin(object):
         return await self._stub.call(
             'SET_BACKEND', self._session_id, name, args)
 
+    async def play_file(self, path):
+        return await self._stub.call(
+            'PLAY_FILE', self._session_id, path)
+
     def handle_pipeline_mutation(self, mutation):
         logger.info("Mutation received: %s" % mutation)
 

@@ -23,18 +23,23 @@ class WavFileSource(Node):
     desc.name = 'wavfile'
     desc.port('out', 'output', 'audio')
     desc.parameter('path', 'path')
+    desc.parameter('loop', 'bool')
+    desc.parameter('end_notification', 'string')
 
-    def __init__(self, path):
+    def __init__(self, path, loop=False, end_notification=None):
         super().__init__()
 
         self._output = AudioOutputPort('out')
         self.add_output(self._output)
 
         self._path = path
-        self._fp = None
-        self._start_pos = None
-        self._timepos = None
-        self._resampler = None
+        self._loop = loop
+        self._end_notification = end_notification
+
+        self._playing = True
+
+        self._pos = None
+        self._samples = None
 
     def setup(self):
         super().setup()
@@ -74,18 +79,24 @@ class WavFileSource(Node):
 
     def run(self, timepos):
         af = self._output.audio_format
-
-        offset = self._pos
-        length = 4096 * af.num_channels * af.bytes_per_sample
-        samples = self._samples[offset:offset+length]
-        self._pos += length
-        if self._pos >= len(self._samples):
-            self._pos = 0
-
         frame = Frame(af, 0, set())
-        frame.append_samples(
-            samples,
-            len(samples) // (af.num_channels * af.bytes_per_sample))
+
+        if self._playing:
+            offset = self._pos
+            length = 4096 * af.num_channels * af.bytes_per_sample
+            samples = self._samples[offset:offset+length]
+            self._pos += length
+            if self._pos >= len(self._samples):
+                self._pos = 0
+                if not self._loop:
+                    self._playing = False
+                    if self._end_notification:
+                        self.send_notification(self._end_notification)
+
+            frame.append_samples(
+                samples,
+                len(samples) // (af.num_channels * af.bytes_per_sample))
+
         assert len(frame) <= 4096
         frame.resize(4096)
 
