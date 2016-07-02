@@ -229,8 +229,10 @@ class ObjectPropertyBase(PropertyBase):
     def create(self, state):
         cls_name = state['__class__']
         if cls_name == self.cls.__name__:
-            return self.cls(state=state)
-        return self.cls.get_subclass(cls_name)(state=state)
+            cls = self.cls
+        else:
+            cls = self.cls.get_subclass(cls_name)
+        return cls(state=state)
 
     def to_state(self, instance):
         raise NotImplementedError

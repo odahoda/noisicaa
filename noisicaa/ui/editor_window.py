@@ -354,9 +354,6 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
 
     def closeEvent(self, event):
         logger.info("CloseEvent received")
-        event.ignore()
-        self.app.quit()
-        return
 
         for idx in range(self._project_tabs.count()):
             view = self._project_tabs.widget(idx)
@@ -410,10 +407,10 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self._add_score_track_action.setEnabled(True)
         self._main_area.setCurrentIndex(0)
 
-    def removeProjectView(self, project):
+    def removeProjectView(self, project_connection):
         for idx in range(self._project_tabs.count()):
             view = self._project_tabs.widget(idx)
-            if view.project is project:
+            if view.project_connection is project_connection:
                 self._project_tabs.removeTab(idx)
                 if self._project_tabs.count() == 0:
                     self._main_area.setCurrentIndex(1)
@@ -429,7 +426,9 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         view = self._project_tabs.currentWidget()
         closed = view.close()
         if closed:
-            self.app.removeProject(view.project)
+            self.event_loop.create_task(
+                self.call_with_exc(
+                    self.app.removeProject(view.project_connection)))
 
     def onCurrentProjectTabChanged(self, idx):
         project_view = self._project_tabs.widget(idx)
@@ -439,7 +438,9 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         view = self._project_tabs.widget(idx)
         closed = view.close()
         if closed:
-            self.app.removeProject(view.project)
+            self.event_loop.create_task(
+                self.call_with_exc(
+                    self.app.removeProject(view.project_connection)))
 
     def getCurrentProject(self):
         view = self._project_tabs.currentWidget()

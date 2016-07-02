@@ -38,6 +38,10 @@ class Project(object):
         await self.create_process()
         await self.client.create(self.path)
 
+    async def close(self):
+        await self.client.close()
+        await self.client.shutdown()
+
 
 class ProjectRegistry(object):
     def __init__(self, event_loop, process_manager):
@@ -56,3 +60,7 @@ class ProjectRegistry(object):
         await project.create()
         self.projects[path] = project
         return project
+
+    async def close_project(self, project):
+        await project.close()
+        del self.projects[project.path]

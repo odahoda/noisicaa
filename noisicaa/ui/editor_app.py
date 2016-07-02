@@ -158,14 +158,14 @@ class BaseEditorApp(QApplication):
                 in self.project_registry.projects.values()
                 if project.path))
 
-    def addProject(self, project):
-        self.win.addProjectView(project)
+    def addProject(self, project_connection):
+        self.win.addProjectView(project_connection)
         self._updateOpenedProjects()
 
-    def removeProject(self, project):
-        self.win.removeProjectView(project)
-        #self._projects.remove(project)
+    async def removeProject(self, project_connection):
+        self.win.removeProjectView(project_connection)
         self._updateOpenedProjects()
+        await self.project_registry.close_project(project_connection)
 
 
 class EditorApp(BaseEditorApp):

@@ -109,7 +109,6 @@ class ProjectViewImpl(QtWidgets.QWidget):
             self._sheets_widget.removeWidget(sheet_view)
             sheet_view.close()
 
-        #TODO: self._project.close()
         event.accept()
 
     def onSheetsChanged(self, action, *args):
