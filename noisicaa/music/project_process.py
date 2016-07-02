@@ -9,6 +9,7 @@ import uuid
 
 from noisicaa import core
 from noisicaa.core import ipc
+from noisicaa import audioproc
 
 from . import project
 from . import mutations
@@ -40,7 +41,29 @@ class Session(object):
                 "PROJECT_MUTATION %s failed with exception", mutation)
 
 
+class AudioProcClientImpl(object):
+    def __init__(self, event_loop, server):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = server
+
+    async def setup(self):
+        pass
+
+    async def cleanup(self):
+        pass
+
+class AudioProcClient(
+        audioproc.AudioProcClientMixin, AudioProcClientImpl):
+    pass
+
+
 class ProjectProcessMixin(object):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.audioproc_client = None
+
     async def setup(self):
         await super().setup()
         self._shutting_down = asyncio.Event()
@@ -58,6 +81,19 @@ class ProjectProcessMixin(object):
         self.project = None
         self.sessions = {}
         self.pending_mutations = []
+
+        audioproc_process = await self.manager.call(
+            'CREATE_AUDIOPROC_PROCESS', 'project-%s' % id(self))
+        self.audioproc_client = AudioProcClient(
+            self.event_loop, self.server)
+        await self.audioproc_client.setup()
+        await self.audioproc_client.connect(audioproc_process)
+
+    async def cleanup(self):
+        if self.audioproc_client is not None:
+            await self.audioproc_client.disconnect(shutdown=True)
+            await self.audioproc_client.cleanup()
+            self.audioproc_client = None
 
     async def run(self):
         await self._shutting_down.wait()

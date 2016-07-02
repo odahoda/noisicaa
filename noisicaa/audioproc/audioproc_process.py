@@ -76,6 +76,7 @@ class AudioProcProcessMixin(object):
         await super().setup()
 
         self._shutting_down = asyncio.Event()
+        self._shutdown_complete = asyncio.Event()
 
         self.server.add_command_handler(
             'START_SESSION', self.handle_start_session)
@@ -127,6 +128,9 @@ class AudioProcProcessMixin(object):
 
     async def run(self):
         await self._shutting_down.wait()
+        self.pipeline.stop()
+        self.pipeline.wait()
+        self._shutdown_complete.set()
 
     def utilization_callback(self, utilization):
         self.event_loop.call_soon_threadsafe(
@@ -184,8 +188,9 @@ class AudioProcProcessMixin(object):
         session.cleanup()
         del self.sessions[session_id]
 
-    def handle_shutdown(self):
+    async def handle_shutdown(self):
         self._shutting_down.set()
+        await self._shutdown_complete.wait()
 
     def handle_list_node_types(self, session_id):
         self.get_session(session_id)
