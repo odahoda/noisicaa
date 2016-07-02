@@ -85,9 +85,6 @@ class PropertyBase(object):
     def __delete__(self, instance):
         raise RuntimeError("You can't delete properties")
 
-    def to_state(self, instance):
-        raise NotImplementedError
-
 
 class Property(PropertyBase):
     def __init__(self, objtype, allow_none=False, default=None):
@@ -105,9 +102,6 @@ class Property(PropertyBase):
                     self.type.__name__, type(value).__name__))
 
         super().__set__(instance, value)
-
-    def to_state(self, instance):
-        return instance.state.get(self.name, self.default)
 
 
 class SimpleObjectList(object):
@@ -185,9 +179,6 @@ class ListProperty(PropertyBase):
     def __set__(self, instance, value):
         raise RuntimeError("ListProperty cannot be assigned.")
 
-    def to_state(self, instance):
-        return list(instance.state.get(self.name, []))
-
 
 class DictProperty(PropertyBase):
     def __get__(self, instance, owner):
@@ -200,9 +191,6 @@ class DictProperty(PropertyBase):
     def __set__(self, instance, value):
         raise RuntimeError("DictProperty cannot be assigned.")
 
-    def to_state(self, instance):
-        return instance.state.get(self.name, {})
-
 
 
 class ObjectPropertyBase(PropertyBase):
@@ -210,9 +198,6 @@ class ObjectPropertyBase(PropertyBase):
         super().__init__()
         assert isinstance(cls, type)
         self.cls = cls
-
-    def to_state(self, instance):
-        raise NotImplementedError
 
 
 class ObjectProperty(ObjectPropertyBase):
@@ -234,13 +219,6 @@ class ObjectProperty(ObjectPropertyBase):
         if value is not None:
             value.attach(instance)
             value.set_parent_container(self)
-
-    def to_state(self, instance):
-        obj = instance.state.get(self.name, None)
-        if obj is not None:
-            assert isinstance(obj, ObjectBase)
-            return obj.serialize()
-        return None
 
 
 class ObjectList(object):
@@ -304,10 +282,6 @@ class ObjectListProperty(ObjectPropertyBase):
     def __set__(self, instance, value):
         raise RuntimeError("ObjectListProperty cannot be assigned.")
 
-    def to_state(self, instance):
-        objs = instance.state.get(self.name, [])
-        return [obj.serialize() for obj in objs]
-
 
 class ObjectReferenceProperty(PropertyBase):
     def __init__(self, allow_none=False):
@@ -322,12 +296,6 @@ class ObjectReferenceProperty(PropertyBase):
             raise TypeError("Expected ObjectBase object")
 
         super().__set__(instance, value)
-
-    def to_state(self, instance):
-        obj = instance.state.get(self.name, None)
-        if obj is not None:
-            return 'ref:' + obj.id
-        return None
 
 
 class ObjectMeta(type):

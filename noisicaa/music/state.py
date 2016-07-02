@@ -85,7 +85,31 @@ class StateBase(model_base.ObjectBase):
     def serialize(self):
         d = {'__class__': self.__class__.__name__}
         for prop in self.list_properties():
-            d[prop.name] = prop.to_state(self)
+            if isinstance(prop, model_base.Property):
+                state = getattr(self, prop.name, prop.default)
+            elif isinstance(prop, model_base.ListProperty):
+                state = list(getattr(self, prop.name, []))
+            elif isinstance(prop, model_base.DictProperty):
+                state = dict(getattr(self, prop.name, {}))
+            elif isinstance(prop, model_base.ObjectProperty):
+                obj = getattr(self, prop.name, None)
+                if obj is not None:
+                    state = obj.serialize()
+                else:
+                    state = None
+            elif isinstance(prop, model_base.ObjectListProperty):
+                state = [
+                    obj.serialize() for obj in getattr(self, prop.name)]
+            elif isinstance(prop, model_base.ObjectReferenceProperty):
+                obj = getattr(self, prop.name, None)
+                if obj is not None:
+                    state = 'ref:' + obj.id
+                else:
+                    state = None
+            else:
+                raise TypeError("Unknown property type %s" % type(prop))
+
+            d[prop.name] = state
 
         return d
 
