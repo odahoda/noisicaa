@@ -85,10 +85,13 @@ from noisicaa import core
 #         d['foo'] = 1
 #         self.assertEqual(p.__get__(self.obj, self.obj.__class__), {'foo': 1})
 
+class TestStateBase(state.StateBase):
+    cls_map = {}
+
 
 class StateTest(unittest.TestCase):
-    def setUp(self):
-        state.StateBase.clear_subclass_registry()
+    def tearDown(self):
+        TestStateBase.clear_class_registry()
 
     def validateNode(self, root, parent, node):
         self.assertIs(node.parent, parent)
@@ -101,15 +104,15 @@ class StateTest(unittest.TestCase):
         self.validateNode(root, None, root)
 
     def testListChildrenLeaf(self):
-        class Leaf(state.RootObject):
+        class Leaf(state.RootMixin, TestStateBase):
             pass
         a = Leaf()
         self.assertEqual(list(a.list_children()), [])
 
     def testListChildrenObjectProperty(self):
-        class Leaf(state.StateBase):
+        class Leaf(TestStateBase):
             pass
-        class Root(state.RootObject):
+        class Root(state.RootMixin, TestStateBase):
             child = core.ObjectProperty(Leaf)
         a = Leaf()
         b = Root()
@@ -118,7 +121,7 @@ class StateTest(unittest.TestCase):
     def testListChildrenObjectListProperty(self):
         class Leaf(state.StateBase):
             pass
-        class Root(state.RootObject):
+        class Root(state.RootMixin, TestStateBase):
             children = core.ObjectListProperty(Leaf)
         a = Leaf()
         b = Leaf()
@@ -128,7 +131,7 @@ class StateTest(unittest.TestCase):
         self.assertEqual(list(c.list_children()), [a, b])
 
     def testSerialize(self):
-        class Root(state.RootObject):
+        class Root(state.RootMixin, TestStateBase):
             name = core.Property(str, default='')
             a1 = core.Property(int, default=2)
 
@@ -144,7 +147,7 @@ class StateTest(unittest.TestCase):
              'a1': 2})
 
     def testDeserialize(self):
-        class Root(state.RootObject):
+        class Root(state.RootMixin, TestStateBase):
             name = core.Property(str, default='')
             a1 = core.Property(int, default=2)
 
@@ -154,7 +157,7 @@ class StateTest(unittest.TestCase):
         self.assertEqual(a.a1, 2)
 
     def testAttr(self):
-        class Root(state.RootObject):
+        class Root(state.RootMixin, TestStateBase):
             name = core.Property(str, default='')
             a1 = core.Property(int, default=2)
 
@@ -172,11 +175,12 @@ class StateTest(unittest.TestCase):
         self.assertEqual(b.a1, 4)
 
     def testChildObject(self):
-        class Leaf(state.StateBase):
+        class Leaf(TestStateBase):
             name = core.Property(str, default='')
             a1 = core.Property(int, default=2)
+        TestStateBase.register_class(Leaf)
 
-        class Root(state.RootObject):
+        class Root(state.RootMixin, TestStateBase):
             child = core.ObjectProperty(cls=Leaf)
 
         a = Leaf()
@@ -296,14 +300,16 @@ class StateTest(unittest.TestCase):
     #     self.assertEqual(d.children[1].a1, 5)
 
     def testObjectReference(self):
-        class Leaf(state.StateBase):
+        class Leaf(TestStateBase):
             name = core.Property(str)
+        TestStateBase.register_class(Leaf)
 
         class LeafWithRef(Leaf):
             other = core.ObjectReferenceProperty()
         Leaf.register_subclass(LeafWithRef)
+        TestStateBase.register_class(LeafWithRef)
 
-        class Root(state.RootObject):
+        class Root(state.RootMixin, TestStateBase):
             children = core.ObjectListProperty(Leaf)
 
         a = Leaf()

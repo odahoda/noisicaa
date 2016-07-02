@@ -10,6 +10,7 @@ import asynctest
 
 from noisicaa import core
 from noisicaa.core import ipc
+from noisicaa.ui import model
 
 from . import project_process
 from . import project_client
@@ -56,6 +57,7 @@ class ProxyTest(asynctest.TestCase):
         self.project_process = TestProjectProcess(self.loop)
         await self.project_process.setup()
         self.client = TestClient(self.loop)
+        self.client.cls_map = model.cls_map
         await self.client.setup()
         await self.client.connect(self.project_process.server.address)
 

@@ -8,6 +8,8 @@ from noisicaa.core import model_base
 logger = logging.getLogger(__name__)
 
 class StateBase(model_base.ObjectBase):
+    SERIALIZED_CLASS_NAME = None
+
     cls_map = {}
 
     def __init__(self, state=None):
@@ -23,10 +25,12 @@ class StateBase(model_base.ObjectBase):
         assert c.__name__ not in cls.cls_map
         cls.cls_map[c.__name__] = c
 
+    @classmethod
+    def clear_class_registry(cls):
+        cls.cls_map.clear()
+
     def property_changed(self, change):
-        logger.info("%s: %s", self, change)
         if not self.attached_to_root:
-            logger.info("not attached")
             return
         root = self.root
         if isinstance(change, model_base.PropertyValueChange):
@@ -83,7 +87,7 @@ class StateBase(model_base.ObjectBase):
         self.state = {'id': self.id}  # Don't forget my ID.
 
     def serialize(self):
-        d = {'__class__': self.__class__.__name__}
+        d = {'__class__': self.SERIALIZED_CLASS_NAME or self.__class__.__name__}
         for prop in self.list_properties():
             if isinstance(prop, model_base.Property):
                 state = getattr(self, prop.name, prop.default)
@@ -149,7 +153,7 @@ class StateBase(model_base.ObjectBase):
             elif isinstance(prop, model_base.ObjectReferenceProperty):
                 if value is not None:
                     assert isinstance(value, str) and value.startswith('ref:')
-                    setattr(self, prop.name, ('unresolved reference', value[4:]))
+                    self.state[prop.name] = ('unresolved reference', value[4:])
                 else:
                     setattr(self, prop.name, None)
             else:
@@ -163,7 +167,7 @@ class StateBase(model_base.ObjectBase):
         return cls.get_subclass(cls_name)(state=state)
 
 
-class RootObject(StateBase):
+class RootMixin(object):
     def __init__(self, state=None):
         super().__init__(state=state)
 

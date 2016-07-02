@@ -80,5 +80,3 @@ class SampleInstrument(model.SampleInstrument, Instrument):
 
 state.StateBase.register_class(SampleInstrument)
 Instrument.register_subclass(SampleInstrument)
-
-

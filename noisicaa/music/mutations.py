@@ -48,7 +48,7 @@ class SetProperties(Mutation):
 class AddObject(Mutation):
     def __init__(self, obj):
         self.id = obj.id
-        self.cls = obj.__class__.__name__
+        self.cls = obj.SERIALIZED_CLASS_NAME or obj.__class__.__name__
         self.properties = []
         for prop in obj.list_properties():
             if prop.name == 'id':

@@ -378,7 +378,9 @@ class JSONDecoder(json.JSONDecoder):
         return obj
 
 
-class BaseProject(model.Project, state.RootObject):
+class BaseProject(model.Project, state.RootMixin, state.StateBase):
+    SERIALIZED_CLASS_NAME = 'Project'
+
     def __init__(self, num_sheets=1, state=None):
         self._mutation_callback = None
 
