@@ -10,7 +10,6 @@ import portalocker
 
 from noisicaa import core
 from noisicaa.core import fileutil
-from noisicaa.instr.library import SoundFontInstrument
 
 from .exceptions import (
     CorruptedProjectError,
@@ -28,6 +27,7 @@ from .time import Duration
 from . import model
 from . import state
 from . import commands
+from . import instrument
 
 logger = logging.getLogger(__name__)
 
@@ -415,13 +415,13 @@ class BaseProject(model.Project, state.RootObject):
         for m in sheet.property_track.measures:
             m.bpm = 140
 
-        instr1 = SoundFontInstrument(
+        instr1 = instrument.SoundFontInstrument(
             name="Flute",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=73)
         track1 = ScoreTrack(name="Track 1", instrument=instr1, num_measures=5)
         sheet.tracks.append(track1)
 
-        instr2 = SoundFontInstrument(
+        instr2 = instrument.SoundFontInstrument(
             name="Yamaha Grand Piano",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=0)
         track2 = ScoreTrack(name="Track 2", instrument=instr2, num_measures=5)

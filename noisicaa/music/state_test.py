@@ -7,117 +7,83 @@ from . import state
 from noisicaa import core
 
 
-class PropertyTest(unittest.TestCase):
-    def setUp(self):
-        class TestObj(state.StateBase):
-            pass
+# class PropertyTest(unittest.TestCase):
+#     def setUp(self):
+#         class TestObj(state.StateBase):
+#             pass
 
-        self.obj = TestObj()
+#         self.obj = TestObj()
 
-    def testSet(self):
-        p = state.Property(int)
-        p.name = 'a'
-        p.__set__(self.obj, 2)
-        self.assertEqual(self.obj.state['a'], 2)
+#     def testSet(self):
+#         p = core.Property(int)
+#         p.name = 'a'
+#         p.__set__(self.obj, 2)
+#         self.assertEqual(self.obj.state['a'], 2)
 
-    def testGet(self):
-        self.obj.state['a'] = 2
-        p = state.Property(int)
-        p.name = 'a'
-        self.assertEqual(p.__get__(self.obj, self.obj.__class__), 2)
+#     def testGet(self):
+#         self.obj.state['a'] = 2
+#         p = state.Property(int)
+#         p.name = 'a'
+#         self.assertEqual(p.__get__(self.obj, self.obj.__class__), 2)
 
-    def testGetDefault(self):
-        p = state.Property(int, default=3)
-        p.name = 'a'
-        self.assertEqual(p.__get__(self.obj, self.obj.__class__), 3)
+#     def testGetDefault(self):
+#         p = state.Property(int, default=3)
+#         p.name = 'a'
+#         self.assertEqual(p.__get__(self.obj, self.obj.__class__), 3)
 
-    def testSetBadType(self):
-        p = state.Property(int)
-        p.name = 'a'
-        with self.assertRaises(TypeError):
-            p.__set__(self.obj, 'foo')
+#     def testSetBadType(self):
+#         p = state.Property(int)
+#         p.name = 'a'
+#         with self.assertRaises(TypeError):
+#             p.__set__(self.obj, 'foo')
 
-    def testSetNotNone(self):
-        p = state.Property(int)
-        p.name = 'a'
-        with self.assertRaises(ValueError):
-            p.__set__(self.obj, None)
+#     def testSetNotNone(self):
+#         p = state.Property(int)
+#         p.name = 'a'
+#         with self.assertRaises(ValueError):
+#             p.__set__(self.obj, None)
 
-    def testSetNoneAllowed(self):
-        p = state.Property(int, allow_none=True)
-        p.name = 'a'
-        p.__set__(self.obj, None)
-        self.assertIsNone(self.obj.state['a'])
+#     def testSetNoneAllowed(self):
+#         p = state.Property(int, allow_none=True)
+#         p.name = 'a'
+#         p.__set__(self.obj, None)
+#         self.assertIsNone(self.obj.state['a'])
 
-    def testList(self):
-        p = state.ListProperty(int)
-        p.name = 'a'
-        l = p.__get__(self.obj, self.obj.__class__)
-        self.assertEqual(l, [])
-        l.extend([1, 2, 3])
-        self.assertEqual(self.obj.state['a'], [1, 2, 3])
+#     def testList(self):
+#         p = state.ListProperty(int)
+#         p.name = 'a'
+#         l = p.__get__(self.obj, self.obj.__class__)
+#         self.assertEqual(l, [])
+#         l.extend([1, 2, 3])
+#         self.assertEqual(self.obj.state['a'], [1, 2, 3])
 
-    def testListBadType(self):
-        p = state.ListProperty(int)
-        p.name = 'a'
-        l = p.__get__(self.obj, self.obj.__class__)
-        with self.assertRaises(TypeError):
-            l.append("foo")
+#     def testListBadType(self):
+#         p = state.ListProperty(int)
+#         p.name = 'a'
+#         l = p.__get__(self.obj, self.obj.__class__)
+#         with self.assertRaises(TypeError):
+#             l.append("foo")
 
-    def testListAccessor(self):
-        p = state.ListProperty(int)
-        p.name = 'a'
-        l = p.__get__(self.obj, self.obj.__class__)
-        l.extend([1, 2, 3])
-        self.assertEqual(l, [1, 2, 3])
-        self.assertEqual(l[0], 1)
-        self.assertEqual(l[-1], 3)
-        l[1] = 4
-        self.assertEqual(p.__get__(self.obj, self.obj.__class__), [1, 4, 3])
-        with self.assertRaises(TypeError):
-            l[0] = "str"
+#     def testListAccessor(self):
+#         p = state.ListProperty(int)
+#         p.name = 'a'
+#         l = p.__get__(self.obj, self.obj.__class__)
+#         l.extend([1, 2, 3])
+#         self.assertEqual(l, [1, 2, 3])
+#         self.assertEqual(l[0], 1)
+#         self.assertEqual(l[-1], 3)
+#         l[1] = 4
+#         self.assertEqual(p.__get__(self.obj, self.obj.__class__), [1, 4, 3])
+#         with self.assertRaises(TypeError):
+#             l[0] = "str"
 
-    def testDict(self):
-        p = state.DictProperty()
-        p.name = 'a'
-        self.assertEqual(p.__get__(self.obj, self.obj.__class__), {})
-        d = p.__get__(self.obj, self.obj.__class__)
-        d['foo'] = 1
-        self.assertEqual(p.__get__(self.obj, self.obj.__class__), {'foo': 1})
-
-
-class StateBaseTest(unittest.TestCase):
-    def testMeta(self):
-        self.assertIs(type(state.StateBase), core.ObjectMeta)
-
-
-# class RootNode(state.RootObject):
-#     pass
-
-# class LeafNode(state.StateBase):
-#     name = state.Property(str, default='')
-#     a1 = state.Property(int, default=2)
-
-# class LeafNodeSub1(LeafNode):
-#     a2 = state.Property(int, default=7)
-# LeafNode.register_subclass(LeafNodeSub1)
-
-# class LeafNodeSub2(LeafNode):
-#     a3 = state.Property(int, default=9)
-# LeafNode.register_subclass(LeafNodeSub2)
-
-# class LeafNodeWithRef(LeafNode):
-#     other = state.ObjectReferenceProperty()
-# LeafNode.register_subclass(LeafNodeWithRef)
-
-# class NodeWithChild(state.StateBase):
-#     child = state.ObjectProperty(cls=LeafNode)
-
-# class NodeWithSubclassChild(state.StateBase):
-#     child = state.ObjectProperty(LeafNode)
-
-# class NodeWithChildren(state.StateBase):
-#     children = state.ObjectListProperty(LeafNode)
+#     def testDict(self):
+#         p = state.DictProperty()
+#         p.name = 'a'
+#         self.assertEqual(p.__get__(self.obj, self.obj.__class__), {})
+#         d = p.__get__(self.obj, self.obj.__class__)
+#         d['foo'] = 1
+#         self.assertEqual(p.__get__(self.obj, self.obj.__class__), {'foo': 1})
 
 
 class StateTest(unittest.TestCase):
@@ -144,7 +110,7 @@ class StateTest(unittest.TestCase):
         class Leaf(state.StateBase):
             pass
         class Root(state.RootObject):
-            child = state.ObjectProperty(Leaf)
+            child = core.ObjectProperty(Leaf)
         a = Leaf()
         b = Root()
         b.child = a
@@ -153,7 +119,7 @@ class StateTest(unittest.TestCase):
         class Leaf(state.StateBase):
             pass
         class Root(state.RootObject):
-            children = state.ObjectListProperty(Leaf)
+            children = core.ObjectListProperty(Leaf)
         a = Leaf()
         b = Leaf()
         c = Root()
@@ -163,8 +129,8 @@ class StateTest(unittest.TestCase):
 
     def testSerialize(self):
         class Root(state.RootObject):
-            name = state.Property(str, default='')
-            a1 = state.Property(int, default=2)
+            name = core.Property(str, default='')
+            a1 = core.Property(int, default=2)
 
         a = Root()
         a.id = 'id1'
@@ -179,8 +145,8 @@ class StateTest(unittest.TestCase):
 
     def testDeserialize(self):
         class Root(state.RootObject):
-            name = state.Property(str, default='')
-            a1 = state.Property(int, default=2)
+            name = core.Property(str, default='')
+            a1 = core.Property(int, default=2)
 
         a = Root(state={'name': 'foo'})
         self.validateTree(a)
@@ -189,8 +155,8 @@ class StateTest(unittest.TestCase):
 
     def testAttr(self):
         class Root(state.RootObject):
-            name = state.Property(str, default='')
-            a1 = state.Property(int, default=2)
+            name = core.Property(str, default='')
+            a1 = core.Property(int, default=2)
 
         a = Root()
         a.id = 'id1'
@@ -207,11 +173,11 @@ class StateTest(unittest.TestCase):
 
     def testChildObject(self):
         class Leaf(state.StateBase):
-            name = state.Property(str, default='')
-            a1 = state.Property(int, default=2)
+            name = core.Property(str, default='')
+            a1 = core.Property(int, default=2)
 
         class Root(state.RootObject):
-            child = state.ObjectProperty(cls=Leaf)
+            child = core.ObjectProperty(cls=Leaf)
 
         a = Leaf()
         a.id = 'id1'
@@ -331,14 +297,14 @@ class StateTest(unittest.TestCase):
 
     def testObjectReference(self):
         class Leaf(state.StateBase):
-            name = state.Property(str)
+            name = core.Property(str)
 
         class LeafWithRef(Leaf):
-            other = state.ObjectReferenceProperty()
+            other = core.ObjectReferenceProperty()
         Leaf.register_subclass(LeafWithRef)
 
         class Root(state.RootObject):
-            children = state.ObjectListProperty(Leaf)
+            children = core.ObjectListProperty(Leaf)
 
         a = Leaf()
         a.id = 'id1'

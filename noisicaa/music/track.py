@@ -8,12 +8,11 @@ from noisicaa.audioproc.source.silence import SilenceSource
 from noisicaa.audioproc.source.notes import NoteSource
 from noisicaa.audioproc.source.fluidsynth import FluidSynthSource
 
-from noisicaa.instr.library import Instrument
-
 from .time import Duration
 from . import model
 from . import state
 from . import commands
+from . import instrument
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +75,7 @@ class SetInstrument(commands.Command):
     def run(self, track):
         assert isinstance(track, Track)
 
-        track.instrument = Instrument.from_json(self.instr)
+        track.instrument = instrument.Instrument.from_json(self.instr)
 
 commands.Command.register_subclass(SetInstrument)
 

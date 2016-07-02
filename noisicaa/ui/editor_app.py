@@ -20,7 +20,6 @@ from noisicaa import devices
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
-from ..instr.library import InstrumentLibrary
 
 from . import project_registry
 

@@ -27,7 +27,6 @@ from .dock_widget import DockWidget
 from .instrument_library import InstrumentLibraryDialog
 from noisicaa.music import UpdateTrackProperties, AddTrack, RemoveTrack, MoveTrack, SetInstrument, ClearInstrument, ScoreTrack
 from ..constants import DATA_DIR
-from ..instr.library import SoundFontInstrument
 from . import ui_base
 
 logger = logging.getLogger(__name__)

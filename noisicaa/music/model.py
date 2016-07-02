@@ -3,12 +3,26 @@
 import fractions
 
 from noisicaa import core
-from noisicaa.instr import model as instr_model
 from . import pitch
 from . import time
 from . import clef
 from . import key_signature
 from . import time_signature
+
+
+class Instrument(core.ObjectBase):
+    name = core.Property(str)
+
+
+class SoundFontInstrument(Instrument):
+    path = core.Property(str)
+    bank = core.Property(int)
+    preset = core.Property(int)
+
+
+class SampleInstrument(Instrument):
+    path = core.Property(str)
+
 
 class Measure(core.ObjectBase):
     @property
@@ -28,7 +42,7 @@ class Measure(core.ObjectBase):
 
 class Track(core.ObjectBase):
     name = core.Property(str)
-    instrument = core.ObjectProperty(cls=instr_model.Instrument)
+    instrument = core.ObjectProperty(cls=Instrument)
     measures = core.ObjectListProperty(cls=Measure)
 
     visible = core.Property(bool, default=True)

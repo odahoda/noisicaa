@@ -30,12 +30,6 @@ from PyQt5.QtWidgets import (
 
 from .piano import PianoWidget
 from ..constants import DATA_DIR
-from ..instr.library import (
-    SampleInstrument,
-    SoundFontInstrument,
-    Instrument,
-    InstrumentLibrary,
-)
 #from ..ui_state import UpdateUIState
 
 
@@ -59,7 +53,7 @@ class InstrumentListItem(QListWidgetItem):
 
 
 class InstrumentLibraryDialog(QDialog):
-    instrumentChanged = pyqtSignal(Instrument)
+    #instrumentChanged = pyqtSignal(Instrument)
 
     def __init__(self, parent, app, library):
         super().__init__(parent)

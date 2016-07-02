@@ -55,7 +55,6 @@ from noisicaa.music import (
     SetBPM,
     Pitch, Clef, KeySignature,
 )
-from ..instr.library import SoundFontInstrument
 from ..constants import DATA_DIR
 from .svg_symbol import SvgSymbol, SymbolItem
 from .tool_dock import Tool
