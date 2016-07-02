@@ -306,7 +306,6 @@ class StateTest(unittest.TestCase):
 
         class LeafWithRef(Leaf):
             other = core.ObjectReferenceProperty()
-        Leaf.register_subclass(LeafWithRef)
         TestStateBase.register_class(LeafWithRef)
 
         class Root(state.RootMixin, TestStateBase):

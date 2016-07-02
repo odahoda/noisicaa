@@ -159,13 +159,6 @@ class StateBase(model_base.ObjectBase):
             else:
                 raise TypeError("Unknown property type %s" % type(prop))
 
-    @classmethod
-    def create_from_state(cls, state):
-        cls_name = state['__class__']
-        if cls_name == cls.__name__:
-            return cls(state=state)
-        return cls.get_subclass(cls_name)(state=state)
-
 
 class RootMixin(object):
     def __init__(self, state=None):

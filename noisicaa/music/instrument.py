@@ -59,7 +59,6 @@ class SoundFontInstrument(model.SoundFontInstrument, Instrument):
         }
 
 state.StateBase.register_class(SoundFontInstrument)
-Instrument.register_subclass(SoundFontInstrument)
 
 
 class SampleInstrument(model.SampleInstrument, Instrument):
@@ -79,4 +78,3 @@ class SampleInstrument(model.SampleInstrument, Instrument):
         }
 
 state.StateBase.register_class(SampleInstrument)
-Instrument.register_subclass(SampleInstrument)

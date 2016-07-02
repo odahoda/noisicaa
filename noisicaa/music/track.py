@@ -52,7 +52,7 @@ class UpdateTrackProperties(commands.Command):
         if self.transpose_octaves is not None:
             track.transpose_octaves = self.transpose_octaves
 
-commands.Command.register_subclass(UpdateTrackProperties)
+commands.Command.register_command(UpdateTrackProperties)
 
 
 class ClearInstrument(commands.Command):
@@ -61,7 +61,7 @@ class ClearInstrument(commands.Command):
 
         track.instrument = None
 
-commands.Command.register_subclass(ClearInstrument)
+commands.Command.register_command(ClearInstrument)
 
 
 class SetInstrument(commands.Command):
@@ -77,7 +77,7 @@ class SetInstrument(commands.Command):
 
         track.instrument = instrument.Instrument.from_json(self.instr)
 
-commands.Command.register_subclass(SetInstrument)
+commands.Command.register_command(SetInstrument)
 
 
 class Measure(model.Measure, state.StateBase):

@@ -203,11 +203,10 @@ class ObjectPropertyBase(PropertyBase):
 class ObjectProperty(ObjectPropertyBase):
     def __set__(self, instance, value):
         logger.info("%s.%s=%s", type(instance), self.name, value)
-        if value is not None and not self.cls.is_valid_subclass(value.__class__):
+        if value is not None and not isinstance(value, self.cls):
             raise TypeError(
                 "Expected %s, got %s" % (
-                    ', '.join(self.cls.get_valid_classes()),
-                    value.__class__.__name__))
+                    self.cls.__name__, type(value).__name__))
 
         current = self.__get__(instance, instance.__class__)
         if current is not None:
@@ -313,8 +312,6 @@ class ObjectMeta(type):
 class ObjectBase(object, metaclass=ObjectMeta):
     id = Property(str, allow_none=False)
 
-    _subclasses = {}
-
     def __init__(self):
         super().__init__()
         self.state = {}
@@ -351,33 +348,6 @@ class ObjectBase(object, metaclass=ObjectMeta):
     def detach(self):
         assert self.parent is not None
         self.parent = None
-
-    @classmethod
-    def register_subclass(cls, subcls):
-        ObjectBase._subclasses.setdefault(cls.__name__, {})[subcls.__name__] = subcls
-
-    @classmethod
-    def clear_subclass_registry(cls):
-        ObjectBase._subclasses.clear()
-
-    @classmethod
-    def get_subclass(cls, name):
-        return ObjectBase._subclasses[cls.__name__][name]
-
-    @classmethod
-    def is_valid_subclass(cls, subcls):
-        if subcls.__name__ == cls.__name__:
-            return True
-        if cls.__name__ not in ObjectBase._subclasses:
-            return False
-        if subcls.__name__ in ObjectBase._subclasses[cls]:
-            return True
-        return False
-
-    @classmethod
-    def get_valid_classes(cls):
-        return [cls.__name__] + sorted(
-            ObjectBase._subclasses.get(cls.__name__, {}).keys())
 
     def set_parent_container(self, prop):
         self.__parent_container = prop

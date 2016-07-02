@@ -29,7 +29,7 @@ class SetTimeSignature(commands.Command):
 
         measure.time_signature = TimeSignature(self.upper, self.lower)
 
-commands.Command.register_subclass(SetTimeSignature)
+commands.Command.register_command(SetTimeSignature)
 
 
 class SetBPM(commands.Command):
@@ -48,7 +48,7 @@ class SetBPM(commands.Command):
 
         measure.bpm = self.bpm
 
-commands.Command.register_subclass(SetBPM)
+commands.Command.register_command(SetBPM)
 
 
 class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
@@ -68,7 +68,6 @@ class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
             * 4 * 60 // self.bpm)
 
 state.StateBase.register_class(SheetPropertyMeasure)
-Measure.register_subclass(SheetPropertyMeasure)
 
 
 class SheetPropertyEventSource(EventSource):
@@ -106,4 +105,3 @@ class SheetPropertyTrack(model.SheetPropertyTrack, Track):
         return sum((m.get_num_samples(sample_rate) for m in self.measures), 0)
 
 state.StateBase.register_class(SheetPropertyTrack)
-Track.register_subclass(SheetPropertyTrack)

@@ -57,7 +57,7 @@ class ChangeNote(commands.Command):
                 raise ValueError("Invalid tuplet type")
             note.tuplet = self.tuplet
 
-commands.Command.register_subclass(ChangeNote)
+commands.Command.register_command(ChangeNote)
 
 
 class InsertNote(commands.Command):
@@ -79,7 +79,7 @@ class InsertNote(commands.Command):
         note = Note(pitches=[Pitch(self.pitch)], base_duration=self.duration)
         measure.notes.insert(self.idx, note)
 
-commands.Command.register_subclass(InsertNote)
+commands.Command.register_command(InsertNote)
 
 
 class DeleteNote(commands.Command):
@@ -96,7 +96,7 @@ class DeleteNote(commands.Command):
         assert 0 <= self.idx < len(measure.notes)
         del measure.notes[self.idx]
 
-commands.Command.register_subclass(DeleteNote)
+commands.Command.register_command(DeleteNote)
 
 
 class AddPitch(commands.Command):
@@ -118,7 +118,7 @@ class AddPitch(commands.Command):
         if pitch not in note.pitches:
             note.pitches.append(pitch)
 
-commands.Command.register_subclass(AddPitch)
+commands.Command.register_command(AddPitch)
 
 
 class RemovePitch(commands.Command):
@@ -139,7 +139,7 @@ class RemovePitch(commands.Command):
         assert 0 <= self.pitch_idx < len(note.pitches)
         del note.pitches[self.pitch_idx]
 
-commands.Command.register_subclass(RemovePitch)
+commands.Command.register_command(RemovePitch)
 
 
 class SetClef(commands.Command):
@@ -155,7 +155,7 @@ class SetClef(commands.Command):
 
         measure.clef = Clef(self.clef)
 
-commands.Command.register_subclass(SetClef)
+commands.Command.register_command(SetClef)
 
 
 class SetKeySignature(commands.Command):
@@ -171,7 +171,7 @@ class SetKeySignature(commands.Command):
 
         measure.key_signature = KeySignature(self.key_signature)
 
-commands.Command.register_subclass(SetKeySignature)
+commands.Command.register_command(SetKeySignature)
 
 
 class SetAccidental(commands.Command):
@@ -195,7 +195,7 @@ class SetAccidental(commands.Command):
 
         note.pitches[self.pitch_idx] = note.pitches[self.pitch_idx].add_accidental(self.accidental)
 
-commands.Command.register_subclass(SetAccidental)
+commands.Command.register_command(SetAccidental)
 
 
 class Note(model.Note, state.StateBase):
@@ -247,7 +247,6 @@ class ScoreMeasure(model.ScoreMeasure, Measure):
         return len(self.notes) == 0
 
 state.StateBase.register_class(ScoreMeasure)
-Measure.register_subclass(ScoreMeasure)
 
 
 class ScoreEventSource(EventSource):
@@ -325,4 +324,3 @@ class ScoreTrack(model.ScoreTrack, Track):
         return ScoreEventSource(self)
 
 state.StateBase.register_class(ScoreTrack)
-Track.register_subclass(ScoreTrack)

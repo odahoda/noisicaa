@@ -193,8 +193,7 @@ class ProjectProcessMixin(object):
 
         # This block must be atomic, no 'awaits'!
         assert not self.pending_mutations
-        cmd_cls = commands.Command.get_subclass(command)
-        cmd = cmd_cls(**kwargs)
+        cmd = commands.Command.create(command, **kwargs)
         result = self.project.dispatch_command(target, cmd)
         mutations = self.pending_mutations[:]
         self.pending_mutations.clear()

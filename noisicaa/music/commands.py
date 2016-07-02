@@ -12,6 +12,8 @@ class CommandError(Exception):
 
 
 class Command(StateBase):
+    command_classes = {}
+
     def __init__(self, state=None):
         super().__init__(state)
 
@@ -30,3 +32,19 @@ class Command(StateBase):
             if getattr(self, prop_name) != getattr(other, prop_name):
                 return False
         return True
+
+    @classmethod
+    def register_command(cls, cmd_cls):
+        assert cmd_cls.__name__ not in cls.command_classes
+        cls.command_classes[cmd_cls.__name__] = cmd_cls
+
+    @classmethod
+    def create(cls, command_name, **kwargs):
+        cmd_cls = cls.command_classes[command_name]
+        return cmd_cls(**kwargs)
+
+    @classmethod
+    def create_from_state(cls, state):
+        cls_name = state['__class__']
+        c = cls.command_classes[cls_name]
+        return c(state=state)

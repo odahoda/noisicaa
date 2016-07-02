@@ -58,7 +58,7 @@ class AddSheet(commands.Command):
         sheet = Sheet(name)
         project.sheets.append(sheet)
 
-commands.Command.register_subclass(AddSheet)
+commands.Command.register_command(AddSheet)
 
 
 class ClearSheet(commands.Command):
@@ -74,7 +74,7 @@ class ClearSheet(commands.Command):
 
         project.get_sheet(self.name).clear()
 
-commands.Command.register_subclass(ClearSheet)
+commands.Command.register_command(ClearSheet)
 
 
 class DeleteSheet(commands.Command):
@@ -98,7 +98,7 @@ class DeleteSheet(commands.Command):
 
         raise ValueError("No sheet %r" % self.name)
 
-commands.Command.register_subclass(DeleteSheet)
+commands.Command.register_command(DeleteSheet)
 
 
 class RenameSheet(commands.Command):
@@ -123,7 +123,7 @@ class RenameSheet(commands.Command):
         sheet = project.get_sheet(self.name)
         sheet.name = self.new_name
 
-commands.Command.register_subclass(RenameSheet)
+commands.Command.register_command(RenameSheet)
 
 
 class SetCurrentSheet(commands.Command):
@@ -139,7 +139,7 @@ class SetCurrentSheet(commands.Command):
 
         project.current_sheet = project.get_sheet_index(self.name)
 
-commands.Command.register_subclass(SetCurrentSheet)
+commands.Command.register_command(SetCurrentSheet)
 
 
 class AddTrack(commands.Command):
@@ -168,7 +168,7 @@ class AddTrack(commands.Command):
 
         return len(sheet.tracks) - 1
 
-commands.Command.register_subclass(AddTrack)
+commands.Command.register_command(AddTrack)
 
 
 class RemoveTrack(commands.Command):
@@ -184,7 +184,7 @@ class RemoveTrack(commands.Command):
 
         del sheet.tracks[self.track]
 
-commands.Command.register_subclass(RemoveTrack)
+commands.Command.register_command(RemoveTrack)
 
 
 class MoveTrack(commands.Command):
@@ -222,7 +222,7 @@ class MoveTrack(commands.Command):
 
         return track.index
 
-commands.Command.register_subclass(MoveTrack)
+commands.Command.register_command(MoveTrack)
 
 
 class InsertMeasure(commands.Command):
@@ -249,7 +249,7 @@ class InsertMeasure(commands.Command):
             else:
                 track.append_measure()
 
-commands.Command.register_subclass(InsertMeasure)
+commands.Command.register_command(InsertMeasure)
 
 
 class RemoveMeasure(commands.Command):
@@ -274,7 +274,7 @@ class RemoveMeasure(commands.Command):
                 if self.tracks:
                     track.append_measure()
 
-commands.Command.register_subclass(RemoveMeasure)
+commands.Command.register_command(RemoveMeasure)
 
 
 class Sheet(model.Sheet, state.StateBase):
