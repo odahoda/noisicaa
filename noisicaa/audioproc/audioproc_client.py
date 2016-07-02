@@ -28,12 +28,15 @@ class AudioProcClientMixin(object):
         self._session_id = await self._stub.call(
             'START_SESSION', self.server.address)
 
-    async def disconnect(self):
+    async def disconnect(self, shutdown=False):
         if self._session_id is not None:
             await self._stub.call('END_SESSION', self._session_id)
             self._session_id = None
 
         if self._stub is not None:
+            if shutdown:
+                await self.shutdown()
+
             await self._stub.close()
             self._stub = None
 

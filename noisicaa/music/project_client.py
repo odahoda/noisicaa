@@ -83,12 +83,15 @@ class ProjectClientMixin(object):
             # Connected to a loaded project.
             self.__set_project(root_id)
 
-    async def disconnect(self):
+    async def disconnect(self, shutdown=False):
         if self._session_id is not None:
             await self._stub.call('END_SESSION', self._session_id)
             self._session_id = None
 
         if self._stub is not None:
+            if shutdown:
+                await self.shutdown()
+
             await self._stub.close()
             self._stub = None
 

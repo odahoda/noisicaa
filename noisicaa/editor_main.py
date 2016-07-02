@@ -21,6 +21,9 @@ class Main(object):
         self.manager = process_manager.ProcessManager(self.event_loop)
         self.manager.server.add_command_handler(
             'CREATE_PROJECT_PROCESS', self.handle_create_project_process)
+        self.manager.server.add_command_handler(
+            'CREATE_AUDIOPROC_PROCESS',
+            self.handle_create_audioproc_process)
         self.stop_event = asyncio.Event()
         self.returncode = 0
 
@@ -116,6 +119,14 @@ class Main(object):
         # URIs.
         proc = await self.manager.start_process(
             'project', 'noisicaa.music.project_process.ProjectProcess')
+        return proc.address
+
+    async def handle_create_audioproc_process(self, name):
+        # TODO: keep map of name->proc, only create processes for new
+        # names.
+        proc = await self.manager.start_process(
+            'audioproc<%s>' % name,
+            'noisicaa.audioproc.audioproc_process.AudioProcProcess')
         return proc.address
 
 

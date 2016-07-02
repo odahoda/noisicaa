@@ -15,6 +15,7 @@ from PyQt5.QtWidgets import (
     QFileDialog,
 )
 
+from noisicaa import audioproc
 from noisicaa import music
 from noisicaa import devices
 from ..exceptions import RestartAppException, RestartAppCleanException
@@ -56,6 +57,22 @@ class ExceptHook(object):
         errorbox.exec_()
 
 
+class AudioProcClientImpl(object):
+    def __init__(self, event_loop, server):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = server
+
+    async def setup(self):
+        pass
+
+    async def cleanup(self):
+        pass
+
+class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
+    pass
+
+
 class BaseEditorApp(QApplication):
     def __init__(self, process, runtime_settings, settings=None):
         super().__init__(['noisicaä'])
@@ -78,6 +95,8 @@ class BaseEditorApp(QApplication):
         self.project_registry = None
         self.sequencer = None
         self.midi_hub = None
+        self.audioproc_client = None
+        self.audioproc_process = None
 
     async def setup(self):
         self.default_style = self.style().objectName()
@@ -102,8 +121,22 @@ class BaseEditorApp(QApplication):
         self.show_edit_areas_action.setChecked(
             int(self.settings.value('dev/show_edit_areas', '0')))
 
+        self.audioproc_process = await self.process.manager.call(
+            'CREATE_AUDIOPROC_PROCESS', 'main')
+
+        self.audioproc_client = AudioProcClient(
+            self.process.event_loop, self.process.server)
+        await self.audioproc_client.setup()
+        await self.audioproc_client.connect(self.audioproc_process)
+
     async def cleanup(self):
         logger.info("Cleaning up.")
+
+        if self.audioproc_client is not None:
+            await self.audioproc_client.disconnect(shutdown=True)
+            await self.audioproc_client.cleanup()
+            self.audioproc_client = None
+
         if self.midi_hub is not None:
             self.midi_hub.stop()
             self.midi_hub = None
@@ -111,6 +144,10 @@ class BaseEditorApp(QApplication):
         if self.sequencer is not None:
             self.sequencer.close()
             self.sequencer = None
+
+        if self.project_registry is not None:
+            await self.project_registry.close_all()
+            self.project_registry = None
 
     def quit(self, exit_code=0):
         self.process.quit(exit_code)

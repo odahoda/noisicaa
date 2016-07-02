@@ -40,7 +40,9 @@ class Project(object):
 
     async def close(self):
         await self.client.close()
-        await self.client.shutdown()
+        await self.client.disconnect(shutdown=True)
+        await self.client.cleanup()
+        self.client = None
 
 
 class ProjectRegistry(object):
@@ -64,3 +66,7 @@ class ProjectRegistry(object):
     async def close_project(self, project):
         await project.close()
         del self.projects[project.path]
+
+    async def close_all(self):
+        for project in list(self.projects.values()):
+            await self.close_project(project)
