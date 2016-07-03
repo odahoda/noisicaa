@@ -26,8 +26,8 @@ class WavFileSource(Node):
     desc.parameter('loop', 'bool')
     desc.parameter('end_notification', 'string')
 
-    def __init__(self, path, loop=False, end_notification=None):
-        super().__init__()
+    def __init__(self, event_loop, path, loop=False, end_notification=None):
+        super().__init__(event_loop)
 
         self._output = AudioOutputPort('out')
         self.add_output(self._output)
@@ -41,8 +41,8 @@ class WavFileSource(Node):
         self._pos = None
         self._samples = None
 
-    def setup(self):
-        super().setup()
+    async def setup(self):
+        await super().setup()
 
         fp = wave.open(self._path, 'rb')
 

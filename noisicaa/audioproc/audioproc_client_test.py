@@ -54,14 +54,16 @@ class ProxyTest(asynctest.TestCase):
     async def setUp(self):
         self.audioproc_process = TestAudioProcProcess(self.loop)
         await self.audioproc_process.setup()
+        self.audioproc_task = self.loop.create_task(
+            self.audioproc_process.run())
         self.client = TestClient(self.loop)
         await self.client.setup()
         await self.client.connect(self.audioproc_process.server.address)
 
     async def tearDown(self):
-        await self.client.shutdown()
-        await self.client.disconnect()
+        await self.client.disconnect(shutdown=True)
         await self.client.cleanup()
+        await asyncio.wait_for(self.audioproc_task, None)
         await self.audioproc_process.cleanup()
 
     async def test_list_node_types(self):

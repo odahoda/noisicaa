@@ -49,8 +49,8 @@ class FluidSynthSource(Node):
         self._sfid = None
         self._resampler = None
 
-    def setup(self):
-        super().setup()
+    async def setup(self):
+        await super().setup()
 
         assert self._synth is None
 
@@ -84,8 +84,8 @@ class FluidSynthSource(Node):
             AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_S16, 44100,
             AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_FLT, 44100)
 
-    def cleanup(self):
-        super().cleanup()
+    async def cleanup(self):
+        await super().cleanup()
 
         self._resampler = None
         if self._synth is not None:

@@ -104,8 +104,8 @@ class EncoderSink(Node):
         'flac': FlacEncoder,
     }
 
-    def __init__(self, output_format, path):
-        super().__init__()
+    def __init__(self, event_loop, output_format, path):
+        super().__init__(event_loop)
 
         self.output_format = output_format
         self.path = path
@@ -116,15 +116,15 @@ class EncoderSink(Node):
         self._input = AudioInputPort('in')
         self.add_input(self._input)
 
-    def setup(self):
-        super().setup()
+    async def setup(self):
+        await super().setup()
         self._encoder.setup()
         self._encoder.start()
 
-    def cleanup(self):
+    async def cleanup(self):
         self._encoder.stop()
         self._encoder.cleanup()
-        super().cleanup()
+        await super().cleanup()
 
     def run(self, framesize=4096):
         self._encoder.consume(self._input.frame)

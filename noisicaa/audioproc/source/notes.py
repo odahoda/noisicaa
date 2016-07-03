@@ -20,8 +20,8 @@ class NoteSource(Node):
         self._end_of_stream = None
         self._event_source = None
 
-    def setup(self):
-        super().setup()
+    async def setup(self):
+        await super().setup()
         self._end_of_stream = False
         self._event_source = self._track.create_event_source()
 

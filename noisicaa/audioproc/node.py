@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 class Node(object):
     desc = None
 
-    def __init__(self, name=None, id=None):
+    def __init__(self, event_loop, name=None, id=None):
+        self.event_loop = event_loop
         self.id = id or uuid.uuid4().hex
         self.pipeline = None
         self._name = name or type(self).__name__
@@ -46,14 +47,14 @@ class Node(object):
                 parents.append(upstream_port.owner)
         return parents
 
-    def setup(self):
+    async def setup(self):
         """Set up the node.
 
         Any expensive initialization should go here.
         """
         logger.info("%s: setup()", self.name)
 
-    def cleanup(self):
+    async def cleanup(self):
         """Clean up the node.
 
         The counterpart of setup().

@@ -15,7 +15,7 @@ class NodeDB(object):
             (cls.desc for cls in self._db.values()),
             key=lambda desc: desc.name)
 
-    def create(self, name, args):
+    def create(self, event_loop, name, args):
         cls = self._db[name]
-        return cls(**args)
+        return cls(event_loop, **args)
 

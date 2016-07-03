@@ -29,7 +29,7 @@ class MetronomeSource(Node):
         self._timepos = 0
         self._buffer = None
 
-    def setup(self):
+    async def setup(self):
         fp = wave.open(
             os.path.join(DATA_DIR, 'sounds', 'metronome.wav'), 'rb')
 

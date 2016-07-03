@@ -8,7 +8,7 @@ from . import silence
 
 class SilenceTest(sourcetest.SourceTest):
     def make_node(self):
-        return silence.SilenceSource()
+        return silence.SilenceSource(self.loop)
 
 
 if __name__ == '__main__':

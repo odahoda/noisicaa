@@ -2,13 +2,15 @@
 
 import unittest
 
+import asynctest
+
 from ..pipeline import Pipeline
 from ..source.whitenoise import WhiteNoiseSource
 from . import scale
 
 
-class ScaleTest(unittest.TestCase):
-    def testBasicRun(self):
+class ScaleTest(asynctest.TestCase):
+    async def testBasicRun(self):
         pipeline = Pipeline()
 
         source = WhiteNoiseSource()
@@ -17,12 +19,12 @@ class ScaleTest(unittest.TestCase):
         node = scale.Scale(0.5)
         pipeline.add_node(node)
         node.inputs['in'].connect(source.outputs['out'])
-        node.setup()
+        await node.setup()
         try:
             node.collect_inputs()
             node.run(0)
         finally:
-            node.cleanup()
+            await node.cleanup()
 
 
 if __name__ == '__main__':

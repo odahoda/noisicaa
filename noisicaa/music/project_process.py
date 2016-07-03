@@ -82,18 +82,20 @@ class ProjectProcessMixin(object):
         self.sessions = {}
         self.pending_mutations = []
 
-        audioproc_process = await self.manager.call(
+        self.audioproc_address = await self.manager.call(
             'CREATE_AUDIOPROC_PROCESS', 'project-%s' % id(self))
         self.audioproc_client = AudioProcClient(
             self.event_loop, self.server)
         await self.audioproc_client.setup()
-        await self.audioproc_client.connect(audioproc_process)
+        await self.audioproc_client.connect(self.audioproc_address)
+        await self.audioproc_client.set_backend('ipc')
 
     async def cleanup(self):
         if self.audioproc_client is not None:
             await self.audioproc_client.disconnect(shutdown=True)
             await self.audioproc_client.cleanup()
             self.audioproc_client = None
+            self.audioproc_address = None
 
     async def run(self):
         await self._shutting_down.wait()
@@ -157,8 +159,8 @@ class ProjectProcessMixin(object):
         if self.project is not None:
             for mutation in self.add_object_mutations(self.project):
                 await session.publish_mutation(mutation)
-            return session.id, self.project.id
-        return session.id, None
+            return session.id, self.audioproc_address, self.project.id
+        return session.id, self.audioproc_address, None
 
     def handle_end_session(self, session_id):
         session = self.get_session(session_id)

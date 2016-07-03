@@ -1,17 +1,17 @@
 #!/usr/bin/python3
 
-import unittest
+import asynctest
 
 
-class SourceTest(unittest.TestCase):
+class SourceTest(asynctest.TestCase):
     def make_node(self):
         raise NotImplementedError
 
-    def testBasicRun(self):
+    async def testBasicRun(self):
         node = self.make_node()
-        node.setup()
+        await node.setup()
         try:
             node.collect_inputs()
             node.run(0)
         finally:
-            node.cleanup()
+            await node.cleanup()

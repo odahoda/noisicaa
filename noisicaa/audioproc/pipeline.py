@@ -62,10 +62,17 @@ class Pipeline(object):
         logger.info("Pipeline running.")
 
     def stop(self):
+        if self._backend is not None:
+            logger.info("Stopping backend...")
+            self._backend.stop()
+
         if self._thread is not None:
+            logger.info("Stopping pipeline thread...")
             self._stopping.set()
             self.wait()
+            logger.info("Pipeline thread stopped.")
             self._thread = None
+
         self._running = False
 
     def wait(self):
@@ -119,6 +126,8 @@ class Pipeline(object):
 
                     t0 = time.time()
                     self._backend.wait()
+                    if self._backend.stopped:
+                        break
 
                     t1 = time.time()
                     logger.debug("Processing frame @%d", timepos)
@@ -147,11 +156,6 @@ class Pipeline(object):
 
         except:  # pylint: disable=bare-except
             sys.excepthook(*sys.exc_info())
-
-        finally:
-            logger.info("Cleaning up nodes...")
-            for node in reversed(self.sorted_nodes):
-                node.cleanup()
 
     def add_notification(self, node_id, notification):
         self._notifications.append((node_id, notification))
@@ -200,91 +204,3 @@ class Pipeline(object):
     @property
     def backend(self):
         return self._backend
-
-
-def demo():  # pragma: no cover
-    import pyximport
-    pyximport.install()
-
-    from .source.notes import NoteSource
-    from .source.fluidsynth import FluidSynthSource
-    from .source.whitenoise import WhiteNoiseSource
-    from .source.wavfile import WavFileSource
-    from .filter.scale import Scale
-    from .compose.timeslice import TimeSlice
-    from .compose.mix import Mix
-    from .sink.pyaudio import PyAudioSink
-    from .sink.encode import EncoderSink
-    from noisicaa import music
-
-    logger.setLevel(logging.DEBUG)
-
-    pipeline = Pipeline()
-
-    # project = music.BaseProject.make_demo()
-    # sheet = project.sheets[0]
-    # sheet_mixer = sheet.create_playback_source(
-    #     pipeline, setup=False, recursive=True)
-
-
-    # noise_boost = Scale(0.1)
-    # pipeline.add_node(noise_boost)
-    # noise_boost.inputs['in'].connect(noise.outputs['out'])
-
-    # slice_noise = TimeSlice(200000)
-    # pipeline.add_node(slice_noise)
-    # slice_noise.inputs['in'].connect(noise_boost.outputs['out'])
-
-    # concat = Mix()
-    # pipeline.add_node(concat)
-    # #concat.append_input(slice_noise.outputs['out'])
-    # concat.append_input(sheet_mixer.outputs['out'])
-
-    noise = WhiteNoiseSource()
-    noise.setup()
-    pipeline.add_node(noise)
-
-    smpl = WavFileSource('/home/pink/Samples/fireworks.wav')
-    smpl.setup()
-    pipeline.add_node(smpl)
-
-    #sink = EncoderSink('flac', '/tmp/foo.flac')
-    sink = PyAudioSink()
-    sink.setup()
-    pipeline.add_node(sink)
-    #sink.inputs['in'].connect(noise.outputs['out'])
-    sink.inputs['in'].connect(smpl.outputs['out'])
-
-    pipeline.start()
-    try:
-        pipeline.wait()
-    except KeyboardInterrupt:
-        pipeline.stop()
-        pipeline.wait()
-
-    # source = Mix(
-    #     MetronomeSource(22050),
-    #     Concat(
-    #         Mix(
-    #             FluidsynthSource(),
-    #             Concat(
-    #                 ,
-    #                 WavFileSource('/storage/home/share/sounds/new/2STEREO2.wav'),
-    #                 WavFileSource('/storage/home/share/sounds/new/2STEREO2.wav'),
-    #             ),
-    #         ),
-    #         TimeSlice(SilenceSource(), 10000),
-    #         WavFileSource(os.path.join(DATA_DIR, 'sounds', 'metronome.wav')),
-    #         TimeSlice(SilenceSource(), 10000),
-    #         WavFileSource(os.path.join(DATA_DIR, 'sounds', 'metronome.wav')),
-    #         TimeSlice(SilenceSource(), 10000),
-    #         WavFileSource(os.path.join(DATA_DIR, 'sounds', 'metronome.wav')),
-    #         TimeSlice(SilenceSource(), 10000),
-    #     ),
-    # )
-
-
-    # sink.run()
-
-if __name__ == '__main__':  # pragma: no cover
-    demo()

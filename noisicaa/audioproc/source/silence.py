@@ -14,8 +14,8 @@ class SilenceSource(Node):
     desc.name = 'silence'
     desc.port('out', 'output', 'audio')
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, event_loop):
+        super().__init__(event_loop)
 
         self._output = AudioOutputPort('out')
         self.add_output(self._output)

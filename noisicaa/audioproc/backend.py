@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import logging
+import queue
 import threading
 import time
 
@@ -15,6 +16,8 @@ from .node_types import NodeType
 from .ports import AudioInputPort, EventOutputPort
 from .events import NoteOnEvent
 from ..music.pitch import Pitch
+from . import audio_format
+from . import frame
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +28,8 @@ class AudioSinkNode(Node):
     desc.port('in', 'input', 'audio')
     desc.is_system = True
 
-    def __init__(self):
-        super().__init__(id='sink')
+    def __init__(self, event_loop):
+        super().__init__(event_loop, id='sink')
 
         self._input = AudioInputPort('in')
         self.add_input(self._input)
@@ -41,8 +44,8 @@ class MidiSourceNode(Node):
     desc.port('out', 'output', 'events')
     desc.is_system = True
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, event_loop):
+        super().__init__(event_loop)
 
         self._output = EventOutputPort('out')
         self.add_output(self._output)
@@ -56,13 +59,20 @@ class MidiSourceNode(Node):
 
 class Backend(object):
     def __init__(self):
-        pass
+        self._stopped = threading.Event()
 
     def setup(self):
         pass
 
     def cleanup(self):
         pass
+
+    @property
+    def stopped(self):
+        return self._stopped.is_set()
+
+    def stop(self):
+        self._stopped.set()
 
     def wait(self):
         raise NotImplementedError
@@ -144,7 +154,13 @@ class PyAudioBackend(Backend):
 
         return (bytes(samples), pyaudio.paContinue)
 
+    def stop(self):
+        super().stop()
+        self._need_more.set()
+
     def wait(self):
+        if self.stopped:
+            return
         self._need_more.wait()
 
     def write(self, frame):
@@ -153,3 +169,37 @@ class PyAudioBackend(Backend):
             self._buffer.extend(samples)
             if len(self._buffer) >= self._buffer_threshold:
                 self._need_more.clear()
+
+
+class IPCBackend(Backend):
+    def __init__(self):
+        super().__init__()
+
+        self._input_ready = threading.Event()
+        self._output_ready = threading.Event()
+
+        af = audio_format.AudioFormat(
+            audio_format.CHANNELS_STEREO,
+            audio_format.SAMPLE_FMT_FLT,
+            44100)
+        self._output = frame.Frame(af, 0, set())
+
+    def process_frame(self):
+        self._input_ready.set()
+        self._output_ready.wait()
+        self._output_ready.clear()
+
+    def stop(self):
+        super().stop()
+        self._input_ready.set()
+
+    def wait(self):
+        if self.stopped:
+            return
+        self._input_ready.wait()
+        self._input_ready.clear()
+
+    def write(self, frame):
+        self._output.resize(0)
+        self._output.append(frame)
+        self._output_ready.set()

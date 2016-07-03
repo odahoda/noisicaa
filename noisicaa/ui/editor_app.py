@@ -180,12 +180,12 @@ class BaseEditorApp(QApplication):
 
     async def createProject(self, path):
         project = await self.project_registry.create_project(path)
-        self.addProject(project)
+        await self.addProject(project)
         return project
 
     async def openProject(self, path):
         project = await self.project_registry.open_project(path)
-        self.addProject(project)
+        await self.addProject(project)
         return project
 
     def _updateOpenedProjects(self):
@@ -197,8 +197,12 @@ class BaseEditorApp(QApplication):
                 in self.project_registry.projects.values()
                 if project.path))
 
-    def addProject(self, project_connection):
+    async def addProject(self, project_connection):
         self.win.addProjectView(project_connection)
+        node_id = await self.audioproc_client.add_node(
+            'ipc', address=project_connection.client.audioproc_address)
+        await self.audioproc_client.connect_ports(
+            node_id, 'out', 'sink', 'in')
         self._updateOpenedProjects()
 
     async def removeProject(self, project_connection):
@@ -240,12 +244,12 @@ class EditorApp(BaseEditorApp):
                 else:
                     project = await self.project_registry.open_project(
                         path)
-                self.addProject(project)
+                await self.addProject(project)
         else:
             reopen_projects = self.settings.value('opened_projects', [])
             for path in reopen_projects or []:
                 project = await self.project_registry.open_project(path)
-                self.addProject(project)
+                await self.addProject(project)
 
         self.aboutToQuit.connect(self.shutDown)
 

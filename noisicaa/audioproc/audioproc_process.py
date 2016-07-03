@@ -12,6 +12,7 @@ from . import backend
 from . import pipeline
 from . import mutations
 from . import node_db
+from . import nodes
 from .filter import scale
 from .source import whitenoise
 from .source import silence
@@ -97,6 +98,8 @@ class AudioProcProcessMixin(object):
             'SET_BACKEND', self.handle_set_backend)
         self.server.add_command_handler(
             'PLAY_FILE', self.handle_play_file)
+        self.server.add_command_handler(
+            'PROCESS_FRAME', self.handle_process_frame)
 
         self.node_db = node_db.NodeDB()
         self.node_db.add(scale.Scale)
@@ -104,18 +107,19 @@ class AudioProcProcessMixin(object):
         self.node_db.add(whitenoise.WhiteNoiseSource)
         self.node_db.add(wavfile.WavFileSource)
         self.node_db.add(fluidsynth.FluidSynthSource)
+        self.node_db.add(nodes.IPCNode)
 
         self.pipeline = pipeline.Pipeline()
         self.pipeline.utilization_callback = self.utilization_callback
 
         self.backend = None
 
-        self.audiosink = backend.AudioSinkNode()
-        self.audiosink.setup()
+        self.audiosink = backend.AudioSinkNode(self.event_loop)
+        await self.audiosink.setup()
         self.pipeline.add_node(self.audiosink)
 
-        self.midisource = backend.MidiSourceNode()
-        self.midisource.setup()
+        self.midisource = backend.MidiSourceNode(self.event_loop)
+        await self.midisource.setup()
         self.pipeline.add_node(self.midisource)
 
         self.pipeline.start()
@@ -128,8 +132,10 @@ class AudioProcProcessMixin(object):
 
     async def run(self):
         await self._shutting_down.wait()
+        logger.info("Shutting down...")
         self.pipeline.stop()
         self.pipeline.wait()
+        logger.info("Pipeline finished.")
         self._shutdown_complete.set()
 
     def utilization_callback(self, utilization):
@@ -189,28 +195,31 @@ class AudioProcProcessMixin(object):
         del self.sessions[session_id]
 
     async def handle_shutdown(self):
+        logger.info("Shutdown received.")
         self._shutting_down.set()
+        logger.info("Waiting for shutdown to complete...")
         await self._shutdown_complete.wait()
+        logger.info("Shutdown complete.")
 
     def handle_list_node_types(self, session_id):
         self.get_session(session_id)
         return self.node_db.node_types
 
-    def handle_add_node(self, session_id, name, args):
+    async def handle_add_node(self, session_id, name, args):
         session = self.get_session(session_id)
-        node = self.node_db.create(name, args)
-        node.setup()
+        node = self.node_db.create(self.event_loop, name, args)
+        await node.setup()
         with self.pipeline.writer_lock():
             self.pipeline.add_node(node)
         self.publish_mutation(mutations.AddNode(node))
         return node.id
 
-    def handle_remove_node(self, session_id, node_id):
+    async def handle_remove_node(self, session_id, node_id):
         session = self.get_session(session_id)
         node = self.pipeline.find_node(node_id)
         with self.pipeline.writer_lock():
             self.pipeline.remove_node(node)
-        node.cleanup()
+        await node.cleanup()
         self.publish_mutation(mutations.RemoveNode(node))
 
     def handle_connect_ports(
@@ -242,6 +251,8 @@ class AudioProcProcessMixin(object):
             be = backend.PyAudioBackend(**args)
         elif name == 'null':
             be = backend.NullBackend(**args)
+        elif name == 'ipc':
+            be = backend.IPCBackend(**args)
         elif name is None:
             be = None
         else:
@@ -249,12 +260,13 @@ class AudioProcProcessMixin(object):
 
         self.pipeline.set_backend(be)
 
-    def handle_play_file(self, session_id, path):
+    async def handle_play_file(self, session_id, path):
         self.get_session(session_id)
 
         node = wavfile.WavFileSource(
+            self.event_loop,
             path=path, loop=False, end_notification='end')
-        node.setup()
+        await node.setup()
 
         self.pipeline.notification_listener.add(
             node.id,
@@ -273,7 +285,10 @@ class AudioProcProcessMixin(object):
             sink = self.pipeline.find_node('sink')
             sink.inputs['in'].disconnect(node.outputs['out'])
             self.pipeline.remove_node(node)
-        node.cleanup()
+        self.event_loop.create_task(node.cleanup())
+
+    def handle_process_frame(self):
+        logger.info("process_frame received.")
 
 
 class AudioProcProcess(AudioProcProcessMixin, core.ProcessImpl):
