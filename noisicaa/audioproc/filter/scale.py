@@ -16,8 +16,8 @@ class Scale(Node):
     desc.port('out', 'output', 'audio')
     desc.parameter('factor', 'float')
 
-    def __init__(self, factor):
-        super().__init__('scale(%.2f)' % factor)
+    def __init__(self, event_loop, factor):
+        super().__init__(event_loop, name='scale(%.2f)' % factor)
 
         self._input = AudioInputPort('in')
         self.add_input(self._input)

@@ -51,7 +51,6 @@ class TestProjectProcess(
         project_process.ProjectProcessMixin, TestProjectProcessImpl):
     pass
 
-
 class ProxyTest(asynctest.TestCase):
     async def setUp(self):
         self.project_process = TestProjectProcess(self.loop)

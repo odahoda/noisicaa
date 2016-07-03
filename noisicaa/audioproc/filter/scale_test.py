@@ -16,7 +16,7 @@ class ScaleTest(asynctest.TestCase):
         source = WhiteNoiseSource()
         pipeline.add_node(source)
 
-        node = scale.Scale(0.5)
+        node = scale.Scale(self.loop, 0.5)
         pipeline.add_node(node)
         node.inputs['in'].connect(source.outputs['out'])
         await node.setup()

@@ -121,16 +121,7 @@ class BaseEditorApp(QApplication):
         self.show_edit_areas_action.setChecked(
             int(self.settings.value('dev/show_edit_areas', '0')))
 
-        self.audioproc_process = await self.process.manager.call(
-            'CREATE_AUDIOPROC_PROCESS', 'main')
-
-        self.audioproc_client = AudioProcClient(
-            self.process.event_loop, self.process.server)
-        await self.audioproc_client.setup()
-        await self.audioproc_client.connect(self.audioproc_process)
-
-        await self.audioproc_client.set_backend(
-            self.settings.value('audio/backend', 'pyaudio'))
+        await self.createAudioProcProcess()
 
     async def cleanup(self):
         logger.info("Cleaning up.")
@@ -160,6 +151,9 @@ class BaseEditorApp(QApplication):
 
     def createMidiHub(self):
         return devices.MidiHub(self.sequencer)
+
+    async def createAudioProcProcess(self):
+        pass
 
     def dumpSettings(self):
         for key in self.settings.allKeys():
@@ -284,3 +278,15 @@ class EditorApp(BaseEditorApp):
         # and the console interprets it as UTF-8), 'aconnectgui' shows the
         # encoded bytes.
         return devices.AlsaSequencer('noisicaä')
+
+    async def createAudioProcProcess(self):
+        self.audioproc_process = await self.process.manager.call(
+            'CREATE_AUDIOPROC_PROCESS', 'main')
+
+        self.audioproc_client = AudioProcClient(
+            self.process.event_loop, self.process.server)
+        await self.audioproc_client.setup()
+        await self.audioproc_client.connect(self.audioproc_process)
+
+        await self.audioproc_client.set_backend(
+            self.settings.value('audio/backend', 'pyaudio'))

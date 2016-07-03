@@ -62,7 +62,9 @@ class ProjectProcessMixin(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.audioproc_address = None
         self.audioproc_client = None
+        self.audiostream_address = None
 
     async def setup(self):
         await super().setup()
@@ -82,17 +84,10 @@ class ProjectProcessMixin(object):
         self.sessions = {}
         self.pending_mutations = []
 
-        self.audioproc_address = await self.manager.call(
-            'CREATE_AUDIOPROC_PROCESS', 'project-%s' % id(self))
-        self.audioproc_client = AudioProcClient(
-            self.event_loop, self.server)
-        await self.audioproc_client.setup()
-        await self.audioproc_client.connect(self.audioproc_address)
+        await self.createAudioProcProcess()
 
-        nid = await self.audioproc_client.add_node('wavfile', path='/usr/share/sounds/purple/logout.wav', loop=True)
-        await self.audioproc_client.connect_ports(nid, 'out', 'sink', 'in')
-
-        self.audiostream_address = await self.audioproc_client.set_backend('ipc')
+    async def createAudioProcProcess(self):
+        pass
 
     async def cleanup(self):
         if self.audioproc_client is not None:
@@ -247,4 +242,16 @@ class ProjectProcessMixin(object):
 
 
 class ProjectProcess(ProjectProcessMixin, core.ProcessImpl):
-    pass
+    async def createAudioProcProcess(self):
+        self.audioproc_address = await self.manager.call(
+            'CREATE_AUDIOPROC_PROCESS', 'project-%s' % id(self))
+        self.audioproc_client = AudioProcClient(
+            self.event_loop, self.server)
+        await self.audioproc_client.setup()
+        await self.audioproc_client.connect(self.audioproc_address)
+
+        nid = await self.audioproc_client.add_node('wavfile', path='/usr/share/sounds/purple/logout.wav', loop=True)
+        await self.audioproc_client.connect_ports(nid, 'out', 'sink', 'in')
+
+        self.audiostream_address = await self.audioproc_client.set_backend('ipc')
+
