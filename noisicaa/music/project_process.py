@@ -162,6 +162,31 @@ class ProjectProcessMixin(object):
                 session.publish_mutation(mutation)))
         await asyncio.wait(tasks, loop=self.event_loop)
 
+    async def publish_pipeline_mutation(self, mutation):
+        if self.audioproc_client is None:
+            return
+
+        if isinstance(mutation, mutations.AddNode):
+            await self.audioproc_client.add_node(
+                mutation.node_type, id=mutation.node_id,
+                name=mutation.node_name, **mutation.args)
+
+        elif isinstance(mutation, mutations.RemoveNode):
+            await self.audioproc_client.remove_node(mutation.node_id)
+
+        elif isinstance(mutation, mutations.ConnectPorts):
+            await self.audioproc_client.connect_ports(
+                mutation.src_node, mutation.src_port,
+                mutation.dest_node, mutation.dest_port)
+
+        elif isinstance(mutation, mutations.DisconnectPorts):
+            await self.audioproc_client.disconnect_ports(
+                mutation.src_node, mutation.src_port,
+                mutation.dest_node, mutation.dest_port)
+
+        else:
+            raise ValueError(type(mutation))
+
     async def handle_start_session(self, client_address):
         client_stub = ipc.Stub(self.event_loop, client_address)
         await client_stub.connect()
@@ -204,29 +229,12 @@ class ProjectProcessMixin(object):
 
     async def send_initial_pipeline_mutations(self):
         assert not self.pending_pipeline_mutations
-        self.project.initial_pipeline_mutations()
-        await self.send_pending_pipeline_mutations()
-
-    async def send_pending_pipeline_mutations(self):
+        self.project.add_to_pipeline()
         pipeline_mutations = self.pending_pipeline_mutations[:]
         self.pending_pipeline_mutations.clear()
 
-        if self.audioproc_client is None:
-            return
-
         for mutation in pipeline_mutations:
-            if isinstance(mutation, mutations.AddNode):
-                await self.audioproc_client.add_node(
-                    mutation.node_type, id=mutation.node_id,
-                    name=mutation.node_name, **mutation.args)
-
-            elif isinstance(mutation, mutations.ConnectPorts):
-                await self.audioproc_client.connect_ports(
-                    mutation.src_node, mutation.src_port,
-                    mutation.dest_node, mutation.dest_port)
-
-            else:
-                raise ValueError(type(mutation))
+            await self.publish_pipeline_mutation(mutation)
 
         await self.audioproc_client.dump()
 
@@ -282,13 +290,20 @@ class ProjectProcessMixin(object):
 
         # This block must be atomic, no 'awaits'!
         assert not self.pending_mutations
+        assert not self.pending_pipeline_mutations
         cmd = commands.Command.create(command, **kwargs)
         result = self.project.dispatch_command(target, cmd)
         mutations = self.pending_mutations[:]
         self.pending_mutations.clear()
+        pipeline_mutations = self.pending_pipeline_mutations[:]
+        self.pending_pipeline_mutations.clear()
 
         for mutation in mutations:
             await self.publish_mutation(mutation)
+
+        for mutation in pipeline_mutations:
+            await self.publish_pipeline_mutation(mutation)
+
         return result
 
 

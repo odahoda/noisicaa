@@ -177,7 +177,7 @@ class Track(model.Track, state.StateBase):
     def event_source_name(self):
         return '%s-events' % self.id
 
-    def initial_pipeline_mutations(self):
+    def add_to_pipeline(self):
         self.project.listeners.call(
             'pipeline_mutations',
             mutations.AddNode(
@@ -207,3 +207,31 @@ class Track(model.Track, state.StateBase):
             'pipeline_mutations',
             mutations.ConnectPorts(
                 self.event_source_name, 'out', self.instr_name, 'in'))
+
+    def remove_from_pipeline(self):
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.DisconnectPorts(
+                self.event_source_name, 'out', self.instr_name, 'in'))
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.RemoveNode(self.event_source_name))
+
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.DisconnectPorts(
+                self.instr_name, 'out', self.mixer_name, 'in'))
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.RemoveNode(self.instr_name))
+
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.DisconnectPorts(
+                self.mixer_name, 'out',
+                self.sheet.main_mixer_name, 'in'))
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.RemoveNode(self.mixer_name))
+
+

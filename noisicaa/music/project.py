@@ -167,6 +167,8 @@ class AddTrack(commands.Command):
         track = track_cls(name=track_name, num_measures=num_measures)
         sheet.tracks.append(track)
 
+        track.add_to_pipeline()
+
         return len(sheet.tracks) - 1
 
 commands.Command.register_command(AddTrack)
@@ -183,6 +185,8 @@ class RemoveTrack(commands.Command):
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
 
+        track = sheet.tracks[self.track]
+        track.remove_from_pipeline()
         del sheet.tracks[self.track]
 
 commands.Command.register_command(RemoveTrack)
@@ -335,7 +339,7 @@ class Sheet(model.Sheet, state.StateBase):
     def main_mixer_name(self):
         return '%s-sheet-mixer' % self.id
 
-    def initial_pipeline_mutations(self):
+    def add_to_pipeline(self):
         self.project.listeners.call(
             'pipeline_mutations',
             mutations.AddNode(
@@ -347,7 +351,7 @@ class Sheet(model.Sheet, state.StateBase):
                 self.project.main_mixer_name, 'in'))
 
         for track in self.tracks:
-            track.initial_pipeline_mutations()
+            track.add_to_pipeline()
 
 
 state.StateBase.register_class(Sheet)
@@ -424,7 +428,7 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
     def main_mixer_name(self):
         return '%s-main-mixer' % self.id
 
-    def initial_pipeline_mutations(self):
+    def add_to_pipeline(self):
         self.listeners.call(
             'pipeline_mutations',
             mutations.AddNode(
@@ -435,7 +439,7 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                 self.main_mixer_name, 'out', 'sink', 'in'))
 
         for sheet in self.sheets:
-            sheet.initial_pipeline_mutations()
+            sheet.add_to_pipeline()
 
     @classmethod
     def make_demo(cls):
