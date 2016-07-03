@@ -212,7 +212,9 @@ cdef class Frame:
                 "Incompatible frame format: %s" % frame.audio_format)
 
         if frame.length != self.length:
-            raise ValueError("Frame lengths must be identical")
+            raise ValueError(
+                "Frame lengths must be identical (%d vs. %d)"
+                % (frame.length, self.length))
 
         if self.audio_format.sample_fmt == SAMPLE_FMT_U8:
             self._add_u8(

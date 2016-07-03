@@ -1,9 +1,14 @@
 #!/usr/bin/python3
 
 import logging
+import os
+import os.path
 import queue
+import select
+import tempfile
 import threading
 import time
+import uuid
 
 import pyaudio
 
@@ -172,34 +177,84 @@ class PyAudioBackend(Backend):
 
 
 class IPCBackend(Backend):
-    def __init__(self):
+    def __init__(self, socket_dir=None):
         super().__init__()
 
-        self._input_ready = threading.Event()
-        self._output_ready = threading.Event()
+        if socket_dir is None:
+            socket_dir = tempfile.gettempdir()
 
-        af = audio_format.AudioFormat(
-            audio_format.CHANNELS_STEREO,
-            audio_format.SAMPLE_FMT_FLT,
-            44100)
-        self._output = frame.Frame(af, 0, set())
+        self.address = os.path.join(
+            socket_dir, 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
-    def process_frame(self):
-        self._input_ready.set()
-        self._output_ready.wait()
-        self._output_ready.clear()
+        self._pipe_in = None
+        self._pipe_out = None
+        self._poller = None
 
-    def stop(self):
-        super().stop()
-        self._input_ready.set()
+        self._buffer = bytearray()
+        self._timepos = None
+
+    def setup(self):
+        super().setup()
+
+        os.mkfifo(self.address + '.send')
+        self._pipe_in = os.open(
+            self.address + '.send', os.O_RDONLY | os.O_NONBLOCK)
+
+        os.mkfifo(self.address + '.recv')
+        self._pipe_out = os.open(
+            self.address + '.recv', os.O_RDWR | os.O_NONBLOCK)
+        os.set_blocking(self._pipe_out, True)
+
+        self._poller = select.poll()
+        self._poller.register(self._pipe_in, select.POLLIN)
+
+    def cleanup(self):
+        if self._poller is not None:
+            self._poller.unregister(self._pipe_in)
+            self._poller = None
+
+        if self._pipe_in is not None:
+            os.close(self._pipe_in)
+            self._pipe_in = None
+
+        if self._pipe_out is not None:
+            os.close(self._pipe_out)
+            self._pipe_out = None
+
+        if os.path.exists(self.address + '.send'):
+            os.unlink(self.address + '.send')
+
+        if os.path.exists(self.address + '.recv'):
+            os.unlink(self.address + '.recv')
+
+        self._buffer.clear()
+
+        super().cleanup()
 
     def wait(self):
-        if self.stopped:
-            return
-        self._input_ready.wait()
-        self._input_ready.clear()
+        while not self.stopped:
+            eol = self._buffer.find(b'\n')
+            if eol >= 0:
+                line = self._buffer[:eol]
+                del self._buffer[:eol+1]
+
+                assert line.startswith(b'#FR=')
+                self._timepos = int(line[4:])
+                return
+
+            if not self._poller.poll(0.5):
+                continue
+
+            dat = os.read(self._pipe_in, 1024)
+            self._buffer.extend(dat)
 
     def write(self, frame):
-        self._output.resize(0)
-        self._output.append(frame)
-        self._output_ready.set()
+        samples = frame.as_bytes()
+        response = bytearray()
+        response.extend(b'#FR=%d\n' % self._timepos)
+        response.extend(b'SAMPLES=%d\n' % len(frame))
+        response.extend(b'LEN=%d\n' % len(samples))
+        response.extend(samples)
+        while response:
+            written = os.write(self._pipe_out, response)
+            del response[:written]

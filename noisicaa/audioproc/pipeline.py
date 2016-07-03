@@ -149,8 +149,8 @@ class Pipeline(object):
                 t2 = time.time()
                 if t2 - t0 > 0:
                     utilization = (t2 - t1) / (t2 - t0)
-                    if self.utilization_callback is not None:
-                        self.utilization_callback(utilization)
+                    # if self.utilization_callback is not None:
+                    #     self.utilization_callback(utilization)
 
                 timepos += 4096
 

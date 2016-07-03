@@ -247,18 +247,22 @@ class AudioProcProcessMixin(object):
     def handle_set_backend(self, session_id, name, args):
         self.get_session(session_id)
 
+        result = None
+
         if name == 'pyaudio':
             be = backend.PyAudioBackend(**args)
         elif name == 'null':
             be = backend.NullBackend(**args)
         elif name == 'ipc':
             be = backend.IPCBackend(**args)
+            result = be.address
         elif name is None:
             be = None
         else:
             raise ValueError("Invalid backend name %s" % name)
 
         self.pipeline.set_backend(be)
+        return result
 
     async def handle_play_file(self, session_id, path):
         self.get_session(session_id)

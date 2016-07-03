@@ -59,7 +59,7 @@ class ProjectClientMixin(object):
         self._session_id = None
         self._object_map = {}
         self.project = None
-        self.audioproc_address = None
+        self.audiostream_address = None
         self.cls_map = {}
 
     def __set_project(self, root_id):
@@ -78,7 +78,7 @@ class ProjectClientMixin(object):
         assert self._stub is None
         self._stub = ipc.Stub(self.event_loop, address)
         await self._stub.connect()
-        self._session_id, self.audioproc_address, root_id = await self._stub.call(
+        self._session_id, self.audiostream_address, root_id = await self._stub.call(
             'START_SESSION', self.server.address)
         if root_id is not None:
             # Connected to a loaded project.

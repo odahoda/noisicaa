@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import threading
 
 from noisicaa.core import ipc
@@ -28,30 +29,75 @@ class IPCNode(node.Node):
         self._output = ports.AudioOutputPort('out')
         self.add_output(self._output)
 
-        self._stub = None
+        self._pipe_in = None
+        self._pipe_out = None
+        self._buffer = bytearray()
 
     async def setup(self):
         await super().setup()
         logger.info("setup(): thread_id=%s", threading.get_ident())
 
         logger.info("Connecting to %s...", self._address)
-        self._stub = ipc.Stub(self.event_loop, self._address)
-        await self._stub.connect()
+        self._pipe_in = os.open(
+            self._address + '.recv', os.O_RDONLY | os.O_NONBLOCK)
+        os.set_blocking(self._pipe_in, True)
+
+        self._pipe_out = os.open(
+            self._address + '.send', os.O_RDWR | os.O_NONBLOCK)
+        os.set_blocking(self._pipe_out, True)
 
     async def cleanup(self):
-        if self._stub is not None:
-            logger.info("Disconnecting from %s...", self._address)
-            await self._stub.close()
+        if self._pipe_in is not None:
+            os.close(self._pipe_in)
+            self._pipe_in = None
+
+        if self._pipe_out is not None:
+            os.close(self._pipe_out)
+            self._pipe_out = None
+
+        self._buffer.clear()
+
         await super().cleanup()
 
+    def _get_line(self):
+        while True:
+            eol = self._buffer.find(b'\n')
+            if eol >= 0:
+                line = self._buffer[:eol]
+                del self._buffer[:eol+1]
+                return line
+            dat = os.read(self._pipe_in, 1024)
+            logger.debug("dat=%s", dat)
+            self._buffer.extend(dat)
+
+    def _get_bytes(self, num_bytes):
+        while len(self._buffer) < num_bytes:
+            dat = os.read(self._pipe_in, 1024)
+            logger.debug("dat=%s", dat)
+            self._buffer.extend(dat)
+
+        d = self._buffer[:num_bytes]
+        del self._buffer[:num_bytes]
+        return d
+
     def run(self, timepos):
-        self._output.frame.clear()
+        os.write(self._pipe_out, b'#FR=%d\n' % timepos)
 
-        logger.info("run(): thread_id=%s", threading.get_ident())
+        l = self._get_line()
+        assert l == b'#FR=%d' % timepos, l
 
-        future = asyncio.run_coroutine_threadsafe(
-            self._stub.call('PROCESS_FRAME'), self.event_loop)
-        event = threading.Event()
-        future.add_done_callback(event.set)
-        event.wait()
-        logger.info("process_frame done")
+        l = self._get_line()
+        assert l.startswith(b'SAMPLES=')
+        num_samples = int(l[8:])
+
+        l = self._get_line()
+        assert l.startswith(b'LEN=')
+        num_bytes = int(l[4:])
+
+        samples = self._get_bytes(num_bytes)
+        assert len(samples) == num_bytes
+
+        self._output.frame.resize(0)
+        self._output.frame.append_samples(samples, num_samples)
+        assert len(self._output.frame) <= 4096
+        self._output.frame.resize(4096)

@@ -88,7 +88,11 @@ class ProjectProcessMixin(object):
             self.event_loop, self.server)
         await self.audioproc_client.setup()
         await self.audioproc_client.connect(self.audioproc_address)
-        await self.audioproc_client.set_backend('ipc')
+
+        nid = await self.audioproc_client.add_node('wavfile', path='/usr/share/sounds/purple/logout.wav', loop=True)
+        await self.audioproc_client.connect_ports(nid, 'out', 'sink', 'in')
+
+        self.audiostream_address = await self.audioproc_client.set_backend('ipc')
 
     async def cleanup(self):
         if self.audioproc_client is not None:
@@ -96,6 +100,7 @@ class ProjectProcessMixin(object):
             await self.audioproc_client.cleanup()
             self.audioproc_client = None
             self.audioproc_address = None
+            self.audiostream_address = None
 
     async def run(self):
         await self._shutting_down.wait()
@@ -159,8 +164,8 @@ class ProjectProcessMixin(object):
         if self.project is not None:
             for mutation in self.add_object_mutations(self.project):
                 await session.publish_mutation(mutation)
-            return session.id, self.audioproc_address, self.project.id
-        return session.id, self.audioproc_address, None
+            return session.id, self.audiostream_address, self.project.id
+        return session.id, self.audiostream_address, None
 
     def handle_end_session(self, session_id):
         session = self.get_session(session_id)
