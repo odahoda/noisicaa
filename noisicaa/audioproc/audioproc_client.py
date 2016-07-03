@@ -46,8 +46,8 @@ class AudioProcClientMixin(object):
     async def list_node_types(self):
         return await self._stub.call('LIST_NODE_TYPES', self._session_id)
 
-    async def add_node(self, name, **args):
-        return await self._stub.call('ADD_NODE', self._session_id, name, args)
+    async def add_node(self, node_type, **args):
+        return await self._stub.call('ADD_NODE', self._session_id, node_type, args)
 
     async def remove_node(self, node_id):
         return await self._stub.call('REMOVE_NODE', self._session_id, node_id)
@@ -70,6 +70,9 @@ class AudioProcClientMixin(object):
     async def play_file(self, path):
         return await self._stub.call(
             'PLAY_FILE', self._session_id, path)
+
+    async def dump(self):
+        return await self._stub.call('DUMP', self._session_id)
 
     def handle_pipeline_mutation(self, mutation):
         logger.info("Mutation received: %s" % mutation)

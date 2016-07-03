@@ -3,6 +3,7 @@
 import re
 
 NOTE_TO_MIDI = {}
+MIDI_TO_NOTE = {}
 
 k = 0
 for o in range(10):
@@ -21,6 +22,7 @@ for o in range(10):
         if k < 128:
             for p in n:
                 NOTE_TO_MIDI['%s%d' % (p, o)] = k
+            MIDI_TO_NOTE[k] = '%s%d' % (n[0], o)
         k += 1
 
 
@@ -57,6 +59,10 @@ class Pitch(object):
             if octave < -1 or octave > 7:
                 raise ValueError('Bad octave %s' % octave)
             self._octave = octave
+
+    @classmethod
+    def from_midi(cls, midi):
+        return cls(MIDI_TO_NOTE[midi])
 
     def __str__(self):
         return self.name

@@ -99,7 +99,7 @@ class AudioProcProcessMixin(object):
         self.server.add_command_handler(
             'PLAY_FILE', self.handle_play_file)
         self.server.add_command_handler(
-            'PROCESS_FRAME', self.handle_process_frame)
+            'DUMP', self.handle_dump)
 
         self.node_db = node_db.NodeDB()
         self.node_db.add(scale.Scale)
@@ -108,6 +108,8 @@ class AudioProcProcessMixin(object):
         self.node_db.add(wavfile.WavFileSource)
         self.node_db.add(fluidsynth.FluidSynthSource)
         self.node_db.add(nodes.IPCNode)
+        self.node_db.add(nodes.PassThru)
+        self.node_db.add(nodes.TrackEventSource)
 
         self.pipeline = pipeline.Pipeline()
         self.pipeline.utilization_callback = self.utilization_callback
@@ -291,8 +293,8 @@ class AudioProcProcessMixin(object):
             self.pipeline.remove_node(node)
         self.event_loop.create_task(node.cleanup())
 
-    def handle_process_frame(self):
-        logger.info("process_frame received.")
+    def handle_dump(self, session_id):
+        self.pipeline.dump()
 
 
 class AudioProcProcess(AudioProcProcessMixin, core.ProcessImpl):

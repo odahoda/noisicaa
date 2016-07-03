@@ -31,8 +31,9 @@ class FluidSynthSource(Node):
     master_synth = libfluidsynth.Synth()
     master_sfonts = {}
 
-    def __init__(self, soundfont_path, bank, preset):
-        super().__init__()
+    def __init__(self, event_loop, name=None, id=None,
+                 soundfont_path=None, bank=None, preset=None):
+        super().__init__(event_loop, name, id)
 
         self._input = EventInputPort('in')
         self.add_input(self._input)

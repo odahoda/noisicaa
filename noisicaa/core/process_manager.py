@@ -306,10 +306,15 @@ class ProcessImpl(object):
             self.server = ipc.Server(self.event_loop, self.name)
             async with self.server:
                 try:
+                    logger.info("Setting up process.")
                     await self.setup()
                     ready_callback()
 
+                    logger.info("Entering run method.")
                     return await self.run(*args, **kwargs)
+                except Exception as exc:
+                    logger.error("Exception encountered: %s", exc)
+                    raise
                 finally:
                     await self.cleanup()
 

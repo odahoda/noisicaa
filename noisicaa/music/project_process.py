@@ -62,13 +62,21 @@ class ProjectProcessMixin(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self._shutting_down = None
+
+        self.project = None
+        self.sessions = {}
+        self.pending_mutations = []
+        self.pending_pipeline_mutations = []
         self.audioproc_address = None
         self.audioproc_client = None
         self.audiostream_address = None
 
     async def setup(self):
         await super().setup()
+
         self._shutting_down = asyncio.Event()
+
         self.server.add_command_handler(
             'START_SESSION', self.handle_start_session)
         self.server.add_command_handler(
@@ -80,9 +88,6 @@ class ProjectProcessMixin(object):
         self.server.add_command_handler('OPEN', self.handle_open)
         self.server.add_command_handler('CLOSE', self.handle_close)
         self.server.add_command_handler('COMMAND', self.handle_command)
-        self.project = None
-        self.sessions = {}
-        self.pending_mutations = []
 
         await self.createAudioProcProcess()
 
@@ -90,6 +95,8 @@ class ProjectProcessMixin(object):
         pass
 
     async def cleanup(self):
+        logger.info("Cleaning up project process.")
+
         if self.audioproc_client is not None:
             await self.audioproc_client.disconnect(shutdown=True)
             await self.audioproc_client.cleanup()
@@ -107,7 +114,7 @@ class ProjectProcessMixin(object):
             raise InvalidSessionError
 
     def handle_project_mutation(self, mutation):
-        logger.info("mutation: %s", mutation)
+        logger.info("Project mutation: %s", mutation)
         mtype, obj = mutation[:2]
         if mtype == 'update_objlist':
             prop_name, cmd = mutation[2:4]
@@ -143,6 +150,10 @@ class ProjectProcessMixin(object):
 
         else:
             raise ValueError(mtype)
+
+    def handle_pipeline_mutation(self, mutation):
+        logger.info("Pipeline mutation: %s", mutation)
+        self.pending_pipeline_mutations.append(mutation)
 
     async def publish_mutation(self, mutation):
         tasks = []
@@ -191,19 +202,55 @@ class ProjectProcessMixin(object):
         for mutation in self.add_object_mutations(self.project):
             await self.publish_mutation(mutation)
 
+    async def send_initial_pipeline_mutations(self):
+        assert not self.pending_pipeline_mutations
+        self.project.initial_pipeline_mutations()
+        await self.send_pending_pipeline_mutations()
+
+    async def send_pending_pipeline_mutations(self):
+        pipeline_mutations = self.pending_pipeline_mutations[:]
+        self.pending_pipeline_mutations.clear()
+
+        if self.audioproc_client is None:
+            return
+
+        for mutation in pipeline_mutations:
+            if isinstance(mutation, mutations.AddNode):
+                await self.audioproc_client.add_node(
+                    mutation.node_type, id=mutation.node_id,
+                    name=mutation.node_name, **mutation.args)
+
+            elif isinstance(mutation, mutations.ConnectPorts):
+                await self.audioproc_client.connect_ports(
+                    mutation.src_node, mutation.src_port,
+                    mutation.dest_node, mutation.dest_port)
+
+            else:
+                raise ValueError(type(mutation))
+
+        await self.audioproc_client.dump()
+
     async def handle_create(self, path):
         assert self.project is None
         self.project = project.Project()
         self.project.create(path)
         await self.send_initial_mutations()
-        self.project.set_mutation_callback(self.handle_project_mutation)
+        self.project.listeners.add(
+            'project_mutations', self.handle_project_mutation)
+        self.project.listeners.add(
+            'pipeline_mutations', self.handle_pipeline_mutation)
+        await self.send_initial_pipeline_mutations()
         return self.project.id
 
     async def handle_create_inmemory(self):
         assert self.project is None
         self.project = project.BaseProject()
         await self.send_initial_mutations()
-        self.project.set_mutation_callback(self.handle_project_mutation)
+        self.project.listeners.add(
+            'project_mutations', self.handle_project_mutation)
+        self.project.listeners.add(
+            'pipeline_mutations', self.handle_pipeline_mutation)
+        await self.send_initial_pipeline_mutations()
         return self.project.id
 
     async def handle_open(self, path):
@@ -211,7 +258,11 @@ class ProjectProcessMixin(object):
         self.project = project.Project()
         self.project.open(path)
         await self.send_initial_mutations()
-        self.project.set_mutation_callback(self.handle_project_mutation)
+        self.project.listeners.add(
+            'project_mutations', self.handle_project_mutation)
+        self.project.listeners.add(
+            'pipeline_mutations', self.handle_pipeline_mutation)
+        await self.send_initial_pipeline_mutations()
         return self.project.id
 
     def handle_close(self):
@@ -249,9 +300,5 @@ class ProjectProcess(ProjectProcessMixin, core.ProcessImpl):
             self.event_loop, self.server)
         await self.audioproc_client.setup()
         await self.audioproc_client.connect(self.audioproc_address)
-
-        nid = await self.audioproc_client.add_node('wavfile', path='/usr/share/sounds/purple/logout.wav', loop=True)
-        await self.audioproc_client.connect_ports(nid, 'out', 'sink', 'in')
-
         self.audiostream_address = await self.audioproc_client.set_backend('ipc')
 

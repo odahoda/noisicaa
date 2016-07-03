@@ -13,6 +13,7 @@ from . import model
 from . import state
 from . import commands
 from . import instrument
+from . import mutations
 
 logger = logging.getLogger(__name__)
 
@@ -163,3 +164,46 @@ class Track(model.Track, state.StateBase):
 
     def create_event_source(self):
         raise NotImplementedError
+
+    @property
+    def mixer_name(self):
+        return '%s-track-mixer' % self.id
+
+    @property
+    def instr_name(self):
+        return '%s-instr' % self.id
+
+    @property
+    def event_source_name(self):
+        return '%s-events' % self.id
+
+    def initial_pipeline_mutations(self):
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.AddNode(
+                'passthru', self.mixer_name, 'track-mixer'))
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.ConnectPorts(
+                self.mixer_name, 'out',
+                self.sheet.main_mixer_name, 'in'))
+
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.AddNode(
+                'fluidsynth', self.instr_name, 'instrument',
+                soundfont_path='/usr/share/sounds/sf2/FluidR3_GM.sf2',
+                bank=0, preset=0))
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.ConnectPorts(
+                self.instr_name, 'out', self.mixer_name, 'in'))
+
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.AddNode(
+                'track_event_source', self.event_source_name, 'events'))
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.ConnectPorts(
+                self.event_source_name, 'out', self.instr_name, 'in'))

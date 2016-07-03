@@ -28,6 +28,7 @@ from . import model
 from . import state
 from . import commands
 from . import instrument
+from . import mutations
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +331,25 @@ class Sheet(model.Sheet, state.StateBase):
             while len(track.measures) < max_length:
                 track.append_measure()
 
+    @property
+    def main_mixer_name(self):
+        return '%s-sheet-mixer' % self.id
+
+    def initial_pipeline_mutations(self):
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.AddNode(
+                'passthru', self.main_mixer_name, 'sheet-mixer'))
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.ConnectPorts(
+                self.main_mixer_name, 'out',
+                self.project.main_mixer_name, 'in'))
+
+        for track in self.tracks:
+            track.initial_pipeline_mutations()
+
+
 state.StateBase.register_class(Sheet)
 
 
@@ -382,7 +402,7 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
     SERIALIZED_CLASS_NAME = 'Project'
 
     def __init__(self, num_sheets=1, state=None):
-        self._mutation_callback = None
+        self.listeners = core.CallbackRegistry()
 
         super().__init__(state)
         if state is None:
@@ -391,10 +411,6 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             for i in range(1, num_sheets + 1):
                 self.sheets.append(Sheet(name="Sheet %d" % i))
 
-    def set_mutation_callback(self, callback):
-        assert self._mutation_callback is None
-        self._mutation_callback = callback
-
     def dispatch_command(self, obj_id, cmd):
         obj = self.get_object(obj_id)
         result = cmd.run(obj)
@@ -402,8 +418,24 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
         return result
 
     def handle_mutation(self, mutation):
-        if self._mutation_callback is not None:
-            self._mutation_callback(mutation)
+        self.listeners.call('project_mutations', mutation)
+
+    @property
+    def main_mixer_name(self):
+        return '%s-main-mixer' % self.id
+
+    def initial_pipeline_mutations(self):
+        self.listeners.call(
+            'pipeline_mutations',
+            mutations.AddNode(
+                'passthru', self.main_mixer_name, 'main-mixer'))
+        self.listeners.call(
+            'pipeline_mutations',
+            mutations.ConnectPorts(
+                self.main_mixer_name, 'out', 'sink', 'in'))
+
+        for sheet in self.sheets:
+            sheet.initial_pipeline_mutations()
 
     @classmethod
     def make_demo(cls):
@@ -626,7 +658,7 @@ class Project(BaseProject):
         self.path = None
         self.data_dir = None
 
-        self._mutation_callback = None
+        self.listeners.clear()
 
         self.reset_state()
 

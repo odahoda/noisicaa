@@ -101,10 +101,10 @@ class Pipeline(object):
             n = {}
             n['inputs'] = {}
             for pn, p in node.inputs.items():
-                n['inputs'][pn] = (
-                    '%s:%s' % (p._input.owner.name, p._input.name)
-                    if p.is_connected
-                    else "unconnected")
+                n['inputs'][pn] = []
+                for up in p.inputs:
+                    n['inputs'][pn].append(
+                        '%s:%s' % (up.owner.name, up.name))
             d[node.name] = n
 
         logger.info("Pipeline dump:\n%s", pprint.pformat(d))
@@ -117,20 +117,22 @@ class Pipeline(object):
             self._started.set()
             timepos = 0
             while not self._stopping.is_set():
-                with self.reader_lock():
-                    if self._backend is None:
-                        time.sleep(0.1)
-                        continue
+                backend = self._backend
+                if backend is None:
+                    time.sleep(0.1)
+                    continue
 
+                t0 = time.time()
+                backend.wait()
+                if backend.stopped:
+                    break
+
+                t1 = time.time()
+                logger.debug("Processing frame @%d", timepos)
+
+                with self.reader_lock():
                     assert not self._notifications
 
-                    t0 = time.time()
-                    self._backend.wait()
-                    if self._backend.stopped:
-                        break
-
-                    t1 = time.time()
-                    logger.debug("Processing frame @%d", timepos)
                     for node in self.sorted_nodes:
                         logger.debug("Running node %s", node.name)
                         node.collect_inputs()

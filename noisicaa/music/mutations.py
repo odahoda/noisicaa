@@ -85,3 +85,30 @@ class UpdateList(Mutation):
             self.id, self.prop_name,
             ' '.join(repr(a) for a in self.args))
 
+class PipelineMutation(Mutation):
+    pass
+
+class AddNode(PipelineMutation):
+    def __init__(self, node_type, node_id, node_name, **args):
+        self.node_type = node_type
+        self.node_id = node_id
+        self.node_name = node_name
+        self.args = args
+
+    def __str__(self):
+        return '<AddNode type=%s id=%s name=%s%s>' % (
+            self.node_type, self.node_id, self.node_name,
+            ''.join(' %s=%r' % (k, v)
+                     for k, v in sorted(self.args.items())))
+
+
+class ConnectPorts(PipelineMutation):
+    def __init__(self, src_node, src_port, dest_node, dest_port):
+        self.src_node = src_node
+        self.src_port = src_port
+        self.dest_node = dest_node
+        self.dest_port = dest_port
+
+    def __str__(self):
+        return '<ConnectPorts src=%s:%s dest=%s:%s>' % (
+            self.src_node, self.src_port, self.dest_node, self.dest_port)
