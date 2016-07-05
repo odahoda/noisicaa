@@ -441,6 +441,9 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
                 self.call_with_exc(
                     self.app.removeProject(view.project_connection)))
 
+    def getCurrentProjectView(self):
+        return self._project_tabs.currentWidget()
+
     def getCurrentProject(self):
         view = self._project_tabs.currentWidget()
         return view.project
