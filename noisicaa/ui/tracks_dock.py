@@ -29,14 +29,52 @@ class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractListModel):
         self._sheet = sheet
         self._tracks_listener = self._sheet.listeners.add(
             'tracks', self.onTracksChanged)
+        self._track_listeners = {}
+        self.updateTrackListeners()
 
     def close(self):
         self._tracks_listener.remove()
+        self._tracks_listener = None
+
+        for listeners in self._track_listeners.values():
+            for listener in listeners:
+                listener.remove()
+        self._track_listeners.clear()
 
     def onTracksChanged(self, action, *args):
         # This could probably be done more efficiently...
         self.dataChanged.emit(self.index(0),
                               self.index(self.rowCount(None) - 1))
+        self.updateTrackListeners()
+
+    def onTrackChanged(self, track, prop, old, new):
+        logger.info(
+            "Value of %s on track %s: %s->%s", prop, track.id, old, new)
+        self.dataChanged.emit(
+            self.index(track.index), self.index(track.index))
+
+    def updateTrackListeners(self):
+        added_tracks = (
+            set(track.id for track in self._sheet.tracks)
+            - set(self._track_listeners.keys()))
+        removed_tracks = (
+            set(self._track_listeners.keys())
+            - set(track.id for track in self._sheet.tracks))
+
+        for track_id in removed_tracks:
+            for listener in self._track_listeners[track_id]:
+                listener.remove()
+            del self._track_listeners[track_id]
+
+        track_map = dict((track.id, track) for track in self._sheet.tracks)
+        for track_id in added_tracks:
+            track = track_map[track_id]
+            listeners = self._track_listeners[track_id] = []
+            for prop in ('name', 'muted', 'visible'):
+                listeners.append(track.listeners.add(
+                    prop,
+                    lambda old, new: self.onTrackChanged(
+                        track, prop, old, new)))
 
     def rowCount(self, parent):
         return len(self._sheet.tracks)
