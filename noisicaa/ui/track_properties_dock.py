@@ -4,40 +4,26 @@ import logging
 import os.path
 import enum
 
-from PyQt5.QtCore import Qt, QSize, QRect, QMargins
-from PyQt5.QtGui import QIcon, QColor, QBrush
-from PyQt5.QtWidgets import (
-    QWidget,
-    QToolButton,
-    QHBoxLayout,
-    QVBoxLayout,
-    QFormLayout,
-    QListView,
-    QStyleOptionViewItem,
-    QStyledItemDelegate,
-    QLineEdit,
-    QStackedWidget,
-    QSpinBox,
-    QDoubleSpinBox,
-    QCheckBox,
-    QToolButton,
-)
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from .dock_widget import DockWidget
 from .instrument_library import InstrumentLibraryDialog
-from noisicaa.music import UpdateTrackProperties, AddTrack, RemoveTrack, MoveTrack, SetInstrument, ClearInstrument, ScoreTrack
 from ..constants import DATA_DIR
 from . import ui_base
+from . import model
 
 logger = logging.getLogger(__name__)
 
-class MuteButton(QToolButton):
+class MuteButton(QtWidgets.QToolButton):
     def __init__(self, parent=None):
         super().__init__(parent, checkable=True, autoRaise=True)
 
-        self._muted_icon = QIcon(
+        self._muted_icon = QtGui.QIcon(
             os.path.join(DATA_DIR, 'icons', 'track-muted.svg'))
-        self._not_muted_icon = QIcon(
+        self._not_muted_icon = QtGui.QIcon(
             os.path.join(DATA_DIR, 'icons', 'track-not-muted.svg'))
 
         self.setIcon(self._not_muted_icon)
@@ -66,61 +52,64 @@ class TrackPropertiesDockWidget(DockWidget):
 
         self._listeners = []
 
-        self._name = QLineEdit(self)
+        self._name = QtWidgets.QLineEdit(self)
         self._name.textEdited.connect(self.onNameEdited)
 
         self._muted = MuteButton(self)
         self._muted.toggled.connect(self.onMutedEdited)
 
-        self._volume = QDoubleSpinBox(
+        self._volume = QtWidgets.QDoubleSpinBox(
             self,
             suffix='%',
             minimum=0.0, maximum=1000.0, decimals=1,
             singleStep=5, accelerated=True)
         self._volume.valueChanged.connect(self.onVolumeEdited)
 
-        self._select_instrument = QToolButton(
+        self._select_instrument = QtWidgets.QToolButton(
             self,
-            icon=QIcon.fromTheme('document-open'),
+            icon=QtGui.QIcon.fromTheme('document-open'),
             autoRaise=True)
         self._select_instrument.clicked.connect(self.onSelectInstrument)
 
-        self._instrument = QLineEdit(self, readOnly=True)
+        self._instrument = QtWidgets.QLineEdit(self, readOnly=True)
 
-        self._transpose_octaves = QSpinBox(
+        self._transpose_octaves = QtWidgets.QSpinBox(
             self,
             suffix=' octaves',
             minimum=-4, maximum=4,
             singleStep=1)
         self._transpose_octaves.valueChanged.connect(self.onTransposeOctavesEdited)
 
-        main_layout = QFormLayout(spacing=1)
-        main_layout.setContentsMargins(QMargins(0, 0, 0, 0))
+        main_layout = QtWidgets.QFormLayout(spacing=1)
+        main_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         main_layout.addRow("Name", self._name)
 
-        volume_layout = QHBoxLayout()
+        volume_layout = QtWidgets.QHBoxLayout()
         volume_layout.addWidget(self._muted)
         volume_layout.addWidget(self._volume, 1)
         main_layout.addRow("Volume", volume_layout)
 
-        instrument_layout = QHBoxLayout()
+        instrument_layout = QtWidgets.QHBoxLayout()
         instrument_layout.addWidget(self._select_instrument)
         instrument_layout.addWidget(self._instrument, 1)
         main_layout.addRow("Instrument", instrument_layout)
 
         main_layout.addRow("Transpose", self._transpose_octaves)
 
-        main_area = QWidget(self)
+        main_area = QtWidgets.QWidget(self)
         main_area.setLayout(main_layout)
 
-        self._body = QStackedWidget(self)
-        self._body.addWidget(QWidget(self))
+        self._body = QtWidgets.QStackedWidget(self)
+        self._body.addWidget(QtWidgets.QWidget(self))
         self._body.addWidget(main_area)
         self.setWidget(self._body)
 
         self._window.currentTrackChanged.connect(self.onCurrentTrackChanged)
 
     def onCurrentTrackChanged(self, track):
+        if track is self._track:
+            return
+
         for listener in self._listeners:
             listener.remove()
         self._listeners.clear()
@@ -132,7 +121,7 @@ class TrackPropertiesDockWidget(DockWidget):
             self._listeners.append(
                 self._track.listeners.add('name', self.onNameChanged))
 
-            if isinstance(self._track, ScoreTrack):
+            if isinstance(self._track, model.ScoreTrack):
                 self._volume.setVisible(True)
                 self._volume.setValue(self._track.volume)
                 self._volume.setEnabled(not self._track.muted)
@@ -174,9 +163,9 @@ class TrackPropertiesDockWidget(DockWidget):
             return
 
         if name != self._track.name:
-            self._track.project.dispatch_command(
-                self._track.id,
-                UpdateTrackProperties(name=name))
+            client = self.window.getCurrentProjectView().project_client
+            self.call_async(client.send_command(
+                self._track.id, 'UpdateTrackProperties', name=name))
 
     def onVolumeChanged(self, old_volume, new_volume):
         self._volume.setValue(new_volume)
@@ -186,9 +175,9 @@ class TrackPropertiesDockWidget(DockWidget):
             return
 
         if volume != self._track.volume:
-            self._track.project.dispatch_command(
-                self._track.id,
-                UpdateTrackProperties(volume=volume))
+            client = self.window.getCurrentProjectView().project_client
+            self.call_async(client.send_command(
+                self._track.id, 'UpdateTrackProperties', volume=volume))
 
     def onMutedChanged(self, old_value, new_value):
         self._muted.setChecked(new_value)
@@ -199,9 +188,9 @@ class TrackPropertiesDockWidget(DockWidget):
             return
 
         if muted != self._track.muted:
-            self._track.project.dispatch_command(
-                self._track.id,
-                UpdateTrackProperties(muted=muted))
+            client = self.window.getCurrentProjectView().project_client
+            self.call_async(client.send_command(
+                self._track.id, 'UpdateTrackProperties', muted=muted))
 
     def onInstrumentChanged(self, old_instrument, new_instrument):
         if new_instrument is not None:
@@ -213,27 +202,36 @@ class TrackPropertiesDockWidget(DockWidget):
         if self._track is None:
             return
 
-        dialog = InstrumentLibraryDialog(
-            self, self.app, self.app.instrument_library)
-        dialog.instrumentChanged.connect(
-            self.onInstrumentEdited)
+        import random
+        self.onInstrumentEdited(random.randint(0, 10))
 
-        dialog.setWindowTitle(
-            "Select instrument for track '%s'" % self._track.name)
-        dialog.selectInstrument(self._track.instrument)
-        dialog.exec_()
+        # dialog = InstrumentLibraryDialog(
+        #     self, self.app, self.app.instrument_library)
+        # dialog.instrumentChanged.connect(
+        #     self.onInstrumentEdited)
+
+        # dialog.setWindowTitle(
+        #     "Select instrument for track '%s'" % self._track.name)
+        # dialog.selectInstrument(self._track.instrument)
+        # dialog.exec_()
 
     def onInstrumentEdited(self, instr):
         if self._track is None:
             return
 
+        client = self.window.getCurrentProjectView().project_client
         if instr is None:
-            self._track.project.dispatch_command(
-                self._track.id, ClearInstrument())
+            self.call_async(client.send_command(
+                self._track.id, 'ClearInstrument'))
         else:
-            self._track.project.dispatch_command(
-                self._track.id,
-                SetInstrument(instr=instr.to_json()))
+            self.call_async(client.send_command(
+                self._track.id, 'SetInstrument',
+                instrument_type='SoundFontInstrument',
+                instrument_args={
+                    'name': 'random-%d' % instr,
+                    'path': '/usr/share/sounds/sf2/FluidR3_GM.sf2',
+                    'bank': 0,
+                    'preset': instr}))
 
     def onTransposeOctavesChanged(
             self, old_transpose_octaves, new_transpose_octaves):
@@ -244,6 +242,7 @@ class TrackPropertiesDockWidget(DockWidget):
             return
 
         if transpose_octaves != self._track.transpose_octaves:
-            self._track.project.dispatch_command(
-                self._track.id,
-                UpdateTrackProperties(transpose_octaves=transpose_octaves))
+            client = self.window.getCurrentProjectView().project_client
+            self.call_async(client.send_command(
+                self._track.id, 'UpdateTrackProperties',
+                transpose_octaves=transpose_octaves))

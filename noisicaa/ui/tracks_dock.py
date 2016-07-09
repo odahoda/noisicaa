@@ -16,8 +16,6 @@ from . import ui_base
 
 logger = logging.getLogger(__name__)
 
-# TODO: add listeners for all tracks, emit dataChanged, when name, visible, muted
-# changes.
 
 class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractListModel):
     VisibleRole = Qt.UserRole

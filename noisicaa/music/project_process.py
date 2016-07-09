@@ -148,6 +148,14 @@ class ProjectProcessMixin(object):
             prop_name, old_value, new_value = mutation[2:]
             self.pending_mutations.append(mutations.SetProperties(obj, [prop_name]))
 
+        elif mtype == 'update_objproperty':
+            prop_name, old_obj, new_obj = mutation[2:]
+            if new_obj is not None:
+                for mutation in self.add_object_mutations(new_obj):
+                    self.pending_mutations.append(mutation)
+
+            self.pending_mutations.append(mutations.SetProperties(obj, [prop_name]))
+
         else:
             raise ValueError(mtype)
 

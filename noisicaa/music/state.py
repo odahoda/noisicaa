@@ -34,10 +34,16 @@ class StateBase(model_base.ObjectBase):
             return
         root = self.root
         if isinstance(change, model_base.PropertyValueChange):
-            root.handle_mutation(
-                ('update_property', self, change.prop_name,
-                 change.old_value, change.new_value))
+            prop = self.get_property(change.prop_name)
+            if isinstance(prop, model_base.ObjectProperty):
+                mutation_type = 'update_objproperty'
+            else:
+                assert isinstance(prop, model_base.Property)
+                mutation_type = 'update_property'
 
+            root.handle_mutation(
+                (mutation_type, self, change.prop_name,
+                 change.old_value, change.new_value))
 
         elif isinstance(change, model_base.PropertyListChange):
             prop = self.get_property(change.prop_name)

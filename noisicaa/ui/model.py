@@ -7,6 +7,8 @@ from noisicaa.music import model, project_client
 
 logger = logging.getLogger(__name__)
 
+class SoundFontInstrument(
+        model.SoundFontInstrument, project_client.ObjectProxy): pass
 class Measure(model.Measure, project_client.ObjectProxy): pass
 class Track(model.Track, project_client.ObjectProxy): pass
 
@@ -30,6 +32,7 @@ class Metadata(model.Metadata, project_client.ObjectProxy): pass
 class Project(model.Project, project_client.ObjectProxy): pass
 
 cls_map = {
+    'SoundFontInstrument': SoundFontInstrument,
     'Measure': Measure,
     'Track': Track,
     'Note': Note,
