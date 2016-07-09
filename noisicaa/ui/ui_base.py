@@ -27,6 +27,10 @@ class CommonMixin(object):
         return self.__app.win
 
     @property
+    def audioproc_client(self):
+        return self.__app.audioproc_client
+
+    @property
     def event_loop(self):
         return self.__app.process.event_loop
 

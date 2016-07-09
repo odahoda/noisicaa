@@ -118,6 +118,21 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self.restoreState(
             self.app.settings.value('mainwindow/state', b''))
 
+    async def setup(self):
+        await self._instrument_library_dialog.setup()
+
+    async def cleanup(self):
+        await self._instrument_library_dialog.cleanup()
+
+        self.hide()
+
+        while self._project_tabs.count() > 0:
+            view = self._project_tabs.widget(0)
+            view.close()
+            self._project_tabs.removeTab(0)
+        self._settings_dialog.close()
+        self.close()
+
     def createStartView(self):
         view = QWidget(self)
 
@@ -364,14 +379,6 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
 
         event.accept()
         self.app.quit()
-
-    def closeAll(self):
-        while self._project_tabs.count() > 0:
-            view = self._project_tabs.widget(0)
-            view.close()
-            self._project_tabs.removeTab(0)
-        self._settings_dialog.close()
-        self.close()
 
     def setCurrentProjectView(self, project_view):
         if project_view == self._current_project_view:

@@ -234,6 +234,7 @@ class EditorApp(BaseEditorApp):
 
         logger.info("Creating EditorWindow.")
         self.win = EditorWindow(self)
+        await self.win.setup()
         self.win.show()
 
         if self.paths:
@@ -265,7 +266,7 @@ class EditorApp(BaseEditorApp):
 
     async def cleanup(self):
         if self.win is not None:
-            self.win.closeAll()
+            await self.win.cleanup()
             self.win = None
 
         await super().cleanup()

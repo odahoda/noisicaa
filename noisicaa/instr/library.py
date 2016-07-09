@@ -47,7 +47,7 @@ class SoundFontInstrument(Instrument):
     def __init__(self, name, collection, path, bank, preset):
         super().__init__(
             name,
-            hashlib.md5('%s:%d:%d' % (path, bank, preset)).hexdigest())
+            hashlib.md5(('%s:%d:%d' % (path, bank, preset)).encode('utf-8')).hexdigest())
 
         self.collection = collection
         self.path = path

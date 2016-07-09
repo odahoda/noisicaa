@@ -45,6 +45,9 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         logger.info("InstrumentLibrary created")
 
+        self._pipeline_mixer_id = None
+        self._pipeline_instrument_id = None
+
         self.setWindowTitle("noisicaä - Instrument Library")
 
         self.tabs = QtWidgets.QTabWidget(self)
@@ -152,18 +155,65 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     def library(self):
         return self.app.instrument_library
 
-    # def closeEvent(self, event):
-    #     self.library.dispatch_command(
-    #         "/ui_state",
-    #         UpdateUIState(
-    #             visible=False,
-    #             geometry=bytes(self.saveGeometry()),
-    #             page=self.tabs.currentIndex(),
-    #             instruments_splitter_state=bytes(
-    #                 self.instruments_page.saveState()),
-    #             instruments_list_item=self.instruments_list.currentRow(),
-    #             instruments_search_text=self.instruments_search.text(),
-    #         ))
+    async def setup(self):
+        logger.info("Setting up instrument library dialog...")
+
+        self._pipeline_mixer_id = await self.audioproc_client.add_node(
+            'passthru', name='library-mixer')
+        await self.audioproc_client.connect_ports(
+            self._pipeline_mixer_id, 'out', 'sink', 'in')
+
+    async def cleanup(self):
+        logger.info("Cleaning up instrument library dialog...")
+
+        if self._pipeline_instrument_id is not None:
+            assert self._pipeline_mixer_id is not None
+            await self.removeInstrumentFromPipeline()
+
+        if self._pipeline_mixer_id is not None:
+            await self.audioproc_client.disconnect_ports(
+                self._pipeline_mixer_id, 'out', 'sink', 'in')
+            await self.audioproc_client.remove_node(
+                self._pipeline_mixer_id)
+            self._pipeline_mixer_id = None
+
+    async def addInstrumentToPipeline(self, node_type, **args):
+        assert self._pipeline_instrument_id is None
+
+        self._pipeline_instrument_id = await self.audioproc_client.add_node(
+            node_type, **args)
+        await self.audioproc_client.connect_ports(
+            self._pipeline_instrument_id, 'out',
+            self._pipeline_mixer_id, 'in')
+
+        self._pipeline_event_source_id = await self.audioproc_client.add_node(
+            'track_event_source')
+        await self.audioproc_client.connect_ports(
+            self._pipeline_event_source_id, 'out',
+            self._pipeline_instrument_id, 'in')
+
+    async def removeInstrumentFromPipeline(self):
+        assert self._pipeline_instrument_id is not None
+
+        await self.audioproc_client.disconnect_ports(
+            self._pipeline_event_source_id, 'out',
+            self._pipeline_instrument_id, 'in')
+        await self.audioproc_client.remove_node(
+            self._pipeline_event_source_id)
+        self._pipeline_event_source_id = None
+
+        await self.audioproc_client.disconnect_ports(
+            self._pipeline_instrument_id, 'out',
+            self._pipeline_mixer_id, 'in')
+        await self.audioproc_client.remove_node(
+            self._pipeline_instrument_id)
+        self._pipeline_instrument_id = None
+
+    def closeEvent(self, event):
+        if self._pipeline_instrument_id is not None:
+            self.call_async(self.removeInstrumentFromPipeline())
+
+        super().closeEvent(event)
 
     def updateInstrumentList(self):
         self.instruments_list.clear()
@@ -201,6 +251,11 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             return
 
         instr = item.instrument
+        self.call_async(self.setCurrentInstrument(item.instrument))
+
+    async def setCurrentInstrument(self, instr):
+        if self._pipeline_instrument_id:
+            await self.removeInstrumentFromPipeline()
 
         self.instrument_name.setText(instr.name)
 
@@ -214,6 +269,11 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             self.instrument_path.setText(instr.path)
             self.instrument_location.setText(
                 "bank %d, preset %d" % (instr.bank, instr.preset))
+
+            await self.addInstrumentToPipeline(
+                'fluidsynth',
+                soundfont_path=instr.path,
+                bank=instr.bank, preset=instr.preset)
 
         self.piano.setVisible(True)
         self.piano.setFocus(Qt.OtherFocusReason)
