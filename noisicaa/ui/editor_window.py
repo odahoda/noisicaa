@@ -51,6 +51,7 @@ from .track_properties_dock import TrackPropertiesDockWidget
 from ..importers.abc import ABCImporter, ImporterError
 from .load_history import LoadHistoryWidget
 from . import ui_base
+from . import instrument_library
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +83,8 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self._docks = []
         self._settings_dialog = SettingsDialog(self.app, self)
 
-        # self._instrument_library_dialog = InstrumentLibraryDialog(
-        #     self, self._app, self._app.instrument_library)
+        self._instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
+            **self.context, parent=self)
 
         self._current_project_view = None
 
@@ -347,9 +348,8 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self._settings_dialog.activateWindow()
 
     def openInstrumentLibrary(self):
-        self.app.instrument_library.dispatch_command(
-            '/ui_state',
-            UpdateUIState(visible=True))
+        self._instrument_library_dialog.show()
+        self._instrument_library_dialog.activateWindow()
 
     def closeEvent(self, event):
         logger.info("CloseEvent received")

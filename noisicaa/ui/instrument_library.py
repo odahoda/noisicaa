@@ -7,31 +7,16 @@
 import logging
 import os.path
 
-from PyQt5.QtCore import Qt, QByteArray, pyqtSignal
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (
-    QAction,
-    QComboBox,
-    QDialog,
-    QFormLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
-    QPushButton,
-    QSplitter,
-    QStyleFactory,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-    QFileDialog,
-)
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from .piano import PianoWidget
 from ..constants import DATA_DIR
 #from ..ui_state import UpdateUIState
-
+from . import ui_base
+from ..instr import library
 
 logger = logging.getLogger(__name__)
 
@@ -46,93 +31,88 @@ logger = logging.getLogger(__name__)
 # - sorting
 # - add/remove
 
-class InstrumentListItem(QListWidgetItem):
+class InstrumentListItem(QtWidgets.QListWidgetItem):
     def __init__(self, parent, instrument):
         super().__init__(parent, 0)
         self.instrument = instrument
 
 
-class InstrumentLibraryDialog(QDialog):
-    #instrumentChanged = pyqtSignal(Instrument)
+class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
+    instrumentChanged = QtCore.pyqtSignal(library.Instrument)
 
-    def __init__(self, parent, app, library):
-        super().__init__(parent)
+    def __init__(self, parent=None, **kwargs):
+        super().__init__(parent=parent, **kwargs)
 
         logger.info("InstrumentLibrary created")
-        self._app = app
-
-        self.library = library
-        self.ui_state = self.library.ui_state
-        self.ui_state.add_change_listener(self.onUIStateChange)
 
         self.setWindowTitle("noisicaä - Instrument Library")
 
-        self.tabs = QTabWidget(self)
+        self.tabs = QtWidgets.QTabWidget(self)
 
-        self.instruments_page = QSplitter(self.tabs)
+        self.instruments_page = QtWidgets.QSplitter(self.tabs)
         self.instruments_page.setChildrenCollapsible(False)
 
-        left = QWidget(self)
+        left = QtWidgets.QWidget(self)
         self.instruments_page.addWidget(left)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         left.setLayout(layout)
 
-        self.instruments_search = QLineEdit(self)
+        self.instruments_search = QtWidgets.QLineEdit(self)
         layout.addWidget(self.instruments_search)
-        self.instruments_search.addAction(QIcon.fromTheme('edit-find'), QLineEdit.LeadingPosition)
-        action = QAction(QIcon.fromTheme('edit-clear'), "Clear search string", self.instruments_search, triggered=self.instruments_search.clear)
-        self.instruments_search.addAction(action, QLineEdit.TrailingPosition)
+        self.instruments_search.addAction(QtGui.QIcon.fromTheme('edit-find'), QtWidgets.QLineEdit.LeadingPosition)
+        action = QtWidgets.QAction(QtGui.QIcon.fromTheme('edit-clear'), "Clear search string", self.instruments_search, triggered=self.instruments_search.clear)
+        self.instruments_search.addAction(action, QtWidgets.QLineEdit.TrailingPosition)
         self.instruments_search.textChanged.connect(self.onInstrumentSearchChanged)
 
-        self.instruments_list = instrument_list = QListWidget(self)
+        self.instruments_list = instrument_list = QtWidgets.QListWidget(self)
         layout.addWidget(instrument_list, 1)
         instrument_list.currentItemChanged.connect(
             lambda current, prev: self.onInstrumentItemSelected(current))
 
-        buttons = QHBoxLayout()
+        buttons = QtWidgets.QHBoxLayout()
         layout.addLayout(buttons)
 
-        add_button = QPushButton("Add")
+        add_button = QtWidgets.QPushButton("Add")
         add_button.clicked.connect(self.onInstrumentAdd)
         buttons.addWidget(add_button)
-        buttons.addWidget(QPushButton("Remove"))
+        buttons.addWidget(QtWidgets.QPushButton("Remove"))
         buttons.addStretch(1)
 
-        instrument_info = QWidget(self)
+        instrument_info = QtWidgets.QWidget(self)
         self.instruments_page.addWidget(instrument_info)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         instrument_info.setLayout(layout)
 
-        form_layout = QFormLayout()
+        form_layout = QtWidgets.QFormLayout()
         layout.addLayout(form_layout)
 
-        self.instrument_name = QLineEdit(self, readOnly=True)
+        self.instrument_name = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Name", self.instrument_name)
 
-        self.instrument_type = QLineEdit(self, readOnly=True)
+        self.instrument_type = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Type", self.instrument_type)
 
-        self.instrument_path = QLineEdit(self, readOnly=True)
+        self.instrument_path = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Path", self.instrument_path)
 
-        self.instrument_collection = QLineEdit(self, readOnly=True)
+        self.instrument_collection = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Collection", self.instrument_collection)
 
-        self.instrument_location = QLineEdit(self, readOnly=True)
+        self.instrument_location = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Location", self.instrument_location)
 
         layout.addStretch(1)
 
-        self.piano = PianoWidget(self, self._app)
+        self.piano = PianoWidget(self, self.app)
         self.piano.setVisible(False)
         layout.addWidget(self.piano)
 
         self.tabs.addTab(self.instruments_page, "Instruments")
 
-        collections_page = QWidget(self.tabs)
-        layout = QVBoxLayout()
+        collections_page = QtWidgets.QWidget(self.tabs)
+        layout = QtWidgets.QVBoxLayout()
 
         layout.addStretch(1)
         collections_page.setLayout(layout)
@@ -140,14 +120,14 @@ class InstrumentLibraryDialog(QDialog):
         self.tabs.addTab(collections_page, "Collections")
 
 
-        close = QPushButton("Close")
+        close = QtWidgets.QPushButton("Close")
         close.clicked.connect(self.close)
 
-        buttons = QHBoxLayout()
+        buttons = QtWidgets.QHBoxLayout()
         buttons.addStretch(1)
         buttons.addWidget(close)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.tabs, 1)
         layout.addLayout(buttons)
 
@@ -155,31 +135,35 @@ class InstrumentLibraryDialog(QDialog):
 
         self.updateInstrumentList()
 
-        self.setVisible(
-            self.ui_state.get('visible', False))
-        self.restoreGeometry(
-            QByteArray(self.ui_state.get('geometry', b'')))
-        self.tabs.setCurrentIndex(
-            self.ui_state.get('page', 0))
-        self.instruments_page.restoreState(
-            self.ui_state.get('instruments_splitter_state', b''))
-        self.instruments_list.setCurrentRow(
-            self.ui_state.get('instruments_list_item', 0))
-        self.instruments_search.setText(
-            self.ui_state.get('instruments_search_text', ''))
+        # self.setVisible(
+        #     self.ui_state.get('visible', False))
+        # self.restoreGeometry(
+        #     QtCore.QByteArray(self.ui_state.get('geometry', b'')))
+        # self.tabs.setCurrentIndex(
+        #     self.ui_state.get('page', 0))
+        # self.instruments_page.restoreState(
+        #     self.ui_state.get('instruments_splitter_state', b''))
+        # self.instruments_list.setCurrentRow(
+        #     self.ui_state.get('instruments_list_item', 0))
+        # self.instruments_search.setText(
+        #     self.ui_state.get('instruments_search_text', ''))
 
-    def closeEvent(self, event):
-        self.library.dispatch_command(
-            "/ui_state",
-            UpdateUIState(
-                visible=False,
-                geometry=bytes(self.saveGeometry()),
-                page=self.tabs.currentIndex(),
-                instruments_splitter_state=bytes(
-                    self.instruments_page.saveState()),
-                instruments_list_item=self.instruments_list.currentRow(),
-                instruments_search_text=self.instruments_search.text(),
-            ))
+    @property
+    def library(self):
+        return self.app.instrument_library
+
+    # def closeEvent(self, event):
+    #     self.library.dispatch_command(
+    #         "/ui_state",
+    #         UpdateUIState(
+    #             visible=False,
+    #             geometry=bytes(self.saveGeometry()),
+    #             page=self.tabs.currentIndex(),
+    #             instruments_splitter_state=bytes(
+    #                 self.instruments_page.saveState()),
+    #             instruments_list_item=self.instruments_list.currentRow(),
+    #             instruments_search_text=self.instruments_search.text(),
+    #         ))
 
     def updateInstrumentList(self):
         self.instruments_list.clear()
@@ -195,17 +179,17 @@ class InstrumentLibraryDialog(QDialog):
                 self.instruments_list.setCurrentRow(idx)
                 break
 
-    def onUIStateChange(self, changes):
-        logger.info("onUIStateChange(%r)", changes)
-        for key, value in changes.items():
-            if key == 'visible':
-                if value:
-                    self.restoreGeometry(
-                        QByteArray(self.ui_state.get('geometry', b'')))
-                    self.show()
-                    self.activateWindow()
-                else:
-                    self.hide()
+    # def onUIStateChange(self, changes):
+    #     logger.info("onUIStateChange(%r)", changes)
+    #     for key, value in changes.items():
+    #         if key == 'visible':
+    #             if value:
+    #                 self.restoreGeometry(
+    #                     QtCore.QByteArray(self.ui_state.get('geometry', b'')))
+    #                 self.show()
+    #                 self.activateWindow()
+    #             else:
+    #                 self.hide()
 
     def onInstrumentItemSelected(self, item):
         if item is None:
@@ -225,14 +209,9 @@ class InstrumentLibraryDialog(QDialog):
         else:
             self.instrument_collection.setText("")
 
-        if isinstance(instr, SampleInstrument):
-            self.instrument_type.setText("Sample")
-            self.instrument_path.setText(instr.path)
-            self.instrument_location.setText("")
-
-        elif isinstance(instr, SoundFontInstrument):
+        if isinstance(instr, library.SoundFontInstrument):
             self.instrument_type.setText("SoundFont")
-            self.instrument_path.setText("")
+            self.instrument_path.setText(instr.path)
             self.instrument_location.setText(
                 "bank %d, preset %d" % (instr.bank, instr.preset))
 
@@ -250,23 +229,24 @@ class InstrumentLibraryDialog(QDialog):
                 item.setHidden(True)
 
     def onInstrumentAdd(self):
-        path, open_filter = QFileDialog.getOpenFileName(
+        path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
             parent=self,
             caption="Open Project",
-            directory=self.ui_state.get(
-                'instruments_add_dialog_path', ''),
+            # directory=self.ui_state.get(
+            #     'instruments_add_dialog_path', ''),
             filter="All Files (*);;SoundFont Files (*.sf2)",
-            initialFilter=self.ui_state.get(
-                'instruments_add_dialog_path', ''))
+            # initialFilter=self.ui_state.get(
+            #     'instruments_add_dialog_path', '')
+        )
         if not path:
             return
 
-        self.library.dispatch_command(
-            "/ui_state",
-            UpdateUIState(
-                instruments_add_dialog_path=path,
-                instruments_add_dialog_filter=open_filter,
-            ))
+        # self.library.dispatch_command(
+        #     "/ui_state",
+        #     UpdateUIState(
+        #         instruments_add_dialog_path=path,
+        #         instruments_add_dialog_filter=open_filter,
+        #     ))
 
         self.library.add_soundfont(path)
         self.updateInstrumentList()

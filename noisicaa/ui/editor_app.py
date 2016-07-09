@@ -21,6 +21,7 @@ from noisicaa import devices
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
+from ..instr import library
 
 from . import project_registry
 
@@ -229,7 +230,7 @@ class EditorApp(BaseEditorApp):
         await super().setup()
 
         logger.info("Creating InstrumentLibrary.")
-        self.instrument_library = None #InstrumentLibrary()
+        self.instrument_library = library.InstrumentLibrary()
 
         logger.info("Creating EditorWindow.")
         self.win = EditorWindow(self)
