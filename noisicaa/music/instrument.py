@@ -6,11 +6,11 @@ from . import mutations
 
 
 class Instrument(model.Instrument, state.StateBase):
-    def __init__(self, name=None, collection=None, state=None):
+    def __init__(self, name=None, library_id=None, state=None):
         super().__init__(state)
         if state is None:
             self.name = name
-            self.collection = collection
+            self.library_id = library_id
 
     def __str__(self):
         return self.name
@@ -37,8 +37,8 @@ state.StateBase.register_class(Instrument)
 
 
 class SoundFontInstrument(model.SoundFontInstrument, Instrument):
-    def __init__(self, name=None, collection=None, path=None, bank=None, preset=None, state=None):
-        super().__init__(name=name, collection=collection, state=state)
+    def __init__(self, name=None, library_id=None, path=None, bank=None, preset=None, state=None):
+        super().__init__(name=name, library_id=library_id, state=state)
         if state is None:
             self.path = path
             self.bank = bank

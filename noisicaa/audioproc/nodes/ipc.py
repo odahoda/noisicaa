@@ -67,13 +67,13 @@ class IPCNode(node.Node):
                 del self._buffer[:eol+1]
                 return line
             dat = os.read(self._pipe_in, 1024)
-            logger.debug("dat=%s", dat)
+            #logger.debug("dat=%s", dat)
             self._buffer.extend(dat)
 
     def _get_bytes(self, num_bytes):
         while len(self._buffer) < num_bytes:
             dat = os.read(self._pipe_in, 1024)
-            logger.debug("dat=%s", dat)
+            #logger.debug("dat=%s", dat)
             self._buffer.extend(dat)
 
         d = self._buffer[:num_bytes]

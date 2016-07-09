@@ -4,6 +4,7 @@
 # message "Access to a protected member .. of a client class"
 # pylint: disable=W0212
 
+import asyncio
 import logging
 import os.path
 
@@ -40,13 +41,16 @@ class InstrumentListItem(QtWidgets.QListWidgetItem):
 class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     instrumentChanged = QtCore.pyqtSignal(library.Instrument)
 
-    def __init__(self, parent=None, **kwargs):
+    def __init__(self, parent=None, selectButton=False, **kwargs):
         super().__init__(parent=parent, **kwargs)
 
         logger.info("InstrumentLibrary created")
 
+        self._pipeline_lock = asyncio.Lock()
         self._pipeline_mixer_id = None
         self._pipeline_instrument_id = None
+
+        self._instrument = None
 
         self.setWindowTitle("noisicaä - Instrument Library")
 
@@ -126,8 +130,14 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         close = QtWidgets.QPushButton("Close")
         close.clicked.connect(self.close)
 
+        if selectButton:
+            select = QtWidgets.QPushButton("Select")
+            select.clicked.connect(self.accept)
+
         buttons = QtWidgets.QHBoxLayout()
         buttons.addStretch(1)
+        if selectButton:
+            buttons.addWidget(select)
         buttons.addWidget(close)
 
         layout = QtWidgets.QVBoxLayout()
@@ -154,6 +164,9 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     @property
     def library(self):
         return self.app.instrument_library
+
+    def instrument(self):
+        return self._instrument
 
     async def setup(self):
         logger.info("Setting up instrument library dialog...")
@@ -193,21 +206,23 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             self._pipeline_instrument_id, 'in')
 
     async def removeInstrumentFromPipeline(self):
-        assert self._pipeline_instrument_id is not None
+        async with self._pipeline_lock:
+            if self._pipeline_instrument_id is None:
+                return
 
-        await self.audioproc_client.disconnect_ports(
-            self._pipeline_event_source_id, 'out',
-            self._pipeline_instrument_id, 'in')
-        await self.audioproc_client.remove_node(
-            self._pipeline_event_source_id)
-        self._pipeline_event_source_id = None
+            await self.audioproc_client.disconnect_ports(
+                self._pipeline_event_source_id, 'out',
+                self._pipeline_instrument_id, 'in')
+            await self.audioproc_client.remove_node(
+                self._pipeline_event_source_id)
+            self._pipeline_event_source_id = None
 
-        await self.audioproc_client.disconnect_ports(
-            self._pipeline_instrument_id, 'out',
-            self._pipeline_mixer_id, 'in')
-        await self.audioproc_client.remove_node(
-            self._pipeline_instrument_id)
-        self._pipeline_instrument_id = None
+            await self.audioproc_client.disconnect_ports(
+                self._pipeline_instrument_id, 'out',
+                self._pipeline_mixer_id, 'in')
+            await self.audioproc_client.remove_node(
+                self._pipeline_instrument_id)
+            self._pipeline_instrument_id = None
 
     def closeEvent(self, event):
         if self._pipeline_instrument_id is not None:
@@ -222,10 +237,10 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             item.setText(instr.name)
             self.instruments_list.addItem(item)
 
-    def selectInstrument(self, instr):
+    def selectInstrument(self, instr_id):
         for idx in range(self.instruments_list.count()):
             item = self.instruments_list.item(idx)
-            if item.instrument == instr:
+            if item.instrument.id == instr_id:
                 self.instruments_list.setCurrentRow(idx)
                 break
 
@@ -250,12 +265,10 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             self.instrument_location.setText("")
             return
 
-        instr = item.instrument
         self.call_async(self.setCurrentInstrument(item.instrument))
 
     async def setCurrentInstrument(self, instr):
-        if self._pipeline_instrument_id:
-            await self.removeInstrumentFromPipeline()
+        await self.removeInstrumentFromPipeline()
 
         self.instrument_name.setText(instr.name)
 
@@ -275,9 +288,10 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                 soundfont_path=instr.path,
                 bank=instr.bank, preset=instr.preset)
 
-        self.piano.setVisible(True)
-        self.piano.setFocus(Qt.OtherFocusReason)
+        #self.piano.setVisible(True)
+        #self.piano.setFocus(Qt.OtherFocusReason)
 
+        self._instrument = instr
         self.instrumentChanged.emit(instr)
 
     def onInstrumentSearchChanged(self, text):

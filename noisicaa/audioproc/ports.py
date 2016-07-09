@@ -19,6 +19,12 @@ class Port(object):
         self._name = name
         self.owner = None
 
+    def __str__(self):
+        return '<%s %s:%s>' % (
+            type(self).__name__,
+            self.owner.id if self.owner is not None else 'None',
+            self.name)
+
     @property
     def name(self):
         return self._name
@@ -40,7 +46,7 @@ class InputPort(Port):
 
     def disconnect(self, port):
         with self.pipeline.writer_lock():
-            assert port in self.inputs
+            assert port in self.inputs, port
             self.inputs.remove(port)
 
     def check_port(self, port):

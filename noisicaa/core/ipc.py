@@ -56,14 +56,14 @@ class ServerProtocol(asyncio.Protocol):
                 header = bytes(self.inbuf[:eol])
                 self.inbuf = self.inbuf[eol+1:]
                 if header == b'PING':
-                    self.logger.info("PING received")
+                    self.logger.debug("PING received")
                     self.transport.write(b'ACK 4\nPONG')
 
                 elif header.startswith(b'CALL '):
                     command, length = header[5:].split(b' ')
                     self.command = command.decode('ascii')
                     self.payload_length = int(length)
-                    self.logger.info("CALL %s received (%d bytes payload)", self.command, self.payload_length)
+                    self.logger.debug("CALL %s received (%d bytes payload)", self.command, self.payload_length)
                     if self.payload_length > 0:
                         self.state = ConnState.READ_PAYLOAD
                     else:
@@ -162,6 +162,13 @@ class Server(object):
             handler = self._command_handlers[command]
 
             args, kwargs = self.deserialize(payload)
+            logger.info(
+                "%s(%s%s)",
+                command,
+                ', '.join(str(a) for a in args),
+                ''.join(', %s=%r' % (k, v)
+                        for k, v in sorted(kwargs.items())))
+
             if asyncio.iscoroutinefunction(handler):
                 result = await handler(*args, **kwargs)
             else:

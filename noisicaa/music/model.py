@@ -12,6 +12,7 @@ from . import time_signature
 
 class Instrument(core.ObjectBase):
     name = core.Property(str)
+    library_id = core.Property(str)
 
 
 class SoundFontInstrument(Instrument):

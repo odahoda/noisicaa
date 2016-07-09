@@ -10,7 +10,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from .dock_widget import DockWidget
-from .instrument_library import InstrumentLibraryDialog
+from . import instrument_library
 from ..constants import DATA_DIR
 from . import ui_base
 from . import model
@@ -202,18 +202,25 @@ class TrackPropertiesDockWidget(DockWidget):
         if self._track is None:
             return
 
-        import random
-        self.onInstrumentEdited(random.randint(0, 10))
+        self.call_async(self.onSelectInstrumentAsync())
 
-        # dialog = InstrumentLibraryDialog(
-        #     self, self.app, self.app.instrument_library)
-        # dialog.instrumentChanged.connect(
-        #     self.onInstrumentEdited)
+    async def onSelectInstrumentAsync(self):
+        dialog = instrument_library.InstrumentLibraryDialog(
+            **self.context, selectButton=True, parent=self)
+        dialog.setWindowTitle(
+            "Select instrument for track '%s'" % self._track.name)
+        dialog.setModal(True)
+        dialog.finished.connect(
+            lambda _: self.onSelectInstrumentClosed(dialog))
+        await dialog.setup()
+        if self._track.instrument is not None:
+            dialog.selectInstrument(self._track.instrument.library_id)
+        dialog.show()
 
-        # dialog.setWindowTitle(
-        #     "Select instrument for track '%s'" % self._track.name)
-        # dialog.selectInstrument(self._track.instrument)
-        # dialog.exec_()
+    def onSelectInstrumentClosed(self, dialog):
+        if dialog.result() == dialog.Accepted:
+            self.onInstrumentEdited(dialog.instrument())
+        self.call_async(dialog.cleanup())
 
     def onInstrumentEdited(self, instr):
         if self._track is None:
@@ -228,10 +235,11 @@ class TrackPropertiesDockWidget(DockWidget):
                 self._track.id, 'SetInstrument',
                 instrument_type='SoundFontInstrument',
                 instrument_args={
-                    'name': 'random-%d' % instr,
-                    'path': '/usr/share/sounds/sf2/FluidR3_GM.sf2',
-                    'bank': 0,
-                    'preset': instr}))
+                    'name': instr.name,
+                    'library_id': instr.id,
+                    'path': instr.path,
+                    'bank': instr.bank,
+                    'preset': instr.preset}))
 
     def onTransposeOctavesChanged(
             self, old_transpose_octaves, new_transpose_octaves):
