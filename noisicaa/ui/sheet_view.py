@@ -39,7 +39,6 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtSvg import QSvgRenderer, QGraphicsSvgItem
 
-#from ..ui_state import UpdateUIState
 from .instrument_library import InstrumentLibraryDialog
 from .render_sheet_dialog import RenderSheetDialog
 from noisicaa.music import (

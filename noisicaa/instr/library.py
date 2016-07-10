@@ -63,10 +63,16 @@ class InstrumentLibrary(object):
     def __init__(self, add_default_instruments=True):
         self.instruments = []
         self.collections = []
+        self.default_instrument = None
 
         if add_default_instruments:
-            for p in glob.glob('/usr/share/sounds/sf2/*.sf2'):
+            for p in sorted(glob.glob('/usr/share/sounds/sf2/*.sf2')):
                 self.add_soundfont(p)
+
+        if self.default_instrument is None:
+            self.default_instrument = self.instruments[0]
+
+        logger.info("Default instrument: %s", self.default_instrument)
 
     def add_instrument(self, instr):
         logger.info("Adding instrument %s to library...", instr)
@@ -79,6 +85,8 @@ class InstrumentLibrary(object):
         self.collections.append(collection)
         for instr in collection.create_instruments():
             self.add_instrument(instr)
+            if instr.bank == 0 and instr.preset == 0 and self.default_instrument is None:
+                self.default_instrument = instr
 
     def add_sample(self, path):
         instr = SampleInstrument(

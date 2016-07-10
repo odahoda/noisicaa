@@ -37,7 +37,6 @@ from PyQt5.QtGui import QKeySequence
 
 from noisicaa import music
 from ..exceptions import RestartAppException, RestartAppCleanException
-#from ..ui_state import UpdateUIState
 from .command_shell import CommandShell
 from .settings import SettingsDialog
 from .project_view import ProjectView
@@ -432,9 +431,8 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         view = self._project_tabs.currentWidget()
         closed = view.close()
         if closed:
-            self.event_loop.create_task(
-                self.call_with_exc(
-                    self.app.removeProject(view.project_connection)))
+            self.call_async(
+                    self.app.removeProject(view.project_connection))
 
     def onCurrentProjectTabChanged(self, idx):
         project_view = self._project_tabs.widget(idx)
@@ -444,9 +442,8 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         view = self._project_tabs.widget(idx)
         closed = view.close()
         if closed:
-            self.event_loop.create_task(
-                self.call_with_exc(
-                    self.app.removeProject(view.project_connection)))
+            self.call_async(
+                self.app.removeProject(view.project_connection))
 
     def getCurrentProjectView(self):
         return self._project_tabs.currentWidget()
@@ -468,8 +465,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         if not path:
             return
 
-        task = self.app.process.event_loop.create_task(
-            self.call_with_exc(self.app.createProject(path)))
+        self.call_async(self.app.createProject(path))
 
     def onOpenProject(self):
         path, open_filter = QFileDialog.getOpenFileName(
@@ -484,29 +480,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         if not path:
             return
 
-        self.app.process.event_loop.create_task(
-            self.call_with_exc(self.app.openProject(path)))
-
-    async def call_with_exc(self, coroutine):
-        try:
-            return await coroutine
-        except:
-            import sys
-            sys.excepthook(*sys.exc_info())
-        # project = EditorProject(self._app)
-        # try:
-        #     project.open(path)
-        # except music.FileError as exc:
-        #     errorbox = QMessageBox()
-        #     errorbox.setWindowTitle("Failed to open project")
-        #     errorbox.setText("Failed to open project from path %s." % path)
-        #     errorbox.setInformativeText(str(exc))
-        #     errorbox.setIcon(QMessageBox.Warning)
-        #     errorbox.addButton("Close", QMessageBox.AcceptRole)
-        #     errorbox.exec_()
-
-        # else:
-        #     self._app.addProject(project)
+        self.call_async(self.app.openProject(path))
 
     def onImport(self):
         path, open_filter = QFileDialog.getOpenFileName(

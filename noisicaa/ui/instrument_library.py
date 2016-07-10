@@ -15,7 +15,6 @@ from PyQt5 import QtWidgets
 
 from .piano import PianoWidget
 from ..constants import DATA_DIR
-#from ..ui_state import UpdateUIState
 from . import ui_base
 from ..instr import library
 
@@ -148,19 +147,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.updateInstrumentList()
 
-        # self.setVisible(
-        #     self.ui_state.get('visible', False))
-        # self.restoreGeometry(
-        #     QtCore.QByteArray(self.ui_state.get('geometry', b'')))
-        # self.tabs.setCurrentIndex(
-        #     self.ui_state.get('page', 0))
-        # self.instruments_page.restoreState(
-        #     self.ui_state.get('instruments_splitter_state', b''))
-        # self.instruments_list.setCurrentRow(
-        #     self.ui_state.get('instruments_list_item', 0))
-        # self.instruments_search.setText(
-        #     self.ui_state.get('instruments_search_text', ''))
-
     @property
     def library(self):
         return self.app.instrument_library
@@ -244,18 +230,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                 self.instruments_list.setCurrentRow(idx)
                 break
 
-    # def onUIStateChange(self, changes):
-    #     logger.info("onUIStateChange(%r)", changes)
-    #     for key, value in changes.items():
-    #         if key == 'visible':
-    #             if value:
-    #                 self.restoreGeometry(
-    #                     QtCore.QByteArray(self.ui_state.get('geometry', b'')))
-    #                 self.show()
-    #                 self.activateWindow()
-    #             else:
-    #                 self.hide()
-
     def onInstrumentItemSelected(self, item):
         if item is None:
             self.instrument_name.setText("")
@@ -303,6 +277,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                 item.setHidden(True)
 
     def onInstrumentAdd(self):
+        # TODO: persists directory/filter in app settings.
         path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
             parent=self,
             caption="Open Project",
@@ -314,13 +289,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         )
         if not path:
             return
-
-        # self.library.dispatch_command(
-        #     "/ui_state",
-        #     UpdateUIState(
-        #         instruments_add_dialog_path=path,
-        #         instruments_add_dialog_filter=open_filter,
-        #     ))
 
         self.library.add_soundfont(path)
         self.updateInstrumentList()
