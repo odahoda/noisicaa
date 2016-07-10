@@ -10,8 +10,6 @@ import portalocker
 
 from noisicaa import core
 from noisicaa.core import fileutil
-from noisicaa.audioproc.compose.mix import Mix
-from noisicaa.instr.library import SoundFontInstrument
 
 from .exceptions import (
     CorruptedProjectError,
@@ -26,11 +24,16 @@ from .track import Track
 from .score_track import ScoreTrack, Note
 from .sheet_property_track import SheetPropertyTrack
 from .time import Duration
+from . import model
+from . import state
+from . import commands
+from . import instrument
+from . import mutations
 
 logger = logging.getLogger(__name__)
 
 
-class AddSheet(core.Command):
+class AddSheet(commands.Command):
     name = core.Property(str, allow_none=True)
 
     def __init__(self, name=None, state=None):
@@ -56,10 +59,10 @@ class AddSheet(core.Command):
         sheet = Sheet(name)
         project.sheets.append(sheet)
 
-core.Command.register_subclass(AddSheet)
+commands.Command.register_command(AddSheet)
 
 
-class ClearSheet(core.Command):
+class ClearSheet(commands.Command):
     name = core.Property(str)
 
     def __init__(self, name=None, state=None):
@@ -72,10 +75,10 @@ class ClearSheet(core.Command):
 
         project.get_sheet(self.name).clear()
 
-core.Command.register_subclass(ClearSheet)
+commands.Command.register_command(ClearSheet)
 
 
-class DeleteSheet(core.Command):
+class DeleteSheet(commands.Command):
     name = core.Property(str)
 
     def __init__(self, name=None, state=None):
@@ -96,10 +99,10 @@ class DeleteSheet(core.Command):
 
         raise ValueError("No sheet %r" % self.name)
 
-core.Command.register_subclass(DeleteSheet)
+commands.Command.register_command(DeleteSheet)
 
 
-class RenameSheet(core.Command):
+class RenameSheet(commands.Command):
     name = core.Property(str)
     new_name = core.Property(str)
 
@@ -121,10 +124,10 @@ class RenameSheet(core.Command):
         sheet = project.get_sheet(self.name)
         sheet.name = self.new_name
 
-core.Command.register_subclass(RenameSheet)
+commands.Command.register_command(RenameSheet)
 
 
-class SetCurrentSheet(core.Command):
+class SetCurrentSheet(commands.Command):
     name = core.Property(str)
 
     def __init__(self, name=None, state=None):
@@ -137,10 +140,10 @@ class SetCurrentSheet(core.Command):
 
         project.current_sheet = project.get_sheet_index(self.name)
 
-core.Command.register_subclass(SetCurrentSheet)
+commands.Command.register_command(SetCurrentSheet)
 
 
-class AddTrack(core.Command):
+class AddTrack(commands.Command):
     track_type = core.Property(str)
 
     def __init__(self, track_type=None, state=None):
@@ -164,12 +167,14 @@ class AddTrack(core.Command):
         track = track_cls(name=track_name, num_measures=num_measures)
         sheet.tracks.append(track)
 
+        track.add_to_pipeline()
+
         return len(sheet.tracks) - 1
 
-core.Command.register_subclass(AddTrack)
+commands.Command.register_command(AddTrack)
 
 
-class RemoveTrack(core.Command):
+class RemoveTrack(commands.Command):
     track = core.Property(int)
 
     def __init__(self, track=None, state=None):
@@ -180,12 +185,14 @@ class RemoveTrack(core.Command):
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
 
+        track = sheet.tracks[self.track]
+        track.remove_from_pipeline()
         del sheet.tracks[self.track]
 
-core.Command.register_subclass(RemoveTrack)
+commands.Command.register_command(RemoveTrack)
 
 
-class MoveTrack(core.Command):
+class MoveTrack(commands.Command):
     track = core.Property(int)
     direction = core.Property(int)
 
@@ -220,10 +227,10 @@ class MoveTrack(core.Command):
 
         return track.index
 
-core.Command.register_subclass(MoveTrack)
+commands.Command.register_command(MoveTrack)
 
 
-class InsertMeasure(core.Command):
+class InsertMeasure(commands.Command):
     tracks = core.ListProperty(int)
     pos = core.Property(int)
 
@@ -247,10 +254,10 @@ class InsertMeasure(core.Command):
             else:
                 track.append_measure()
 
-core.Command.register_subclass(InsertMeasure)
+commands.Command.register_command(InsertMeasure)
 
 
-class RemoveMeasure(core.Command):
+class RemoveMeasure(commands.Command):
     tracks = core.ListProperty(int)
     pos = core.Property(int)
 
@@ -272,14 +279,10 @@ class RemoveMeasure(core.Command):
                 if self.tracks:
                     track.append_measure()
 
-core.Command.register_subclass(RemoveMeasure)
+commands.Command.register_command(RemoveMeasure)
 
 
-class Sheet(core.StateBase, core.CommandTarget):
-    name = core.Property(str, default="Sheet")
-    tracks = core.ObjectListProperty(Track)
-    property_track = core.ObjectProperty(SheetPropertyTrack)
-
+class Sheet(model.Sheet, state.StateBase):
     def __init__(self, name=None, num_tracks=1, state=None):
         super().__init__(state)
         if state is None:
@@ -291,10 +294,6 @@ class Sheet(core.StateBase, core.CommandTarget):
                 self.tracks.append(ScoreTrack(name="Track %d" % i))
 
     @property
-    def address(self):
-        return self.parent.address + 'sheet:' + self.name
-
-    @property
     def project(self):
         return self.parent
 
@@ -304,26 +303,6 @@ class Sheet(core.StateBase, core.CommandTarget):
 
     def clear(self):
         pass
-
-    def get_bpm(self, measure_idx, tick):  # pylint: disable=unused-argument
-        return self.property_track.measures[measure_idx].bpm
-
-    def get_time_signature(self, measure_idx):
-        return self.property_track.measures[measure_idx].time_signature
-
-    def create_playback_source(self, pipeline, setup=True, recursive=False, stop_on_end_of_stream=False):
-        mixer = Mix(stop_on_end_of_stream=stop_on_end_of_stream)
-        pipeline.add_node(mixer)
-        if setup:
-            mixer.setup()
-
-        if recursive:
-            for track in self.tracks:
-                track_src = track.create_playback_source(
-                    pipeline, setup, recursive)
-                mixer.append_input(track_src.outputs['out'])
-
-        return mixer
 
     def equalize_tracks(self, remove_trailing_empty_measures=0):
         if len(self.tracks) < 1:
@@ -356,14 +335,32 @@ class Sheet(core.StateBase, core.CommandTarget):
             while len(track.measures) < max_length:
                 track.append_measure()
 
-    def get_sub_target(self, name):
-        if name.startswith('track:'):
-            return self.tracks[int(name[6:])]
+    @property
+    def main_mixer_name(self):
+        return '%s-sheet-mixer' % self.id
 
-        if name == 'property_track':
-            return self.property_track
+    def add_to_pipeline(self):
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.AddNode(
+                'passthru', self.main_mixer_name, 'sheet-mixer'))
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.ConnectPorts(
+                self.main_mixer_name, 'out',
+                self.project.main_mixer_name, 'in'))
 
-        return super().get_sub_target(name)
+        for track in self.tracks:
+            track.add_to_pipeline()
+
+
+state.StateBase.register_class(Sheet)
+
+
+class Metadata(model.Metadata, state.StateBase):
+    pass
+
+state.StateBase.register_class(Metadata)
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -405,47 +402,44 @@ class JSONDecoder(json.JSONDecoder):
         return obj
 
 
-class BaseProject(core.StateBase, core.CommandDispatcher):
-    sheets = core.ObjectListProperty(cls=Sheet)
-    current_sheet = core.Property(int, default=0)
+class BaseProject(model.Project, state.RootMixin, state.StateBase):
+    SERIALIZED_CLASS_NAME = 'Project'
 
     def __init__(self, num_sheets=1, state=None):
+        self.listeners = core.CallbackRegistry()
+
         super().__init__(state)
         if state is None:
+            self.metadata = Metadata()
+
             for i in range(1, num_sheets + 1):
                 self.sheets.append(Sheet(name="Sheet %d" % i))
 
-        self.address = '/'
-        self.set_root()
-
-    def get_current_sheet(self):
-        return self.sheets[self.current_sheet]
-
-    def get_sheet(self, name):
-        for sheet in self.sheets:
-            if sheet.name == name:
-                return sheet
-        raise ValueError("No sheet %r" % name)
-
-    def get_sheet_index(self, name):
-        for idx, sheet in enumerate(self.sheets):
-            if sheet.name == name:
-                return idx
-        raise ValueError("No sheet %r" % name)
-
-    def get_sub_target(self, name):
-        if name.startswith('sheet:'):
-            sheet_name = name[6:]
-            for sheet in self.sheets:
-                if sheet.name == sheet_name:
-                    return sheet
-
-        return super().get_sub_target(name)
-
-    def dispatch_command(self, target, cmd):
-        result = super().dispatch_command(target, cmd)
-        logger.info("Executed command %s on %s", cmd, target)
+    def dispatch_command(self, obj_id, cmd):
+        obj = self.get_object(obj_id)
+        result = cmd.run(obj)
+        logger.info("Executed command %s on %s", cmd, obj_id)
         return result
+
+    def handle_mutation(self, mutation):
+        self.listeners.call('project_mutations', mutation)
+
+    @property
+    def main_mixer_name(self):
+        return '%s-main-mixer' % self.id
+
+    def add_to_pipeline(self):
+        self.listeners.call(
+            'pipeline_mutations',
+            mutations.AddNode(
+                'passthru', self.main_mixer_name, 'main-mixer'))
+        self.listeners.call(
+            'pipeline_mutations',
+            mutations.ConnectPorts(
+                self.main_mixer_name, 'out', 'sink', 'in'))
+
+        for sheet in self.sheets:
+            sheet.add_to_pipeline()
 
     @classmethod
     def make_demo(cls):
@@ -459,13 +453,13 @@ class BaseProject(core.StateBase, core.CommandDispatcher):
         for m in sheet.property_track.measures:
             m.bpm = 140
 
-        instr1 = SoundFontInstrument(
+        instr1 = instrument.SoundFontInstrument(
             name="Flute",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=73)
         track1 = ScoreTrack(name="Track 1", instrument=instr1, num_measures=5)
         sheet.tracks.append(track1)
 
-        instr2 = SoundFontInstrument(
+        instr2 = instrument.SoundFontInstrument(
             name="Yamaha Grand Piano",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=0)
         track2 = ScoreTrack(name="Track 2", instrument=instr2, num_measures=5)
@@ -545,12 +539,6 @@ class Project(BaseProject):
         self.data_dir = None
         self.command_log_fp = None
         self.checkpoint_sequence_number = 1
-
-    @property
-    def name(self):
-        if self.path is None:
-            return '*New Project*'
-        return os.path.basename(self.path)
 
     @property
     def closed(self):
@@ -674,6 +662,8 @@ class Project(BaseProject):
         self.path = None
         self.data_dir = None
 
+        self.listeners.clear()
+
         self.reset_state()
 
     def acquire_file_lock(self, lock_path):
@@ -715,11 +705,11 @@ class Project(BaseProject):
                 if entry_type != b'C':
                     raise CorruptedProjectError(
                         "Unexpected log entry type %s" % entry_type)
-                target = headers['Target']
+                obj_id = headers['Target']
                 cmd_state = json.loads(serialized, cls=JSONDecoder)
-                cmd = core.Command.create_from_state(cmd_state)
-                logger.info("Replay command %s on %s", cmd, target)
-                super().dispatch_command(target, cmd)
+                cmd = commands.Command.create_from_state(cmd_state)
+                logger.info("Replay command %s on %s", cmd, obj_id)
+                super().dispatch_command(obj_id, cmd)
 
     def write_checkpoint(self, data_dir, sequence_number):
         name_base = 'state.%d' % sequence_number
@@ -750,13 +740,13 @@ class Project(BaseProject):
         }
         return state_data, command_log_fp
 
-    def dispatch_command(self, target, cmd):
+    def dispatch_command(self, obj_id, cmd):
         if self.closed:
             raise RuntimeError("Command %s executed on closed project." % cmd)
 
         assert self.command_log_fp is not None
 
-        result = super().dispatch_command(target, cmd)
+        result = super().dispatch_command(obj_id, cmd)
 
         serialized = json.dumps(
             cmd.serialize(),
@@ -768,7 +758,7 @@ class Project(BaseProject):
             encoding='utf-8',
             entry_type=b'C',
             headers={
-                'Target': target,
+                'Target': obj_id,
                 'Time': time.ctime(now),
                 'Timestamp': '%d' % now,
             })

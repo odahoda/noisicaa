@@ -1,48 +1,78 @@
 #!/usr/bin/python3
 
+import functools
 import logging
 import os.path
 import enum
 
-from PyQt5.QtCore import Qt, QSize, QRect, pyqtSignal, QMargins, QAbstractListModel, QModelIndex
-from PyQt5.QtGui import QIcon, QColor, QBrush
-from PyQt5.QtWidgets import (
-    QWidget,
-    QToolButton,
-    QHBoxLayout,
-    QVBoxLayout,
-    QListView,
-    QStyleOptionViewItem,
-    QStyledItemDelegate,
-)
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from .dock_widget import DockWidget
-from noisicaa.music import UpdateTrackProperties, AddTrack, RemoveTrack, MoveTrack
 from ..constants import DATA_DIR
-
+from . import ui_base
 
 logger = logging.getLogger(__name__)
 
-# TODO: add listeners for all tracks, emit dataChanged, when name, visible, muted
-# changes.
 
-class TracksModel(QAbstractListModel):
-    def __init__(self, sheet, parent=None):
-        super().__init__(parent)
+class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractListModel):
+    VisibleRole = Qt.UserRole
+    MuteRole = Qt.UserRole + 1
+
+    def __init__(self, sheet=None, **kwargs):
+        super().__init__(**kwargs)
 
         self._sheet = sheet
-        self._project = sheet.project
-
         self._tracks_listener = self._sheet.listeners.add(
             'tracks', self.onTracksChanged)
+        self._track_listeners = {}
+        self.updateTrackListeners()
 
     def close(self):
         self._tracks_listener.remove()
+        self._tracks_listener = None
+
+        for listeners in self._track_listeners.values():
+            for listener in listeners:
+                listener.remove()
+        self._track_listeners.clear()
 
     def onTracksChanged(self, action, *args):
         # This could probably be done more efficiently...
         self.dataChanged.emit(self.index(0),
                               self.index(self.rowCount(None) - 1))
+        self.updateTrackListeners()
+
+    def onTrackChanged(self, track, prop, old, new):
+        logger.info(
+            "Value of %s on track %s: %s->%s", prop, track.id, old, new)
+        self.dataChanged.emit(
+            self.index(track.index), self.index(track.index))
+
+    def updateTrackListeners(self):
+        added_tracks = (
+            set(track.id for track in self._sheet.tracks)
+            - set(self._track_listeners.keys()))
+        removed_tracks = (
+            set(self._track_listeners.keys())
+            - set(track.id for track in self._sheet.tracks))
+
+        for track_id in removed_tracks:
+            for listener in self._track_listeners[track_id]:
+                listener.remove()
+            del self._track_listeners[track_id]
+
+        track_map = dict((track.id, track) for track in self._sheet.tracks)
+        for track_id in added_tracks:
+            track = track_map[track_id]
+            listeners = self._track_listeners[track_id] = []
+            for prop in ('name', 'muted', 'visible'):
+                listeners.append(track.listeners.add(
+                    prop,
+                    lambda old, new: self.onTrackChanged(
+                        track, prop, old, new)))
 
     def rowCount(self, parent):
         return len(self._sheet.tracks)
@@ -52,10 +82,10 @@ class TracksModel(QAbstractListModel):
             track = self._sheet.tracks[row]
             return self.createIndex(row, column, track)
         else:
-            return QModelIndex()
+            return QtCore.QModelIndex()
 
     def parent(self, index):
-        return QModelIndex()
+        return QtCore.QModelIndex()
 
     def flags(self, index):
         return super().flags(index) | Qt.ItemIsEditable
@@ -68,94 +98,80 @@ class TracksModel(QAbstractListModel):
 
         if role in (Qt.DisplayRole, Qt.EditRole):
             return track.name
+        elif role == self.VisibleRole:
+            return track.visible
+        elif role == self.MuteRole:
+            return track.muted
 
         return None
 
     def setData(self, index, value, role=Qt.EditRole):
         if not index.isValid():
             return False
-        if role != Qt.EditRole:
-            return False
 
         track = index.internalPointer()
-        self._project.dispatch_command(
-            track.address,
-            UpdateTrackProperties(name=value))
-        self.dataChanged.emit(index, index)
-        return True
+
+        if role == Qt.EditRole:
+            self.send_command_async(
+                track.id, 'UpdateTrackProperties', name=value)
+            return False
+        elif role == self.VisibleRole:
+            self.send_command_async(
+                track.id, 'UpdateTrackProperties', visible=value)
+            return False
+        elif role == self.MuteRole:
+            self.send_command_async(
+                track.id, 'UpdateTrackProperties', muted=value)
+            return False
+
+        return False
 
     def headerData(self, section, orientation, role):
         return None
 
-    def toggleTrackVisible(self, index):
+    async def addTrack(self, track_type):
+        return await self.project_client.send_command(
+            self._sheet.id, 'AddTrack', track_type=track_type)
+
+    async def removeTrack(self, index):
         track = index.internalPointer()
-        self._project.dispatch_command(
-            track.address,
-            UpdateTrackProperties(visible=not track.visible))
-        self.dataChanged.emit(index, index)
+        return await self.project_client.send_command(
+            self._sheet.id, 'RemoveTrack', track=track.index)
 
-    def toggleTrackMute(self, index):
+    async def moveTrack(self, index, direction):
         track = index.internalPointer()
-        self._project.dispatch_command(
-            track.address,
-            UpdateTrackProperties(muted=not track.muted))
-        self.dataChanged.emit(index, index)
+        return await self.project_client.send_command(
+            self._sheet.id, 'MoveTrack', track=track.index, direction=direction)
 
-    def addTrack(self, track_type):
-        track_idx = self._project.dispatch_command(
-            self._sheet.address,
-            AddTrack(track_type=track_type))
-        self.dataChanged.emit(self.index(track_idx),
-                              self.index(self.rowCount(None) - 1))
-        return track_idx
-
-    def removeTrack(self, index):
-        track = index.internalPointer()
-        self._project.dispatch_command(
-            self._sheet.address,
-            RemoveTrack(track=track.index))
-        self.dataChanged.emit(self.index(0),
-                              self.index(self.rowCount(None) - 1))
-
-    def moveTrack(self, index, direction):
-        track = index.internalPointer()
-        track_idx = self._project.dispatch_command(
-            self._sheet.address,
-            MoveTrack(track=track.index, direction=direction))
-        self.dataChanged.emit(self.index(0),
-                              self.index(self.rowCount(None) - 1))
-        return track_idx
-
-
-class TrackItemDelegate(QStyledItemDelegate):
+class TrackItemDelegate(QtWidgets.QStyledItemDelegate):
     def __init__(self, parent = None):
         super().__init__(parent)
 
-        self._visible_icon = QIcon(
+        self._visible_icon = QtGui.QIcon(
             os.path.join(DATA_DIR, 'icons', 'track-visible.svg'))
-        self._not_visible_icon = QIcon(
+        self._not_visible_icon = QtGui.QIcon(
             os.path.join(DATA_DIR, 'icons', 'track-not-visible.svg'))
 
-        self._muted_icon = QIcon(
+        self._muted_icon = QtGui.QIcon(
             os.path.join(DATA_DIR, 'icons', 'track-muted.svg'))
-        self._not_muted_icon = QIcon(
+        self._not_muted_icon = QtGui.QIcon(
             os.path.join(DATA_DIR, 'icons', 'track-not-muted.svg'))
 
     def sizeHint(self, option, index):
         size = super().sizeHint(option, index)
-        size += QSize(2 * size.height() + 8, 0)
+        size += QtCore.QSize(2 * size.height() + 8, 0)
         return size
 
     def showIconRect(self, rect):
-        return QRect(rect.x() + 4, rect.y() + 2,
+        return QtCore.QRect(rect.x() + 4, rect.y() + 2,
                      rect.height() - 4, rect.height() - 4)
 
     def playIconRect(self, rect):
-        return QRect(rect.x() + rect.height() + 6, rect.y() + 2,
+        return QtCore.QRect(rect.x() + rect.height() + 6, rect.y() + 2,
                      rect.height() - 4, rect.height() - 4)
 
     def itemRect(self, rect):
-        return QRect(
+        return QtCore.QRect(
             rect.x() + 2 * rect.height() + 8, rect.y(),
             rect.width() - 2 * rect.height() + 8, rect.height())
 
@@ -180,17 +196,17 @@ class TrackItemDelegate(QStyledItemDelegate):
         finally:
             painter.restore()
 
-        main_option = QStyleOptionViewItem(option)
+        main_option = QtWidgets.QStyleOptionViewItem(option)
         main_option.rect = self.itemRect(option.rect)
         super().paint(painter, main_option, index)
 
     def updateEditorGeometry(self, editor, option, index):
-        main_option = QStyleOptionViewItem(option)
+        main_option = QtWidgets.QStyleOptionViewItem(option)
         main_option.rect = self.itemRect(option.rect)
         return super().updateEditorGeometry(editor, main_option, index)
 
 
-class TrackList(QListView):
+class TrackList(QtWidgets.QListView):
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -201,17 +217,25 @@ class TrackList(QListView):
         index = self.indexAt(event.pos())
         if index.row() >= 0:
             rect = self.visualRect(index)
+            model = self.model()
             if self._delegate.showIconRect(rect).contains(event.pos()):
-                self.model().toggleTrackVisible(index)
+                model.setData(
+                    index, not model.data(index, TracksModel.VisibleRole),
+                    TracksModel.VisibleRole)
+                event.accept()
             elif self._delegate.playIconRect(rect).contains(event.pos()):
-                self.model().toggleTrackMute(index)
+                model.setData(
+                    index, not model.data(index, TracksModel.MuteRole),
+                    TracksModel.MuteRole)
+                event.accept()
 
         return super().mousePressEvent(event)
 
 
 class TracksDockWidget(DockWidget):
-    def __init__(self, window):
+    def __init__(self, app, window):
         super().__init__(
+            app=app,
             parent=window,
             identifier='tracks',
             title="Tracks",
@@ -224,40 +248,40 @@ class TracksDockWidget(DockWidget):
         self._tracks_list = TrackList(self)
         self._tracks_list.activated.connect(self.onCurrentChanged)
 
-        self._add_button = QToolButton(
-            icon=QIcon.fromTheme('list-add'),
-            iconSize=QSize(16, 16),
+        self._add_button = QtWidgets.QToolButton(
+            icon=QtGui.QIcon.fromTheme('list-add'),
+            iconSize=QtCore.QSize(16, 16),
             autoRaise=True)
         self._add_button.clicked.connect(self.onAddClicked)
-        self._remove_button = QToolButton(
-            icon=QIcon.fromTheme('list-remove'),
-            iconSize=QSize(16, 16),
+        self._remove_button = QtWidgets.QToolButton(
+            icon=QtGui.QIcon.fromTheme('list-remove'),
+            iconSize=QtCore.QSize(16, 16),
             autoRaise=True)
         self._remove_button.clicked.connect(self.onRemoveClicked)
-        self._move_up_button = QToolButton(
-            icon=QIcon.fromTheme('go-up'),
-            iconSize=QSize(16, 16),
+        self._move_up_button = QtWidgets.QToolButton(
+            icon=QtGui.QIcon.fromTheme('go-up'),
+            iconSize=QtCore.QSize(16, 16),
             autoRaise=True)
         self._move_up_button.clicked.connect(self.onMoveUpClicked)
-        self._move_down_button = QToolButton(
-            icon=QIcon.fromTheme('go-down'),
-            iconSize=QSize(16, 16),
+        self._move_down_button = QtWidgets.QToolButton(
+            icon=QtGui.QIcon.fromTheme('go-down'),
+            iconSize=QtCore.QSize(16, 16),
             autoRaise=True)
         self._move_down_button.clicked.connect(self.onMoveDownClicked)
 
-        buttons_layout = QHBoxLayout(spacing=1)
+        buttons_layout = QtWidgets.QHBoxLayout(spacing=1)
         buttons_layout.addWidget(self._add_button)
         buttons_layout.addWidget(self._remove_button)
         buttons_layout.addWidget(self._move_up_button)
         buttons_layout.addWidget(self._move_down_button)
         buttons_layout.addStretch(1)
 
-        main_layout = QVBoxLayout(spacing=1)
-        main_layout.setContentsMargins(QMargins(0, 0, 0, 0))
+        main_layout = QtWidgets.QVBoxLayout(spacing=1)
+        main_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         main_layout.addWidget(self._tracks_list, 1)
         main_layout.addLayout(buttons_layout)
 
-        main_area = QWidget()
+        main_area = QtWidgets.QWidget()
         main_area.setLayout(main_layout)
         self.setWidget(main_area)
 
@@ -270,7 +294,8 @@ class TracksDockWidget(DockWidget):
             self._tracks_list.setModel(None)
 
         if sheet is not None:
-            self._model = TracksModel(sheet)
+            self._model = TracksModel(
+                **self.window.getCurrentProjectView().context, sheet=sheet)
             self._tracks_list.setModel(self._model)
             # TODO: select current track of sheet
             self.onCurrentChanged(None)
@@ -298,8 +323,11 @@ class TracksDockWidget(DockWidget):
         if self._model is None:
             return
 
-        # support selecting track type
-        track_idx = self._model.addTrack('score')
+        # TODO: support selecting track type
+        self.call_async(
+            self._model.addTrack('score'), callback=self.onAddTrackDone)
+
+    def onAddTrackDone(self, track_idx):
         index = self._model.index(track_idx)
         self._tracks_list.setCurrentIndex(index)
         self.onCurrentChanged(index)
@@ -309,9 +337,13 @@ class TracksDockWidget(DockWidget):
             return
 
         index = self._tracks_list.currentIndex()
-        self._model.removeTrack(index)
+        self.call_async(
+            self._model.removeTrack(index),
+            callback=functools.partial(self.onRemoveTrackDone, index=index))
+
+    def onRemoveTrackDone(self, result, index):
         new_index = self._model.index(
-            min(index.row(), index.model().rowCount(None) - 1))
+            min(index.row(), self._model.rowCount(None) - 1))
         self._tracks_list.setCurrentIndex(new_index)
         self.onCurrentChanged(new_index)
 
@@ -319,17 +351,22 @@ class TracksDockWidget(DockWidget):
         if self._model is None:
             return
 
-        track_idx = self._model.moveTrack(self._tracks_list.currentIndex(), -1)
-        index = self._model.index(track_idx)
-        self._tracks_list.setCurrentIndex(index)
-        self.onCurrentChanged(index)
+        index = self._tracks_list.currentIndex()
+        self.call_async(
+            self._model.moveTrack(index, -1), callback=self.onMoveTrackDone)
 
     def onMoveDownClicked(self):
         if self._model is None:
             return
 
-        track_idx = self._model.moveTrack(self._tracks_list.currentIndex(), 1)
+        index = self._tracks_list.currentIndex()
+        self.call_async(
+            self._model.moveTrack(index, 1), callback=self.onMoveTrackDone)
+
+    def onMoveTrackDone(self, track_idx):
         index = self._model.index(track_idx)
         self._tracks_list.setCurrentIndex(index)
         self.onCurrentChanged(index)
+
+
 

@@ -39,7 +39,6 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtSvg import QSvgRenderer, QGraphicsSvgItem
 
-from ..ui_state import UpdateUIState
 from .instrument_library import InstrumentLibraryDialog
 from .render_sheet_dialog import RenderSheetDialog
 from noisicaa.music import (
@@ -55,14 +54,11 @@ from noisicaa.music import (
     SetBPM,
     Pitch, Clef, KeySignature,
 )
-from ..audioproc.source.fluidsynth import FluidSynthSource
-from ..audioproc.source.silence import SilenceSource
-from ..audioproc.source.notes import NoteSource
-from ..instr.library import SoundFontInstrument
 from ..constants import DATA_DIR
 from .svg_symbol import SvgSymbol, SymbolItem
 from .tool_dock import Tool
 from .misc import QGraphicsGroup
+from . import ui_base
 
 logger = logging.getLogger(__name__)
 
@@ -105,13 +101,11 @@ class MeasureLayout(object):
         return (self.size == other.size) and (self.baseline == other.baseline)
 
 
-class MeasureItem(QGraphicsItem):
-    def __init__(self, app, project, sheet_view, track_view, measure):
-        super().__init__()
-        self._app = app
-        self._project = project
+class MeasureItemImpl(QGraphicsItem):
+    def __init__(self, sheet_view, track_item, measure, **kwargs):
+        super().__init__(**kwargs)
         self._sheet_view = sheet_view
-        self._track_view = track_view
+        self._track_item = track_item
         self._measure = measure
         self._layout = None
 
@@ -170,42 +164,34 @@ class MeasureItem(QGraphicsItem):
 
     def contextMenuEvent(self, event):
         menu = QMenu()
-        self._track_view.buildContextMenu(menu)
+        self._track_item.buildContextMenu(menu)
         self.buildContextMenu(menu)
 
         menu.exec_(event.screenPos())
         event.accept()
 
     def onInsertMeasure(self):
-        self._project.dispatch_command(
-            self._sheet_view.sheet.address,
-            InsertMeasure(
-                tracks=[self._measure.track.index],
-                pos=self._measure.index))
+        self.send_command_async(
+            self._sheet_view.sheet.id, 'InsertMeasure',
+            tracks=[self._measure.track.index],
+            pos=self._measure.index)
 
     def onRemoveMeasure(self):
-        self._project.dispatch_command(
-            self._sheet_view.sheet.address,
-            RemoveMeasure(
-                tracks=[self._measure.track.index],
-                pos=self._measure.index))
+        self.send_command_async(
+            self._sheet_view.sheet.id, 'RemoveMeasure',
+            tracks=[self._measure.track.index],
+            pos=self._measure.index)
 
 
-class TrackItem(object):
+class TrackItemImpl(object):
     measure_item_cls = None
 
-    def __init__(self, app, project, sheet_view, track):
-        super().__init__()
-        self._app = app
-        self._project = project
+    def __init__(self, sheet_view, track, **kwargs):
+        super().__init__(**kwargs)
         self._sheet_view = sheet_view
         self._track = track
 
         self._instrument_selector = None
-
-        self._source = None
-        self._source_port = None
-        self._control_source = None
 
         self._prev_note_highlight = None
 
@@ -214,11 +200,13 @@ class TrackItem(object):
         self._measures = []
         for measure in self._track.measures:
             measure_item = self.measure_item_cls(  # pylint: disable=not-callable
-                self._app, self._project, self._sheet_view, self, measure)
+                **self.context, sheet_view=self._sheet_view,
+                track_item=self, measure=measure)
             self._measures.append(measure_item)
 
         self._ghost_measure_item = self.measure_item_cls(  # pylint: disable=not-callable
-                self._app, self._project, self._sheet_view, self, None)
+            **self.context, sheet_view=self._sheet_view,
+            track_item=self, measure=None)
 
         self._listeners = [
             self._track.listeners.add('name', self.onNameChanged),
@@ -269,7 +257,8 @@ class TrackItem(object):
         if action == 'insert':
             idx, measure = args
             measure_item = self.measure_item_cls(  # pylint: disable=not-callable
-                self._app, self._project, self._sheet_view, self, measure)
+                **self.context, sheet_view=self._sheet_view,
+                track_item=self, measure=measure)
             self._measures.insert(idx, measure_item)
             self._sheet_view.updateSheet()
 
@@ -294,45 +283,11 @@ class TrackItem(object):
         logger.info("Track %s: Changed instrument from %s to %s",
                     self._track.name, old_instr, new_instr)
 
-        if self._source is not None:
-            logger.info("Removing old track source.")
-            self._sheet_view.master_mixer.remove_input(self._source_port.name)
-            self._source.cleanup()
-            self._project.playback_pipeline.remove_node(self._source)
-            self._source = None
-
-        if new_instr is not None:
-            logger.info("Creating new track source.")
-            self._source = self._track.create_playback_source(
-                self._project.playback_pipeline)
-            self._source.outputs['out'].muted = self._track.muted
-            self._source.outputs['out'].volume = self._track.volume
-            self._source_port = self._sheet_view.master_mixer.append_input(
-                self._source.outputs['out'])
-            logger.info("Track source port: %s", self._source_port)
-
-        if self._control_source is not None:
-            logger.info("Removing old control source.")
-            self._app.removePlaybackSource(self._control_source.outputs['out'])
-            self._control_source.cleanup()
-            self._project.playback_pipeline.remove_node(self._control_source)
-            self._control_source = None
-
-        if new_instr is not None:
-            logger.info("Creating new control source.")
-            self._control_source = FluidSynthSource(
-                new_instr.path, new_instr.bank, new_instr.preset)
-            self._project.playback_pipeline.add_node(self._control_source)
-            self._control_source.setup()
-            self._app.addPlaybackSource(self._control_source.outputs['out'])
-
     def onMutedChanged(self, old_value, new_value):
-        if self._source:
-            self._source.outputs['out'].muted = new_value
+        pass # TODO
 
     def onVolumeChanged(self, old_value, new_value):
-        if self._source:
-            self._source.outputs['out'].volume = new_value
+        pass # TODO
 
     def buildContextMenu(self, menu):
         track_instrument_action = QAction(
@@ -354,13 +309,14 @@ class TrackItem(object):
         menu.addAction(remove_track_action)
 
     def onRemoveTrack(self):
-        self._project.dispatch_command(
-            self._track.parent.address, RemoveTrack(track=self._track.index))
+        self.send_command_async(
+            self._track.parent.id, 'RemoveTrack',
+            track=self._track.index)
 
     def onTrackInstrument(self):
         if self._instrument_selector is None:
             self._instrument_selector = InstrumentLibraryDialog(
-                self._sheet_view, self._app, self._app.instrument_library)
+                self._sheet_view, self.app, self.app.instrument_library)
             self._instrument_selector.instrumentChanged.connect(
                 self.onSelectInstrument)
 
@@ -371,12 +327,12 @@ class TrackItem(object):
 
     def onSelectInstrument(self, instr):
         if instr is None:
-            self._project.dispatch_command(
-                self._track.address, ClearInstrument())
+            self.send_command_async(
+                self._track.id, 'ClearInstrument')
         else:
-            self._project.dispatch_command(
-                self._track.address,
-                SetInstrument(instr=instr.to_json()))
+            self.send_command_async(
+                self._track.id, 'SetInstrument',
+                instr=instr.to_json())
 
     def onTrackProperties(self):
         dialog = QDialog()
@@ -402,20 +358,18 @@ class TrackItem(object):
 
         ret = dialog.exec_()
 
-        self._project.dispatch_command(
-            self._track.address,
-            UpdateTrackProperties(
-                name=name.text(),
-            ))
+        self.send_command_async(
+            self._track.id, 'UpdateTrackProperties',
+            name=name.text())
 
 
 class ScoreMeasureLayout(MeasureLayout):
     pass
 
 
-class ScoreMeasureItem(MeasureItem):
-    def __init__(self, app, project, sheet_view, track_view, measure):
-        super().__init__(app, project, sheet_view, track_view, measure)
+class ScoreMeasureItemImpl(MeasureItemImpl):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self._edit_areas = []
         self._notes = []
@@ -432,6 +386,14 @@ class ScoreMeasureItem(MeasureItem):
         self._background.setVisible(False)
 
         self.setAcceptHoverEvents(True)
+
+        if self._measure is not None:
+            self._measure.listeners.add(
+                'notes-changed', self.recomputeLayout)
+            self._measure.listeners.add(
+                'clef', lambda *args: self.recomputeLayout())
+            self._measure.listeners.add(
+                'key_signature', lambda *args: self.recomputeLayout())
 
     _accidental_map = {
         '': 'accidental-natural',
@@ -499,7 +461,7 @@ class ScoreMeasureItem(MeasureItem):
             black = QColor(200, 200, 200)
 
         if is_first and self._measure:
-            track = self._measure.track
+            track = self._measure.parent
 
             text = self._name_item = QGraphicsSimpleTextItem(layer)
             text.setText("> %s" % track.name)
@@ -628,9 +590,7 @@ class ScoreMeasureItem(MeasureItem):
 
                     if overflow:
                         n.setOpacity(0.4)
-                else:
-                    assert len(note.pitches) > 0
-
+                elif len(note.pitches) > 0:
                     min_stave_line = 1000
                     max_stave_line = -1000
 
@@ -711,7 +671,7 @@ class ScoreMeasureItem(MeasureItem):
                     if overflow:
                         n.setOpacity(0.4)
 
-                    if self._app.showEditAreas:
+                    if self.app.showEditAreas:
                         info = QGraphicsSimpleTextItem(self)
                         info.setText(
                             '%d/%d' % (min_stave_line, max_stave_line))
@@ -733,7 +693,7 @@ class ScoreMeasureItem(MeasureItem):
                 self._edit_areas.append(
                     (px, self._layout.width, len(self._measure.notes), False))
 
-        if self._app.showEditAreas:
+        if self.app.showEditAreas:
             for x1, x2, idx, overwrite in self._edit_areas:
                 b = QGraphicsRectItem(layer)
                 b.setRect(x1, -10, x2 - x1, 5)
@@ -807,19 +767,18 @@ class ScoreMeasureItem(MeasureItem):
                 triggered=lambda _, upper=upper, lower=lower: self.onSetTimeSignature(upper, lower)))
 
     def onSetClef(self, clef):
-        self._project.dispatch_command(
-            self._measure.address, SetClef(clef=clef.value))
-        self.recomputeLayout()
+        self.send_command_async(
+            self._measure.id, 'SetClef', clef=clef.value)
 
     def onSetKeySignature(self, key_signature):
-        self._project.dispatch_command(
-            self._measure.address, SetKeySignature(key_signature=key_signature))
-        self.recomputeLayout()
+        self.send_command_async(
+            self._measure.id, 'SetKeySignature',
+            key_signature=key_signature)
 
     def onSetTimeSignature(self, upper, lower):
-        self._project.dispatch_command(
-            self._sheet_view.sheet.property_track.measures[self._measure.index].address,
-            SetTimeSignature(upper=upper, lower=lower))
+        self.send_command_async(
+            self._sheet_view.sheet.property_track.measures[self._measure.index].id,
+            'SetTimeSignature', upper=upper, lower=lower)
         self.recomputeLayout()
 
     def onPlaybackTag(self, event, idx):
@@ -956,9 +915,9 @@ class ScoreMeasureItem(MeasureItem):
 
     def mousePressEvent(self, event):
         if self._measure is None:
-            self._project.dispatch_command(
-                self._sheet_view.sheet.address,
-                InsertMeasure(tracks=[], pos=-1))
+            self.send_command_async(
+                self._sheet_view.sheet.id,
+                'InsertMeasure', tracks=[], pos=-1)
             event.accept()
             return
 
@@ -988,23 +947,23 @@ class ScoreMeasureItem(MeasureItem):
                         if len(self._measure.notes[idx].pitches) > 1:
                             for pitch_idx, p in enumerate(self._measure.notes[idx].pitches):
                                 if p.stave_line == stave_line:
-                                    cmd = RemovePitch(idx=idx, pitch_idx=pitch_idx)
+                                    cmd = ('RemovePitch', dict(idx=idx, pitch_idx=pitch_idx))
                                     break
                         else:
-                            cmd = DeleteNote(idx=idx)
+                            cmd = ('DeleteNote', dict(idx=idx))
                 else:
                     if overwrite:
                         for pitch_idx, p in enumerate(self._measure.notes[idx].pitches):
                             if p.stave_line == stave_line:
                                 break
                         else:
-                            cmd = AddPitch(idx=idx, pitch=pitch)
+                            cmd = ('AddPitch', dict(idx=idx, pitch=pitch))
                     else:
-                        cmd = InsertNote(
-                            idx=idx, pitch=pitch, duration=duration)
+                        cmd = ('InsertNote', dict(
+                            idx=idx, pitch=pitch, duration=duration))
                 if cmd is not None:
-                    self._project.dispatch_command(self._measure.address, cmd)
-                    self.recomputeLayout()
+                    self.send_command_async(
+                        self._measure.id, cmd[0], **cmd[1])
                     event.accept()
                     return
 
@@ -1023,9 +982,10 @@ class ScoreMeasureItem(MeasureItem):
                 for pitch_idx, p in enumerate(self._measure.notes[idx].pitches):
                     if accidental in p.valid_accidentals:
                         if p.stave_line == stave_line:
-                            cmd = SetAccidental(idx=idx, accidental=accidental, pitch_idx=pitch_idx)
-                            self._project.dispatch_command(self._measure.address, cmd)
-                            self.recomputeLayout()
+                            self.send_command_async(
+                                self._measure.id, 'SetAccidental',
+                                idx=idx, accidental=accidental,
+                                pitch_idx=pitch_idx)
                             event.accept()
                             return
 
@@ -1040,50 +1000,55 @@ class ScoreMeasureItem(MeasureItem):
                 if tool == Tool.DURATION_DOT:
                     if event.modifiers() & Qt.ShiftModifier:
                         if note.dots > 0:
-                            cmd = ChangeNote(idx=idx, dots=note.dots - 1)
+                            cmd = ('ChangeNote', dict(idx=idx, dots=note.dots - 1))
                     else:
                         if note.dots < note.max_allowed_dots:
-                            cmd = ChangeNote(idx=idx, dots=note.dots + 1)
+                            cmd = ('ChangeNote', dict(idx=idx, dots=note.dots + 1))
 
                 elif tool == Tool.DURATION_TRIPLET:
                     if event.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            cmd = ChangeNote(idx=idx, tuplet=0)
+                            cmd = ('ChangeNote', dict(idx=idx, tuplet=0))
                     else:
                         if note.tuplet != 3:
-                            cmd = ChangeNote(idx=idx, tuplet=3)
+                            cmd = ('ChangeNote', dict(idx=idx, tuplet=3))
 
                 elif tool == Tool.DURATION_QUINTUPLET:
                     if event.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            cmd = ChangeNote(idx=idx, tuplet=0)
+                            cmd = ('ChangeNote', dict(idx=idx, tuplet=0))
                     else:
                         if note.tuplet != 5:
-                            cmd = ChangeNote(idx=idx, tuplet=5)
+                            cmd = ('ChangeNote', dict(idx=idx, tuplet=5))
 
                 if cmd is not None:
-                    self._project.dispatch_command(self._measure.address, cmd)
-                    self.recomputeLayout()
+                    self.send_command_async(
+                        self._measure.id, cmd[0], **cmd[1])
                     event.accept()
                     return
 
         return super().mousePressEvent(event)
 
 
-class ScoreTrackItem(TrackItem):
+class ScoreMeasureItem(ui_base.ProjectMixin, ScoreMeasureItemImpl):
+    pass
+
+
+class ScoreTrackItemImpl(TrackItemImpl):
     measure_item_cls = ScoreMeasureItem
 
-    def __init__(self, app, project, sheet_view, track):
-        super().__init__(app, project, sheet_view, track)
+
+class ScoreTrackItem(ui_base.ProjectMixin, ScoreTrackItemImpl):
+    pass
 
 
 class SheetPropertyMeasureLayout(MeasureLayout):
     pass
 
 
-class SheetPropertyMeasureItem(MeasureItem):
-    def __init__(self, app, project, sheet_view, track_view, measure):
-        super().__init__(app, project, sheet_view, track_view, measure)
+class SheetPropertyMeasureItemImpl(MeasureItemImpl):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.bpm_proxy = None
 
@@ -1158,9 +1123,9 @@ class SheetPropertyMeasureItem(MeasureItem):
 
     def mousePressEvent(self, event):
         if self._measure is None:
-            self._project.dispatch_command(
-                self._sheet_view.sheet.address,
-                InsertMeasure(tracks=[], pos=-1))
+            self.send_command_async(
+                self._sheet_view.sheet.id,
+                'InsertMeasure', tracks=[], pos=-1)
             event.accept()
             return
 
@@ -1178,25 +1143,26 @@ class SheetPropertyMeasureItem(MeasureItem):
         super().buildContextMenu(menu)
 
     def onBPMEdited(self, value):
-        self._project.dispatch_command(
-            self._measure.address, SetBPM(bpm=value))
+        self.send_command_async(
+            self._measure.id, 'SetBPM', bpm=value)
         self.bpm.setText('%d bpm' % value)
 
     def onBPMClose(self):
         self.bpm_editor.setVisible(False)
 
 
-class SheetPropertyTrackItem(TrackItem):
+class SheetPropertyMeasureItem(
+        ui_base.ProjectMixin, SheetPropertyMeasureItemImpl):
+    pass
+
+
+class SheetPropertyTrackItemImpl(TrackItemImpl):
     measure_item_cls = SheetPropertyMeasureItem
 
-    def __init__(self, app, project, sheet_view, track):
-        super().__init__(app, project, sheet_view, track)
 
-
-track_cls_map = {
-    ScoreTrack: ScoreTrackItem,
-    SheetPropertyTrack: SheetPropertyTrackItem,
-}
+class SheetPropertyTrackItem(
+        ui_base.ProjectMixin, SheetPropertyTrackItemImpl):
+    pass
 
 
 class SheetScene(QGraphicsScene):
@@ -1236,23 +1202,17 @@ class Layer(enum.IntEnum):
     NUM_LAYERS = 6
 
 
-class SheetView(QGraphicsView):
+class SheetViewImpl(QGraphicsView):
     currentToolChanged = pyqtSignal(Tool)
 
-    def __init__(self, parent, app, window, sheet):
-        super().__init__(parent)
-        self._app = app
-        self._window = window
-        self._project = sheet.root
-        self._sheet = sheet
+    track_cls_map = {
+        'ScoreTrack': ScoreTrackItem,
+        'SheetPropertyTrack': SheetPropertyTrackItem,
+    }
 
-        logger.info("Create playback source for sheet %s", self._sheet.name)
-        self.master_mixer = self._sheet.create_playback_source(
-            self._project.playback_pipeline, stop_on_end_of_stream=True)
-        self.master_mixer.listeners.add(
-            'stop',
-            lambda: QCoreApplication.postEvent(self, PlaybackStopEvent()))
-        self.master_mixer.outputs['out'].add_tag_listener(self.onPlaybackTags)
+    def __init__(self, sheet, **kwargs):
+        super().__init__(**kwargs)
+        self._sheet = sheet
 
         self._track_visible_listeners = []
         self._tracks = []
@@ -1267,9 +1227,6 @@ class SheetView(QGraphicsView):
         self._scene = SheetScene()
         self._scene.mouseHovers.connect(self.onMouseHovers)
         self.setScene(self._scene)
-
-        self._inhibit_updates = 0
-        self._update_needed = False
 
         self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         #self.setDragMode(QGraphicsView.ScrollHandDrag)
@@ -1290,12 +1247,17 @@ class SheetView(QGraphicsView):
         self._tracks_listener = self._sheet.listeners.add(
             'tracks', self.onTracksChanged)
 
+    @property
+    def trackItems(self):
+        return list(self._tracks)
+
     def setInfoMessage(self, msg):
-        self._window.setInfoMessage(msg)
+        self.window.setInfoMessage(msg)
 
     def createTrackItem(self, track):
-        track_item_cls = track_cls_map[track.__class__]
-        return track_item_cls(self._app, self._project, self, track)
+        track_item_cls = self.track_cls_map[type(track).__name__]
+        return track_item_cls(
+            **self.context, sheet_view=self, track=track)
 
     def insertTrack(self, idx, track):
         track_item = self.createTrackItem(track)
@@ -1325,10 +1287,6 @@ class SheetView(QGraphicsView):
         self.setVisible(new_value)
 
     @property
-    def project(self):
-        return self._project
-
-    @property
     def sheet(self):
         return self._sheet
 
@@ -1339,87 +1297,88 @@ class SheetView(QGraphicsView):
         if tool_id == self._current_tool:
             return
 
+        tool = Tool(tool_id)
+        assert tool_id >= 0
+
         self._previous_tool = self._current_tool
-        self._current_tool = Tool(tool_id)
+        self._current_tool = tool
 
         for child in self._cursor.childItems():
             child.setParentItem(None)
             if child.scene() is not None:
                 self._scene.removeItem(child)
 
-        if tool_id > 0:
-            if tool_id.is_note:
-                cursor = QGraphicsGroup(self._cursor)
+        if tool_id.is_note:
+            cursor = QGraphicsGroup(self._cursor)
 
-                if tool_id <= Tool.NOTE_HALF:
-                    body = SymbolItem('note-head-void', cursor)
-                else:
-                    body = SymbolItem('note-head-black', cursor)
+            if tool_id <= Tool.NOTE_HALF:
+                body = SymbolItem('note-head-void', cursor)
+            else:
+                body = SymbolItem('note-head-black', cursor)
 
-                if tool_id >= Tool.NOTE_HALF:
-                    arm = QGraphicsRectItem(cursor)
-                    arm.setRect(8, -63, 3, 60)
-                    arm.setBrush(Qt.black)
-                    arm.setPen(QPen(Qt.NoPen))
+            if tool_id >= Tool.NOTE_HALF:
+                arm = QGraphicsRectItem(cursor)
+                arm.setRect(8, -63, 3, 60)
+                arm.setBrush(Qt.black)
+                arm.setPen(QPen(Qt.NoPen))
 
-                if tool_id >= Tool.NOTE_8TH:
-                    for n in range(tool_id - Tool.NOTE_QUARTER):
-                        flag = SymbolItem('note-flag-down', cursor)
-                        flag.setPos(11, -63 + 12 * n)
+            if tool_id >= Tool.NOTE_8TH:
+                for n in range(tool_id - Tool.NOTE_QUARTER):
+                    flag = SymbolItem('note-flag-down', cursor)
+                    flag.setPos(11, -63 + 12 * n)
 
-                cursor.setScale(0.8)
+            cursor.setScale(0.8)
 
-            elif tool_id.is_rest:
-                sym = {
-                    Tool.REST_WHOLE: 'rest-whole',
-                    Tool.REST_HALF: 'rest-half',
-                    Tool.REST_QUARTER: 'rest-quarter',
-                    Tool.REST_8TH: 'rest-8th',
-                    Tool.REST_16TH: 'rest-16th',
-                    Tool.REST_32TH: 'rest-32th',
-                }[tool_id]
-                cursor = SymbolItem(sym, self._cursor)
-                cursor.setScale(0.8)
+        elif tool_id.is_rest:
+            sym = {
+                Tool.REST_WHOLE: 'rest-whole',
+                Tool.REST_HALF: 'rest-half',
+                Tool.REST_QUARTER: 'rest-quarter',
+                Tool.REST_8TH: 'rest-8th',
+                Tool.REST_16TH: 'rest-16th',
+                Tool.REST_32TH: 'rest-32th',
+            }[tool_id]
+            cursor = SymbolItem(sym, self._cursor)
+            cursor.setScale(0.8)
 
-            elif tool_id.is_accidental:
-                sym = {
-                    Tool.ACCIDENTAL_NATURAL: 'accidental-natural',
-                    Tool.ACCIDENTAL_SHARP: 'accidental-sharp',
-                    Tool.ACCIDENTAL_FLAT: 'accidental-flat',
-                    Tool.ACCIDENTAL_DOUBLE_SHARP: 'accidental-double-sharp',
-                    Tool.ACCIDENTAL_DOUBLE_FLAT: 'accidental-double-flat',
-                }[tool_id]
-                cursor = SymbolItem(sym, self._cursor)
-                cursor.setScale(0.8)
+        elif tool_id.is_accidental:
+            sym = {
+                Tool.ACCIDENTAL_NATURAL: 'accidental-natural',
+                Tool.ACCIDENTAL_SHARP: 'accidental-sharp',
+                Tool.ACCIDENTAL_FLAT: 'accidental-flat',
+                Tool.ACCIDENTAL_DOUBLE_SHARP: 'accidental-double-sharp',
+                Tool.ACCIDENTAL_DOUBLE_FLAT: 'accidental-double-flat',
+            }[tool_id]
+            cursor = SymbolItem(sym, self._cursor)
+            cursor.setScale(0.8)
 
-            elif tool_id.is_duration:
-                if tool_id == Tool.DURATION_DOT:
-                    body = SymbolItem('note-head-black', self._cursor)
-                    arm = QGraphicsRectItem(self._cursor)
-                    arm.setRect(8, -63, 3, 60)
-                    arm.setBrush(Qt.black)
-                    arm.setPen(QPen(Qt.NoPen))
-                    dot = QGraphicsEllipseItem(self._cursor)
-                    dot.setRect(12, -4, 9, 9)
-                    dot.setBrush(Qt.black)
-                    dot.setPen(QPen(Qt.NoPen))
-
-                else:
-                    sym = {
-                        Tool.DURATION_TRIPLET: 'duration-triplet',
-                        Tool.DURATION_QUINTUPLET: 'duration-quintuplet',
-                    }[tool_id]
-                    SymbolItem(sym, self._cursor)
+        elif tool_id.is_duration:
+            if tool_id == Tool.DURATION_DOT:
+                body = SymbolItem('note-head-black', self._cursor)
+                arm = QGraphicsRectItem(self._cursor)
+                arm.setRect(8, -63, 3, 60)
+                arm.setBrush(Qt.black)
+                arm.setPen(QPen(Qt.NoPen))
+                dot = QGraphicsEllipseItem(self._cursor)
+                dot.setRect(12, -4, 9, 9)
+                dot.setBrush(Qt.black)
+                dot.setPen(QPen(Qt.NoPen))
 
             else:
+                sym = {
+                    Tool.DURATION_TRIPLET: 'duration-triplet',
+                    Tool.DURATION_QUINTUPLET: 'duration-quintuplet',
+                }[tool_id]
+                SymbolItem(sym, self._cursor)
 
-                a = QGraphicsEllipseItem(self._cursor)
-                a.setRect(-5, -5, 11, 11)
-                a.setPen(QPen(Qt.white))
-                a.setBrush(QColor(100, 100, 100))
-                a = QGraphicsSimpleTextItem(self._cursor)
-                a.setText(str(tool_id))
-                a.setPos(10, 10)
+        else:  # pragma: no cover
+            a = QGraphicsEllipseItem(self._cursor)
+            a.setRect(-5, -5, 11, 11)
+            a.setPen(QPen(Qt.white))
+            a.setBrush(QColor(100, 100, 100))
+            a = QGraphicsSimpleTextItem(self._cursor)
+            a.setText(str(tool_id))
+            a.setPos(10, 10)
 
         self.currentToolChanged.emit(self._current_tool)
 
@@ -1464,15 +1423,12 @@ class SheetView(QGraphicsView):
                 measure_item.setLayout(layout)
 
     def updateSheet(self):
-        if self._inhibit_updates > 0:
-            self._update_needed = True
-            return
-
         for layer_id in (Layer.BG, Layer.MAIN, Layer.DEBUG, Layer.EVENTS):
             self.clearLayer(self._layers[layer_id])
 
         text = QGraphicsSimpleTextItem(self._layers[Layer.MAIN])
-        text.setText("%s/%s" % (self._project.name, self._sheet.name))
+        text.setText(
+            "%s/%s" % (self.project_connection.name, self._sheet.name))
         text.setPos(0, 0)
 
         track_items = [self._property_track_item] + self._tracks
@@ -1505,23 +1461,13 @@ class SheetView(QGraphicsView):
 
             y += track_height + 20
 
-        if self._app.showEditAreas:
+        if self.app.showEditAreas:  # pragma: no cover
             bbox = QGraphicsRectItem(self._layers[Layer.DEBUG])
             bbox.setRect(0, 0, max_x, y)
             bbox.setPen(QColor(200, 200, 200))
             bbox.setBrush(QBrush(Qt.NoBrush))
 
         self.setSceneRect(-10, -10, max_x + 20, y + 20)
-
-        self._update_needed = False
-
-    @contextlib.contextmanager
-    def inhibitUpdates(self):
-        self._inhibit_updates += 1
-        yield
-        self._inhibit_updates -= 1
-        if self._inhibit_updates == 0 and self._update_needed:
-            self.updateSheet()
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
@@ -1556,12 +1502,12 @@ class SheetView(QGraphicsView):
                 self.removeTrack(0)
             self.updateSheet()
 
-        else:
+        else:  # pragma: no cover
             raise ValueError("Unknown action %r" % action)
 
     def onAddTrack(self, track_type):
-        self._project.dispatch_command(self._sheet.address, AddTrack(
-            track_type=track_type))
+        self.send_command_async(
+            self._sheet.id, 'AddTrack', track_type=track_type)
 
     def onPlaybackTags(self, tags):
         for tag in tags:
@@ -1569,13 +1515,13 @@ class SheetView(QGraphicsView):
                 self, PlaybackTagEvent(tag))
 
     def onPlaybackTag(self, event):
-        address, event, idx = event.tag
-        measure = self._project.get_object(address)
+        id, event, idx = event.tag
+        measure = self.project.get_object(id)
         self._tracks[measure.track.index].onPlaybackTag(
             measure.index, event, idx)
 
     def onRender(self):
-        dialog = RenderSheetDialog(self, self._app, self._sheet)
+        dialog = RenderSheetDialog(self, self.app, self._sheet)
         dialog.exec_()
 
     def event(self, event):
@@ -1588,8 +1534,8 @@ class SheetView(QGraphicsView):
         return super().event(event)
 
     def onPlaybackStop(self):
-        for track_view in self._tracks:
-            track_view.onPlaybackStop()
+        for track_item in self._tracks:
+            track_item.onPlaybackStop()
 
     def scrollToPlaybackPosition(self, pos):
         # I would rather like to keep the pos in the left 1/3rd of the view.
@@ -1672,6 +1618,7 @@ class SheetView(QGraphicsView):
 
             if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_6:
                 self.setCurrentTool(Tool.NOTE_32TH if not self.currentTool().is_rest else Tool.REST_32TH)
+
                 event.accept()
                 return
 
@@ -1707,4 +1654,5 @@ class SheetView(QGraphicsView):
             super().keyReleaseEvent(event)
 
 
-
+class SheetView(ui_base.ProjectMixin, SheetViewImpl):
+    pass

@@ -1,108 +1,134 @@
 #!/usr/bin/python3
 
 import argparse
-import subprocess
+import asyncio
+import functools
+import signal
 import sys
 import time
-import signal
 
 from .constants import EXIT_SUCCESS, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .runtime_settings import RuntimeSettings
 from . import logging
-
-SIGNAL_NAME = dict(
-    (getattr(signal, n), n)
-    for n in dir(signal)
-    if n.startswith('SIG') and '_' not in n)
+from .core import process_manager
 
 
-def main(argv):
-    runtime_settings = RuntimeSettings()
+class Main(object):
+    def __init__(self):
+        self.runtime_settings = RuntimeSettings()
+        self.paths = []
+        self.event_loop = asyncio.get_event_loop()
+        self.manager = process_manager.ProcessManager(self.event_loop)
+        self.manager.server.add_command_handler(
+            'CREATE_PROJECT_PROCESS', self.handle_create_project_process)
+        self.manager.server.add_command_handler(
+            'CREATE_AUDIOPROC_PROCESS',
+            self.handle_create_audioproc_process)
+        self.stop_event = asyncio.Event()
+        self.returncode = 0
 
-    parser = argparse.ArgumentParser(
-        prog=argv[0])
-    parser.add_argument(
-        'path',
-        nargs='*',
-        help="Project file to open.")
-    runtime_settings.init_argparser(parser)
-    args = parser.parse_args(args=argv[1:])
-    runtime_settings.set_from_args(args)
+    def run(self, argv):
+        self.parse_args(argv)
 
-    logging.init(runtime_settings)
+        logging.init(self.runtime_settings)
+        self.logger = logging.getLogger(__name__)
 
-    logger = logging.getLogger('ui.editor_main')
+        if self.runtime_settings.dev_mode:
+            import pyximport
+            pyximport.install()
 
-    assert sys.executable is not None
-    while True:
-        next_retry = time.time() + 5
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            self.event_loop.add_signal_handler(
+                sig, functools.partial(self.handle_signal, sig))
 
-        cmd = [sys.executable,
-               '-m', 'noisicaa.editor']
-        cmd += runtime_settings.as_args()
-        cmd += args.path
-        logger.info("Starting editor in subprocess: %s", ' '.join(cmd))
-        proc = subprocess.Popen(cmd, bufsize=1, stderr=subprocess.PIPE)
         try:
-            empty_lines = []
-            while True:
-                l = proc.stderr.readline()
-                if not l:
-                    break
-                if len(l.rstrip(b'\r\n')) == 0:
-                    # Buffer empty lines, so we can discard those that are followed
-                    # by a message that we also want to discard.
-                    empty_lines.append(l)
-                    continue
-                if b'fluid_synth_sfont_unref' in l:
-                    # Discard annoying error message from libfluidsynth. It is also
-                    # preceeded by a empty line, which we also throw away.
-                    empty_lines.clear()
-                    continue
-                while len(empty_lines) > 0:
-                    sys.stderr.buffer.write(empty_lines.pop(0))
-                sys.stderr.buffer.write(l)
-                sys.stderr.flush()
+            self.event_loop.run_until_complete(self.run_async())
+        finally:
+            self.event_loop.stop()
+            self.event_loop.close()
 
-            while len(empty_lines) > 0:
-                sys.stderr.buffer.write(empty_lines.pop(0))
+        return self.returncode
 
-            proc.wait()
-        except KeyboardInterrupt:
-            proc.terminate()
-            proc.wait()
+    async def run_async(self):
+        async with self.manager:
+            task = self.event_loop.create_task(self.launch_ui())
+            task.add_done_callback(self.ui_closed)
+            await self.stop_event.wait()
+            self.logger.info("Shutting down...")
 
-        rc = proc.returncode
-        if rc < 0:
-            sig = -rc
-            logger.error("Subprocess terminated by signal %s", SIGNAL_NAME[sig])
-            if sig == signal.SIGTERM and runtime_settings.dev_mode:
-                rc = EXIT_SUCCESS
-        elif rc > 0:
-            logger.error("Subprocess finished with returncode %d", rc)
+    def handle_signal(self, sig):
+        self.logger.info("%s received.", sig.name)
+        self.stop_event.set()
+
+    async def launch_ui(self):
+        while True:
+            next_retry = time.time() + 5
+            proc = await self.manager.start_process(
+                'ui', 'noisicaa.ui.ui_process.UIProcess',
+                runtime_settings=self.runtime_settings,
+                paths=self.paths)
+            await proc.wait()
+
+            if proc.returncode == EXIT_RESTART:
+                self.runtime_settings.start_clean = False
+
+            elif proc.returncode == EXIT_RESTART_CLEAN:
+                self.runtime_settings.start_clean = True
+
+            elif proc.returncode == EXIT_SUCCESS:
+                return proc.returncode
+
+            else:
+                self.logger.error(
+                    "UI Process terminated with exit code %d",
+                    proc.returncode)
+                if self.runtime_settings.restart_on_crash:
+                    self.runtime_settings.start_clean = False
+
+                    delay = next_retry - time.time()
+                    if delay > 0:
+                        self.logger.warning(
+                            "Sleeping %.1fsec before restarting.",
+                            delay)
+                        await asyncio.sleep(delay)
+                else:
+                    return proc.returncode
+
+    def ui_closed(self, task):
+        if task.exception():
+            self.logger.error("Exception", task.exception())
+            self.returncode = 1
         else:
-            logger.info("Subprocess finished with returncode %d", rc)
+            self.returncode = task.result()
+        self.stop_event.set()
 
-        if rc == EXIT_SUCCESS:
-            return EXIT_SUCCESS
+    def parse_args(self, argv):
+        parser = argparse.ArgumentParser(
+            prog=argv[0])
+        parser.add_argument(
+            'path',
+            nargs='*',
+            help="Project file to open.")
+        self.runtime_settings.init_argparser(parser)
+        args = parser.parse_args(args=argv[1:])
+        self.runtime_settings.set_from_args(args)
+        self.paths = args.path
 
-        if rc == EXIT_RESTART:
-            runtime_settings.start_clean = False
+    async def handle_create_project_process(self, uri):
+        # TODO: keep map of uri->proc, only create processes for new
+        # URIs.
+        proc = await self.manager.start_process(
+            'project', 'noisicaa.music.project_process.ProjectProcess')
+        return proc.address
 
-        elif rc == EXIT_RESTART_CLEAN:
-            runtime_settings.start_clean = True
-
-        elif runtime_settings.dev_mode:
-            runtime_settings.start_clean = False
-
-            delay = next_retry - time.time()
-            if delay > 0:
-                logger.warn("Sleeping %.1fsec before restarting.", delay)
-                time.sleep(delay)
-
-        else:
-            return proc.returncode
+    async def handle_create_audioproc_process(self, name):
+        # TODO: keep map of name->proc, only create processes for new
+        # names.
+        proc = await self.manager.start_process(
+            'audioproc<%s>' % name,
+            'noisicaa.audioproc.audioproc_process.AudioProcProcess')
+        return proc.address
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    sys.exit(Main().run(sys.argv))

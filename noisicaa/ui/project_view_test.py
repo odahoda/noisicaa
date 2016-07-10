@@ -1,128 +1,157 @@
-#/usr/bin/python3
+#!/usr/bin/python3
 
 import unittest
 from unittest import mock
 
-from PyQt5.QtGui import QCloseEvent
+from PyQt5 import QtGui
 
-from noisicaa import music
 from . import uitest_utils
-from .editor_project import EditorProject
-from .tool_dock import Tool
-from .sheet_view import SheetView
+from . import tool_dock
+from . import sheet_view
 from . import project_view
+from . import model
 
 
-class ProjectViewTest(uitest_utils.UITest):
-    def setUp(self):
-        super().setUp()
-        self.window = None
-        self.project = EditorProject(self.app)
-        self.project.sheets.clear()
-        self.project.dispatch_command = mock.MagicMock()
-        self.project.dispatch_command.side_effect = AssertionError(
-            "Unexpected command")
+class SheetPropertyMeasureItem(
+        uitest_utils.TestMixin, sheet_view.SheetPropertyMeasureItemImpl):
+    pass
 
-    def test_initWithNoSheets(self):
-        view = project_view.ProjectView(self.app, self.window, self.project)
+class SheetPropertyTrackItem(
+        uitest_utils.TestMixin, sheet_view.SheetPropertyTrackItemImpl):
+    measure_item_cls = SheetPropertyMeasureItem
+
+class SheetView(uitest_utils.TestMixin, sheet_view.SheetViewImpl):
+    track_cls_map = {
+        'SheetPropertyTrack': SheetPropertyTrackItem,
+    }
+
+class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
+    def createSheetView(self, **kwargs):
+        return SheetView(**kwargs)
+
+
+class InitTest(uitest_utils.UITest):
+    async def test_init_with_no_sheets(self):
+        view = ProjectView(**self.context)
         self.assertIsNone(view.currentSheetView())
 
-    def test_initWithSheets(self):
-        self.project.sheets.append(music.Sheet(name="test1"))
-        self.project.sheets.append(music.Sheet(name="test2"))
-        view = project_view.ProjectView(self.app, self.window, self.project)
+    async def test_init_with_sheets(self):
+        self.project.sheets.append(model.Sheet('sheet1'))
+        self.project.sheets[0].property_track = model.SheetPropertyTrack('prop1')
+        self.project.sheets.append(model.Sheet('sheet2'))
+        self.project.sheets[1].property_track = model.SheetPropertyTrack('prop2')
+        view = ProjectView(**self.context)
         self.assertIsInstance(view.currentSheetView(), SheetView)
+        self.assertEqual(view.currentSheetView().sheet.id, 'sheet1')
+        for sheet_view in view.sheetViews:
+            self.assertIsInstance(view.currentSheetView(), SheetView)
+        self.assertEqual(len(list(view.sheetViews)), 2)
 
-    def test_properties(self):
-        view = project_view.ProjectView(self.app, self.window, self.project)
-        self.assertIs(view.project, self.project)
 
-    def test_addSheet(self):
-        view = project_view.ProjectView(self.app, self.window, self.project)
+class ModelChangesTest(uitest_utils.UITest):
+    async def test_add_sheet(self):
+        view = ProjectView(**self.context)
         self.assertEqual(len(list(view.sheetViews)), 0)
-        self.project.sheets.append(music.Sheet(name="test"))
+
+        sheet = model.Sheet('sheet1')
+        sheet.property_track = model.SheetPropertyTrack('prop1')
+        self.project.sheets.append(sheet)
         self.assertEqual(len(list(view.sheetViews)), 1)
 
-    def test_removeSheet(self):
-        self.project.sheets.append(music.Sheet(name="test1"))
-        self.project.sheets.append(music.Sheet(name="test2"))
-        view = project_view.ProjectView(self.app, self.window, self.project)
-        self.assertEqual(len(list(view.sheetViews)), 2)
-        del self.project.sheets[1]
+    async def test_remove_sheet(self):
+        sheet = model.Sheet('sheet1')
+        sheet.property_track = model.SheetPropertyTrack('prop1')
+        self.project.sheets.append(sheet)
+
+        view = ProjectView(**self.context)
         self.assertEqual(len(list(view.sheetViews)), 1)
 
-    def test_clearSheets(self):
-        self.project.sheets.append(music.Sheet(name="test1"))
-        self.project.sheets.append(music.Sheet(name="test2"))
-        view = project_view.ProjectView(self.app, self.window, self.project)
-        self.assertEqual(len(list(view.sheetViews)), 2)
+        del self.project.sheets[0]
+        self.assertEqual(len(list(view.sheetViews)), 0)
+
+    async def test_clear_sheets(self):
+        sheet = model.Sheet('sheet1')
+        sheet.property_track = model.SheetPropertyTrack('prop1')
+        self.project.sheets.append(sheet)
+
+        view = ProjectView(**self.context)
+        self.assertEqual(len(list(view.sheetViews)), 1)
+
         self.project.sheets.clear()
         self.assertEqual(len(list(view.sheetViews)), 0)
 
-    def test_closeEvent(self):
-        self.project.sheets.append(music.Sheet(name="test1"))
-        view = project_view.ProjectView(self.app, self.window, self.project)
-        event = QCloseEvent()
+
+class EventsTest(uitest_utils.UITest):
+    async def test_closeEvent(self):
+        sheet = model.Sheet('sheet1')
+        sheet.property_track = model.SheetPropertyTrack('prop1')
+        self.project.sheets.append(sheet)
+
+        view = ProjectView(**self.context)
+
+        event = QtGui.QCloseEvent()
         view.closeEvent(event)
         self.assertEqual(len(list(view.sheetViews)), 0)
 
-    def test_closeEventWithChanges(self):
-        self.project.sheets.append(music.Sheet(name="test1"))
-        view = project_view.ProjectView(self.app, self.window, self.project)
-        event = QCloseEvent()
-        view.closeEvent(event)
-        self.assertEqual(len(list(view.sheetViews)), 0)
 
-    def test_onAddSheet(self):
-        view = project_view.ProjectView(self.app, self.window, self.project)
+class CommandsTest(uitest_utils.UITest):
+    async def test_onAddSheet(self):
+        sheet = model.Sheet('sheet1')
+        sheet.name = 'Sheet 1'
+        sheet.property_track = model.SheetPropertyTrack('prop1')
+        self.project.sheets.append(sheet)
 
-        self.project.dispatch_command.side_effect = None
+        view = ProjectView(**self.context)
         view.onAddSheet()
-        self.assertEqual(self.project.dispatch_command.call_count, 1)
-        (target, cmd), _ = self.project.dispatch_command.call_args
-        self.assertEqual(target, '/')
-        self.assertEqual(cmd, music.AddSheet())
+        self.assertEqual(
+            self.commands,
+            [('project', 'AddSheet', {})])
 
-    def test_onDeleteSheet(self):
-        self.project.sheets.append(music.Sheet(name="test1"))
-        self.project.sheets.append(music.Sheet(name="test2"))
-        view = project_view.ProjectView(self.app, self.window, self.project)
+    async def test_onDeleteSheet(self):
+        sheet = model.Sheet('sheet1')
+        sheet.name = 'Sheet 1'
+        sheet.property_track = model.SheetPropertyTrack('prop1')
+        self.project.sheets.append(sheet)
+        sheet = model.Sheet('sheet2')
+        sheet.name = 'Sheet 2'
+        sheet.property_track = model.SheetPropertyTrack('prop2')
+        self.project.sheets.append(sheet)
 
-        self.project.dispatch_command.side_effect = None
+        view = ProjectView(**self.context)
         view.onDeleteSheet()
-        self.assertEqual(self.project.dispatch_command.call_count, 1)
-        (target, cmd), _ = self.project.dispatch_command.call_args
-        self.assertEqual(target, '/')
-        self.assertEqual(cmd, music.DeleteSheet(name='test1'))
+        self.assertEqual(
+            self.commands,
+            [('project', 'DeleteSheet', {'name': 'Sheet 1'})])
 
-    def test_onAddTrack(self):
-        self.project.sheets.append(music.Sheet(name="test1"))
-        view = project_view.ProjectView(self.app, self.window, self.project)
+    # def test_onAddTrack(self):
+    #     self.project.sheets.append(music.Sheet(name="test1"))
+    #     view = project_view.ProjectView(self.app, self.window, self.project)
 
-        self.project.dispatch_command.side_effect = None
-        view.onAddTrack('score')
-        self.assertEqual(self.project.dispatch_command.call_count, 1)
-        (target, cmd), _ = self.project.dispatch_command.call_args
-        self.assertEqual(target, '/sheet:test1')
-        self.assertEqual(cmd, music.AddTrack(track_type='score'))
+    #     self.project.dispatch_command.side_effect = None
+    #     view.onAddTrack('score')
+    #     self.assertEqual(self.project.dispatch_command.call_count, 1)
+    #     (target, cmd), _ = self.project.dispatch_command.call_args
+    #     #self.assertEqual(target, '/sheet:test1')
+    #     self.assertEqual(cmd, music.AddTrack(track_type='score'))
 
-    def test_onPlayerCommands(self):
-        self.project.sheets.append(music.Sheet(name="test1"))
-        view = project_view.ProjectView(self.app, self.window, self.project)
-        view.onPlayerStart()
-        view.onPlayerPause()
-        view.onPlayerStart()
-        view.onPlayerStop()
+    # def test_onPlayerCommands(self):
+    #     self.project.sheets.append(music.Sheet(name="test1"))
+    #     view = project_view.ProjectView(self.app, self.window, self.project)
+    #     view.onPlayerStart()
+    #     view.onPlayerPause()
+    #     view.onPlayerStart()
+    #     view.onPlayerStop()
 
-    def test_currentTool(self):
-        view = project_view.ProjectView(self.app, self.window, self.project)
-        self.assertIsNone(view.currentTool())
-        view.setCurrentTool(Tool.NOTE_HALF)
-        self.assertIsNone(view.currentTool())
+    # def test_currentTool(self):
+    #     view = project_view.ProjectView(self.app, self.window, self.project)
+    #     self.assertIsNone(view.currentTool())
+    #     view.setCurrentTool(Tool.NOTE_HALF)
+    #     self.assertIsNone(view.currentTool())
 
-        self.project.sheets.append(music.Sheet(name="test1"))
-        view.setCurrentTool(Tool.NOTE_HALF)
-        self.assertEqual(view.currentTool(), Tool.NOTE_HALF)
+    #     self.project.sheets.append(music.Sheet(name="test1"))
+    #     view.setCurrentTool(Tool.NOTE_HALF)
+    #     self.assertEqual(view.currentTool(), Tool.NOTE_HALF)
+
 
 if __name__ == '__main__':
     unittest.main()

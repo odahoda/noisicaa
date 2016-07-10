@@ -6,18 +6,20 @@ from PyQt5.QtCore import Qt, QSize, QMargins
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QDockWidget, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QToolButton, QLayout
 
+from . import ui_base
+
 logger = logging.getLogger(__name__)
 
 
-class DockWidget(QDockWidget):
-    def __init__(self, title, identifier, parent,
+class DockWidget(ui_base.CommonMixin, QDockWidget):
+    def __init__(self, app, title, identifier, parent,
                  allowed_areas=Qt.AllDockWidgetAreas,
                  initial_area=Qt.RightDockWidgetArea,
                  initial_visible=False):
-        super().__init__(title, parent)
+        super().__init__(app=app, parent=parent)
         self._identifier = identifier
-        self._app = parent._app
 
+        self.setWindowTitle(title)
         self.setObjectName('dock:' + identifier)
         self.setAllowedAreas(allowed_areas)
         parent.addDockWidget(initial_area, self)

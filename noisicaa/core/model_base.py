@@ -3,9 +3,6 @@
 import logging
 import uuid
 
-from .callbacks import CallbackRegistry
-from .tree import TreeNode
-
 logger = logging.getLogger(__name__)
 
 class Error(Exception):
@@ -16,6 +13,52 @@ class ObjectNotAttachedError(Error):
 
 class NotListMemberError(Error):
     pass
+
+
+class PropertyChange(object):
+    def __init__(self, prop_name):
+        self.prop_name = prop_name
+
+    def __str__(self, **kwargs):
+        return '<%s%s>' % (type(self).__name__, ''.join(' %s=%r' % (k, v) for k, v in sorted(kwargs.items())))
+
+class PropertyValueChange(PropertyChange):
+    def __init__(self, prop_name, old_value, new_value):
+        super().__init__(prop_name)
+        self.old_value = old_value
+        self.new_value = new_value
+
+    def __str__(self):
+        return super().__str__(old=self.old_value, new=self.new_value)
+
+class PropertyListChange(PropertyChange):
+    pass
+
+class PropertyListInsert(PropertyListChange):
+    def __init__(self, prop_name, index, new_value):
+        super().__init__(prop_name)
+        self.index = index
+        self.new_value = new_value
+
+    def __str__(self):
+        return super().__str__(index=self.index, new=self.new_value)
+
+class PropertyListDelete(PropertyListChange):
+    def __init__(self, prop_name, index, old_value):
+        super().__init__(prop_name)
+        self.index = index
+        self.old_value = old_value
+
+    def __str__(self):
+        return super().__str__(index=self.index, old=self.old_value)
+
+class PropertyListClear(PropertyListChange):
+    def __init__(self, prop_name, old_values):
+        super().__init__(prop_name)
+        self.old_values = old_values
+
+    def __str__(self):
+        return super().__str__()
 
 
 class PropertyBase(object):
@@ -36,16 +79,11 @@ class PropertyBase(object):
         old_value = instance.state.get(self.name, None)
         instance.state[self.name] = value
         if value != old_value:
-            instance.listeners.call(self.name, old_value, value)
+            instance.property_changed(
+                PropertyValueChange(self.name, old_value, value))
 
     def __delete__(self, instance):
         raise RuntimeError("You can't delete properties")
-
-    def to_state(self, instance):
-        raise NotImplementedError
-
-    def from_state(self, instance, value):
-        raise NotImplementedError
 
 
 class Property(PropertyBase):
@@ -64,12 +102,6 @@ class Property(PropertyBase):
                     self.type.__name__, type(value).__name__))
 
         super().__set__(instance, value)
-
-    def to_state(self, instance):
-        return instance.state.get(self.name, self.default)
-
-    def from_state(self, instance, value):
-        instance.state[self.name] = value
 
 
 class SimpleObjectList(object):
@@ -105,8 +137,10 @@ class SimpleObjectList(object):
         self.insert(idx, obj)
 
     def __delitem__(self, idx):
+        old_value = self._objs[idx]
         del self._objs[idx]
-        self._instance.listeners.call(self._prop.name, 'delete', idx)
+        self._instance.property_changed(
+            PropertyListDelete(self._prop.name, idx, old_value))
 
     def append(self, obj):
         self.insert(len(self._objs), obj)
@@ -114,11 +148,14 @@ class SimpleObjectList(object):
     def insert(self, idx, obj):
         self._check_type(obj)
         self._objs.insert(idx, obj)
-        self._instance.listeners.call(self._prop.name, 'insert', idx, obj)
+        self._instance.property_changed(
+            PropertyListInsert(self._prop.name, idx, obj))
 
     def clear(self):
+        old_values = self._objs[:]
         self._objs.clear()
-        self._instance.listeners.call(self._prop.name, 'clear')
+        self._instance.property_changed(
+            PropertyListClear(self._prop.name, old_values))
 
     def extend(self, value):
         for v in value:
@@ -129,7 +166,7 @@ class ListProperty(PropertyBase):
     def __init__(self, t):
         super().__init__()
         assert isinstance(t, type)
-        assert not isinstance(t, StateBase)
+        assert not isinstance(t, ObjectBase)
         self.type = t
 
     def __get__(self, instance, owner):
@@ -141,13 +178,6 @@ class ListProperty(PropertyBase):
 
     def __set__(self, instance, value):
         raise RuntimeError("ListProperty cannot be assigned.")
-
-    def to_state(self, instance):
-        return list(instance.state.get(self.name, []))
-
-    def from_state(self, instance, value):
-        instance.state[self.name] = SimpleObjectList(self, instance)
-        instance.state[self.name].extend(value)
 
 
 class DictProperty(PropertyBase):
@@ -161,12 +191,6 @@ class DictProperty(PropertyBase):
     def __set__(self, instance, value):
         raise RuntimeError("DictProperty cannot be assigned.")
 
-    def to_state(self, instance):
-        return instance.state.get(self.name, {})
-
-    def from_state(self, instance, value):
-        instance.state[self.name] = value
-
 
 
 class ObjectPropertyBase(PropertyBase):
@@ -175,51 +199,25 @@ class ObjectPropertyBase(PropertyBase):
         assert isinstance(cls, type)
         self.cls = cls
 
-    def create(self, state):
-        cls_name = state['__class__']
-        if cls_name == self.cls.__name__:
-            return self.cls(state=state)
-        return self.cls.get_subclass(cls_name)(state=state)
-
-    def to_state(self, instance):
-        raise NotImplementedError
-
-    def from_state(self, instance, value):
-        raise NotImplementedError
-
 
 class ObjectProperty(ObjectPropertyBase):
     def __set__(self, instance, value):
-        if value is not None and not self.cls.is_valid_subclass(value.__class__):
+        if value is not None and not isinstance(value, self.cls):
             raise TypeError(
                 "Expected %s, got %s" % (
-                    ', '.join(self.cls.get_valid_classes()),
-                    value.__class__.__name__))
+                    self.cls.__name__, type(value).__name__))
 
         current = self.__get__(instance, instance.__class__)
         if current is not None:
             current.detach()
             current.clear_parent_container()
+
         super().__set__(instance, value)
+
         if value is not None:
             value.attach(instance)
             value.set_parent_container(self)
 
-    def to_state(self, instance):
-        obj = instance.state.get(self.name, None)
-        if obj is not None:
-            assert isinstance(obj, StateBase)
-            return obj.serialize()
-        return None
-
-    def from_state(self, instance, value):
-        if value is not None:
-            obj = self.create(value)
-            obj.attach(instance)
-            obj.set_parent_container(self)
-            instance.state[self.name] = obj
-        else:
-            instance.state[self.name] = None
 
 class ObjectList(object):
     def __init__(self, prop, instance):
@@ -238,12 +236,14 @@ class ObjectList(object):
         self.insert(idx, obj)
 
     def __delitem__(self, idx):
-        self._objs[idx].detach()
-        self._objs[idx].clear_parent_container()
+        old_child = self._objs[idx]
+        old_child.detach()
+        old_child.clear_parent_container()
         del self._objs[idx]
         for i in range(idx, len(self._objs)):
             self._objs[i].set_index(i)
-        self._instance.listeners.call(self._prop.name, 'delete', idx)
+        self._instance.property_changed(
+            PropertyListDelete(self._prop.name, idx, old_child))
 
     def append(self, obj):
         self.insert(len(self._objs), obj)
@@ -251,17 +251,22 @@ class ObjectList(object):
     def insert(self, idx, obj):
         obj.attach(self._instance)
         obj.set_parent_container(self)
+        if self._instance.attached_to_root:
+            self._instance.root.add_object(obj)
         self._objs.insert(idx, obj)
         for i in range(idx, len(self._objs)):
             self._objs[i].set_index(i)
-        self._instance.listeners.call(self._prop.name, 'insert', idx, obj)
+        self._instance.property_changed(
+            PropertyListInsert(self._prop.name, idx, obj))
 
     def clear(self):
+        old_children = self._objs[:]
         for obj in self._objs:
             obj.detach()
             obj.clear_parent_container()
         self._objs.clear()
-        self._instance.listeners.call(self._prop.name, 'clear')
+        self._instance.property_changed(
+            PropertyListClear(self._prop.name, old_children))
 
 
 class ObjectListProperty(ObjectPropertyBase):
@@ -275,17 +280,6 @@ class ObjectListProperty(ObjectPropertyBase):
     def __set__(self, instance, value):
         raise RuntimeError("ObjectListProperty cannot be assigned.")
 
-    def to_state(self, instance):
-        objs = instance.state.get(self.name, [])
-        return [obj.serialize() for obj in objs]
-
-    def from_state(self, instance, value):
-        objs = ObjectList(self, instance)
-        for s in value:
-            obj = self.create(s)
-            objs.append(obj)
-        instance.state[self.name] = objs
-
 
 class ObjectReferenceProperty(PropertyBase):
     def __init__(self, allow_none=False):
@@ -296,26 +290,13 @@ class ObjectReferenceProperty(PropertyBase):
         if value is None:
             if not self.allow_none:
                 raise ValueError("None not allowed")
-        elif not isinstance(value, StateBase):
-            raise TypeError("Expected StateBase object")
+        elif not isinstance(value, ObjectBase):
+            raise TypeError("Expected ObjectBase object")
 
         super().__set__(instance, value)
 
-    def to_state(self, instance):
-        obj = instance.state.get(self.name, None)
-        if obj is not None:
-            return 'ref:' + obj.id
-        return None
 
-    def from_state(self, instance, value):
-        if value is not None:
-            assert isinstance(value, str) and value.startswith('ref:')
-            instance.state[self.name] = ('unresolved reference', value[4:])
-        else:
-            instance.state[self.name] = None
-
-
-class StateMeta(type):
+class ObjectMeta(type):
     def __new__(mcs, name, parents, dct):
         properties = []
         for k, v in dct.items():
@@ -327,22 +308,16 @@ class StateMeta(type):
         return super().__new__(mcs, name, parents, dct)
 
 
-class StateBase(TreeNode, metaclass=StateMeta):
-    id = Property(str)
+class ObjectBase(object, metaclass=ObjectMeta):
+    id = Property(str, allow_none=False)
 
-    _subclasses = {}
-
-    def __init__(self, state=None):
+    def __init__(self):
         super().__init__()
         self.state = {}
-        self.listeners = CallbackRegistry()
+        self._is_root = False
+        self.parent = None
         self.__parent_container = None
         self.__index = None
-
-        if state is not None:
-            self.deserialize(state)
-        else:
-            self.id = uuid.uuid4().hex
 
     def __eq__(self, other):
         if self.__class__ != other.__class__:
@@ -351,27 +326,27 @@ class StateBase(TreeNode, metaclass=StateMeta):
             return False
         return True
 
-    @classmethod
-    def register_subclass(cls, subcls):
-        StateBase._subclasses.setdefault(cls, {})[subcls.__name__] = subcls
+    @property
+    def root(self):
+        if self.parent is None:
+            if self._is_root:
+                return self
+            raise ObjectNotAttachedError
+        return self.parent.root
 
-    @classmethod
-    def get_subclass(cls, name):
-        return StateBase._subclasses[cls][name]
+    @property
+    def attached_to_root(self):
+        if self.parent is None:
+            return self._is_root
+        return self.parent.attached_to_root
 
-    @classmethod
-    def is_valid_subclass(cls, subcls):
-        if subcls is cls:
-            return True
-        if cls not in StateBase._subclasses:
-            return False
-        if subcls.__name__ in StateBase._subclasses[cls]:
-            return True
-        return False
+    def attach(self, parent):
+        assert self.parent is None
+        self.parent = parent
 
-    @classmethod
-    def get_valid_classes(cls):
-        return [cls.__name__] + list(sorted(StateBase._subclasses.items()))
+    def detach(self):
+        assert self.parent is not None
+        self.parent = None
 
     def set_parent_container(self, prop):
         self.__parent_container = prop
@@ -416,9 +391,21 @@ class StateBase(TreeNode, metaclass=StateMeta):
             raise IndexError("Last list member has no next sibling.")
         return self.__parent_container[self.index + 1]
 
+    def get_property(self, prop_name):
+        for cls in self.__class__.__mro__:
+            if not issubclass(cls, ObjectBase):
+                continue
+            try:
+                prop = cls.__dict__[prop_name]
+            except KeyError:
+                continue
+            assert isinstance(prop, PropertyBase)
+            return prop
+        raise AttributeError("%s has not property %s" % (self.__class__.__name__, prop_name))
+
     def list_properties(self):
         for cls in self.__class__.__mro__:
-            if not issubclass(cls, StateBase):
+            if not issubclass(cls, ObjectBase):
                 continue
             for k in cls.properties:
                 prop = cls.__dict__[k]
@@ -428,6 +415,9 @@ class StateBase(TreeNode, metaclass=StateMeta):
     def list_property_names(self):
         for prop in self.list_properties():
             yield prop.name
+
+    def property_changes(self, change):
+        print(change)
 
     def list_children(self):
         for prop in self.list_properties():
@@ -442,57 +432,3 @@ class StateBase(TreeNode, metaclass=StateMeta):
         yield self
         for child in self.list_children():
             yield from child.walk_children()
-
-    def reset_state(self):
-        for prop in self.list_properties():
-            if isinstance(prop, ObjectProperty):
-                obj = prop.__get__(self, self.__class__)
-                if obj is not None:
-                    obj.reset_state()
-                prop.__set__(self, None)
-            elif isinstance(prop, ObjectListProperty):
-                objs = prop.__get__(self, self.__class__)
-                for obj in objs:
-                    prop.__get__(self, self.__class__)
-                    if obj is not None:
-                        obj.reset_state()
-                objs.clear()
-
-        self.state = {}
-
-    def serialize(self):
-        d = {'__class__': self.__class__.__name__}
-        for prop in self.list_properties():
-            d[prop.name] = prop.to_state(self)
-
-        return d
-
-    def deserialize(self, state):
-        for prop in self.list_properties():
-            if prop.name not in state:
-                continue
-            prop.from_state(self, state[prop.name])
-
-    @classmethod
-    def create_from_state(cls, state):
-        cls_name = state['__class__']
-        if cls_name == cls.__name__:
-            return cls(state=state)
-        return cls.get_subclass(cls_name)(state=state)
-
-    def init_references(self):
-        all_objects = {}
-        for node in self.walk_children():
-            assert node.id not in all_objects
-            all_objects[node.id] = node
-
-        for node in self.walk_children():
-            for prop in node.list_properties():
-                if isinstance(prop, ObjectReferenceProperty):
-                    refid = prop.__get__(node, node.__class__)
-                    if refid is not None:
-                        assert isinstance(refid, tuple)
-                        assert refid[0] == 'unresolved reference'
-                        refid = refid[1]
-                        refobj = all_objects[refid]
-                        prop.__set__(node, refobj)

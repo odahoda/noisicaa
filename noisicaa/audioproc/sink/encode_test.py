@@ -2,28 +2,30 @@
 
 import unittest
 
+import asynctest
+
 from ..pipeline import Pipeline
 from ..source.whitenoise import WhiteNoiseSource
 from . import encode
 
 
-class PyAudioTest(unittest.TestCase):
-    def test_flac(self):
+class EncodeTest(asynctest.TestCase):
+    async def test_flac(self):
         pipeline = Pipeline()
 
-        source = WhiteNoiseSource()
+        source = WhiteNoiseSource(self.loop)
+        await source.setup()
         pipeline.add_node(source)
 
-        node = encode.EncoderSink('flac', '/tmp/foo.flac')
+        node = encode.EncoderSink(self.loop, 'flac', '/tmp/foo.flac')
+        await node.setup()
         pipeline.add_node(node)
         node.inputs['in'].connect(source.outputs['out'])
-        node.setup()
         try:
-            node.start()
-            node.consume(4096)
-            node.stop()
+            node.collect_inputs()
+            node.run(0)
         finally:
-            node.cleanup()
+            await node.cleanup()
 
 
 if __name__ == '__main__':

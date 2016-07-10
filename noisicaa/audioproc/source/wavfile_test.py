@@ -10,7 +10,8 @@ TESTDATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'testdata')
 
 class WavFileTest(sourcetest.SourceTest):
     def make_node(self):
-        return wavfile.WavFileSource(os.path.join(TESTDATA_DIR, 'ping.wav'))
+        return wavfile.WavFileSource(
+            self.loop, os.path.join(TESTDATA_DIR, 'ping.wav'))
 
 
 if __name__ == '__main__':

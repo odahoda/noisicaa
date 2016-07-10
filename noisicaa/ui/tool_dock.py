@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (
 from .flowlayout import FlowLayout
 from ..constants import DATA_DIR
 from .dock_widget import DockWidget
+from . import ui_base
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +69,9 @@ class Tool(enum.IntEnum):
 class ToolsDockWidget(DockWidget):
     toolChanged = pyqtSignal(Tool)
 
-    def __init__(self, parent):
+    def __init__(self, app, parent):
         super().__init__(
+            app=app,
             parent=parent,
             identifier='tools',
             title="Tools",
@@ -106,7 +108,7 @@ class ToolsDockWidget(DockWidget):
         self.addButton(Tool.DURATION_QUINTUPLET, 'duration-quintuplet.svg')
 
         current_tool = int(
-            self._app.settings.value('tool/current', Tool.NOTE_QUARTER))
+            self.app.settings.value('tool/current', Tool.NOTE_QUARTER))
         for button in self.group.buttons():
             if self.group.id(button) == current_tool:
                 button.setChecked(True)
@@ -129,7 +131,7 @@ class ToolsDockWidget(DockWidget):
 
     def onButtonClicked(self, button):
         tool_id = self.group.id(button)
-        self._app.settings.setValue('tool/current', tool_id)
+        self.app.settings.setValue('tool/current', tool_id)
         self.toolChanged.emit(Tool(tool_id))
 
     def currentTool(self):

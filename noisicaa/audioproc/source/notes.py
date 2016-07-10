@@ -17,29 +17,25 @@ class NoteSource(Node):
         self.add_output(self._output)
 
         self._track = track
-        self._timepos = None
         self._end_of_stream = None
         self._event_source = None
 
-    def start(self):
-        super().start()
-        self._timepos = 0
+    async def setup(self):
+        await super().setup()
         self._end_of_stream = False
         self._event_source = self._track.create_event_source()
 
-    def run(self):
+    def run(self, timepos):
         if self._end_of_stream:
             raise EndOfStreamError
 
         for event in self._event_source.get_events(
-                self._timepos, self._timepos + 4096):
-            assert self._timepos <= event.timepos < self._timepos + 4096
+                timepos, timepos + 4096):
+            assert timepos <= event.timepos < timepos + 4096
 
             self._output.add_event(event)
 
             if isinstance(event, EndOfStreamEvent):
                 self._end_of_stream = True
                 break
-
-        self._timepos += 4096
 

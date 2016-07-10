@@ -29,7 +29,7 @@ class MetronomeSource(Node):
         self._timepos = 0
         self._buffer = None
 
-    def setup(self):
+    async def setup(self):
         fp = wave.open(
             os.path.join(DATA_DIR, 'sounds', 'metronome.wav'), 'rb')
 
@@ -70,11 +70,7 @@ class MetronomeSource(Node):
 
         self._buffer.resize(self._speed)
 
-    def start(self):
-        super().start()
-        self._timepos = 0
-
-    def run(self):
+    def run(self, timepos):
         duration = 4096
 
         buffer = self._output.create_frame(0)

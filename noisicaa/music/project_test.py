@@ -42,7 +42,7 @@ class AddSheetTest(unittest.TestCase):
     def test_ok(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         self.assertEqual(len(p.sheets), 2)
         self.assertEqual(p.sheets[0].name, 'Sheet 1')
         self.assertEqual(p.sheets[1].name, 'Sheet 2')
@@ -51,27 +51,27 @@ class AddSheetTest(unittest.TestCase):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 1')
         with self.assertRaises(ValueError):
-            p.dispatch_command(p.address, cmd)
+            p.dispatch_command(p.id, cmd)
 
 
 class DeleteSheetTest(unittest.TestCase):
     def test_ok(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         cmd = project.DeleteSheet(name='Sheet 1')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         self.assertEqual(len(p.sheets), 1)
         self.assertEqual(p.sheets[0].name, 'Sheet 2')
 
     def test_last_sheet(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         cmd = project.SetCurrentSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         cmd = project.DeleteSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         self.assertEqual(len(p.sheets), 1)
         self.assertEqual(p.sheets[0].name, 'Sheet 1')
         self.assertEqual(p.current_sheet, 0)
@@ -81,31 +81,31 @@ class RenameSheetTest(unittest.TestCase):
     def test_ok(self):
         p = project.BaseProject()
         cmd = project.RenameSheet(name='Sheet 1', new_name='Foo')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         self.assertEqual(p.sheets[0].name, 'Foo')
 
     def test_unchanged(self):
         p = project.BaseProject()
         cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 1')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         self.assertEqual(p.sheets[0].name, 'Sheet 1')
 
     def test_duplicate_name(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 2')
         with self.assertRaises(ValueError):
-            p.dispatch_command(p.address, cmd)
+            p.dispatch_command(p.id, cmd)
 
 
 class SetCurrentSheetTest(unittest.TestCase):
     def test_ok(self):
         p = project.BaseProject()
         cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         cmd = project.SetCurrentSheet(name='Sheet 2')
-        p.dispatch_command(p.address, cmd)
+        p.dispatch_command(p.id, cmd)
         self.assertEqual(p.current_sheet, 1)
 
 
@@ -140,7 +140,7 @@ class ProjectTest(unittest.TestCase):
         p = project.Project()
         p.create('/foo.emp')
         try:
-            p.dispatch_command('/', project.AddSheet())
+            p.dispatch_command(p.id, project.AddSheet())
         finally:
             p.close()
 

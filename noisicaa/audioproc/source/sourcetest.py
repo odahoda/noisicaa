@@ -1,20 +1,17 @@
 #!/usr/bin/python3
 
-import unittest
+import asynctest
 
 
-class SourceTest(unittest.TestCase):
+class SourceTest(asynctest.TestCase):
     def make_node(self):
         raise NotImplementedError
 
-    def testBasicRun(self):
+    async def testBasicRun(self):
         node = self.make_node()
-        node.outputs['out'].connect()
-        node.setup()
+        await node.setup()
         try:
-            node.outputs['out'].start()
-            self.assertEqual(node.outputs['out'].buffered_duration, 0)
-            node.run()
-            self.assertGreater(node.outputs['out'].buffered_duration, 0)
+            node.collect_inputs()
+            node.run(0)
         finally:
-            node.cleanup()
+            await node.cleanup()
