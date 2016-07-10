@@ -10,7 +10,7 @@ LIBSDIR="$BASEDIR/libs"
 
 #LILV_DEPS="lv2-dev libserd-dev libsord-dev libsratom-dev swig"
 #LADSPA_DEPS="cython3 ladspa-sdk"
-CSOUND_DEPS="libsndfile1-dev libsamplerate0-dev libboost-dev flex bison"
+CSOUND_DEPS="libsndfile1-dev libsamplerate0-dev libboost-dev flex bison cmake"
 
 PYVERSION=3.5
 
