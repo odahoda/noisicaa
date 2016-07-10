@@ -14,3 +14,4 @@ vext
 vext.pyqt5
 asynctest
 quamash
+./3rdparty/csound/
