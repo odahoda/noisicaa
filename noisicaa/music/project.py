@@ -59,6 +59,8 @@ class AddSheet(commands.Command):
         sheet = Sheet(name)
         project.sheets.append(sheet)
 
+        sheet.add_to_pipeline()
+
 commands.Command.register_command(AddSheet)
 
 
@@ -92,6 +94,7 @@ class DeleteSheet(commands.Command):
         assert len(project.sheets) > 1
         for idx, sheet in enumerate(project.sheets):
             if sheet.name == self.name:
+                sheet.remove_from_pipeline()
                 del project.sheets[idx]
                 project.current_sheet = min(
                     project.current_sheet, len(project.sheets) - 1)
@@ -353,6 +356,18 @@ class Sheet(model.Sheet, state.StateBase):
         for track in self.tracks:
             track.add_to_pipeline()
 
+    def remove_from_pipeline(self):
+        for track in self.tracks:
+            track.remove_from_pipeline()
+
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.DisconnectPorts(
+                self.main_mixer_name, 'out',
+                self.project.main_mixer_name, 'in'))
+        self.project.listeners.call(
+            'pipeline_mutations',
+            mutations.RemoveNode(self.main_mixer_name))
 
 state.StateBase.register_class(Sheet)
 
