@@ -106,7 +106,7 @@ class Pipeline(object):
                     continue
 
                 t0 = time.time()
-                backend.wait()
+                backend.wait(timepos)
                 if backend.stopped:
                     break
 

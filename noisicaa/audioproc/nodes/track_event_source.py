@@ -15,18 +15,17 @@ class TrackEventSource(node.Node):
     desc = node_types.NodeType()
     desc.name = 'track_event_source'
     desc.port('out', 'output', 'events')
+    desc.parameter('queue_name', 'string')
 
-    def __init__(self, event_loop, name=None, id=None):
+    def __init__(self, event_loop, name=None, id=None, queue_name=None):
         super().__init__(event_loop, name, id)
+
+        self.queue_name = queue_name
 
         self._output = ports.EventOutputPort('out')
         self.add_output(self._output)
 
     def run(self, timepos):
         self._output.events.clear()
-
-        # TODO: real events from a connected track.
-        if random.random() < 0.05:
-            self._output.events.append(
-                events.NoteOnEvent(timepos, music.Pitch.from_midi(random.randint(40, 90))))
-
+        self._output.events.extend(
+            self.pipeline.backend.get_events(self.queue_name))

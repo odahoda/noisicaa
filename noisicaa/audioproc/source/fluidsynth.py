@@ -105,7 +105,8 @@ class FluidSynthSource(Node):
         tp = timepos
 
         for event in self._input.events:
-            assert timepos <= event.timepos < timepos + 4096
+            assert timepos <= event.timepos < timepos + 4096, (
+                timepos, event.timepos, timepos + 4096)
 
             if event.timepos > tp:
                 samples += bytes(

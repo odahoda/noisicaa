@@ -231,7 +231,8 @@ class Track(model.Track, state.StateBase):
     def add_event_source_to_pipeline(self):
         self.sheet.handle_pipeline_mutation(
             mutations.AddNode(
-                'track_event_source', self.event_source_name, 'events'))
+                'track_event_source', self.event_source_name, 'events',
+                queue_name='track-events:%s' % self.id))
 
     def remove_event_source_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(

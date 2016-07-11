@@ -3,6 +3,7 @@
 import logging
 import os
 import os.path
+import pickle
 import queue
 import random
 import select
@@ -59,13 +60,6 @@ class SystemEventSourceNode(Node):
     def run(self, timepos):
         self._output.events.clear()
 
-        # TODO: real events from midi devices.
-        if random.random() < 0.10:
-            self._output.events.append(
-                events.NoteOnEvent(
-                    timepos,
-                    music.Pitch.from_midi(random.randint(40, 90))))
-
 
 class Backend(object):
     def __init__(self):
@@ -84,15 +78,18 @@ class Backend(object):
     def stop(self):
         self._stopped.set()
 
-    def wait(self):
+    def wait(self, timepos):
         raise NotImplementedError
 
     def write(self, frame):
         raise NotImplementedError
 
+    def get_events(self, queue):
+        return []
+
 
 class NullBackend(Backend):
-    def wait(self):
+    def wait(self, timepos):
         time.sleep(0.01)
 
     def write(self, frame):
@@ -168,7 +165,7 @@ class PyAudioBackend(Backend):
         super().stop()
         self._need_more.set()
 
-    def wait(self):
+    def wait(self, timepos):
         if self.stopped:
             return
         self._need_more.wait()
@@ -179,6 +176,10 @@ class PyAudioBackend(Backend):
             self._buffer.extend(samples)
             if len(self._buffer) >= self._buffer_threshold:
                 self._need_more.clear()
+
+
+class Stopped(Exception):
+    pass
 
 
 class IPCBackend(Backend):
@@ -198,12 +199,15 @@ class IPCBackend(Backend):
         self._buffer = bytearray()
         self._timepos = None
 
+        self._event_queues = {}
+
     def setup(self):
         super().setup()
 
         os.mkfifo(self.address + '.send')
         self._pipe_in = os.open(
             self.address + '.send', os.O_RDONLY | os.O_NONBLOCK)
+        os.set_blocking(self._pipe_in, True)
 
         os.mkfifo(self.address + '.recv')
         self._pipe_out = os.open(
@@ -236,22 +240,76 @@ class IPCBackend(Backend):
 
         super().cleanup()
 
-    def wait(self):
-        while not self.stopped:
+    def _fill_buffer(self):
+        while True:
+            for fd, event in self._poller.poll(0.5):
+                assert fd == self._pipe_in
+
+                if event == select.POLLIN:
+                    dat = os.read(self._pipe_in, 1024)
+                    #logger.info("dat=%s", dat)
+                    self._buffer.extend(dat)
+                    return
+
+                elif event == select.POLLHUP:
+                    logger.warning("Pipe disconnected.")
+                    self.stop()
+                    raise Stopped
+
+                else:
+                    raise AssertionError("Unknown event %s" % event)
+
+            if self.stopped:
+                raise Stopped
+
+    def _get_line(self):
+        while True:
             eol = self._buffer.find(b'\n')
             if eol >= 0:
                 line = self._buffer[:eol]
                 del self._buffer[:eol+1]
+                return line
 
-                assert line.startswith(b'#FR=')
-                self._timepos = int(line[4:])
-                return
+            self._fill_buffer()
 
-            if not self._poller.poll(0.5):
-                continue
+    def _get_bytes(self, num_bytes):
+        while len(self._buffer) < num_bytes:
+            self._fill_buffer()
 
-            dat = os.read(self._pipe_in, 1024)
-            self._buffer.extend(dat)
+        d = self._buffer[:num_bytes]
+        del self._buffer[:num_bytes]
+        return d
+
+    def wait(self, timepos):
+        self._event_queues.clear()
+        try:
+            line = self._get_line()
+            assert line.startswith(b'#FR=')
+            self._timepos = int(line[4:])
+            while True:
+                line = self._get_line()
+                if line == b'#END':
+                    return
+
+                elif line.startswith(b'EVENT='):
+                    queue = line[6:].decode('utf-8')
+
+                    length = self._get_line()
+                    assert length.startswith(b'LEN=')
+                    serialized = self._get_bytes(int(length[4:]))
+                    event = pickle.loads(serialized)
+
+                    # Correct event's timepos.
+                    event.timepos -= self._timepos - timepos
+
+                    logger.info("Event %s for queue %s", event, queue)
+                    self._event_queues.setdefault(queue, []).append(event)
+
+                else:
+                    raise IOError("Unexpected token %r" % line)
+
+        except Stopped:
+            pass
 
     def write(self, frame):
         samples = frame.as_bytes()
@@ -263,3 +321,6 @@ class IPCBackend(Backend):
         while response:
             written = os.write(self._pipe_out, response)
             del response[:written]
+
+    def get_events(self, queue):
+        return self._event_queues.get(queue, [])

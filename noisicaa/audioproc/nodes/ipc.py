@@ -3,14 +3,18 @@
 import asyncio
 import logging
 import os
+import pickle
+import random
 import threading
 
 from noisicaa.core import ipc
+from noisicaa import music
 
 from .. import ports
 from .. import node
 from .. import frame
 from .. import node_types
+from .. import events
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +85,26 @@ class IPCNode(node.Node):
         return d
 
     def run(self, timepos):
-        os.write(self._pipe_out, b'#FR=%d\n' % timepos)
+        request = bytearray()
+        request.extend(b'#FR=%d\n' % timepos)
+
+        e = []
+        if random.random() < 0.10:
+            e.append(('foo', events.NoteOnEvent(
+                timepos,
+                music.Pitch.from_midi(random.randint(40, 90)))))
+
+        for queue, event in e:
+            request.extend(b'EVENT=%s\n' % queue.encode('utf-8'))
+            serialized = pickle.dumps(event)
+            request.extend(b'LEN=%d\n' % len(serialized))
+            request.extend(serialized)
+
+        request.extend(b'#END\n')
+
+        while request:
+            written = os.write(self._pipe_out, request)
+            del request[:written]
 
         l = self._get_line()
         assert l == b'#FR=%d' % timepos, l
