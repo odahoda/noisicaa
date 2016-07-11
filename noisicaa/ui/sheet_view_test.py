@@ -37,6 +37,12 @@ class SheetView(uitest_utils.TestMixin, sheet_view.SheetViewImpl):
         'ScoreTrack': ScoreTrackItem,
     }
 
+    async def setup(self):
+        pass
+
+    async def cleanup(self):
+        pass
+
 
 class SheetViewTest(uitest_utils.UITest):
     async def setUp(self):
@@ -53,6 +59,7 @@ class SheetViewInitTest(SheetViewTest):
         track = model.ScoreTrack('track1')
         self.sheet.tracks.append(track)
         view = SheetView(**self.context, sheet=self.sheet)
+        await view.setup()
         self.assertEqual(
             [ti.track.id for ti in view.trackItems],
             ['track1'])
@@ -61,6 +68,7 @@ class SheetViewInitTest(SheetViewTest):
 class SheetViewModelChangesTest(SheetViewTest):
     async def test_tracks(self):
         view = SheetView(**self.context, sheet=self.sheet)
+        await view.setup()
 
         track = model.ScoreTrack('track1')
         self.sheet.tracks.append(track)
@@ -85,6 +93,7 @@ class SheetViewModelChangesTest(SheetViewTest):
         track = model.ScoreTrack('track1')
         self.sheet.tracks.append(track)
         view = SheetView(**self.context, sheet=self.sheet)
+        await view.setup()
         view.updateSheet = mock.MagicMock()
         self.assertEqual(view.updateSheet.call_count, 0)
         track.visible = False
@@ -94,6 +103,7 @@ class SheetViewModelChangesTest(SheetViewTest):
 class SheetViewCommandsTest(SheetViewTest):
     async def test_onAddTrack(self):
         view = SheetView(**self.context, sheet=self.sheet)
+        await view.setup()
         view.onAddTrack('score')
         self.assertEqual(
             self.commands,
@@ -101,15 +111,9 @@ class SheetViewCommandsTest(SheetViewTest):
 
 
 class SheetViewEventsTest(SheetViewTest):
-    async def test_closeEvent(self):
-        track = model.ScoreTrack('track1')
-        self.sheet.tracks.append(track)
-        view = SheetView(**self.context, sheet=self.sheet)
-        view.closeEvent(QtGui.QCloseEvent())
-        self.assertEqual(len(view.trackItems), 0)
-
     async def test_keyEvent(self):
         view = SheetView(**self.context, sheet=self.sheet)
+        await view.setup()
 
         # Number keys select notes, if the current tool is a note.
         view.setCurrentTool(tool_dock.Tool.NOTE_QUARTER)
@@ -188,7 +192,7 @@ class SheetViewToolTest(SheetViewTest):
     # This one just aims for coverage. TODO: also verify effects.
     async def test_setCurrentTool(self):
         view = SheetView(**self.context, sheet=self.sheet)
-        self.assertEqual(view.currentTool(), -1)
+        await view.setup()
 
         for tool in tool_dock.Tool:
             with self.subTest(tool=tool):

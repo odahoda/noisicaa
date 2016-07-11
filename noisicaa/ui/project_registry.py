@@ -18,8 +18,6 @@ class Project(object):
         self.process_address = None
         self.client = None
 
-        self.playback_node = None
-
     @property
     def name(self):
         return os.path.basename(self.path)

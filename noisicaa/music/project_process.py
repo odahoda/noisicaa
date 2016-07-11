@@ -14,6 +14,7 @@ from noisicaa import audioproc
 from . import project
 from . import mutations
 from . import commands
+from . import player
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,12 @@ class Session(object):
         self.event_loop = event_loop
         self.callback_stub = callback_stub
         self.id = uuid.uuid4().hex
+        self.players = {}
 
-    def cleanup(self):
-        pass
+    async def cleanup(self):
+        for p in self.players.values():
+            await p.cleanup()
+        self.players.clear()
 
     async def publish_mutation(self, mutation):
         assert self.callback_stub.connected
@@ -67,10 +71,6 @@ class ProjectProcessMixin(object):
         self.project = None
         self.sessions = {}
         self.pending_mutations = []
-        self.pending_pipeline_mutations = []
-        self.audioproc_address = None
-        self.audioproc_client = None
-        self.audiostream_address = None
 
     async def setup(self):
         await super().setup()
@@ -88,21 +88,13 @@ class ProjectProcessMixin(object):
         self.server.add_command_handler('OPEN', self.handle_open)
         self.server.add_command_handler('CLOSE', self.handle_close)
         self.server.add_command_handler('COMMAND', self.handle_command)
-
-        await self.createAudioProcProcess()
-
-    async def createAudioProcProcess(self):
-        pass
+        self.server.add_command_handler(
+            'CREATE_PLAYER', self.handle_create_player)
+        self.server.add_command_handler(
+            'DELETE_PLAYER', self.handle_delete_player)
 
     async def cleanup(self):
-        logger.info("Cleaning up project process.")
-
-        if self.audioproc_client is not None:
-            await self.audioproc_client.disconnect(shutdown=True)
-            await self.audioproc_client.cleanup()
-            self.audioproc_client = None
-            self.audioproc_address = None
-            self.audiostream_address = None
+        pass
 
     async def run(self):
         await self._shutting_down.wait()
@@ -159,41 +151,12 @@ class ProjectProcessMixin(object):
         else:
             raise ValueError(mtype)
 
-    def handle_pipeline_mutation(self, mutation):
-        logger.info("Pipeline mutation: %s", mutation)
-        self.pending_pipeline_mutations.append(mutation)
-
     async def publish_mutation(self, mutation):
         tasks = []
         for session in self.sessions.values():
             tasks.append(self.event_loop.create_task(
                 session.publish_mutation(mutation)))
         await asyncio.wait(tasks, loop=self.event_loop)
-
-    async def publish_pipeline_mutation(self, mutation):
-        if self.audioproc_client is None:
-            return
-
-        if isinstance(mutation, mutations.AddNode):
-            await self.audioproc_client.add_node(
-                mutation.node_type, id=mutation.node_id,
-                name=mutation.node_name, **mutation.args)
-
-        elif isinstance(mutation, mutations.RemoveNode):
-            await self.audioproc_client.remove_node(mutation.node_id)
-
-        elif isinstance(mutation, mutations.ConnectPorts):
-            await self.audioproc_client.connect_ports(
-                mutation.src_node, mutation.src_port,
-                mutation.dest_node, mutation.dest_port)
-
-        elif isinstance(mutation, mutations.DisconnectPorts):
-            await self.audioproc_client.disconnect_ports(
-                mutation.src_node, mutation.src_port,
-                mutation.dest_node, mutation.dest_port)
-
-        else:
-            raise ValueError(type(mutation))
 
     async def handle_start_session(self, client_address):
         client_stub = ipc.Stub(self.event_loop, client_address)
@@ -203,12 +166,12 @@ class ProjectProcessMixin(object):
         if self.project is not None:
             for mutation in self.add_object_mutations(self.project):
                 await session.publish_mutation(mutation)
-            return session.id, self.audiostream_address, self.project.id
-        return session.id, self.audiostream_address, None
+            return session.id, self.project.id
+        return session.id, None
 
-    def handle_end_session(self, session_id):
+    async def handle_end_session(self, session_id):
         session = self.get_session(session_id)
-        session.cleanup()
+        await session.cleanup()
         del self.sessions[session_id]
 
     def handle_shutdown(self):
@@ -235,17 +198,6 @@ class ProjectProcessMixin(object):
         for mutation in self.add_object_mutations(self.project):
             await self.publish_mutation(mutation)
 
-    async def send_initial_pipeline_mutations(self):
-        assert not self.pending_pipeline_mutations
-        self.project.add_to_pipeline()
-        pipeline_mutations = self.pending_pipeline_mutations[:]
-        self.pending_pipeline_mutations.clear()
-
-        for mutation in pipeline_mutations:
-            await self.publish_pipeline_mutation(mutation)
-
-        await self.audioproc_client.dump()
-
     async def handle_create(self, path):
         assert self.project is None
         self.project = project.Project()
@@ -253,9 +205,6 @@ class ProjectProcessMixin(object):
         await self.send_initial_mutations()
         self.project.listeners.add(
             'project_mutations', self.handle_project_mutation)
-        self.project.listeners.add(
-            'pipeline_mutations', self.handle_pipeline_mutation)
-        await self.send_initial_pipeline_mutations()
         return self.project.id
 
     async def handle_create_inmemory(self):
@@ -264,9 +213,6 @@ class ProjectProcessMixin(object):
         await self.send_initial_mutations()
         self.project.listeners.add(
             'project_mutations', self.handle_project_mutation)
-        self.project.listeners.add(
-            'pipeline_mutations', self.handle_pipeline_mutation)
-        await self.send_initial_pipeline_mutations()
         return self.project.id
 
     async def handle_open(self, path):
@@ -276,9 +222,6 @@ class ProjectProcessMixin(object):
         await self.send_initial_mutations()
         self.project.listeners.add(
             'project_mutations', self.handle_project_mutation)
-        self.project.listeners.add(
-            'pipeline_mutations', self.handle_pipeline_mutation)
-        await self.send_initial_pipeline_mutations()
         return self.project.id
 
     def handle_close(self):
@@ -298,30 +241,35 @@ class ProjectProcessMixin(object):
 
         # This block must be atomic, no 'awaits'!
         assert not self.pending_mutations
-        assert not self.pending_pipeline_mutations
         cmd = commands.Command.create(command, **kwargs)
         result = self.project.dispatch_command(target, cmd)
         mutations = self.pending_mutations[:]
         self.pending_mutations.clear()
-        pipeline_mutations = self.pending_pipeline_mutations[:]
-        self.pending_pipeline_mutations.clear()
 
         for mutation in mutations:
             await self.publish_mutation(mutation)
 
-        for mutation in pipeline_mutations:
-            await self.publish_pipeline_mutation(mutation)
-
         return result
+
+    async def handle_create_player(self, session_id, sheet_id):
+        session = self.get_session(session_id)
+        assert self.project is not None
+
+        sheet = self.project.get_object(sheet_id)
+
+        p = player.Player(sheet, self.manager, self.event_loop)
+        await p.setup()
+
+        session.players[p.id] = p
+
+        return p.id, p.audiostream_address
+
+    async def handle_delete_player(self, session_id, player_id):
+        session = self.get_session(session_id)
+        p = session.players[player_id]
+        await p.cleanup()
+        del session.players[player_id]
 
 
 class ProjectProcess(ProjectProcessMixin, core.ProcessImpl):
-    async def createAudioProcProcess(self):
-        self.audioproc_address = await self.manager.call(
-            'CREATE_AUDIOPROC_PROCESS', 'project-%s' % id(self))
-        self.audioproc_client = AudioProcClient(
-            self.event_loop, self.server)
-        await self.audioproc_client.setup()
-        await self.audioproc_client.connect(self.audioproc_address)
-        self.audiostream_address = await self.audioproc_client.set_backend('ipc')
-
+    pass

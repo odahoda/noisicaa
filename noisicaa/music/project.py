@@ -288,6 +288,8 @@ commands.Command.register_command(RemoveMeasure)
 class Sheet(model.Sheet, state.StateBase):
     def __init__(self, name=None, num_tracks=1, state=None):
         super().__init__(state)
+        self.listeners = core.CallbackRegistry()
+
         if state is None:
             self.name = name
 
@@ -338,20 +340,20 @@ class Sheet(model.Sheet, state.StateBase):
             while len(track.measures) < max_length:
                 track.append_measure()
 
+    def handle_pipeline_mutation(self, mutation):
+        self.listeners.call('pipeline_mutations', mutation)
+
     @property
     def main_mixer_name(self):
         return '%s-sheet-mixer' % self.id
 
     def add_to_pipeline(self):
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.handle_pipeline_mutation(
             mutations.AddNode(
                 'passthru', self.main_mixer_name, 'sheet-mixer'))
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.handle_pipeline_mutation(
             mutations.ConnectPorts(
-                self.main_mixer_name, 'out',
-                self.project.main_mixer_name, 'in'))
+                self.main_mixer_name, 'out', 'sink', 'in'))
 
         for track in self.tracks:
             track.add_to_pipeline()
@@ -360,13 +362,10 @@ class Sheet(model.Sheet, state.StateBase):
         for track in self.tracks:
             track.remove_from_pipeline()
 
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.handle_pipeline_mutation(
             mutations.DisconnectPorts(
-                self.main_mixer_name, 'out',
-                self.project.main_mixer_name, 'in'))
-        self.project.listeners.call(
-            'pipeline_mutations',
+                self.main_mixer_name, 'out', 'sink', 'in'))
+        self.handle_pipeline_mutation(
             mutations.RemoveNode(self.main_mixer_name))
 
 state.StateBase.register_class(Sheet)
@@ -438,23 +437,6 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
 
     def handle_mutation(self, mutation):
         self.listeners.call('project_mutations', mutation)
-
-    @property
-    def main_mixer_name(self):
-        return '%s-main-mixer' % self.id
-
-    def add_to_pipeline(self):
-        self.listeners.call(
-            'pipeline_mutations',
-            mutations.AddNode(
-                'passthru', self.main_mixer_name, 'main-mixer'))
-        self.listeners.call(
-            'pipeline_mutations',
-            mutations.ConnectPorts(
-                self.main_mixer_name, 'out', 'sink', 'in'))
-
-        for sheet in self.sheets:
-            sheet.add_to_pipeline()
 
     @classmethod
     def make_demo(cls):

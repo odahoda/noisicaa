@@ -121,10 +121,6 @@ class Track(model.Track, state.StateBase):
             self.name = name
             self.instrument = instrument
 
-        self._instrument_added = False
-        self._event_source_added = False
-        self._mixer_added = False
-
     @property
     def project(self):
         return self.sheet.project
@@ -194,125 +190,61 @@ class Track(model.Track, state.StateBase):
         return '%s-events' % self.id
 
     def add_mixer_to_pipeline(self):
-        assert not self._mixer_added
-
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.sheet.handle_pipeline_mutation(
             mutations.AddNode(
                 'passthru', self.mixer_name, 'track-mixer'))
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.sheet.handle_pipeline_mutation(
             mutations.ConnectPorts(
                 self.mixer_name, 'out',
                 self.sheet.main_mixer_name, 'in'))
 
-        if self._instrument_added:
-            self.project.listeners.call(
-                'pipeline_mutations',
-                mutations.ConnectPorts(
-                    self.instr_name, 'out', self.mixer_name, 'in'))
-
-        self._mixer_added = True
-
     def remove_mixer_from_pipeline(self):
-        if not self._mixer_added:
-            return
-
-        if self._instrument_added:
-            self.project.listeners.call(
-                'pipeline_mutations',
-                mutations.DisconnectPorts(
-                    self.instr_name, 'out', self.mixer_name, 'in'))
-
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.sheet.handle_pipeline_mutation(
             mutations.DisconnectPorts(
                 self.mixer_name, 'out',
                 self.sheet.main_mixer_name, 'in'))
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.sheet.handle_pipeline_mutation(
             mutations.RemoveNode(self.mixer_name))
 
-        self._mixer_added = False
-
     def add_instrument_to_pipeline(self):
-        assert not self._instrument_added
-
         self.instrument.add_to_pipeline()
 
-        if self._mixer_added:
-            self.project.listeners.call(
-                'pipeline_mutations',
-                mutations.ConnectPorts(
-                    self.instr_name, 'out', self.mixer_name, 'in'))
+        self.sheet.handle_pipeline_mutation(
+            mutations.ConnectPorts(
+                self.instr_name, 'out', self.mixer_name, 'in'))
 
-        if self._event_source_added:
-            self.project.listeners.call(
-                'pipeline_mutations',
-                mutations.ConnectPorts(
-                    self.event_source_name, 'out', self.instr_name, 'in'))
-
-        self._instrument_added = True
+        self.sheet.handle_pipeline_mutation(
+            mutations.ConnectPorts(
+                self.event_source_name, 'out', self.instr_name, 'in'))
 
     def remove_instrument_from_pipeline(self):
-        if not self._instrument_added:
-            return
+        self.sheet.handle_pipeline_mutation(
+            mutations.DisconnectPorts(
+                self.instr_name, 'out', self.mixer_name, 'in'))
 
-        if self._mixer_added:
-            self.project.listeners.call(
-                'pipeline_mutations',
-                mutations.DisconnectPorts(
-                    self.instr_name, 'out', self.mixer_name, 'in'))
-
-        if self._event_source_added:
-            self.project.listeners.call(
-                'pipeline_mutations',
-                mutations.DisconnectPorts(
-                    self.event_source_name, 'out', self.instr_name, 'in'))
+        self.sheet.handle_pipeline_mutation(
+            mutations.DisconnectPorts(
+                self.event_source_name, 'out', self.instr_name, 'in'))
 
         self.instrument.remove_from_pipeline()
 
-        self._instrument_added = False
-
     def add_event_source_to_pipeline(self):
-        assert not self._event_source_added
-
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.sheet.handle_pipeline_mutation(
             mutations.AddNode(
                 'track_event_source', self.event_source_name, 'events'))
 
-        if self._instrument_added:
-            self.project.listeners.call(
-                'pipeline_mutations',
-                mutations.ConnectPorts(
-                    self.event_source_name, 'out', self.instr_name, 'in'))
-
-        self._event_source_added = True
-
     def remove_event_source_from_pipeline(self):
-        if not self._event_source_added:
-            return
-
-        if self._instrument_added:
-            self.project.listeners.call(
-                'pipeline_mutations',
-                mutations.DisconnectPorts(
-                    self.event_source_name, 'out', self.instr_name, 'in'))
-
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.sheet.handle_pipeline_mutation(
             mutations.RemoveNode(self.event_source_name))
-
-        self._event_source_added = False
 
     def add_to_pipeline(self):
         self.add_mixer_to_pipeline()
+        self.add_event_source_to_pipeline()
         if self.instrument is not None:
             self.add_instrument_to_pipeline()
-        self.add_event_source_to_pipeline()
 
     def remove_from_pipeline(self):
+        if self.instrument is not None:
+            self.remove_instrument_from_pipeline()
         self.remove_event_source_from_pipeline()
-        self.remove_instrument_from_pipeline()
         self.remove_mixer_from_pipeline()

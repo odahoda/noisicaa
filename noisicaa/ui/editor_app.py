@@ -193,22 +193,10 @@ class BaseEditorApp(QApplication):
                 if project.path))
 
     async def addProject(self, project_connection):
-        self.win.addProjectView(project_connection)
-        project_connection.playback_node = await self.audioproc_client.add_node(
-            'ipc', address=project_connection.client.audiostream_address)
-        await self.audioproc_client.connect_ports(
-            project_connection.playback_node, 'out', 'sink', 'in')
-        self._updateOpenedProjects()
+        await self.win.addProjectView(project_connection)
 
     async def removeProject(self, project_connection):
-        if project_connection.playback_node is not None:
-            await self.audioproc_client.disconnect_ports(
-                project_connection.playback_node, 'out', 'sink', 'in')
-            await self.audioproc_client.remove_node(
-                project_connection.playback_node)
-            project_connection.playback_node = None
-
-        self.win.removeProjectView(project_connection)
+        await self.win.removeProjectView(project_connection)
         self._updateOpenedProjects()
         await self.project_registry.close_project(project_connection)
 

@@ -400,19 +400,22 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
             self.currentProjectChanged.emit(None)
             self.currentSheetChanged.emit(None)
 
-    def addProjectView(self, project):
-        view = ProjectView(**self.context, project_connection=project)
+    async def addProjectView(self, project_connection):
+        view = ProjectView(
+            **self.context, project_connection=project_connection)
+        await view.setup()
+
         view.setCurrentTool(self.tools_dock.currentTool())
         self.tools_dock.toolChanged.connect(view.setCurrentTool)
 
-        idx = self._project_tabs.addTab(view, project.name)
+        idx = self._project_tabs.addTab(view, project_connection.name)
 
         self._project_tabs.setCurrentIndex(idx)
         self._close_current_project_action.setEnabled(True)
         self._add_score_track_action.setEnabled(True)
         self._main_area.setCurrentIndex(0)
 
-    def removeProjectView(self, project_connection):
+    async def removeProjectView(self, project_connection):
         for idx in range(self._project_tabs.count()):
             view = self._project_tabs.widget(idx)
             if view.project_connection is project_connection:
@@ -423,6 +426,8 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
                     self._project_tabs.count() > 0)
                 self._add_score_track_action.setEnabled(
                     self._project_tabs.count() > 0)
+
+                await view.cleanup()
                 break
         else:
             raise ValueError("No view for project found.")

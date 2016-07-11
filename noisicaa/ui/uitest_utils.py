@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import argparse
+import functools
 import unittest
 import inspect
 import logging
@@ -53,6 +54,17 @@ class TestMixin(object):
     @property
     def project_client(self):
         return self.__testcase.project_client
+
+    def call_async(self, coroutine, callback=None):
+        task = self.event_loop.create_task(coroutine)
+        task.add_done_callback(
+            functools.partial(self.__call_async_cb, callback=callback))
+
+    def __call_async_cb(self, task, callback):
+        if task.exception() is not None:
+            raise task.exception()
+        if callback is not None:
+            callback(task.result())
 
     def send_command_async(self, target_id, cmd, **kwargs):
         self.__testcase.commands.append((target_id, cmd, kwargs))

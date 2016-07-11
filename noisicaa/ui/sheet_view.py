@@ -1238,7 +1238,7 @@ class SheetViewImpl(QGraphicsView):
             self._layers[layer_id] = layer
             self._scene.addItem(layer)
 
-        self._current_tool = -1
+        self._current_tool = Tool.NOTE_QUARTER
         self._previous_tool = -1
         self._cursor = QGraphicsGroup(self._layers[Layer.MOUSE])
 
@@ -1246,6 +1246,33 @@ class SheetViewImpl(QGraphicsView):
 
         self._tracks_listener = self._sheet.listeners.add(
             'tracks', self.onTracksChanged)
+
+        self._player_id = None
+        self._player_stream_address = None
+        self._player_node_id = None
+
+    async def setup(self):
+        self._player_id, self._player_stream_address = await self.project_client.create_player(self._sheet.id)
+        self._player_node_id = await self.audioproc_client.add_node(
+            'ipc', address=self._player_stream_address)
+        await self.audioproc_client.connect_ports(
+            self._player_node_id, 'out', 'sink', 'in')
+
+    async def cleanup(self):
+        while len(self._tracks) > 0:
+            self.removeTrack(0)
+
+        if self._player_node_id is not None:
+            await self.audioproc_client.disconnect_ports(
+                self._player_node_id, 'out', 'sink', 'in')
+            await self.audioproc_client.remove_node(
+                self._player_node_id)
+            self._player_node_id = None
+            self._player_stream_address = None
+
+        if self._player_id is not None:
+            await self.project_client.delete_player(self._player_id)
+            self._player_id = None
 
     @property
     def trackItems(self):
@@ -1274,14 +1301,6 @@ class SheetViewImpl(QGraphicsView):
         #    self.scene().removeItem(track_item)
         del self._tracks[idx]
         del self._track_visible_listeners[idx]
-
-    def closeEvent(self, event):
-        self._tracks_listener.remove()
-
-        while len(self._tracks) > 0:
-            self.removeTrack(0)
-
-        event.accept()
 
     def onVisibleChanged(self, old_value, new_value):
         self.setVisible(new_value)

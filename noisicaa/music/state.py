@@ -38,7 +38,9 @@ class StateBase(model_base.ObjectBase):
             if isinstance(prop, model_base.ObjectProperty):
                 mutation_type = 'update_objproperty'
             else:
-                assert isinstance(prop, model_base.Property)
+                assert isinstance(
+                    prop, (model_base.Property,
+                           model_base.ObjectReferenceProperty))
                 mutation_type = 'update_property'
 
             root.handle_mutation(

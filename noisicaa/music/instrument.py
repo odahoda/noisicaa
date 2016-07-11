@@ -20,6 +20,10 @@ class Instrument(model.Instrument, state.StateBase):
         return self.parent
 
     @property
+    def sheet(self):
+        return self.track.sheet
+
+    @property
     def project(self):
         return self.track.project
 
@@ -54,8 +58,7 @@ class SoundFontInstrument(model.SoundFontInstrument, Instrument):
         return (self.path, self.bank, self.preset) == (other.path, other.bank, other.preset)
 
     def add_to_pipeline(self):
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.sheet.handle_pipeline_mutation(
             mutations.AddNode(
                 'fluidsynth', self.pipeline_node_id, self.name,
                 soundfont_path=self.path,
@@ -63,8 +66,7 @@ class SoundFontInstrument(model.SoundFontInstrument, Instrument):
                 preset=self.preset))
 
     def remove_from_pipeline(self):
-        self.project.listeners.call(
-            'pipeline_mutations',
+        self.sheet.handle_pipeline_mutation(
             mutations.RemoveNode(self.pipeline_node_id))
 
 state.StateBase.register_class(SoundFontInstrument)

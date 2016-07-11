@@ -22,18 +22,10 @@ class ProjectViewImpl(QtWidgets.QWidget):
         super().__init__(**kwargs)
 
         self._sheets_widget = QtWidgets.QStackedWidget(self)
-        for sheet in self.project.sheets:
-            view = self.createSheetView(
-                **self.context, sheet=sheet, parent=self)
-            self._sheets_widget.addWidget(view)
         self._sheets_widget.currentChanged.connect(
             self.onCurrentSheetChanged)
 
         self._current_sheet_view = None
-
-        # TODO: Persist what was the current sheet.
-        if self._sheets_widget.count() > 0:
-            self.setCurrentSheetView(self._sheets_widget.widget(0))
 
         self.sheet_menu = QtWidgets.QMenu()
         self.updateSheetMenu()
@@ -57,7 +49,26 @@ class ProjectViewImpl(QtWidgets.QWidget):
         self.setLayout(layout)
 
         self._sheet_listener = self.project.listeners.add(
-            'sheets', self.onSheetsChanged)
+            'sheets',
+            lambda *args, **kwargs: self.call_async(
+                self.onSheetsChanged(*args, **kwargs)))
+
+    async def setup(self):
+        for sheet in self.project.sheets:
+            view = self.createSheetView(
+                **self.context, sheet=sheet, parent=self)
+            await view.setup()
+            self._sheets_widget.addWidget(view)
+
+        # TODO: Persist what was the current sheet.
+        if self._sheets_widget.count() > 0:
+            self.setCurrentSheetView(self._sheets_widget.widget(0))
+
+    async def cleanup(self):
+        while self._sheets_widget.count() > 0:
+            sheet_view = self._sheets_widget.widget(0)
+            self._sheets_widget.removeWidget(sheet_view)
+            await sheet_view.cleanup()
 
     @property
     def sheetViews(self):
@@ -99,35 +110,27 @@ class ProjectViewImpl(QtWidgets.QWidget):
         for sheet_view in self.sheetViews:
             sheet_view.updateView()
 
-    def closeEvent(self, event):
-        logger.info("CloseEvent received: %s", event)
-
-        self._sheet_listener.remove()
-
-        while self._sheets_widget.count() > 0:
-            sheet_view = self._sheets_widget.widget(0)
-            self._sheets_widget.removeWidget(sheet_view)
-            sheet_view.close()
-
-        event.accept()
-
-    def onSheetsChanged(self, action, *args):
+    async def onSheetsChanged(self, action, *args):
         if action == 'insert':
             idx, sheet = args
             view = self.createSheetView(
                 **self.context, sheet=sheet, parent=self)
-            #view.setCurrentTool(self.currentTool())
+            await view.setup()
             self._sheets_widget.insertWidget(idx, view)
             self.updateSheetMenu()
 
         elif action == 'delete':
             idx, = args
-            self._sheets_widget.removeWidget(self._sheets_widget.widget(idx))
+            view = self._sheets_widget.widget(idx)
+            self._sheets_widget.removeWidget(view)
+            await view.cleanup()
             self.updateSheetMenu()
 
         elif action == 'clear':
             while self._sheets_widget.count() > 0:
-                self._sheets_widget.removeWidget(self._sheets_widget.widget(0))
+                view = self._sheets_widget.widget(0)
+                self._sheets_widget.removeWidget(view)
+                await view.cleanup()
             self.updateSheetMenu()
 
         else:  # pragma: no cover
@@ -160,8 +163,7 @@ class ProjectViewImpl(QtWidgets.QWidget):
         self.setCurrentSheetView(sheet_view)
 
     def onAddSheet(self):
-        self.send_command_async(
-            self.project.id, 'AddSheet')
+        self.send_command_async(self.project.id, 'AddSheet')
 
     def onDeleteSheet(self):
         assert len(self.project.sheets) > 1
