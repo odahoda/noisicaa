@@ -9,7 +9,7 @@ import time
 import toposort
 
 from ..rwlock import RWLock
-from .exceptions import Error, EndOfStreamError
+from .exceptions import Error
 from noisicaa import core
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,6 @@ class Pipeline(object):
     def start(self):
         assert not self._running
         self._running = True
-        self.validate()
 
         self._stopping.clear()
         self._started.clear()
@@ -78,22 +77,6 @@ class Pipeline(object):
     def wait(self):
         if self._thread is not None:
             self._thread.join()
-
-    def validate(self):
-        for node in self._nodes:
-            if node.pipeline is None:
-                raise Error("Dangling node %s" % node)
-
-            for name, port in node.inputs.items():
-                for upstream_port in port.inputs:
-                    if upstream_port.owner not in self._nodes:
-                        raise Error(
-                            ("Input port %s of node %s is connected to a foreign"
-                             " node")
-                            % (name, node))
-
-        # will fail on cyclic graph
-        self.sorted_nodes  # pylint: disable=W0104
 
     def dump(self):
         d = {}

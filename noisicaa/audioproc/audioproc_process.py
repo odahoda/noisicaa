@@ -122,9 +122,9 @@ class AudioProcProcessMixin(object):
         await self.audiosink.setup()
         self.pipeline.add_node(self.audiosink)
 
-        self.midisource = backend.MidiSourceNode(self.event_loop)
-        await self.midisource.setup()
-        self.pipeline.add_node(self.midisource)
+        self.eventsource = backend.SystemEventSourceNode(self.event_loop)
+        await self.eventsource.setup()
+        self.pipeline.add_node(self.eventsource)
 
         self.pipeline.start()
 

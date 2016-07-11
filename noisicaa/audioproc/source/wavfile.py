@@ -3,7 +3,6 @@
 import logging
 import wave
 
-from ..exceptions import EndOfStreamError
 from ..resample import (Resampler,
                         AV_CH_LAYOUT_MONO,
                         AV_CH_LAYOUT_STEREO,

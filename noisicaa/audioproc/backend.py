@@ -4,6 +4,7 @@ import logging
 import os
 import os.path
 import queue
+import random
 import select
 import tempfile
 import threading
@@ -19,8 +20,8 @@ from .resample import (Resampler,
 from .node import Node
 from .node_types import NodeType
 from .ports import AudioInputPort, EventOutputPort
-from .events import NoteOnEvent
-from ..music.pitch import Pitch
+from . import events
+from .. import music
 from . import audio_format
 from . import frame
 
@@ -43,9 +44,9 @@ class AudioSinkNode(Node):
         self.pipeline.backend.write(self._input.frame)
 
 
-class MidiSourceNode(Node):
+class SystemEventSourceNode(Node):
     desc = NodeType()
-    desc.name = 'midisource'
+    desc.name = 'systemeventsource'
     desc.port('out', 'output', 'events')
     desc.is_system = True
 
@@ -59,7 +60,11 @@ class MidiSourceNode(Node):
         self._output.events.clear()
 
         # TODO: real events from midi devices.
-        self._output.events.append(NoteOnEvent(timepos, Pitch('C4')))
+        if random.random() < 0.10:
+            self._output.events.append(
+                events.NoteOnEvent(
+                    timepos,
+                    music.Pitch.from_midi(random.randint(40, 90))))
 
 
 class Backend(object):

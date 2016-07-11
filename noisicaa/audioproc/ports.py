@@ -5,7 +5,7 @@ import collections
 import functools
 import operator
 
-from .exceptions import Error, EndOfStreamError
+from .exceptions import Error
 from .frame import Frame
 from .audio_format import (AudioFormat,
                            CHANNELS_STEREO,

@@ -49,7 +49,7 @@ class CSoundFilter(node.Node):
             gaOutR chnexport "OutR", 2
 
             instr 1
-                gaOutL, gaOutR reverbsc gaInL, gaInR, 0.88, 2000
+                gaOutL, gaOutR reverbsc gaInL, gaInR, 0.6, 12000
             endin
         """)
         self._csnd.set_orchestra(orc)
@@ -123,7 +123,7 @@ class CSoundInstrument(node.Node):
                 iVolume = -20 * log10(127^2 / iVelocity^2)
 
                 print iPitch, iFreq, iVelocity, iVolume
-                gaOutL = db(iVolume) * poscil(1.0, iFreq)
+                gaOutL = db(iVolume) * linsegr(0, 0.08, 1, 0.1, 0.6, 0.5, 0.0) * poscil(1.0, iFreq)
                 gaOutR = gaOutL
             endin
         """)
