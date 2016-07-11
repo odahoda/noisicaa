@@ -83,6 +83,7 @@ class AudioPlaygroundApp(QtWidgets.QApplication):
             await client.setup()
             try:
                 await client.connect(audioproc.server.address)
+                await client.set_backend('pyaudio')
 
                 window.set_node_types(await client.list_node_types())
 
@@ -475,7 +476,7 @@ class AudioPlaygroundWindow(QtWidgets.QMainWindow):
             task.add_done_callback(
                 functools.partial(
                     self.command_done_callback,
-                    command="Create node %s" % self.node_type.name))
+                    command="Create node %s" % node_type.name))
 
     def handle_pipeline_mutation(self, mutation):
         if isinstance(mutation, mutations.AddNode):
