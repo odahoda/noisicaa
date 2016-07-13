@@ -72,6 +72,7 @@ class AudioProcProcessMixin(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.backend = None
+        self.pipeline = None
 
     async def setup(self):
         await super().setup()
@@ -98,6 +99,8 @@ class AudioProcProcessMixin(object):
             'SET_BACKEND', self.handle_set_backend)
         self.server.add_command_handler(
             'PLAY_FILE', self.handle_play_file)
+        self.server.add_command_handler(
+            'ADD_EVENT', self.handle_add_event)
         self.server.add_command_handler(
             'DUMP', self.handle_dump)
 
@@ -131,7 +134,11 @@ class AudioProcProcessMixin(object):
         self.sessions = {}
 
     async def cleanup(self):
-        self.pipeline.stop()
+        if self.pipeline is not None:
+            self.pipeline.stop()
+            self.pipeline = None
+            self.backend = None
+
         await super().cleanup()
 
     async def run(self):
@@ -286,6 +293,17 @@ class AudioProcProcessMixin(object):
             sink.inputs['in'].connect(node.outputs['out'])
 
         return node.id
+
+    async def handle_add_event(self, session_id, queue, event):
+        self.get_session(session_id)
+
+        with self.pipeline.writer_lock():
+            backend = self.pipeline.backend
+            if backend is None:
+                logger.warning(
+                    "Ignoring event %s: no backend active:", event)
+
+            backend.add_event(queue, event)
 
     def play_file_done(self, notification, node_id):
         with self.pipeline.writer_lock():

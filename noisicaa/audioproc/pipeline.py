@@ -138,6 +138,7 @@ class Pipeline(object):
                     #     self.utilization_callback(utilization)
 
                 timepos += 4096
+                backend.clear_events()
 
         except:  # pylint: disable=bare-except
             sys.excepthook(*sys.exc_info())

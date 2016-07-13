@@ -71,6 +71,10 @@ class AudioProcClientMixin(object):
         return await self._stub.call(
             'PLAY_FILE', self._session_id, path)
 
+    async def add_event(self, queue, event):
+        return await self._stub.call(
+            'ADD_EVENT', self._session_id, queue, event)
+
     async def dump(self):
         return await self._stub.call('DUMP', self._session_id)
 

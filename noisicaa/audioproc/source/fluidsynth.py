@@ -105,13 +105,17 @@ class FluidSynthSource(Node):
         tp = timepos
 
         for event in self._input.events:
-            assert timepos <= event.timepos < timepos + 4096, (
-                timepos, event.timepos, timepos + 4096)
+            if event.timepos != -1:
+                assert timepos <= event.timepos < timepos + 4096, (
+                    timepos, event.timepos, timepos + 4096)
+                etimepos = event.timepos
+            else:
+                etimepos = timepos
 
-            if event.timepos > tp:
+            if etimepos > tp:
                 samples += bytes(
-                    self._synth.get_samples(event.timepos - tp))
-                tp = event.timepos
+                    self._synth.get_samples(etimepos - tp))
+                tp = etimepos
 
             logger.info("Consuming event %s", event)
 

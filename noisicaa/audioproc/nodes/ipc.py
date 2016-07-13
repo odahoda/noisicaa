@@ -23,12 +23,14 @@ class IPCNode(node.Node):
     desc = node_types.NodeType()
     desc.name = 'ipc'
     desc.parameter('address', 'string')
+    desc.parameter('event_queue_name', 'string')
     desc.port('out', 'output', 'audio')
 
-    def __init__(self, event_loop, address):
+    def __init__(self, event_loop, address, event_queue_name):
         super().__init__(event_loop)
 
         self._address = address
+        self._event_queue_name = event_queue_name
 
         self._output = ports.AudioOutputPort('out')
         self.add_output(self._output)
@@ -88,13 +90,8 @@ class IPCNode(node.Node):
         request = bytearray()
         request.extend(b'#FR=%d\n' % timepos)
 
-        e = []
-        if random.random() < 0.10:
-            e.append(('foo', events.NoteOnEvent(
-                timepos,
-                music.Pitch.from_midi(random.randint(40, 90)))))
-
-        for queue, event in e:
+        for queue, event in self.pipeline.backend.get_events_for_prefix(
+                self._event_queue_name):
             request.extend(b'EVENT=%s\n' % queue.encode('utf-8'))
             serialized = pickle.dumps(event)
             request.extend(b'LEN=%d\n' % len(serialized))

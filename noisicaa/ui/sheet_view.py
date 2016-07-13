@@ -39,6 +39,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtSvg import QSvgRenderer, QGraphicsSvgItem
 
+from noisicaa import audioproc
 from .instrument_library import InstrumentLibraryDialog
 from .render_sheet_dialog import RenderSheetDialog
 from noisicaa.music import (
@@ -110,6 +111,10 @@ class MeasureItemImpl(QGraphicsItem):
         self._layout = None
 
         self._layers = {}
+
+    @property
+    def track_item(self):
+        return self._track_item
 
     def boundingRect(self):
         return QRectF(0, 0, self._layout.width, self._layout.height)
@@ -866,6 +871,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
         super().mouseMoveEvent(event)
 
         if not self.boundingRect().contains(event.pos()):
+            self._track_item.playNoteOff()
             self._sheet_view.setInfoMessage('')
             self.removeGhost()
             self.ungrabMouse()
@@ -914,11 +920,13 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
             self.removeGhost()
 
     def mousePressEvent(self, event):
+         # Always accept event, so we don't lose the mouse grab.
+        event.accept()
+
         if self._measure is None:
             self.send_command_async(
                 self._sheet_view.sheet.id,
                 'InsertMeasure', tracks=[], pos=-1)
-            event.accept()
             return
 
         if not self._layout.is_valid:
@@ -958,13 +966,15 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                                 break
                         else:
                             cmd = ('AddPitch', dict(idx=idx, pitch=pitch))
+                            self._track_item.playNoteOn(Pitch(pitch))
                     else:
                         cmd = ('InsertNote', dict(
                             idx=idx, pitch=pitch, duration=duration))
+                        self._track_item.playNoteOn(Pitch(pitch))
+
                 if cmd is not None:
                     self.send_command_async(
                         self._measure.id, cmd[0], **cmd[1])
-                    event.accept()
                     return
 
         if (event.button() == Qt.LeftButton
@@ -986,7 +996,6 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                                 self._measure.id, 'SetAccidental',
                                 idx=idx, accidental=accidental,
                                 pitch_idx=pitch_idx)
-                            event.accept()
                             return
 
 
@@ -1024,11 +1033,10 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                 if cmd is not None:
                     self.send_command_async(
                         self._measure.id, cmd[0], **cmd[1])
-                    event.accept()
                     return
 
-        return super().mousePressEvent(event)
-
+    def mouseReleaseEvent(self, event):
+        self._track_item.playNoteOff()
 
 class ScoreMeasureItem(ui_base.ProjectMixin, ScoreMeasureItemImpl):
     pass
@@ -1036,6 +1044,32 @@ class ScoreMeasureItem(ui_base.ProjectMixin, ScoreMeasureItemImpl):
 
 class ScoreTrackItemImpl(TrackItemImpl):
     measure_item_cls = ScoreMeasureItem
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._play_last_pitch = None
+
+    def playNoteOn(self, pitch):
+        self.playNoteOff()
+
+        self.call_async(
+            self._sheet_view.audioproc_client.add_event(
+                'sheet:%s/track:%s' % (
+                    self._sheet_view.sheet.id,
+                    self.track.id),
+                audioproc.NoteOnEvent(-1, pitch)))
+
+        self._play_last_pitch = pitch
+
+    def playNoteOff(self):
+        if self._play_last_pitch is not None:
+            self.call_async(
+                self._sheet_view.audioproc_client.add_event(
+                    'sheet:%s/track:%s' % (
+                        self._sheet_view.sheet.id,
+                        self.track.id),
+                    audioproc.NoteOffEvent(-1, self._play_last_pitch)))
+            self._play_last_pitch = None
 
 
 class ScoreTrackItem(ui_base.ProjectMixin, ScoreTrackItemImpl):
@@ -1254,7 +1288,9 @@ class SheetViewImpl(QGraphicsView):
     async def setup(self):
         self._player_id, self._player_stream_address = await self.project_client.create_player(self._sheet.id)
         self._player_node_id = await self.audioproc_client.add_node(
-            'ipc', address=self._player_stream_address)
+            'ipc',
+            address=self._player_stream_address,
+            event_queue_name='sheet:%s' % self._sheet.id)
         await self.audioproc_client.connect_ports(
             self._player_node_id, 'out', 'sink', 'in')
 

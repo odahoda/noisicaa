@@ -64,6 +64,7 @@ class SystemEventSourceNode(Node):
 class Backend(object):
     def __init__(self):
         self._stopped = threading.Event()
+        self._event_queues = {}
 
     def setup(self):
         pass
@@ -84,8 +85,28 @@ class Backend(object):
     def write(self, frame):
         raise NotImplementedError
 
+    def clear_events(self):
+        self._event_queues.clear()
+
+    def add_event(self, queue, event):
+        logger.info("Event %s for queue %s", event, queue)
+        self._event_queues.setdefault(queue, []).append(event)
+
     def get_events(self, queue):
-        return []
+        return self._event_queues.get(queue, [])
+
+    def get_events_for_prefix(self, prefix):
+        events = []
+
+        for queue, qevents in self._event_queues.items():
+            if '/' not in queue:
+                continue
+
+            qprefix, qremainder = queue.split('/', 1)
+            events.extend((qremainder, event) for event in qevents)
+
+        events.sort(key=lambda e: e[1].timepos)
+        return events
 
 
 class NullBackend(Backend):
@@ -199,8 +220,6 @@ class IPCBackend(Backend):
         self._buffer = bytearray()
         self._timepos = None
 
-        self._event_queues = {}
-
     def setup(self):
         super().setup()
 
@@ -281,7 +300,6 @@ class IPCBackend(Backend):
         return d
 
     def wait(self, timepos):
-        self._event_queues.clear()
         try:
             line = self._get_line()
             assert line.startswith(b'#FR=')
@@ -300,10 +318,10 @@ class IPCBackend(Backend):
                     event = pickle.loads(serialized)
 
                     # Correct event's timepos.
-                    event.timepos -= self._timepos - timepos
+                    if event.timepos != -1:
+                        event.timepos -= self._timepos - timepos
 
-                    logger.info("Event %s for queue %s", event, queue)
-                    self._event_queues.setdefault(queue, []).append(event)
+                    self.add_event(queue, event)
 
                 else:
                     raise IOError("Unexpected token %r" % line)
@@ -321,6 +339,3 @@ class IPCBackend(Backend):
         while response:
             written = os.write(self._pipe_out, response)
             del response[:written]
-
-    def get_events(self, queue):
-        return self._event_queues.get(queue, [])
