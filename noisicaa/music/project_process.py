@@ -262,7 +262,7 @@ class ProjectProcessMixin(object):
 
         session.players[p.id] = p
 
-        return p.id, p.audiostream_address
+        return p.id, p.proxy_address
 
     async def handle_delete_player(self, session_id, player_id):
         session = self.get_session(session_id)
