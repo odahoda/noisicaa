@@ -287,8 +287,8 @@ commands.Command.register_command(RemoveMeasure)
 
 class Sheet(model.Sheet, state.StateBase):
     def __init__(self, name=None, num_tracks=1, state=None):
-        super().__init__(state)
         self.listeners = core.CallbackRegistry()
+        super().__init__(state)
 
         if state is None:
             self.name = name
@@ -297,6 +297,10 @@ class Sheet(model.Sheet, state.StateBase):
 
             for i in range(num_tracks):
                 self.tracks.append(ScoreTrack(name="Track %d" % i))
+
+    def property_changed(self, change):
+        super().property_changed(change)
+        self.listeners.call(change.prop_name, change)
 
     @property
     def project(self):

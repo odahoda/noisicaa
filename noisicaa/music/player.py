@@ -4,6 +4,7 @@ import functools
 import asyncio
 import logging
 import os.path
+import random
 import tempfile
 import threading
 import time
@@ -11,7 +12,9 @@ import uuid
 
 from noisicaa import core
 from noisicaa.core import ipc
+from noisicaa.core import model_base
 from noisicaa import audioproc
+from noisicaa import music
 
 from . import project
 from . import mutations
@@ -38,7 +41,9 @@ class AudioProcClient(
 
 
 class AudioStreamProxy(object):
-    def __init__(self, address, socket_dir=None):
+    def __init__(self, player, address, socket_dir=None):
+        self._player = player
+
         if socket_dir is None:
             socket_dir = tempfile.gettempdir()
 
@@ -64,9 +69,15 @@ class AudioStreamProxy(object):
         while True:
             try:
                 request = self._server.receive_frame()
+
+                if self._player.playback_state == 'playing':
+                    request.events.extend(
+                        self._player.get_track_events(request.timepos))
+
                 self._client.send_frame(request)
                 response = self._client.receive_frame()
                 self._server.send_frame(response)
+
             except audioproc.StreamClosed:
                 break
 
@@ -91,6 +102,10 @@ class Player(object):
 
         self.proxy = None
 
+        self.playback_state = 'stopped'
+        self.track_event_sources = {}
+        self.tracks_listener = None
+
     @property
     def proxy_address(self):
         assert self.proxy is not None
@@ -107,7 +122,7 @@ class Player(object):
         await self.audioproc_client.connect(self.audioproc_address)
         self.audiostream_address = await self.audioproc_client.set_backend('ipc')
 
-        self.proxy = AudioStreamProxy(self.audiostream_address)
+        self.proxy = AudioStreamProxy(self, self.audiostream_address)
         self.proxy.setup()
 
         self.pending_pipeline_mutations = []
@@ -123,7 +138,18 @@ class Player(object):
 
         await self.audioproc_client.dump()
 
+        for track in self.sheet.tracks:
+            self.track_event_sources[track.id] = track.create_event_source()
+        self.tracks_listener = self.sheet.listeners.add(
+            'tracks', self.tracks_changed)
+
     async def cleanup(self):
+        if self.tracks_listener is not None:
+            self.tracks_listener.remove()
+            self.tracks_listener = None
+
+        self.track_event_sources.clear()
+
         if self.mutation_listener is not None:
             self.mutation_listener.remove()
             self.mutation_listener = None
@@ -140,6 +166,29 @@ class Player(object):
             self.audiostream_address = None
 
         await self.server.cleanup()
+
+    def tracks_changed(self, change):
+        if isinstance(change, model_base.PropertyListInsert):
+            track = change.new_value
+            self.track_event_sources[track.id] = track.create_event_source()
+
+        elif isinstance(change, model_base.PropertyListDelete):
+            track = change.old_value
+            del self.track_event_sources[track.id]
+
+        elif isinstance(change, model_base.PropertyListClear):
+            self.track_event_sources.clear()
+
+        else:
+            raise TypeError(
+                "Unsupported change type %s" % type(change))
+
+    def get_track_events(self, timepos):
+        events = []
+        for track_id, event_source in self.track_event_sources.items():
+            for event in event_source.get_events(timepos, timepos + 4096):
+                events.append(('track:%s' % track_id, event))
+        return events
 
     def handle_pipeline_mutation(self, mutation):
         if self.pending_pipeline_mutations is not None:
@@ -172,3 +221,23 @@ class Player(object):
 
         else:
             raise ValueError(type(mutation))
+
+    def _set_playback_state(self, new_state):
+        assert new_state in ('stopped', 'playing')
+        if new_state == self.playback_state:
+            return
+
+        logger.info(
+            "Change playback state %s -> %s.",
+            self.playback_state, new_state)
+        self.playback_state = new_state
+
+    async def playback_start(self):
+        self._set_playback_state('playing')
+
+    async def playback_pause(self):
+        self._set_playback_state('stopped')
+
+    async def playback_stop(self):
+        self._set_playback_state('stopped')
+

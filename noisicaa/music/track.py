@@ -4,11 +4,6 @@ import logging
 
 from noisicaa import core
 
-from noisicaa.audioproc.source.silence import SilenceSource
-from noisicaa.audioproc.source.notes import NoteSource
-from noisicaa.audioproc.source.fluidsynth import FluidSynthSource
-
-from .time import Duration
 from . import model
 from . import state
 from . import commands
@@ -124,31 +119,6 @@ class Track(model.Track, state.StateBase):
     @property
     def project(self):
         return self.sheet.project
-
-    def create_playback_source(self, pipeline, setup=True, recursive=False):
-        if self.instrument is None:
-            source = SilenceSource()
-            pipeline.add_node(source)
-            if setup:
-                source.setup()
-            return source
-
-        note_source = NoteSource(self)
-        pipeline.add_node(note_source)
-        if setup:
-            note_source.setup()
-
-        instr = self.instrument
-        instr_source = FluidSynthSource(
-            instr.path, instr.bank, instr.preset)
-        instr_source.outputs['out'].volume = self.volume
-        instr_source.outputs['out'].muted = self.muted
-        pipeline.add_node(instr_source)
-        instr_source.inputs['in'].connect(note_source.outputs['out'])
-        if setup:
-            instr_source.setup()
-
-        return instr_source
 
     def append_measure(self):
         self.insert_measure(-1)

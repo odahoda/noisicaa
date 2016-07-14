@@ -297,7 +297,6 @@ class ScoreEventSource(EventSource):
                 self._current_tick = 0
                 self._current_measure += 1
                 if self._current_measure >= len(self._track.measures):
-                    yield EndOfStreamEvent(timepos)
                     self._current_measure = 0
 
 

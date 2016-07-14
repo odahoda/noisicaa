@@ -172,15 +172,16 @@ class ProjectViewImpl(QtWidgets.QWidget):
             name=self.currentSheetView().sheet.name)
 
     def onPlayerStart(self):
-        logger.info("Player start")
+        view = self.currentSheetView()
+        view.onPlayerStart()
 
     def onPlayerPause(self):
-        logger.info("Player pause")
+        view = self.currentSheetView()
+        view.onPlayerPause()
 
     def onPlayerStop(self):
-        logger.info("Player stop")
-        for sheet_view in self.sheetViews:
-            sheet_view.onPlaybackStop()
+        view = self.currentSheetView()
+        view.onPlayerStop()
 
     def onAddTrack(self, track_type):
         view = self.currentSheetView()

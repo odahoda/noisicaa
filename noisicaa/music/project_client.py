@@ -215,5 +215,17 @@ class ProjectClientMixin(object):
         return await self._stub.call(
             'DELETE_PLAYER', self._session_id, player_id)
 
+    async def player_start(self, player_id):
+        return await self._stub.call(
+            'PLAYER_START', self._session_id, player_id)
+
+    async def player_pause(self, player_id):
+        return await self._stub.call(
+            'PLAYER_PAUSE', self._session_id, player_id)
+
+    async def player_stop(self, player_id):
+        return await self._stub.call(
+            'PLAYER_STOP', self._session_id, player_id)
+
 class ProjectClient(ProjectClientMixin, ProjectClientBase):
     pass

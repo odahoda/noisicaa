@@ -92,6 +92,12 @@ class ProjectProcessMixin(object):
             'CREATE_PLAYER', self.handle_create_player)
         self.server.add_command_handler(
             'DELETE_PLAYER', self.handle_delete_player)
+        self.server.add_command_handler(
+            'PLAYER_START', self.handle_player_start)
+        self.server.add_command_handler(
+            'PLAYER_PAUSE', self.handle_player_pause)
+        self.server.add_command_handler(
+            'PLAYER_STOP', self.handle_player_stop)
 
     async def cleanup(self):
         pass
@@ -269,6 +275,21 @@ class ProjectProcessMixin(object):
         p = session.players[player_id]
         await p.cleanup()
         del session.players[player_id]
+
+    async def handle_player_start(self, session_id, player_id):
+        session = self.get_session(session_id)
+        p = session.players[player_id]
+        await p.playback_start()
+
+    async def handle_player_pause(self, session_id, player_id):
+        session = self.get_session(session_id)
+        p = session.players[player_id]
+        await p.playback_pause()
+
+    async def handle_player_stop(self, session_id, player_id):
+        session = self.get_session(session_id)
+        p = session.players[player_id]
+        await p.playback_stop()
 
 
 class ProjectProcess(ProjectProcessMixin, core.ProcessImpl):

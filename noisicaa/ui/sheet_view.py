@@ -1564,6 +1564,30 @@ class SheetViewImpl(QGraphicsView):
         self.send_command_async(
             self._sheet.id, 'AddTrack', track_type=track_type)
 
+    def onPlayerStart(self):
+        if self._player_id is None:
+            logger.warning("Player start action without active player.")
+            return
+
+        self.call_async(
+            self.project_client.player_start(self._player_id))
+
+    def onPlayerPause(self):
+        if self._player_id is None:
+            logger.warning("Player pause action without active player.")
+            return
+
+        self.call_async(
+            self.project_client.player_pause(self._player_id))
+
+    def onPlayerStop(self):
+        if self._player_id is None:
+            logger.warning("Player stop action without active player.")
+            return
+
+        self.call_async(
+            self.project_client.player_stop(self._player_id))
+
     def onPlaybackTags(self, tags):
         for tag in tags:
             QCoreApplication.postEvent(
