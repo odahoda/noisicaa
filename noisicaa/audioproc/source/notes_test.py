@@ -8,7 +8,6 @@ if __name__ == '__main__':
     pyximport.install()
 
 from noisicaa import music
-from ..exceptions import EndOfStreamError
 from . import notes
 
 

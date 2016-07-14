@@ -25,6 +25,7 @@ from . import events
 from .. import music
 from . import audio_format
 from . import frame
+from . import audio_stream
 
 logger = logging.getLogger(__name__)
 
@@ -213,129 +214,37 @@ class IPCBackend(Backend):
         self.address = os.path.join(
             socket_dir, 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
-        self._pipe_in = None
-        self._pipe_out = None
-        self._poller = None
-
-        self._buffer = bytearray()
+        self._stream = audio_stream.AudioStreamServer(self.address)
         self._timepos = None
 
     def setup(self):
         super().setup()
-
-        os.mkfifo(self.address + '.send')
-        self._pipe_in = os.open(
-            self.address + '.send', os.O_RDONLY | os.O_NONBLOCK)
-        os.set_blocking(self._pipe_in, True)
-
-        os.mkfifo(self.address + '.recv')
-        self._pipe_out = os.open(
-            self.address + '.recv', os.O_RDWR | os.O_NONBLOCK)
-        os.set_blocking(self._pipe_out, True)
-
-        self._poller = select.poll()
-        self._poller.register(self._pipe_in, select.POLLIN)
+        self._stream.setup()
 
     def cleanup(self):
-        if self._poller is not None:
-            self._poller.unregister(self._pipe_in)
-            self._poller = None
-
-        if self._pipe_in is not None:
-            os.close(self._pipe_in)
-            self._pipe_in = None
-
-        if self._pipe_out is not None:
-            os.close(self._pipe_out)
-            self._pipe_out = None
-
-        if os.path.exists(self.address + '.send'):
-            os.unlink(self.address + '.send')
-
-        if os.path.exists(self.address + '.recv'):
-            os.unlink(self.address + '.recv')
-
-        self._buffer.clear()
-
+        self._stream.cleanup()
         super().cleanup()
 
-    def _fill_buffer(self):
-        while True:
-            for fd, event in self._poller.poll(0.5):
-                assert fd == self._pipe_in
-
-                if event == select.POLLIN:
-                    dat = os.read(self._pipe_in, 1024)
-                    #logger.info("dat=%s", dat)
-                    self._buffer.extend(dat)
-                    return
-
-                elif event == select.POLLHUP:
-                    logger.warning("Pipe disconnected.")
-                    self.stop()
-                    raise Stopped
-
-                else:
-                    raise AssertionError("Unknown event %s" % event)
-
-            if self.stopped:
-                raise Stopped
-
-    def _get_line(self):
-        while True:
-            eol = self._buffer.find(b'\n')
-            if eol >= 0:
-                line = self._buffer[:eol]
-                del self._buffer[:eol+1]
-                return line
-
-            self._fill_buffer()
-
-    def _get_bytes(self, num_bytes):
-        while len(self._buffer) < num_bytes:
-            self._fill_buffer()
-
-        d = self._buffer[:num_bytes]
-        del self._buffer[:num_bytes]
-        return d
+    def stop(self):
+        self._stream.close()
+        super().stop()
 
     def wait(self, timepos):
         try:
-            line = self._get_line()
-            assert line.startswith(b'#FR=')
-            self._timepos = int(line[4:])
-            while True:
-                line = self._get_line()
-                if line == b'#END':
-                    return
+            data = self._stream.receive_frame()
+            self._timepos = data.timepos
+            for queue, event in data.events:
+                # Correct event's timepos.
+                if event.timepos != -1:
+                    event.timepos -= self._timepos - timepos
+                self.add_event(queue, event)
 
-                elif line.startswith(b'EVENT='):
-                    queue = line[6:].decode('utf-8')
-
-                    length = self._get_line()
-                    assert length.startswith(b'LEN=')
-                    serialized = self._get_bytes(int(length[4:]))
-                    event = pickle.loads(serialized)
-
-                    # Correct event's timepos.
-                    if event.timepos != -1:
-                        event.timepos -= self._timepos - timepos
-
-                    self.add_event(queue, event)
-
-                else:
-                    raise IOError("Unexpected token %r" % line)
-
-        except Stopped:
-            pass
+        except audio_stream.StreamClosed:
+            self.stop()
 
     def write(self, frame):
-        samples = frame.as_bytes()
-        response = bytearray()
-        response.extend(b'#FR=%d\n' % self._timepos)
-        response.extend(b'SAMPLES=%d\n' % len(frame))
-        response.extend(b'LEN=%d\n' % len(samples))
-        response.extend(samples)
-        while response:
-            written = os.write(self._pipe_out, response)
-            del response[:written]
+        data = audio_stream.FrameData()
+        data.timepos = self._timepos
+        data.samples = frame.as_bytes()
+        data.num_samples = len(frame)
+        self._stream.send_frame(data)
