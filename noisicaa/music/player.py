@@ -66,13 +66,26 @@ class AudioStreamProxy(object):
         self._server.cleanup()
 
     def main(self):
+        state = 'stopped'
+        timepos_offset = None
+
         while True:
             try:
                 request = self._server.receive_frame()
 
-                if self._player.playback_state == 'playing':
-                    request.events.extend(
-                        self._player.get_track_events(request.timepos))
+                new_state = self._player.playback_state
+                if state != new_state:
+                    if new_state == 'playing':
+                        timepos_offset = self._player.playback_timepos - request.timepos
+                    state = new_state
+
+                if state == 'playing':
+                    for queue, event in self._player.get_track_events(
+                            request.timepos - timepos_offset):
+                        event.timepos += timepos_offset
+                        request.events.append((queue, event))
+
+                    self._player.playback_timepos += 4096
 
                 self._client.send_frame(request)
                 response = self._client.receive_frame()
@@ -103,6 +116,7 @@ class Player(object):
         self.proxy = None
 
         self.playback_state = 'stopped'
+        self.playback_timepos = 0
         self.track_event_sources = {}
         self.tracks_listener = None
 
