@@ -65,5 +65,5 @@ class Node(object):
         for port in self.inputs.values():
             port.collect_inputs()
 
-    def run(self, timepos):
+    def run(self, ctxt):
         raise NotImplementedError

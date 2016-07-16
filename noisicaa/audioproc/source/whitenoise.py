@@ -21,7 +21,7 @@ class WhiteNoiseSource(Node):
         self._output = AudioOutputPort('out')
         self.add_output(self._output)
 
-    def run(self, timepos):
+    def run(self, ctxt):
         samples = self._output.frame.samples
         # pylint thinks that frame.audio_format is a class object.
         num_channels = self._output.frame.audio_format.num_channels  # pylint: disable=E1101

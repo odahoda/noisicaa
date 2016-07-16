@@ -76,7 +76,7 @@ class WavFileSource(Node):
 
         fp.close()
 
-    def run(self, timepos):
+    def run(self, ctxt):
         af = self._output.audio_format
         frame = Frame(af, 0, set())
 

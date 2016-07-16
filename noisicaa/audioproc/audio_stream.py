@@ -7,6 +7,8 @@ import select
 import threading
 import uuid
 
+from . import data
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,14 +17,6 @@ class StreamClosed(Exception):
 
 class StreamError(Exception):
     pass
-
-
-class FrameData(object):
-    def __init__(self):
-        self.timepos = None
-        self.samples = None
-        self.num_samples = None
-        self.events = None
 
 
 class AudioStreamBase(object):
@@ -90,12 +84,13 @@ class AudioStreamBase(object):
         return d
 
     def receive_frame(self):
-        data = FrameData()
-        data.events = []
+        frame = data.FrameData()
+        frame.events = []
+        frame.perf_data = []
 
         line = self._get_line()
         assert line.startswith(b'#FR=')
-        data.timepos = int(line[4:])
+        frame.timepos = int(line[4:])
         while True:
             line = self._get_line()
             if line == b'#END':
@@ -108,38 +103,48 @@ class AudioStreamBase(object):
                 assert length.startswith(b'LEN=')
                 serialized = self._get_bytes(int(length[4:]))
                 event = pickle.loads(serialized)
-                data.events.append((queue, event))
+                frame.events.append((queue, event))
 
             elif line.startswith(b'SAMPLES='):
-                data.num_samples = int(line[8:])
+                frame.num_samples = int(line[8:])
 
                 line = self._get_line()
                 assert line.startswith(b'LEN=')
                 num_bytes = int(line[4:])
 
-                data.samples = self._get_bytes(num_bytes)
-                assert len(data.samples) == num_bytes
+                frame.samples = self._get_bytes(num_bytes)
+                assert len(frame.samples) == num_bytes
+
+            elif line.startswith(b'PERF='):
+                serialized = self._get_bytes(int(line[5:]))
+                span = pickle.loads(serialized)
+                frame.perf_data.append(span)
 
             else:
                 raise StreamError("Unexpected token %r" % line)
 
-        return data
+        return frame
 
-    def send_frame(self, data):
+    def send_frame(self, frame):
         request = bytearray()
-        request.extend(b'#FR=%d\n' % data.timepos)
+        request.extend(b'#FR=%d\n' % frame.timepos)
 
-        if data.events:
-            for queue, event in data.events:
+        if frame.events:
+            for queue, event in frame.events:
                 request.extend(b'EVENT=%s\n' % queue.encode('utf-8'))
                 serialized = pickle.dumps(event)
                 request.extend(b'LEN=%d\n' % len(serialized))
                 request.extend(serialized)
 
-        if data.samples:
-            request.extend(b'SAMPLES=%d\n' % data.num_samples)
-            request.extend(b'LEN=%d\n' % len(data.samples))
-            request.extend(data.samples)
+        if frame.samples:
+            request.extend(b'SAMPLES=%d\n' % frame.num_samples)
+            request.extend(b'LEN=%d\n' % len(frame.samples))
+            request.extend(frame.samples)
+
+        for span in frame.perf_data or []:
+            serialized = pickle.dumps(span)
+            request.extend(b'PERF=%d\n' % len(serialized))
+            request.extend(serialized)
 
         request.extend(b'#END\n')
 

@@ -74,3 +74,11 @@ class PerfStats(object):
             yield
         finally:
             self.end_span()
+
+    def add_spans(self, spans):
+        with self._lock:
+            for span in spans:
+                if span.parent_id is 0:
+                    span.parent_id = self.current_span_id
+                self._spans.append(span)
+

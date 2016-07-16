@@ -7,6 +7,7 @@ import unittest
 import uuid
 
 from . import audio_stream
+from . import data
 
 
 class AudioStreamSTest(unittest.TestCase):
@@ -22,9 +23,9 @@ class AudioStreamSTest(unittest.TestCase):
                 server.setup()
                 server_ready.set()
 
-                data = server.receive_frame()
-                data.timepos += 1
-                server.send_frame(data)
+                frame = server.receive_frame()
+                frame.timepos += 1
+                server.send_frame(frame)
 
             finally:
                 server.cleanup()
@@ -37,19 +38,19 @@ class AudioStreamSTest(unittest.TestCase):
         try:
             client.setup()
 
-            data = audio_stream.FrameData()
-            data.timepos = 1234
-            data.samples = b'pling'
-            data.num_samples = 3
-            data.events = [('q1', 'event1'), ('q2', 'event2')]
-            client.send_frame(data)
+            frame = data.FrameData()
+            frame.timepos = 1234
+            frame.samples = b'pling'
+            frame.num_samples = 3
+            frame.events = [('q1', 'event1'), ('q2', 'event2')]
+            client.send_frame(frame)
 
-            data = client.receive_frame()
-            self.assertEqual(data.timepos, 1235)
-            self.assertEqual(data.samples, b'pling')
-            self.assertEqual(data.num_samples, 3)
+            frame = client.receive_frame()
+            self.assertEqual(frame.timepos, 1235)
+            self.assertEqual(frame.samples, b'pling')
+            self.assertEqual(frame.num_samples, 3)
             self.assertEqual(
-                data.events, [('q1', 'event1'), ('q2', 'event2')])
+                frame.events, [('q1', 'event1'), ('q2', 'event2')])
 
         finally:
             client.cleanup()

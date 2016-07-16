@@ -24,5 +24,5 @@ class PassThru(node.Node):
         self._output = ports.AudioOutputPort('out')
         self.add_output(self._output)
 
-    def run(self, timepos):
+    def run(self, ctxt):
         self._output.frame.copy_from(self._input.frame)

@@ -62,7 +62,7 @@ class CSoundFilter(node.Node):
 
         await super().cleanup()
 
-    def run(self, timepos):
+    def run(self, ctxt):
         num_samples = len(self._output.frame)
 
         in_samples = self._input.frame.samples
@@ -136,13 +136,14 @@ class CSoundInstrument(node.Node):
 
         await super().cleanup()
 
-    def run(self, timepos):
+    def run(self, ctxt):
         self._output.frame.clear()
 
         num_samples = len(self._output.frame)
         out = self._output.frame.samples
 
         pos = 0
+        timepos = ctxt.timepos
         pending_events = list(self._input.events)
         while pos < num_samples:
             while (len(pending_events) > 0

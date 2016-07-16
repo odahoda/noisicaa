@@ -25,7 +25,7 @@ class TrackEventSource(node.Node):
         self._output = ports.EventOutputPort('out')
         self.add_output(self._output)
 
-    def run(self, timepos):
+    def run(self, ctxt):
         self._output.events.clear()
         self._output.events.extend(
             self.pipeline.backend.get_events(self.queue_name))

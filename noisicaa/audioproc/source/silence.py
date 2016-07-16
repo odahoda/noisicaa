@@ -20,6 +20,6 @@ class SilenceSource(Node):
         self._output = AudioOutputPort('out')
         self.add_output(self._output)
 
-    def run(self, timepos):
+    def run(self, ctxt):
         self._output.frame.clear()
 

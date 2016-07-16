@@ -11,6 +11,7 @@ import toposort
 from ..rwlock import RWLock
 from .exceptions import Error
 from noisicaa import core
+from . import data
 
 logger = logging.getLogger(__name__)
 
@@ -98,66 +99,68 @@ class Pipeline(object):
         try:
             logger.info("Starting mainloop...")
             self._started.set()
-            timepos = 0
+            ctxt = data.FrameContext()
+            ctxt.timepos = 0
+            ctxt.duration = 4096
+
             while not self._stopping.is_set():
-                perf = core.PerfStats()
-                with perf.track('frame(%d)' % timepos):
+                ctxt.perf = core.PerfStats()
+                ctxt.in_frame = None
+                ctxt.out_frame = None
+
+                with ctxt.perf.track('frame(%d)' % ctxt.timepos):
                     backend = self._backend
                     if backend is None:
                         time.sleep(0.1)
                         continue
 
-
                     t0 = time.time()
-                    with perf.track('backend.wait'):
-                        backend.wait(timepos)
+                    with ctxt.perf.track('backend.wait'):
+                        backend.wait(ctxt)
                     if backend.stopped:
                         break
 
-                    with perf.track('process'):
+                    with ctxt.perf.track('process'):
                         t1 = time.time()
-                        logger.debug("Processing frame @%d", timepos)
+                        logger.debug("Processing frame @%d", ctxt.timepos)
 
-                        with self.reader_lock():
-                            assert not self._notifications
+                        self.process_frame(ctxt)
 
-                            with perf.track('sort_nodes'):
-                                nodes = self.sorted_nodes
-                            for node in nodes:
-                                logger.debug("Running node %s", node.name)
-                                with perf.track('collect_inputs(%s)' % node.id):
-                                    node.collect_inputs()
-                                with perf.track('run(%s)' % node.id):
-                                    node.run(timepos)
+                    notifications = self._notifications
+                    self._notifications = []
 
-                            notifications = self._notifications
-                            self._notifications = []
+                    with ctxt.perf.track('send_notifications'):
+                        for node_id, notification in notifications:
+                            logger.info(
+                                "Node %s fired notification %s",
+                                node_id, notification)
+                            self.notification_listener.call(
+                                node_id, notification)
 
-                        with perf.track('send_notifications'):
-                            for node_id, notification in notifications:
-                                logger.info(
-                                    "Node %s fired notification %s",
-                                    node_id, notification)
-                                self.notification_listener.call(
-                                    node_id, notification)
+                    t2 = time.time()
+                    if t2 - t0 > 0:
+                        utilization = (t2 - t1) / (t2 - t0)
+                        # if self.utilization_callback is not None:
+                        #     self.utilization_callback(utilization)
 
-                        t2 = time.time()
-                        if t2 - t0 > 0:
-                            utilization = (t2 - t1) / (t2 - t0)
-                            # if self.utilization_callback is not None:
-                            #     self.utilization_callback(utilization)
-
-                        timepos += 4096
-                        backend.clear_events()
-
-                # TODO: backend should write data here, not when called
-                # from the sink node.
-                # And get perf data - IPCBackend should serialize
-                # perf data and send it upstream.
-                print('\n'.join(str(s) for s in perf.get_spans()))
+                backend.write(ctxt)
+                ctxt.timepos += 4096
 
         except:  # pylint: disable=bare-except
             sys.excepthook(*sys.exc_info())
+
+    def process_frame(self, ctxt):
+        with self.reader_lock():
+            assert not self._notifications
+
+            with ctxt.perf.track('sort_nodes'):
+                nodes = self.sorted_nodes
+            for node in nodes:
+                logger.debug("Running node %s", node.name)
+                with ctxt.perf.track('collect_inputs(%s)' % node.id):
+                    node.collect_inputs()
+                with ctxt.perf.track('run(%s)' % node.id):
+                    node.run(ctxt)
 
     def add_notification(self, node_id, notification):
         self._notifications.append((node_id, notification))

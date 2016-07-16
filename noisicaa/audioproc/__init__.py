@@ -3,8 +3,10 @@ from .events import (
     NoteOnEvent, NoteOffEvent
 )
 from .audio_stream import (
-    FrameData,
     AudioStreamClient,
     AudioStreamServer,
     StreamClosed
+)
+from .data import (
+    FrameData,
 )

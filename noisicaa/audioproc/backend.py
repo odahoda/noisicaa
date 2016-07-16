@@ -26,6 +26,7 @@ from .. import music
 from . import audio_format
 from . import frame
 from . import audio_stream
+from . import data
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +43,11 @@ class AudioSinkNode(Node):
         self._input = AudioInputPort('in')
         self.add_input(self._input)
 
-    def run(self, timepos):
-        self.pipeline.backend.write(self._input.frame)
+    def run(self, ctxt):
+        ctxt.out_frame = data.FrameData()
+        ctxt.out_frame.timepos = ctxt.timepos
+        ctxt.out_frame.samples = self._input.frame.as_bytes()
+        ctxt.out_frame.num_samples = len(self._input.frame)
 
 
 class SystemEventSourceNode(Node):
@@ -58,7 +62,7 @@ class SystemEventSourceNode(Node):
         self._output = EventOutputPort('out')
         self.add_output(self._output)
 
-    def run(self, timepos):
+    def run(self, ctxt):
         self._output.events.clear()
 
 
@@ -80,10 +84,10 @@ class Backend(object):
     def stop(self):
         self._stopped.set()
 
-    def wait(self, timepos):
+    def wait(self, ctxt):
         raise NotImplementedError
 
-    def write(self, frame):
+    def write(self, ctxt):
         raise NotImplementedError
 
     def clear_events(self):
@@ -187,17 +191,28 @@ class PyAudioBackend(Backend):
         super().stop()
         self._need_more.set()
 
-    def wait(self, timepos):
+    def wait(self, ctxt):
         if self.stopped:
             return
         self._need_more.wait()
 
-    def write(self, frame):
-        samples = self._resampler.convert(frame.as_bytes(), len(frame))
+    def write(self, ctxt):
+        assert ctxt.out_frame is not None
+        assert ctxt.out_frame.samples is not None
+        assert ctxt.out_frame.num_samples > 0
+        samples = self._resampler.convert(
+            ctxt.out_frame.samples, ctxt.out_frame.num_samples)
         with self._buffer_lock:
             self._buffer.extend(samples)
             if len(self._buffer) >= self._buffer_threshold:
                 self._need_more.clear()
+        self.clear_events()
+
+        # TODO: backend should write data here, not when called
+        # from the sink node.
+        # And get perf data - IPCBackend should serialize
+        # perf data and send it upstream.
+        print('\n'.join(str(s) for s in ctxt.perf.get_spans()))
 
 
 class Stopped(Exception):
@@ -215,7 +230,7 @@ class IPCBackend(Backend):
             socket_dir, 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
         self._stream = audio_stream.AudioStreamServer(self.address)
-        self._timepos = None
+        self._timepos_offset = None
 
     def setup(self):
         super().setup()
@@ -229,22 +244,24 @@ class IPCBackend(Backend):
         self._stream.close()
         super().stop()
 
-    def wait(self, timepos):
+    def wait(self, ctxt):
         try:
-            data = self._stream.receive_frame()
-            self._timepos = data.timepos
-            for queue, event in data.events:
+            ctxt.in_frame = self._stream.receive_frame()
+            self.timepos_offset = ctxt.in_frame.timepos - ctxt.timepos
+            ctxt.in_frame.timepos = ctxt.timepos
+            for queue, event in ctxt.in_frame.events:
                 # Correct event's timepos.
                 if event.timepos != -1:
-                    event.timepos -= self._timepos - timepos
+                    event.timepos -= self.timepos_offset
                 self.add_event(queue, event)
 
         except audio_stream.StreamClosed:
             self.stop()
 
-    def write(self, frame):
-        data = audio_stream.FrameData()
-        data.timepos = self._timepos
-        data.samples = frame.as_bytes()
-        data.num_samples = len(frame)
-        self._stream.send_frame(data)
+    def write(self, ctxt):
+        assert ctxt.out_frame is not None
+        assert ctxt.perf.current_span_id == 0
+        ctxt.out_frame.timepos += self.timepos_offset
+        ctxt.out_frame.perf_data = ctxt.perf.get_spans()
+        self._stream.send_frame(ctxt.out_frame)
+        self.clear_events()

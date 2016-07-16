@@ -27,6 +27,6 @@ class Scale(Node):
 
         self._factor = factor
 
-    def run(self, timepos):
+    def run(self, ctxt):
         self._input.frame.mul(self._factor)
         self._output.frame.copy_from(self._input.frame)
