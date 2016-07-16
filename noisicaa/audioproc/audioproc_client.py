@@ -19,14 +19,15 @@ class AudioProcClientMixin(object):
         self.server.add_command_handler(
             'PIPELINE_MUTATION', self.handle_pipeline_mutation)
         self.server.add_command_handler(
-            'PIPELINE_STATUS', self.handle_pipeline_status)
+            'PIPELINE_STATUS', self.handle_pipeline_status,
+            log_level=logging.DEBUG)
 
-    async def connect(self, address):
+    async def connect(self, address, flags=None):
         assert self._stub is None
         self._stub = ipc.Stub(self.event_loop, address)
         await self._stub.connect()
         self._session_id = await self._stub.call(
-            'START_SESSION', self.server.address)
+            'START_SESSION', self.server.address, flags)
 
     async def disconnect(self, shutdown=False):
         if self._session_id is not None:

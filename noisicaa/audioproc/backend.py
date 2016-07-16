@@ -14,6 +14,9 @@ import uuid
 
 import pyaudio
 
+from noisicaa import music
+from noisicaa import core
+
 from .resample import (Resampler,
                        AV_CH_LAYOUT_STEREO,
                        AV_SAMPLE_FMT_S16,
@@ -22,7 +25,6 @@ from .node import Node
 from .node_types import NodeType
 from .ports import AudioInputPort, EventOutputPort
 from . import events
-from .. import music
 from . import audio_format
 from . import frame
 from . import audio_stream
@@ -208,12 +210,6 @@ class PyAudioBackend(Backend):
                 self._need_more.clear()
         self.clear_events()
 
-        # TODO: backend should write data here, not when called
-        # from the sink node.
-        # And get perf data - IPCBackend should serialize
-        # perf data and send it upstream.
-        print('\n'.join(str(s) for s in ctxt.perf.get_spans()))
-
 
 class Stopped(Exception):
     pass
@@ -261,7 +257,10 @@ class IPCBackend(Backend):
     def write(self, ctxt):
         assert ctxt.out_frame is not None
         assert ctxt.perf.current_span_id == 0
+
+        perf_data = ctxt.perf.get_spans()
+
         ctxt.out_frame.timepos += self.timepos_offset
-        ctxt.out_frame.perf_data = ctxt.perf.get_spans()
+        ctxt.out_frame.perf_data = perf_data
         self._stream.send_frame(ctxt.out_frame)
         self.clear_events()

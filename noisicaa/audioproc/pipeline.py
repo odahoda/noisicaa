@@ -35,6 +35,8 @@ class Pipeline(object):
         self._notifications = []
         self.notification_listener = core.CallbackRegistry()
 
+        self.listeners = core.CallbackRegistry()
+
     def reader_lock(self):
         return self._lock.reader_lock
 
@@ -144,6 +146,7 @@ class Pipeline(object):
                         #     self.utilization_callback(utilization)
 
                 backend.write(ctxt)
+                self.listeners.call('perf_data', ctxt.perf.get_spans())
                 ctxt.timepos += 4096
 
         except:  # pylint: disable=bare-except

@@ -116,10 +116,13 @@ class Server(object):
         self._server = None
 
         self._command_handlers = {}
+        self._command_log_levels = {}
 
-    def add_command_handler(self, cmd, handler):
+    def add_command_handler(self, cmd, handler, log_level=None):
         assert cmd not in self._command_handlers
         self._command_handlers[cmd] = handler
+        if log_level is not None:
+            self._command_log_levels[cmd] = log_level
 
     def new_connection_id(self):
         self._next_connection_id += 1
@@ -162,7 +165,9 @@ class Server(object):
             handler = self._command_handlers[command]
 
             args, kwargs = self.deserialize(payload)
-            logger.info(
+
+            logger.log(
+                self._command_log_levels.get(command, logging.INFO),
                 "%s(%s%s)",
                 command,
                 ', '.join(str(a) for a in args),

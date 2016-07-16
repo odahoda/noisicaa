@@ -24,7 +24,7 @@ from .editor_window import EditorWindow
 from ..instr import library
 
 from . import project_registry
-
+from . import pipeline_perf_monitor
 
 logger = logging.getLogger('ui.editor_app')
 
@@ -70,8 +70,14 @@ class AudioProcClientImpl(object):
     async def cleanup(self):
         pass
 
-class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
-    pass
+class AudioProcClient(
+        audioproc.AudioProcClientMixin, AudioProcClientImpl):
+    def __init__(self, app, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__app = app
+
+    def handle_pipeline_status(self, status):
+        self.__app.onPipelineStatus(status)
 
 
 class BaseEditorApp(QApplication):
@@ -200,6 +206,9 @@ class BaseEditorApp(QApplication):
         self._updateOpenedProjects()
         await self.project_registry.close_project(project_connection)
 
+    def onPipelineStatus(self, status):
+        pass
+
 
 class EditorApp(BaseEditorApp):
     def __init__(self, process, runtime_settings, paths, settings=None):
@@ -209,6 +218,7 @@ class EditorApp(BaseEditorApp):
 
         self._old_excepthook = None
         self.win = None
+        self._pipeline_perf_monitor = None
 
     async def setup(self):
         logger.info("Installing custom excepthook.")
@@ -224,6 +234,9 @@ class EditorApp(BaseEditorApp):
         self.win = EditorWindow(self)
         await self.win.setup()
         self.win.show()
+
+        self._pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self, self.win)
+        self._pipeline_perf_monitor.show()
 
         if self.paths:
             logger.info("Starting with projects from cmdline.")
@@ -253,6 +266,10 @@ class EditorApp(BaseEditorApp):
             self.dumpSettings()
 
     async def cleanup(self):
+        if self._pipeline_perf_monitor is not None:
+            self._pipeline_perf_monitor.storeState()
+            self._pipeline_perf_monitor = None
+
         if self.win is not None:
             await self.win.cleanup()
             self.win = None
@@ -274,9 +291,18 @@ class EditorApp(BaseEditorApp):
             'CREATE_AUDIOPROC_PROCESS', 'main')
 
         self.audioproc_client = AudioProcClient(
-            self.process.event_loop, self.process.server)
+            self, self.process.event_loop, self.process.server)
         await self.audioproc_client.setup()
-        await self.audioproc_client.connect(self.audioproc_process)
+        await self.audioproc_client.connect(
+            self.audioproc_process, {'perf_data'})
 
         await self.audioproc_client.set_backend(
             self.settings.value('audio/backend', 'pyaudio'))
+
+    def onPipelineStatus(self, status):
+        if 'utilization' in status:
+            pass
+        if 'perf_data' in status:
+            if self._pipeline_perf_monitor is not None:
+                self._pipeline_perf_monitor.addPerfData(
+                    status['perf_data'])

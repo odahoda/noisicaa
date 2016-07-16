@@ -26,9 +26,10 @@ class InvalidSessionError(Exception): pass
 
 
 class Session(object):
-    def __init__(self, event_loop, callback_stub):
+    def __init__(self, event_loop, callback_stub, flags):
         self.event_loop = event_loop
         self.callback_stub = callback_stub
+        self.flags = flags or set()
         self.id = uuid.uuid4().hex
         self.pending_mutations = []
 
@@ -52,9 +53,15 @@ class Session(object):
                 "PUBLISH_MUTATION failed with exception: %s", exc)
 
     def publish_status(self, status):
-        callback_task = self.event_loop.create_task(
-            self.callback_stub.call('PIPELINE_STATUS', status))
-        callback_task.add_done_callback(self.publish_status_done)
+        status = dict(status)
+
+        if 'perf_data' not in self.flags and 'perf_data' in status:
+            del status['perf_data']
+
+        if status:
+            callback_task = self.event_loop.create_task(
+                self.callback_stub.call('PIPELINE_STATUS', status))
+            callback_task.add_done_callback(self.publish_status_done)
 
     def publish_status_done(self, callback_task):
         assert callback_task.done()
@@ -118,6 +125,7 @@ class AudioProcProcessMixin(object):
 
         self.pipeline = pipeline.Pipeline()
         self.pipeline.utilization_callback = self.utilization_callback
+        self.pipeline.listeners.add('perf_data', self.perf_data_callback)
 
         self.backend = None
 
@@ -168,10 +176,10 @@ class AudioProcProcessMixin(object):
         for session in self.sessions.values():
             session.publish_status(kwargs)
 
-    def handle_start_session(self, client_address):
+    def handle_start_session(self, client_address, flags):
         client_stub = ipc.Stub(self.event_loop, client_address)
         connect_task = self.event_loop.create_task(client_stub.connect())
-        session = Session(self.event_loop, client_stub)
+        session = Session(self.event_loop, client_stub, flags)
         connect_task.add_done_callback(
             functools.partial(self._client_connected, session))
         self.sessions[session.id] = session
@@ -274,6 +282,11 @@ class AudioProcProcessMixin(object):
 
         self.pipeline.set_backend(be)
         return result
+
+    def perf_data_callback(self, perf_data):
+        self.event_loop.call_soon_threadsafe(
+            functools.partial(
+                self.publish_status, perf_data=perf_data))
 
     async def handle_play_file(self, session_id, path):
         self.get_session(session_id)
