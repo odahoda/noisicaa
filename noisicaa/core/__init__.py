@@ -16,3 +16,6 @@ from .process_manager import (
 from .callbacks import (
     CallbackRegistry,
 )
+from .perf_stats import (
+    PerfStats,
+)

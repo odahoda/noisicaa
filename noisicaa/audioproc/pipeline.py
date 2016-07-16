@@ -100,45 +100,61 @@ class Pipeline(object):
             self._started.set()
             timepos = 0
             while not self._stopping.is_set():
-                backend = self._backend
-                if backend is None:
-                    time.sleep(0.1)
-                    continue
+                perf = core.PerfStats()
+                with perf.track('frame(%d)' % timepos):
+                    backend = self._backend
+                    if backend is None:
+                        time.sleep(0.1)
+                        continue
 
-                t0 = time.time()
-                backend.wait(timepos)
-                if backend.stopped:
-                    break
 
-                t1 = time.time()
-                logger.debug("Processing frame @%d", timepos)
+                    t0 = time.time()
+                    with perf.track('backend.wait'):
+                        backend.wait(timepos)
+                    if backend.stopped:
+                        break
 
-                with self.reader_lock():
-                    assert not self._notifications
+                    with perf.track('process'):
+                        t1 = time.time()
+                        logger.debug("Processing frame @%d", timepos)
 
-                    for node in self.sorted_nodes:
-                        logger.debug("Running node %s", node.name)
-                        node.collect_inputs()
-                        node.run(timepos)
+                        with self.reader_lock():
+                            assert not self._notifications
 
-                    notifications = self._notifications
-                    self._notifications = []
+                            with perf.track('sort_nodes'):
+                                nodes = self.sorted_nodes
+                            for node in nodes:
+                                logger.debug("Running node %s", node.name)
+                                with perf.track('collect_inputs(%s)' % node.id):
+                                    node.collect_inputs()
+                                with perf.track('run(%s)' % node.id):
+                                    node.run(timepos)
 
-                for node_id, notification in notifications:
-                    logger.info(
-                        "Node %s fired notification %s",
-                        node_id, notification)
-                    self.notification_listener.call(
-                        node_id, notification)
+                            notifications = self._notifications
+                            self._notifications = []
 
-                t2 = time.time()
-                if t2 - t0 > 0:
-                    utilization = (t2 - t1) / (t2 - t0)
-                    # if self.utilization_callback is not None:
-                    #     self.utilization_callback(utilization)
+                        with perf.track('send_notifications'):
+                            for node_id, notification in notifications:
+                                logger.info(
+                                    "Node %s fired notification %s",
+                                    node_id, notification)
+                                self.notification_listener.call(
+                                    node_id, notification)
 
-                timepos += 4096
-                backend.clear_events()
+                        t2 = time.time()
+                        if t2 - t0 > 0:
+                            utilization = (t2 - t1) / (t2 - t0)
+                            # if self.utilization_callback is not None:
+                            #     self.utilization_callback(utilization)
+
+                        timepos += 4096
+                        backend.clear_events()
+
+                # TODO: backend should write data here, not when called
+                # from the sink node.
+                # And get perf data - IPCBackend should serialize
+                # perf data and send it upstream.
+                print('\n'.join(str(s) for s in perf.get_spans()))
 
         except:  # pylint: disable=bare-except
             sys.excepthook(*sys.exc_info())
