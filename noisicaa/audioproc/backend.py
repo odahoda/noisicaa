@@ -135,7 +135,7 @@ class PyAudioBackend(Backend):
         self._buffer = bytearray()
         self._need_more = threading.Event()
         self._bytes_per_sample = 2 * 2
-        self._buffer_threshold = 2048 * self._bytes_per_sample
+        self._buffer_threshold = 4096 * self._bytes_per_sample
 
     def setup(self):
         self._audio = pyaudio.PyAudio()

@@ -73,6 +73,8 @@ class AudioStreamProxy(object):
             try:
                 request = self._server.receive_frame()
 
+                perf = core.PerfStats()
+
                 new_state = self._player.playback_state
                 if state != new_state:
                     if new_state == 'playing':
@@ -80,15 +82,20 @@ class AudioStreamProxy(object):
                     state = new_state
 
                 if state == 'playing':
-                    for queue, event in self._player.get_track_events(
-                            request.timepos - timepos_offset):
-                        event.timepos += timepos_offset
-                        request.events.append((queue, event))
+                    with perf.track('get_track_events'):
+                        for queue, event in self._player.get_track_events(
+                                request.timepos - timepos_offset):
+                            event.timepos += timepos_offset
+                            request.events.append((queue, event))
 
                     self._player.playback_timepos += 4096
 
-                self._client.send_frame(request)
-                response = self._client.receive_frame()
+                with perf.track('send_frame'):
+                    self._client.send_frame(request)
+                with perf.track('receive_frame'):
+                    response = self._client.receive_frame()
+                perf.add_spans(response.perf_data)
+                response.perf_data = perf.get_spans()
                 self._server.send_frame(response)
 
             except audioproc.StreamClosed:
