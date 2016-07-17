@@ -102,26 +102,29 @@ class Pipeline(object):
             logger.info("Starting mainloop...")
             self._started.set()
             ctxt = data.FrameContext()
+            ctxt.perf = core.PerfStats()
             ctxt.timepos = 0
             ctxt.duration = 4096
 
             while not self._stopping.is_set():
+                backend = self._backend
+                if backend is None:
+                    time.sleep(0.1)
+                    continue
+
+                t0 = time.time()
+                with ctxt.perf.track('backend_wait'):
+                    backend.wait(ctxt)
+                if backend.stopped:
+                    break
+
+                self.listeners.call('perf_data', ctxt.perf.get_spans())
+
                 ctxt.perf = core.PerfStats()
                 ctxt.in_frame = None
                 ctxt.out_frame = None
 
                 with ctxt.perf.track('frame(%d)' % ctxt.timepos):
-                    backend = self._backend
-                    if backend is None:
-                        time.sleep(0.1)
-                        continue
-
-                    t0 = time.time()
-                    with ctxt.perf.track('backend.wait'):
-                        backend.wait(ctxt)
-                    if backend.stopped:
-                        break
-
                     with ctxt.perf.track('process'):
                         t1 = time.time()
                         logger.debug("Processing frame @%d", ctxt.timepos)
@@ -146,7 +149,6 @@ class Pipeline(object):
                         #     self.utilization_callback(utilization)
 
                 backend.write(ctxt)
-                self.listeners.call('perf_data', ctxt.perf.get_spans())
                 ctxt.timepos += 4096
 
         except:  # pylint: disable=bare-except

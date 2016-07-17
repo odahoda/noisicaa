@@ -235,7 +235,7 @@ class EditorApp(BaseEditorApp):
         await self.win.setup()
         self.win.show()
 
-        self._pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self, self.win)
+        self._pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self)
         self._pipeline_perf_monitor.show()
 
         if self.paths:
