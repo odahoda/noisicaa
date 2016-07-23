@@ -35,7 +35,7 @@ class BaseProjectTest(unittest.TestCase):
 
     def test_demo(self):
         p = project.BaseProject.make_demo()
-        pprint.pprint(p.serialize())
+        #pprint.pprint(p.serialize())
 
 
 class AddSheetTest(unittest.TestCase):
@@ -137,16 +137,21 @@ class ProjectTest(unittest.TestCase):
         self.assertIsInstance(contents, dict)
 
     def test_open(self):
-        p = project.Project()
+        p = project.Project(num_sheets=0)
         p.create('/foo.emp')
         try:
             p.dispatch_command(p.id, project.AddSheet())
+            sheet_id = p.sheets[-1].id
+            p.dispatch_command(sheet_id, project.AddTrack('score'))
+            track_id = p.sheets[-1].tracks[-1].id
         finally:
             p.close()
 
         p = project.Project()
         p.open('/foo.emp')
         try:
+            self.assertEqual(p.sheets[-1].id, sheet_id)
+            self.assertEqual(p.sheets[-1].track[-1].id, track_id)
             self.assertEqual(p.path, '/foo.emp')
             self.assertEqual(p.data_dir, '/foo.data')
         finally:

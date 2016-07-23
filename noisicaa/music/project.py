@@ -531,8 +531,8 @@ class Project(BaseProject):
     VERSION = 1
     SUPPORTED_VERSIONS = [1]
 
-    def __init__(self, state=None):
-        super().__init__(state=state)
+    def __init__(self, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
 
         self.file_lock = None
         self.header_data = None
