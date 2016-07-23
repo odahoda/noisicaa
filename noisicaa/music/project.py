@@ -709,8 +709,54 @@ class Project(BaseProject):
                 obj_id = headers['Target']
                 cmd_state = json.loads(serialized, cls=JSONDecoder)
                 cmd = commands.Command.create_from_state(cmd_state)
-                logger.info("Replay command %s on %s", cmd, obj_id)
-                super().dispatch_command(obj_id, cmd)
+                logger.info("Replay command %s on %s (%d mutations)", cmd, obj_id, len(cmd.mutations))
+                for mutation in cmd.mutations:
+                    mtype, obj_id = mutation[:2]
+                    obj = self.get_object(obj_id)
+                    if mtype == 'update_objlist':
+                        prop_name, mcmd = mutation[2:4]
+                        lst = getattr(obj, prop_name)
+                        if mcmd == 'insert':
+                            idx, child_serialized = mutation[4:]
+                            child_cls_name = child_serialized['__class__']
+                            child_cls = self.cls_map[child_cls_name]
+                            child = child_cls(state=child_serialized)
+                            lst.insert(idx, child)
+                        elif mcmd == 'delete':
+                            idx = mutation[4]
+                            del lst[idx]
+                        elif mcmd == 'clear':
+                            lst.clear()
+                        else:
+                            raise ValueError(mcmd)
+
+                    elif mtype == 'update_list':
+                        prop_name, mcmd = mutation[2:4]
+                        lst = getattr(obj, prop_name)
+                        if mcmd == 'insert':
+                            idx, value = mutation[4:]
+                            lst.insert(idx, value)
+                        elif mcmd == 'delete':
+                            idx = mutation[4]
+                            del lst[idx]
+                        elif mcmd == 'clear':
+                            lst.clear()
+                        else:
+                            raise ValueError(cmd)
+
+                    elif mtype == 'update_property':
+                        prop_name, new_value = mutation[2:]
+                        setattr(obj, prop_name, new_value)
+
+                    elif mtype == 'update_objproperty':
+                        prop_name, new_obj_serialized = mutation[2:]
+                        new_obj_cls_name = new_obj_serialized['__class__']
+                        new_obj_cls = self.cls_map[new_obj_cls_name]
+                        new_obj = new_obj_cls(state=new_obj_serialized)
+                        setattr(obj, prop_name, new_obj)
+
+                    else:
+                        raise ValueError(mtype)
 
     def write_checkpoint(self, data_dir, sequence_number):
         name_base = 'state.%d' % sequence_number
@@ -746,8 +792,70 @@ class Project(BaseProject):
             raise RuntimeError("Command %s executed on closed project." % cmd)
 
         assert self.command_log_fp is not None
+        assert not cmd.mutations
 
-        result = super().dispatch_command(obj_id, cmd)
+        mutations = []
+        mutation_listener = self.listeners.add(
+            'project_mutations', mutations.append)
+        try:
+            result = super().dispatch_command(obj_id, cmd)
+        finally:
+            mutation_listener.remove()
+
+        for mutation in mutations:
+            mtype, obj = mutation[:2]
+            if mtype == 'update_objlist':
+                prop_name, mcmd = mutation[2:4]
+                if mcmd == 'insert':
+                    idx, child = mutation[4:]
+                    cmd.mutations.append(
+                        ['update_objlist', obj.id, prop_name,
+                         'insert', idx, child.serialize()])
+                elif mcmd == 'delete':
+                    idx = mutation[4]
+                    cmd.mutations.append(
+                        ['update_objlist', obj.id, prop_name,
+                         'delete', idx])
+                elif mcmd == 'clear':
+                    cmd.mutations.append(
+                        ['update_objlist', obj.id, prop_name,
+                         'clear'])
+                else:
+                    raise ValueError(cmd)
+
+            elif mtype == 'update_list':
+                prop_name, mcmd = mutation[2:4]
+                if mcmd == 'insert':
+                    idx, value = mutation[4:]
+                    cmd.mutations.append(
+                        ['update_list', obj.id, prop_name,
+                         'insert', idx, value])
+                elif mcmd == 'delete':
+                    idx = mutation[4]
+                    cmd.mutations.append(
+                        ['update_list', obj.id, prop_name,
+                         'delete', idx])
+                elif mcmd == 'clear':
+                    cmd.mutations.append(
+                        ['update_list', obj.id, prop_name,
+                         'clear'])
+                else:
+                    raise ValueError(cmd)
+
+            elif mtype == 'update_property':
+                prop_name, old_value, new_value = mutation[2:]
+                cmd.mutations.append(
+                    ['update_property', obj.id, prop_name,
+                     new_value])
+
+            elif mtype == 'update_objproperty':
+                prop_name, old_obj, new_obj = mutation[2:]
+                cmd.mutations.append(
+                    ['update_objproperty', obj.id, prop_name,
+                     new_obj.serialize()])
+
+            else:
+                raise ValueError(mtype)
 
         serialized = json.dumps(
             cmd.serialize(),

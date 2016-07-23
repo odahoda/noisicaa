@@ -151,7 +151,7 @@ class ProjectTest(unittest.TestCase):
         p.open('/foo.emp')
         try:
             self.assertEqual(p.sheets[-1].id, sheet_id)
-            self.assertEqual(p.sheets[-1].track[-1].id, track_id)
+            self.assertEqual(p.sheets[-1].tracks[-1].id, track_id)
             self.assertEqual(p.path, '/foo.emp')
             self.assertEqual(p.data_dir, '/foo.data')
         finally:

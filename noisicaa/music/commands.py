@@ -2,6 +2,7 @@
 
 import logging
 
+from noisicaa import core
 from .state import StateBase
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,8 @@ class CommandError(Exception):
 
 
 class Command(StateBase):
+    mutations = core.ListProperty(list)
+
     command_classes = {}
 
     def __init__(self, state=None):

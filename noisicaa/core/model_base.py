@@ -112,7 +112,8 @@ class SimpleObjectList(object):
 
     def _check_type(self, value):
         if not isinstance(value, self._prop.type):
-            raise TypeError("Excepted %s" % self._prop.type)
+            raise TypeError(
+                "Excepted %s, got %s" % (self._prop.type, type(value)))
 
     def __repr__(self):
         return '[%s]' % ', '.join(repr(e) for e in self._objs)
