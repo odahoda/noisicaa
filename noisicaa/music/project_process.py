@@ -207,6 +207,7 @@ class ProjectProcessMixin(object):
     async def handle_create(self, path):
         assert self.project is None
         self.project = project.Project()
+        self.project.sheets.append(project.Sheet(name='Sheet 1'))
         self.project.create(path)
         await self.send_initial_mutations()
         self.project.listeners.add(
@@ -216,6 +217,7 @@ class ProjectProcessMixin(object):
     async def handle_create_inmemory(self):
         assert self.project is None
         self.project = project.BaseProject()
+        self.project.sheets.append(project.Sheet(name='Sheet 1'))
         await self.send_initial_mutations()
         self.project.listeners.add(
             'project_mutations', self.handle_project_mutation)

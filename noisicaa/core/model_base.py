@@ -240,6 +240,8 @@ class ObjectList(object):
         old_child = self._objs[idx]
         old_child.detach()
         old_child.clear_parent_container()
+        if self._instance.attached_to_root:
+            self._instance.root.remove_object(old_child)
         del self._objs[idx]
         for i in range(idx, len(self._objs)):
             self._objs[i].set_index(i)

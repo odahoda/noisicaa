@@ -9,7 +9,7 @@ class TestPerfStats(perf_stats.PerfStats):
         super().__init__()
         self.fake_time = 0
 
-    def get_time_usec(self):
+    def get_time_nsec(self):
         return self.fake_time
 
 

@@ -16,6 +16,7 @@ class RenderSheetDialogTest(uitest_utils.UITest):
     async def setUp(self):
         await super().setUp()
         self.project = music.BaseProject()
+        self.project.sheets.append(music.Sheet(name='Sheet 1'))
         self.sheet = self.project.sheets[0]
 
     async def test_init(self):

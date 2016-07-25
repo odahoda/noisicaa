@@ -40,7 +40,8 @@ class StateBase(model_base.ObjectBase):
             else:
                 assert isinstance(
                     prop, (model_base.Property,
-                           model_base.ObjectReferenceProperty))
+                           model_base.ObjectReferenceProperty,
+                           model_base.DictProperty)), type(prop)
                 mutation_type = 'update_property'
 
             root.handle_mutation(
@@ -63,7 +64,7 @@ class StateBase(model_base.ObjectBase):
             elif isinstance(change, model_base.PropertyListDelete):
                 root.handle_mutation(
                     (mutation_type, self, change.prop_name,
-                     'delete', change.index))
+                     'delete', change.index, change.old_value))
 
             elif isinstance(change, model_base.PropertyListClear):
                 root.handle_mutation(
@@ -189,6 +190,17 @@ class RootMixin(object):
             assert o.id is not None
             assert o.id in self.__obj_map, o
             del self.__obj_map[o.id]
+
+    def validate_object_map(self):
+        obj_map = {}
+        for o in self.walk_children():
+            assert o.id is not None
+            assert o.id not in obj_map, o
+            obj_map[o.id] = o
+        missing_objects = set(obj_map) - set(self.__obj_map)
+        extra_objects = set(self.__obj_map) - set(obj_map)
+        assert not missing_objects, missing_objects
+        assert not extra_objects, extra_objects
 
     def init_references(self):
         self.__obj_map.clear()
