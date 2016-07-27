@@ -3,6 +3,7 @@
 import logging
 import uuid
 
+from noisicaa import core
 from noisicaa.core import model_base
 
 logger = logging.getLogger(__name__)
@@ -33,50 +34,7 @@ class StateBase(model_base.ObjectBase):
         if not self.attached_to_root:
             return
         root = self.root
-        if isinstance(change, model_base.PropertyValueChange):
-            prop = self.get_property(change.prop_name)
-            if isinstance(prop, model_base.ObjectProperty):
-                mutation_type = 'update_objproperty'
-            else:
-                assert isinstance(
-                    prop, (model_base.Property,
-                           model_base.ObjectReferenceProperty,
-                           model_base.DictProperty)), type(prop)
-                mutation_type = 'update_property'
-
-            root.handle_mutation(
-                (mutation_type, self, change.prop_name,
-                 change.old_value, change.new_value))
-
-        elif isinstance(change, model_base.PropertyListChange):
-            prop = self.get_property(change.prop_name)
-            if isinstance(prop, model_base.ObjectListProperty):
-                mutation_type = 'update_objlist'
-            else:
-                assert isinstance(prop, model_base.ListProperty)
-                mutation_type = 'update_list'
-
-            if isinstance(change, model_base.PropertyListInsert):
-                root.handle_mutation(
-                    (mutation_type, self, change.prop_name,
-                     'insert', change.index, change.new_value))
-
-            elif isinstance(change, model_base.PropertyListDelete):
-                root.handle_mutation(
-                    (mutation_type, self, change.prop_name,
-                     'delete', change.index, change.old_value))
-
-            elif isinstance(change, model_base.PropertyListClear):
-                root.handle_mutation(
-                    (mutation_type, self, change.prop_name,
-                     'clear'))
-
-            else:
-                raise TypeError(
-                    "Unsupported change type %s" % type(change))
-
-        else:
-            raise TypeError("Unsupported change type %s" % type(change))
+        root.listeners.call('model_changes', self, change)
 
     def reset_state(self):
         for prop in self.list_properties():
@@ -171,6 +129,8 @@ class StateBase(model_base.ObjectBase):
 
 class RootMixin(object):
     def __init__(self, state=None):
+        self.listeners = core.CallbackRegistry()
+
         super().__init__(state=state)
 
         self.__obj_map = {self.id: self}
@@ -218,8 +178,4 @@ class RootMixin(object):
                         refid = refid[1]
                         refobj = self.__obj_map[refid]
                         prop.__set__(node, refobj)
-
-    # TODO: take (obj, PropertyChange) args
-    def handle_mutation(self, mutation):
-        pass
 

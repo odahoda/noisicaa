@@ -82,14 +82,9 @@ class Root(state.RootMixin, state.StateBase):
     children = core.ObjectListProperty(Child)
 
     def __init__(self, name=None, state=None):
-        self.listeners = core.CallbackRegistry()
-
         super().__init__(state=state)
         if state is None:
             self.name = name
-
-    def handle_mutation(self, mutation):
-        self.listeners.call('project_mutations', mutation)
 
 Root.register_class(Child)
 

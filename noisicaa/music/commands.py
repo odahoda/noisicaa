@@ -142,37 +142,33 @@ class Command(state.RootMixin, state.StateBase):
         self.log.add_operation(
             'LIST_INSERT', obj.id, prop_name, new_index, slot_id)
 
-    def _handle_mutation(self, mutation):
+    def _handle_model_change(self, obj, change):
         if self.__in_mutator:
             return
 
-        mtype, obj = mutation[:2]
-        if mtype in ('update_list', 'update_objlist'):
-            prop_name, mcmd = mutation[2:4]
-            lst = getattr(obj, prop_name)
-            if mcmd == 'insert':
-                index, new_value = mutation[4:]
-                slot_id = self.log.add_slot(new_value)
-                self.log.add_operation(
-                    'LIST_INSERT', obj.id, prop_name, index, slot_id)
-            elif mcmd == 'delete':
-                index, old_value = mutation[4:]
-                slot_id = self.log.add_slot(old_value)
-                self.log.add_operation(
-                    'LIST_DELETE', obj.id, prop_name, index, slot_id)
-            else:
-                raise ValueError(cmd)
-
-        elif mtype in ('update_property', 'update_objproperty'):
-            prop_name, old_value, new_value = mutation[2:]
-            old_slot_id = self.log.add_slot(old_value)
-            new_slot_id = self.log.add_slot(new_value)
+        if isinstance(change, core.PropertyValueChange):
+            old_slot_id = self.log.add_slot(change.old_value)
+            new_slot_id = self.log.add_slot(change.new_value)
             self.log.add_operation(
-                'SET_PROPERTY', obj.id, prop_name, old_slot_id, new_slot_id)
+                'SET_PROPERTY', obj.id, change.prop_name,
+                old_slot_id, new_slot_id)
+
+        elif isinstance(change, core.PropertyListInsert):
+            lst = getattr(obj, change.prop_name)
+            slot_id = self.log.add_slot(change.new_value)
+            self.log.add_operation(
+                'LIST_INSERT', obj.id, change.prop_name,
+                change.index, slot_id)
+
+        elif isinstance(change, core.PropertyListDelete):
+            lst = getattr(obj, change.prop_name)
+            slot_id = self.log.add_slot(change.old_value)
+            self.log.add_operation(
+                'LIST_DELETE', obj.id, change.prop_name, change.index,
+                slot_id)
 
         else:
-            raise ValueError(mtype)
-
+            raise TypeError("Unsupported change type %s" % type(change))
 
     def run(self, obj):
         raise NotImplementedError
@@ -181,7 +177,7 @@ class Command(state.RootMixin, state.StateBase):
         assert self.status == 'NOT_APPLIED'
 
         listener = obj.root.listeners.add(
-            'project_mutations', self._handle_mutation)
+            'model_changes', self._handle_model_change)
         try:
             result = self.run(obj)
         except:

@@ -15,6 +15,7 @@ from . import project
 from . import mutations
 from . import commands
 from . import player
+from . import state
 
 logger = logging.getLogger(__name__)
 
@@ -111,51 +112,42 @@ class ProjectProcessMixin(object):
         except KeyError:
             raise InvalidSessionError
 
-    def handle_project_mutation(self, mutation):
-        logger.info("Project mutation: %s", mutation)
-        mtype, obj = mutation[:2]
-        if mtype == 'update_objlist':
-            prop_name, cmd = mutation[2:4]
-            if cmd == 'insert':
-                idx, child = mutation[4:]
-                for mutation in self.add_object_mutations(child):
-                    self.pending_mutations.append(mutation)
-                self.pending_mutations.append(mutations.UpdateObjectList(obj, prop_name, 'insert', idx, child.id))
-            elif cmd == 'delete':
-                idx = mutation[4]
-                self.pending_mutations.append(mutations.UpdateObjectList(obj, prop_name, 'delete', idx))
-            elif cmd == 'clear':
-                self.pending_mutations.append(mutations.UpdateObjectList(obj, prop_name, 'clear'))
-            else:
-                raise ValueError(cmd)
+    def handle_model_change(self, obj, change):
+        logger.info("Model change on %s: %s", obj, change)
 
-        elif mtype == 'update_list':
-            prop_name, cmd = mutation[2:4]
-            if cmd == 'insert':
-                idx, value = mutation[4:]
-                self.pending_mutations.append(mutations.UpdateList(obj, prop_name, 'insert', idx, value))
-            elif cmd == 'delete':
-                idx = mutation[4]
-                self.pending_mutations.append(mutations.UpdateList(obj, prop_name, 'delete', idx))
-            elif cmd == 'clear':
-                self.pending_mutations.append(mutations.UpdateList(obj, prop_name, 'clear'))
-            else:
-                raise ValueError(cmd)
-
-        elif mtype == 'update_property':
-            prop_name, old_value, new_value = mutation[2:]
-            self.pending_mutations.append(mutations.SetProperties(obj, [prop_name]))
-
-        elif mtype == 'update_objproperty':
-            prop_name, old_obj, new_obj = mutation[2:]
-            if new_obj is not None:
-                for mutation in self.add_object_mutations(new_obj):
+        if isinstance(change, core.PropertyValueChange):
+            if (change.new_value is not None
+                and isinstance(change.new_value, state.StateBase)):
+                for mutation in self.add_object_mutations(
+                        change.new_value):
                     self.pending_mutations.append(mutation)
 
-            self.pending_mutations.append(mutations.SetProperties(obj, [prop_name]))
+            self.pending_mutations.append(
+                mutations.SetProperties(obj, [change.prop_name]))
+
+        elif isinstance(change, core.PropertyListInsert):
+            if isinstance(change.new_value, state.StateBase):
+                for mutation in self.add_object_mutations(
+                        change.new_value):
+                    self.pending_mutations.append(mutation)
+
+                self.pending_mutations.append(
+                    mutations.UpdateObjectList(
+                        obj, change.prop_name, 'insert', change.index,
+                        change.new_value.id))
+            else:
+                self.pending_mutations.append(
+                    mutations.UpdateObjectList(
+                        obj, change.prop_name, 'insert', change.index,
+                        change.new_value))
+
+        elif isinstance(change, core.PropertyListDelete):
+            self.pending_mutations.append(
+                mutations.UpdateObjectList(
+                    obj, change.prop_name, 'delete', change.index))
 
         else:
-            raise ValueError(mtype)
+            raise TypeError("Unsupported change type %s" % type(change))
 
     async def publish_mutation(self, mutation):
         tasks = []
@@ -211,7 +203,7 @@ class ProjectProcessMixin(object):
         self.project.create(path)
         await self.send_initial_mutations()
         self.project.listeners.add(
-            'project_mutations', self.handle_project_mutation)
+            'model_changes', self.handle_model_change)
         return self.project.id
 
     async def handle_create_inmemory(self):
@@ -220,7 +212,7 @@ class ProjectProcessMixin(object):
         self.project.sheets.append(project.Sheet(name='Sheet 1'))
         await self.send_initial_mutations()
         self.project.listeners.add(
-            'project_mutations', self.handle_project_mutation)
+            'model_changes', self.handle_model_change)
         return self.project.id
 
     async def handle_open(self, path):
@@ -229,7 +221,7 @@ class ProjectProcessMixin(object):
         self.project.open(path)
         await self.send_initial_mutations()
         self.project.listeners.add(
-            'project_mutations', self.handle_project_mutation)
+            'model_changes', self.handle_model_change)
         return self.project.id
 
     def handle_close(self):

@@ -438,9 +438,6 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             cmd, obj_id, len(cmd.log.ops))
         return result
 
-    def handle_mutation(self, mutation):
-        self.listeners.call('project_mutations', mutation)
-
     @classmethod
     def make_demo(cls):
         project = cls()
