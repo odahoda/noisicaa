@@ -63,19 +63,23 @@ def main(argv):
             assert modpath.startswith(LIBDIR + '/')
             modpath = modpath[len(LIBDIR)+1:-3]
             modname = modpath.replace('/', '.')
-            logging.info("Loading module %s...", modname)
-            __import__(modname)
-
-            if not fnmatch.fnmatch(filename, '*_*test.py'):
-                continue
 
             if args.selectors:
                 matched = False
                 for selector in args.selectors:
                     if modname.startswith(selector):
                         matched = True
-                if not matched:
-                    continue
+            else:
+                matched = True
+
+            is_test = modname.endswith('_test')
+
+            if (is_test and matched) or not args.nocoverage:
+                logging.info("Loading module %s...", modname)
+                __import__(modname)
+
+            if not is_test or not matched:
+                continue
 
             modsuite = loader.loadTestsFromName(modname)
             suite.addTest(modsuite)
