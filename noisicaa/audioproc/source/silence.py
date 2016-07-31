@@ -4,27 +4,22 @@ import logging
 
 from ..ports import AudioOutputPort
 from ..node import Node
+from ..node_types import NodeType
 
 logger = logging.getLogger(__name__)
 
 
 class SilenceSource(Node):
-    def __init__(self):
-        super().__init__()
+    desc = NodeType()
+    desc.name = 'silence'
+    desc.port('out', 'output', 'audio')
+
+    def __init__(self, event_loop):
+        super().__init__(event_loop)
 
         self._output = AudioOutputPort('out')
         self.add_output(self._output)
 
-        self._timepos = 0
+    def run(self, ctxt):
+        self._output.frame.clear()
 
-    def start(self):
-        super().start()
-        self._timepos = 0
-
-    def run(self):
-        frame = self._output.create_frame(self._timepos)
-        frame.resize(4096)
-        self._timepos += len(frame)
-
-        logger.info('Node %s created %s', self.name, frame)
-        self._output.add_frame(frame)

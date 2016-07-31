@@ -4,41 +4,19 @@
 # message "Access to a protected member .. of a client class"
 # pylint: disable=W0212
 
+import asyncio
 import logging
 import os.path
 
-from PyQt5.QtCore import Qt, QByteArray, pyqtSignal
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (
-    QAction,
-    QComboBox,
-    QDialog,
-    QFormLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
-    QPushButton,
-    QSplitter,
-    QStyleFactory,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-    QFileDialog,
-)
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from .piano import PianoWidget
 from ..constants import DATA_DIR
-from ..instr.library import (
-    SampleInstrument,
-    SoundFontInstrument,
-    Instrument,
-    InstrumentLibrary,
-)
-from ..audioproc.source.fluidsynth import FluidSynthSource
-from ..ui_state import UpdateUIState
-
+from . import ui_base
+from ..instr import library
 
 logger = logging.getLogger(__name__)
 
@@ -53,97 +31,94 @@ logger = logging.getLogger(__name__)
 # - sorting
 # - add/remove
 
-class InstrumentListItem(QListWidgetItem):
+class InstrumentListItem(QtWidgets.QListWidgetItem):
     def __init__(self, parent, instrument):
         super().__init__(parent, 0)
         self.instrument = instrument
 
 
-class InstrumentLibraryDialog(QDialog):
-    instrumentChanged = pyqtSignal(Instrument)
+class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
+    instrumentChanged = QtCore.pyqtSignal(library.Instrument)
 
-    def __init__(self, parent, app, library):
-        super().__init__(parent)
+    def __init__(self, parent=None, selectButton=False, **kwargs):
+        super().__init__(parent=parent, **kwargs)
 
         logger.info("InstrumentLibrary created")
-        self._app = app
 
-        self.library = library
-        self.ui_state = self.library.ui_state
-        self.ui_state.add_change_listener(self.onUIStateChange)
+        self._pipeline_lock = asyncio.Lock()
+        self._pipeline_mixer_id = None
+        self._pipeline_instrument_id = None
 
-        self.player_source = None
+        self._instrument = None
 
         self.setWindowTitle("noisicaä - Instrument Library")
 
-        self.tabs = QTabWidget(self)
+        self.tabs = QtWidgets.QTabWidget(self)
 
-        self.instruments_page = QSplitter(self.tabs)
+        self.instruments_page = QtWidgets.QSplitter(self.tabs)
         self.instruments_page.setChildrenCollapsible(False)
 
-        left = QWidget(self)
+        left = QtWidgets.QWidget(self)
         self.instruments_page.addWidget(left)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         left.setLayout(layout)
 
-        self.instruments_search = QLineEdit(self)
+        self.instruments_search = QtWidgets.QLineEdit(self)
         layout.addWidget(self.instruments_search)
-        self.instruments_search.addAction(QIcon.fromTheme('edit-find'), QLineEdit.LeadingPosition)
-        action = QAction(QIcon.fromTheme('edit-clear'), "Clear search string", self.instruments_search, triggered=self.instruments_search.clear)
-        self.instruments_search.addAction(action, QLineEdit.TrailingPosition)
+        self.instruments_search.addAction(QtGui.QIcon.fromTheme('edit-find'), QtWidgets.QLineEdit.LeadingPosition)
+        action = QtWidgets.QAction(QtGui.QIcon.fromTheme('edit-clear'), "Clear search string", self.instruments_search, triggered=self.instruments_search.clear)
+        self.instruments_search.addAction(action, QtWidgets.QLineEdit.TrailingPosition)
         self.instruments_search.textChanged.connect(self.onInstrumentSearchChanged)
 
-        self.instruments_list = instrument_list = QListWidget(self)
+        self.instruments_list = instrument_list = QtWidgets.QListWidget(self)
         layout.addWidget(instrument_list, 1)
         instrument_list.currentItemChanged.connect(
             lambda current, prev: self.onInstrumentItemSelected(current))
 
-        buttons = QHBoxLayout()
+        buttons = QtWidgets.QHBoxLayout()
         layout.addLayout(buttons)
 
-        add_button = QPushButton("Add")
+        add_button = QtWidgets.QPushButton("Add")
         add_button.clicked.connect(self.onInstrumentAdd)
         buttons.addWidget(add_button)
-        buttons.addWidget(QPushButton("Remove"))
+        buttons.addWidget(QtWidgets.QPushButton("Remove"))
         buttons.addStretch(1)
 
-        instrument_info = QWidget(self)
+        instrument_info = QtWidgets.QWidget(self)
         self.instruments_page.addWidget(instrument_info)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         instrument_info.setLayout(layout)
 
-        form_layout = QFormLayout()
+        form_layout = QtWidgets.QFormLayout()
         layout.addLayout(form_layout)
 
-        self.instrument_name = QLineEdit(self, readOnly=True)
+        self.instrument_name = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Name", self.instrument_name)
 
-        self.instrument_type = QLineEdit(self, readOnly=True)
+        self.instrument_type = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Type", self.instrument_type)
 
-        self.instrument_path = QLineEdit(self, readOnly=True)
+        self.instrument_path = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Path", self.instrument_path)
 
-        self.instrument_collection = QLineEdit(self, readOnly=True)
+        self.instrument_collection = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Collection", self.instrument_collection)
 
-        self.instrument_location = QLineEdit(self, readOnly=True)
+        self.instrument_location = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Location", self.instrument_location)
 
         layout.addStretch(1)
 
-        self.piano = PianoWidget(self, self._app)
+        self.piano = PianoWidget(self, self.app)
         self.piano.setVisible(False)
-        self.piano.noteOn.connect(self.onNoteOn)
-        self.piano.noteOff.connect(self.onNoteOff)
         layout.addWidget(self.piano)
 
         self.tabs.addTab(self.instruments_page, "Instruments")
 
-        collections_page = QWidget(self.tabs)
-        layout = QVBoxLayout()
+        collections_page = QtWidgets.QWidget(self.tabs)
+        layout = QtWidgets.QVBoxLayout()
 
         layout.addStretch(1)
         collections_page.setLayout(layout)
@@ -151,14 +126,20 @@ class InstrumentLibraryDialog(QDialog):
         self.tabs.addTab(collections_page, "Collections")
 
 
-        close = QPushButton("Close")
+        close = QtWidgets.QPushButton("Close")
         close.clicked.connect(self.close)
 
-        buttons = QHBoxLayout()
+        if selectButton:
+            select = QtWidgets.QPushButton("Select")
+            select.clicked.connect(self.accept)
+
+        buttons = QtWidgets.QHBoxLayout()
         buttons.addStretch(1)
+        if selectButton:
+            buttons.addWidget(select)
         buttons.addWidget(close)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.tabs, 1)
         layout.addLayout(buttons)
 
@@ -166,35 +147,74 @@ class InstrumentLibraryDialog(QDialog):
 
         self.updateInstrumentList()
 
-        self.setVisible(
-            self.ui_state.get('visible', False))
-        self.restoreGeometry(
-            QByteArray(self.ui_state.get('geometry', b'')))
-        self.tabs.setCurrentIndex(
-            self.ui_state.get('page', 0))
-        self.instruments_page.restoreState(
-            self.ui_state.get('instruments_splitter_state', b''))
-        self.instruments_list.setCurrentRow(
-            self.ui_state.get('instruments_list_item', 0))
-        self.instruments_search.setText(
-            self.ui_state.get('instruments_search_text', ''))
+    @property
+    def library(self):
+        return self.app.instrument_library
+
+    def instrument(self):
+        return self._instrument
+
+    async def setup(self):
+        logger.info("Setting up instrument library dialog...")
+
+        self._pipeline_mixer_id = await self.audioproc_client.add_node(
+            'passthru', name='library-mixer')
+        await self.audioproc_client.connect_ports(
+            self._pipeline_mixer_id, 'out', 'sink', 'in')
+
+    async def cleanup(self):
+        logger.info("Cleaning up instrument library dialog...")
+
+        if self._pipeline_instrument_id is not None:
+            assert self._pipeline_mixer_id is not None
+            await self.removeInstrumentFromPipeline()
+
+        if self._pipeline_mixer_id is not None:
+            await self.audioproc_client.disconnect_ports(
+                self._pipeline_mixer_id, 'out', 'sink', 'in')
+            await self.audioproc_client.remove_node(
+                self._pipeline_mixer_id)
+            self._pipeline_mixer_id = None
+
+    async def addInstrumentToPipeline(self, node_type, **args):
+        assert self._pipeline_instrument_id is None
+
+        self._pipeline_instrument_id = await self.audioproc_client.add_node(
+            node_type, **args)
+        await self.audioproc_client.connect_ports(
+            self._pipeline_instrument_id, 'out',
+            self._pipeline_mixer_id, 'in')
+
+        self._pipeline_event_source_id = await self.audioproc_client.add_node(
+            'track_event_source')
+        await self.audioproc_client.connect_ports(
+            self._pipeline_event_source_id, 'out',
+            self._pipeline_instrument_id, 'in')
+
+    async def removeInstrumentFromPipeline(self):
+        async with self._pipeline_lock:
+            if self._pipeline_instrument_id is None:
+                return
+
+            await self.audioproc_client.disconnect_ports(
+                self._pipeline_event_source_id, 'out',
+                self._pipeline_instrument_id, 'in')
+            await self.audioproc_client.remove_node(
+                self._pipeline_event_source_id)
+            self._pipeline_event_source_id = None
+
+            await self.audioproc_client.disconnect_ports(
+                self._pipeline_instrument_id, 'out',
+                self._pipeline_mixer_id, 'in')
+            await self.audioproc_client.remove_node(
+                self._pipeline_instrument_id)
+            self._pipeline_instrument_id = None
 
     def closeEvent(self, event):
-        self.library.dispatch_command(
-            "/ui_state",
-            UpdateUIState(
-                visible=False,
-                geometry=bytes(self.saveGeometry()),
-                page=self.tabs.currentIndex(),
-                instruments_splitter_state=bytes(
-                    self.instruments_page.saveState()),
-                instruments_list_item=self.instruments_list.currentRow(),
-                instruments_search_text=self.instruments_search.text(),
-            ))
-        if self.player_source is not None:
-            self._app.removePlaybackSource(self.player_source.outputs['out'])
-            self.player_source.cleanup()
-            self.player_source = None
+        if self._pipeline_instrument_id is not None:
+            self.call_async(self.removeInstrumentFromPipeline())
+
+        super().closeEvent(event)
 
     def updateInstrumentList(self):
         self.instruments_list.clear()
@@ -203,31 +223,14 @@ class InstrumentLibraryDialog(QDialog):
             item.setText(instr.name)
             self.instruments_list.addItem(item)
 
-    def selectInstrument(self, instr):
+    def selectInstrument(self, instr_id):
         for idx in range(self.instruments_list.count()):
             item = self.instruments_list.item(idx)
-            if item.instrument == instr:
+            if item.instrument.id == instr_id:
                 self.instruments_list.setCurrentRow(idx)
                 break
 
-    def onUIStateChange(self, changes):
-        logger.info("onUIStateChange(%r)", changes)
-        for key, value in changes.items():
-            if key == 'visible':
-                if value:
-                    self.restoreGeometry(
-                        QByteArray(self.ui_state.get('geometry', b'')))
-                    self.show()
-                    self.activateWindow()
-                else:
-                    self.hide()
-
     def onInstrumentItemSelected(self, item):
-        if self.player_source is not None:
-            self._app.removePlaybackSource(self.player_source.outputs['out'])
-            self.player_source.cleanup()
-            self.player_source = None
-
         if item is None:
             self.instrument_name.setText("")
             self.instrument_collection.setText("")
@@ -236,7 +239,10 @@ class InstrumentLibraryDialog(QDialog):
             self.instrument_location.setText("")
             return
 
-        instr = item.instrument
+        self.call_async(self.setCurrentInstrument(item.instrument))
+
+    async def setCurrentInstrument(self, instr):
+        await self.removeInstrumentFromPipeline()
 
         self.instrument_name.setText(instr.name)
 
@@ -245,28 +251,21 @@ class InstrumentLibraryDialog(QDialog):
         else:
             self.instrument_collection.setText("")
 
-        if isinstance(instr, SampleInstrument):
-            self.instrument_type.setText("Sample")
-            self.instrument_path.setText(instr.path)
-            self.instrument_location.setText("")
-
-        elif isinstance(instr, SoundFontInstrument):
+        if isinstance(instr, library.SoundFontInstrument):
             self.instrument_type.setText("SoundFont")
-            self.instrument_path.setText("")
+            self.instrument_path.setText(instr.path)
             self.instrument_location.setText(
                 "bank %d, preset %d" % (instr.bank, instr.preset))
 
-            self.player_source = FluidSynthSource(
-                instr.path, instr.bank, instr.preset)
-            self.player_source.setup()
-            self._app.addPlaybackSource(self.player_source.outputs['out'])
+            await self.addInstrumentToPipeline(
+                'fluidsynth',
+                soundfont_path=instr.path,
+                bank=instr.bank, preset=instr.preset)
 
-        if self.player_source is not None:
-            self.piano.setVisible(True)
-            self.piano.setFocus(Qt.OtherFocusReason)
-        else:
-            self.piano.setVisible(False)
+        #self.piano.setVisible(True)
+        #self.piano.setFocus(Qt.OtherFocusReason)
 
+        self._instrument = instr
         self.instrumentChanged.emit(instr)
 
     def onInstrumentSearchChanged(self, text):
@@ -278,23 +277,18 @@ class InstrumentLibraryDialog(QDialog):
                 item.setHidden(True)
 
     def onInstrumentAdd(self):
-        path, open_filter = QFileDialog.getOpenFileName(
+        # TODO: persists directory/filter in app settings.
+        path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
             parent=self,
             caption="Open Project",
-            directory=self.ui_state.get(
-                'instruments_add_dialog_path', ''),
+            # directory=self.ui_state.get(
+            #     'instruments_add_dialog_path', ''),
             filter="All Files (*);;SoundFont Files (*.sf2)",
-            initialFilter=self.ui_state.get(
-                'instruments_add_dialog_path', ''))
+            # initialFilter=self.ui_state.get(
+            #     'instruments_add_dialog_path', '')
+        )
         if not path:
             return
-
-        self.library.dispatch_command(
-            "/ui_state",
-            UpdateUIState(
-                instruments_add_dialog_path=path,
-                instruments_add_dialog_filter=open_filter,
-            ))
 
         self.library.add_soundfont(path)
         self.updateInstrumentList()
@@ -304,11 +298,3 @@ class InstrumentLibraryDialog(QDialog):
 
     def keyReleaseEvent(self, event):
         self.piano.keyReleaseEvent(event)
-
-    def onNoteOn(self, note, volume):
-        if self.player_source is not None:
-            self.player_source.note_on(note, volume)
-
-    def onNoteOff(self, note):
-        if self.player_source is not None:
-            self.player_source.note_off(note)

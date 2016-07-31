@@ -1,0 +1,6 @@
+#!/bin/bash
+
+LIBDIR=$(readlink -f "$(dirname "$0")/..")
+export PYTHONPATH="$LIBDIR:$PYTHONPATH"
+export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
+exec python3 -m noisicaa.audio_playground "$@"

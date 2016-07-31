@@ -49,7 +49,12 @@ class CallbackRegistry(object):
         self._register_cb = register_cb
         self._listeners = {}
         self._target_map = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
+
+    def clear(self):
+        with self._lock:
+            self._listeners.clear()
+            self._target_map.clear()
 
     def add(self, target, callback):
         """Register a new callback.

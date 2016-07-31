@@ -6,6 +6,7 @@ import subprocess
 from ..exceptions import Error
 from ..ports import AudioInputPort
 from ..node import Node
+from ..node_types import NodeType
 from ..resample import (Resampler,
                         AV_CH_LAYOUT_STEREO,
                         AV_SAMPLE_FMT_S16,
@@ -93,12 +94,18 @@ class FlacEncoder(Encoder):
 
 
 class EncoderSink(Node):
+    desc = NodeType()
+    desc.name = 'encodersink'
+    desc.port('in', 'input', 'audio')
+    desc.parameter('format', 'string')
+    desc.parameter('path', 'string')
+
     formats = {
         'flac': FlacEncoder,
     }
 
-    def __init__(self, output_format, path):
-        super().__init__()
+    def __init__(self, event_loop, output_format, path):
+        super().__init__(event_loop)
 
         self.output_format = output_format
         self.path = path
@@ -109,30 +116,15 @@ class EncoderSink(Node):
         self._input = AudioInputPort('in')
         self.add_input(self._input)
 
-    def setup(self):
-        super().setup()
+    async def setup(self):
+        await super().setup()
         self._encoder.setup()
-
-    def cleanup(self):
-        self._encoder.cleanup()
-        super().cleanup()
-
-    def start(self):
-        super().start()
         self._encoder.start()
-        self._frames_processed = 0
 
-    def stop(self):
+    async def cleanup(self):
         self._encoder.stop()
-        super().stop()
+        self._encoder.cleanup()
+        await super().cleanup()
 
-    def run(self):
-        # Sinks don't use run(), but I have to define this, to make pylint
-        # happy.
-        raise RuntimeError
-
-    def consume(self, framesize=4096):
-        fr = self._input.get_frame(framesize)
-        self._encoder.consume(fr)
-        self._frames_processed += len(fr)
-        return self._frames_processed
+    def run(self, framesize=4096):
+        self._encoder.consume(self._input.frame)

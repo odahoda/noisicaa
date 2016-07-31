@@ -4,11 +4,14 @@ import logging
 import threading
 import pprint
 import sys
+import time
 
 import toposort
 
 from ..rwlock import RWLock
-from .exceptions import Error, EndOfStreamError
+from .exceptions import Error
+from noisicaa import core
+from . import data
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +24,18 @@ class Pipeline(object):
     def __init__(self):
         self._sample_rate = 44100
         self._nodes = set()
-        self._sink = None
+        self._backend = None
         self._thread = None
         self._started = threading.Event()
         self._stopping = threading.Event()
         self._running = False
         self._lock = RWLock()
+        self.utilization_callback = None
+
+        self._notifications = []
+        self.notification_listener = core.CallbackRegistry()
+
+        self.listeners = core.CallbackRegistry()
 
     def reader_lock(self):
         return self._lock.reader_lock
@@ -41,12 +50,11 @@ class Pipeline(object):
     def clear(self):
         assert not self._running
         self._nodes = set()
-        self._sink = None
+        self._backend = None
 
     def start(self):
         assert not self._running
         self._running = True
-        self.validate()
 
         self._stopping.clear()
         self._started.clear()
@@ -56,34 +64,22 @@ class Pipeline(object):
         logger.info("Pipeline running.")
 
     def stop(self):
+        if self._backend is not None:
+            logger.info("Stopping backend...")
+            self._backend.stop()
+
         if self._thread is not None:
+            logger.info("Stopping pipeline thread...")
             self._stopping.set()
             self.wait()
+            logger.info("Pipeline thread stopped.")
             self._thread = None
+
         self._running = False
 
     def wait(self):
         if self._thread is not None:
             self._thread.join()
-
-    def validate(self):
-        for node in self._nodes:
-            if node.pipeline is None:
-                raise Error("Dangling node %s" % node)
-
-            for name, port in node.inputs.items():
-                if not port.is_connected:
-                    raise Error(
-                        "Input port %s of node %s is not connected"
-                        % (name, node))
-                if port.input.owner not in self._nodes:
-                    raise Error(
-                        ("Input port %s of node %s is connected to a foreign"
-                         " node")
-                        % (name, node))
-
-        # will fail on cyclic graph
-        self.sorted_nodes  # pylint: disable=W0104
 
     def dump(self):
         d = {}
@@ -91,10 +87,10 @@ class Pipeline(object):
             n = {}
             n['inputs'] = {}
             for pn, p in node.inputs.items():
-                n['inputs'][pn] = (
-                    '%s:%s' % (p._input.owner.name, p._input.name)
-                    if p.is_connected
-                    else "unconnected")
+                n['inputs'][pn] = []
+                for up in p.inputs:
+                    n['inputs'][pn].append(
+                        '%s:%s' % (up.owner.name, up.name))
             d[node.name] = n
 
         logger.info("Pipeline dump:\n%s", pprint.pformat(d))
@@ -102,37 +98,92 @@ class Pipeline(object):
                                for node in self._nodes))
 
     def mainloop(self):
-        logger.info("Setting up nodes...")
-        for node in reversed(self.sorted_nodes):
-            node.setup()
-
         try:
-            logger.info("Starting sink...")
-            self._sink.start()
+            logger.info("Starting mainloop...")
             self._started.set()
+            ctxt = data.FrameContext()
+            ctxt.perf = core.PerfStats()
+            ctxt.timepos = 0
+            ctxt.duration = 4096
+
             while not self._stopping.is_set():
-                try:
-                    self._sink.consume()
-                except EndOfStreamError:
-                    logger.info("End of stream reached.")
+                backend = self._backend
+                if backend is None:
+                    time.sleep(0.1)
+                    continue
+
+                t0 = time.time()
+                with ctxt.perf.track('backend_wait'):
+                    backend.wait(ctxt)
+                if backend.stopped:
                     break
+
+                self.listeners.call('perf_data', ctxt.perf.get_spans())
+
+                ctxt.perf = core.PerfStats()
+                ctxt.in_frame = None
+                ctxt.out_frame = None
+
+                with ctxt.perf.track('frame(%d)' % ctxt.timepos):
+                    with ctxt.perf.track('process'):
+                        t1 = time.time()
+                        logger.debug("Processing frame @%d", ctxt.timepos)
+
+                        self.process_frame(ctxt)
+
+                    notifications = self._notifications
+                    self._notifications = []
+
+                    with ctxt.perf.track('send_notifications'):
+                        for node_id, notification in notifications:
+                            logger.info(
+                                "Node %s fired notification %s",
+                                node_id, notification)
+                            self.notification_listener.call(
+                                node_id, notification)
+
+                    t2 = time.time()
+                    if t2 - t0 > 0:
+                        utilization = (t2 - t1) / (t2 - t0)
+                        # if self.utilization_callback is not None:
+                        #     self.utilization_callback(utilization)
+
+                backend.write(ctxt)
+                ctxt.timepos += 4096
 
         except:  # pylint: disable=bare-except
             sys.excepthook(*sys.exc_info())
 
-        finally:
-            logger.info("Cleaning up nodes...")
-            for node in reversed(self.sorted_nodes):
-                node.stop()
-                node.cleanup()
+    def process_frame(self, ctxt):
+        with self.reader_lock():
+            assert not self._notifications
+
+            with ctxt.perf.track('sort_nodes'):
+                nodes = self.sorted_nodes
+            for node in nodes:
+                logger.debug("Running node %s", node.name)
+                with ctxt.perf.track('collect_inputs(%s)' % node.id):
+                    node.collect_inputs()
+                with ctxt.perf.track('run(%s)' % node.id):
+                    node.run(ctxt)
+
+    def add_notification(self, node_id, notification):
+        self._notifications.append((node_id, notification))
 
     @property
     def sorted_nodes(self):
-        graph = dict((node, set(node.parent_nodes)) for node in self._nodes)
+        graph = dict((node, set(node.parent_nodes))
+                     for node in self._nodes)
         try:
             return toposort.toposort_flatten(graph, sort=False)
         except ValueError as exc:
             raise Error(exc.args[0]) from exc
+
+    def find_node(self, node_id):
+        for node in self._nodes:
+            if node.id == node_id:
+                return node
+        raise Error("Unknown node %s" % node_id)
 
     def add_node(self, node):
         if node.pipeline is not None:
@@ -146,86 +197,20 @@ class Pipeline(object):
         node.pipeline = None
         self._nodes.remove(node)
 
-    def set_sink(self, sink):
-        self.add_node(sink)
-        self._sink = sink
+    def set_backend(self, backend):
+        with self.writer_lock():
+            if self._backend is not None:
+                logger.info(
+                    "Clean up backend %s", type(self._backend).__name__)
+                self._backend.cleanup()
+                self._backend = None
 
+            if backend is not None:
+                logger.info(
+                    "Set up backend %s", type(backend).__name__)
+                backend.setup()
+                self._backend = backend
 
-def demo():  # pragma: no cover
-    import pyximport
-    pyximport.install()
-
-    from .source.notes import NoteSource
-    from .source.fluidsynth import FluidSynthSource
-    from .source.whitenoise import WhiteNoiseSource
-    from .filter.scale import Scale
-    from .compose.timeslice import TimeSlice
-    from .compose.mix import Mix
-    from .sink.pyaudio import PyAudioSink
-    from .sink.encode import EncoderSink
-    from noisicaa import music
-
-    logging.basicConfig(level=logging.DEBUG)
-
-    pipeline = Pipeline()
-
-    project = music.BaseProject.make_demo()
-    sheet = project.sheets[0]
-    sheet_mixer = sheet.create_playback_source(
-        pipeline, setup=False, recursive=True)
-
-    #noise = WavFileSource('/storage/home/share/sounds/new/2STEREO2.wav') #NoiseSource()
-    # noise = WhiteNoiseSource()
-    # pipeline.add_node(noise)
-
-    # noise_boost = Scale(0.1)
-    # pipeline.add_node(noise_boost)
-    # noise_boost.inputs['in'].connect(noise.outputs['out'])
-
-    # slice_noise = TimeSlice(200000)
-    # pipeline.add_node(slice_noise)
-    # slice_noise.inputs['in'].connect(noise_boost.outputs['out'])
-
-    # concat = Mix()
-    # pipeline.add_node(concat)
-    # #concat.append_input(slice_noise.outputs['out'])
-    # concat.append_input(sheet_mixer.outputs['out'])
-
-    #sink = EncoderSink('flac', '/tmp/foo.flac')
-    sink = PyAudioSink()
-    pipeline.set_sink(sink)
-    sink.inputs['in'].connect(sheet_mixer.outputs['out'])
-
-    pipeline.start()
-    try:
-        pipeline.wait()
-    except KeyboardInterrupt:
-        pipeline.stop()
-        pipeline.wait()
-
-    # source = Mix(
-    #     MetronomeSource(22050),
-    #     Concat(
-    #         Mix(
-    #             FluidsynthSource(),
-    #             Concat(
-    #                 ,
-    #                 WavFileSource('/storage/home/share/sounds/new/2STEREO2.wav'),
-    #                 WavFileSource('/storage/home/share/sounds/new/2STEREO2.wav'),
-    #             ),
-    #         ),
-    #         TimeSlice(SilenceSource(), 10000),
-    #         WavFileSource(os.path.join(DATA_DIR, 'sounds', 'metronome.wav')),
-    #         TimeSlice(SilenceSource(), 10000),
-    #         WavFileSource(os.path.join(DATA_DIR, 'sounds', 'metronome.wav')),
-    #         TimeSlice(SilenceSource(), 10000),
-    #         WavFileSource(os.path.join(DATA_DIR, 'sounds', 'metronome.wav')),
-    #         TimeSlice(SilenceSource(), 10000),
-    #     ),
-    # )
-
-
-    # sink.run()
-
-if __name__ == '__main__':  # pragma: no cover
-    demo()
+    @property
+    def backend(self):
+        return self._backend

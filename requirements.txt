@@ -3,11 +3,15 @@ coverage
 lxml
 cssutils
 numpy
-cython
+# cython 0.24 seems broken to me...
+cython==0.23
 pyfakefs
 mox3
 portalocker
 toposort
 pyaudio
-vext==0.5.19
+vext
 vext.pyqt5
+asynctest
+quamash
+./3rdparty/csound/

@@ -13,7 +13,13 @@ def init(runtime_settings):
     captureWarnings(True)
 
     root_logger = getLogger()
+    for handler in root_logger.handlers:
+        root_logger.removeHandler(handler)
     root_logger.setLevel(DEBUG)
+
+    # Make loggers of 3rd party modules less noisy.
+    for other in ('quamash', 'vext'):
+        getLogger(other).setLevel(WARNING)
 
     log_level = {
         'debug': DEBUG,

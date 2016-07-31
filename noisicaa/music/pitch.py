@@ -3,6 +3,7 @@
 import re
 
 NOTE_TO_MIDI = {}
+MIDI_TO_NOTE = {}
 
 k = 0
 for o in range(10):
@@ -21,6 +22,7 @@ for o in range(10):
         if k < 128:
             for p in n:
                 NOTE_TO_MIDI['%s%d' % (p, o)] = k
+            MIDI_TO_NOTE[k] = '%s%d' % (n[0], o)
         k += 1
 
 
@@ -29,7 +31,12 @@ class Pitch(object):
                'G#', 'Ab', 'A', 'A#', 'Bb', 'B']
 
     def __init__(self, name=None):
-        if name == 'r':
+        if isinstance(name, Pitch):
+            self._is_rest = name._is_rest
+            self._value = name._value
+            self._accidental = name._accidental
+            self._octave = name._octave
+        elif name == 'r':
             self._is_rest = True
             self._value = None
             self._accidental = None
@@ -52,6 +59,10 @@ class Pitch(object):
             if octave < -1 or octave > 7:
                 raise ValueError('Bad octave %s' % octave)
             self._octave = octave
+
+    @classmethod
+    def from_midi(cls, midi):
+        return cls(MIDI_TO_NOTE[midi])
 
     def __str__(self):
         return self.name
@@ -103,12 +114,13 @@ class Pitch(object):
         assert not self._is_rest
         return self._accidental
 
-    @accidental.setter
-    def accidental(self, accidental):
+    def add_accidental(self, accidental):
         assert not self._is_rest
         assert accidental in ('', '#', 'b', '##', 'bb')
         assert accidental in self.valid_accidentals
-        self._accidental = accidental
+        p = self.__class__(self)
+        p._accidental = accidental
+        return p
 
     _valid_accidental_map = {
         'C': {'', '#'},

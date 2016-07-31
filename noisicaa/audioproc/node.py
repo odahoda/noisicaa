@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import logging
+import uuid
 
 from .exceptions import Error
 from .ports import OutputPort, InputPort
@@ -9,16 +10,22 @@ logger = logging.getLogger(__name__)
 
 
 class Node(object):
-    def __init__(self, name=None):
+    desc = None
+
+    def __init__(self, event_loop, name=None, id=None):
+        self.event_loop = event_loop
+        self.id = id or uuid.uuid4().hex
         self.pipeline = None
         self._name = name or type(self).__name__
         self.inputs = {}
         self.outputs = {}
-        self._started = False
 
     @property
     def name(self):
         return self._name
+
+    def send_notification(self, notification):
+        self.pipeline.add_notification(self.id, notification)
 
     def add_input(self, port):
         if not isinstance(port, InputPort):
@@ -34,41 +41,29 @@ class Node(object):
 
     @property
     def parent_nodes(self):
-        return [port.input.owner
-                for port in self.inputs.values()
-                if port.is_connected]
+        parents = []
+        for port in self.inputs.values():
+            for upstream_port in port.inputs:
+                parents.append(upstream_port.owner)
+        return parents
 
-    @property
-    def started(self):
-        return self._started
-
-    def setup(self):
+    async def setup(self):
         """Set up the node.
 
         Any expensive initialization should go here.
         """
         logger.info("%s: setup()", self.name)
 
-    def cleanup(self):
+    async def cleanup(self):
         """Clean up the node.
 
         The counterpart of setup().
         """
         logger.info("%s: cleanup()", self.name)
 
-    def start(self):
-        """Start the node."""
-        logger.info("%s: start()", self.name)
-        self._started = True
+    def collect_inputs(self):
         for port in self.inputs.values():
-            port.start()
+            port.collect_inputs()
 
-    def stop(self):
-        """Stop the node."""
-        logger.info("%s: stop()", self.name)
-        for port in self.inputs.values():
-            port.stop()
-        self._started = False
-
-    def run(self):
+    def run(self, ctxt):
         raise NotImplementedError

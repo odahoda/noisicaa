@@ -15,17 +15,16 @@ from PyQt5.QtWidgets import (
     QFileDialog,
 )
 
+from noisicaa import audioproc
 from noisicaa import music
 from noisicaa import devices
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
-from .editor_project import EditorProject
-from ..audioproc.pipeline import Pipeline
-from ..audioproc.compose.mix import Mix
-from ..audioproc.sink.pyaudio import PyAudioSink
-from ..audioproc.sink.null import NullSink
-from ..instr.library import InstrumentLibrary
+from ..instr import library
+
+from . import project_registry
+from . import pipeline_perf_monitor
 
 logger = logging.getLogger('ui.editor_app')
 
@@ -36,10 +35,10 @@ class ExceptHook(object):
 
     def __call__(self, exc_type, exc_value, tb):
         if issubclass(exc_type, RestartAppException):
-            self.app.exit(EXIT_RESTART)
+            self.app.quit(EXIT_RESTART)
             return
         if issubclass(exc_type, RestartAppCleanException):
-            self.app.exit(EXIT_RESTART_CLEAN)
+            self.app.quit(EXIT_RESTART_CLEAN)
             return
 
         msg = ''.join(traceback.format_exception(exc_type, exc_value, tb))
@@ -59,9 +58,33 @@ class ExceptHook(object):
         errorbox.exec_()
 
 
+class AudioProcClientImpl(object):
+    def __init__(self, event_loop, server):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = server
+
+    async def setup(self):
+        pass
+
+    async def cleanup(self):
+        pass
+
+class AudioProcClient(
+        audioproc.AudioProcClientMixin, AudioProcClientImpl):
+    def __init__(self, app, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__app = app
+
+    def handle_pipeline_status(self, status):
+        self.__app.onPipelineStatus(status)
+
+
 class BaseEditorApp(QApplication):
-    def __init__(self, runtime_settings, settings=None):
+    def __init__(self, process, runtime_settings, settings=None):
         super().__init__(['noisicaä'])
+
+        self.process = process
 
         self.runtime_settings = runtime_settings
 
@@ -72,19 +95,17 @@ class BaseEditorApp(QApplication):
         self.settings = settings
         self.dumpSettings()
 
-        self._projects = []
+        self.setQuitOnLastWindowClosed(False)
 
-        self._exit_code = None
         self.default_style = None
 
-        self.pipeline = None
-        self.global_mixer = None
-        self.sink = None
-        self.playback_sources = None
+        self.project_registry = None
         self.sequencer = None
         self.midi_hub = None
+        self.audioproc_client = None
+        self.audioproc_process = None
 
-    def setup(self):
+    async def setup(self):
         self.default_style = self.style().objectName()
 
         style_name = self.settings.value('appearance/qtStyle', '')
@@ -92,28 +113,13 @@ class BaseEditorApp(QApplication):
             style = QStyleFactory.create(style_name)
             self.setStyle(style)
 
-        logger.info("Creating playback pipeline.")
-        self.pipeline = Pipeline()
-
-        self.global_mixer = Mix('global_mixer')
-        self.pipeline.add_node(self.global_mixer)
-
-        self.sink = self.createAudioSink()
-        self.sink.inputs['in'].connect(self.global_mixer.outputs['out'])
-
-        self.playback_sources = {}
-        self.pipeline.start()
+        self.project_registry = project_registry.ProjectRegistry(
+            self.process.event_loop, self.process.manager)
 
         self.sequencer = self.createSequencer()
 
         self.midi_hub = self.createMidiHub()
         self.midi_hub.start()
-
-        self.new_project_action = QAction(
-            "New", self,
-            shortcut=QKeySequence.New,
-            statusTip="Create a new project",
-            triggered=self.newProject)
 
         self.show_edit_areas_action = QAction(
             "Show Edit Areas", self,
@@ -122,8 +128,16 @@ class BaseEditorApp(QApplication):
         self.show_edit_areas_action.setChecked(
             int(self.settings.value('dev/show_edit_areas', '0')))
 
-    def cleanup(self):
+        await self.createAudioProcProcess()
+
+    async def cleanup(self):
         logger.info("Cleaning up.")
+
+        if self.audioproc_client is not None:
+            await self.audioproc_client.disconnect(shutdown=True)
+            await self.audioproc_client.cleanup()
+            self.audioproc_client = None
+
         if self.midi_hub is not None:
             self.midi_hub.stop()
             self.midi_hub = None
@@ -132,15 +146,12 @@ class BaseEditorApp(QApplication):
             self.sequencer.close()
             self.sequencer = None
 
-        if self.pipeline is not None:
-            self.pipeline.stop()
-            self.pipeline = None
+        if self.project_registry is not None:
+            await self.project_registry.close_all()
+            self.project_registry = None
 
-    def createAudioSink(self):
-        sink = NullSink(sleep=0.1)
-        self.pipeline.set_sink(sink)
-        sink.setup()
-        return sink
+    def quit(self, exit_code=0):
+        self.process.quit(exit_code)
 
     def createSequencer(self):
         return None
@@ -148,10 +159,8 @@ class BaseEditorApp(QApplication):
     def createMidiHub(self):
         return devices.MidiHub(self.sequencer)
 
-    def exit(self, exit_code):
-        logger.info("exit(%d) received", exit_code)
-        self._exit_code = exit_code
-        super().exit(exit_code)
+    async def createAudioProcProcess(self):
+        pass
 
     def dumpSettings(self):
         for key in self.settings.allKeys():
@@ -170,119 +179,105 @@ class BaseEditorApp(QApplication):
         return (self.runtime_settings.dev_mode
                 and self.show_edit_areas_action.isChecked())
 
-    def addPlaybackSource(self, port):
-        mixer_port = self.global_mixer.append_input(port)
-        mixer_port.start()
-        self.playback_sources[port] = mixer_port
-        logger.info("Connected %s:%s to global mixer port %s.",
-                    port.owner.name, port.name, mixer_port.name)
+    async def createProject(self, path):
+        project = await self.project_registry.create_project(path)
+        await self.addProject(project)
+        return project
 
-    def removePlaybackSource(self, port):
-        mixer_port = self.playback_sources[port]
-        self.global_mixer.remove_input(mixer_port.name)
-        logger.info("Disconnected %s:%s from global mixer port %s.",
-                    port.owner.name, port.name, mixer_port.name)
+    async def openProject(self, path):
+        project = await self.project_registry.open_project(path)
+        await self.addProject(project)
+        return project
 
-    def addProject(self, project):
-        self.addPlaybackSource(project.master_output)
-        self._projects.append(project)
-        self.win.addProjectView(project)
-
+    def _updateOpenedProjects(self):
         self.settings.setValue(
             'opened_projects',
-            [project.path for project in self._projects if project.path])
+            sorted(
+                project.path
+                for project
+                in self.project_registry.projects.values()
+                if project.path))
 
-    def removeProject(self, project):
-        self.win.removeProjectView(project)
-        self._projects.remove(project)
-        self.removePlaybackSource(project.master_output)
+    async def addProject(self, project_connection):
+        await self.win.addProjectView(project_connection)
 
-        self.settings.setValue(
-            'opened_projects',
-            [project.path for project in self._projects if project.path])
+    async def removeProject(self, project_connection):
+        await self.win.removeProjectView(project_connection)
+        self._updateOpenedProjects()
+        await self.project_registry.close_project(project_connection)
 
-    def newProject(self):
-        path, open_filter = QFileDialog.getSaveFileName(
-            parent=self.win,
-            caption="Select Project File",
-            #directory=self.ui_state.get(
-            #    'instruments_add_dialog_path', ''),
-            filter="All Files (*);;noisicaä Projects (*.emp)",
-            #initialFilter=self.ui_state.get(
-            #'instruments_add_dialog_path', ''),
-        )
-        if not path:
-            return
-
-        project = EditorProject(self)
-        project.create(path)
-
-        self.addProject(project)
+    def onPipelineStatus(self, status):
+        pass
 
 
 class EditorApp(BaseEditorApp):
-    def __init__(self, runtime_settings, paths, settings=None):
-        super().__init__(runtime_settings, settings)
+    def __init__(self, process, runtime_settings, paths, settings=None):
+        super().__init__(process, runtime_settings, settings)
 
         self.paths = paths
 
         self._old_excepthook = None
         self.win = None
+        self._pipeline_perf_monitor = None
 
-    def setup(self):
+    async def setup(self):
         logger.info("Installing custom excepthook.")
         self._old_excepthook = sys.excepthook
         sys.excepthook = ExceptHook(self)
 
-        super().setup()
+        await super().setup()
 
         logger.info("Creating InstrumentLibrary.")
-        self.instrument_library = InstrumentLibrary()
+        self.instrument_library = library.InstrumentLibrary()
 
         logger.info("Creating EditorWindow.")
         self.win = EditorWindow(self)
+        await self.win.setup()
         self.win.show()
+
+        self._pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self)
+        self._pipeline_perf_monitor.show()
 
         if self.paths:
             logger.info("Starting with projects from cmdline.")
             for path in self.paths:
-                self.win.openProject(path)
-
+                if path.startswith('+'):
+                    path = path[1:]
+                    project = await self.project_registry.create_project(
+                        path)
+                else:
+                    project = await self.project_registry.open_project(
+                        path)
+                await self.addProject(project)
         else:
             reopen_projects = self.settings.value('opened_projects', [])
-            for path in reopen_projects:
-                self.win.openProject(path)
+            for path in reopen_projects or []:
+                project = await self.project_registry.open_project(path)
+                await self.addProject(project)
 
         self.aboutToQuit.connect(self.shutDown)
-
-    def cleanup(self):
-        super().cleanup()
-
-        if self._sequencer is not None:
-            self._sequencer.close()
-            self._sequencer = None
 
     def shutDown(self):
         logger.info("Shutting down.")
 
-        self.win.storeState()
-        self.settings.sync()
-        self.dumpSettings()
+        if self.win is not None:
+            self.win.storeState()
+            self.settings.sync()
+            self.dumpSettings()
 
-    def cleanup(self):
-        self.win.closeAll()
-        self.win = None
+    async def cleanup(self):
+        if self._pipeline_perf_monitor is not None:
+            self._pipeline_perf_monitor.storeState()
+            self._pipeline_perf_monitor = None
 
-        super().cleanup()
+        if self.win is not None:
+            await self.win.cleanup()
+            self.win = None
+
+        await super().cleanup()
 
         logger.info("Remove custom excepthook.")
         sys.excepthook = self._old_excepthook
-
-    def createAudioSink(self):
-        sink = PyAudioSink()
-        self.pipeline.set_sink(sink)
-        sink.setup()
-        return sink
 
     def createSequencer(self):
         # Do other clients handle non-ASCII names?
@@ -290,3 +285,24 @@ class EditorApp(BaseEditorApp):
         # and the console interprets it as UTF-8), 'aconnectgui' shows the
         # encoded bytes.
         return devices.AlsaSequencer('noisicaä')
+
+    async def createAudioProcProcess(self):
+        self.audioproc_process = await self.process.manager.call(
+            'CREATE_AUDIOPROC_PROCESS', 'main')
+
+        self.audioproc_client = AudioProcClient(
+            self, self.process.event_loop, self.process.server)
+        await self.audioproc_client.setup()
+        await self.audioproc_client.connect(
+            self.audioproc_process, {'perf_data'})
+
+        await self.audioproc_client.set_backend(
+            self.settings.value('audio/backend', 'pyaudio'))
+
+    def onPipelineStatus(self, status):
+        if 'utilization' in status:
+            pass
+        if 'perf_data' in status:
+            if self._pipeline_perf_monitor is not None:
+                self._pipeline_perf_monitor.addPerfData(
+                    status['perf_data'])

@@ -4,19 +4,16 @@ import logging
 
 from noisicaa import core
 
-from noisicaa.audioproc.source.silence import SilenceSource
-from noisicaa.audioproc.source.notes import NoteSource
-from noisicaa.audioproc.source.fluidsynth import FluidSynthSource
-
-from noisicaa.instr.library import Instrument
-
-from .time import Duration
-
+from . import model
+from . import state
+from . import commands
+from . import instrument
+from . import mutations
 
 logger = logging.getLogger(__name__)
 
 
-class UpdateTrackProperties(core.Command):
+class UpdateTrackProperties(commands.Command):
     name = core.Property(str, allow_none=True)
     visible = core.Property(bool, allow_none=True)
     muted = core.Property(bool, allow_none=True)
@@ -51,54 +48,49 @@ class UpdateTrackProperties(core.Command):
         if self.transpose_octaves is not None:
             track.transpose_octaves = self.transpose_octaves
 
-core.Command.register_subclass(UpdateTrackProperties)
+commands.Command.register_command(UpdateTrackProperties)
 
 
-class ClearInstrument(core.Command):
+class ClearInstrument(commands.Command):
     def run(self, track):
         assert isinstance(track, Track)
+
+        if track.instrument is not None:
+            track.remove_instrument_from_pipeline()
 
         track.instrument = None
 
-core.Command.register_subclass(ClearInstrument)
+commands.Command.register_command(ClearInstrument)
 
 
-class SetInstrument(core.Command):
-    instr = core.DictProperty()
+class SetInstrument(commands.Command):
+    instrument_type = core.Property(str)
+    instrument_args = core.DictProperty()
 
-    def __init__(self, instr=None, state=None):
+    def __init__(self, instrument_type=None, instrument_args=None,
+                 state=None):
         super().__init__(state=state)
         if state is None:
-            self.instr.update(instr)
+            self.instrument_type = instrument_type
+            self.instrument_args.update(instrument_args)
 
     def run(self, track):
         assert isinstance(track, Track)
 
-        track.instrument = Instrument.from_json(self.instr)
+        assert self.instrument_type == 'SoundFontInstrument'
+        instr = instrument.SoundFontInstrument(**self.instrument_args)
 
-core.Command.register_subclass(SetInstrument)
+        if track.instrument is not None:
+            track.remove_instrument_from_pipeline()
+        track.instrument = instr
+        track.add_instrument_to_pipeline()
+
+commands.Command.register_command(SetInstrument)
 
 
-class Measure(core.StateBase, core.CommandTarget):
+class Measure(model.Measure, state.StateBase):
     def __init__(self, state=None):
         super().__init__(state)
-
-    @property
-    def address(self):
-        return self.parent.address + '/measure:%d' % self.index
-
-    @property
-    def track(self):
-        return self.parent
-
-    @property
-    def sheet(self):
-        return self.track.sheet
-
-    @property
-    def duration(self):
-        time_signature = self.sheet.get_time_signature(self.index)
-        return Duration(time_signature.upper, time_signature.lower)
 
     @property
     def empty(self):
@@ -114,17 +106,8 @@ class EventSource(object):
         raise NotImplementedError
 
 
-class Track(core.StateBase, core.CommandTarget):
+class Track(model.Track, state.StateBase):
     measure_cls = None
-
-    name = core.Property(str)
-    instrument = core.ObjectProperty(cls=Instrument)
-    measures = core.ObjectListProperty(cls=Measure)
-
-    visible = core.Property(bool, default=True)
-    muted = core.Property(bool, default=False)
-    volume = core.Property(float, default=100.0)
-    transpose_octaves = core.Property(int, default=0)
 
     def __init__(self, name=None, instrument=None, state=None):
         super().__init__(state)
@@ -134,41 +117,8 @@ class Track(core.StateBase, core.CommandTarget):
             self.instrument = instrument
 
     @property
-    def address(self):
-        return self.parent.address + '/track:%d' % self.index
-
-    @property
-    def sheet(self):
-        return self.parent
-
-    @property
     def project(self):
         return self.sheet.project
-
-    def create_playback_source(self, pipeline, setup=True, recursive=False):
-        if self.instrument is None:
-            source = SilenceSource()
-            pipeline.add_node(source)
-            if setup:
-                source.setup()
-            return source
-
-        note_source = NoteSource(self)
-        pipeline.add_node(note_source)
-        if setup:
-            note_source.setup()
-
-        instr = self.instrument
-        instr_source = FluidSynthSource(
-            instr.path, instr.bank, instr.preset)
-        instr_source.outputs['out'].volume = self.volume
-        instr_source.outputs['out'].muted = self.muted
-        pipeline.add_node(instr_source)
-        instr_source.inputs['in'].connect(note_source.outputs['out'])
-        if setup:
-            instr_source.setup()
-
-        return instr_source
 
     def append_measure(self):
         self.insert_measure(-1)
@@ -197,8 +147,75 @@ class Track(core.StateBase, core.CommandTarget):
     def create_event_source(self):
         raise NotImplementedError
 
-    def get_sub_target(self, name):
-        if name.startswith('measure:'):
-            return self.measures[int(name[8:])]
+    @property
+    def mixer_name(self):
+        return '%s-track-mixer' % self.id
 
-        return super().get_sub_target(name)
+    @property
+    def instr_name(self):
+        return self.instrument.pipeline_node_id
+
+    @property
+    def event_source_name(self):
+        return '%s-events' % self.id
+
+    def add_mixer_to_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.AddNode(
+                'passthru', self.mixer_name, 'track-mixer'))
+        self.sheet.handle_pipeline_mutation(
+            mutations.ConnectPorts(
+                self.mixer_name, 'out',
+                self.sheet.main_mixer_name, 'in'))
+
+    def remove_mixer_from_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.DisconnectPorts(
+                self.mixer_name, 'out',
+                self.sheet.main_mixer_name, 'in'))
+        self.sheet.handle_pipeline_mutation(
+            mutations.RemoveNode(self.mixer_name))
+
+    def add_instrument_to_pipeline(self):
+        self.instrument.add_to_pipeline()
+
+        self.sheet.handle_pipeline_mutation(
+            mutations.ConnectPorts(
+                self.instr_name, 'out', self.mixer_name, 'in'))
+
+        self.sheet.handle_pipeline_mutation(
+            mutations.ConnectPorts(
+                self.event_source_name, 'out', self.instr_name, 'in'))
+
+    def remove_instrument_from_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.DisconnectPorts(
+                self.instr_name, 'out', self.mixer_name, 'in'))
+
+        self.sheet.handle_pipeline_mutation(
+            mutations.DisconnectPorts(
+                self.event_source_name, 'out', self.instr_name, 'in'))
+
+        self.instrument.remove_from_pipeline()
+
+    def add_event_source_to_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.AddNode(
+                'track_event_source', self.event_source_name, 'events',
+                queue_name='track:%s' % self.id))
+
+    def remove_event_source_from_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.RemoveNode(self.event_source_name))
+
+    def add_to_pipeline(self):
+        self.add_mixer_to_pipeline()
+        self.add_event_source_to_pipeline()
+        if self.instrument is not None:
+            self.add_instrument_to_pipeline()
+
+    def remove_from_pipeline(self):
+        if self.instrument is not None:
+            self.remove_instrument_from_pipeline()
+        self.remove_event_source_from_pipeline()
+        self.remove_mixer_from_pipeline()

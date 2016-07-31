@@ -7,11 +7,14 @@ from noisicaa import core
 from .time_signature import TimeSignature
 from .track import Track, Measure, EventSource
 from .time import Duration
+from . import model
+from . import commands
+from . import state
 
 logger = logging.getLogger(__name__)
 
 
-class SetTimeSignature(core.Command):
+class SetTimeSignature(commands.Command):
     upper = core.Property(int)
     lower = core.Property(int)
 
@@ -26,10 +29,10 @@ class SetTimeSignature(core.Command):
 
         measure.time_signature = TimeSignature(self.upper, self.lower)
 
-core.Command.register_subclass(SetTimeSignature)
+commands.Command.register_command(SetTimeSignature)
 
 
-class SetBPM(core.Command):
+class SetBPM(commands.Command):
     bpm = core.Property(int)
 
     def __init__(self, bpm=None, state=None):
@@ -45,13 +48,10 @@ class SetBPM(core.Command):
 
         measure.bpm = self.bpm
 
-core.Command.register_subclass(SetBPM)
+commands.Command.register_command(SetBPM)
 
 
-class SheetPropertyMeasure(Measure):
-    bpm = core.Property(int, default=120)
-    time_signature = core.Property(TimeSignature, default=TimeSignature(4, 4))
-
+class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
     def __init__(self, state=None):
         super().__init__(state)
         if state is None:
@@ -67,7 +67,7 @@ class SheetPropertyMeasure(Measure):
             * Duration(self.time_signature.upper, self.time_signature.lower)
             * 4 * 60 // self.bpm)
 
-Measure.register_subclass(SheetPropertyMeasure)
+state.StateBase.register_class(SheetPropertyMeasure)
 
 
 class SheetPropertyEventSource(EventSource):
@@ -79,7 +79,7 @@ class SheetPropertyEventSource(EventSource):
         yield  # pylint: disable=unreachable
 
 
-class SheetPropertyTrack(Track):
+class SheetPropertyTrack(model.SheetPropertyTrack, Track):
     measure_cls = SheetPropertyMeasure
 
     def __init__(self, name=None, num_measures=1, state=None):
@@ -88,10 +88,6 @@ class SheetPropertyTrack(Track):
         if state is None:
             for _ in range(num_measures):
                 self.measures.append(SheetPropertyMeasure())
-
-    @property
-    def address(self):
-        return self.parent.address + '/property_track'
 
     def create_empty_measure(self, ref):
         measure = super().create_empty_measure(ref)
@@ -108,4 +104,4 @@ class SheetPropertyTrack(Track):
     def get_num_samples(self, sample_rate):
         return sum((m.get_num_samples(sample_rate) for m in self.measures), 0)
 
-Track.register_subclass(SheetPropertyTrack)
+state.StateBase.register_class(SheetPropertyTrack)

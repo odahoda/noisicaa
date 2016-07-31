@@ -1,17 +1,73 @@
 #!/usr/bin/python3
 
 import argparse
+import functools
 import unittest
 import inspect
 import logging
 import os.path
 
+import asynctest
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPainter, QColor
 
 from noisicaa.runtime_settings import RuntimeSettings
 from .editor_app import BaseEditorApp
+from . import model
+
+
+UNSET = object()
+
+class TestMixin(object):
+    def __init__(
+            self, __no_positional_args=UNSET, testcase=None, **kwargs):
+        assert __no_positional_args is UNSET
+        assert testcase is not None
+        self.__testcase = testcase
+        super().__init__(**kwargs)
+
+    @property
+    def context(self):
+        return {'testcase': self.__testcase}
+
+    @property
+    def app(self):
+        return self.__testcase.app
+
+    @property
+    def window(self):
+        return self.__testcase.window
+
+    @property
+    def event_loop(self):
+        return self.__testcase.loop
+
+    @property
+    def project_connection(self):
+        return self.__testcase.project_connection
+
+    @property
+    def project(self):
+        return self.__testcase.project
+
+    @property
+    def project_client(self):
+        return self.__testcase.project_client
+
+    def call_async(self, coroutine, callback=None):
+        task = self.event_loop.create_task(coroutine)
+        task.add_done_callback(
+            functools.partial(self.__call_async_cb, callback=callback))
+
+    def __call_async_cb(self, task, callback):
+        if task.exception() is not None:
+            raise task.exception()
+        if callback is not None:
+            callback(task.result())
+
+    def send_command_async(self, target_id, cmd, **kwargs):
+        self.__testcase.commands.append((target_id, cmd, kwargs))
 
 
 class MockSettings(object):
@@ -54,28 +110,48 @@ class MockSequencer(object):
         return None
 
 
+class MockProcess(object):
+    def __init__(self):
+        self.event_loop = None
+        self.manager = None
+        self.project = None
+
+
 class MockApp(BaseEditorApp):
     def __init__(self):
-        super().__init__(RuntimeSettings(), MockSettings())
+        super().__init__(None, RuntimeSettings(), MockSettings())
+        self.process = MockProcess()
 
     def createSequencer(self):
         return MockSequencer()
 
 
-class UITest(unittest.TestCase):
+class Bunch(object): pass
+
+
+class UITest(asynctest.TestCase):
     # There are random crashes if we create and destroy the QApplication for
     # each test. So create a single one and re-use it for all tests. This
     # makes the tests non-hermetic, which could be a problem, but it's better
     # than fighting with the garbage collection in pyqt5.
     app = None
 
-    def setUp(self):
+    async def setUp(self):
         if UITest.app is None:
             UITest.app = MockApp()
-        UITest.app.setup()
+        await UITest.app.setup()
 
-    def tearDown(self):
-        UITest.app.cleanup()
+        self.window = None
+        self.project_connection = Bunch()
+        self.project_connection.name = 'test project'
+        self.project = model.Project('project')
+        self.project_client = None
+
+        self.context = {'testcase': self}
+        self.commands = []
+
+    async def tearDown(self):
+        await UITest.app.cleanup()
 
     _snapshot_numbers = {}
 
