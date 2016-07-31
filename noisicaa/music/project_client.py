@@ -135,36 +135,23 @@ class ProjectClientMixin(object):
                 self.apply_properties(obj, mutation.properties)
                 self._object_map[mutation.id] = obj
 
-            elif isinstance(mutation, mutations.UpdateObjectList):
+            elif isinstance(mutation, mutations.ListInsert):
                 obj = self._object_map[mutation.id]
                 lst = getattr(obj, mutation.prop_name)
-                if mutation.args[0] == 'insert':
-                    idx, child_id = mutation.args[1:]
-                    child = self._object_map[child_id]
-                    lst.insert(idx, child)
-                elif mutation.args[0] == 'delete':
-                    idx, = mutation.args[1:]
-                    child = lst[idx]
-                    del lst[idx]
-                    # TODO: delete tree under child
-                elif mutation.args[0] == 'clear':
-                    lst.clear()
+                if mutation.value_type == 'obj':
+                    child = self._object_map[mutation.value]
+                    lst.insert(mutation.index, child)
+                elif mutation.value_type == 'scalar':
+                    lst.insert(mutation.index, mutation.value)
                 else:
-                    raise ValueError(mutation.args[0])
+                    raise ValueError(
+                        "Value type %s not supported."
+                        % mutation.value_type)
 
-            elif isinstance(mutation, mutations.UpdateList):
+            elif isinstance(mutation, mutations.ListDelete):
                 obj = self._object_map[mutation.id]
                 lst = getattr(obj, mutation.prop_name)
-                if mutation.args[0] == 'insert':
-                    idx, value = mutation.args[1:]
-                    lst.insert(idx, value)
-                elif mutation.args[0] == 'delete':
-                    idx, = mutation.args[1:]
-                    del lst[idx]
-                elif mutation.args[0] == 'clear':
-                    lst.clear()
-                else:
-                    raise ValueError(mutation.args[0])
+                del lst[mutation.index]
 
             else:
                 raise ValueError("Unknown mutation %s received." % mutation)

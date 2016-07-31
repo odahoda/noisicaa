@@ -7,6 +7,7 @@ import logging
 import os
 import os.path
 import pickle
+import pprint
 import tempfile
 import traceback
 import uuid
@@ -272,7 +273,14 @@ class Stub(object):
     async def call(self, cmd, *args, **kwargs):
         if not isinstance(cmd, bytes):
             cmd = cmd.encode('ascii')
-        payload = self.serialize([args, kwargs])
+        try:
+            payload = self.serialize([args, kwargs])
+        except TypeError as exc:
+            raise TypeError(
+                "%s:\nargs=%s\nkwargs=%s" % (
+                    exc, pprint.pformat(args), pprint.pformat(kwargs))
+            ) from None
+
         self._transport.write(b'CALL %s %d\n' % (cmd, len(payload)))
         if payload:
             self._transport.write(payload)

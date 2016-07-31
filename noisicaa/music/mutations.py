@@ -61,29 +61,38 @@ class AddObject(Mutation):
             ' '.join(
                 '%s=%s:%r' % (p, t, v)
                 for p, t, v in self.properties))
+    __repr__ = __str__
 
 
-class UpdateObjectList(Mutation):
-    def __init__(self, obj, prop_name, *args):
+class ListInsert(Mutation):
+    def __init__(self, obj, prop_name, index, value):
         self.id = obj.id
         self.prop_name = prop_name
-        self.args = args
+        self.index = index
+        prop = obj.get_property(prop_name)
+        if isinstance(prop, core.ObjectListProperty):
+            self.value_type = 'obj'
+            self.value = value.id
+        else:
+            self.value_type = 'scalar'
+            self.value = value
 
     def __str__(self):
-        return '<UpdateObjectList id=%s prop=%s %s>' % (
-            self.id, self.prop_name,
-            ' '.join(repr(a) for a in self.args))
+        return '<ListInsert id=%s prop=%s index=%d value=%s:%s>' % (
+            self.id, self.prop_name, self.index,
+            self.value_type, self.value)
+    __repr__ = __str__
 
-class UpdateList(Mutation):
-    def __init__(self, obj, prop_name, *args):
+
+class ListDelete(Mutation):
+    def __init__(self, obj, prop_name, index):
         self.id = obj.id
         self.prop_name = prop_name
-        self.args = args
+        self.index = index
 
     def __str__(self):
-        return '<UpdateList id=%s prop=%s %s>' % (
-            self.id, self.prop_name,
-            ' '.join(repr(a) for a in self.args))
+        return '<ListDelete id=%s prop=%s index=%d>' % (
+            self.id, self.prop_name, self.index)
 
 
 class PipelineMutation(Mutation):

@@ -131,20 +131,14 @@ class ProjectProcessMixin(object):
                         change.new_value):
                     self.pending_mutations.append(mutation)
 
-                self.pending_mutations.append(
-                    mutations.UpdateObjectList(
-                        obj, change.prop_name, 'insert', change.index,
-                        change.new_value.id))
-            else:
-                self.pending_mutations.append(
-                    mutations.UpdateObjectList(
-                        obj, change.prop_name, 'insert', change.index,
-                        change.new_value))
+            self.pending_mutations.append(
+                mutations.ListInsert(
+                    obj, change.prop_name, change.index, change.new_value))
 
         elif isinstance(change, core.PropertyListDelete):
             self.pending_mutations.append(
-                mutations.UpdateObjectList(
-                    obj, change.prop_name, 'delete', change.index))
+                mutations.ListDelete(
+                    obj, change.prop_name, change.index))
 
         else:
             raise TypeError("Unsupported change type %s" % type(change))
