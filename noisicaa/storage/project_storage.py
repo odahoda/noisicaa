@@ -33,6 +33,7 @@ class ProjectStorage(object):
         self.file_lock = None
         self.log_index_fp = None
         self.log_history_fp = None
+        self.checkpoint_index_fp = None
 
         self.next_log_number = 0
         self.log_file_number = 0
@@ -45,6 +46,10 @@ class ProjectStorage(object):
         self.undo_count = 0
         self.redo_count = 0
         self.log_history = bytearray()
+
+        self.next_checkpoint_number = 0
+        self.checkpoint_index_formatter = struct.Struct('>QQ')
+        self.checkpoint_index = bytearray()
 
         self.cache_lock = threading.RLock()
         self.log_entry_cache = collections.OrderedDict()
@@ -81,6 +86,10 @@ class ProjectStorage(object):
             os.path.join(data_dir, 'log.history'),
             mode='wb', buffering=0)
 
+        checkpoint_index_fp = open(
+            os.path.join(data_dir, 'checkpoint.index'),
+            mode='wb', buffering=0)
+
         fp = fileutil.File(path)
         fp.write_json(
             header_data,
@@ -95,6 +104,7 @@ class ProjectStorage(object):
         project_storage.header_data = header_data
         project_storage.log_index_fp = log_index_fp
         project_storage.log_history_fp = log_history_fp
+        project_storage.checkpoint_index_fp = checkpoint_index_fp
         project_storage.writer_thread.start()
         return project_storage
 
@@ -119,6 +129,10 @@ class ProjectStorage(object):
             log_fp.close()
         self.log_fp_map.clear()
 
+        if self.checkpoint_index_fp is not None:
+            self.checkpoint_index_fp.close()
+            self.checkpoint_index_fp = None
+
         self.release_file_lock(self.file_lock)
         self.file_lock = None
 
@@ -135,10 +149,15 @@ class ProjectStorage(object):
         logger.info("Releasing file lock.")
         lock_fp.close()
 
-    def _schedule_write(self, seq_number, history_entry, log_entry):
+    def _schedule_log_write(self, seq_number, history_entry, log_entry):
         assert self.writer_thread.is_alive()
         self.write_queue.put(
-            ('WRITE', (seq_number, history_entry, log_entry)))
+            ('LOG', (seq_number, history_entry, log_entry)))
+
+    def _schedule_checkpoint_write(self, seq_number, checkpoint):
+        assert self.writer_thread.is_alive()
+        self.write_queue.put(
+            ('CHECKPOINT', (seq_number, checkpoint)))
 
     def _writer_main(self):
         logger.info("Log writer thread started.")
@@ -154,7 +173,7 @@ class ProjectStorage(object):
                 break
             elif cmd == 'FLUSH':
                 arg.set()
-            elif cmd == 'WRITE':
+            elif cmd == 'LOG':
                 seq_number, history_entry, log_entry = arg
                 action, log_number, _, _ = history_entry
 
@@ -187,6 +206,24 @@ class ProjectStorage(object):
                         self.log_index += packed_index_entry
                         assert log_number > self.written_log_number
                         self.written_log_number = log_number
+            elif cmd == 'CHECKPOINT':
+                seq_number, checkpoint = arg
+
+                checkpoint_path = os.path.join(
+                    self.data_dir,
+                    'checkpoint.%06d' % self.next_checkpoint_number)
+                logger.info("Writing checkpoint %s...", checkpoint_path)
+                with open(checkpoint_path, mode='wb', buffering=0) as fp:
+                    fp.write(checkpoint)
+
+                packed_index_entry = self.checkpoint_index_formatter.pack(
+                    seq_number, self.next_checkpoint_number)
+                self.checkpoint_index_fp.write(packed_index_entry)
+                self.checkpoint_index_fp.flush()
+
+                with self.cache_lock:
+                    self.checkpoint_index += packed_index_entry
+                    self.next_checkpoint_number += 1
             else:
                 raise ValueError("Invalud command %r", cmd)
 
@@ -277,7 +314,7 @@ class ProjectStorage(object):
             self._add_history_entry(history_entry)
             self._add_log_entry(self.next_log_number, entry)
 
-            self._schedule_write(
+            self._schedule_log_write(
                 self.next_sequence_number, history_entry, entry)
 
             self.next_log_number += 1
@@ -329,7 +366,7 @@ class ProjectStorage(object):
 
             self._add_history_entry(history_entry)
 
-            self._schedule_write(
+            self._schedule_log_write(
                 self.next_sequence_number, history_entry, None)
 
             self.next_sequence_number += 1
@@ -350,7 +387,11 @@ class ProjectStorage(object):
 
             self._add_history_entry(history_entry)
 
-            self._schedule_write(
+            self._schedule_log_write(
                 self.next_sequence_number, history_entry, None)
 
             self.next_sequence_number += 1
+
+    def add_checkpoint(self, checkpoint):
+        self._schedule_checkpoint_write(
+            self.next_sequence_number, checkpoint)

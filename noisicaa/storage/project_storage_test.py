@@ -100,6 +100,36 @@ class StorageTest(unittest.TestCase):
         self.assertTrue(
             self.fake_os.path.isfile('/foo.data/log.000000'))
 
+    def test_checkpoints(self):
+        ps = project_storage.ProjectStorage.create('/foo')
+        try:
+            ps.add_checkpoint(b'blurp1')
+            ps.append_log_entry(b'bla1')
+            ps.undo()
+            ps.add_checkpoint(b'blurp2')
+            ps.flush()
+
+            entries = list(
+                ps.checkpoint_index_formatter.iter_unpack(
+                    ps.checkpoint_index))
+            self.assertEqual(
+                entries,
+                [(0, 0),
+                 (2, 1)])
+
+        finally:
+            ps.close()
+
+        self.assertTrue(
+            self.fake_os.path.isfile('/foo.data/checkpoint.index'))
+        self.assertEqual(
+            self.fake_os.path.getsize('/foo.data/checkpoint.index'),
+            2 * ps.checkpoint_index_formatter.size)
+        self.assertTrue(
+            self.fake_os.path.isfile('/foo.data/checkpoint.000000'))
+        self.assertTrue(
+            self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
+
     # def test_create(self):
     #     p = project.Project()
     #     p.create('/foo.emp')
