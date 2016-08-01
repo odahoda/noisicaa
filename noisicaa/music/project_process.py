@@ -89,6 +89,8 @@ class ProjectProcessMixin(object):
         self.server.add_command_handler('OPEN', self.handle_open)
         self.server.add_command_handler('CLOSE', self.handle_close)
         self.server.add_command_handler('COMMAND', self.handle_command)
+        self.server.add_command_handler('UNDO', self.handle_undo)
+        self.server.add_command_handler('REDO', self.handle_redo)
         self.server.add_command_handler(
             'CREATE_PLAYER', self.handle_create_player)
         self.server.add_command_handler(
@@ -244,6 +246,30 @@ class ProjectProcessMixin(object):
             await self.publish_mutation(mutation)
 
         return result
+
+    async def handle_undo(self):
+        assert self.project is not None
+
+        # This block must be atomic, no 'awaits'!
+        assert not self.pending_mutations
+        self.project.undo()
+        mutations = self.pending_mutations[:]
+        self.pending_mutations.clear()
+
+        for mutation in mutations:
+            await self.publish_mutation(mutation)
+
+    async def handle_redo(self):
+        assert self.project is not None
+
+        # This block must be atomic, no 'awaits'!
+        assert not self.pending_mutations
+        self.project.redo()
+        mutations = self.pending_mutations[:]
+        self.pending_mutations.clear()
+
+        for mutation in mutations:
+            await self.publish_mutation(mutation)
 
     async def handle_create_player(self, session_id, sheet_id):
         session = self.get_session(session_id)

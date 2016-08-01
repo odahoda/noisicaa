@@ -186,6 +186,18 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
             triggered=self.onCloseCurrentProjectTab,
             enabled=False)
 
+        self._undo_action = QAction(
+            "Undo", self,
+            shortcut=QKeySequence.Undo,
+            statusTip="Undo most recent action",
+            triggered=self.onUndo)
+
+        self._redo_action = QAction(
+            "Redo", self,
+            shortcut=QKeySequence.Redo,
+            statusTip="Redo most recently undone action",
+            triggered=self.onRedo)
+
         self._restart_action = QAction(
             "Restart", self,
             shortcut="F5", shortcutContext=Qt.ApplicationShortcut,
@@ -268,6 +280,9 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self._project_menu.addAction(self._quit_action)
 
         self._edit_menu = menu_bar.addMenu("Edit")
+        self._edit_menu.addAction(self._undo_action)
+        self._edit_menu.addAction(self._redo_action)
+        self._project_menu.addSeparator()
         add_track_menu = self._edit_menu.addMenu("Add Track")
         add_track_menu.addAction(self._add_score_track_action)
 
@@ -519,6 +534,14 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
     def onSaveProject(self):
         project = self.getCurrentProject()
         project.create_checkpoint()
+
+    def onUndo(self):
+        project_view = self.getCurrentProjectView()
+        self.call_async(project_view.project_client.undo())
+
+    def onRedo(self):
+        project_view = self.getCurrentProjectView()
+        self.call_async(project_view.project_client.redo())
 
     def onAddScoreTrack(self):
         view = self._project_tabs.currentWidget()

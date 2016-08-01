@@ -555,15 +555,10 @@ class Project(BaseProject):
         self.load_from_checkpoint(serialized_checkpoint)
         for action, log_number in actions:
             cmd_data = self.storage.get_log_entry(log_number)
-            parser = email.parser.BytesParser()
-            message = parser.parsebytes(cmd_data)
-
-            obj_id = message['Target']
-            cmd_state = json.loads(message.get_payload(), cls=JSONDecoder)
-            cmd = commands.Command.create_from_state(cmd_state)
+            cmd, obj_id = self.deserialize_command(cmd_data)
             logger.info(
-                "Replay command %s on %s (%d operations)",
-                cmd, obj_id, len(cmd.log.ops))
+                "Replay action %s of command %s on %s (%d operations)",
+                action, cmd, obj_id, len(cmd.log.ops))
             try:
                 obj = self.get_object(obj_id)
             except:
@@ -645,22 +640,7 @@ class Project(BaseProject):
         checkpoint_data = message.as_bytes()
         self.storage.add_checkpoint(checkpoint_data)
 
-    def replay_command_log(self, command_log_path):
-        with fileutil.MimeLogFile(command_log_path, 'r') as fp:
-            for serialized, headers, entry_type in fp:
-                if entry_type != b'C':
-                    raise CorruptedProjectError(
-                        "Unexpected log entry type %s" % entry_type)
-
-    def dispatch_command(self, obj_id, cmd):
-        if self.closed:
-            raise RuntimeError(
-                "Command %s executed on closed project." % cmd)
-
-        now = time.time()
-
-        result = super().dispatch_command(obj_id, cmd)
-
+    def serialize_command(self, cmd, target_id, now):
         serialized = json.dumps(
             cmd.serialize(),
             ensure_ascii=False, indent='  ', sort_keys=True,
@@ -674,14 +654,65 @@ class Project(BaseProject):
         message = email.message.Message(policy)
         message['Version'] = str(self.VERSION)
         message['Content-Type'] = 'application/json; charset=utf-8'
-        message['Target'] = obj_id
+        message['Target'] = target_id
         message['Time'] = time.ctime(now)
         message['Timestamp'] = '%d' % now
         message.set_payload(serialized.encode('utf-8'))
 
-        self.storage.append_log_entry(message.as_bytes())
+        return message.as_bytes()
+
+    def deserialize_command(self, cmd_data):
+        parser = email.parser.BytesParser()
+        message = parser.parsebytes(cmd_data)
+
+        target_id = message['Target']
+        cmd_state = json.loads(message.get_payload(), cls=JSONDecoder)
+        cmd = commands.Command.create_from_state(cmd_state)
+
+        return cmd, target_id
+
+    def dispatch_command(self, obj_id, cmd):
+        if self.closed:
+            raise RuntimeError(
+                "Command %s executed on closed project." % cmd)
+
+        now = time.time()
+        result = super().dispatch_command(obj_id, cmd)
+
+        self.storage.append_log_entry(
+            self.serialize_command(cmd, obj_id, now))
 
         if self.storage.logs_since_last_checkpoint > 1000:
             self.create_checkpoint()
 
         return result
+
+    def undo(self):
+        if self.closed:
+            raise RuntimeError("Undo executed on closed project.")
+
+        if self.storage.can_undo:
+            cmd_data = self.storage.get_log_entry_to_undo()
+            cmd, obj_id = self.deserialize_command(cmd_data)
+            logger.info(
+                "Undo command %s on %s (%d operations)",
+                cmd, obj_id, len(cmd.log.ops))
+            obj = self.get_object(obj_id)
+            cmd.undo(obj)
+
+            self.storage.undo()
+
+    def redo(self):
+        if self.closed:
+            raise RuntimeError("Redo executed on closed project.")
+
+        if self.storage.can_redo:
+            cmd_data = self.storage.get_log_entry_to_redo()
+            cmd, obj_id = self.deserialize_command(cmd_data)
+            logger.info(
+                "Redo command %s on %s (%d operations)",
+                cmd, obj_id, len(cmd.log.ops))
+            obj = self.get_object(obj_id)
+            cmd.redo(obj)
+
+            self.storage.redo()

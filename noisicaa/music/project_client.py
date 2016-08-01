@@ -194,6 +194,14 @@ class ProjectClientMixin(object):
         logger.info("Command %s completed with result=%r", command, result)
         return result
 
+    async def undo(self):
+        assert self.project is not None
+        await self._stub.call('UNDO')
+
+    async def redo(self):
+        assert self.project is not None
+        await self._stub.call('REDO')
+
     async def create_player(self, sheet_id):
         return await self._stub.call(
             'CREATE_PLAYER', self._session_id, sheet_id)
