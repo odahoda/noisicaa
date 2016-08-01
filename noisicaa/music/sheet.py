@@ -10,6 +10,7 @@ from . import model
 from . import state
 from . import commands
 from . import mutations
+from . import track_group
 
 logger = logging.getLogger(__name__)
 
@@ -25,22 +26,24 @@ class AddTrack(commands.Command):
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
 
-        if len(sheet.tracks) > 0:
-            num_measures = max(len(track.measures) for track in sheet.tracks)
+        if len(sheet.master_group.tracks) > 0:
+            num_measures = max(
+                len(track.measures)
+                for track in sheet.master_group.tracks)
         else:
             num_measures = 1
 
-        track_name = "Track %d" % (len(sheet.tracks) + 1)
+        track_name = "Track %d" % (len(sheet.master_group.tracks) + 1)
         track_cls_map = {
             'score': ScoreTrack,
         }
         track_cls = track_cls_map[self.track_type]
         track = track_cls(name=track_name, num_measures=num_measures)
-        sheet.tracks.append(track)
+        sheet.master_group.tracks.append(track)
 
         track.add_to_pipeline()
 
-        return len(sheet.tracks) - 1
+        return len(sheet.master_group.tracks) - 1
 
 commands.Command.register_command(AddTrack)
 
@@ -56,9 +59,9 @@ class RemoveTrack(commands.Command):
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
 
-        track = sheet.tracks[self.track]
+        track = sheet.master_group.tracks[self.track]
         track.remove_from_pipeline()
-        del sheet.tracks[self.track]
+        del sheet.master_group.tracks[self.track]
 
 commands.Command.register_command(RemoveTrack)
 
@@ -76,7 +79,7 @@ class MoveTrack(commands.Command):
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
 
-        track = sheet.tracks[self.track]
+        track = sheet.master_group.tracks[self.track]
         assert track.index == self.track
 
         if self.direction == 0:
@@ -86,15 +89,15 @@ class MoveTrack(commands.Command):
             if track.index == 0:
                 raise ValueError("Can't move first track up.")
             new_pos = track.index - 1
-            del sheet.tracks[track.index]
-            sheet.tracks.insert(new_pos, track)
+            del sheet.master_group.tracks[track.index]
+            sheet.master_group.tracks.insert(new_pos, track)
 
         elif self.direction > 0:
-            if track.index == len(sheet.tracks) - 1:
+            if track.index == len(sheet.master_group.tracks) - 1:
                 raise ValueError("Can't move last track down.")
             new_pos = track.index + 1
-            del sheet.tracks[track.index]
-            sheet.tracks.insert(new_pos, track)
+            del sheet.master_group.tracks[track.index]
+            sheet.master_group.tracks.insert(new_pos, track)
 
         return track.index
 
@@ -119,7 +122,7 @@ class InsertMeasure(commands.Command):
         else:
             sheet.property_track.append_measure()
 
-        for idx, track in enumerate(sheet.tracks):
+        for idx, track in enumerate(sheet.master_group.tracks):
             if not self.tracks or idx in self.tracks:
                 track.insert_measure(self.pos)
             else:
@@ -144,7 +147,7 @@ class RemoveMeasure(commands.Command):
         if not self.tracks:
             sheet.property_track.remove_measure(self.pos)
 
-        for idx, track in enumerate(sheet.tracks):
+        for idx, track in enumerate(sheet.master_group.tracks):
             if not self.tracks or idx in self.tracks:
                 track.remove_measure(self.pos)
                 if self.tracks:
@@ -155,20 +158,17 @@ commands.Command.register_command(RemoveMeasure)
 
 class Sheet(model.Sheet, state.StateBase):
     def __init__(self, name=None, num_tracks=1, state=None):
-        self.listeners = core.CallbackRegistry()
         super().__init__(state)
 
         if state is None:
             self.name = name
 
+            self.master_group = track_group.TrackGroup(name="Master")
             self.property_track = SheetPropertyTrack(name="Time")
 
             for i in range(num_tracks):
-                self.tracks.append(ScoreTrack(name="Track %d" % i))
-
-    def property_changed(self, change):
-        super().property_changed(change)
-        self.listeners.call(change.prop_name, change)
+                self.master_group.tracks.append(
+                    ScoreTrack(name="Track %d" % i))
 
     @property
     def project(self):
@@ -176,13 +176,13 @@ class Sheet(model.Sheet, state.StateBase):
 
     @property
     def all_tracks(self):
-        return [self.property_track] + list(self.tracks)
+        return [self.property_track] + list(self.master_group.tracks)
 
     def clear(self):
         pass
 
     def equalize_tracks(self, remove_trailing_empty_measures=0):
-        if len(self.tracks) < 1:
+        if len(self.master_group.tracks) < 1:
             return
 
         while remove_trailing_empty_measures > 0:
@@ -227,11 +227,11 @@ class Sheet(model.Sheet, state.StateBase):
             mutations.ConnectPorts(
                 self.main_mixer_name, 'out', 'sink', 'in'))
 
-        for track in self.tracks:
+        for track in self.master_group.tracks:
             track.add_to_pipeline()
 
     def remove_from_pipeline(self):
-        for track in self.tracks:
+        for track in self.master_group.tracks:
             track.remove_from_pipeline()
 
         self.handle_pipeline_mutation(

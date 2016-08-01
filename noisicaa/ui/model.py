@@ -25,6 +25,7 @@ class ScoreMeasure(model.ScoreMeasure, project_client.ObjectProxy):
             'notes', lambda *args: self.listeners.call('notes-changed'))
 
 class ScoreTrack(model.ScoreTrack, project_client.ObjectProxy): pass
+class TrackGroup(model.TrackGroup, project_client.ObjectProxy): pass
 class SheetPropertyMeasure(model.SheetPropertyMeasure, project_client.ObjectProxy): pass
 class SheetPropertyTrack(model.SheetPropertyTrack, project_client.ObjectProxy): pass
 class Sheet(model.Sheet, project_client.ObjectProxy): pass
@@ -38,6 +39,7 @@ cls_map = {
     'Note': Note,
     'ScoreMeasure': ScoreMeasure,
     'ScoreTrack': ScoreTrack,
+    'TrackGroup': TrackGroup,
     'SheetPropertyMeasure': SheetPropertyMeasure,
     'SheetPropertyTrack': SheetPropertyTrack,
     'Sheet': Sheet,

@@ -51,13 +51,14 @@ class SheetViewTest(uitest_utils.UITest):
         self.sheet = model.Sheet('sheet1')
         self.sheet.name = 'Sheet 1'
         self.sheet.property_track = model.SheetPropertyTrack('prop1')
+        self.sheet.master_group = model.TrackGroup('master')
         self.project.sheets.append(self.sheet)
 
 
 class SheetViewInitTest(SheetViewTest):
     async def test_init(self):
         track = model.ScoreTrack('track1')
-        self.sheet.tracks.append(track)
+        self.sheet.master_group.tracks.append(track)
         view = SheetView(**self.context, sheet=self.sheet)
         await view.setup()
         self.assertEqual(
@@ -71,27 +72,27 @@ class SheetViewModelChangesTest(SheetViewTest):
         await view.setup()
 
         track = model.ScoreTrack('track1')
-        self.sheet.tracks.append(track)
+        self.sheet.master_group.tracks.append(track)
         track = model.ScoreTrack('track2')
-        self.sheet.tracks.append(track)
+        self.sheet.master_group.tracks.append(track)
         self.assertEqual(
             [ti.track.id for ti in view.trackItems],
             ['track1', 'track2'])
 
-        del self.sheet.tracks[0]
+        del self.sheet.master_group.tracks[0]
         self.assertEqual(
             [ti.track.id for ti in view.trackItems],
             ['track2'])
         self.assertEqual(len(view.trackItems), 1)
 
-        self.sheet.tracks.clear()
+        self.sheet.master_group.tracks.clear()
         self.assertEqual(
             [ti.track.id for ti in view.trackItems],
             [])
 
     async def test_track_visibility(self):
         track = model.ScoreTrack('track1')
-        self.sheet.tracks.append(track)
+        self.sheet.master_group.tracks.append(track)
         view = SheetView(**self.context, sheet=self.sheet)
         await view.setup()
         view.updateSheet = mock.MagicMock()

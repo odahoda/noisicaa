@@ -83,10 +83,10 @@ class ProxyTest(asynctest.TestCase):
     async def test_call_command(self):
         await self.client.create_inmemory()
         sheet = self.client.project.sheets[0]
-        num_tracks = len(sheet.tracks)
+        num_tracks = len(sheet.master_group.tracks)
         await self.client.send_command(
             sheet.id, 'AddTrack', track_type='score')
-        self.assertEqual(len(sheet.tracks), num_tracks + 1)
+        self.assertEqual(len(sheet.master_group.tracks), num_tracks + 1)
 
 
 if __name__ == '__main__':

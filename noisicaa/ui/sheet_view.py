@@ -1240,7 +1240,7 @@ class SheetViewImpl(QGraphicsView):
 
         self._track_visible_listeners = []
         self._tracks = []
-        for track in self._sheet.tracks:
+        for track in self._sheet.master_group.tracks:
             self.insertTrack(len(self._tracks), track)
 
         self._property_track_item = self.createTrackItem(
@@ -1268,7 +1268,7 @@ class SheetViewImpl(QGraphicsView):
 
         self.updateSheet()
 
-        self._tracks_listener = self._sheet.listeners.add(
+        self._tracks_listener = self._sheet.master_group.listeners.add(
             'tracks', self.onTracksChanged)
 
         self._player_id = None

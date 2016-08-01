@@ -149,7 +149,7 @@ class ProjectTest(unittest.TestCase):
             p.dispatch_command(p.id, project.AddSheet())
             sheet_id = p.sheets[-1].id
             p.dispatch_command(sheet_id, sheet.AddTrack('score'))
-            track_id = p.sheets[-1].tracks[-1].id
+            track_id = p.sheets[-1].master_group.tracks[-1].id
         finally:
             p.close()
 
@@ -157,7 +157,7 @@ class ProjectTest(unittest.TestCase):
         p.open('/foo.noise')
         try:
             self.assertEqual(p.sheets[-1].id, sheet_id)
-            self.assertEqual(p.sheets[-1].tracks[-1].id, track_id)
+            self.assertEqual(p.sheets[-1].master_group.tracks[-1].id, track_id)
         finally:
             p.close()
 
@@ -179,7 +179,7 @@ class ScoreEventSource(unittest.TestCase):
         s = sheet.Sheet(name='test')
         proj.sheets.append(s)
         track = project.ScoreTrack(name='test', num_measures=2)
-        s.tracks.append(track)
+        s.master_group.tracks.append(track)
         s.equalize_tracks()
 
         source = track.create_event_source()

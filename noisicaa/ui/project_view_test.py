@@ -45,8 +45,10 @@ class InitTest(uitest_utils.UITest):
     async def test_init_with_sheets(self):
         self.project.sheets.append(model.Sheet('sheet1'))
         self.project.sheets[0].property_track = model.SheetPropertyTrack('prop1')
+        self.project.sheets[0].master_group = model.TrackGroup('master')
         self.project.sheets.append(model.Sheet('sheet2'))
         self.project.sheets[1].property_track = model.SheetPropertyTrack('prop2')
+        self.project.sheets[1].master_group = model.TrackGroup('master')
         view = ProjectView(**self.context)
         await view.setup()
         self.assertIsInstance(view.currentSheetView(), SheetView)
@@ -101,6 +103,7 @@ class CommandsTest(uitest_utils.UITest):
         sheet = model.Sheet('sheet1')
         sheet.name = 'Sheet 1'
         sheet.property_track = model.SheetPropertyTrack('prop1')
+        sheet.master_group = model.TrackGroup('master')
         self.project.sheets.append(sheet)
 
         view = ProjectView(**self.context)
@@ -114,10 +117,12 @@ class CommandsTest(uitest_utils.UITest):
         sheet = model.Sheet('sheet1')
         sheet.name = 'Sheet 1'
         sheet.property_track = model.SheetPropertyTrack('prop1')
+        sheet.master_group = model.TrackGroup('master')
         self.project.sheets.append(sheet)
         sheet = model.Sheet('sheet2')
         sheet.name = 'Sheet 2'
         sheet.property_track = model.SheetPropertyTrack('prop2')
+        sheet.master_group = model.TrackGroup('master')
         self.project.sheets.append(sheet)
 
         view = ProjectView(**self.context)

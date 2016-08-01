@@ -217,13 +217,13 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             name="Flute",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=73)
         track1 = ScoreTrack(name="Track 1", instrument=instr1, num_measures=5)
-        s.tracks.append(track1)
+        s.master_group.tracks.append(track1)
 
         instr2 = instrument.SoundFontInstrument(
             name="Yamaha Grand Piano",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=0)
         track2 = ScoreTrack(name="Track 2", instrument=instr2, num_measures=5)
-        s.tracks.append(track2)
+        s.master_group.tracks.append(track2)
 
         track1.measures[0].notes.append(
             Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))

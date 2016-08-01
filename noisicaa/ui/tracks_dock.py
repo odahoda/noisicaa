@@ -25,7 +25,7 @@ class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractListModel):
         super().__init__(**kwargs)
 
         self._sheet = sheet
-        self._tracks_listener = self._sheet.listeners.add(
+        self._tracks_listener = self._sheet.master_group.listeners.add(
             'tracks', self.onTracksChanged)
         self._track_listeners = {}
         self.updateTrackListeners()
@@ -53,18 +53,18 @@ class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractListModel):
 
     def updateTrackListeners(self):
         added_tracks = (
-            set(track.id for track in self._sheet.tracks)
+            set(track.id for track in self._sheet.master_group.tracks)
             - set(self._track_listeners.keys()))
         removed_tracks = (
             set(self._track_listeners.keys())
-            - set(track.id for track in self._sheet.tracks))
+            - set(track.id for track in self._sheet.master_group.tracks))
 
         for track_id in removed_tracks:
             for listener in self._track_listeners[track_id]:
                 listener.remove()
             del self._track_listeners[track_id]
 
-        track_map = dict((track.id, track) for track in self._sheet.tracks)
+        track_map = dict((track.id, track) for track in self._sheet.master_group.tracks)
         for track_id in added_tracks:
             track = track_map[track_id]
             listeners = self._track_listeners[track_id] = []
@@ -75,11 +75,11 @@ class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractListModel):
                         track, prop, old, new)))
 
     def rowCount(self, parent):
-        return len(self._sheet.tracks)
+        return len(self._sheet.master_group.tracks)
 
     def index(self, row, column=0, parent=None):
-        if 0 <= row < len(self._sheet.tracks):
-            track = self._sheet.tracks[row]
+        if 0 <= row < len(self._sheet.master_group.tracks):
+            track = self._sheet.master_group.tracks[row]
             return self.createIndex(row, column, track)
         else:
             return QtCore.QModelIndex()

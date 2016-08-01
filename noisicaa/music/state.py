@@ -14,6 +14,8 @@ class StateBase(model_base.ObjectBase):
     cls_map = {}
 
     def __init__(self, state=None):
+        self.listeners = core.CallbackRegistry()
+
         super().__init__()
 
         if state is not None:
@@ -39,6 +41,8 @@ class StateBase(model_base.ObjectBase):
         cls.cls_map.clear()
 
     def property_changed(self, change):
+        self.listeners.call(change.prop_name, change)
+
         if not self.attached_to_root:
             return
         root = self.root
@@ -137,8 +141,6 @@ class StateBase(model_base.ObjectBase):
 
 class RootMixin(object):
     def __init__(self, state=None):
-        self.listeners = core.CallbackRegistry()
-
         super().__init__(state=state)
 
         self.__obj_map = {self.id: self}

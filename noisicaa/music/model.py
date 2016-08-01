@@ -51,7 +51,7 @@ class Track(core.ObjectBase):
 
     @property
     def sheet(self):
-        return self.parent
+        return self.parent.sheet
 
 
 class Note(core.ObjectBase):
@@ -90,6 +90,10 @@ class Note(core.ObjectBase):
         return time.Duration(duration)
 
 
+class TrackGroup(Track):
+    tracks = core.ObjectListProperty(Track)
+
+
 class ScoreMeasure(Measure):
     clef = core.Property(clef.Clef, default=clef.Clef.Treble)
     key_signature = core.Property(
@@ -120,8 +124,12 @@ class SheetPropertyTrack(Track):
 
 class Sheet(core.ObjectBase):
     name = core.Property(str, default="Sheet")
-    tracks = core.ObjectListProperty(Track)
+    master_group = core.ObjectProperty(TrackGroup)
     property_track = core.ObjectProperty(SheetPropertyTrack)
+
+    @property
+    def sheet(self):
+        return self
 
     def get_bpm(self, measure_idx, tick):  # pylint: disable=unused-argument
         return self.property_track.measures[measure_idx].bpm
