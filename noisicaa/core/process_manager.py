@@ -6,7 +6,9 @@ import functools
 import importlib
 import logging
 import os
+import pickle
 import signal
+import struct
 import sys
 import time
 import traceback
@@ -43,6 +45,67 @@ class PipeAdapter(asyncio.Protocol):
             line = self._buf.decode('utf-8')
             del self._buf[:]
             self._handler(line)
+
+
+class LogAdapter(asyncio.Protocol):
+    def __init__(self, handler):
+        super().__init__()
+        self._handler = handler
+        self._buf = bytearray()
+        self._state = 'header'
+        self._length = None
+
+    def data_received(self, data):
+        self._buf.extend(data)
+        while True:
+            if self._state == 'header':
+                if len(self._buf) < 6:
+                    break
+                header = self._buf[:6]
+                del self._buf[:6]
+                assert header == b'RECORD'
+                self._state = 'length'
+            elif self._state == 'length':
+                if len(self._buf) < 4:
+                    break
+                packed_length = self._buf[:4]
+                del self._buf[:4]
+                self._length, = struct.unpack('>L', packed_length)
+                self._state = 'record'
+            elif self._state == 'record':
+                if len(self._buf) < self._length:
+                    break
+                serialized_record = self._buf[:self._length]
+                del self._buf[:self._length]
+
+                record_attr = pickle.loads(serialized_record)
+                record = logging.makeLogRecord(record_attr)
+                logging.getLogger().handle(record)
+
+                self._state = 'header'
+
+class ChildLogHandler(logging.Handler):
+    def __init__(self, log_fd):
+        super().__init__()
+        self._log_fd = log_fd
+
+    def handle(self, record):
+        record_attrs = {
+            'msg': record.getMessage(),
+            'args': (),
+        }
+        for attr in ('asctime', 'created', 'exc_info', 'exc_text', 'filename', 'funcName', 'levelname', 'levelno', 'lineno', 'module', 'msecs', 'name', 'pathname', 'process', 'processName', 'relativeCreated', 'stack_info', 'thread', 'threadName'):
+            record_attrs[attr] = record.__dict__[attr]
+
+        serialized_record = pickle.dumps(record_attrs)
+        msg = bytearray()
+        msg += b'RECORD'
+        msg += struct.pack('>L', len(serialized_record))
+        msg += serialized_record
+
+        while msg:
+            written = os.write(self._log_fd, msg)
+            msg = msg[written:]
 
 
 class ProcessManager(object):
@@ -107,8 +170,9 @@ class ProcessManager(object):
 
         barrier_in, barrier_out = os.pipe()
         announce_in, announce_out = os.pipe()
-        stdout_in, stdout_out = os.pipe2(os.O_NONBLOCK)
-        stderr_in, stderr_out = os.pipe2(os.O_NONBLOCK)
+        stdout_in, stdout_out = os.pipe()
+        stderr_in, stderr_out = os.pipe()
+        logger_in, logger_out = os.pipe()
 
         manager_address = self._server.address
 
@@ -125,6 +189,7 @@ class ProcessManager(object):
                 os.close(announce_in)
                 os.close(stdout_in)
                 os.close(stderr_in)
+                os.close(logger_in)
 
                 # Use the pipes as out STDIN/-ERR.
                 os.dup2(stdout_out, 1)
@@ -139,6 +204,14 @@ class ProcessManager(object):
                 # before manager has added it to its process map.
                 os.read(barrier_in, 1)
                 os.close(barrier_in)
+
+                # Remove all existing log handlers, and install a new
+                # handler to pipe all log messages back to the manager
+                # process.
+                root_logger = logging.getLogger()
+                for handler in root_logger.handlers:
+                    root_logger.removeHandler(handler)
+                root_logger.addHandler(ChildLogHandler(logger_out))
 
                 if isinstance(cls, str):
                     mod_name, cls_name = cls.rsplit('.', 1)
@@ -172,6 +245,9 @@ class ProcessManager(object):
             # In manager process.
             os.close(barrier_in)
             os.close(announce_out)
+            os.close(stdout_out)
+            os.close(stderr_out)
+            os.close(logger_out)
 
             self._processes[pid] = proc
 
@@ -181,7 +257,7 @@ class ProcessManager(object):
             proc.logger.info("Created new subprocess.")
 
             await proc.setup_std_handlers(
-                self._event_loop, stdout_in, stderr_in)
+                self._event_loop, stdout_in, stderr_in, logger_in)
 
             # Unleash the child.
             proc.state = ProcessState.RUNNING
@@ -342,6 +418,7 @@ class ProcessHandle(object):
         self.stderr_logger = None
         self.stdout_buffer = None
         self.stderr_buffer = None
+        self.logger_buffer = None
 
     def create_loggers(self):
         assert self.pid is not None
@@ -349,7 +426,7 @@ class ProcessHandle(object):
         self.stdout_logger = self.logger.getChild('stdout')
         self.stderr_logger = self.logger.getChild('stderr')
 
-    async def setup_std_handlers(self, event_loop, stdout, stderr):
+    async def setup_std_handlers(self, event_loop, stdout, stderr, logger):
         _, self.stdout_buffer = await event_loop.connect_read_pipe(
             functools.partial(PipeAdapter, self.stdout_logger.info),
             os.fdopen(stdout))
@@ -358,8 +435,15 @@ class ProcessHandle(object):
             functools.partial(PipeAdapter, self.stderr_logger.info),
             os.fdopen(stderr))
 
+        _, self.logger_buffer = await event_loop.connect_read_pipe(
+            functools.partial(LogAdapter, self.log),
+            os.fdopen(logger))
+
     async def wait(self):
         await self.term_event.wait()
+
+    def log(self, serialized_record):
+        print(serialized_record)
 
 
 class ManagerStub(ipc.Stub):
