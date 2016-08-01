@@ -76,7 +76,7 @@ class PropertyBase(object):
     def __set__(self, instance, value):
         assert self.name is not None
         assert instance is not None
-        old_value = instance.state.get(self.name, None)
+        old_value = instance.state.get(self.name, self.default)
         instance.state[self.name] = value
         if value != old_value:
             instance.property_changed(

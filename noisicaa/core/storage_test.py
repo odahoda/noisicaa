@@ -163,9 +163,16 @@ class StorageTest(unittest.TestCase):
         ps = storage.ProjectStorage.create('/foo')
         try:
             ps.add_checkpoint(b'blurp1')
+            self.assertEqual(ps.logs_since_last_checkpoint, 0)
             ps.append_log_entry(b'bla1')
+            self.assertEqual(ps.logs_since_last_checkpoint, 1)
             ps.undo()
+            self.assertEqual(ps.logs_since_last_checkpoint, 2)
+            unpause_evt = ps.pause()
             ps.add_checkpoint(b'blurp2')
+            self.assertEqual(ps.logs_since_last_checkpoint, 0)
+
+            unpause_evt.set()
             ps.flush()
 
             entries = list(

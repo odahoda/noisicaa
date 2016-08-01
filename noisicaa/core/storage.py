@@ -136,10 +136,8 @@ class ProjectStorage(object):
     def get_restore_info(self):
         assert self.next_checkpoint_number > 0
 
-        size = self.checkpoint_index_formatter.size
-        offset = (self.next_checkpoint_number - 1) * size
-        packed_entry = self.checkpoint_index[offset:offset+size]
-        seq_number, checkpoint_number = self.checkpoint_index_formatter.unpack(packed_entry)
+        seq_number, checkpoint_number = self._get_checkpoint_entry(
+            self.next_checkpoint_number - 1)
 
         actions = []
         for snum in range(seq_number, self.next_sequence_number):
@@ -224,10 +222,11 @@ class ProjectStorage(object):
         self.write_queue.put(
             ('LOG', (seq_number, history_entry, log_entry)))
 
-    def _schedule_checkpoint_write(self, seq_number, checkpoint):
+    def _schedule_checkpoint_write(
+            self, seq_number, checkpoint_number, checkpoint):
         assert self.writer_thread.is_alive()
         self.write_queue.put(
-            ('CHECKPOINT', (seq_number, checkpoint)))
+            ('CHECKPOINT', (seq_number, checkpoint_number, checkpoint)))
 
     def _writer_main(self):
         logger.info("Log writer thread started.")
@@ -284,23 +283,20 @@ class ProjectStorage(object):
                             assert log_number > self.written_log_number
                             self.written_log_number = log_number
                 elif cmd == 'CHECKPOINT':
-                    seq_number, checkpoint = arg
+                    seq_number, checkpoint_number, checkpoint = arg
 
                     checkpoint_path = os.path.join(
                         self.data_dir,
-                        'checkpoint.%06d' % self.next_checkpoint_number)
+                        'checkpoint.%06d' % checkpoint_number)
                     logger.info("Writing checkpoint %s...", checkpoint_path)
                     with open(checkpoint_path, mode='wb', buffering=0) as fp:
                         fp.write(checkpoint)
 
                     packed_index_entry = self.checkpoint_index_formatter.pack(
-                        seq_number, self.next_checkpoint_number)
+                        seq_number, checkpoint_number)
                     self.checkpoint_index_fp.write(packed_index_entry)
                     self.checkpoint_index_fp.flush()
 
-                    with self.cache_lock:
-                        self.checkpoint_index += packed_index_entry
-                        self.next_checkpoint_number += 1
                 else:  # pragma: no coverage
                     raise ValueError("Invalud command %r", cmd)
 
@@ -356,6 +352,12 @@ class ProjectStorage(object):
         with self.cache_lock:
             self.log_entry_cache[log_number] = entry
             self.flush_cache(self.log_entry_cache_size)
+
+    def _get_checkpoint_entry(self, checkpoint_number):
+        size = self.checkpoint_index_formatter.size
+        offset = checkpoint_number * size
+        packed_entry = self.checkpoint_index[offset:offset+size]
+        return self.checkpoint_index_formatter.unpack(packed_entry)
 
     def flush_cache(self, cache_size):
         with self.cache_lock:
@@ -476,15 +478,27 @@ class ProjectStorage(object):
 
             self.next_sequence_number += 1
 
+    @property
+    def logs_since_last_checkpoint(self):
+        if self.next_checkpoint_number == 0:
+            return self.next_sequence_number
+        seq_number, _ = self._get_checkpoint_entry(
+            self.next_checkpoint_number - 1)
+        return self.next_sequence_number - seq_number
+
     def add_checkpoint(self, checkpoint):
         self._schedule_checkpoint_write(
-            self.next_sequence_number, checkpoint)
+            self.next_sequence_number, self.next_checkpoint_number,
+            checkpoint)
+
+        packed_index_entry = self.checkpoint_index_formatter.pack(
+            self.next_sequence_number, self.next_checkpoint_number)
+        self.checkpoint_index += packed_index_entry
+        self.next_checkpoint_number += 1
 
     def get_checkpoint(self, checkpoint_number):
-        size = self.checkpoint_index_formatter.size
-        offset = checkpoint_number * size
-        packed_entry = self.checkpoint_index[offset:offset+size]
-        _, checkpoint_number = self.checkpoint_index_formatter.unpack(packed_entry)
+        _, checkpoint_number = self._get_checkpoint_entry(
+            checkpoint_number)
 
         checkpoint_path = os.path.join(
             self.data_dir,

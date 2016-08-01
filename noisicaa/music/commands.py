@@ -20,6 +20,10 @@ class CommandLog(state.StateBase):
     def __init__(self, state=None):
         super().__init__(state=state)
 
+    def __str__(self):
+        return '<CommandLog %s>' % ' '.join(name for name, _ in self.ops)
+    __repr__ = __str__
+
     def add_slot(self, value):
         if isinstance(value, state.StateBase):
             value = ('object', value.serialize())
@@ -200,7 +204,8 @@ class Command(state.RootMixin, state.StateBase):
                 old_value = self.log.get_slot(root.cls_map, old_slot_id)
                 new_value = self.log.get_slot(root.cls_map, new_slot_id)
 
-                assert getattr(obj, prop_name) == old_value
+                assert getattr(obj, prop_name) == old_value, (
+                    '%r != %r' % (getattr(obj, prop_name), old_value))
                 setattr(obj, prop_name, new_value)
 
             elif op == 'LIST_INSERT':
@@ -217,7 +222,8 @@ class Command(state.RootMixin, state.StateBase):
                 old_value = self.log.get_slot(root.cls_map, old_slot_id)
 
                 lst = getattr(obj, prop_name)
-                assert lst[index] == old_value
+                assert lst[index] == old_value, (
+                    '%r != %r' % (lst[index], old_value))
                 del lst[index]
 
             else:
@@ -235,7 +241,8 @@ class Command(state.RootMixin, state.StateBase):
                 new_value = self.log.get_slot(root.cls_map, new_slot_id)
 
                 current_value = getattr(obj, prop_name)
-                assert current_value == new_value
+                assert current_value == new_value, (
+                    '%r != %r' % (current_value, new_value))
                 setattr(obj, prop_name, old_value)
 
             elif op == 'LIST_INSERT':
@@ -244,7 +251,8 @@ class Command(state.RootMixin, state.StateBase):
                 new_value = self.log.get_slot(root.cls_map, new_slot_id)
 
                 lst = getattr(obj, prop_name)
-                assert lst[index] == new_value
+                assert lst[index] == new_value, (
+                    '%r != %r' % (lst[index], new_value))
                 del lst[index]
 
             elif op == 'LIST_DELETE':

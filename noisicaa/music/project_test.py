@@ -13,6 +13,7 @@ if __name__ == '__main__':
     pyximport.install()
 
 from noisicaa.core import fileutil
+from noisicaa.core import storage
 from . import project
 
 
@@ -122,19 +123,19 @@ class ProjectTest(unittest.TestCase):
         self.fs = fake_filesystem.FakeFilesystem()
         self.fake_os = fake_filesystem.FakeOsModule(self.fs)
         self.fake_open = fake_filesystem.FakeFileOpen(self.fs)
-        self.stubs.SmartSet(project, 'os', self.fake_os)
+        self.stubs.SmartSet(storage, 'os', self.fake_os)
         self.stubs.SmartSet(fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
     def test_create(self):
         p = project.Project()
-        p.create('/foo.emp')
+        p.create('/foo.noise')
         p.close()
 
-        self.assertTrue(self.fake_os.path.isfile('/foo.emp'))
+        self.assertTrue(self.fake_os.path.isfile('/foo.noise'))
         self.assertTrue(self.fake_os.path.isdir('/foo.data'))
 
-        f = fileutil.File('/foo.emp')
+        f = fileutil.File('/foo.noise')
         file_info, contents = f.read_json()
         self.assertEqual(file_info.version, 1)
         self.assertEqual(file_info.filetype, 'project-header')
@@ -142,7 +143,7 @@ class ProjectTest(unittest.TestCase):
 
     def test_open_and_replay(self):
         p = project.Project()
-        p.create('/foo.emp')
+        p.create('/foo.noise')
         try:
             p.dispatch_command(p.id, project.AddSheet())
             sheet_id = p.sheets[-1].id
@@ -152,12 +153,10 @@ class ProjectTest(unittest.TestCase):
             p.close()
 
         p = project.Project()
-        p.open('/foo.emp')
+        p.open('/foo.noise')
         try:
             self.assertEqual(p.sheets[-1].id, sheet_id)
             self.assertEqual(p.sheets[-1].tracks[-1].id, track_id)
-            self.assertEqual(p.path, '/foo.emp')
-            self.assertEqual(p.data_dir, '/foo.data')
         finally:
             p.close()
 
@@ -169,17 +168,8 @@ class ProjectTest(unittest.TestCase):
         finally:
             p.close()
 
-        self.assertTrue(self.fake_os.path.isfile('/foo.data/state.2.checkpoint'))
-        self.assertTrue(self.fake_os.path.isfile('/foo.data/state.2.log'))
-        self.assertTrue(self.fake_os.path.isfile('/foo.data/state.latest'))
-
-        f = fileutil.File('/foo.data/state.latest')
-        file_info, state_data = f.read_json()
-        self.assertEqual(file_info.version, 1)
-        self.assertEqual(file_info.filetype, 'project-state')
-        self.assertEqual(state_data['sequence_number'], 2)
-        self.assertEqual(state_data['checkpoint'], 'state.2.checkpoint')
-        self.assertEqual(state_data['log'], 'state.2.log')
+        self.assertTrue(
+            self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
 
 
 class ScoreEventSource(unittest.TestCase):

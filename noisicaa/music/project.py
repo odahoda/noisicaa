@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+import email.parser
+import email.policy
+import email.message
 import logging
 import os
 import os.path
@@ -10,12 +13,8 @@ import portalocker
 
 from noisicaa import core
 from noisicaa.core import fileutil
+from noisicaa.core import storage
 
-from noisicaa.core.storage import (
-    CorruptedProjectError,
-    FileOpenError,
-    UnsupportedFileVersionError,
-)
 from .pitch import Pitch
 from .clef import Clef
 from .key_signature import KeySignature
@@ -530,171 +529,121 @@ class Project(BaseProject):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
-        self.file_lock = None
-        self.header_data = None
-        self.path = None
-        self.data_dir = None
-        self.command_log_fp = None
-        self.checkpoint_sequence_number = 1
+        self.storage = None
 
     @property
     def closed(self):
-        return self.path is None
+        return self.storage is None
+
+    @property
+    def path(self):
+        if self.storage:
+            return self.storage.path
+        return None
 
     def open(self, path):
-        assert self.path is None
+        assert self.storage is None
 
-        path = os.path.abspath(path)
-        logger.info("Opening project at %s", path)
+        self.storage = storage.ProjectStorage()
+        self.storage.open(path)
 
-        try:
-            fp = fileutil.File(path)
-            file_info, data = fp.read_json()
-        except fileutil.Error as exc:
-            raise FileOpenError(str(exc))
+        checkpoint_number, actions = self.storage.get_restore_info()
 
-        if file_info.filetype != 'project-header':
-            raise FileOpenError("Not a project file")
+        serialized_checkpoint = self.storage.get_checkpoint(
+            checkpoint_number)
 
-        if file_info.version not in self.SUPPORTED_VERSIONS:
-            raise UnsupportedFileVersionError()
+        self.load_from_checkpoint(serialized_checkpoint)
+        for action, log_number in actions:
+            cmd_data = self.storage.get_log_entry(log_number)
+            parser = email.parser.BytesParser()
+            message = parser.parsebytes(cmd_data)
 
-        data_dir = os.path.join(os.path.dirname(path), data['data_dir'])
-        if not os.path.isdir(data_dir):
-            raise CorruptedProjectError("Directory %s missing" % data_dir)
+            obj_id = message['Target']
+            cmd_state = json.loads(message.get_payload(), cls=JSONDecoder)
+            cmd = commands.Command.create_from_state(cmd_state)
+            logger.info(
+                "Replay command %s on %s (%d operations)",
+                cmd, obj_id, len(cmd.log.ops))
+            try:
+                obj = self.get_object(obj_id)
+            except:
+                import pprint, sys
+                sys.stderr.write(pprint.pformat(self._RootMixin__obj_map))
+                raise
 
-        file_lock = self.acquire_file_lock(os.path.join(data_dir, "lock"))
-
-        try:
-            fp = fileutil.File(os.path.join(data_dir, 'state.latest'))
-            file_info, state_data = fp.read_json()
-        except fileutil.Error as exc:
-            raise FileOpenError(str(exc))
-
-        if file_info.filetype != 'project-state':
-            raise CorruptedProjectError("File %s corrupted.")
-
-        if file_info.version not in self.SUPPORTED_VERSIONS:
-            raise UnsupportedFileVersionError()
-
-        checkpoint_sequence_number = state_data['sequence_number']
-        checkpoint_path = os.path.join(data_dir, state_data['checkpoint'])
-        command_log_path = os.path.join(data_dir, state_data['log'])
-
-        self.read_checkpoint(checkpoint_path)
-        self.replay_command_log(command_log_path)
-
-        command_log_fp = fileutil.MimeLogFile(command_log_path, 'a')
-
-        self.file_lock = file_lock
-        self.path = path
-        self.data_dir = data_dir
-        self.header_data = data
-        self.command_log_fp = command_log_fp
-        self.checkpoint_sequence_number = checkpoint_sequence_number
+            if action in (
+                    self.storage.ACTION_LOG_ENTRY,
+                    self.storage.ACTION_REDO):
+                cmd.redo(obj)
+            elif action == self.storage.ACTION_UNDO:
+                cmd.undo(obj)
+            else:
+                raise ValueError("Unsupported action %s" % action)
 
     def create(self, path):
-        assert self.path is None
+        assert self.storage is None
 
-        header_data = {
-            'created': int(time.time()),
-            'data_dir': os.path.splitext(os.path.basename(path))[0] + '.data',
-        }
-        data_dir = os.path.join(os.path.dirname(path), header_data['data_dir'])
+        self.storage = storage.ProjectStorage.create(path)
 
-        os.mkdir(data_dir)
-        fp = fileutil.File(path)
-        fp.write_json(
-            header_data,
-            fileutil.FileInfo(filetype='project-header',
-                              version=self.VERSION))
-
-        state_data, command_log_fp = self.write_checkpoint(data_dir, 1)
-        fp = fileutil.File(os.path.join(data_dir, 'state.latest'))
-        fp.write_json(
-            state_data,
-            fileutil.FileInfo(filetype='project-state',
-                              version=self.VERSION))
-
-        file_lock = self.acquire_file_lock(os.path.join(data_dir, "lock"))
-
-        self.file_lock = file_lock
-        self.path = path
-        self.data_dir = data_dir
-        self.header_data = header_data
-        self.command_log_fp = command_log_fp
-        self.checkpoint_sequence_number = 1
-
-    def create_checkpoint(self):
-        state_data, command_log_fp = self.write_checkpoint(
-            self.data_dir, self.checkpoint_sequence_number + 1)
-
-        fp = fileutil.File(os.path.join(self.data_dir, 'state.latest.new'))
-        fp.write_json(
-            state_data,
-            fileutil.FileInfo(filetype='project-state',
-                              version=self.VERSION))
-        os.rename(os.path.join(self.data_dir, 'state.latest.new'),
-                  os.path.join(self.data_dir, 'state.latest'))
-
-        if self.command_log_fp is not None:
-            self.command_log_fp.close()
-            self.command_log_fp = None
-
-        self.command_log_fp = command_log_fp
-        self.checkpoint_sequence_number += 1
-
-        return state_data['checkpoint']
+        # Write initial checkpoint of an empty project.
+        self.create_checkpoint()
 
     def close(self):
-        if self.command_log_fp is not None:
-            self.command_log_fp.close()
-
-        if self.file_lock is not None:
-            self.release_file_lock(self.file_lock)
-
-        self.command_log_fp = None
-        self.file_lock = None
-        self.header_data = None
-        self.path = None
-        self.data_dir = None
+        if self.storage is not None:
+            self.storage.close()
+            self.storage = None
 
         self.listeners.clear()
-
         self.reset_state()
 
-    def acquire_file_lock(self, lock_path):
-        logger.info("Aquire file lock (%s).", lock_path)
-        lock_fp = open(lock_path, 'wb')
-        portalocker.lock(lock_fp, portalocker.LOCK_EX | portalocker.LOCK_NB)
-        return lock_fp
+    def load_from_checkpoint(self, checkpoint_data):
+        parser = email.parser.BytesParser()
+        message = parser.parsebytes(checkpoint_data)
 
-    def release_file_lock(self, lock_fp):
-        logger.info("Releasing file lock.")
-        lock_fp.close()
-
-    def read_checkpoint(self, path):
-        logger.info("Reading checkpoint from %s", path)
-
-        fp = fileutil.File(path)
-        file_info, checkpoint = fp.read_json(decoder=JSONDecoder)
-        if file_info.filetype != 'project-checkpoint':
-            raise FileOpenError("Not a checkpoint file")
-
-        if file_info.version not in self.SUPPORTED_VERSIONS:
+        version = int(message['Version'])
+        if version not in self.SUPPORTED_VERSIONS:
             raise UnsupportedFileVersionError()
+
+        if message.get_content_type() != 'application/json':
+            raise storage.CorruptedProjectError(
+                "Unexpected content type %s" % message.get_content_type())
+
+        serialized_checkpoint = message.get_payload()
+
+        checkpoint = json.loads(serialized_checkpoint, cls=JSONDecoder)
 
         self.deserialize(checkpoint)
         self.init_references()
 
-        def validateNode(root, parent, node):
+        def validate_node(root, parent, node):
             assert node.parent is parent, (node.parent, parent)
             assert node.root is root, (node.root, root)
 
             for c in node.list_children():
-                validateNode(root, node, c)
+                validate_node(root, node, c)
 
-        validateNode(self, None, self)
+        validate_node(self, None, self)
+
+    def create_checkpoint(self):
+        policy = email.policy.compat32.clone(
+            linesep='\n',
+            max_line_length=0,
+            cte_type='8bit',
+            raise_on_defect=True)
+        message = email.message.Message(policy)
+
+        message['Version'] = str(self.VERSION)
+        message['Content-Type'] = 'application/json; charset=utf-8'
+
+        checkpoint = json.dumps(
+            self.serialize(),
+            ensure_ascii=False, indent='  ', sort_keys=True,
+            cls=JSONEncoder)
+        serialized_checkpoint = checkpoint.encode('utf-8')
+        message.set_payload(serialized_checkpoint)
+
+        checkpoint_data = message.as_bytes()
+        self.storage.add_checkpoint(checkpoint_data)
 
     def replay_command_log(self, command_log_path):
         with fileutil.MimeLogFile(command_log_path, 'r') as fp:
@@ -702,70 +651,37 @@ class Project(BaseProject):
                 if entry_type != b'C':
                     raise CorruptedProjectError(
                         "Unexpected log entry type %s" % entry_type)
-                obj_id = headers['Target']
-                cmd_state = json.loads(serialized, cls=JSONDecoder)
-                cmd = commands.Command.create_from_state(cmd_state)
-                logger.info(
-                    "Replay command %s on %s (%d operations)",
-                    cmd, obj_id, len(cmd.log.ops))
-                try:
-                    obj = self.get_object(obj_id)
-                except:
-                    import pprint, sys
-                    sys.stderr.write(pprint.pformat(self._RootMixin__obj_map))
-                    raise
-                cmd.redo(obj)
-
-    def write_checkpoint(self, data_dir, sequence_number):
-        name_base = 'state.%d' % sequence_number
-
-        checkpoint_name = name_base + '.checkpoint'
-        checkpoint_path = os.path.join(data_dir, checkpoint_name)
-        logger.info("Writing checkpoint to %s", checkpoint_path)
-
-        assert not os.path.exists(checkpoint_path)
-
-        checkpoint = self.serialize()
-
-        fp = fileutil.File(checkpoint_path)
-        fp.write_json(
-            checkpoint,
-            fileutil.FileInfo(filetype='project-checkpoint',
-                              version=self.VERSION),
-            encoder=JSONEncoder)
-
-        command_log_name = name_base + '.log'
-        command_log_path = os.path.join(data_dir, command_log_name)
-        command_log_fp = fileutil.MimeLogFile(command_log_path, 'w')
-
-        state_data = {
-            'sequence_number': sequence_number,
-            'checkpoint': checkpoint_name,
-            'log': command_log_name,
-        }
-        return state_data, command_log_fp
 
     def dispatch_command(self, obj_id, cmd):
         if self.closed:
-            raise RuntimeError("Command %s executed on closed project." % cmd)
+            raise RuntimeError(
+                "Command %s executed on closed project." % cmd)
 
-        assert self.command_log_fp is not None
+        now = time.time()
 
         result = super().dispatch_command(obj_id, cmd)
 
         serialized = json.dumps(
             cmd.serialize(),
-            ensure_ascii=False, indent='  ', sort_keys=True, cls=JSONEncoder)
-        now = time.time()
-        self.command_log_fp.append(
-            serialized,
-            content_type='application/json',
-            encoding='utf-8',
-            entry_type=b'C',
-            headers={
-                'Target': obj_id,
-                'Time': time.ctime(now),
-                'Timestamp': '%d' % now,
-            })
+            ensure_ascii=False, indent='  ', sort_keys=True,
+            cls=JSONEncoder)
+
+        policy = email.policy.compat32.clone(
+            linesep='\n',
+            max_line_length=0,
+            cte_type='8bit',
+            raise_on_defect=True)
+        message = email.message.Message(policy)
+        message['Version'] = str(self.VERSION)
+        message['Content-Type'] = 'application/json; charset=utf-8'
+        message['Target'] = obj_id
+        message['Time'] = time.ctime(now)
+        message['Timestamp'] = '%d' % now
+        message.set_payload(serialized.encode('utf-8'))
+
+        self.storage.append_log_entry(message.as_bytes())
+
+        if self.storage.logs_since_last_checkpoint > 1000:
+            self.create_checkpoint()
 
         return result
