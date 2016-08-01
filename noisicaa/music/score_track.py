@@ -1,11 +1,9 @@
 #!/usr/bin/python3
 
 import logging
-import fractions
 
 from noisicaa import core
-
-from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent, EndOfStreamEvent
+from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
 
 from .pitch import Pitch
 from .clef import Clef
@@ -15,8 +13,47 @@ from .time import Duration
 from . import model
 from . import state
 from . import commands
+from . import instrument
+from . import mutations
 
 logger = logging.getLogger(__name__)
+
+
+class ClearInstrument(commands.Command):
+    def run(self, track):
+        assert isinstance(track, Track)
+
+        if track.instrument is not None:
+            track.remove_instrument_from_pipeline()
+
+        track.instrument = None
+
+commands.Command.register_command(ClearInstrument)
+
+
+class SetInstrument(commands.Command):
+    instrument_type = core.Property(str)
+    instrument_args = core.DictProperty()
+
+    def __init__(self, instrument_type=None, instrument_args=None,
+                 state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.instrument_type = instrument_type
+            self.instrument_args.update(instrument_args)
+
+    def run(self, track):
+        assert isinstance(track, Track)
+
+        assert self.instrument_type == 'SoundFontInstrument'
+        instr = instrument.SoundFontInstrument(**self.instrument_args)
+
+        if track.instrument is not None:
+            track.remove_instrument_from_pipeline()
+        track.instrument = instr
+        track.add_instrument_to_pipeline()
+
+commands.Command.register_command(SetInstrument)
 
 
 class ChangeNote(commands.Command):
@@ -303,10 +340,12 @@ class ScoreEventSource(EventSource):
 class ScoreTrack(model.ScoreTrack, Track):
     measure_cls = ScoreMeasure
 
-    def __init__(self, name=None, instrument=None, num_measures=1, state=None):
-        super().__init__(name=name, instrument=instrument, state=state)
+    def __init__(
+            self, instrument=None, num_measures=1, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
 
         if state is None:
+            self.instrument = instrument
             for _ in range(num_measures):
                 self.measures.append(ScoreMeasure())
 
@@ -321,5 +360,41 @@ class ScoreTrack(model.ScoreTrack, Track):
 
     def create_event_source(self):
         return ScoreEventSource(self)
+
+    @property
+    def instr_name(self):
+        return self.instrument.pipeline_node_id
+
+    def add_instrument_to_pipeline(self):
+        self.instrument.add_to_pipeline()
+
+        self.sheet.handle_pipeline_mutation(
+            mutations.ConnectPorts(
+                self.instr_name, 'out', self.mixer_name, 'in'))
+
+        self.sheet.handle_pipeline_mutation(
+            mutations.ConnectPorts(
+                self.event_source_name, 'out', self.instr_name, 'in'))
+
+    def remove_instrument_from_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.DisconnectPorts(
+                self.instr_name, 'out', self.mixer_name, 'in'))
+
+        self.sheet.handle_pipeline_mutation(
+            mutations.DisconnectPorts(
+                self.event_source_name, 'out', self.instr_name, 'in'))
+
+        self.instrument.remove_from_pipeline()
+
+    def add_to_pipeline(self):
+        super().add_to_pipeline()
+        if self.instrument is not None:
+            self.add_instrument_to_pipeline()
+
+    def remove_from_pipeline(self):
+        if self.instrument is not None:
+            self.remove_instrument_from_pipeline()
+        super().remove_from_pipeline()
 
 state.StateBase.register_class(ScoreTrack)

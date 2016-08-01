@@ -43,13 +43,11 @@ class Measure(core.ObjectBase):
 
 class Track(core.ObjectBase):
     name = core.Property(str)
-    instrument = core.ObjectProperty(cls=Instrument)
     measures = core.ObjectListProperty(cls=Measure)
 
     visible = core.Property(bool, default=True)
     muted = core.Property(bool, default=False)
     volume = core.Property(float, default=100.0)
-    transpose_octaves = core.Property(int, default=0)
 
     @property
     def sheet(self):
@@ -105,6 +103,7 @@ class ScoreMeasure(Measure):
 
 
 class ScoreTrack(Track):
+    instrument = core.ObjectProperty(cls=Instrument)
     transpose_octaves = core.Property(int, default=0)
 
 

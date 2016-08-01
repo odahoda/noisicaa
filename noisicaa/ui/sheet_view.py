@@ -43,15 +43,8 @@ from noisicaa import audioproc
 from .instrument_library import InstrumentLibraryDialog
 from .render_sheet_dialog import RenderSheetDialog
 from noisicaa.music import (
-    AddSheet, DeleteSheet, SetCurrentSheet,
-    ScoreTrack,
-    SheetPropertyTrack,
-    UpdateTrackProperties, ClearInstrument, SetInstrument,
-    Note, ChangeNote, InsertNote, DeleteNote, SetAccidental,
-    AddPitch, RemovePitch,
+    Note,
     Duration,
-    SetClef, SetKeySignature, SetTimeSignature,
-    SetBPM,
     Pitch, Clef, KeySignature,
 )
 from ..constants import DATA_DIR
@@ -199,8 +192,6 @@ class TrackItemImpl(object):
 
         self._prev_note_highlight = None
 
-        self.onInstrumentChanged(None, self._track.instrument)
-
         self._measures = []
         for measure in self._track.measures:
             measure_item = self.measure_item_cls(  # pylint: disable=not-callable
@@ -214,7 +205,6 @@ class TrackItemImpl(object):
 
         self._listeners = [
             self._track.listeners.add('name', self.onNameChanged),
-            self._track.listeners.add('instrument', self.onInstrumentChanged),
             self._track.listeners.add('measures', self.onMeasuresChanged),
             self._track.listeners.add('muted', self.onMutedChanged),
             self._track.listeners.add('volume', self.onVolumeChanged),
@@ -278,10 +268,6 @@ class TrackItemImpl(object):
         # TODO: only update the first measure.
         self._sheet_view.updateSheet()
 
-    def onInstrumentChanged(self, old_instr, new_instr):
-        logger.info("Track %s: Changed instrument from %s to %s",
-                    self._track.name, old_instr, new_instr)
-
     def onMutedChanged(self, old_value, new_value):
         pass # TODO
 
@@ -289,12 +275,6 @@ class TrackItemImpl(object):
         pass # TODO
 
     def buildContextMenu(self, menu):
-        track_instrument_action = QAction(
-            "Select instrument...", menu,
-            statusTip="Select the insturment for track.",
-            triggered=self.onTrackInstrument)
-        menu.addAction(track_instrument_action)
-
         track_properties_action = QAction(
             "Edit track properties...", menu,
             statusTip="Edit the properties of this track.",
@@ -311,27 +291,6 @@ class TrackItemImpl(object):
         self.send_command_async(
             self._track.parent.id, 'RemoveTrack',
             track=self._track.index)
-
-    def onTrackInstrument(self):
-        if self._instrument_selector is None:
-            self._instrument_selector = InstrumentLibraryDialog(
-                self._sheet_view, self.app, self.app.instrument_library)
-            self._instrument_selector.instrumentChanged.connect(
-                self.onSelectInstrument)
-
-        self._instrument_selector.setWindowTitle(
-            "Select instrument for track '%s'" % self._track.name)
-        self._instrument_selector.selectInstrument(self._track.instrument)
-        self._instrument_selector.show()
-
-    def onSelectInstrument(self, instr):
-        if instr is None:
-            self.send_command_async(
-                self._track.id, 'ClearInstrument')
-        else:
-            self.send_command_async(
-                self._track.id, 'SetInstrument',
-                instr=instr.to_json())
 
     def onTrackProperties(self):
         dialog = QDialog()
@@ -1042,6 +1001,43 @@ class ScoreTrackItemImpl(TrackItemImpl):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._play_last_pitch = None
+        self.onInstrumentChanged(None, self._track.instrument)
+        self._listeners.append(
+            self._track.listeners.add('instrument', self.onInstrumentChanged))
+
+    def onInstrumentChanged(self, old_instr, new_instr):
+        logger.info("Track %s: Changed instrument from %s to %s",
+                    self._track.name, old_instr, new_instr)
+
+    def buildContextMenu(self, menu):
+        super().buildContextMenu(menu)
+
+        track_instrument_action = QAction(
+            "Select instrument...", menu,
+            statusTip="Select the insturment for track.",
+            triggered=self.onTrackInstrument)
+        menu.addAction(track_instrument_action)
+
+    def onTrackInstrument(self):
+        if self._instrument_selector is None:
+            self._instrument_selector = InstrumentLibraryDialog(
+                self._sheet_view, self.app, self.app.instrument_library)
+            self._instrument_selector.instrumentChanged.connect(
+                self.onSelectInstrument)
+
+        self._instrument_selector.setWindowTitle(
+            "Select instrument for track '%s'" % self._track.name)
+        self._instrument_selector.selectInstrument(self._track.instrument)
+        self._instrument_selector.show()
+
+    def onSelectInstrument(self, instr):
+        if instr is None:
+            self.send_command_async(
+                self._track.id, 'ClearInstrument')
+        else:
+            self.send_command_async(
+                self._track.id, 'SetInstrument',
+                instr=instr.to_json())
 
     def playNoteOn(self, pitch):
         self.playNoteOff()

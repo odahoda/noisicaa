@@ -7,21 +7,14 @@ from .project_client import ProjectClient
 
 from .project import (
     BaseProject, Project,
-
-    AddSheet, DeleteSheet, SetCurrentSheet,
 )
 from .track import (
     Track, Measure, EventSource,
-    UpdateTrackProperties, ClearInstrument, SetInstrument,
 )
 from .score_track import (
     ScoreMeasure, ScoreTrack,
     Note,
-    ChangeNote, InsertNote, DeleteNote, SetAccidental,
-    AddPitch, RemovePitch,
-    SetClef, SetKeySignature,
 )
 from .sheet_property_track import (
     SheetPropertyMeasure, SheetPropertyTrack,
-    SetTimeSignature, SetBPM,
 )

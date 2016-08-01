@@ -1,32 +1,14 @@
 #!/usr/bin/python3
 
-import email.parser
-import email.policy
-import email.message
 import logging
-import os
-import os.path
-import time
-import json
-
-import portalocker
 
 from noisicaa import core
-from noisicaa.core import fileutil
-from noisicaa.core import storage
 
-from .pitch import Pitch
-from .clef import Clef
-from .key_signature import KeySignature
-from .time_signature import TimeSignature
-from .track import Track
-from .score_track import ScoreTrack, Note
+from .score_track import ScoreTrack
 from .sheet_property_track import SheetPropertyTrack
-from .time import Duration
 from . import model
 from . import state
 from . import commands
-from . import instrument
 from . import mutations
 
 logger = logging.getLogger(__name__)

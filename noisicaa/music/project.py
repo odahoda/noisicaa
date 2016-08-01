@@ -4,30 +4,22 @@ import email.parser
 import email.policy
 import email.message
 import logging
-import os
-import os.path
 import time
 import json
 
-import portalocker
-
 from noisicaa import core
-from noisicaa.core import fileutil
 from noisicaa.core import storage
 
 from .pitch import Pitch
 from .clef import Clef
 from .key_signature import KeySignature
 from .time_signature import TimeSignature
-from .track import Track
 from .score_track import ScoreTrack, Note
-from .sheet_property_track import SheetPropertyTrack
 from .time import Duration
 from . import model
 from . import state
 from . import commands
 from . import instrument
-from . import mutations
 from . import sheet
 
 logger = logging.getLogger(__name__)
@@ -331,12 +323,7 @@ class Project(BaseProject):
             logger.info(
                 "Replay action %s of command %s on %s (%d operations)",
                 action, cmd, obj_id, len(cmd.log.ops))
-            try:
-                obj = self.get_object(obj_id)
-            except:
-                import pprint, sys
-                sys.stderr.write(pprint.pformat(self._RootMixin__obj_map))
-                raise
+            obj = self.get_object(obj_id)
 
             if action == storage.ACTION_FORWARD:
                 cmd.redo(obj)
@@ -367,7 +354,7 @@ class Project(BaseProject):
 
         version = int(message['Version'])
         if version not in self.SUPPORTED_VERSIONS:
-            raise UnsupportedFileVersionError()
+            raise storage.UnsupportedFileVersionError()
 
         if message.get_content_type() != 'application/json':
             raise storage.CorruptedProjectError(
