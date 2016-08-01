@@ -25,6 +25,7 @@ class Span(object):
         return '<%s %016x(%016x) %s %s %s>' % (
             self.name, self.id, self.parent_id,
             self.start_time_nsec, self.end_time_nsec, self.duration)
+    __repr__ = __str__
 
 
 class PerfStats(object):

@@ -48,9 +48,9 @@ class PipeAdapter(asyncio.Protocol):
 
 
 class LogAdapter(asyncio.Protocol):
-    def __init__(self, handler):
+    def __init__(self, logger):
         super().__init__()
-        self._handler = handler
+        self._logger = logger
         self._buf = bytearray()
         self._state = 'header'
         self._length = None
@@ -80,7 +80,7 @@ class LogAdapter(asyncio.Protocol):
 
                 record_attr = pickle.loads(serialized_record)
                 record = logging.makeLogRecord(record_attr)
-                logging.getLogger().handle(record)
+                self._logger.handle(record)
 
                 self._state = 'header'
 
@@ -94,7 +94,12 @@ class ChildLogHandler(logging.Handler):
             'msg': record.getMessage(),
             'args': (),
         }
-        for attr in ('asctime', 'created', 'exc_info', 'exc_text', 'filename', 'funcName', 'levelname', 'levelno', 'lineno', 'module', 'msecs', 'name', 'pathname', 'process', 'processName', 'relativeCreated', 'stack_info', 'thread', 'threadName'):
+        for attr in (
+                'asctime', 'created', 'exc_info', 'exc_text',
+                'filename', 'funcName', 'levelname', 'levelno',
+                'lineno', 'module', 'msecs', 'name', 'pathname',
+                'process', 'relativeCreated', 'stack_info',
+                'thread', 'threadName'):
             record_attrs[attr] = record.__dict__[attr]
 
         serialized_record = pickle.dumps(record_attrs)
@@ -320,8 +325,8 @@ class ProcessManager(object):
 
             # The handle should receive an EOF when the child died and the
             # pipe gets closed. We should wait for it asynchronously.
-            proc.stdout_buffer.eof_received()
-            proc.stderr_buffer.eof_received()
+            proc.stdout_protocol.eof_received()
+            proc.stderr_protocol.eof_received()
 
             proc.resinfo = resinfo
             # proc.logger.info("Resource usage:")
@@ -404,6 +409,15 @@ class ProcessImpl(object):
         raise NotImplementedError("Subclass must override run")
 
 
+class SetPIDHandler(logging.Handler):
+    def __init__(self, pid):
+        super().__init__()
+        self._pid = pid
+
+    def handle(self, record):
+        record.process = self._pid
+
+
 class ProcessHandle(object):
     def __init__(self):
         self.state = ProcessState.NOT_STARTED
@@ -416,34 +430,35 @@ class ProcessHandle(object):
         self.logger = None
         self.stdout_logger = None
         self.stderr_logger = None
-        self.stdout_buffer = None
-        self.stderr_buffer = None
-        self.logger_buffer = None
+        self.stdout_protocol = None
+        self.stderr_protocol = None
+        self.logger_protocol = None
 
     def create_loggers(self):
         assert self.pid is not None
         self.logger = logging.getLogger('childproc[%d]' % self.pid)
+
         self.stdout_logger = self.logger.getChild('stdout')
+        self.stdout_logger.addHandler(SetPIDHandler(self.pid))
         self.stderr_logger = self.logger.getChild('stderr')
+        self.stderr_logger.addHandler(SetPIDHandler(self.pid))
 
-    async def setup_std_handlers(self, event_loop, stdout, stderr, logger):
-        _, self.stdout_buffer = await event_loop.connect_read_pipe(
+    async def setup_std_handlers(
+        self, event_loop, stdout_fd, stderr_fd, logger_fd):
+        _, self.stdout_protocol = await event_loop.connect_read_pipe(
             functools.partial(PipeAdapter, self.stdout_logger.info),
-            os.fdopen(stdout))
+            os.fdopen(stdout_fd))
 
-        _, self.stderr_buffer = await event_loop.connect_read_pipe(
-            functools.partial(PipeAdapter, self.stderr_logger.info),
-            os.fdopen(stderr))
+        _, self.stderr_protocol = await event_loop.connect_read_pipe(
+            functools.partial(PipeAdapter, self.stderr_logger.warning),
+            os.fdopen(stderr_fd))
 
-        _, self.logger_buffer = await event_loop.connect_read_pipe(
-            functools.partial(LogAdapter, self.log),
-            os.fdopen(logger))
+        _, self.logger_protocol = await event_loop.connect_read_pipe(
+            functools.partial(LogAdapter, self.logger),
+            os.fdopen(logger_fd))
 
     async def wait(self):
         await self.term_event.wait()
-
-    def log(self, serialized_record):
-        print(serialized_record)
 
 
 class ManagerStub(ipc.Stub):

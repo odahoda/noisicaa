@@ -31,7 +31,8 @@ def init(runtime_settings):
     handler = StreamHandler(sys.stderr)
     handler.setLevel(log_level)
     handler.setFormatter(
-        WrappingFormatter('%(levelname)s:%(name)s: %(message)s'))
+        WrappingFormatter(
+            '%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s'))
 
     root_logger.addHandler(handler)
 
@@ -43,6 +44,6 @@ def init(runtime_settings):
             encoding='utf-8')
         handler.setLevel(DEBUG)
         handler.setFormatter(WrappingFormatter(
-            '%(asctime)s\t%(levelname)s\t%(name)s\t%(message)s',
+            '%(asctime)s\t%(levelname)s\t%(process)s\t%(thread)08x\t%(name)s\t%(message)s',
             '%Y%m%d-%H%M%S'))
         root_logger.addHandler(handler)
