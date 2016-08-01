@@ -126,13 +126,6 @@ class ProjectViewImpl(QtWidgets.QWidget):
             await view.cleanup()
             self.updateSheetMenu()
 
-        elif action == 'clear':
-            while self._sheets_widget.count() > 0:
-                view = self._sheets_widget.widget(0)
-                self._sheets_widget.removeWidget(view)
-                await view.cleanup()
-            self.updateSheetMenu()
-
         else:  # pragma: no cover
             raise AssertionError("Unknown action %r" % action)
 

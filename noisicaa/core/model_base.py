@@ -52,14 +52,6 @@ class PropertyListDelete(PropertyListChange):
     def __str__(self):
         return super().__str__(index=self.index, old=self.old_value)
 
-class PropertyListClear(PropertyListChange):
-    def __init__(self, prop_name, old_values):
-        super().__init__(prop_name)
-        self.old_values = old_values
-
-    def __str__(self):
-        return super().__str__()
-
 
 class PropertyBase(object):
     def __init__(self, default=None):
@@ -153,10 +145,8 @@ class SimpleObjectList(object):
             PropertyListInsert(self._prop.name, idx, obj))
 
     def clear(self):
-        old_values = self._objs[:]
-        self._objs.clear()
-        self._instance.property_changed(
-            PropertyListClear(self._prop.name, old_values))
+        while len(self._objs) > 0:
+            self.__delitem__(0)
 
     def extend(self, value):
         for v in value:
@@ -267,13 +257,8 @@ class ObjectList(object):
             PropertyListInsert(self._prop.name, idx, obj))
 
     def clear(self):
-        old_children = self._objs[:]
-        for obj in self._objs:
-            obj.detach()
-            obj.clear_parent_container()
-        self._objs.clear()
-        self._instance.property_changed(
-            PropertyListClear(self._prop.name, old_children))
+        while len(self._objs) > 0:
+            self.__delitem__(0)
 
 
 class ObjectListProperty(ObjectPropertyBase):

@@ -271,11 +271,6 @@ class TrackItemImpl(object):
             self.removeMeasure(idx)
             self._sheet_view.updateSheet()
 
-        elif action == 'clear':
-            while len(self._measures) > 0:
-                self.removeMeasure(0)
-            self._sheet_view.updateSheet()
-
         else:
             raise ValueError("Unknown action %r" % action)
 
@@ -1549,11 +1544,6 @@ class SheetViewImpl(QGraphicsView):
         elif action == 'delete':
             idx, = args
             self.removeTrack(idx)
-            self.updateSheet()
-
-        elif action == 'clear':
-            while len(self._tracks) > 0:
-                self.removeTrack(0)
             self.updateSheet()
 
         else:  # pragma: no cover
