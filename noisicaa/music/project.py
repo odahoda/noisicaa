@@ -11,7 +11,7 @@ import portalocker
 from noisicaa import core
 from noisicaa.core import fileutil
 
-from .exceptions import (
+from noisicaa.core.storage import (
     CorruptedProjectError,
     FileOpenError,
     UnsupportedFileVersionError,

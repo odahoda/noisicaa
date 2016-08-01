@@ -6,8 +6,8 @@ import unittest
 from mox3 import stubout
 from pyfakefs import fake_filesystem
 
-from noisicaa.core import fileutil
-from . import project_storage
+from . import fileutil
+from . import storage
 
 
 class StorageTest(unittest.TestCase):
@@ -19,12 +19,12 @@ class StorageTest(unittest.TestCase):
         self.fs = fake_filesystem.FakeFilesystem()
         self.fake_os = fake_filesystem.FakeOsModule(self.fs)
         self.fake_open = fake_filesystem.FakeFileOpen(self.fs)
-        self.stubs.SmartSet(project_storage, 'os', self.fake_os)
+        self.stubs.SmartSet(storage, 'os', self.fake_os)
         self.stubs.SmartSet(fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
     def test_index_management(self):
-        ps = project_storage.ProjectStorage.create('/foo')
+        ps = storage.ProjectStorage.create('/foo')
         try:
             self.assertFalse(ps.can_undo)
             self.assertFalse(ps.can_redo)
@@ -115,7 +115,7 @@ class StorageTest(unittest.TestCase):
             self.fake_os.path.isfile('/foo.data/log.000000'))
 
     def test_open(self):
-        ps = project_storage.ProjectStorage.create('/foo')
+        ps = storage.ProjectStorage.create('/foo')
         try:
             ps.add_checkpoint(b'blurp1')
             ps.append_log_entry(b'bla1')
@@ -130,7 +130,7 @@ class StorageTest(unittest.TestCase):
         finally:
             ps.close()
 
-        ps = project_storage.ProjectStorage()
+        ps = storage.ProjectStorage()
         ps.open('/foo')
         try:
             self.assertEqual(ps.undo_count, 2)
@@ -160,7 +160,7 @@ class StorageTest(unittest.TestCase):
             ps.close()
 
     def test_checkpoints(self):
-        ps = project_storage.ProjectStorage.create('/foo')
+        ps = storage.ProjectStorage.create('/foo')
         try:
             ps.add_checkpoint(b'blurp1')
             ps.append_log_entry(b'bla1')
@@ -188,61 +188,6 @@ class StorageTest(unittest.TestCase):
             self.fake_os.path.isfile('/foo.data/checkpoint.000000'))
         self.assertTrue(
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
-
-    # def test_create(self):
-    #     p = project.Project()
-    #     p.create('/foo.emp')
-    #     p.close()
-
-    #     self.assertTrue(self.fake_os.path.isfile('/foo.emp'))
-    #     self.assertTrue(self.fake_os.path.isdir('/foo.data'))
-
-    #     f = fileutil.File('/foo.emp')
-    #     file_info, contents = f.read_json()
-    #     self.assertEqual(file_info.version, 1)
-    #     self.assertEqual(file_info.filetype, 'project-header')
-    #     self.assertIsInstance(contents, dict)
-
-    # def test_open_and_replay(self):
-    #     p = project.Project()
-    #     p.create('/foo.emp')
-    #     try:
-    #         p.dispatch_command(p.id, project.AddSheet())
-    #         sheet_id = p.sheets[-1].id
-    #         p.dispatch_command(sheet_id, project.AddTrack('score'))
-    #         track_id = p.sheets[-1].tracks[-1].id
-    #     finally:
-    #         p.close()
-
-    #     p = project.Project()
-    #     p.open('/foo.emp')
-    #     try:
-    #         self.assertEqual(p.sheets[-1].id, sheet_id)
-    #         self.assertEqual(p.sheets[-1].tracks[-1].id, track_id)
-    #         self.assertEqual(p.path, '/foo.emp')
-    #         self.assertEqual(p.data_dir, '/foo.data')
-    #     finally:
-    #         p.close()
-
-    # def test_create_checkpoint(self):
-    #     p = project.Project()
-    #     p.create('/foo.emp')
-    #     try:
-    #         p.create_checkpoint()
-    #     finally:
-    #         p.close()
-
-    #     self.assertTrue(self.fake_os.path.isfile('/foo.data/state.2.checkpoint'))
-    #     self.assertTrue(self.fake_os.path.isfile('/foo.data/state.2.log'))
-    #     self.assertTrue(self.fake_os.path.isfile('/foo.data/state.latest'))
-
-    #     f = fileutil.File('/foo.data/state.latest')
-    #     file_info, state_data = f.read_json()
-    #     self.assertEqual(file_info.version, 1)
-    #     self.assertEqual(file_info.filetype, 'project-state')
-    #     self.assertEqual(state_data['sequence_number'], 2)
-    #     self.assertEqual(state_data['checkpoint'], 'state.2.checkpoint')
-    #     self.assertEqual(state_data['log'], 'state.2.log')
 
 
 if __name__ == '__main__':

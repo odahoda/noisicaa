@@ -11,10 +11,23 @@ import threading
 
 import portalocker
 
-from noisicaa.core import fileutil
-from noisicaa.music import exceptions
+from . import fileutil
+
 
 logger = logging.getLogger(__name__)
+
+
+class Error(Exception):
+    pass
+
+class FileOpenError(Error):
+    pass
+
+class UnsupportedFileVersionError(Error):
+    pass
+
+class CorruptedProjectError(Error):
+    pass
 
 
 class ProjectStorage(object):
@@ -69,18 +82,18 @@ class ProjectStorage(object):
             fp = fileutil.File(path)
             file_info, self.header_data = fp.read_json()
         except fileutil.Error as exc:
-            raise exceptions.FileOpenError(str(exc))
+            raise FileOpenError(str(exc))
 
         if file_info.filetype != 'project-header':
-            raise exceptions.FileOpenError("Not a project file")
+            raise FileOpenError("Not a project file")
 
         if file_info.version not in self.SUPPORTED_VERSIONS:
-            raise exceptions.UnsupportedFileVersionError()
+            raise UnsupportedFileVersionError()
 
         self.data_dir = os.path.join(
             os.path.dirname(self.path), self.header_data['data_dir'])
         if not os.path.isdir(self.data_dir):
-            raise exceptions.CorruptedProjectError(
+            raise CorruptedProjectError(
                 "Directory %s missing" % self.data_dir)
 
         self.file_lock = self.acquire_file_lock(
@@ -92,7 +105,7 @@ class ProjectStorage(object):
         self.log_index = bytearray(self.log_index_fp.read())
         self.next_log_number = len(self.log_index) // self.log_index_formatter.size
         if len(self.log_index) != self.next_log_number * self.log_index_formatter.size:
-            raise exceptions.CorruptedProjectError("Malformed log.index file.")
+            raise CorruptedProjectError("Malformed log.index file.")
         self.written_log_number = self.next_log_number - 1
 
         self.log_history_fp = open(
@@ -101,7 +114,7 @@ class ProjectStorage(object):
         self.log_history = bytearray(self.log_history_fp.read())
         self.next_sequence_number = len(self.log_history) // self.log_history_formatter.size
         if len(self.log_history) != self.next_sequence_number * self.log_history_formatter.size:
-            raise exceptions.CorruptedProjectError("Malformed log.history file.")
+            raise CorruptedProjectError("Malformed log.history file.")
         self.written_sequence_number = self.next_sequence_number - 1
 
         if self.written_sequence_number >= 0:
@@ -116,7 +129,7 @@ class ProjectStorage(object):
         self.checkpoint_index = bytearray(self.checkpoint_index_fp.read())
         self.next_checkpoint_number = len(self.checkpoint_index) // self.checkpoint_index_formatter.size
         if len(self.checkpoint_index) != self.next_checkpoint_number * self.checkpoint_index_formatter.size:
-            raise exceptions.CorruptedProjectError("Malformed checkpoint.index file.")
+            raise CorruptedProjectError("Malformed checkpoint.index file.")
 
         self.writer_thread.start()
 

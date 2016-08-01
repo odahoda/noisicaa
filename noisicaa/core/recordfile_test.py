@@ -7,7 +7,7 @@ from mox3 import stubout
 from pyfakefs import fake_filesystem
 
 from . import recordfile
-from .recordfile import RecordFile
+
 
 class RecordFileTest(unittest.TestCase):
     def setUp(self):

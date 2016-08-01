@@ -1,6 +1,3 @@
-from .exceptions import (
-    FileError,
-)
 from .key_signature import KeySignature
 from .time_signature import TimeSignature
 from .clef import Clef
