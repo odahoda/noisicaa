@@ -21,6 +21,14 @@ class StateBase(model_base.ObjectBase):
         else:
             self.id = uuid.uuid4().hex
 
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        for prop_name in self.list_property_names():
+            if getattr(self, prop_name) != getattr(other, prop_name):
+                return False
+        return True
+
     @classmethod
     def register_class(cls, c):
         assert c.__name__ not in cls.cls_map

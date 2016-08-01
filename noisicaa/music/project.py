@@ -566,11 +566,9 @@ class Project(BaseProject):
                 sys.stderr.write(pprint.pformat(self._RootMixin__obj_map))
                 raise
 
-            if action in (
-                    self.storage.ACTION_LOG_ENTRY,
-                    self.storage.ACTION_REDO):
+            if action == storage.ACTION_FORWARD:
                 cmd.redo(obj)
-            elif action == self.storage.ACTION_UNDO:
+            elif action == storage.ACTION_BACKWARD:
                 cmd.undo(obj)
             else:
                 raise ValueError("Unsupported action %s" % action)
@@ -692,13 +690,19 @@ class Project(BaseProject):
             raise RuntimeError("Undo executed on closed project.")
 
         if self.storage.can_undo:
-            cmd_data = self.storage.get_log_entry_to_undo()
+            action, cmd_data = self.storage.get_log_entry_to_undo()
             cmd, obj_id = self.deserialize_command(cmd_data)
             logger.info(
                 "Undo command %s on %s (%d operations)",
                 cmd, obj_id, len(cmd.log.ops))
             obj = self.get_object(obj_id)
-            cmd.undo(obj)
+
+            if action == storage.ACTION_FORWARD:
+                cmd.redo(obj)
+            elif action == storage.ACTION_BACKWARD:
+                cmd.undo(obj)
+            else:
+                raise ValueError("Unsupported action %s" % action)
 
             self.storage.undo()
 
@@ -707,12 +711,18 @@ class Project(BaseProject):
             raise RuntimeError("Redo executed on closed project.")
 
         if self.storage.can_redo:
-            cmd_data = self.storage.get_log_entry_to_redo()
+            action, cmd_data = self.storage.get_log_entry_to_redo()
             cmd, obj_id = self.deserialize_command(cmd_data)
             logger.info(
                 "Redo command %s on %s (%d operations)",
                 cmd, obj_id, len(cmd.log.ops))
             obj = self.get_object(obj_id)
-            cmd.redo(obj)
+
+            if action == storage.ACTION_FORWARD:
+                cmd.redo(obj)
+            elif action == storage.ACTION_BACKWARD:
+                cmd.undo(obj)
+            else:
+                raise ValueError("Unsupported action %s" % action)
 
             self.storage.redo()

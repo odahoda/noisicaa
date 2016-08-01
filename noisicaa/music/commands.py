@@ -46,6 +46,14 @@ class CommandLog(state.StateBase):
         self.ops.append([name, args])
 
 
+def _assert_equal(a, b):
+    if isinstance(a, state.StateBase):
+        a = 'obj:' + a.id
+    if isinstance(b, state.StateBase):
+        b = 'obj:' + b.id
+    assert a == b, '%r != %r' % (a, b)
+
+
 class Command(state.RootMixin, state.StateBase):
     log = core.ObjectProperty(CommandLog)
     status = core.Property(str)
@@ -204,8 +212,7 @@ class Command(state.RootMixin, state.StateBase):
                 old_value = self.log.get_slot(root.cls_map, old_slot_id)
                 new_value = self.log.get_slot(root.cls_map, new_slot_id)
 
-                assert getattr(obj, prop_name) == old_value, (
-                    '%r != %r' % (getattr(obj, prop_name), old_value))
+                _assert_equal(getattr(obj, prop_name), old_value)
                 setattr(obj, prop_name, new_value)
 
             elif op == 'LIST_INSERT':
@@ -222,8 +229,7 @@ class Command(state.RootMixin, state.StateBase):
                 old_value = self.log.get_slot(root.cls_map, old_slot_id)
 
                 lst = getattr(obj, prop_name)
-                assert lst[index] == old_value, (
-                    '%r != %r' % (lst[index], old_value))
+                _assert_equal(lst[index], old_value)
                 del lst[index]
 
             else:
@@ -241,8 +247,7 @@ class Command(state.RootMixin, state.StateBase):
                 new_value = self.log.get_slot(root.cls_map, new_slot_id)
 
                 current_value = getattr(obj, prop_name)
-                assert current_value == new_value, (
-                    '%r != %r' % (current_value, new_value))
+                _assert_equal(current_value, new_value)
                 setattr(obj, prop_name, old_value)
 
             elif op == 'LIST_INSERT':
@@ -251,8 +256,7 @@ class Command(state.RootMixin, state.StateBase):
                 new_value = self.log.get_slot(root.cls_map, new_slot_id)
 
                 lst = getattr(obj, prop_name)
-                assert lst[index] == new_value, (
-                    '%r != %r' % (lst[index], new_value))
+                _assert_equal(lst[index], new_value)
                 del lst[index]
 
             elif op == 'LIST_DELETE':

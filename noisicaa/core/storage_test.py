@@ -32,7 +32,8 @@ class StorageTest(unittest.TestCase):
             ps.append_log_entry(b'bla1')
             self.assertTrue(ps.can_undo)
             self.assertEqual(
-                ps.get_log_entry_to_undo(), b'bla1')
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_BACKWARD, b'bla1'))
             self.assertFalse(ps.can_redo)
 
             pause_evt = ps.pause()
@@ -40,21 +41,25 @@ class StorageTest(unittest.TestCase):
             ps.append_log_entry(b'bla2')
             self.assertTrue(ps.can_undo)
             self.assertEqual(
-                ps.get_log_entry_to_undo(), b'bla2')
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_BACKWARD, b'bla2'))
             self.assertFalse(ps.can_redo)
 
             ps.undo()
             self.assertTrue(ps.can_undo)
             self.assertEqual(
-                ps.get_log_entry_to_undo(), b'bla1')
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_BACKWARD, b'bla1'))
             self.assertTrue(ps.can_redo)
             self.assertEqual(
-                ps.get_log_entry_to_redo(), b'bla2')
+                ps.get_log_entry_to_redo(),
+                (storage.ACTION_FORWARD, b'bla2'))
             ps.undo()
             self.assertFalse(ps.can_undo)
             self.assertTrue(ps.can_redo)
             self.assertEqual(
-                ps.get_log_entry_to_redo(), b'bla1')
+                ps.get_log_entry_to_redo(),
+                (storage.ACTION_FORWARD, b'bla1'))
 
             pause_evt.set()
             ps.flush()
@@ -63,17 +68,20 @@ class StorageTest(unittest.TestCase):
             ps.redo()
             self.assertTrue(ps.can_undo)
             self.assertEqual(
-                ps.get_log_entry_to_undo(), b'bla1')
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_BACKWARD, b'bla1'))
             self.assertTrue(ps.can_redo)
             self.assertEqual(
-                ps.get_log_entry_to_redo(), b'bla2')
+                ps.get_log_entry_to_redo(),
+                (storage.ACTION_FORWARD, b'bla2'))
 
             ps.flush()
             ps.flush_cache(0)
             ps.redo()
             self.assertTrue(ps.can_undo)
             self.assertEqual(
-                ps.get_log_entry_to_undo(), b'bla2')
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_BACKWARD, b'bla2'))
             self.assertFalse(ps.can_redo)
 
             ps.flush()
@@ -81,7 +89,8 @@ class StorageTest(unittest.TestCase):
             ps.append_log_entry(b'bla3')
             self.assertTrue(ps.can_undo)
             self.assertEqual(
-                ps.get_log_entry_to_undo(), b'bla3')
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_BACKWARD, b'bla3'))
             self.assertFalse(ps.can_redo)
 
             self.assertEqual(ps.next_sequence_number, 7)
@@ -91,13 +100,13 @@ class StorageTest(unittest.TestCase):
             entries = list(ps.log_history_formatter.iter_unpack(ps.log_history))
             self.assertEqual(
                 entries,
-                [(b'e', 0, 0, 0),
-                 (b'e', 1, 0, 0),
-                 (b'u', 1, 1, 0),
-                 (b'u', 0, 2, 0),
-                 (b'r', 0, 2, 1),
-                 (b'r', 1, 2, 2),
-                 (b'e', 2, 0, 0)])
+                [(b'f', 0, 0, 0),
+                 (b'f', 1, 0, 0),
+                 (b'b', 1, 1, 0),
+                 (b'b', 0, 2, 0),
+                 (b'f', 0, 2, 1),
+                 (b'f', 1, 2, 2),
+                 (b'f', 2, 0, 0)])
         finally:
             ps.close()
 
@@ -113,6 +122,33 @@ class StorageTest(unittest.TestCase):
             7 * ps.log_history_formatter.size)
         self.assertTrue(
             self.fake_os.path.isfile('/foo.data/log.000000'))
+
+    def test_undo_the_undone(self):
+        ps = storage.ProjectStorage.create('/foo')
+        try:
+            ps.append_log_entry(b'bla1')
+            ps.undo()
+            ps.redo()
+            ps.append_log_entry(b'bla2')
+            self.assertEqual(
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_BACKWARD, b'bla2'))
+            ps.undo()
+            self.assertEqual(
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_BACKWARD, b'bla1'))
+            ps.undo()
+            self.assertEqual(
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_FORWARD, b'bla1'))
+            ps.undo()
+            self.assertEqual(
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_BACKWARD, b'bla1'))
+            ps.undo()
+
+        finally:
+            ps.close()
 
     def test_open(self):
         ps = storage.ProjectStorage.create('/foo')
@@ -135,18 +171,22 @@ class StorageTest(unittest.TestCase):
         try:
             self.assertEqual(ps.undo_count, 2)
             self.assertEqual(ps.redo_count, 1)
-            self.assertEqual(ps.get_log_entry_to_undo(), b'bla2')
-            self.assertEqual(ps.get_log_entry_to_redo(), b'bla3')
+            self.assertEqual(
+                ps.get_log_entry_to_undo(),
+                (storage.ACTION_BACKWARD, b'bla2'))
+            self.assertEqual(
+                ps.get_log_entry_to_redo(),
+                (storage.ACTION_FORWARD, b'bla3'))
 
             checkpoint_number, actions = ps.get_restore_info()
             self.assertEqual(checkpoint_number, 1)
             self.assertEqual(
                 actions,
-                [(ps.ACTION_LOG_ENTRY, 1),
-                 (ps.ACTION_LOG_ENTRY, 2),
-                 (ps.ACTION_UNDO, 2),
-                 (ps.ACTION_UNDO, 1),
-                 (ps.ACTION_REDO, 1)])
+                [(storage.ACTION_FORWARD, 1),
+                 (storage.ACTION_FORWARD, 2),
+                 (storage.ACTION_BACKWARD, 2),
+                 (storage.ACTION_BACKWARD, 1),
+                 (storage.ACTION_FORWARD, 1)])
 
             self.assertEqual(
                 ps.get_checkpoint(checkpoint_number), b'blurp2')

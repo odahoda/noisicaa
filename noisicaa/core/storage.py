@@ -30,13 +30,19 @@ class CorruptedProjectError(Error):
     pass
 
 
+ACTION_FORWARD = b'f'
+ACTION_BACKWARD = b'b'
+
+def _reverse_action(action):
+    assert action in (ACTION_FORWARD, ACTION_BACKWARD)
+    if action == ACTION_BACKWARD:
+        return ACTION_FORWARD
+    return ACTION_BACKWARD
+
+
 class ProjectStorage(object):
     VERSION = 1
     SUPPORTED_VERSIONS = [1]
-
-    ACTION_LOG_ENTRY = b'e'
-    ACTION_UNDO = b'u'
-    ACTION_REDO = b'r'
 
     def __init__(self):
         self.path = None
@@ -255,8 +261,6 @@ class ProjectStorage(object):
 
                     logger.info("Writing log entry #%d...", seq_number)
 
-                    assert (
-                        action != self.ACTION_LOG_ENTRY or log_entry is not None)
                     if log_entry is not None:
                         offset = log_fp.tell()
 
@@ -394,7 +398,7 @@ class ProjectStorage(object):
             self.redo_count = 0
 
             history_entry = (
-                self.ACTION_LOG_ENTRY, self.next_log_number,
+                ACTION_FORWARD, self.next_log_number,
                 self.undo_count, self.redo_count)
 
             self._add_history_entry(history_entry)
@@ -422,8 +426,7 @@ class ProjectStorage(object):
 
         action, log_number, _, _ = (
             self._get_history_entry(entry_to_undo))
-        assert action == self.ACTION_LOG_ENTRY
-        return self.get_log_entry(log_number)
+        return _reverse_action(action), self.get_log_entry(log_number)
 
     def get_log_entry_to_redo(self):
         assert self.can_redo
@@ -432,8 +435,7 @@ class ProjectStorage(object):
 
         action, log_number, _, _ = (
             self._get_history_entry(entry_to_redo))
-        assert action == self.ACTION_LOG_ENTRY
-        return self.get_log_entry(log_number)
+        return action, self.get_log_entry(log_number)
 
     def undo(self):
         assert self.path is not None, "Project already closed."
@@ -443,11 +445,12 @@ class ProjectStorage(object):
             self.next_sequence_number - 2 * self.undo_count - 1)
 
         with self.cache_lock:
-            _, log_number, _, _ = self._get_history_entry(entry_to_undo)
+            action, log_number, _, _ = self._get_history_entry(
+                entry_to_undo)
 
             self.undo_count += 1
             history_entry = (
-                self.ACTION_UNDO, log_number,
+                _reverse_action(action), log_number,
                 self.undo_count, self.redo_count)
 
             self._add_history_entry(history_entry)
@@ -464,11 +467,12 @@ class ProjectStorage(object):
         entry_to_redo = self.next_sequence_number - 2 * self.undo_count
 
         with self.cache_lock:
-            _, log_number, _, _ = self._get_history_entry(entry_to_redo)
+            action, log_number, _, _ = self._get_history_entry(
+                entry_to_redo)
 
             self.redo_count += 1
             history_entry = (
-                self.ACTION_REDO, log_number,
+                action, log_number,
                 self.undo_count, self.redo_count)
 
             self._add_history_entry(history_entry)
