@@ -7,7 +7,8 @@ if __name__ == '__main__':
     import pyximport
     pyximport.install()
 
-from noisicaa import music
+from noisicaa.music import project
+from noisicaa.music import sheet
 from . import uitest_utils
 from . import render_sheet_dialog
 
@@ -15,8 +16,8 @@ from . import render_sheet_dialog
 class RenderSheetDialogTest(uitest_utils.UITest):
     async def setUp(self):
         await super().setUp()
-        self.project = music.BaseProject()
-        self.project.sheets.append(music.Sheet(name='Sheet 1'))
+        self.project = project.BaseProject()
+        self.project.sheets.append(sheet.Sheet(name='Sheet 1'))
         self.sheet = self.project.sheets[0]
 
     async def test_init(self):

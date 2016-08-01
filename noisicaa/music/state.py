@@ -149,14 +149,14 @@ class RootMixin(object):
 
     def add_object(self, obj):
         for o in obj.walk_children():
-            assert o.id is not None
-            assert o.id not in self.__obj_map
+            assert o.id is not None, o
+            assert o.id not in self.__obj_map, (o.id, o)
             self.__obj_map[o.id] = o
 
     def remove_object(self, obj):
         for o in obj.walk_children():
-            assert o.id is not None
-            assert o.id in self.__obj_map, o
+            assert o.id is not None, o
+            assert o.id in self.__obj_map, (o.id, o)
             del self.__obj_map[o.id]
 
     def validate_object_map(self):

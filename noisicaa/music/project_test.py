@@ -15,6 +15,7 @@ if __name__ == '__main__':
 from noisicaa.core import fileutil
 from noisicaa.core import storage
 from . import project
+from . import sheet
 
 
 def store_retrieve(obj):
@@ -30,7 +31,7 @@ class BaseProjectTest(unittest.TestCase):
 
     def test_deserialize(self):
         p = project.BaseProject()
-        p.sheets.append(project.Sheet(name='Sheet 1'))
+        p.sheets.append(sheet.Sheet(name='Sheet 1'))
         state = store_retrieve(p.serialize())
         p2 = project.Project(state=state)
         self.assertEqual(len(p2.sheets), 1)
@@ -50,7 +51,7 @@ class AddSheetTest(unittest.TestCase):
 
     def test_duplicate_name(self):
         p = project.BaseProject()
-        p.sheets.append(project.Sheet(name='Sheet 1'))
+        p.sheets.append(sheet.Sheet(name='Sheet 1'))
         cmd = project.AddSheet(name='Sheet 1')
         with self.assertRaises(ValueError):
             p.dispatch_command(p.id, cmd)
@@ -59,8 +60,8 @@ class AddSheetTest(unittest.TestCase):
 class DeleteSheetTest(unittest.TestCase):
     def test_ok(self):
         p = project.BaseProject()
-        p.sheets.append(project.Sheet(name='Sheet 1'))
-        p.sheets.append(project.Sheet(name='Sheet 2'))
+        p.sheets.append(sheet.Sheet(name='Sheet 1'))
+        p.sheets.append(sheet.Sheet(name='Sheet 2'))
         cmd = project.DeleteSheet(name='Sheet 1')
         p.dispatch_command(p.id, cmd)
         self.assertEqual(len(p.sheets), 1)
@@ -68,8 +69,8 @@ class DeleteSheetTest(unittest.TestCase):
 
     def test_last_sheet(self):
         p = project.BaseProject()
-        p.sheets.append(project.Sheet(name='Sheet 1'))
-        p.sheets.append(project.Sheet(name='Sheet 2'))
+        p.sheets.append(sheet.Sheet(name='Sheet 1'))
+        p.sheets.append(sheet.Sheet(name='Sheet 2'))
         cmd = project.SetCurrentSheet(name='Sheet 2')
         p.dispatch_command(p.id, cmd)
         cmd = project.DeleteSheet(name='Sheet 2')
@@ -82,21 +83,21 @@ class DeleteSheetTest(unittest.TestCase):
 class RenameSheetTest(unittest.TestCase):
     def test_ok(self):
         p = project.BaseProject()
-        p.sheets.append(project.Sheet(name='Sheet 1'))
+        p.sheets.append(sheet.Sheet(name='Sheet 1'))
         cmd = project.RenameSheet(name='Sheet 1', new_name='Foo')
         p.dispatch_command(p.id, cmd)
         self.assertEqual(p.sheets[0].name, 'Foo')
 
     def test_unchanged(self):
         p = project.BaseProject()
-        p.sheets.append(project.Sheet(name='Sheet 1'))
+        p.sheets.append(sheet.Sheet(name='Sheet 1'))
         cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 1')
         p.dispatch_command(p.id, cmd)
         self.assertEqual(p.sheets[0].name, 'Sheet 1')
 
     def test_duplicate_name(self):
         p = project.BaseProject()
-        p.sheets.append(project.Sheet(name='Sheet 1'))
+        p.sheets.append(sheet.Sheet(name='Sheet 1'))
         cmd = project.AddSheet(name='Sheet 2')
         p.dispatch_command(p.id, cmd)
         cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 2')
@@ -107,8 +108,8 @@ class RenameSheetTest(unittest.TestCase):
 class SetCurrentSheetTest(unittest.TestCase):
     def test_ok(self):
         p = project.BaseProject()
-        p.sheets.append(project.Sheet(name='Sheet 1'))
-        p.sheets.append(project.Sheet(name='Sheet 2'))
+        p.sheets.append(sheet.Sheet(name='Sheet 1'))
+        p.sheets.append(sheet.Sheet(name='Sheet 2'))
         cmd = project.SetCurrentSheet(name='Sheet 2')
         p.dispatch_command(p.id, cmd)
         self.assertEqual(p.current_sheet, 1)
@@ -147,7 +148,7 @@ class ProjectTest(unittest.TestCase):
         try:
             p.dispatch_command(p.id, project.AddSheet())
             sheet_id = p.sheets[-1].id
-            p.dispatch_command(sheet_id, project.AddTrack('score'))
+            p.dispatch_command(sheet_id, sheet.AddTrack('score'))
             track_id = p.sheets[-1].tracks[-1].id
         finally:
             p.close()
@@ -175,11 +176,11 @@ class ProjectTest(unittest.TestCase):
 class ScoreEventSource(unittest.TestCase):
     def test_get_events(self):
         proj = project.BaseProject()
-        sheet = project.Sheet(name='test')
-        proj.sheets.append(sheet)
+        s = sheet.Sheet(name='test')
+        proj.sheets.append(s)
         track = project.ScoreTrack(name='test', num_measures=2)
-        sheet.tracks.append(track)
-        sheet.equalize_tracks()
+        s.tracks.append(track)
+        s.equalize_tracks()
 
         source = track.create_event_source()
         events = []

@@ -46,12 +46,11 @@ from noisicaa.music import (
     AddSheet, DeleteSheet, SetCurrentSheet,
     ScoreTrack,
     SheetPropertyTrack,
-    AddTrack, RemoveTrack,
     UpdateTrackProperties, ClearInstrument, SetInstrument,
     Note, ChangeNote, InsertNote, DeleteNote, SetAccidental,
     AddPitch, RemovePitch,
     Duration,
-    InsertMeasure, RemoveMeasure, SetClef, SetKeySignature, SetTimeSignature,
+    SetClef, SetKeySignature, SetTimeSignature,
     SetBPM,
     Pitch, Clef, KeySignature,
 )

@@ -73,7 +73,7 @@ class CallbackRegistry(object):
         with self._lock:
             self._listeners[listener.id] = listener
             self._target_map.setdefault(target, []).append(listener.id)
-        logger.info("Added listener %s to target %s", listener.id, target)
+        logger.debug("Added listener %s to target %s", listener.id, target)
         return listener
 
     def remove(self, listener):
@@ -94,7 +94,7 @@ class CallbackRegistry(object):
             self._target_map[listener.target].remove(listener.id)
         if self._register_cb is not None:
             self._register_cb(listener.target, listener.id, False)
-        logger.info(
+        logger.debug(
             "Removed listener %s from target %s", listener.id, listener.target)
 
     def call(self, target, *args, **kwargs):

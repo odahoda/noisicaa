@@ -7,11 +7,8 @@ from .project_client import ProjectClient
 
 from .project import (
     BaseProject, Project,
-    Sheet,
 
     AddSheet, DeleteSheet, SetCurrentSheet,
-    AddTrack, RemoveTrack, MoveTrack,
-    InsertMeasure, RemoveMeasure,
 )
 from .track import (
     Track, Measure, EventSource,

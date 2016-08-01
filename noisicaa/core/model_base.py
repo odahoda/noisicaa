@@ -210,6 +210,8 @@ class ObjectProperty(ObjectPropertyBase):
 
         current = self.__get__(instance, instance.__class__)
         if current is not None:
+            if instance.attached_to_root:
+                instance.root.remove_object(current)
             current.detach()
             current.clear_parent_container()
 
@@ -218,6 +220,8 @@ class ObjectProperty(ObjectPropertyBase):
         if value is not None:
             value.attach(instance)
             value.set_parent_container(self)
+            if instance.attached_to_root:
+                instance.root.add_object(value)
 
 
 class ObjectList(object):
