@@ -6,6 +6,7 @@ import unittest
 from mox3 import stubout
 from pyfakefs import fake_filesystem
 
+from noisicaa.core import fileutil
 from . import project_storage
 
 
@@ -19,6 +20,7 @@ class StorageTest(unittest.TestCase):
         self.fake_os = fake_filesystem.FakeOsModule(self.fs)
         self.fake_open = fake_filesystem.FakeFileOpen(self.fs)
         self.stubs.SmartSet(project_storage, 'os', self.fake_os)
+        self.stubs.SmartSet(fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
     def test_index_management(self):
@@ -32,6 +34,9 @@ class StorageTest(unittest.TestCase):
             self.assertEqual(
                 ps.get_log_entry_to_undo(), b'bla1')
             self.assertFalse(ps.can_redo)
+
+            pause_evt = ps.pause()
+
             ps.append_log_entry(b'bla2')
             self.assertTrue(ps.can_undo)
             self.assertEqual(
@@ -51,6 +56,10 @@ class StorageTest(unittest.TestCase):
             self.assertEqual(
                 ps.get_log_entry_to_redo(), b'bla1')
 
+            pause_evt.set()
+            ps.flush()
+            ps.flush_cache(0)
+
             ps.redo()
             self.assertTrue(ps.can_undo)
             self.assertEqual(
@@ -58,12 +67,17 @@ class StorageTest(unittest.TestCase):
             self.assertTrue(ps.can_redo)
             self.assertEqual(
                 ps.get_log_entry_to_redo(), b'bla2')
+
+            ps.flush()
+            ps.flush_cache(0)
             ps.redo()
             self.assertTrue(ps.can_undo)
             self.assertEqual(
                 ps.get_log_entry_to_undo(), b'bla2')
             self.assertFalse(ps.can_redo)
 
+            ps.flush()
+            ps.flush_cache(0)
             ps.append_log_entry(b'bla3')
             self.assertTrue(ps.can_undo)
             self.assertEqual(
@@ -99,6 +113,51 @@ class StorageTest(unittest.TestCase):
             7 * ps.log_history_formatter.size)
         self.assertTrue(
             self.fake_os.path.isfile('/foo.data/log.000000'))
+
+    def test_open(self):
+        ps = project_storage.ProjectStorage.create('/foo')
+        try:
+            ps.add_checkpoint(b'blurp1')
+            ps.append_log_entry(b'bla1')
+            ps.undo()
+            ps.add_checkpoint(b'blurp2')
+            ps.append_log_entry(b'bla2')
+            ps.append_log_entry(b'bla3')
+            ps.undo()
+            ps.undo()
+            ps.redo()
+
+        finally:
+            ps.close()
+
+        ps = project_storage.ProjectStorage()
+        ps.open('/foo')
+        try:
+            self.assertEqual(ps.undo_count, 2)
+            self.assertEqual(ps.redo_count, 1)
+            self.assertEqual(ps.get_log_entry_to_undo(), b'bla2')
+            self.assertEqual(ps.get_log_entry_to_redo(), b'bla3')
+
+            checkpoint_number, actions = ps.get_restore_info()
+            self.assertEqual(checkpoint_number, 1)
+            self.assertEqual(
+                actions,
+                [(ps.ACTION_LOG_ENTRY, 1),
+                 (ps.ACTION_LOG_ENTRY, 2),
+                 (ps.ACTION_UNDO, 2),
+                 (ps.ACTION_UNDO, 1),
+                 (ps.ACTION_REDO, 1)])
+
+            self.assertEqual(
+                ps.get_checkpoint(checkpoint_number), b'blurp2')
+            self.assertEqual(ps.get_log_entry(1), b'bla2')
+            self.assertEqual(ps.get_log_entry(2), b'bla3')
+
+            ps.append_log_entry(b'bla4')
+            ps.add_checkpoint(b'blurp3')
+
+        finally:
+            ps.close()
 
     def test_checkpoints(self):
         ps = project_storage.ProjectStorage.create('/foo')

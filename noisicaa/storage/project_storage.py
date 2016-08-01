@@ -12,6 +12,7 @@ import threading
 import portalocker
 
 from noisicaa.core import fileutil
+from noisicaa.music import exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,6 @@ class ProjectStorage(object):
     ACTION_UNDO = b'u'
     ACTION_REDO = b'r'
 
-    LOG_ENTRY_CACHE_SIZE = 20
-
     def __init__(self):
         self.path = None
         self.data_dir = None
@@ -35,33 +34,106 @@ class ProjectStorage(object):
         self.log_history_fp = None
         self.checkpoint_index_fp = None
 
-        self.next_log_number = 0
+        self.next_log_number = None
         self.log_file_number = 0
         self.log_fp_map = {}
         self.log_index_formatter = struct.Struct('>QQ')
-        self.log_index = bytearray()
+        self.log_index = None
 
         self.log_history_formatter = struct.Struct('>cQQQ')
-        self.next_sequence_number = 0
-        self.undo_count = 0
-        self.redo_count = 0
-        self.log_history = bytearray()
+        self.next_sequence_number = None
+        self.undo_count = None
+        self.redo_count = None
+        self.log_history = None
 
-        self.next_checkpoint_number = 0
+        self.next_checkpoint_number = None
         self.checkpoint_index_formatter = struct.Struct('>QQ')
-        self.checkpoint_index = bytearray()
+        self.checkpoint_index = None
 
         self.cache_lock = threading.RLock()
         self.log_entry_cache = collections.OrderedDict()
+        self.log_entry_cache_size = 20
 
         self.write_queue = queue.Queue()
         self.writer_thread = threading.Thread(target=self._writer_main)
-        self.written_log_number = -1
-        self.written_sequence_number = -1
+        self.written_log_number = None
+        self.written_sequence_number = None
 
-    @classmethod
-    def open(cls, path):
-        raise NotImplementedError
+    def open(self, path):
+        assert self.path is None
+
+        self.path = os.path.abspath(path)
+        logger.info("Opening project at %s", self.path)
+
+        try:
+            fp = fileutil.File(path)
+            file_info, self.header_data = fp.read_json()
+        except fileutil.Error as exc:
+            raise exceptions.FileOpenError(str(exc))
+
+        if file_info.filetype != 'project-header':
+            raise exceptions.FileOpenError("Not a project file")
+
+        if file_info.version not in self.SUPPORTED_VERSIONS:
+            raise exceptions.UnsupportedFileVersionError()
+
+        self.data_dir = os.path.join(
+            os.path.dirname(self.path), self.header_data['data_dir'])
+        if not os.path.isdir(self.data_dir):
+            raise exceptions.CorruptedProjectError(
+                "Directory %s missing" % self.data_dir)
+
+        self.file_lock = self.acquire_file_lock(
+            os.path.join(self.data_dir, "lock"))
+
+        self.log_index_fp = open(
+            os.path.join(self.data_dir, 'log.index'),
+            mode='r+b', buffering=0)
+        self.log_index = bytearray(self.log_index_fp.read())
+        self.next_log_number = len(self.log_index) // self.log_index_formatter.size
+        if len(self.log_index) != self.next_log_number * self.log_index_formatter.size:
+            raise exceptions.CorruptedProjectError("Malformed log.index file.")
+        self.written_log_number = self.next_log_number - 1
+
+        self.log_history_fp = open(
+            os.path.join(self.data_dir, 'log.history'),
+            mode='r+b', buffering=0)
+        self.log_history = bytearray(self.log_history_fp.read())
+        self.next_sequence_number = len(self.log_history) // self.log_history_formatter.size
+        if len(self.log_history) != self.next_sequence_number * self.log_history_formatter.size:
+            raise exceptions.CorruptedProjectError("Malformed log.history file.")
+        self.written_sequence_number = self.next_sequence_number - 1
+
+        if self.written_sequence_number >= 0:
+            _, _, self.undo_count, self.redo_count = self._get_history_entry(self.written_sequence_number)
+        else:
+            self.undo_count = 0
+            self.redo_count = 0
+
+        self.checkpoint_index_fp = open(
+            os.path.join(self.data_dir, 'checkpoint.index'),
+            mode='r+b', buffering=0)
+        self.checkpoint_index = bytearray(self.checkpoint_index_fp.read())
+        self.next_checkpoint_number = len(self.checkpoint_index) // self.checkpoint_index_formatter.size
+        if len(self.checkpoint_index) != self.next_checkpoint_number * self.checkpoint_index_formatter.size:
+            raise exceptions.CorruptedProjectError("Malformed checkpoint.index file.")
+
+        self.writer_thread.start()
+
+    def get_restore_info(self):
+        assert self.next_checkpoint_number > 0
+
+        size = self.checkpoint_index_formatter.size
+        offset = (self.next_checkpoint_number - 1) * size
+        packed_entry = self.checkpoint_index[offset:offset+size]
+        seq_number, checkpoint_number = self.checkpoint_index_formatter.unpack(packed_entry)
+
+        actions = []
+        for snum in range(seq_number, self.next_sequence_number):
+            action, log_number, _, _ = self._get_history_entry(snum)
+            actions.append((action, log_number))
+
+        return checkpoint_number, actions
 
     @classmethod
     def create(cls, path):
@@ -75,20 +147,9 @@ class ProjectStorage(object):
 
         os.mkdir(data_dir)
 
-        file_lock = cls.acquire_file_lock(
-            os.path.join(data_dir, 'lock'))
-
-        log_index_fp = open(
-            os.path.join(data_dir, 'log.index'),
-            mode='wb', buffering=0)
-
-        log_history_fp = open(
-            os.path.join(data_dir, 'log.history'),
-            mode='wb', buffering=0)
-
-        checkpoint_index_fp = open(
-            os.path.join(data_dir, 'checkpoint.index'),
-            mode='wb', buffering=0)
+        for fname in ('lock', 'log.index', 'log.history',
+                      'checkpoint.index'):
+            open(os.path.join(data_dir, fname), 'wb').close()
 
         fp = fileutil.File(path)
         fp.write_json(
@@ -97,15 +158,11 @@ class ProjectStorage(object):
                 filetype='project-header',
                 version=cls.VERSION))
 
+        # There's a short, but probably irrelevant race here: Some other
+        # process could open and lock our freshly created project,
+        # causing the open call here to fail. Let's not care about that.
         project_storage = cls()
-        project_storage.path = path
-        project_storage.file_lock = file_lock
-        project_storage.data_dir = data_dir
-        project_storage.header_data = header_data
-        project_storage.log_index_fp = log_index_fp
-        project_storage.log_history_fp = log_history_fp
-        project_storage.checkpoint_index_fp = checkpoint_index_fp
-        project_storage.writer_thread.start()
+        project_storage.open(path)
         return project_storage
 
     def close(self):
@@ -162,70 +219,77 @@ class ProjectStorage(object):
     def _writer_main(self):
         logger.info("Log writer thread started.")
 
-        log_fp = open(
-            os.path.join(
-                self.data_dir,
-                'log.%06d' % self.log_file_number),
-            mode='w+b', buffering=0)
-        while True:
-            cmd, arg = self.write_queue.get()
-            if cmd == 'STOP':
-                break
-            elif cmd == 'FLUSH':
-                arg.set()
-            elif cmd == 'LOG':
-                seq_number, history_entry, log_entry = arg
-                action, log_number, _, _ = history_entry
+        log_path = os.path.join(
+            self.data_dir,
+            'log.%06d' % self.log_file_number)
 
-                logger.info("Writing log entry #%d...", seq_number)
+        if os.path.exists(log_path):
+            mode = 'a+b'
+        else:
+            mode = 'w+b'
 
-                assert (
-                    action != self.ACTION_LOG_ENTRY or log_entry is not None)
-                if log_entry is not None:
-                    offset = log_fp.tell()
+        with open(log_path, mode=mode, buffering=0) as log_fp:
+            while True:
+                cmd, arg = self.write_queue.get()
+                if cmd == 'STOP':
+                    break
+                elif cmd == 'FLUSH':
+                    arg.set()
+                elif cmd == 'PAUSE':
+                    arg.wait()
+                elif cmd == 'LOG':
+                    seq_number, history_entry, log_entry = arg
+                    action, log_number, _, _ = history_entry
 
-                    log_fp.write(struct.pack('>Q', len(log_entry)))
-                    log_fp.write(log_entry)
-                    log_fp.flush()
+                    logger.info("Writing log entry #%d...", seq_number)
 
-                    packed_index_entry = self.log_index_formatter.pack(
-                        self.log_file_number, offset)
-                    self.log_index_fp.write(packed_index_entry)
-                    self.log_index_fp.flush()
-
-                packed_history_entry = self.log_history_formatter.pack(
-                    *history_entry)
-                self.log_history_fp.write(packed_history_entry)
-                self.log_history_fp.flush()
-
-                with self.cache_lock:
-                    assert seq_number > self.written_sequence_number
-                    self.written_sequence_number = seq_number
-
+                    assert (
+                        action != self.ACTION_LOG_ENTRY or log_entry is not None)
                     if log_entry is not None:
-                        self.log_index += packed_index_entry
-                        assert log_number > self.written_log_number
-                        self.written_log_number = log_number
-            elif cmd == 'CHECKPOINT':
-                seq_number, checkpoint = arg
+                        offset = log_fp.tell()
 
-                checkpoint_path = os.path.join(
-                    self.data_dir,
-                    'checkpoint.%06d' % self.next_checkpoint_number)
-                logger.info("Writing checkpoint %s...", checkpoint_path)
-                with open(checkpoint_path, mode='wb', buffering=0) as fp:
-                    fp.write(checkpoint)
+                        log_fp.write(struct.pack('>Q', len(log_entry)))
+                        log_fp.write(log_entry)
+                        log_fp.flush()
 
-                packed_index_entry = self.checkpoint_index_formatter.pack(
-                    seq_number, self.next_checkpoint_number)
-                self.checkpoint_index_fp.write(packed_index_entry)
-                self.checkpoint_index_fp.flush()
+                        packed_index_entry = self.log_index_formatter.pack(
+                            self.log_file_number, offset)
+                        self.log_index_fp.write(packed_index_entry)
+                        self.log_index_fp.flush()
 
-                with self.cache_lock:
-                    self.checkpoint_index += packed_index_entry
-                    self.next_checkpoint_number += 1
-            else:
-                raise ValueError("Invalud command %r", cmd)
+                    packed_history_entry = self.log_history_formatter.pack(
+                        *history_entry)
+                    self.log_history_fp.write(packed_history_entry)
+                    self.log_history_fp.flush()
+
+                    with self.cache_lock:
+                        assert seq_number > self.written_sequence_number
+                        self.written_sequence_number = seq_number
+
+                        if log_entry is not None:
+                            self.log_index += packed_index_entry
+                            assert log_number > self.written_log_number
+                            self.written_log_number = log_number
+                elif cmd == 'CHECKPOINT':
+                    seq_number, checkpoint = arg
+
+                    checkpoint_path = os.path.join(
+                        self.data_dir,
+                        'checkpoint.%06d' % self.next_checkpoint_number)
+                    logger.info("Writing checkpoint %s...", checkpoint_path)
+                    with open(checkpoint_path, mode='wb', buffering=0) as fp:
+                        fp.write(checkpoint)
+
+                    packed_index_entry = self.checkpoint_index_formatter.pack(
+                        seq_number, self.next_checkpoint_number)
+                    self.checkpoint_index_fp.write(packed_index_entry)
+                    self.checkpoint_index_fp.flush()
+
+                    with self.cache_lock:
+                        self.checkpoint_index += packed_index_entry
+                        self.next_checkpoint_number += 1
+                else:  # pragma: no coverage
+                    raise ValueError("Invalud command %r", cmd)
 
         logger.info("Log writer thread finished.")
 
@@ -262,11 +326,11 @@ class ProjectStorage(object):
         log_fp = self._get_log_fp(file_number)
         log_fp.seek(file_offset, os.SEEK_SET)
 
-        entry_len = struct.unpack(
+        entry_len, = struct.unpack(
             '>Q', log_fp.read(struct.calcsize('>Q')))
         return log_fp.read(entry_len)
 
-    def _get_log_entry(self, log_number):
+    def get_log_entry(self, log_number):
         try:
             entry = self.log_entry_cache[log_number]
             self.log_entry_cache.move_to_end(log_number)
@@ -278,9 +342,11 @@ class ProjectStorage(object):
     def _add_log_entry(self, log_number, entry):
         with self.cache_lock:
             self.log_entry_cache[log_number] = entry
+            self.flush_cache(self.log_entry_cache_size)
 
-            entries_to_drop = (
-                len(self.log_entry_cache) - self.LOG_ENTRY_CACHE_SIZE)
+    def flush_cache(self, cache_size):
+        with self.cache_lock:
+            entries_to_drop = len(self.log_entry_cache) - cache_size
             if entries_to_drop > 0:
                 dropped_entries = set()
                 for ln in self.log_entry_cache.keys():
@@ -297,6 +363,11 @@ class ProjectStorage(object):
         flushed = threading.Event()
         self.write_queue.put(('FLUSH', flushed))
         flushed.wait()
+
+    def pause(self):
+        evt = threading.Event()
+        self.write_queue.put(('PAUSE', evt))
+        return evt
 
     def append_log_entry(self, entry):
         assert self.path is not None, "Project already closed."
@@ -337,7 +408,7 @@ class ProjectStorage(object):
         action, log_number, _, _ = (
             self._get_history_entry(entry_to_undo))
         assert action == self.ACTION_LOG_ENTRY
-        return self._get_log_entry(log_number)
+        return self.get_log_entry(log_number)
 
     def get_log_entry_to_redo(self):
         assert self.can_redo
@@ -347,7 +418,7 @@ class ProjectStorage(object):
         action, log_number, _, _ = (
             self._get_history_entry(entry_to_redo))
         assert action == self.ACTION_LOG_ENTRY
-        return self._get_log_entry(log_number)
+        return self.get_log_entry(log_number)
 
     def undo(self):
         assert self.path is not None, "Project already closed."
@@ -395,3 +466,16 @@ class ProjectStorage(object):
     def add_checkpoint(self, checkpoint):
         self._schedule_checkpoint_write(
             self.next_sequence_number, checkpoint)
+
+    def get_checkpoint(self, checkpoint_number):
+        size = self.checkpoint_index_formatter.size
+        offset = checkpoint_number * size
+        packed_entry = self.checkpoint_index[offset:offset+size]
+        _, checkpoint_number = self.checkpoint_index_formatter.unpack(packed_entry)
+
+        checkpoint_path = os.path.join(
+            self.data_dir,
+            'checkpoint.%06d' % checkpoint_number)
+        logger.info("Reading checkpoint %s...", checkpoint_path)
+        with open(checkpoint_path, mode='rb') as fp:
+            return fp.read()
