@@ -112,6 +112,10 @@ class Track(model.Track, state.StateBase):
         raise NotImplementedError
 
     @property
+    def parent_mixer_name(self):
+        return self.parent.mixer_name
+
+    @property
     def mixer_name(self):
         return '%s-track-mixer' % self.id
 
@@ -122,12 +126,12 @@ class Track(model.Track, state.StateBase):
         self.sheet.handle_pipeline_mutation(
             mutations.ConnectPorts(
                 self.mixer_name, 'out',
-                self.sheet.main_mixer_name, 'in'))
+                self.parent_mixer_name, 'in'))
 
     def remove_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(
             mutations.DisconnectPorts(
                 self.mixer_name, 'out',
-                self.sheet.main_mixer_name, 'in'))
+                self.parent_mixer_name, 'in'))
         self.sheet.handle_pipeline_mutation(
             mutations.RemoveNode(self.mixer_name))

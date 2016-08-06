@@ -26,6 +26,7 @@ class ScoreMeasure(model.ScoreMeasure, project_client.ObjectProxy):
 
 class ScoreTrack(model.ScoreTrack, project_client.ObjectProxy): pass
 class TrackGroup(model.TrackGroup, project_client.ObjectProxy): pass
+class MasterTrackGroup(model.MasterTrackGroup, project_client.ObjectProxy): pass
 class SheetPropertyMeasure(model.SheetPropertyMeasure, project_client.ObjectProxy): pass
 class SheetPropertyTrack(model.SheetPropertyTrack, project_client.ObjectProxy): pass
 class Sheet(model.Sheet, project_client.ObjectProxy): pass
@@ -40,6 +41,7 @@ cls_map = {
     'ScoreMeasure': ScoreMeasure,
     'ScoreTrack': ScoreTrack,
     'TrackGroup': TrackGroup,
+    'MasterTrackGroup': MasterTrackGroup,
     'SheetPropertyMeasure': SheetPropertyMeasure,
     'SheetPropertyTrack': SheetPropertyTrack,
     'Sheet': Sheet,

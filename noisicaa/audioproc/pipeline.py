@@ -85,13 +85,13 @@ class Pipeline(object):
         d = {}
         for node in self._nodes:
             n = {}
-            n['inputs'] = {}
             for pn, p in node.inputs.items():
-                n['inputs'][pn] = []
+                n[pn] = []
                 for up in p.inputs:
-                    n['inputs'][pn].append(
-                        '%s:%s' % (up.owner.name, up.name))
-            d[node.name] = n
+                    n[pn].append(
+                        '%s(%s:%s)' % (
+                            up.owner.name, up.owner.id, up.name))
+            d['%s(%s)' % (node.name, node.id)] = n
 
         logger.info("Pipeline dump:\n%s", pprint.pformat(d))
         logger.info("%s", dict((node.name, [n.name for n in node.parent_nodes])

@@ -61,6 +61,7 @@ class RemoveTrack(commands.Command):
 
         track = sheet.master_group.tracks[self.track]
         track.remove_from_pipeline()
+
         del sheet.master_group.tracks[self.track]
 
 commands.Command.register_command(RemoveTrack)
@@ -163,7 +164,7 @@ class Sheet(model.Sheet, state.StateBase):
         if state is None:
             self.name = name
 
-            self.master_group = track_group.TrackGroup(name="Master")
+            self.master_group = track_group.MasterTrackGroup(name="Master")
             self.property_track = SheetPropertyTrack(name="Time")
 
             for i in range(num_tracks):
@@ -215,29 +216,11 @@ class Sheet(model.Sheet, state.StateBase):
     def handle_pipeline_mutation(self, mutation):
         self.listeners.call('pipeline_mutations', mutation)
 
-    @property
-    def main_mixer_name(self):
-        return '%s-sheet-mixer' % self.id
-
     def add_to_pipeline(self):
-        self.handle_pipeline_mutation(
-            mutations.AddNode(
-                'passthru', self.main_mixer_name, 'sheet-mixer'))
-        self.handle_pipeline_mutation(
-            mutations.ConnectPorts(
-                self.main_mixer_name, 'out', 'sink', 'in'))
-
-        for track in self.master_group.tracks:
-            track.add_to_pipeline()
+        self.master_group.add_to_pipeline()
 
     def remove_from_pipeline(self):
-        for track in self.master_group.tracks:
-            track.remove_from_pipeline()
+        self.master_group.remove_from_pipeline()
 
-        self.handle_pipeline_mutation(
-            mutations.DisconnectPorts(
-                self.main_mixer_name, 'out', 'sink', 'in'))
-        self.handle_pipeline_mutation(
-            mutations.RemoveNode(self.main_mixer_name))
 
 state.StateBase.register_class(Sheet)

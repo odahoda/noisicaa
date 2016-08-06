@@ -95,11 +95,10 @@ class ChildLogHandler(logging.Handler):
             'args': (),
         }
         for attr in (
-                'created', 'exc_info', 'exc_text', 'filename',
+                'created', 'exc_text', 'filename',
                 'funcName', 'levelname', 'levelno', 'lineno',
                 'module', 'msecs', 'name', 'pathname', 'process',
-                'relativeCreated', 'stack_info', 'thread',
-                'threadName'):
+                'relativeCreated', 'thread', 'threadName'):
             record_attrs[attr] = record.__dict__[attr]
 
         serialized_record = pickle.dumps(record_attrs)

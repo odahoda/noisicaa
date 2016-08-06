@@ -94,6 +94,10 @@ class TrackGroup(Track):
     tracks = core.ObjectListProperty(Track)
 
 
+class MasterTrackGroup(TrackGroup):
+    pass
+
+
 class ScoreMeasure(Measure):
     clef = core.Property(clef.Clef, default=clef.Clef.Treble)
     key_signature = core.Property(
