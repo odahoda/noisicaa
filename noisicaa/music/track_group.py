@@ -17,6 +17,13 @@ class TrackGroup(model.TrackGroup, track.Track):
     def __init__(self, state=None, num_measures=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
+    def walk_tracks(self):
+        for track in self.tracks:
+            if isinstance(track, TrackGroup):
+                yield from track.walk_tracks()
+            else:
+                yield track
+
     def add_to_pipeline(self):
         super().add_to_pipeline()
         for track in self.tracks:

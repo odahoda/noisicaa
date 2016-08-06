@@ -159,7 +159,7 @@ class Player(object):
 
         await self.audioproc_client.dump()
 
-        for track in self.sheet.master_group.tracks:
+        for track in self.sheet.all_tracks:
             self.track_event_sources[track.id] = track.create_event_source()
         self.tracks_listener = self.sheet.master_group.listeners.add(
             'tracks', self.tracks_changed)

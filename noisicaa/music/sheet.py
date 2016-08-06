@@ -183,13 +183,20 @@ class Sheet(model.Sheet, state.StateBase):
                 self.master_group.tracks.append(
                     score_track.ScoreTrack(name="Track %d" % i))
 
+            grp = track_group.TrackGroup(name="Group 1")
+            self.master_group.tracks.append(grp)
+
+            grp.tracks.append(score_track.ScoreTrack(name="Subtrack 1"))
+            grp.tracks.append(score_track.ScoreTrack(name="Subtrack 2"))
+
     @property
     def project(self):
         return self.parent
 
     @property
     def all_tracks(self):
-        return [self.property_track] + list(self.master_group.tracks)
+        return ([self.property_track]
+                + list(self.master_group.walk_tracks()))
 
     def clear(self):
         pass
