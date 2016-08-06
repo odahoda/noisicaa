@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class TrackGroup(model.TrackGroup, track.Track):
-    def __init__(self, state=None, **kwargs):
+    def __init__(self, state=None, num_measures=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
     def add_to_pipeline(self):

@@ -131,12 +131,14 @@ class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractListModel):
 
     async def addTrack(self, track_type):
         return await self.project_client.send_command(
-            self._sheet.id, 'AddTrack', track_type=track_type)
+            self._sheet.id, 'AddTrack',
+            parent_group_id=self._sheet.master_group.id,
+            track_type=track_type)
 
     async def removeTrack(self, index):
         track = index.internalPointer()
         return await self.project_client.send_command(
-            self._sheet.id, 'RemoveTrack', track=track.index)
+            self._sheet.id, 'RemoveTrack', track_id=track.id)
 
     async def moveTrack(self, index, direction):
         track = index.internalPointer()

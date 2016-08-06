@@ -4,65 +4,77 @@ import logging
 
 from noisicaa import core
 
-from .score_track import ScoreTrack
-from .sheet_property_track import SheetPropertyTrack
 from . import model
 from . import state
 from . import commands
 from . import mutations
+from . import score_track
 from . import track_group
+from . import sheet_property_track
 
 logger = logging.getLogger(__name__)
 
 
 class AddTrack(commands.Command):
     track_type = core.Property(str)
+    parent_group_id = core.Property(str)
 
-    def __init__(self, track_type=None, state=None):
+    def __init__(self, track_type=None, parent_group_id=None, state=None):
         super().__init__(state=state)
         if state is None:
             self.track_type = track_type
+            self.parent_group_id = parent_group_id
 
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
+        project = sheet.root
 
-        if len(sheet.master_group.tracks) > 0:
+        parent_group = project.get_object(self.parent_group_id)
+        assert parent_group.is_child_of(sheet)
+        assert isinstance(parent_group, track_group.TrackGroup)
+
+        if len(parent_group.tracks) > 0:
             num_measures = max(
                 len(track.measures)
-                for track in sheet.master_group.tracks)
+                for track in parent_group.tracks)
         else:
             num_measures = 1
 
-        track_name = "Track %d" % (len(sheet.master_group.tracks) + 1)
+        track_name = "Track %d" % (len(parent_group.tracks) + 1)
         track_cls_map = {
-            'score': ScoreTrack,
+            'score': score_track.ScoreTrack,
+            'group': track_group.TrackGroup,
         }
         track_cls = track_cls_map[self.track_type]
         track = track_cls(name=track_name, num_measures=num_measures)
-        sheet.master_group.tracks.append(track)
+        parent_group.tracks.append(track)
 
         track.add_to_pipeline()
 
-        return len(sheet.master_group.tracks) - 1
+        return len(parent_group.tracks) - 1
 
 commands.Command.register_command(AddTrack)
 
 
 class RemoveTrack(commands.Command):
-    track = core.Property(int)
+    track_id = core.Property(str)
 
-    def __init__(self, track=None, state=None):
+    def __init__(self, track_id=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.track = track
+            self.track_id = track_id
 
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
+        project = sheet.root
 
-        track = sheet.master_group.tracks[self.track]
+        track = project.get_object(self.track_id)
+        assert track.is_child_of(sheet)
+        parent_group = track.parent
+
         track.remove_from_pipeline()
 
-        del sheet.master_group.tracks[self.track]
+        del parent_group.tracks[track.index]
 
 commands.Command.register_command(RemoveTrack)
 
@@ -165,11 +177,11 @@ class Sheet(model.Sheet, state.StateBase):
             self.name = name
 
             self.master_group = track_group.MasterTrackGroup(name="Master")
-            self.property_track = SheetPropertyTrack(name="Time")
+            self.property_track = sheet_property_track.SheetPropertyTrack(name="Time")
 
             for i in range(num_tracks):
                 self.master_group.tracks.append(
-                    ScoreTrack(name="Track %d" % i))
+                    score_track.ScoreTrack(name="Track %d" % i))
 
     @property
     def project(self):

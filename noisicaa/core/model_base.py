@@ -340,6 +340,14 @@ class ObjectBase(object, metaclass=ObjectMeta):
         assert self.parent is not None
         self.parent = None
 
+    def is_child_of(self, parent):
+        p = self.parent
+        while p is not None:
+            if p is parent:
+                return True
+            p = p.parent
+        return False
+
     def set_parent_container(self, prop):
         self.__parent_container = prop
 
