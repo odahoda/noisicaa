@@ -218,7 +218,7 @@ class EditorApp(BaseEditorApp):
 
         self._old_excepthook = None
         self.win = None
-        self._pipeline_perf_monitor = None
+        self.pipeline_perf_monitor = None
 
     async def setup(self):
         logger.info("Installing custom excepthook.")
@@ -230,13 +230,13 @@ class EditorApp(BaseEditorApp):
         logger.info("Creating InstrumentLibrary.")
         self.instrument_library = library.InstrumentLibrary()
 
+        logger.info("Creating PipelinePerfMonitor.")
+        self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self)
+
         logger.info("Creating EditorWindow.")
         self.win = EditorWindow(self)
         await self.win.setup()
         self.win.show()
-
-        self._pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self)
-        self._pipeline_perf_monitor.show()
 
         if self.paths:
             logger.info("Starting with projects from cmdline.")
@@ -266,9 +266,9 @@ class EditorApp(BaseEditorApp):
             self.dumpSettings()
 
     async def cleanup(self):
-        if self._pipeline_perf_monitor is not None:
-            self._pipeline_perf_monitor.storeState()
-            self._pipeline_perf_monitor = None
+        if self.pipeline_perf_monitor is not None:
+            self.pipeline_perf_monitor.storeState()
+            self.pipeline_perf_monitor = None
 
         if self.win is not None:
             await self.win.cleanup()
@@ -303,6 +303,6 @@ class EditorApp(BaseEditorApp):
         if 'utilization' in status:
             pass
         if 'perf_data' in status:
-            if self._pipeline_perf_monitor is not None:
-                self._pipeline_perf_monitor.addPerfData(
+            if self.pipeline_perf_monitor is not None:
+                self.pipeline_perf_monitor.addPerfData(
                     status['perf_data'])

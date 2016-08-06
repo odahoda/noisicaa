@@ -4,6 +4,7 @@ import math
 import time
 
 from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
@@ -11,6 +12,8 @@ from . import ui_base
 
 
 class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
+    visibilityChanged = QtCore.pyqtSignal(bool)
+
     def __init__(self, app):
         super().__init__(app=app)
 
@@ -19,7 +22,7 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.current_spans = None
         self.max_fps = 20
         self.last_update = None
-        self.max_time_nsec = 100e6
+        self.max_time_nsec = 100000000
         self.time_scale = 4096
 
         self.setWindowTitle("noisicaä - Pipeline Performance Monitor")
@@ -67,6 +70,14 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         s.setValue('visible', int(self.isVisible()))
         s.setValue('geometry', self.saveGeometry())
         s.endGroup()
+
+    def showEvent(self, event):
+        self.visibilityChanged.emit(True)
+        super().showEvent(event)
+
+    def hideEvent(self, event):
+        self.visibilityChanged.emit(False)
+        super().hideEvent(event)
 
     def onToggleRealtime(self):
         if self.realtime:
@@ -169,7 +180,7 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         if num_purge > 0:
             del self.history[:num_purge]
 
-        if self.realtime:
+        if self.realtime and self.isVisible():
             now = time.time()
             if (self.last_update is None
                 or now - self.last_update > 1.0 / self.max_fps):

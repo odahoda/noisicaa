@@ -261,6 +261,15 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
             "Stop",
             self, triggered=self.onPlayerStop)
 
+        self._show_pipeline_perf_monitor_action = QAction(
+            "Pipeline Performance Monitor", self,
+            checkable=True,
+            checked=self.app.pipeline_perf_monitor.isVisible())
+        self._show_pipeline_perf_monitor_action.toggled.connect(
+            self.app.pipeline_perf_monitor.setVisible)
+        self.app.pipeline_perf_monitor.visibilityChanged.connect(
+            self._show_pipeline_perf_monitor_action.setChecked)
+
     def createMenus(self):
         menu_bar = self.menuBar()
 
@@ -296,6 +305,8 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
             self._dev_menu.addAction(self._restart_clean_action)
             self._dev_menu.addAction(self._crash_action)
             self._dev_menu.addAction(self.app.show_edit_areas_action)
+            self._dev_menu.addAction(
+                self._show_pipeline_perf_monitor_action)
 
         menu_bar.addSeparator()
 
