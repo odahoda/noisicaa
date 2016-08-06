@@ -362,6 +362,20 @@ class ScoreTrack(model.ScoreTrack, Track):
         return ScoreEventSource(self)
 
     @property
+    def event_source_name(self):
+        return '%s-events' % self.id
+
+    def add_event_source_to_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.AddNode(
+                'track_event_source', self.event_source_name, 'events',
+                queue_name='track:%s' % self.id))
+
+    def remove_event_source_from_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.RemoveNode(self.event_source_name))
+
+    @property
     def instr_name(self):
         return self.instrument.pipeline_node_id
 
@@ -389,12 +403,14 @@ class ScoreTrack(model.ScoreTrack, Track):
 
     def add_to_pipeline(self):
         super().add_to_pipeline()
+        self.add_event_source_to_pipeline()
         if self.instrument is not None:
             self.add_instrument_to_pipeline()
 
     def remove_from_pipeline(self):
         if self.instrument is not None:
             self.remove_instrument_from_pipeline()
+        self.remove_event_source_from_pipeline()
         super().remove_from_pipeline()
 
 state.StateBase.register_class(ScoreTrack)

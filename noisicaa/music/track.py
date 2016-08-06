@@ -115,11 +115,7 @@ class Track(model.Track, state.StateBase):
     def mixer_name(self):
         return '%s-track-mixer' % self.id
 
-    @property
-    def event_source_name(self):
-        return '%s-events' % self.id
-
-    def add_mixer_to_pipeline(self):
+    def add_to_pipeline(self):
         self.sheet.handle_pipeline_mutation(
             mutations.AddNode(
                 'passthru', self.mixer_name, 'track-mixer'))
@@ -128,28 +124,10 @@ class Track(model.Track, state.StateBase):
                 self.mixer_name, 'out',
                 self.sheet.main_mixer_name, 'in'))
 
-    def remove_mixer_from_pipeline(self):
+    def remove_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(
             mutations.DisconnectPorts(
                 self.mixer_name, 'out',
                 self.sheet.main_mixer_name, 'in'))
         self.sheet.handle_pipeline_mutation(
             mutations.RemoveNode(self.mixer_name))
-
-    def add_event_source_to_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
-            mutations.AddNode(
-                'track_event_source', self.event_source_name, 'events',
-                queue_name='track:%s' % self.id))
-
-    def remove_event_source_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
-            mutations.RemoveNode(self.event_source_name))
-
-    def add_to_pipeline(self):
-        self.add_mixer_to_pipeline()
-        self.add_event_source_to_pipeline()
-
-    def remove_from_pipeline(self):
-        self.remove_event_source_from_pipeline()
-        self.remove_mixer_from_pipeline()
