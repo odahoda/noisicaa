@@ -434,6 +434,8 @@ class ProcessHandle(object):
         self.stderr_protocol = None
         self.logger_protocol = None
 
+        self._stderr_empty_lines = []
+
     def create_loggers(self):
         assert self.pid is not None
         self.logger = logging.getLogger('childproc[%d]' % self.pid)
@@ -446,11 +448,11 @@ class ProcessHandle(object):
     async def setup_std_handlers(
         self, event_loop, stdout_fd, stderr_fd, logger_fd):
         _, self.stdout_protocol = await event_loop.connect_read_pipe(
-            functools.partial(PipeAdapter, self.stdout_logger.info),
+            functools.partial(PipeAdapter, self.handle_stdout),
             os.fdopen(stdout_fd))
 
         _, self.stderr_protocol = await event_loop.connect_read_pipe(
-            functools.partial(PipeAdapter, self.stderr_logger.warning),
+            functools.partial(PipeAdapter, self.handle_stderr),
             os.fdopen(stderr_fd))
 
         _, self.logger_protocol = await event_loop.connect_read_pipe(
@@ -459,6 +461,26 @@ class ProcessHandle(object):
 
     async def wait(self):
         await self.term_event.wait()
+
+    def handle_stdout(self, line):
+        self.stdout_logger.info(line)
+
+    def handle_stderr(self, line):
+        if len(line.rstrip('\r\n')) == 0:
+            # Buffer empty lines, so we can discard those that are followed
+            # by a message that we also want to discard.
+            self._stderr_empty_lines.append(line)
+            return
+
+        if 'fluid_synth_sfont_unref' in line:
+            # Discard annoying error message from libfluidsynth. It is also
+            # preceeded by a empty line, which we also throw away.
+            self._stderr_empty_lines.clear()
+            return
+
+        while len(self._stderr_empty_lines) > 0:
+            self.stderr_logger.warning(self._stderr_empty_lines.pop(0))
+        self.stderr_logger.warning(line)
 
 
 class ManagerStub(ipc.Stub):
