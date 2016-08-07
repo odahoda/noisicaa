@@ -88,7 +88,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self._current_project_view = None
 
         self.setWindowTitle("noisicaä")
-        self.resize(800, 600)
+        self.resize(1200, 800)
 
         self.createActions()
         self.createMenus()

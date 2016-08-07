@@ -93,6 +93,16 @@ class Note(core.ObjectBase):
 class TrackGroup(Track):
     tracks = core.ObjectListProperty(Track)
 
+    def walk_tracks(self, groups=False, tracks=True):
+        if groups:
+            yield self
+
+        for track in self.tracks:
+            if isinstance(track, TrackGroup):
+                yield from track.walk_tracks(groups, tracks)
+            elif tracks:
+                yield track
+
 
 class MasterTrackGroup(TrackGroup):
     pass
