@@ -267,7 +267,7 @@ class TrackItemDelegate(QtWidgets.QStyledItemDelegate):
             rect.width() - 2 * rect.height() + 8, rect.height())
 
     def paint(self, painter, option, index):
-        track = index.internalPointer()
+        track = index.internalPointer().track
 
         icon_size = option.rect.height()
         icon_area_width = 2 * icon_size + 8
@@ -305,24 +305,24 @@ class TrackList(QtWidgets.QTreeView):
 
         self.setHeaderHidden(True)
 
-        # self._delegate = TrackItemDelegate()
-        # self.setItemDelegate(self._delegate)
+        self._delegate = TrackItemDelegate()
+        self.setItemDelegate(self._delegate)
 
     def mousePressEvent(self, event):
         index = self.indexAt(event.pos())
-        # if index.row() >= 0:
-        #     rect = self.visualRect(index)
-        #     model = self.model()
-        #     if self._delegate.showIconRect(rect).contains(event.pos()):
-        #         model.setData(
-        #             index, not model.data(index, TracksModel.VisibleRole),
-        #             TracksModel.VisibleRole)
-        #         event.accept()
-        #     elif self._delegate.playIconRect(rect).contains(event.pos()):
-        #         model.setData(
-        #             index, not model.data(index, TracksModel.MuteRole),
-        #             TracksModel.MuteRole)
-        #         event.accept()
+        if index.row() >= 0:
+            rect = self.visualRect(index)
+            model = self.model()
+            if self._delegate.showIconRect(rect).contains(event.pos()):
+                model.setData(
+                    index, not model.data(index, TracksModel.VisibleRole),
+                    TracksModel.VisibleRole)
+                event.accept()
+            elif self._delegate.playIconRect(rect).contains(event.pos()):
+                model.setData(
+                    index, not model.data(index, TracksModel.MuteRole),
+                    TracksModel.MuteRole)
+                event.accept()
 
         return super().mousePressEvent(event)
 
