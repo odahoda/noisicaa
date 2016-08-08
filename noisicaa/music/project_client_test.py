@@ -85,7 +85,9 @@ class ProxyTest(asynctest.TestCase):
         sheet = self.client.project.sheets[0]
         num_tracks = len(sheet.master_group.tracks)
         await self.client.send_command(
-            sheet.id, 'AddTrack', track_type='score')
+            sheet.id, 'AddTrack',
+            track_type='score',
+            parent_group_id=sheet.master_group.id)
         self.assertEqual(len(sheet.master_group.tracks), num_tracks + 1)
 
 

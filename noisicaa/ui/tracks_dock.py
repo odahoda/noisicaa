@@ -83,11 +83,13 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
             self.beginInsertRows(group_index, index, index)
             group.children.insert(index, self._buildItem(child, group))
             self.endInsertRows()
-        else:
-            index, = args
+        elif action == 'delete':
+            index, child = args
             self.beginRemoveRows(group_index, index, index)
             del group.children[index]
             self.endRemoveRows()
+        else:
+            raise ValueError(action)
 
     def onTrackChanged(self, item, prop, old, new):
         track = item.track

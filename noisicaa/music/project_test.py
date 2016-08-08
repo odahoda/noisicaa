@@ -148,7 +148,9 @@ class ProjectTest(unittest.TestCase):
         try:
             p.dispatch_command(p.id, project.AddSheet())
             sheet_id = p.sheets[-1].id
-            p.dispatch_command(sheet_id, sheet.AddTrack('score'))
+            p.dispatch_command(sheet_id, sheet.AddTrack(
+                track_type='score',
+                parent_group_id=p.sheets[-1].master_group.id))
             track_id = p.sheets[-1].master_group.tracks[-1].id
         finally:
             p.close()

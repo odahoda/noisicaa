@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import functools
 import random
 import logging
 import os.path
@@ -52,6 +53,7 @@ from .svg_symbol import SvgSymbol, SymbolItem
 from .tool_dock import Tool
 from .misc import QGraphicsGroup
 from . import ui_base
+from noisicaa.music import model
 
 logger = logging.getLogger(__name__)
 
@@ -115,9 +117,6 @@ class MeasureItemImpl(QGraphicsItem):
         pass
 
     def close(self):
-        pass
-
-    def onPlaybackTag(self, event, idx):
         pass
 
     def recomputeLayout(self):
@@ -208,6 +207,7 @@ class TrackItemImpl(object):
             self._track.listeners.add('measures', self.onMeasuresChanged),
             self._track.listeners.add('muted', self.onMutedChanged),
             self._track.listeners.add('volume', self.onVolumeChanged),
+            self._track.listeners.add('visible', self.onVisibleChanged),
         ]
 
     def close(self):
@@ -233,20 +233,6 @@ class TrackItemImpl(object):
         measure.close()
         del self._measures[idx]
 
-    def onPlaybackTag(self, measure_idx, event, idx):
-        if self._prev_note_highlight is not None:
-            prev_measure_index, prev_idx = self._prev_note_highlight
-            self._measures[prev_measure_index].onPlaybackTag('noteoff', prev_idx)
-            self._prev_note_highlight = None
-        self._measures[measure_idx].onPlaybackTag(event, idx)
-        self._prev_note_highlight = (measure_idx, idx)
-
-    def onPlaybackStop(self):
-        if self._prev_note_highlight is not None:
-            prev_measure_index, prev_idx = self._prev_note_highlight
-            self._measures[prev_measure_index].onPlaybackTag('noteoff', prev_idx)
-            self._prev_note_highlight = None
-
     def onMeasuresChanged(self, action, *args):
         if action == 'insert':
             idx, measure = args
@@ -257,7 +243,7 @@ class TrackItemImpl(object):
             self._sheet_view.updateSheet()
 
         elif action == 'delete':
-            idx, = args
+            idx, measure = args
             self.removeMeasure(idx)
             self._sheet_view.updateSheet()
 
@@ -273,6 +259,9 @@ class TrackItemImpl(object):
 
     def onVolumeChanged(self, old_value, new_value):
         pass # TODO
+
+    def onVisibleChanged(self, old_value, new_value):
+        self._sheet_view.updateSheet()
 
     def buildContextMenu(self, menu):
         track_properties_action = QAction(
@@ -739,20 +728,6 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
             'SetTimeSignature', upper=upper, lower=lower)
         self.recomputeLayout()
 
-    def onPlaybackTag(self, event, idx):
-        try:
-            note = self._notes[idx]
-        except IndexError:
-            # The note might have been removed since it was added to the playback
-            # pipeline.
-            return
-
-        if event == 'noteon':
-            note.setScale(1.5)
-            self._sheet_view.scrollToPlaybackPosition(note.mapToScene(0, 0))
-        else:
-            note.setScale(1.0)
-
     def getEditArea(self, x):
         for x1, x2, idx, overwrite in self._edit_areas:
             if x1 < x <= x2:
@@ -1142,9 +1117,6 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
             self.bpm_proxy.setPos(
                 3, self._layout.baseline - bpm.boundingRect().height())
 
-    def onPlaybackTag(self, event, idx):
-        pass
-
     def mousePressEvent(self, event):
         if self._measure is None:
             self.send_command_async(
@@ -1230,21 +1202,6 @@ class SheetScene(QGraphicsScene):
         return super().event(event)
 
 
-class PlaybackTagEvent(QEvent):
-    _event_type = QEvent.registerEventType()
-
-    def __init__(self, tag):
-        super().__init__(self._event_type)
-        self.tag = tag
-
-
-class PlaybackStopEvent(QEvent):
-    _event_type = QEvent.registerEventType()
-
-    def __init__(self):
-        super().__init__(self._event_type)
-
-
 class Layer(enum.IntEnum):
     BG = 0
     MAIN = 1
@@ -1269,10 +1226,11 @@ class SheetViewImpl(QGraphicsView):
         super().__init__(**kwargs)
         self._sheet = sheet
 
-        self._track_visible_listeners = []
-        self._tracks = []
-        for track in self._sheet.master_group.tracks:
-            self.insertTrack(len(self._tracks), track)
+        self._track_items = {}
+        self._group_listeners = {}
+        for track in self._sheet.master_group.walk_tracks(
+                groups=True, tracks=True):
+            self.addTrack(track)
 
         self._property_track_item = self.createTrackItem(
             self._sheet.property_track)
@@ -1299,9 +1257,6 @@ class SheetViewImpl(QGraphicsView):
 
         self.updateSheet()
 
-        self._tracks_listener = self._sheet.master_group.listeners.add(
-            'tracks', self.onTracksChanged)
-
         self._player_id = None
         self._player_stream_address = None
         self._player_node_id = None
@@ -1316,8 +1271,8 @@ class SheetViewImpl(QGraphicsView):
             self._player_node_id, 'out', 'sink', 'in')
 
     async def cleanup(self):
-        while len(self._tracks) > 0:
-            self.removeTrack(0)
+        while len(self._track_items) > 0:
+            self.removeTrack(next(self._track_items.values()))
 
         if self._player_node_id is not None:
             await self.audioproc_client.disconnect_ports(
@@ -1333,7 +1288,9 @@ class SheetViewImpl(QGraphicsView):
 
     @property
     def trackItems(self):
-        return list(self._tracks)
+        return [
+            self._track_items[track.id]
+            for track in self._sheet.master_group.walk_tracks()]
 
     def setInfoMessage(self, msg):
         self.window.setInfoMessage(msg)
@@ -1343,24 +1300,25 @@ class SheetViewImpl(QGraphicsView):
         return track_item_cls(
             **self.context, sheet_view=self, track=track)
 
-    def insertTrack(self, idx, track):
-        track_item = self.createTrackItem(track)
-        self._tracks.insert(idx, track_item)
-        self._track_visible_listeners.insert(
-            idx, track.listeners.add('visible', self.onTrackVisibleChanged))
+    def addTrack(self, track):
+        if isinstance(track, model.TrackGroup):
+            listener = track.listeners.add(
+                'tracks',
+                functools.partial(self.onTracksChanged, track))
+            self._group_listeners[track.id] = listener
+        else:
+            track_item = self.createTrackItem(track)
+            self._track_items[track.id] = track_item
 
-    def removeTrack(self, idx):
-        track_item = self._tracks[idx]
-        self._track_visible_listeners[idx].remove()
-        track_item.close()
-        #track_item.setParentItem(None)
-        #if track_item.scene() is not None:
-        #    self.scene().removeItem(track_item)
-        del self._tracks[idx]
-        del self._track_visible_listeners[idx]
-
-    def onVisibleChanged(self, old_value, new_value):
-        self.setVisible(new_value)
+    def removeTrack(self, track):
+        if isinstance(track, model.TrackGroup):
+            listener = self._group_listeners[track.id]
+            listener.remove()
+            del self._group_listeners[track.id]
+        else:
+            track_item = self._track_items[track.id]
+            track_item.close()
+            del self._track_items[track.id]
 
     @property
     def sheet(self):
@@ -1468,7 +1426,7 @@ class SheetViewImpl(QGraphicsView):
             item.setParentItem(None)
 
     def computeLayout(self):
-        track_items = [self._property_track_item] + self._tracks
+        track_items = [self._property_track_item] + self.trackItems
 
         self._layouts = []
         for track_item in track_items:
@@ -1507,7 +1465,7 @@ class SheetViewImpl(QGraphicsView):
             "%s/%s" % (self.project_connection.name, self._sheet.name))
         text.setPos(0, 0)
 
-        track_items = [self._property_track_item] + self._tracks
+        track_items = [self._property_track_item] + self.trackItems
 
         self.computeLayout()
 
@@ -1562,15 +1520,15 @@ class SheetViewImpl(QGraphicsView):
         if hovers:
             self.setFocus()
 
-    def onTracksChanged(self, action, *args):
+    def onTracksChanged(self, group, action, *args):
         if action == 'insert':
             idx, track = args
-            self.insertTrack(idx, track)
+            self.addTrack(track)
             self.updateSheet()
 
         elif action == 'delete':
-            idx, = args
-            self.removeTrack(idx)
+            idx, track = args
+            self.removeTrack(track)
             self.updateSheet()
 
         else:  # pragma: no cover
@@ -1604,33 +1562,9 @@ class SheetViewImpl(QGraphicsView):
         self.call_async(
             self.project_client.player_stop(self._player_id))
 
-    def onPlaybackTags(self, tags):
-        for tag in tags:
-            QCoreApplication.postEvent(
-                self, PlaybackTagEvent(tag))
-
-    def onPlaybackTag(self, event):
-        id, event, idx = event.tag
-        measure = self.project.get_object(id)
-        self._tracks[measure.track.index].onPlaybackTag(
-            measure.index, event, idx)
-
     def onRender(self):
         dialog = RenderSheetDialog(self, self.app, self._sheet)
         dialog.exec_()
-
-    def event(self, event):
-        if isinstance(event, PlaybackTagEvent):
-            self.onPlaybackTag(event)
-            return True
-        if isinstance(event, PlaybackStopEvent):
-            self.onPlaybackStop()
-            return True
-        return super().event(event)
-
-    def onPlaybackStop(self):
-        for track_item in self._tracks:
-            track_item.onPlaybackStop()
 
     def scrollToPlaybackPosition(self, pos):
         # I would rather like to keep the pos in the left 1/3rd of the view.
@@ -1639,9 +1573,6 @@ class SheetViewImpl(QGraphicsView):
             pos.x(), self.mapToScene(0, self.size().height() / 2).y(),
             1, 1,
             self.size().width() / 3, 0)
-
-    def onTrackVisibleChanged(self, old_value, new_value):
-        self.updateSheet()
 
     def keyPressEvent(self, event):
         try:

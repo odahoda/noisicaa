@@ -41,12 +41,9 @@ class AddTrack(commands.Command):
             insert_index = self.insert_index
             assert 0 <= insert_index <= len(parent_group.tracks)
 
-        if len(parent_group.tracks) > 0:
-            num_measures = max(
-                len(track.measures)
-                for track in parent_group.tracks)
-        else:
-            num_measures = 1
+        num_measures = 1
+        for track in parent_group.walk_tracks():
+            num_measures = max(num_measures, len(track.measures))
 
         track_name = "Track %d" % (len(parent_group.tracks) + 1)
         track_cls_map = {
@@ -190,12 +187,6 @@ class Sheet(model.Sheet, state.StateBase):
             for i in range(num_tracks):
                 self.master_group.tracks.append(
                     score_track.ScoreTrack(name="Track %d" % i))
-
-            grp = track_group.TrackGroup(name="Group 1")
-            self.master_group.tracks.append(grp)
-
-            grp.tracks.append(score_track.ScoreTrack(name="Subtrack 1"))
-            grp.tracks.append(score_track.ScoreTrack(name="Subtrack 2"))
 
     @property
     def project(self):

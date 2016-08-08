@@ -30,7 +30,8 @@ class ObjectProxy(core.ObjectBase):
 
         elif isinstance(change, core.PropertyListDelete):
             self.listeners.call(
-                change.prop_name, 'delete', change.index)
+                change.prop_name, 'delete',
+                change.index, change.old_value)
 
         elif isinstance(change, core.PropertyListClear):
             self.listeners.call(change.prop_name, 'clear')

@@ -120,7 +120,7 @@ class ProjectViewImpl(QtWidgets.QWidget):
             self.updateSheetMenu()
 
         elif action == 'delete':
-            idx, = args
+            idx, sheet = args
             view = self._sheets_widget.widget(idx)
             self._sheets_widget.removeWidget(view)
             await view.cleanup()
