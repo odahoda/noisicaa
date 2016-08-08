@@ -35,6 +35,8 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
     VisibleRole = Qt.UserRole
     MuteRole = Qt.UserRole + 1
 
+    COLUMNS = 2
+
     def __init__(self, sheet=None, **kwargs):
         super().__init__(**kwargs)
 
@@ -91,15 +93,17 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
         track = item.track
         logger.info(
             "Value of %s on track %s: %s->%s", prop, track.id, old, new)
-        item_index = self.indexForItem(item)
-        self.dataChanged.emit(item_index, item_index, [])
+        self.dataChanged.emit(
+            self.indexForItem(item, column=0),
+            self.indexForItem(item, column=self.COLUMNS - 1),
+            [])
 
-    def indexForItem(self, item):
+    def indexForItem(self, item, column=0):
         if item.parent is None:
-            return self.createIndex(0, 0, item)
+            return self.createIndex(0, column, item)
         else:
             return self.createIndex(
-                item.parent.children.index(item), 0, item)
+                item.parent.children.index(item), column, item)
 
     def rowCount(self, parent):
         if parent.column() > 0:  # pragma: no coverage
@@ -115,7 +119,7 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
         return len(parent_item.children)
 
     def columnCount(self, parent):
-        return 1
+        return self.COLUMNS
 
     def index(self, row, column=0, parent=QtCore.QModelIndex()):
         if not self.hasIndex(row, column, parent):  # pragma: no coverage
@@ -123,7 +127,6 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
 
         if not parent.isValid():
             assert row == 0, row
-            assert column == 0, column
             return self.createIndex(row, column, self._root_item)
 
         parent_item = parent.internalPointer()
@@ -143,7 +146,10 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
         return self.indexForItem(item.parent)
 
     def flags(self, index):
-        return super().flags(index) | Qt.ItemIsEditable
+        flags = super().flags(index)
+        if index.column() == 0:
+            flags |= Qt.ItemIsEditable
+        return flags
 
     def data(self, index, role):
         if not index.isValid():  # pragma: no coverage
@@ -156,14 +162,16 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
         track = item.track
 
         if role in (Qt.DisplayRole, Qt.EditRole):
-            return track.name
+            if index.column() == 0:
+                return track.name
         elif role == Qt.DecorationRole:
-            if isinstance(track, model.ScoreTrack):
-                return self._score_icon
-            elif isinstance(track, model.TrackGroup):
-                return self._group_icon
-            else:
-                return None
+            if index.column() == 0:
+                if isinstance(track, model.ScoreTrack):
+                    return self._score_icon
+                elif isinstance(track, model.TrackGroup):
+                    return self._group_icon
+                else:
+                    return None
         elif role == self.VisibleRole:
             return track.visible
         elif role == self.MuteRole:  # pragma: no branch
@@ -250,7 +258,8 @@ class TrackItemDelegate(QtWidgets.QStyledItemDelegate):
 
     def sizeHint(self, option, index):
         size = super().sizeHint(option, index)
-        size += QtCore.QSize(2 * size.height() + 8, 0)
+        if index.column() == 1:
+            size = QtCore.QSize(2 * size.height() + 8, size.height())
         return size
 
     def showIconRect(self, rect):
@@ -267,34 +276,33 @@ class TrackItemDelegate(QtWidgets.QStyledItemDelegate):
             rect.width() - 2 * rect.height() + 8, rect.height())
 
     def paint(self, painter, option, index):
-        track = index.internalPointer().track
+        super().paint(painter, option, index)
 
-        icon_size = option.rect.height()
-        icon_area_width = 2 * icon_size + 8
+        if index.column() == 1:
+            track = index.internalPointer().track
 
-        painter.save()
-        try:
-            if track.visible:
-                self._visible_icon.paint(painter, self.showIconRect(option.rect))
-            else:
-                self._not_visible_icon.paint(painter, self.showIconRect(option.rect))
+            icon_size = option.rect.height()
+            icon_area_width = 2 * icon_size + 8
 
-            if track.muted:
-                self._muted_icon.paint(painter, self.playIconRect(option.rect))
-            else:
-                self._not_muted_icon.paint(painter, self.playIconRect(option.rect))
+            painter.save()
+            try:
+                if track.visible:
+                    self._visible_icon.paint(
+                        painter, self.showIconRect(option.rect))
+                else:
+                    self._not_visible_icon.paint(
+                        painter, self.showIconRect(option.rect))
 
-        finally:
-            painter.restore()
+                if track.muted:
+                    self._muted_icon.paint(
+                        painter, self.playIconRect(option.rect))
+                else:
+                    self._not_muted_icon.paint(
+                        painter, self.playIconRect(option.rect))
 
-        main_option = QtWidgets.QStyleOptionViewItem(option)
-        main_option.rect = self.itemRect(option.rect)
-        super().paint(painter, main_option, index)
+            finally:
+                painter.restore()
 
-    def updateEditorGeometry(self, editor, option, index):
-        main_option = QtWidgets.QStyleOptionViewItem(option)
-        main_option.rect = self.itemRect(option.rect)
-        return super().updateEditorGeometry(editor, main_option, index)
 
 
 class TrackList(QtWidgets.QTreeView):
@@ -304,13 +312,22 @@ class TrackList(QtWidgets.QTreeView):
         super().__init__(parent)
 
         self.setHeaderHidden(True)
+        self.setTreePosition(0)
+        self.setExpandsOnDoubleClick(False)
 
         self._delegate = TrackItemDelegate()
         self.setItemDelegate(self._delegate)
 
+    def setModel(self, model):
+        super().setModel(model)
+        if model is not None:
+            self.expandAll()
+            self.header().resizeSection(1, self.sizeHintForColumn(1))
+            self.header().swapSections(0, 1)
+
     def mousePressEvent(self, event):
         index = self.indexAt(event.pos())
-        if index.row() >= 0:
+        if index.isValid() and index.column() == 1:
             rect = self.visualRect(index)
             model = self.model()
             if self._delegate.showIconRect(rect).contains(event.pos()):
@@ -414,7 +431,6 @@ class TracksDockWidget(DockWidget):
             self._model = TracksModel(
                 **self.window.getCurrentProjectView().context, sheet=sheet)
             self._tracks_list.setModel(self._model)
-            self._tracks_list.expandAll()
             # TODO: select current track of sheet
             self.onCurrentChanged(None)
             self._add_button.setEnabled(True)

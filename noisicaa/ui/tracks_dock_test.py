@@ -210,8 +210,10 @@ class TracksModelTest(uitest_utils.UITest):
             track3.name = 'changed'
             self.assertEqual(listener.call_count, 1)
             (first, last, roles), _ = listener.call_args
-            self.assertEqual(first, track3_index)
-            self.assertEqual(last, track3_index)
+            self.assertEqual(
+                first, tracks_model.index(1, 0, parent=grp1_index))
+            self.assertEqual(
+                last, tracks_model.index(1, 1, parent=grp1_index))
             self.assertEqual(roles, [])
             self.assertEqual(
                 tracks_model.data(track3_index, Qt.DisplayRole), 'changed')
@@ -220,8 +222,10 @@ class TracksModelTest(uitest_utils.UITest):
             track3.visible = False
             self.assertEqual(listener.call_count, 1)
             (first, last, roles), _ = listener.call_args
-            self.assertEqual(first, track3_index)
-            self.assertEqual(last, track3_index)
+            self.assertEqual(
+                first, tracks_model.index(1, 0, parent=grp1_index))
+            self.assertEqual(
+                last, tracks_model.index(1, 1, parent=grp1_index))
             self.assertEqual(roles, [])
             self.assertFalse(
                 tracks_model.data(
@@ -231,8 +235,10 @@ class TracksModelTest(uitest_utils.UITest):
             track3.muted = True
             self.assertEqual(listener.call_count, 1)
             (first, last, roles), _ = listener.call_args
-            self.assertEqual(first, track3_index)
-            self.assertEqual(last, track3_index)
+            self.assertEqual(
+                first, tracks_model.index(1, 0, parent=grp1_index))
+            self.assertEqual(
+                last, tracks_model.index(1, 1, parent=grp1_index))
             self.assertEqual(roles, [])
             self.assertTrue(
                 tracks_model.data(
