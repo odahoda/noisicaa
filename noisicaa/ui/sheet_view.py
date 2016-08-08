@@ -1161,36 +1161,6 @@ class SheetPropertyTrackItem(
     pass
 
 
-class TrackGroupMeasureLayout(MeasureLayout):
-    pass
-
-
-class TrackGroupMeasureItemImpl(MeasureItemImpl):
-    def computeLayout(self):
-        width = 100
-        height_above = 10
-        height_below = 10
-
-        layout = TrackGroupMeasureLayout()
-        layout.size = QSize(width, height_above + height_below)
-        layout.baseline = height_above
-        return layout
-
-
-class TrackGroupMeasureItem(
-        ui_base.ProjectMixin, TrackGroupMeasureItemImpl):
-    pass
-
-
-class TrackGroupItemImpl(TrackItemImpl):
-    measure_item_cls = TrackGroupMeasureItem
-
-
-class TrackGroupItem(
-        ui_base.ProjectMixin, TrackGroupItemImpl):
-    pass
-
-
 class SheetScene(QGraphicsScene):
     mouseHovers = pyqtSignal(bool)
 
@@ -1219,7 +1189,6 @@ class SheetViewImpl(QGraphicsView):
     track_cls_map = {
         'ScoreTrack': ScoreTrackItem,
         'SheetPropertyTrack': SheetPropertyTrackItem,
-        'TrackGroup': TrackGroupItem,
     }
 
     def __init__(self, sheet, **kwargs):
