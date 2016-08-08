@@ -19,7 +19,7 @@ from .time import Duration
 from . import model
 from . import state
 from . import commands
-from . import instrument
+from . import instruments
 from . import sheet
 
 logger = logging.getLogger(__name__)
@@ -213,13 +213,13 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
         for m in s.property_track.measures:
             m.bpm = 140
 
-        instr1 = instrument.SoundFontInstrument(
+        instr1 = instruments.SoundFontInstrument(
             name="Flute",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=73)
         track1 = ScoreTrack(name="Track 1", instrument=instr1, num_measures=5)
         s.master_group.tracks.append(track1)
 
-        instr2 = instrument.SoundFontInstrument(
+        instr2 = instruments.SoundFontInstrument(
             name="Yamaha Grand Piano",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=0)
         track2 = ScoreTrack(name="Track 2", instrument=instr2, num_measures=5)

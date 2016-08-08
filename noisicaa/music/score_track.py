@@ -13,7 +13,7 @@ from .time import Duration
 from . import model
 from . import state
 from . import commands
-from . import instrument
+from . import instruments
 from . import mutations
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class SetInstrument(commands.Command):
         assert isinstance(track, Track)
 
         assert self.instrument_type == 'SoundFontInstrument'
-        instr = instrument.SoundFontInstrument(**self.instrument_args)
+        instr = instruments.SoundFontInstrument(**self.instrument_args)
 
         if track.instrument is not None:
             track.remove_instrument_from_pipeline()
@@ -345,7 +345,15 @@ class ScoreTrack(model.ScoreTrack, Track):
         super().__init__(state=state, **kwargs)
 
         if state is None:
-            self.instrument = instrument
+            if instrument is None:
+                self.instrument = instruments.SoundFontInstrument(
+                    name="Default Piano",
+                    path='/usr/share/sounds/sf2/FluidR3_GM.sf2',
+                    bank=0,
+                    preset=0)
+            else:
+                self.instrument = instrument
+
             for _ in range(num_measures):
                 self.measures.append(ScoreMeasure())
 
