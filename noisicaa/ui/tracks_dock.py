@@ -42,6 +42,11 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
 
         self._root_item = self._buildItem(self._sheet.master_group, None)
 
+        self._score_icon = QtGui.QIcon(
+                os.path.join(DATA_DIR, 'icons', 'track-type-score.svg'))
+        self._group_icon = QtGui.QIcon(
+                os.path.join(DATA_DIR, 'icons', 'track-type-group.svg'))
+
     def _buildItem(self, track, parent):
         item = TracksModelItem(track, parent)
 
@@ -152,6 +157,13 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
 
         if role in (Qt.DisplayRole, Qt.EditRole):
             return track.name
+        elif role == Qt.DecorationRole:
+            if isinstance(track, model.ScoreTrack):
+                return self._score_icon
+            elif isinstance(track, model.TrackGroup):
+                return self._group_icon
+            else:
+                return None
         elif role == self.VisibleRole:
             return track.visible
         elif role == self.MuteRole:  # pragma: no branch
@@ -292,7 +304,6 @@ class TrackList(QtWidgets.QTreeView):
         super().__init__(parent)
 
         self.setHeaderHidden(True)
-        self.setItemsExpandable(False)
 
         # self._delegate = TrackItemDelegate()
         # self.setItemDelegate(self._delegate)
@@ -336,16 +347,34 @@ class TracksDockWidget(DockWidget):
         self._tracks_list.currentIndexChanged.connect(
             self.onCurrentChanged)
 
+        self._add_score_track_action = QtWidgets.QAction(
+            QtGui.QIcon(
+                os.path.join(DATA_DIR, 'icons', 'track-type-score.svg')),
+            "Score track", self,
+            triggered=functools.partial(self.onAddClicked, 'score'))
+        self._add_track_group_action = QtWidgets.QAction(
+            QtGui.QIcon(
+                os.path.join(DATA_DIR, 'icons', 'track-type-group.svg')),
+            "Group", self,
+            triggered=functools.partial(self.onAddClicked, 'group'))
+
+        self._add_track_menu = QtWidgets.QMenu()
+        self._add_track_menu.addAction(self._add_score_track_action)
+        self._add_track_menu.addAction(self._add_track_group_action)
+
         self._add_button = QtWidgets.QToolButton(
             icon=QtGui.QIcon.fromTheme('list-add'),
             iconSize=QtCore.QSize(16, 16),
             autoRaise=True)
-        self._add_button.clicked.connect(self.onAddClicked)
+        self._add_button.setMenu(self._add_track_menu)
+        self._add_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+
         self._remove_button = QtWidgets.QToolButton(
             icon=QtGui.QIcon.fromTheme('list-remove'),
             iconSize=QtCore.QSize(16, 16),
             autoRaise=True)
         self._remove_button.clicked.connect(self.onRemoveClicked)
+
         self._move_up_button = QtWidgets.QToolButton(
             icon=QtGui.QIcon.fromTheme('go-up'),
             iconSize=QtCore.QSize(16, 16),
@@ -408,14 +437,14 @@ class TracksDockWidget(DockWidget):
             self._move_down_button.setEnabled(False)
             self._window.currentTrackChanged.emit(None)
 
-    def onAddClicked(self):
+    def onAddClicked(self, track_type):
         if self._model is None:
             return
 
         # TODO: support selecting track type
         self.call_async(
             self._model.addTrack(
-                track_type='score',
+                track_type=track_type,
                 parent_index=self._tracks_list.currentIndex()),
             callback=self.onAddTrackDone)
 
