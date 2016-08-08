@@ -53,6 +53,10 @@ class Track(core.ObjectBase):
     def sheet(self):
         return self.parent.sheet
 
+    def walk_tracks(self, groups=False, tracks=True):
+        if tracks:
+            yield self
+
 
 class Note(core.ObjectBase):
     pitches = core.ListProperty(pitch.Pitch)
@@ -98,10 +102,7 @@ class TrackGroup(Track):
             yield self
 
         for track in self.tracks:
-            if isinstance(track, TrackGroup):
-                yield from track.walk_tracks(groups, tracks)
-            elif tracks:
-                yield track
+            yield from track.walk_tracks(groups, tracks)
 
 
 class MasterTrackGroup(TrackGroup):

@@ -126,7 +126,7 @@ class Player(object):
         self.playback_state = 'stopped'
         self.playback_timepos = 0
         self.track_event_sources = {}
-        self.tracks_listener = None
+        self.group_listeners = {}
 
     @property
     def proxy_address(self):
@@ -160,15 +160,12 @@ class Player(object):
 
         await self.audioproc_client.dump()
 
-        for track in self.sheet.all_tracks:
-            self.track_event_sources[track.id] = track.create_event_source()
-        self.tracks_listener = self.sheet.master_group.listeners.add(
-            'tracks', self.tracks_changed)
+        self.add_track(self.sheet.master_group)
 
     async def cleanup(self):
-        if self.tracks_listener is not None:
-            self.tracks_listener.remove()
-            self.tracks_listener = None
+        for listener in self.group_listeners.values():
+            listener.remove()
+        self.group_listeners.clear()
 
         self.track_event_sources.clear()
 
@@ -191,18 +188,29 @@ class Player(object):
 
     def tracks_changed(self, change):
         if isinstance(change, model_base.PropertyListInsert):
-            track = change.new_value
-            if not isinstance(track, model.TrackGroup):
-                self.track_event_sources[track.id] = track.create_event_source()
-
+            self.add_track(change.new_value)
         elif isinstance(change, model_base.PropertyListDelete):
-            track = change.old_value
-            if not isinstance(track, model.TrackGroup):
-                del self.track_event_sources[track.id]
-
+            self.remove_track(change.old_value)
         else:
             raise TypeError(
                 "Unsupported change type %s" % type(change))
+
+    def add_track(self, track):
+        for t in track.walk_tracks(groups=True, tracks=True):
+            if isinstance(t, model.TrackGroup):
+                self.group_listeners[t.id] = t.listeners.add(
+                    'tracks', self.tracks_changed)
+            else:
+                self.track_event_sources[t.id] = t.create_event_source()
+
+    def remove_track(self, track):
+        for t in track.walk_tracks(groups=True, tracks=True):
+            if isinstance(t, model.TrackGroup):
+                listener = self.group_listeners[t.id]
+                listener.remove()
+                del self.group_listeners[t.id]
+            else:
+                del self.track_event_sources[t.id]
 
     def get_track_events(self, timepos):
         events = []

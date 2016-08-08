@@ -70,15 +70,6 @@ class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
 state.StateBase.register_class(SheetPropertyMeasure)
 
 
-class SheetPropertyEventSource(EventSource):
-    def __init__(self, track):
-        super().__init__(track)
-
-    def get_events(self, start_timepos, end_timepos):
-        return
-        yield  # pylint: disable=unreachable
-
-
 class SheetPropertyTrack(model.SheetPropertyTrack, Track):
     measure_cls = SheetPropertyMeasure
 
@@ -97,9 +88,6 @@ class SheetPropertyTrack(model.SheetPropertyTrack, Track):
             measure.time_signature = ref.time_signature
 
         return measure
-
-    def create_event_source(self):
-        return SheetPropertyEventSource(self)
 
     def get_num_samples(self, sample_rate):
         return sum((m.get_num_samples(sample_rate) for m in self.measures), 0)

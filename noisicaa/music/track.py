@@ -108,9 +108,6 @@ class Track(model.Track, state.StateBase):
     def create_empty_measure(self, ref):  # pylint: disable=unused-argument
         return self.measure_cls()  # pylint: disable=not-callable
 
-    def create_event_source(self):
-        raise NotImplementedError
-
     @property
     def parent_mixer_name(self):
         return self.parent.mixer_name
