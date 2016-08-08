@@ -109,6 +109,8 @@ class AudioProcProcessMixin(object):
         self.server.add_command_handler(
             'ADD_EVENT', self.handle_add_event)
         self.server.add_command_handler(
+            'SET_PORT_PROP', self.handle_set_port_prop)
+        self.server.add_command_handler(
             'DUMP', self.handle_dump)
 
         self.node_db = node_db.NodeDB()
@@ -317,6 +319,15 @@ class AudioProcProcessMixin(object):
                     "Ignoring event %s: no backend active:", event)
 
             backend.add_event(queue, event)
+
+    async def handle_set_port_prop(
+        self, session_id, node_id, port_name, kwargs):
+        self.get_session(session_id)
+
+        node = self.pipeline.find_node(node_id)
+        port = node.outputs[port_name]
+        with self.pipeline.writer_lock():
+            port.set_prop(**kwargs)
 
     def play_file_done(self, notification, node_id):
         with self.pipeline.writer_lock():

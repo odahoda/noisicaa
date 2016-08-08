@@ -143,3 +143,16 @@ class DisconnectPorts(PipelineMutation):
     def __str__(self):
         return '<DisconnectPorts src=%s:%s dest=%s:%s>' % (
             self.src_node, self.src_port, self.dest_node, self.dest_port)
+
+
+class SetPortProperty(PipelineMutation):
+    def __init__(self, node, port, **kwargs):
+        self.node = node
+        self.port = port
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return '<SetPortProperty port=%s:%s%s>' % (
+            self.node, self.port,
+            ''.join(' %s=%r' % (k, v)
+                    for k, v in sorted(self.kwargs.items())))

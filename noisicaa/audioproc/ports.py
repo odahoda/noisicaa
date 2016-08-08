@@ -14,6 +14,9 @@ from .audio_format import (AudioFormat,
 logger = logging.getLogger(__name__)
 
 
+UNSET = object()
+
+
 class Port(object):
     def __init__(self, name):
         self._name = name
@@ -32,6 +35,9 @@ class Port(object):
     @property
     def pipeline(self):
         return self.owner.pipeline
+
+    def set_prop(self):
+        pass
 
 
 class InputPort(Port):
@@ -70,6 +76,11 @@ class OutputPort(Port):
     def muted(self, value):
         self._muted = bool(value)
 
+    def set_prop(self, muted=UNSET, **kwargs):
+        super().set_prop(**kwargs)
+        if muted is not UNSET:
+            self.muted = muted
+
 
 class AudioInputPort(InputPort):
     def __init__(self, name):
@@ -96,7 +107,8 @@ class AudioInputPort(InputPort):
         self.frame.clear()
         for upstream_port in self.inputs:
             if not upstream_port.muted:
-                self.frame.add(upstream_port.frame)
+                self.frame.mul_add(
+                    upstream_port.volume / 100.0, upstream_port.frame)
 
 
 class AudioOutputPort(OutputPort):
@@ -124,6 +136,11 @@ class AudioOutputPort(OutputPort):
         if value < 0.0:
             raise ValueError("Invalid volume.")
         self._volume = float(value)
+
+    def set_prop(self, volume=UNSET, **kwargs):
+        super().set_prop(**kwargs)
+        if volume is not UNSET:
+            self.volume = volume
 
 
 class EventInputPort(InputPort):

@@ -43,9 +43,15 @@ class UpdateTrackProperties(commands.Command):
 
         if self.muted is not None:
             track.muted = self.muted
+            track.sheet.handle_pipeline_mutation(
+                mutations.SetPortProperty(
+                    track.mixer_name, 'out', muted=track.muted))
 
         if self.volume is not None:
             track.volume = self.volume
+            track.sheet.handle_pipeline_mutation(
+                mutations.SetPortProperty(
+                    track.mixer_name, 'out', volume=track.volume))
 
         if self.transpose_octaves is not None:
             track.transpose_octaves = self.transpose_octaves
@@ -120,6 +126,10 @@ class Track(model.Track, state.StateBase):
         self.sheet.handle_pipeline_mutation(
             mutations.AddNode(
                 'passthru', self.mixer_name, 'track-mixer'))
+        self.sheet.handle_pipeline_mutation(
+            mutations.SetPortProperty(
+                self.mixer_name, 'out',
+                muted=self.muted, volume=self.volume))
         self.sheet.handle_pipeline_mutation(
             mutations.ConnectPorts(
                 self.mixer_name, 'out',

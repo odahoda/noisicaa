@@ -248,6 +248,10 @@ class Player(object):
                 mutation.src_node, mutation.src_port,
                 mutation.dest_node, mutation.dest_port)
 
+        elif isinstance(mutation, mutations.SetPortProperty):
+            await self.audioproc_client.set_port_property(
+                mutation.node, mutation.port, **mutation.kwargs)
+
         else:
             raise ValueError(type(mutation))
 

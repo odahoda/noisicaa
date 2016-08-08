@@ -277,6 +277,47 @@ cdef class Frame:
             a += 1
             b += 1
 
+    def mul_add(self, double factor, Frame frame):
+        if frame.audio_format != self.audio_format:
+            raise ValueError(
+                "Incompatible frame format: %s" % frame.audio_format)
+
+        if frame.length != self.length:
+            raise ValueError(
+                "Frame lengths must be identical (%d vs. %d)"
+                % (frame.length, self.length))
+
+        if self.audio_format.sample_fmt == SAMPLE_FMT_U8:
+            raise NotImplementedError
+
+        elif self.audio_format.sample_fmt == SAMPLE_FMT_S16:
+            raise NotImplementedError
+
+        elif self.audio_format.sample_fmt == SAMPLE_FMT_S32:
+            raise NotImplementedError
+
+        elif self.audio_format.sample_fmt == SAMPLE_FMT_FLT:
+            self._mul_add_float(
+                factor,
+                <float*>self.samples, <float*>frame.samples,
+                self.length * self.audio_format.num_channels)
+
+        elif self.audio_format.sample_fmt == SAMPLE_FMT_DBL:
+            raise NotImplementedError
+
+        else:
+            raise AssertionError(
+                "Bad sample format %d" % self.audio_format.sample_fmt)
+
+        self.tags |= frame.tags
+
+    cdef _mul_add_float(
+        self, float factor, float* a, float* b, int num_samples):
+        for _ in range(num_samples):
+            a[0] = a[0] + factor * b[0]
+            a += 1
+            b += 1
+
     def mul(self, float v):
         if self.audio_format.sample_fmt == SAMPLE_FMT_U8:
             raise NotImplementedError

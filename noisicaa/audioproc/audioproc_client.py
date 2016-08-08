@@ -76,6 +76,10 @@ class AudioProcClientMixin(object):
         return await self._stub.call(
             'ADD_EVENT', self._session_id, queue, event)
 
+    async def set_port_property(self, node_id, port_name, **kwargs):
+        return await self._stub.call(
+            'SET_PORT_PROP', self._session_id, node_id, port_name, kwargs)
+
     async def dump(self):
         return await self._stub.call('DUMP', self._session_id)
 
