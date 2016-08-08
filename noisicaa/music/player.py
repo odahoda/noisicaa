@@ -19,6 +19,7 @@ from noisicaa import music
 from . import project
 from . import mutations
 from . import commands
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -191,14 +192,13 @@ class Player(object):
     def tracks_changed(self, change):
         if isinstance(change, model_base.PropertyListInsert):
             track = change.new_value
-            self.track_event_sources[track.id] = track.create_event_source()
+            if not isinstance(track, model.TrackGroup):
+                self.track_event_sources[track.id] = track.create_event_source()
 
         elif isinstance(change, model_base.PropertyListDelete):
             track = change.old_value
-            del self.track_event_sources[track.id]
-
-        elif isinstance(change, model_base.PropertyListClear):
-            self.track_event_sources.clear()
+            if not isinstance(track, model.TrackGroup):
+                del self.track_event_sources[track.id]
 
         else:
             raise TypeError(

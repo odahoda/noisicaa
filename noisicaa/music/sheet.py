@@ -18,12 +18,14 @@ logger = logging.getLogger(__name__)
 class AddTrack(commands.Command):
     track_type = core.Property(str)
     parent_group_id = core.Property(str)
+    insert_index = core.Property(int)
 
-    def __init__(self, track_type=None, parent_group_id=None, state=None):
+    def __init__(self, track_type=None, parent_group_id=None, insert_index=-1, state=None):
         super().__init__(state=state)
         if state is None:
             self.track_type = track_type
             self.parent_group_id = parent_group_id
+            self.insert_index = insert_index
 
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
@@ -32,6 +34,12 @@ class AddTrack(commands.Command):
         parent_group = project.get_object(self.parent_group_id)
         assert parent_group.is_child_of(sheet)
         assert isinstance(parent_group, track_group.TrackGroup)
+
+        if self.insert_index == -1:
+            insert_index = len(parent_group.tracks)
+        else:
+            insert_index = self.insert_index
+            assert 0 <= insert_index <= len(parent_group.tracks)
 
         if len(parent_group.tracks) > 0:
             num_measures = max(
@@ -47,11 +55,11 @@ class AddTrack(commands.Command):
         }
         track_cls = track_cls_map[self.track_type]
         track = track_cls(name=track_name, num_measures=num_measures)
-        parent_group.tracks.append(track)
+        parent_group.tracks.insert(insert_index, track)
 
         track.add_to_pipeline()
 
-        return len(parent_group.tracks) - 1
+        return insert_index
 
 commands.Command.register_command(AddTrack)
 

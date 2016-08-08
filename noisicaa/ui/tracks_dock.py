@@ -104,6 +104,9 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
             return 1
 
         parent_item = parent.internalPointer()
+        if parent_item is None:
+            return 0
+
         return len(parent_item.children)
 
     def columnCount(self, parent):
@@ -129,7 +132,7 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
             return QtCore.QModelIndex()
 
         item = index.internalPointer()
-        if item.parent is None:
+        if item is None or item.parent is None:
             return QtCore.QModelIndex()
 
         return self.indexForItem(item.parent)
@@ -142,6 +145,9 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
             return None
 
         item = index.internalPointer()
+        if item is None:
+            return None
+
         track = item.track
 
         if role in (Qt.DisplayRole, Qt.EditRole):
@@ -181,18 +187,25 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
     async def addTrack(self, track_type, parent_index):
         if parent_index.isValid():
             parent_item = parent_index.internalPointer()
-            parent_group = parent_item.track
-            if not isinstance(parent_group, model.TrackGroup):
-                parent_group = parent_group.parent
+            if not isinstance(parent_item.track, model.TrackGroup):
+                insert_index = parent_index.row() + 1
+                parent_item = parent_item.parent
+            else:
+                insert_index = -1
         else:
-            parent_group = self._sheel_master_group
+            parent_item = self._root_item
+            insert_index = -1
 
+        parent_group = parent_item.track
         assert isinstance(parent_group, model.TrackGroup)
 
-        return await self.project_client.send_command(
+        list_index =  await self.project_client.send_command(
             self._sheet.id, 'AddTrack',
             parent_group_id=parent_group.id,
+            insert_index=insert_index,
             track_type=track_type)
+
+        return self.index(list_index, 0, self.indexForItem(parent_item))
 
     async def removeTrack(self, index):
         track = index.internalPointer().track
@@ -273,6 +286,8 @@ class TrackItemDelegate(QtWidgets.QStyledItemDelegate):
 
 
 class TrackList(QtWidgets.QTreeView):
+    currentIndexChanged = QtCore.pyqtSignal(QtCore.QModelIndex)
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -300,6 +315,9 @@ class TrackList(QtWidgets.QTreeView):
 
         return super().mousePressEvent(event)
 
+    def currentChanged(self, current, previous):
+        self.currentIndexChanged.emit(current)
+
 
 class TracksDockWidget(DockWidget):
     def __init__(self, app, window):
@@ -315,7 +333,8 @@ class TracksDockWidget(DockWidget):
         self._window = window
         self._model = None
         self._tracks_list = TrackList(self)
-        self._tracks_list.activated.connect(self.onCurrentChanged)
+        self._tracks_list.currentIndexChanged.connect(
+            self.onCurrentChanged)
 
         self._add_button = QtWidgets.QToolButton(
             icon=QtGui.QIcon.fromTheme('list-add'),
@@ -376,9 +395,9 @@ class TracksDockWidget(DockWidget):
             self._move_up_button.setEnabled(False)
             self._move_down_button.setEnabled(False)
 
-    def onCurrentChanged(self, index):
+    def onCurrentChanged(self, index, previous=None):
         if index is not None and index.isValid():
-            self._remove_button.setEnabled(True)
+            self._remove_button.setEnabled(index.parent().isValid())
             self._move_up_button.setEnabled(index.row() > 0)
             self._move_down_button.setEnabled(
                 index.row() < index.model().rowCount(QtCore.QModelIndex()) - 1)
@@ -400,26 +419,15 @@ class TracksDockWidget(DockWidget):
                 parent_index=self._tracks_list.currentIndex()),
             callback=self.onAddTrackDone)
 
-    def onAddTrackDone(self, track_idx):
-        index = self._model.index(track_idx)
-        self._tracks_list.setCurrentIndex(index)
-        self.onCurrentChanged(index)
+    def onAddTrackDone(self, added_index):
+        self._tracks_list.setCurrentIndex(added_index)
 
     def onRemoveClicked(self):
         if self._model is None:
             return
 
         index = self._tracks_list.currentIndex()
-        self.call_async(
-            self._model.removeTrack(index),
-            callback=functools.partial(self.onRemoveTrackDone, index=index))
-
-    def onRemoveTrackDone(self, result, index):
-        pass
-        # new_index = self._model.index(
-        #     min(index.row(), self._model.rowCount(None) - 1))
-        # self._tracks_list.setCurrentIndex(new_index)
-        # self.onCurrentChanged(new_index)
+        self.call_async(self._model.removeTrack(index))
 
     def onMoveUpClicked(self):
         if self._model is None:
@@ -440,7 +448,6 @@ class TracksDockWidget(DockWidget):
     def onMoveTrackDone(self, track_idx):
         index = self._model.index(track_idx)
         self._tracks_list.setCurrentIndex(index)
-        self.onCurrentChanged(index)
 
 
 
