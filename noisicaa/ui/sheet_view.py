@@ -1197,9 +1197,7 @@ class SheetViewImpl(QGraphicsView):
 
         self._track_items = {}
         self._group_listeners = {}
-        for track in self._sheet.master_group.walk_tracks(
-                groups=True, tracks=True):
-            self.addTrack(track)
+        self.addTrack(self._sheet.master_group)
 
         self._property_track_item = self.createTrackItem(
             self._sheet.property_track)
@@ -1270,6 +1268,10 @@ class SheetViewImpl(QGraphicsView):
             **self.context, sheet_view=self, track=track)
 
     def addTrack(self, track):
+        for t in track.walk_tracks(groups=True, tracks=True):
+            self.addSingleTrack(t)
+
+    def addSingleTrack(self, track):
         if isinstance(track, model.TrackGroup):
             listener = track.listeners.add(
                 'tracks',
@@ -1280,6 +1282,10 @@ class SheetViewImpl(QGraphicsView):
             self._track_items[track.id] = track_item
 
     def removeTrack(self, track):
+        for t in track.walk_tracks(groups=True, tracks=True):
+            self.removeSingleTrack(t)
+
+    def removeSingleTrack(self, track):
         if isinstance(track, model.TrackGroup):
             listener = self._group_listeners[track.id]
             listener.remove()
