@@ -309,6 +309,9 @@ class TrackItemImpl(object):
             self._track.id, 'UpdateTrackProperties',
             name=name.text())
 
+    def setPlaybackPos(self, timepos):
+        pass
+
 
 class ScoreMeasureLayout(MeasureLayout):
     pass
@@ -1052,6 +1055,7 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
         self.bpm_proxy = None
 
         self._layers[Layer.MAIN] = QGraphicsGroup()
+        self._layers[Layer.EVENTS] = QGraphicsGroup()
         self._layers[Layer.EDIT] = QGraphicsGroup()
 
         if self._measure is not None:
@@ -1067,6 +1071,13 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
             self.bpm_proxy = QGraphicsProxyWidget(self._layers[Layer.EDIT])
             self.bpm_proxy.setWidget(self.bpm_editor)
             self.bpm_proxy.setZValue(1)
+
+            self.playback_pos = QGraphicsLineItem(
+                self._layers[Layer.EVENTS])
+            self.playback_pos.setLine(0, 0, 0, 20)
+            pen = QPen(Qt.black)
+            pen.setWidth(3)
+            self.playback_pos.setPen(pen)
 
     def computeLayout(self):
         width = 100
@@ -1146,6 +1157,13 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
     def onBPMClose(self):
         self.bpm_editor.setVisible(False)
 
+    def setPlaybackPos(self, timepos, tick):
+        assert 0 <= tick < self._measure.duration.ticks
+        assert self._layout.width > 0 and self._layout.height > 0
+
+        pos = self._layout.width * tick / self._measure.duration.ticks
+        self.playback_pos.setPos(pos, 0)
+
 
 class SheetPropertyMeasureItem(
         ui_base.ProjectMixin, SheetPropertyMeasureItemImpl):
@@ -1154,6 +1172,30 @@ class SheetPropertyMeasureItem(
 
 class SheetPropertyTrackItemImpl(TrackItemImpl):
     measure_item_cls = SheetPropertyMeasureItem
+
+    def setPlaybackPos(self, timepos):
+        current_micro_timepos = 0
+        current_measure = 0
+        current_tick = 0
+        while current_micro_timepos < 1000000 * timepos:
+            measure = self._track.measures[current_measure]
+
+            # This should be a function of (measure, tick)
+            bpm = self._track.sheet.get_bpm(
+                current_measure, current_tick)
+            micro_samples_per_tick = int(
+                1000000 * 4 * 44100 * 60 // bpm * Duration.tick_duration)
+
+            current_micro_timepos += micro_samples_per_tick
+            current_tick += 1
+            if current_tick >= measure.duration.ticks:
+                current_tick = 0
+                current_measure += 1
+                if current_measure >= len(self._track.measures):
+                    current_measure = 0
+
+        measure_item = self._measures[current_measure]
+        measure_item.setPlaybackPos(timepos, current_tick)
 
 
 class SheetPropertyTrackItem(
@@ -1227,9 +1269,13 @@ class SheetViewImpl(QGraphicsView):
         self._player_id = None
         self._player_stream_address = None
         self._player_node_id = None
+        self._player_status_listener = None
 
     async def setup(self):
         self._player_id, self._player_stream_address = await self.project_client.create_player(self._sheet.id)
+        self._player_status_listener = self.project_client.add_player_status_listener(
+            self._player_id, self.onPlayerStatus)
+
         self._player_node_id = await self.audioproc_client.add_node(
             'ipc',
             address=self._player_stream_address,
@@ -1248,6 +1294,10 @@ class SheetViewImpl(QGraphicsView):
                 self._player_node_id)
             self._player_node_id = None
             self._player_stream_address = None
+
+        if self._player_status_listener is not None:
+            self._player_status_listener.remove()
+            self._player_status_listener = None
 
         if self._player_id is not None:
             await self.project_client.delete_player(self._player_id)
@@ -1536,6 +1586,11 @@ class SheetViewImpl(QGraphicsView):
 
         self.call_async(
             self.project_client.player_stop(self._player_id))
+
+    def onPlayerStatus(self, timepos=None, **kwargs):
+        if timepos is not None:
+            for track in [self._property_track_item] + self.trackItems:
+                track.setPlaybackPos(timepos)
 
     def onRender(self):
         dialog = RenderSheetDialog(self, self.app, self._sheet)

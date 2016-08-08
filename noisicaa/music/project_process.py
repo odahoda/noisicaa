@@ -272,13 +272,15 @@ class ProjectProcessMixin(object):
         for mutation in mutations:
             await self.publish_mutation(mutation)
 
-    async def handle_create_player(self, session_id, sheet_id):
+    async def handle_create_player(
+        self, session_id, client_address, sheet_id):
         session = self.get_session(session_id)
         assert self.project is not None
 
         sheet = self.project.get_object(sheet_id)
 
-        p = player.Player(sheet, self.manager, self.event_loop)
+        p = player.Player(
+            sheet, client_address, self.manager, self.event_loop)
         await p.setup()
 
         session.players[p.id] = p

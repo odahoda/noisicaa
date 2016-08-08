@@ -61,6 +61,7 @@ class ProjectClientMixin(object):
         self._object_map = {}
         self.project = None
         self.cls_map = {}
+        self.listeners = core.CallbackRegistry()
 
     def __set_project(self, root_id):
         assert self.project is None
@@ -73,6 +74,9 @@ class ProjectClientMixin(object):
             'PROJECT_MUTATION', self.handle_project_mutation)
         self.server.add_command_handler(
             'PROJECT_CLOSED', self.handle_project_closed)
+        self.server.add_command_handler(
+            'PLAYER_STATUS', self.handle_player_status,
+            log_level=logging.DEBUG)
 
     async def connect(self, address):
         assert self._stub is None
@@ -205,7 +209,8 @@ class ProjectClientMixin(object):
 
     async def create_player(self, sheet_id):
         return await self._stub.call(
-            'CREATE_PLAYER', self._session_id, sheet_id)
+            'CREATE_PLAYER', self._session_id,
+            self.server.address, sheet_id)
 
     async def delete_player(self, player_id):
         return await self._stub.call(
@@ -222,6 +227,13 @@ class ProjectClientMixin(object):
     async def player_stop(self, player_id):
         return await self._stub.call(
             'PLAYER_STOP', self._session_id, player_id)
+
+    def add_player_status_listener(self, player_id, callback):
+        return self.listeners.add(
+            'player_status:%s' % player_id, callback)
+
+    async def handle_player_status(self, player_id, args):
+        self.listeners.call('player_status:%s' % player_id, **args)
 
 class ProjectClient(ProjectClientMixin, ProjectClientBase):
     pass

@@ -79,7 +79,7 @@ class AudioStreamProxy(object):
                 new_state = self._player.playback_state
                 if state != new_state:
                     if new_state == 'playing':
-                        timepos_offset = self._player.playback_timepos - request.timepos
+                        timepos_offset = request.timepos - self._player.playback_timepos
                     state = new_state
 
                 if state == 'playing':
@@ -97,6 +97,9 @@ class AudioStreamProxy(object):
                     response = self._client.receive_frame()
                 perf.add_spans(response.perf_data)
                 response.perf_data = perf.get_spans()
+                if state == 'playing':
+                    self._player.publish_status_async(
+                        timepos=request.timepos - timepos_offset)
                 self._server.send_frame(response)
 
             except audioproc.StreamClosed:
@@ -104,13 +107,16 @@ class AudioStreamProxy(object):
 
 
 class Player(object):
-    def __init__(self, sheet, manager, event_loop):
+    def __init__(self, sheet, callback_address, manager, event_loop):
         self.sheet = sheet
         self.manager = manager
+        self.callback_address = callback_address
         self.event_loop = event_loop
 
         self.id = uuid.uuid4().hex
         self.server = ipc.Server(self.event_loop, 'player')
+
+        self.callback_stub = None
 
         self.setup_complete = False
 
@@ -135,6 +141,10 @@ class Player(object):
 
     async def setup(self):
         await self.server.setup()
+
+        self.callback_stub = ipc.Stub(
+            self.event_loop, self.callback_address)
+        await self.callback_stub.connect()
 
         self.audioproc_address = await self.manager.call(
             'CREATE_AUDIOPROC_PROCESS', 'player')
@@ -177,6 +187,10 @@ class Player(object):
             self.proxy.cleanup()
             self.proxy = None
 
+        if self.callback_stub is not None:
+            await self.callback_stub.close()
+            self.callback_stub = None
+
         if self.audioproc_client is not None:
             await self.audioproc_client.disconnect(shutdown=True)
             await self.audioproc_client.cleanup()
@@ -185,6 +199,18 @@ class Player(object):
             self.audiostream_address = None
 
         await self.server.cleanup()
+
+    def publish_status_async(self, **kwargs):
+        callback_task = asyncio.run_coroutine_threadsafe(
+            self.callback_stub.call('PLAYER_STATUS', self.id, kwargs),
+            self.event_loop)
+        callback_task.add_done_callback(self.publish_status_done)
+
+    def publish_status_done(self, callback_task):
+        assert callback_task.done()
+        exc = callback_task.exception()
+        if exc is not None:
+            logger.error("PLAYER_STATUS failed with exception: %s", exc)
 
     def tracks_changed(self, change):
         if isinstance(change, model_base.PropertyListInsert):
