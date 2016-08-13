@@ -99,4 +99,5 @@ class WavFileSource(Node):
         assert len(frame) <= ctxt.duration
         frame.resize(ctxt.duration)
 
+        self._output.frame.resize(ctxt.duration)
         self._output.frame.copy_from(frame)
