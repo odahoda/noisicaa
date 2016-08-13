@@ -24,7 +24,7 @@ class AudioStreamSTest(unittest.TestCase):
                 server_ready.set()
 
                 frame = server.receive_frame()
-                frame.timepos += 1
+                frame.sample_pos += 1
                 server.send_frame(frame)
 
             finally:
@@ -39,14 +39,14 @@ class AudioStreamSTest(unittest.TestCase):
             client.setup()
 
             frame = data.FrameData()
-            frame.timepos = 1234
+            frame.sample_pos = 1234
             frame.samples = b'pling'
             frame.num_samples = 3
             frame.events = [('q1', 'event1'), ('q2', 'event2')]
             client.send_frame(frame)
 
             frame = client.receive_frame()
-            self.assertEqual(frame.timepos, 1235)
+            self.assertEqual(frame.sample_pos, 1235)
             self.assertEqual(frame.samples, b'pling')
             self.assertEqual(frame.num_samples, 3)
             self.assertEqual(

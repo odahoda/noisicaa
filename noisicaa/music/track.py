@@ -73,7 +73,7 @@ class EventSource(object):
         self._track = track
         self._sheet = track.sheet
 
-    def get_events(self, start_timepos, end_timepos):
+    def get_events(self, start_sample_pos, end_sample_pos):
         raise NotImplementedError
 
 

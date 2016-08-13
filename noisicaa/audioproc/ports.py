@@ -160,7 +160,7 @@ class EventInputPort(InputPort):
             if not upstream_port.muted:
                 self.events.extend(upstream_port.events)
 
-        self.events.sort(key=lambda e: e.timepos)
+        self.events.sort(key=lambda e: e.sample_pos)
 
 
 class EventOutputPort(OutputPort):

@@ -102,20 +102,20 @@ class FluidSynthSource(Node):
 
     def run(self, ctxt):
         samples = bytes()
-        tp = ctxt.timepos
+        tp = ctxt.sample_pos
 
         for event in self._input.events:
-            if event.timepos != -1:
-                assert ctxt.timepos <= event.timepos < ctxt.timepos + 4096, (
-                    ctxt.timepos, event.timepos, ctxt.timepos + 4096)
-                etimepos = event.timepos
+            if event.sample_pos != -1:
+                assert ctxt.sample_pos <= event.sample_pos < ctxt.sample_pos + 4096, (
+                    ctxt.sample_pos, event.sample_pos, ctxt.sample_pos + 4096)
+                esample_pos = event.sample_pos
             else:
-                etimepos = ctxt.timepos
+                esample_pos = ctxt.sample_pos
 
-            if etimepos > tp:
+            if esample_pos > tp:
                 samples += bytes(
-                    self._synth.get_samples(etimepos - tp))
-                tp = etimepos
+                    self._synth.get_samples(esample_pos - tp))
+                tp = esample_pos
 
             logger.info("Consuming event %s", event)
 
@@ -131,9 +131,9 @@ class FluidSynthSource(Node):
                 raise NotImplementedError(
                     "Event class %s not supported" % type(event).__name__)
 
-        if tp < ctxt.timepos + 4096:
+        if tp < ctxt.sample_pos + 4096:
             samples += bytes(
-                self._synth.get_samples(ctxt.timepos + 4096 - tp))
+                self._synth.get_samples(ctxt.sample_pos + 4096 - tp))
 
         samples = self._resampler.convert(
             samples, len(samples) // 4)

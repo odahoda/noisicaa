@@ -26,7 +26,7 @@ class MetronomeSource(Node):
 
         self._speed = speed
 
-        self._timepos = 0
+        self._sample_pos = 0
         self._buffer = None
 
     async def setup(self):
@@ -70,7 +70,7 @@ class MetronomeSource(Node):
 
         self._buffer.resize(self._speed)
 
-    def run(self, timepos):
+    def run(self, sample_pos):
         duration = 4096
 
         buffer = self._output.create_frame(0)
@@ -80,9 +80,9 @@ class MetronomeSource(Node):
             self._buffer.append(fr)
             buffer.append(fr)
 
-        frame = self._output.create_frame(self._timepos)
+        frame = self._output.create_frame(self._sample_pos)
         frame.append(buffer.pop(duration))
-        self._timepos += len(frame)
+        self._sample_pos += len(frame)
 
         logger.info('Node %s created %s', self.name, frame)
         self._output.add_frame(frame)

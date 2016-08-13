@@ -68,7 +68,7 @@ class AudioStreamProxy(object):
 
     def main(self):
         state = 'stopped'
-        timepos_offset = None
+        sample_pos_offset = None
 
         while True:
             try:
@@ -79,17 +79,17 @@ class AudioStreamProxy(object):
                 new_state = self._player.playback_state
                 if state != new_state:
                     if new_state == 'playing':
-                        timepos_offset = request.timepos - self._player.playback_timepos
+                        sample_pos_offset = request.sample_pos - self._player.playback_sample_pos
                     state = new_state
 
                 if state == 'playing':
                     with perf.track('get_track_events'):
                         for queue, event in self._player.get_track_events(
-                                request.timepos - timepos_offset):
-                            event.timepos += timepos_offset
+                                request.sample_pos - sample_pos_offset):
+                            event.sample_pos += sample_pos_offset
                             request.events.append((queue, event))
 
-                    self._player.playback_timepos += 4096
+                    self._player.playback_sample_pos += 4096
 
                 with perf.track('send_frame'):
                     self._client.send_frame(request)
@@ -99,7 +99,7 @@ class AudioStreamProxy(object):
                 response.perf_data = perf.get_spans()
                 if state == 'playing':
                     self._player.publish_status_async(
-                        timepos=request.timepos - timepos_offset)
+                        sample_pos=request.sample_pos - sample_pos_offset)
                 self._server.send_frame(response)
 
             except audioproc.StreamClosed:
@@ -130,7 +130,7 @@ class Player(object):
         self.proxy = None
 
         self.playback_state = 'stopped'
-        self.playback_timepos = 0
+        self.playback_sample_pos = 0
         self.track_event_sources = {}
         self.group_listeners = {}
 
@@ -238,10 +238,11 @@ class Player(object):
             else:
                 del self.track_event_sources[t.id]
 
-    def get_track_events(self, timepos):
+    def get_track_events(self, sample_pos):
         events = []
         for track_id, event_source in self.track_event_sources.items():
-            for event in event_source.get_events(timepos, timepos + 4096):
+            for event in event_source.get_events(
+                    sample_pos, sample_pos + 4096):
                 events.append(('track:%s' % track_id, event))
         return events
 

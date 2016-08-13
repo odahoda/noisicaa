@@ -143,11 +143,11 @@ class CSoundInstrument(node.Node):
         out = self._output.frame.samples
 
         pos = 0
-        timepos = ctxt.timepos
+        sample_pos = ctxt.sample_pos
         pending_events = list(self._input.events)
         while pos < num_samples:
             while (len(pending_events) > 0
-                   and pending_events[0].timepos < timepos + self._csnd.ksmps):
+                   and pending_events[0].sample_pos < sample_pos + self._csnd.ksmps):
                 event = pending_events.pop(0)
                 logger.info("Consuming event %s", event)
                 if isinstance(event, events.NoteOnEvent):
@@ -168,7 +168,7 @@ class CSoundInstrument(node.Node):
                 self._csnd.get_audio_channel_data('OutR'))
 
             pos += self._csnd.ksmps
-            timepos += self._csnd.ksmps
+            sample_pos += self._csnd.ksmps
 
         assert pos == num_samples
         assert len(pending_events) == 0

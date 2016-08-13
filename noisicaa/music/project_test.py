@@ -186,8 +186,8 @@ class ScoreEventSource(unittest.TestCase):
 
         source = track.create_event_source()
         events = []
-        for timepos in range(0, 100000, 4096):
-            events.extend(source.get_events(timepos, timepos + 4096))
+        for sample_pos in range(0, 100000, 4096):
+            events.extend(source.get_events(sample_pos, sample_pos + 4096))
 
         print(events)
 

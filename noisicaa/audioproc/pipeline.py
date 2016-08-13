@@ -103,7 +103,7 @@ class Pipeline(object):
             self._started.set()
             ctxt = data.FrameContext()
             ctxt.perf = core.PerfStats()
-            ctxt.timepos = 0
+            ctxt.sample_pos = 0
             ctxt.duration = 4096
 
             while not self._stopping.is_set():
@@ -124,10 +124,10 @@ class Pipeline(object):
                 ctxt.in_frame = None
                 ctxt.out_frame = None
 
-                with ctxt.perf.track('frame(%d)' % ctxt.timepos):
+                with ctxt.perf.track('frame(%d)' % ctxt.sample_pos):
                     with ctxt.perf.track('process'):
                         t1 = time.time()
-                        logger.debug("Processing frame @%d", ctxt.timepos)
+                        logger.debug("Processing frame @%d", ctxt.sample_pos)
 
                         self.process_frame(ctxt)
 
@@ -149,7 +149,7 @@ class Pipeline(object):
                         #     self.utilization_callback(utilization)
 
                 backend.write(ctxt)
-                ctxt.timepos += 4096
+                ctxt.sample_pos += 4096
 
         except:  # pylint: disable=bare-except
             sys.excepthook(*sys.exc_info())

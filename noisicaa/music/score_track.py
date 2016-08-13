@@ -292,21 +292,21 @@ class ScoreEventSource(EventSource):
         self._active_pitches = []
         self._current_measure = 0
         self._current_tick = 0
-        self._current_micro_timepos = 0
+        self._current_micro_sample_pos = 0
 
-    def get_events(self, start_timepos, end_timepos):
-        logger.debug("get_events(%d, %d)", start_timepos, end_timepos)
+    def get_events(self, start_sample_pos, end_sample_pos):
+        logger.debug("get_events(%d, %d)", start_sample_pos, end_sample_pos)
 
-        while self._current_micro_timepos < 1000000 * end_timepos:
+        while self._current_micro_sample_pos < 1000000 * end_sample_pos:
             measure = self._track.measures[self._current_measure]
-            timepos = self._current_micro_timepos // 1000000
+            sample_pos = self._current_micro_sample_pos // 1000000
 
-            if self._current_micro_timepos >= 1000000 * start_timepos:
+            if self._current_micro_sample_pos >= 1000000 * start_sample_pos:
                 t = 0
                 for idx, note in enumerate(measure.notes):
                     if t == self._current_tick:
                         for pitch in self._active_pitches:
-                            yield NoteOffEvent(timepos, pitch)
+                            yield NoteOffEvent(sample_pos, pitch)
                         self._active_pitches.clear()
 
                         if not note.is_rest:
@@ -315,9 +315,9 @@ class ScoreEventSource(EventSource):
                                     octaves=self._track.transpose_octaves)
                                 logger.debug(
                                     "Play %s @%d for %s",
-                                    pitch.name, timepos, note.duration)
+                                    pitch.name, sample_pos, note.duration)
                                 yield NoteOnEvent(
-                                    timepos, pitch,
+                                    sample_pos, pitch,
                                     tags={(measure.id, 'noteon', idx)})
                                 self._active_pitches.append(pitch)
                     t += note.duration.ticks
@@ -328,7 +328,7 @@ class ScoreEventSource(EventSource):
             micro_samples_per_tick = int(
                 1000000 * 4 * 44100 * 60 // bpm * Duration.tick_duration)
 
-            self._current_micro_timepos += micro_samples_per_tick
+            self._current_micro_sample_pos += micro_samples_per_tick
             self._current_tick += 1
             if self._current_tick >= measure.duration.ticks:
                 self._current_tick = 0

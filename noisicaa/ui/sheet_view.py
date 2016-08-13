@@ -179,7 +179,7 @@ class MeasureItemImpl(QGraphicsItem):
             tracks=[self._measure.track.index],
             pos=self._measure.index)
 
-    def setPlaybackPos(self, timepos, tick):
+    def setPlaybackPos(self, sample_pos, tick):
         pass
 
 
@@ -313,9 +313,9 @@ class TrackItemImpl(object):
             self._track.id, 'UpdateTrackProperties',
             name=name.text())
 
-    def setPlaybackPos(self, timepos, measure_idx, measure_tick):
+    def setPlaybackPos(self, sample_pos, measure_idx, measure_tick):
         measure_item = self.measures[measure_idx]
-        measure_item.setPlaybackPos(timepos, measure_tick)
+        measure_item.setPlaybackPos(sample_pos, measure_tick)
 
 
 class ScoreMeasureLayout(MeasureLayout):
@@ -1162,7 +1162,7 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
     def onBPMClose(self):
         self.bpm_editor.setVisible(False)
 
-    def setPlaybackPos(self, timepos, tick):
+    def setPlaybackPos(self, sample_pos, tick):
         assert 0 <= tick < self._measure.duration.ticks
         assert self._layout.width > 0 and self._layout.height > 0
 
@@ -1570,13 +1570,14 @@ class SheetViewImpl(QGraphicsView):
         self.call_async(
             self.project_client.player_stop(self._player_id))
 
-    def onPlayerStatus(self, timepos=None, **kwargs):
-        if timepos is not None:
-            tickpos = self._time_mapper.sample2tick(timepos % self._time_mapper.total_duration_samples)
+    def onPlayerStatus(self, sample_pos=None, **kwargs):
+        if sample_pos is not None:
+            tickpos = self._time_mapper.sample2tick(
+                sample_pos % self._time_mapper.total_duration_samples)
             measure_idx, measure_tick = self._time_mapper.measure_pos(
                 tickpos)
             for track in [self._property_track_item] + self.trackItems:
-                track.setPlaybackPos(timepos, measure_idx, measure_tick)
+                track.setPlaybackPos(sample_pos, measure_idx, measure_tick)
 
     def onRender(self):
         dialog = RenderSheetDialog(self, self.app, self._sheet)

@@ -47,13 +47,14 @@ class IPCNode(node.Node):
 
     def run(self, ctxt):
         request = data.FrameData()
-        request.timepos = ctxt.timepos
+        request.sample_pos = ctxt.sample_pos
         request.events = self.pipeline.backend.get_events_for_prefix(
             self._event_queue_name)
         self._stream.send_frame(request)
 
         response = self._stream.receive_frame()
-        assert response.timepos == ctxt.timepos, (response.timepos, ctxt.timepos)
+        assert response.sample_pos == ctxt.sample_pos, (
+            response.sample_pos, ctxt.sample_pos)
         ctxt.perf.add_spans(response.perf_data)
 
         self._output.frame.resize(0)

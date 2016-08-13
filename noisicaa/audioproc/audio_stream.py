@@ -90,7 +90,7 @@ class AudioStreamBase(object):
 
         line = self._get_line()
         assert line.startswith(b'#FR=')
-        frame.timepos = int(line[4:])
+        frame.sample_pos = int(line[4:])
         while True:
             line = self._get_line()
             if line == b'#END':
@@ -127,7 +127,7 @@ class AudioStreamBase(object):
 
     def send_frame(self, frame):
         request = bytearray()
-        request.extend(b'#FR=%d\n' % frame.timepos)
+        request.extend(b'#FR=%d\n' % frame.sample_pos)
 
         if frame.events:
             for queue, event in frame.events:

@@ -47,7 +47,7 @@ class AudioSinkNode(Node):
 
     def run(self, ctxt):
         ctxt.out_frame = data.FrameData()
-        ctxt.out_frame.timepos = ctxt.timepos
+        ctxt.out_frame.sample_pos = ctxt.sample_pos
         ctxt.out_frame.samples = self._input.frame.as_bytes()
         ctxt.out_frame.num_samples = len(self._input.frame)
 
@@ -112,12 +112,12 @@ class Backend(object):
             qprefix, qremainder = queue.split('/', 1)
             events.extend((qremainder, event) for event in qevents)
 
-        events.sort(key=lambda e: e[1].timepos)
+        events.sort(key=lambda e: e[1].sample_pos)
         return events
 
 
 class NullBackend(Backend):
-    def wait(self, timepos):
+    def wait(self, sample_pos):
         time.sleep(0.01)
 
     def write(self, frame):
@@ -226,7 +226,7 @@ class IPCBackend(Backend):
             socket_dir, 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
         self._stream = audio_stream.AudioStreamServer(self.address)
-        self._timepos_offset = None
+        self._sample_pos_offset = None
 
     def setup(self):
         super().setup()
@@ -243,12 +243,12 @@ class IPCBackend(Backend):
     def wait(self, ctxt):
         try:
             ctxt.in_frame = self._stream.receive_frame()
-            self.timepos_offset = ctxt.in_frame.timepos - ctxt.timepos
-            ctxt.in_frame.timepos = ctxt.timepos
+            self.sample_pos_offset = ctxt.in_frame.sample_pos - ctxt.sample_pos
+            ctxt.in_frame.sample_pos = ctxt.sample_pos
             for queue, event in ctxt.in_frame.events:
-                # Correct event's timepos.
-                if event.timepos != -1:
-                    event.timepos -= self.timepos_offset
+                # Correct event's sample_pos.
+                if event.sample_pos != -1:
+                    event.sample_pos -= self.sample_pos_offset
                 self.add_event(queue, event)
 
         except audio_stream.StreamClosed:
@@ -260,7 +260,7 @@ class IPCBackend(Backend):
 
         perf_data = ctxt.perf.get_spans()
 
-        ctxt.out_frame.timepos += self.timepos_offset
+        ctxt.out_frame.sample_pos += self.sample_pos_offset
         ctxt.out_frame.perf_data = perf_data
         self._stream.send_frame(ctxt.out_frame)
         self.clear_events()
