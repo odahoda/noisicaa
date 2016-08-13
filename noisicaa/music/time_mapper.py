@@ -57,6 +57,9 @@ class TimeMapper(object):
             tick += duration_ticks
             sample += duration_samples
 
+        if tick_pos == tick:
+            return sample
+
         raise TimeOutOfRange(
             'Tick %d not in valid range [0,%d]' % (tick_pos, tick))
 
@@ -72,6 +75,9 @@ class TimeMapper(object):
             tick += duration_ticks
             sample += duration_samples
 
+        if sample_pos == sample:
+            return tick
+
         raise TimeOutOfRange(
             'Sample %d not in valid range [0,%d]' % (sample_pos, sample))
 
@@ -82,6 +88,9 @@ class TimeMapper(object):
                 return measure, tick_pos - tick
 
             tick += duration_ticks
+
+        if tick_pos == tick:
+            return (len(self.sheet.property_track.measures), 0)
 
         raise TimeOutOfRange(
             'Tick %d not in valid range [0,%d]' % (tick_pos, tick))

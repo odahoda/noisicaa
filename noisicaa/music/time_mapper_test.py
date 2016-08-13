@@ -25,7 +25,7 @@ class TimeMapperTest(unittest.TestCase):
         self.sheet.property_track.measures[1].time_signature = time_signature.TimeSignature(2, 4)
 
         self.assertEqual(conv.total_duration_ticks, 480 + 240 + 480)
-        self.assertEqual(conv.total_duration_samples, 22050 + 11025 + 22050)
+        self.assertEqual(conv.total_duration_samples, 88200 + 44100 + 88200)
 
     def test_time_out_of_range(self):
         conv = time_mapper.TimeMapper(self.sheet)
@@ -47,18 +47,20 @@ class TimeMapperTest(unittest.TestCase):
         self.sheet.property_track.append_measure()
 
         self.assertEqual(conv.tick2sample(0), 0)
-        self.assertEqual(conv.tick2sample(240), 11025)
-        self.assertEqual(conv.tick2sample(480), 22050)
-        self.assertEqual(conv.tick2sample(720), 33075)
+        self.assertEqual(conv.tick2sample(240), 44100)
+        self.assertEqual(conv.tick2sample(480), 88200)
+        self.assertEqual(conv.tick2sample(720), 132300)
+        self.assertEqual(conv.tick2sample(960), 176400)
 
     def test_sample2tick(self):
         conv = time_mapper.TimeMapper(self.sheet)
         self.sheet.property_track.append_measure()
 
         self.assertEqual(conv.sample2tick(0), 0)
-        self.assertEqual(conv.sample2tick(11025), 240)
-        self.assertEqual(conv.sample2tick(22050), 480)
-        self.assertEqual(conv.sample2tick(33075), 720)
+        self.assertEqual(conv.sample2tick(44100), 240)
+        self.assertEqual(conv.sample2tick(88200), 480)
+        self.assertEqual(conv.sample2tick(132300), 720)
+        self.assertEqual(conv.sample2tick(176400), 960)
 
     def test_measure_pos(self):
         conv = time_mapper.TimeMapper(self.sheet)
@@ -75,6 +77,7 @@ class TimeMapperTest(unittest.TestCase):
         self.assertEqual(conv.measure_pos(720), (2, 0))
         self.assertEqual(conv.measure_pos(960), (2, 240))
         self.assertEqual(conv.measure_pos(1199), (2, 479))
+        self.assertEqual(conv.measure_pos(1200), (3, 0))
 
 if __name__ == '__main__':
     unittest.main()
