@@ -370,6 +370,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
         self._layers[Layer.BG] = QGraphicsGroup()
         self._layers[Layer.MAIN] = QGraphicsGroup()
         self._layers[Layer.EDIT] = QGraphicsGroup()
+        self._layers[Layer.EVENTS] = QGraphicsGroup()
 
         self._background = QGraphicsRectItem(self._layers[Layer.BG])
         self._background.setPen(QPen(Qt.NoPen))
@@ -385,6 +386,14 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                 'clef', lambda *args: self.recomputeLayout())
             self._measure.listeners.add(
                 'key_signature', lambda *args: self.recomputeLayout())
+
+            self.playback_pos = QGraphicsLineItem(
+                self._layers[Layer.EVENTS])
+            self.playback_pos.setVisible(False)
+            self.playback_pos.setLine(0, 0, 0, 20)
+            pen = QPen(Qt.black)
+            pen.setWidth(3)
+            self.playback_pos.setPen(pen)
 
     _accidental_map = {
         '': 'accidental-natural',
@@ -1009,6 +1018,40 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
 
     def mouseReleaseEvent(self, event):
         self._track_item.playNoteOff()
+
+    def clearPlaybackPos(self):
+        self.playback_pos.setVisible(False)
+
+    def setPlaybackPos(
+            self, sample_pos, num_samples, start_tick, end_tick, first):
+        if first:
+            assert 0 <= start_tick < self._measure.duration.ticks
+            assert self._layout.width > 0 and self._layout.height > 0
+
+            pos = (
+                400 * self._measure.duration
+                * start_tick
+                / self._measure.duration.ticks)
+
+            # TODO: That's ugly...
+            pos += 10
+
+            # clef
+            pos += 50
+
+            # key signature
+            if self._measure.key_signature.accidentals:
+                pos += 10 * len(self._measure.key_signature.accidentals)
+                pos += 10
+
+            # time signature
+            pos += 40
+
+            pos += 20
+
+            self.playback_pos.setLine(0, 0, 0, self._layout.height)
+            self.playback_pos.setPos(pos, 0)
+            self.playback_pos.setVisible(True)
 
 class ScoreMeasureItem(ui_base.ProjectMixin, ScoreMeasureItemImpl):
     pass
