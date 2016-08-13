@@ -99,7 +99,9 @@ class AudioStreamProxy(object):
                 response.perf_data = perf.get_spans()
                 if state == 'playing':
                     self._player.publish_status_async(
-                        sample_pos=request.sample_pos - sample_pos_offset)
+                        playback_pos=(
+                            request.sample_pos - sample_pos_offset,
+                            4096))
                 self._server.send_frame(response)
 
             except audioproc.StreamClosed:

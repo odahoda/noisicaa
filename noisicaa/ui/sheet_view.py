@@ -108,6 +108,10 @@ class MeasureItemImpl(QGraphicsItem):
         self._layers = {}
 
     @property
+    def measure(self):
+        return self._measure
+
+    @property
     def track_item(self):
         return self._track_item
 
@@ -179,7 +183,11 @@ class MeasureItemImpl(QGraphicsItem):
             tracks=[self._measure.track.index],
             pos=self._measure.index)
 
-    def setPlaybackPos(self, sample_pos, tick):
+    def clearPlaybackPos(self):
+        pass
+
+    def setPlaybackPos(
+            self, sample_pos, num_samples, start_tick, end_tick, first):
         pass
 
 
@@ -194,6 +202,7 @@ class TrackItemImpl(object):
         self._instrument_selector = None
 
         self._prev_note_highlight = None
+        self._prev_playback_measures = set()
 
         self._measures = []
         for measure in self._track.measures:
@@ -313,9 +322,36 @@ class TrackItemImpl(object):
             self._track.id, 'UpdateTrackProperties',
             name=name.text())
 
-    def setPlaybackPos(self, sample_pos, measure_idx, measure_tick):
-        measure_item = self.measures[measure_idx]
-        measure_item.setPlaybackPos(sample_pos, measure_tick)
+    def setPlaybackPos(
+            self, sample_pos, num_samples, start_measure_idx,
+            start_measure_tick, end_measure_idx, end_measure_tick):
+        playback_measures = set()
+
+        measure_idx = start_measure_idx
+        first = True
+        while True:
+            measure_item = self.measures[measure_idx]
+            if measure_idx == start_measure_idx:
+                start_tick = start_measure_tick
+            else:
+                start_tick = 0
+            if measure_idx == end_measure_idx:
+                end_tick = end_measure_tick
+            else:
+                end_tick = measure_item.measure.duration.ticks
+            measure_item.setPlaybackPos(
+                sample_pos, num_samples, start_tick, end_tick, first)
+            playback_measures.add(measure_idx)
+
+            if measure_idx == end_measure_idx:
+                break
+
+            measure_idx = (measure_idx + 1) % len(self._track.measures)
+            first = False
+
+        for measure_idx in self._prev_playback_measures - playback_measures:
+            self.measures[measure_idx].clearPlaybackPos()
+        self._prev_playback_measures = playback_measures
 
 
 class ScoreMeasureLayout(MeasureLayout):
@@ -1079,6 +1115,7 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
 
             self.playback_pos = QGraphicsLineItem(
                 self._layers[Layer.EVENTS])
+            self.playback_pos.setVisible(False)
             self.playback_pos.setLine(0, 0, 0, 20)
             pen = QPen(Qt.black)
             pen.setWidth(3)
@@ -1162,12 +1199,21 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
     def onBPMClose(self):
         self.bpm_editor.setVisible(False)
 
-    def setPlaybackPos(self, sample_pos, tick):
-        assert 0 <= tick < self._measure.duration.ticks
-        assert self._layout.width > 0 and self._layout.height > 0
+    def clearPlaybackPos(self):
+        self.playback_pos.setVisible(False)
 
-        pos = self._layout.width * tick / self._measure.duration.ticks
-        self.playback_pos.setPos(pos, 0)
+    def setPlaybackPos(
+            self, sample_pos, num_samples, start_tick, end_tick, first):
+        if first:
+            assert 0 <= start_tick < self._measure.duration.ticks
+            assert self._layout.width > 0 and self._layout.height > 0
+
+            pos = (
+                self._layout.width
+                * start_tick
+                / self._measure.duration.ticks)
+            self.playback_pos.setPos(pos, 0)
+            self.playback_pos.setVisible(True)
 
 
 class SheetPropertyMeasureItem(
@@ -1570,14 +1616,26 @@ class SheetViewImpl(QGraphicsView):
         self.call_async(
             self.project_client.player_stop(self._player_id))
 
-    def onPlayerStatus(self, sample_pos=None, **kwargs):
-        if sample_pos is not None:
-            tickpos = self._time_mapper.sample2tick(
+    def onPlayerStatus(self, playback_pos=None, **kwargs):
+        if playback_pos is not None:
+            sample_pos, num_samples = playback_pos
+
+            start_tick = self._time_mapper.sample2tick(
                 sample_pos % self._time_mapper.total_duration_samples)
-            measure_idx, measure_tick = self._time_mapper.measure_pos(
-                tickpos)
+            start_measure_idx, start_measure_tick = (
+                self._time_mapper.measure_pos(start_tick))
+
+            end_tick = self._time_mapper.sample2tick(
+                (sample_pos + num_samples)
+                % self._time_mapper.total_duration_samples)
+            end_measure_idx, end_measure_tick = (
+                self._time_mapper.measure_pos(end_tick))
+
             for track in [self._property_track_item] + self.trackItems:
-                track.setPlaybackPos(sample_pos, measure_idx, measure_tick)
+                track.setPlaybackPos(
+                    sample_pos, num_samples,
+                    start_measure_idx, start_measure_tick,
+                    end_measure_idx, end_measure_tick)
 
     def onRender(self):
         dialog = RenderSheetDialog(self, self.app, self._sheet)
