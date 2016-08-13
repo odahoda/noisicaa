@@ -18,3 +18,6 @@ from .score_track import (
 from .sheet_property_track import (
     SheetPropertyMeasure, SheetPropertyTrack,
 )
+from .time_mapper import (
+    TimeMapper, TimeOutOfRange
+)

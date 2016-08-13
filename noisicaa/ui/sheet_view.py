@@ -41,6 +41,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtSvg import QSvgRenderer, QGraphicsSvgItem
 
 from noisicaa import audioproc
+from noisicaa import music
 from .instrument_library import InstrumentLibraryDialog
 from .render_sheet_dialog import RenderSheetDialog
 from noisicaa.music import (
@@ -178,6 +179,9 @@ class MeasureItemImpl(QGraphicsItem):
             tracks=[self._measure.track.index],
             pos=self._measure.index)
 
+    def setPlaybackPos(self, timepos, tick):
+        pass
+
 
 class TrackItemImpl(object):
     measure_item_cls = None
@@ -309,8 +313,9 @@ class TrackItemImpl(object):
             self._track.id, 'UpdateTrackProperties',
             name=name.text())
 
-    def setPlaybackPos(self, timepos):
-        pass
+    def setPlaybackPos(self, timepos, measure_idx, measure_tick):
+        measure_item = self.measures[measure_idx]
+        measure_item.setPlaybackPos(timepos, measure_tick)
 
 
 class ScoreMeasureLayout(MeasureLayout):
@@ -1173,30 +1178,6 @@ class SheetPropertyMeasureItem(
 class SheetPropertyTrackItemImpl(TrackItemImpl):
     measure_item_cls = SheetPropertyMeasureItem
 
-    def setPlaybackPos(self, timepos):
-        current_micro_timepos = 0
-        current_measure = 0
-        current_tick = 0
-        while current_micro_timepos < 1000000 * timepos:
-            measure = self._track.measures[current_measure]
-
-            # This should be a function of (measure, tick)
-            bpm = self._track.sheet.get_bpm(
-                current_measure, current_tick)
-            micro_samples_per_tick = int(
-                1000000 * 4 * 44100 * 60 // bpm * Duration.tick_duration)
-
-            current_micro_timepos += micro_samples_per_tick
-            current_tick += 1
-            if current_tick >= measure.duration.ticks:
-                current_tick = 0
-                current_measure += 1
-                if current_measure >= len(self._track.measures):
-                    current_measure = 0
-
-        measure_item = self._measures[current_measure]
-        measure_item.setPlaybackPos(timepos, current_tick)
-
 
 class SheetPropertyTrackItem(
         ui_base.ProjectMixin, SheetPropertyTrackItemImpl):
@@ -1265,6 +1246,8 @@ class SheetViewImpl(QGraphicsView):
         self._cursor = QGraphicsGroup(self._layers[Layer.MOUSE])
 
         self.updateSheet()
+
+        self._time_mapper = music.TimeMapper(self._sheet)
 
         self._player_id = None
         self._player_stream_address = None
@@ -1589,8 +1572,11 @@ class SheetViewImpl(QGraphicsView):
 
     def onPlayerStatus(self, timepos=None, **kwargs):
         if timepos is not None:
+            tickpos = self._time_mapper.sample2tick(timepos % self._time_mapper.total_duration_samples)
+            measure_idx, measure_tick = self._time_mapper.measure_pos(
+                tickpos)
             for track in [self._property_track_item] + self.trackItems:
-                track.setPlaybackPos(timepos)
+                track.setPlaybackPos(timepos, measure_idx, measure_tick)
 
     def onRender(self):
         dialog = RenderSheetDialog(self, self.app, self._sheet)
