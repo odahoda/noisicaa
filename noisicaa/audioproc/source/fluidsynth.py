@@ -106,8 +106,8 @@ class FluidSynthSource(Node):
 
         for event in self._input.events:
             if event.sample_pos != -1:
-                assert ctxt.sample_pos <= event.sample_pos < ctxt.sample_pos + 4096, (
-                    ctxt.sample_pos, event.sample_pos, ctxt.sample_pos + 4096)
+                assert ctxt.sample_pos <= event.sample_pos < ctxt.sample_pos + ctxt.duration, (
+                    ctxt.sample_pos, event.sample_pos, ctxt.sample_pos + ctxt.duration)
                 esample_pos = event.sample_pos
             else:
                 esample_pos = ctxt.sample_pos
@@ -131,9 +131,10 @@ class FluidSynthSource(Node):
                 raise NotImplementedError(
                     "Event class %s not supported" % type(event).__name__)
 
-        if tp < ctxt.sample_pos + 4096:
+        if tp < ctxt.sample_pos + ctxt.duration:
             samples += bytes(
-                self._synth.get_samples(ctxt.sample_pos + 4096 - tp))
+                self._synth.get_samples(
+                    ctxt.sample_pos + ctxt.duration - tp))
 
         samples = self._resampler.convert(
             samples, len(samples) // 4)
@@ -145,6 +146,7 @@ class FluidSynthSource(Node):
                 # pylint thinks that frame.audio_format is a class object.
                 # pylint: disable=E1101
                 af.num_channels * af.bytes_per_sample))
-        assert len(frame) == 4096
+        assert len(frame) == ctxt.duration
 
+        self._output.frame.resize(ctxt.duration)
         self._output.frame.copy_from(frame)

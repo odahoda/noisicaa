@@ -25,4 +25,5 @@ class PassThru(node.Node):
         self.add_output(self._output)
 
     def run(self, ctxt):
+        self._output.frame.resize(ctxt.duration)
         self._output.frame.copy_from(self._input.frame)

@@ -89,7 +89,6 @@ class AudioInputPort(InputPort):
         # TODO: get sample_rate from pipeline
         self._audio_format = AudioFormat(CHANNELS_STEREO, SAMPLE_FMT_FLT, 44100)
         self.frame = Frame(self._audio_format, 0, set())
-        self.frame.resize(4096)
 
     @property
     def audio_format(self):
@@ -104,6 +103,7 @@ class AudioInputPort(InputPort):
                         % port.audio_format)
 
     def collect_inputs(self):
+        self.frame.resize(self.pipeline.frame_size)
         self.frame.clear()
         for upstream_port in self.inputs:
             if not upstream_port.muted:
@@ -118,7 +118,6 @@ class AudioOutputPort(OutputPort):
         self._audio_format = AudioFormat(CHANNELS_STEREO, SAMPLE_FMT_FLT, 44100)
 
         self.frame = Frame(self._audio_format, 0, set())
-        self.frame.resize(4096)
 
         self._volume = 100
 

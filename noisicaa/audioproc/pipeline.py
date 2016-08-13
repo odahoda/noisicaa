@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 class Pipeline(object):
     def __init__(self):
         self._sample_rate = 44100
+        self._frame_size = 1024
         self._nodes = set()
         self._backend = None
         self._thread = None
@@ -36,6 +37,14 @@ class Pipeline(object):
         self.notification_listener = core.CallbackRegistry()
 
         self.listeners = core.CallbackRegistry()
+
+    @property
+    def sample_rate(self):
+        return self._sample_rate
+
+    @property
+    def frame_size(self):
+        return self._frame_size
 
     def reader_lock(self):
         return self._lock.reader_lock
@@ -104,7 +113,7 @@ class Pipeline(object):
             ctxt = data.FrameContext()
             ctxt.perf = core.PerfStats()
             ctxt.sample_pos = 0
-            ctxt.duration = 4096
+            ctxt.duration = self._frame_size
 
             while not self._stopping.is_set():
                 backend = self._backend
@@ -149,7 +158,7 @@ class Pipeline(object):
                         #     self.utilization_callback(utilization)
 
                 backend.write(ctxt)
-                ctxt.sample_pos += 4096
+                ctxt.sample_pos += self._frame_size
 
         except:  # pylint: disable=bare-except
             sys.excepthook(*sys.exc_info())
@@ -208,7 +217,7 @@ class Pipeline(object):
             if backend is not None:
                 logger.info(
                     "Set up backend %s", type(backend).__name__)
-                backend.setup()
+                backend.setup(self._sample_rate, self._frame_size)
                 self._backend = backend
 
     @property

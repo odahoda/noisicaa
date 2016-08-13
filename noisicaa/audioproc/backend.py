@@ -48,6 +48,7 @@ class AudioSinkNode(Node):
     def run(self, ctxt):
         ctxt.out_frame = data.FrameData()
         ctxt.out_frame.sample_pos = ctxt.sample_pos
+        ctxt.out_frame.duration = ctxt.duration
         ctxt.out_frame.samples = self._input.frame.as_bytes()
         ctxt.out_frame.num_samples = len(self._input.frame)
 
@@ -72,12 +73,22 @@ class Backend(object):
     def __init__(self):
         self._stopped = threading.Event()
         self._event_queues = {}
+        self.__sample_rate = None
+        self.__frame_size = None
 
-    def setup(self):
-        pass
+    def setup(self, sample_rate, frame_size):
+        self.__sample_rate = sample_rate
+        self.__frame_size = frame_size
 
     def cleanup(self):
         pass
+
+    @property
+    def sample_rate(self):
+        return self.__sample_rate
+    @property
+    def frame_size(self):
+        return self.__frame_size
 
     @property
     def stopped(self):
@@ -137,7 +148,9 @@ class PyAudioBackend(Backend):
         self._bytes_per_sample = 2 * 2
         self._buffer_threshold = 4096 * self._bytes_per_sample
 
-    def setup(self):
+    def setup(self, sample_rate, frame_size):
+        super().setup(sample_rate, frame_size)
+
         self._audio = pyaudio.PyAudio()
 
         ch_layout = AV_CH_LAYOUT_STEREO
@@ -153,7 +166,7 @@ class PyAudioBackend(Backend):
 
         # use format of input buffer
         self._resampler = Resampler(
-            AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_FLT, 44100,
+            AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_FLT, self.sample_rate,
             ch_layout, sample_fmt, sample_rate)
 
         self._buffer.clear()
@@ -228,8 +241,8 @@ class IPCBackend(Backend):
         self._stream = audio_stream.AudioStreamServer(self.address)
         self._sample_pos_offset = None
 
-    def setup(self):
-        super().setup()
+    def setup(self, sample_rate, frame_size):
+        super().setup(sample_rate, frame_size)
         self._stream.setup()
 
     def cleanup(self):

@@ -85,11 +85,12 @@ class AudioStreamProxy(object):
                 if state == 'playing':
                     with perf.track('get_track_events'):
                         for queue, event in self._player.get_track_events(
-                                request.sample_pos - sample_pos_offset):
+                                request.sample_pos - sample_pos_offset,
+                                request.duration):
                             event.sample_pos += sample_pos_offset
                             request.events.append((queue, event))
 
-                    self._player.playback_sample_pos += 4096
+                    self._player.playback_sample_pos += request.duration
 
                 with perf.track('send_frame'):
                     self._client.send_frame(request)
@@ -101,7 +102,7 @@ class AudioStreamProxy(object):
                     self._player.publish_status_async(
                         playback_pos=(
                             request.sample_pos - sample_pos_offset,
-                            4096))
+                            request.duration))
                 self._server.send_frame(response)
 
             except audioproc.StreamClosed:
@@ -240,11 +241,11 @@ class Player(object):
             else:
                 del self.track_event_sources[t.id]
 
-    def get_track_events(self, sample_pos):
+    def get_track_events(self, sample_pos, num_samples):
         events = []
         for track_id, event_source in self.track_event_sources.items():
             for event in event_source.get_events(
-                    sample_pos, sample_pos + 4096):
+                    sample_pos, sample_pos + num_samples):
                 events.append(('track:%s' % track_id, event))
         return events
 

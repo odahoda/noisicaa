@@ -3,6 +3,7 @@
 class FrameData(object):
     def __init__(self):
         self.sample_pos = None
+        self.duration = None
         self.samples = None
         self.num_samples = None
         self.events = None

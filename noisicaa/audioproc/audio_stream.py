@@ -96,6 +96,9 @@ class AudioStreamBase(object):
             if line == b'#END':
                 break
 
+            elif line.startswith(b'DURATION='):
+                frame.duration = int(line[9:])
+
             elif line.startswith(b'EVENT='):
                 queue = line[6:].decode('utf-8')
 
@@ -128,6 +131,7 @@ class AudioStreamBase(object):
     def send_frame(self, frame):
         request = bytearray()
         request.extend(b'#FR=%d\n' % frame.sample_pos)
+        request.extend(b'DURATION=%d\n' % frame.duration)
 
         if frame.events:
             for queue, event in frame.events:

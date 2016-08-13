@@ -82,7 +82,7 @@ class WavFileSource(Node):
 
         if self._playing:
             offset = self._pos
-            length = 4096 * af.num_channels * af.bytes_per_sample
+            length = ctxt.duration * af.num_channels * af.bytes_per_sample
             samples = self._samples[offset:offset+length]
             self._pos += length
             if self._pos >= len(self._samples):
@@ -96,7 +96,7 @@ class WavFileSource(Node):
                 samples,
                 len(samples) // (af.num_channels * af.bytes_per_sample))
 
-        assert len(frame) <= 4096
-        frame.resize(4096)
+        assert len(frame) <= ctxt.duration
+        frame.resize(ctxt.duration)
 
         self._output.frame.copy_from(frame)

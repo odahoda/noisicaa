@@ -48,6 +48,7 @@ class IPCNode(node.Node):
     def run(self, ctxt):
         request = data.FrameData()
         request.sample_pos = ctxt.sample_pos
+        request.duration = ctxt.duration
         request.events = self.pipeline.backend.get_events_for_prefix(
             self._event_queue_name)
         self._stream.send_frame(request)
@@ -55,10 +56,12 @@ class IPCNode(node.Node):
         response = self._stream.receive_frame()
         assert response.sample_pos == ctxt.sample_pos, (
             response.sample_pos, ctxt.sample_pos)
+        assert response.duration == ctxt.duration, (
+            response.duration, ctxt.duration)
         ctxt.perf.add_spans(response.perf_data)
 
         self._output.frame.resize(0)
         self._output.frame.append_samples(
             response.samples, response.num_samples)
-        assert len(self._output.frame) <= 4096
-        self._output.frame.resize(4096)
+        assert len(self._output.frame) <= ctxt.duration
+        self._output.frame.resize(ctxt.duration)
