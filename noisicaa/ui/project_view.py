@@ -2,6 +2,7 @@
 
 import logging
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
@@ -14,14 +15,16 @@ from . import ui_base
 logger = logging.getLogger(__name__)
 
 
-class ProjectViewImpl(QtWidgets.QWidget):
+class ProjectViewImpl(QtWidgets.QMainWindow):
     currentToolChanged = QtCore.pyqtSignal(tool_dock.Tool)
     currentSheetChanged = QtCore.pyqtSignal(object)
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(parent=None, flags=Qt.Widget, **kwargs)
 
-        self._sheets_widget = QtWidgets.QStackedWidget(self)
+        sheet_tab = QtWidgets.QWidget()
+
+        self._sheets_widget = QtWidgets.QStackedWidget(sheet_tab)
         self._sheets_widget.currentChanged.connect(
             self.onCurrentSheetChanged)
 
@@ -31,22 +34,31 @@ class ProjectViewImpl(QtWidgets.QWidget):
         self.updateSheetMenu()
 
         # Sheet selection should better be in a dock...
-        sheet_menu_button = QtWidgets.QToolButton(self)
+        sheet_menu_button = QtWidgets.QToolButton(sheet_tab)
         sheet_menu_button.setIcon(QtGui.QIcon.fromTheme('start-here'))
         sheet_menu_button.setMenu(self.sheet_menu)
         sheet_menu_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
 
-        player_status = QtWidgets.QWidget(self)
-
         bottom_layout = QtWidgets.QHBoxLayout()
         bottom_layout.addWidget(sheet_menu_button)
         bottom_layout.addStretch(1)
-        bottom_layout.addWidget(player_status)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self._sheets_widget)
         layout.addLayout(bottom_layout)
-        self.setLayout(layout)
+        sheet_tab.setLayout(layout)
+
+        mixer_tab = QtWidgets.QWidget()
+
+        graph_tab = QtWidgets.QWidget()
+
+        project_tab = QtWidgets.QTabWidget(self)
+        project_tab.setTabPosition(QtWidgets.QTabWidget.West)
+        project_tab.setDocumentMode(True)
+        project_tab.addTab(sheet_tab, "Sheet")
+        project_tab.addTab(mixer_tab, "Mixer")
+        project_tab.addTab(graph_tab, "Graph")
+        self.setCentralWidget(project_tab)
 
         self._sheet_listener = self.project.listeners.add(
             'sheets',

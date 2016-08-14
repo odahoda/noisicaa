@@ -97,6 +97,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self.createDockWidgets()
 
         self._project_tabs = QTabWidget(self)
+        self._project_tabs.setTabBarAutoHide(True)
         self._project_tabs.setUsesScrollButtons(True)
         self._project_tabs.setTabsClosable(True)
         self._project_tabs.setMovable(True)
