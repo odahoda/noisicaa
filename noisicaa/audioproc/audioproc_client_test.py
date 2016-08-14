@@ -73,21 +73,21 @@ class ProxyTest(asynctest.TestCase):
             result)
 
     async def test_add_node(self):
-        node_id = await self.client.add_node('whitenoise')
+        node_id = await self.client.add_node('passthru')
         self.assertIsInstance(node_id, str)
 
     async def test_remove_node(self):
-        node_id = await self.client.add_node('whitenoise')
+        node_id = await self.client.add_node('passthru')
         await self.client.remove_node(node_id)
 
     async def test_connect_ports(self):
-        node1_id = await self.client.add_node('whitenoise')
-        node2_id = await self.client.add_node('scale', factor=0.2)
+        node1_id = await self.client.add_node('passthru')
+        node2_id = await self.client.add_node('passthru')
         await self.client.connect_ports(node1_id, 'out', node2_id, 'in')
 
     async def test_disconnect_ports(self):
-        node1_id = await self.client.add_node('whitenoise')
-        node2_id = await self.client.add_node('scale', factor=0.2)
+        node1_id = await self.client.add_node('passthru')
+        node2_id = await self.client.add_node('passthru')
         await self.client.connect_ports(node1_id, 'out', node2_id, 'in')
         await self.client.disconnect_ports(node1_id, 'out', node2_id, 'in')
 

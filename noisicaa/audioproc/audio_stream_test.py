@@ -40,6 +40,7 @@ class AudioStreamSTest(unittest.TestCase):
 
             frame = data.FrameData()
             frame.sample_pos = 1234
+            frame.duration = 32
             frame.samples = b'pling'
             frame.num_samples = 3
             frame.events = [('q1', 'event1'), ('q2', 'event2')]

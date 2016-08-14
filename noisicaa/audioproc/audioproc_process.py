@@ -13,11 +13,6 @@ from . import pipeline
 from . import mutations
 from . import node_db
 from . import nodes
-from .filter import scale
-from .source import whitenoise
-from .source import silence
-from .source import wavfile
-from .source import fluidsynth
 
 logger = logging.getLogger(__name__)
 
@@ -116,11 +111,8 @@ class AudioProcProcessMixin(object):
             'DUMP', self.handle_dump)
 
         self.node_db = node_db.NodeDB()
-        self.node_db.add(scale.Scale)
-        self.node_db.add(silence.SilenceSource)
-        self.node_db.add(whitenoise.WhiteNoiseSource)
-        self.node_db.add(wavfile.WavFileSource)
-        self.node_db.add(fluidsynth.FluidSynthSource)
+        self.node_db.add(nodes.WavFileSource)
+        self.node_db.add(nodes.FluidSynthSource)
         self.node_db.add(nodes.IPCNode)
         self.node_db.add(nodes.PassThru)
         self.node_db.add(nodes.TrackEventSource)

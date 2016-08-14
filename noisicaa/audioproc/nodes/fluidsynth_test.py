@@ -2,7 +2,7 @@
 
 import unittest
 
-from . import sourcetest
+#from . import sourcetest
 from . import fluidsynth
 
 
