@@ -61,9 +61,9 @@ class Node(object):
         """
         logger.info("%s: cleanup()", self.name)
 
-    def collect_inputs(self):
+    def collect_inputs(self, ctxt):
         for port in self.inputs.values():
-            port.collect_inputs()
+            port.collect_inputs(ctxt)
 
     def run(self, ctxt):
         raise NotImplementedError

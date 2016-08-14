@@ -7,6 +7,7 @@ import asynctest
 from ..pipeline import Pipeline
 from ..source.whitenoise import WhiteNoiseSource
 from . import scale
+from noisicaa.audioproc import data
 
 
 class ScaleTest(asynctest.TestCase):
@@ -21,8 +22,11 @@ class ScaleTest(asynctest.TestCase):
         node.inputs['in'].connect(source.outputs['out'])
         await node.setup()
         try:
-            node.collect_inputs()
-            node.run(0)
+            ctxt = data.FrameContext()
+            ctxt.sample_pos = 0
+            ctxt.duration = 512
+            node.collect_inputs(ctxt)
+            node.run(ctxt)
         finally:
             await node.cleanup()
 

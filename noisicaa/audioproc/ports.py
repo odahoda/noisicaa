@@ -59,7 +59,7 @@ class InputPort(Port):
         if not isinstance(port, OutputPort):
             raise Error("Can only connect to OutputPort")
 
-    def collect_inputs(self):
+    def collect_inputs(self, ctxt):
         pass
 
 
@@ -102,8 +102,8 @@ class AudioInputPort(InputPort):
             raise Error("OutputPort has mismatching audio format %s"
                         % port.audio_format)
 
-    def collect_inputs(self):
-        self.frame.resize(self.pipeline.frame_size)
+    def collect_inputs(self, ctxt):
+        self.frame.resize(ctxt.duration)
         self.frame.clear()
         for upstream_port in self.inputs:
             if not upstream_port.muted:
@@ -153,7 +153,7 @@ class EventInputPort(InputPort):
         if not isinstance(port, EventOutputPort):
             raise Error("Can only connect to EventOutputPort")
 
-    def collect_inputs(self):
+    def collect_inputs(self, ctxt):
         self.events.clear()
         for upstream_port in self.inputs:
             if not upstream_port.muted:

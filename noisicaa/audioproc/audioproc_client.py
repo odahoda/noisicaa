@@ -68,6 +68,10 @@ class AudioProcClientMixin(object):
         return await self._stub.call(
             'SET_BACKEND', self._session_id, name, args)
 
+    async def set_frame_size(self, frame_size):
+        return await self._stub.call(
+            'SET_FRAME_SIZE', self._session_id, frame_size)
+
     async def play_file(self, path):
         return await self._stub.call(
             'PLAY_FILE', self._session_id, path)

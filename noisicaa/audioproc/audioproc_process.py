@@ -105,6 +105,8 @@ class AudioProcProcessMixin(object):
         self.server.add_command_handler(
             'SET_BACKEND', self.handle_set_backend)
         self.server.add_command_handler(
+            'SET_FRAME_SIZE', self.handle_set_frame_size)
+        self.server.add_command_handler(
             'PLAY_FILE', self.handle_play_file)
         self.server.add_command_handler(
             'ADD_EVENT', self.handle_add_event)
@@ -284,6 +286,10 @@ class AudioProcProcessMixin(object):
 
         self.pipeline.set_backend(be)
         return result
+
+    def handle_set_frame_size(self, session_id, frame_size):
+        self.get_session(session_id)
+        self.pipeline.set_frame_size(frame_size)
 
     def perf_data_callback(self, perf_data):
         self.event_loop.call_soon_threadsafe(

@@ -74,11 +74,9 @@ class Backend(object):
         self._stopped = threading.Event()
         self._event_queues = {}
         self.__sample_rate = None
-        self.__frame_size = None
 
-    def setup(self, sample_rate, frame_size):
+    def setup(self, sample_rate):
         self.__sample_rate = sample_rate
-        self.__frame_size = frame_size
 
     def cleanup(self):
         pass
@@ -86,9 +84,6 @@ class Backend(object):
     @property
     def sample_rate(self):
         return self.__sample_rate
-    @property
-    def frame_size(self):
-        return self.__frame_size
 
     @property
     def stopped(self):
@@ -148,8 +143,8 @@ class PyAudioBackend(Backend):
         self._bytes_per_sample = 2 * 2
         self._buffer_threshold = 4096 * self._bytes_per_sample
 
-    def setup(self, sample_rate, frame_size):
-        super().setup(sample_rate, frame_size)
+    def setup(self, sample_rate):
+        super().setup(sample_rate)
 
         self._audio = pyaudio.PyAudio()
 
@@ -241,8 +236,8 @@ class IPCBackend(Backend):
         self._stream = audio_stream.AudioStreamServer(self.address)
         self._sample_pos_offset = None
 
-    def setup(self, sample_rate, frame_size):
-        super().setup(sample_rate, frame_size)
+    def setup(self, sample_rate):
+        super().setup(sample_rate)
         self._stream.setup()
 
     def cleanup(self):
@@ -256,6 +251,7 @@ class IPCBackend(Backend):
     def wait(self, ctxt):
         try:
             ctxt.in_frame = self._stream.receive_frame()
+            ctxt.duration = ctxt.in_frame.duration
             self.sample_pos_offset = ctxt.in_frame.sample_pos - ctxt.sample_pos
             ctxt.in_frame.sample_pos = ctxt.sample_pos
             for queue, event in ctxt.in_frame.events:

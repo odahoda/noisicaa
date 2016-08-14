@@ -29,4 +29,5 @@ class Scale(Node):
 
     def run(self, ctxt):
         self._input.frame.mul(self._factor)
+        self._output.frame.resize(ctxt.duration)
         self._output.frame.copy_from(self._input.frame)

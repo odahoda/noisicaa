@@ -2,6 +2,8 @@
 
 import asynctest
 
+from noisicaa.audioproc import data
+
 
 class SourceTest(asynctest.TestCase):
     def make_node(self):
@@ -11,7 +13,10 @@ class SourceTest(asynctest.TestCase):
         node = self.make_node()
         await node.setup()
         try:
-            node.collect_inputs()
-            node.run(0)
+            ctxt = data.FrameContext()
+            ctxt.sample_pos = 0
+            ctxt.duration = 512
+            node.collect_inputs(ctxt)
+            node.run(ctxt)
         finally:
             await node.cleanup()

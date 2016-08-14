@@ -5,6 +5,7 @@
 # pylint: disable=W0212
 
 import functools
+import math
 import os.path
 
 from PyQt5 import QtGui
@@ -111,6 +112,19 @@ class AppearancePage(Page):
         self.app.settings.setValue('appearance/qtStyle', style_name)
 
 
+class QFrameSizeSpinBox(QtWidgets.QSpinBox):
+    def __init__(self):
+        super().__init__()
+
+        self.lineEdit().setReadOnly(True)
+        self.setSuffix(' samples')
+        self.setRange(5, 20)
+        self.setValue(10)
+
+    def textFromValue(self, value):
+        return '%d' % (2**value)
+
+
 class AudioPage(Page):
     def __init__(self, app):
         self.title = "Audio"
@@ -122,21 +136,26 @@ class AudioPage(Page):
         return QtGui.QIcon(path)
 
     def createOptions(self, layout):
-        backend_layout = QtWidgets.QHBoxLayout()
-        layout.addLayout(backend_layout)
-
-        label = QtWidgets.QLabel("Backend:")
-        backend_layout.addWidget(label)
-
-        combo = QtWidgets.QComboBox()
-        backend_layout.addWidget(combo, stretch=1)
+        backend_widget = QtWidgets.QComboBox()
+        #backend_layout.addWidget(combo, stretch=1)
 
         current = self.app.settings.value('audio/backend', 'pyaudio')
         for index, backend in enumerate(self._backends):
-            combo.addItem(backend)
+            backend_widget.addItem(backend)
             if backend == current:
-                combo.setCurrentIndex(index)
-        combo.currentIndexChanged.connect(self.backendChanged)
+                backend_widget.setCurrentIndex(index)
+        backend_widget.currentIndexChanged.connect(self.backendChanged)
+
+        frame_size_widget = QFrameSizeSpinBox()
+        frame_size_widget.setValue(int(
+            self.app.settings.value('audio/frame_size', 10)))
+        frame_size_widget.valueChanged.connect(self.frameSizeChanged)
+
+        main_layout = QtWidgets.QFormLayout()
+        main_layout.addRow("Backend:", backend_widget)
+        main_layout.addRow("Block size:", frame_size_widget)
+
+        layout.addLayout(main_layout)
 
         layout.addStretch()
 
@@ -159,6 +178,15 @@ class AudioPage(Page):
 
     def _set_backend_done(self, result, backend):
         self.app.settings.setValue('audio/backend', backend)
+
+    def frameSizeChanged(self, frame_size):
+        self.call_async(
+            self.app.audioproc_client.set_frame_size(2 ** frame_size),
+            callback=functools.partial(
+                self._set_frame_size_done, frame_size=frame_size))
+
+    def _set_frame_size_done(self, result, frame_size):
+        self.app.settings.setValue('audio/frame_size', frame_size)
 
     def testBackend(self):
         self.call_async(self._testBackendAsync())

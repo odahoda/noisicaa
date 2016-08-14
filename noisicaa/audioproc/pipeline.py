@@ -42,10 +42,6 @@ class Pipeline(object):
     def sample_rate(self):
         return self._sample_rate
 
-    @property
-    def frame_size(self):
-        return self._frame_size
-
     def reader_lock(self):
         return self._lock.reader_lock
 
@@ -158,7 +154,8 @@ class Pipeline(object):
                         #     self.utilization_callback(utilization)
 
                 backend.write(ctxt)
-                ctxt.sample_pos += self._frame_size
+                ctxt.sample_pos += ctxt.duration
+                ctxt.duration = self._frame_size
 
         except:  # pylint: disable=bare-except
             sys.excepthook(*sys.exc_info())
@@ -172,7 +169,7 @@ class Pipeline(object):
             for node in nodes:
                 logger.debug("Running node %s", node.name)
                 with ctxt.perf.track('collect_inputs(%s)' % node.id):
-                    node.collect_inputs()
+                    node.collect_inputs(ctxt)
                 with ctxt.perf.track('run(%s)' % node.id):
                     node.run(ctxt)
 
@@ -217,8 +214,12 @@ class Pipeline(object):
             if backend is not None:
                 logger.info(
                     "Set up backend %s", type(backend).__name__)
-                backend.setup(self._sample_rate, self._frame_size)
+                backend.setup(self._sample_rate)
                 self._backend = backend
+
+    def set_frame_size(self, frame_size):
+        with self.writer_lock():
+            self._frame_size = frame_size
 
     @property
     def backend(self):
