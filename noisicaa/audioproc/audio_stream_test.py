@@ -48,6 +48,7 @@ class AudioStreamSTest(unittest.TestCase):
 
             frame = client.receive_frame()
             self.assertEqual(frame.sample_pos, 1235)
+            self.assertEqual(frame.duration, 32)
             self.assertEqual(frame.samples, b'pling')
             self.assertEqual(frame.num_samples, 3)
             self.assertEqual(
