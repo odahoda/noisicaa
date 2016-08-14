@@ -15,6 +15,17 @@ from . import ui_base
 logger = logging.getLogger(__name__)
 
 
+class PipelineGraphViewImpl(QtWidgets.QGraphicsView):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self._scene = QtWidgets.QGraphicsScene()
+        self.setScene(self._scene)
+
+class PipelineGraphView(ui_base.ProjectMixin, PipelineGraphViewImpl):
+    pass
+
+
 class ProjectViewImpl(QtWidgets.QMainWindow):
     currentToolChanged = QtCore.pyqtSignal(tool_dock.Tool)
     currentSheetChanged = QtCore.pyqtSignal(object)
@@ -44,20 +55,23 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         bottom_layout.addStretch(1)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         layout.addWidget(self._sheets_widget)
         layout.addLayout(bottom_layout)
         sheet_tab.setLayout(layout)
 
         mixer_tab = QtWidgets.QWidget()
 
-        graph_tab = QtWidgets.QWidget()
+        graph_tab = PipelineGraphView(**self.context)
 
         project_tab = QtWidgets.QTabWidget(self)
         project_tab.setTabPosition(QtWidgets.QTabWidget.West)
         project_tab.setDocumentMode(True)
         project_tab.addTab(sheet_tab, "Sheet")
         project_tab.addTab(mixer_tab, "Mixer")
+        project_tab.setTabEnabled(1, False)
         project_tab.addTab(graph_tab, "Graph")
+        project_tab.setCurrentIndex(2)
         self.setCentralWidget(project_tab)
 
         self._sheet_listener = self.project.listeners.add(
