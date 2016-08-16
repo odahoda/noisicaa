@@ -137,10 +137,22 @@ class SheetPropertyTrack(Track):
     pass
 
 
+class PipelineGraphNode(core.ObjectBase):
+    name = core.Property(str)
+
+
+class PipelineGraphConnection(core.ObjectBase):
+    source_node = core.ObjectReferenceProperty(str)
+    dest_node = core.ObjectReferenceProperty(str)
+
+
 class Sheet(core.ObjectBase):
     name = core.Property(str, default="Sheet")
     master_group = core.ObjectProperty(TrackGroup)
     property_track = core.ObjectProperty(SheetPropertyTrack)
+    pipeline_graph_nodes = core.ObjectListProperty(PipelineGraphNode)
+    pipeline_graph_connections = core.ObjectListProperty(
+        PipelineGraphConnection)
 
     @property
     def sheet(self):

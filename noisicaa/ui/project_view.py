@@ -8,22 +8,12 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import music
+from . import pipeline_graph_view
 from . import sheet_view
 from . import tool_dock
 from . import ui_base
 
 logger = logging.getLogger(__name__)
-
-
-class PipelineGraphViewImpl(QtWidgets.QGraphicsView):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        self._scene = QtWidgets.QGraphicsScene()
-        self.setScene(self._scene)
-
-class PipelineGraphView(ui_base.ProjectMixin, PipelineGraphViewImpl):
-    pass
 
 
 class ProjectViewImpl(QtWidgets.QMainWindow):
@@ -62,7 +52,7 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
 
         mixer_tab = QtWidgets.QWidget()
 
-        graph_tab = PipelineGraphView(**self.context)
+        graph_tab = pipeline_graph_view.PipelineGraphView(**self.context)
 
         project_tab = QtWidgets.QTabWidget(self)
         project_tab.setTabPosition(QtWidgets.QTabWidget.West)
