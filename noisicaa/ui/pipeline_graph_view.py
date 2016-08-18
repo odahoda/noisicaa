@@ -78,12 +78,45 @@ class Port(QtWidgets.QGraphicsRectItem):
         return super().mousePressEvent(evt)
 
 
+class QCloseIconItem(QtWidgets.QGraphicsObject):
+    clicked = QtCore.pyqtSignal()
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        self.setAcceptHoverEvents(True)
+        self.setOpacity(0.2)
+
+        self._size = QtCore.QSizeF(16, 16)
+        self._icon = QtGui.QIcon.fromTheme('edit-delete')
+
+    def boundingRect(self):
+        return QtCore.QRectF(QtCore.QPointF(0, 0), self._size)
+
+    def paint(self, painter, option, widget=None):
+        self._icon.paint(painter, 0, 0, 16, 16)
+
+    def hoverEnterEvent(self, evt):
+        super().hoverEnterEvent(evt)
+        self.setOpacity(1.0)
+
+    def hoverLeaveEvent(self, evt):
+        super().hoverLeaveEvent(evt)
+        self.setOpacity(0.2)
+
+    def mousePressEvent(self, evt):
+        if evt.button() == Qt.LeftButton:
+            self.clicked.emit()
+            evt.accept()
+
+
 class Node(QtWidgets.QGraphicsRectItem):
     def __init__(self, parent, node_id, desc):
         super().__init__(parent)
         self.node_id = node_id
         self.desc = desc
 
+        self.setAcceptHoverEvents(True)
         self.setFlag(self.ItemIsMovable, True)
         self.setFlag(self.ItemSendsGeometryChanges, True)
         self.setFlag(self.ItemIsSelectable, True)
@@ -100,6 +133,11 @@ class Node(QtWidgets.QGraphicsRectItem):
         label = QtWidgets.QGraphicsSimpleTextItem(self)
         label.setPos(2, 2)
         label.setText(self.desc.name)
+
+        self._remove_icon = QCloseIconItem(self)
+        self._remove_icon.setPos(100 - 18, 2)
+        self._remove_icon.setVisible(False)
+        self._remove_icon.clicked.connect(self.onRemove)
 
         in_y = 25
         out_y = 25
@@ -126,6 +164,14 @@ class Node(QtWidgets.QGraphicsRectItem):
 
         return super().itemChange(change, value)
 
+    def hoverEnterEvent(self, evt):
+        super().hoverEnterEvent(evt)
+        self._remove_icon.setVisible(True)
+
+    def hoverLeaveEvent(self, evt):
+        super().hoverLeaveEvent(evt)
+        self._remove_icon.setVisible(False)
+
     def contextMenuEvent(self, evt):
         menu = QtWidgets.QMenu()
         if not self.desc.is_system:
@@ -136,25 +182,14 @@ class Node(QtWidgets.QGraphicsRectItem):
 
     def onRemove(self):
         for connection in self.connections:
-            task = self.scene().window.event_loop.create_task(
-                self.scene().window.client.disconnect_ports(
-                    connection.node1.node_id, connection.port1.port_name,
-                    connection.node2.node_id, connection.port2.port_name))
-            task.add_done_callback(
-                functools.partial(
-                    self.scene().window.command_done_callback,
-                    command="Disconnect ports %s:%s-%s:%s" % (
-                        connection.node1.desc.name,
-                        connection.port1.port_name,
-                        connection.node2.desc.name,
-                        connection.port2.port_name)))
+            if connection.node1 is not self:
+                connection.node1.connections.remove(connection)
+            if connection.node2 is not self:
+                connection.node2.connections.remove(connection)
 
-        task = self.scene().window.event_loop.create_task(
-            self.scene().window.client.remove_node(self.node_id))
-        task.add_done_callback(
-            functools.partial(
-                self.scene().window.command_done_callback,
-                command="Remove node %s" % self.desc.name))
+            self.scene().removeItem(connection)
+
+        self.scene().removeItem(self)
 
 
 class Connection(QtWidgets.QGraphicsPathItem):
@@ -170,13 +205,11 @@ class Connection(QtWidgets.QGraphicsPathItem):
     def update(self):
         pos1 = self.port1.mapToScene(self.port1.dot_pos)
         pos2 = self.port2.mapToScene(self.port2.dot_pos)
+        cpos = QtCore.QPointF(min(100, abs(pos2.x() - pos1.x()) / 2), 0)
 
         path = QtGui.QPainterPath()
         path.moveTo(pos1)
-        path.cubicTo(
-            pos1 + QtCore.QPointF(100, 0),
-            pos2 - QtCore.QPointF(100, 0),
-            pos2)
+        path.cubicTo(pos1 + cx, pos2 - cx, pos2)
         self.setPath(path)
 
 
@@ -244,7 +277,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
                 node = Node(None, '1', desc)
                 node.setPos(self.mapToScene(evt.pos()))
                 self._scene.addItem(node)
-                
+
             evt.acceptProposedAction()
 
 class PipelineGraphGraphicsView(
