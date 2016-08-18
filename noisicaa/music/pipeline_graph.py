@@ -13,11 +13,15 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineGraphNode(model.PipelineGraphNode, state.StateBase):
-    def __init__(self, name=None, state=None):
+    def __init__(
+            self, name=None, graph_pos_x=None, graph_pos_y=None,
+            state=None):
         super().__init__(state)
 
         if state is None:
             self.name = name
+            self.graph_pos_x = graph_pos_x
+            self.graph_pos_y = graph_pos_y
 
     @property
     def sheet(self):

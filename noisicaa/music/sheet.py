@@ -11,6 +11,7 @@ from . import mutations
 from . import score_track
 from . import track_group
 from . import sheet_property_track
+from . import pipeline_graph
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +173,55 @@ class RemoveMeasure(commands.Command):
                     track.append_measure()
 
 commands.Command.register_command(RemoveMeasure)
+
+
+class AddPipelineGraphNode(commands.Command):
+    name = core.Property(str)
+    graph_pos_x = core.Property(int)
+    graph_pos_y = core.Property(int)
+
+    def __init__(
+            self, name=None, graph_pos_x=None, graph_pos_y=None,
+            state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.name = name
+            self.graph_pos_x = graph_pos_x
+            self.graph_pos_y = graph_pos_y
+
+    def run(self, sheet):
+        assert isinstance(sheet, Sheet)
+
+        node = pipeline_graph.PipelineGraphNode(
+            name=self.name,
+            graph_pos_x=self.graph_pos_x,
+            graph_pos_y=self.graph_pos_y)
+        sheet.pipeline_graph_nodes.append(node)
+        return node.id
+
+commands.Command.register_command(AddPipelineGraphNode)
+
+
+class RemovePipelineGraphNode(commands.Command):
+    node_id = core.Property(str)
+
+    def __init__(self, node_id=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.node_id = node_id
+
+    def run(self, sheet):
+        assert isinstance(sheet, Sheet)
+
+        for idx, node in enumerate(sheet.pipeline_graph_nodes):
+            if node.id == self.node_id:
+                break
+        else:
+            raise ValueError("Node %s not found" % self.node_id)
+
+        del sheet.pipeline_graph_nodes[idx]
+
+commands.Command.register_command(RemovePipelineGraphNode)
 
 
 class Sheet(model.Sheet, state.StateBase):

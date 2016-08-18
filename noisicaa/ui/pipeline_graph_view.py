@@ -110,11 +110,10 @@ class QCloseIconItem(QtWidgets.QGraphicsObject):
             evt.accept()
 
 
-class Node(QtWidgets.QGraphicsRectItem):
-    def __init__(self, parent, node_id, desc):
-        super().__init__(parent)
-        self.node_id = node_id
-        self.desc = desc
+class NodeItemImpl(QtWidgets.QGraphicsRectItem):
+    def __init__(self, node, parent=None, **kwargs):
+        super().__init__(parent=parent, **kwargs)
+        self._node = node
 
         self.setAcceptHoverEvents(True)
         self.setFlag(self.ItemIsMovable, True)
@@ -122,7 +121,7 @@ class Node(QtWidgets.QGraphicsRectItem):
         self.setFlag(self.ItemIsSelectable, True)
 
         self.setRect(0, 0, 100, 60)
-        if self.desc.is_system:
+        if False:  #self.desc.is_system:
             self.setBrush(QtGui.QBrush(QtGui.QColor(200, 200, 255)))
         else:
             self.setBrush(Qt.white)
@@ -132,7 +131,7 @@ class Node(QtWidgets.QGraphicsRectItem):
 
         label = QtWidgets.QGraphicsSimpleTextItem(self)
         label.setPos(2, 2)
-        label.setText(self.desc.name)
+        label.setText(self._node.name)
 
         self._remove_icon = QCloseIconItem(self)
         self._remove_icon.setPos(100 - 18, 2)
@@ -141,7 +140,7 @@ class Node(QtWidgets.QGraphicsRectItem):
 
         in_y = 25
         out_y = 25
-        for port_name, port_direction, port_type in self.desc.ports:
+        for port_name, port_direction, port_type in []: #self.desc.ports:
             if port_direction == 'input':
                 x = -5
                 y = in_y
@@ -156,6 +155,8 @@ class Node(QtWidgets.QGraphicsRectItem):
                 self, self.node_id, port_name, port_direction, port_type)
             port.setPos(x, y)
             self.ports[port_name] = port
+
+        self.setPos(self._node.graph_pos_x, self._node.graph_pos_y)
 
     def itemChange(self, change, value):
         if change == self.ItemPositionHasChanged:
@@ -174,22 +175,20 @@ class Node(QtWidgets.QGraphicsRectItem):
 
     def contextMenuEvent(self, evt):
         menu = QtWidgets.QMenu()
-        if not self.desc.is_system:
+        if not False: #self.desc.is_system:
             remove = menu.addAction("Remove")
             remove.triggered.connect(self.onRemove)
         menu.exec_(evt.screenPos())
         evt.accept()
 
     def onRemove(self):
-        for connection in self.connections:
-            if connection.node1 is not self:
-                connection.node1.connections.remove(connection)
-            if connection.node2 is not self:
-                connection.node2.connections.remove(connection)
+        self.send_command_async(
+            self._node.parent.id,  'RemovePipelineGraphNode',
+            node_id=self._node.id)
 
-            self.scene().removeItem(connection)
 
-        self.scene().removeItem(self)
+class NodeItem(ui_base.ProjectMixin, NodeItemImpl):
+    pass
 
 
 class Connection(QtWidgets.QGraphicsPathItem):
@@ -209,7 +208,7 @@ class Connection(QtWidgets.QGraphicsPathItem):
 
         path = QtGui.QPainterPath()
         path.moveTo(pos1)
-        path.cubicTo(pos1 + cx, pos2 - cx, pos2)
+        path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
         self.setPath(path)
 
 
@@ -217,39 +216,56 @@ class PipelineGraphSceneImpl(QtWidgets.QGraphicsScene):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        desc = node_types.NodeType()
-        desc.name = "Node 1"
-        desc.port('in', 'input', 'audio')
-        desc.port('out', 'output', 'audio')
-        node1 = Node(None, '1', desc)
-        self.addItem(node1)
-
-        desc = node_types.NodeType()
-        desc.name = "Node 2"
-        desc.port('in', 'input', 'audio')
-        desc.port('out', 'output', 'audio')
-        node2 = Node(None, '2', desc)
-        self.addItem(node2)
-
-        connection = Connection(
-            None, node1, node1.ports['out'], node2, node2.ports['in'])
-        self.addItem(connection)
-        #self.connections[connection_id] = connection
-        node1.connections.add(connection)
-        node2.connections.add(connection)
-
 class PipelineGraphScene(ui_base.ProjectMixin, PipelineGraphSceneImpl):
     pass
 
 
 class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
-    def __init__(self, **kwargs):
+    def __init__(self, sheet, **kwargs):
         super().__init__(**kwargs)
 
         self._scene = PipelineGraphScene(**self.context)
         self.setScene(self._scene)
 
+        self._sheet = sheet
+
+        self._nodes = []
+        for node in self._sheet.pipeline_graph_nodes:
+            item = NodeItem(node=node, **self.context)
+            self._scene.addItem(item)
+            self._nodes.append(item)
+
+        self._pipeline_graph_nodes_listener = self._sheet.listeners.add(
+            'pipeline_graph_nodes', self.onPipelineGraphNodesChange)
+
+        self._connections = []
+        for connection in self._sheet.pipeline_graph_connections:
+            self._connections.append(
+                self.createConnectionView(connection))
+        self._pipeline_graph_connections_listener = self._sheet.listeners.add(
+            'pipeline_graph_connections',
+            self.onPipelineGraphConnectionsChange)
+
         self.setAcceptDrops(True)
+
+    def onPipelineGraphNodesChange(self, action, *args):
+        if action == 'insert':
+            idx, node = args
+            item = NodeItem(node=node, **self.context)
+            self._scene.addItem(item)
+            self._nodes.insert(idx, item)
+
+        elif action == 'delete':
+            idx, node = args
+            item = self._nodes[idx]
+            self._scene.removeItem(item)
+            del self._nodes[idx]
+
+        else:  # pragma: no cover
+            raise AssertionError("Unknown action %r" % action)
+
+    def onPipelineGraphConnectionsChange(self, *args):
+        print(args)
 
     def dragEnterEvent(self, evt):
         if 'application/x-noisicaa-pipeline-graph-node' in evt.mimeData().formats():
@@ -269,14 +285,21 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
                 'application/x-noisicaa-pipeline-graph-node')
             nodes = bytes(data).decode('utf-8').split('\n')
 
+            drop_pos = self.mapToScene(evt.pos())
             for node_name in nodes:
-                desc = node_types.NodeType()
-                desc.name = node_name
-                desc.port('in', 'input', 'audio')
-                desc.port('out', 'output', 'audio')
-                node = Node(None, '1', desc)
-                node.setPos(self.mapToScene(evt.pos()))
-                self._scene.addItem(node)
+                self.send_command_async(
+                    self._sheet.id, 'AddPipelineGraphNode',
+                    name=node_name,
+                    graph_pos_x=int(drop_pos.x()),
+                    graph_pos_y=int(drop_pos.y()))
+
+        # desc = node_types.NodeType()
+        #         desc.name = node_name
+        #         desc.port('in', 'input', 'audio')
+        #         desc.port('out', 'output', 'audio')
+        #         node = Node(None, '1', desc)
+        #         node.setPos(self.mapToScene(evt.pos()))
+        #         self._scene.addItem(node)
 
             evt.acceptProposedAction()
 
@@ -307,7 +330,8 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._graph_view = PipelineGraphGraphicsView(**self.context)
+        self._graph_view = PipelineGraphGraphicsView(
+            sheet=self.sheet, **self.context)
 
         self._node_list = NodesList()
 
@@ -340,6 +364,10 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         layout.addWidget(splitter)
         self.setLayout(layout)
+
+    @property
+    def sheet(self):
+        return self.project.sheets[0]
 
     def onNodeFilterChanged(self, text):
         for idx in range(self._node_list.count()):

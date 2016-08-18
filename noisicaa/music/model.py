@@ -139,6 +139,8 @@ class SheetPropertyTrack(Track):
 
 class PipelineGraphNode(core.ObjectBase):
     name = core.Property(str)
+    graph_pos_x = core.Property(int)
+    graph_pos_y = core.Property(int)
 
 
 class PipelineGraphConnection(core.ObjectBase):

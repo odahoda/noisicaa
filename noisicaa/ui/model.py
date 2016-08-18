@@ -29,6 +29,8 @@ class TrackGroup(model.TrackGroup, project_client.ObjectProxy): pass
 class MasterTrackGroup(model.MasterTrackGroup, project_client.ObjectProxy): pass
 class SheetPropertyMeasure(model.SheetPropertyMeasure, project_client.ObjectProxy): pass
 class SheetPropertyTrack(model.SheetPropertyTrack, project_client.ObjectProxy): pass
+class PipelineGraphNode(model.PipelineGraphNode, project_client.ObjectProxy): pass
+class PipelineGraphConnection(model.PipelineGraphConnection, project_client.ObjectProxy): pass
 class Sheet(model.Sheet, project_client.ObjectProxy): pass
 class Metadata(model.Metadata, project_client.ObjectProxy): pass
 class Project(model.Project, project_client.ObjectProxy): pass
@@ -44,6 +46,8 @@ cls_map = {
     'MasterTrackGroup': MasterTrackGroup,
     'SheetPropertyMeasure': SheetPropertyMeasure,
     'SheetPropertyTrack': SheetPropertyTrack,
+    'PipelineGraphNode': PipelineGraphNode,
+    'PipelineGraphConnection': PipelineGraphConnection,
     'Sheet': Sheet,
     'Metadata': Metadata,
     'Project': Project,
