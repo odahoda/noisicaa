@@ -152,10 +152,16 @@ class ProjectClientMixin(object):
                 cls = self.cls_map[mutation.cls]
                 obj = cls(mutation.id)
                 self.apply_properties(obj, mutation.properties)
-                if mutation.id in self._object_map:
-                    dref = self._object_map[mutation.id]
-                    assert isinstance(dref, core.DeferredReference)
-                    dref.dereference(obj)
+                # TODO: We should assert that mutation.id is either not
+                # in _object_map or points at a DeferredReference.
+                # But we don't delete entries from _object_map when
+                # objects are removed, so we leave zombies behind, which
+                # we just override here.
+                if (mutation.id in self._object_map
+                    and isinstance(
+                        self._object_map[mutation.id],
+                        core.DeferredReference)):
+                    self._object_map[mutation.id].dereference(obj)
                 self._object_map[mutation.id] = obj
 
             elif isinstance(mutation, mutations.ListInsert):

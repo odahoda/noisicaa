@@ -489,14 +489,6 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
                     graph_pos_x=int(drop_pos.x()),
                     graph_pos_y=int(drop_pos.y()))
 
-        # desc = node_types.NodeType()
-        #         desc.name = node_name
-        #         desc.port('in', 'input', 'audio')
-        #         desc.port('out', 'output', 'audio')
-        #         node = Node(None, '1', desc)
-        #         node.setPos(self.mapToScene(evt.pos()))
-        #         self._scene.addItem(node)
-
             evt.acceptProposedAction()
 
 class PipelineGraphGraphicsView(
