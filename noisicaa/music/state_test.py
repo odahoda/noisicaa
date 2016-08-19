@@ -347,6 +347,14 @@ class StateTest(unittest.TestCase):
         self.assertEqual(d.children[1].id, 'id2')
         self.assertIs(d.children[1].other, d.children[0])
 
+        # Remove child 1 with ref, serialize/deserialize and add it back.
+        # Reference to child 0 must survive this.
+        e = d.children[1]
+        del d.children[1]
+        e = LeafWithRef(state=json.loads(json.dumps(e.serialize())))
+        d.children.append(e)
+        self.assertIs(d.children[1].other, d.children[0])
+
     # def testChangeListener(self):
     #     a = LeafNode()
     #     a.id = 'id1'

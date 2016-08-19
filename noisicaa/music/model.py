@@ -144,8 +144,10 @@ class PipelineGraphNode(core.ObjectBase):
 
 
 class PipelineGraphConnection(core.ObjectBase):
-    source_node = core.ObjectReferenceProperty(str)
-    dest_node = core.ObjectReferenceProperty(str)
+    source_node = core.ObjectReferenceProperty()
+    source_port = core.Property(str)
+    dest_node = core.ObjectReferenceProperty()
+    dest_port = core.Property(str)
 
 
 class Sheet(core.ObjectBase):

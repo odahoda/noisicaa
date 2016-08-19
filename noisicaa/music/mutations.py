@@ -16,6 +16,12 @@ class Mutation(object):
                 'obj',
                 value.id if value is not None else None)
 
+        elif isinstance(prop, core.ObjectReferenceProperty):
+            return (
+                prop.name,
+                'objref',
+                value.id if value is not None else None)
+
         elif isinstance(prop, core.ObjectListProperty):
             return (
                 prop.name,

@@ -116,6 +116,19 @@ class ProjectClientMixin(object):
                     child = self._object_map[value]
                 setattr(obj, prop_name, child)
 
+            elif prop_type == 'objref':
+                child = None
+                if value is not None:
+                    try:
+                        child = self._object_map[value]
+                    except KeyError:
+                        child = core.DeferredReference(value)
+                        self._object_map[value] = child
+                    if isinstance(child, core.DeferredReference):
+                        child.add_reference(
+                            obj, obj.get_property(prop_name))
+                setattr(obj, prop_name, child)
+
             elif prop_type == 'objlist':
                 lst = getattr(obj, prop_name)
                 lst.clear()
@@ -132,12 +145,17 @@ class ProjectClientMixin(object):
         try:
             if isinstance(mutation, mutations.SetProperties):
                 obj = self._object_map[mutation.id]
+                assert not isinstance(obj, core.DeferredReference)
                 self.apply_properties(obj, mutation.properties)
 
             elif isinstance(mutation, mutations.AddObject):
                 cls = self.cls_map[mutation.cls]
                 obj = cls(mutation.id)
                 self.apply_properties(obj, mutation.properties)
+                if mutation.id in self._object_map:
+                    dref = self._object_map[mutation.id]
+                    assert isinstance(dref, core.DeferredReference)
+                    dref.dereference(obj)
                 self._object_map[mutation.id] = obj
 
             elif isinstance(mutation, mutations.ListInsert):

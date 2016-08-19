@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import logging
+import math
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -66,14 +67,9 @@ class Port(QtWidgets.QGraphicsRectItem):
 
     def mousePressEvent(self, evt):
         if evt.buttons() & Qt.LeftButton:
-            if not self.selected:
-                self.set_selected(True)
-                self.scene().select_port(
-                    self.node_id, self.port_name, self.port_direction)
-            else:
-                self.set_selected(False)
-                self.scene().unselect_port(
-                    self.node_id, self.port_name)
+            self.scene().view.startConnectionDrag(self)
+            evt.accept()
+            return
 
         return super().mousePressEvent(evt)
 
@@ -140,7 +136,9 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
 
         in_y = 25
         out_y = 25
-        for port_name, port_direction, port_type in []: #self.desc.ports:
+        for port_name, port_direction, port_type in [
+                ('in', 'input', 'audio'),
+                ('out', 'output', 'audio')]:
             if port_direction == 'input':
                 x = -5
                 y = in_y
@@ -152,7 +150,7 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
                 out_y += 20
 
             port = Port(
-                self, self.node_id, port_name, port_direction, port_type)
+                self, self._node.id, port_name, port_direction, port_type)
             port.setPos(x, y)
             self.ports[port_name] = port
 
@@ -191,19 +189,56 @@ class NodeItem(ui_base.ProjectMixin, NodeItemImpl):
     pass
 
 
-class Connection(QtWidgets.QGraphicsPathItem):
-    def __init__(self, parent, node1, port1, node2, port2):
-        super().__init__(parent)
-        self.node1 = node1
-        self.port1 = port1
-        self.node2 = node2
-        self.port2 = port2
+class ConnectionItemImpl(QtWidgets.QGraphicsPathItem):
+    def __init__(self, connection=None, view=None, **kwargs):
+        super().__init__(**kwargs)
+
+        self._view = view
+        self.connection = connection
 
         self.update()
 
     def update(self):
-        pos1 = self.port1.mapToScene(self.port1.dot_pos)
-        pos2 = self.port2.mapToScene(self.port2.dot_pos)
+        node1_item = self._view.getNodeItem(
+            self.connection.source_node.id)
+        port1_item = node1_item.ports[self.connection.source_port]
+
+        node2_item = self._view.getNodeItem(
+            self.connection.dest_node.id)
+        port2_item = node2_item.ports[self.connection.dest_port]
+
+        pos1 = port1_item.mapToScene(port1_item.dot_pos)
+        pos2 = port2_item.mapToScene(port2_item.dot_pos)
+        cpos = QtCore.QPointF(min(100, abs(pos2.x() - pos1.x()) / 2), 0)
+
+        path = QtGui.QPainterPath()
+        path.moveTo(pos1)
+        path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
+        self.setPath(path)
+
+class ConnectionItem(ui_base.ProjectMixin, ConnectionItemImpl):
+    pass
+
+
+class DragConnection(QtWidgets.QGraphicsPathItem):
+    def __init__(self, port):
+        super().__init__()
+        self.port = port
+
+        self.end_pos = self.port.mapToScene(self.port.dot_pos)
+        self.update()
+
+    def setEndPos(self, pos):
+        self.end_pos = pos
+        self.update()
+
+    def update(self):
+        pos1 = self.port.mapToScene(self.port.dot_pos)
+        pos2 = self.end_pos
+
+        if self.port.port_direction == 'input':
+            pos1, pos2 = pos2, pos1
+
         cpos = QtCore.QPointF(min(100, abs(pos2.x() - pos1.x()) / 2), 0)
 
         path = QtGui.QPainterPath()
@@ -213,8 +248,9 @@ class Connection(QtWidgets.QGraphicsPathItem):
 
 
 class PipelineGraphSceneImpl(QtWidgets.QGraphicsScene):
-    def __init__(self, **kwargs):
+    def __init__(self, view=None, **kwargs):
         super().__init__(**kwargs)
+        self.view = view
 
 class PipelineGraphScene(ui_base.ProjectMixin, PipelineGraphSceneImpl):
     pass
@@ -224,29 +260,43 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
     def __init__(self, sheet, **kwargs):
         super().__init__(**kwargs)
 
-        self._scene = PipelineGraphScene(**self.context)
+        self._scene = PipelineGraphScene(view=self, **self.context)
         self.setScene(self._scene)
 
         self._sheet = sheet
 
+        self._drag_connection = None
+        self._drag_src_port = None
+        self._drag_dest_port = None
+
         self._nodes = []
+        self._node_map = {}
         for node in self._sheet.pipeline_graph_nodes:
             item = NodeItem(node=node, **self.context)
             self._scene.addItem(item)
             self._nodes.append(item)
+            self._node_map[node.id] = item
 
         self._pipeline_graph_nodes_listener = self._sheet.listeners.add(
             'pipeline_graph_nodes', self.onPipelineGraphNodesChange)
 
         self._connections = []
         for connection in self._sheet.pipeline_graph_connections:
-            self._connections.append(
-                self.createConnectionView(connection))
+            item = ConnectionItem(
+                connection=connection, view=self, **self.context)
+            self._scene.addItem(item)
+            self._connections.append(item)
+            self._node_map[connection.source_node.id].connections.add(item)
+            self._node_map[connection.dest_node.id].connections.add(item)
+
         self._pipeline_graph_connections_listener = self._sheet.listeners.add(
             'pipeline_graph_connections',
             self.onPipelineGraphConnectionsChange)
 
         self.setAcceptDrops(True)
+
+    def getNodeItem(self, node_id):
+        return self._node_map[node_id]
 
     def onPipelineGraphNodesChange(self, action, *args):
         if action == 'insert':
@@ -254,18 +304,119 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
             item = NodeItem(node=node, **self.context)
             self._scene.addItem(item)
             self._nodes.insert(idx, item)
+            self._node_map[node.id] = item
 
         elif action == 'delete':
             idx, node = args
             item = self._nodes[idx]
             self._scene.removeItem(item)
             del self._nodes[idx]
+            del self._node_map[node.id]
 
         else:  # pragma: no cover
             raise AssertionError("Unknown action %r" % action)
 
-    def onPipelineGraphConnectionsChange(self, *args):
-        print(args)
+    def onPipelineGraphConnectionsChange(self, action, *args):
+        if action == 'insert':
+            idx, connection = args
+            item = ConnectionItem(
+                connection=connection, view=self, **self.context)
+            self._scene.addItem(item)
+            self._connections.insert(idx, item)
+            self._node_map[connection.source_node.id].connections.add(item)
+            self._node_map[connection.dest_node.id].connections.add(item)
+
+        elif action == 'delete':
+            idx, connection = args
+            item = self._connections[idx]
+            self._scene.removeItem(item)
+            del self._connections[idx]
+            self._node_map[connection.source_node.id].connections.remove(item)
+            self._node_map[connection.dest_node.id].connections.remove(item)
+
+        else:  # pragma: no cover
+            raise AssertionError("Unknown action %r" % action)
+
+    def startConnectionDrag(self, port):
+        assert self._drag_connection is None
+        self._drag_connection = DragConnection(port)
+        self._drag_src_port = port
+        self._drag_dest_port = None
+        self._scene.addItem(self._drag_connection)
+
+    def mouseMoveEvent(self, evt):
+        if self._drag_connection is not None:
+            scene_pos = self.mapToScene(evt.pos())
+            snap_pos = scene_pos
+
+            src_port = self._drag_src_port
+            closest_port = None
+            closest_dist = None
+            for node_item in self._nodes:
+                for port_name, port_item in sorted(node_item.ports.items()):
+                    if port_item.port_type != src_port.port_type:
+                        continue
+                    if port_item.port_direction == src_port.port_direction:
+                        continue
+
+                    port_pos = port_item.mapToScene(port_item.dot_pos)
+                    dx = port_pos.x() - scene_pos.x()
+                    dy = port_pos.y() - scene_pos.y()
+                    dist = math.sqrt(dx*dx + dy*dy)
+                    if dist > 30:
+                        continue
+
+                    if closest_port is None or dist < closest_dist:
+                        closest_dist = dist
+                        closest_port = port_item
+
+            if closest_port is not None:
+                snap_pos = closest_port.mapToScene(closest_port.dot_pos)
+
+            self._drag_connection.setEndPos(snap_pos)
+
+            if closest_port is not self._drag_dest_port:
+                if self._drag_dest_port is not None:
+                    self._drag_dest_port.set_selected(False)
+                    self._drag_dest_port = None
+
+                if closest_port is not None:
+                    closest_port.set_selected(True)
+                    self._drag_dest_port = closest_port
+
+            evt.accept()
+            return
+
+        super().mouseMoveEvent(evt)
+
+    def mouseReleaseEvent(self, evt):
+        if self._drag_connection is not None:
+            self._scene.removeItem(self._drag_connection)
+            self._drag_connection = None
+
+            if self._drag_dest_port is not None:
+                self._drag_dest_port.set_selected(False)
+
+                if self._drag_src_port.port_direction != 'output':
+                    self._drag_src_port, self._drag_dest_port = self._drag_dest_port, self._drag_src_port
+
+                assert self._drag_src_port.port_direction == 'output'
+                assert self._drag_dest_port.port_direction == 'input'
+
+                self.send_command_async(
+                    self._sheet.id, 'AddPipelineGraphConnection',
+                    source_node_id=self._drag_src_port.node_id,
+                    source_port_name=self._drag_src_port.port_name,
+                    dest_node_id=self._drag_dest_port.node_id,
+                    dest_port_name=self._drag_dest_port.port_name)
+
+            self._drag_src_port = None
+            self._drag_dest_port = None
+
+            evt.accept()
+            return
+
+        super().mouseReleaseEvent(evt)
 
     def dragEnterEvent(self, evt):
         if 'application/x-noisicaa-pipeline-graph-node' in evt.mimeData().formats():

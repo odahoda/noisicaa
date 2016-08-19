@@ -155,6 +155,16 @@ class RootMixin(object):
             assert o.id not in self.__obj_map, (o.id, o)
             self.__obj_map[o.id] = o
 
+        for o in obj.walk_children():
+            for prop in o.list_properties():
+                if isinstance(prop, model_base.ObjectReferenceProperty):
+                    refid = prop.__get__(o, o.__class__)
+                    if refid is not None and isinstance(refid, tuple):
+                        assert refid[0] == 'unresolved reference'
+                        refid = refid[1]
+                        refobj = self.__obj_map[refid]
+                        prop.__set__(o, refobj)
+
     def remove_object(self, obj):
         for o in obj.walk_children():
             assert o.id is not None, o

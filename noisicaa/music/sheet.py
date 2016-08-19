@@ -219,9 +219,56 @@ class RemovePipelineGraphNode(commands.Command):
         else:
             raise ValueError("Node %s not found" % self.node_id)
 
+        delete_connections = set()
+        for cidx, connection in enumerate(
+                sheet.pipeline_graph_connections):
+            if connection.source_node is node:
+                delete_connections.add(cidx)
+            if connection.dest_node is node:
+                delete_connections.add(cidx)
+        for cidx in sorted(delete_connections, reverse=True):
+            del sheet.pipeline_graph_connections[cidx]
+
         del sheet.pipeline_graph_nodes[idx]
 
 commands.Command.register_command(RemovePipelineGraphNode)
+
+
+class AddPipelineGraphConnection(commands.Command):
+    source_node_id = core.Property(str)
+    source_port_name = core.Property(str)
+    dest_node_id = core.Property(str)
+    dest_port_name = core.Property(str)
+
+    def __init__(
+            self,
+            source_node_id=None, source_port_name=None,
+            dest_node_id=None, dest_port_name=None,
+            state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.source_node_id = source_node_id
+            self.source_port_name = source_port_name
+            self.dest_node_id = dest_node_id
+            self.dest_port_name = dest_port_name
+
+    def run(self, sheet):
+        assert isinstance(sheet, Sheet)
+
+        root = sheet.root
+
+        source_node = root.get_object(self.source_node_id)
+        assert source_node.is_child_of(sheet)
+        dest_node = root.get_object(self.dest_node_id)
+        assert dest_node.is_child_of(sheet)
+
+        connection = pipeline_graph.PipelineGraphConnection(
+            source_node=source_node, source_port=self.source_port_name,
+            dest_node=dest_node, dest_port=self.dest_port_name)
+        sheet.pipeline_graph_connections.append(connection)
+        return connection.id
+
+commands.Command.register_command(AddPipelineGraphConnection)
 
 
 class Sheet(model.Sheet, state.StateBase):

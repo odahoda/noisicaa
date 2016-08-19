@@ -8,7 +8,9 @@ from .model_base import (
     PropertyChange,
     PropertyValueChange,
     PropertyListChange,
-    PropertyListInsert, PropertyListDelete
+    PropertyListInsert, PropertyListDelete,
+
+    DeferredReference,
 )
 from .process_manager import (
     ProcessManager, ProcessImpl

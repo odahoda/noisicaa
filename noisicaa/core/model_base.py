@@ -273,6 +273,24 @@ class ObjectListProperty(ObjectPropertyBase):
         raise RuntimeError("ObjectListProperty cannot be assigned.")
 
 
+class DeferredReference(object):
+    def __init__(self, obj_id):
+        self._obj_id = obj_id
+        self._props = []
+
+    def add_reference(self, obj, prop):
+        assert isinstance(prop, ObjectReferenceProperty)
+        self._props.append((obj, prop))
+
+    def dereference(self, target):
+        assert isinstance(target, ObjectBase)
+        assert target.id == self._obj_id
+        for obj, prop in self._props:
+            logger.debug(
+                "Deferencing %s.%s = %s", obj.id, prop.name, target)
+            prop.__set__(obj, target)
+
+
 class ObjectReferenceProperty(PropertyBase):
     def __init__(self, allow_none=False):
         super().__init__()
@@ -282,8 +300,9 @@ class ObjectReferenceProperty(PropertyBase):
         if value is None:
             if not self.allow_none:
                 raise ValueError("None not allowed")
-        elif not isinstance(value, ObjectBase):
-            raise TypeError("Expected ObjectBase object")
+        elif not isinstance(value, (ObjectBase, DeferredReference)):
+            raise TypeError(
+                "Expected ObjectBase or DeferredReference object")
 
         super().__set__(instance, value)
 
