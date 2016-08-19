@@ -271,6 +271,28 @@ class AddPipelineGraphConnection(commands.Command):
 commands.Command.register_command(AddPipelineGraphConnection)
 
 
+class RemovePipelineGraphConnection(commands.Command):
+    connection_id = core.Property(str)
+
+    def __init__(self, connection_id=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.connection_id = connection_id
+
+    def run(self, sheet):
+        assert isinstance(sheet, Sheet)
+
+        for idx, connection in enumerate(sheet.pipeline_graph_connections):
+            if connection.id == self.connection_id:
+                break
+        else:
+            raise ValueError("Connection %s not found" % self.connection_id)
+
+        del sheet.pipeline_graph_connections[idx]
+
+commands.Command.register_command(RemovePipelineGraphConnection)
+
+
 class Sheet(model.Sheet, state.StateBase):
     def __init__(self, name=None, num_tracks=1, state=None):
         super().__init__(state)

@@ -216,6 +216,16 @@ class ConnectionItemImpl(QtWidgets.QGraphicsPathItem):
         path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
         self.setPath(path)
 
+    def setHighlighted(self, highlighted):
+        if highlighted:
+            effect = QtWidgets.QGraphicsDropShadowEffect()
+            effect.setBlurRadius(10)
+            effect.setOffset(0, 0)
+            effect.setColor(Qt.blue)
+            self.setGraphicsEffect(effect)
+        else:
+            self.setGraphicsEffect(None)
+
 class ConnectionItem(ui_base.ProjectMixin, ConnectionItemImpl):
     pass
 
@@ -268,6 +278,8 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
         self._drag_connection = None
         self._drag_src_port = None
         self._drag_dest_port = None
+
+        self._highlight_item = None
 
         self._nodes = []
         self._node_map = {}
@@ -333,6 +345,8 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
             del self._connections[idx]
             self._node_map[connection.source_node.id].connections.remove(item)
             self._node_map[connection.dest_node.id].connections.remove(item)
+            if self._highlight_item is item:
+                self._highlight_item = None
 
         else:  # pragma: no cover
             raise AssertionError("Unknown action %r" % action)
@@ -344,9 +358,22 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
         self._drag_dest_port = None
         self._scene.addItem(self._drag_connection)
 
+    def mousePressEvent(self, evt):
+        if (self._highlight_item is not None
+            and isinstance(self._highlight_item, ConnectionItem)
+            and evt.modifiers() == Qt.ShiftModifier):
+            self.send_command_async(
+                self._sheet.id, 'RemovePipelineGraphConnection',
+                connection_id=self._highlight_item.connection.id)
+            evt.accept()
+            return
+
+        super().mousePressEvent(evt)
+
     def mouseMoveEvent(self, evt):
+        scene_pos = self.mapToScene(evt.pos())
+
         if self._drag_connection is not None:
-            scene_pos = self.mapToScene(evt.pos())
             snap_pos = scene_pos
 
             src_port = self._drag_src_port
@@ -386,6 +413,24 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
 
             evt.accept()
             return
+
+        highlight_item = None
+        cursor_rect = QtCore.QRectF(
+            scene_pos - QtCore.QPointF(5, 5),
+            scene_pos + QtCore.QPointF(5, 5))
+        for item in self._scene.items(cursor_rect):
+            if isinstance(item, ConnectionItem):
+                highlight_item = item
+                break
+
+        if highlight_item is not self._highlight_item:
+            if self._highlight_item is not None:
+                self._highlight_item.setHighlighted(False)
+                self._highlight_item = None
+
+            if highlight_item is not None:
+                highlight_item.setHighlighted(True)
+                self._highlight_item = highlight_item
 
         super().mouseMoveEvent(evt)
 
