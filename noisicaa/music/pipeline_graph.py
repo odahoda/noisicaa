@@ -47,13 +47,16 @@ class PipelineGraphNode(model.PipelineGraphNode, state.StateBase):
 
     @property
     def pipeline_node_id(self):
-        raise NotImplementedError
+        return self.id
 
     def add_to_pipeline(self):
-        pass
+        self.sheet.handle_pipeline_mutation(
+            mutations.AddNode(
+                'passthru', self.pipeline_node_id, self.name))
 
     def remove_from_pipeline(self):
-        pass
+        self.sheet.handle_pipeline_mutation(
+            mutations.RemoveNode(self.pipeline_node_id))
 
 state.StateBase.register_class(PipelineGraphNode)
 
@@ -186,6 +189,9 @@ class PipelineGraphConnection(
                 self.dest_node.pipeline_node_id, self.dest_port))
 
     def remove_from_pipeline(self):
-        pass
+        self.sheet.handle_pipeline_mutation(
+            mutations.DisconnectPorts(
+                self.source_node.pipeline_node_id, self.source_port,
+                self.dest_node.pipeline_node_id, self.dest_port))
 
 state.StateBase.register_class(PipelineGraphConnection)

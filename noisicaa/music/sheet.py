@@ -78,9 +78,7 @@ class RemoveTrack(commands.Command):
         assert track.is_child_of(sheet)
         parent_group = track.parent
 
-        track.remove_from_pipeline()
-
-        del parent_group.tracks[track.index]
+        sheet.remove_track(parent_group, track)
 
 commands.Command.register_command(RemoveTrack)
 
@@ -208,23 +206,11 @@ class RemovePipelineGraphNode(commands.Command):
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
 
-        for idx, node in enumerate(sheet.pipeline_graph_nodes):
-            if node.id == self.node_id:
-                break
-        else:
-            raise ValueError("Node %s not found" % self.node_id)
+        root = sheet.root
+        node = root.get_object(self.node_id)
+        assert node.is_child_of(sheet)
 
-        delete_connections = set()
-        for cidx, connection in enumerate(
-                sheet.pipeline_graph_connections):
-            if connection.source_node is node:
-                delete_connections.add(cidx)
-            if connection.dest_node is node:
-                delete_connections.add(cidx)
-        for cidx in sorted(delete_connections, reverse=True):
-            del sheet.pipeline_graph_connections[cidx]
-
-        del sheet.pipeline_graph_nodes[idx]
+        sheet.remove_pipeline_graph_node(node)
 
 commands.Command.register_command(RemovePipelineGraphNode)
 
@@ -351,6 +337,10 @@ class Sheet(model.Sheet, state.StateBase):
         parent_group.tracks.insert(insert_index, track)
         track.add_pipeline_nodes()
 
+    def remove_track(self, parent_group, track):
+        track.remove_pipeline_nodes()
+        del parent_group.tracks[track.index]
+
     def handle_pipeline_mutation(self, mutation):
         self.listeners.call('pipeline_mutations', mutation)
 
@@ -377,12 +367,27 @@ class Sheet(model.Sheet, state.StateBase):
         node.add_to_pipeline()
 
     def remove_pipeline_graph_node(self, node):
+        delete_connections = set()
+        for cidx, connection in enumerate(
+                self.pipeline_graph_connections):
+            if connection.source_node is node:
+                delete_connections.add(cidx)
+            if connection.dest_node is node:
+                delete_connections.add(cidx)
+        for cidx in sorted(delete_connections, reverse=True):
+            self.remove_pipeline_graph_connection(
+                self.pipeline_graph_connections[cidx])
+
         node.remove_from_pipeline()
         del self.pipeline_graph_nodes[node.index]
 
     def add_pipeline_graph_connection(self, connection):
         self.pipeline_graph_connections.append(connection)
         connection.add_to_pipeline()
+
+    def remove_pipeline_graph_connection(self, connection):
+        connection.remove_from_pipeline()
+        del self.pipeline_graph_connections[connection.index]
 
     def add_to_pipeline(self):
         for node in self.pipeline_graph_nodes:

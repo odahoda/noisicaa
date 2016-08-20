@@ -115,9 +115,10 @@ class QCloseIconItem(QtWidgets.QGraphicsObject):
 
 
 class NodeItemImpl(QtWidgets.QGraphicsRectItem):
-    def __init__(self, node, parent=None, **kwargs):
-        super().__init__(parent=parent, **kwargs)
+    def __init__(self, node, view, **kwargs):
+        super().__init__(**kwargs)
         self._node = node
+        self._view = view
 
         self._listeners = []
 
@@ -169,23 +170,20 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
             self.ports[port_name] = port
 
         self.setPos(self._node.graph_pos.x, self._node.graph_pos.y)
-        self._listeners.append(self._node.listeners.add(
-            'graph_pos', self.onGraphPosChanged))
+        self._graph_pos_listener = self._node.listeners.add(
+            'graph_pos', self.onGraphPosChanged)
 
     def cleanup(self):
-        for listener in self._listeners:
-            listener.remove()
-        self._listeners.clear()
+        if self._graph_pos_listener is not None:
+            self._graph_pos_listener.remove()
+            self._graph_pos_listener = None
 
     def setHighlighted(self, highlighted):
+        logger.info("%s setHighlighted(%s)", self, highlighted)
         if highlighted:
-            effect = QtWidgets.QGraphicsDropShadowEffect()
-            effect.setBlurRadius(10)
-            effect.setOffset(0, 0)
-            effect.setColor(Qt.blue)
-            self.setGraphicsEffect(effect)
+            self.setBrush(QtGui.QColor(240, 240, 255))
         else:
-            self.setGraphicsEffect(None)
+            self.setBrush(Qt.white)
 
     def onGraphPosChanged(self, *args):
         self.setPos(self._node.graph_pos.x, self._node.graph_pos.y)
@@ -252,7 +250,7 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         super().contextMenuEvent(evt)
 
     def onRemove(self):
-        self.send_command_async(
+        self._view.send_command_async(
             self._node.parent.id, 'RemovePipelineGraphNode',
             node_id=self._node.id)
 
@@ -356,7 +354,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
         self._nodes = []
         self._node_map = {}
         for node in self._sheet.pipeline_graph_nodes:
-            item = NodeItem(node=node, **self.context)
+            item = NodeItem(node=node, view=self, **self.context)
             self._scene.addItem(item)
             self._nodes.append(item)
             self._node_map[node.id] = item
@@ -385,7 +383,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
     def onPipelineGraphNodesChange(self, action, *args):
         if action == 'insert':
             idx, node = args
-            item = NodeItem(node=node, **self.context)
+            item = NodeItem(node=node, view=self, **self.context)
             self._scene.addItem(item)
             self._nodes.insert(idx, item)
             self._node_map[node.id] = item
@@ -393,6 +391,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
         elif action == 'delete':
             idx, node = args
             item = self._nodes[idx]
+            assert not item.connections, item.connections
             item.cleanup()
             self._scene.removeItem(item)
             del self._nodes[idx]

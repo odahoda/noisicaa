@@ -31,12 +31,6 @@ class Instrument(model.Instrument, state.StateBase):
     def pipeline_node_id(self):
         return '%s-instr' % self.id
 
-    # def add_to_pipeline(self):
-    #     raise NotImplementedError
-
-    # def remove_from_pipeline(self):
-    #     raise NotImplementedError
-
 state.StateBase.register_class(Instrument)
 
 

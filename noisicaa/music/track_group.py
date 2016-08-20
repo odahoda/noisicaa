@@ -18,6 +18,10 @@ class TrackGroup(model.TrackGroup, track.Track):
     def __init__(self, state=None, num_measures=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
+    @property
+    def default_mixer_name(self):
+        return "Group Mixer"
+
     def add_pipeline_nodes(self):
         super().add_pipeline_nodes()
         for track in self.tracks:
@@ -49,7 +53,7 @@ class MasterTrackGroup(model.MasterTrackGroup, TrackGroup):
 
     @property
     def default_mixer_name(self):
-        return "Group Mixer"
+        return "Master Mixer"
 
     @property
     def mixer_name(self):
