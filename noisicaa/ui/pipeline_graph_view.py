@@ -25,6 +25,8 @@ class Port(QtWidgets.QGraphicsRectItem):
         self.port_direction = port_direction
         self.port_type = port_type
 
+        self.setAcceptHoverEvents(True)
+
         self.setRect(0, 0, 45, 15)
         self.setBrush(Qt.white)
 
@@ -57,14 +59,19 @@ class Port(QtWidgets.QGraphicsRectItem):
             sym.setText('?')
         sym.setPos(sym_pos)
 
-        self.selected = False
-
-    def set_selected(self, selected):
-        if selected:
-            self.setBrush(Qt.red)
+    def setHighlighted(self, highlighted):
+        if highlighted:
+            self.setBrush(QtGui.QColor(200, 200, 255))
         else:
             self.setBrush(Qt.white)
-        self.selected = selected
+
+    def hoverEnterEvent(self, evt):
+        super().hoverEnterEvent(evt)
+        self.setHighlighted(True)
+
+    def hoverLeaveEvent(self, evt):
+        super().hoverLeaveEvent(evt)
+        self.setHighlighted(False)
 
     def mousePressEvent(self, evt):
         if evt.buttons() & Qt.LeftButton:
@@ -99,7 +106,7 @@ class QCloseIconItem(QtWidgets.QGraphicsObject):
 
     def hoverLeaveEvent(self, evt):
         super().hoverLeaveEvent(evt)
-        self.setOpacity(0.2)
+        self.setOpacity(0.4)
 
     def mousePressEvent(self, evt):
         if evt.button() == Qt.LeftButton:
@@ -165,6 +172,16 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         for listener in self._listeners:
             listener.remove()
         self._listeners.clear()
+
+    def setHighlighted(self, highlighted):
+        if highlighted:
+            effect = QtWidgets.QGraphicsDropShadowEffect()
+            effect.setBlurRadius(10)
+            effect.setOffset(0, 0)
+            effect.setColor(Qt.blue)
+            self.setGraphicsEffect(effect)
+        else:
+            self.setGraphicsEffect(None)
 
     def onGraphPosChanged(self, *args):
         self.setPos(self._node.graph_pos.x, self._node.graph_pos.y)
@@ -362,6 +379,8 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
             self._scene.removeItem(item)
             del self._nodes[idx]
             del self._node_map[node.id]
+            if self._highlight_item is item:
+                self._highlight_item = None
 
         else:  # pragma: no cover
             raise AssertionError("Unknown action %r" % action)
@@ -442,11 +461,11 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
 
             if closest_port is not self._drag_dest_port:
                 if self._drag_dest_port is not None:
-                    self._drag_dest_port.set_selected(False)
+                    self._drag_dest_port.setHighlighted(False)
                     self._drag_dest_port = None
 
                 if closest_port is not None:
-                    closest_port.set_selected(True)
+                    closest_port.setHighlighted(True)
                     self._drag_dest_port = closest_port
 
             evt.accept()
@@ -457,7 +476,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
             scene_pos - QtCore.QPointF(5, 5),
             scene_pos + QtCore.QPointF(5, 5))
         for item in self._scene.items(cursor_rect):
-            if isinstance(item, ConnectionItem):
+            if isinstance(item, (NodeItem, ConnectionItem)):
                 highlight_item = item
                 break
 
@@ -478,7 +497,8 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
             self._drag_connection = None
 
             if self._drag_dest_port is not None:
-                self._drag_dest_port.set_selected(False)
+                self._drag_src_port.setHighlighted(False)
+                self._drag_dest_port.setHighlighted(False)
 
                 if self._drag_src_port.port_direction != 'output':
                     self._drag_src_port, self._drag_dest_port = self._drag_dest_port, self._drag_src_port
