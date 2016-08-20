@@ -92,10 +92,4 @@ class SheetPropertyTrack(model.SheetPropertyTrack, Track):
     def get_num_samples(self, sample_rate):
         return sum((m.get_num_samples(sample_rate) for m in self.measures), 0)
 
-    def add_to_pipeline(self):
-        pass
-
-    def remove_from_pipeline(self):
-        pass
-
 state.StateBase.register_class(SheetPropertyTrack)

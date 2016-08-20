@@ -52,8 +52,6 @@ class AddSheet(commands.Command):
         s = sheet.Sheet(name)
         project.add_sheet(s)
 
-        s.add_to_pipeline()
-
 commands.Command.register_command(AddSheet)
 
 

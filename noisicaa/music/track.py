@@ -140,38 +140,24 @@ class Track(model.Track, state.StateBase):
     def relative_position_to_parent_mixer(self):
         return misc.Pos2F(-200, self.index * 100)
 
+    @property
+    def default_mixer_name(self):
+        return "Track Mixer"
+
     def add_pipeline_nodes(self):
         parent_mixer_node = self.parent_mixer_node
 
         mixer_node = pipeline_graph.TrackMixerPipelineGraphNode(
-            name="Track Mixer",
+            name=self.default_mixer_name,
             graph_pos=(
                 parent_mixer_node.graph_pos
                 + self.relative_position_to_parent_mixer),
             track=self)
-        self.sheet.pipeline_graph_nodes.append(mixer_node)
+        self.sheet.add_pipeline_graph_node(mixer_node)
 
         conn = pipeline_graph.PipelineGraphConnection(
             mixer_node, 'out', parent_mixer_node, 'in')
-        self.sheet.pipeline_graph_connections.append(conn)
+        self.sheet.add_pipeline_graph_connection(conn)
 
-    def add_to_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
-            mutations.AddNode(
-                'passthru', self.mixer_name, 'track-mixer'))
-        self.sheet.handle_pipeline_mutation(
-            mutations.SetPortProperty(
-                self.mixer_name, 'out',
-                muted=self.muted, volume=self.volume))
-        self.sheet.handle_pipeline_mutation(
-            mutations.ConnectPorts(
-                self.mixer_name, 'out',
-                self.parent_mixer_name, 'in'))
-
-    def remove_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
-            mutations.DisconnectPorts(
-                self.mixer_name, 'out',
-                self.parent_mixer_name, 'in'))
-        self.sheet.handle_pipeline_mutation(
-            mutations.RemoveNode(self.mixer_name))
+    def remove_pipeline_nodes(self):
+        self.sheet.remove_pipeline_graph_node(self.mixer_node)

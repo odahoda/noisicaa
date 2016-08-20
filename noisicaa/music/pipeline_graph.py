@@ -39,11 +39,21 @@ class PipelineGraphNode(model.PipelineGraphNode, state.StateBase):
 
     @property
     def sheet(self):
-        return self.sheet
+        return self.parent
 
     @property
     def project(self):
-        return self.sheet.parent
+        return self.sheet.project
+
+    @property
+    def pipeline_node_id(self):
+        raise NotImplementedError
+
+    def add_to_pipeline(self):
+        pass
+
+    def remove_from_pipeline(self):
+        pass
 
 state.StateBase.register_class(PipelineGraphNode)
 
@@ -52,6 +62,18 @@ class AudioOutPipelineGraphNode(
         model.AudioOutPipelineGraphNode, PipelineGraphNode):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
+
+    @property
+    def pipeline_node_id(self):
+        return 'sink'
+
+    def add_to_pipeline(self):
+        # Nothing to do, predefined node of the pipeline.
+        pass
+
+    def remove_from_pipeline(self):
+        # Nothing to do, predefined node of the pipeline.
+        pass
 
 state.StateBase.register_class(AudioOutPipelineGraphNode)
 
@@ -64,6 +86,23 @@ class TrackMixerPipelineGraphNode(
         if state is None:
             self.track = track
 
+    @property
+    def pipeline_node_id(self):
+        return self.track.mixer_name
+
+    def add_to_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.AddNode(
+                'passthru', self.pipeline_node_id, self.name))
+        self.sheet.handle_pipeline_mutation(
+            mutations.SetPortProperty(
+                self.pipeline_node_id, 'out',
+                muted=self.track.muted, volume=self.track.volume))
+
+    def remove_from_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.RemoveNode(self.pipeline_node_id))
+
 state.StateBase.register_class(TrackMixerPipelineGraphNode)
 
 
@@ -75,6 +114,20 @@ class EventSourcePipelineGraphNode(
         if state is None:
             self.track = track
 
+    @property
+    def pipeline_node_id(self):
+        return self.track.event_source_name
+
+    def add_to_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.AddNode(
+                'track_event_source', self.pipeline_node_id, self.name,
+                queue_name='track:%s' % self.track.id))
+
+    def remove_from_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.RemoveNode(self.pipeline_node_id))
+
 state.StateBase.register_class(EventSourcePipelineGraphNode)
 
 
@@ -85,6 +138,24 @@ class InstrumentPipelineGraphNode(
 
         if state is None:
             self.track = track
+
+    @property
+    def pipeline_node_id(self):
+        return self.track.instr_name
+
+    def add_to_pipeline(self):
+        instr = self.track.instrument
+
+        self.sheet.handle_pipeline_mutation(
+            mutations.AddNode(
+                'fluidsynth', self.pipeline_node_id, self.name,
+                soundfont_path=instr.path,
+                bank=instr.bank,
+                preset=instr.preset))
+
+    def remove_from_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.RemoveNode(self.pipeline_node_id))
 
 state.StateBase.register_class(InstrumentPipelineGraphNode)
 
@@ -102,10 +173,19 @@ class PipelineGraphConnection(
 
     @property
     def sheet(self):
-        return self.sheet
+        return self.parent
 
     @property
     def project(self):
-        return self.sheet.parent
+        return self.sheet.project
+
+    def add_to_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.ConnectPorts(
+                self.source_node.pipeline_node_id, self.source_port,
+                self.dest_node.pipeline_node_id, self.dest_port))
+
+    def remove_from_pipeline(self):
+        pass
 
 state.StateBase.register_class(PipelineGraphConnection)

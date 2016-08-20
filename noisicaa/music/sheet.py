@@ -191,7 +191,7 @@ class AddPipelineGraphNode(commands.Command):
         node = pipeline_graph.PipelineGraphNode(
             name=self.name,
             graph_pos=self.graph_pos)
-        sheet.pipeline_graph_nodes.append(node)
+        sheet.add_pipeline_graph_node(node)
         return node.id
 
 commands.Command.register_command(AddPipelineGraphNode)
@@ -260,7 +260,7 @@ class AddPipelineGraphConnection(commands.Command):
         connection = pipeline_graph.PipelineGraphConnection(
             source_node=source_node, source_port=self.source_port_name,
             dest_node=dest_node, dest_port=self.dest_port_name)
-        sheet.pipeline_graph_connections.append(connection)
+        sheet.add_pipeline_graph_connection(connection)
         return connection.id
 
 commands.Command.register_command(AddPipelineGraphConnection)
@@ -350,7 +350,6 @@ class Sheet(model.Sheet, state.StateBase):
     def add_track(self, parent_group, insert_index, track):
         parent_group.tracks.insert(insert_index, track)
         track.add_pipeline_nodes()
-        track.add_to_pipeline()
 
     def handle_pipeline_mutation(self, mutation):
         self.listeners.call('pipeline_mutations', mutation)
@@ -366,14 +365,36 @@ class Sheet(model.Sheet, state.StateBase):
     def add_pipeline_nodes(self):
         audio_out_node = pipeline_graph.AudioOutPipelineGraphNode(
             name="Audio Out", graph_pos=misc.Pos2F(200, 0))
-        self.pipeline_graph_nodes.append(audio_out_node)
+        self.add_pipeline_graph_node(audio_out_node)
         self.master_group.add_pipeline_nodes()
 
+    def remove_pipeline_nodes(self):
+        self.master_group.remove_pipeline_nodes()
+        self.remove_pipeline_graph_node(self.audio_out_node)
+
+    def add_pipeline_graph_node(self, node):
+        self.pipeline_graph_nodes.append(node)
+        node.add_to_pipeline()
+
+    def remove_pipeline_graph_node(self, node):
+        node.remove_from_pipeline()
+        del self.pipeline_graph_nodes[node.index]
+
+    def add_pipeline_graph_connection(self, connection):
+        self.pipeline_graph_connections.append(connection)
+        connection.add_to_pipeline()
+
     def add_to_pipeline(self):
-        self.master_group.add_to_pipeline()
+        for node in self.pipeline_graph_nodes:
+            node.add_to_pipeline()
+        for connection in self.pipeline_graph_connections:
+            connection.add_to_pipeline()
 
     def remove_from_pipeline(self):
-        self.master_group.remove_from_pipeline()
+        for connection in self.pipeline_graph_connections:
+            connection.remove_from_pipeline()
+        for node in self.pipeline_graph_nodes:
+            node.remove_from_pipeline()
 
 
 state.StateBase.register_class(Sheet)

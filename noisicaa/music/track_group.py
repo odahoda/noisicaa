@@ -23,15 +23,10 @@ class TrackGroup(model.TrackGroup, track.Track):
         for track in self.tracks:
             track.add_pipeline_nodes()
 
-    def add_to_pipeline(self):
-        super().add_to_pipeline()
+    def remove_pipeline_nodes(self):
         for track in self.tracks:
-            track.add_to_pipeline()
-
-    def remove_from_pipeline(self):
-        for track in self.tracks:
-            track.remove_from_pipeline()
-        super().remove_from_pipeline()
+            track.remove_pipeline_nodes()
+        super().remove_pipeline_nodes()
 
 state.StateBase.register_class(TrackGroup)
 
@@ -51,6 +46,10 @@ class MasterTrackGroup(model.MasterTrackGroup, TrackGroup):
     @property
     def relative_position_to_parent_mixer(self):
         return misc.Pos2F(-200, 0)
+
+    @property
+    def default_mixer_name(self):
+        return "Group Mixer"
 
     @property
     def mixer_name(self):

@@ -375,41 +375,25 @@ class ScoreTrack(model.ScoreTrack, Track):
     def event_source_name(self):
         return '%s-events' % self.id
 
-    def add_event_source_to_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
-            mutations.AddNode(
-                'track_event_source', self.event_source_name, 'events',
-                queue_name='track:%s' % self.id))
+    @property
+    def event_source_node(self):
+        for node in self.sheet.pipeline_graph_nodes:
+            if isinstance(node, pipeline_graph.EventSourcePipelineGraphNode) and node.track is self:
+                return node
 
-    def remove_event_source_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
-            mutations.RemoveNode(self.event_source_name))
+        raise ValueError("No event source node found.")
 
     @property
     def instr_name(self):
         return self.instrument.pipeline_node_id
 
-    def add_instrument_to_pipeline(self):
-        self.instrument.add_to_pipeline()
+    @property
+    def instrument_node(self):
+        for node in self.sheet.pipeline_graph_nodes:
+            if isinstance(node, pipeline_graph.InstrumentPipelineGraphNode) and node.track is self:
+                return node
 
-        self.sheet.handle_pipeline_mutation(
-            mutations.ConnectPorts(
-                self.instr_name, 'out', self.mixer_name, 'in'))
-
-        self.sheet.handle_pipeline_mutation(
-            mutations.ConnectPorts(
-                self.event_source_name, 'out', self.instr_name, 'in'))
-
-    def remove_instrument_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
-            mutations.DisconnectPorts(
-                self.instr_name, 'out', self.mixer_name, 'in'))
-
-        self.sheet.handle_pipeline_mutation(
-            mutations.DisconnectPorts(
-                self.event_source_name, 'out', self.instr_name, 'in'))
-
-        self.instrument.remove_from_pipeline()
+        raise ValueError("No instrument node found.")
 
     def add_pipeline_nodes(self):
         super().add_pipeline_nodes()
@@ -420,32 +404,25 @@ class ScoreTrack(model.ScoreTrack, Track):
             name="Track Instrument",
             graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
-        self.sheet.pipeline_graph_nodes.append(instrument_node)
+        self.sheet.add_pipeline_graph_node(instrument_node)
 
         conn = pipeline_graph.PipelineGraphConnection(
             instrument_node, 'out', self.mixer_node, 'in')
-        self.sheet.pipeline_graph_connections.append(conn)
+        self.sheet.add_pipeline_graph_connection(conn)
 
         event_source_node = pipeline_graph.EventSourcePipelineGraphNode(
             name="Track Events",
             graph_pos=instrument_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
-        self.sheet.pipeline_graph_nodes.append(event_source_node)
+        self.sheet.add_pipeline_graph_node(event_source_node)
 
         conn = pipeline_graph.PipelineGraphConnection(
             event_source_node, 'out', instrument_node, 'in')
-        self.sheet.pipeline_graph_connections.append(conn)
+        self.sheet.add_pipeline_graph_connection(conn)
 
-    def add_to_pipeline(self):
-        super().add_to_pipeline()
-        self.add_event_source_to_pipeline()
-        if self.instrument is not None:
-            self.add_instrument_to_pipeline()
-
-    def remove_from_pipeline(self):
-        if self.instrument is not None:
-            self.remove_instrument_from_pipeline()
-        self.remove_event_source_from_pipeline()
-        super().remove_from_pipeline()
+    def remove_pipeline_nodes(self):
+        self.sheet.remove_pipeline_graph_node(self.event_source_node)
+        self.sheet.remove_pipeline_graph_node(self.instrument_node)
+        super().remove_pipeline_nodes()
 
 state.StateBase.register_class(ScoreTrack)
