@@ -21,6 +21,7 @@ from . import state
 from . import commands
 from . import instruments
 from . import sheet
+from . import misc
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,9 @@ class JSONEncoder(json.JSONEncoder):
         if isinstance(obj, TimeSignature):
             return {'__type__': 'TimeSignature',
                     'value': [obj.upper, obj.lower]}
+        if isinstance(obj, misc.Pos2F):
+            return {'__type__': 'Pos2F',
+                    'value': [obj.x, obj.y]}
         return super().default(obj)
 
 
@@ -180,6 +184,8 @@ class JSONDecoder(json.JSONDecoder):
             return KeySignature(*obj['value'])
         if objtype == 'TimeSignature':
             return TimeSignature(*obj['value'])
+        if objtype == 'Pos2F':
+            return misc.Pos2F(*obj['value'])
         return obj
 
 

@@ -12,6 +12,7 @@ from . import score_track
 from . import track_group
 from . import sheet_property_track
 from . import pipeline_graph
+from . import misc
 
 logger = logging.getLogger(__name__)
 
@@ -177,25 +178,20 @@ commands.Command.register_command(RemoveMeasure)
 
 class AddPipelineGraphNode(commands.Command):
     name = core.Property(str)
-    graph_pos_x = core.Property(int)
-    graph_pos_y = core.Property(int)
+    graph_pos = core.Property(misc.Pos2F)
 
-    def __init__(
-            self, name=None, graph_pos_x=None, graph_pos_y=None,
-            state=None):
+    def __init__(self, name=None, graph_pos=None, state=None):
         super().__init__(state=state)
         if state is None:
             self.name = name
-            self.graph_pos_x = graph_pos_x
-            self.graph_pos_y = graph_pos_y
+            self.graph_pos = graph_pos
 
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
 
         node = pipeline_graph.PipelineGraphNode(
             name=self.name,
-            graph_pos_x=self.graph_pos_x,
-            graph_pos_y=self.graph_pos_y)
+            graph_pos=self.graph_pos)
         sheet.pipeline_graph_nodes.append(node)
         return node.id
 

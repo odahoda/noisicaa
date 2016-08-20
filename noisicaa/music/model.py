@@ -8,6 +8,7 @@ from . import time
 from . import clef
 from . import key_signature
 from . import time_signature
+from . import misc
 
 
 class Instrument(core.ObjectBase):
@@ -139,8 +140,7 @@ class SheetPropertyTrack(Track):
 
 class PipelineGraphNode(core.ObjectBase):
     name = core.Property(str)
-    graph_pos_x = core.Property(int)
-    graph_pos_y = core.Property(int)
+    graph_pos = core.Property(misc.Pos2F)
 
 
 class PipelineGraphConnection(core.ObjectBase):

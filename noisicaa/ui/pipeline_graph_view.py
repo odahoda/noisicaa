@@ -157,11 +157,9 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
             port.setPos(x, y)
             self.ports[port_name] = port
 
-        self.setPos(self._node.graph_pos_x, self._node.graph_pos_y)
+        self.setPos(self._node.graph_pos.x, self._node.graph_pos.y)
         self._listeners.append(self._node.listeners.add(
-            'graph_pos_x', self.onGraphPosChanged))
-        self._listeners.append(self._node.listeners.add(
-            'graph_pos_y', self.onGraphPosChanged))
+            'graph_pos', self.onGraphPosChanged))
 
     def cleanup(self):
         for listener in self._listeners:
@@ -169,7 +167,7 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         self._listeners.clear()
 
     def onGraphPosChanged(self, *args):
-        self.setPos(self._node.graph_pos_x, self._node.graph_pos_y)
+        self.setPos(self._node.graph_pos.x, self._node.graph_pos.y)
         for connection in self.connections:
             connection.update()
 
@@ -201,8 +199,7 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         if self._moving:
             self.send_command_async(
                 self._node.id, 'SetPipelineGraphNodePos',
-                graph_pos_x=int(self.pos().x()),
-                graph_pos_y=int(self.pos().y()))
+                graph_pos=music.Pos2F(self.pos().x(), self.pos().y()))
 
             self.ungrabMouse()
             self._moving = False
@@ -527,8 +524,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
                 self.send_command_async(
                     self._sheet.id, 'AddPipelineGraphNode',
                     name=node_name,
-                    graph_pos_x=int(drop_pos.x()),
-                    graph_pos_y=int(drop_pos.y()))
+                    graph_pos=music.Pos2F(drop_pos.x(), drop_pos.y()))
 
             evt.acceptProposedAction()
 
