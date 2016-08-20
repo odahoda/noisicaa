@@ -50,7 +50,7 @@ class AddSheet(commands.Command):
         if name in [s.name for s in project.sheets]:
             raise ValueError("Sheet %s already exists" % name)
         s = sheet.Sheet(name)
-        project.sheets.append(s)
+        project.add_sheet(s)
 
         s.add_to_pipeline()
 
@@ -207,11 +207,15 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             cmd, obj_id, len(cmd.log.ops))
         return result
 
+    def add_sheet(self, sheet):
+        self.sheets.append(sheet)
+        sheet.add_pipeline_nodes()
+
     @classmethod
     def make_demo(cls):
         project = cls()
         s = sheet.Sheet(name="Demo Sheet", num_tracks=0)
-        project.sheets.append(s)
+        project.add_sheet(s)
 
         while len(s.property_track.measures) < 5:
             s.property_track.append_measure()
@@ -222,14 +226,16 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
         instr1 = instruments.SoundFontInstrument(
             name="Flute",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=73)
-        track1 = ScoreTrack(name="Track 1", instrument=instr1, num_measures=5)
-        s.master_group.tracks.append(track1)
+        track1 = ScoreTrack(
+            name="Track 1", instrument=instr1, num_measures=5)
+        s.add_track(s.master_group, 0, track1)
 
         instr2 = instruments.SoundFontInstrument(
             name="Yamaha Grand Piano",
             path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=0)
-        track2 = ScoreTrack(name="Track 2", instrument=instr2, num_measures=5)
-        s.master_group.tracks.append(track2)
+        track2 = ScoreTrack(
+            name="Track 2", instrument=instr2, num_measures=5)
+        s.add_track(s.master_group, 1, track2)
 
         track1.measures[0].notes.append(
             Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))

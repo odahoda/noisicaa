@@ -17,6 +17,7 @@ from . import mutations
 from . import commands
 from . import player
 from . import state
+from . import score_track
 
 logger = logging.getLogger(__name__)
 
@@ -193,10 +194,17 @@ class ProjectProcessMixin(object):
         for mutation in self.add_object_mutations(self.project):
             await self.publish_mutation(mutation)
 
+    def _create_blank_project(self, project_cls):
+        project = project_cls()
+        s = sheet.Sheet(name='Sheet 1', num_tracks=0)
+        project.add_sheet(s)
+        t = score_track.ScoreTrack(name="Track 1")
+        s.add_track(s.master_group, 0, t)
+        return project
+
     async def handle_create(self, path):
         assert self.project is None
-        self.project = project.Project()
-        self.project.sheets.append(sheet.Sheet(name='Sheet 1'))
+        self.project = self._create_blank_project(project.Project)
         self.project.create(path)
         await self.send_initial_mutations()
         self.project.listeners.add(
@@ -205,8 +213,7 @@ class ProjectProcessMixin(object):
 
     async def handle_create_inmemory(self):
         assert self.project is None
-        self.project = project.BaseProject()
-        self.project.sheets.append(sheet.Sheet(name='Sheet 1'))
+        self.project = self._create_blank_project(project.BaseProject)
         await self.send_initial_mutations()
         self.project.listeners.add(
             'model_changes', self.handle_model_change)

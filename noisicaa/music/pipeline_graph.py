@@ -30,7 +30,7 @@ commands.Command.register_command(SetPipelineGraphNodePos)
 
 
 class PipelineGraphNode(model.PipelineGraphNode, state.StateBase):
-    def __init__(self, name=None, graph_pos=None, state=None):
+    def __init__(self, name=None, graph_pos=misc.Pos2F(0, 0), state=None):
         super().__init__(state)
 
         if state is None:
@@ -46,6 +46,47 @@ class PipelineGraphNode(model.PipelineGraphNode, state.StateBase):
         return self.sheet.parent
 
 state.StateBase.register_class(PipelineGraphNode)
+
+
+class AudioOutPipelineGraphNode(
+        model.AudioOutPipelineGraphNode, PipelineGraphNode):
+    def __init__(self, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+state.StateBase.register_class(AudioOutPipelineGraphNode)
+
+
+class TrackMixerPipelineGraphNode(
+        model.TrackMixerPipelineGraphNode, PipelineGraphNode):
+    def __init__(self, track=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            self.track = track
+
+state.StateBase.register_class(TrackMixerPipelineGraphNode)
+
+
+class EventSourcePipelineGraphNode(
+        model.EventSourcePipelineGraphNode, PipelineGraphNode):
+    def __init__(self, track=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            self.track = track
+
+state.StateBase.register_class(EventSourcePipelineGraphNode)
+
+
+class InstrumentPipelineGraphNode(
+        model.InstrumentPipelineGraphNode, PipelineGraphNode):
+    def __init__(self, track=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            self.track = track
+
+state.StateBase.register_class(InstrumentPipelineGraphNode)
 
 
 class PipelineGraphConnection(

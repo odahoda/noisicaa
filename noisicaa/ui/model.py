@@ -30,6 +30,10 @@ class MasterTrackGroup(model.MasterTrackGroup, project_client.ObjectProxy): pass
 class SheetPropertyMeasure(model.SheetPropertyMeasure, project_client.ObjectProxy): pass
 class SheetPropertyTrack(model.SheetPropertyTrack, project_client.ObjectProxy): pass
 class PipelineGraphNode(model.PipelineGraphNode, project_client.ObjectProxy): pass
+class AudioOutPipelineGraphNode(model.AudioOutPipelineGraphNode, project_client.ObjectProxy): pass
+class TrackMixerPipelineGraphNode(model.TrackMixerPipelineGraphNode, project_client.ObjectProxy): pass
+class EventSourcePipelineGraphNode(model.EventSourcePipelineGraphNode, project_client.ObjectProxy): pass
+class InstrumentPipelineGraphNode(model.InstrumentPipelineGraphNode, project_client.ObjectProxy): pass
 class PipelineGraphConnection(model.PipelineGraphConnection, project_client.ObjectProxy): pass
 class Sheet(model.Sheet, project_client.ObjectProxy): pass
 class Metadata(model.Metadata, project_client.ObjectProxy): pass
@@ -47,6 +51,10 @@ cls_map = {
     'SheetPropertyMeasure': SheetPropertyMeasure,
     'SheetPropertyTrack': SheetPropertyTrack,
     'PipelineGraphNode': PipelineGraphNode,
+    'AudioOutPipelineGraphNode': AudioOutPipelineGraphNode,
+    'TrackMixerPipelineGraphNode': TrackMixerPipelineGraphNode,
+    'EventSourcePipelineGraphNode': EventSourcePipelineGraphNode,
+    'InstrumentPipelineGraphNode': InstrumentPipelineGraphNode,
     'PipelineGraphConnection': PipelineGraphConnection,
     'Sheet': Sheet,
     'Metadata': Metadata,

@@ -74,7 +74,7 @@ class Port(QtWidgets.QGraphicsRectItem):
         self.setHighlighted(False)
 
     def mousePressEvent(self, evt):
-        if evt.buttons() & Qt.LeftButton:
+        if evt.button() == Qt.LeftButton:
             self.scene().view.startConnectionDrag(self)
             evt.accept()
             return
@@ -123,6 +123,7 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
 
         self._moving = False
         self._move_handle_pos = None
+        self._moved = False
 
         self.setAcceptHoverEvents(True)
 
@@ -139,10 +140,13 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         label.setPos(2, 2)
         label.setText(self._node.name)
 
-        self._remove_icon = QCloseIconItem(self)
-        self._remove_icon.setPos(100 - 18, 2)
-        self._remove_icon.setVisible(False)
-        self._remove_icon.clicked.connect(self.onRemove)
+        self._remove_icon = None
+
+        if self._node.removable:
+            self._remove_icon = QCloseIconItem(self)
+            self._remove_icon.setPos(100 - 18, 2)
+            self._remove_icon.setVisible(False)
+            self._remove_icon.clicked.connect(self.onRemove)
 
         in_y = 25
         out_y = 25
@@ -190,33 +194,42 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
 
     def hoverEnterEvent(self, evt):
         super().hoverEnterEvent(evt)
-        self._remove_icon.setVisible(True)
+        if self._remove_icon is not None:
+            self._remove_icon.setVisible(True)
 
     def hoverLeaveEvent(self, evt):
         super().hoverLeaveEvent(evt)
-        self._remove_icon.setVisible(False)
+        if self._remove_icon is not None:
+            self._remove_icon.setVisible(False)
 
     def mousePressEvent(self, evt):
-        self.grabMouse()
-        self._moving = True
-        self._move_handle_pos = evt.scenePos() - self.pos()
-        evt.accept()
+        if evt.button() == Qt.LeftButton:
+            self.grabMouse()
+            self._moving = True
+            self._move_handle_pos = evt.scenePos() - self.pos()
+            self._moved = False
+            evt.accept()
+            return
+
+        super().mousePressEvent(evt)
 
     def mouseMoveEvent(self, evt):
         if self._moving:
             self.setPos(evt.scenePos() - self._move_handle_pos)
             for connection in self.connections:
                 connection.update()
+            self._moved = True
             evt.accept()
             return
 
         super().mouseMoveEvent(evt)
 
     def mouseReleaseEvent(self, evt):
-        if self._moving:
-            self.send_command_async(
-                self._node.id, 'SetPipelineGraphNodePos',
-                graph_pos=music.Pos2F(self.pos().x(), self.pos().y()))
+        if evt.button() == Qt.LeftButton and self._moving:
+            if self._moved:
+                self.send_command_async(
+                    self._node.id, 'SetPipelineGraphNodePos',
+                    graph_pos=music.Pos2F(self.pos().x(), self.pos().y()))
 
             self.ungrabMouse()
             self._moving = False
@@ -227,15 +240,20 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
 
     def contextMenuEvent(self, evt):
         menu = QtWidgets.QMenu()
-        if not False: #self.desc.is_system:
+        if self._node.removable:
             remove = menu.addAction("Remove")
             remove.triggered.connect(self.onRemove)
-        menu.exec_(evt.screenPos())
-        evt.accept()
+
+        if not menu.isEmpty():
+            menu.exec_(evt.screenPos())
+            evt.accept()
+            return
+
+        super().contextMenuEvent(evt)
 
     def onRemove(self):
         self.send_command_async(
-            self._node.parent.id,  'RemovePipelineGraphNode',
+            self._node.parent.id, 'RemovePipelineGraphNode',
             node_id=self._node.id)
 
 
@@ -418,6 +436,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
     def mousePressEvent(self, evt):
         if (self._highlight_item is not None
             and isinstance(self._highlight_item, ConnectionItem)
+            and evt.button() == Qt.LeftButton
             and evt.modifiers() == Qt.ShiftModifier):
             self.send_command_async(
                 self._sheet.id, 'RemovePipelineGraphConnection',
@@ -492,7 +511,8 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
         super().mouseMoveEvent(evt)
 
     def mouseReleaseEvent(self, evt):
-        if self._drag_connection is not None:
+        if (evt.button() == Qt.LeftButton
+            and self._drag_connection is not None):
             self._scene.removeItem(self._drag_connection)
             self._drag_connection = None
 

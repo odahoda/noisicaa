@@ -192,8 +192,7 @@ class RootMixin(object):
             for prop in node.list_properties():
                 if isinstance(prop, model_base.ObjectReferenceProperty):
                     refid = prop.__get__(node, node.__class__)
-                    if refid is not None:
-                        assert isinstance(refid, tuple)
+                    if refid is not None and isinstance(refid, tuple):
                         assert refid[0] == 'unresolved reference'
                         refid = refid[1]
                         refobj = self.__obj_map[refid]

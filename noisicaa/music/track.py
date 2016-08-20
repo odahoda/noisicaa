@@ -8,6 +8,8 @@ from . import model
 from . import state
 from . import commands
 from . import mutations
+from . import pipeline_graph
+from . import misc
 
 logger = logging.getLogger(__name__)
 
@@ -119,8 +121,39 @@ class Track(model.Track, state.StateBase):
         return self.parent.mixer_name
 
     @property
+    def parent_mixer_node(self):
+        return self.parent.mixer_node
+
+    @property
     def mixer_name(self):
         return '%s-track-mixer' % self.id
+
+    @property
+    def mixer_node(self):
+        for node in self.sheet.pipeline_graph_nodes:
+            if isinstance(node, pipeline_graph.TrackMixerPipelineGraphNode) and node.track is self:
+                return node
+
+        raise ValueError("No mixer node found.")
+
+    @property
+    def relative_position_to_parent_mixer(self):
+        return misc.Pos2F(-200, self.index * 100)
+
+    def add_pipeline_nodes(self):
+        parent_mixer_node = self.parent_mixer_node
+
+        mixer_node = pipeline_graph.TrackMixerPipelineGraphNode(
+            name="Track Mixer",
+            graph_pos=(
+                parent_mixer_node.graph_pos
+                + self.relative_position_to_parent_mixer),
+            track=self)
+        self.sheet.pipeline_graph_nodes.append(mixer_node)
+
+        conn = pipeline_graph.PipelineGraphConnection(
+            mixer_node, 'out', parent_mixer_node, 'in')
+        self.sheet.pipeline_graph_connections.append(conn)
 
     def add_to_pipeline(self):
         self.sheet.handle_pipeline_mutation(

@@ -142,6 +142,40 @@ class PipelineGraphNode(core.ObjectBase):
     name = core.Property(str)
     graph_pos = core.Property(misc.Pos2F)
 
+    @property
+    def removable(self):
+        return True
+
+
+class AudioOutPipelineGraphNode(PipelineGraphNode):
+    @property
+    def removable(self):
+        return False
+
+
+class TrackMixerPipelineGraphNode(PipelineGraphNode):
+    track = core.ObjectReferenceProperty()
+
+    @property
+    def removable(self):
+        return False
+
+
+class EventSourcePipelineGraphNode(PipelineGraphNode):
+    track = core.ObjectReferenceProperty()
+
+    @property
+    def removable(self):
+        return False
+
+
+class InstrumentPipelineGraphNode(PipelineGraphNode):
+    track = core.ObjectReferenceProperty()
+
+    @property
+    def removable(self):
+        return False
+
 
 class PipelineGraphConnection(core.ObjectBase):
     source_node = core.ObjectReferenceProperty()

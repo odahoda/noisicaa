@@ -54,9 +54,8 @@ class AddTrack(commands.Command):
         }
         track_cls = track_cls_map[self.track_type]
         track = track_cls(name=track_name, num_measures=num_measures)
-        parent_group.tracks.insert(insert_index, track)
 
-        track.add_to_pipeline()
+        sheet.add_track(parent_group, insert_index, track)
 
         return insert_index
 
@@ -300,8 +299,10 @@ class Sheet(model.Sheet, state.StateBase):
             self.property_track = sheet_property_track.SheetPropertyTrack(name="Time")
 
             for i in range(num_tracks):
-                self.master_group.tracks.append(
-                    score_track.ScoreTrack(name="Track %d" % i))
+                track = score_track.ScoreTrack(name="Track %d" % i)
+                self.add_track(
+                    self.master_group, len(self.master_group.tracks),
+                    track)
 
     @property
     def project(self):
@@ -346,8 +347,27 @@ class Sheet(model.Sheet, state.StateBase):
             while len(track.measures) < max_length:
                 track.append_measure()
 
+    def add_track(self, parent_group, insert_index, track):
+        parent_group.tracks.insert(insert_index, track)
+        track.add_pipeline_nodes()
+        track.add_to_pipeline()
+
     def handle_pipeline_mutation(self, mutation):
         self.listeners.call('pipeline_mutations', mutation)
+
+    @property
+    def audio_out_node(self):
+        for node in self.sheet.pipeline_graph_nodes:
+            if isinstance(node, pipeline_graph.AudioOutPipelineGraphNode):
+                return node
+
+        raise ValueError("No audio out node found.")
+
+    def add_pipeline_nodes(self):
+        audio_out_node = pipeline_graph.AudioOutPipelineGraphNode(
+            name="Audio Out", graph_pos=misc.Pos2F(200, 0))
+        self.pipeline_graph_nodes.append(audio_out_node)
+        self.master_group.add_pipeline_nodes()
 
     def add_to_pipeline(self):
         self.master_group.add_to_pipeline()

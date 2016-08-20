@@ -15,6 +15,8 @@ from . import state
 from . import commands
 from . import instruments
 from . import mutations
+from . import pipeline_graph
+from . import misc
 
 logger = logging.getLogger(__name__)
 
@@ -408,6 +410,31 @@ class ScoreTrack(model.ScoreTrack, Track):
                 self.event_source_name, 'out', self.instr_name, 'in'))
 
         self.instrument.remove_from_pipeline()
+
+    def add_pipeline_nodes(self):
+        super().add_pipeline_nodes()
+
+        mixer_node = self.mixer_node
+
+        instrument_node = pipeline_graph.InstrumentPipelineGraphNode(
+            name="Track Instrument",
+            graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
+            track=self)
+        self.sheet.pipeline_graph_nodes.append(instrument_node)
+
+        conn = pipeline_graph.PipelineGraphConnection(
+            instrument_node, 'out', self.mixer_node, 'in')
+        self.sheet.pipeline_graph_connections.append(conn)
+
+        event_source_node = pipeline_graph.EventSourcePipelineGraphNode(
+            name="Track Events",
+            graph_pos=instrument_node.graph_pos - misc.Pos2F(200, 0),
+            track=self)
+        self.sheet.pipeline_graph_nodes.append(event_source_node)
+
+        conn = pipeline_graph.PipelineGraphConnection(
+            event_source_node, 'out', instrument_node, 'in')
+        self.sheet.pipeline_graph_connections.append(conn)
 
     def add_to_pipeline(self):
         super().add_to_pipeline()

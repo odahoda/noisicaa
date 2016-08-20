@@ -9,6 +9,7 @@ from . import state
 from . import commands
 from . import mutations
 from . import track
+from . import misc
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,11 @@ logger = logging.getLogger(__name__)
 class TrackGroup(model.TrackGroup, track.Track):
     def __init__(self, state=None, num_measures=None, **kwargs):
         super().__init__(state=state, **kwargs)
+
+    def add_pipeline_nodes(self):
+        super().add_pipeline_nodes()
+        for track in self.tracks:
+            track.add_pipeline_nodes()
 
     def add_to_pipeline(self):
         super().add_to_pipeline()
@@ -37,6 +43,14 @@ class MasterTrackGroup(model.MasterTrackGroup, TrackGroup):
     @property
     def parent_mixer_name(self):
         return 'sink'
+
+    @property
+    def parent_mixer_node(self):
+        return self.sheet.audio_out_node
+
+    @property
+    def relative_position_to_parent_mixer(self):
+        return misc.Pos2F(-200, 0)
 
     @property
     def mixer_name(self):
