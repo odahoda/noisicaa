@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import functools
 import logging
 import math
 
@@ -111,10 +112,12 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         super().__init__(parent=parent, **kwargs)
         self._node = node
 
+        self._listeners = []
+
+        self._moving = False
+        self._move_handle_pos = None
+
         self.setAcceptHoverEvents(True)
-        self.setFlag(self.ItemIsMovable, True)
-        self.setFlag(self.ItemSendsGeometryChanges, True)
-        self.setFlag(self.ItemIsSelectable, True)
 
         self.setRect(0, 0, 100, 60)
         if False:  #self.desc.is_system:
@@ -155,13 +158,20 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
             self.ports[port_name] = port
 
         self.setPos(self._node.graph_pos_x, self._node.graph_pos_y)
+        self._listeners.append(self._node.listeners.add(
+            'graph_pos_x', self.onGraphPosChanged))
+        self._listeners.append(self._node.listeners.add(
+            'graph_pos_y', self.onGraphPosChanged))
 
-    def itemChange(self, change, value):
-        if change == self.ItemPositionHasChanged:
-            for connection in self.connections:
-                connection.update()
+    def cleanup(self):
+        for listener in self._listeners:
+            listener.remove()
+        self._listeners.clear()
 
-        return super().itemChange(change, value)
+    def onGraphPosChanged(self, *args):
+        self.setPos(self._node.graph_pos_x, self._node.graph_pos_y)
+        for connection in self.connections:
+            connection.update()
 
     def hoverEnterEvent(self, evt):
         super().hoverEnterEvent(evt)
@@ -170,6 +180,36 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
     def hoverLeaveEvent(self, evt):
         super().hoverLeaveEvent(evt)
         self._remove_icon.setVisible(False)
+
+    def mousePressEvent(self, evt):
+        self.grabMouse()
+        self._moving = True
+        self._move_handle_pos = evt.scenePos() - self.pos()
+        evt.accept()
+
+    def mouseMoveEvent(self, evt):
+        if self._moving:
+            self.setPos(evt.scenePos() - self._move_handle_pos)
+            for connection in self.connections:
+                connection.update()
+            evt.accept()
+            return
+
+        super().mouseMoveEvent(evt)
+
+    def mouseReleaseEvent(self, evt):
+        if self._moving:
+            self.send_command_async(
+                self._node.id, 'SetPipelineGraphNodePos',
+                graph_pos_x=int(self.pos().x()),
+                graph_pos_y=int(self.pos().y()))
+
+            self.ungrabMouse()
+            self._moving = False
+            evt.accept()
+            return
+
+        super().mouseReleaseEvent(evt)
 
     def contextMenuEvent(self, evt):
         menu = QtWidgets.QMenu()
@@ -321,6 +361,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
         elif action == 'delete':
             idx, node = args
             item = self._nodes[idx]
+            item.cleanup()
             self._scene.removeItem(item)
             del self._nodes[idx]
             del self._node_map[node.id]

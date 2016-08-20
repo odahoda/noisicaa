@@ -12,6 +12,27 @@ from . import mutations
 logger = logging.getLogger(__name__)
 
 
+class SetPipelineGraphNodePos(commands.Command):
+    graph_pos_x = core.Property(int)
+    graph_pos_y = core.Property(int)
+
+    def __init__(
+            self, graph_pos_x=None, graph_pos_y=None,
+            state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.graph_pos_x = graph_pos_x
+            self.graph_pos_y = graph_pos_y
+
+    def run(self, node):
+        assert isinstance(node, PipelineGraphNode)
+
+        node.graph_pos_x = self.graph_pos_x
+        node.graph_pos_y = self.graph_pos_y
+
+commands.Command.register_command(SetPipelineGraphNodePos)
+
+
 class PipelineGraphNode(model.PipelineGraphNode, state.StateBase):
     def __init__(
             self, name=None, graph_pos_x=None, graph_pos_y=None,
