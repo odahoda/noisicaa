@@ -291,7 +291,7 @@ class AudioProcProcessMixin(object):
     async def handle_play_file(self, session_id, path):
         self.get_session(session_id)
 
-        node = wavfile.WavFileSource(
+        node = nodes.WavFileSource(
             self.event_loop,
             path=path, loop=False, end_notification='end')
         await node.setup()
