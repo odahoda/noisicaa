@@ -161,7 +161,7 @@ class BasePipelineGraphNode(core.ObjectBase):
 
 
 class PipelineGraphNode(BasePipelineGraphNode):
-    node_db_label = core.Property(str)
+    node_uri = core.Property(str)
 
     @property
     def removable(self):
@@ -169,7 +169,7 @@ class PipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return self.project.get_node_description(self.node_db_label)
+        return self.project.get_node_description(self.node_uri)
 
 
 class AudioOutPipelineGraphNode(BasePipelineGraphNode):
@@ -309,5 +309,5 @@ class Project(core.ObjectBase):
                 return idx
         raise ValueError("No sheet %r" % name)
 
-    def get_node_description(self, label):
+    def get_node_description(self, uri):
         raise NotImplementedError

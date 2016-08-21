@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<csound>
+<display-name>Reverb</display-name>
+<ports>
+  <port name="in" type="audio" direction="input"/>
+  <port name="out" type="audio" direction="output"/>
+</ports>
+<code>
+ksmps=32
+nchnls=2
+
+gaInL chnexport "InL", 1
+gaInR chnexport "InR", 1
+
+gaOutL chnexport "OutL", 2
+gaOutR chnexport "OutR", 2
+
+instr 1
+  gaOutL, gaOutR reverbsc gaInL, gaInR, 0.3, 12000
+endin
+</code>
+</csound>

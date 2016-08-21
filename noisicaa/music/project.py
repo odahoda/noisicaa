@@ -199,9 +199,10 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             self.metadata = Metadata()
 
         self.node_db = node_db.NodeDB()
+        self.node_db.setup()
 
-    def get_node_description(self, label):
-        return self.node_db.get_node_description(label)
+    def get_node_description(self, uri):
+        return self.node_db.get_node_description(uri)
 
     def dispatch_command(self, obj_id, cmd):
         obj = self.get_object(obj_id)

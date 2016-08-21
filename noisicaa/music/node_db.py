@@ -1,41 +1,78 @@
 #!/usr/bin/python3
 
+import logging
+import os
+import os.path
+from xml.etree import ElementTree
+
+from noisicaa import constants
 from . import node_description
+
+logger = logging.getLogger(__name__)
 
 
 class NodeDB(object):
     def __init__(self):
         self._nodes = {}
 
-        self._nodes['reverb'] = node_description.UserNodeDescription(
-            display_name='Reverb',
-            node_cls='csound_filter',
-            ports=[
-                node_description.AudioPortDescription(
-                    name='in',
-                    direction=node_description.PortDirection.Input),
-                node_description.AudioPortDescription(
-                    name='out',
-                    direction=node_description.PortDirection.Output),
-            ])
-
-        self._nodes['compressor'] = node_description.UserNodeDescription(
-            display_name='Compressor',
-            node_cls='csound_filter',
-            ports=[
-                node_description.AudioPortDescription(
-                    name='in',
-                    direction=node_description.PortDirection.Input),
-                node_description.AudioPortDescription(
-                    name='out',
-                    direction=node_description.PortDirection.Output),
-            ])
+    def setup(self):
+        self.load_csound_nodes()
 
     @property
     def nodes(self):
         return sorted(
             self._nodes.items(), key=lambda i: i[1].display_name)
 
-    def get_node_description(self, label):
-        return self._nodes[label]
+    def get_node_description(self, uri):
+        return self._nodes[uri]
 
+    def load_csound_nodes(self):
+        rootdir = os.path.join(constants.DATA_DIR, 'csound')
+        for dirpath, dirnames, filenames in os.walk(rootdir):
+            for filename in filenames:
+                if not filename.endswith('.csnd'):
+                    continue
+
+                uri = 'builtin://csound/%s' % filename[:-5]
+                assert uri not in self._nodes
+
+                path = os.path.join(rootdir, filename)
+                logger.info("Loading csound node %s from %s", uri, path)
+
+                tree = ElementTree.parse(path)
+                root = tree.getroot()
+                assert root.tag == 'csound'
+
+                ports = []
+                for port_elem in root.find('ports').findall('port'):
+                    port_cls = {
+                        'audio': node_description.AudioPortDescription,
+                        'events': node_description.EventPortDescription,
+                    }[port_elem.get('type')]
+                    direction = {
+                        'input': node_description.PortDirection.Input,
+                        'output': node_description.PortDirection.Output,
+                    }[port_elem.get('direction')]
+                    port_desc = port_cls(
+                        name=port_elem.get('name'),
+                        direction=direction)
+                    ports.append(port_desc)
+
+                display_name = ''.join(
+                    root.find('display-name').itertext())
+
+                parameters = []
+
+                code = ''.join(root.find('code').itertext())
+                code = code.strip() + '\n'
+                parameters.append(
+                    node_description.InternalParameterDescription(
+                        name='code', value=code))
+
+                node_desc = node_description.UserNodeDescription(
+                    display_name=display_name,
+                    node_cls='csound_filter',
+                    ports=ports,
+                    parameters=parameters)
+
+                self._nodes[uri] = node_desc

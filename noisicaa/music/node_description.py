@@ -52,6 +52,7 @@ class EventPortDescription(PortDescription):
 
 
 class ParameterType(enum.Enum):
+    Internal = 'internal'
     String = 'string'
     Path = 'path'
     Text = 'text'
@@ -61,6 +62,12 @@ class ParameterDescription(object):
     def __init__(self, name, param_type):
         self.name = name
         self.param_type = param_type
+
+
+class InternalParameterDescription(ParameterDescription):
+    def __init__(self, value, **kwargs):
+        super().__init__(param_type=ParameterType.Internal, **kwargs)
+        self.value = value
 
 
 class StringParameterDescription(ParameterDescription):

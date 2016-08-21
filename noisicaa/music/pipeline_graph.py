@@ -9,6 +9,7 @@ from . import state
 from . import commands
 from . import mutations
 from . import misc
+from . import node_description
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +58,11 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
 
 
 class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
-    def __init__(self, node_db_label=None, state=None, **kwargs):
+    def __init__(self, node_uri=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
         if state is None:
-            self.node_db_label = node_db_label
+            self.node_uri = node_uri
 
     @property
     def pipeline_node_id(self):
@@ -70,9 +71,14 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
     def add_to_pipeline(self):
         desc = self.description
 
+        params = {}
+        for param in desc.parameters:
+            if param.param_type == node_description.ParameterType.Internal:
+                params[param.name] = param.value
+
         self.sheet.handle_pipeline_mutation(
             mutations.AddNode(
-                desc.node_cls, self.pipeline_node_id, self.name))
+                desc.node_cls, self.pipeline_node_id, self.name, **params))
 
     def remove_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(

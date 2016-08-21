@@ -554,12 +554,12 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
         if 'application/x-noisicaa-pipeline-graph-node' in evt.mimeData().formats():
             data = evt.mimeData().data(
                 'application/x-noisicaa-pipeline-graph-node')
-            node_label = bytes(data).decode('utf-8')
+            node_uri = bytes(data).decode('utf-8')
 
             drop_pos = self.mapToScene(evt.pos())
             self.send_command_async(
                 self._sheet.id, 'AddPipelineGraphNode',
-                label=node_label,
+                uri=node_uri,
                 graph_pos=music.Pos2F(drop_pos.x(), drop_pos.y()))
 
             evt.acceptProposedAction()
@@ -576,10 +576,10 @@ class NodesList(ui_base.ProjectMixin, QtWidgets.QListWidget):
         self.setDragDropMode(
             QtWidgets.QAbstractItemView.DragOnly)
 
-        for label, node_desc in self.project.node_db.nodes:
+        for uri, node_desc in self.project.node_db.nodes:
             list_item = QtWidgets.QListWidgetItem()
             list_item.setText(node_desc.display_name)
-            list_item.setData(Qt.UserRole, label)
+            list_item.setData(Qt.UserRole, uri)
             self.addItem(list_item)
 
     def mimeData(self, items):

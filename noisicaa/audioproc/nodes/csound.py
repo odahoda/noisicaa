@@ -22,7 +22,7 @@ class CSoundFilter(node.Node):
     desc.port('in', 'input', 'audio')
     desc.port('out', 'output', 'audio')
 
-    def __init__(self, event_loop, name=None, id=None):
+    def __init__(self, event_loop, name=None, id=None, code=None):
         super().__init__(event_loop, name, id)
 
         self._input = ports.AudioInputPort('in')
@@ -32,13 +32,14 @@ class CSoundFilter(node.Node):
         self.add_output(self._output)
 
         self._csnd = None
+        self._code = code
 
     async def setup(self):
         await super().setup()
 
         self._csnd = csound.CSound()
 
-        orc = textwrap.dedent("""\
+        code = self._code or textwrap.dedent("""\
             ksmps=32
             nchnls=2
 
@@ -49,10 +50,11 @@ class CSoundFilter(node.Node):
             gaOutR chnexport "OutR", 2
 
             instr 1
-                gaOutL, gaOutR reverbsc gaInL, gaInR, 0.6, 12000
+                gaOutL = gaInL
+                gaOutR = gaInR
             endin
         """)
-        self._csnd.set_orchestra(orc)
+        self._csnd.set_orchestra(code)
         self._csnd.add_score_event(b'i1 0 3600')
 
     async def cleanup(self):

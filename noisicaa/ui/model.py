@@ -44,9 +44,10 @@ class Project(model.Project, project_client.ObjectProxy):
         super().__init__(*args, **kwargs)
 
         self.node_db = node_db.NodeDB()
+        self.node_db.setup()
 
-    def get_node_description(self, label):
-        return self.node_db.get_node_description(label)
+    def get_node_description(self, uri):
+        return self.node_db.get_node_description(uri)
 
 
 cls_map = {
