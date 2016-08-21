@@ -9,6 +9,7 @@ from . import state
 from . import commands
 from . import mutations
 from . import misc
+from . import node_description
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,10 @@ class PipelineGraphNode(model.PipelineGraphNode, state.StateBase):
     @property
     def project(self):
         return self.sheet.project
+
+    @property
+    def description(self):
+        raise NotImplementedError
 
     @property
     def pipeline_node_id(self):
