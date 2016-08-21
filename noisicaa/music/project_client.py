@@ -236,6 +236,10 @@ class ProjectClientMixin(object):
             'CREATE_PLAYER', self._session_id,
             self.server.address, sheet_id)
 
+    async def get_player_audioproc_address(self, player_id):
+        return await self._stub.call(
+            'GET_PLAYER_AUDIOPROC_ADDRESS', self._session_id, player_id)
+
     async def delete_player(self, player_id):
         return await self._stub.call(
             'DELETE_PLAYER', self._session_id, player_id)

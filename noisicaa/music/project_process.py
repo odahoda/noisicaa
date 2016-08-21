@@ -98,6 +98,9 @@ class ProjectProcessMixin(object):
         self.server.add_command_handler(
             'DELETE_PLAYER', self.handle_delete_player)
         self.server.add_command_handler(
+            'GET_PLAYER_AUDIOPROC_ADDRESS',
+            self.handle_get_player_audioproc_address)
+        self.server.add_command_handler(
             'PLAYER_START', self.handle_player_start)
         self.server.add_command_handler(
             'PLAYER_PAUSE', self.handle_player_pause)
@@ -293,6 +296,12 @@ class ProjectProcessMixin(object):
         session.players[p.id] = p
 
         return p.id, p.proxy_address
+
+    async def handle_get_player_audioproc_address(
+        self, session_id, player_id):
+        session = self.get_session(session_id)
+        p = session.players[player_id]
+        return p.audioproc_address
 
     async def handle_delete_player(self, session_id, player_id):
         session = self.get_session(session_id)

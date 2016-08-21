@@ -10,3 +10,8 @@ from .audio_stream import (
 from .data import (
     FrameData,
 )
+from .mutations import (
+    Mutation,
+    AddNode, RemoveNode,
+    ConnectPorts, DisconnectPorts,
+)

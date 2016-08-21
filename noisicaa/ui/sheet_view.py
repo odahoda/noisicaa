@@ -1343,10 +1343,14 @@ class SheetViewImpl(QGraphicsView):
         self._player_node_id = None
         self._player_status_listener = None
 
+        self.player_audioproc_address = None
+
     async def setup(self):
         self._player_id, self._player_stream_address = await self.project_client.create_player(self._sheet.id)
         self._player_status_listener = self.project_client.add_player_status_listener(
             self._player_id, self.onPlayerStatus)
+
+        self.player_audioproc_address = await self.project_client.get_player_audioproc_address(self._player_id)
 
         self._player_node_id = await self.audioproc_client.add_node(
             'ipc',

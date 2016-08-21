@@ -25,6 +25,7 @@ from ..instr import library
 
 from . import project_registry
 from . import pipeline_perf_monitor
+from . import pipeline_graph_monitor
 
 logger = logging.getLogger('ui.editor_app')
 
@@ -219,6 +220,7 @@ class EditorApp(BaseEditorApp):
         self._old_excepthook = None
         self.win = None
         self.pipeline_perf_monitor = None
+        self.pipeline_graph_monitor = None
 
     async def setup(self):
         logger.info("Installing custom excepthook.")
@@ -233,10 +235,15 @@ class EditorApp(BaseEditorApp):
         logger.info("Creating PipelinePerfMonitor.")
         self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self)
 
+        logger.info("Creating PipelineGraphMonitor.")
+        self.pipeline_graph_monitor = pipeline_graph_monitor.PipelineGraphMonitor(self)
+
         logger.info("Creating EditorWindow.")
         self.win = EditorWindow(self)
         await self.win.setup()
         self.win.show()
+
+        self.pipeline_graph_monitor.addWindow(self.win)
 
         if self.paths:
             logger.info("Starting with projects from cmdline.")
@@ -269,6 +276,10 @@ class EditorApp(BaseEditorApp):
         if self.pipeline_perf_monitor is not None:
             self.pipeline_perf_monitor.storeState()
             self.pipeline_perf_monitor = None
+
+        if self.pipeline_graph_monitor is not None:
+            self.pipeline_graph_monitor.storeState()
+            self.pipeline_graph_monitor = None
 
         if self.win is not None:
             await self.win.cleanup()

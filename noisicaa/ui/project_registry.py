@@ -3,6 +3,8 @@
 import logging
 import os.path
 
+from PyQt5 import QtCore
+
 from noisicaa import music
 from . import model
 
@@ -45,8 +47,12 @@ class Project(object):
         self.client = None
 
 
-class ProjectRegistry(object):
+class ProjectRegistry(QtCore.QObject):
+    projectListChanged = QtCore.pyqtSignal()
+
     def __init__(self, event_loop, process_manager):
+        super().__init__()
+
         self.event_loop = event_loop
         self.process_manager = process_manager
         self.projects = {}
@@ -55,18 +61,22 @@ class ProjectRegistry(object):
         project = Project(path, self.event_loop, self.process_manager)
         await project.open()
         self.projects[path] = project
+        self.projectListChanged.emit()
         return project
 
     async def create_project(self, path):
         project = Project(path, self.event_loop, self.process_manager)
         await project.create()
         self.projects[path] = project
+        self.projectListChanged.emit()
         return project
 
     async def close_project(self, project):
         await project.close()
         del self.projects[project.path]
+        self.projectListChanged.emit()
 
     async def close_all(self):
         for project in list(self.projects.values()):
             await self.close_project(project)
+        self.projectListChanged.emit()

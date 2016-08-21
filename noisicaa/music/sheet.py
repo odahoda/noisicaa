@@ -263,13 +263,11 @@ class RemovePipelineGraphConnection(commands.Command):
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
 
-        for idx, connection in enumerate(sheet.pipeline_graph_connections):
-            if connection.id == self.connection_id:
-                break
-        else:
-            raise ValueError("Connection %s not found" % self.connection_id)
+        root = sheet.root
+        connection = root.get_object(self.connection_id)
+        assert connection.is_child_of(sheet)
 
-        del sheet.pipeline_graph_connections[idx]
+        sheet.remove_pipeline_graph_connection(connection)
 
 commands.Command.register_command(RemovePipelineGraphConnection)
 

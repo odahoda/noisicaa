@@ -190,7 +190,7 @@ class AudioProcProcessMixin(object):
                 for port in node.inputs.values():
                     for upstream_port in port.inputs:
                         mutation = mutations.ConnectPorts(
-                            port, upstream_port)
+                            upstream_port, port)
                         session.publish_mutation(mutation)
 
         return session.id

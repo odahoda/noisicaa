@@ -76,6 +76,8 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
     currentSheetChanged = pyqtSignal(object)
     currentTrackChanged = pyqtSignal(object)
 
+    projectListChanged = pyqtSignal()
+
     def __init__(self, app):
         super().__init__(app=app)
 
@@ -271,6 +273,15 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self.app.pipeline_perf_monitor.visibilityChanged.connect(
             self._show_pipeline_perf_monitor_action.setChecked)
 
+        self._show_pipeline_graph_monitor_action = QAction(
+            "Pipeline Graph Monitor", self,
+            checkable=True,
+            checked=self.app.pipeline_graph_monitor.isVisible())
+        self._show_pipeline_graph_monitor_action.toggled.connect(
+            self.app.pipeline_graph_monitor.setVisible)
+        self.app.pipeline_graph_monitor.visibilityChanged.connect(
+            self._show_pipeline_graph_monitor_action.setChecked)
+
     def createMenus(self):
         menu_bar = self.menuBar()
 
@@ -308,6 +319,8 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
             self._dev_menu.addAction(self.app.show_edit_areas_action)
             self._dev_menu.addAction(
                 self._show_pipeline_perf_monitor_action)
+            self._dev_menu.addAction(
+                self._show_pipeline_graph_monitor_action)
 
         menu_bar.addSeparator()
 
@@ -442,6 +455,8 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self._add_score_track_action.setEnabled(True)
         self._main_area.setCurrentIndex(0)
 
+        self.projectListChanged.emit()
+
     async def removeProjectView(self, project_connection):
         for idx in range(self._project_tabs.count()):
             view = self._project_tabs.widget(idx)
@@ -455,6 +470,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
                     self._project_tabs.count() > 0)
 
                 await view.cleanup()
+                self.projectListChanged.emit()
                 break
         else:
             raise ValueError("No view for project found.")
@@ -479,6 +495,10 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
 
     def getCurrentProjectView(self):
         return self._project_tabs.currentWidget()
+
+    def listProjectViews(self):
+        for idx in range(self._project_tabs.count()):
+            yield self._project_tabs.widget(idx)
 
     def getCurrentProject(self):
         view = self._project_tabs.currentWidget()

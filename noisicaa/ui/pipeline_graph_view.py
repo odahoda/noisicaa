@@ -179,7 +179,6 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
             self._graph_pos_listener = None
 
     def setHighlighted(self, highlighted):
-        logger.info("%s setHighlighted(%s)", self, highlighted)
         if highlighted:
             self.setBrush(QtGui.QColor(240, 240, 255))
         else:
