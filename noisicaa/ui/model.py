@@ -3,7 +3,9 @@
 import logging
 
 from noisicaa import core
-from noisicaa.music import model, project_client
+from noisicaa.music import model
+from noisicaa.music import project_client
+from noisicaa.music import node_db
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +39,15 @@ class InstrumentPipelineGraphNode(model.InstrumentPipelineGraphNode, project_cli
 class PipelineGraphConnection(model.PipelineGraphConnection, project_client.ObjectProxy): pass
 class Sheet(model.Sheet, project_client.ObjectProxy): pass
 class Metadata(model.Metadata, project_client.ObjectProxy): pass
-class Project(model.Project, project_client.ObjectProxy): pass
+class Project(model.Project, project_client.ObjectProxy):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.node_db = node_db.NodeDB()
+
+    def get_node_description(self, label):
+        return self.node_db.get_node_description(label)
+
 
 cls_map = {
     'SoundFontInstrument': SoundFontInstrument,

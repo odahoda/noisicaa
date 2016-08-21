@@ -22,6 +22,7 @@ from . import commands
 from . import instruments
 from . import sheet
 from . import misc
+from . import node_db
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +197,11 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
         super().__init__(state)
         if state is None:
             self.metadata = Metadata()
+
+        self.node_db = node_db.NodeDB()
+
+    def get_node_description(self, label):
+        return self.node_db.get_node_description(label)
 
     def dispatch_command(self, obj_id, cmd):
         obj = self.get_object(obj_id)

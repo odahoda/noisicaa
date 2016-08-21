@@ -9,7 +9,6 @@ from . import state
 from . import commands
 from . import mutations
 from . import misc
-from . import node_description
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ class SetPipelineGraphNodePos(commands.Command):
 commands.Command.register_command(SetPipelineGraphNodePos)
 
 
-class PipelineGraphNode(model.PipelineGraphNode, state.StateBase):
+class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
     def __init__(self, name=None, graph_pos=misc.Pos2F(0, 0), state=None):
         super().__init__(state)
 
@@ -47,17 +46,33 @@ class PipelineGraphNode(model.PipelineGraphNode, state.StateBase):
         return self.sheet.project
 
     @property
-    def description(self):
+    def pipeline_node_id(self):
         raise NotImplementedError
+
+    def add_to_pipeline(self):
+        raise NotImplementedError
+
+    def remove_from_pipeline(self):
+        raise NotImplementedError
+
+
+class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
+    def __init__(self, node_db_label=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            self.node_db_label = node_db_label
 
     @property
     def pipeline_node_id(self):
         return self.id
 
     def add_to_pipeline(self):
+        desc = self.description
+
         self.sheet.handle_pipeline_mutation(
             mutations.AddNode(
-                'passthru', self.pipeline_node_id, self.name))
+                desc.node_cls, self.pipeline_node_id, self.name))
 
     def remove_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(
@@ -67,7 +82,7 @@ state.StateBase.register_class(PipelineGraphNode)
 
 
 class AudioOutPipelineGraphNode(
-        model.AudioOutPipelineGraphNode, PipelineGraphNode):
+        model.AudioOutPipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
@@ -87,7 +102,7 @@ state.StateBase.register_class(AudioOutPipelineGraphNode)
 
 
 class TrackMixerPipelineGraphNode(
-        model.TrackMixerPipelineGraphNode, PipelineGraphNode):
+        model.TrackMixerPipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, track=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
@@ -115,7 +130,7 @@ state.StateBase.register_class(TrackMixerPipelineGraphNode)
 
 
 class EventSourcePipelineGraphNode(
-        model.EventSourcePipelineGraphNode, PipelineGraphNode):
+        model.EventSourcePipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, track=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
@@ -140,7 +155,7 @@ state.StateBase.register_class(EventSourcePipelineGraphNode)
 
 
 class InstrumentPipelineGraphNode(
-        model.InstrumentPipelineGraphNode, PipelineGraphNode):
+        model.InstrumentPipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, track=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 

@@ -174,20 +174,23 @@ commands.Command.register_command(RemoveMeasure)
 
 
 class AddPipelineGraphNode(commands.Command):
-    name = core.Property(str)
+    label = core.Property(str)
     graph_pos = core.Property(misc.Pos2F)
 
-    def __init__(self, name=None, graph_pos=None, state=None):
+    def __init__(self, label=None, graph_pos=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.name = name
+            self.label = label
             self.graph_pos = graph_pos
 
     def run(self, sheet):
         assert isinstance(sheet, Sheet)
 
+        node_desc = sheet.project.get_node_description(self.label)
+
         node = pipeline_graph.PipelineGraphNode(
-            name=self.name,
+            name=node_desc.display_name,
+            node_db_label=self.label,
             graph_pos=self.graph_pos)
         sheet.add_pipeline_graph_node(node)
         return node.id

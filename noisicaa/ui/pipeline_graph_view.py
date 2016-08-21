@@ -18,19 +18,17 @@ logger = logging.getLogger(__name__)
 
 class Port(QtWidgets.QGraphicsRectItem):
     def __init__(
-            self, parent, node_id, port_name, port_direction, port_type):
+            self, parent, node_id, port_desc):
         super().__init__(parent)
         self.node_id = node_id
-        self.port_name = port_name
-        self.port_direction = port_direction
-        self.port_type = port_type
+        self.port_desc = port_desc
 
         self.setAcceptHoverEvents(True)
 
         self.setRect(0, 0, 45, 15)
         self.setBrush(Qt.white)
 
-        if self.port_direction == 'input':
+        if self.port_desc.direction == music.PortDirection.Input:
             self.dot_pos = QtCore.QPoint(7, 7)
             sym_pos = QtCore.QPoint(45-11, -1)
         else:
@@ -48,10 +46,10 @@ class Port(QtWidgets.QGraphicsRectItem):
         dot.setBrush(Qt.black)
         dot.pen().setStyle(Qt.NoPen)
 
-        if self.port_type == 'audio':
+        if self.port_desc.port_type == music.PortType.Audio:
             sym = QtWidgets.QGraphicsSimpleTextItem(self)
             sym.setText('A')
-        elif self.port_type == 'events':
+        elif self.port_desc.port_type == music.PortType.Events:
             sym = QtWidgets.QGraphicsSimpleTextItem(self)
             sym.setText('E')
         else:
@@ -151,23 +149,21 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
 
         in_y = 25
         out_y = 25
-        for port_name, port_direction, port_type in [
-                ('in', 'input', 'audio'),
-                ('out', 'output', 'audio')]:
-            if port_direction == 'input':
+        for port_desc in self._node.description.ports:
+            if port_desc.direction == music.PortDirection.Input:
                 x = -5
                 y = in_y
                 in_y += 20
 
-            elif port_direction == 'output':
+            elif port_desc.direction == music.PortDirection.Output:
                 x = 105-45
                 y = out_y
                 out_y += 20
 
             port = Port(
-                self, self._node.id, port_name, port_direction, port_type)
+                self, self._node.id, port_desc)
             port.setPos(x, y)
-            self.ports[port_name] = port
+            self.ports[port_desc.name] = port
 
         self.setPos(self._node.graph_pos.x, self._node.graph_pos.y)
         self._graph_pos_listener = self._node.listeners.add(
@@ -315,7 +311,7 @@ class DragConnection(QtWidgets.QGraphicsPathItem):
         pos1 = self.port.mapToScene(self.port.dot_pos)
         pos2 = self.end_pos
 
-        if self.port.port_direction == 'input':
+        if self.port.port_desc.direction == music.PortDirection.Input:
             pos1, pos2 = pos2, pos1
 
         cpos = QtCore.QPointF(min(100, abs(pos2.x() - pos1.x()) / 2), 0)
@@ -455,9 +451,12 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
             closest_dist = None
             for node_item in self._nodes:
                 for port_name, port_item in sorted(node_item.ports.items()):
-                    if port_item.port_type != src_port.port_type:
+                    src_desc = src_port.port_desc
+                    dest_desc = port_item.port_desc
+
+                    if dest_desc.port_type != src_desc.port_type:
                         continue
-                    if port_item.port_direction == src_port.port_direction:
+                    if dest_desc.direction == src_desc.direction:
                         continue
 
                     port_pos = port_item.mapToScene(port_item.dot_pos)
@@ -518,18 +517,18 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
                 self._drag_src_port.setHighlighted(False)
                 self._drag_dest_port.setHighlighted(False)
 
-                if self._drag_src_port.port_direction != 'output':
+                if self._drag_src_port.port_desc.direction != music.PortDirection.Output:
                     self._drag_src_port, self._drag_dest_port = self._drag_dest_port, self._drag_src_port
 
-                assert self._drag_src_port.port_direction == 'output'
-                assert self._drag_dest_port.port_direction == 'input'
+                assert self._drag_src_port.port_desc.direction == music.PortDirection.Output
+                assert self._drag_dest_port.port_desc.direction == music.PortDirection.Input
 
                 self.send_command_async(
                     self._sheet.id, 'AddPipelineGraphConnection',
                     source_node_id=self._drag_src_port.node_id,
-                    source_port_name=self._drag_src_port.port_name,
+                    source_port_name=self._drag_src_port.port_desc.name,
                     dest_node_id=self._drag_dest_port.node_id,
-                    dest_port_name=self._drag_dest_port.port_name)
+                    dest_port_name=self._drag_dest_port.port_desc.name)
 
             self._drag_src_port = None
             self._drag_dest_port = None
@@ -555,14 +554,13 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
         if 'application/x-noisicaa-pipeline-graph-node' in evt.mimeData().formats():
             data = evt.mimeData().data(
                 'application/x-noisicaa-pipeline-graph-node')
-            nodes = bytes(data).decode('utf-8').split('\n')
+            node_label = bytes(data).decode('utf-8')
 
             drop_pos = self.mapToScene(evt.pos())
-            for node_name in nodes:
-                self.send_command_async(
-                    self._sheet.id, 'AddPipelineGraphNode',
-                    name=node_name,
-                    graph_pos=music.Pos2F(drop_pos.x(), drop_pos.y()))
+            self.send_command_async(
+                self._sheet.id, 'AddPipelineGraphNode',
+                label=node_label,
+                graph_pos=music.Pos2F(drop_pos.x(), drop_pos.y()))
 
             evt.acceptProposedAction()
 
@@ -571,18 +569,23 @@ class PipelineGraphGraphicsView(
     pass
 
 
-class NodesList(QtWidgets.QListWidget):
-    def __init__(self, parent=None, **kwargs):
-        super().__init__(parent, **kwargs)
+class NodesList(ui_base.ProjectMixin, QtWidgets.QListWidget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.setDragDropMode(
             QtWidgets.QAbstractItemView.DragOnly)
-        self.addItem("Reverb")
-        self.addItem("Compressor")
-        self.addItem("Bitcrusher")
+
+        for label, node_desc in self.project.node_db.nodes:
+            list_item = QtWidgets.QListWidgetItem()
+            list_item.setText(node_desc.display_name)
+            list_item.setData(Qt.UserRole, label)
+            self.addItem(list_item)
 
     def mimeData(self, items):
-        data = '\n'.join(item.text() for item in items).encode('utf-8')
+        assert len(items) == 1
+        item = items[0]
+        data = item.data(Qt.UserRole).encode('utf-8')
         mime_data = QtCore.QMimeData()
         mime_data.setData(
             'application/x-noisicaa-pipeline-graph-node', data)
@@ -596,7 +599,7 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
         self._graph_view = PipelineGraphGraphicsView(
             sheet=self.sheet, **self.context)
 
-        self._node_list = NodesList()
+        self._node_list = NodesList(parent=self, **self.context)
 
         self._node_filter = QtWidgets.QLineEdit(self)
         self._node_filter.addAction(

@@ -63,13 +63,14 @@ class CSoundFilter(node.Node):
         await super().cleanup()
 
     def run(self, ctxt):
-        num_samples = len(self._output.frame)
-
+        assert len(self._input.frame) == ctxt.duration
         in_samples = self._input.frame.samples
+
+        self._output.frame.resize(ctxt.duration)
         out_samples = self._output.frame.samples
 
         pos = 0
-        while pos < num_samples:
+        while pos < ctxt.duration:
             self._csnd.set_audio_channel_data(
                 'InL', in_samples[0][pos:pos+self._csnd.ksmps])
             self._csnd.set_audio_channel_data(
@@ -84,7 +85,7 @@ class CSoundFilter(node.Node):
 
             pos += self._csnd.ksmps
 
-        assert pos == num_samples
+        assert pos == ctxt.duration
 
 
 class CSoundInstrument(node.Node):

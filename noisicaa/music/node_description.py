@@ -4,14 +4,24 @@ import enum
 
 
 class NodeDescription(object):
-    def __init__(self, node_cls, ports=None, parameters=None):
-        self.node_cls = node_cls
+    def __init__(self, ports=None, parameters=None):
         self.ports = []
         if ports is not None:
             self.ports.extend(ports)
         self.parameters = []
         if parameters is not None:
             self.parameters.extend(parameters)
+
+
+class SystemNodeDescription(NodeDescription):
+    pass
+
+
+class UserNodeDescription(NodeDescription):
+    def __init__(self, display_name, node_cls, **kwargs):
+        super().__init__(**kwargs)
+        self.display_name = display_name
+        self.node_cls = node_cls
 
 
 class PortType(enum.Enum):

@@ -9,6 +9,7 @@ from . import clef
 from . import key_signature
 from . import time_signature
 from . import misc
+from . import node_description
 
 
 class Instrument(core.ObjectBase):
@@ -138,43 +139,117 @@ class SheetPropertyTrack(Track):
     pass
 
 
-class PipelineGraphNode(core.ObjectBase):
+class BasePipelineGraphNode(core.ObjectBase):
     name = core.Property(str)
     graph_pos = core.Property(misc.Pos2F)
+
+    @property
+    def sheet(self):
+        return self.parent
+
+    @property
+    def project(self):
+        return self.sheet.project
+
+    @property
+    def removable(self):
+        raise NotImplementedError
+
+    @property
+    def description(self):
+        raise NotImplementedError
+
+
+class PipelineGraphNode(BasePipelineGraphNode):
+    node_db_label = core.Property(str)
 
     @property
     def removable(self):
         return True
 
+    @property
+    def description(self):
+        return self.project.get_node_description(self.node_db_label)
 
-class AudioOutPipelineGraphNode(PipelineGraphNode):
+
+class AudioOutPipelineGraphNode(BasePipelineGraphNode):
     @property
     def removable(self):
         return False
 
+    __description = node_description.SystemNodeDescription(
+        ports=[
+            node_description.AudioPortDescription(
+                name='in',
+                direction=node_description.PortDirection.Input),
+        ])
 
-class TrackMixerPipelineGraphNode(PipelineGraphNode):
+    @property
+    def description(self):
+        return self.__description
+
+
+class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
     track = core.ObjectReferenceProperty()
 
     @property
     def removable(self):
         return False
 
+    __description = node_description.SystemNodeDescription(
+        ports=[
+            node_description.AudioPortDescription(
+                name='in',
+                direction=node_description.PortDirection.Input),
+            node_description.AudioPortDescription(
+                name='out',
+                direction=node_description.PortDirection.Output),
+        ])
 
-class EventSourcePipelineGraphNode(PipelineGraphNode):
+    @property
+    def description(self):
+        return self.__description
+
+
+class EventSourcePipelineGraphNode(BasePipelineGraphNode):
     track = core.ObjectReferenceProperty()
 
     @property
     def removable(self):
         return False
 
+    __description = node_description.SystemNodeDescription(
+        ports=[
+            node_description.EventPortDescription(
+                name='out',
+                direction=node_description.PortDirection.Output),
+        ])
 
-class InstrumentPipelineGraphNode(PipelineGraphNode):
+    @property
+    def description(self):
+        return self.__description
+
+
+class InstrumentPipelineGraphNode(BasePipelineGraphNode):
     track = core.ObjectReferenceProperty()
 
     @property
     def removable(self):
         return False
+
+    __description = node_description.SystemNodeDescription(
+        ports=[
+            node_description.EventPortDescription(
+                name='in',
+                direction=node_description.PortDirection.Input),
+            node_description.AudioPortDescription(
+                name='out',
+                direction=node_description.PortDirection.Output),
+        ])
+
+    @property
+    def description(self):
+        return self.__description
 
 
 class PipelineGraphConnection(core.ObjectBase):
@@ -195,6 +270,10 @@ class Sheet(core.ObjectBase):
     @property
     def sheet(self):
         return self
+
+    @property
+    def project(self):
+        return self.parent
 
     def get_bpm(self, measure_idx, tick):  # pylint: disable=unused-argument
         return self.property_track.measures[measure_idx].bpm
@@ -230,3 +309,5 @@ class Project(core.ObjectBase):
                 return idx
         raise ValueError("No sheet %r" % name)
 
+    def get_node_description(self, label):
+        raise NotImplementedError
