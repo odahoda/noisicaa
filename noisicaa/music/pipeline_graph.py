@@ -53,6 +53,18 @@ class SetPipelineGraphNodeParameter(commands.Command):
 commands.Command.register_command(SetPipelineGraphNodeParameter)
 
 
+class PipelineGraphNodeParameterValue(
+        model.PipelineGraphNodeParameterValue, state.StateBase):
+    def __init__(self, name=None, value=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            self.name = name
+            self.value = value
+
+state.StateBase.register_class(PipelineGraphNodeParameterValue)
+
+
 class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
     def __init__(self, name=None, graph_pos=misc.Pos2F(0, 0), state=None):
         super().__init__(state)
@@ -76,6 +88,19 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
     def add_to_pipeline(self):
         raise NotImplementedError
 
+    def set_initial_parameters(self):
+        parameter_values = dict(
+            (p.name, p.value) for p in self.parameter_values)
+
+        params = {}
+        for parameter in self.description.parameters:
+            if parameter.param_type == node_description.ParameterType.Float:
+                params[parameter.name] = parameter_values.get(
+                    parameter.name, parameter.default)
+
+        self.sheet.handle_pipeline_mutation(
+            mutations.SetNodeParameter(self.pipeline_node_id, **params))
+
     def remove_from_pipeline(self):
         raise NotImplementedError
 
@@ -93,17 +118,6 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                 self.pipeline_node_id,
                 **{parameter_name: value}))
 
-
-class PipelineGraphNodeParameterValue(
-        model.PipelineGraphNodeParameterValue, state.StateBase):
-    def __init__(self, name=None, value=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
-
-        if state is None:
-            self.name = name
-            self.value = value
-
-state.StateBase.register_class(PipelineGraphNodeParameterValue)
 
 class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, node_uri=None, state=None, **kwargs):
@@ -124,17 +138,7 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
                 self.name,
                 description=self.description))
 
-        parameter_values = dict(
-            (p.name, p.value) for p in self.parameter_values)
-
-        params = {}
-        for parameter in self.description.parameters:
-            if parameter.param_type == node_description.ParameterType.Float:
-                params[parameter.name] = parameter_values.get(
-                    parameter.name, parameter.default)
-
-        self.sheet.handle_pipeline_mutation(
-            mutations.SetNodeParameter(self.pipeline_node_id, **params))
+        self.set_initial_parameters()
 
     def remove_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(
@@ -184,6 +188,8 @@ class TrackMixerPipelineGraphNode(
                 self.pipeline_node_id, 'out',
                 muted=self.track.muted, volume=self.track.volume))
 
+        self.set_initial_parameters()
+
     def remove_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(
             mutations.RemoveNode(self.pipeline_node_id))
@@ -208,6 +214,8 @@ class EventSourcePipelineGraphNode(
             mutations.AddNode(
                 'track_event_source', self.pipeline_node_id, self.name,
                 queue_name='track:%s' % self.track.id))
+
+        self.set_initial_parameters()
 
     def remove_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(
@@ -237,6 +245,8 @@ class InstrumentPipelineGraphNode(
                 soundfont_path=instr.path,
                 bank=instr.bank,
                 preset=instr.preset))
+
+        self.set_initial_parameters()
 
     def remove_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(

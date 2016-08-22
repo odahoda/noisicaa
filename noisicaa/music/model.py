@@ -139,9 +139,15 @@ class SheetPropertyTrack(Track):
     pass
 
 
+class PipelineGraphNodeParameterValue(core.ObjectBase):
+    name = core.Property(str)
+    value = core.Property((str, float, int))
+
+
 class BasePipelineGraphNode(core.ObjectBase):
     name = core.Property(str)
     graph_pos = core.Property(misc.Pos2F)
+    parameter_values = core.ObjectListProperty(PipelineGraphNodeParameterValue)
 
     @property
     def sheet(self):
@@ -160,14 +166,8 @@ class BasePipelineGraphNode(core.ObjectBase):
         raise NotImplementedError
 
 
-class PipelineGraphNodeParameterValue(core.ObjectBase):
-    name = core.Property(str)
-    value = core.Property((str, float, int))
-
-
 class PipelineGraphNode(BasePipelineGraphNode):
     node_uri = core.Property(str)
-    parameter_values = core.ObjectListProperty(PipelineGraphNodeParameterValue)
 
     @property
     def removable(self):
