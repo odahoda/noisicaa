@@ -31,6 +31,7 @@ class TrackGroup(model.TrackGroup, project_client.ObjectProxy): pass
 class MasterTrackGroup(model.MasterTrackGroup, project_client.ObjectProxy): pass
 class SheetPropertyMeasure(model.SheetPropertyMeasure, project_client.ObjectProxy): pass
 class SheetPropertyTrack(model.SheetPropertyTrack, project_client.ObjectProxy): pass
+class PipelineGraphNodeParameterValue(model.PipelineGraphNodeParameterValue, project_client.ObjectProxy): pass
 class PipelineGraphNode(model.PipelineGraphNode, project_client.ObjectProxy): pass
 class AudioOutPipelineGraphNode(model.AudioOutPipelineGraphNode, project_client.ObjectProxy): pass
 class TrackMixerPipelineGraphNode(model.TrackMixerPipelineGraphNode, project_client.ObjectProxy): pass
@@ -61,6 +62,7 @@ cls_map = {
     'MasterTrackGroup': MasterTrackGroup,
     'SheetPropertyMeasure': SheetPropertyMeasure,
     'SheetPropertyTrack': SheetPropertyTrack,
+    'PipelineGraphNodeParameterValue': PipelineGraphNodeParameterValue,
     'PipelineGraphNode': PipelineGraphNode,
     'AudioOutPipelineGraphNode': AudioOutPipelineGraphNode,
     'TrackMixerPipelineGraphNode': TrackMixerPipelineGraphNode,

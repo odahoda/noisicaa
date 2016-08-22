@@ -78,11 +78,30 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
         raise NotImplementedError
 
     def set_parameter(self, parameter_name, value):
+        for param_value in self.parameter_values:
+            if param_value.name == parameter_name:
+                param_value.value = value
+                break
+        else:
+            self.parameter_values.append(PipelineGraphNodeParameterValue(
+                name=parameter_name, value=value))
+
         self.sheet.handle_pipeline_mutation(
             mutations.SetNodeParameter(
                 self.pipeline_node_id,
                 **{parameter_name: value}))
 
+
+class PipelineGraphNodeParameterValue(
+        model.PipelineGraphNodeParameterValue, state.StateBase):
+    def __init__(self, name=None, value=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            self.name = name
+            self.value = value
+
+state.StateBase.register_class(PipelineGraphNodeParameterValue)
 
 class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, node_uri=None, state=None, **kwargs):
@@ -102,6 +121,18 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
                 self.pipeline_node_id,
                 self.name,
                 description=self.description))
+
+        parameter_values = dict(
+            (p.name, p.value) for p in self.parameter_values)
+
+        params = {}
+        for parameter in self.description.parameters:
+            if parameter.param_type == node_description.ParameterType.Float:
+                params[parameter.name] = parameter_values.get(
+                    parameter.name, parameter.default)
+
+        self.sheet.handle_pipeline_mutation(
+            mutations.SetNodeParameter(self.pipeline_node_id, **params))
 
     def remove_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(

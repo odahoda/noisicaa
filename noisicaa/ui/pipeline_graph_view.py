@@ -675,10 +675,15 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
             header.setAlignment(Qt.AlignHCenter)
             layout.addRow(header)
 
+            parameter_values = dict(
+                (p.name, p.value)
+                for p in node_item.node.parameter_values)
+
             for parameter in node_item.node_description.parameters:
                 if parameter.param_type == music.ParameterType.Float:
                     widget = QtWidgets.QLineEdit(self._node_parameters)
-                    widget.setText(str(parameter.default))
+                    widget.setText(str(parameter_values.get(
+                        parameter.name, parameter.default)))
                     widget.setValidator(QtGui.QDoubleValidator())
                     widget.textChanged.connect(functools.partial(
                         self.onFloatParameterChanged,
