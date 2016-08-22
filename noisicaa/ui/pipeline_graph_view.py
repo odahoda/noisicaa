@@ -57,6 +57,14 @@ class Port(QtWidgets.QGraphicsRectItem):
             sym.setText('?')
         sym.setPos(sym_pos)
 
+    def getInfoText(self):
+        return {
+            (music.PortType.Audio, music.PortDirection.Input): "Audio Input port",
+            (music.PortType.Audio, music.PortDirection.Output): "Audio Output port",
+            (music.PortType.Events, music.PortDirection.Input): "Event Input port",
+            (music.PortType.Events, music.PortDirection.Output): "Event Output port",
+        }[(self.port_desc.port_type, self.port_desc.direction)]
+
     def setHighlighted(self, highlighted):
         if highlighted:
             self.setBrush(QtGui.QColor(200, 200, 255))
@@ -91,6 +99,9 @@ class QCloseIconItem(QtWidgets.QGraphicsObject):
 
         self._size = QtCore.QSizeF(16, 16)
         self._icon = QtGui.QIcon.fromTheme('edit-delete')
+
+    def getInfoText(self):
+        return "Remove this node."
 
     def boundingRect(self):
         return QtCore.QRectF(QtCore.QPointF(0, 0), self._size)
@@ -176,6 +187,21 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
     @property
     def node_description(self):
         return self._node.description
+
+    def getInfoText(self):
+        info_lines = []
+
+        parameter_values = dict(
+            (p.name, p.value) for p in self._node.parameter_values)
+
+        for parameter in self._node.description.parameters:
+            if parameter.param_type == music.ParameterType.Float:
+                value = parameter_values.get(
+                    parameter.name, parameter.default)
+                info_lines.append("%s: %s" % (
+                    parameter.display_name, value))
+
+        return '\n'.join(info_lines)
 
     def cleanup(self):
         if self._graph_pos_listener is not None:
@@ -336,6 +362,18 @@ class PipelineGraphSceneImpl(QtWidgets.QGraphicsScene):
     def __init__(self, view=None, **kwargs):
         super().__init__(**kwargs)
         self.view = view
+
+    def helpEvent(self, evt):
+        item = self.itemAt(evt.scenePos(), QtGui.QTransform())
+        if (item is not None
+            and isinstance(item, (NodeItem, Port, QCloseIconItem))):
+            info_text = item.getInfoText()
+            if info_text:
+                QtWidgets.QToolTip.showText(
+                    evt.screenPos(), info_text, self.view)
+                evt.accept()
+                return
+        super().helpEvent(evt)
 
 class PipelineGraphScene(ui_base.ProjectMixin, PipelineGraphSceneImpl):
     pass
@@ -667,7 +705,6 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
         layout = QtWidgets.QFormLayout()
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         self._node_parameters.setLayout(layout)
-
 
         if node_item is not None:
             header = QtWidgets.QLabel(self._node_parameters)
