@@ -90,10 +90,11 @@ cdef extern from "csound/csound.h" nogil:
     MYFLT *csoundGetSpout(CSOUND* csnd)
     MYFLT csoundGetScoreOffsetSeconds(CSOUND* csnd)
 
-    int csoundListChannels(CSOUND* csnd, controlChannelInfo_t **lst)
-    void csoundDeleteChannelList(CSOUND* csnd, controlChannelInfo_t *lst)
+    int csoundListChannels(CSOUND* csnd, controlChannelInfo_t** lst)
+    void csoundDeleteChannelList(CSOUND* csnd, controlChannelInfo_t* lst)
     int csoundGetChannelPtr(
-        CSOUND* csnd, MYFLT **ptr, const char *name, int type)
+        CSOUND* csnd, MYFLT** ptr, const char* name, int type)
+    void csoundSetControlChannel(CSOUND* csnd, const char* name, MYFLT val)
 
     #MYFLT* csoundGetInputBuffer(CSOUND* csnd)
     #long csoundGetInputBufferSize(CSOUND* csnd)
@@ -310,6 +311,15 @@ cdef class CSound(object):
 
         string.memmove(
             channel_dat, <char *>dsamples, self.ksmps * sizeof(MYFLT))
+
+    def set_control_channel_value(self, name, value):
+        assert name in self.channels
+        channel = self.channels[name]
+        assert channel.is_input, channel
+        assert channel.type == ChannelType.Control, channel
+
+        csoundSetControlChannel(
+            self.csnd, channel.name.encode('utf-8'), value)
 
     def close(self):
         assert self.csnd != NULL

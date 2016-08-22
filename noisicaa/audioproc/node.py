@@ -24,6 +24,9 @@ class Node(object):
     def name(self):
         return self._name
 
+    def set_param(self):
+        pass
+
     def send_notification(self, notification):
         self.pipeline.add_notification(self.id, notification)
 

@@ -62,6 +62,22 @@ class NodeDB(object):
                     root.find('display-name').itertext())
 
                 parameters = []
+                for parameter_elem in root.find('parameters').findall('parameter'):
+                    parameter_cls = {
+                        'float': node_description.FloatParameterDescription,
+                    }[parameter_elem.get('type')]
+
+                    kwargs = {}
+                    kwargs['name'] = parameter_elem.get('name')
+
+                    if parameter_elem.get('type') == 'float':
+                        kwargs['min'] = float(parameter_elem.get('min'))
+                        kwargs['max'] = float(parameter_elem.get('max'))
+                        kwargs['default'] = float(parameter_elem.get('default'))
+
+                    parameter_desc = parameter_cls(**kwargs)
+                    parameters.append(parameter_desc)
+
 
                 code = ''.join(root.find('code').itertext())
                 code = code.strip() + '\n'

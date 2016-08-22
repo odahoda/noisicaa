@@ -108,6 +108,8 @@ class AudioProcProcessMixin(object):
         self.server.add_command_handler(
             'SET_PORT_PROP', self.handle_set_port_prop)
         self.server.add_command_handler(
+            'SET_NODE_PARAM', self.handle_set_node_param)
+        self.server.add_command_handler(
             'DUMP', self.handle_dump)
 
         self.node_db = node_db.NodeDB()
@@ -326,6 +328,13 @@ class AudioProcProcessMixin(object):
         port = node.outputs[port_name]
         with self.pipeline.writer_lock():
             port.set_prop(**kwargs)
+
+    async def handle_set_node_param(self, session_id, node_id, kwargs):
+        self.get_session(session_id)
+
+        node = self.pipeline.find_node(node_id)
+        with self.pipeline.writer_lock():
+            node.set_param(**kwargs)
 
     def play_file_done(self, notification, node_id):
         with self.pipeline.writer_lock():

@@ -162,3 +162,15 @@ class SetPortProperty(PipelineMutation):
             self.node, self.port,
             ''.join(' %s=%r' % (k, v)
                     for k, v in sorted(self.kwargs.items())))
+
+
+class SetNodeParameter(PipelineMutation):
+    def __init__(self, node, **kwargs):
+        self.node = node
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return '<SetNodeParameter node=%s%s>' % (
+            self.node,
+            ''.join(' %s=%r' % (k, v)
+                    for k, v in sorted(self.kwargs.items())))

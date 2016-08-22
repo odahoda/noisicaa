@@ -23,11 +23,32 @@ class SetPipelineGraphNodePos(commands.Command):
             self.graph_pos = graph_pos
 
     def run(self, node):
-        assert isinstance(node, PipelineGraphNode)
+        assert isinstance(node, BasePipelineGraphNode)
 
         node.graph_pos = self.graph_pos
 
 commands.Command.register_command(SetPipelineGraphNodePos)
+
+
+class SetPipelineGraphNodeParameter(commands.Command):
+    parameter_name = core.Property(str)
+    float_value = core.Property(float, allow_none=True)
+
+    def __init__(self, parameter_name=None, float_value=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.parameter_name = parameter_name
+            self.float_value = float_value
+
+    def run(self, node):
+        assert isinstance(node, BasePipelineGraphNode)
+
+        parameter = node.description.get_parameter(self.parameter_name)
+        if parameter.param_type == node_description.ParameterType.Float:
+            assert self.float_value is not None
+            node.set_parameter(parameter.name, self.float_value)
+
+commands.Command.register_command(SetPipelineGraphNodeParameter)
 
 
 class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
@@ -56,6 +77,12 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
     def remove_from_pipeline(self):
         raise NotImplementedError
 
+    def set_parameter(self, parameter_name, value):
+        self.sheet.handle_pipeline_mutation(
+            mutations.SetNodeParameter(
+                self.pipeline_node_id,
+                **{parameter_name: value}))
+
 
 class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, node_uri=None, state=None, **kwargs):
@@ -69,16 +96,12 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
         return self.id
 
     def add_to_pipeline(self):
-        desc = self.description
-
-        params = {}
-        for param in desc.parameters:
-            if param.param_type == node_description.ParameterType.Internal:
-                params[param.name] = param.value
-
         self.sheet.handle_pipeline_mutation(
             mutations.AddNode(
-                desc.node_cls, self.pipeline_node_id, self.name, **params))
+                self.description.node_cls,
+                self.pipeline_node_id,
+                self.name,
+                description=self.description))
 
     def remove_from_pipeline(self):
         self.sheet.handle_pipeline_mutation(

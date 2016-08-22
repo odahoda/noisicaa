@@ -282,6 +282,10 @@ class Player(object):
             await self.audioproc_client.set_port_property(
                 mutation.node, mutation.port, **mutation.kwargs)
 
+        elif isinstance(mutation, mutations.SetNodeParameter):
+            await self.audioproc_client.set_node_parameter(
+                mutation.node, **mutation.kwargs)
+
         else:
             raise ValueError(type(mutation))
 

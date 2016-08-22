@@ -12,6 +12,12 @@ class NodeDescription(object):
         if parameters is not None:
             self.parameters.extend(parameters)
 
+    def get_parameter(self, name):
+        for parameter in self.parameters:
+            if parameter.name == name:
+                return parameter
+        raise KeyError("No parameter %r." % name)
+
 
 class SystemNodeDescription(NodeDescription):
     pass
@@ -56,6 +62,7 @@ class ParameterType(enum.Enum):
     String = 'string'
     Path = 'path'
     Text = 'text'
+    Float = 'float'
 
 
 class ParameterDescription(object):
@@ -85,3 +92,11 @@ class TextParameterDescription(ParameterDescription):
         super().__init__(param_type=ParameterType.Text, **kwargs)
 
         self.content_type = content_type
+
+class FloatParameterDescription(ParameterDescription):
+    def __init__(self, min=0.0, max=1.0, default=0.0, **kwargs):
+        super().__init__(param_type=ParameterType.Float, **kwargs)
+
+        self.min = min
+        self.max = max
+        self.default = default

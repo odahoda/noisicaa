@@ -169,6 +169,14 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         self._graph_pos_listener = self._node.listeners.add(
             'graph_pos', self.onGraphPosChanged)
 
+    @property
+    def node(self):
+        return self._node
+
+    @property
+    def node_description(self):
+        return self._node.description
+
     def cleanup(self):
         if self._graph_pos_listener is not None:
             self._graph_pos_listener.remove()
@@ -197,6 +205,8 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
 
     def mousePressEvent(self, evt):
         if evt.button() == Qt.LeftButton:
+            self._view.nodeSelected.emit(self)
+
             self.grabMouse()
             self._moving = True
             self._move_handle_pos = evt.scenePos() - self.pos()
@@ -332,6 +342,8 @@ class PipelineGraphScene(ui_base.ProjectMixin, PipelineGraphSceneImpl):
 
 
 class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
+    nodeSelected = QtCore.pyqtSignal(object)
+
     def __init__(self, sheet, **kwargs):
         super().__init__(**kwargs)
 
@@ -598,6 +610,7 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
 
         self._graph_view = PipelineGraphGraphicsView(
             sheet=self.sheet, **self.context)
+        self._graph_view.nodeSelected.connect(self.onNodeSelected)
 
         self._node_list = NodesList(parent=self, **self.context)
 
@@ -613,10 +626,14 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
             QtWidgets.QLineEdit.TrailingPosition)
         self._node_filter.textChanged.connect(self.onNodeFilterChanged)
 
+        self._node_parameters = QtWidgets.QWidget()
+
         side_layout = QtWidgets.QVBoxLayout()
         side_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         side_layout.addWidget(self._node_filter)
         side_layout.addWidget(self._node_list, 1)
+        side_layout.addSpacing(8)
+        side_layout.addWidget(self._node_parameters)
 
         side_pane = QtWidgets.QWidget(self)
         side_pane.setLayout(side_layout)
@@ -642,6 +659,39 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
                 item.setHidden(False)
             else:
                 item.setHidden(True)
+
+    def onNodeSelected(self, node_item):
+        if self._node_parameters.layout() is not None:
+            QtWidgets.QWidget().setLayout(self._node_parameters.layout())
+
+        layout = QtWidgets.QFormLayout()
+        layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+        self._node_parameters.setLayout(layout)
+
+
+        if node_item is not None:
+            header = QtWidgets.QLabel(self._node_parameters)
+            header.setText(node_item.node.name)
+            header.setAlignment(Qt.AlignHCenter)
+            layout.addRow(header)
+
+            for parameter in node_item.node_description.parameters:
+                if parameter.param_type == music.ParameterType.Float:
+                    widget = QtWidgets.QLineEdit(self._node_parameters)
+                    widget.setText(str(parameter.default))
+                    widget.setValidator(QtGui.QDoubleValidator())
+                    widget.textChanged.connect(functools.partial(
+                        self.onFloatParameterChanged,
+                        node_item, parameter))
+                    layout.addRow(parameter.name, widget)
+
+    def onFloatParameterChanged(self, node_item, parameter, text):
+        value, ok = self._node_parameters.locale().toDouble(text)
+        if ok:
+            self.send_command_async(
+                node_item.node.id, 'SetPipelineGraphNodeParameter',
+                parameter_name=parameter.name,
+                float_value=value)
 
 class PipelineGraphView(ui_base.ProjectMixin, PipelineGraphViewImpl):
     pass

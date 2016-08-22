@@ -6,6 +6,8 @@ import time
 
 import numpy
 
+from noisicaa.music import node_description
+
 from .. import csound
 from .. import ports
 from .. import node
@@ -22,39 +24,51 @@ class CSoundFilter(node.Node):
     desc.port('in', 'input', 'audio')
     desc.port('out', 'output', 'audio')
 
-    def __init__(self, event_loop, name=None, id=None, code=None):
+    def __init__(self, event_loop, description, name=None, id=None):
         super().__init__(event_loop, name, id)
 
-        self._input = ports.AudioInputPort('in')
-        self.add_input(self._input)
+        self._description = description
 
-        self._output = ports.AudioOutputPort('out')
-        self.add_output(self._output)
+        port_cls_map = {
+            (node_description.PortType.Audio,
+             node_description.PortDirection.Input): ports.AudioInputPort,
+            (node_description.PortType.Audio,
+             node_description.PortDirection.Output): ports.AudioOutputPort,
+            (node_description.PortType.Events,
+             node_description.PortDirection.Input): ports.EventInputPort,
+            (node_description.PortType.Events,
+             node_description.PortDirection.Output): ports.EventOutputPort,
+        }
+
+        for port_desc in self._description.ports:
+            port_cls = port_cls_map[
+                (port_desc.port_type, port_desc.direction)]
+            port = port_cls(port_desc.name)
+            if port_desc.direction == node_description.PortDirection.Input:
+                self.add_input(port)
+            else:
+                self.add_output(port)
+
+        self._parameters = {}
+        for parameter in self._description.parameters:
+            if parameter.param_type == node_description.ParameterType.Float:
+                self._parameters[parameter.name] = parameter.default
 
         self._csnd = None
-        self._code = code
+        self._code = self._description.get_parameter('code').value
+
+    def set_param(self, **kwargs):
+        for parameter_name, value in kwargs.items():
+            assert parameter_name in self._parameters
+            assert isinstance(value, float)
+            self._parameters[parameter_name] = value
 
     async def setup(self):
         await super().setup()
 
         self._csnd = csound.CSound()
 
-        code = self._code or textwrap.dedent("""\
-            ksmps=32
-            nchnls=2
-
-            gaInL chnexport "InL", 1
-            gaInR chnexport "InR", 1
-
-            gaOutL chnexport "OutL", 2
-            gaOutR chnexport "OutR", 2
-
-            instr 1
-                gaOutL = gaInL
-                gaOutR = gaInR
-            endin
-        """)
-        self._csnd.set_orchestra(code)
+        self._csnd.set_orchestra(self._code)
         self._csnd.add_score_event(b'i1 0 3600')
 
     async def cleanup(self):
@@ -65,25 +79,40 @@ class CSoundFilter(node.Node):
         await super().cleanup()
 
     def run(self, ctxt):
-        assert len(self._input.frame) == ctxt.duration
-        in_samples = self._input.frame.samples
+        in_samples = {}
+        for port in self.inputs.values():
+            assert len(port.frame) == ctxt.duration
+            in_samples[port.name] = port.frame.samples
 
-        self._output.frame.resize(ctxt.duration)
-        out_samples = self._output.frame.samples
+        out_samples = {}
+        for port in self.outputs.values():
+            port.frame.resize(ctxt.duration)
+            out_samples[port.name] = port.frame.samples
 
         pos = 0
         while pos < ctxt.duration:
-            self._csnd.set_audio_channel_data(
-                'InL', in_samples[0][pos:pos+self._csnd.ksmps])
-            self._csnd.set_audio_channel_data(
-                'InR', in_samples[1][pos:pos+self._csnd.ksmps])
+            for port_name, samples in in_samples.items():
+                self._csnd.set_audio_channel_data(
+                    '%s/left' % port_name,
+                    samples[0][pos:pos+self._csnd.ksmps])
+                self._csnd.set_audio_channel_data(
+                    '%s/right' % port_name,
+                    samples[1][pos:pos+self._csnd.ksmps])
+
+            for parameter in self._description.parameters:
+                if parameter.param_type == node_description.ParameterType.Float:
+                    self._csnd.set_control_channel_value(
+                        parameter.name, self._parameters[parameter.name])
 
             self._csnd.perform()
 
-            out_samples[0][pos:pos+self._csnd.ksmps] = (
-                self._csnd.get_audio_channel_data('OutL'))
-            out_samples[1][pos:pos+self._csnd.ksmps] = (
-                self._csnd.get_audio_channel_data('OutR'))
+            for port_name, samples in out_samples.items():
+                samples[0][pos:pos+self._csnd.ksmps] = (
+                    self._csnd.get_audio_channel_data(
+                        '%s/left' % port_name))
+                samples[1][pos:pos+self._csnd.ksmps] = (
+                    self._csnd.get_audio_channel_data(
+                        '%s/right' % port_name))
 
             pos += self._csnd.ksmps
 
