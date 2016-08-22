@@ -71,6 +71,8 @@ class ParameterDescription(object):
         self.display_name = display_name or name
         self.param_type = param_type
 
+    def validate(self, value):
+        return value
 
 class InternalParameterDescription(ParameterDescription):
     def __init__(self, value, **kwargs):
@@ -101,3 +103,6 @@ class FloatParameterDescription(ParameterDescription):
         self.min = min
         self.max = max
         self.default = default
+
+    def validate(self, value):
+        return min(self.max, max(self.min, value))

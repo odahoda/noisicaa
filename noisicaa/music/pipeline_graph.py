@@ -46,7 +46,9 @@ class SetPipelineGraphNodeParameter(commands.Command):
         parameter = node.description.get_parameter(self.parameter_name)
         if parameter.param_type == node_description.ParameterType.Float:
             assert self.float_value is not None
-            node.set_parameter(parameter.name, self.float_value)
+            node.set_parameter(
+                parameter.name,
+                parameter.validate(self.float_value))
 
 commands.Command.register_command(SetPipelineGraphNodeParameter)
 
