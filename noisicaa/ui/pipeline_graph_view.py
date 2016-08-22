@@ -688,7 +688,7 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
                     widget.textChanged.connect(functools.partial(
                         self.onFloatParameterChanged,
                         node_item, parameter))
-                    layout.addRow(parameter.name, widget)
+                    layout.addRow(parameter.display_name, widget)
 
     def onFloatParameterChanged(self, node_item, parameter, text):
         value, ok = self._node_parameters.locale().toDouble(text)

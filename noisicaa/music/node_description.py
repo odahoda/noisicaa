@@ -66,8 +66,9 @@ class ParameterType(enum.Enum):
 
 
 class ParameterDescription(object):
-    def __init__(self, name, param_type):
+    def __init__(self, param_type, name, display_name=None):
         self.name = name
+        self.display_name = display_name or name
         self.param_type = param_type
 
 

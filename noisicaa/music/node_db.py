@@ -58,9 +58,6 @@ class NodeDB(object):
                         direction=direction)
                     ports.append(port_desc)
 
-                display_name = ''.join(
-                    root.find('display-name').itertext())
-
                 parameters = []
                 for parameter_elem in root.find('parameters').findall('parameter'):
                     parameter_cls = {
@@ -69,6 +66,9 @@ class NodeDB(object):
 
                     kwargs = {}
                     kwargs['name'] = parameter_elem.get('name')
+                    kwargs['display_name'] = ''.join(
+                        parameter_elem.find('display-name').itertext())
+
 
                     if parameter_elem.get('type') == 'float':
                         kwargs['min'] = float(parameter_elem.get('min'))
@@ -84,6 +84,9 @@ class NodeDB(object):
                 parameters.append(
                     node_description.InternalParameterDescription(
                         name='code', value=code))
+
+                display_name = ''.join(
+                    root.find('display-name').itertext())
 
                 node_desc = node_description.UserNodeDescription(
                     display_name=display_name,
