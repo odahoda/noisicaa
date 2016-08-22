@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<csound>
+<display-name>Butterworth Band-reject Filter</display-name>
+<ports>
+  <port name="in" type="audio" direction="input"/>
+  <port name="out" type="audio" direction="output"/>
+</ports>
+<parameters>
+  <parameter name="center" type="float" min="0" max="20000" default="2000">
+    <display-name>Center frequency</display-name>
+  </parameter>
+  <parameter name="bandwidth" type="float" min="0" max="20000" default="200">
+    <display-name>Bandwidth</display-name>
+  </parameter>
+</parameters>
+<code>
+ksmps=32
+nchnls=2
+
+gaInL chnexport "in/left", 1
+gaInR chnexport "in/right", 1
+
+gaOutL chnexport "out/left", 2
+gaOutR chnexport "out/right", 2
+
+gkCenter    chnexport "center", 1
+gkBandwidth chnexport "bandwidth", 1
+
+instr 1
+  gaOutL butterbr gaInL, gkCenter, gkBandwidth
+  gaOutR butterbr gaInR, gkCenter, gkBandwidth
+endin
+</code>
+</csound>

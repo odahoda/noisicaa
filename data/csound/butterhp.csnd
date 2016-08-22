@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<csound>
+<display-name>Butterworth High-pass Filter</display-name>
+<ports>
+  <port name="in" type="audio" direction="input"/>
+  <port name="out" type="audio" direction="output"/>
+</ports>
+<parameters>
+  <parameter name="cutoff" type="float" min="0" max="20000" default="2000">
+    <display-name>Cutoff frequency</display-name>
+  </parameter>
+</parameters>
+<code>
+ksmps=32
+nchnls=2
+
+gaInL chnexport "in/left", 1
+gaInR chnexport "in/right", 1
+
+gaOutL chnexport "out/left", 2
+gaOutR chnexport "out/right", 2
+
+gkCutoff chnexport "cutoff", 1
+
+instr 1
+  gaOutL butterhp gaInL, gkCutoff
+  gaOutR butterhp gaInR, gkCutoff
+endin
+</code>
+</csound>
