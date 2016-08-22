@@ -16,7 +16,9 @@ gaOutL chnexport "OutL", 2
 gaOutR chnexport "OutR", 2
 
 instr 1
-  gaOutL, gaOutR reverbsc gaInL, gaInR, 0.3, 12000
+  gaOutL, gaOutR reverbsc gaInL, gaInR, 0.6, 16000
+  gaOutL = gaOutL + gaInL
+  gaOutR = gaOutR + gaInR
 endin
 </code>
 </csound>
