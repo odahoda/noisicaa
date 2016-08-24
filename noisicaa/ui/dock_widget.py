@@ -12,20 +12,20 @@ logger = logging.getLogger(__name__)
 
 
 class DockWidget(ui_base.CommonMixin, QDockWidget):
-    def __init__(self, app, title, identifier, parent,
+    def __init__(self, title, identifier,
                  allowed_areas=Qt.AllDockWidgetAreas,
                  initial_area=Qt.RightDockWidgetArea,
-                 initial_visible=False):
-        super().__init__(app=app, parent=parent)
+                 initial_visible=False, **kwargs):
+        super().__init__(**kwargs)
         self._identifier = identifier
 
         self.setWindowTitle(title)
         self.setObjectName('dock:' + identifier)
         self.setAllowedAreas(allowed_areas)
-        parent.addDockWidget(initial_area, self)
+        self.parent().addDockWidget(initial_area, self)
         self.setVisible(initial_visible)
 
-        parent._view_menu.addAction(self.toggleViewAction())
+        self.parent()._view_menu.addAction(self.toggleViewAction())
 
         name = QLabel(self, textFormat=Qt.PlainText)
         name.setText(self.windowTitle())

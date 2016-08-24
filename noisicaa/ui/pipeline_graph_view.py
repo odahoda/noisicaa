@@ -11,7 +11,9 @@ from PyQt5 import QtWidgets
 
 from noisicaa import music
 from noisicaa.audioproc import node_types
+from noisicaa.music import node_db
 from . import ui_base
+from . import dock_widget
 
 logger = logging.getLogger(__name__)
 
@@ -123,11 +125,59 @@ class QCloseIconItem(QtWidgets.QGraphicsObject):
             evt.accept()
 
 
+class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
+    def __init__(self, node_item, **kwargs):
+        super().__init__(
+            identifier='node_properties:%s' % node_item.node.id,
+            title="Node \"%s\" Properties" % node_item.node.name,
+            allowed_areas=Qt.AllDockWidgetAreas,
+            initial_area=Qt.RightDockWidgetArea,
+            initial_visible=True,
+            **kwargs)
+
+        self._node_item = node_item
+
+        layout = QtWidgets.QFormLayout()
+        layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+
+        self._name = QtWidgets.QLineEdit(self)
+        self._name.setText(node_item.node.name)
+        layout.addRow("Name:", self._name)
+
+        parameter_values = dict(
+            (p.name, p.value)
+            for p in self._node_item.node.parameter_values)
+
+        for parameter in self._node_item.node_description.parameters:
+            if parameter.param_type == music.ParameterType.Float:
+                widget = QtWidgets.QLineEdit(self)
+                widget.setText(str(parameter_values.get(
+                    parameter.name, parameter.default)))
+                widget.setValidator(QtGui.QDoubleValidator())
+                widget.textChanged.connect(functools.partial(
+                    self.onFloatParameterChanged, parameter))
+                layout.addRow(parameter.display_name, widget)
+
+        main_area = QtWidgets.QWidget()
+        main_area.setLayout(layout)
+        self.setWidget(main_area)
+
+    def onFloatParameterChanged(self, parameter, text):
+        value, ok = self.locale().toDouble(text)
+        if ok:
+            self.send_command_async(
+                self._node_item.node.id, 'SetPipelineGraphNodeParameter',
+                parameter_name=parameter.name,
+                float_value=value)
+
+
 class NodeItemImpl(QtWidgets.QGraphicsRectItem):
     def __init__(self, node, view, **kwargs):
         super().__init__(**kwargs)
         self._node = node
         self._view = view
+
+        self._properties_dock = None
 
         self._listeners = []
 
@@ -229,6 +279,12 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         if self._remove_icon is not None:
             self._remove_icon.setVisible(False)
 
+    def mouseDoubleClickEvent(self, evt):
+        if evt.button() == Qt.LeftButton:
+            self.onEdit()
+            evt.accept()
+        super().mouseDoubleClickEvent(evt)
+
     def mousePressEvent(self, evt):
         if evt.button() == Qt.LeftButton:
             self._view.nodeSelected.emit(self)
@@ -269,22 +325,27 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
 
     def contextMenuEvent(self, evt):
         menu = QtWidgets.QMenu()
+
+        edit = menu.addAction("Edit properties...")
+        edit.triggered.connect(self.onEdit)
+
         if self._node.removable:
             remove = menu.addAction("Remove")
             remove.triggered.connect(self.onRemove)
 
-        if not menu.isEmpty():
-            menu.exec_(evt.screenPos())
-            evt.accept()
-            return
-
-        super().contextMenuEvent(evt)
+        menu.exec_(evt.screenPos())
+        evt.accept()
 
     def onRemove(self):
         self._view.send_command_async(
             self._node.parent.id, 'RemovePipelineGraphNode',
             node_id=self._node.id)
 
+    def onEdit(self):
+        if self._properties_dock is None:
+            self._properties_dock = NodePropertyDock(
+                node_item=self, parent=self.window, **self.context)
+        self._properties_dock.show()
 
 class NodeItem(ui_base.ProjectMixin, NodeItemImpl):
     pass
@@ -619,14 +680,18 @@ class PipelineGraphGraphicsView(
     pass
 
 
-class NodesList(ui_base.ProjectMixin, QtWidgets.QListWidget):
+class NodesList(ui_base.CommonMixin, QtWidgets.QListWidget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self.setDragDropMode(
             QtWidgets.QAbstractItemView.DragOnly)
 
-        for uri, node_desc in self.project.node_db.nodes:
+        # TODO: should use one globally shared NodeDB.
+        self.node_db = node_db.NodeDB()
+        self.node_db.setup()
+
+        for uri, node_desc in self.node_db.nodes:
             list_item = QtWidgets.QListWidgetItem()
             list_item.setText(node_desc.display_name)
             list_item.setData(Qt.UserRole, uri)
@@ -642,13 +707,15 @@ class NodesList(ui_base.ProjectMixin, QtWidgets.QListWidget):
         return mime_data
 
 
-class PipelineGraphViewImpl(QtWidgets.QWidget):
+class NodeListDock(dock_widget.DockWidget):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        self._graph_view = PipelineGraphGraphicsView(
-            sheet=self.sheet, **self.context)
-        self._graph_view.nodeSelected.connect(self.onNodeSelected)
+        super().__init__(
+            identifier='node_list',
+            title="Available Nodes",
+            allowed_areas=Qt.AllDockWidgetAreas,
+            initial_area=Qt.RightDockWidgetArea,
+            initial_visible=True,
+            **kwargs)
 
         self._node_list = NodesList(parent=self, **self.context)
 
@@ -664,31 +731,14 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
             QtWidgets.QLineEdit.TrailingPosition)
         self._node_filter.textChanged.connect(self.onNodeFilterChanged)
 
-        self._node_parameters = QtWidgets.QWidget()
-
-        side_layout = QtWidgets.QVBoxLayout()
-        side_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
-        side_layout.addWidget(self._node_filter)
-        side_layout.addWidget(self._node_list, 1)
-        side_layout.addSpacing(8)
-        side_layout.addWidget(self._node_parameters)
-
-        side_pane = QtWidgets.QWidget(self)
-        side_pane.setLayout(side_layout)
-
-        splitter = QtWidgets.QSplitter(self)
-        splitter.addWidget(self._graph_view)
-        splitter.addWidget(side_pane)
-        splitter.setStretchFactor(0, 20)
-
-        layout = QtWidgets.QHBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
-        layout.addWidget(splitter)
-        self.setLayout(layout)
+        layout.addWidget(self._node_filter)
+        layout.addWidget(self._node_list, 1)
 
-    @property
-    def sheet(self):
-        return self.project.sheets[0]
+        main_area = QtWidgets.QWidget()
+        main_area.setLayout(layout)
+        self.setWidget(main_area)
 
     def onNodeFilterChanged(self, text):
         for idx in range(self._node_list.count()):
@@ -698,42 +748,31 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
             else:
                 item.setHidden(True)
 
-    def onNodeSelected(self, node_item):
-        if self._node_parameters.layout() is not None:
-            QtWidgets.QWidget().setLayout(self._node_parameters.layout())
 
-        layout = QtWidgets.QFormLayout()
+class PipelineGraphViewImpl(QtWidgets.QWidget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self._graph_view = PipelineGraphGraphicsView(
+            sheet=self.sheet, **self.context)
+
+        self._node_list_dock = NodeListDock(
+            parent=self.window, **self.common_context)
+
+        layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
-        self._node_parameters.setLayout(layout)
+        layout.addWidget(self._graph_view)
+        self.setLayout(layout)
 
-        if node_item is not None:
-            header = QtWidgets.QLabel(self._node_parameters)
-            header.setText(node_item.node.name)
-            header.setAlignment(Qt.AlignHCenter)
-            layout.addRow(header)
+    @property
+    def sheet(self):
+        return self.project.sheets[0]
 
-            parameter_values = dict(
-                (p.name, p.value)
-                for p in node_item.node.parameter_values)
+    def showEvent(self, evt):
+        self._node_list_dock.show()
 
-            for parameter in node_item.node_description.parameters:
-                if parameter.param_type == music.ParameterType.Float:
-                    widget = QtWidgets.QLineEdit(self._node_parameters)
-                    widget.setText(str(parameter_values.get(
-                        parameter.name, parameter.default)))
-                    widget.setValidator(QtGui.QDoubleValidator())
-                    widget.textChanged.connect(functools.partial(
-                        self.onFloatParameterChanged,
-                        node_item, parameter))
-                    layout.addRow(parameter.display_name, widget)
-
-    def onFloatParameterChanged(self, node_item, parameter, text):
-        value, ok = self._node_parameters.locale().toDouble(text)
-        if ok:
-            self.send_command_async(
-                node_item.node.id, 'SetPipelineGraphNodeParameter',
-                parameter_name=parameter.name,
-                float_value=value)
+    def hideEvent(self, evt):
+        self._node_list_dock.hide()
 
 class PipelineGraphView(ui_base.ProjectMixin, PipelineGraphViewImpl):
     pass

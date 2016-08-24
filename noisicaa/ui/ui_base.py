@@ -19,6 +19,10 @@ class CommonMixin(object):
         return self._get_context()
 
     @property
+    def common_context(self):
+        return CommonMixin._get_context(self)
+
+    @property
     def app(self):
         return self.__app
 
