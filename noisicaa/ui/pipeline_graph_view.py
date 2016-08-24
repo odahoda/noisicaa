@@ -142,7 +142,8 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
 
         self._name = QtWidgets.QLineEdit(self)
         self._name.setText(node_item.node.name)
-        layout.addRow("Name:", self._name)
+        self._name.editingFinished.connect(self.onNameChanged)
+        layout.addRow("Name", self._name)
 
         parameter_values = dict(
             (p.name, p.value)
@@ -154,16 +155,19 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
                 widget.setText(str(parameter_values.get(
                     parameter.name, parameter.default)))
                 widget.setValidator(QtGui.QDoubleValidator())
-                widget.textChanged.connect(functools.partial(
-                    self.onFloatParameterChanged, parameter))
+                widget.editingFinished.connect(functools.partial(
+                    self.onFloatParameterChanged, widget, parameter))
                 layout.addRow(parameter.display_name, widget)
 
         main_area = QtWidgets.QWidget()
         main_area.setLayout(layout)
         self.setWidget(main_area)
 
-    def onFloatParameterChanged(self, parameter, text):
-        value, ok = self.locale().toDouble(text)
+    def onNameChanged(self):
+        pass
+
+    def onFloatParameterChanged(self, widget, parameter):
+        value, ok = widget.locale().toDouble(widget.text())
         if ok:
             self.send_command_async(
                 self._node_item.node.id, 'SetPipelineGraphNodeParameter',
@@ -733,6 +737,7 @@ class NodeListDock(dock_widget.DockWidget):
 
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+        layout.setSpacing(0)
         layout.addWidget(self._node_filter)
         layout.addWidget(self._node_list, 1)
 
