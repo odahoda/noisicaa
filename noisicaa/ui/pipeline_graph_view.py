@@ -133,6 +133,7 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
             allowed_areas=Qt.AllDockWidgetAreas,
             initial_area=Qt.RightDockWidgetArea,
             initial_visible=True,
+            initial_floating=True,
             **kwargs)
 
         self._node_item = node_item
@@ -285,7 +286,7 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
 
     def mouseDoubleClickEvent(self, evt):
         if evt.button() == Qt.LeftButton:
-            self.onEdit()
+            self.onEdit(evt.screenPos())
             evt.accept()
         super().mouseDoubleClickEvent(evt)
 
@@ -331,7 +332,7 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         menu = QtWidgets.QMenu()
 
         edit = menu.addAction("Edit properties...")
-        edit.triggered.connect(self.onEdit)
+        edit.triggered.connect(lambda: self.onEdit(evt.screenPos()))
 
         if self._node.removable:
             remove = menu.addAction("Remove")
@@ -345,10 +346,13 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
             self._node.parent.id, 'RemovePipelineGraphNode',
             node_id=self._node.id)
 
-    def onEdit(self):
+    def onEdit(self, pos=None):
         if self._properties_dock is None:
             self._properties_dock = NodePropertyDock(
-                node_item=self, parent=self.window, **self.context)
+                node_item=self,
+                parent=self.window,
+                initial_pos=pos,
+                **self.context)
         self._properties_dock.show()
 
 class NodeItem(ui_base.ProjectMixin, NodeItemImpl):

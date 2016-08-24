@@ -15,7 +15,10 @@ class DockWidget(ui_base.CommonMixin, QDockWidget):
     def __init__(self, title, identifier,
                  allowed_areas=Qt.AllDockWidgetAreas,
                  initial_area=Qt.RightDockWidgetArea,
-                 initial_visible=False, **kwargs):
+                 initial_visible=False,
+                 initial_floating=False,
+                 initial_pos=False,
+                 **kwargs):
         super().__init__(**kwargs)
         self._identifier = identifier
 
@@ -24,6 +27,9 @@ class DockWidget(ui_base.CommonMixin, QDockWidget):
         self.setAllowedAreas(allowed_areas)
         self.parent().addDockWidget(initial_area, self)
         self.setVisible(initial_visible)
+        self.setFloating(initial_floating)
+        if initial_floating and initial_pos is not None:
+            self.move(initial_pos)
 
         self.parent()._view_menu.addAction(self.toggleViewAction())
 
@@ -92,7 +98,8 @@ class DockWidget(ui_base.CommonMixin, QDockWidget):
     def onTopLevelChanged(self, top_level):
         self.hide_button.setDisabled(top_level)
         if top_level:
-            self.widget().show()
+            if self.widget() is not None:
+                self.widget().show()
             self.hide_button.setIcon(QIcon.fromTheme('list-remove'))
 
     def onFeaturesChanged(self, features):
