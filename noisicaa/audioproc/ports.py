@@ -76,9 +76,9 @@ class OutputPort(Port):
     def muted(self, value):
         self._muted = bool(value)
 
-    def set_prop(self, muted=UNSET, **kwargs):
+    def set_prop(self, muted=None, **kwargs):
         super().set_prop(**kwargs)
-        if muted is not UNSET:
+        if muted is not None:
             self.muted = muted
 
 
@@ -136,9 +136,9 @@ class AudioOutputPort(OutputPort):
             raise ValueError("Invalid volume.")
         self._volume = float(value)
 
-    def set_prop(self, volume=UNSET, **kwargs):
+    def set_prop(self, volume=None, **kwargs):
         super().set_prop(**kwargs)
-        if volume is not UNSET:
+        if volume is not None:
             self.volume = volume
 
 

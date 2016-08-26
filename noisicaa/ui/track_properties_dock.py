@@ -14,26 +14,9 @@ from . import instrument_library
 from ..constants import DATA_DIR
 from . import ui_base
 from . import model
+from . import mute_button
 
 logger = logging.getLogger(__name__)
-
-class MuteButton(QtWidgets.QToolButton):
-    def __init__(self, parent=None):
-        super().__init__(parent, checkable=True, autoRaise=True)
-
-        self._muted_icon = QtGui.QIcon(
-            os.path.join(DATA_DIR, 'icons', 'track-muted.svg'))
-        self._not_muted_icon = QtGui.QIcon(
-            os.path.join(DATA_DIR, 'icons', 'track-not-muted.svg'))
-
-        self.setIcon(self._not_muted_icon)
-
-    def setChecked(self, checked):
-        if checked:
-            self.setIcon(self._muted_icon)
-        else:
-            self.setIcon(self._not_muted_icon)
-        super().setChecked(checked)
 
 
 class TrackPropertiesDockWidget(DockWidget):
@@ -55,7 +38,7 @@ class TrackPropertiesDockWidget(DockWidget):
         self._name = QtWidgets.QLineEdit(self)
         self._name.textEdited.connect(self.onNameEdited)
 
-        self._muted = MuteButton(self)
+        self._muted = mute_button.MuteButton(self)
         self._muted.toggled.connect(self.onMutedEdited)
 
         self._volume = QtWidgets.QDoubleSpinBox(

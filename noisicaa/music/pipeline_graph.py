@@ -52,6 +52,27 @@ class SetPipelineGraphNodeParameter(commands.Command):
 
 commands.Command.register_command(SetPipelineGraphNodeParameter)
 
+class SetPipelineGraphPortParameter(commands.Command):
+    port_name = core.Property(str)
+    muted = core.Property(bool, allow_none=True)
+    volume = core.Property(float, allow_none=True)
+
+    def __init__(
+            self, port_name=None, muted=None, volume=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.port_name = port_name
+            self.muted = muted
+            self.volume = volume
+
+    def run(self, node):
+        assert isinstance(node, BasePipelineGraphNode)
+
+        node.set_port_parameters(
+            self.port_name, muted=self.muted, volume=self.volume)
+
+commands.Command.register_command(SetPipelineGraphPortParameter)
+
 
 class PipelineGraphNodeParameterValue(
         model.PipelineGraphNodeParameterValue, state.StateBase):
@@ -117,6 +138,14 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
             mutations.SetNodeParameter(
                 self.pipeline_node_id,
                 **{parameter_name: value}))
+
+    def set_port_parameters(self, port_name, muted=None, volume=None):
+        # TODO: persist in model
+
+        self.sheet.handle_pipeline_mutation(
+            mutations.SetPortProperty(
+                self.pipeline_node_id, port_name,
+                muted=muted, volume=volume))
 
 
 class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):

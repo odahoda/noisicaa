@@ -14,6 +14,7 @@ from noisicaa.audioproc import node_types
 from noisicaa.music import node_db
 from . import ui_base
 from . import dock_widget
+from . import mute_button
 
 logger = logging.getLogger(__name__)
 
@@ -140,11 +141,36 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
 
         layout = QtWidgets.QFormLayout()
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+        layout.setVerticalSpacing(1)
 
         self._name = QtWidgets.QLineEdit(self)
         self._name.setText(node_item.node.name)
         self._name.editingFinished.connect(self.onNameChanged)
         layout.addRow("Name", self._name)
+
+        for port in self._node_item.node_description.ports:
+            if not (port.direction == music.PortDirection.Output
+                and port.port_type == music.PortType.Audio):
+                continue
+
+            muted_widget = mute_button.MuteButton(self)
+            volume_widget = QtWidgets.QDoubleSpinBox(
+                self,
+                suffix='%',
+                minimum=0.0, maximum=1000.0, decimals=1,
+                singleStep=5, accelerated=True)
+
+            muted_widget.toggled.connect(functools.partial(
+                self.onPortMutedChanged, port, volume_widget))
+            volume_widget.valueChanged.connect(functools.partial(
+                self.onPortVolumeChanged, port))
+
+            row_layout = QtWidgets.QHBoxLayout()
+            row_layout.setSpacing(0)
+            row_layout.addWidget(muted_widget)
+            row_layout.addWidget(volume_widget, 1)
+            layout.addRow(
+                "Volume (port <i>%s</i>)" % port.name, row_layout)
 
         parameter_values = dict(
             (p.name, p.value)
@@ -174,6 +200,19 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
                 self._node_item.node.id, 'SetPipelineGraphNodeParameter',
                 parameter_name=parameter.name,
                 float_value=value)
+
+    def onPortMutedChanged(self, port, volume_widget, value):
+        volume_widget.setEnabled(not value)
+        self.send_command_async(
+            self._node_item.node.id, 'SetPipelineGraphPortParameter',
+            port_name=port.name,
+            muted=value)
+
+    def onPortVolumeChanged(self, port, value):
+        self.send_command_async(
+            self._node_item.node.id, 'SetPipelineGraphPortParameter',
+            port_name=port.name,
+            volume=value)
 
 
 class NodeItemImpl(QtWidgets.QGraphicsRectItem):
