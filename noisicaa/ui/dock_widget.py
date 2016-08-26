@@ -97,6 +97,7 @@ class DockWidget(ui_base.CommonMixin, QDockWidget):
 
     def onTopLevelChanged(self, top_level):
         self.hide_button.setDisabled(top_level)
+        self.float_button.setChecked(top_level)
         if top_level:
             if self.widget() is not None:
                 self.widget().show()
