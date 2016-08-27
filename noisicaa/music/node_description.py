@@ -41,16 +41,18 @@ class PortDirection(enum.Enum):
 
 
 class PortDescription(object):
-    def __init__(self, name, port_type, direction):
+    def __init__(self, name, port_type, direction, bypass_port=None):
         self.name = name
         self.port_type = port_type
         self.direction = direction
+        self.bypass_port = bypass_port
 
 
 class AudioPortDescription(PortDescription):
-    def __init__(self, **kwargs):
+    def __init__(self, drywet_port=None, drywet_default=0.0, **kwargs):
         super().__init__(port_type=PortType.Audio, **kwargs)
-
+        self.drywet_port = drywet_port
+        self.drywet_default = drywet_default
 
 class EventPortDescription(PortDescription):
     def __init__(self, **kwargs):

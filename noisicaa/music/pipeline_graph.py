@@ -56,20 +56,29 @@ class SetPipelineGraphPortParameter(commands.Command):
     port_name = core.Property(str)
     muted = core.Property(bool, allow_none=True)
     volume = core.Property(float, allow_none=True)
+    bypass = core.Property(bool, allow_none=True)
+    drywet = core.Property(float, allow_none=True)
 
     def __init__(
-            self, port_name=None, muted=None, volume=None, state=None):
+            self, port_name=None,
+            muted=None, volume=None,
+            bypass=None, drywet=None,
+            state=None):
         super().__init__(state=state)
         if state is None:
             self.port_name = port_name
             self.muted = muted
             self.volume = volume
+            self.bypass = bypass
+            self.drywet = drywet
 
     def run(self, node):
         assert isinstance(node, BasePipelineGraphNode)
 
         node.set_port_parameters(
-            self.port_name, muted=self.muted, volume=self.volume)
+            self.port_name,
+            muted=self.muted, volume=self.volume,
+            bypass=self.bypass, drywet=self.drywet)
 
 commands.Command.register_command(SetPipelineGraphPortParameter)
 
@@ -170,8 +179,10 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                 self.pipeline_node_id,
                 **{parameter_name: value}))
 
-    def set_port_parameters(self, port_name, muted=None, volume=None):
-        for prop_name, value in (('muted', muted), ('volume', volume)):
+    def set_port_parameters(self, port_name, muted=None, volume=None, bypass=None, drywet=None):
+        for prop_name, value in (
+                ('muted', muted), ('volume', volume),
+                ('bypass', bypass), ('drywet', drywet)):
             if value is None:
                 continue
 
@@ -188,7 +199,8 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
         self.sheet.handle_pipeline_mutation(
             mutations.SetPortProperty(
                 self.pipeline_node_id, port_name,
-                muted=muted, volume=volume))
+                muted=muted, volume=volume,
+                bypass=bypass, drywet=drywet))
 
 
 class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):

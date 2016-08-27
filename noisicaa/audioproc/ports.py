@@ -64,9 +64,11 @@ class InputPort(Port):
 
 
 class OutputPort(Port):
-    def __init__(self, name):
+    def __init__(self, name, bypass_port=None):
         super().__init__(name)
         self._muted = False
+        self._bypass = False
+        self._bypass_port = bypass_port
 
     @property
     def muted(self):
@@ -76,10 +78,30 @@ class OutputPort(Port):
     def muted(self, value):
         self._muted = bool(value)
 
-    def set_prop(self, muted=None, **kwargs):
+    @property
+    def bypass_port(self):
+        return self._bypass_port
+
+    @property
+    def bypass(self):
+        return self._bypass
+
+    @muted.setter
+    def bypass(self, value):
+        assert self._bypass_port is not None
+        self._bypass = bool(value)
+
+    def set_prop(self, muted=None, bypass=None, **kwargs):
         super().set_prop(**kwargs)
         if muted is not None:
             self.muted = muted
+        if bypass is not None:
+            self.bypass = bypass
+
+    def post_run(self, ctxt):
+        if self._bypass:
+            in_port = self.owner.inputs[self.bypass_port]
+            self.frame.copy_from(in_port.frame)
 
 
 class AudioInputPort(InputPort):
@@ -112,14 +134,16 @@ class AudioInputPort(InputPort):
 
 
 class AudioOutputPort(OutputPort):
-    def __init__(self, name):
-        super().__init__(name)
+    def __init__(self, name, drywet_port=None, **kwargs):
+        super().__init__(name, **kwargs)
         # TODO: get sample_rate from pipeline
         self._audio_format = AudioFormat(CHANNELS_STEREO, SAMPLE_FMT_FLT, 44100)
 
         self.frame = Frame(self._audio_format, 0, set())
 
-        self._volume = 100
+        self._volume = 100.0
+        self._drywet = 0.0
+        self._drywet_port = drywet_port
 
     @property
     def audio_format(self):
@@ -136,10 +160,39 @@ class AudioOutputPort(OutputPort):
             raise ValueError("Invalid volume.")
         self._volume = float(value)
 
-    def set_prop(self, volume=None, **kwargs):
+    @property
+    def drywet_port(self):
+        return self._drywet_port
+
+    @property
+    def drywet(self):
+        return self._drywet
+
+    @volume.setter
+    def drywet(self, value):
+        value = float(value)
+        if value < -100.0 or value > 100.0:
+            raise ValueError("Invalid dry/wet value.")
+        self._drywet = float(value)
+
+    def set_prop(self, volume=None, drywet=None, **kwargs):
         super().set_prop(**kwargs)
         if volume is not None:
             self.volume = volume
+        if drywet is not None:
+            self.drywet = drywet
+
+    def post_run(self, ctxt):
+        if self._drywet_port is not None:
+            in_port = self.owner.inputs[self.drywet_port]
+            if self._drywet < 0.0:
+                self.frame.mul((100.0 + self._drywet) / 100.0)
+                self.frame.add(in_port.frame)
+            if self._drywet >= 0.0:
+                self.frame.mul_add(
+                    (100.0 - self._drywet) / 100.0, in_port.frame)
+
+        super().post_run(ctxt)
 
 
 class EventInputPort(InputPort):

@@ -43,7 +43,12 @@ class CSoundFilter(node.Node):
         for port_desc in self._description.ports:
             port_cls = port_cls_map[
                 (port_desc.port_type, port_desc.direction)]
-            port = port_cls(port_desc.name)
+            kwargs = {}
+            if port_desc.bypass_port is not None:
+                kwargs['bypass_port'] = port_desc.bypass_port
+            if port_desc.drywet_port is not None:
+                kwargs['drywet_port'] = port_desc.drywet_port
+            port = port_cls(port_desc.name, **kwargs)
             if port_desc.direction == node_description.PortDirection.Input:
                 self.add_input(port)
             else:

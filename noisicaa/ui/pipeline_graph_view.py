@@ -183,6 +183,35 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
             layout.addRow(
                 "Volume (port <i>%s</i>)" % port.name, row_layout)
 
+            # TODO: port can be bypassable without dry/wet
+            if port.drywet_port is not None:
+                bypass_widget = QtWidgets.QToolButton(
+                    self, checkable=True, autoRaise=True)
+                bypass_widget.setText('B')
+                bypass_widget.setChecked(
+                    port_property_values.get('bypass', False))
+                drywet_widget = QtWidgets.QSlider(
+                    self,
+                    minimum=-100, maximum=100,
+                    orientation=Qt.Horizontal, tickInterval=20,
+                    tickPosition=QtWidgets.QSlider.TicksBothSides)
+                drywet_widget.setEnabled(
+                    not port_property_values.get('bypass', False))
+                drywet_widget.setValue(
+                    int(port_property_values.get('drywet', 0.0)))
+
+                bypass_widget.toggled.connect(functools.partial(
+                    self.onPortBypassChanged, port, drywet_widget))
+                drywet_widget.valueChanged.connect(functools.partial(
+                    self.onPortDrywetChanged, port))
+
+                row_layout = QtWidgets.QHBoxLayout()
+                row_layout.setSpacing(0)
+                row_layout.addWidget(bypass_widget)
+                row_layout.addWidget(drywet_widget, 1)
+                layout.addRow(
+                    "Dry/wet (port <i>%s</i>)" % port.name, row_layout)
+
         parameter_values = dict(
             (p.name, p.value)
             for p in self._node_item.node.parameter_values)
@@ -224,6 +253,19 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
             self._node_item.node.id, 'SetPipelineGraphPortParameter',
             port_name=port.name,
             volume=value)
+
+    def onPortBypassChanged(self, port, volume_widget, value):
+        volume_widget.setEnabled(not value)
+        self.send_command_async(
+            self._node_item.node.id, 'SetPipelineGraphPortParameter',
+            port_name=port.name,
+            bypass=value)
+
+    def onPortDrywetChanged(self, port, value):
+        self.send_command_async(
+            self._node_item.node.id, 'SetPipelineGraphPortParameter',
+            port_name=port.name,
+            drywet=float(value))
 
 
 class NodeItemImpl(QtWidgets.QGraphicsRectItem):

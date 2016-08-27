@@ -3,7 +3,10 @@
 <display-name>Reverb</display-name>
 <ports>
   <port name="in" type="audio" direction="input"/>
-  <port name="out" type="audio" direction="output"/>
+  <port name="out" type="audio" direction="output">
+    <drywet port="in" default="0"/>
+    <bypass port="in"/>
+  </port>
 </ports>
 <parameters>
   <parameter name="feedback" type="float" min="0" max="1" default="0.7">
@@ -28,8 +31,6 @@ gkCutoff   chnexport "cutoff", 1
 
 instr 1
   gaOutL, gaOutR reverbsc gaInL, gaInR, gkFeedback, gkCutoff
-  gaOutL = gaOutL + gaInL
-  gaOutR = gaOutR + gaInR
 endin
 </code>
 </csound>

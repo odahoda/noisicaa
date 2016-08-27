@@ -177,6 +177,8 @@ class Pipeline(object):
                     node.collect_inputs(ctxt)
                 with ctxt.perf.track('run(%s)' % node.id):
                     node.run(ctxt)
+                with ctxt.perf.track('post_run(%s)' % node.id):
+                    node.post_run(ctxt)
 
     def add_notification(self, node_id, notification):
         self._notifications.append((node_id, notification))

@@ -53,9 +53,21 @@ class NodeDB(object):
                         'input': node_description.PortDirection.Input,
                         'output': node_description.PortDirection.Output,
                     }[port_elem.get('direction')]
+
+                    kwargs = {}
+                    drywet_elem = port_elem.find('drywet')
+                    if drywet_elem is not None:
+                        kwargs['drywet_port'] = drywet_elem.get('port')
+                        kwargs['drywet_default'] = drywet_elem.get('default')
+
+                    bypass_elem = port_elem.find('bypass')
+                    if bypass_elem is not None:
+                        kwargs['bypass_port'] = bypass_elem.get('port')
+
                     port_desc = port_cls(
                         name=port_elem.get('name'),
-                        direction=direction)
+                        direction=direction,
+                        **kwargs)
                     ports.append(port_desc)
 
                 parameters = []
