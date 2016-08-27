@@ -136,7 +136,7 @@ class ProjectProcessMixin(object):
             self.node_db.close()
             self.node_db.cleanup()
             self.node_db = None
-        super().cleanup()
+        await super().cleanup()
 
     async def run(self):
         await self._shutting_down.wait()
