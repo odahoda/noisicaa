@@ -153,12 +153,23 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
                 and port.port_type == music.PortType.Audio):
                 continue
 
+            port_property_values = dict(
+                (p.name, p.value)
+                for p in self._node_item.node.port_property_values
+                if p.port_name == port.name)
+
             muted_widget = mute_button.MuteButton(self)
+            muted_widget.setChecked(
+                port_property_values.get('muted', False))
             volume_widget = QtWidgets.QDoubleSpinBox(
                 self,
                 suffix='%',
                 minimum=0.0, maximum=1000.0, decimals=1,
                 singleStep=5, accelerated=True)
+            volume_widget.setEnabled(
+                not port_property_values.get('muted', False))
+            volume_widget.setValue(
+                port_property_values.get('volume', 100.0))
 
             muted_widget.toggled.connect(functools.partial(
                 self.onPortMutedChanged, port, volume_widget))

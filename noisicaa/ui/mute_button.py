@@ -20,10 +20,11 @@ class MuteButton(QtWidgets.QToolButton):
                 constants.DATA_DIR, 'icons', 'track-not-muted.svg'))
 
         self.setIcon(self._not_muted_icon)
+        self.toggled.connect(self.onToggled)
 
-    def setChecked(self, checked):
+    def onToggled(self, checked):
         if checked:
             self.setIcon(self._muted_icon)
         else:
             self.setIcon(self._not_muted_icon)
-        super().setChecked(checked)
+

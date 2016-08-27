@@ -86,6 +86,21 @@ class PipelineGraphNodeParameterValue(
 state.StateBase.register_class(PipelineGraphNodeParameterValue)
 
 
+class PipelineGraphPortPropertyValue(
+        model.PipelineGraphPortPropertyValue, state.StateBase):
+    def __init__(
+            self, port_name=None, name=None, value=None,
+            state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            self.port_name = port_name
+            self.name = name
+            self.value = value
+
+state.StateBase.register_class(PipelineGraphPortPropertyValue)
+
+
 class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
     def __init__(self, name=None, graph_pos=misc.Pos2F(0, 0), state=None):
         super().__init__(state)
@@ -119,8 +134,24 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                 params[parameter.name] = parameter_values.get(
                     parameter.name, parameter.default)
 
-        self.sheet.handle_pipeline_mutation(
-            mutations.SetNodeParameter(self.pipeline_node_id, **params))
+        if params:
+            self.sheet.handle_pipeline_mutation(
+                mutations.SetNodeParameter(self.pipeline_node_id, **params))
+
+        for port in self.description.ports:
+            if port.direction != node_description.PortDirection.Output:
+                continue
+
+            port_property_values = dict(
+                (p.name, p.value) for p in self.port_property_values
+                if p.port_name == port.name)
+
+            logger.info("%s", port_property_values)
+            if port_property_values:
+                self.sheet.handle_pipeline_mutation(
+                    mutations.SetPortProperty(
+                        self.pipeline_node_id, port.name,
+                        **port_property_values))
 
     def remove_from_pipeline(self):
         raise NotImplementedError
@@ -140,7 +171,19 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                 **{parameter_name: value}))
 
     def set_port_parameters(self, port_name, muted=None, volume=None):
-        # TODO: persist in model
+        for prop_name, value in (('muted', muted), ('volume', volume)):
+            if value is None:
+                continue
+
+            for prop_value in self.port_property_values:
+                if (prop_value.port_name == port_name
+                    and prop_value.name == prop_name):
+                    prop_value.value = value
+                    break
+            else:
+                self.port_property_values.append(
+                    PipelineGraphPortPropertyValue(
+                        port_name=port_name, name=prop_name, value=value))
 
         self.sheet.handle_pipeline_mutation(
             mutations.SetPortProperty(

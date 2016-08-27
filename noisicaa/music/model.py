@@ -144,10 +144,17 @@ class PipelineGraphNodeParameterValue(core.ObjectBase):
     value = core.Property((str, float, int))
 
 
+class PipelineGraphPortPropertyValue(core.ObjectBase):
+    port_name = core.Property(str)
+    name = core.Property(str)
+    value = core.Property((str, float, int, bool))
+
+
 class BasePipelineGraphNode(core.ObjectBase):
     name = core.Property(str)
     graph_pos = core.Property(misc.Pos2F)
     parameter_values = core.ObjectListProperty(PipelineGraphNodeParameterValue)
+    port_property_values = core.ObjectListProperty(PipelineGraphPortPropertyValue)
 
     @property
     def sheet(self):
