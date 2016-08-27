@@ -20,7 +20,7 @@ class AudioProcClientMixin(object):
             'PIPELINE_MUTATION', self.handle_pipeline_mutation)
         self.server.add_command_handler(
             'PIPELINE_STATUS', self.handle_pipeline_status,
-            log_level=logging.DEBUG)
+            log_level=-1)
 
     async def connect(self, address, flags=None):
         assert self._stub is None

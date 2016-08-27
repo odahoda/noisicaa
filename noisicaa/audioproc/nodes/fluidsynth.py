@@ -117,8 +117,6 @@ class FluidSynthSource(Node):
                     self._synth.get_samples(esample_pos - tp))
                 tp = esample_pos
 
-            logger.info("Consuming event %s", event)
-
             if isinstance(event, NoteOnEvent):
                 self._synth.noteon(
                     0, event.note.midi_note, event.volume)

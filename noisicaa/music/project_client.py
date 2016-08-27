@@ -76,7 +76,7 @@ class ProjectClientMixin(object):
             'PROJECT_CLOSED', self.handle_project_closed)
         self.server.add_command_handler(
             'PLAYER_STATUS', self.handle_player_status,
-            log_level=logging.DEBUG)
+            log_level=-1)
 
     async def connect(self, address):
         assert self._stub is None

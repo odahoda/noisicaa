@@ -102,7 +102,6 @@ class Backend(object):
         self._event_queues.clear()
 
     def add_event(self, queue, event):
-        logger.info("Event %s for queue %s", event, queue)
         self._event_queues.setdefault(queue, []).append(event)
 
     def get_events(self, queue):

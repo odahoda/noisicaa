@@ -64,7 +64,7 @@ class ServerProtocol(asyncio.Protocol):
                     command, length = header[5:].split(b' ')
                     self.command = command.decode('ascii')
                     self.payload_length = int(length)
-                    self.logger.debug("CALL %s received (%d bytes payload)", self.command, self.payload_length)
+                    #self.logger.debug("CALL %s received (%d bytes payload)", self.command, self.payload_length)
                     if self.payload_length > 0:
                         self.state = ConnState.READ_PAYLOAD
                     else:
@@ -167,13 +167,15 @@ class Server(object):
 
             args, kwargs = self.deserialize(payload)
 
-            logger.log(
-                self._command_log_levels.get(command, logging.INFO),
-                "%s(%s%s)",
-                command,
-                ', '.join(str(a) for a in args),
-                ''.join(', %s=%r' % (k, v)
-                        for k, v in sorted(kwargs.items())))
+            log_level = self._command_log_levels.get(command, logging.INFO)
+            if log_level >= 0:
+                logger.log(
+                    log_level,
+                    "%s(%s%s)",
+                    command,
+                    ', '.join(str(a) for a in args),
+                    ''.join(', %s=%r' % (k, v)
+                            for k, v in sorted(kwargs.items())))
 
             if asyncio.iscoroutinefunction(handler):
                 result = await handler(*args, **kwargs)

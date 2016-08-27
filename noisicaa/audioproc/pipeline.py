@@ -38,6 +38,8 @@ class Pipeline(object):
 
         self.listeners = core.CallbackRegistry()
 
+        self._mainloop_logging = False
+
     @property
     def sample_rate(self):
         return self._sample_rate
@@ -132,7 +134,8 @@ class Pipeline(object):
                 with ctxt.perf.track('frame(%d)' % ctxt.sample_pos):
                     with ctxt.perf.track('process'):
                         t1 = time.time()
-                        logger.debug("Processing frame @%d", ctxt.sample_pos)
+                        if self._mainloop_logging:
+                            logger.debug("Processing frame @%d", ctxt.sample_pos)
 
                         self.process_frame(ctxt)
 
@@ -141,9 +144,10 @@ class Pipeline(object):
 
                     with ctxt.perf.track('send_notifications'):
                         for node_id, notification in notifications:
-                            logger.info(
-                                "Node %s fired notification %s",
-                                node_id, notification)
+                            if self._mainloop_logging:
+                                logger.info(
+                                    "Node %s fired notification %s",
+                                    node_id, notification)
                             self.notification_listener.call(
                                 node_id, notification)
 
@@ -167,7 +171,8 @@ class Pipeline(object):
             with ctxt.perf.track('sort_nodes'):
                 nodes = self.sorted_nodes
             for node in nodes:
-                logger.debug("Running node %s", node.name)
+                if self._mainloop_logging:
+                    logger.debug("Running node %s", node.name)
                 with ctxt.perf.track('collect_inputs(%s)' % node.id):
                     node.collect_inputs(ctxt)
                 with ctxt.perf.track('run(%s)' % node.id):

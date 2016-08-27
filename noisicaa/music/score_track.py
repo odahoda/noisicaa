@@ -297,7 +297,7 @@ class ScoreEventSource(EventSource):
         self._current_micro_sample_pos = 0
 
     def get_events(self, start_sample_pos, end_sample_pos):
-        logger.debug("get_events(%d, %d)", start_sample_pos, end_sample_pos)
+        # logger.debug("get_events(%d, %d)", start_sample_pos, end_sample_pos)
 
         while self._current_micro_sample_pos < 1000000 * end_sample_pos:
             measure = self._track.measures[self._current_measure]
@@ -315,9 +315,9 @@ class ScoreEventSource(EventSource):
                             for pitch in note.pitches:
                                 pitch = pitch.transposed(
                                     octaves=self._track.transpose_octaves)
-                                logger.debug(
-                                    "Play %s @%d for %s",
-                                    pitch.name, sample_pos, note.duration)
+                                # logger.debug(
+                                #     "Play %s @%d for %s",
+                                #     pitch.name, sample_pos, note.duration)
                                 yield NoteOnEvent(
                                     sample_pos, pitch,
                                     tags={(measure.id, 'noteon', idx)})
