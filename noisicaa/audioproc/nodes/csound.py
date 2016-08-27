@@ -6,7 +6,7 @@ import time
 
 import numpy
 
-from noisicaa.music import node_description
+from noisicaa import node_db
 
 from .. import csound
 from .. import ports
@@ -30,14 +30,14 @@ class CSoundFilter(node.Node):
         self._description = description
 
         port_cls_map = {
-            (node_description.PortType.Audio,
-             node_description.PortDirection.Input): ports.AudioInputPort,
-            (node_description.PortType.Audio,
-             node_description.PortDirection.Output): ports.AudioOutputPort,
-            (node_description.PortType.Events,
-             node_description.PortDirection.Input): ports.EventInputPort,
-            (node_description.PortType.Events,
-             node_description.PortDirection.Output): ports.EventOutputPort,
+            (node_db.PortType.Audio,
+             node_db.PortDirection.Input): ports.AudioInputPort,
+            (node_db.PortType.Audio,
+             node_db.PortDirection.Output): ports.AudioOutputPort,
+            (node_db.PortType.Events,
+             node_db.PortDirection.Input): ports.EventInputPort,
+            (node_db.PortType.Events,
+             node_db.PortDirection.Output): ports.EventOutputPort,
         }
 
         for port_desc in self._description.ports:
@@ -49,14 +49,14 @@ class CSoundFilter(node.Node):
             if port_desc.drywet_port is not None:
                 kwargs['drywet_port'] = port_desc.drywet_port
             port = port_cls(port_desc.name, **kwargs)
-            if port_desc.direction == node_description.PortDirection.Input:
+            if port_desc.direction == node_db.PortDirection.Input:
                 self.add_input(port)
             else:
                 self.add_output(port)
 
         self._parameters = {}
         for parameter in self._description.parameters:
-            if parameter.param_type == node_description.ParameterType.Float:
+            if parameter.param_type == node_db.ParameterType.Float:
                 self._parameters[parameter.name] = parameter.default
 
         self._csnd = None
@@ -105,7 +105,7 @@ class CSoundFilter(node.Node):
                     samples[1][pos:pos+self._csnd.ksmps])
 
             for parameter in self._description.parameters:
-                if parameter.param_type == node_description.ParameterType.Float:
+                if parameter.param_type == node_db.ParameterType.Float:
                     self._csnd.set_control_channel_value(
                         parameter.name, self._parameters[parameter.name])
 

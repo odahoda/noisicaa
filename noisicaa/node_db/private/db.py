@@ -5,8 +5,9 @@ import os
 import os.path
 from xml.etree import ElementTree
 
+from noisicaa import core
 from noisicaa import constants
-from . import node_description
+from noisicaa import node_db
 
 logger = logging.getLogger(__name__)
 
@@ -14,17 +15,20 @@ logger = logging.getLogger(__name__)
 class NodeDB(object):
     def __init__(self):
         self._nodes = {}
+        self.listeners = core.CallbackRegistry()
 
     def setup(self):
         self.load_csound_nodes()
 
-    @property
-    def nodes(self):
-        return sorted(
-            self._nodes.items(), key=lambda i: i[1].display_name)
+    def cleanup(self):
+        pass
 
-    def get_node_description(self, uri):
-        return self._nodes[uri]
+    def initial_mutations(self):
+        for uri, node_description in sorted(self._nodes.items()):
+            yield node_db.AddNodeDescription(uri, node_description)
+
+    def start_scan(self):
+        pass
 
     def load_csound_nodes(self):
         rootdir = os.path.join(constants.DATA_DIR, 'csound')
@@ -46,12 +50,12 @@ class NodeDB(object):
                 ports = []
                 for port_elem in root.find('ports').findall('port'):
                     port_cls = {
-                        'audio': node_description.AudioPortDescription,
-                        'events': node_description.EventPortDescription,
+                        'audio': node_db.AudioPortDescription,
+                        'events': node_db.EventPortDescription,
                     }[port_elem.get('type')]
                     direction = {
-                        'input': node_description.PortDirection.Input,
-                        'output': node_description.PortDirection.Output,
+                        'input': node_db.PortDirection.Input,
+                        'output': node_db.PortDirection.Output,
                     }[port_elem.get('direction')]
 
                     kwargs = {}
@@ -73,7 +77,7 @@ class NodeDB(object):
                 parameters = []
                 for parameter_elem in root.find('parameters').findall('parameter'):
                     parameter_cls = {
-                        'float': node_description.FloatParameterDescription,
+                        'float': node_db.FloatParameterDescription,
                     }[parameter_elem.get('type')]
 
                     kwargs = {}
@@ -94,13 +98,13 @@ class NodeDB(object):
                 code = ''.join(root.find('code').itertext())
                 code = code.strip() + '\n'
                 parameters.append(
-                    node_description.InternalParameterDescription(
+                    node_db.InternalParameterDescription(
                         name='code', value=code))
 
                 display_name = ''.join(
                     root.find('display-name').itertext())
 
-                node_desc = node_description.UserNodeDescription(
+                node_desc = node_db.UserNodeDescription(
                     display_name=display_name,
                     node_cls='csound_filter',
                     ports=ports,

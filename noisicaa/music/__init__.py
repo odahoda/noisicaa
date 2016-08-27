@@ -24,13 +24,3 @@ from .time_mapper import (
 from .misc import (
     Pos2F
 )
-from .node_description import (
-    PortDirection, PortType,
-
-    ParameterType,
-    InternalParameterDescription,
-    StringParameterDescription,
-    PathParameterDescription,
-    TextParameterDescription,
-    FloatParameterDescription,
-)

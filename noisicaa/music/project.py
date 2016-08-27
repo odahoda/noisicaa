@@ -22,7 +22,6 @@ from . import commands
 from . import instruments
 from . import sheet
 from . import misc
-from . import node_db
 
 logger = logging.getLogger(__name__)
 
@@ -191,15 +190,14 @@ class JSONDecoder(json.JSONDecoder):
 class BaseProject(model.Project, state.RootMixin, state.StateBase):
     SERIALIZED_CLASS_NAME = 'Project'
 
-    def __init__(self, state=None):
+    def __init__(self, node_db=None, state=None):
         self.listeners = core.CallbackRegistry()
 
         super().__init__(state)
         if state is None:
             self.metadata = Metadata()
 
-        self.node_db = node_db.NodeDB()
-        self.node_db.setup()
+        self.node_db = node_db
 
     def get_node_description(self, uri):
         return self.node_db.get_node_description(uri)

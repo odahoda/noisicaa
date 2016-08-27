@@ -24,8 +24,14 @@ class Main(object):
         self.manager.server.add_command_handler(
             'CREATE_AUDIOPROC_PROCESS',
             self.handle_create_audioproc_process)
+        self.manager.server.add_command_handler(
+            'CREATE_NODE_DB_PROCESS',
+            self.handle_create_node_db_process)
         self.stop_event = asyncio.Event()
         self.returncode = 0
+
+        self.node_db_process = None
+        self.node_db_process_lock = asyncio.Lock(loop=self.event_loop)
 
     def run(self, argv):
         self.parse_args(argv)
@@ -128,6 +134,15 @@ class Main(object):
             'audioproc<%s>' % name,
             'noisicaa.audioproc.audioproc_process.AudioProcProcess')
         return proc.address
+
+    async def handle_create_node_db_process(self):
+        async with self.node_db_process_lock:
+            if self.node_db_process is None:
+                self.node_db_process = await self.manager.start_process(
+                    'node_db',
+                    'noisicaa.node_db.process.NodeDBProcess')
+
+        return self.node_db_process.address
 
 
 if __name__ == '__main__':

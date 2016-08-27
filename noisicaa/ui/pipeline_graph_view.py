@@ -10,8 +10,8 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import music
+from noisicaa import node_db
 from noisicaa.audioproc import node_types
-from noisicaa.music import node_db
 from . import ui_base
 from . import dock_widget
 from . import mute_button
@@ -31,7 +31,7 @@ class Port(QtWidgets.QGraphicsRectItem):
         self.setRect(0, 0, 45, 15)
         self.setBrush(Qt.white)
 
-        if self.port_desc.direction == music.PortDirection.Input:
+        if self.port_desc.direction == node_db.PortDirection.Input:
             self.dot_pos = QtCore.QPoint(7, 7)
             sym_pos = QtCore.QPoint(45-11, -1)
         else:
@@ -49,10 +49,10 @@ class Port(QtWidgets.QGraphicsRectItem):
         dot.setBrush(Qt.black)
         dot.pen().setStyle(Qt.NoPen)
 
-        if self.port_desc.port_type == music.PortType.Audio:
+        if self.port_desc.port_type == node_db.PortType.Audio:
             sym = QtWidgets.QGraphicsSimpleTextItem(self)
             sym.setText('A')
-        elif self.port_desc.port_type == music.PortType.Events:
+        elif self.port_desc.port_type == node_db.PortType.Events:
             sym = QtWidgets.QGraphicsSimpleTextItem(self)
             sym.setText('E')
         else:
@@ -62,10 +62,10 @@ class Port(QtWidgets.QGraphicsRectItem):
 
     def getInfoText(self):
         return {
-            (music.PortType.Audio, music.PortDirection.Input): "Audio Input port",
-            (music.PortType.Audio, music.PortDirection.Output): "Audio Output port",
-            (music.PortType.Events, music.PortDirection.Input): "Event Input port",
-            (music.PortType.Events, music.PortDirection.Output): "Event Output port",
+            (node_db.PortType.Audio, node_db.PortDirection.Input): "Audio Input port",
+            (node_db.PortType.Audio, node_db.PortDirection.Output): "Audio Output port",
+            (node_db.PortType.Events, node_db.PortDirection.Input): "Event Input port",
+            (node_db.PortType.Events, node_db.PortDirection.Output): "Event Output port",
         }[(self.port_desc.port_type, self.port_desc.direction)]
 
     def setHighlighted(self, highlighted):
@@ -149,8 +149,8 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
         layout.addRow("Name", self._name)
 
         for port in self._node_item.node_description.ports:
-            if not (port.direction == music.PortDirection.Output
-                and port.port_type == music.PortType.Audio):
+            if not (port.direction == node_db.PortDirection.Output
+                and port.port_type == node_db.PortType.Audio):
                 continue
 
             port_property_values = dict(
@@ -217,7 +217,7 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
             for p in self._node_item.node.parameter_values)
 
         for parameter in self._node_item.node_description.parameters:
-            if parameter.param_type == music.ParameterType.Float:
+            if parameter.param_type == node_db.ParameterType.Float:
                 widget = QtWidgets.QLineEdit(self)
                 widget.setText(str(parameter_values.get(
                     parameter.name, parameter.default)))
@@ -308,12 +308,12 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         in_y = 25
         out_y = 25
         for port_desc in self._node.description.ports:
-            if port_desc.direction == music.PortDirection.Input:
+            if port_desc.direction == node_db.PortDirection.Input:
                 x = -5
                 y = in_y
                 in_y += 20
 
-            elif port_desc.direction == music.PortDirection.Output:
+            elif port_desc.direction == node_db.PortDirection.Output:
                 x = 105-45
                 y = out_y
                 out_y += 20
@@ -342,7 +342,7 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
             (p.name, p.value) for p in self._node.parameter_values)
 
         for parameter in self._node.description.parameters:
-            if parameter.param_type == music.ParameterType.Float:
+            if parameter.param_type == node_db.ParameterType.Float:
                 value = parameter_values.get(
                     parameter.name, parameter.default)
                 info_lines.append("%s: %s" % (
@@ -508,7 +508,7 @@ class DragConnection(QtWidgets.QGraphicsPathItem):
         pos1 = self.port.mapToScene(self.port.dot_pos)
         pos2 = self.end_pos
 
-        if self.port.port_desc.direction == music.PortDirection.Input:
+        if self.port.port_desc.direction == node_db.PortDirection.Input:
             pos1, pos2 = pos2, pos1
 
         cpos = QtCore.QPointF(min(100, abs(pos2.x() - pos1.x()) / 2), 0)
@@ -728,11 +728,11 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
                 self._drag_src_port.setHighlighted(False)
                 self._drag_dest_port.setHighlighted(False)
 
-                if self._drag_src_port.port_desc.direction != music.PortDirection.Output:
+                if self._drag_src_port.port_desc.direction != node_db.PortDirection.Output:
                     self._drag_src_port, self._drag_dest_port = self._drag_dest_port, self._drag_src_port
 
-                assert self._drag_src_port.port_desc.direction == music.PortDirection.Output
-                assert self._drag_dest_port.port_desc.direction == music.PortDirection.Input
+                assert self._drag_src_port.port_desc.direction == node_db.PortDirection.Output
+                assert self._drag_dest_port.port_desc.direction == node_db.PortDirection.Input
 
                 self.send_command_async(
                     self._sheet.id, 'AddPipelineGraphConnection',
@@ -787,11 +787,7 @@ class NodesList(ui_base.CommonMixin, QtWidgets.QListWidget):
         self.setDragDropMode(
             QtWidgets.QAbstractItemView.DragOnly)
 
-        # TODO: should use one globally shared NodeDB.
-        self.node_db = node_db.NodeDB()
-        self.node_db.setup()
-
-        for uri, node_desc in self.node_db.nodes:
+        for uri, node_desc in self.app.node_db.nodes:
             list_item = QtWidgets.QListWidgetItem()
             list_item.setText(node_desc.display_name)
             list_item.setData(Qt.UserRole, uri)

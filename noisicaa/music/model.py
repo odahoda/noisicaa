@@ -3,13 +3,13 @@
 import fractions
 
 from noisicaa import core
+from noisicaa import node_db
 from . import pitch
 from . import time
 from . import clef
 from . import key_signature
 from . import time_signature
 from . import misc
-from . import node_description
 
 
 class Instrument(core.ObjectBase):
@@ -190,11 +190,11 @@ class AudioOutPipelineGraphNode(BasePipelineGraphNode):
     def removable(self):
         return False
 
-    __description = node_description.SystemNodeDescription(
+    __description = node_db.SystemNodeDescription(
         ports=[
-            node_description.AudioPortDescription(
+            node_db.AudioPortDescription(
                 name='in',
-                direction=node_description.PortDirection.Input),
+                direction=node_db.PortDirection.Input),
         ])
 
     @property
@@ -209,14 +209,14 @@ class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
     def removable(self):
         return False
 
-    __description = node_description.SystemNodeDescription(
+    __description = node_db.SystemNodeDescription(
         ports=[
-            node_description.AudioPortDescription(
+            node_db.AudioPortDescription(
                 name='in',
-                direction=node_description.PortDirection.Input),
-            node_description.AudioPortDescription(
+                direction=node_db.PortDirection.Input),
+            node_db.AudioPortDescription(
                 name='out',
-                direction=node_description.PortDirection.Output),
+                direction=node_db.PortDirection.Output),
         ])
 
     @property
@@ -231,11 +231,11 @@ class EventSourcePipelineGraphNode(BasePipelineGraphNode):
     def removable(self):
         return False
 
-    __description = node_description.SystemNodeDescription(
+    __description = node_db.SystemNodeDescription(
         ports=[
-            node_description.EventPortDescription(
+            node_db.EventPortDescription(
                 name='out',
-                direction=node_description.PortDirection.Output),
+                direction=node_db.PortDirection.Output),
         ])
 
     @property
@@ -250,14 +250,14 @@ class InstrumentPipelineGraphNode(BasePipelineGraphNode):
     def removable(self):
         return False
 
-    __description = node_description.SystemNodeDescription(
+    __description = node_db.SystemNodeDescription(
         ports=[
-            node_description.EventPortDescription(
+            node_db.EventPortDescription(
                 name='in',
-                direction=node_description.PortDirection.Input),
-            node_description.AudioPortDescription(
+                direction=node_db.PortDirection.Input),
+            node_db.AudioPortDescription(
                 name='out',
-                direction=node_description.PortDirection.Output),
+                direction=node_db.PortDirection.Output),
         ])
 
     @property

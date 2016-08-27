@@ -3,13 +3,13 @@
 import logging
 
 from noisicaa import core
+from noisicaa import node_db
 
 from . import model
 from . import state
 from . import commands
 from . import mutations
 from . import misc
-from . import node_description
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class SetPipelineGraphNodeParameter(commands.Command):
         assert isinstance(node, BasePipelineGraphNode)
 
         parameter = node.description.get_parameter(self.parameter_name)
-        if parameter.param_type == node_description.ParameterType.Float:
+        if parameter.param_type == node_db.ParameterType.Float:
             assert self.float_value is not None
             node.set_parameter(
                 parameter.name,
@@ -139,7 +139,7 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
 
         params = {}
         for parameter in self.description.parameters:
-            if parameter.param_type == node_description.ParameterType.Float:
+            if parameter.param_type == node_db.ParameterType.Float:
                 params[parameter.name] = parameter_values.get(
                     parameter.name, parameter.default)
 
@@ -148,7 +148,7 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                 mutations.SetNodeParameter(self.pipeline_node_id, **params))
 
         for port in self.description.ports:
-            if port.direction != node_description.PortDirection.Output:
+            if port.direction != node_db.PortDirection.Output:
                 continue
 
             port_property_values = dict(

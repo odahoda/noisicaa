@@ -12,10 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 class Project(object):
-    def __init__(self, path, event_loop, process_manager):
+    def __init__(self, path, event_loop, process_manager, node_db):
         self.path = path
         self.event_loop = event_loop
         self.process_manager = process_manager
+        self.node_db = node_db
 
         self.process_address = None
         self.client = None
@@ -27,7 +28,8 @@ class Project(object):
     async def create_process(self):
         self.process_address = await self.process_manager.call(
             'CREATE_PROJECT_PROCESS', self.path)
-        self.client = music.ProjectClient(self.event_loop)
+        self.client = music.ProjectClient(
+            self.event_loop, node_db=self.node_db)
         self.client.cls_map.update(model.cls_map)
         await self.client.setup()
         await self.client.connect(self.process_address)
@@ -50,22 +52,25 @@ class Project(object):
 class ProjectRegistry(QtCore.QObject):
     projectListChanged = QtCore.pyqtSignal()
 
-    def __init__(self, event_loop, process_manager):
+    def __init__(self, event_loop, process_manager, node_db):
         super().__init__()
 
         self.event_loop = event_loop
         self.process_manager = process_manager
+        self.node_db = node_db
         self.projects = {}
 
     async def open_project(self, path):
-        project = Project(path, self.event_loop, self.process_manager)
+        project = Project(
+            path, self.event_loop, self.process_manager, self.node_db)
         await project.open()
         self.projects[path] = project
         self.projectListChanged.emit()
         return project
 
     async def create_project(self, path):
-        project = Project(path, self.event_loop, self.process_manager)
+        project = Project(
+            path, self.event_loop, self.process_manager, self.node_db)
         await project.create()
         self.projects[path] = project
         self.projectListChanged.emit()

@@ -54,8 +54,9 @@ class ProjectClientBase(object):
 
 
 class ProjectClientMixin(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, node_db=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self._node_db = node_db
         self._stub = None
         self._session_id = None
         self._object_map = {}
@@ -67,6 +68,7 @@ class ProjectClientMixin(object):
         assert self.project is None
         self.project = self._object_map[root_id]
         self.project.is_root = True
+        self.project.node_db = self._node_db
 
     async def setup(self):
         await super().setup()

@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import (
 )
 
 from noisicaa import audioproc
+from noisicaa import node_db
 from noisicaa import music
 from noisicaa import devices
 from ..exceptions import RestartAppException, RestartAppCleanException
@@ -81,6 +82,22 @@ class AudioProcClient(
         self.__app.onPipelineStatus(status)
 
 
+class NodeDBClientImpl(object):
+    def __init__(self, event_loop, server):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = server
+
+    async def setup(self):
+        pass
+
+    async def cleanup(self):
+        pass
+
+class NodeDBClient(node_db.NodeDBClientMixin, NodeDBClientImpl):
+    pass
+
+
 class BaseEditorApp(QApplication):
     def __init__(self, process, runtime_settings, settings=None):
         super().__init__(['noisicaä'])
@@ -105,6 +122,7 @@ class BaseEditorApp(QApplication):
         self.midi_hub = None
         self.audioproc_client = None
         self.audioproc_process = None
+        self.node_db = None
 
     async def setup(self):
         self.default_style = self.style().objectName()
@@ -114,8 +132,10 @@ class BaseEditorApp(QApplication):
             style = QStyleFactory.create(style_name)
             self.setStyle(style)
 
+        await self.createNodeDB()
+
         self.project_registry = project_registry.ProjectRegistry(
-            self.process.event_loop, self.process.manager)
+            self.process.event_loop, self.process.manager, self.node_db)
 
         self.sequencer = self.createSequencer()
 
@@ -162,6 +182,15 @@ class BaseEditorApp(QApplication):
 
     async def createAudioProcProcess(self):
         pass
+
+    async def createNodeDB(self):
+        node_db_address = await self.process.manager.call(
+            'CREATE_NODE_DB_PROCESS')
+
+        self.node_db = NodeDBClient(
+            self.process.event_loop, self.process.server)
+        await self.node_db.setup()
+        await self.node_db.connect(node_db_address)
 
     def dumpSettings(self):
         for key in self.settings.allKeys():

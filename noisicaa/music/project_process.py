@@ -10,6 +10,7 @@ import uuid
 from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa import audioproc
+from noisicaa import node_db
 
 from . import project
 from . import sheet
@@ -65,12 +66,29 @@ class AudioProcClient(
     pass
 
 
+class NodeDBClientImpl(object):
+    def __init__(self, event_loop, server):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = server
+
+    async def setup(self):
+        pass
+
+    async def cleanup(self):
+        pass
+
+class NodeDBClient(node_db.NodeDBClientMixin, NodeDBClientImpl):
+    pass
+
+
 class ProjectProcessMixin(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._shutting_down = None
 
+        self.node_db = None
         self.project = None
         self.sessions = {}
         self.pending_mutations = []
@@ -107,8 +125,18 @@ class ProjectProcessMixin(object):
         self.server.add_command_handler(
             'PLAYER_STOP', self.handle_player_stop)
 
+        node_db_address = await self.manager.call(
+            'CREATE_NODE_DB_PROCESS')
+        self.node_db = NodeDBClient(self.event_loop, self.server)
+        await self.node_db.setup()
+        await self.node_db.connect(node_db_address)
+
     async def cleanup(self):
-        pass
+        if self.node_db is None:
+            self.node_db.close()
+            self.node_db.cleanup()
+            self.node_db = None
+        super().cleanup()
 
     async def run(self):
         await self._shutting_down.wait()
@@ -198,7 +226,7 @@ class ProjectProcessMixin(object):
             await self.publish_mutation(mutation)
 
     def _create_blank_project(self, project_cls):
-        project = project_cls()
+        project = project_cls(node_db=self.node_db)
         s = sheet.Sheet(name='Sheet 1', num_tracks=0)
         project.add_sheet(s)
         t = score_track.ScoreTrack(name="Track 1")
@@ -224,7 +252,7 @@ class ProjectProcessMixin(object):
 
     async def handle_open(self, path):
         assert self.project is None
-        self.project = project.Project()
+        self.project = project.Project(node_db=self.node_db)
         self.project.open(path)
         await self.send_initial_mutations()
         self.project.listeners.add(

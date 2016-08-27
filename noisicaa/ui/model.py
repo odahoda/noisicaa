@@ -3,9 +3,9 @@
 import logging
 
 from noisicaa import core
+from noisicaa import node_db
 from noisicaa.music import model
 from noisicaa.music import project_client
-from noisicaa.music import node_db
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +45,7 @@ class Project(model.Project, project_client.ObjectProxy):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.node_db = node_db.NodeDB()
-        self.node_db.setup()
+        self.node_db = None
 
     def get_node_description(self, uri):
         return self.node_db.get_node_description(uri)
