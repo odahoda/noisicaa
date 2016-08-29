@@ -9,6 +9,7 @@ from . import state
 from . import commands
 from . import mutations
 from . import score_track
+from . import beat_track
 from . import track_group
 from . import sheet_property_track
 from . import pipeline_graph
@@ -50,6 +51,7 @@ class AddTrack(commands.Command):
         track_name = "Track %d" % (len(parent_group.tracks) + 1)
         track_cls_map = {
             'score': score_track.ScoreTrack,
+            'beat': beat_track.BeatTrack,
             'group': track_group.TrackGroup,
         }
         track_cls = track_cls_map[self.track_type]

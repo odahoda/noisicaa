@@ -61,7 +61,7 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         project_tab.addTab(mixer_tab, "Mixer")
         project_tab.setTabEnabled(1, False)
         project_tab.addTab(graph_tab, "Graph")
-        project_tab.setCurrentIndex(2)
+        project_tab.setCurrentIndex(0)
         self.setCentralWidget(project_tab)
 
         self._sheet_listener = self.project.listeners.add(

@@ -1,4 +1,19 @@
-* TODO Move google doc to this file.
+* TODO Track type: percussion						 :FR:
+** use "hardlink" model
+- track object has unordered list of MeasureContent objects
+- list of measures pointing at MeasureContent objects
+- reference count MeasureContent objects, garbage collect when zero
+** single instrument, fixed pitch
+** only emit noteon events
+** beats snap to tick markers, but can also be moved to arbitrary times
+** view installs listeners on referenced MeasureContent object
+** per measure TimeSignature
+** TimeSignature determines tick markers
+** render as line with beat markers (dots, crosses..?)
+** click to add beat marker, shift click to remove
+** move existing beat marker around
+** per beat velocity
+
 * SIGSEGV when editing PipelineGraphView 		              :CRASH:
 Possibly caused by the use of QGraphicsEffect for dropshadows?
 
@@ -75,11 +90,8 @@ Compute list of valid dest nodes and highlight those.
 ** Way to select all upstream nodes of a node.
 ** Move nodes together.
 ** Remove all
-
 * PipelineGraphView: visualize mute, volume, bypass state in UI		 :FR:
 * PipelineGraphView: select port or connection filters node list to compatible nodes :FR:
-
-* Track type: percussion						 :FR:
 * More instrument types							 :FR:
 - simple samples
 - SFZ

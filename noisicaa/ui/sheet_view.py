@@ -1273,6 +1273,185 @@ class SheetPropertyTrackItem(
     pass
 
 
+class BeatMeasureLayout(MeasureLayout):
+    pass
+
+
+class BeatMeasureItemImpl(MeasureItemImpl):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self._ghost_beat = None
+
+        self._layers[Layer.BG] = QGraphicsGroup()
+        self._layers[Layer.MAIN] = QGraphicsGroup()
+        self._layers[Layer.EVENTS] = QGraphicsGroup()
+        self._layers[Layer.EDIT] = QGraphicsGroup()
+
+        self._background = QGraphicsRectItem(self._layers[Layer.BG])
+        self._background.setPen(QPen(Qt.NoPen))
+        self._background.setBrush(QColor(240, 240, 255))
+        self._background.setVisible(False)
+
+        self.setAcceptHoverEvents(True)
+
+        if self._measure is not None:
+            self.playback_pos = QGraphicsLineItem(
+                self._layers[Layer.EVENTS])
+            self.playback_pos.setVisible(False)
+            self.playback_pos.setLine(0, 0, 0, 20)
+            pen = QPen(Qt.black)
+            pen.setWidth(3)
+            self.playback_pos.setPen(pen)
+
+    def computeLayout(self):
+        width = 100
+        height_above = 30
+        height_below = 20
+
+        layout = SheetPropertyMeasureLayout()
+        layout.size = QSize(width, height_above + height_below)
+        layout.baseline = height_above
+        return layout
+
+    def setGhost(self):
+        if self._ghost_beat is not None:
+            return
+        self.removeGhost()
+
+        layer = self._layers[Layer.EDIT]
+        self._ghost_beat = QGraphicsEllipseItem(layer)
+        self._ghost_beat.setRect(-5, -8, 11, 17)
+        self._ghost_beat.setBrush(Qt.black)
+        self._ghost_beat.setPen(QPen(Qt.NoPen))
+        self._ghost_beat.setOpacity(0.2)
+
+    def removeGhost(self):
+        if self._ghost_beat is not None:
+            self._ghost_beat.setParentItem(None)
+            if self._ghost_beat.scene() is not None:
+                self.scene().removeItem(self._ghost_beat)
+            self._ghost_beat = None
+
+    def hoverEnterEvent(self, event):
+        super().hoverEnterEvent(event)
+        self._background.setVisible(True)
+        self.grabMouse()
+
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+
+        if not self.boundingRect().contains(event.pos()):
+            #self._track_item.playNoteOff()
+            self._sheet_view.setInfoMessage('')
+            self.removeGhost()
+            self.ungrabMouse()
+            self._background.setVisible(False)
+            return
+
+        self.setGhost()
+
+        ghost_timepos = Duration(
+            int(4 * self._measure.time_signature.upper * event.pos().x() / self._layout.width),
+            4 * self._measure.time_signature.upper)
+        self._ghost_beat.setPos(
+            int(self._layout.width * ghost_timepos / self._measure.duration),
+            self._layout.baseline)
+
+    def updateMeasure(self):
+        assert self._layout.width > 0 and self._layout.height > 0
+
+        self._background.setRect(0, 0, self._layout.width, self._layout.height)
+
+        layer = self._layers[Layer.MAIN]
+        self._sheet_view.clearLayer(layer)
+
+        is_first = self._measure is not None and self._measure.index == 0
+
+        if self._measure is not None:
+            black = Qt.black
+        else:
+            black = QColor(200, 200, 200)
+
+        line = QGraphicsLineItem(layer)
+        line.setLine(0, self._layout.baseline,
+                     self._layout.width, self._layout.baseline)
+        line.setPen(black)
+
+        if self._measure is not None:
+            for i in range(4 * self._measure.time_signature.upper):
+                x = int(i * self._layout.width / (4 * self._measure.time_signature.upper))
+                h = 10 if i % 4 == 0 else 4
+                tick = QGraphicsLineItem(layer)
+                tick.setLine(x, self._layout.baseline,
+                             x, self._layout.baseline + h)
+                tick.setPen(black)
+
+            line = QGraphicsLineItem(layer)
+            line.setLine(0, self._layout.baseline - 20,
+                         0, self._layout.baseline)
+            line.setPen(black)
+
+            for beat in self._measure.beats:
+                assert 0 <= beat.timepos < self._measure.duration
+
+                pos = int(
+                    self._layout.width
+                    * beat.timepos
+                    / self._measure.duration)
+
+                beat_item = QGraphicsEllipseItem(layer)
+                beat_item.setRect(-5, -8, 11, 17)
+                beat_item.setPen(QPen(Qt.NoPen))
+                beat_item.setBrush(black)
+                beat_item.setPos(pos, self._layout.baseline)
+
+    def mousePressEvent(self, event):
+        if self._measure is None:
+            self.send_command_async(
+                self._sheet_view.sheet.id,
+                'InsertMeasure', tracks=[], pos=-1)
+            event.accept()
+            return
+
+        if self._layout.width <= 0 or self._layout.height <= 0:
+            logger.warn("mousePressEvent without valid layout.")
+            return
+
+        return super().mousePressEvent(event)
+
+    def buildContextMenu(self, menu):
+        super().buildContextMenu(menu)
+
+    def clearPlaybackPos(self):
+        self.playback_pos.setVisible(False)
+
+    def setPlaybackPos(
+            self, sample_pos, num_samples, start_tick, end_tick, first):
+        if first:
+            assert 0 <= start_tick < self._measure.duration.ticks
+            assert self._layout.width > 0 and self._layout.height > 0
+
+            pos = (
+                self._layout.width
+                * start_tick
+                / self._measure.duration.ticks)
+            self.playback_pos.setPos(pos, 0)
+            self.playback_pos.setVisible(True)
+
+
+class BeatMeasureItem(ui_base.ProjectMixin, BeatMeasureItemImpl):
+    pass
+
+
+class BeatTrackItemImpl(TrackItemImpl):
+    measure_item_cls = BeatMeasureItem
+
+
+class BeatTrackItem(ui_base.ProjectMixin, BeatTrackItemImpl):
+    pass
+
+
 class SheetScene(QGraphicsScene):
     mouseHovers = pyqtSignal(bool)
 
@@ -1300,6 +1479,7 @@ class SheetViewImpl(QGraphicsView):
 
     track_cls_map = {
         'ScoreTrack': ScoreTrackItem,
+        'BeatTrack': BeatTrackItem,
         'SheetPropertyTrack': SheetPropertyTrackItem,
     }
 

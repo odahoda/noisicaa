@@ -128,6 +128,25 @@ class ScoreTrack(Track):
     transpose_octaves = core.Property(int, default=0)
 
 
+class Beat(core.ObjectBase):
+    timepos = core.Property(time.Duration)
+    velocity = core.Property(int)
+
+
+class BeatMeasure(Measure):
+    beats = core.ObjectListProperty(Beat)
+
+    @property
+    def time_signature(self):
+        return self.sheet.get_time_signature(self.index)
+
+
+class BeatTrack(Track):
+    instrument = core.ObjectProperty(cls=Instrument)
+    pitch = core.Property(pitch.Pitch)
+    measure_sequence = core.ObjectReferenceProperty(BeatMeasure)
+
+
 class SheetPropertyMeasure(Measure):
     bpm = core.Property(int, default=120)
     time_signature = core.Property(

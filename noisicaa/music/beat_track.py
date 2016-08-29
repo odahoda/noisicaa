@@ -1,0 +1,228 @@
+#!/usr/bin/python3
+
+import logging
+
+from noisicaa import core
+from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
+
+from .track import Track, Measure, EventSource
+from .time import Duration
+from .pitch import Pitch
+from . import model
+from . import state
+from . import commands
+from . import instruments
+from . import mutations
+from . import pipeline_graph
+from . import misc
+from . import time_mapper
+
+logger = logging.getLogger(__name__)
+
+
+class SetBeatTrackInstrument(commands.Command):
+    instrument_type = core.Property(str)
+    instrument_args = core.DictProperty()
+
+    def __init__(self, instrument_type=None, instrument_args=None,
+                 state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.instrument_type = instrument_type
+            self.instrument_args.update(instrument_args)
+
+    def run(self, track):
+        assert isinstance(track, Track)
+
+        assert self.instrument_type == 'SoundFontInstrument'
+        instr = instruments.SoundFontInstrument(**self.instrument_args)
+
+        if track.instrument is not None:
+            track.remove_instrument_from_pipeline()
+        track.instrument = instr
+        track.add_instrument_to_pipeline()
+
+commands.Command.register_command(SetBeatTrackInstrument)
+
+
+class AddBeat(commands.Command):
+    timepos = core.Property(Duration)
+
+    def __init__(self, timepos=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.timepos = timepos
+
+    def run(self, measure):
+        assert isinstance(measure, BeatMeasure)
+
+        beat = Beat(timepos=self.timepos, velocity=100)
+        measure.beats.append(beat)
+
+commands.Command.register_command(AddBeat)
+
+
+class RemoveBeat(commands.Command):
+    beat_id = core.Property(str)
+
+    def __init__(self, beat_id=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.beat_id = beat_id
+
+    def run(self, measure):
+        assert isinstance(measure, BeatMeasure)
+
+        root = measure.root
+        beat = root.get_object(self.beat_id)
+        assert beat.is_child_of(measure)
+        del measure.beats[beat.index]
+
+commands.Command.register_command(RemoveBeat)
+
+
+class Beat(model.Beat, state.StateBase):
+    def __init__(self,
+                 timepos=None, velocity=None,
+                 state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.timepos = timepos
+            self.velocity = velocity
+
+state.StateBase.register_class(Beat)
+
+
+class BeatMeasure(model.BeatMeasure, Measure):
+    def __init__(self, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.beats.append(Beat(timepos=Duration(0, 4), velocity=100))
+            self.beats.append(Beat(timepos=Duration(1, 4), velocity=100))
+            self.beats.append(Beat(timepos=Duration(2, 4), velocity=100))
+            self.beats.append(Beat(timepos=Duration(3, 4), velocity=100))
+
+    @property
+    def empty(self):
+        return len(self.beats) == 0
+
+state.StateBase.register_class(BeatMeasure)
+
+
+class BeatEventSource(EventSource):
+    def __init__(self, track):
+        super().__init__(track)
+        self._time_mapper = time_mapper.TimeMapper(track.sheet)
+        self._current_micro_sample_pos = 0
+        self._current_tick = 0
+        self._current_measure = 0
+
+    def get_events(self, start_sample_pos, end_sample_pos):
+        # logger.debug("get_events(%d, %d)", start_sample_pos, end_sample_pos)
+
+        while self._current_micro_sample_pos < 1000000 * end_sample_pos:
+            sample_pos = self._current_micro_sample_pos // 1000000
+            measure = self._track.measures[self._current_measure]
+
+            if self._current_micro_sample_pos >= 1000000 * start_sample_pos:
+                for beat in measure.beats:
+                    if beat.timepos.ticks == self._current_tick:
+                        yield NoteOnEvent(sample_pos, self._track.pitch)
+
+            bpm = self._track.sheet.get_bpm(measure.index, self._current_tick)
+            micro_samples_per_tick = int(
+                1000000 * 4 * 44100 * 60 // bpm * Duration.tick_duration)
+
+            self._current_micro_sample_pos += micro_samples_per_tick
+            self._current_tick += 1
+            if self._current_tick >= measure.duration.ticks:
+                self._current_tick = 0
+                self._current_measure += 1
+                if self._current_measure >= len(self._track.measures):
+                    self._current_measure = 0
+
+
+class BeatTrack(model.BeatTrack, Track):
+    measure_cls = BeatMeasure
+
+    def __init__(
+            self, instrument=None, pitch=None, num_measures=1,
+            state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            if instrument is None:
+                self.instrument = instruments.SoundFontInstrument(
+                    name="Default Drum",
+                    path='/usr/share/sounds/sf2/FluidR3_GM.sf2',
+                    bank=128,
+                    preset=0)
+            else:
+                self.instrument = instrument
+
+            if pitch is None:
+                self.pitch = Pitch('B2')
+            else:
+                self.pitch = pitch
+
+            for _ in range(num_measures):
+                self.measures.append(BeatMeasure())
+
+    def create_event_source(self):
+        return BeatEventSource(self)
+
+    @property
+    def event_source_name(self):
+        return '%s-events' % self.id
+
+    @property
+    def event_source_node(self):
+        for node in self.sheet.pipeline_graph_nodes:
+            if isinstance(node, pipeline_graph.EventSourcePipelineGraphNode) and node.track is self:
+                return node
+
+        raise ValueError("No event source node found.")
+
+    @property
+    def instr_name(self):
+        return self.instrument.pipeline_node_id
+
+    @property
+    def instrument_node(self):
+        for node in self.sheet.pipeline_graph_nodes:
+            if isinstance(node, pipeline_graph.InstrumentPipelineGraphNode) and node.track is self:
+                return node
+
+        raise ValueError("No instrument node found.")
+
+    def add_pipeline_nodes(self):
+        super().add_pipeline_nodes()
+
+        mixer_node = self.mixer_node
+
+        instrument_node = pipeline_graph.InstrumentPipelineGraphNode(
+            name="Track Instrument",
+            graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
+            track=self)
+        self.sheet.add_pipeline_graph_node(instrument_node)
+
+        conn = pipeline_graph.PipelineGraphConnection(
+            instrument_node, 'out', self.mixer_node, 'in')
+        self.sheet.add_pipeline_graph_connection(conn)
+
+        event_source_node = pipeline_graph.EventSourcePipelineGraphNode(
+            name="Track Events",
+            graph_pos=instrument_node.graph_pos - misc.Pos2F(200, 0),
+            track=self)
+        self.sheet.add_pipeline_graph_node(event_source_node)
+
+        conn = pipeline_graph.PipelineGraphConnection(
+            event_source_node, 'out', instrument_node, 'in')
+        self.sheet.add_pipeline_graph_connection(conn)
+
+    def remove_pipeline_nodes(self):
+        self.sheet.remove_pipeline_graph_node(self.event_source_node)
+        self.sheet.remove_pipeline_graph_node(self.instrument_node)
+        super().remove_pipeline_nodes()
+
+state.StateBase.register_class(BeatTrack)

@@ -46,6 +46,8 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
 
         self._score_icon = QtGui.QIcon(
                 os.path.join(DATA_DIR, 'icons', 'track-type-score.svg'))
+        self._beat_icon = QtGui.QIcon(
+                os.path.join(DATA_DIR, 'icons', 'track-type-beat.svg'))
         self._group_icon = QtGui.QIcon(
                 os.path.join(DATA_DIR, 'icons', 'track-type-group.svg'))
 
@@ -170,6 +172,8 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
             if index.column() == 0:
                 if isinstance(track, model.ScoreTrack):
                     return self._score_icon
+                elif isinstance(track, model.BeatTrack):
+                    return self._beat_icon
                 elif isinstance(track, model.TrackGroup):
                     return self._group_icon
                 else:
@@ -371,6 +375,11 @@ class TracksDockWidget(DockWidget):
                 os.path.join(DATA_DIR, 'icons', 'track-type-score.svg')),
             "Score track", self,
             triggered=functools.partial(self.onAddClicked, 'score'))
+        self._add_beat_track_action = QtWidgets.QAction(
+            QtGui.QIcon(
+                os.path.join(DATA_DIR, 'icons', 'track-type-beat.svg')),
+            "Beat track", self,
+            triggered=functools.partial(self.onAddClicked, 'beat'))
         self._add_track_group_action = QtWidgets.QAction(
             QtGui.QIcon(
                 os.path.join(DATA_DIR, 'icons', 'track-type-group.svg')),
@@ -379,6 +388,7 @@ class TracksDockWidget(DockWidget):
 
         self._add_track_menu = QtWidgets.QMenu()
         self._add_track_menu.addAction(self._add_score_track_action)
+        self._add_track_menu.addAction(self._add_beat_track_action)
         self._add_track_menu.addAction(self._add_track_group_action)
 
         self._add_button = QtWidgets.QToolButton(
