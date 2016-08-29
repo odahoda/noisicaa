@@ -85,7 +85,8 @@ class DockWidget(ui_base.CommonMixin, QDockWidget):
         super().setWidget(top_widget)
 
     def setWidget(self, widget):
-        if self.main_widget is None:
+        if self.main_widget is not None:
+            self.main_widget.setParent(None)
             self.main_layout.removeWidget(self.main_widget)
 
         if self.widget is not None:

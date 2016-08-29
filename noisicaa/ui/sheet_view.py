@@ -8,6 +8,10 @@ import itertools
 import enum
 import contextlib
 
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
+
 from PyQt5.QtCore import Qt, QRect, QRectF, QEvent, pyqtSignal, pyqtProperty, QCoreApplication, QSize, QPoint
 from PyQt5.QtGui import QIcon, QPen, QColor, QBrush, QFont
 from PyQt5.QtWidgets import (
@@ -1296,6 +1300,9 @@ class BeatMeasureItemImpl(MeasureItemImpl):
         self.setAcceptHoverEvents(True)
 
         if self._measure is not None:
+            self._measure.listeners.add(
+                'beats', lambda *args: self.recomputeLayout())
+
             self.playback_pos = QGraphicsLineItem(
                 self._layers[Layer.EVENTS])
             self.playback_pos.setVisible(False)
@@ -1313,50 +1320,6 @@ class BeatMeasureItemImpl(MeasureItemImpl):
         layout.size = QSize(width, height_above + height_below)
         layout.baseline = height_above
         return layout
-
-    def setGhost(self):
-        if self._ghost_beat is not None:
-            return
-        self.removeGhost()
-
-        layer = self._layers[Layer.EDIT]
-        self._ghost_beat = QGraphicsEllipseItem(layer)
-        self._ghost_beat.setRect(-5, -8, 11, 17)
-        self._ghost_beat.setBrush(Qt.black)
-        self._ghost_beat.setPen(QPen(Qt.NoPen))
-        self._ghost_beat.setOpacity(0.2)
-
-    def removeGhost(self):
-        if self._ghost_beat is not None:
-            self._ghost_beat.setParentItem(None)
-            if self._ghost_beat.scene() is not None:
-                self.scene().removeItem(self._ghost_beat)
-            self._ghost_beat = None
-
-    def hoverEnterEvent(self, event):
-        super().hoverEnterEvent(event)
-        self._background.setVisible(True)
-        self.grabMouse()
-
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
-
-        if not self.boundingRect().contains(event.pos()):
-            #self._track_item.playNoteOff()
-            self._sheet_view.setInfoMessage('')
-            self.removeGhost()
-            self.ungrabMouse()
-            self._background.setVisible(False)
-            return
-
-        self.setGhost()
-
-        ghost_timepos = Duration(
-            int(4 * self._measure.time_signature.upper * event.pos().x() / self._layout.width),
-            4 * self._measure.time_signature.upper)
-        self._ghost_beat.setPos(
-            int(self._layout.width * ghost_timepos / self._measure.duration),
-            self._layout.baseline)
 
     def updateMeasure(self):
         assert self._layout.width > 0 and self._layout.height > 0
@@ -1379,11 +1342,28 @@ class BeatMeasureItemImpl(MeasureItemImpl):
         line.setPen(black)
 
         if self._measure is not None:
-            for i in range(4 * self._measure.time_signature.upper):
-                x = int(i * self._layout.width / (4 * self._measure.time_signature.upper))
-                h = 10 if i % 4 == 0 else 4
+            line = QGraphicsLineItem(layer)
+            line.setLine(0, 0, 0, self._layout.height)
+            line.setPen(black)
+
+            if self._measure.is_last:
+                line = QGraphicsLineItem(layer)
+                line.setLine(
+                    self._layout.width, 0,
+                    self._layout.width, self._layout.height)
+                line.setPen(black)
+
+            for i in range(1, 8 * self._measure.time_signature.upper):
+                x = int(i * self._layout.width / (8 * self._measure.time_signature.upper))
+                if i % 8 == 0:
+                    h = 10
+                elif i % 4 == 0:
+                    h = 4
+                else:
+                    h = 2
+
                 tick = QGraphicsLineItem(layer)
-                tick.setLine(x, self._layout.baseline,
+                tick.setLine(x, self._layout.baseline - h,
                              x, self._layout.baseline + h)
                 tick.setPen(black)
 
@@ -1391,6 +1371,11 @@ class BeatMeasureItemImpl(MeasureItemImpl):
             line.setLine(0, self._layout.baseline - 20,
                          0, self._layout.baseline)
             line.setPen(black)
+
+            if is_first:
+                text = self._name_item = QGraphicsSimpleTextItem(layer)
+                text.setText("> %s" % self._measure.track.name)
+                text.setPos(0, 0)
 
             for beat in self._measure.beats:
                 assert 0 <= beat.timepos < self._measure.duration
@@ -1400,11 +1385,64 @@ class BeatMeasureItemImpl(MeasureItemImpl):
                     * beat.timepos
                     / self._measure.duration)
 
-                beat_item = QGraphicsEllipseItem(layer)
-                beat_item.setRect(-5, -8, 11, 17)
+                beat_path = QtGui.QPainterPath()
+                beat_path.moveTo(0, -12)
+                beat_path.lineTo(0, 12)
+                beat_path.lineTo(8, 0)
+                beat_path.closeSubpath()
+                beat_item = QtWidgets.QGraphicsPathItem(layer)
+                beat_item.setPath(beat_path)
                 beat_item.setPen(QPen(Qt.NoPen))
                 beat_item.setBrush(black)
                 beat_item.setPos(pos, self._layout.baseline)
+
+    def setGhost(self):
+        if self._ghost_beat is not None:
+            return
+        self.removeGhost()
+
+        layer = self._layers[Layer.EDIT]
+        self._ghost_beat = QtWidgets.QGraphicsRectItem(layer)
+        self._ghost_beat.setRect(0, -30, 8, 50)
+        self._ghost_beat.setBrush(Qt.black)
+        self._ghost_beat.setPen(QtGui.QPen(Qt.NoPen))
+        self._ghost_beat.setOpacity(0.2)
+
+    def removeGhost(self):
+        if self._ghost_beat is not None:
+            self._ghost_beat.setParentItem(None)
+            if self._ghost_beat.scene() is not None:
+                self.scene().removeItem(self._ghost_beat)
+            self._ghost_beat = None
+
+    def hoverEnterEvent(self, event):
+        super().hoverEnterEvent(event)
+        self._background.setVisible(True)
+        self.grabMouse()
+
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+
+        if not self.boundingRect().contains(event.pos()):
+            self._track_item.playNoteOff()
+            self._sheet_view.setInfoMessage('')
+            self.removeGhost()
+            self.ungrabMouse()
+            self._background.setVisible(False)
+            return
+
+        if self._measure is None:
+            return
+
+        self.setGhost()
+
+        ghost_timepos = Duration(
+            int(8 * self._measure.time_signature.upper
+                * event.pos().x() / self._layout.width),
+            8 * self._measure.time_signature.upper)
+        self._ghost_beat.setPos(
+            int(self._layout.width * ghost_timepos / self._measure.duration),
+            self._layout.baseline)
 
     def mousePressEvent(self, event):
         if self._measure is None:
@@ -1418,7 +1456,23 @@ class BeatMeasureItemImpl(MeasureItemImpl):
             logger.warn("mousePressEvent without valid layout.")
             return
 
-        return super().mousePressEvent(event)
+        click_timepos = Duration(
+            int(8 * self._measure.time_signature.upper
+                * event.pos().x() / self._layout.width),
+            8 * self._measure.time_signature.upper)
+
+        for beat in self._measure.beats:
+            if beat.timepos == click_timepos:
+                self.send_command_async(
+                    self._measure.id, 'RemoveBeat', beat_id=beat.id)
+                event.accept()
+                return
+
+        self.send_command_async(
+            self._measure.id, 'AddBeat', timepos=click_timepos)
+        self._track_item.playNoteOn(self._measure.track.pitch)
+        event.accept()
+        return
 
     def buildContextMenu(self, menu):
         super().buildContextMenu(menu)
@@ -1446,6 +1500,32 @@ class BeatMeasureItem(ui_base.ProjectMixin, BeatMeasureItemImpl):
 
 class BeatTrackItemImpl(TrackItemImpl):
     measure_item_cls = BeatMeasureItem
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._play_last_pitch = None
+
+    def playNoteOn(self, pitch):
+        self.playNoteOff()
+
+        self.call_async(
+            self._sheet_view.audioproc_client.add_event(
+                'sheet:%s/track:%s' % (
+                    self._sheet_view.sheet.id,
+                    self.track.id),
+                audioproc.NoteOnEvent(-1, pitch)))
+
+        self._play_last_pitch = pitch
+
+    def playNoteOff(self):
+        if self._play_last_pitch is not None:
+            self.call_async(
+                self._sheet_view.audioproc_client.add_event(
+                    'sheet:%s/track:%s' % (
+                        self._sheet_view.sheet.id,
+                        self.track.id),
+                    audioproc.NoteOffEvent(-1, self._play_last_pitch)))
+            self._play_last_pitch = None
 
 
 class BeatTrackItem(ui_base.ProjectMixin, BeatTrackItemImpl):

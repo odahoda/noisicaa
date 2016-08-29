@@ -45,6 +45,22 @@ class SetBeatTrackInstrument(commands.Command):
 commands.Command.register_command(SetBeatTrackInstrument)
 
 
+class SetBeatTrackPitch(commands.Command):
+    pitch = core.Property(Pitch)
+
+    def __init__(self, pitch=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.pitch = pitch
+
+    def run(self, track):
+        assert isinstance(track, BeatTrack)
+
+        track.pitch = self.pitch
+
+commands.Command.register_command(SetBeatTrackPitch)
+
+
 class AddBeat(commands.Command):
     timepos = core.Property(Duration)
 
