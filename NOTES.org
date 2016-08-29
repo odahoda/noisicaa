@@ -1,17 +1,17 @@
 * TODO Move google doc to this file.
-* TODO SIGSEGV when editing PipelineGraphView			      :CRASH:
+* SIGSEGV when editing PipelineGraphView 		              :CRASH:
 Possibly caused by the use of QGraphicsEffect for dropshadows?
 
-* TODO PipelineGraphView: node properties dock sometimes does not open. :BUG:
+* PipelineGraphView: node properties dock sometimes does not open.      :BUG:
 Dock shortly pops up, then disappears. Clicking on any other widget in
 the docking area then SIGSEGVs. Does QT not like opening docks directly
 as floating? There might have been a X11 error message in the log.
 
-* TODO GIL free audio pipeline						 :FR:
-* TODO Plugin support							 :FR:
-** TODO LADSPA
-** TODO LV2
-* TODO Render audio to file						 :FR:
+* GIL free audio pipeline						 :FR:
+* Plugin support							 :FR:
+** LADSPA
+** LV2
+* Render audio to file						         :FR:
 * NodeDB: start_scan							 :FR:
 How to report scan progress back?
 First a quick scan to find candidate files?
@@ -24,16 +24,44 @@ Track time of scan
 Load cache on startup
 Rescan if time of last scan > X
 
-
 * PipelineGraphView: listeners to update UI when node parameters change. :FR:
 * PipelineGraphView: edit node name					 :FR:
 * Track volume/mute properties: change connect trackmixer node instead. :BUG:
+* Color code tracks and measures.					 :FR:
+Tracks: To group e.g. all percussion visually.
+Measures: To group thematically related sections.
+Popup menu provides palette of color, separate list of already used colors
+(to make it easier to answer the question, which shade of green I used
+before).
+
+* Linked measures							 :FR:
+Only within the same track or perhaps even across tracks (of compatible
+type)?
+
+How to implement?
+- Different class that has no content itself, just a ref to original measure.
+  Then if the original measure is deleted, some other linked measure should
+  be promoted to hold the content.
+- All measures are just references to an object that holds the actual content.
+  Similar to UNIX hardlinks. Needs reference counting and garbage collection.
+- Just mark measures as linked and apply any changes to all measures in the
+  linked group.
+
+Dereference: clone the pointed to measure and replace link with that copy.
+If a group of linked measures is selected, only make one copy and link the
+rest. E.g. A B A' B' [A' B' A' B'] -> A B A' B' C D C' D', where C=copy(A),
+D=copy(B).
+Explicit dereference all to create standalone clone for every selected
+measure.
+
 * PipelineGraphView: drop onto existing node to replace it.		 :FR:
 Retain properties of the same name from replaced node.
 Deny drop, if node is not compatible with existing node.
 * PipelineGraphView: drop new node on connection.			 :FR:
 Insert node between the connected nodes.
 Deny drop, if node is not compatible with connection type.
+Reorganize graph to make space for the new node.
+
 * PipelineGraphView: node info in nodes list.				 :FR:
 List of ports and their types.
 Node description, etc.
@@ -43,129 +71,71 @@ Compute list of valid dest nodes and highlight those.
 * PipelineGraphView: drag to move. 					 :FR:
 * PipelineGraphView: no random jumping around when inserting new nodes.  :FR:
 * PipelineGraphView: multiple selections. 				 :FR:
+** ctrl-click to add/remove nodes from selection set.
+** Way to select all upstream nodes of a node.
 ** Move nodes together.
+** Remove all
 
-* PipelineGraphView:							 :FR:
-* PipelineGraphView:							 :FR:
-* PipelineGraphView:							 :FR:
-* == unsorted nodes from gdoc =================================================
+* PipelineGraphView: visualize mute, volume, bypass state in UI		 :FR:
+* PipelineGraphView: select port or connection filters node list to compatible nodes :FR:
 
-* pipeline graph editor
-   * later improvements
-      * scrollwheel zoom
-      * drag to move
-      * don't scroll when inserting node
-      * select multiple nodes
-         * track set of selected items
-         * move together
-         * remove all
-         * double click on node to select it and all upstream nodes?
-         * rubber band
-         * ctrl click to add to/remove from selection set
-      * select port or connection filters node list to compatible nodes
-      * visualize mute, volume, bypass state in UI
+* Track type: percussion						 :FR:
+* More instrument types							 :FR:
+- simple samples
+- SFZ
+* Control tracks							 :FR:
+Any controllable value can be turned into a control track.
+Icon next to controllable values, drag'n'drop onto editor.
 
+* cut, copy, paste							 :FR:
+* TracksDock: moving tracks doesn't work				:BUG:
+* player needs to get lock on state					:BUG:
+possible exception when changing project while playing
+* Tool not visible on initial load					:BUG:
+* changing backend in settings crashes pipeline loop			:BUG:
+* generic csound filter							 :FR:
+- define audio and control ports
+- also event inputs for instruments?
+- freeform text input for csound code
 
-Greater Picture
-What's essential to make it useful?
-* filters
-* control tracks
-* cut, copy, paste
-* more instrument types
-* beat track
-* reimplement rendering
-Known bugs
-* TracksDock: moving tracks doesn't work
-* player needs to get lock on state, possible exception when changing project while playing
-* Tool not visible on initial load
-* changing backend in settings crashes pipeline loop
-Filters
-* filter chains vs. free form graph
-   * filter chains
-      * easier to use, UI is just a simple list of filters per track
-      * covers most use-cases
-   * free form graph
-      * everything is possible
-      * harder to use for simple cases
-   * best of both?
-      * UI a list with filter chain per track
-      * advanced UI allows arbitrary filter graphs
-      * how to sync changes of graph back to filter chains?
-         * group nodes coming from filter chains
-         * inputs/outputs are statically connected, just order can be changed
-* generic csound filter
-   * define audio and control ports
-   * also event inputs for instruments?
-   * freeform text input for csound code
-Persistence
-* cleanup and write docstring for storage.py
-* adapt recordfile
+* Undo/redo doesn't replay pipeline mutations				:BUG:
+- trigger pipeline mutations from listeners on model
+- don't trigger mutations while replaying log during load
+* use recordfile for command log				    :CLEANUP:
    * need file offset
    * read record from offset
-* file structure
-   * space of possible states is highly branching tree
-   * root is empty project
-   * nodes cannot be enumerated, only meaningful property is distance from root = minimal steps required to get there
-   * user can chose to move down or up (=undo) again, defining a path through the state space
-   * downward moves are defined by the user's choice
-   * upward moves are unambiguous
-   * every user decision is precious and must not be forgotten
-   * when reconstructing state from log, parts of the path can be skipped
-   * single log file with all history
-      * split file after nMB
-* micro language for mutations
-   * MutationOpCode(cmd, args)
-      * all args must be serializable
-   * tests
-      * set property object or None
-      * move value between parents (property or list)
-   * move list item should not store object
-      * just obj_id for validation
-   * other side effect from commands
-      * e.g. pipeline mutations
-      * a) trigger from model mutations
-      * b) track as operations
-      * moving track should not cleanup and setup node again, but just reattach it
-* use URIs to open files
-   * always abs path
-   * demo://params
-* main process keeps track of project processes
-   * opening existing project reconnects to that process
-* delete unused objects on client side, when
+* cleanup and write docstring for storage.py			    :CLEANUP:
+* delete unused objects on client side, when			    :CLEANUP:
    * obj prop set to None
    * item deleted from objlist
    * objlist cleared
-* non-existing file on cmdline creates project
+* non-existing file on cmdline creates project				 :FR:
    * remove + hack
-Optimize Audio Pipeline
-* explicit GC after every frame
-* per process cpu monitor
+
+* main process keeps track of project processes				 :FR:
+   * opening existing project reconnects to that process
+
+* per process cpu monitor						 :FR:
    * collect cpu time with 1ms precision
    * separate thread
    * send bulk data every O(100) ms to UI
    * plot along pipeline perf chart
-* stats for backend buffer length
-* pipeline profiler
-   * UI's audioproc reports perf data to UI
-   * spans need consistent, unique names
-   * track thread_id
-   * visualize
-      * collect history of profiles per frame
-      * render realtime or scroll back in time
-      * show avg. duration, std deviation per row
-      * how to aggregate data over time?
-      * per span graphs
-         * duration
-         * start time relative to parent
-         * start time relative to prev sibling
-* process stats
+* PipelinePerfMonitor: aggregate data over time				 :FR:
+- avg duration and std deviation per span.
+- how to visualize averaged gantt chart?
+* PipelinePerfMonitor: per span graphs
+- duration
+- start time relative to parent span
+- start time relative to frame start
+
+* process stats								 :FR:
    * STATS call to manager
    * name, pid, cpu, memory
    * graphs
-* use stats calls to other processes
-   * for pipeline utilization
-* Improve testing
-* project_fuzztest.py
+
+* stats for backend buffer length					 :FR:
+
+* project_fuzztest.py						    :TESTING:
    * launch ProjectProcess using same eventloop
    * use inmemory filesystem
    * random actions
@@ -175,29 +145,61 @@ Optimize Audio Pipeline
       * player interaction
       * execute all existing commands
       * coverage report
-* pylint doesn't work with vext?
-* integrate pylint into test suite
+* pylint doesn't work with vext?				    :TESTING:
+* integrate pylint into test suite				    :TESTING:
    * add test case with test for each covered module
    * run pylint and fail test if any found messages
-* XML schema for node descriptions
+* XML schema for node descriptions				    :TESTING:
    * validate all nodes from library against schema
-* parse all csound scripts for syntax errors
+* parse all csound scripts for syntax errors			    :TESTING:
 UI Improvements
+
+* better handling of remote exceptions				    :CLEANUP:
+   * traceback
+   * every exception crashes
+      * Server errors terminate server process
+      * traceback sent to process manager, propagate to process owner
+      * exceptions in threads terminate process
+      * handle simultaneous exceptions in multiple threads
+
+* master volume								 :FR:
+if backend supports volume, use that. e.g. set alsa mixer volume.
+otherwise set volume on outgoing samples.
+
+* NodeType -> NodeDescripion					    :CLEANUP:
+* Description classes for ports and node properties		    :CLEANUP:
+* move generic Qt classes to noisicaa.qt			    :CLEANUP:
+* LoadHistoryWidget						    :CLEANUP:
+* fix left over TODOs						    :CLEANUP:
+* remove or fix commented code					    :CLEANUP:
+* ServerError and ClientError exception base classes.		    :CLEANUP:
+- ClientError is returned to client
+- ServerError causes server to crash
+* factor out common Client, Process, Session code		    :CLEANUP:
+* separate client, server and common code in music		    :CLEANUP:
+* proper classes for mutations emitted from state.py		    :CLEANUP:
+* move tests from state_test.py to model_base_test.py		    :CLEANUP:
+* find a proper test sample for audio settings dialog		    :CLEANUP:
+* move initial project mutations to BaseProject			    :CLEANUP:
+* node_db imports all nodes and populates itself		    :CLEANUP:
+* use registry instance instead of class attributes to track classes :CLEANUP:
+that allows distinct class hierarchies and is cleaner for testing
+music.commands.Command.command_classes
+* AudioProcClient should use callbacks for mutation and status distribution :CLEANUP:
+instead over overriding handle_pipeline_*, client code should register a callback
+* base class for audioproc nodes created from a NodeDescription	    :CLEANUP:
+
+
+* == unsorted nodes from gdoc =================================================
+
+* use URIs to open files
+   * always abs path
+   * demo://params
+
+* use stats calls to other processes
+   * for pipeline utilization
 * TracksDock: drag'n'drop to organize tracks
 Assorted TODOs
-* structure this doc
-   * cleanups
-   * next steps
-   * later ideas
-   * known bugs
-* reanimate playback
-   * timepos management 
-      * report timepos back to client (ui not upstream audioproc)
-      * player timepos should be reportrd to the UI when the frame is fed into backend
-   * stopping playback should stop all playing notes
-      * via sending a reset to all nodes?
-         * send PipelineReset command along with FrameData
-      * or should the player keep track of active notes and send NoteOff events?
 * pass done callback to start_process
 * first flesh out AudioProc process
    * prevent cycles 
@@ -218,15 +220,6 @@ Assorted TODOs
       * just multiply each audiooutput buffer after run()?
    * race condition in audioproc_client_test.ProxyTest.test_remove_node?
       * occasional "ERROR:noisicaa.audioproc.audioproc_process:PUBLISH_STATUS failed with exception: 'NoneType' object has no attribute 'write'"
-* better handling of remote exceptions
-   * traceback
-   * every exception crashes
-      * Server errors terminate server process
-      * traceback sent to process manager, propagate to process owner
-      * exceptions in threads terminate process
-      * handle simultaneous exceptions in multiple threads
-* ProcessManager: run all in single process mode
-* switch audio backend is broken
 * UI state vs. project state
    * UI state:
       * current sheet, track, etc.
@@ -247,8 +240,6 @@ Assorted TODOs
       * encode path
    * global vs. per command flags
    * move command handlers to submodules
-* master volume
-   * if backend supports volume, use that. e.g. set alsa mixer volume. otherwise set volume on outgoing samples
 * CLEANUP: Use state pattern to handle tools
 * UI: show on cursor when an operation is not allowed
 * UI: press ‘h’ to highlight all locations where the current tool is applicable
@@ -377,78 +368,42 @@ Assorted TODOs
 
 
 
-* Cleanups
-      * NodeType -> NodeDescripion
-      * Description classes for ports and node properties 
-      * move generic Qt classes to noisicaa.qt
-      * LoadHistoryWidget
-      * improve test coverage
-      * fix left over TODOs
-      * remove or fix commented code
-      * ServerError and ClientError exception base classes.
-      * ClientError is returned to client
-      * ServerError causes server to crash
-      * factor out common Client, Process, Session code
-      * separate client, server and common code in music
-      * proper classes for mutations emitted from state.py
-      * move tests from state_test.py to model_base_test.py
-      * make client side objects readonly
-      * process_client calls special methods to modify
-      * Property.set_internal
-      * ObjectList.{insert,delete,clear}_internal
-      * find a proper test sample for audio settings dialog
-      * move initial project mutations to BaseProject
-      * node_db imports all nodes and populates itself
-      * use registry instance instead of class attributes to track classes
-      * that allows distinct class hierarchies and is cleaner for testing
-      * music.commands.Command.command_classes
-      * AudioProcClient should use callbacks for mutation and status distribution
-      * instead over overriding handle_pipeline_*, client code should register a callback
-      * base class for audioproc nodes created from a NodeDescription
-
-
-* Further features
-      * documentation
-      * doc with html browser
-      * chord naming
-      * enable for track
-      * link chords to documentation, description of chord, etc.
-      * i18n, german translation
-      * polyphonic synth for plain wav files
-      * filters
-      * parameter timeline
-      * grand piano staff
-      * support multiple note sequences per track
-      * percussion track
-      * assign different instruments to note symbols
-      * support multiple instruments per track
-      * realtime midi input
-      * recorded audio track
-      * realtime input
-      * cut, copy, paste, trim operations
-      * operations are non-destructive to enable undo
-      * volume changes, etc. implemented via filters
-      * export to audio
-      * export to single file archive
-      * standalone player and exporter
-      * import/export other formats
-      * musicxml
-      * http://www.lilypond.org/doc/v2.18/input/regression/musicxml/collated-files.html (might be useful, if the site is up..)
-      * abc http://abcnotation.com/
-      * midi
-      * cut/copy/paste
-      * vertical rendering
-      * fit measures into horizontal space, then continue going down
-      * support more than just stereo
-      * treat each track as a point in space (possibly with movement and direction)
-      * output channels are “microphones” placed in space
-      * render output using a 3d simulation
-      * saw some library doing that somewhere…
-      * text input
-      * show a text input widget below current measure with a text representation of the contents, let user edit and update measure display as it is changed.
-      * key shortcuts to jump to next/prev measure, up/down a track.
-      * define syntax, something like ABC
-      * http://opensoundcontrol.org/introduction-osc
+* documentation
+* doc with html browser
+* chord naming
+* enable for track
+* link chords to documentation, description of chord, etc.
+* i18n, german translation
+* polyphonic synth for plain wav files
+* filters
+* parameter timeline
+* grand piano staff
+* support multiple note sequences per track
+* percussion track
+* assign different instruments to note symbols
+* support multiple instruments per track
+* realtime midi input
+* recorded audio track
+* realtime input
+* export to single file archive
+* standalone player and exporter
+* import/export other formats
+* musicxml
+* http://www.lilypond.org/doc/v2.18/input/regression/musicxml/collated-files.html (might be useful, if the site is up..)
+* abc http://abcnotation.com/
+* midi
+* vertical rendering
+* fit measures into horizontal space, then continue going down
+* support more than just stereo
+* treat each track as a point in space (possibly with movement and direction)
+* output channels are “microphones” placed in space
+* render output using a 3d simulation
+* saw some library doing that somewhere…
+* text input
+* show a text input widget below current measure with a text representation of the contents, let user edit and update measure display as it is changed.
+* key shortcuts to jump to next/prev measure, up/down a track.
+* define syntax, something like ABC
+* http://opensoundcontrol.org/introduction-osc
 
 
 * MIDI controller
@@ -458,74 +413,47 @@ Assorted TODOs
       * std icons: http://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html
       * symbols: http://en.wikipedia.org/wiki/List_of_musical_symbols
 
-
-
-
-* Old TODOs
-      * standalone player
-      * --driver
-      * -o wav
-      * statusbar
-      * show current note value
-      * select tool
-      * highlight selected measure
-      * TAB -> cycle through tools
-      * ? -> show keyboard shortcuts
-      * ctrl -> insert pause
-      * space -> pan view
-      * helper lines for low/high notes
-      * volume markers
-      * edit measures
-      * context menu over active measure
-      * remove
-      * insert left
-      * insert right
-      * cut
-      * copy
-      * paste
-      * link
-      * change clef
-      * change key
-      * tracks
-      * add
-      * remove
-      * move up/down
-      * set instrument
-      * set volume
-      * set octave
-      * time jitter
-      * load/save project
-      * remember opened projects
-      * recent projects menu
-      * track project is modified status
-      * display in tab title
-      * autosave
-      * bookmarks
-      * project properties
-      * composer, copyright, etc.
-
-
-
-
-* Far out ideas
-      * record midi
-      * metronom
-      * effects
-      * add effect sequence per track
-      * effect parameters change over time
-      * “text” tracks
-      * free text annotations
-      * printing (via export and other tool?)
-      * import
-      * midi files
-      * musicxml
-      *       * export
-      * midi
-      * musicxml http://en.wikipedia.org/wiki/MusicXML
-      * render to audio (mp3,ogg,flac,...)
-      * beam score to tablet, sync display with playback
-
-
-* About
-      * Nostalgia: revive the ease of Deluxe Music Construction Set
-      * Simple interface, focussed on making music, not making perfect score sheets
+* standalone player
+* --driver
+* -o wav
+* statusbar
+* show current note value
+* select tool
+* highlight selected measure
+* TAB -> cycle through tools
+* ? -> show keyboard shortcuts
+* ctrl -> insert pause
+* space -> pan view
+* helper lines for low/high notes
+* volume markers
+* edit measures
+* context menu over active measure
+* remove
+* insert left
+* insert right
+* cut
+* copy
+* paste
+* link
+* change clef
+* change key
+* tracks
+* add
+* remove
+* move up/down
+* set instrument
+* set volume
+* set octave
+* time jitter
+* load/save project
+* remember opened projects
+* recent projects menu
+* track project is modified status
+* display in tab title
+* autosave
+* bookmarks
+* project properties
+* composer, copyright, etc.
+* “text” tracks
+* free text annotations
+* beam score to tablet, sync display with playback
