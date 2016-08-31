@@ -1,8 +1,3 @@
-* Changing instrument is broken						:BUG:
-  File "/home/pink/noisicaa/noisicaa/music/score_track.py", line 54, in run
-    track.remove_instrument_from_pipeline()
-AttributeError: 'BeatTrack' object has no attribute 'remove_instrument_from_pipeline'
-
 * TODO Track type: percussion						 :FR:
 ** move beats to arbitrary positions
 ** move existing beat marker around

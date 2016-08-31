@@ -1097,10 +1097,7 @@ class ScoreTrackItemImpl(TrackItemImpl):
         self._instrument_selector.show()
 
     def onSelectInstrument(self, instr):
-        if instr is None:
-            self.send_command_async(
-                self._track.id, 'ClearInstrument')
-        else:
+        if instr is not None:
             self.send_command_async(
                 self._track.id, 'SetInstrument',
                 instr=instr.to_json())

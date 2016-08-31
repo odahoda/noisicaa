@@ -21,18 +21,6 @@ from . import misc
 logger = logging.getLogger(__name__)
 
 
-class ClearInstrument(commands.Command):
-    def run(self, track):
-        assert isinstance(track, Track)
-
-        if track.instrument is not None:
-            track.remove_instrument_from_pipeline()
-
-        track.instrument = None
-
-commands.Command.register_command(ClearInstrument)
-
-
 class SetInstrument(commands.Command):
     instrument_type = core.Property(str)
     instrument_args = core.DictProperty()
@@ -50,10 +38,8 @@ class SetInstrument(commands.Command):
         assert self.instrument_type == 'SoundFontInstrument'
         instr = instruments.SoundFontInstrument(**self.instrument_args)
 
-        if track.instrument is not None:
-            track.remove_instrument_from_pipeline()
         track.instrument = instr
-        track.add_instrument_to_pipeline()
+        track.instrument_node.update_pipeline()
 
 commands.Command.register_command(SetInstrument)
 
@@ -385,7 +371,7 @@ class ScoreTrack(model.ScoreTrack, Track):
 
     @property
     def instr_name(self):
-        return self.instrument.pipeline_node_id
+        return '%s-instr' % self.id
 
     @property
     def instrument_node(self):

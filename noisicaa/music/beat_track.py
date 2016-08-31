@@ -37,10 +37,8 @@ class SetBeatTrackInstrument(commands.Command):
         assert self.instrument_type == 'SoundFontInstrument'
         instr = instruments.SoundFontInstrument(**self.instrument_args)
 
-        if track.instrument is not None:
-            track.remove_instrument_from_pipeline()
         track.instrument = instr
-        track.add_instrument_to_pipeline()
+        track.instrument_node.update_pipeline()
 
 commands.Command.register_command(SetBeatTrackInstrument)
 
@@ -201,7 +199,7 @@ class BeatTrack(model.BeatTrack, Track):
 
     @property
     def instr_name(self):
-        return self.instrument.pipeline_node_id
+        return '%s-instr' % self.id
 
     @property
     def instrument_node(self):

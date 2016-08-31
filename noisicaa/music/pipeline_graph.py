@@ -320,6 +320,19 @@ class InstrumentPipelineGraphNode(
     def pipeline_node_id(self):
         return self.track.instr_name
 
+    def update_pipeline(self):
+        connections = []
+        for connection in self.sheet.pipeline_graph_connections:
+            if connection.source_node is self or connection.dest_node is self:
+                connections.append(connection)
+
+        for connection in connections:
+            connection.remove_from_pipeline()
+        self.remove_from_pipeline()
+        self.add_to_pipeline()
+        for connection in connections:
+            connection.add_to_pipeline()
+
     def add_to_pipeline(self):
         instr = self.track.instrument
 

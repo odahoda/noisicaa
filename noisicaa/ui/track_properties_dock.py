@@ -170,10 +170,7 @@ class ScoreTrackProperties(TrackProperties):
 
     def onInstrumentEdited(self, instr):
         client = self.window.getCurrentProjectView().project_client
-        if instr is None:
-            self.call_async(client.send_command(
-                self._track.id, 'ClearInstrument'))
-        else:
+        if instr is not None:
             self.call_async(client.send_command(
                 self._track.id, 'SetInstrument',
                 instrument_type='SoundFontInstrument',
