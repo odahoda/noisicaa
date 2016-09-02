@@ -102,11 +102,15 @@ class MeasureLayout(object):
 
 
 class MeasureItemImpl(QGraphicsItem):
-    def __init__(self, sheet_view, track_item, measure, **kwargs):
+    def __init__(self, sheet_view, track_item, measure_reference, **kwargs):
         super().__init__(**kwargs)
         self._sheet_view = sheet_view
         self._track_item = track_item
-        self._measure = measure
+        self._measure_reference = measure_reference
+        self._measure = (
+            measure_reference.measure
+            if measure_reference is not None
+            else None)
         self._layout = None
 
         self._layers = {}
@@ -179,13 +183,13 @@ class MeasureItemImpl(QGraphicsItem):
         self.send_command_async(
             self._sheet_view.sheet.id, 'InsertMeasure',
             tracks=[self._measure.track.index],
-            pos=self._measure.index)
+            pos=self._measure_reference.index)
 
     def onRemoveMeasure(self):
         self.send_command_async(
             self._sheet_view.sheet.id, 'RemoveMeasure',
             tracks=[self._measure.track.index],
-            pos=self._measure.index)
+            pos=self._measure_reference.index)
 
     def clearPlaybackPos(self):
         pass
@@ -209,19 +213,20 @@ class TrackItemImpl(object):
         self._prev_playback_measures = set()
 
         self._measures = []
-        for measure in self._track.measures:
+        for mref in self._track.measure_list:
             measure_item = self.measure_item_cls(  # pylint: disable=not-callable
                 **self.context, sheet_view=self._sheet_view,
-                track_item=self, measure=measure)
+                track_item=self, measure_reference=mref)
             self._measures.append(measure_item)
 
         self._ghost_measure_item = self.measure_item_cls(  # pylint: disable=not-callable
             **self.context, sheet_view=self._sheet_view,
-            track_item=self, measure=None)
+            track_item=self, measure_reference=None)
 
         self._listeners = [
             self._track.listeners.add('name', self.onNameChanged),
-            self._track.listeners.add('measures', self.onMeasuresChanged),
+            self._track.listeners.add(
+                'measure_list', self.onMeasureListChanged),
             self._track.listeners.add('muted', self.onMutedChanged),
             self._track.listeners.add('volume', self.onVolumeChanged),
             self._track.listeners.add('visible', self.onVisibleChanged),
@@ -250,17 +255,17 @@ class TrackItemImpl(object):
         measure.close()
         del self._measures[idx]
 
-    def onMeasuresChanged(self, action, *args):
+    def onMeasureListChanged(self, action, *args):
         if action == 'insert':
-            idx, measure = args
+            idx, measure_reference = args
             measure_item = self.measure_item_cls(  # pylint: disable=not-callable
                 **self.context, sheet_view=self._sheet_view,
-                track_item=self, measure=measure)
+                track_item=self, measure_reference=measure_reference)
             self._measures.insert(idx, measure_item)
             self._sheet_view.updateSheet()
 
         elif action == 'delete':
-            idx, measure = args
+            idx, measure_reference = args
             self.removeMeasure(idx)
             self._sheet_view.updateSheet()
 
@@ -350,7 +355,7 @@ class TrackItemImpl(object):
             if measure_idx == end_measure_idx:
                 break
 
-            measure_idx = (measure_idx + 1) % len(self._track.measures)
+            measure_idx = (measure_idx + 1) % len(self._track.measure_list)
             first = False
 
         for measure_idx in self._prev_playback_measures - playback_measures:
@@ -457,7 +462,9 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
         self._notes.clear()
         self._edit_areas.clear()
 
-        is_first = self._measure is not None and self._measure.index == 0
+        is_first = (
+            self._measure_reference is not None
+            and self._measure_reference.index == 0)
 
         if self._measure is not None:
             black = Qt.black
@@ -781,7 +788,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
 
     def onSetTimeSignature(self, upper, lower):
         self.send_command_async(
-            self._sheet_view.sheet.property_track.measures[self._measure.index].id,
+            self._sheet_view.sheet.property_track.measure_list[self._measure_reference.index].measure.id,
             'SetTimeSignature', upper=upper, lower=lower)
         self.recomputeLayout()
 
@@ -1181,7 +1188,9 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
         layer = self._layers[Layer.MAIN]
         self._sheet_view.clearLayer(layer)
 
-        is_first = self._measure is not None and self._measure.index == 0
+        is_first = (
+            self._measure_reference is not None
+            and self._measure_reference.index == 0)
 
         if self._measure is not None:
             black = Qt.black
@@ -1326,7 +1335,9 @@ class BeatMeasureItemImpl(MeasureItemImpl):
         layer = self._layers[Layer.MAIN]
         self._sheet_view.clearLayer(layer)
 
-        is_first = self._measure is not None and self._measure.index == 0
+        is_first = (
+            self._measure_reference is not None
+            and self._measure_reference.index == 0)
 
         if self._measure is not None:
             black = Qt.black
@@ -1343,7 +1354,7 @@ class BeatMeasureItemImpl(MeasureItemImpl):
             line.setLine(0, 0, 0, self._layout.height)
             line.setPen(black)
 
-            if self._measure.is_last:
+            if self._measure_reference.is_last:
                 line = QGraphicsLineItem(layer)
                 line.setLine(
                     self._layout.width, 0,

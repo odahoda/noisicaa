@@ -78,7 +78,7 @@ class SheetPropertyTrack(model.SheetPropertyTrack, Track):
 
         if state is None:
             for _ in range(num_measures):
-                self.measures.append(SheetPropertyMeasure())
+                self.append_measure()
 
     def create_empty_measure(self, ref):
         measure = super().create_empty_measure(ref)
@@ -90,6 +90,9 @@ class SheetPropertyTrack(model.SheetPropertyTrack, Track):
         return measure
 
     def get_num_samples(self, sample_rate):
-        return sum((m.get_num_samples(sample_rate) for m in self.measures), 0)
+        return sum(
+            (mref.measure.get_num_samples(sample_rate)
+             for mref in self.measure_list),
+            0)
 
 state.StateBase.register_class(SheetPropertyTrack)

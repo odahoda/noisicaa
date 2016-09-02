@@ -304,7 +304,16 @@ class ObjectReferenceProperty(PropertyBase):
             raise TypeError(
                 "Expected ObjectBase or DeferredReference object")
 
+        current = self.__get__(instance, instance.__class__)
+        if (current is not None
+            and not isinstance(current, (tuple, DeferredReference))):
+            assert current.ref_count > 0
+            current.ref_count -= 1
+
         super().__set__(instance, value)
+
+        if value is not None and not isinstance(value, DeferredReference):
+            value.ref_count += 1
 
 
 class ObjectMeta(type):
@@ -329,6 +338,7 @@ class ObjectBase(object, metaclass=ObjectMeta):
         self.parent = None
         self.__parent_container = None
         self.__index = None
+        self.ref_count = 0
 
     def __eq__(self, other):
         if self.__class__ != other.__class__:
@@ -447,7 +457,10 @@ class ObjectBase(object, metaclass=ObjectMeta):
             elif isinstance(prop, ObjectListProperty):
                 yield from prop.__get__(self, self.__class__)
 
-    def walk_children(self):
-        yield self
+    def walk_children(self, topdown=True):
+        if topdown:
+            yield self
         for child in self.list_children():
-            yield from child.walk_children()
+            yield from child.walk_children(topdown)
+        if not topdown:
+            yield self

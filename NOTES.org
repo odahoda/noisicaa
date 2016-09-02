@@ -3,11 +3,11 @@
 ** move existing beat marker around
 ** per beat velocity
 ** set instrument and pitch in TrackProperties dock
-* "Hardlink" model for measures within tracks.				 :FR:
+* TODO "Hardlink" model for measures within tracks.			 :FR:
 Tracks have ordered measure_sequence of references, and an unordered set
 of actual measures.
-** view installs listeners on referenced MeasureContent object
-** is_first, is_last properties from reference object
+- views need listener on ref's measure property, to update when it changes.
+- reinsert existing measure.
 * per measure time signature 						 :FR:
 Tracks can have different time signatures, measures do not have to align
 vertically.

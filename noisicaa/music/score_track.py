@@ -286,7 +286,7 @@ class ScoreEventSource(EventSource):
         # logger.debug("get_events(%d, %d)", start_sample_pos, end_sample_pos)
 
         while self._current_micro_sample_pos < 1000000 * end_sample_pos:
-            measure = self._track.measures[self._current_measure]
+            measure = self._track.measure_list[self._current_measure].measure
             sample_pos = self._current_micro_sample_pos // 1000000
 
             if self._current_micro_sample_pos >= 1000000 * start_sample_pos:
@@ -321,7 +321,7 @@ class ScoreEventSource(EventSource):
             if self._current_tick >= measure.duration.ticks:
                 self._current_tick = 0
                 self._current_measure += 1
-                if self._current_measure >= len(self._track.measures):
+                if self._current_measure >= len(self._track.measure_list):
                     self._current_measure = 0
 
 
@@ -343,7 +343,7 @@ class ScoreTrack(model.ScoreTrack, Track):
                 self.instrument = instrument
 
             for _ in range(num_measures):
-                self.measures.append(ScoreMeasure())
+                self.append_measure()
 
     def create_empty_measure(self, ref):
         measure = super().create_empty_measure(ref)

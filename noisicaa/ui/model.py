@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 class SoundFontInstrument(
         model.SoundFontInstrument, project_client.ObjectProxy): pass
 class Measure(model.Measure, project_client.ObjectProxy): pass
+class MeasureReference(model.MeasureReference, project_client.ObjectProxy): pass
 class Track(model.Track, project_client.ObjectProxy): pass
 
 class Note(model.Note, project_client.ObjectProxy):
@@ -57,6 +58,7 @@ class Project(model.Project, project_client.ObjectProxy):
 cls_map = {
     'SoundFontInstrument': SoundFontInstrument,
     'Measure': Measure,
+    'MeasureReference': MeasureReference,
     'Track': Track,
     'Note': Note,
     'ScoreMeasure': ScoreMeasure,

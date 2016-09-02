@@ -46,7 +46,7 @@ class AddTrack(commands.Command):
 
         num_measures = 1
         for track in parent_group.walk_tracks():
-            num_measures = max(num_measures, len(track.measures))
+            num_measures = max(num_measures, len(track.measure_list))
 
         track_name = "Track %d" % (len(parent_group.tracks) + 1)
         track_cls_map = {
@@ -310,30 +310,31 @@ class Sheet(model.Sheet, state.StateBase):
             return
 
         while remove_trailing_empty_measures > 0:
-            max_length = max(len(track.measures) for track in self.all_tracks)
+            max_length = max(
+                len(track.measure_list) for track in self.all_tracks)
             if max_length < 2:
                 break
 
             can_remove = True
             for track in self.all_tracks:
-                if len(track.measures) < max_length:
+                if len(track.measure_list) < max_length:
                     continue
-                if not track.measures[max_length - 1].empty:
+                if not track.measure_list[max_length - 1].measure.empty:
                     can_remove = False
             if not can_remove:
                 break
 
             for track in self.all_tracks:
-                if len(track.measures) < max_length:
+                if len(track.measure_list) < max_length:
                     continue
                 track.remove_measure(max_length - 1)
 
             remove_trailing_empty_measures -= 1
 
-        max_length = max(len(track.measures) for track in self.all_tracks)
+        max_length = max(len(track.measure_list) for track in self.all_tracks)
 
         for track in self.all_tracks:
-            while len(track.measures) < max_length:
+            while len(track.measure_list) < max_length:
                 track.append_measure()
 
     def add_track(self, parent_group, insert_index, track):

@@ -136,7 +136,7 @@ class BeatEventSource(EventSource):
 
         while self._current_micro_sample_pos < 1000000 * end_sample_pos:
             sample_pos = self._current_micro_sample_pos // 1000000
-            measure = self._track.measures[self._current_measure]
+            measure = self._track.measure_list[self._current_measure].measure
 
             if self._current_micro_sample_pos >= 1000000 * start_sample_pos:
                 for beat in measure.beats:
@@ -152,7 +152,7 @@ class BeatEventSource(EventSource):
             if self._current_tick >= measure.duration.ticks:
                 self._current_tick = 0
                 self._current_measure += 1
-                if self._current_measure >= len(self._track.measures):
+                if self._current_measure >= len(self._track.measure_list):
                     self._current_measure = 0
 
 
@@ -180,7 +180,7 @@ class BeatTrack(model.BeatTrack, Track):
                 self.pitch = pitch
 
             for _ in range(num_measures):
-                self.measures.append(BeatMeasure())
+                self.append_measure()
 
     def create_event_source(self):
         return BeatEventSource(self)

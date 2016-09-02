@@ -42,10 +42,14 @@ class Measure(core.ObjectBase):
         return time.Duration(time_signature.upper, time_signature.lower)
 
 
+class MeasureReference(core.ObjectBase):
+    measure = core.ObjectReferenceProperty(allow_none=True)
+
 
 class Track(core.ObjectBase):
     name = core.Property(str)
-    measures = core.ObjectListProperty(cls=Measure)
+    measure_list = core.ObjectListProperty(cls=MeasureReference)
+    measure_heap = core.ObjectListProperty(cls=Measure)
 
     visible = core.Property(bool, default=True)
     muted = core.Property(bool, default=False)
@@ -308,10 +312,10 @@ class Sheet(core.ObjectBase):
         return self.parent
 
     def get_bpm(self, measure_idx, tick):  # pylint: disable=unused-argument
-        return self.property_track.measures[measure_idx].bpm
+        return self.property_track.measure_list[measure_idx].measure.bpm
 
     def get_time_signature(self, measure_idx):
-        return self.property_track.measures[measure_idx].time_signature
+        return self.property_track.measure_list[measure_idx].measure.time_signature
 
 
 class Metadata(core.ObjectBase):

@@ -18,7 +18,8 @@ class TimeMapper(object):
         self.sample_rate = sample_rate
 
     def _durations(self):
-        for measure in self.sheet.property_track.measures:
+        for mref in self.sheet.property_track.measure_list:
+            measure = mref.measure
             beats_per_sec = Fraction(measure.bpm, 60)
             timesig = measure.time_signature
 
@@ -90,7 +91,7 @@ class TimeMapper(object):
             tick += duration_ticks
 
         if tick_pos == tick:
-            return (len(self.sheet.property_track.measures), 0)
+            return (len(self.sheet.property_track.measure_list), 0)
 
         raise TimeOutOfRange(
             'Tick %d not in valid range [0,%d]' % (tick_pos, tick))

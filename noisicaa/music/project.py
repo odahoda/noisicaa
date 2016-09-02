@@ -220,11 +220,11 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
         s = sheet.Sheet(name="Demo Sheet", num_tracks=0)
         project.add_sheet(s)
 
-        while len(s.property_track.measures) < 5:
+        while len(s.property_track.measure_list) < 5:
             s.property_track.append_measure()
 
-        for m in s.property_track.measures:
-            m.bpm = 140
+        for mref in s.property_track.measure_list:
+            mref.measure.bpm = 140
 
         instr1 = instruments.SoundFontInstrument(
             name="Flute",
@@ -240,61 +240,61 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             name="Track 2", instrument=instr2, num_measures=5)
         s.add_track(s.master_group, 1, track2)
 
-        track1.measures[0].notes.append(
+        track1.measure_list[0].measure.notes.append(
             Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
-        track1.measures[0].notes.append(
+        track1.measure_list[0].measure.notes.append(
             Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
-        track1.measures[0].notes.append(
+        track1.measure_list[0].measure.notes.append(
             Note(pitches=[Pitch('E5')], base_duration=Duration(1, 4)))
-        track1.measures[0].notes.append(
+        track1.measure_list[0].measure.notes.append(
             Note(pitches=[Pitch('F5')], base_duration=Duration(1, 4)))
 
-        track1.measures[1].notes.append(
+        track1.measure_list[1].measure.notes.append(
             Note(pitches=[Pitch('C5')], base_duration=Duration(1, 2)))
-        track1.measures[1].notes.append(
+        track1.measure_list[1].measure.notes.append(
             Note(pitches=[Pitch('F5')], base_duration=Duration(1, 8)))
-        track1.measures[1].notes.append(
+        track1.measure_list[1].measure.notes.append(
             Note(pitches=[Pitch('E5')], base_duration=Duration(1, 8)))
-        track1.measures[1].notes.append(
+        track1.measure_list[1].measure.notes.append(
             Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
 
-        track1.measures[2].notes.append(
+        track1.measure_list[2].measure.notes.append(
             Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
-        track1.measures[2].notes.append(
+        track1.measure_list[2].measure.notes.append(
             Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
-        track1.measures[2].notes.append(
+        track1.measure_list[2].measure.notes.append(
             Note(pitches=[Pitch('E5')], base_duration=Duration(1, 4)))
-        track1.measures[2].notes.append(
+        track1.measure_list[2].measure.notes.append(
             Note(pitches=[Pitch('F5')], base_duration=Duration(1, 4)))
 
-        track1.measures[3].notes.append(
+        track1.measure_list[3].measure.notes.append(
             Note(pitches=[Pitch('C5')], base_duration=Duration(1, 2)))
-        track1.measures[3].notes.append(
+        track1.measure_list[3].measure.notes.append(
             Note(pitches=[Pitch('F5')], base_duration=Duration(1, 8)))
-        track1.measures[3].notes.append(
+        track1.measure_list[3].measure.notes.append(
             Note(pitches=[Pitch('E5')], base_duration=Duration(1, 8)))
-        track1.measures[3].notes.append(
+        track1.measure_list[3].measure.notes.append(
             Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
 
-        track1.measures[4].notes.append(
+        track1.measure_list[4].measure.notes.append(
             Note(pitches=[Pitch('C5')], base_duration=Duration(1, 1)))
 
 
-        track2.measures[0].notes.append(
+        track2.measure_list[0].measure.notes.append(
             Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
                  base_duration=Duration(1, 1)))
-        track2.measures[1].notes.append(
+        track2.measure_list[1].measure.notes.append(
             Note(pitches=[Pitch('F3'), Pitch('A4'), Pitch('C4')],
                  base_duration=Duration(1, 1)))
 
-        track2.measures[2].notes.append(
+        track2.measure_list[2].measure.notes.append(
             Note(pitches=[Pitch('A3'), Pitch('C4'), Pitch('E4')],
                  base_duration=Duration(1, 1)))
-        track2.measures[3].notes.append(
+        track2.measure_list[3].measure.notes.append(
             Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
                  base_duration=Duration(1, 1)))
 
-        track2.measures[4].notes.append(
+        track2.measure_list[4].measure.notes.append(
             Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
                  base_duration=Duration(1, 1)))
 

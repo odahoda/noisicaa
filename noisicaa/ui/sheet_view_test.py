@@ -222,7 +222,7 @@ class SheetViewToolTest(SheetViewTest):
 
 #         view = sheet_view.SheetView(None, self.app, self.window, self.sheet)
 #         track = view._tracks[0]
-#         measure = track.measures[0]
+#         measure = track.measure_list[0].measure
 
 #         # Not the best way to find and trigger a context menu action...
 #         menu = QMenu()
@@ -244,7 +244,7 @@ class SheetViewToolTest(SheetViewTest):
 
 #         view = sheet_view.SheetView(None, self.app, self.window, self.sheet)
 #         track = view._tracks[0]
-#         measure = track.measures[0]
+#         measure = track.measure_list[0].measure
 
 #         # Not the best way to find and trigger a context menu action...
 #         menu = QMenu()

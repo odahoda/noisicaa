@@ -14,15 +14,15 @@ class TimeMapperTest(unittest.TestCase):
         self.sheet = sheet.Sheet(name='Test', num_tracks=0)
         self.project.sheets.append(self.sheet)
 
-        assert len(self.sheet.property_track.measures) == 1
-        assert self.sheet.property_track.measures[0].bpm == 120
-        assert self.sheet.property_track.measures[0].time_signature == time_signature.TimeSignature(4, 4)
+        assert len(self.sheet.property_track.measure_list) == 1
+        assert self.sheet.property_track.measure_list[0].measure.bpm == 120
+        assert self.sheet.property_track.measure_list[0].measure.time_signature == time_signature.TimeSignature(4, 4)
 
     def test_total_duration(self):
         conv = time_mapper.TimeMapper(self.sheet)
         self.sheet.property_track.append_measure()
         self.sheet.property_track.append_measure()
-        self.sheet.property_track.measures[1].time_signature = time_signature.TimeSignature(2, 4)
+        self.sheet.property_track.measure_list[1].measure.time_signature = time_signature.TimeSignature(2, 4)
 
         self.assertEqual(conv.total_duration_ticks, 480 + 240 + 480)
         self.assertEqual(conv.total_duration_samples, 88200 + 44100 + 88200)
@@ -66,7 +66,7 @@ class TimeMapperTest(unittest.TestCase):
         conv = time_mapper.TimeMapper(self.sheet)
         self.sheet.property_track.append_measure()
         self.sheet.property_track.append_measure()
-        self.sheet.property_track.measures[1].time_signature = time_signature.TimeSignature(2, 4)
+        self.sheet.property_track.measure_list[1].measure.time_signature = time_signature.TimeSignature(2, 4)
 
         self.assertEqual(conv.measure_pos(0), (0, 0))
         self.assertEqual(conv.measure_pos(240), (0, 240))

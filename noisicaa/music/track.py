@@ -70,6 +70,16 @@ class Measure(model.Measure, state.StateBase):
         return False
 
 
+class MeasureReference(model.MeasureReference, state.StateBase):
+    def __init__(self, measure=None, state=None):
+        super().__init__(state)
+
+        if state is None:
+            self.measure = measure
+
+state.StateBase.register_class(MeasureReference)
+
+
 class EventSource(object):
     def __init__(self, track):
         self._track = track
@@ -96,22 +106,30 @@ class Track(model.Track, state.StateBase):
         self.insert_measure(-1)
 
     def insert_measure(self, idx):
-        assert idx == -1 or (0 <= idx <= len(self.measures) - 1)
+        assert idx == -1 or (0 <= idx <= len(self.measure_list) - 1)
 
         if idx == -1:
-            idx = len(self.measures)
+            idx = len(self.measure_list)
 
-        if idx == 0 and len(self.measures) > 0:
-            ref = self.measures[0]
+        if idx == 0 and len(self.measure_list) > 0:
+            ref = self.measure_list[0].measure
         elif idx > 0:
-            ref = self.measures[idx-1]
+            ref = self.measure_list[idx-1].measure
         else:
             ref = None
         measure = self.create_empty_measure(ref)
-        self.measures.insert(idx, measure)
+        self.measure_heap.append(measure)
+        self.measure_list.insert(idx, MeasureReference(measure=measure))
 
     def remove_measure(self, idx):
-        del self.measures[idx]
+        measure = self.measure_list[idx].measure
+        assert measure.ref_count > 0
+
+        self.measure_list[idx].measure = None
+        del self.measure_list[idx]
+
+        if measure.ref_count == 0:
+            del self.measure_heap[measure.index]
 
     def create_empty_measure(self, ref):  # pylint: disable=unused-argument
         return self.measure_cls()  # pylint: disable=not-callable
