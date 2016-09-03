@@ -107,10 +107,14 @@ class MeasureItemImpl(QGraphicsItem):
         self._sheet_view = sheet_view
         self._track_item = track_item
         self._measure_reference = measure_reference
-        self._measure = (
-            measure_reference.measure
-            if measure_reference is not None
-            else None)
+        if self._measure_reference is not None:
+            self._measure = measure_reference.measure
+            self._measure_listener = self._measure_reference.listeners.add(
+                'measure', self.measureChanged)
+        else:
+            self._measure = None
+            self._measure_listener = None
+
         self._layout = None
 
         self._layers = {}
@@ -128,6 +132,10 @@ class MeasureItemImpl(QGraphicsItem):
         return self._measure
 
     @property
+    def measure_reference(self):
+        return self._measure_reference
+
+    @property
     def track_item(self):
         return self._track_item
 
@@ -138,8 +146,15 @@ class MeasureItemImpl(QGraphicsItem):
         pass
 
     def close(self):
-        if self.selected():
-            self._sheet_view.removeFromSelection(self)
+        if self._measure_listener is not None:
+            self._measure_listener.remove()
+
+    def measureChanged(self, old_value, new_value):
+        for m in self._measure_reference.track.measure_heap:
+            print(m.index, m)
+        print(self._measure, old_value, new_value)
+        self._measure = new_value
+        self.recomputeLayout()
 
     def recomputeLayout(self):
         layout = self.computeLayout()
@@ -228,6 +243,11 @@ class MeasureItemImpl(QGraphicsItem):
     def selected(self):
         return self._selected
 
+    async def getCopy(self):
+        return {'class': type(self._measure).__name__,
+                'id': self._measure.id,
+                'data': await self.project_client.serialize(self._measure.id) }
+
 
 class TrackItemImpl(object):
     measure_item_cls = None
@@ -268,6 +288,9 @@ class TrackItemImpl(object):
 
         while len(self._measures) > 0:
             measure = self._measures.pop(0)
+            if measure.selected():
+                self._sheet_view.removeFromSelection(
+                    measure, update_object=False)
             measure.close()
         self._ghost_measure_item.close()
         self._ghost_measure_item = None
@@ -282,6 +305,8 @@ class TrackItemImpl(object):
 
     def removeMeasure(self, idx):
         measure = self._measures[idx]
+        if measure.selected():
+            self._sheet_view.removeFromSelection(measure, update_object=False)
         measure.close()
         del self._measures[idx]
 
@@ -392,6 +417,9 @@ class TrackItemImpl(object):
             self.measures[measure_idx].clearPlaybackPos()
         self._prev_playback_measures = playback_measures
 
+    def onPasteMeasuresAsLink(self, data):
+        print(data)
+
 
 class ScoreMeasureLayout(MeasureLayout):
     pass
@@ -412,13 +440,9 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
 
         self.setAcceptHoverEvents(True)
 
+        self._measure_listeners = []
         if self._measure is not None:
-            self._measure.listeners.add(
-                'notes-changed', self.recomputeLayout)
-            self._measure.listeners.add(
-                'clef', lambda *args: self.recomputeLayout())
-            self._measure.listeners.add(
-                'key_signature', lambda *args: self.recomputeLayout())
+            self.addMeasureListeners()
 
             self.playback_pos = QGraphicsLineItem(
                 self._layers[Layer.EVENTS])
@@ -435,6 +459,29 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
         '##': 'accidental-double-sharp',
         'bb': 'accidental-double-flat',
     }
+
+    def close(self):
+        super().close()
+        for listener in self._measure_listeners:
+            listener.remove()
+        self._measure_listeners.clear()
+
+    def addMeasureListeners(self):
+        self._measure_listeners.append(self._measure.listeners.add(
+            'notes-changed', self.recomputeLayout))
+        self._measure_listeners.append(self._measure.listeners.add(
+            'clef', lambda *args: self.recomputeLayout()))
+        self._measure_listeners.append(self._measure.listeners.add(
+            'key_signature', lambda *args: self.recomputeLayout()))
+
+    def measureChanged(self, old_value, new_value):
+        super().measureChanged(old_value, new_value)
+
+        for listener in self._measure_listeners:
+            listener.remove()
+        self._measure_listeners.clear()
+
+        self.addMeasureListeners()
 
     def computeLayout(self):
         width = 0
@@ -1323,9 +1370,10 @@ class BeatMeasureItemImpl(MeasureItemImpl):
 
         self.setAcceptHoverEvents(True)
 
+        self._measure_listeners = []
+
         if self._measure is not None:
-            self._measure.listeners.add(
-                'beats', lambda *args: self.recomputeLayout())
+            self.addMeasureListeners()
 
             self.playback_pos = QGraphicsLineItem(
                 self._layers[Layer.EVENTS])
@@ -1334,6 +1382,26 @@ class BeatMeasureItemImpl(MeasureItemImpl):
             pen = QPen(Qt.black)
             pen.setWidth(3)
             self.playback_pos.setPen(pen)
+
+
+    def close(self):
+        super().close()
+        for listener in self._measure_listeners:
+            listener.remove()
+        self._measure_listeners.clear()
+
+    def addMeasureListeners(self):
+        self._measure_listeners.append(self._measure.listeners.add(
+                'beats', lambda *args: self.recomputeLayout()))
+
+    def measureChanged(self, old_value, new_value):
+        super().measureChanged(old_value, new_value)
+
+        for listener in self._measure_listeners:
+            listener.remove()
+        self._measure_listeners.clear()
+
+        self.addMeasureListeners()
 
     def computeLayout(self):
         width = 100
@@ -1690,12 +1758,13 @@ class SheetViewImpl(QGraphicsView):
         else:
             raise ValueError(type(obj))
 
-    def removeFromSelection(self, obj):
+    def removeFromSelection(self, obj, update_object=False):
         if obj not in self._selection_set:
             raise RuntimeError("Item not selected.")
 
         self._selection_set.remove(obj)
-        obj.setSelected(False)
+        if update_object:
+            obj.setSelected(False)
 
     def setInfoMessage(self, msg):
         self.window.setInfoMessage(msg)
@@ -1999,6 +2068,39 @@ class SheetViewImpl(QGraphicsView):
     def onRender(self):
         dialog = RenderSheetDialog(self, self.app, self._sheet)
         dialog.exec_()
+
+
+    def onCopy(self):
+        if not self._selection_set:
+            return
+
+        self.call_async(self.onCopyAsync())
+
+    async def onCopyAsync(self):
+        data = []
+        for obj in self._selection_set:
+            data.append(await obj.getCopy())
+
+        self.window.setClipboardContent(
+            {'type': 'measures', 'data': data})
+
+    def onPasteAsLink(self):
+        if not self._selection_set:
+            return
+
+        clipboard = self.window.clipboardContent()
+        if clipboard['type'] == 'measures':
+            self.send_command_async(
+                self._sheet.id, 'PasteMeasuresAsLink',
+                src_ids=[copy['id'] for copy in clipboard['data']],
+                target_ids=[
+                    mref.id for mref in sorted(
+                        (measure_item.measure_reference
+                         for measure_item in self._selection_set),
+                        key=lambda mref: mref.index)])
+
+        else:
+            raise ValueError(clipboard['type'])
 
     def scrollToPlaybackPosition(self, pos):
         # I would rather like to keep the pos in the left 1/3rd of the view.

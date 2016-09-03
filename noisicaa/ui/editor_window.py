@@ -10,30 +10,10 @@ import pprint
 import os.path
 import enum
 
-from PyQt5.QtCore import Qt, QSize, pyqtSignal, pyqtProperty
-from PyQt5.QtGui import QPalette, QColor, QBrush, QIcon, QPixmap, QPainter, QFont
-from PyQt5.QtWidgets import (
-    QAction,
-    QFrame,
-    QMessageBox,
-    QMainWindow,
-    QDockWidget,
-    QWidget,
-    QTabWidget,
-    QStackedWidget,
-    QGraphicsView,
-    QGraphicsScene,
-    QGraphicsRectItem,
-    QHBoxLayout,
-    QVBoxLayout,
-    QFileDialog,
-    QToolBar,
-    QStatusBar,
-    QLineEdit,
-    QToolButton,
-    QButtonGroup,
-)
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from noisicaa import music
 from ..exceptions import RestartAppException, RestartAppCleanException
@@ -69,14 +49,14 @@ class CommandShellDockWidget(DockWidget):
         self.setWidget(command_shell)
 
 
-class EditorWindow(ui_base.CommonMixin, QMainWindow):
+class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     # Could not figure out how to define a signal that takes either an instance
     # of a specific class or None.
-    currentProjectChanged = pyqtSignal(object)
-    currentSheetChanged = pyqtSignal(object)
-    currentTrackChanged = pyqtSignal(object)
+    currentProjectChanged = QtCore.pyqtSignal(object)
+    currentSheetChanged = QtCore.pyqtSignal(object)
+    currentTrackChanged = QtCore.pyqtSignal(object)
 
-    projectListChanged = pyqtSignal()
+    projectListChanged = QtCore.pyqtSignal()
 
     def __init__(self, app):
         super().__init__(app=app)
@@ -89,6 +69,8 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
 
         self._current_project_view = None
 
+        self._clipboard = None
+
         self.setWindowTitle("noisicaä")
         self.resize(1200, 800)
 
@@ -98,7 +80,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self.createStatusBar()
         self.createDockWidgets()
 
-        self._project_tabs = QTabWidget(self)
+        self._project_tabs = QtWidgets.QTabWidget(self)
         self._project_tabs.setTabBarAutoHide(True)
         self._project_tabs.setUsesScrollButtons(True)
         self._project_tabs.setTabsClosable(True)
@@ -109,7 +91,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
 
         self._start_view = self.createStartView()
 
-        self._main_area = QStackedWidget(self)
+        self._main_area = QtWidgets.QStackedWidget(self)
         self._main_area.addWidget(self._project_tabs)
         self._main_area.addWidget(self._start_view)
         self._main_area.setCurrentIndex(1)
@@ -136,135 +118,149 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self.close()
 
     def createStartView(self):
-        view = QWidget(self)
+        view = QtWidgets.QWidget(self)
 
-        gscene = QGraphicsScene()
+        gscene = QtWidgets.QGraphicsScene()
         gscene.addText("Some fancy logo goes here")
 
-        gview = QGraphicsView(self)
-        gview.setBackgroundRole(QPalette.Window)
-        gview.setFrameShape(QFrame.NoFrame)
-        gview.setBackgroundBrush(QBrush(Qt.NoBrush))
+        gview = QtWidgets.QGraphicsView(self)
+        gview.setBackgroundRole(QtGui.QPalette.Window)
+        gview.setFrameShape(QtWidgets.QFrame.NoFrame)
+        gview.setBackgroundBrush(QtGui.QBrush(Qt.NoBrush))
         gview.setScene(gscene)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addWidget(gview)
         view.setLayout(layout)
 
         return view
 
     def createActions(self):
-        self._new_project_action = QAction(
+        self._new_project_action = QtWidgets.QAction(
             "New", self,
-            shortcut=QKeySequence.New,
+            shortcut=QtGui.QKeySequence.New,
             statusTip="Create a new project",
             triggered=self.onNewProject)
 
-        self._open_project_action = QAction(
+        self._open_project_action = QtWidgets.QAction(
             "Open", self,
-            shortcut=QKeySequence.Open,
+            shortcut=QtGui.QKeySequence.Open,
             statusTip="Open an existing project",
             triggered=self.onOpenProject)
 
-        self._import_action = QAction(
+        self._import_action = QtWidgets.QAction(
             "Import", self,
             statusTip="Import a file into the current project.",
             triggered=self.onImport)
 
-        self._render_action = QAction(
+        self._render_action = QtWidgets.QAction(
             "Render", self,
             statusTip="Render sheet into an audio file.",
             triggered=self.onRender)
 
-        self._save_project_action = QAction(
+        self._save_project_action = QtWidgets.QAction(
             "Save", self,
-            shortcut=QKeySequence.Save,
+            shortcut=QtGui.QKeySequence.Save,
             statusTip="Save the current project",
             triggered=self.onSaveProject)
 
-        self._close_current_project_action = QAction(
+        self._close_current_project_action = QtWidgets.QAction(
             "Close", self,
-            shortcut=QKeySequence.Close,
+            shortcut=QtGui.QKeySequence.Close,
             statusTip="Close the current project",
             triggered=self.onCloseCurrentProjectTab,
             enabled=False)
 
-        self._undo_action = QAction(
+        self._undo_action = QtWidgets.QAction(
             "Undo", self,
-            shortcut=QKeySequence.Undo,
+            shortcut=QtGui.QKeySequence.Undo,
             statusTip="Undo most recent action",
             triggered=self.onUndo)
 
-        self._redo_action = QAction(
+        self._redo_action = QtWidgets.QAction(
             "Redo", self,
-            shortcut=QKeySequence.Redo,
+            shortcut=QtGui.QKeySequence.Redo,
             statusTip="Redo most recently undone action",
             triggered=self.onRedo)
 
-        self._restart_action = QAction(
+        self._copy_action = QtWidgets.QAction(
+            "Copy", self,
+            shortcut=QtGui.QKeySequence.Copy,
+            statusTip="Copy current selected items to clipboard",
+            triggered=self.onCopy)
+
+        self._paste_as_link_action = QtWidgets.QAction(
+            "Paste as link", self,
+            shortcut=QtGui.QKeySequence.Paste,
+            statusTip=("Paste items from clipboard to current location as"
+                       " linked items"),
+            triggered=self.onPasteAsLink)
+
+        self._restart_action = QtWidgets.QAction(
             "Restart", self,
             shortcut="F5", shortcutContext=Qt.ApplicationShortcut,
             statusTip="Restart the application", triggered=self.restart)
 
-        self._restart_clean_action = QAction(
+        self._restart_clean_action = QtWidgets.QAction(
             "Restart clean", self,
             shortcut="Ctrl+Shift+F5", shortcutContext=Qt.ApplicationShortcut,
             statusTip="Restart the application in a clean state",
             triggered=self.restart_clean)
 
-        self._quit_action = QAction(
+        self._quit_action = QtWidgets.QAction(
             "Quit", self,
-            shortcut=QKeySequence.Quit, shortcutContext=Qt.ApplicationShortcut,
+            shortcut=QtGui.QKeySequence.Quit,
+            shortcutContext=Qt.ApplicationShortcut,
             statusTip="Quit the application", triggered=self.quit)
 
-        self._crash_action = QAction(
+        self._crash_action = QtWidgets.QAction(
             "Crash", self,
             triggered=self.crash)
 
-        self._dump_project_action = QAction(
+        self._dump_project_action = QtWidgets.QAction(
             "Dump Project", self,
             triggered=self.dumpProject)
 
-        self._about_action = QAction(
+        self._about_action = QtWidgets.QAction(
             "About", self,
             statusTip="Show the application's About box",
             triggered=self.about)
 
-        self._aboutqt_action = QAction(
+        self._aboutqt_action = QtWidgets.QAction(
             "About Qt", self,
             statusTip="Show the Qt library's About box",
             triggered=self.app.aboutQt)
 
-        self._open_settings_action = QAction(
+        self._open_settings_action = QtWidgets.QAction(
             "Settings", self,
             statusTip="Open the settings dialog.",
             triggered=self.openSettings)
 
-        self._open_instrument_library_action = QAction(
+        self._open_instrument_library_action = QtWidgets.QAction(
             "Instrument Library", self,
             statusTip="Open the instrument library dialog.",
             triggered=self.openInstrumentLibrary)
 
-        self._add_score_track_action = QAction(
+        self._add_score_track_action = QtWidgets.QAction(
             "Score", self,
             statusTip="Add a new score track to the current sheet.",
             triggered=self.onAddScoreTrack,
             enabled=False)
 
-        self._player_start_action = QAction(
-            QIcon.fromTheme('media-playback-start'),
+        self._player_start_action = QtWidgets.QAction(
+            QtGui.QIcon.fromTheme('media-playback-start'),
             "Play",
             self, triggered=self.onPlayerStart)
-        self._player_pause_action = QAction(
-            QIcon.fromTheme('media-playback-pause'),
+        self._player_pause_action = QtWidgets.QAction(
+            QtGui.QIcon.fromTheme('media-playback-pause'),
             "Pause",
             self, triggered=self.onPlayerPause)
-        self._player_stop_action = QAction(
-            QIcon.fromTheme('media-playback-stop'),
+        self._player_stop_action = QtWidgets.QAction(
+            QtGui.QIcon.fromTheme('media-playback-stop'),
             "Stop",
             self, triggered=self.onPlayerStop)
 
-        self._show_pipeline_perf_monitor_action = QAction(
+        self._show_pipeline_perf_monitor_action = QtWidgets.QAction(
             "Pipeline Performance Monitor", self,
             checkable=True,
             checked=self.app.pipeline_perf_monitor.isVisible())
@@ -273,7 +269,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self.app.pipeline_perf_monitor.visibilityChanged.connect(
             self._show_pipeline_perf_monitor_action.setChecked)
 
-        self._show_pipeline_graph_monitor_action = QAction(
+        self._show_pipeline_graph_monitor_action = QtWidgets.QAction(
             "Pipeline Graph Monitor", self,
             checkable=True,
             checked=self.app.pipeline_graph_monitor.isVisible())
@@ -304,6 +300,9 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self._edit_menu.addAction(self._undo_action)
         self._edit_menu.addAction(self._redo_action)
         self._project_menu.addSeparator()
+        self._edit_menu.addAction(self._copy_action)
+        self._edit_menu.addAction(self._paste_as_link_action)
+        self._project_menu.addSeparator()
         add_track_menu = self._edit_menu.addMenu("Add Track")
         add_track_menu.addAction(self._add_score_track_action)
 
@@ -329,7 +328,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self._help_menu.addAction(self._aboutqt_action)
 
     def createToolBar(self):
-        self.toolbar = QToolBar()
+        self.toolbar = QtWidgets.QToolBar()
         self.toolbar.setObjectName('toolbar:main')
         self.toolbar.addAction(self._player_start_action)
         #elf.toolbar.addAction(self._player_pause_action)
@@ -338,7 +337,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
     def createStatusBar(self):
-        self.statusbar = QStatusBar()
+        self.statusbar = QtWidgets.QStatusBar()
 
         self.player_status = LoadHistoryWidget(100, 30)
         self.player_status.setToolTip("Load of the playback engine.")
@@ -374,7 +373,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
             project_view.updateView()
 
     def about(self):
-        QMessageBox.about(
+        QtWidgets.QMessageBox.about(
             self, "About noisicaä",
             textwrap.dedent("""\
                 Some text goes here...
@@ -505,7 +504,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         return view.project
 
     def onNewProject(self):
-        path, open_filter = QFileDialog.getSaveFileName(
+        path, open_filter = QtWidgets.QFileDialog.getSaveFileName(
             parent=self,
             caption="Select Project File",
             #directory=self.ui_state.get(
@@ -520,7 +519,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self.call_async(self.app.createProject(path))
 
     def onOpenProject(self):
-        path, open_filter = QFileDialog.getOpenFileName(
+        path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
             parent=self,
             caption="Open Project",
             #directory=self.ui_state.get(
@@ -535,7 +534,7 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         self.call_async(self.app.openProject(path))
 
     def onImport(self):
-        path, open_filter = QFileDialog.getOpenFileName(
+        path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
             parent=self,
             caption="Import file",
             #directory=self.ui_state.get(
@@ -551,12 +550,12 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         try:
             importer.import_file(path, self.getCurrentProject())
         except ImporterError as exc:
-            errorbox = QMessageBox()
+            errorbox = QtWidgets.QMessageBox()
             errorbox.setWindowTitle("Failed to import file")
             errorbox.setText("Failed import file from path %s." % path)
             errorbox.setInformativeText(str(exc))
-            errorbox.setIcon(QMessageBox.Warning)
-            errorbox.addButton("Close", QMessageBox.AcceptRole)
+            errorbox.setIcon(QtWidgets.QMessageBox.Warning)
+            errorbox.addButton("Close", QtWidgets.QMessageBox.AcceptRole)
             errorbox.exec_()
 
     def onRender(self):
@@ -575,6 +574,14 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
         project_view = self.getCurrentProjectView()
         self.call_async(project_view.project_client.redo())
 
+    def onCopy(self):
+        view = self._project_tabs.currentWidget()
+        view.onCopy()
+
+    def onPasteAsLink(self):
+        view = self._project_tabs.currentWidget()
+        view.onPasteAsLink()
+
     def onAddScoreTrack(self):
         view = self._project_tabs.currentWidget()
         view.onAddTrack('score')
@@ -590,3 +597,11 @@ class EditorWindow(ui_base.CommonMixin, QMainWindow):
     def onPlayerStop(self):
         view = self._project_tabs.currentWidget()
         view.onPlayerStop()
+
+    def setClipboardContent(self, content):
+        logger.info(
+            "Setting clipboard contents to: %s", pprint.pformat(content))
+        self._clipboard = content
+
+    def clipboardContent(self):
+        return self._clipboard

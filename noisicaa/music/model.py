@@ -45,6 +45,14 @@ class Measure(core.ObjectBase):
 class MeasureReference(core.ObjectBase):
     measure = core.ObjectReferenceProperty(allow_none=True)
 
+    @property
+    def track(self):
+        return self.parent
+
+    @property
+    def sheet(self):
+        return self.track.sheet
+
 
 class Track(core.ObjectBase):
     name = core.Property(str)

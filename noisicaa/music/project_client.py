@@ -233,6 +233,10 @@ class ProjectClientMixin(object):
         assert self.project is not None
         await self._stub.call('REDO')
 
+    async def serialize(self, obj_id):
+        assert self.project is not None
+        return await self._stub.call('SERIALIZE', self._session_id, obj_id)
+
     async def create_player(self, sheet_id):
         return await self._stub.call(
             'CREATE_PLAYER', self._session_id,

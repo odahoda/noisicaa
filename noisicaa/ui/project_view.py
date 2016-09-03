@@ -200,6 +200,14 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         view = self.currentSheetView()
         view.onRender()
 
+    def onCopy(self):
+        view = self.currentSheetView()
+        view.onCopy()
+
+    def onPasteAsLink(self):
+        view = self.currentSheetView()
+        view.onPasteAsLink()
+
 
 class ProjectView(ui_base.ProjectMixin, ProjectViewImpl):
     def createSheetView(self, **kwargs):  # pragma: no cover

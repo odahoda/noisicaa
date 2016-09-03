@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import itertools
 import logging
 
 from noisicaa import core
@@ -14,6 +15,7 @@ from . import track_group
 from . import sheet_property_track
 from . import pipeline_graph
 from . import misc
+from . import track
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +175,40 @@ class RemoveMeasure(commands.Command):
                     track.append_measure()
 
 commands.Command.register_command(RemoveMeasure)
+
+
+class PasteMeasuresAsLink(commands.Command):
+    src_ids = core.ListProperty(str)
+    target_ids = core.ListProperty(str)
+
+    def __init__(self, src_ids=None, target_ids=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.src_ids.extend(src_ids)
+            self.target_ids.extend(target_ids)
+
+    def run(self, sheet):
+        assert isinstance(sheet, Sheet)
+
+        root = sheet.root
+
+        src_measures = [root.get_object(obj_id) for obj_id in self.src_ids]
+        assert all(isinstance(obj, track.Measure) for obj in src_measures)
+
+        target_measures = [
+            root.get_object(obj_id) for obj_id in self.target_ids]
+        assert all(
+            isinstance(obj, track.MeasureReference) for obj in target_measures)
+
+        assert (
+            len(set(obj.track.id for obj in src_measures + target_measures))
+            == 1)
+
+        for target, src in zip(
+                target_measures, itertools.cycle(src_measures)):
+            target.measure = src
+
+commands.Command.register_command(PasteMeasuresAsLink)
 
 
 class AddPipelineGraphNode(commands.Command):

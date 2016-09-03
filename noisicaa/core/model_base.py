@@ -302,7 +302,8 @@ class ObjectReferenceProperty(PropertyBase):
                 raise ValueError("None not allowed")
         elif not isinstance(value, (ObjectBase, DeferredReference)):
             raise TypeError(
-                "Expected ObjectBase or DeferredReference object")
+                "Expected ObjectBase or DeferredReference object, got %s"
+                % type(value))
 
         current = self.__get__(instance, instance.__class__)
         if (current is not None
@@ -386,26 +387,26 @@ class ObjectBase(object, metaclass=ObjectMeta):
 
     def set_index(self, index):
         if self.__parent_container is None:
-            raise ObjectNotAttachedError
+            raise ObjectNotAttachedError(self.id)
         self.__index = index
 
     @property
     def index(self):
         if self.__parent_container is None:
-            raise ObjectNotAttachedError
+            raise ObjectNotAttachedError(self.id)
         assert self.__index is not None
         return self.__index
 
     @property
     def is_first(self):
         if self.__index is None:
-            raise NotListMemberError
+            raise NotListMemberError(self.id)
         return self.__index == 0
 
     @property
     def is_last(self):
         if self.__index is None:
-            raise NotListMemberError
+            raise NotListMemberError(self.id)
         return self.__index == len(self.__parent_container) - 1
 
     @property

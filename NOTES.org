@@ -6,15 +6,8 @@
 * TODO "Hardlink" model for measures within tracks.			 :FR:
 Tracks have ordered measure_sequence of references, and an unordered set
 of actual measures.
-- views need listener on ref's measure property, to update when it changes.
-- reinsert existing measure.
 - basic copy'n'paste
-  - only 'copy' & 'paste as linked'
-  - possibly a range of measures within a single track
-  - copied items are property of project
-    - MeasureItem.getCopy
-      - fetch serialized copy of objects from backend
-      - remember relative positions
+  - a range of measures within a single track
 
 * per measure time signature 						 :FR:
 Tracks can have different time signatures, measures do not have to align
@@ -212,6 +205,12 @@ music.commands.Command.command_classes
 instead over overriding handle_pipeline_*, client code should register a callback
 * base class for audioproc nodes created from a NodeDescription	    :CLEANUP:
 
+* add a concept of "action receivers"				    :CLEANUP:
+- EditorWindow has a single object currently being the "action receivers"
+  - use Qt focus?
+- global actions, e.g. cut, copy, paste, are sent to that object
+- if receivers doesn't handle it, pass it on to parent
+  - use custom Qt events?
 
 * == unsorted nodes from gdoc =================================================
 

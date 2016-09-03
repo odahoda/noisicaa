@@ -111,6 +111,7 @@ class ProjectProcessMixin(object):
         self.server.add_command_handler('COMMAND', self.handle_command)
         self.server.add_command_handler('UNDO', self.handle_undo)
         self.server.add_command_handler('REDO', self.handle_redo)
+        self.server.add_command_handler('SERIALIZE', self.handle_serialize)
         self.server.add_command_handler(
             'CREATE_PLAYER', self.handle_create_player)
         self.server.add_command_handler(
@@ -152,7 +153,10 @@ class ProjectProcessMixin(object):
 
         if isinstance(change, core.PropertyValueChange):
             if (change.new_value is not None
-                and isinstance(change.new_value, state.StateBase)):
+                and isinstance(change.new_value, state.StateBase)
+                and not isinstance(
+                    obj.get_property(change.prop_name),
+                    core.ObjectReferenceProperty)):
                 for mutation in self.add_object_mutations(
                         change.new_value):
                     self.pending_mutations.append(mutation)
@@ -309,6 +313,12 @@ class ProjectProcessMixin(object):
 
         for mutation in mutations:
             await self.publish_mutation(mutation)
+
+    async def handle_serialize(self, session_id, obj_id):
+        assert self.project is not None
+
+        obj = self.project.get_object(obj_id)
+        return obj.serialize()
 
     async def handle_create_player(
         self, session_id, client_address, sheet_id):
