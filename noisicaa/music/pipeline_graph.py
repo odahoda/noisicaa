@@ -155,7 +155,6 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                 (p.name, p.value) for p in self.port_property_values
                 if p.port_name == port.name)
 
-            logger.info("%s", port_property_values)
             if port_property_values:
                 self.sheet.handle_pipeline_mutation(
                     mutations.SetPortProperty(

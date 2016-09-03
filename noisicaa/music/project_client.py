@@ -67,8 +67,7 @@ class ProjectClientMixin(object):
     def __set_project(self, root_id):
         assert self.project is None
         self.project = self._object_map[root_id]
-        self.project.is_root = True
-        self.project.node_db = self._node_db
+        self.project.init(self._node_db, self._object_map)
 
     async def setup(self):
         await super().setup()
@@ -144,50 +143,48 @@ class ProjectClientMixin(object):
 
     def handle_project_mutation(self, mutation):
         logger.info("Mutation received: %s" % mutation)
-        try:
-            if isinstance(mutation, mutations.SetProperties):
-                obj = self._object_map[mutation.id]
-                assert not isinstance(obj, core.DeferredReference)
-                self.apply_properties(obj, mutation.properties)
 
-            elif isinstance(mutation, mutations.AddObject):
-                cls = self.cls_map[mutation.cls]
-                obj = cls(mutation.id)
-                self.apply_properties(obj, mutation.properties)
-                # TODO: We should assert that mutation.id is either not
-                # in _object_map or points at a DeferredReference.
-                # But we don't delete entries from _object_map when
-                # objects are removed, so we leave zombies behind, which
-                # we just override here.
-                if (mutation.id in self._object_map
-                    and isinstance(
-                        self._object_map[mutation.id],
-                        core.DeferredReference)):
-                    self._object_map[mutation.id].dereference(obj)
-                self._object_map[mutation.id] = obj
+        if isinstance(mutation, mutations.SetProperties):
+            obj = self._object_map[mutation.id]
+            assert not isinstance(obj, core.DeferredReference)
+            self.apply_properties(obj, mutation.properties)
 
-            elif isinstance(mutation, mutations.ListInsert):
-                obj = self._object_map[mutation.id]
-                lst = getattr(obj, mutation.prop_name)
-                if mutation.value_type == 'obj':
-                    child = self._object_map[mutation.value]
-                    lst.insert(mutation.index, child)
-                elif mutation.value_type == 'scalar':
-                    lst.insert(mutation.index, mutation.value)
-                else:
-                    raise ValueError(
-                        "Value type %s not supported."
-                        % mutation.value_type)
+        elif isinstance(mutation, mutations.AddObject):
+            cls = self.cls_map[mutation.cls]
+            obj = cls(mutation.id)
+            self.apply_properties(obj, mutation.properties)
+            # TODO: We should assert that mutation.id is either not
+            # in _object_map or points at a DeferredReference.
+            # But we don't delete entries from _object_map when
+            # objects are removed, so we leave zombies behind, which
+            # we just override here.
+            if (mutation.id in self._object_map
+                and isinstance(
+                    self._object_map[mutation.id],
+                    core.DeferredReference)):
+                self._object_map[mutation.id].dereference(obj)
+            self._object_map[mutation.id] = obj
 
-            elif isinstance(mutation, mutations.ListDelete):
-                obj = self._object_map[mutation.id]
-                lst = getattr(obj, mutation.prop_name)
-                del lst[mutation.index]
-
+        elif isinstance(mutation, mutations.ListInsert):
+            obj = self._object_map[mutation.id]
+            lst = getattr(obj, mutation.prop_name)
+            if mutation.value_type == 'obj':
+                child = self._object_map[mutation.value]
+                lst.insert(mutation.index, child)
+            elif mutation.value_type == 'scalar':
+                lst.insert(mutation.index, mutation.value)
             else:
-                raise ValueError("Unknown mutation %s received." % mutation)
-        except Exception as exc:
-            logger.exception("Handling of mutation %s failed:", mutation)
+                raise ValueError(
+                    "Value type %s not supported."
+                    % mutation.value_type)
+
+        elif isinstance(mutation, mutations.ListDelete):
+            obj = self._object_map[mutation.id]
+            lst = getattr(obj, mutation.prop_name)
+            del lst[mutation.index]
+
+        else:
+            raise ValueError("Unknown mutation %s received." % mutation)
 
     def handle_project_closed(self):
         logger.info("Project closed received.")

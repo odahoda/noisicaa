@@ -43,7 +43,11 @@ class Measure(core.ObjectBase):
 
 
 class MeasureReference(core.ObjectBase):
-    measure = core.ObjectReferenceProperty(allow_none=True)
+    measure_id = core.Property(str)
+
+    @property
+    def measure(self):
+        return self.root.get_object(self.measure_id)
 
     @property
     def track(self):
@@ -160,7 +164,6 @@ class BeatMeasure(Measure):
 class BeatTrack(Track):
     instrument = core.ObjectProperty(cls=Instrument)
     pitch = core.Property(pitch.Pitch)
-    measure_sequence = core.ObjectReferenceProperty(BeatMeasure)
 
 
 class SheetPropertyMeasure(Measure):

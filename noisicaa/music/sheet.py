@@ -211,8 +211,10 @@ class PasteMeasuresAsLink(commands.Command):
         for target, src in zip(
                 target_measures, itertools.cycle(src_measures)):
             old = target.measure
+            old.ref_count -= 1
 
-            target.measure = src
+            target.measure_id = src.id
+            target.measure.ref_count += 1
 
             if old.ref_count == 0:
                 logger.info("GC measure %s", old.id)

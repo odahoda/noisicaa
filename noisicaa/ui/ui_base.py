@@ -1,6 +1,9 @@
 #!/usr/bin/python3
 
 import functools
+import logging
+
+logger = logging.getLogger(__name__)
 
 UNSET = object()
 
@@ -45,7 +48,9 @@ class CommonMixin(object):
 
     def __call_async_cb(self, task, callback):
         if task.exception() is not None:
+            self.__app.crashWithMessage("Exception in callback", str(task.exception()))
             raise task.exception()
+
         if callback is not None:
             callback(task.result())
 
@@ -77,14 +82,6 @@ class ProjectMixin(CommonMixin):
         return self.__project_connection.client
 
     def send_command_async(self, target_id, cmd, callback=None, **kwargs):
-        task = self.event_loop.create_task(
-            self.project_client.send_command(target_id, cmd, **kwargs))
-        task.add_done_callback(
-            functools.partial(
-                self.__send_command_async_cb, callback=callback))
-
-    def __send_command_async_cb(self, task, callback):
-        if task.exception() is not None:
-            raise task.exception()
-        if callback is not None:
-            callback(task.result())
+        self.call_async(
+            self.project_client.send_command(target_id, cmd, **kwargs),
+            callback=callback)

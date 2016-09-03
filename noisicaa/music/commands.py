@@ -159,8 +159,25 @@ class Command(state.RootMixin, state.StateBase):
             return
 
         if isinstance(change, core.PropertyValueChange):
-            old_slot_id = self.log.add_slot(change.old_value)
-            new_slot_id = self.log.add_slot(change.new_value)
+            if isinstance(
+                    obj.get_property(change.prop_name),
+                    core.ObjectReferenceProperty):
+                old_value = (
+                    change.old_value.id
+                    if change.old_value is not None
+                    else None)
+                new_value = (
+                    change.old_value.id
+                    if change.old_value is not None
+                    else None)
+
+            else:
+                old_value = change.old_value
+                new_value = change.new_value
+
+            old_slot_id = self.log.add_slot(old_value)
+            new_slot_id = self.log.add_slot(new_value)
+
             self.log.add_operation(
                 'SET_PROPERTY', obj.id, change.prop_name,
                 old_slot_id, new_slot_id)

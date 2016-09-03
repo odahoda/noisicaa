@@ -213,8 +213,8 @@ class ProcessManager(object):
                 # handler to pipe all log messages back to the manager
                 # process.
                 root_logger = logging.getLogger()
-                for handler in root_logger.handlers:
-                    root_logger.removeHandler(handler)
+                while root_logger.handlers:
+                    root_logger.removeHandler(root_logger.handlers[0])
                 root_logger.addHandler(ChildLogHandler(logger_out))
 
                 if isinstance(cls, str):
@@ -393,7 +393,9 @@ class ProcessImpl(object):
                     logger.info("Entering run method.")
                     return await self.run(*args, **kwargs)
                 except Exception as exc:
-                    logger.error("Exception encountered: %s", exc)
+                    logger.error(
+                        "Unhandled exception in process %s:\n%s",
+                        self.name, traceback.format_exc())
                     raise
                 finally:
                     await self.cleanup()

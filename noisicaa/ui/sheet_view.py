@@ -73,7 +73,7 @@ class MeasureItemImpl(QtWidgets.QGraphicsItem):
         if self._measure_reference is not None:
             self._measure = measure_reference.measure
             self._measure_listener = self._measure_reference.listeners.add(
-                'measure', self.measureChanged)
+                'measure_id', self.measureChanged)
         else:
             self._measure = None
             self._measure_listener = None
@@ -113,10 +113,7 @@ class MeasureItemImpl(QtWidgets.QGraphicsItem):
             self._measure_listener.remove()
 
     def measureChanged(self, old_value, new_value):
-        for m in self._measure_reference.track.measure_heap:
-            print(m.index, m)
-        print(self._measure, old_value, new_value)
-        self._measure = new_value
+        self._measure = self._measure_reference.measure
         self.recomputeLayout()
 
     def recomputeLayout(self):

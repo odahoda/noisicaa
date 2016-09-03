@@ -9,7 +9,9 @@ class Error(Exception):
     pass
 
 class ObjectNotAttachedError(Error):
-    pass
+    def __init__(self, obj):
+        super().__init__(str(obj))
+
 
 class NotListMemberError(Error):
     pass
@@ -307,22 +309,15 @@ class ObjectReferenceProperty(PropertyBase):
 
         current = self.__get__(instance, instance.__class__)
 
-        logger.info("old: %s (%s)", current, id(current))
-        logger.info("new: %s (%s)", value, id(value))
-
         if (current is not None
             and not isinstance(current, (tuple, DeferredReference))):
             assert current.ref_count > 0
-            logger.info("-refcount(%s) = %d", current.id, current.ref_count)
             current.ref_count -= 1
-            logger.info("-refcount(%s) = %d", current.id, current.ref_count)
 
         super().__set__(instance, value)
 
         if value is not None and not isinstance(value, DeferredReference):
-            logger.info("+refcount(%s) = %d", value.id, value.ref_count)
             value.ref_count += 1
-            logger.info("+refcount(%s) = %d", value.id, value.ref_count)
 
 
 class ObjectMeta(type):
@@ -365,7 +360,7 @@ class ObjectBase(object, metaclass=ObjectMeta):
         if self.parent is None:
             if self._is_root:
                 return self
-            raise ObjectNotAttachedError
+            raise ObjectNotAttachedError(self)
         return self.parent.root
 
     @property
@@ -399,13 +394,13 @@ class ObjectBase(object, metaclass=ObjectMeta):
 
     def set_index(self, index):
         if self.__parent_container is None:
-            raise ObjectNotAttachedError(self.id)
+            raise ObjectNotAttachedError(self)
         self.__index = index
 
     @property
     def index(self):
         if self.__parent_container is None:
-            raise ObjectNotAttachedError(self.id)
+            raise ObjectNotAttachedError(self)
         assert self.__index is not None
         return self.__index
 

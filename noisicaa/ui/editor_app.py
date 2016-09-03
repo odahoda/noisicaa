@@ -46,18 +46,7 @@ class ExceptHook(object):
         msg = ''.join(traceback.format_exception(exc_type, exc_value, tb))
 
         logger.error("Uncaught exception:\n%s", msg)
-        self._show_crash_dialog(msg)
-
-        os._exit(EXIT_EXCEPTION)
-
-    def _show_crash_dialog(self, msg):
-        errorbox = QMessageBox()
-        errorbox.setWindowTitle("noisicaä crashed")
-        errorbox.setText("Uncaught exception")
-        errorbox.setInformativeText(msg)
-        errorbox.setIcon(QMessageBox.Critical)
-        errorbox.addButton("Exit", QMessageBox.AcceptRole)
-        errorbox.exec_()
+        self.app.crashWithMessage("Uncaught exception", msg)
 
 
 class AudioProcClientImpl(object):
@@ -348,3 +337,21 @@ class EditorApp(BaseEditorApp):
             if self.pipeline_perf_monitor is not None:
                 self.pipeline_perf_monitor.addPerfData(
                     status['perf_data'])
+
+    def crashWithMessage(self, title, msg):
+        logger.error('%s: %s', title, msg)
+
+        try:
+            errorbox = QMessageBox()
+            errorbox.setWindowTitle("noisicaä crashed")
+            errorbox.setText(title)
+            errorbox.setInformativeText(msg)
+            errorbox.setIcon(QMessageBox.Critical)
+            errorbox.addButton("Exit", QMessageBox.AcceptRole)
+            errorbox.exec_()
+        except:
+            logger.error(
+                "Failed to show crash dialog: %s", traceback.format_exc())
+
+        os._exit(EXIT_EXCEPTION)
+

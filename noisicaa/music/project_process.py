@@ -6,6 +6,7 @@ import logging
 import pprint
 import threading
 import time
+import traceback
 import uuid
 
 from noisicaa import core
@@ -46,8 +47,9 @@ class Session(object):
         try:
             await self.callback_stub.call('PROJECT_MUTATION', mutation)
         except Exception:
-            logger.exception(
-                "PROJECT_MUTATION %s failed with exception", mutation)
+            logger.error(
+                "PROJECT_MUTATION %s failed with exception:\n%s",
+                mutation, traceback.format_exc())
 
 
 class AudioProcClientImpl(object):

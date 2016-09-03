@@ -59,11 +59,27 @@ class Metadata(model.Metadata, project_client.ObjectProxy): pass
 class Project(model.Project, project_client.ObjectProxy):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._is_root = True
 
-        self.node_db = None
+        self.__node_db = None
+        self.__obj_map = None
+
+    def init(self, node_db, obj_map):
+        self.__node_db = node_db
+        self.__obj_map = obj_map
 
     def get_node_description(self, uri):
-        return self.node_db.get_node_description(uri)
+        return self.__node_db.get_node_description(uri)
+
+    def get_object(self, obj_id):
+        assert self.__obj_map is not None
+        return self.__obj_map[obj_id]
+
+    def add_object(self, obj):
+        pass
+
+    def remove_object(self, obj):
+        pass
 
 
 cls_map = {

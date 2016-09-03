@@ -71,11 +71,11 @@ class Measure(model.Measure, state.StateBase):
 
 
 class MeasureReference(model.MeasureReference, state.StateBase):
-    def __init__(self, measure=None, state=None):
+    def __init__(self, measure_id=None, state=None):
         super().__init__(state)
 
         if state is None:
-            self.measure = measure
+            self.measure_id = measure_id
 
 state.StateBase.register_class(MeasureReference)
 
@@ -112,22 +112,33 @@ class Track(model.Track, state.StateBase):
             idx = len(self.measure_list)
 
         if idx == 0 and len(self.measure_list) > 0:
-            ref = self.measure_list[0].measure
+            ref_id = self.measure_list[0].measure_id
         elif idx > 0:
-            ref = self.measure_list[idx-1].measure
+            ref_id = self.measure_list[idx-1].measure_id
+        else:
+            ref_id = None
+
+        if ref_id is not None:
+            for ref in self.measure_heap:
+                if ref.id == ref_id:
+                    break
+            else:
+                raise ValueError(ref_id)
         else:
             ref = None
+
         measure = self.create_empty_measure(ref)
         self.measure_heap.append(measure)
-        self.measure_list.insert(idx, MeasureReference(measure=measure))
+        self.measure_list.insert(idx, MeasureReference(measure_id=measure.id))
+        measure.ref_count += 1
 
     def remove_measure(self, idx):
         measure = self.measure_list[idx].measure
         assert measure.ref_count > 0
 
-        self.measure_list[idx].measure = None
         del self.measure_list[idx]
 
+        measure.ref_count -= 1
         if measure.ref_count == 0:
             logger.info("GC measure %s", measure.id)
             del self.measure_heap[measure.index]

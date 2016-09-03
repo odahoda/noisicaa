@@ -24,9 +24,9 @@ class StateBase(model_base.ObjectBase):
         else:
             self.id = uuid.uuid4().hex
 
-        logger.info("<%s id=%s> created (%s) by",
-                    type(self).__name__, self.id, id(self))
-        logger.info("%s", ''.join(traceback.format_list(traceback.extract_stack())))
+        # logger.info("<%s id=%s> created (%s) by",
+        #             type(self).__name__, self.id, id(self))
+        # logger.info("%s", ''.join(traceback.format_list(traceback.extract_stack())))
 
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
