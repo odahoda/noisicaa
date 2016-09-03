@@ -114,6 +114,14 @@ class MeasureItemImpl(QGraphicsItem):
         self._layout = None
 
         self._layers = {}
+        self._layers[Layer.BG] = QGraphicsGroup()
+
+        self._background = QGraphicsRectItem(self._layers[Layer.BG])
+        self._background.setPen(QPen(Qt.NoPen))
+        self._background.setBrush(QColor(240, 240, 255))
+        self._background.setVisible(False)
+
+        self._selected = False
 
     @property
     def measure(self):
@@ -130,7 +138,8 @@ class MeasureItemImpl(QGraphicsItem):
         pass
 
     def close(self):
-        pass
+        if self.selected():
+            self._sheet_view.removeFromSelection(self)
 
     def recomputeLayout(self):
         layout = self.computeLayout()
@@ -191,12 +200,33 @@ class MeasureItemImpl(QGraphicsItem):
             tracks=[self._measure.track.index],
             pos=self._measure_reference.index)
 
+    def mousePressEvent(self, event):
+        if event.modifiers() == Qt.ControlModifier:
+            if self.selected():
+                self._sheet_view.removeFromSelection(self)
+            else:
+                self._sheet_view.clearSelection()
+                self._sheet_view.addToSelection(self)
+            event.accept()
+            return
+
+        return super().mousePressEvent(event)
+
     def clearPlaybackPos(self):
         pass
 
     def setPlaybackPos(
             self, sample_pos, num_samples, start_tick, end_tick, first):
         pass
+
+    def setSelected(self, selected):
+        if selected != self._selected:
+            self._selected = selected
+            self._background.setVisible(self._selected)
+            self.updateMeasure()
+
+    def selected(self):
+        return self._selected
 
 
 class TrackItemImpl(object):
@@ -376,15 +406,9 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
         self._ghost = None
         self._ghost_tool = None
 
-        self._layers[Layer.BG] = QGraphicsGroup()
         self._layers[Layer.MAIN] = QGraphicsGroup()
         self._layers[Layer.EDIT] = QGraphicsGroup()
         self._layers[Layer.EVENTS] = QGraphicsGroup()
-
-        self._background = QGraphicsRectItem(self._layers[Layer.BG])
-        self._background.setPen(QPen(Qt.NoPen))
-        self._background.setBrush(QColor(240, 240, 255))
-        self._background.setVisible(False)
 
         self.setAcceptHoverEvents(True)
 
@@ -856,7 +880,6 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
 
     def hoverEnterEvent(self, event):
         super().hoverEnterEvent(event)
-        self._background.setVisible(True)
         self.grabMouse()
 
     def mouseMoveEvent(self, event):
@@ -867,7 +890,6 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
             self._sheet_view.setInfoMessage('')
             self.removeGhost()
             self.ungrabMouse()
-            self._background.setVisible(False)
             return
 
         if self._measure is None:
@@ -1026,6 +1048,8 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                     self.send_command_async(
                         self._measure.id, cmd[0], **cmd[1])
                     return
+
+        return super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
         self._track_item.playNoteOff()
@@ -1293,15 +1317,9 @@ class BeatMeasureItemImpl(MeasureItemImpl):
 
         self._ghost_beat = None
 
-        self._layers[Layer.BG] = QGraphicsGroup()
         self._layers[Layer.MAIN] = QGraphicsGroup()
         self._layers[Layer.EVENTS] = QGraphicsGroup()
         self._layers[Layer.EDIT] = QGraphicsGroup()
-
-        self._background = QGraphicsRectItem(self._layers[Layer.BG])
-        self._background.setPen(QPen(Qt.NoPen))
-        self._background.setBrush(QColor(240, 240, 255))
-        self._background.setVisible(False)
 
         self.setAcceptHoverEvents(True)
 
@@ -1425,7 +1443,6 @@ class BeatMeasureItemImpl(MeasureItemImpl):
 
     def hoverEnterEvent(self, event):
         super().hoverEnterEvent(event)
-        self._background.setVisible(True)
         self.grabMouse()
 
     def mouseMoveEvent(self, event):
@@ -1436,7 +1453,6 @@ class BeatMeasureItemImpl(MeasureItemImpl):
             self._sheet_view.setInfoMessage('')
             self.removeGhost()
             self.ungrabMouse()
-            self._background.setVisible(False)
             return
 
         if self._measure is None:
@@ -1464,23 +1480,26 @@ class BeatMeasureItemImpl(MeasureItemImpl):
             logger.warn("mousePressEvent without valid layout.")
             return
 
-        click_timepos = Duration(
-            int(8 * self._measure.time_signature.upper
-                * event.pos().x() / self._layout.width),
-            8 * self._measure.time_signature.upper)
+        if event.modifiers() == Qt.NoModifier:
+            click_timepos = Duration(
+                int(8 * self._measure.time_signature.upper
+                    * event.pos().x() / self._layout.width),
+                8 * self._measure.time_signature.upper)
 
-        for beat in self._measure.beats:
-            if beat.timepos == click_timepos:
-                self.send_command_async(
-                    self._measure.id, 'RemoveBeat', beat_id=beat.id)
-                event.accept()
-                return
+            for beat in self._measure.beats:
+                if beat.timepos == click_timepos:
+                    self.send_command_async(
+                        self._measure.id, 'RemoveBeat', beat_id=beat.id)
+                    event.accept()
+                    return
 
-        self.send_command_async(
-            self._measure.id, 'AddBeat', timepos=click_timepos)
-        self._track_item.playNoteOn(self._measure.track.pitch)
-        event.accept()
-        return
+            self.send_command_async(
+                self._measure.id, 'AddBeat', timepos=click_timepos)
+            self._track_item.playNoteOn(self._measure.track.pitch)
+            event.accept()
+            return
+
+        return super().mousePressEvent(event)
 
     def buildContextMenu(self, menu):
         super().buildContextMenu(menu)
@@ -1575,6 +1594,8 @@ class SheetViewImpl(QGraphicsView):
         super().__init__(**kwargs)
         self._sheet = sheet
 
+        self._selection_set = set()
+
         self._track_items = {}
         self._group_listeners = {}
         self.addTrack(self._sheet.master_group)
@@ -1652,6 +1673,29 @@ class SheetViewImpl(QGraphicsView):
         return [
             self._track_items[track.id]
             for track in self._sheet.master_group.walk_tracks()]
+
+    def clearSelection(self):
+        for obj in self._selection_set:
+            obj.setSelected(False)
+        self._selection_set.clear()
+
+    def addToSelection(self, obj):
+        if obj in self._selection_set:
+            raise RuntimeError("Item already selected.")
+
+        if isinstance(obj, MeasureItemImpl):
+            self._selection_set.add(obj)
+            obj.setSelected(True)
+
+        else:
+            raise ValueError(type(obj))
+
+    def removeFromSelection(self, obj):
+        if obj not in self._selection_set:
+            raise RuntimeError("Item not selected.")
+
+        self._selection_set.remove(obj)
+        obj.setSelected(False)
 
     def setInfoMessage(self, msg):
         self.window.setInfoMessage(msg)

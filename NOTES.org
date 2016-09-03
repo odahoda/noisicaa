@@ -2,12 +2,20 @@
 ** move beats to arbitrary positions
 ** move existing beat marker around
 ** per beat velocity
-** set instrument and pitch in TrackProperties dock
+
 * TODO "Hardlink" model for measures within tracks.			 :FR:
 Tracks have ordered measure_sequence of references, and an unordered set
 of actual measures.
 - views need listener on ref's measure property, to update when it changes.
 - reinsert existing measure.
+- basic copy'n'paste
+  - only 'copy' & 'paste as linked'
+  - possibly a range of measures within a single track
+  - copied items are property of project
+    - MeasureItem.getCopy
+      - fetch serialized copy of objects from backend
+      - remember relative positions
+
 * per measure time signature 						 :FR:
 Tracks can have different time signatures, measures do not have to align
 vertically.
