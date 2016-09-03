@@ -306,17 +306,23 @@ class ObjectReferenceProperty(PropertyBase):
                 % type(value))
 
         current = self.__get__(instance, instance.__class__)
+
+        logger.info("old: %s (%s)", current, id(current))
+        logger.info("new: %s (%s)", value, id(value))
+
         if (current is not None
             and not isinstance(current, (tuple, DeferredReference))):
             assert current.ref_count > 0
+            logger.info("-refcount(%s) = %d", current.id, current.ref_count)
             current.ref_count -= 1
-            logger.info("refcount(%s) = %d", current.id, current.ref_count)
+            logger.info("-refcount(%s) = %d", current.id, current.ref_count)
 
         super().__set__(instance, value)
 
         if value is not None and not isinstance(value, DeferredReference):
+            logger.info("+refcount(%s) = %d", value.id, value.ref_count)
             value.ref_count += 1
-            logger.info("refcount(%s) = %d", value.id, value.ref_count)
+            logger.info("+refcount(%s) = %d", value.id, value.ref_count)
 
 
 class ObjectMeta(type):
@@ -342,6 +348,10 @@ class ObjectBase(object, metaclass=ObjectMeta):
         self.__parent_container = None
         self.__index = None
         self.ref_count = 0
+
+    def __str__(self):
+        return '<%s id=%s>' % (type(self).__name__, self.id)
+    __repr__ = __str__
 
     def __eq__(self, other):
         if self.__class__ != other.__class__:
