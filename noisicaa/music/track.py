@@ -129,6 +129,7 @@ class Track(model.Track, state.StateBase):
         del self.measure_list[idx]
 
         if measure.ref_count == 0:
+            logger.info("GC measure %s", measure.id)
             del self.measure_heap[measure.index]
 
     def create_empty_measure(self, ref):  # pylint: disable=unused-argument

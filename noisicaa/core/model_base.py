@@ -310,11 +310,13 @@ class ObjectReferenceProperty(PropertyBase):
             and not isinstance(current, (tuple, DeferredReference))):
             assert current.ref_count > 0
             current.ref_count -= 1
+            logger.info("refcount(%s) = %d", current.id, current.ref_count)
 
         super().__set__(instance, value)
 
         if value is not None and not isinstance(value, DeferredReference):
             value.ref_count += 1
+            logger.info("refcount(%s) = %d", value.id, value.ref_count)
 
 
 class ObjectMeta(type):
