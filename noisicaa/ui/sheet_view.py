@@ -8,64 +8,27 @@ import itertools
 import enum
 import contextlib
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from PyQt5.QtCore import Qt, QRect, QRectF, QEvent, pyqtSignal, pyqtProperty, QCoreApplication, QSize, QPoint
-from PyQt5.QtGui import QIcon, QPen, QColor, QBrush, QFont
-from PyQt5.QtWidgets import (
-    QAction,
-    QWidget,
-    QGraphicsView,
-    QGraphicsScene,
-    QGraphicsItem,
-    QGraphicsItemGroup,
-    QGraphicsLineItem,
-    QGraphicsRectItem,
-    QGraphicsEllipseItem,
-    QGraphicsSimpleTextItem,
-    QGraphicsTextItem,
-    QGraphicsProxyWidget,
-    QHBoxLayout,
-    QVBoxLayout,
-    QComboBox,
-    QToolButton,
-    QMenu,
-    QMessageBox,
-    QFileDialog,
-    QDialog,
-    QFormLayout,
-    QLineEdit,
-    QComboBox,
-    QPushButton,
-    QStackedWidget,
-    QSpinBox,
-)
-from PyQt5.QtSvg import QSvgRenderer, QGraphicsSvgItem
-
 from noisicaa import audioproc
 from noisicaa import music
+from noisicaa.music import model
 from .instrument_library import InstrumentLibraryDialog
 from .render_sheet_dialog import RenderSheetDialog
-from noisicaa.music import (
-    Note,
-    Duration,
-    Pitch, Clef, KeySignature,
-)
-from ..constants import DATA_DIR
 from .svg_symbol import SvgSymbol, SymbolItem
 from .tool_dock import Tool
 from .misc import QGraphicsGroup
 from . import ui_base
-from noisicaa.music import model
 
 logger = logging.getLogger(__name__)
 
 
 class MeasureLayout(object):
     def __init__(self):
-        self.size = QSize()
+        self.size = QtCore.QSize()
         self.baseline = 0
 
     @property
@@ -101,7 +64,7 @@ class MeasureLayout(object):
         return (self.size == other.size) and (self.baseline == other.baseline)
 
 
-class MeasureItemImpl(QGraphicsItem):
+class MeasureItemImpl(QtWidgets.QGraphicsItem):
     def __init__(self, sheet_view, track_item, measure_reference, **kwargs):
         super().__init__(**kwargs)
         self._sheet_view = sheet_view
@@ -120,9 +83,9 @@ class MeasureItemImpl(QGraphicsItem):
         self._layers = {}
         self._layers[Layer.BG] = QGraphicsGroup()
 
-        self._background = QGraphicsRectItem(self._layers[Layer.BG])
-        self._background.setPen(QPen(Qt.NoPen))
-        self._background.setBrush(QColor(240, 240, 255))
+        self._background = QtWidgets.QGraphicsRectItem(self._layers[Layer.BG])
+        self._background.setPen(QtGui.QPen(Qt.NoPen))
+        self._background.setBrush(QtGui.QColor(240, 240, 255))
         self._background.setVisible(False)
 
         self._selected = False
@@ -140,7 +103,7 @@ class MeasureItemImpl(QGraphicsItem):
         return self._track_item
 
     def boundingRect(self):
-        return QRectF(0, 0, self._layout.width, self._layout.height)
+        return QtCore.QRectF(0, 0, self._layout.width, self._layout.height)
 
     def paint(self, painter, option, widget=None):
         pass
@@ -183,20 +146,20 @@ class MeasureItemImpl(QGraphicsItem):
         return self._layout.width
 
     def buildContextMenu(self, menu):
-        insert_measure_action = QAction(
+        insert_measure_action = QtWidgets.QAction(
             "Insert measure", menu,
             statusTip="Insert an empty measure at this point.",
             triggered=self.onInsertMeasure)
         menu.addAction(insert_measure_action)
 
-        remove_measure_action = QAction(
+        remove_measure_action = QtWidgets.QAction(
             "Remove measure", menu,
             statusTip="Remove this measure.",
             triggered=self.onRemoveMeasure)
         menu.addAction(remove_measure_action)
 
     def contextMenuEvent(self, event):
-        menu = QMenu()
+        menu = QtWidgets.QMenu()
         self._track_item.buildContextMenu(menu)
         self.buildContextMenu(menu)
 
@@ -341,13 +304,13 @@ class TrackItemImpl(object):
         self._sheet_view.updateSheet()
 
     def buildContextMenu(self, menu):
-        track_properties_action = QAction(
+        track_properties_action = QtWidgets.QAction(
             "Edit track properties...", menu,
             statusTip="Edit the properties of this track.",
             triggered=self.onTrackProperties)
         menu.addAction(track_properties_action)
 
-        remove_track_action = QAction(
+        remove_track_action = QtWidgets.QAction(
             "Remove track", menu,
             statusTip="Remove this track.",
             triggered=self.onRemoveTrack)
@@ -359,23 +322,23 @@ class TrackItemImpl(object):
             track=self._track.index)
 
     def onTrackProperties(self):
-        dialog = QDialog()
+        dialog = QtWidgets.QDialog()
         dialog.setWindowTitle("Track Properties")
 
-        name = QLineEdit(dialog)
+        name = QtWidgets.QLineEdit(dialog)
         name.setText(self._track.name)
 
-        form_layout = QFormLayout()
+        form_layout = QtWidgets.QFormLayout()
         form_layout.addRow("Name", name)
 
-        close = QPushButton("Close")
+        close = QtWidgets.QPushButton("Close")
         close.clicked.connect(dialog.close)
 
-        buttons = QHBoxLayout()
+        buttons = QtWidgets.QHBoxLayout()
         buttons.addStretch(1)
         buttons.addWidget(close)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addLayout(form_layout)
         layout.addLayout(buttons)
         dialog.setLayout(layout)
@@ -444,11 +407,11 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
         if self._measure is not None:
             self.addMeasureListeners()
 
-            self.playback_pos = QGraphicsLineItem(
+            self.playback_pos = QtWidgets.QGraphicsLineItem(
                 self._layers[Layer.EVENTS])
             self.playback_pos.setVisible(False)
             self.playback_pos.setLine(0, 0, 0, 20)
-            pen = QPen(Qt.black)
+            pen = QtGui.QPen(Qt.black)
             pen.setWidth(3)
             self.playback_pos.setPen(pen)
 
@@ -515,7 +478,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
             width += 200
 
         layout = ScoreMeasureLayout()
-        layout.size = QSize(width, height_above + height_below)
+        layout.size = QtCore.QSize(width, height_above + height_below)
         layout.baseline = height_above
         return layout
 
@@ -540,35 +503,35 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
         if self._measure is not None:
             black = Qt.black
         else:
-            black = QColor(200, 200, 200)
+            black = QtGui.QColor(200, 200, 200)
 
         if is_first and self._measure:
             track = self._measure.parent
 
-            text = self._name_item = QGraphicsSimpleTextItem(layer)
+            text = self._name_item = QtWidgets.QGraphicsSimpleTextItem(layer)
             text.setText("> %s" % track.name)
             text.setPos(0, 0)
 
             # TODO: update when changed
-            text = self._instr_item = QGraphicsSimpleTextItem(layer)
+            text = self._instr_item = QtWidgets.QGraphicsSimpleTextItem(layer)
             text.setText(
                 track.instrument.name if track.instrument is not None else "")
             text.setPos(0, 20)
 
 
         for l in range(-2, 3):
-            line = QGraphicsLineItem(layer)
+            line = QtWidgets.QGraphicsLineItem(layer)
             line.setLine(
                 0, self._layout.baseline + 20 * l,
                 self._layout.width, self._layout.baseline + 20 * l)
             line.setPen(black)
 
         if is_first:
-            line = QGraphicsRectItem(layer)
+            line = QtWidgets.QGraphicsRectItem(layer)
             line.setRect(0, self._layout.baseline - 40, 4, 20 * 4)
             line.setBrush(black)
 
-        line = QGraphicsLineItem(layer)
+        line = QtWidgets.QGraphicsLineItem(layer)
         line.setLine(
             self._layout.width, self._layout.baseline - 40,
             self._layout.width, self._layout.baseline + 40)
@@ -603,7 +566,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                     'Ab': 'A%d' % base_octave,
                     'Bb': 'B%d' % base_octave,
                 }[acc]
-                stave_line = Pitch(value).stave_line - base_stave_line
+                stave_line = music.Pitch(value).stave_line - base_stave_line
 
                 sym = SymbolItem(self._accidental_map[acc[1:]], layer)
                 sym.setPos(
@@ -615,17 +578,17 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
             if self._measure.key_signature.accidentals:
                 x += 10
 
-            font = QFont('FreeSerif', 30, QFont.Black)
+            font = QtGui.QFont('FreeSerif', 30, QtGui.QFont.Black)
             font.setStretch(120)
 
-            time_sig_upper = QGraphicsTextItem(layer)
+            time_sig_upper = QtWidgets.QGraphicsTextItem(layer)
             time_sig_upper.setFont(font)
             time_sig_upper.setHtml(
                 '<center>%d</center>' % self._measure.time_signature.upper)
             time_sig_upper.setTextWidth(50)
             time_sig_upper.setPos(x - 10, self._layout.baseline - 52)
 
-            time_sig_lower = QGraphicsTextItem(layer)
+            time_sig_lower = QtWidgets.QGraphicsTextItem(layer)
             time_sig_lower.setFont(font)
             time_sig_lower.setHtml(
                 '<center>%d</center>' % self._measure.time_signature.lower)
@@ -635,24 +598,24 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
 
             px = x
             x += 20
-            note_time = Duration(0)
+            note_time = music.Duration(0)
             for idx, note in enumerate(self._measure.notes):
                 overflow = note_time + note.duration > self._measure.duration
 
                 if note.is_rest:
                     sym = {
-                        Duration(1, 1): 'rest-whole',
-                        Duration(1, 2): 'rest-half',
-                        Duration(1, 4): 'rest-quarter',
-                        Duration(1, 8): 'rest-8th',
-                        Duration(1, 16): 'rest-16th',
-                        Duration(1, 32): 'rest-32th',
+                        music.Duration(1, 1): 'rest-whole',
+                        music.Duration(1, 2): 'rest-half',
+                        music.Duration(1, 4): 'rest-quarter',
+                        music.Duration(1, 8): 'rest-8th',
+                        music.Duration(1, 16): 'rest-16th',
+                        music.Duration(1, 32): 'rest-32th',
                     }[note.base_duration]
                     n = SymbolItem(sym, layer)
                     n.setPos(x, self._layout.baseline)
                     self._notes.append(n)
 
-                    if note.base_duration >= Duration(1, 2):
+                    if note.base_duration >= music.Duration(1, 2):
                         dx = 25
                         dy = -10
                     else:
@@ -660,13 +623,13 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                         dy = 0
 
                     for d in range(note.dots):
-                        dot = QGraphicsEllipseItem(n)
+                        dot = QtWidgets.QGraphicsEllipseItem(n)
                         dot.setRect(dx - 4 + 10*d, dy - 4, 9, 9)
                         dot.setBrush(Qt.black)
-                        dot.setPen(QPen(Qt.NoPen))
+                        dot.setPen(QtGui.QPen(Qt.NoPen))
 
                     if note.tuplet != 0:
-                        tuplet = QGraphicsSimpleTextItem(n)
+                        tuplet = QtWidgets.QGraphicsSimpleTextItem(n)
                         tuplet.setText('%d' % note.tuplet)
                         tuplet.setPos(-5, -45)
 
@@ -683,7 +646,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
 
                     # Ledger lines above stave.
                     for l in range(6, max_stave_line + 1, 2):
-                        ledger = QGraphicsLineItem(layer)
+                        ledger = QtWidgets.QGraphicsLineItem(layer)
                         ledger.setLine(x - 20, self._layout.baseline - 10 * l,
                                        x + 20, self._layout.baseline - 10 * l)
                         ledger.setOpacity(0.8)
@@ -691,7 +654,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
 
                     # Ledger lines below stave.
                     for l in range(-6, min_stave_line - 1, -2):
-                        ledger = QGraphicsLineItem(layer)
+                        ledger = QtWidgets.QGraphicsLineItem(layer)
                         ledger.setLine(x - 20, self._layout.baseline - 10 * l,
                                        x + 20, self._layout.baseline - 10 * l)
                         ledger.setOpacity(0.4 if overflow else 0.8)
@@ -716,22 +679,22 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                             accidental.setPos(-12, 0)
                             active_accidentals[pitch.value] = pitch.accidental
 
-                        if note.base_duration >= Duration(1, 2):
+                        if note.base_duration >= music.Duration(1, 2):
                             body = SymbolItem('note-head-void', p)
                         else:
                             body = SymbolItem('note-head-black', p)
 
-                        if note.base_duration <= Duration(1, 2):
-                            arm = QGraphicsRectItem(p)
+                        if note.base_duration <= music.Duration(1, 2):
+                            arm = QtWidgets.QGraphicsRectItem(p)
                             arm.setRect(8, -63, 3, 60)
                             arm.setBrush(Qt.black)
-                            arm.setPen(QPen(Qt.NoPen))
+                            arm.setPen(QtGui.QPen(Qt.NoPen))
 
-                        if note.base_duration == Duration(1, 8):
+                        if note.base_duration == music.Duration(1, 8):
                             flags = 1
-                        elif note.base_duration == Duration(1, 16):
+                        elif note.base_duration == music.Duration(1, 16):
                             flags = 2
-                        elif note.base_duration == Duration(1, 32):
+                        elif note.base_duration == music.Duration(1, 32):
                             flags = 3
                         else:
                             flags = 0
@@ -740,13 +703,13 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                             flag.setPos(11, -63 + 12 * f)
 
                         for d in range(note.dots):
-                            dot = QGraphicsEllipseItem(p)
+                            dot = QtWidgets.QGraphicsEllipseItem(p)
                             dot.setRect(12 + 10*d, -4, 9, 9)
                             dot.setBrush(Qt.black)
-                            dot.setPen(QPen(Qt.NoPen))
+                            dot.setPen(QtGui.QPen(Qt.NoPen))
 
                         if note.tuplet != 0:
-                            tuplet = QGraphicsSimpleTextItem(p)
+                            tuplet = QtWidgets.QGraphicsSimpleTextItem(p)
                             tuplet.setText('%d' % note.tuplet)
                             tuplet.setPos(-5, -85)
 
@@ -754,7 +717,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                         n.setOpacity(0.4)
 
                     if self.app.showEditAreas:
-                        info = QGraphicsSimpleTextItem(self)
+                        info = QtWidgets.QGraphicsSimpleTextItem(self)
                         info.setText(
                             '%d/%d' % (min_stave_line, max_stave_line))
                         info.setPos(x - 10, 0)
@@ -777,17 +740,17 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
 
         if self.app.showEditAreas:
             for x1, x2, idx, overwrite in self._edit_areas:
-                b = QGraphicsRectItem(layer)
+                b = QtWidgets.QGraphicsRectItem(layer)
                 b.setRect(x1, -10, x2 - x1, 5)
-                b.setPen(QPen(Qt.NoPen))
+                b.setPen(QtGui.QPen(Qt.NoPen))
                 if overwrite:
-                    b.setBrush(QColor(255, 100, 100))
+                    b.setBrush(QtGui.QColor(255, 100, 100))
                 else:
-                    b.setBrush(QColor(100, 100, 255))
+                    b.setBrush(QtGui.QColor(100, 100, 255))
 
             if self._measure is not None:
-                d = sum((n.duration for n in self._measure.notes), Duration(0))
-                t = QGraphicsSimpleTextItem(layer)
+                d = sum((n.duration for n in self._measure.notes), music.Duration(0))
+                t = QtWidgets.QGraphicsSimpleTextItem(layer)
                 t.setText(str(d))
                 t.setPos(0, 85)
 
@@ -795,8 +758,8 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
         super().buildContextMenu(menu)
 
         clef_menu = menu.addMenu("Set clef")
-        for clef in Clef:
-            clef_menu.addAction(QAction(
+        for clef in music.Clef:
+            clef_menu.addAction(QtWidgets.QAction(
                 clef.value, menu,
                 triggered=lambda _, clef=clef: self.onSetClef(clef)))
 
@@ -834,7 +797,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
             'Ab minor',
         ]
         for key_signature in key_signatures:
-            key_signature_menu.addAction(QAction(
+            key_signature_menu.addAction(QtWidgets.QAction(
                 key_signature, menu,
                 triggered=lambda _, sig=key_signature: self.onSetKeySignature(sig)))
 
@@ -844,7 +807,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
             (3, 4),
         ]
         for upper, lower in time_signatures:
-            time_signature_menu.addAction(QAction(
+            time_signature_menu.addAction(QtWidgets.QAction(
                 "%d/%d" % (upper, lower), menu,
                 triggered=lambda _, upper=upper, lower=lower: self.onSetTimeSignature(upper, lower)))
 
@@ -870,19 +833,19 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
         return -1, False, 0
 
     _tool_duration_map = {
-        Tool.NOTE_WHOLE:   Duration(1, 1),
-        Tool.NOTE_HALF:    Duration(1, 2),
-        Tool.NOTE_QUARTER: Duration(1, 4),
-        Tool.NOTE_8TH:     Duration(1, 8),
-        Tool.NOTE_16TH:    Duration(1, 16),
-        Tool.NOTE_32TH:    Duration(1, 32),
+        Tool.NOTE_WHOLE:   music.Duration(1, 1),
+        Tool.NOTE_HALF:    music.Duration(1, 2),
+        Tool.NOTE_QUARTER: music.Duration(1, 4),
+        Tool.NOTE_8TH:     music.Duration(1, 8),
+        Tool.NOTE_16TH:    music.Duration(1, 16),
+        Tool.NOTE_32TH:    music.Duration(1, 32),
 
-        Tool.REST_WHOLE:   Duration(1, 1),
-        Tool.REST_HALF:    Duration(1, 2),
-        Tool.REST_QUARTER: Duration(1, 4),
-        Tool.REST_8TH:     Duration(1, 8),
-        Tool.REST_16TH:    Duration(1, 16),
-        Tool.REST_32TH:    Duration(1, 32),
+        Tool.REST_WHOLE:   music.Duration(1, 1),
+        Tool.REST_HALF:    music.Duration(1, 2),
+        Tool.REST_QUARTER: music.Duration(1, 4),
+        Tool.REST_8TH:     music.Duration(1, 8),
+        Tool.REST_16TH:    music.Duration(1, 16),
+        Tool.REST_32TH:    music.Duration(1, 32),
     }
 
     def durationForTool(self, tool):
@@ -912,10 +875,10 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
             self._ghost = SymbolItem(sym, layer)
             self._ghost.setOpacity(0.2)
         else:
-            self._ghost = QGraphicsEllipseItem(layer)
+            self._ghost = QtWidgets.QGraphicsEllipseItem(layer)
             self._ghost.setRect(-15, -15, 30, 30)
             self._ghost.setBrush(Qt.black)
-            self._ghost.setPen(QPen(Qt.NoPen))
+            self._ghost.setPen(QtGui.QPen(Qt.NoPen))
             self._ghost.setOpacity(0.2)
 
     def removeGhost(self):
@@ -960,7 +923,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
             self.removeGhost()
             return
 
-        pitch = Pitch.name_from_stave_line(
+        pitch = music.Pitch.name_from_stave_line(
             stave_line, self._measure.key_signature)
         self._sheet_view.setInfoMessage(pitch)
 
@@ -1001,7 +964,7 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
             and (event.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier
             and (tool.is_note or tool.is_rest)):
             if tool.is_note:
-                pitch = Pitch.name_from_stave_line(
+                pitch = music.Pitch.name_from_stave_line(
                     stave_line, self._measure.key_signature)
             else:
                 pitch = 'r'
@@ -1027,11 +990,11 @@ class ScoreMeasureItemImpl(MeasureItemImpl):
                                 break
                         else:
                             cmd = ('AddPitch', dict(idx=idx, pitch=pitch))
-                            self._track_item.playNoteOn(Pitch(pitch))
+                            self._track_item.playNoteOn(music.Pitch(pitch))
                     else:
                         cmd = ('InsertNote', dict(
                             idx=idx, pitch=pitch, duration=duration))
-                        self._track_item.playNoteOn(Pitch(pitch))
+                        self._track_item.playNoteOn(music.Pitch(pitch))
 
                 if cmd is not None:
                     self.send_command_async(
@@ -1156,7 +1119,7 @@ class ScoreTrackItemImpl(TrackItemImpl):
     def buildContextMenu(self, menu):
         super().buildContextMenu(menu)
 
-        track_instrument_action = QAction(
+        track_instrument_action = QtWidgets.QAction(
             "Select instrument...", menu,
             statusTip="Select the insturment for track.",
             triggered=self.onTrackInstrument)
@@ -1222,7 +1185,7 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
         self._layers[Layer.EDIT] = QGraphicsGroup()
 
         if self._measure is not None:
-            self.bpm_editor = QSpinBox(
+            self.bpm_editor = QtWidgets.QSpinBox(
                 suffix=' bpm',
                 minimum=1, maximum=1000,
                 singleStep=1, accelerated=True)
@@ -1231,15 +1194,16 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
             self.bpm_editor.editingFinished.connect(self.onBPMClose)
             self.bpm_editor.setVisible(False)
 
-            self.bpm_proxy = QGraphicsProxyWidget(self._layers[Layer.EDIT])
+            self.bpm_proxy = QtWidgets.QGraphicsProxyWidget(
+                self._layers[Layer.EDIT])
             self.bpm_proxy.setWidget(self.bpm_editor)
             self.bpm_proxy.setZValue(1)
 
-            self.playback_pos = QGraphicsLineItem(
+            self.playback_pos = QtWidgets.QGraphicsLineItem(
                 self._layers[Layer.EVENTS])
             self.playback_pos.setVisible(False)
             self.playback_pos.setLine(0, 0, 0, 20)
-            pen = QPen(Qt.black)
+            pen = QtGui.QPen(Qt.black)
             pen.setWidth(3)
             self.playback_pos.setPen(pen)
 
@@ -1249,7 +1213,7 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
         height_below = 10
 
         layout = SheetPropertyMeasureLayout()
-        layout.size = QSize(width, height_above + height_below)
+        layout.size = QtCore.QSize(width, height_above + height_below)
         layout.baseline = height_above
         return layout
 
@@ -1266,9 +1230,9 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
         if self._measure is not None:
             black = Qt.black
         else:
-            black = QColor(200, 200, 200)
+            black = QtGui.QColor(200, 200, 200)
 
-        line = QGraphicsLineItem(layer)
+        line = QtWidgets.QGraphicsLineItem(layer)
         line.setLine(0, self._layout.baseline,
                      self._layout.width, self._layout.baseline)
         line.setPen(black)
@@ -1276,17 +1240,17 @@ class SheetPropertyMeasureItemImpl(MeasureItemImpl):
         if self._measure is not None:
             for i in range(self._measure.time_signature.upper):
                 x = int(i * self._layout.width / self._measure.time_signature.upper)
-                tick = QGraphicsLineItem(layer)
+                tick = QtWidgets.QGraphicsLineItem(layer)
                 tick.setLine(x, self._layout.baseline,
                              x, self._layout.baseline + 10)
                 tick.setPen(black)
 
-            bpm = self.bpm = QGraphicsSimpleTextItem(layer)
+            bpm = self.bpm = QtWidgets.QGraphicsSimpleTextItem(layer)
             bpm.setText('%d bpm' % self._measure.bpm)
             bpm.setPos(3, self._layout.baseline - bpm.boundingRect().height())
             bpm.setBrush(black)
 
-            line = QGraphicsLineItem(layer)
+            line = QtWidgets.QGraphicsLineItem(layer)
             line.setLine(0, self._layout.baseline - bpm.boundingRect().height(),
                          0, self._layout.baseline)
             line.setPen(black)
@@ -1375,11 +1339,11 @@ class BeatMeasureItemImpl(MeasureItemImpl):
         if self._measure is not None:
             self.addMeasureListeners()
 
-            self.playback_pos = QGraphicsLineItem(
+            self.playback_pos = QtWidgets.QGraphicsLineItem(
                 self._layers[Layer.EVENTS])
             self.playback_pos.setVisible(False)
             self.playback_pos.setLine(0, 0, 0, 20)
-            pen = QPen(Qt.black)
+            pen = QtGui.QPen(Qt.black)
             pen.setWidth(3)
             self.playback_pos.setPen(pen)
 
@@ -1409,7 +1373,7 @@ class BeatMeasureItemImpl(MeasureItemImpl):
         height_below = 20
 
         layout = SheetPropertyMeasureLayout()
-        layout.size = QSize(width, height_above + height_below)
+        layout.size = QtCore.QSize(width, height_above + height_below)
         layout.baseline = height_above
         return layout
 
@@ -1428,20 +1392,20 @@ class BeatMeasureItemImpl(MeasureItemImpl):
         if self._measure is not None:
             black = Qt.black
         else:
-            black = QColor(200, 200, 200)
+            black = QtGui.QColor(200, 200, 200)
 
-        line = QGraphicsLineItem(layer)
+        line = QtWidgets.QGraphicsLineItem(layer)
         line.setLine(0, self._layout.baseline,
                      self._layout.width, self._layout.baseline)
         line.setPen(black)
 
         if self._measure is not None:
-            line = QGraphicsLineItem(layer)
+            line = QtWidgets.QGraphicsLineItem(layer)
             line.setLine(0, 0, 0, self._layout.height)
             line.setPen(black)
 
             if self._measure_reference.is_last:
-                line = QGraphicsLineItem(layer)
+                line = QtWidgets.QGraphicsLineItem(layer)
                 line.setLine(
                     self._layout.width, 0,
                     self._layout.width, self._layout.height)
@@ -1456,18 +1420,19 @@ class BeatMeasureItemImpl(MeasureItemImpl):
                 else:
                     h = 2
 
-                tick = QGraphicsLineItem(layer)
+                tick = QtWidgets.QGraphicsLineItem(layer)
                 tick.setLine(x, self._layout.baseline - h,
                              x, self._layout.baseline + h)
                 tick.setPen(black)
 
-            line = QGraphicsLineItem(layer)
+            line = QtWidgets.QGraphicsLineItem(layer)
             line.setLine(0, self._layout.baseline - 20,
                          0, self._layout.baseline)
             line.setPen(black)
 
             if is_first:
-                text = self._name_item = QGraphicsSimpleTextItem(layer)
+                text = self._name_item = QtWidgets.QGraphicsSimpleTextItem(
+                    layer)
                 text.setText("> %s" % self._measure.track.name)
                 text.setPos(0, 0)
 
@@ -1486,7 +1451,7 @@ class BeatMeasureItemImpl(MeasureItemImpl):
                 beat_path.closeSubpath()
                 beat_item = QtWidgets.QGraphicsPathItem(layer)
                 beat_item.setPath(beat_path)
-                beat_item.setPen(QPen(Qt.NoPen))
+                beat_item.setPen(QtGui.QPen(Qt.NoPen))
                 beat_item.setBrush(black)
                 beat_item.setPos(pos, self._layout.baseline)
 
@@ -1528,7 +1493,7 @@ class BeatMeasureItemImpl(MeasureItemImpl):
 
         self.setGhost()
 
-        ghost_timepos = Duration(
+        ghost_timepos = music.Duration(
             int(8 * self._measure.time_signature.upper
                 * event.pos().x() / self._layout.width),
             8 * self._measure.time_signature.upper)
@@ -1549,7 +1514,7 @@ class BeatMeasureItemImpl(MeasureItemImpl):
             return
 
         if event.modifiers() == Qt.NoModifier:
-            click_timepos = Duration(
+            click_timepos = music.Duration(
                 int(8 * self._measure.time_signature.upper
                     * event.pos().x() / self._layout.width),
                 8 * self._measure.time_signature.upper)
@@ -1627,13 +1592,13 @@ class BeatTrackItem(ui_base.ProjectMixin, BeatTrackItemImpl):
     pass
 
 
-class SheetScene(QGraphicsScene):
-    mouseHovers = pyqtSignal(bool)
+class SheetScene(QtWidgets.QGraphicsScene):
+    mouseHovers = QtCore.pyqtSignal(bool)
 
     def event(self, event):
-        if event.type() == QEvent.Enter:
+        if event.type() == QtCore.QEvent.Enter:
             self.mouseHovers.emit(True)
-        elif event.type() == QEvent.Leave:
+        elif event.type() == QtCore.QEvent.Leave:
             self.mouseHovers.emit(False)
         return super().event(event)
 
@@ -1649,8 +1614,8 @@ class Layer(enum.IntEnum):
     NUM_LAYERS = 6
 
 
-class SheetViewImpl(QGraphicsView):
-    currentToolChanged = pyqtSignal(Tool)
+class SheetViewImpl(QtWidgets.QGraphicsView):
+    currentToolChanged = QtCore.pyqtSignal(Tool)
 
     track_cls_map = {
         'ScoreTrack': ScoreTrackItem,
@@ -1833,10 +1798,10 @@ class SheetViewImpl(QGraphicsView):
                 body = SymbolItem('note-head-black', cursor)
 
             if tool_id >= Tool.NOTE_HALF:
-                arm = QGraphicsRectItem(cursor)
+                arm = QtWidgets.QGraphicsRectItem(cursor)
                 arm.setRect(8, -63, 3, 60)
                 arm.setBrush(Qt.black)
-                arm.setPen(QPen(Qt.NoPen))
+                arm.setPen(QtGui.QPen(Qt.NoPen))
 
             if tool_id >= Tool.NOTE_8TH:
                 for n in range(tool_id - Tool.NOTE_QUARTER):
@@ -1871,14 +1836,14 @@ class SheetViewImpl(QGraphicsView):
         elif tool_id.is_duration:
             if tool_id == Tool.DURATION_DOT:
                 body = SymbolItem('note-head-black', self._cursor)
-                arm = QGraphicsRectItem(self._cursor)
+                arm = QtWidgets.QGraphicsRectItem(self._cursor)
                 arm.setRect(8, -63, 3, 60)
                 arm.setBrush(Qt.black)
-                arm.setPen(QPen(Qt.NoPen))
-                dot = QGraphicsEllipseItem(self._cursor)
+                arm.setPen(QtGui.QPen(Qt.NoPen))
+                dot = QtWidgets.QGraphicsEllipseItem(self._cursor)
                 dot.setRect(12, -4, 9, 9)
                 dot.setBrush(Qt.black)
-                dot.setPen(QPen(Qt.NoPen))
+                dot.setPen(QtGui.QPen(Qt.NoPen))
 
             else:
                 sym = {
@@ -1888,11 +1853,11 @@ class SheetViewImpl(QGraphicsView):
                 SymbolItem(sym, self._cursor)
 
         else:  # pragma: no cover
-            a = QGraphicsEllipseItem(self._cursor)
+            a = QtWidgets.QGraphicsEllipseItem(self._cursor)
             a.setRect(-5, -5, 11, 11)
-            a.setPen(QPen(Qt.white))
-            a.setBrush(QColor(100, 100, 100))
-            a = QGraphicsSimpleTextItem(self._cursor)
+            a.setPen(QtGui.QPen(Qt.white))
+            a.setBrush(QtGui.QColor(100, 100, 100))
+            a = QtWidgets.QGraphicsSimpleTextItem(self._cursor)
             a.setText(str(tool_id))
             a.setPos(10, 10)
 
@@ -1924,7 +1889,8 @@ class SheetViewImpl(QGraphicsView):
                 height_below = max(height_below, layout.extend_below)
 
             for layout in track_layouts:
-                layout.size = QSize(layout.width, height_above + height_below)
+                layout.size = QtCore.QSize(
+                    layout.width, height_above + height_below)
                 layout.baseline = height_above
 
         for column_layouts in itertools.zip_longest(*self._layouts):
@@ -1942,7 +1908,7 @@ class SheetViewImpl(QGraphicsView):
         for layer_id in (Layer.BG, Layer.MAIN, Layer.DEBUG, Layer.EVENTS):
             self.clearLayer(self._layers[layer_id])
 
-        text = QGraphicsSimpleTextItem(self._layers[Layer.MAIN])
+        text = QtWidgets.QGraphicsSimpleTextItem(self._layers[Layer.MAIN])
         text.setText(
             "%s/%s" % (self.project_connection.name, self._sheet.name))
         text.setPos(0, 0)
@@ -1978,10 +1944,10 @@ class SheetViewImpl(QGraphicsView):
             y += track_height + 20
 
         if self.app.showEditAreas:  # pragma: no cover
-            bbox = QGraphicsRectItem(self._layers[Layer.DEBUG])
+            bbox = QtWidgets.QGraphicsRectItem(self._layers[Layer.DEBUG])
             bbox.setRect(0, 0, max_x, y)
-            bbox.setPen(QColor(200, 200, 200))
-            bbox.setBrush(QBrush(Qt.NoBrush))
+            bbox.setPen(QtGui.QColor(200, 200, 200))
+            bbox.setBrush(QtGui.QBrush(Qt.NoBrush))
 
         self.setSceneRect(-10, -10, max_x + 20, y + 20)
 
