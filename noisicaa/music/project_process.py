@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 
-import functools
 import asyncio
+import functools
 import logging
+import pprint
 import threading
 import time
 import uuid
@@ -125,6 +126,8 @@ class ProjectProcessMixin(object):
             'PLAYER_PAUSE', self.handle_player_pause)
         self.server.add_command_handler(
             'PLAYER_STOP', self.handle_player_stop)
+        self.server.add_command_handler(
+            'DUMP', self.handle_dump)
 
         node_db_address = await self.manager.call(
             'CREATE_NODE_DB_PROCESS')
@@ -361,6 +364,11 @@ class ProjectProcessMixin(object):
         session = self.get_session(session_id)
         p = session.players[player_id]
         await p.playback_stop()
+
+    async def handle_dump(self, session_id):
+        assert self.project is not None
+        session = self.get_session(session_id)
+        logger.info("%s", pprint.pformat(self.project.serialize()))
 
 
 class ProjectProcess(ProjectProcessMixin, core.ProcessImpl):

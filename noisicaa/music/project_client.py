@@ -269,5 +269,8 @@ class ProjectClientMixin(object):
     async def handle_player_status(self, player_id, args):
         self.listeners.call('player_status:%s' % player_id, **args)
 
+    async def dump(self):
+        await self._stub.call('DUMP', self._session_id)
+
 class ProjectClient(ProjectClientMixin, ProjectClientBase):
     pass

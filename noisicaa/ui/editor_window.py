@@ -383,9 +383,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         raise RuntimeError("Something bad happened")
 
     def dumpProject(self):
-        if self._project_tabs.count() > 0:
-            project = self.getCurrentProject()
-            logger.info('Project dump:\n%s', pprint.pformat(project.serialize()))
+        view = self._project_tabs.currentWidget()
+        self.call_async(view.project_client.dump())
 
     def restart(self):
         raise RestartAppException("Restart requested by user.")
