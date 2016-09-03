@@ -144,6 +144,10 @@ class Beat(core.ObjectBase):
     timepos = core.Property(time.Duration)
     velocity = core.Property(int)
 
+    @property
+    def measure(self):
+        return self.parent
+
 
 class BeatMeasure(Measure):
     beats = core.ObjectListProperty(Beat)

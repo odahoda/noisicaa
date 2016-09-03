@@ -28,8 +28,19 @@ class ScoreMeasure(model.ScoreMeasure, project_client.ObjectProxy):
             'notes', lambda *args: self.listeners.call('notes-changed'))
 
 class ScoreTrack(model.ScoreTrack, project_client.ObjectProxy): pass
-class Beat(model.Beat, project_client.ObjectProxy): pass
-class BeatMeasure(model.BeatMeasure, project_client.ObjectProxy): pass
+
+class Beat(model.Beat, project_client.ObjectProxy):
+    def property_changed(self, changes):
+        super().property_changed(changes)
+        if self.measure is not None:
+            self.measure.listeners.call('beats-changed')
+
+class BeatMeasure(model.BeatMeasure, project_client.ObjectProxy):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.listeners.add(
+            'beats', lambda *args: self.listeners.call('beats-changed'))
+
 class BeatTrack(model.BeatTrack, project_client.ObjectProxy): pass
 class TrackGroup(model.TrackGroup, project_client.ObjectProxy): pass
 class MasterTrackGroup(model.MasterTrackGroup, project_client.ObjectProxy): pass

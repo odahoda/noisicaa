@@ -1356,7 +1356,9 @@ class BeatMeasureItemImpl(MeasureItemImpl):
 
     def addMeasureListeners(self):
         self._measure_listeners.append(self._measure.listeners.add(
-                'beats', lambda *args: self.recomputeLayout()))
+            'beats-changed', lambda *args: self.recomputeLayout()))
+        self._measure_listeners.append(self._measure.listeners.add(
+            'beats', lambda *args: self.recomputeLayout()))
 
     def measureChanged(self, old_value, new_value):
         super().measureChanged(old_value, new_value)
@@ -1370,7 +1372,7 @@ class BeatMeasureItemImpl(MeasureItemImpl):
     def computeLayout(self):
         width = 100
         height_above = 30
-        height_below = 20
+        height_below = 30
 
         layout = SheetPropertyMeasureLayout()
         layout.size = QtCore.QSize(width, height_above + height_below)
@@ -1444,6 +1446,12 @@ class BeatMeasureItemImpl(MeasureItemImpl):
                     * beat.timepos
                     / self._measure.duration)
 
+                beat_vel = QtWidgets.QGraphicsRectItem(layer)
+                beat_vel.setRect(0, 0, 4, 22 * beat.velocity / 127)
+                beat_vel.setPen(QtGui.QPen(Qt.NoPen))
+                beat_vel.setBrush(QtGui.QColor(255, 200, 200))
+                beat_vel.setPos(pos + 2, self._layout.baseline + 8)
+
                 beat_path = QtGui.QPainterPath()
                 beat_path.moveTo(0, -12)
                 beat_path.lineTo(0, 12)
@@ -1454,6 +1462,7 @@ class BeatMeasureItemImpl(MeasureItemImpl):
                 beat_item.setPen(QtGui.QPen(Qt.NoPen))
                 beat_item.setBrush(black)
                 beat_item.setPos(pos, self._layout.baseline)
+
 
     def setGhost(self):
         if self._ghost_beat is not None:
@@ -1502,7 +1511,9 @@ class BeatMeasureItemImpl(MeasureItemImpl):
             self._layout.baseline)
 
     def mousePressEvent(self, event):
-        if self._measure is None:
+        if (self._measure is None
+            and event.button() == Qt.LeftButton
+            and event.modifiers() == Qt.NoModifier):
             self.send_command_async(
                 self._sheet_view.sheet.id,
                 'InsertMeasure', tracks=[], pos=-1)
@@ -1513,7 +1524,8 @@ class BeatMeasureItemImpl(MeasureItemImpl):
             logger.warn("mousePressEvent without valid layout.")
             return
 
-        if event.modifiers() == Qt.NoModifier:
+        if (event.button() == Qt.LeftButton
+            and event.modifiers() == Qt.NoModifier):
             click_timepos = music.Duration(
                 int(8 * self._measure.time_signature.upper
                     * event.pos().x() / self._layout.width),
@@ -1533,6 +1545,33 @@ class BeatMeasureItemImpl(MeasureItemImpl):
             return
 
         return super().mousePressEvent(event)
+
+    def wheelEvent(self, event):
+        if self._measure is not None:
+            if self._layout.width <= 0 or self._layout.height <= 0:
+                logger.warn("mousePressEvent without valid layout.")
+                return
+
+            if event.modifiers() in (Qt.NoModifier, Qt.ShiftModifier):
+                if event.modifiers() == Qt.ShiftModifier:
+                    vel_delta = (1 if event.delta() > 0 else -1)
+                else:
+                    vel_delta = (10 if event.delta() > 0 else -10)
+
+                click_timepos = music.Duration(
+                    int(8 * self._measure.time_signature.upper
+                        * event.pos().x() / self._layout.width),
+                    8 * self._measure.time_signature.upper)
+
+                for beat in self._measure.beats:
+                    if beat.timepos == click_timepos:
+                        self.send_command_async(
+                            beat.id, 'SetBeatVelocity',
+                            velocity=max(0, min(127, beat.velocity + vel_delta)))
+                        event.accept()
+                        return
+
+        return super().wheelEvent(event)
 
     def buildContextMenu(self, menu):
         super().buildContextMenu(menu)

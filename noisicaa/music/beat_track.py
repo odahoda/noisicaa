@@ -59,6 +59,22 @@ class SetBeatTrackPitch(commands.Command):
 commands.Command.register_command(SetBeatTrackPitch)
 
 
+class SetBeatVelocity(commands.Command):
+    velocity = core.Property(int)
+
+    def __init__(self, velocity=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.velocity = velocity
+
+    def run(self, beat):
+        assert isinstance(beat, Beat)
+
+        beat.velocity = self.velocity
+
+commands.Command.register_command(SetBeatVelocity)
+
+
 class AddBeat(commands.Command):
     timepos = core.Property(Duration)
 
@@ -141,7 +157,8 @@ class BeatEventSource(EventSource):
             if self._current_micro_sample_pos >= 1000000 * start_sample_pos:
                 for beat in measure.beats:
                     if beat.timepos.ticks == self._current_tick:
-                        yield NoteOnEvent(sample_pos, self._track.pitch)
+                        yield NoteOnEvent(
+                            sample_pos, self._track.pitch, volume=beat.velocity)
 
             bpm = self._track.sheet.get_bpm(measure.index, self._current_tick)
             micro_samples_per_tick = int(
