@@ -1,12 +1,5 @@
-* TODO Track type: percussion 						 :FR:
+* Track type: percussion						 :FR:
 ** move beats to arbitrary positions
-** move existing beat marker around
-* TODO "Hardlink" model for measures within tracks.			 :FR:
-Tracks have ordered measure_sequence of references, and an unordered set
-of actual measures.
-- basic copy'n'paste
-  - a range of measures within a single track
-
 * Sometimes hands during shutdown					:BUG:
 Last sign of life:
   INFO    :18195:7f91c16bc700:ui.editor_app: Shutting down.
@@ -79,18 +72,6 @@ Popup menu provides palette of color, separate list of already used colors
 before).
 
 * Linked measures							 :FR:
-Only within the same track or perhaps even across tracks (of compatible
-type)?
-
-How to implement?
-- Different class that has no content itself, just a ref to original measure.
-  Then if the original measure is deleted, some other linked measure should
-  be promoted to hold the content.
-- All measures are just references to an object that holds the actual content.
-  Similar to UNIX hardlinks. Needs reference counting and garbage collection.
-- Just mark measures as linked and apply any changes to all measures in the
-  linked group.
-
 Dereference: clone the pointed to measure and replace link with that copy.
 If a group of linked measures is selected, only make one copy and link the
 rest. E.g. A B A' B' [A' B' A' B'] -> A B A' B' C D C' D', where C=copy(A),

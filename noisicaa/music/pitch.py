@@ -165,8 +165,52 @@ class Pitch(object):
         except KeyError:
             return 23  # Ehh...
 
-    def transposed(self, octaves=0):
-        return Pitch('%s%s%d' % (
-            self._value,
-            self._accidental,
-            max(-1, min(7, self._octave + octaves))))
+    _transpose_up = {
+        'C':  ('C#', 0),
+        'C#': ('D',  0),
+        'Db': ('D',  0),
+        'D':  ('D#', 0),
+        'D#': ('E',  0),
+        'Eb': ('E',  0),
+        'E':  ('F',  0),
+        'F':  ('F#', 0),
+        'F#': ('G',  0),
+        'Gb': ('G',  0),
+        'G':  ('G#', 0),
+        'G#': ('A',  0),
+        'Ab': ('A',  0),
+        'A':  ('A#', 0),
+        'A#': ('B',  0),
+        'Bb': ('B',  0),
+        'B':  ('C',  1),
+    }
+
+    _transpose_down = {
+        'C':  ('B', -1),
+        'C#': ('C',  0),
+        'Db': ('C',  0),
+        'D':  ('Db', 0),
+        'D#': ('D',  0),
+        'Eb': ('D',  0),
+        'E':  ('Eb', 0),
+        'F':  ('E',  0),
+        'F#': ('F',  0),
+        'Gb': ('F',  0),
+        'G':  ('Gb', 0),
+        'G#': ('G',  0),
+        'Ab': ('G',  0),
+        'A':  ('Ab', 0),
+        'A#': ('A',  0),
+        'Bb': ('A',  0),
+        'B':  ('Bb', 0),
+    }
+
+    def transposed(self, half_notes=0, octaves=0):
+        ttab = self._transpose_down if half_notes < 0 else self._transpose_up
+        note = '%s%s' % (self._value, self._accidental)
+        octave = self._octave + octaves
+        for _ in range(abs(half_notes)):
+            note, o = ttab[note]
+            octave += o
+
+        return Pitch('%s%d' % (note, max(-1, min(7, octave))))

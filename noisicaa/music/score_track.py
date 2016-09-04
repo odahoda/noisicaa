@@ -223,6 +223,33 @@ class SetAccidental(commands.Command):
 commands.Command.register_command(SetAccidental)
 
 
+class TransposeNotes(commands.Command):
+    note_ids = core.ListProperty(str)
+    half_notes = core.Property(int)
+
+    def __init__(self, note_ids=None, half_notes=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.note_ids.extend(note_ids)
+            self.half_notes = half_notes
+
+    def run(self, track):
+        assert isinstance(track, ScoreTrack)
+
+        root = track.root
+
+        for note_id in self.note_ids:
+            note = root.get_object(note_id)
+            assert note.is_child_of(track)
+
+            for pidx, pitch in enumerate(note.pitches):
+                note.pitches[pidx] = pitch.transposed(
+                    half_notes=self.half_notes % 12,
+                    octaves=self.half_notes // 12)
+
+commands.Command.register_command(TransposeNotes)
+
+
 class Note(model.Note, state.StateBase):
     def __init__(self,
                  pitches=None, base_duration=None, dots=0, tuplet=0,

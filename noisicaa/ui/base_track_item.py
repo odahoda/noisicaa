@@ -62,7 +62,7 @@ class MeasureLayout(object):
         return (self.size == other.size) and (self.baseline == other.baseline)
 
 
-class MeasureItemImpl(QtWidgets.QGraphicsItem):
+class MeasureItemImpl(QtWidgets.QGraphicsObject):
     def __init__(self, sheet_view, track_item, measure_reference, **kwargs):
         super().__init__(**kwargs)
         self._sheet_view = sheet_view
@@ -88,6 +88,9 @@ class MeasureItemImpl(QtWidgets.QGraphicsItem):
 
         self._selected = False
 
+        self.setAcceptHoverEvents(True)
+        self.setFlag(QtWidgets.QGraphicsItem.ItemIsFocusable)
+
     @property
     def measure(self):
         return self._measure
@@ -109,6 +112,11 @@ class MeasureItemImpl(QtWidgets.QGraphicsItem):
     def close(self):
         if self._measure_listener is not None:
             self._measure_listener.remove()
+
+    def hoverEnterEvent(self, event):
+        super().hoverEnterEvent(event)
+
+        self.setFocus()
 
     def measureChanged(self, old_value, new_value):
         self._measure = self._measure_reference.measure

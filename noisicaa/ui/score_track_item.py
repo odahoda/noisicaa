@@ -32,11 +32,30 @@ class ScoreMeasureItemImpl(base_track_item.MeasureItemImpl):
         self._ghost = None
         self._ghost_tool = None
 
+        self._transpose_octave_up_action = QtWidgets.QAction(
+            "Octave up", self,
+            shortcut='Ctrl+Shift+Up',
+            shortcutContext=Qt.WidgetWithChildrenShortcut,
+            triggered=lambda _: self.onTranspose(12))
+        self._transpose_halfnote_up_action = QtWidgets.QAction(
+            "Half-note up", self,
+            shortcut='Ctrl+Up',
+            shortcutContext=Qt.WidgetWithChildrenShortcut,
+            triggered=lambda _: self.onTranspose(1))
+        self._transpose_halfnote_down_action = QtWidgets.QAction(
+            "Half-note down", self,
+            shortcut='Ctrl+Down',
+            shortcutContext=Qt.WidgetWithChildrenShortcut,
+            triggered=lambda _: self.onTranspose(-1))
+        self._transpose_octave_down_action = QtWidgets.QAction(
+            "Octave down", self,
+            shortcut='Ctrl+Shift+Down',
+            shortcutContext=Qt.WidgetWithChildrenShortcut,
+            triggered=lambda _: self.onTranspose(-12))
+
         self._layers[base_track_item.Layer.MAIN] = QGraphicsGroup()
         self._layers[base_track_item.Layer.EDIT] = QGraphicsGroup()
         self._layers[base_track_item.Layer.EVENTS] = QGraphicsGroup()
-
-        self.setAcceptHoverEvents(True)
 
         self._measure_listeners = []
         if self._measure is not None:
@@ -446,6 +465,12 @@ class ScoreMeasureItemImpl(base_track_item.MeasureItemImpl):
                 "%d/%d" % (upper, lower), menu,
                 triggered=lambda _, upper=upper, lower=lower: self.onSetTimeSignature(upper, lower)))
 
+        transpose_menu  = menu.addMenu("Transpose")
+        transpose_menu.addAction(self._transpose_octave_up_action)
+        transpose_menu.addAction(self._transpose_halfnote_up_action)
+        transpose_menu.addAction(self._transpose_halfnote_down_action)
+        transpose_menu.addAction(self._transpose_octave_down_action)
+
     def onSetClef(self, clef):
         self.send_command_async(
             self._measure.id, 'SetClef', clef=clef.value)
@@ -460,6 +485,12 @@ class ScoreMeasureItemImpl(base_track_item.MeasureItemImpl):
             self._sheet_view.sheet.property_track.measure_list[self._measure_reference.index].measure.id,
             'SetTimeSignature', upper=upper, lower=lower)
         self.recomputeLayout()
+
+    def onTranspose(self, half_notes):
+        self.send_command_async(
+            self._measure.track.id, 'TransposeNotes',
+            note_ids=[note.id for note in self._measure.notes],
+            half_notes=half_notes)
 
     def getEditArea(self, x):
         for x1, x2, idx, overwrite in self._edit_areas:
@@ -526,6 +557,33 @@ class ScoreMeasureItemImpl(base_track_item.MeasureItemImpl):
     def hoverEnterEvent(self, event):
         super().hoverEnterEvent(event)
         self.grabMouse()
+
+    def keyPressEvent(self, event):
+        if (event.modifiers() == Qt.ControlModifier | Qt.ShiftModifier
+                and event.key() == Qt.Key_Up):
+            self._transpose_octave_up_action.trigger()
+            event.accept()
+            return
+
+        if (event.modifiers() == Qt.ControlModifier
+                and event.key() == Qt.Key_Up):
+            self._transpose_halfnote_up_action.trigger()
+            event.accept()
+            return
+
+        if (event.modifiers() == Qt.ControlModifier
+                and event.key() == Qt.Key_Down):
+            self._transpose_halfnote_down_action.trigger()
+            event.accept()
+            return
+
+        if (event.modifiers() == Qt.ControlModifier | Qt.ShiftModifier
+                and event.key() == Qt.Key_Down):
+            self._transpose_octave_down_action.trigger()
+            event.accept()
+            return
+
+        super().keyPressEvent(event)
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)
