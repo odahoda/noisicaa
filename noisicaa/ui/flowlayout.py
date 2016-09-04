@@ -1,11 +1,11 @@
 import functools
 
-from PyQt5.QtCore import QPoint, QRect, QSize, Qt
-from PyQt5.QtWidgets import QLayout, QSizePolicy
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtWidgets
 
 
-
-class FlowLayout(QLayout):
+class FlowLayout(QtWidgets.QLayout):
     def __init__(self, parent=None, margin=0, spacing=-1):
         super().__init__(parent)
 
@@ -47,7 +47,7 @@ class FlowLayout(QLayout):
 
     @functools.lru_cache(10)
     def heightForWidth(self, width):
-        height = self.doLayout(QRect(0, 0, width, 0), True)
+        height = self.doLayout(QtCore.QRect(0, 0, width, 0), True)
         return height
 
     def invalidate(self):
@@ -62,13 +62,13 @@ class FlowLayout(QLayout):
         return self.minimumSize()
 
     def minimumSize(self):
-        size = QSize()
+        size = QtCore.QSize()
 
         for item in self.itemList:
             size = size.expandedTo(item.minimumSize())
 
         margin, _, _, _ = self.getContentsMargins()
-        size += QSize(2 * margin, 2 * margin)
+        size += QtCore.QSize(2 * margin, 2 * margin)
         return size
 
     def doLayout(self, rect, testOnly):
@@ -88,7 +88,8 @@ class FlowLayout(QLayout):
                 lineHeight = 0
 
             if not testOnly:
-                item.setGeometry(QRect(QPoint(x, y), item.sizeHint()))
+                item.setGeometry(
+                    QtCore.QRect(QtCore.QPoint(x, y), item.sizeHint()))
 
             x = nextX
             lineHeight = max(lineHeight, item.sizeHint().height())

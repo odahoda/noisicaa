@@ -7,22 +7,16 @@
 import logging
 import textwrap
 import pprint
-import os.path
-import enum
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisicaa import music
 from ..exceptions import RestartAppException, RestartAppCleanException
 from .command_shell import CommandShell
 from .settings import SettingsDialog
 from .project_view import ProjectView
-from .instrument_library import InstrumentLibraryDialog
-from .flowlayout import FlowLayout
-from ..constants import DATA_DIR
 from .dock_widget import DockWidget
 from .tool_dock import ToolsDockWidget
 from .tracks_dock import TracksDockWidget

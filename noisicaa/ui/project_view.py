@@ -7,7 +7,6 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisicaa import music
 from . import pipeline_graph_view
 from . import sheet_view
 from . import tool_dock

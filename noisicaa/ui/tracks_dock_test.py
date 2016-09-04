@@ -5,11 +5,8 @@ from unittest import mock
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
-from PyQt5 import QtGui
 
-from noisicaa import music
 from . import uitest_utils
-from . import tool_dock
 from . import model
 from . import tracks_dock
 

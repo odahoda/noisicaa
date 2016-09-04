@@ -11,7 +11,6 @@ from PyQt5 import QtWidgets
 
 from noisicaa import music
 from noisicaa import node_db
-from noisicaa.audioproc import node_types
 from . import ui_base
 from . import dock_widget
 from . import mute_button

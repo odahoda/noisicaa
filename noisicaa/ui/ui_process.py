@@ -4,21 +4,12 @@ import functools
 import asyncio
 import logging
 import signal
-import threading
-import time
-import uuid
 
 import quamash
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtWidgets
-from PyQt5 import QtGui
 
 from noisicaa import core
-from noisicaa.core import ipc
 
 from . import editor_app
-from .. import runtime_settings
 
 logger = logging.getLogger(__name__)
 

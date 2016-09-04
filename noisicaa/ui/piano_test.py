@@ -1,19 +1,11 @@
 #/usr/bin/python3
 
 import unittest
-from unittest import mock
 
-from PyQt5.QtCore import Qt, QEvent
-from PyQt5.QtGui import QFocusEvent, QKeyEvent
-
-if __name__ == '__main__':
-    import pyximport
-    pyximport.install()
-
-from noisicaa import devices
-from noisicaa import music
-from . import uitest_utils
-from . import piano
+# from noisicaa import devices
+# from noisicaa import music
+# from . import uitest_utils
+# from . import piano
 
 
 # class PianoTest(uitest_utils.UITest):

@@ -1,23 +1,21 @@
 #!/usr/bin/python3
 
 import unittest
-from unittest import mock
-
-from PyQt5 import QtGui
 
 from . import uitest_utils
-from . import tool_dock
 from . import sheet_view
 from . import project_view
 from . import model
-
+from . import sheet_property_track_item
 
 class SheetPropertyMeasureItem(
-        uitest_utils.TestMixin, sheet_view.SheetPropertyMeasureItemImpl):
+        uitest_utils.TestMixin,
+        sheet_property_track_item.SheetPropertyMeasureItemImpl):
     pass
 
 class SheetPropertyTrackItem(
-        uitest_utils.TestMixin, sheet_view.SheetPropertyTrackItemImpl):
+        uitest_utils.TestMixin,
+        sheet_property_track_item.SheetPropertyTrackItemImpl):
     measure_item_cls = SheetPropertyMeasureItem
 
 class SheetView(uitest_utils.TestMixin, sheet_view.SheetViewImpl):

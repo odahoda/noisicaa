@@ -3,7 +3,6 @@
 import functools
 import logging
 import os.path
-import enum
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

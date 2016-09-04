@@ -7,28 +7,30 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 
-from noisicaa import music
 from . import uitest_utils
 from . import tool_dock
-from .sheet_view import SheetView
 from . import sheet_view
 from . import model
+from . import score_track_item
+from . import sheet_property_track_item
 
 
 class ScoreMeasureItem(
-        uitest_utils.TestMixin, sheet_view.ScoreMeasureItemImpl):
+        uitest_utils.TestMixin, score_track_item.ScoreMeasureItemImpl):
     pass
 
 class ScoreTrackItem(
-        uitest_utils.TestMixin, sheet_view.ScoreTrackItemImpl):
+        uitest_utils.TestMixin, score_track_item.ScoreTrackItemImpl):
     measure_item_cls = ScoreMeasureItem
 
 class SheetPropertyMeasureItem(
-        uitest_utils.TestMixin, sheet_view.SheetPropertyMeasureItemImpl):
+        uitest_utils.TestMixin,
+        sheet_property_track_item.SheetPropertyMeasureItemImpl):
     pass
 
 class SheetPropertyTrackItem(
-        uitest_utils.TestMixin, sheet_view.SheetPropertyTrackItemImpl):
+        uitest_utils.TestMixin,
+        sheet_property_track_item.SheetPropertyTrackItemImpl):
     measure_item_cls = SheetPropertyMeasureItem
 
 class SheetView(uitest_utils.TestMixin, sheet_view.SheetViewImpl):

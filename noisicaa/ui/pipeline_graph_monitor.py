@@ -1,9 +1,7 @@
 #!/usr/bin/python
 
 import logging
-import math
 import random
-import time
 
 import toposort
 
@@ -13,7 +11,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
-from noisicaa import core
 from noisicaa.core import ipc
 from . import ui_base
 

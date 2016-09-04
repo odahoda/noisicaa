@@ -5,7 +5,6 @@
 # pylint: disable=W0212
 
 import functools
-import math
 import os.path
 
 from PyQt5 import QtGui

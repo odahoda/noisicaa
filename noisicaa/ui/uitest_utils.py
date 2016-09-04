@@ -1,16 +1,13 @@
 #!/usr/bin/python3
 
-import argparse
 import functools
-import unittest
 import inspect
 import logging
 import os.path
 
 import asynctest
-from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QImage, QPainter, QColor
+from PyQt5 import QtGui
 
 from noisicaa.runtime_settings import RuntimeSettings
 from .editor_app import BaseEditorApp
@@ -171,16 +168,16 @@ class UITest(asynctest.TestCase):
 
         img_name = '%s.%s.%d.png' % (case_name, test_name, num)
 
-        image = QImage(
+        image = QtGui.QImage(
             int(zoom * obj.width()) + 20,
             int(zoom * obj.height()) + 20,
-            QImage.Format_ARGB32)
-        painter = QPainter(image)
+            QtGui.QImage.Format_ARGB32)
+        painter = QtGui.QPainter(image)
 
         painter.save()
         painter.fillRect(
             0, 0, int(zoom * obj.width()) + 20, int(zoom * obj.height()) + 20,
-            QColor(255, 0, 0))
+            QtGui.QColor(255, 0, 0))
         painter.fillRect(
             10, 10, int(zoom * obj.width()), int(zoom * obj.height()),
             Qt.white)
@@ -188,7 +185,7 @@ class UITest(asynctest.TestCase):
 
         if raster:
             painter.save()
-            painter.setPen(QColor(200, 200, 200))
+            painter.setPen(QtGui.QColor(200, 200, 200))
 
             for x in range(10, int(zoom * obj.width()) + 10, 10):
                 painter.drawLine(x, 10, x, int(zoom * obj.height()) + 9)

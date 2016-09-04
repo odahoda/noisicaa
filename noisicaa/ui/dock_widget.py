@@ -2,16 +2,17 @@
 
 import logging
 
-from PyQt5.QtCore import Qt, QSize, QMargins
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QDockWidget, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QToolButton, QLayout
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from . import ui_base
 
 logger = logging.getLogger(__name__)
 
 
-class DockWidget(ui_base.CommonMixin, QDockWidget):
+class DockWidget(ui_base.CommonMixin, QtWidgets.QDockWidget):
     def __init__(self, title, identifier,
                  allowed_areas=Qt.AllDockWidgetAreas,
                  initial_area=Qt.RightDockWidgetArea,
@@ -33,37 +34,37 @@ class DockWidget(ui_base.CommonMixin, QDockWidget):
 
         self.parent()._view_menu.addAction(self.toggleViewAction())
 
-        name = QLabel(self, textFormat=Qt.PlainText)
+        name = QtWidgets.QLabel(self, textFormat=Qt.PlainText)
         name.setText(self.windowTitle())
         #self.windowTitleChanged.connect(name.setText)
 
-        self.hide_button = QToolButton(
-            icon=QIcon.fromTheme('list-remove'),
+        self.hide_button = QtWidgets.QToolButton(
+            icon=QtGui.QIcon.fromTheme('list-remove'),
             autoRaise=True,
             focusPolicy=Qt.NoFocus)
         self.hide_button.clicked.connect(self.toggleHide)
 
-        self.float_button = QToolButton(
-            icon=QIcon.fromTheme('view-fullscreen'),
+        self.float_button = QtWidgets.QToolButton(
+            icon=QtGui.QIcon.fromTheme('view-fullscreen'),
             checkable=True,
             autoRaise=True,
             focusPolicy=Qt.NoFocus)
         self.float_button.toggled.connect(self.setFloating)
 
-        self.close_button = QToolButton(
-            icon=QIcon.fromTheme('window-close'),
+        self.close_button = QtWidgets.QToolButton(
+            icon=QtGui.QIcon.fromTheme('window-close'),
             autoRaise=True,
             focusPolicy=Qt.NoFocus)
         self.close_button.clicked.connect(lambda: self.setVisible(False))
 
-        layout = QHBoxLayout()
-        layout.setContentsMargins(QMargins(0, 0, 0, 0))
+        layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         layout.addWidget(self.hide_button)
         layout.addWidget(name, 1)
         layout.addWidget(self.float_button)
         layout.addWidget(self.close_button)
 
-        self.titlebar = QWidget(self)
+        self.titlebar = QtWidgets.QWidget(self)
         self.titlebar.setLayout(layout)
         self.setTitleBarWidget(self.titlebar)
 
@@ -73,14 +74,14 @@ class DockWidget(ui_base.CommonMixin, QDockWidget):
         self.topLevelChanged.connect(self.onTopLevelChanged)
 
         self.main_widget = None
-        self.filler = QWidget(self)
+        self.filler = QtWidgets.QWidget(self)
 
-        self.main_layout = QVBoxLayout()
-        self.main_layout.setContentsMargins(QMargins(0, 0, 0, 0))
-        self.main_layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
+        self.main_layout = QtWidgets.QVBoxLayout()
+        self.main_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+        self.main_layout.setSizeConstraint(QtWidgets.QLayout.SetMinAndMaxSize)
         self.main_layout.addWidget(self.filler)
 
-        top_widget = QWidget(self)
+        top_widget = QtWidgets.QWidget(self)
         top_widget.setLayout(self.main_layout)
         super().setWidget(top_widget)
 
@@ -102,20 +103,20 @@ class DockWidget(ui_base.CommonMixin, QDockWidget):
         if top_level:
             if self.widget() is not None:
                 self.widget().show()
-            self.hide_button.setIcon(QIcon.fromTheme('list-remove'))
+            self.hide_button.setIcon(QtGui.QIcon.fromTheme('list-remove'))
 
     def onFeaturesChanged(self, features):
         self.float_button.setVisible(
-            features & QDockWidget.DockWidgetFloatable != 0)
+            features & QtWidgets.QDockWidget.DockWidgetFloatable != 0)
         self.close_button.setVisible(
-            features & QDockWidget.DockWidgetClosable != 0)
+            features & QtWidgets.QDockWidget.DockWidgetClosable != 0)
 
     def toggleHide(self):
         if self.main_widget.isHidden():
             self.filler.hide()
             self.main_widget.show()
-            self.hide_button.setIcon(QIcon.fromTheme('list-remove'))
+            self.hide_button.setIcon(QtGui.QIcon.fromTheme('list-remove'))
         else:
             self.main_widget.hide()
             self.filler.show()
-            self.hide_button.setIcon(QIcon.fromTheme('list-add'))
+            self.hide_button.setIcon(QtGui.QIcon.fromTheme('list-add'))

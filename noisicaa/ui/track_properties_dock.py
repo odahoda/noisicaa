@@ -1,8 +1,6 @@
 #!/usr/bin/python3
 
 import logging
-import os.path
-import enum
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -12,7 +10,6 @@ from PyQt5 import QtWidgets
 from noisicaa import music
 from .dock_widget import DockWidget
 from . import instrument_library
-from ..constants import DATA_DIR
 from . import ui_base
 from noisicaa.music import model
 from . import mute_button

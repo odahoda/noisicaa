@@ -3,30 +3,15 @@
 import logging
 import os.path
 import threading
-import time
 
-from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtGui import QIcon, QFont, QPalette, QColor
-from PyQt5.QtWidgets import (
-    QMessageBox,
-    QWidget,
-    QPushButton,
-    QHBoxLayout,
-    QVBoxLayout,
-    QFormLayout,
-    QLineEdit,
-    QDialog,
-    QToolButton,
-    QFileDialog,
-    QComboBox,
-    QProgressBar,
-    QLabel,
-)
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 logger = logging.getLogger(__name__)
 
 
-class RenderSheetDialog(QDialog):
+class RenderSheetDialog(QtWidgets.QDialog):
     def __init__(self, parent, app, sheet):
         super().__init__(parent)
 
@@ -39,57 +24,57 @@ class RenderSheetDialog(QDialog):
 
         self.setWindowTitle("noisicaä - Render Sheet")
 
-        self.top_area = QWidget(self)
+        self.top_area = QtWidgets.QWidget(self)
 
-        self.select_output_directory = QToolButton(
+        self.select_output_directory = QtWidgets.QToolButton(
             self.top_area,
-            icon=QIcon.fromTheme('document-open'),
+            icon=QtGui.QIcon.fromTheme('document-open'),
             autoRaise=True)
         self.select_output_directory.clicked.connect(self.onSelectOutputDirectory)
 
-        self.output_directory = QLineEdit(self.top_area, text="/tmp")
+        self.output_directory = QtWidgets.QLineEdit(self.top_area, text="/tmp")
 
-        self.file_name = QLineEdit(self.top_area, text="test.flac")
+        self.file_name = QtWidgets.QLineEdit(self.top_area, text="test.flac")
 
-        self.file_format = QComboBox(self.top_area)
+        self.file_format = QtWidgets.QComboBox(self.top_area)
         self.file_format.addItem("FLAC", userData="flac")
         #self.file_format.addItem("OGG", userData="ogg")
         self.file_format.currentIndexChanged.connect(self.onFileFormatChanged)
 
-        self.progress = QProgressBar(
+        self.progress = QtWidgets.QProgressBar(
             self.top_area, minimum=0, maximum=100, visible=False)
         self.progress.setMinimumWidth(200)
 
-        self.status = QLabel(self, visible=False)
-        font = QFont(self.status.font())
-        font.setWeight(QFont.Bold)
+        self.status = QtWidgets.QLabel(self, visible=False)
+        font = QtGui.QFont(self.status.font())
+        font.setWeight(QtGui.QFont.Bold)
         if font.pixelSize() != -1:
             font.setPixelSize(14 * font.pixelSize() // 10)
         else:
             font.setPointSizeF(1.4 * font.pointSizeF())
         self.status.setFont(font)
 
-        self.abort_button = QPushButton("Abort", visible=False)
+        self.abort_button = QtWidgets.QPushButton("Abort", visible=False)
         self.abort_button.clicked.connect(self.onAbort)
 
-        self.close_button = QPushButton("Close")
+        self.close_button = QtWidgets.QPushButton("Close")
         self.close_button.clicked.connect(self.close)
 
-        self.render_button = QPushButton("Render")
+        self.render_button = QtWidgets.QPushButton("Render")
         self.render_button.clicked.connect(self.onRender)
 
-        output_directory_layout = QHBoxLayout(spacing=1)
+        output_directory_layout = QtWidgets.QHBoxLayout(spacing=1)
         output_directory_layout.addWidget(self.output_directory, 1)
         output_directory_layout.addWidget(self.select_output_directory)
 
-        top_layout = QFormLayout()
+        top_layout = QtWidgets.QFormLayout()
         top_layout.addRow("Output Directory", output_directory_layout)
         top_layout.addRow("Filename", self.file_name)
         top_layout.addRow("Format", self.file_format)
 
         self.top_area.setLayout(top_layout)
 
-        buttons = QHBoxLayout()
+        buttons = QtWidgets.QHBoxLayout()
         buttons.addWidget(self.progress)
         buttons.addWidget(self.status)
         buttons.addWidget(self.abort_button)
@@ -97,14 +82,14 @@ class RenderSheetDialog(QDialog):
         buttons.addWidget(self.render_button)
         buttons.addWidget(self.close_button)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.top_area, 1)
         layout.addLayout(buttons)
 
         self.setLayout(layout)
 
     def onSelectOutputDirectory(self):
-        path = QFileDialog.getExistingDirectory(
+        path = QtWidgets.QFileDialog.getExistingDirectory(
             parent=self,
             caption="Select output directory...",
             directory=self.output_directory.text())
@@ -146,26 +131,29 @@ class RenderSheetDialog(QDialog):
 
         if self._renderer.status == Renderer.SUCCESS:
             self.status.setText("Done.")
-            palette = QPalette(self.status.palette())
-            palette.setColor(QPalette.WindowText, QColor(60, 160, 60))
+            palette = QtGui.QPalette(self.status.palette())
+            palette.setColor(
+                QtGui.QPalette.WindowText, QtGui.QColor(60, 160, 60))
             self.status.setPalette(palette)
         elif self._renderer.status == Renderer.ABORTED:
             self.status.setText("Aborted")
-            palette = QPalette(self.status.palette())
-            palette.setColor(QPalette.WindowText, QColor(255, 60, 60))
+            palette = QtGui.QPalette(self.status.palette())
+            palette.setColor(
+                QtGui.QPalette.WindowText, QtGui.QColor(255, 60, 60))
             self.status.setPalette(palette)
         elif self._renderer.status == Renderer.FAILED:
             self.status.setText("Failed!")
-            palette = QPalette(self.status.palette())
-            palette.setColor(QPalette.WindowText, QColor(255, 60, 60))
+            palette = QtGui.QPalette(self.status.palette())
+            palette.setColor(
+                QtGui.QPalette.WindowText, QtGui.QColor(255, 60, 60))
             self.status.setPalette(palette)
 
-            msg = QMessageBox(self)
+            msg = QtWidgets.QMessageBox(self)
             msg.setWindowTitle("Renderer failed")
             msg.setText("Rendering failed with an error:")
             msg.setInformativeText(self._renderer.reason)
-            msg.setIcon(QMessageBox.Critical)
-            msg.addButton("Ok", QMessageBox.AcceptRole)
+            msg.setIcon(QtWidgets.QMessageBox.Critical)
+            msg.addButton("Ok", QtWidgets.QMessageBox.AcceptRole)
             msg.exec_()
 
         self._renderer = None
@@ -182,9 +170,9 @@ class RenderSheetDialog(QDialog):
         self._renderer.abort()
 
 
-class Renderer(QObject):
-    progress = pyqtSignal(int)
-    done = pyqtSignal()
+class Renderer(QtCore.QObject):
+    progress = QtCore.pyqtSignal(int)
+    done = QtCore.pyqtSignal()
 
     ABORTED = 'aborted'
     SUCCESS = 'success'

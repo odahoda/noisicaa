@@ -5,19 +5,11 @@ import os
 import sys
 import traceback
 
-from PyQt5.QtCore import QSettings, QByteArray
-from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import (
-    QAction,
-    QMessageBox,
-    QApplication,
-    QStyleFactory,
-    QFileDialog,
-)
+from PyQt5 import QtCore
+from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
 from noisicaa import node_db
-from noisicaa import music
 from noisicaa import devices
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
@@ -87,7 +79,7 @@ class NodeDBClient(node_db.NodeDBClientMixin, NodeDBClientImpl):
     pass
 
 
-class BaseEditorApp(QApplication):
+class BaseEditorApp(QtWidgets.QApplication):
     def __init__(self, process, runtime_settings, settings=None):
         super().__init__(['noisicaä'])
 
@@ -96,7 +88,7 @@ class BaseEditorApp(QApplication):
         self.runtime_settings = runtime_settings
 
         if settings is None:
-            settings = QSettings('odahoda.de', 'noisicaä')
+            settings = QtCore.QSettings('odahoda.de', 'noisicaä')
             if runtime_settings.start_clean:
                 settings.clear()
         self.settings = settings
@@ -118,7 +110,7 @@ class BaseEditorApp(QApplication):
 
         style_name = self.settings.value('appearance/qtStyle', '')
         if style_name:
-            style = QStyleFactory.create(style_name)
+            style = QtWidgets.QStyleFactory.create(style_name)
             self.setStyle(style)
 
         await self.createNodeDB()
@@ -131,7 +123,7 @@ class BaseEditorApp(QApplication):
         self.midi_hub = self.createMidiHub()
         self.midi_hub.start()
 
-        self.show_edit_areas_action = QAction(
+        self.show_edit_areas_action = QtWidgets.QAction(
             "Show Edit Areas", self,
             checkable=True,
             triggered=self.onShowEditAreasChanged)
@@ -184,7 +176,7 @@ class BaseEditorApp(QApplication):
     def dumpSettings(self):
         for key in self.settings.allKeys():
             value = self.settings.value(key)
-            if isinstance(value, (bytes, QByteArray)):
+            if isinstance(value, (bytes, QtCore.QByteArray)):
                 value = '[%d bytes]' % len(value)
             logger.info('%s: %s', key, value)
 
@@ -342,12 +334,12 @@ class EditorApp(BaseEditorApp):
         logger.error('%s: %s', title, msg)
 
         try:
-            errorbox = QMessageBox()
+            errorbox = QtWidgets.QMessageBox()
             errorbox.setWindowTitle("noisicaä crashed")
             errorbox.setText(title)
             errorbox.setInformativeText(msg)
-            errorbox.setIcon(QMessageBox.Critical)
-            errorbox.addButton("Exit", QMessageBox.AcceptRole)
+            errorbox.setIcon(QtWidgets.QMessageBox.Critical)
+            errorbox.addButton("Exit", QtWidgets.QMessageBox.AcceptRole)
             errorbox.exec_()
         except:
             logger.error(

@@ -6,15 +6,12 @@
 
 import asyncio
 import logging
-import os.path
 
-from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from .piano import PianoWidget
-from ..constants import DATA_DIR
 from . import ui_base
 from ..instr import library
 

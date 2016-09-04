@@ -2,8 +2,6 @@
 
 import logging
 
-from noisicaa import core
-from noisicaa import node_db
 from noisicaa.music import model
 from noisicaa.music import project_client
 

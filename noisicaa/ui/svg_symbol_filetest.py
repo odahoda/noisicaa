@@ -1,10 +1,6 @@
 #!/usr/bin/python3
 
-import logging
 import os.path
-import re
-import pprint
-import fractions
 import unittest
 import glob
 import tempfile

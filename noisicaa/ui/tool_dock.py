@@ -4,20 +4,14 @@ import logging
 import os.path
 import enum
 
-from PyQt5.QtCore import Qt, QSize, pyqtSignal, QMargins
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (
-    QWidget,
-    QToolButton,
-    QButtonGroup,
-    QLayout,
-    QSizePolicy,
-)
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
-from .flowlayout import FlowLayout
-from ..constants import DATA_DIR
-from .dock_widget import DockWidget
-from . import ui_base
+from noisicaa import constants
+from . import flowlayout
+from . import dock_widget
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +60,8 @@ class Tool(enum.IntEnum):
         return Tool.DURATION_DOT <= self <= Tool.DURATION_QUINTUPLET
 
 
-class ToolsDockWidget(DockWidget):
-    toolChanged = pyqtSignal(Tool)
+class ToolsDockWidget(dock_widget.DockWidget):
+    toolChanged = QtCore.pyqtSignal(Tool)
 
     def __init__(self, app, parent):
         super().__init__(
@@ -79,8 +73,8 @@ class ToolsDockWidget(DockWidget):
             initial_area=Qt.RightDockWidgetArea,
             initial_visible=True)
 
-        self.group = QButtonGroup()
-        self.layout = FlowLayout(spacing=1)
+        self.group = QtWidgets.QButtonGroup()
+        self.layout = flowlayout.FlowLayout(spacing=1)
 
         self.addButton(Tool.NOTE_WHOLE, 'note-whole.svg')
         self.addButton(Tool.NOTE_HALF, 'note-half.svg')
@@ -115,15 +109,15 @@ class ToolsDockWidget(DockWidget):
 
         self.group.buttonClicked.connect(self.onButtonClicked)
 
-        main_area = QWidget()
+        main_area = QtWidgets.QWidget()
         main_area.setLayout(self.layout)
-        main_area.setContentsMargins(QMargins(0, 0, 0, 0))
+        main_area.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         self.setWidget(main_area)
 
     def addButton(self, tool_id, icon):
-        button = QToolButton(
-            icon=QIcon(os.path.join(DATA_DIR, 'icons', icon)),
-            iconSize=QSize(32, 32),
+        button = QtWidgets.QToolButton(
+            icon=QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', icon)),
+            iconSize=QtCore.QSize(32, 32),
             checkable=True,
             autoRaise=True)
         self.group.addButton(button, tool_id)
