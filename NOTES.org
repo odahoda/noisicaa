@@ -7,6 +7,10 @@ of actual measures.
 - basic copy'n'paste
   - a range of measures within a single track
 
+* Sometimes hands during shutdown					:BUG:
+Last sign of life:
+  INFO    :18195:7f91c16bc700:ui.editor_app: Shutting down.
+
 * Custom csound filter node						 :FR:
 - start with single audio input/output ports
 - make port list editable
