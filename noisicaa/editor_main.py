@@ -36,22 +36,22 @@ class Main(object):
     def run(self, argv):
         self.parse_args(argv)
 
-        logging.init(self.runtime_settings)
-        self.logger = logging.getLogger(__name__)
+        with logging.LogManager(self.runtime_settings):
+            self.logger = logging.getLogger(__name__)
 
-        if self.runtime_settings.dev_mode:
-            import pyximport
-            pyximport.install()
+            if self.runtime_settings.dev_mode:
+                import pyximport
+                pyximport.install()
 
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            self.event_loop.add_signal_handler(
-                sig, functools.partial(self.handle_signal, sig))
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                self.event_loop.add_signal_handler(
+                    sig, functools.partial(self.handle_signal, sig))
 
-        try:
-            self.event_loop.run_until_complete(self.run_async())
-        finally:
-            self.event_loop.stop()
-            self.event_loop.close()
+            try:
+                self.event_loop.run_until_complete(self.run_async())
+            finally:
+                self.event_loop.stop()
+                self.event_loop.close()
 
         return self.returncode
 
