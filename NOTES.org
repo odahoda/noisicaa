@@ -1,13 +1,34 @@
-* TODO Track type: percussion						 :FR:
+* TODO Track type: percussion 						 :FR:
 ** move beats to arbitrary positions
 ** move existing beat marker around
-** per beat velocity
-
 * TODO "Hardlink" model for measures within tracks.			 :FR:
 Tracks have ordered measure_sequence of references, and an unordered set
 of actual measures.
 - basic copy'n'paste
   - a range of measures within a single track
+
+* Custom csound filter node						 :FR:
+- start with single audio input/output ports
+- make port list editable
+- edit csound code
+- recompile csound code on the fly
+- two engines - new/old code - in parallel, slide from old to new
+  - init new code
+  - start processing new code , output at 0
+  - slide old=100%, new=0% -> old=0%, new=100%
+  - stop processing old code
+  - clean up old code
+  - how does that work with arbitrary output nodes? and events?
+- edit widget with syntax highlighting
+
+* merge consecutive commands						 :FR:
+- keep a single item in-memory buffer before writing commands to disk
+- when adding commands to log
+  - call prev_cmd.try_merge_with(latest_cmd)
+    - command class must be marked as mergable
+    - if same class, append mutation log of latest_cmd to prev_cmd?
+    - or just handle simple attribute changes, overwriting the target value
+  - if returns False, push latest_cmd to log (flushing prev_cmd to disk)
 
 * per measure time signature 						 :FR:
 Tracks can have different time signatures, measures do not have to align
@@ -103,6 +124,12 @@ Compute list of valid dest nodes and highlight those.
 Any controllable value can be turned into a control track.
 Icon next to controllable values, drag'n'drop onto editor.
 
+* Audio tracks								 :FR:
+- keep separate list of audio clips
+- drag'n'drop sections onto audio tracks
+- a section is a clip or range of a clip
+- per section envelope
+  - short (few msec) ramp up/down to avoid clicks
 * cut, copy, paste							 :FR:
 - Use QClipboard
 - select multiple items
@@ -173,7 +200,6 @@ possible exception when changing project while playing
       * player interaction
       * execute all existing commands
       * coverage report
-* pylint doesn't work with vext?				    :TESTING:
 * integrate pylint into test suite				    :TESTING:
    * add test case with test for each covered module
    * run pylint and fail test if any found messages
