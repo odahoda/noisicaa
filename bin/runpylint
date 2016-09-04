@@ -3,4 +3,8 @@
 BASEDIR=$(readlink -f "$(dirname "$0")/..")
 python setup.py build
 cd $BASEDIR/build/lib.linux-x86_64-3.5/
-exec pylint --rcfile=$BASEDIR/bin/pylintrc "$@"
+
+# pylint doesn't work with vext, so we have to add the system's dist-packages
+# to the search path, so it can find PyQt5
+PYTHONPATH=$PYTHONPATH:/usr/lib/python3/dist-packages \
+	  exec pylint --rcfile=$BASEDIR/bin/pylintrc "$@"
