@@ -104,6 +104,18 @@ Any controllable value can be turned into a control track.
 Icon next to controllable values, drag'n'drop onto editor.
 
 * cut, copy, paste							 :FR:
+- Use QClipboard
+- select multiple items
+  - ranges or sparse sets
+- measures across different tracks
+- different selection types
+  - mutually exclusive
+    - when a different type is selected, clear selection
+  - measures
+  - tracks
+  - notes
+
+* copy/link via drag'n'drop						 :FR:
 * TracksDock: moving tracks doesn't work				:BUG:
 * player needs to get lock on state					:BUG:
 possible exception when changing project while playing
