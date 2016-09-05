@@ -40,16 +40,19 @@ class Session(object):
             await p.cleanup()
         self.players.clear()
 
-    async def publish_mutation(self, mutation):
+    async def publish_mutations(self, mutations):
         assert self.callback_stub.connected
-        logger.info("Publish mutation %s", mutation)
+
+        logger.info(
+            "Publish mutations:\n%s",
+            '\n'.join(str(mutation) for mutation in mutations))
 
         try:
-            await self.callback_stub.call('PROJECT_MUTATION', mutation)
+            await self.callback_stub.call('PROJECT_MUTATIONS', mutations)
         except Exception:
             logger.error(
-                "PROJECT_MUTATION %s failed with exception:\n%s",
-                mutation, traceback.format_exc())
+                "PROJECT_MUTATIONS %s failed with exception:\n%s",
+                mutations, traceback.format_exc())
 
 
 class AudioProcClientImpl(object):
@@ -187,11 +190,11 @@ class ProjectProcessMixin(object):
         else:
             raise TypeError("Unsupported change type %s" % type(change))
 
-    async def publish_mutation(self, mutation):
+    async def publish_mutations(self, mutations):
         tasks = []
         for session in self.sessions.values():
             tasks.append(self.event_loop.create_task(
-                session.publish_mutation(mutation)))
+                session.publish_mutations(mutations)))
         await asyncio.wait(tasks, loop=self.event_loop)
 
     async def handle_start_session(self, client_address):
@@ -200,8 +203,8 @@ class ProjectProcessMixin(object):
         session = Session(self.event_loop, client_stub)
         self.sessions[session.id] = session
         if self.project is not None:
-            for mutation in self.add_object_mutations(self.project):
-                await session.publish_mutation(mutation)
+            await session.publish_mutations(
+                list(self.add_object_mutations(self.project)))
             return session.id, self.project.id
         return session.id, None
 
@@ -231,8 +234,8 @@ class ProjectProcessMixin(object):
         yield mutations.AddObject(obj)
 
     async def send_initial_mutations(self):
-        for mutation in self.add_object_mutations(self.project):
-            await self.publish_mutation(mutation)
+        await self.publish_mutations(
+            list(self.add_object_mutations(self.project)))
 
     def _create_blank_project(self, project_cls):
         project = project_cls(node_db=self.node_db)
@@ -290,8 +293,7 @@ class ProjectProcessMixin(object):
         mutations = self.pending_mutations[:]
         self.pending_mutations.clear()
 
-        for mutation in mutations:
-            await self.publish_mutation(mutation)
+        await self.publish_mutations(mutations)
 
         return result
 
@@ -304,8 +306,7 @@ class ProjectProcessMixin(object):
         mutations = self.pending_mutations[:]
         self.pending_mutations.clear()
 
-        for mutation in mutations:
-            await self.publish_mutation(mutation)
+        await self.publish_mutations(mutations)
 
     async def handle_redo(self):
         assert self.project is not None
@@ -316,8 +317,7 @@ class ProjectProcessMixin(object):
         mutations = self.pending_mutations[:]
         self.pending_mutations.clear()
 
-        for mutation in mutations:
-            await self.publish_mutation(mutation)
+        await self.publish_mutations(mutations)
 
     async def handle_serialize(self, session_id, obj_id):
         assert self.project is not None

@@ -72,7 +72,7 @@ class ProjectClientMixin(object):
     async def setup(self):
         await super().setup()
         self.server.add_command_handler(
-            'PROJECT_MUTATION', self.handle_project_mutation)
+            'PROJECT_MUTATIONS', self.handle_project_mutations)
         self.server.add_command_handler(
             'PROJECT_CLOSED', self.handle_project_closed)
         self.server.add_command_handler(
@@ -141,8 +141,12 @@ class ProjectClientMixin(object):
                 raise ValueError(
                     "Property type %s not supported." % prop_type)
 
+    def handle_project_mutations(self, mutations):
+        for mutation in mutations:
+            self.handle_project_mutation(mutation)
+
     def handle_project_mutation(self, mutation):
-        logger.info("Mutation received: %s" % mutation)
+        logger.info("Mutation received: %s", mutation)
 
         if isinstance(mutation, mutations.SetProperties):
             obj = self._object_map[mutation.id]
