@@ -256,6 +256,13 @@ cdef class CSound(object):
 
         self.initialized = True
 
+    def set_score(self, score):
+        assert self.initialized
+
+        if isinstance(score, str):
+            score = score.encode('utf-8')
+        self._check(csoundReadScore(self.csnd, score))
+
     def add_score_event(self, score):
         assert self.initialized
 

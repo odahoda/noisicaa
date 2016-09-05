@@ -60,7 +60,8 @@ class CSoundFilter(node.Node):
                 self._parameters[parameter.name] = parameter.default
 
         self._csnd = None
-        self._code = self._description.get_parameter('code').value
+        self._orchestra = self._description.get_parameter('orchestra').value
+        self._score = self._description.get_parameter('score').value
 
     def set_param(self, **kwargs):
         for parameter_name, value in kwargs.items():
@@ -73,8 +74,8 @@ class CSoundFilter(node.Node):
 
         self._csnd = csound.CSound()
 
-        self._csnd.set_orchestra(self._code)
-        self._csnd.add_score_event(b'i1 0 3600')
+        self._csnd.set_orchestra(self._orchestra)
+        self._csnd.set_score(self._score)
 
     async def cleanup(self):
         if self._csnd is not None:

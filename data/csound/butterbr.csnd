@@ -13,7 +13,7 @@
     <display-name>Bandwidth</display-name>
   </parameter>
 </parameters>
-<code>
+<orchestra>
 ksmps=32
 nchnls=2
 
@@ -30,5 +30,8 @@ instr 1
   gaOutL butterbr gaInL, gkCenter, gkBandwidth
   gaOutR butterbr gaInR, gkCenter, gkBandwidth
 endin
-</code>
+</orchestra>
+<score>
+i1 0 -1
+</score>
 </csound>

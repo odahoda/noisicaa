@@ -80,11 +80,17 @@ class CSoundScanner(scanner.Scanner):
                     parameter_desc = parameter_cls(**kwargs)
                     parameters.append(parameter_desc)
 
-                code = ''.join(root.find('code').itertext())
-                code = code.strip() + '\n'
+                orchestra = ''.join(root.find('orchestra').itertext())
+                orchestra = orchestra.strip() + '\n'
                 parameters.append(
                     node_db.InternalParameterDescription(
-                        name='code', value=code))
+                        name='orchestra', value=orchestra))
+
+                score = ''.join(root.find('score').itertext())
+                score = score.strip() + '\n'
+                parameters.append(
+                    node_db.InternalParameterDescription(
+                        name='score', value=score))
 
                 display_name = ''.join(
                     root.find('display-name').itertext())

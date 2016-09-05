@@ -16,7 +16,7 @@
     <display-name>Feedback level</display-name>
   </parameter>
 </parameters>
-<code>
+<orchestra>
 ksmps=32
 nchnls=2
 
@@ -40,5 +40,8 @@ instr 1
           delayw  gkFeedback * (gaInR + aDelayR)
   gaOutR  =       aDelayR
 endin
-</code>
+</orchestra>
+<score>
+i1 0 -1
+</score>
 </csound>

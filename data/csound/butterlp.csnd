@@ -10,7 +10,7 @@
     <display-name>Cutoff frequency</display-name>
   </parameter>
 </parameters>
-<code>
+<orchestra>
 ksmps=32
 nchnls=2
 
@@ -26,5 +26,8 @@ instr 1
   gaOutL butterlp gaInL, gkCutoff
   gaOutR butterlp gaInR, gkCutoff
 endin
-</code>
+</orchestra>
+<score>
+i1 0 -1
+</score>
 </csound>
