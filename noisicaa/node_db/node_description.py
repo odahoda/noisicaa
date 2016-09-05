@@ -54,9 +54,11 @@ class AudioPortDescription(PortDescription):
         self.drywet_port = drywet_port
         self.drywet_default = drywet_default
 
+
 class EventPortDescription(PortDescription):
-    def __init__(self, **kwargs):
+    def __init__(self, csound_instr='1', **kwargs):
         super().__init__(port_type=PortType.Events, **kwargs)
+        self.csound_instr = csound_instr
 
 
 class ParameterType(enum.Enum):

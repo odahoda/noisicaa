@@ -44,10 +44,14 @@ class CSoundFilter(node.Node):
             port_cls = port_cls_map[
                 (port_desc.port_type, port_desc.direction)]
             kwargs = {}
-            if port_desc.bypass_port is not None:
-                kwargs['bypass_port'] = port_desc.bypass_port
-            if port_desc.drywet_port is not None:
-                kwargs['drywet_port'] = port_desc.drywet_port
+            if port_desc.direction == node_db.PortDirection.Output:
+                if port_desc.bypass_port is not None:
+                    kwargs['bypass_port'] = port_desc.bypass_port
+                if port_desc.drywet_port is not None:
+                    kwargs['drywet_port'] = port_desc.drywet_port
+            if (port_desc.direction == node_db.PortDirection.Input
+                    and port_desc.port_type == node_db.PortType.Events):
+                kwargs['csound_instr'] = port_desc.csound_instr
             port = port_cls(port_desc.name, **kwargs)
             if port_desc.direction == node_db.PortDirection.Input:
                 self.add_input(port)
@@ -86,9 +90,15 @@ class CSoundFilter(node.Node):
 
     def run(self, ctxt):
         in_samples = {}
+        in_events = {}
         for port in self.inputs.values():
-            assert len(port.frame) == ctxt.duration
-            in_samples[port.name] = port.frame.samples
+            if isinstance(port, ports.AudioInputPort):
+                assert len(port.frame) == ctxt.duration
+                in_samples[port.name] = port.frame.samples
+            elif isinstance(port, ports.EventInputPort):
+                in_events[port.name] = (port.csound_instr, list(port.events))
+            else:
+                raise ValueError(port)
 
         out_samples = {}
         for port in self.outputs.values():
@@ -104,6 +114,23 @@ class CSoundFilter(node.Node):
                 self._csnd.set_audio_channel_data(
                     '%s/right' % port_name,
                     samples[1][pos:pos+self._csnd.ksmps])
+
+            for port_name, (instr, pending_events) in in_events.items():
+                while (len(pending_events) > 0
+                       and pending_events[0].sample_pos < (
+                           pos + ctxt.sample_pos + self._csnd.ksmps)):
+                    event = pending_events.pop(0)
+                    if isinstance(event, events.NoteOnEvent):
+                        self._csnd.add_score_event(
+                            'i %s.%d 0 -1 %d %d' % (
+                                instr, event.note.midi_note, event.note.midi_note, event.volume))
+                    elif isinstance(event, events.NoteOffEvent):
+                        self._csnd.add_score_event(
+                            'i -%s.%d 0 0 0' % (
+                                instr, event.note.midi_note))
+                    else:
+                        raise NotImplementedError(
+                            "Event class %s not supported" % type(event).__name__)
 
             for parameter in self._description.parameters:
                 if parameter.param_type == node_db.ParameterType.Float:

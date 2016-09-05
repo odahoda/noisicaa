@@ -35,24 +35,38 @@ class CSoundScanner(scanner.Scanner):
 
                 ports = []
                 for port_elem in root.find('ports').findall('port'):
-                    port_cls = {
-                        'audio': node_db.AudioPortDescription,
-                        'events': node_db.EventPortDescription,
+                    port_type = {
+                        'audio': node_db.PortType.Audio,
+                        'events': node_db.PortType.Events,
                     }[port_elem.get('type')]
+
                     direction = {
                         'input': node_db.PortDirection.Input,
                         'output': node_db.PortDirection.Output,
                     }[port_elem.get('direction')]
 
                     kwargs = {}
-                    drywet_elem = port_elem.find('drywet')
-                    if drywet_elem is not None:
-                        kwargs['drywet_port'] = drywet_elem.get('port')
-                        kwargs['drywet_default'] = drywet_elem.get('default')
 
-                    bypass_elem = port_elem.find('bypass')
-                    if bypass_elem is not None:
-                        kwargs['bypass_port'] = bypass_elem.get('port')
+                    if direction == node_db.PortDirection.Output:
+                        drywet_elem = port_elem.find('drywet')
+                        if drywet_elem is not None:
+                            kwargs['drywet_port'] = drywet_elem.get('port')
+                            kwargs['drywet_default'] = drywet_elem.get('default')
+
+                        bypass_elem = port_elem.find('bypass')
+                        if bypass_elem is not None:
+                            kwargs['bypass_port'] = bypass_elem.get('port')
+
+                    if (direction == node_db.PortDirection.Input
+                            and port_type == node_db.PortType.Events):
+                        csound_elem = port_elem.find('csound')
+                        if csound_elem is not None:
+                            kwargs['csound_instr'] = csound_elem.get('instr')
+
+                    port_cls = {
+                        node_db.PortType.Audio: node_db.AudioPortDescription,
+                        node_db.PortType.Events: node_db.EventPortDescription,
+                    }[port_type]
 
                     port_desc = port_cls(
                         name=port_elem.get('name'),

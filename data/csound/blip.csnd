@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<csound>
+<display-name>Blip</display-name>
+<ports>
+  <port name="in" type="events" direction="input">
+    <csound instr="1"/>
+  </port>
+  <port name="out" type="audio" direction="output"/>
+</ports>
+<parameters>
+</parameters>
+<orchestra>
+ksmps=32
+nchnls=2
+
+gaOutL chnexport "out/left", 2
+gaOutR chnexport "out/right", 2
+
+instr 1
+  iPitch = p4
+  iVelocity = p5
+
+  iFreq = cpsmidinn(iPitch)
+  iVolume = -20 * log10(127^2 / iVelocity^2)
+
+  aout = db(iVolume) * linsegr(0, 0.08, 1, 0.1, 0.6, 0.5, 0.0) * poscil(1.0, iFreq)
+  gaOutL = gaOutL + aout
+  gaOutR = gaOutR + aout
+endin
+
+</orchestra>
+<score>
+</score>
+</csound>

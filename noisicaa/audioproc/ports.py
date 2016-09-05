@@ -196,8 +196,9 @@ class AudioOutputPort(OutputPort):
 
 
 class EventInputPort(InputPort):
-    def __init__(self, name):
+    def __init__(self, name, csound_instr='1'):
         super().__init__(name)
+        self.csound_instr = csound_instr
 
         self.events = []
 
