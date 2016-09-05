@@ -1,16 +1,3 @@
-* Reference counting is still broken					:BUG:
-- reproduce
-  - open existing project
-  - "Remove Measure"
-  - AssertionError ref_count > 0
-- reference counts are zero after loading project?
-- try to get ObjectReferenceProperty working after all?
-  - only store id internally
-  - lazily dereference id in __get__
-  - should PropertyValueChange get ids or objects?
-- or give up on reference counting and just scan measure_heap for abandoned
-  objects.
-
 * Abstract base class for ui mixins				    :CLEANUP:
 - to make pylint happy
 

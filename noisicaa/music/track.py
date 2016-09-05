@@ -130,18 +130,25 @@ class Track(model.Track, state.StateBase):
         measure = self.create_empty_measure(ref)
         self.measure_heap.append(measure)
         self.measure_list.insert(idx, MeasureReference(measure_id=measure.id))
-        measure.ref_count += 1
+
+    def garbage_collect_measures(self):
+        ref_counts = {measure.id: 0 for measure in self.measure_heap}
+
+        for mref in self.measure_list:
+            ref_counts[mref.measure_id] += 1
+
+        measure_ids_to_delete = [
+            measure_id for measure_id, ref_count in ref_counts.items()
+            if ref_count == 0]
+        indices_to_delete = [
+            self.root.get_object(measure_id).index
+            for measure_id in measure_ids_to_delete]
+        for idx in sorted(indices_to_delete, reverse=True):
+            del self.measure_heap[idx]
 
     def remove_measure(self, idx):
-        measure = self.measure_list[idx].measure
-        assert measure.ref_count > 0
-
         del self.measure_list[idx]
-
-        measure.ref_count -= 1
-        if measure.ref_count == 0:
-            logger.info("GC measure %s", measure.id)
-            del self.measure_heap[measure.index]
+        self.garbage_collect_measures()
 
     def create_empty_measure(self, ref):  # pylint: disable=unused-argument
         return self.measure_cls()  # pylint: disable=not-callable

@@ -204,21 +204,12 @@ class PasteMeasuresAsLink(commands.Command):
             obj.track.id for obj in src_measures + target_measures)
         assert len(affected_track_ids) == 1
 
-        t = root.get_object(affected_track_ids.pop())
-        logger.info("HEAP:%s", ''.join('\n  %2d %s (%d refs)' % (i, o.id, o.ref_count) for i, o in enumerate(t.measure_heap)))
-        logger.info("LIST:%s", ''.join('\n  %2d %s' % (i, o.measure.id) for i, o in enumerate(t.measure_list)))
-
         for target, src in zip(
                 target_measures, itertools.cycle(src_measures)):
-            old = target.measure
-            old.ref_count -= 1
-
             target.measure_id = src.id
-            target.measure.ref_count += 1
 
-            if old.ref_count == 0:
-                logger.info("GC measure %s", old.id)
-                del old.track.measure_heap[old.index]
+        for track_id in affected_track_ids:
+            root.get_object(track_id).garbage_collect_measures()
 
 commands.Command.register_command(PasteMeasuresAsLink)
 
