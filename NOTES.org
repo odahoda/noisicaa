@@ -1,10 +1,5 @@
-* Batch UI updates from commands					 :FR:
-- when sending an async command, don't update UI until command returns
-- shared CallbackRegistry on context object
-- events for command started and command finished
-- SheetView installs listener to disable/enable updates
-- just set bit when update requested
-- on command finished, update if bit set
+* Abstract base class for ui mixins				    :CLEANUP:
+- to make pylint happy
 
 * Track type: percussion						 :FR:
 ** move beats to arbitrary positions

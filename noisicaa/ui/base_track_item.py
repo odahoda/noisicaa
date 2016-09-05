@@ -123,6 +123,11 @@ class MeasureItemImpl(QtWidgets.QGraphicsObject):
         self.recomputeLayout()
 
     def recomputeLayout(self):
+        self._sheet_view.scheduleCallback(
+            '%s:recomputeLayout' % id(self),
+            self._recomputeLayoutInternal)
+
+    def _recomputeLayoutInternal(self):
         layout = self.computeLayout()
         if layout != self._layout:
             self._sheet_view.updateSheet()
@@ -136,7 +141,12 @@ class MeasureItemImpl(QtWidgets.QGraphicsObject):
         self._layout = layout
 
     def updateMeasure(self):
-        pass
+        self._sheet_view.scheduleCallback(
+            '%s:updateMeasure' % id(self),
+            self._updateMeasureInternal)
+
+    def _updateMeasureInternal(self):
+        raise NotImplementedError
 
     @property
     def layers(self):

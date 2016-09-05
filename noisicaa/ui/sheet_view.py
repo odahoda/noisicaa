@@ -48,6 +48,14 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
         super().__init__(**kwargs)
         self._sheet = sheet
 
+        self._pending_callbacks = None
+        self._project_mutations_begin_listener = (
+            self.project_client.listeners.add(
+                'project_mutations_begin', self.onProjectMutationsBegin))
+        self._project_mutations_end_listener = (
+            self.project_client.listeners.add(
+                'project_mutations_end', self.onProjectMutationsEnd))
+
         self._selection_set = set()
 
         self._track_items = {}
@@ -88,6 +96,9 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
 
         self.player_audioproc_address = None
 
+        self._project_mutations_begin_listener = None
+        self._project_mutations_end_listener = None
+
     async def setup(self):
         self._player_id, self._player_stream_address = await self.project_client.create_player(self._sheet.id)
         self._player_status_listener = self.project_client.add_player_status_listener(
@@ -103,6 +114,14 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
             self._player_node_id, 'out', 'sink', 'in')
 
     async def cleanup(self):
+        if self._project_mutations_begin_listener is not None:
+            self._project_mutations_begin_listener.remove()
+            self._project_mutations_begin_listener = None
+
+        if self._project_mutations_end_listener is not None:
+            self._project_mutations_end_listener.remove()
+            self._project_mutations_end_listener = None
+
         while len(self._track_items) > 0:
             self.removeTrack(next(self._track_items.values()))
 
@@ -283,6 +302,24 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
             a.setPos(10, 10)
 
         self.currentToolChanged.emit(self._current_tool)
+
+    def onProjectMutationsBegin(self):
+        self._pending_callbacks = {}
+
+    def onProjectMutationsEnd(self):
+        callbacks = list(self._pending_callbacks.values())
+        self._pending_callbacks = None
+
+        for callback in callbacks:
+            callback()
+
+    def scheduleCallback(self, cb_id, callback):
+        if self._pending_callbacks is not None:
+            if cb_id not in self._pending_callbacks:
+                self._pending_callbacks[cb_id] = callback
+
+        else:
+            callback()
 
     def updateView(self):
         self.updateSheet()

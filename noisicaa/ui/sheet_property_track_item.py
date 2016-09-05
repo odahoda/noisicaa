@@ -62,7 +62,7 @@ class SheetPropertyMeasureItemImpl(base_track_item.MeasureItemImpl):
         layout.baseline = height_above
         return layout
 
-    def updateMeasure(self):
+    def _updateMeasureInternal(self):
         assert self._layout.width > 0 and self._layout.height > 0
 
         layer = self._layers[base_track_item.Layer.MAIN]

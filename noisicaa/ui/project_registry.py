@@ -5,10 +5,24 @@ import os.path
 
 from PyQt5 import QtCore
 
+from noisicaa import core
 from noisicaa import music
 from . import model
 
 logger = logging.getLogger(__name__)
+
+
+class ProjectClient(music.ProjectClient):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.listeners = core.CallbackRegistry()
+
+    def handle_project_mutations(self, mutations):
+        self.listeners.call('project_mutations_begin')
+        try:
+            return super().handle_project_mutations(mutations)
+        finally:
+            self.listeners.call('project_mutations_end')
 
 
 class Project(object):
@@ -28,8 +42,8 @@ class Project(object):
     async def create_process(self):
         self.process_address = await self.process_manager.call(
             'CREATE_PROJECT_PROCESS', self.path)
-        self.client = music.ProjectClient(
-            self.event_loop, node_db=self.node_db)
+        self.client = ProjectClient(
+            event_loop=self.event_loop, node_db=self.node_db)
         self.client.cls_map.update(model.cls_map)
         await self.client.setup()
         await self.client.connect(self.process_address)
