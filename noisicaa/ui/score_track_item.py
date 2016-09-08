@@ -100,7 +100,7 @@ class ScoreMeasureItemImpl(base_track_item.MeasureItemImpl):
 
         self.addMeasureListeners()
 
-    def computeLayout(self):
+    def getLayout(self):
         width = 0
         height_above = 120
         height_below = 120
@@ -795,11 +795,12 @@ class ScoreMeasureItem(ui_base.ProjectMixin, ScoreMeasureItemImpl):
     pass
 
 
-class ScoreTrackItemImpl(base_track_item.TrackItemImpl):
+class ScoreTrackItemImpl(base_track_item.MeasuredTrackItemImpl):
     measure_item_cls = ScoreMeasureItem
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self._instrument_selector = None
         self._play_last_pitch = None
         self.onInstrumentChanged(None, self._track.instrument)
         self._listeners.append(

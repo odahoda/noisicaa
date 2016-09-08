@@ -61,6 +61,63 @@ class UpdateTrackProperties(commands.Command):
 commands.Command.register_command(UpdateTrackProperties)
 
 
+class Track(model.Track, state.StateBase):
+    def __init__(self, name=None, state=None):
+        super().__init__(state)
+
+        if state is None:
+            self.name = name
+
+    @property
+    def parent_mixer_name(self):
+        return self.parent.mixer_name
+
+    @property
+    def parent_mixer_node(self):
+        return self.parent.mixer_node
+
+    # TODO: the following are common to MeasuredTrack and TrackGroup, but not really
+    # generic for all track types.
+
+    @property
+    def mixer_name(self):
+        return '%s-track-mixer' % self.id
+
+    @property
+    def mixer_node(self):
+        for node in self.sheet.pipeline_graph_nodes:
+            if isinstance(node, pipeline_graph.TrackMixerPipelineGraphNode) and node.track is self:
+                return node
+
+        raise ValueError("No mixer node found.")
+
+    @property
+    def relative_position_to_parent_mixer(self):
+        return misc.Pos2F(-200, self.index * 100)
+
+    @property
+    def default_mixer_name(self):
+        return "Track Mixer"
+
+    def add_pipeline_nodes(self):
+        parent_mixer_node = self.parent_mixer_node
+
+        mixer_node = pipeline_graph.TrackMixerPipelineGraphNode(
+            name=self.default_mixer_name,
+            graph_pos=(
+                parent_mixer_node.graph_pos
+                + self.relative_position_to_parent_mixer),
+            track=self)
+        self.sheet.add_pipeline_graph_node(mixer_node)
+
+        conn = pipeline_graph.PipelineGraphConnection(
+            mixer_node, 'out', parent_mixer_node, 'in')
+        self.sheet.add_pipeline_graph_connection(conn)
+
+    def remove_pipeline_nodes(self):
+        self.sheet.remove_pipeline_graph_node(self.mixer_node)
+
+
 class Measure(model.Measure, state.StateBase):
     def __init__(self, state=None):
         super().__init__(state)
@@ -89,18 +146,14 @@ class EventSource(object):
         raise NotImplementedError
 
 
-class Track(model.Track, state.StateBase):
+class MeasuredTrack(model.MeasuredTrack, Track):
     measure_cls = None
 
-    def __init__(self, name=None, state=None):
-        super().__init__(state)
+    def __init__(self, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
 
         if state is None:
-            self.name = name
-
-    @property
-    def project(self):
-        return self.sheet.project
+            pass
 
     def append_measure(self):
         self.insert_measure(-1)
@@ -152,49 +205,3 @@ class Track(model.Track, state.StateBase):
 
     def create_empty_measure(self, ref):  # pylint: disable=unused-argument
         return self.measure_cls()  # pylint: disable=not-callable
-
-    @property
-    def parent_mixer_name(self):
-        return self.parent.mixer_name
-
-    @property
-    def parent_mixer_node(self):
-        return self.parent.mixer_node
-
-    @property
-    def mixer_name(self):
-        return '%s-track-mixer' % self.id
-
-    @property
-    def mixer_node(self):
-        for node in self.sheet.pipeline_graph_nodes:
-            if isinstance(node, pipeline_graph.TrackMixerPipelineGraphNode) and node.track is self:
-                return node
-
-        raise ValueError("No mixer node found.")
-
-    @property
-    def relative_position_to_parent_mixer(self):
-        return misc.Pos2F(-200, self.index * 100)
-
-    @property
-    def default_mixer_name(self):
-        return "Track Mixer"
-
-    def add_pipeline_nodes(self):
-        parent_mixer_node = self.parent_mixer_node
-
-        mixer_node = pipeline_graph.TrackMixerPipelineGraphNode(
-            name=self.default_mixer_name,
-            graph_pos=(
-                parent_mixer_node.graph_pos
-                + self.relative_position_to_parent_mixer),
-            track=self)
-        self.sheet.add_pipeline_graph_node(mixer_node)
-
-        conn = pipeline_graph.PipelineGraphConnection(
-            mixer_node, 'out', parent_mixer_node, 'in')
-        self.sheet.add_pipeline_graph_connection(conn)
-
-    def remove_pipeline_nodes(self):
-        self.sheet.remove_pipeline_graph_node(self.mixer_node)

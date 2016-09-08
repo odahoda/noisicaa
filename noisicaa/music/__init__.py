@@ -9,7 +9,8 @@ from .project import (
     BaseProject, Project,
 )
 from .track import (
-    Track, Measure, EventSource,
+    Track,
+    MeasuredTrack, Measure, EventSource,
 )
 from .score_track import (
     ScoreMeasure, ScoreTrack,

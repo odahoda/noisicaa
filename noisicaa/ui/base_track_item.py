@@ -9,6 +9,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from .misc import QGraphicsGroup
+from . import layout
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,96 @@ class Layer(enum.IntEnum):
     EVENTS = 5
 
     NUM_LAYERS = 6
+
+
+
+class TrackItemImpl(object):
+    def __init__(self, sheet_view, track, **kwargs):
+        super().__init__(**kwargs)
+        self._sheet_view = sheet_view
+        self._track = track
+
+        self._layout = None
+
+        self._listeners = [
+            self._track.listeners.add('name', self.onNameChanged),
+            self._track.listeners.add('muted', self.onMutedChanged),
+            self._track.listeners.add('volume', self.onVolumeChanged),
+            self._track.listeners.add('visible', self.onVisibleChanged),
+        ]
+
+    def close(self):
+        for listener in self._listeners:
+            listener.remove()
+
+    @property
+    def track(self):
+        return self._track
+
+    def onNameChanged(self, old_name, new_name):
+        # TODO: only update the first measure.
+        self._sheet_view.updateSheet()
+
+    def onMutedChanged(self, old_value, new_value):
+        pass # TODO
+
+    def onVolumeChanged(self, old_value, new_value):
+        pass # TODO
+
+    def onVisibleChanged(self, old_value, new_value):
+        self._sheet_view.updateSheet()
+
+    def getLayout(self):
+        raise NotImplementedError
+
+    def renderTrack(self, y, track_layout):
+        self._layout = track_layout
+
+    def buildContextMenu(self, menu):
+        track_properties_action = QtWidgets.QAction(
+            "Edit track properties...", menu,
+            statusTip="Edit the properties of this track.",
+            triggered=self.onTrackProperties)
+        menu.addAction(track_properties_action)
+
+        remove_track_action = QtWidgets.QAction(
+            "Remove track", menu,
+            statusTip="Remove this track.",
+            triggered=self.onRemoveTrack)
+        menu.addAction(remove_track_action)
+
+    def onRemoveTrack(self):
+        self.send_command_async(
+            self._track.parent.id, 'RemoveTrack',
+            track=self._track.index)
+
+    def onTrackProperties(self):
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle("Track Properties")
+
+        name = QtWidgets.QLineEdit(dialog)
+        name.setText(self._track.name)
+
+        form_layout = QtWidgets.QFormLayout()
+        form_layout.addRow("Name", name)
+
+        close = QtWidgets.QPushButton("Close")
+        close.clicked.connect(dialog.close)
+
+        buttons = QtWidgets.QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(close)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(form_layout)
+        layout.addLayout(buttons)
+        dialog.setLayout(layout)
+
+        ret = dialog.exec_()
+
+        self.send_command_async(
+            self._track.id, 'UpdateTrackProperties',
+            name=name.text())
 
 
 class MeasureLayout(object):
@@ -128,13 +219,13 @@ class MeasureItemImpl(QtWidgets.QGraphicsObject):
             self._recomputeLayoutInternal)
 
     def _recomputeLayoutInternal(self):
-        layout = self.computeLayout()
+        layout = self.getLayout()
         if layout != self._layout:
             self._sheet_view.updateSheet()
         else:
             self.updateMeasure()
 
-    def computeLayout(self):
+    def getLayout(self):
         raise NotImplementedError
 
     def setLayout(self, layout):
@@ -225,17 +316,40 @@ class MeasureItemImpl(QtWidgets.QGraphicsObject):
                 'data': await self.project_client.serialize(self._measure.id) }
 
 
-class TrackItemImpl(object):
+class MeasuredTrackLayout(layout.TrackLayout):
+    def __init__(self):
+        super().__init__()
+
+        self.measure_layouts = []
+        self._height_above = 0
+        self._height_below = 0
+
+    def add_measure_layout(self, measure_layout):
+        self.measure_layouts.append(measure_layout)
+        self._height_above = max(self._height_above, measure_layout.extend_above)
+        self._height_below = max(self._height_below, measure_layout.extend_below)
+
+    def list_points(self):
+        for pos, measure_layout in enumerate(self.measure_layouts):
+            yield (pos, measure_layout.width)
+
+    def set_widths(self, widths):
+        super().set_widths(widths)
+
+        for measure_layout, (pos, width) in zip(self.measure_layouts, widths):
+            measure_layout.width = width
+
+    @property
+    def height(self):
+        return self._height_above + self._height_below
+
+
+class MeasuredTrackItemImpl(TrackItemImpl):
     measure_item_cls = None
 
-    def __init__(self, sheet_view, track, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._sheet_view = sheet_view
-        self._track = track
 
-        self._instrument_selector = None
-
-        self._prev_note_highlight = None
         self._prev_playback_measures = set()
 
         self._measures = []
@@ -249,18 +363,11 @@ class TrackItemImpl(object):
             **self.context, sheet_view=self._sheet_view,
             track_item=self, measure_reference=None)
 
-        self._listeners = [
-            self._track.listeners.add('name', self.onNameChanged),
-            self._track.listeners.add(
-                'measure_list', self.onMeasureListChanged),
-            self._track.listeners.add('muted', self.onMutedChanged),
-            self._track.listeners.add('volume', self.onVolumeChanged),
-            self._track.listeners.add('visible', self.onVisibleChanged),
-        ]
+        self._listeners.append(self._track.listeners.add(
+            'measure_list', self.onMeasureListChanged))
 
     def close(self):
-        for listener in self._listeners:
-            listener.remove()
+        super.close()
 
         while len(self._measures) > 0:
             measure = self._measures.pop(0)
@@ -270,10 +377,6 @@ class TrackItemImpl(object):
             measure.close()
         self._ghost_measure_item.close()
         self._ghost_measure_item = None
-
-    @property
-    def track(self):
-        return self._track
 
     @property
     def measures(self):
@@ -303,64 +406,29 @@ class TrackItemImpl(object):
         else:
             raise ValueError("Unknown action %r" % action)
 
-    def onNameChanged(self, old_name, new_name):
-        # TODO: only update the first measure.
-        self._sheet_view.updateSheet()
+    def getLayout(self):
+        track_layout = MeasuredTrackLayout()
+        for measure_item in self.measures:
+            track_layout.add_measure_layout(measure_item.getLayout())
+        return track_layout
 
-    def onMutedChanged(self, old_value, new_value):
-        pass # TODO
+    def renderTrack(self, y, track_layout):
+        super().renderTrack(y, track_layout)
 
-    def onVolumeChanged(self, old_value, new_value):
-        pass # TODO
+        x = 0
+        for measure, measure_layout in zip(self.measures, self._layout.measure_layouts):
+            measure.setLayout(measure_layout)
+            measure.updateMeasure()
+            for mlayer_id in measure.layers:
+                slayer = self._sheet_view.layers[mlayer_id]
+                mlayer = measure.getLayer(mlayer_id)
+                assert mlayer is not None
+                mlayer.setParentItem(slayer)
+                mlayer.setPos(x, y)
+            measure.setParentItem(self._sheet_view.layers[Layer.EVENTS])
+            measure.setPos(x, y)
 
-    def onVisibleChanged(self, old_value, new_value):
-        self._sheet_view.updateSheet()
-
-    def buildContextMenu(self, menu):
-        track_properties_action = QtWidgets.QAction(
-            "Edit track properties...", menu,
-            statusTip="Edit the properties of this track.",
-            triggered=self.onTrackProperties)
-        menu.addAction(track_properties_action)
-
-        remove_track_action = QtWidgets.QAction(
-            "Remove track", menu,
-            statusTip="Remove this track.",
-            triggered=self.onRemoveTrack)
-        menu.addAction(remove_track_action)
-
-    def onRemoveTrack(self):
-        self.send_command_async(
-            self._track.parent.id, 'RemoveTrack',
-            track=self._track.index)
-
-    def onTrackProperties(self):
-        dialog = QtWidgets.QDialog()
-        dialog.setWindowTitle("Track Properties")
-
-        name = QtWidgets.QLineEdit(dialog)
-        name.setText(self._track.name)
-
-        form_layout = QtWidgets.QFormLayout()
-        form_layout.addRow("Name", name)
-
-        close = QtWidgets.QPushButton("Close")
-        close.clicked.connect(dialog.close)
-
-        buttons = QtWidgets.QHBoxLayout()
-        buttons.addStretch(1)
-        buttons.addWidget(close)
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.addLayout(form_layout)
-        layout.addLayout(buttons)
-        dialog.setLayout(layout)
-
-        ret = dialog.exec_()
-
-        self.send_command_async(
-            self._track.id, 'UpdateTrackProperties',
-            name=name.text())
+            x += measure_layout.width
 
     def setPlaybackPos(
             self, sample_pos, num_samples, start_measure_idx,

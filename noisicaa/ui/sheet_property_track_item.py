@@ -52,7 +52,7 @@ class SheetPropertyMeasureItemImpl(base_track_item.MeasureItemImpl):
             pen.setWidth(3)
             self.playback_pos.setPen(pen)
 
-    def computeLayout(self):
+    def getLayout(self):
         width = 100
         height_above = 10
         height_below = 10
@@ -150,7 +150,7 @@ class SheetPropertyMeasureItem(
     pass
 
 
-class SheetPropertyTrackItemImpl(base_track_item.TrackItemImpl):
+class SheetPropertyTrackItemImpl(base_track_item.MeasuredTrackItemImpl):
     measure_item_cls = SheetPropertyMeasureItem
 
 

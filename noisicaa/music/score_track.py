@@ -8,7 +8,7 @@ from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
 from .pitch import Pitch
 from .clef import Clef
 from .key_signature import KeySignature
-from .track import Track, Measure, EventSource
+from .track import MeasuredTrack, Measure, EventSource
 from .time import Duration
 from . import model
 from . import state
@@ -33,7 +33,7 @@ class SetInstrument(commands.Command):
             self.instrument_args.update(instrument_args)
 
     def run(self, track):
-        assert isinstance(track, Track)
+        assert isinstance(track, MeasuredTrack)
 
         assert self.instrument_type == 'SoundFontInstrument'
         instr = instruments.SoundFontInstrument(**self.instrument_args)
@@ -352,7 +352,7 @@ class ScoreEventSource(EventSource):
                     self._current_measure = 0
 
 
-class ScoreTrack(model.ScoreTrack, Track):
+class ScoreTrack(model.ScoreTrack, MeasuredTrack):
     measure_cls = ScoreMeasure
 
     def __init__(
