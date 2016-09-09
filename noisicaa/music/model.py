@@ -27,6 +27,26 @@ class SampleInstrument(Instrument):
     path = core.Property(str)
 
 
+class Track(core.ObjectBase):
+    name = core.Property(str)
+
+    visible = core.Property(bool, default=True)
+    muted = core.Property(bool, default=False)
+    volume = core.Property(float, default=100.0)
+
+    @property
+    def project(self):
+        return self.sheet.project
+
+    @property
+    def sheet(self):
+        return self.parent.sheet
+
+    def walk_tracks(self, groups=False, tracks=True):
+        if tracks:
+            yield self
+
+
 class Measure(core.ObjectBase):
     @property
     def track(self):
@@ -58,22 +78,9 @@ class MeasureReference(core.ObjectBase):
         return self.track.sheet
 
 
-class Track(core.ObjectBase):
-    name = core.Property(str)
+class MeasuredTrack(Track):
     measure_list = core.ObjectListProperty(cls=MeasureReference)
     measure_heap = core.ObjectListProperty(cls=Measure)
-
-    visible = core.Property(bool, default=True)
-    muted = core.Property(bool, default=False)
-    volume = core.Property(float, default=100.0)
-
-    @property
-    def sheet(self):
-        return self.parent.sheet
-
-    def walk_tracks(self, groups=False, tracks=True):
-        if tracks:
-            yield self
 
 
 class Note(core.ObjectBase):
@@ -139,7 +146,7 @@ class ScoreMeasure(Measure):
         return self.sheet.get_time_signature(self.index)
 
 
-class ScoreTrack(Track):
+class ScoreTrack(MeasuredTrack):
     instrument = core.ObjectProperty(cls=Instrument)
     transpose_octaves = core.Property(int, default=0)
 
@@ -161,7 +168,7 @@ class BeatMeasure(Measure):
         return self.sheet.get_time_signature(self.index)
 
 
-class BeatTrack(Track):
+class BeatTrack(MeasuredTrack):
     instrument = core.ObjectProperty(cls=Instrument)
     pitch = core.Property(pitch.Pitch)
 
@@ -173,8 +180,17 @@ class SheetPropertyMeasure(Measure):
         default=time_signature.TimeSignature(4, 4))
 
 
-class SheetPropertyTrack(Track):
+class SheetPropertyTrack(MeasuredTrack):
     pass
+
+
+class ControlPoint(core.ObjectBase):
+    timepos = core.Property(time.Duration)
+    value = core.Property(float)
+
+
+class ControlTrack(Track):
+    points = core.ObjectListProperty(ControlPoint)
 
 
 class PipelineGraphNodeParameterValue(core.ObjectBase):
@@ -325,6 +341,11 @@ class Sheet(core.ObjectBase):
     @property
     def project(self):
         return self.parent
+
+    @property
+    def all_tracks(self):
+        return ([self.property_track]
+                + list(self.master_group.walk_tracks()))
 
     def get_bpm(self, measure_idx, tick):  # pylint: disable=unused-argument
         return self.property_track.measure_list[measure_idx].measure.bpm

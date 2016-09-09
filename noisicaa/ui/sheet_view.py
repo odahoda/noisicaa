@@ -20,6 +20,8 @@ from . import base_track_item
 from . import score_track_item
 from . import beat_track_item
 from . import sheet_property_track_item
+from . import control_track_item
+from . import layout
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,7 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
         'ScoreTrack': score_track_item.ScoreTrackItem,
         'BeatTrack': beat_track_item.BeatTrackItem,
         'SheetPropertyTrack': sheet_property_track_item.SheetPropertyTrackItem,
+        'ControlTrack': control_track_item.ControlTrackItem,
     }
 
     def __init__(self, sheet, **kwargs):
@@ -74,16 +77,16 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
         self.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         #self.setDragMode(QGraphicsView.ScrollHandDrag)
 
-        self._layers = {}
+        self.layers = {}
         for layer_id in range(base_track_item.Layer.NUM_LAYERS):
             layer = QGraphicsGroup()
             layer.setPos(0, 0)
-            self._layers[layer_id] = layer
+            self.layers[layer_id] = layer
             self._scene.addItem(layer)
 
         self._current_tool = Tool.NOTE_QUARTER
         self._previous_tool = -1
-        self._cursor = QGraphicsGroup(self._layers[base_track_item.Layer.MOUSE])
+        self._cursor = QGraphicsGroup(self.layers[base_track_item.Layer.MOUSE])
 
         self.updateSheet()
 
@@ -330,86 +333,41 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
                 self._scene.removeItem(item)
             item.setParentItem(None)
 
-    def computeLayout(self):
-        track_items = [self._property_track_item] + self.trackItems
-
-        self._layouts = []
-        for track_item in track_items:
-            track_layouts = []
-            self._layouts.append(track_layouts)
-
-            height_above = 0
-            height_below = 0
-            for measure_item in track_item.measures:
-                layout = measure_item.computeLayout()
-                track_layouts.append(layout)
-                height_above = max(height_above, layout.extend_above)
-                height_below = max(height_below, layout.extend_below)
-
-            for layout in track_layouts:
-                layout.size = QtCore.QSize(
-                    layout.width, height_above + height_below)
-                layout.baseline = height_above
-
-        for column_layouts in itertools.zip_longest(*self._layouts):
-            width = 0
-            for layout in filter(lambda l: l is not None, column_layouts):
-                width = max(width, layout.width)
-            for layout in filter(lambda l: l is not None, column_layouts):
-                layout.width = width
-
-        for track_item, track_layouts in zip(track_items, self._layouts):
-            for measure_item, layout in zip(track_item.measures, track_layouts):
-                measure_item.setLayout(layout)
-
     def updateSheet(self):
         for layer_id in (
                 base_track_item.Layer.BG, base_track_item.Layer.MAIN,
                 base_track_item.Layer.DEBUG, base_track_item.Layer.EVENTS):
-            self.clearLayer(self._layers[layer_id])
+            self.clearLayer(self.layers[layer_id])
 
-        text = QtWidgets.QGraphicsSimpleTextItem(self._layers[base_track_item.Layer.MAIN])
+        text = QtWidgets.QGraphicsSimpleTextItem(self.layers[base_track_item.Layer.MAIN])
         text.setText(
             "%s/%s" % (self.project_connection.name, self._sheet.name))
         text.setPos(0, 0)
 
         track_items = [self._property_track_item] + self.trackItems
+        visible_track_items = [
+            track_item for track_item in track_items if track_item.track.visible]
 
-        self.computeLayout()
-
-        max_x = 200
+        sheet_layout = layout.SheetLayout()
+        for track_item in visible_track_items:
+            sheet_layout.add_track_layout(track_item.getLayout())
+        sheet_layout.compute()
 
         y = 30
-        for track, track_layouts in zip(track_items, self._layouts):
-            if not track.track.visible:
-                continue
+        for track, track_layout in zip(visible_track_items, sheet_layout.track_layouts):
+            track.renderTrack(y, track_layout)
 
-            x = 10
-            track_height = 20
-            for measure, layout in zip(track.measures, track_layouts):
-                measure.updateMeasure()
-                for mlayer_id in measure.layers:
-                    slayer = self._layers[mlayer_id]
-                    mlayer = measure.getLayer(mlayer_id)
-                    assert mlayer is not None
-                    mlayer.setParentItem(slayer)
-                    mlayer.setPos(x, y)
-                measure.setParentItem(self._layers[base_track_item.Layer.EVENTS])
-                measure.setPos(x, y)
+            y += track_layout.height + 20
 
-                track_height = max(track_height, layout.height)
-                max_x = max(max_x, x + layout.width)
-                x += layout.width
-
-            y += track_height + 20
+        self.setSceneRect(-10, -10, sheet_layout.width + 20, y + 20)
 
         if self.app.showEditAreas:  # pragma: no cover
-            bbox = QtWidgets.QGraphicsRectItem(self._layers[base_track_item.Layer.DEBUG])
-            bbox.setRect(0, 0, max_x, y)
+            bbox = QtWidgets.QGraphicsRectItem(self.layers[base_track_item.Layer.DEBUG])
+            bbox.setRect(0, 0, sheet_layout.width, y)
             bbox.setPen(QtGui.QColor(200, 200, 200))
             bbox.setBrush(QtGui.QBrush(Qt.NoBrush))
 
-        self.setSceneRect(-10, -10, max_x + 20, y + 20)
+        self.setSceneRect(-10, -10, sheet_layout.width + 20, y + 20)
 
     def mouseMoveEvent(self, event):
         super().mouseMoveEvent(event)

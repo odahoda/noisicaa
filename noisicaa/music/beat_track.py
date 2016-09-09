@@ -5,7 +5,7 @@ import logging
 from noisicaa import core
 from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
 
-from .track import Track, Measure, EventSource
+from .track import MeasuredTrack, Measure, EventSource
 from .time import Duration
 from .pitch import Pitch
 from . import model
@@ -32,7 +32,7 @@ class SetBeatTrackInstrument(commands.Command):
             self.instrument_args.update(instrument_args)
 
     def run(self, track):
-        assert isinstance(track, Track)
+        assert isinstance(track, BeatTrack)
 
         assert self.instrument_type == 'SoundFontInstrument'
         instr = instruments.SoundFontInstrument(**self.instrument_args)
@@ -173,7 +173,7 @@ class BeatEventSource(EventSource):
                     self._current_measure = 0
 
 
-class BeatTrack(model.BeatTrack, Track):
+class BeatTrack(model.BeatTrack, MeasuredTrack):
     measure_cls = BeatMeasure
 
     def __init__(

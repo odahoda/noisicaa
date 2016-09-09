@@ -229,7 +229,7 @@ class Player(object):
             if isinstance(t, model.TrackGroup):
                 self.group_listeners[t.id] = t.listeners.add(
                     'tracks', self.tracks_changed)
-            else:
+            elif isinstance(t, model.MeasuredTrack):
                 self.track_event_sources[t.id] = t.create_event_source()
 
     def remove_track(self, track):
@@ -238,7 +238,7 @@ class Player(object):
                 listener = self.group_listeners[t.id]
                 listener.remove()
                 del self.group_listeners[t.id]
-            else:
+            elif isinstance(t, model.MeasuredTrack):
                 del self.track_event_sources[t.id]
 
     def get_track_events(self, sample_pos, num_samples):

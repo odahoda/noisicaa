@@ -1,3 +1,20 @@
+* TODO Control tracks							 :FR:
+Any controllable value can be turned into a control track.
+Icon next to controllable values, drag'n'drop onto editor.
+
+- should control tracks be measured?
+  - if not, inserting a new measure across all tracks becomes non-obvious
+  - if not, layouting needs to be reimplemented
+    - each track has its own layout
+    - but measures should still align
+  - control tracks should still be rendered as a sequence of measures,
+    aligned to the other tracks
+  - if yes, moving control points across measure boundaries becomes
+    non-trivial
+- what happens when the song becomes shorter than a control track?
+  - discard all control points past the end
+  - or keep control points, but just don't show them
+
 * Abstract base class for ui mixins				    :CLEANUP:
 - to make pylint happy
 
@@ -116,9 +133,6 @@ Compute list of valid dest nodes and highlight those.
 * More instrument types							 :FR:
 - simple samples
 - SFZ
-* Control tracks							 :FR:
-Any controllable value can be turned into a control track.
-Icon next to controllable values, drag'n'drop onto editor.
 
 * Audio tracks								 :FR:
 - keep separate list of audio clips

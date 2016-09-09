@@ -144,6 +144,9 @@ class InsertMeasure(commands.Command):
             sheet.property_track.append_measure()
 
         for idx, track in enumerate(sheet.master_group.tracks):
+            if not isinstance(track, model.MeasuredTrack):
+                continue
+
             if not self.tracks or idx in self.tracks:
                 track.insert_measure(self.pos)
             else:
@@ -335,11 +338,6 @@ class Sheet(model.Sheet, state.StateBase):
     @property
     def project(self):
         return self.parent
-
-    @property
-    def all_tracks(self):
-        return ([self.property_track]
-                + list(self.master_group.walk_tracks()))
 
     def clear(self):
         pass

@@ -67,7 +67,7 @@ class BeatMeasureItemImpl(base_track_item.MeasureItemImpl):
 
         self.addMeasureListeners()
 
-    def computeLayout(self):
+    def getLayout(self):
         width = 100
         height_above = 30
         height_below = 30
@@ -295,7 +295,7 @@ class BeatMeasureItem(ui_base.ProjectMixin, BeatMeasureItemImpl):
     pass
 
 
-class BeatTrackItemImpl(base_track_item.TrackItemImpl):
+class BeatTrackItemImpl(base_track_item.MeasuredTrackItemImpl):
     measure_item_cls = BeatMeasureItem
 
     def __init__(self, **kwargs):

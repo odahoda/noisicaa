@@ -5,7 +5,7 @@ import logging
 from noisicaa import core
 
 from .time_signature import TimeSignature
-from .track import Track, Measure, EventSource
+from .track import MeasuredTrack, Measure, EventSource
 from .time import Duration
 from . import model
 from . import commands
@@ -70,7 +70,7 @@ class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
 state.StateBase.register_class(SheetPropertyMeasure)
 
 
-class SheetPropertyTrack(model.SheetPropertyTrack, Track):
+class SheetPropertyTrack(model.SheetPropertyTrack, MeasuredTrack):
     measure_cls = SheetPropertyMeasure
 
     def __init__(self, name=None, num_measures=1, state=None):
