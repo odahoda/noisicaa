@@ -15,6 +15,10 @@ Icon next to controllable values, drag'n'drop onto editor.
   - discard all control points past the end
   - or keep control points, but just don't show them
 
+* Exception when closing a project					:BUG:
+- 'dict_values' object is not an iterator
+- no traceback?
+
 * Abstract base class for ui mixins				    :CLEANUP:
 - to make pylint happy
 
