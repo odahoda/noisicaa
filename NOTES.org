@@ -1,6 +1,14 @@
 * Abstract base class for ui mixins				    :CLEANUP:
 - to make pylint happy
 
+* Revamp object model 						    :CLEANUP:
+- root manages heap of objects
+- when creating object, add it to heap
+  - __init__ needs to know root, so it can create children
+  - or separate setup() method?
+- all object references (child, lists, etc.) only store IDs in state, do
+  lazy dereferencing on __get__
+
 * Track type: percussion						 :FR:
 ** move beats to arbitrary positions
 * Sometimes hands during shutdown					:BUG:
