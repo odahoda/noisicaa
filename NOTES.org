@@ -14,6 +14,12 @@ Icon next to controllable values, drag'n'drop onto editor.
 - what happens when the song becomes shorter than a control track?
   - discard all control points past the end
   - or keep control points, but just don't show them
+- how to handling moving a control point past its neighbour?
+  - remove it, push it away
+- insert, remove control points
+- splines?
+- only move point vertically or horizontally
+- send commands on changes
 
 * Exception when closing a project					:BUG:
 - 'dict_values' object is not an iterator
