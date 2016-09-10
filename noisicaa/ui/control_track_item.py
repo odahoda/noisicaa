@@ -18,72 +18,22 @@ logger = logging.getLogger(__name__)
 
 
 class Handle(QtWidgets.QGraphicsRectItem):
-    def __init__(self, parent=None, graph=None, idx=None):
+    def __init__(self, parent=None, idx=None):
         super().__init__(parent=parent)
 
-        self._graph = graph
-        self._index = idx
+        self.index = idx
 
         self.setRect(-3, -3, 6, 6)
         self.setPen(Qt.black)
         self.setBrush(QtGui.QBrush(Qt.NoBrush))
 
-        self._moving = False
-        self._move_handle_pos = None
-        self._moved = False
-
-    def mousePressEvent(self, evt):
-        if evt.button() == Qt.LeftButton:
-            self.grabMouse()
-            self._moving = True
-            self._move_handle_pos = evt.scenePos() - self.pos()
-            self._moved = False
-            evt.accept()
-            return
-
-        super().mousePressEvent(evt)
-
-    def mouseMoveEvent(self, evt):
-        if self._moving:
-            new_pos = evt.scenePos() - self._move_handle_pos
-
-            if new_pos.x() < 0:
-                new_pos.setX(0)
-            elif new_pos.x() > self._graph.width:
-                new_pos.setX(self._graph.width)
-
-            if new_pos.y() < 0:
-                new_pos.setY(0)
-            elif new_pos.y() > self._graph.height:
-                new_pos.setY(self._graph.height)
-
-            self.setPos(new_pos)
-
-            if self._index < len(self._graph.handles) - 1:
-                segment = self._graph.segments[self._index]
-                segment.setLine(QtCore.QLineF(new_pos, segment.line().p2()))
-
-            if self._index > 0:
-                segment = self._graph.segments[self._index - 1]
-                segment.setLine(QtCore.QLineF(segment.line().p1(), new_pos))
-
-            self._moved = True
-            evt.accept()
-            return
-
-        super().mouseMoveEvent(evt)
-
-    def mouseReleaseEvent(self, evt):
-        if evt.button() == Qt.LeftButton and self._moving:
-            if self._moved:
-                pass
-
-            self.ungrabMouse()
-            self._moving = False
-            evt.accept()
-            return
-
-        super().mouseReleaseEvent(evt)
+    def setHighlighted(self, highlighted):
+        if highlighted:
+            self.setRect(-4, -4, 8, 8)
+            self.setBrush(QtGui.QColor(200, 200, 255))
+        else:
+            self.setRect(-3, -3, 6, 6)
+            self.setBrush(QtGui.QBrush(Qt.NoBrush))
 
 
 class ControlGraph(QGraphicsGroup):
@@ -93,6 +43,16 @@ class ControlGraph(QGraphicsGroup):
         self._track = track
         self._size = size
         self._widths = widths
+
+        self._highlighted_handle = None
+        self._moving_handle = None
+        self._moving_handle_pos = None
+
+        self._handles = []
+        self._segments = []
+
+        self.setAcceptHoverEvents(True)
+        self.setCursor(Qt.ArrowCursor)
 
         x = 0
         for width in self._widths:
@@ -107,9 +67,6 @@ class ControlGraph(QGraphicsGroup):
         frame.setPen(QtGui.QColor(200, 200, 200))
         frame.setBrush(QtGui.QBrush(Qt.NoBrush))
 
-        self.handles = []
-        self.segments = []
-
         prev_x = 0
         prev_timepos = music.Duration(0, 4)
         prev_value = 0.0
@@ -121,24 +78,24 @@ class ControlGraph(QGraphicsGroup):
             if point.timepos != prev_timepos:
                 x = prev_x + 50
 
-                if not self.handles:
-                    handle = Handle(parent=self, graph=self, idx=len(self.handles))
+                if not self._handles:
+                    handle = Handle(parent=self, idx=len(self._handles))
                     handle.setPos(prev_x, _value_to_y(prev_value))
-                    self.handles.append(handle)
+                    self._handles.append(handle)
 
-                left_point = self.handles[-1].pos()
+                left_point = self._handles[-1].pos()
                 right_point = QtCore.QPointF(x, _value_to_y(point.value))
 
-                handle = Handle(parent=self, graph=self, idx=len(self.handles))
+                handle = Handle(parent=self, idx=len(self._handles))
                 handle.setPos(right_point)
-                self.handles.append(handle)
+                self._handles.append(handle)
 
                 segment = QtWidgets.QGraphicsLineItem(self)
                 segment.setLine(
                     prev_x, _value_to_y(prev_value),
                     x, _value_to_y(point.value))
                 segment.setPen(Qt.black)
-                self.segments.append(segment)
+                self._segments.append(segment)
 
                 prev_x = x
                 prev_timepos = point.timepos
@@ -151,6 +108,81 @@ class ControlGraph(QGraphicsGroup):
     @property
     def height(self):
         return self._size.height()
+
+    def setHighlightedHandle(self, handle):
+        if self._highlighted_handle is not None:
+            self._highlighted_handle.setHighlighted(False)
+            self._highlighted_handle = None
+
+        if handle is not None:
+            handle.setHighlighted(True)
+            self._highlighted_handle = handle
+
+    def hoverEnterEvent(self, evt):
+        self.grabMouse()
+        super().hoverLeaveEvent(evt)
+
+    def hoverLeaveEvent(self, evt):
+        self.ungrabMouse()
+        self.setHighlightedHandle(None)
+        super().hoverLeaveEvent(evt)
+
+    def mousePressEvent(self, evt):
+        if evt.button() == Qt.LeftButton and self._highlighted_handle is not None:
+            self._moving_handle = self._highlighted_handle
+            self._moving_handle_pos = evt.pos() - self._moving_handle.pos()
+            evt.accept()
+            return
+
+        super().mousePressEvent(evt)
+
+    def mouseMoveEvent(self, evt):
+        if self._moving_handle is not None:
+            new_pos = evt.pos() - self._moving_handle_pos
+
+            if new_pos.x() < 0:
+                new_pos.setX(0)
+            elif new_pos.x() > self.width:
+                new_pos.setX(self.width)
+
+            if new_pos.y() < 0:
+                new_pos.setY(0)
+            elif new_pos.y() > self.height:
+                new_pos.setY(self.height)
+
+            self._moving_handle.setPos(new_pos)
+
+            if self._moving_handle.index < len(self._handles) - 1:
+                segment = self._segments[self._moving_handle.index]
+                segment.setLine(QtCore.QLineF(new_pos, segment.line().p2()))
+
+            if self._moving_handle.index > 0:
+                segment = self._segments[self._moving_handle.index - 1]
+                segment.setLine(QtCore.QLineF(segment.line().p1(), new_pos))
+
+            evt.accept()
+            return
+
+        closest_handle = None
+        closest_dist = None
+        for handle in self._handles:
+            dist = ((handle.pos().x() - evt.pos().x()) ** 2
+                    + (handle.pos().y() - evt.pos().y()) ** 2)
+            if dist < 20**2 and (closest_dist is None or dist < closest_dist):
+                closest_dist = dist
+                closest_handle = handle
+
+        self.setHighlightedHandle(closest_handle)
+
+        super().mouseMoveEvent(evt)
+
+    def mouseReleaseEvent(self, evt):
+        if evt.button() == Qt.LeftButton and self._moving_handle is not None:
+            self._moving_handle = None
+            evt.accept()
+            return
+
+        super().mouseReleaseEvent(evt)
 
 
 class ControlTrackLayout(layout.TrackLayout):
