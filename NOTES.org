@@ -18,8 +18,6 @@ Icon next to controllable values, drag'n'drop onto editor.
     - clip last segment correctly?
   - or keep control points, but just don't show them
   - or keep track length
-- how to handling moving a control point past its neighbour?
-  - remove it, push it away, restrict movement between neighbours
 - splines?
 - send commands on changes
 - map timepos to x axis

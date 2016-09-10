@@ -49,6 +49,7 @@ class ControlGraph(QGraphicsGroup):
         self._moving_handle_original_pos = None
         self._moving_handle_offset = None
         self._move_mode = 'any'
+        self._move_range = None
 
         self._handles = []
         self._segments = []
@@ -151,6 +152,20 @@ class ControlGraph(QGraphicsGroup):
             self._moving_handle_original_pos = self._moving_handle.pos()
             self._moving_handle_offset = evt.pos() - self._moving_handle.pos()
             self._move_mode = 'any'
+
+            handle_index = self._moving_handle.index
+
+            if handle_index > 0:
+                range_left = self._handles[handle_index - 1].pos().x() + 1
+            else:
+                range_left = 0
+
+            if handle_index < len(self._handles) - 1:
+                range_right = self._handles[handle_index + 1].pos().x() - 1
+            else:
+                range_right = self.width
+
+            self._move_range = (range_left, range_right)
 
             evt.accept()
             return
@@ -270,10 +285,11 @@ class ControlGraph(QGraphicsGroup):
             elif self._move_mode == 'vertical':
                 new_pos.setX(self._moving_handle_original_pos.x())
 
-            if new_pos.x() < 0:
-                new_pos.setX(0)
-            elif new_pos.x() > self.width:
-                new_pos.setX(self.width)
+            range_left, range_right = self._move_range
+            if new_pos.x() < range_left:
+                new_pos.setX(range_left)
+            elif new_pos.x() > range_right:
+                new_pos.setX(range_right)
 
             if new_pos.y() < 0:
                 new_pos.setY(0)
