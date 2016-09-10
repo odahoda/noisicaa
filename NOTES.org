@@ -19,8 +19,6 @@ Icon next to controllable values, drag'n'drop onto editor.
   - or keep control points, but just don't show them
   - or keep track length
 - splines?
-- send commands on changes
-- map timepos to x axis
 - create a source node in pipeline
 - add control data in player
 - properties

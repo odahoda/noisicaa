@@ -18,14 +18,47 @@ logger = logging.getLogger(__name__)
 
 
 class Handle(QtWidgets.QGraphicsRectItem):
-    def __init__(self, parent=None, idx=None):
+    def __init__(self, parent=None, graph=None, point=None):
         super().__init__(parent=parent)
 
-        self.index = idx
+        self._graph = graph
+        self._point = point
+
+        self._listeners = [
+            self._point.listeners.add('timepos', self.onTimeposChanged),
+            self._point.listeners.add('value', self.onValueChanged),
+        ]
 
         self.setRect(-3, -3, 6, 6)
         self.setPen(Qt.black)
         self.setBrush(QtGui.QBrush(Qt.NoBrush))
+
+    def close(self):
+        for listener in self._listeners:
+            listener.remove()
+        self._listeners.clear()
+
+    def onTimeposChanged(self, old_timepos, new_timepos):
+        self._graph.setHandlePos(
+            self,
+            QtCore.QPointF(self._graph.timeposToX(new_timepos), self.pos().y()))
+
+    def onValueChanged(self, old_value, new_value):
+        self._graph.setHandlePos(
+            self,
+            QtCore.QPointF(self.pos().x(), self._graph.valueToY(new_value)))
+
+    @property
+    def index(self):
+        return self._point.index
+
+    @property
+    def point_id(self):
+        return self._point.id
+
+    @property
+    def timepos(self):
+        return self._point.timepos
 
     def setHighlighted(self, highlighted):
         if highlighted:
@@ -36,14 +69,17 @@ class Handle(QtWidgets.QGraphicsRectItem):
             self.setBrush(QtGui.QBrush(Qt.NoBrush))
 
 
-class ControlGraph(QGraphicsGroup):
-    def __init__(self, parent=None, track=None, size=None, widths=None):
-        super().__init__(parent=parent)
+class ControlGraph(ui_base.ProjectMixin, QGraphicsGroup):
+    def __init__(self, track=None, size=None, widths=None, **kwargs):
+        super().__init__(**kwargs)
 
         self._track = track
         self._size = size
         self._widths = widths
 
+        self._listeners = []
+
+        self._mouse_pos = None
         self._highlighted_handle = None
         self._moving_handle = None
         self._moving_handle_original_pos = None
@@ -70,42 +106,34 @@ class ControlGraph(QGraphicsGroup):
         frame.setPen(QtGui.QColor(200, 200, 200))
         frame.setBrush(QtGui.QBrush(Qt.NoBrush))
 
-        prev_x = 0
-        prev_timepos = music.Duration(0, 4)
-        prev_value = 0.0
-
         for point in self._track.points:
-            if point.timepos != prev_timepos:
-                x = prev_x + 50
+            self.addPoint(len(self._handles), point)
 
-                if not self._handles:
-                    handle = Handle(parent=self, idx=len(self._handles))
-                    handle.setPos(prev_x, self.valueToY(prev_value))
-                    self._handles.append(handle)
+        self._listeners.append(self._track.listeners.add(
+            'points', self.onPointsChanged))
 
-                left_point = self._handles[-1].pos()
-                right_point = QtCore.QPointF(x, self.valueToY(point.value))
+    def close(self):
+        for handle in self._handles:
+            handle.close()
+        self._handles.clear()
 
-                handle = Handle(parent=self, idx=len(self._handles))
-                handle.setPos(right_point)
-                self._handles.append(handle)
+        self._segments.clear()
 
-                segment = QtWidgets.QGraphicsLineItem(self)
-                segment.setLine(
-                    prev_x, self.valueToY(prev_value),
-                    x, self.valueToY(point.value))
-                segment.setPen(Qt.black)
-                self._segments.append(segment)
+        for listener in self._listeners:
+            listener.remove()
+        self._listeners.clear()
 
-                prev_x = x
-                prev_timepos = point.timepos
-                prev_value = point.value
-
-    def valueToY(self, v):
-        return int(self.height - int(self.height * v))
+    def valueToY(self, value):
+        return int(self.height - int(self.height * value))
 
     def yToValue(self, y):
         return float(self.height - y) / self.height
+
+    def timeposToX(self, timepos):
+        return int(400 * timepos)
+
+    def xToTimepos(self, x):
+        return music.Duration(int(x), 400)
 
     @property
     def width(self):
@@ -115,6 +143,77 @@ class ControlGraph(QGraphicsGroup):
     def height(self):
         return self._size.height()
 
+    def onPointsChanged(self, action, *args):
+        if action == 'insert':
+            insert_index, point = args
+            self.addPoint(insert_index, point)
+            self.updateHighlightedHandle()
+
+        elif action == 'delete':
+            remove_index, point = args
+            self.removePoint(remove_index, point)
+            self.updateHighlightedHandle()
+
+        else:
+            raise ValueError("Unknown action %r" % action)
+
+    def addPoint(self, insert_index, point):
+        if insert_index > 0:
+            prev_handle = self._handles[insert_index - 1]
+        else:
+            prev_handle = None
+
+        if insert_index < len(self._handles):
+            next_handle = self._handles[insert_index]
+        else:
+            next_handle = None
+
+        handle = Handle(parent=self, graph=self, point=point)
+        handle.setPos(self.timeposToX(point.timepos), self.valueToY(point.value))
+        self._handles.insert(insert_index, handle)
+
+        if prev_handle is not None:
+            segment = QtWidgets.QGraphicsLineItem(self)
+            segment.setLine(QtCore.QLineF(prev_handle.pos(), handle.pos()))
+            segment.setPen(Qt.black)
+            self._segments.insert(insert_index - 1, segment)
+
+        if next_handle is not None:
+            if prev_handle is None:
+                segment = QtWidgets.QGraphicsLineItem(self)
+                segment.setLine(QtCore.QLineF(handle.pos(), next_handle.pos()))
+                segment.setPen(Qt.black)
+                self._segments.insert(insert_index, segment)
+            else:
+                self._segments[insert_index].setLine(
+                    QtCore.QLineF(handle.pos(), next_handle.pos()))
+
+    def removePoint(self, remove_index, point):
+        if remove_index > 0:
+            prev_handle = self._handles[remove_index - 1]
+        else:
+            prev_handle = None
+
+        if remove_index < len(self._handles) - 1:
+            next_handle = self._handles[remove_index + 1]
+        else:
+            next_handle = None
+
+        handle = self._handles.pop(remove_index)
+        handle.close()
+        handle.scene().removeItem(handle)
+
+        if next_handle is not None:
+            segment = self._segments.pop(remove_index)
+            segment.scene().removeItem(segment)
+
+            if prev_handle is not None:
+                self._segments[remove_index - 1].setLine(QtCore.QLineF(
+                    prev_handle.pos(), next_handle.pos()))
+        elif prev_handle is not None:
+            segment = self._segments.pop(remove_index - 1)
+            segment.scene().removeItem(segment)
+
     def setHighlightedHandle(self, handle):
         if self._highlighted_handle is not None:
             self._highlighted_handle.setHighlighted(False)
@@ -123,6 +222,22 @@ class ControlGraph(QGraphicsGroup):
         if handle is not None:
             handle.setHighlighted(True)
             self._highlighted_handle = handle
+
+    def updateHighlightedHandle(self):
+        if self._mouse_pos is None:
+            self.setHighlightedHandle(None)
+            return
+
+        closest_handle = None
+        closest_dist = None
+        for handle in self._handles:
+            dist = ((handle.pos().x() - self._mouse_pos.x()) ** 2
+                    + (handle.pos().y() - self._mouse_pos.y()) ** 2)
+            if dist < 20**2 and (closest_dist is None or dist < closest_dist):
+                closest_dist = dist
+                closest_handle = handle
+
+        self.setHighlightedHandle(closest_handle)
 
     def setHandlePos(self, handle, pos):
         handle.setPos(pos)
@@ -137,14 +252,17 @@ class ControlGraph(QGraphicsGroup):
 
     def hoverEnterEvent(self, evt):
         self.grabMouse()
+        self._mouse_pos = evt.pos()
         super().hoverLeaveEvent(evt)
 
     def hoverLeaveEvent(self, evt):
         self.ungrabMouse()
+        self._mouse_pos = None
         self.setHighlightedHandle(None)
         super().hoverLeaveEvent(evt)
 
     def mousePressEvent(self, evt):
+        self._mouse_pos = evt.pos()
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier
                 and self._highlighted_handle is not None):
@@ -173,35 +291,10 @@ class ControlGraph(QGraphicsGroup):
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
                 and self._highlighted_handle is not None):
-            remove_index = self._highlighted_handle.index
-            self.setHighlightedHandle(None)
-
-            if remove_index > 0:
-                prev_handle = self._handles[remove_index - 1]
-            else:
-                prev_handle = None
-
-            if remove_index < len(self._handles) - 1:
-                next_handle = self._handles[remove_index + 1]
-            else:
-                next_handle = None
-
-            handle = self._handles.pop(remove_index)
-            handle.scene().removeItem(handle)
-
-            for h in self._handles[remove_index:]:
-                h.index -= 1
-
-            if next_handle is not None:
-                segment = self._segments.pop(remove_index)
-                segment.scene().removeItem(segment)
-
-                if prev_handle is not None:
-                    self._segments[remove_index - 1].setLine(QtCore.QLineF(
-                        prev_handle.pos(), next_handle.pos()))
-            elif prev_handle is not None:
-                segment = self._segments.pop(remove_index - 1)
-                segment.scene().removeItem(segment)
+            self.send_command_async(
+                self._track.id,
+                'RemoveControlPoint',
+                point_id=self._highlighted_handle.point_id)
 
             evt.accept()
             return
@@ -215,51 +308,30 @@ class ControlGraph(QGraphicsGroup):
         super().mousePressEvent(evt)
 
     def mouseDoubleClickEvent(self, evt):
+        self._mouse_pos = evt.pos()
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier):
+            # If the first half of the double click initiated a move,
+            # cancel that move now.
             if self._moving_handle is not None:
                 self.setHandlePos(self._moving_handle, self._moving_handle_original_pos)
                 self._moving_handle = None
 
-            for insert_index, handle in enumerate(self._handles):
-                if handle.pos().x() >= evt.pos().x():
+            timepos = self.xToTimepos(evt.pos().x())
+            for handle in self._handles:
+                if handle.timepos == timepos:
+                    self.send_command_async(
+                        self._track.id,
+                        'MoveControlPoint',
+                        point_id=handle.point_id,
+                        value=self.yToValue(evt.pos().y()))
                     break
             else:
-                insert_index = len(self._handles)
-
-            if insert_index > 0:
-                prev_handle = self._handles[insert_index - 1]
-            else:
-                prev_handle = None
-
-            if insert_index < len(self._handles):
-                next_handle = self._handles[insert_index]
-            else:
-                next_handle = None
-
-            handle = Handle(parent=self, idx=insert_index)
-            handle.setPos(evt.pos())
-            self._handles.insert(insert_index, handle)
-            for h in self._handles[insert_index + 1:]:
-                h.index += 1
-
-            if prev_handle is not None:
-                segment = QtWidgets.QGraphicsLineItem(self)
-                segment.setLine(QtCore.QLineF(prev_handle.pos(), handle.pos()))
-                segment.setPen(Qt.black)
-                self._segments.insert(insert_index - 1, segment)
-
-            if next_handle is not None:
-                if prev_handle is None:
-                    segment = QtWidgets.QGraphicsLineItem(self)
-                    segment.setLine(QtCore.QLineF(handle.pos(), next_handle.pos()))
-                    segment.setPen(Qt.black)
-                    self._segments.insert(insert_index, segment)
-                else:
-                    self._segments[insert_index].setLine(
-                        QtCore.QLineF(handle.pos(), next_handle.pos()))
-
-            self.setHighlightedHandle(handle)
+                self.send_command_async(
+                    self._track.id,
+                    'AddControlPoint',
+                    timepos=self.xToTimepos(evt.pos().x()),
+                    value=self.yToValue(evt.pos().y()))
 
             evt.accept()
             return
@@ -267,6 +339,7 @@ class ControlGraph(QGraphicsGroup):
         super().mouseDoubleClickEvent(evt)
 
     def mouseMoveEvent(self, evt):
+        self._mouse_pos = evt.pos()
         if self._moving_handle is not None:
             new_pos = evt.pos() - self._moving_handle_offset
 
@@ -301,22 +374,33 @@ class ControlGraph(QGraphicsGroup):
             evt.accept()
             return
 
-        closest_handle = None
-        closest_dist = None
-        for handle in self._handles:
-            dist = ((handle.pos().x() - evt.pos().x()) ** 2
-                    + (handle.pos().y() - evt.pos().y()) ** 2)
-            if dist < 20**2 and (closest_dist is None or dist < closest_dist):
-                closest_dist = dist
-                closest_handle = handle
-
-        self.setHighlightedHandle(closest_handle)
+        self.updateHighlightedHandle()
 
         super().mouseMoveEvent(evt)
 
     def mouseReleaseEvent(self, evt):
+        self._mouse_pos = evt.pos()
         if evt.button() == Qt.LeftButton and self._moving_handle is not None:
+            pos = self._moving_handle.pos()
             self._moving_handle = None
+
+            if self._move_mode != 'vertical':
+                new_timepos = self.xToTimepos(pos.x())
+            else:
+                new_timepos = None
+
+            if self._move_mode != 'horizontal':
+                new_value = self.yToValue(pos.y())
+            else:
+                new_value = None
+
+            self.send_command_async(
+                self._track.id,
+                'MoveControlPoint',
+                point_id=self._highlighted_handle.point_id,
+                timepos=new_timepos,
+                value=new_value)
+
             evt.accept()
             return
 
@@ -355,6 +439,15 @@ class ControlTrackItemImpl(base_track_item.TrackItemImpl):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        self._graph = None
+
+    def close(self):
+        super().close()
+
+        if self._graph is not None:
+            self._graph.close()
+            self._graph = None
+
     def getLayout(self):
         return ControlTrackLayout(self._track)
 
@@ -365,11 +458,16 @@ class ControlTrackItemImpl(base_track_item.TrackItemImpl):
         text.setText("> %s" % self._track.name)
         text.setPos(0, y)
 
+        if self._graph is not None:
+            self._graph.close()
+            self._graph = None
+
         self._graph = ControlGraph(
             parent=layer,
             track=self._track,
             size=QtCore.QSize(sum(track_layout.widths[:-1]), track_layout.height - 20),
-            widths=track_layout.widths[:-1])
+            widths=track_layout.widths[:-1],
+            **self.context)
         self._graph.setPos(0, y + 20)
 
 
