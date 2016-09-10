@@ -1,4 +1,6 @@
-* TODO Control tracks							 :FR:
+# -*- org-tags-column: -98 -*-
+
+* TODO Control tracks									      :FR:
 Any controllable value can be turned into a control track.
 Icon next to controllable values, drag'n'drop onto editor.
 
@@ -18,16 +20,23 @@ Icon next to controllable values, drag'n'drop onto editor.
   - remove it, push it away, restrict movement between neighbours
 - splines?
 - send commands on changes
+- map timepos to x axis
 
-* Exception when closing a project					:BUG:
+* Fixed horizontal time mapping								      :FR:
+- Same horizontal interval maps to same musical time interval anywhere.
+  Otherwise rendering control segments across measure boundaries becomes very confusing.
+- ScoreMeasure has to fit into given space no matter what.
+- Zooming along time axis.
+
+* Exception when closing a project							     :BUG:
 - 'dict_values' object is not an iterator
 - no traceback?
 
-* Playback pos not displayed on ScoreTrack anymore			:BUG:
-* Abstract base class for ui mixins				    :CLEANUP:
+* Playback pos not displayed on ScoreTrack anymore					     :BUG:
+* Abstract base class for ui mixins							 :CLEANUP:
 - to make pylint happy
 
-* Revamp object model 						    :CLEANUP:
+* Revamp object model									 :CLEANUP:
 - root manages heap of objects
 - when creating object, add it to heap
   - __init__ needs to know root, so it can create children
@@ -35,13 +44,13 @@ Icon next to controllable values, drag'n'drop onto editor.
 - all object references (child, lists, etc.) only store IDs in state, do
   lazy dereferencing on __get__
 
-* Track type: percussion						 :FR:
+* Track type: percussion								      :FR:
 ** move beats to arbitrary positions
-* Sometimes hangs during shutdown 					:BUG:
+* Sometimes hangs during shutdown							     :BUG:
 Last sign of life:
   INFO    :18195:7f91c16bc700:ui.editor_app: Shutting down.
 
-* Custom csound filter node						 :FR:
+* Custom csound filter node								      :FR:
 - start with single audio input/output ports
 - make port list editable
 - edit csound code
@@ -55,7 +64,7 @@ Last sign of life:
   - how does that work with arbitrary output nodes? and events?
 - edit widget with syntax highlighting
 
-* merge consecutive commands						 :FR:
+* merge consecutive commands								      :FR:
 - keep a single item in-memory buffer before writing commands to disk
 - when adding commands to log
   - call prev_cmd.try_merge_with(latest_cmd)
@@ -64,51 +73,51 @@ Last sign of life:
     - or just handle simple attribute changes, overwriting the target value
   - if returns False, push latest_cmd to log (flushing prev_cmd to disk)
 
-* per measure time signature 						 :FR:
+* per measure time signature								      :FR:
 Tracks can have different time signatures, measures do not have to align
 vertically.
 
-* ToolDock: track specific tool set					 :FR:
+* ToolDock: track specific tool set							      :FR:
 - active track:
   only the active track gets edit events. clicking on another track makes
   that track active and changes the set of tools and the active tool.
 - remember active tool per track type
-* SIGSEGV when editing PipelineGraphView 		              :CRASH:
+* SIGSEGV when editing PipelineGraphView						   :CRASH:
 Possibly caused by the use of QGraphicsEffect for dropshadows?
 
-* PipelineGraphView: node properties dock sometimes does not open.      :BUG:
+* PipelineGraphView: node properties dock sometimes does not open.			     :BUG:
 Dock shortly pops up, then disappears. Clicking on any other widget in
 the docking area then SIGSEGVs. Does QT not like opening docks directly
 as floating? There might have been a X11 error message in the log.
 
-* GIL free audio pipeline						 :FR:
-* Plugin support							 :FR:
+* GIL free audio pipeline								      :FR:
+* Plugin support									      :FR:
 ** LADSPA
 ** LV2
-* Render audio to file						         :FR:
-* NodeDB: start_scan							 :FR:
+* Render audio to file									      :FR:
+* NodeDB: start_scan									      :FR:
 How to report scan progress back?
 First a quick scan to find candidate files?
-* NodeDB: set search paths						 :FR:
+* NodeDB: set search paths								      :FR:
 Manage from settings dialog.
 Search path per scanner (csound, ladspa, lv2, ...).
-* NodeDB: cache DB							 :FR:
+* NodeDB: cache DB									      :FR:
 Storage location: $HOME/.cache/noisicaä
 Track time of scan
 Load cache on startup
 Rescan if time of last scan > X
 
-* PipelineGraphView: listeners to update UI when node parameters change. :FR:
-* PipelineGraphView: edit node name					 :FR:
-* Track volume/mute properties: change connect trackmixer node instead. :BUG:
-* Color code tracks and measures.					 :FR:
+* PipelineGraphView: listeners to update UI when node parameters change.		      :FR:
+* PipelineGraphView: edit node name							      :FR:
+* Track volume/mute properties: change connect trackmixer node instead.			     :BUG:
+* Color code tracks and measures.							      :FR:
 Tracks: To group e.g. all percussion visually.
 Measures: To group thematically related sections.
 Popup menu provides palette of color, separate list of already used colors
 (to make it easier to answer the question, which shade of green I used
 before).
 
-* Linked measures							 :FR:
+* Linked measures									      :FR:
 Dereference: clone the pointed to measure and replace link with that copy.
 If a group of linked measures is selected, only make one copy and link the
 rest. E.g. A B A' B' [A' B' A' B'] -> A B A' B' C D C' D', where C=copy(A),
@@ -116,40 +125,40 @@ D=copy(B).
 Explicit dereference all to create standalone clone for every selected
 measure.
 
-* PipelineGraphView: drop onto existing node to replace it.		 :FR:
+* PipelineGraphView: drop onto existing node to replace it.				      :FR:
 Retain properties of the same name from replaced node.
 Deny drop, if node is not compatible with existing node.
-* PipelineGraphView: drop new node on connection.			 :FR:
+* PipelineGraphView: drop new node on connection.					      :FR:
 Insert node between the connected nodes.
 Deny drop, if node is not compatible with connection type.
 Reorganize graph to make space for the new node.
 
-* PipelineGraphView: node info in nodes list.				 :FR:
+* PipelineGraphView: node info in nodes list.						      :FR:
 List of ports and their types.
 Node description, etc.
-* PipelineGraphView: disallow connections that create a cyclic graphs.  :BUG:
+* PipelineGraphView: disallow connections that create a cyclic graphs.			     :BUG:
 Compute list of valid dest nodes and highlight those.
-* PipelineGraphView: scrollwheel zoom.					 :FR:
-* PipelineGraphView: drag to move. 					 :FR:
-* PipelineGraphView: no random jumping around when inserting new nodes.  :FR:
-* PipelineGraphView: multiple selections. 				 :FR:
+* PipelineGraphView: scrollwheel zoom.							      :FR:
+* PipelineGraphView: drag to move.							      :FR:
+* PipelineGraphView: no random jumping around when inserting new nodes.			      :FR:
+* PipelineGraphView: multiple selections.						      :FR:
 ** ctrl-click to add/remove nodes from selection set.
 ** Way to select all upstream nodes of a node.
 ** Move nodes together.
 ** Remove all
-* PipelineGraphView: visualize mute, volume, bypass state in UI		 :FR:
-* PipelineGraphView: select port or connection filters node list to compatible nodes :FR:
-* More instrument types							 :FR:
+* PipelineGraphView: visualize mute, volume, bypass state in UI				      :FR:
+* PipelineGraphView: select port or connection filters node list to compatible nodes	      :FR:
+* More instrument types									      :FR:
 - simple samples
 - SFZ
 
-* Audio tracks								 :FR:
+* Audio tracks										      :FR:
 - keep separate list of audio clips
 - drag'n'drop sections onto audio tracks
 - a section is a clip or range of a clip
 - per section envelope
   - short (few msec) ramp up/down to avoid clicks
-* cut, copy, paste							 :FR:
+* cut, copy, paste									      :FR:
 - Use QClipboard
 - select multiple items
   - ranges or sparse sets
@@ -161,40 +170,40 @@ Compute list of valid dest nodes and highlight those.
   - tracks
   - notes
 
-* copy/link via drag'n'drop						 :FR:
-* TracksDock: moving tracks doesn't work				:BUG:
-* player needs to get lock on state					:BUG:
+* copy/link via drag'n'drop								      :FR:
+* TracksDock: moving tracks doesn't work						     :BUG:
+* player needs to get lock on state							     :BUG:
 possible exception when changing project while playing
-* Tool not visible on initial load					:BUG:
-* changing backend in settings crashes pipeline loop			:BUG:
-* generic csound filter							 :FR:
+* Tool not visible on initial load							     :BUG:
+* changing backend in settings crashes pipeline loop					     :BUG:
+* generic csound filter									      :FR:
 - define audio and control ports
 - also event inputs for instruments?
 - freeform text input for csound code
 
-* Undo/redo doesn't replay pipeline mutations				:BUG:
+* Undo/redo doesn't replay pipeline mutations						     :BUG:
 - trigger pipeline mutations from listeners on model
 - don't trigger mutations while replaying log during load
-* use recordfile for command log				    :CLEANUP:
+* use recordfile for command log							 :CLEANUP:
    * need file offset
    * read record from offset
-* cleanup and write docstring for storage.py			    :CLEANUP:
-* delete unused objects on client side, when			    :CLEANUP:
+* cleanup and write docstring for storage.py						 :CLEANUP:
+* delete unused objects on client side, when						 :CLEANUP:
    * obj prop set to None
    * item deleted from objlist
    * objlist cleared
-* non-existing file on cmdline creates project				 :FR:
+* non-existing file on cmdline creates project						      :FR:
    * remove + hack
 
-* main process keeps track of project processes				 :FR:
+* main process keeps track of project processes						      :FR:
    * opening existing project reconnects to that process
 
-* per process cpu monitor						 :FR:
+* per process cpu monitor								      :FR:
    * collect cpu time with 1ms precision
    * separate thread
    * send bulk data every O(100) ms to UI
    * plot along pipeline perf chart
-* PipelinePerfMonitor: aggregate data over time				 :FR:
+* PipelinePerfMonitor: aggregate data over time						      :FR:
 - avg duration and std deviation per span.
 - how to visualize averaged gantt chart?
 * PipelinePerfMonitor: per span graphs
@@ -202,14 +211,14 @@ possible exception when changing project while playing
 - start time relative to parent span
 - start time relative to frame start
 
-* process stats								 :FR:
+* process stats										      :FR:
    * STATS call to manager
    * name, pid, cpu, memory
    * graphs
 
-* stats for backend buffer length					 :FR:
+* stats for backend buffer length							      :FR:
 
-* project_fuzztest.py						    :TESTING:
+* project_fuzztest.py									 :TESTING:
    * launch ProjectProcess using same eventloop
    * use inmemory filesystem
    * random actions
@@ -219,15 +228,15 @@ possible exception when changing project while playing
       * player interaction
       * execute all existing commands
       * coverage report
-* integrate pylint into test suite				    :TESTING:
+* integrate pylint into test suite							 :TESTING:
    * add test case with test for each covered module
    * run pylint and fail test if any found messages
-* XML schema for node descriptions				    :TESTING:
+* XML schema for node descriptions							 :TESTING:
    * validate all nodes from library against schema
-* parse all csound scripts for syntax errors			    :TESTING:
+* parse all csound scripts for syntax errors						 :TESTING:
 UI Improvements
 
-* better handling of remote exceptions				    :CLEANUP:
+* better handling of remote exceptions							 :CLEANUP:
    * traceback
    * every exception crashes
       * Server errors terminate server process
@@ -235,34 +244,34 @@ UI Improvements
       * exceptions in threads terminate process
       * handle simultaneous exceptions in multiple threads
 
-* master volume								 :FR:
+* master volume										      :FR:
 if backend supports volume, use that. e.g. set alsa mixer volume.
 otherwise set volume on outgoing samples.
 
-* NodeType -> NodeDescripion					    :CLEANUP:
-* Description classes for ports and node properties		    :CLEANUP:
-* move generic Qt classes to noisicaa.qt			    :CLEANUP:
-* LoadHistoryWidget						    :CLEANUP:
-* fix left over TODOs						    :CLEANUP:
-* remove or fix commented code					    :CLEANUP:
-* ServerError and ClientError exception base classes.		    :CLEANUP:
+* NodeType -> NodeDescripion								 :CLEANUP:
+* Description classes for ports and node properties					 :CLEANUP:
+* move generic Qt classes to noisicaa.qt						 :CLEANUP:
+* LoadHistoryWidget									 :CLEANUP:
+* fix left over TODOs									 :CLEANUP:
+* remove or fix commented code								 :CLEANUP:
+* ServerError and ClientError exception base classes.					 :CLEANUP:
 - ClientError is returned to client
 - ServerError causes server to crash
-* factor out common Client, Process, Session code		    :CLEANUP:
-* separate client, server and common code in music		    :CLEANUP:
-* proper classes for mutations emitted from state.py		    :CLEANUP:
-* move tests from state_test.py to model_base_test.py		    :CLEANUP:
-* find a proper test sample for audio settings dialog		    :CLEANUP:
-* move initial project mutations to BaseProject			    :CLEANUP:
-* node_db imports all nodes and populates itself		    :CLEANUP:
-* use registry instance instead of class attributes to track classes :CLEANUP:
+* factor out common Client, Process, Session code					 :CLEANUP:
+* separate client, server and common code in music					 :CLEANUP:
+* proper classes for mutations emitted from state.py					 :CLEANUP:
+* move tests from state_test.py to model_base_test.py					 :CLEANUP:
+* find a proper test sample for audio settings dialog					 :CLEANUP:
+* move initial project mutations to BaseProject						 :CLEANUP:
+* node_db imports all nodes and populates itself					 :CLEANUP:
+* use registry instance instead of class attributes to track classes			 :CLEANUP:
 that allows distinct class hierarchies and is cleaner for testing
 music.commands.Command.command_classes
-* AudioProcClient should use callbacks for mutation and status distribution :CLEANUP:
+* AudioProcClient should use callbacks for mutation and status distribution		 :CLEANUP:
 instead over overriding handle_pipeline_*, client code should register a callback
-* base class for audioproc nodes created from a NodeDescription	    :CLEANUP:
+* base class for audioproc nodes created from a NodeDescription				 :CLEANUP:
 
-* add a concept of "action receivers"				    :CLEANUP:
+* add a concept of "action receivers"							 :CLEANUP:
 - EditorWindow has a single object currently being the "action receivers"
   - use Qt focus?
 - global actions, e.g. cut, copy, paste, are sent to that object
