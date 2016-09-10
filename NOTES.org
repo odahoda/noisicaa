@@ -15,10 +15,8 @@ Icon next to controllable values, drag'n'drop onto editor.
   - discard all control points past the end
   - or keep control points, but just don't show them
 - how to handling moving a control point past its neighbour?
-  - remove it, push it away
-- insert, remove control points
+  - remove it, push it away, restrict movement between neighbours
 - splines?
-- only move point vertically or horizontally
 - send commands on changes
 
 * Exception when closing a project					:BUG:
