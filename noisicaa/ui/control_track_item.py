@@ -46,7 +46,9 @@ class ControlGraph(QGraphicsGroup):
 
         self._highlighted_handle = None
         self._moving_handle = None
-        self._moving_handle_pos = None
+        self._moving_handle_original_pos = None
+        self._moving_handle_offset = None
+        self._move_mode = 'any'
 
         self._handles = []
         self._segments = []
@@ -118,6 +120,17 @@ class ControlGraph(QGraphicsGroup):
             handle.setHighlighted(True)
             self._highlighted_handle = handle
 
+    def setHandlePos(self, handle, pos):
+        handle.setPos(pos)
+
+        if handle.index < len(self._handles) - 1:
+            segment = self._segments[handle.index]
+            segment.setLine(QtCore.QLineF(pos, segment.line().p2()))
+
+        if handle.index > 0:
+            segment = self._segments[handle.index - 1]
+            segment.setLine(QtCore.QLineF(segment.line().p1(), pos))
+
     def hoverEnterEvent(self, evt):
         self.grabMouse()
         super().hoverLeaveEvent(evt)
@@ -130,7 +143,16 @@ class ControlGraph(QGraphicsGroup):
     def mousePressEvent(self, evt):
         if evt.button() == Qt.LeftButton and self._highlighted_handle is not None:
             self._moving_handle = self._highlighted_handle
-            self._moving_handle_pos = evt.pos() - self._moving_handle.pos()
+            self._moving_handle_original_pos = self._moving_handle.pos()
+            self._moving_handle_offset = evt.pos() - self._moving_handle.pos()
+            self._move_mode = 'any'
+
+            evt.accept()
+            return
+
+        if evt.button() == Qt.RightButton and self._moving_handle is not None:
+            self.setHandlePos(self._moving_handle, self._moving_handle_original_pos)
+            self._moving_handle = None
             evt.accept()
             return
 
@@ -138,7 +160,22 @@ class ControlGraph(QGraphicsGroup):
 
     def mouseMoveEvent(self, evt):
         if self._moving_handle is not None:
-            new_pos = evt.pos() - self._moving_handle_pos
+            new_pos = evt.pos() - self._moving_handle_offset
+
+            if evt.modifiers() == Qt.ControlModifier:
+                delta = new_pos - self._moving_handle_original_pos
+                if self._move_mode == 'any' and delta.manhattanLength() > 5:
+                    if abs(delta.x()) > abs(delta.y()):
+                        self._move_mode = 'horizontal'
+                    else:
+                        self._move_mode = 'vertical'
+            else:
+                self._move_mode = 'any'
+
+            if self._move_mode == 'horizontal':
+                new_pos.setY(self._moving_handle_original_pos.y())
+            elif self._move_mode == 'vertical':
+                new_pos.setX(self._moving_handle_original_pos.x())
 
             if new_pos.x() < 0:
                 new_pos.setX(0)
@@ -150,15 +187,7 @@ class ControlGraph(QGraphicsGroup):
             elif new_pos.y() > self.height:
                 new_pos.setY(self.height)
 
-            self._moving_handle.setPos(new_pos)
-
-            if self._moving_handle.index < len(self._handles) - 1:
-                segment = self._segments[self._moving_handle.index]
-                segment.setLine(QtCore.QLineF(new_pos, segment.line().p2()))
-
-            if self._moving_handle.index > 0:
-                segment = self._segments[self._moving_handle.index - 1]
-                segment.setLine(QtCore.QLineF(segment.line().p1(), new_pos))
+            self.setHandlePos(self._moving_handle, new_pos)
 
             evt.accept()
             return
