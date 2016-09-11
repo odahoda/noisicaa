@@ -280,6 +280,33 @@ class TrackMixerPipelineGraphNode(
 state.StateBase.register_class(TrackMixerPipelineGraphNode)
 
 
+class ControlSourcePipelineGraphNode(
+        model.ControlSourcePipelineGraphNode, BasePipelineGraphNode):
+    def __init__(self, track=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            self.track = track
+
+    @property
+    def pipeline_node_id(self):
+        return self.track.control_source_name
+
+    def add_to_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.AddNode(
+                'track_control_source', self.pipeline_node_id, self.name,
+                entity_name='track:%s' % self.track.id))
+
+        self.set_initial_parameters()
+
+    def remove_from_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.RemoveNode(self.pipeline_node_id))
+
+state.StateBase.register_class(ControlSourcePipelineGraphNode)
+
+
 class EventSourcePipelineGraphNode(
         model.EventSourcePipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, track=None, state=None, **kwargs):

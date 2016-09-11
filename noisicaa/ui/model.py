@@ -49,6 +49,7 @@ class PipelineGraphPortPropertyValue(model.PipelineGraphPortPropertyValue, proje
 class PipelineGraphNode(model.PipelineGraphNode, project_client.ObjectProxy): pass
 class AudioOutPipelineGraphNode(model.AudioOutPipelineGraphNode, project_client.ObjectProxy): pass
 class TrackMixerPipelineGraphNode(model.TrackMixerPipelineGraphNode, project_client.ObjectProxy): pass
+class ControlSourcePipelineGraphNode(model.ControlSourcePipelineGraphNode, project_client.ObjectProxy): pass
 class EventSourcePipelineGraphNode(model.EventSourcePipelineGraphNode, project_client.ObjectProxy): pass
 class InstrumentPipelineGraphNode(model.InstrumentPipelineGraphNode, project_client.ObjectProxy): pass
 class PipelineGraphConnection(model.PipelineGraphConnection, project_client.ObjectProxy): pass
@@ -100,6 +101,7 @@ cls_map = {
     'PipelineGraphNode': PipelineGraphNode,
     'AudioOutPipelineGraphNode': AudioOutPipelineGraphNode,
     'TrackMixerPipelineGraphNode': TrackMixerPipelineGraphNode,
+    'ControlSourcePipelineGraphNode': ControlSourcePipelineGraphNode,
     'EventSourcePipelineGraphNode': EventSourcePipelineGraphNode,
     'InstrumentPipelineGraphNode': InstrumentPipelineGraphNode,
     'PipelineGraphConnection': PipelineGraphConnection,

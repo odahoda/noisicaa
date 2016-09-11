@@ -137,10 +137,17 @@ class MeasureReference(model.MeasureReference, state.StateBase):
 state.StateBase.register_class(MeasureReference)
 
 
-class EventSource(object):
+class EntitySource(object):
     def __init__(self, track):
         self._track = track
         self._sheet = track.sheet
+
+    def get_entities(self, frame_data, sample_pos_offset):
+        sample_pos = frame_data.sample_pos - sample_pos_offset
+        for event in self.get_events(
+                sample_pos, sample_pos + frame_data.duration):
+            event.sample_pos += sample_pos_offset
+            frame_data.events.append(('track:%s' % self._track.id, event))
 
     def get_events(self, start_sample_pos, end_sample_pos):
         raise NotImplementedError

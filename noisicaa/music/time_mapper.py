@@ -82,6 +82,24 @@ class TimeMapper(object):
         raise TimeOutOfRange(
             'Sample %d not in valid range [0,%d]' % (sample_pos, sample))
 
+    def sample2timepos(self, sample_pos):
+        tick = 0
+        sample = 0
+        for duration_ticks, duration_samples in self._durations():
+            if sample <= sample_pos < sample + duration_samples:
+                return time.Duration(
+                    (Fraction(sample_pos - sample, duration_samples)
+                     * duration_ticks + tick) * time.Duration.tick_duration)
+
+            tick += duration_ticks
+            sample += duration_samples
+
+        if sample_pos == sample:
+            return time.Duration(tick * time.Duration.tick_duration)
+
+        raise TimeOutOfRange(
+            'Sample %d not in valid range [0,%d]' % (sample_pos, sample))
+
     def measure_pos(self, tick_pos):
         tick = 0
         for measure, (duration_ticks, _) in enumerate(self._durations()):

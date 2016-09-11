@@ -1,5 +1,24 @@
 #!/usr/bin/python3
 
+import pickle
+
+class Entity(object):
+    def __init__(self):
+        pass
+
+    @classmethod
+    def deserialize(self, serialized):
+        return pickle.loads(serialized)
+
+    def serialize(self):
+        return pickle.dumps(self)
+
+
+class ControlFrameEntity(Entity):
+    def __init__(self):
+        self.frame = None
+
+
 class FrameData(object):
     def __init__(self):
         self.sample_pos = None
@@ -8,6 +27,7 @@ class FrameData(object):
         self.num_samples = None
         self.events = None
         self.perf_data = None
+        self.entities = None
 
 
 class FrameContext(object):

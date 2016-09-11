@@ -119,6 +119,9 @@ class Pipeline(object):
                     time.sleep(0.1)
                     continue
 
+                ctxt.in_frame = None
+                ctxt.out_frame = None
+
                 t0 = time.time()
                 with ctxt.perf.track('backend_wait'):
                     backend.wait(ctxt)
@@ -128,8 +131,6 @@ class Pipeline(object):
                 self.listeners.call('perf_data', ctxt.perf.get_spans())
 
                 ctxt.perf = core.PerfStats()
-                ctxt.in_frame = None
-                ctxt.out_frame = None
 
                 with ctxt.perf.track('frame(%d)' % ctxt.sample_pos):
                     with ctxt.perf.track('process'):

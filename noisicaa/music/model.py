@@ -297,6 +297,25 @@ class EventSourcePipelineGraphNode(BasePipelineGraphNode):
         return self.__description
 
 
+class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
+    track = core.ObjectReferenceProperty()
+
+    @property
+    def removable(self):
+        return False
+
+    __description = node_db.SystemNodeDescription(
+        ports=[
+            node_db.ControlPortDescription(
+                name='out',
+                direction=node_db.PortDirection.Output),
+        ])
+
+    @property
+    def description(self):
+        return self.__description
+
+
 class InstrumentPipelineGraphNode(BasePipelineGraphNode):
     track = core.ObjectReferenceProperty()
 

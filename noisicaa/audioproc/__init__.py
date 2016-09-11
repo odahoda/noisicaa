@@ -8,6 +8,7 @@ from .audio_stream import (
     StreamClosed
 )
 from .data import (
+    ControlFrameEntity,
     FrameData,
 )
 from .mutations import (

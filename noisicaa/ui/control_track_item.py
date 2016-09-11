@@ -490,6 +490,11 @@ class ControlTrackItemImpl(base_track_item.TrackItemImpl):
             **self.context)
         self._graph.setPos(0, y + 20)
 
+    def setPlaybackPos(
+            self, sample_pos, num_samples, start_measure_idx,
+            start_measure_tick, end_measure_idx, end_measure_tick):
+        pass
+
 
 class ControlTrackItem(ui_base.ProjectMixin, ControlTrackItemImpl):
     pass

@@ -5,7 +5,7 @@ import logging
 from noisicaa import core
 
 from .time_signature import TimeSignature
-from .track import MeasuredTrack, Measure, EventSource
+from .track import MeasuredTrack, Measure
 from .time import Duration
 from . import model
 from . import commands

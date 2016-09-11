@@ -22,8 +22,6 @@ Icon next to controllable values, drag'n'drop onto editor.
   - or keep control points, but just don't show them
   - or keep track length
 - splines?
-- create a source node in pipeline
-- add control data in player
 - properties
   - min/max
   - linear/log
@@ -32,6 +30,7 @@ Icon next to controllable values, drag'n'drop onto editor.
 - edit track properties
 - implicit first and last segment
   - extend current value from start or end
+- ControlEntitySource: compute value at a-rate
 
 * TODO ToolDock: track specific tool set						      :FR:
 - active track:
@@ -55,7 +54,6 @@ Icon next to controllable values, drag'n'drop onto editor.
 - 'dict_values' object is not an iterator
 - no traceback?
 
-* Playback pos not displayed on ScoreTrack anymore					     :BUG:
 * Abstract base class for ui mixins							 :CLEANUP:
 - to make pylint happy
 
@@ -67,6 +65,7 @@ Icon next to controllable values, drag'n'drop onto editor.
 - all object references (child, lists, etc.) only store IDs in state, do
   lazy dereferencing on __get__
 
+* Fully replace obsolete node descriptions						 :CLEANUP:
 * Track type: percussion								      :FR:
 ** move beats to arbitrary positions
 * Sometimes hangs during shutdown							     :BUG:

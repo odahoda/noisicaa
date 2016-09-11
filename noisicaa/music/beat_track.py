@@ -5,7 +5,7 @@ import logging
 from noisicaa import core
 from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
 
-from .track import MeasuredTrack, Measure, EventSource
+from .track import MeasuredTrack, Measure, EntitySource
 from .time import Duration
 from .pitch import Pitch
 from . import model
@@ -139,7 +139,7 @@ class BeatMeasure(model.BeatMeasure, Measure):
 state.StateBase.register_class(BeatMeasure)
 
 
-class BeatEventSource(EventSource):
+class BeatEntitySource(EntitySource):
     def __init__(self, track):
         super().__init__(track)
         self._time_mapper = time_mapper.TimeMapper(track.sheet)
@@ -199,8 +199,8 @@ class BeatTrack(model.BeatTrack, MeasuredTrack):
             for _ in range(num_measures):
                 self.append_measure()
 
-    def create_event_source(self):
-        return BeatEventSource(self)
+    def create_entity_source(self):
+        return BeatEntitySource(self)
 
     @property
     def event_source_name(self):

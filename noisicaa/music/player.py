@@ -83,12 +83,8 @@ class AudioStreamProxy(object):
                     state = new_state
 
                 if state == 'playing':
-                    with perf.track('get_track_events'):
-                        for queue, event in self._player.get_track_events(
-                                request.sample_pos - sample_pos_offset,
-                                request.duration):
-                            event.sample_pos += sample_pos_offset
-                            request.events.append((queue, event))
+                    with perf.track('get_track_entities'):
+                        self._player.get_track_entities(request, sample_pos_offset)
 
                     self._player.playback_sample_pos += request.duration
 
@@ -134,7 +130,7 @@ class Player(object):
 
         self.playback_state = 'stopped'
         self.playback_sample_pos = 0
-        self.track_event_sources = {}
+        self.track_entity_sources = {}
         self.group_listeners = {}
 
     @property
@@ -180,7 +176,7 @@ class Player(object):
             listener.remove()
         self.group_listeners.clear()
 
-        self.track_event_sources.clear()
+        self.track_entity_sources.clear()
 
         if self.mutation_listener is not None:
             self.mutation_listener.remove()
@@ -229,8 +225,8 @@ class Player(object):
             if isinstance(t, model.TrackGroup):
                 self.group_listeners[t.id] = t.listeners.add(
                     'tracks', self.tracks_changed)
-            elif isinstance(t, model.MeasuredTrack):
-                self.track_event_sources[t.id] = t.create_event_source()
+            else:
+                self.track_entity_sources[t.id] = t.create_entity_source()
 
     def remove_track(self, track):
         for t in track.walk_tracks(groups=True, tracks=True):
@@ -238,16 +234,12 @@ class Player(object):
                 listener = self.group_listeners[t.id]
                 listener.remove()
                 del self.group_listeners[t.id]
-            elif isinstance(t, model.MeasuredTrack):
-                del self.track_event_sources[t.id]
+            else:
+                del self.track_entity_sources[t.id]
 
-    def get_track_events(self, sample_pos, num_samples):
-        events = []
-        for track_id, event_source in self.track_event_sources.items():
-            for event in event_source.get_events(
-                    sample_pos, sample_pos + num_samples):
-                events.append(('track:%s' % track_id, event))
-        return events
+    def get_track_entities(self, frame_data, sample_pos_offset):
+        for entity_source in self.track_entity_sources.values():
+            entity_source.get_entities(frame_data, sample_pos_offset)
 
     def handle_pipeline_mutation(self, mutation):
         if self.pending_pipeline_mutations is not None:

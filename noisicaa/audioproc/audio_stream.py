@@ -86,6 +86,7 @@ class AudioStreamBase(object):
     def receive_frame(self):
         frame = data.FrameData()
         frame.events = []
+        frame.entities = {}
         frame.perf_data = []
 
         line = self._get_line()
@@ -107,6 +108,15 @@ class AudioStreamBase(object):
                 serialized = self._get_bytes(int(length[4:]))
                 event = pickle.loads(serialized)
                 frame.events.append((queue, event))
+
+            elif line.startswith(b'ENTITY='):
+                name = line[7:].decode('utf-8')
+
+                length = self._get_line()
+                assert length.startswith(b'LEN=')
+                serialized = self._get_bytes(int(length[4:]))
+                entity = data.Entity.deserialize(serialized)
+                frame.entities[name] = entity
 
             elif line.startswith(b'SAMPLES='):
                 frame.num_samples = int(line[8:])
@@ -137,6 +147,13 @@ class AudioStreamBase(object):
             for queue, event in frame.events:
                 request.extend(b'EVENT=%s\n' % queue.encode('utf-8'))
                 serialized = pickle.dumps(event)
+                request.extend(b'LEN=%d\n' % len(serialized))
+                request.extend(serialized)
+
+        if frame.entities:
+            for name, entity in frame.entities.items():
+                request.extend(b'ENTITY=%s\n' % name.encode('utf-8'))
+                serialized = entity.serialize()
                 request.extend(b'LEN=%d\n' % len(serialized))
                 request.extend(serialized)
 

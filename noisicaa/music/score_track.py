@@ -8,7 +8,7 @@ from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
 from .pitch import Pitch
 from .clef import Clef
 from .key_signature import KeySignature
-from .track import MeasuredTrack, Measure, EventSource
+from .track import MeasuredTrack, Measure, EntitySource
 from .time import Duration
 from . import model
 from . import state
@@ -301,7 +301,7 @@ class ScoreMeasure(model.ScoreMeasure, Measure):
 state.StateBase.register_class(ScoreMeasure)
 
 
-class ScoreEventSource(EventSource):
+class ScoreEntitySource(EntitySource):
     def __init__(self, track):
         super().__init__(track)
         self._active_pitches = []
@@ -381,8 +381,8 @@ class ScoreTrack(model.ScoreTrack, MeasuredTrack):
 
         return measure
 
-    def create_event_source(self):
-        return ScoreEventSource(self)
+    def create_entity_source(self):
+        return ScoreEntitySource(self)
 
     @property
     def event_source_name(self):
