@@ -70,12 +70,13 @@ class Handle(QtWidgets.QGraphicsRectItem):
 
 
 class ControlGraph(ui_base.ProjectMixin, QGraphicsGroup):
-    def __init__(self, track=None, size=None, widths=None, **kwargs):
+    def __init__(self, track=None, size=None, widths=None, durations=None, **kwargs):
         super().__init__(**kwargs)
 
         self._track = track
         self._size = size
         self._widths = widths
+        self._durations = durations
 
         self._listeners = []
 
@@ -130,10 +131,26 @@ class ControlGraph(ui_base.ProjectMixin, QGraphicsGroup):
         return float(self.height - y) / self.height
 
     def timeposToX(self, timepos):
-        return int(400 * timepos)
+        x = 0
+        for width, duration in zip(self._widths, self._durations):
+            if timepos <= duration:
+                return x + int(width * timepos / duration)
+
+            x += width
+            timepos -= duration
+
+        return x
 
     def xToTimepos(self, x):
-        return music.Duration(int(x), 400)
+        timepos = music.Duration(0, 1)
+        for width, duration in zip(self._widths, self._durations):
+            if x <= width:
+                return music.Duration(timepos + duration * music.Duration(int(x), width))
+
+            timepos += duration
+            x -= width
+
+        return timepos
 
     @property
     def width(self):
@@ -467,6 +484,9 @@ class ControlTrackItemImpl(base_track_item.TrackItemImpl):
             track=self._track,
             size=QtCore.QSize(sum(track_layout.widths[:-1]), track_layout.height - 20),
             widths=track_layout.widths[:-1],
+            durations=[
+                mref.measure.duration
+                for mref in self._track.sheet.property_track.measure_list],
             **self.context)
         self._graph.setPos(0, y + 20)
 

@@ -30,6 +30,8 @@ Icon next to controllable values, drag'n'drop onto editor.
   - unit (Hz, dB, %, ..)
 - display current value under cursor position
 - edit track properties
+- implicit first and last segment
+  - extend current value from start or end
 
 * TODO ToolDock: track specific tool set						      :FR:
 - active track:
