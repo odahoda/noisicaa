@@ -34,6 +34,10 @@ class CSoundFilter(node.Node):
              node_db.PortDirection.Input): ports.AudioInputPort,
             (node_db.PortType.Audio,
              node_db.PortDirection.Output): ports.AudioOutputPort,
+            (node_db.PortType.Control,
+             node_db.PortDirection.Input): ports.ControlInputPort,
+            (node_db.PortType.Control,
+             node_db.PortDirection.Output): ports.ControlOutputPort,
             (node_db.PortType.Events,
              node_db.PortDirection.Input): ports.EventInputPort,
             (node_db.PortType.Events,
@@ -44,14 +48,18 @@ class CSoundFilter(node.Node):
             port_cls = port_cls_map[
                 (port_desc.port_type, port_desc.direction)]
             kwargs = {}
-            if port_desc.direction == node_db.PortDirection.Output:
+
+            if (port_desc.direction == node_db.PortDirection.Output
+                    and port_desc.port_type == node_db.PortType.Audio):
                 if port_desc.bypass_port is not None:
                     kwargs['bypass_port'] = port_desc.bypass_port
                 if port_desc.drywet_port is not None:
                     kwargs['drywet_port'] = port_desc.drywet_port
+
             if (port_desc.direction == node_db.PortDirection.Input
                     and port_desc.port_type == node_db.PortType.Events):
                 kwargs['csound_instr'] = port_desc.csound_instr
+
             port = port_cls(port_desc.name, **kwargs)
             if port_desc.direction == node_db.PortDirection.Input:
                 self.add_input(port)
@@ -90,20 +98,30 @@ class CSoundFilter(node.Node):
 
     def run(self, ctxt):
         in_samples = {}
+        in_control = {}
         in_events = {}
         for port in self.inputs.values():
             if isinstance(port, ports.AudioInputPort):
                 assert len(port.frame) == ctxt.duration
                 in_samples[port.name] = port.frame.samples
+            elif isinstance(port, ports.ControlInputPort):
+                in_control[port.name] = port.frame
             elif isinstance(port, ports.EventInputPort):
                 in_events[port.name] = (port.csound_instr, list(port.events))
             else:
                 raise ValueError(port)
 
         out_samples = {}
+        out_control = {}
         for port in self.outputs.values():
-            port.frame.resize(ctxt.duration)
-            out_samples[port.name] = port.frame.samples
+            if isinstance(port, ports.AudioOutputPort):
+                port.frame.resize(ctxt.duration)
+                out_samples[port.name] = port.frame.samples
+            elif isinstance(port, ports.ControlOutputPort):
+                port.frame.resize(ctxt.duration)
+                out_control[port.name] = port.frame
+            else:
+                raise ValueError(port)
 
         pos = 0
         while pos < ctxt.duration:
@@ -114,6 +132,11 @@ class CSoundFilter(node.Node):
                 self._csnd.set_audio_channel_data(
                     '%s/right' % port_name,
                     samples[1][pos:pos+self._csnd.ksmps])
+
+            for port_name, samples in in_control.items():
+                self._csnd.set_audio_channel_data(
+                    '%s' % port_name,
+                    samples[pos:pos+self._csnd.ksmps])
 
             for port_name, (instr, pending_events) in in_events.items():
                 while (len(pending_events) > 0
@@ -146,6 +169,11 @@ class CSoundFilter(node.Node):
                 samples[1][pos:pos+self._csnd.ksmps] = (
                     self._csnd.get_audio_channel_data(
                         '%s/right' % port_name))
+
+            for port_name, samples in out_control.items():
+                samples[pos:pos+self._csnd.ksmps] = (
+                    self._csnd.get_audio_channel_data(
+                        '%s' % port_name))
 
             pos += self._csnd.ksmps
 

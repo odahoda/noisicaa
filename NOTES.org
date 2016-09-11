@@ -1,5 +1,8 @@
 # -*- org-tags-column: -98 -*-
 
+* TODO Control ports in audio pipeline							      :FR:
+- control source node
+
 * TODO Control tracks									      :FR:
 Any controllable value can be turned into a control track.
 Icon next to controllable values, drag'n'drop onto editor.
@@ -27,13 +30,6 @@ Icon next to controllable values, drag'n'drop onto editor.
   - unit (Hz, dB, %, ..)
 - display current value under cursor position
 - edit track properties
-
-* TODO Control ports in audio pipeline							      :FR:
-- doubles at sample rate
-- add new port type
-- control source node
-- LFO node with just a control output port
-- some other node accepting a control input port
 
 * TODO ToolDock: track specific tool set						      :FR:
 - active track:

@@ -4,6 +4,7 @@ from .node_description import (
     UserNodeDescription,
 
     AudioPortDescription,
+    ControlPortDescription,
     EventPortDescription,
     PortDirection, PortType,
 

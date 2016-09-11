@@ -32,6 +32,7 @@ class UserNodeDescription(NodeDescription):
 
 class PortType(enum.Enum):
     Audio = 'audio'
+    Control = 'control'
     Events = 'events'
 
 
@@ -53,6 +54,11 @@ class AudioPortDescription(PortDescription):
         super().__init__(port_type=PortType.Audio, **kwargs)
         self.drywet_port = drywet_port
         self.drywet_default = drywet_default
+
+
+class ControlPortDescription(PortDescription):
+    def __init__(self, **kwargs):
+        super().__init__(port_type=PortType.Control, **kwargs)
 
 
 class EventPortDescription(PortDescription):

@@ -5,6 +5,8 @@ import collections
 import functools
 import operator
 
+import numpy
+
 from .exceptions import Error
 from .frame import Frame
 from .audio_format import (AudioFormat,
@@ -193,6 +195,31 @@ class AudioOutputPort(OutputPort):
                     (100.0 - self._drywet) / 100.0, in_port.frame)
 
         super().post_run(ctxt)
+
+
+class ControlInputPort(InputPort):
+    def __init__(self, name):
+        super().__init__(name)
+
+        self.frame = numpy.zeros(0, dtype=numpy.float32)
+
+    def check_port(self, port):
+        super().check_port(port)
+        if not isinstance(port, ControlOutputPort):
+            raise Error("Can only connect to ControlOutputPort")
+
+    def collect_inputs(self, ctxt):
+        self.frame.resize(ctxt.duration)
+        self.frame.fill(0.0)
+        for upstream_port in self.inputs:
+            if not upstream_port.muted:
+                self.frame += upstream_port.frame
+
+class ControlOutputPort(OutputPort):
+    def __init__(self, name):
+        super().__init__(name)
+
+        self.frame = numpy.zeros(0, dtype=numpy.float32)
 
 
 class EventInputPort(InputPort):
