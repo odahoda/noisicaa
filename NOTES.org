@@ -22,6 +22,7 @@ Icon next to controllable values, drag'n'drop onto editor.
   - or keep control points, but just don't show them
   - or keep track length
 - splines?
+- free hand
 - properties
   - min/max
   - linear/log
@@ -49,6 +50,7 @@ Icon next to controllable values, drag'n'drop onto editor.
 * turn any node parameter into a control input port					      :FR:
 - ports can be added and removed on the fly
 - parameter description has sufficient data to describe port
+- parameter is always a-rate in csound
 
 * Exception when closing a project 							     :BUG:
 - 'dict_values' object is not an iterator
@@ -77,6 +79,7 @@ Last sign of life:
 - make port list editable
 - edit csound code
 - recompile csound code on the fly
+- report csound errors back to UI
 - two engines - new/old code - in parallel, slide from old to new
   - init new code
   - start processing new code , output at 0
@@ -85,7 +88,9 @@ Last sign of life:
   - clean up old code
   - how does that work with arbitrary output nodes? and events?
 - edit widget with syntax highlighting
-
+- add to library
+  - editing inproject only changes local state
+  - explicit sync to library?
 * merge consecutive commands								      :FR:
 - keep a single item in-memory buffer before writing commands to disk
 - when adding commands to log
@@ -98,6 +103,7 @@ Last sign of life:
 * per measure time signature								      :FR:
 Tracks can have different time signatures, measures do not have to align
 vertically.
+* replace SheetPropertyTrack by a controllable parameter				      :FR:
 * SIGSEGV when editing PipelineGraphView						   :CRASH:
 Possibly caused by the use of QGraphicsEffect for dropshadows?
 
