@@ -11,6 +11,7 @@ from . import commands
 from . import mutations
 from . import score_track
 from . import beat_track
+from . import control_track
 from . import track_group
 from . import sheet_property_track
 from . import pipeline_graph
@@ -46,18 +47,24 @@ class AddTrack(commands.Command):
             insert_index = self.insert_index
             assert 0 <= insert_index <= len(parent_group.tracks)
 
-        num_measures = 1
-        for track in parent_group.walk_tracks():
-            num_measures = max(num_measures, len(track.measure_list))
-
         track_name = "Track %d" % (len(parent_group.tracks) + 1)
         track_cls_map = {
             'score': score_track.ScoreTrack,
             'beat': beat_track.BeatTrack,
+            'control': control_track.ControlTrack,
             'group': track_group.TrackGroup,
         }
         track_cls = track_cls_map[self.track_type]
-        track = track_cls(name=track_name, num_measures=num_measures)
+
+        kwargs = {}
+        if issubclass(track_cls, model.MeasuredTrack):
+            num_measures = 1
+            for track in parent_group.walk_tracks():
+                if isinstance(track, model.MeasuredTrack):
+                    num_measures = max(num_measures, len(track.measure_list))
+            kwargs['num_measures'] = num_measures
+
+        track = track_cls(name=track_name, **kwargs)
 
         sheet.add_track(parent_group, insert_index, track)
 

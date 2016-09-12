@@ -74,6 +74,11 @@ Last sign of life:
 * Custom csound filter node								      :FR:
 - make port list editable
 - report csound errors back to UI
+  - capture logs while setting orchestra/score
+  - needs some mechanism to report events from audioproc pipeline back to UI
+- big red button
+  - tear down current csnd instance
+  - needs some mechanism to send action events to audioproc node
 - two engines - new/old code - in parallel, slide from old to new
   - init new code
   - start processing new code , output at 0

@@ -290,6 +290,22 @@ class CustomCSound(CSoundBase):
                     ga{1}R chnexport "{0}/right", 2
                     """.format(port_desc.name, port_desc.name.title()))
 
+            elif (port_desc.port_type == node_db.PortType.Control
+                    and port_desc.direction == node_db.PortDirection.Input):
+                self._orchestra_preamble += textwrap.dedent("""\
+                    ga{1} chnexport "{0}", 1
+                    """.format(port_desc.name, port_desc.name.title()))
+
+            elif (port_desc.port_type == node_db.PortType.Control
+                    and port_desc.direction == node_db.PortDirection.Output):
+                self._orchestra_preamble += textwrap.dedent("""\
+                    ga{1} chnexport "{0}", 2
+                    """.format(port_desc.name, port_desc.name.title()))
+
+            elif (port_desc.port_type == node_db.PortType.Events
+                    and port_desc.direction == node_db.PortDirection.Input):
+                pass
+
             else:
                 raise ValueError(port_desc)
 
@@ -309,7 +325,7 @@ class CustomCSound(CSoundBase):
             self._orchestra = kwargs.get('orchestra')
             reinit = True
         if 'score' in kwargs:
-            self._score = kwargs.get('orchestra')
+            self._score = kwargs.get('score')
             reinit = True
 
         if reinit:

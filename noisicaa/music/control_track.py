@@ -166,13 +166,6 @@ class ControlTrack(model.ControlTrack, Track):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
-        if state is None:
-            self.points.append(ControlPoint(timepos=Duration(0, 4), value=0.0))
-            self.points.append(ControlPoint(timepos=Duration(1, 4), value=1.0))
-            self.points.append(ControlPoint(timepos=Duration(2, 4), value=0.0))
-            self.points.append(ControlPoint(timepos=Duration(3, 4), value=1.0))
-            self.points.append(ControlPoint(timepos=Duration(4, 4), value=0.0))
-
     def create_entity_source(self):
         return ControlEntitySource(self)
 

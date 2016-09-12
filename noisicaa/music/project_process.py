@@ -21,7 +21,6 @@ from . import commands
 from . import player
 from . import state
 from . import score_track
-from . import control_track
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +242,6 @@ class ProjectProcessMixin(object):
         s = sheet.Sheet(name='Sheet 1', num_tracks=0)
         project.add_sheet(s)
         s.add_track(s.master_group, 0, score_track.ScoreTrack(name="Track 1"))
-        s.add_track(s.master_group, 0, control_track.ControlTrack(name="Control Track 1"))
         return project
 
     async def handle_create(self, path):

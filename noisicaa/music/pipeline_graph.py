@@ -148,7 +148,10 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
 
         params = {}
         for parameter in self.description.parameters:
-            if parameter.param_type == node_db.ParameterType.Float:
+            if parameter.param_type in (
+                    node_db.ParameterType.Float,
+                    node_db.ParameterType.String,
+                    node_db.ParameterType.Text):
                 params[parameter.name] = parameter_values.get(
                     parameter.name, parameter.default)
 

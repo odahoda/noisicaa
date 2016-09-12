@@ -126,11 +126,6 @@ state.StateBase.register_class(Beat)
 class BeatMeasure(model.BeatMeasure, Measure):
     def __init__(self, state=None):
         super().__init__(state=state)
-        if state is None:
-            self.beats.append(Beat(timepos=Duration(0, 4), velocity=100))
-            self.beats.append(Beat(timepos=Duration(1, 4), velocity=100))
-            self.beats.append(Beat(timepos=Duration(2, 4), velocity=100))
-            self.beats.append(Beat(timepos=Duration(3, 4), velocity=100))
 
     @property
     def empty(self):

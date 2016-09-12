@@ -99,6 +99,11 @@ class TrackGroupProperties(TrackProperties):
         super().__init__(**kwargs)
 
 
+class ControlTrackProperties(TrackProperties):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
 class ScoreTrackProperties(TrackProperties):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -318,6 +323,10 @@ class TrackPropertiesDockWidget(DockWidget):
 
         elif isinstance(self._track, model.BeatTrack):
             self.setWidget(BeatTrackProperties(
+                track=self._track, **self.context))
+
+        elif isinstance(self._track, model.ControlTrack):
+            self.setWidget(ControlTrackProperties(
                 track=self._track, **self.context))
 
         else:

@@ -40,6 +40,12 @@ class BuiltinScanner(scanner.Scanner):
                     node_db.AudioPortDescription(
                         name='in',
                         direction=node_db.PortDirection.Input),
+                    node_db.ControlPortDescription(
+                        name='ctrl',
+                        direction=node_db.PortDirection.Input),
+                    node_db.EventPortDescription(
+                        name='ev',
+                        direction=node_db.PortDirection.Input),
                     node_db.AudioPortDescription(
                         name='out',
                         direction=node_db.PortDirection.Output),
@@ -50,7 +56,7 @@ class BuiltinScanner(scanner.Scanner):
                         display_name='Orchestra Code',
                         content_type='text/csound-orchestra',
                         default=textwrap.dedent("""\
-                            instr 1
+                            instr 2
                                 gaOutL = gaInL
                                 gaOutR = gaInR
                             endin
@@ -59,6 +65,6 @@ class BuiltinScanner(scanner.Scanner):
                         name='score',
                         display_name='Score',
                         content_type='text/csound-score',
-                        default='i1 0 -1'),
+                        default='i2 0 -1'),
                 ])
         )
