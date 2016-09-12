@@ -3,6 +3,7 @@
 import logging
 import textwrap
 import time
+import queue
 
 import numpy
 
@@ -18,17 +19,15 @@ from .. import events
 logger = logging.getLogger(__name__)
 
 
-class CSoundFilter(node.Node):
-    desc = node_types.NodeType()
-    desc.name = 'csound_filter'
-    desc.port('in', 'input', 'audio')
-    desc.port('out', 'output', 'audio')
-
-    def __init__(self, event_loop, description, name=None, id=None):
+class CSoundBase(node.Node):
+    def __init__(self, event_loop, name=None, id=None):
         super().__init__(event_loop, name, id)
 
-        self._description = description
+        self._parameters = {}
+        self._csnd = None
+        self._next_csnd = queue.Queue()
 
+    def init_ports(self, description):
         port_cls_map = {
             (node_db.PortType.Audio,
              node_db.PortDirection.Input): ports.AudioInputPort,
@@ -44,7 +43,7 @@ class CSoundFilter(node.Node):
              node_db.PortDirection.Output): ports.EventOutputPort,
         }
 
-        for port_desc in self._description.ports:
+        for port_desc in description.ports:
             port_cls = port_cls_map[
                 (port_desc.port_type, port_desc.direction)]
             kwargs = {}
@@ -66,37 +65,91 @@ class CSoundFilter(node.Node):
             else:
                 self.add_output(port)
 
-        self._parameters = {}
-        for parameter in self._description.parameters:
-            if parameter.param_type == node_db.ParameterType.Float:
-                self._parameters[parameter.name] = parameter.default
-
-        self._csnd = None
-        self._orchestra = self._description.get_parameter('orchestra').value
-        self._score = self._description.get_parameter('score').value
+    def init_parameters(self, description):
+        for parameter in description.parameters:
+            if parameter.param_type in (
+                    node_db.ParameterType.Float,
+                    node_db.ParameterType.String,
+                    node_db.ParameterType.Text):
+                self._parameters[parameter.name] = {
+                    'value': parameter.default,
+                    'description': parameter,
+                }
+            elif parameter.param_type == node_db.ParameterType.Internal:
+                pass
+            else:
+                raise ValueError(parameter)
 
     def set_param(self, **kwargs):
         for parameter_name, value in kwargs.items():
             assert parameter_name in self._parameters
-            assert isinstance(value, float)
-            self._parameters[parameter_name] = value
+            parameter = self._parameters[parameter_name]['description']
+            if parameter.param_type == node_db.ParameterType.Float:
+                assert isinstance(value, float), type(value)
+                self._parameters[parameter_name]['value'] = value
+            elif parameter.param_type == node_db.ParameterType.Text:
+                assert isinstance(value, str), type(value)
+                self._parameters[parameter_name]['value'] = value
+            else:
+                raise ValueError(parameter)
 
-    async def setup(self):
-        await super().setup()
+    def get_param(self, parameter_name):
+        return self._parameters[parameter_name]['value']
 
-        self._csnd = csound.CSound()
+    def set_code(self, orchestra, score):
+        csnd = csound.CSound()
+        try:
+            csnd.set_orchestra(orchestra)
+        except csound.CSoundError as exc:
+            logger.error("Exception when setting orchestra: %s", exc)
+            csnd.close()
+            return
 
-        self._csnd.set_orchestra(self._orchestra)
-        self._csnd.set_score(self._score)
+        try:
+            csnd.set_score(score)
+        except csound.CSoundError as exc:
+            logger.error("Exception when setting score: %s", exc)
+            csnd.close()
+            return
+
+        self._next_csnd.put(csnd)
 
     async def cleanup(self):
         if self._csnd is not None:
             self._csnd.close()
             self._csnd = None
 
+        while not self._next_csnd.empty():
+            csnd = self._next_csnd.get()
+            csnd.close()
+
         await super().cleanup()
 
     def run(self, ctxt):
+        try:
+            next_csnd = self._next_csnd.get_nowait()
+        except queue.Empty:
+            pass
+        else:
+            if self._csnd is not None:
+                self._csnd.close()
+                self._csnd = None
+
+            self._csnd = next_csnd
+
+        if self._csnd is None:
+            for port in self.outputs.values():
+                if isinstance(port, ports.AudioOutputPort):
+                    port.frame.resize(ctxt.duration)
+                    port.frame.clear()
+                elif isinstance(port, ports.ControlOutputPort):
+                    port.frame.resize(ctxt.duration)
+                    port.frame.fill(0.0)
+                else:
+                    raise ValueError(port)
+
+            return
+
         in_samples = {}
         in_control = {}
         in_events = {}
@@ -158,7 +211,7 @@ class CSoundFilter(node.Node):
             for parameter in self._description.parameters:
                 if parameter.param_type == node_db.ParameterType.Float:
                     self._csnd.set_control_channel_value(
-                        parameter.name, self._parameters[parameter.name])
+                        parameter.name, self.get_param(parameter.name))
 
             self._csnd.perform()
 
@@ -180,88 +233,84 @@ class CSoundFilter(node.Node):
         assert pos == ctxt.duration
 
 
-class CSoundInstrument(node.Node):
+class CSoundFilter(CSoundBase):
     desc = node_types.NodeType()
-    desc.name = 'csound_instrument'
-    desc.port('in', 'input', 'events')
+    desc.name = 'csound_filter'
+    desc.port('in', 'input', 'audio')
     desc.port('out', 'output', 'audio')
 
-    def __init__(self, event_loop, name=None, id=None):
+    def __init__(self, event_loop, description, name=None, id=None):
         super().__init__(event_loop, name, id)
 
-        self._input = ports.EventInputPort('in')
-        self.add_input(self._input)
+        self._description = description
 
-        self._output = ports.AudioOutputPort('out')
-        self.add_output(self._output)
+        self.init_ports(self._description)
+        self.init_parameters(self._description)
 
-        self._csnd = None
+        self._orchestra = self._description.get_parameter('orchestra').value
+        self._score = self._description.get_parameter('score').value
 
     async def setup(self):
         await super().setup()
 
-        self._csnd = csound.CSound()
+        self.set_code(self._orchestra, self._score)
 
-        orc = textwrap.dedent("""\
+
+class CustomCSound(CSoundBase):
+    desc = node_types.NodeType()
+    desc.name = 'custom_csound'
+    desc.port('in', 'input', 'audio')
+    desc.port('out', 'output', 'audio')
+
+    def __init__(self, event_loop, description, name=None, id=None):
+        super().__init__(event_loop, name, id)
+
+        self._description = description
+
+        self.init_ports(self._description)
+        self.init_parameters(self._description)
+
+        self._orchestra_preamble = textwrap.dedent("""\
             ksmps=32
+            nchnls=2
+            """)
 
-            gaOutL chnexport "OutL", 2
-            gaOutR chnexport "OutR", 2
+        for port_desc in description.ports:
+            if (port_desc.port_type == node_db.PortType.Audio
+                    and port_desc.direction == node_db.PortDirection.Input):
+                self._orchestra_preamble += textwrap.dedent("""\
+                    ga{1}L chnexport "{0}/left", 1
+                    ga{1}R chnexport "{0}/right", 1
+                    """.format(port_desc.name, port_desc.name.title()))
 
-            instr 1
-                iPitch = p4
-                iVelocity = p5
+            elif (port_desc.port_type == node_db.PortType.Audio
+                    and port_desc.direction == node_db.PortDirection.Output):
+                self._orchestra_preamble += textwrap.dedent("""\
+                    ga{1}L chnexport "{0}/left", 2
+                    ga{1}R chnexport "{0}/right", 2
+                    """.format(port_desc.name, port_desc.name.title()))
 
-                iFreq = cpsmidinn(iPitch)
-                iVolume = -20 * log10(127^2 / iVelocity^2)
+            else:
+                raise ValueError(port_desc)
 
-                print iPitch, iFreq, iVelocity, iVolume
-                gaOutL = db(iVolume) * linsegr(0, 0.08, 1, 0.1, 0.6, 0.5, 0.0) * poscil(1.0, iFreq)
-                gaOutR = gaOutL
-            endin
-        """)
-        self._csnd.set_orchestra(orc)
+        self._orchestra = self.get_param('orchestra')
+        self._score = self.get_param('score')
 
-    async def cleanup(self):
-        if self._csnd is not None:
-            self._csnd.close()
-            self._csnd = None
+    async def setup(self):
+        await super().setup()
 
-        await super().cleanup()
+        self.set_code(self._orchestra_preamble + self._orchestra, self._score)
 
-    def run(self, ctxt):
-        self._output.frame.clear()
+    def set_param(self, **kwargs):
+        super().set_param(**kwargs)
 
-        num_samples = len(self._output.frame)
-        out = self._output.frame.samples
+        reinit = False
+        if 'orchestra' in kwargs:
+            self._orchestra = kwargs.get('orchestra')
+            reinit = True
+        if 'score' in kwargs:
+            self._score = kwargs.get('orchestra')
+            reinit = True
 
-        pos = 0
-        sample_pos = ctxt.sample_pos
-        pending_events = list(self._input.events)
-        while pos < num_samples:
-            while (len(pending_events) > 0
-                   and pending_events[0].sample_pos < sample_pos + self._csnd.ksmps):
-                event = pending_events.pop(0)
-                logger.info("Consuming event %s", event)
-                if isinstance(event, events.NoteOnEvent):
-                    self._csnd.add_score_event(
-                        b'i1 0 0.2 %d %d' % (
-                            event.note.midi_note, event.volume))
-                elif isinstance(event, events.NoteOffEvent):
-                    pass
-                else:
-                    raise NotImplementedError(
-                        "Event class %s not supported" % type(event).__name__)
-
-            self._csnd.perform()
-
-            out[0][pos:pos+self._csnd.ksmps] = (
-                self._csnd.get_audio_channel_data('OutL'))
-            out[1][pos:pos+self._csnd.ksmps] = (
-                self._csnd.get_audio_channel_data('OutR'))
-
-            pos += self._csnd.ksmps
-            sample_pos += self._csnd.ksmps
-
-        assert pos == num_samples
-        assert len(pending_events) == 0
+        if reinit:
+            self.set_code(self._orchestra_preamble + self._orchestra, self._score)

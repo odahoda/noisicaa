@@ -130,6 +130,37 @@ class QCloseIconItem(QtWidgets.QGraphicsObject):
             evt.accept()
 
 
+class QTextEdit(QtWidgets.QTextEdit):
+    editingFinished = QtCore.pyqtSignal()
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        self.setAcceptRichText(False)
+        self.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
+
+        self.__initial_text = None
+
+    def keyPressEvent(self, evt):
+        if (evt.modifiers() == Qt.ControlModifier and evt.key() == Qt.Key_Return):
+            self.editingFinished.emit()
+            self.__initial_text = self.toPlainText()
+            evt.accept()
+            return
+        super().keyPressEvent(evt)
+
+    def focusInEvent(self, evt):
+        super().focusInEvent(evt)
+        self.__initial_text = self.toPlainText()
+
+    def focusOutEvent(self, evt):
+        super().focusOutEvent(evt)
+        new_text = self.toPlainText()
+        if new_text != self.__initial_text:
+            self.editingFinished.emit()
+        self.__initial_text = None
+
+
 class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
     def __init__(self, node_item, **kwargs):
         super().__init__(
@@ -230,6 +261,20 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
                     self.onFloatParameterChanged, widget, parameter))
                 layout.addRow(parameter.display_name, widget)
 
+            elif parameter.param_type == node_db.ParameterType.Text:
+                widget = QTextEdit(self)
+                widget.setPlainText(str(parameter_values.get(
+                    parameter.name, parameter.default)))
+                widget.editingFinished.connect(functools.partial(
+                    self.onTextParameterChanged, widget, parameter))
+                layout.addRow(parameter.display_name, widget)
+
+            elif parameter.param_type == node_db.ParameterType.Internal:
+                pass
+
+            else:
+                raise ValueError(parameter)
+
         main_area = QtWidgets.QWidget()
         main_area.setLayout(layout)
         self.setWidget(main_area)
@@ -244,6 +289,12 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
                 self._node_item.node.id, 'SetPipelineGraphNodeParameter',
                 parameter_name=parameter.name,
                 float_value=value)
+
+    def onTextParameterChanged(self, widget, parameter):
+        self.send_command_async(
+            self._node_item.node.id, 'SetPipelineGraphNodeParameter',
+            parameter_name=parameter.name,
+            str_value=widget.toPlainText())
 
     def onPortMutedChanged(self, port, volume_widget, value):
         volume_widget.setEnabled(not value)

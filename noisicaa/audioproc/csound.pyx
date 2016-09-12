@@ -285,7 +285,7 @@ cdef class CSound(object):
         self._check(csoundPerformKsmps(self.csnd))
 
     def get_audio_channel_data(self, name):
-        assert name in self.channels
+        assert name in self.channels, name
         channel = self.channels[name]
         assert channel.is_output, channel
         assert channel.type == ChannelType.Audio, channel
@@ -300,7 +300,7 @@ cdef class CSound(object):
             count=self.ksmps, dtype=numpy.double)
 
     def set_audio_channel_data(self, name, samples):
-        assert name in self.channels
+        assert name in self.channels, name
         channel = self.channels[name]
         assert channel.is_input, channel
         assert channel.type == ChannelType.Audio, channel
@@ -320,7 +320,7 @@ cdef class CSound(object):
             channel_dat, <char *>dsamples, self.ksmps * sizeof(MYFLT))
 
     def set_control_channel_value(self, name, value):
-        assert name in self.channels
+        assert name in self.channels, name
         channel = self.channels[name]
         assert channel.is_input, channel
         assert channel.type == ChannelType.Control, channel

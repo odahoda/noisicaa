@@ -10,6 +10,7 @@ from noisicaa import constants
 from noisicaa import node_db
 
 from . import csound_scanner
+from . import builtin_scanner
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,10 @@ class NodeDB(object):
         self.listeners = core.CallbackRegistry()
 
     def setup(self):
-        scanners = [csound_scanner.CSoundScanner()]
+        scanners = [
+            csound_scanner.CSoundScanner(),
+            builtin_scanner.BuiltinScanner()
+        ]
         for scanner in scanners:
             for uri, node_description in scanner.scan():
                 assert uri not in self._nodes

@@ -368,9 +368,14 @@ class ProcessImpl(object):
     def create_event_loop(self):
         return asyncio.new_event_loop()
 
+    def error_handler(self, event_loop, context):
+        event_loop.default_exception_handler(context)
+        os._exit(1)
+
     def main(self, ready_callback, *args, **kwargs):
         # Create a new event loop to replace the one we inherited.
         self.event_loop = self.create_event_loop()
+        self.event_loop.set_exception_handler(self.error_handler)
         asyncio.set_event_loop(self.event_loop)
 
         try:

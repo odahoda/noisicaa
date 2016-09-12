@@ -120,7 +120,7 @@ class AudioProcProcessMixin(object):
         self.node_db.add(nodes.TrackControlSource)
         self.node_db.add(nodes.TrackEventSource)
         self.node_db.add(nodes.CSoundFilter)
-        self.node_db.add(nodes.CSoundInstrument)
+        self.node_db.add(nodes.CustomCSound)
 
         self.pipeline = pipeline.Pipeline()
         self.pipeline.utilization_callback = self.utilization_callback

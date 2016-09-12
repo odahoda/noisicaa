@@ -101,10 +101,11 @@ class PathParameterDescription(ParameterDescription):
 
 
 class TextParameterDescription(ParameterDescription):
-    def __init__(self, content_type='text/plain', **kwargs):
+    def __init__(self, content_type='text/plain', default='', **kwargs):
         super().__init__(param_type=ParameterType.Text, **kwargs)
 
         self.content_type = content_type
+        self.default = default
 
 class FloatParameterDescription(ParameterDescription):
     def __init__(self, min=0.0, max=1.0, default=0.0, **kwargs):

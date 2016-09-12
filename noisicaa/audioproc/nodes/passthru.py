@@ -15,7 +15,7 @@ class PassThru(node.Node):
     desc.port('in', 'input', 'audio')
     desc.port('out', 'output', 'audio')
 
-    def __init__(self, event_loop, name='passthru', id=None):
+    def __init__(self, event_loop, description=None, name='passthru', id=None):
         super().__init__(event_loop, name, id)
 
         self._input = ports.AudioInputPort('in')

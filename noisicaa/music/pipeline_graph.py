@@ -33,12 +33,14 @@ commands.Command.register_command(SetPipelineGraphNodePos)
 class SetPipelineGraphNodeParameter(commands.Command):
     parameter_name = core.Property(str)
     float_value = core.Property(float, allow_none=True)
+    str_value = core.Property(str, allow_none=True)
 
-    def __init__(self, parameter_name=None, float_value=None, state=None):
+    def __init__(self, parameter_name=None, float_value=None, str_value=None, state=None):
         super().__init__(state=state)
         if state is None:
             self.parameter_name = parameter_name
             self.float_value = float_value
+            self.str_value = str_value
 
     def run(self, node):
         assert isinstance(node, BasePipelineGraphNode)
@@ -49,6 +51,13 @@ class SetPipelineGraphNodeParameter(commands.Command):
             node.set_parameter(
                 parameter.name,
                 parameter.validate(self.float_value))
+        elif parameter.param_type == node_db.ParameterType.Text:
+            assert self.str_value is not None
+            node.set_parameter(
+                parameter.name,
+                parameter.validate(self.str_value))
+        else:
+            raise ValueError("Can't set parameter of type %s" % parameter.param_type)
 
 commands.Command.register_command(SetPipelineGraphNodeParameter)
 

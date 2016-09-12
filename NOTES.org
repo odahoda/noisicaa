@@ -1,8 +1,5 @@
 # -*- org-tags-column: -98 -*-
 
-* TODO Control ports in audio pipeline							      :FR:
-- control source node
-
 * TODO Control tracks									      :FR:
 Any controllable value can be turned into a control track.
 Icon next to controllable values, drag'n'drop onto editor.
@@ -75,10 +72,7 @@ Last sign of life:
   INFO    :18195:7f91c16bc700:ui.editor_app: Shutting down.
 
 * Custom csound filter node								      :FR:
-- start with single audio input/output ports
 - make port list editable
-- edit csound code
-- recompile csound code on the fly
 - report csound errors back to UI
 - two engines - new/old code - in parallel, slide from old to new
   - init new code
@@ -91,6 +85,7 @@ Last sign of life:
 - add to library
   - editing inproject only changes local state
   - explicit sync to library?
+  - any filter can be saved in library as a "preset"
 * merge consecutive commands								      :FR:
 - keep a single item in-memory buffer before writing commands to disk
 - when adding commands to log
