@@ -1,5 +1,7 @@
 # -*- org-tags-column: -98 -*-
 
+* PipelineGraphMonitor should use ports from node description				     :BUG:
+- exception when there's a port that's not in the legacy description.
 * Node presets										      :FR:
 - track current directory for import/export file dialogs
   - which default directory?
@@ -62,6 +64,8 @@ Icon next to controllable values, drag'n'drop onto editor.
 - could also activate track by enter events
   - but if mouse then moves to tracks dock, it might cross other tracks causing confusion
 
+* Reparent mixer nodes when moving tracks between groups 				     :BUG:
+When reparenting a track, also reparent its mixer node.
 * Fixed horizontal time mapping								      :FR:
 - Same horizontal interval maps to same musical time interval anywhere.
   Otherwise rendering control segments across measure boundaries becomes very confusing.
@@ -89,8 +93,7 @@ Icon next to controllable values, drag'n'drop onto editor.
   lazy dereferencing on __get__
 
 * Fully replace obsolete node descriptions						 :CLEANUP:
-* Track type: percussion								      :FR:
-** move beats to arbitrary positions
+* BeatTrack: move beats to arbitrary positions						      :FR:
 * Sometimes hangs during shutdown							     :BUG:
 Last sign of life:
   INFO    :18195:7f91c16bc700:ui.editor_app: Shutting down.
@@ -130,11 +133,6 @@ vertically.
 * replace SheetPropertyTrack by a controllable parameter				      :FR:
 * SIGSEGV when editing PipelineGraphView						   :CRASH:
 Possibly caused by the use of QGraphicsEffect for dropshadows?
-
-* PipelineGraphView: node properties dock sometimes does not open.			     :BUG:
-Dock shortly pops up, then disappears. Clicking on any other widget in
-the docking area then SIGSEGVs. Does QT not like opening docks directly
-as floating? There might have been a X11 error message in the log.
 
 * GIL free audio pipeline								      :FR:
 * Plugin support									      :FR:

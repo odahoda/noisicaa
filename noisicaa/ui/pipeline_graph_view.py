@@ -235,16 +235,11 @@ class ParameterValuesConnector(object):
         self.__parameter_values[parameter_name] = new_value
 
 
-class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
+class NodePropertyDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
     def __init__(self, node_item, **kwargs):
-        super().__init__(
-            identifier='node_properties:%s' % node_item.node.id,
-            title="Node \"%s\" Properties" % node_item.node.name,
-            allowed_areas=Qt.AllDockWidgetAreas,
-            initial_area=Qt.RightDockWidgetArea,
-            initial_visible=True,
-            initial_floating=True,
-            **kwargs)
+        super().__init__(**kwargs)
+
+        self.setWindowTitle("%s - Properties" % node_item.node.name)
 
         self._node_item = node_item
 
@@ -405,9 +400,7 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
 
         self.__parameter_values_connector = ParameterValuesConnector(node)
 
-        main_area = QtWidgets.QWidget()
-        main_area.setLayout(layout)
-        self.setWidget(main_area)
+        self.setLayout(layout)
 
     def cleanup(self):
         for listener in self.__listeners:
@@ -544,7 +537,7 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         self._node = node
         self._view = view
 
-        self._properties_dock = None
+        self._properties_dialog = None
 
         self._listeners = []
 
@@ -625,10 +618,10 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
             self._graph_pos_listener.remove()
             self._graph_pos_listener = None
 
-        if self._properties_dock is not None:
-            self._properties_dock.cleanup()
-            self._properties_dock.destroy()
-            self._properties_dock = None
+        if self._properties_dialog is not None:
+            self._properties_dialog.cleanup()
+            self._properties_dialog.destroy()
+            self._properties_dialog = None
 
     def setHighlighted(self, highlighted):
         if highlighted:
@@ -714,13 +707,16 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
             node_id=self._node.id)
 
     def onEdit(self, pos=None):
-        if self._properties_dock is None:
-            self._properties_dock = NodePropertyDock(
+        if self._properties_dialog is None:
+            self._properties_dialog = NodePropertyDialog(
                 node_item=self,
                 parent=self.window,
-                initial_pos=pos,
                 **self.context)
-        self._properties_dock.show()
+
+        if not self._properties_dialog.isVisible():
+            self._properties_dialog.move(pos)
+            self._properties_dialog.show()
+        self._properties_dialog.activateWindow()
 
 class NodeItem(ui_base.ProjectMixin, NodeItemImpl):
     pass
