@@ -1,5 +1,30 @@
 # -*- org-tags-column: -98 -*-
 
+* TODO PipelineGraphView: listeners to update UI when node parameters change.		      :FR:
+* TODO Node presets									      :FR:
+- track current directory for import/export file dialogs
+  - which default directory?
+- which file extension?
+- serialize port list (if editable)
+- serialize param descriptions (if editable)
+- add to nodedb
+  - nodedb scans preset directory
+  - store presets in $HOME/.noisicaä/presets
+- node remembers preset it was created from (or saved to)
+- UI
+  - save as
+  - save (if linked to preset)
+  - load from preset
+    - select from all presets for this node URI
+  - import/export
+    - load/save to arbitrary paths
+  - edit metadata
+- metadata
+  - open "edit metadata" dialog on "save as" or "export"
+  - author
+  - copyright
+  - license
+  - comment
 * TODO Control tracks									      :FR:
 Any controllable value can be turned into a control track.
 Icon next to controllable values, drag'n'drop onto editor.
@@ -87,10 +112,10 @@ Last sign of life:
   - clean up old code
   - how does that work with arbitrary output nodes? and events?
 - edit widget with syntax highlighting
-- add to library
-  - editing inproject only changes local state
-  - explicit sync to library?
-  - any filter can be saved in library as a "preset"
+
+* cleanup audioproc.Node.__init__ signature						 :CLEANUP:
+store node uri
+
 * merge consecutive commands								      :FR:
 - keep a single item in-memory buffer before writing commands to disk
 - when adding commands to log
@@ -128,8 +153,6 @@ Storage location: $HOME/.cache/noisicaä
 Track time of scan
 Load cache on startup
 Rescan if time of last scan > X
-
-* PipelineGraphView: listeners to update UI when node parameters change.		      :FR:
 * PipelineGraphView: edit node name							      :FR:
 * Track volume/mute properties: change connect trackmixer node instead.			     :BUG:
 * Color code tracks and measures.							      :FR:

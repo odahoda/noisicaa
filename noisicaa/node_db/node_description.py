@@ -84,6 +84,13 @@ class ParameterDescription(object):
     def validate(self, value):
         return value
 
+    def to_string(self, value):
+        return value
+
+    def from_string(self, s):
+        return s
+
+
 class InternalParameterDescription(ParameterDescription):
     def __init__(self, value, **kwargs):
         super().__init__(param_type=ParameterType.Internal, **kwargs)
@@ -117,3 +124,9 @@ class FloatParameterDescription(ParameterDescription):
 
     def validate(self, value):
         return min(self.max, max(self.min, value))
+
+    def to_string(self, value):
+        return str(value)
+
+    def from_string(self, s):
+        return float(s)

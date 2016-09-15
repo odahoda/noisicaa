@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
+import io
 import logging
+from xml.etree import ElementTree
 
 from noisicaa import core
 from noisicaa import node_db
@@ -12,6 +14,13 @@ from . import mutations
 from . import misc
 
 logger = logging.getLogger(__name__)
+
+
+class PresetLoadError(Exception):
+    pass
+
+class NotAPresetError(PresetLoadError):
+    pass
 
 
 class SetPipelineGraphNodePos(commands.Command):
@@ -90,6 +99,34 @@ class SetPipelineGraphPortParameter(commands.Command):
             bypass=self.bypass, drywet=self.drywet)
 
 commands.Command.register_command(SetPipelineGraphPortParameter)
+
+
+class PipelineGraphNodeToPreset(commands.Command):
+    def __init__(self, state=None):
+        super().__init__(state=state)
+
+    def run(self, node):
+        assert isinstance(node, PipelineGraphNode)
+
+        return node.to_preset()
+
+commands.Command.register_command(PipelineGraphNodeToPreset)
+
+
+class PipelineGraphNodeFromPreset(commands.Command):
+    preset = core.Property(bytes)
+
+    def __init__(self, preset, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.preset = preset
+
+    def run(self, node):
+        assert isinstance(node, PipelineGraphNode)
+
+        return node.from_preset(self.preset)
+
+commands.Command.register_command(PipelineGraphNodeFromPreset)
 
 
 class PipelineGraphNodeParameterValue(
@@ -177,18 +214,21 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
         raise NotImplementedError
 
     def set_parameter(self, parameter_name, value):
-        for param_value in self.parameter_values:
-            if param_value.name == parameter_name:
-                param_value.value = value
-                break
-        else:
-            self.parameter_values.append(PipelineGraphNodeParameterValue(
-                name=parameter_name, value=value))
+        self.set_parameters({parameter_name: value})
+
+    def set_parameters(self, parameters):
+        for name, value in parameters.items():
+            for param_value in self.parameter_values:
+                if param_value.name == name:
+                    param_value.value = value
+                    break
+            else:
+                self.parameter_values.append(PipelineGraphNodeParameterValue(
+                    name=name, value=value))
 
         self.sheet.handle_pipeline_mutation(
             mutations.SetNodeParameter(
-                self.pipeline_node_id,
-                **{parameter_name: value}))
+                self.pipeline_node_id, **parameters))
 
     def set_port_parameters(self, port_name, muted=None, volume=None, bypass=None, drywet=None):
         for prop_name, value in (
@@ -220,6 +260,82 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
 
         if state is None:
             self.node_uri = node_uri
+
+    def to_preset(self):
+        doc = ElementTree.Element('preset', version='1')
+        doc.text = '\n'
+        doc.tail = '\n'
+
+        node_uri_elem = ElementTree.SubElement(doc, 'node_uri')
+        node_uri_elem.text = self.node_uri
+        node_uri_elem.tail = '\n'
+
+        parameters_elem = ElementTree.SubElement(doc, 'parameters')
+        parameters_elem.text = '\n'
+        parameters_elem.tail = '\n'
+
+        parameters = sorted(self.description.parameters, key=lambda p: p.name)
+        parameter_values = dict(
+            (p.name, p.value) for p in self.parameter_values)
+
+        for parameter in parameters:
+            if parameter.param_type == node_db.ParameterType.Internal:
+                continue
+
+            value = parameter_values.get(parameter.name, parameter.default)
+
+            parameter_elem = ElementTree.SubElement(
+                parameters_elem, 'parameter', name=parameter.name)
+            parameter_elem.text = parameter.to_string(value)
+            parameter_elem.tail = '\n'
+
+        tree = ElementTree.ElementTree(doc)
+        buf = io.BytesIO()
+        tree.write(buf, encoding='utf-8', xml_declaration=True)
+        return buf.getvalue()
+
+    def from_preset(self, preset):
+        buf = io.BytesIO(preset)
+        tree = ElementTree.parse(buf)
+        doc = tree.getroot()
+        if doc.tag != 'preset':
+            raise PresetLoadError("Not a preset file.")
+
+        version = doc.get('version', '')
+        if version not in ('1',):
+            raise PresetLoadError(
+                "Unsupported preset version %s." % version)
+
+        node_uri_elem = doc.find('node_uri')
+        if node_uri_elem is None:
+            raise PresetLoadError("Missing <node_uri> element.")
+
+        node_uri = ''.join(node_uri_elem.itertext()).strip()
+        if node_uri != self.node_uri:
+            raise PresetLoadError(
+                "Mismatching node_uri (Expected %s, got %s)."
+                % (self.node_uri, node_uri))
+
+        parameter_values = {}
+        parameters_elem = doc.find('parameters')
+        if parameters_elem is not None:
+            parameter_descriptions = {
+                p.name: p
+                for p in self.description.parameters}
+            for parameter_elem in parameters_elem.findall('parameter'):
+                parameter_name = parameter_elem.get('name', '')
+                if not parameter_name:
+                    raise PresetLoadError("Missing name on <parameter>.")
+                if parameter_name not in parameter_descriptions:
+                    raise PresetLoadError("Unknown parameter %s." % parameter_name)
+                parameter = parameter_descriptions[parameter_name]
+                value_str = ''.join(parameter_elem.itertext())
+                value = parameter.from_string(value_str)
+                parameter_values[parameter_name] = value
+
+        self.parameter_values.clear()
+        if parameter_values:
+            self.set_parameters(parameter_values)
 
     @property
     def pipeline_node_id(self):

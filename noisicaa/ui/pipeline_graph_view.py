@@ -174,7 +174,49 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
 
         self._node_item = node_item
 
+        self._preset_edit_metadata_action = QtWidgets.QAction(
+            "Edit metadata", self,
+            statusTip="Edit metadata associated with the current preset.",
+            triggered=self.onPresetEditMetadata)
+        self._preset_load_action = QtWidgets.QAction(
+            "Load", self,
+            statusTip="Load state from a preset.",
+            triggered=self.onPresetLoad)
+        self._preset_revert_action = QtWidgets.QAction(
+            "Revert", self,
+            statusTip="Load state from the current preset.",
+            triggered=self.onPresetRevert)
+        self._preset_save_action = QtWidgets.QAction(
+            "Save", self,
+            statusTip="Save state to the current preset.",
+            triggered=self.onPresetSave)
+        self._preset_save_as_action = QtWidgets.QAction(
+            "Save as", self,
+            statusTip="Save state to a new preset.",
+            triggered=self.onPresetSaveAs)
+        self._preset_import_action = QtWidgets.QAction(
+            "Import", self,
+            statusTip="Import state from a file.",
+            triggered=self.onPresetImport)
+        self._preset_export_action = QtWidgets.QAction(
+            "Export", self,
+            statusTip="Export state to a file.",
+            triggered=self.onPresetExport)
+
+        menubar = QtWidgets.QMenuBar(self)
+        preset_menu = menubar.addMenu("Preset")
+        preset_menu.addAction(self._preset_edit_metadata_action)
+        preset_menu.addSeparator()
+        preset_menu.addAction(self._preset_load_action)
+        preset_menu.addAction(self._preset_revert_action)
+        preset_menu.addAction(self._preset_save_action)
+        preset_menu.addAction(self._preset_save_as_action)
+        preset_menu.addSeparator()
+        preset_menu.addAction(self._preset_import_action)
+        preset_menu.addAction(self._preset_export_action)
+
         layout = QtWidgets.QFormLayout()
+        layout.setMenuBar(menubar)
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         layout.setVerticalSpacing(1)
 
@@ -278,6 +320,73 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
         main_area = QtWidgets.QWidget()
         main_area.setLayout(layout)
         self.setWidget(main_area)
+
+    def onPresetEditMetadata(self):
+        pass
+
+    def onPresetLoad(self):
+        pass
+
+    def onPresetRevert(self):
+        pass
+
+    def onPresetSave(self):
+        self.send_command_async(
+            self._node_item.node.id, 'PipelineGraphNodeToPreset',
+            callback=self.onPresetSaveDone)
+
+    def onPresetSaveDone(self, preset):
+        print(preset)
+
+    def onPresetSaveAs(self):
+        pass
+
+    def onPresetImport(self):
+        path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
+            parent=self,
+            caption="Import preset",
+            #directory=self.ui_state.get(
+            #'instruments_add_dialog_path', ''),
+            filter="All Files (*);;noisicaä Presets (*.preset)",
+            initialFilter='noisicaä Presets (*.preset)',
+        )
+        if not path:
+            return
+
+        self.call_async(self.onPresetImportAsync(path))
+
+    async def onPresetImportAsync(self, path):
+        logger.info("Importing preset from %s...", path)
+
+        with open(path, 'rb') as fp:
+            preset = fp.read()
+
+        await self.project_client.send_command(
+            self._node_item.node.id, 'PipelineGraphNodeFromPreset',
+            preset=preset)
+
+    def onPresetExport(self):
+        path, open_filter = QtWidgets.QFileDialog.getSaveFileName(
+            parent=self,
+            caption="Export preset",
+            #directory=self.ui_state.get(
+            #'instruments_add_dialog_path', ''),
+            filter="All Files (*);;noisicaä Presets (*.preset)",
+            initialFilter='noisicaä Presets (*.preset)',
+        )
+        if not path:
+            return
+
+        self.call_async(self.onPresetExportAsync(path))
+
+    async def onPresetExportAsync(self, path):
+        logger.info("Exporting preset to %s...", path)
+
+        preset = await self.project_client.send_command(
+            self._node_item.node.id, 'PipelineGraphNodeToPreset')
+
+        with open(path, 'wb') as fp:
+            fp.write(preset)
 
     def onNameChanged(self):
         pass

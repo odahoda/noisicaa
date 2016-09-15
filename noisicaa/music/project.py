@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import base64
 import email.parser
 import email.policy
 import email.message
@@ -145,6 +146,9 @@ state.StateBase.register_class(Metadata)
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, obj):  # pylint: disable=method-hidden
+        if isinstance(obj, bytes):
+            return {'__type__': 'bytes',
+                    'value': base64.b85encode(obj).decode('ascii')}
         if isinstance(obj, Duration):
             return {'__type__': 'Duration',
                     'value': [obj.numerator, obj.denominator]}
@@ -172,6 +176,8 @@ class JSONDecoder(json.JSONDecoder):
 
     def object_hook(self, obj):  # pylint: disable=method-hidden
         objtype = obj.get('__type__', None)
+        if objtype == 'bytes':
+            return base64.b85decode(obj['value'])
         if objtype == 'Duration':
             return Duration(*obj['value'])
         if objtype == 'Pitch':
