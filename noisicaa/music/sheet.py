@@ -94,44 +94,6 @@ class RemoveTrack(commands.Command):
 commands.Command.register_command(RemoveTrack)
 
 
-class MoveTrack(commands.Command):
-    track = core.Property(int)
-    direction = core.Property(int)
-
-    def __init__(self, track=None, direction=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.track = track
-            self.direction = direction
-
-    def run(self, sheet):
-        assert isinstance(sheet, Sheet)
-
-        track = sheet.master_group.tracks[self.track]
-        assert track.index == self.track
-
-        if self.direction == 0:
-            raise ValueError("No direction given.")
-
-        if self.direction < 0:
-            if track.index == 0:
-                raise ValueError("Can't move first track up.")
-            new_pos = track.index - 1
-            del sheet.master_group.tracks[track.index]
-            sheet.master_group.tracks.insert(new_pos, track)
-
-        elif self.direction > 0:
-            if track.index == len(sheet.master_group.tracks) - 1:
-                raise ValueError("Can't move last track down.")
-            new_pos = track.index + 1
-            del sheet.master_group.tracks[track.index]
-            sheet.master_group.tracks.insert(new_pos, track)
-
-        return track.index
-
-commands.Command.register_command(MoveTrack)
-
-
 class InsertMeasure(commands.Command):
     tracks = core.ListProperty(int)
     pos = core.Property(int)

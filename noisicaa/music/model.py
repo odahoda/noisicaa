@@ -42,6 +42,10 @@ class Track(core.ObjectBase):
     def sheet(self):
         return self.parent.sheet
 
+    @property
+    def is_master_group(self):
+        return False
+
     def walk_tracks(self, groups=False, tracks=True):
         if tracks:
             yield self
@@ -131,7 +135,9 @@ class TrackGroup(Track):
 
 
 class MasterTrackGroup(TrackGroup):
-    pass
+    @property
+    def is_master_group(self):
+        return True
 
 
 class ScoreMeasure(Measure):

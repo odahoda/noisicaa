@@ -14,6 +14,66 @@ from . import misc
 logger = logging.getLogger(__name__)
 
 
+class MoveTrack(commands.Command):
+    direction = core.Property(int)
+
+    def __init__(self, direction=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.direction = direction
+
+    def run(self, track):
+        assert isinstance(track, model.Track)
+        assert not track.is_master_group
+        parent = track.parent
+
+        if self.direction == 0:
+            raise ValueError("No direction given.")
+
+        if self.direction < 0:
+            if track.index == 0:
+                raise ValueError("Can't move first track up.")
+            new_pos = track.index - 1
+            del parent.tracks[track.index]
+            parent.tracks.insert(new_pos, track)
+
+        elif self.direction > 0:
+            if track.index == len(parent.tracks) - 1:
+                raise ValueError("Can't move last track down.")
+            new_pos = track.index + 1
+            del parent.tracks[track.index]
+            parent.tracks.insert(new_pos, track)
+
+commands.Command.register_command(MoveTrack)
+
+
+class ReparentTrack(commands.Command):
+    new_parent = core.Property(str)
+    index = core.Property(int)
+
+    def __init__(self, new_parent=None, index=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.new_parent = new_parent
+            self.index = index
+
+    def run(self, track):
+        assert isinstance(track, model.Track)
+
+        assert not track.is_master_group
+
+        new_parent = track.root.get_object(self.new_parent)
+        assert new_parent.is_child_of(track.sheet)
+        assert isinstance(new_parent, model.TrackGroup)
+
+        assert 0 <= self.index <= len(new_parent.tracks)
+
+        del track.parent.tracks[track.index]
+        new_parent.tracks.insert(self.index, track)
+
+commands.Command.register_command(ReparentTrack)
+
+
 class UpdateTrackProperties(commands.Command):
     name = core.Property(str, allow_none=True)
     visible = core.Property(bool, allow_none=True)

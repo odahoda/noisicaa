@@ -103,6 +103,21 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
             self.indexForItem(item, column=self.COLUMNS - 1),
             [])
 
+    def track(self, index):
+        if not index.isValid():
+            raise ValueError("Invalid index")
+
+        item = index.internalPointer()
+        assert item is not None
+        return item.track
+
+    def indexForTrack(self, track):
+        for item in self._root_item.walk():
+            if item.track.id == track.id:
+                return self.indexForItem(item)
+
+        raise ValueError("Invalid track")
+
     def indexForItem(self, item, column=0):
         if item.parent is None:
             return self.createIndex(0, column, item)
@@ -240,11 +255,6 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
         track = index.internalPointer().track
         return await self.project_client.send_command(
             self._sheet.id, 'RemoveTrack', track_id=track.id)
-
-    async def moveTrack(self, index, direction):
-        track = index.internalPointer().track
-        return await self.project_client.send_command(
-            self._sheet.id, 'MoveTrack', track=track.index, direction=direction)
 
 
 class TracksModel(ui_base.ProjectMixin, TracksModelImpl):
@@ -424,11 +434,24 @@ class TracksDockWidget(DockWidget):
             autoRaise=True)
         self._move_down_button.clicked.connect(self.onMoveDownClicked)
 
+        self._move_left_button = QtWidgets.QToolButton(
+            icon=QtGui.QIcon.fromTheme('go-previous'),
+            iconSize=QtCore.QSize(16, 16),
+            autoRaise=True)
+        self._move_left_button.clicked.connect(self.onMoveLeftClicked)
+        self._move_right_button = QtWidgets.QToolButton(
+            icon=QtGui.QIcon.fromTheme('go-next'),
+            iconSize=QtCore.QSize(16, 16),
+            autoRaise=True)
+        self._move_right_button.clicked.connect(self.onMoveRightClicked)
+
         buttons_layout = QtWidgets.QHBoxLayout(spacing=1)
         buttons_layout.addWidget(self._add_button)
         buttons_layout.addWidget(self._remove_button)
         buttons_layout.addWidget(self._move_up_button)
         buttons_layout.addWidget(self._move_down_button)
+        buttons_layout.addWidget(self._move_left_button)
+        buttons_layout.addWidget(self._move_right_button)
         buttons_layout.addStretch(1)
 
         main_layout = QtWidgets.QVBoxLayout(spacing=1)
@@ -463,11 +486,18 @@ class TracksDockWidget(DockWidget):
 
     def onCurrentChanged(self, index, previous=None):
         if index is not None and index.isValid():
-            self._remove_button.setEnabled(index.parent().isValid())
-            self._move_up_button.setEnabled(index.row() > 0)
+            track = self._model.track(index)
+            self._remove_button.setEnabled(not track.is_master_group)
+            self._move_up_button.setEnabled(
+                not track.is_master_group and not track.is_first)
             self._move_down_button.setEnabled(
-                index.row() < index.model().rowCount(QtCore.QModelIndex()) - 1)
-            self._window.currentTrackChanged.emit(index.internalPointer().track)
+                not track.is_master_group and not track.is_last)
+            self._move_left_button.setEnabled(
+                not track.is_master_group and not track.parent.is_master_group)
+            self._move_right_button.setEnabled(
+                not track.is_master_group and not track.is_first
+                and isinstance(track.prev_sibling, model.TrackGroup))
+            self._window.currentTrackChanged.emit(track)
         else:
             self._remove_button.setEnabled(False)
             self._move_up_button.setEnabled(False)
@@ -478,7 +508,6 @@ class TracksDockWidget(DockWidget):
         if self._model is None:
             return
 
-        # TODO: support selecting track type
         self.call_async(
             self._model.addTrack(
                 track_type=track_type,
@@ -500,20 +529,72 @@ class TracksDockWidget(DockWidget):
             return
 
         index = self._tracks_list.currentIndex()
-        self.call_async(
-            self._model.moveTrack(index, -1), callback=self.onMoveTrackDone)
+        assert index.isValid()
+        track = self._model.track(index)
+        assert not track.is_master_group
+        assert not track.is_first
+
+        self._model.send_command_async(
+            track.id, 'MoveTrack',
+            direction=-1,
+            callback=lambda _: self.onMoveTrackDone(track))
+
+        self._tracks_list.setCurrentIndex(QtCore.QModelIndex())
 
     def onMoveDownClicked(self):
         if self._model is None:
             return
 
         index = self._tracks_list.currentIndex()
-        self.call_async(
-            self._model.moveTrack(index, 1), callback=self.onMoveTrackDone)
+        assert index.isValid()
+        track = self._model.track(index)
+        assert not track.is_master_group
+        assert not track.is_last
 
-    def onMoveTrackDone(self, track_idx):
-        index = self._model.index(track_idx)
-        self._tracks_list.setCurrentIndex(index)
+        self._model.send_command_async(
+            track.id, 'MoveTrack',
+            direction=1,
+            callback=lambda _: self.onMoveTrackDone(track))
 
+        self._tracks_list.setCurrentIndex(QtCore.QModelIndex())
 
+    def onMoveLeftClicked(self):
+        if self._model is None:
+            return
 
+        index = self._tracks_list.currentIndex()
+        assert index.isValid()
+        track = self._model.track(index)
+        assert not track.is_master_group
+
+        new_parent = track.parent.parent
+
+        self._model.send_command_async(
+            track.id, 'ReparentTrack',
+            new_parent=new_parent.id, index=track.parent.index + 1,
+            callback=lambda _: self.onMoveTrackDone(track))
+
+        self._tracks_list.setCurrentIndex(QtCore.QModelIndex())
+
+    def onMoveRightClicked(self):
+        if self._model is None:
+            return
+
+        index = self._tracks_list.currentIndex()
+        assert index.isValid()
+        track = self._model.track(index)
+        assert not track.is_master_group
+
+        new_parent = track.prev_sibling
+        assert isinstance(new_parent, model.TrackGroup)
+
+        self._model.send_command_async(
+            track.id, 'ReparentTrack',
+            new_parent=new_parent.id, index=len(new_parent.tracks),
+            callback=lambda _: self.onMoveTrackDone(track))
+
+        self._tracks_list.setCurrentIndex(QtCore.QModelIndex())
+
+    def onMoveTrackDone(self, track):
+        self._tracks_list.setCurrentIndex(
+            self._model.indexForTrack(track))

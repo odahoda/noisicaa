@@ -367,7 +367,7 @@ class MeasuredTrackItemImpl(TrackItemImpl):
             'measure_list', self.onMeasureListChanged))
 
     def close(self):
-        super.close()
+        super().close()
 
         while len(self._measures) > 0:
             measure = self._measures.pop(0)

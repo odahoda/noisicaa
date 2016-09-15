@@ -1,6 +1,6 @@
 # -*- org-tags-column: -98 -*-
 
-* TODO Node presets									      :FR:
+* Node presets										      :FR:
 - track current directory for import/export file dialogs
   - which default directory?
 - which file extension?
@@ -24,7 +24,7 @@
   - copyright
   - license
   - comment
-* TODO Control tracks									      :FR:
+* Control tracks									      :FR:
 Any controllable value can be turned into a control track.
 Icon next to controllable values, drag'n'drop onto editor.
 
@@ -54,7 +54,7 @@ Icon next to controllable values, drag'n'drop onto editor.
   - extend current value from start or end
 - ControlEntitySource: compute value at a-rate
 
-* TODO ToolDock: track specific tool set						      :FR:
+* ToolDock: track specific tool set							      :FR:
 - active track:
   only the active track gets edit events. clicking on another track makes
   that track active and changes the set of tools and the active tool.
@@ -62,7 +62,7 @@ Icon next to controllable values, drag'n'drop onto editor.
 - could also activate track by enter events
   - but if mouse then moves to tracks dock, it might cross other tracks causing confusion
 
-* TODO Fixed horizontal time mapping							      :FR:
+* Fixed horizontal time mapping								      :FR:
 - Same horizontal interval maps to same musical time interval anywhere.
   Otherwise rendering control segments across measure boundaries becomes very confusing.
 - ScoreMeasure has to fit into given space no matter what.
@@ -215,7 +215,6 @@ Compute list of valid dest nodes and highlight those.
   - notes
 
 * copy/link via drag'n'drop								      :FR:
-* TracksDock: moving tracks doesn't work						     :BUG:
 * player needs to get lock on state							     :BUG:
 possible exception when changing project while playing
 * Tool not visible on initial load							     :BUG:
@@ -238,6 +237,7 @@ possible exception when changing project while playing
    * objlist cleared
 * make consistent use of __private attributes						 :CLEANUP:
 * consistent naming of close()/cleanup() methods					 :CLEANUP:
+* replace isinstance(..., model.TrackGroup) with a is_group property			 :CLEANUP:
 * non-existing file on cmdline creates project						      :FR:
    * remove + hack
 
