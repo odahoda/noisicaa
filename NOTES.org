@@ -1,6 +1,5 @@
 # -*- org-tags-column: -98 -*-
 
-* TODO PipelineGraphView: listeners to update UI when node parameters change.		      :FR:
 * TODO Node presets									      :FR:
 - track current directory for import/export file dialogs
   - which default directory?
@@ -237,6 +236,8 @@ possible exception when changing project while playing
    * obj prop set to None
    * item deleted from objlist
    * objlist cleared
+* make consistent use of __private attributes						 :CLEANUP:
+* consistent naming of close()/cleanup() methods					 :CLEANUP:
 * non-existing file on cmdline creates project						      :FR:
    * remove + hack
 

@@ -9,6 +9,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import core
 from noisicaa import music
 from noisicaa import node_db
 from . import ui_base
@@ -161,6 +162,79 @@ class QTextEdit(QtWidgets.QTextEdit):
         self.__initial_text = None
 
 
+# TODO: This might be better it the model level.
+class ParameterValuesConnector(object):
+    def __init__(self, node):
+        self.__node = node
+
+        self.__parameter_values = {}
+        for parameter in self.__node.description.parameters:
+            if parameter.param_type == node_db.ParameterType.Internal:
+                continue
+
+            self.__parameter_values[parameter.name] = parameter.default
+
+        self.__parameter_value_listeners = []
+        for parameter_value in self.__node.parameter_values:
+            self.__parameter_values[parameter_value.name] = parameter_value.value
+
+            self.__parameter_value_listeners.append(
+                parameter_value.listeners.add(
+                    'value', functools.partial(
+                        self.onParameterValueChanged, parameter_value.name)))
+
+        self.__parameter_values_listener = self.__node.listeners.add(
+            'parameter_values', self.onParameterValuesChanged)
+
+        self.listeners = core.CallbackRegistry()
+
+    def __getitem__(self, name):
+        return self.__parameter_values[name]
+
+    def cleanup(self):
+        for listener in self.__parameter_value_listeners:
+            listener.remove()
+        self.__parameter_value_listeners.clear()
+
+        if self.__parameter_values_listener is not None:
+            self.__parameter_values_listener.remove()
+            self.__parameter_values_listener = None
+
+    def onParameterValuesChanged(self, action, index, parameter_value):
+        if action == 'insert':
+            self.listeners.call(
+                parameter_value.name,
+                self.__parameter_values[parameter_value.name], parameter_value.value)
+            self.__parameter_values[parameter_value.name] = parameter_value.value
+
+            self.__parameter_value_listeners.insert(
+                index,
+                parameter_value.listeners.add(
+                    'value', functools.partial(
+                        self.onParameterValueChanged, parameter_value.name)))
+
+        elif action == 'delete':
+            for parameter in self.__node.description.parameters:
+                if parameter.name == parameter_value.name:
+                    self.listeners.call(
+                        parameter_value.name,
+                        self.__parameter_values[parameter_value.name], parameter.default)
+                    self.__parameter_values[parameter.name] = parameter.default
+                    break
+
+            listener = self.__parameter_value_listeners.pop(index)
+            listener.remove()
+
+        else:
+            raise ValueError(action)
+
+    def onParameterValueChanged(self, parameter_name, old_value, new_value):
+        self.listeners.call(
+            parameter_name,
+            self.__parameter_values[parameter_name], new_value)
+        self.__parameter_values[parameter_name] = new_value
+
+
 class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
     def __init__(self, node_item, **kwargs):
         super().__init__(
@@ -173,6 +247,8 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
             **kwargs)
 
         self._node_item = node_item
+
+        self.__listeners = []
 
         self._preset_edit_metadata_action = QtWidgets.QAction(
             "Edit metadata", self,
@@ -220,10 +296,15 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         layout.setVerticalSpacing(1)
 
+        node = self._node_item.node
+
         self._name = QtWidgets.QLineEdit(self)
-        self._name.setText(node_item.node.name)
-        self._name.editingFinished.connect(self.onNameChanged)
+        self._name.setText(node.name)
+        self._name.editingFinished.connect(self.onNameEdited)
         layout.addRow("Name", self._name)
+
+        self.__listeners.append(
+            node.listeners.add('name', self.onNameChanged))
 
         for port in self._node_item.node_description.ports:
             if not (port.direction == node_db.PortDirection.Output
@@ -232,7 +313,7 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
 
             port_property_values = dict(
                 (p.name, p.value)
-                for p in self._node_item.node.port_property_values
+                for p in node.port_property_values
                 if p.port_name == port.name)
 
             muted_widget = mute_button.MuteButton(self)
@@ -249,9 +330,9 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
                 port_property_values.get('volume', 100.0))
 
             muted_widget.toggled.connect(functools.partial(
-                self.onPortMutedChanged, port, volume_widget))
+                self.onPortMutedEdited, port, volume_widget))
             volume_widget.valueChanged.connect(functools.partial(
-                self.onPortVolumeChanged, port))
+                self.onPortVolumeEdited, port))
 
             row_layout = QtWidgets.QHBoxLayout()
             row_layout.setSpacing(0)
@@ -278,9 +359,9 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
                     int(port_property_values.get('drywet', 0.0)))
 
                 bypass_widget.toggled.connect(functools.partial(
-                    self.onPortBypassChanged, port, drywet_widget))
+                    self.onPortBypassEdited, port, drywet_widget))
                 drywet_widget.valueChanged.connect(functools.partial(
-                    self.onPortDrywetChanged, port))
+                    self.onPortDrywetEdited, port))
 
                 row_layout = QtWidgets.QHBoxLayout()
                 row_layout.setSpacing(0)
@@ -289,27 +370,32 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
                 layout.addRow(
                     "Dry/wet (port <i>%s</i>)" % port.name, row_layout)
 
-        parameter_values = dict(
-            (p.name, p.value)
-            for p in self._node_item.node.parameter_values)
-
+        self.__parameter_values = ParameterValuesConnector(node)
         for parameter in self._node_item.node_description.parameters:
             if parameter.param_type == node_db.ParameterType.Float:
                 widget = QtWidgets.QLineEdit(self)
-                widget.setText(str(parameter_values.get(
-                    parameter.name, parameter.default)))
+                widget.setText(parameter.to_string(self.__parameter_values[parameter.name]))
                 widget.setValidator(QtGui.QDoubleValidator())
                 widget.editingFinished.connect(functools.partial(
-                    self.onFloatParameterChanged, widget, parameter))
+                    self.onFloatParameterEdited, widget, parameter))
                 layout.addRow(parameter.display_name, widget)
+
+                self.__listeners.append(
+                    self.__parameter_values.listeners.add(
+                        parameter.name, functools.partial(
+                            self.onFloatParameterChanged, widget, parameter)))
 
             elif parameter.param_type == node_db.ParameterType.Text:
                 widget = QTextEdit(self)
-                widget.setPlainText(str(parameter_values.get(
-                    parameter.name, parameter.default)))
+                widget.setPlainText(self.__parameter_values[parameter.name])
                 widget.editingFinished.connect(functools.partial(
-                    self.onTextParameterChanged, widget, parameter))
+                    self.onTextParameterEdited, widget, parameter))
                 layout.addRow(parameter.display_name, widget)
+
+                self.__listeners.append(
+                    self.__parameter_values.listeners.add(
+                        parameter.name, functools.partial(
+                            self.onTextParameterChanged, widget, parameter)))
 
             elif parameter.param_type == node_db.ParameterType.Internal:
                 pass
@@ -317,9 +403,20 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
             else:
                 raise ValueError(parameter)
 
+        self.__parameter_values_connector = ParameterValuesConnector(node)
+
         main_area = QtWidgets.QWidget()
         main_area.setLayout(layout)
         self.setWidget(main_area)
+
+    def cleanup(self):
+        for listener in self.__listeners:
+            listener.remove()
+        self.__listeners.clear()
+
+        if self.__parameter_values is not None:
+            self.__parameter_values.cleanup()
+            self.__parameter_values = None
 
     def onPresetEditMetadata(self):
         pass
@@ -388,10 +485,16 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
         with open(path, 'wb') as fp:
             fp.write(preset)
 
-    def onNameChanged(self):
+    def onNameChanged(self, old_name, new_name):
         pass
 
-    def onFloatParameterChanged(self, widget, parameter):
+    def onNameEdited(self):
+        pass
+
+    def onFloatParameterChanged(self, widget, parameter, old_value, new_value):
+        widget.setText(parameter.to_string(new_value))
+
+    def onFloatParameterEdited(self, widget, parameter):
         value, ok = widget.locale().toDouble(widget.text())
         if ok:
             self.send_command_async(
@@ -399,33 +502,36 @@ class NodePropertyDock(ui_base.ProjectMixin, dock_widget.DockWidget):
                 parameter_name=parameter.name,
                 float_value=value)
 
-    def onTextParameterChanged(self, widget, parameter):
+    def onTextParameterChanged(self, widget, parameter, old_value, new_value):
+        widget.setPlainText(new_value)
+
+    def onTextParameterEdited(self, widget, parameter):
         self.send_command_async(
             self._node_item.node.id, 'SetPipelineGraphNodeParameter',
             parameter_name=parameter.name,
             str_value=widget.toPlainText())
 
-    def onPortMutedChanged(self, port, volume_widget, value):
+    def onPortMutedEdited(self, port, volume_widget, value):
         volume_widget.setEnabled(not value)
         self.send_command_async(
             self._node_item.node.id, 'SetPipelineGraphPortParameter',
             port_name=port.name,
             muted=value)
 
-    def onPortVolumeChanged(self, port, value):
+    def onPortVolumeEdited(self, port, value):
         self.send_command_async(
             self._node_item.node.id, 'SetPipelineGraphPortParameter',
             port_name=port.name,
             volume=value)
 
-    def onPortBypassChanged(self, port, volume_widget, value):
+    def onPortBypassEdited(self, port, volume_widget, value):
         volume_widget.setEnabled(not value)
         self.send_command_async(
             self._node_item.node.id, 'SetPipelineGraphPortParameter',
             port_name=port.name,
             bypass=value)
 
-    def onPortDrywetChanged(self, port, value):
+    def onPortDrywetEdited(self, port, value):
         self.send_command_async(
             self._node_item.node.id, 'SetPipelineGraphPortParameter',
             port_name=port.name,
@@ -518,6 +624,11 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         if self._graph_pos_listener is not None:
             self._graph_pos_listener.remove()
             self._graph_pos_listener = None
+
+        if self._properties_dock is not None:
+            self._properties_dock.cleanup()
+            self._properties_dock.destroy()
+            self._properties_dock = None
 
     def setHighlighted(self, highlighted):
         if highlighted:

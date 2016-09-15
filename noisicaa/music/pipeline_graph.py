@@ -116,7 +116,7 @@ commands.Command.register_command(PipelineGraphNodeToPreset)
 class PipelineGraphNodeFromPreset(commands.Command):
     preset = core.Property(bytes)
 
-    def __init__(self, preset, state=None):
+    def __init__(self, preset=None, state=None):
         super().__init__(state=state)
         if state is None:
             self.preset = preset
