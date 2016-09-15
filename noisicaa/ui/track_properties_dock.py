@@ -12,6 +12,7 @@ from .dock_widget import DockWidget
 from . import instrument_library
 from . import ui_base
 from noisicaa.music import model
+from noisicaa.instr import library
 from . import mute_button
 
 logger = logging.getLogger(__name__)
@@ -173,15 +174,26 @@ class ScoreTrackProperties(TrackProperties):
     def onInstrumentEdited(self, instr):
         client = self.window.getCurrentProjectView().project_client
         if instr is not None:
-            self.call_async(client.send_command(
-                self._track.id, 'SetInstrument',
-                instrument_type='SoundFontInstrument',
-                instrument_args={
-                    'name': instr.name,
-                    'library_id': instr.id,
-                    'path': instr.path,
-                    'bank': instr.bank,
-                    'preset': instr.preset}))
+            if isinstance(instr, library.SoundFontInstrument):
+                self.call_async(client.send_command(
+                    self._track.id, 'SetInstrument',
+                    instrument_type='SoundFontInstrument',
+                    instrument_args={
+                        'name': instr.name,
+                        'library_id': instr.id,
+                        'path': instr.path,
+                        'bank': instr.bank,
+                        'preset': instr.preset}))
+            elif isinstance(instr, library.SampleInstrument):
+                self.call_async(client.send_command(
+                    self._track.id, 'SetInstrument',
+                    instrument_type='SampleInstrument',
+                    instrument_args={
+                        'name': instr.name,
+                        'library_id': instr.id,
+                        'path': instr.path}))
+            else:
+                raise ValueError(type(instr).__name__)
 
     def onTransposeOctavesChanged(
             self, old_transpose_octaves, new_transpose_octaves):
@@ -262,15 +274,26 @@ class BeatTrackProperties(TrackProperties):
             return
 
         client = self.window.getCurrentProjectView().project_client
-        self.call_async(client.send_command(
-            self._track.id, 'SetBeatTrackInstrument',
-            instrument_type='SoundFontInstrument',
-            instrument_args={
-                'name': instr.name,
-                'library_id': instr.id,
-                'path': instr.path,
-                'bank': instr.bank,
-                'preset': instr.preset}))
+        if isinstance(instr, library.SoundFontInstrument):
+            self.call_async(client.send_command(
+                self._track.id, 'SetBeatTrackInstrument',
+                instrument_type='SoundFontInstrument',
+                instrument_args={
+                    'name': instr.name,
+                    'library_id': instr.id,
+                    'path': instr.path,
+                    'bank': instr.bank,
+                    'preset': instr.preset}))
+        elif isinstance(instr, library.SampleInstrument):
+            self.call_async(client.send_command(
+                self._track.id, 'SetBeatTrackInstrument',
+                instrument_type='SampleInstrument',
+                instrument_args={
+                    'name': instr.name,
+                    'library_id': instr.id,
+                    'path': instr.path}))
+        else:
+            raise ValueError(type(instr).__name__)
 
     def onPitchChanged(self, old_value, new_value):
         self._pitch.setText(str(new_value))

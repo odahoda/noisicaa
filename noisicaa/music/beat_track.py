@@ -34,8 +34,12 @@ class SetBeatTrackInstrument(commands.Command):
     def run(self, track):
         assert isinstance(track, BeatTrack)
 
-        assert self.instrument_type == 'SoundFontInstrument'
-        instr = instruments.SoundFontInstrument(**self.instrument_args)
+        if self.instrument_type == 'SoundFontInstrument':
+            instr = instruments.SoundFontInstrument(**self.instrument_args)
+        elif self.instrument_type == 'SampleInstrument':
+            instr = instruments.SampleInstrument(**self.instrument_args)
+        else:
+            raise ValueError(self.instrument_type)
 
         track.instrument = instr
         track.instrument_node.update_pipeline()

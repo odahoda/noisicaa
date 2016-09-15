@@ -259,6 +259,15 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                 soundfont_path=instr.path,
                 bank=instr.bank, preset=instr.preset)
 
+        elif isinstance(instr, library.SampleInstrument):
+            self.instrument_type.setText("Sample")
+            self.instrument_path.setText(instr.path)
+            self.instrument_location.setText("")
+
+            await self.addInstrumentToPipeline(
+                'sample_player',
+                sample_path=instr.path)
+
         #self.piano.setVisible(True)
         #self.piano.setFocus(Qt.OtherFocusReason)
 

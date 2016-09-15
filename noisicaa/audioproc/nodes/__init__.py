@@ -5,3 +5,4 @@ from .track_event_source import TrackEventSource
 from .csound import CSoundFilter, CustomCSound
 from .fluidsynth import FluidSynthSource
 from .wavfile import WavFileSource
+from .sample_player import SamplePlayer

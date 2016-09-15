@@ -35,8 +35,8 @@ state.StateBase.register_class(Instrument)
 
 
 class SoundFontInstrument(model.SoundFontInstrument, Instrument):
-    def __init__(self, name=None, library_id=None, path=None, bank=None, preset=None, state=None):
-        super().__init__(name=name, library_id=library_id, state=state)
+    def __init__(self, path=None, bank=None, preset=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
         if state is None:
             self.path = path
             self.bank = bank
@@ -67,12 +67,22 @@ state.StateBase.register_class(SoundFontInstrument)
 
 
 class SampleInstrument(model.SampleInstrument, Instrument):
-    def __init__(self, name=None, path=None, state=None):
-        super().__init__(name=name, state=state)
+    def __init__(self, path=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
         if state is None:
             self.path = path
 
     def __str__(self):
         return '%s (%s)' % (self.name, self.path)
+
+    def add_to_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.AddNode(
+                'sample_player', self.pipeline_node_id, self.name,
+                sample_path=self.path))
+
+    def remove_from_pipeline(self):
+        self.sheet.handle_pipeline_mutation(
+            mutations.RemoveNode(self.pipeline_node_id))
 
 state.StateBase.register_class(SampleInstrument)

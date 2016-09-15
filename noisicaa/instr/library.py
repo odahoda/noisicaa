@@ -38,8 +38,9 @@ class SoundFontCollection(Collection):
 
 
 class Instrument(object):
-    def __init__(self, name, id):
+    def __init__(self, name, collection, id):
         self.name = name
+        self.collection = collection
         self.id = id
 
 
@@ -47,9 +48,9 @@ class SoundFontInstrument(Instrument):
     def __init__(self, name, collection, path, bank, preset):
         super().__init__(
             name,
+            collection,
             hashlib.md5(('%s:%d:%d' % (path, bank, preset)).encode('utf-8')).hexdigest())
 
-        self.collection = collection
         self.path = path
         self.bank = bank
         self.preset = preset
@@ -57,6 +58,20 @@ class SoundFontInstrument(Instrument):
     def __str__(self):
         return '<SoundFontInstrument "%s" path="%s" bank=%d preset=%d>' % (
             self.name, self.path, self.bank, self.preset)
+
+
+class SampleInstrument(Instrument):
+    def __init__(self, name, path):
+        super().__init__(
+            name,
+            None,
+            hashlib.md5(('%s' % path).encode('utf-8')).hexdigest())
+
+        self.path = path
+
+    def __str__(self):
+        return '<SampleInstrument "%s" path="%s">' % (
+            self.name, self.path)
 
 
 class InstrumentLibrary(object):
@@ -68,6 +83,8 @@ class InstrumentLibrary(object):
         if add_default_instruments:
             for p in sorted(glob.glob('/usr/share/sounds/sf2/*.sf2')):
                 self.add_soundfont(p)
+            for p in sorted(glob.glob('/storage/home/share/samples/ST-01/*.wav')):
+                self.add_sample(p)
 
         if self.default_instrument is None:
             self.default_instrument = self.instruments[0]

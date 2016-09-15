@@ -490,12 +490,19 @@ class InstrumentPipelineGraphNode(
     def add_to_pipeline(self):
         instr = self.track.instrument
 
-        self.sheet.handle_pipeline_mutation(
-            mutations.AddNode(
-                'fluidsynth', self.pipeline_node_id, self.name,
-                soundfont_path=instr.path,
-                bank=instr.bank,
-                preset=instr.preset))
+        if isinstance(instr, model.SoundFontInstrument):
+            self.sheet.handle_pipeline_mutation(
+                mutations.AddNode(
+                    'fluidsynth', self.pipeline_node_id, self.name,
+                    soundfont_path=instr.path,
+                    bank=instr.bank,
+                    preset=instr.preset))
+
+        elif isinstance(instr, model.SampleInstrument):
+            self.sheet.handle_pipeline_mutation(
+                mutations.AddNode(
+                    'sample_player', self.pipeline_node_id, self.name,
+                    sample_path=instr.path))
 
         self.set_initial_parameters()
 
