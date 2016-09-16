@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from fractions import Fraction
 import functools
 import logging
 import itertools
@@ -68,6 +69,8 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
         self._property_track_item = self.createTrackItem(
             self._sheet.property_track)
 
+        # pixels per beat
+        self._scale_x = Fraction(500, 1)
         self._layouts = []
 
         self._scene = SheetScene()
@@ -339,6 +342,12 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
                 base_track_item.Layer.DEBUG, base_track_item.Layer.EVENTS):
             self.clearLayer(self.layers[layer_id])
 
+        l = QtWidgets.QGraphicsLineItem(self.layers[base_track_item.Layer.DEBUG])
+        l.setLine(0, 0, int(self._scale_x), 0)
+        t = QtWidgets.QGraphicsSimpleTextItem(self.layers[base_track_item.Layer.MAIN])
+        t.setText(str(self._scale_x))
+        t.setPos(int(self._scale_x) + 4, 0)
+
         text = QtWidgets.QGraphicsSimpleTextItem(self.layers[base_track_item.Layer.MAIN])
         text.setText(
             "%s/%s" % (self.project_connection.name, self._sheet.name))
@@ -351,7 +360,7 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
         sheet_layout = layout.SheetLayout()
         for track_item in visible_track_items:
             sheet_layout.add_track_layout(track_item.getLayout())
-        sheet_layout.compute()
+        sheet_layout.compute(self._scale_x)
 
         y = 30
         for track, track_layout in zip(visible_track_items, sheet_layout.track_layouts):
@@ -495,109 +504,142 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
             self.size().width() / 3, 0)
 
     def keyPressEvent(self, event):
-        try:
-            if event.isAutoRepeat():
-                return
+        if event.modifiers() == Qt.ControlModifier and event.key() == Qt.Key_Left:
+            if self._scale_x > Fraction(10, 1):
+                self._scale_x *= Fraction(2, 3)
+                self.updateSheet()
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_Period:
-                self.setCurrentTool(Tool.DURATION_DOT)
-                event.accept()
-                return
+        if event.modifiers() == Qt.ControlModifier and event.key() == Qt.Key_Right:
+            self._scale_x *= Fraction(3, 2)
+            self.updateSheet()
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_F:
-                self.setCurrentTool(Tool.ACCIDENTAL_FLAT)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_Period):
+            self.setCurrentTool(Tool.DURATION_DOT)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_S:
-                self.setCurrentTool(Tool.ACCIDENTAL_SHARP)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_F):
+            self.setCurrentTool(Tool.ACCIDENTAL_FLAT)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_N:
-                self.setCurrentTool(Tool.ACCIDENTAL_NATURAL)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_S):
+            self.setCurrentTool(Tool.ACCIDENTAL_SHARP)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_R:
-                self.setCurrentTool({
-                    Tool.NOTE_WHOLE: Tool.REST_WHOLE,
-                    Tool.NOTE_HALF: Tool.REST_HALF,
-                    Tool.NOTE_QUARTER: Tool.REST_QUARTER,
-                    Tool.NOTE_8TH: Tool.REST_8TH,
-                    Tool.NOTE_16TH: Tool.REST_16TH,
-                    Tool.NOTE_32TH: Tool.REST_32TH,
-                    Tool.REST_WHOLE: Tool.NOTE_WHOLE,
-                    Tool.REST_HALF: Tool.NOTE_HALF,
-                    Tool.REST_QUARTER: Tool.NOTE_QUARTER,
-                    Tool.REST_8TH: Tool.NOTE_8TH,
-                    Tool.REST_16TH: Tool.NOTE_16TH,
-                    Tool.REST_32TH: Tool.NOTE_32TH,
-                }.get(self.currentTool(), Tool.REST_QUARTER))
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_N):
+            self.setCurrentTool(Tool.ACCIDENTAL_NATURAL)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_1:
-                self.setCurrentTool(Tool.NOTE_WHOLE if not self.currentTool().is_rest else Tool.REST_WHOLE)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_R):
+            self.setCurrentTool({
+                Tool.NOTE_WHOLE: Tool.REST_WHOLE,
+                Tool.NOTE_HALF: Tool.REST_HALF,
+                Tool.NOTE_QUARTER: Tool.REST_QUARTER,
+                Tool.NOTE_8TH: Tool.REST_8TH,
+                Tool.NOTE_16TH: Tool.REST_16TH,
+                Tool.NOTE_32TH: Tool.REST_32TH,
+                Tool.REST_WHOLE: Tool.NOTE_WHOLE,
+                Tool.REST_HALF: Tool.NOTE_HALF,
+                Tool.REST_QUARTER: Tool.NOTE_QUARTER,
+                Tool.REST_8TH: Tool.NOTE_8TH,
+                Tool.REST_16TH: Tool.NOTE_16TH,
+                Tool.REST_32TH: Tool.NOTE_32TH,
+            }.get(self.currentTool(), Tool.REST_QUARTER))
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_2:
-                self.setCurrentTool(Tool.NOTE_HALF if not self.currentTool().is_rest else Tool.REST_HALF)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_1):
+            self.setCurrentTool(Tool.NOTE_WHOLE if not self.currentTool().is_rest else Tool.REST_WHOLE)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_3:
-                self.setCurrentTool(Tool.NOTE_QUARTER if not self.currentTool().is_rest else Tool.REST_QUARTER)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_2):
+            self.setCurrentTool(Tool.NOTE_HALF if not self.currentTool().is_rest else Tool.REST_HALF)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_4:
-                self.setCurrentTool(Tool.NOTE_8TH if not self.currentTool().is_rest else Tool.REST_8TH)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_3):
+            self.setCurrentTool(Tool.NOTE_QUARTER if not self.currentTool().is_rest else Tool.REST_QUARTER)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_5:
-                self.setCurrentTool(Tool.NOTE_16TH if not self.currentTool().is_rest else Tool.REST_16TH)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_4):
+            self.setCurrentTool(Tool.NOTE_8TH if not self.currentTool().is_rest else Tool.REST_8TH)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_6:
-                self.setCurrentTool(Tool.NOTE_32TH if not self.currentTool().is_rest else Tool.REST_32TH)
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_5):
+            self.setCurrentTool(Tool.NOTE_16TH if not self.currentTool().is_rest else Tool.REST_16TH)
+            event.accept()
+            return
 
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_6):
+            self.setCurrentTool(Tool.NOTE_32TH if not self.currentTool().is_rest else Tool.REST_32TH)
 
-        finally:
-            super().keyPressEvent(event)
+            event.accept()
+            return
+
+        return super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
-        try:
-            if event.isAutoRepeat():
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_Period):
+            self.setCurrentTool(self._previous_tool)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_Period:
-                self.setCurrentTool(self._previous_tool)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_F):
+            self.setCurrentTool(self._previous_tool)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_F:
-                self.setCurrentTool(self._previous_tool)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_S):
+            self.setCurrentTool(self._previous_tool)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_S:
-                self.setCurrentTool(self._previous_tool)
-                event.accept()
-                return
+        if (not event.isAutoRepeat()
+                and event.modifiers() == Qt.NoModifier
+                and event.key() == Qt.Key_N):
+            self.setCurrentTool(self._previous_tool)
+            event.accept()
+            return
 
-            if event.modifiers() == Qt.NoModifier and event.key() == Qt.Key_N:
-                self.setCurrentTool(self._previous_tool)
-                event.accept()
-                return
-
-        finally:
-            super().keyReleaseEvent(event)
+        return super().keyReleaseEvent(event)
 
 
 class SheetView(ui_base.ProjectMixin, SheetViewImpl):

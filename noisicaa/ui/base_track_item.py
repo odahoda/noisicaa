@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from fractions import Fraction
 import logging
 import enum
 
@@ -116,7 +117,8 @@ class TrackItemImpl(object):
 
 
 class MeasureLayout(object):
-    def __init__(self):
+    def __init__(self, duration):
+        self.duration = duration
         self.size = QtCore.QSize()
         self.baseline = 0
 
@@ -321,23 +323,36 @@ class MeasuredTrackLayout(layout.TrackLayout):
         super().__init__()
 
         self.measure_layouts = []
-        self._height_above = 0
-        self._height_below = 0
+        self._height_above = None
+        self._height_below = None
+        self._width = None
 
     def add_measure_layout(self, measure_layout):
         self.measure_layouts.append(measure_layout)
-        self._height_above = max(self._height_above, measure_layout.extend_above)
-        self._height_below = max(self._height_below, measure_layout.extend_below)
 
-    def list_points(self):
-        for pos, measure_layout in enumerate(self.measure_layouts):
-            yield (pos, measure_layout.width)
+    def compute(self, scale_x):
+        timepos = Fraction(0, 1)
+        x = 0
 
-    def set_widths(self, widths):
-        super().set_widths(widths)
+        self._width = 0
+        self._height_above = 0
+        self._height_below = 0
+        for measure_layout in self.measure_layouts:
+            end_timepos = timepos + measure_layout.duration
+            end_x = int(scale_x * end_timepos)
+            width = end_x - x
 
-        for measure_layout, (pos, width) in zip(self.measure_layouts, widths):
             measure_layout.width = width
+            self._width += width
+            self._height_above = max(self._height_above, measure_layout.extend_above)
+            self._height_below = max(self._height_below, measure_layout.extend_below)
+
+            timepos = end_timepos
+            x = end_x
+
+    @property
+    def width(self):
+        return self._width
 
     @property
     def height(self):

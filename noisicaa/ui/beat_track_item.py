@@ -16,10 +16,6 @@ from . import base_track_item
 logger = logging.getLogger(__name__)
 
 
-class BeatMeasureLayout(base_track_item.MeasureLayout):
-    pass
-
-
 class BeatMeasureItemImpl(base_track_item.MeasureItemImpl):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -68,12 +64,16 @@ class BeatMeasureItemImpl(base_track_item.MeasureItemImpl):
         self.addMeasureListeners()
 
     def getLayout(self):
-        width = 100
+        if self._measure is not None:
+            duration = self._measure.duration
+        else:
+            duration = music.Duration(2, 4)
+
         height_above = 30
         height_below = 30
 
-        layout = BeatMeasureLayout()
-        layout.size = QtCore.QSize(width, height_above + height_below)
+        layout = base_track_item.MeasureLayout(duration)
+        layout.height = height_above + height_below
         layout.baseline = height_above
         return layout
 

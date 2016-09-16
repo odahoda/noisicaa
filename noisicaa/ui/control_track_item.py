@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from fractions import Fraction
 import logging
 
 from PyQt5.QtCore import Qt
@@ -428,20 +429,27 @@ class ControlTrackLayout(layout.TrackLayout):
     def __init__(self, track):
         super().__init__()
         self._track = track
+        self._widths = []
 
-    def list_points(self):
-        num_measures = max(
-            len(track.measure_list) for track in self._track.sheet.all_tracks
-            if isinstance(track, model.MeasuredTrack))
-        for pos in range(num_measures):
-            yield (pos, 100)
+    def compute(self, scale_x):
+        timepos = Fraction(0, 1)
+        x = 0
 
-    def set_widths(self, widths):
-        super().set_widths(widths)
+        for mref in self._track.sheet.property_track.measure_list:
+            measure = mref.measure
+
+            end_timepos = timepos + measure.duration
+            end_x = int(scale_x * end_timepos)
+            width = end_x - x
+
+            self._widths.append(width)
+
+            timepos = end_timepos
+            x = end_x
 
     @property
     def widths(self):
-        return [width for _, width in self._widths]
+        return self._widths
 
     @property
     def width(self):
@@ -482,8 +490,8 @@ class ControlTrackItemImpl(base_track_item.TrackItemImpl):
         self._graph = ControlGraph(
             parent=layer,
             track=self._track,
-            size=QtCore.QSize(sum(track_layout.widths[:-1]), track_layout.height - 20),
-            widths=track_layout.widths[:-1],
+            size=QtCore.QSize(track_layout.width, track_layout.height - 20),
+            widths=track_layout.widths,
             durations=[
                 mref.measure.duration
                 for mref in self._track.sheet.property_track.measure_list],

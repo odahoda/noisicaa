@@ -19,15 +19,12 @@ from . import base_track_item
 logger = logging.getLogger(__name__)
 
 
-class ScoreMeasureLayout(base_track_item.MeasureLayout):
-    pass
-
-
 class ScoreMeasureItemImpl(base_track_item.MeasureItemImpl):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self._edit_areas = []
+        self._note_area = None
         self._notes = []
         self._ghost = None
         self._ghost_tool = None
@@ -101,38 +98,16 @@ class ScoreMeasureItemImpl(base_track_item.MeasureItemImpl):
         self.addMeasureListeners()
 
     def getLayout(self):
-        width = 0
+        if self._measure is not None:
+            duration = self._measure.duration
+        else:
+            duration = music.Duration(2, 4)
+
         height_above = 120
         height_below = 120
 
-        if self._measure is not None:
-            width += 10
-
-            # clef
-            width += 50
-
-            # key signature
-            if self._measure.key_signature.accidentals:
-                width += 10 * len(self._measure.key_signature.accidentals)
-                width += 10
-
-            # time signature
-            width += 40
-
-            width += 20
-
-            notes_width = 0
-            for note in self._measure.notes:
-                notes_width += int(400 * note.duration)
-            width += max(int(400 * self._measure.duration), notes_width)
-
-            width += 10
-
-        else:
-            width += 200
-
-        layout = ScoreMeasureLayout()
-        layout.size = QtCore.QSize(width, height_above + height_below)
+        layout = base_track_item.MeasureLayout(duration)
+        layout.height = height_above + height_below
         layout.baseline = height_above
         return layout
 
@@ -194,203 +169,218 @@ class ScoreMeasureItemImpl(base_track_item.MeasureItemImpl):
         if self._measure is not None:
             base_stave_line = self._measure.clef.center_pitch.stave_line
             base_octave = self._measure.clef.base_octave
-            x = 10
+            x = 0
 
-            clef = SymbolItem('clef-%s' % self._measure.clef.symbol, layer)
-            clef.setPos(
-                x + 20,
-                self._layout.baseline - 10 * (self._measure.clef.base_pitch.stave_line - base_stave_line))
-            x += 50
+            if self._layout.width - x > 200:
+                clef = SymbolItem('clef-%s' % self._measure.clef.symbol, layer)
+                clef.setPos(
+                    x + 30,
+                    self._layout.baseline - 10 * (self._measure.clef.base_pitch.stave_line - base_stave_line))
+                x += 60
+
+            acc_map = {
+                'C#': 'C%d' % (base_octave + 1),
+                'D#': 'D%d' % (base_octave + 1),
+                'E#': 'E%d' % (base_octave + 1),
+                'F#': 'F%d' % (base_octave + 1),
+                'G#': 'G%d' % (base_octave + 1),
+                'A#': 'A%d' % base_octave,
+                'B#': 'B%d' % base_octave,
+                'Cb': 'C%d' % (base_octave + 1),
+                'Db': 'D%d' % (base_octave + 1),
+                'Eb': 'E%d' % (base_octave + 1),
+                'Fb': 'F%d' % base_octave,
+                'Gb': 'G%d' % base_octave,
+                'Ab': 'A%d' % base_octave,
+                'Bb': 'B%d' % base_octave,
+            }
 
             active_accidentals = {}
             for acc in self._measure.key_signature.accidentals:
-                value = {
-                    'C#': 'C%d' % (base_octave + 1),
-                    'D#': 'D%d' % (base_octave + 1),
-                    'E#': 'E%d' % (base_octave + 1),
-                    'F#': 'F%d' % (base_octave + 1),
-                    'G#': 'G%d' % (base_octave + 1),
-                    'A#': 'A%d' % base_octave,
-                    'B#': 'B%d' % base_octave,
-                    'Cb': 'C%d' % (base_octave + 1),
-                    'Db': 'D%d' % (base_octave + 1),
-                    'Eb': 'E%d' % (base_octave + 1),
-                    'Fb': 'F%d' % base_octave,
-                    'Gb': 'G%d' % base_octave,
-                    'Ab': 'A%d' % base_octave,
-                    'Bb': 'B%d' % base_octave,
-                }[acc]
-                stave_line = music.Pitch(value).stave_line - base_stave_line
-
-                sym = SymbolItem(self._accidental_map[acc[1:]], layer)
-                sym.setPos(
-                    x + 10,
-                    self._layout.baseline - 10 * stave_line)
-
+                value = acc_map[acc]
                 active_accidentals[value[:1]] = acc[1:]
-                x += 10
-            if self._measure.key_signature.accidentals:
-                x += 10
 
-            font = QtGui.QFont('FreeSerif', 30, QtGui.QFont.Black)
-            font.setStretch(120)
+            if self._layout.width - x > 200:
+                for acc in self._measure.key_signature.accidentals:
+                    value = acc_map[acc]
+                    stave_line = music.Pitch(value).stave_line - base_stave_line
 
-            time_sig_upper = QtWidgets.QGraphicsTextItem(layer)
-            time_sig_upper.setFont(font)
-            time_sig_upper.setHtml(
-                '<center>%d</center>' % self._measure.time_signature.upper)
-            time_sig_upper.setTextWidth(50)
-            time_sig_upper.setPos(x - 10, self._layout.baseline - 52)
+                    sym = SymbolItem(self._accidental_map[acc[1:]], layer)
+                    sym.setPos(
+                        x + 10,
+                        self._layout.baseline - 10 * stave_line)
 
-            time_sig_lower = QtWidgets.QGraphicsTextItem(layer)
-            time_sig_lower.setFont(font)
-            time_sig_lower.setHtml(
-                '<center>%d</center>' % self._measure.time_signature.lower)
-            time_sig_lower.setTextWidth(50)
-            time_sig_lower.setPos(x - 10, self._layout.baseline - 15)
-            x += 40
+                    x += 10
 
-            px = x
-            x += 20
-            note_time = music.Duration(0)
-            for idx, note in enumerate(self._measure.notes):
-                overflow = note_time + note.duration > self._measure.duration
+                if self._measure.key_signature.accidentals:
+                    x += 10
 
-                if note.is_rest:
-                    sym = {
-                        music.Duration(1, 1): 'rest-whole',
-                        music.Duration(1, 2): 'rest-half',
-                        music.Duration(1, 4): 'rest-quarter',
-                        music.Duration(1, 8): 'rest-8th',
-                        music.Duration(1, 16): 'rest-16th',
-                        music.Duration(1, 32): 'rest-32th',
-                    }[note.base_duration]
-                    n = SymbolItem(sym, layer)
-                    n.setPos(x, self._layout.baseline)
-                    self._notes.append(n)
+            if self._layout.width - x > 200:
+                font = QtGui.QFont('FreeSerif', 30, QtGui.QFont.Black)
+                font.setStretch(120)
 
-                    if note.base_duration >= music.Duration(1, 2):
-                        dx = 25
-                        dy = -10
-                    else:
-                        dx = 12
-                        dy = 0
+                time_sig_upper = QtWidgets.QGraphicsTextItem(layer)
+                time_sig_upper.setFont(font)
+                time_sig_upper.setHtml(
+                    '<center>%d</center>' % self._measure.time_signature.upper)
+                time_sig_upper.setTextWidth(50)
+                time_sig_upper.setPos(x - 10, self._layout.baseline - 52)
 
-                    for d in range(note.dots):
-                        dot = QtWidgets.QGraphicsEllipseItem(n)
-                        dot.setRect(dx - 4 + 10*d, dy - 4, 9, 9)
-                        dot.setBrush(Qt.black)
-                        dot.setPen(QtGui.QPen(Qt.NoPen))
+                time_sig_lower = QtWidgets.QGraphicsTextItem(layer)
+                time_sig_lower.setFont(font)
+                time_sig_lower.setHtml(
+                    '<center>%d</center>' % self._measure.time_signature.lower)
+                time_sig_lower.setTextWidth(50)
+                time_sig_lower.setPos(x - 10, self._layout.baseline - 15)
+                x += 40
 
-                    if note.tuplet != 0:
-                        tuplet = QtWidgets.QGraphicsSimpleTextItem(n)
-                        tuplet.setText('%d' % note.tuplet)
-                        tuplet.setPos(-5, -45)
+            if self._layout.width - x > 100:
+                note_area_width = self._layout.width - x - 20
+                self._note_area = (x + 20, note_area_width)
 
-                    if overflow:
-                        n.setOpacity(0.4)
-                elif len(note.pitches) > 0:
-                    min_stave_line = 1000
-                    max_stave_line = -1000
+                px = x
+                x += 20
+                note_time = music.Duration(0)
+                for idx, note in enumerate(self._measure.notes):
+                    overflow = note_time + note.duration > self._measure.duration
 
-                    for pitch in note.pitches:
-                        stave_line = pitch.stave_line - base_stave_line
-                        min_stave_line = min(min_stave_line, stave_line)
-                        max_stave_line = max(max_stave_line, stave_line)
-
-                    # Ledger lines above stave.
-                    for l in range(6, max_stave_line + 1, 2):
-                        ledger = QtWidgets.QGraphicsLineItem(layer)
-                        ledger.setLine(x - 20, self._layout.baseline - 10 * l,
-                                       x + 20, self._layout.baseline - 10 * l)
-                        ledger.setOpacity(0.8)
-                        line.setPen(black)
-
-                    # Ledger lines below stave.
-                    for l in range(-6, min_stave_line - 1, -2):
-                        ledger = QtWidgets.QGraphicsLineItem(layer)
-                        ledger.setLine(x - 20, self._layout.baseline - 10 * l,
-                                       x + 20, self._layout.baseline - 10 * l)
-                        ledger.setOpacity(0.4 if overflow else 0.8)
-                        line.setPen(black)
-
-                    n = QGraphicsGroup(layer)
-                    n.setPos(x, self._layout.baseline)
-                    self._notes.append(n)
-
-                    for pitch in note.pitches:
-                        stave_line = pitch.stave_line - base_stave_line
-
-                        y = -10 * stave_line
-
-                        p = QGraphicsGroup(n)
-                        p.setPos(0, y)
-
-                        active_accidental = active_accidentals.get(pitch.value, '')
-                        if pitch.accidental != active_accidental:
-                            sym = self._accidental_map[pitch.accidental]
-                            accidental = SymbolItem(sym, p)
-                            accidental.setPos(-12, 0)
-                            active_accidentals[pitch.value] = pitch.accidental
+                    if note.is_rest:
+                        sym = {
+                            music.Duration(1, 1): 'rest-whole',
+                            music.Duration(1, 2): 'rest-half',
+                            music.Duration(1, 4): 'rest-quarter',
+                            music.Duration(1, 8): 'rest-8th',
+                            music.Duration(1, 16): 'rest-16th',
+                            music.Duration(1, 32): 'rest-32th',
+                        }[note.base_duration]
+                        n = SymbolItem(sym, layer)
+                        n.setPos(x, self._layout.baseline)
+                        self._notes.append(n)
 
                         if note.base_duration >= music.Duration(1, 2):
-                            body = SymbolItem('note-head-void', p)
+                            dx = 25
+                            dy = -10
                         else:
-                            body = SymbolItem('note-head-black', p)
-
-                        if note.base_duration <= music.Duration(1, 2):
-                            arm = QtWidgets.QGraphicsRectItem(p)
-                            arm.setRect(8, -63, 3, 60)
-                            arm.setBrush(Qt.black)
-                            arm.setPen(QtGui.QPen(Qt.NoPen))
-
-                        if note.base_duration == music.Duration(1, 8):
-                            flags = 1
-                        elif note.base_duration == music.Duration(1, 16):
-                            flags = 2
-                        elif note.base_duration == music.Duration(1, 32):
-                            flags = 3
-                        else:
-                            flags = 0
-                        for f in range(flags):
-                            flag = SymbolItem('note-flag-down', p)
-                            flag.setPos(11, -63 + 12 * f)
+                            dx = 12
+                            dy = 0
 
                         for d in range(note.dots):
-                            dot = QtWidgets.QGraphicsEllipseItem(p)
-                            dot.setRect(12 + 10*d, -4, 9, 9)
+                            dot = QtWidgets.QGraphicsEllipseItem(n)
+                            dot.setRect(dx - 4 + 10*d, dy - 4, 9, 9)
                             dot.setBrush(Qt.black)
                             dot.setPen(QtGui.QPen(Qt.NoPen))
 
                         if note.tuplet != 0:
-                            tuplet = QtWidgets.QGraphicsSimpleTextItem(p)
+                            tuplet = QtWidgets.QGraphicsSimpleTextItem(n)
                             tuplet.setText('%d' % note.tuplet)
-                            tuplet.setPos(-5, -85)
+                            tuplet.setPos(-5, -45)
 
-                    if overflow:
-                        n.setOpacity(0.4)
+                        if overflow:
+                            n.setOpacity(0.4)
+                    elif len(note.pitches) > 0:
+                        min_stave_line = 1000
+                        max_stave_line = -1000
 
-                    if self.app.showEditAreas:
-                        info = QtWidgets.QGraphicsSimpleTextItem(self)
-                        info.setText(
-                            '%d/%d' % (min_stave_line, max_stave_line))
-                        info.setPos(x - 10, 0)
+                        for pitch in note.pitches:
+                            stave_line = pitch.stave_line - base_stave_line
+                            min_stave_line = min(min_stave_line, stave_line)
+                            max_stave_line = max(max_stave_line, stave_line)
 
-                x1 = max(x - 12, px)
-                x2 = max(x + 13, x1)
-                if x1 > px:
-                    self._edit_areas.append((px, x1, idx, False))
-                    px = x1
-                if x2 > x1:
-                    self._edit_areas.append((x1, x2, idx, True))
-                    px = x2
+                        # Ledger lines above stave.
+                        for l in range(6, max_stave_line + 1, 2):
+                            ledger = QtWidgets.QGraphicsLineItem(layer)
+                            ledger.setLine(x - 20, self._layout.baseline - 10 * l,
+                                           x + 20, self._layout.baseline - 10 * l)
+                            ledger.setOpacity(0.8)
+                            line.setPen(black)
 
-                note_time += note.duration
-                x += 400 * note.duration
+                        # Ledger lines below stave.
+                        for l in range(-6, min_stave_line - 1, -2):
+                            ledger = QtWidgets.QGraphicsLineItem(layer)
+                            ledger.setLine(x - 20, self._layout.baseline - 10 * l,
+                                           x + 20, self._layout.baseline - 10 * l)
+                            ledger.setOpacity(0.4 if overflow else 0.8)
+                            line.setPen(black)
 
-            if px < self._layout.width:
-                self._edit_areas.append(
-                    (px, self._layout.width, len(self._measure.notes), False))
+                        n = QGraphicsGroup(layer)
+                        n.setPos(x, self._layout.baseline)
+                        self._notes.append(n)
+
+                        for pitch in note.pitches:
+                            stave_line = pitch.stave_line - base_stave_line
+
+                            y = -10 * stave_line
+
+                            p = QGraphicsGroup(n)
+                            p.setPos(0, y)
+
+                            active_accidental = active_accidentals.get(pitch.value, '')
+                            if pitch.accidental != active_accidental:
+                                sym = self._accidental_map[pitch.accidental]
+                                accidental = SymbolItem(sym, p)
+                                accidental.setPos(-12, 0)
+                                active_accidentals[pitch.value] = pitch.accidental
+
+                            if note.base_duration >= music.Duration(1, 2):
+                                body = SymbolItem('note-head-void', p)
+                            else:
+                                body = SymbolItem('note-head-black', p)
+
+                            if note.base_duration <= music.Duration(1, 2):
+                                arm = QtWidgets.QGraphicsRectItem(p)
+                                arm.setRect(8, -63, 3, 60)
+                                arm.setBrush(Qt.black)
+                                arm.setPen(QtGui.QPen(Qt.NoPen))
+
+                            if note.base_duration == music.Duration(1, 8):
+                                flags = 1
+                            elif note.base_duration == music.Duration(1, 16):
+                                flags = 2
+                            elif note.base_duration == music.Duration(1, 32):
+                                flags = 3
+                            else:
+                                flags = 0
+                            for f in range(flags):
+                                flag = SymbolItem('note-flag-down', p)
+                                flag.setPos(11, -63 + 12 * f)
+
+                            for d in range(note.dots):
+                                dot = QtWidgets.QGraphicsEllipseItem(p)
+                                dot.setRect(12 + 10*d, -4, 9, 9)
+                                dot.setBrush(Qt.black)
+                                dot.setPen(QtGui.QPen(Qt.NoPen))
+
+                            if note.tuplet != 0:
+                                tuplet = QtWidgets.QGraphicsSimpleTextItem(p)
+                                tuplet.setText('%d' % note.tuplet)
+                                tuplet.setPos(-5, -85)
+
+                        if overflow:
+                            n.setOpacity(0.4)
+
+                        if self.app.showEditAreas:
+                            info = QtWidgets.QGraphicsSimpleTextItem(self)
+                            info.setText(
+                                '%d/%d' % (min_stave_line, max_stave_line))
+                            info.setPos(x - 10, 0)
+
+                    x1 = max(x - 12, px)
+                    x2 = max(x + 13, x1)
+                    if x1 > px:
+                        self._edit_areas.append((px, x1, idx, False))
+                        px = x1
+                    if x2 > x1:
+                        self._edit_areas.append((x1, x2, idx, True))
+                        px = x2
+
+                    note_time += note.duration
+                    x += note_area_width * note.duration
+
+                if px < self._layout.width:
+                    self._edit_areas.append(
+                        (px, self._layout.width, len(self._measure.notes), False))
+            else:
+                self._note_area = (0, self._layout.width)
 
         if self.app.showEditAreas:
             for x1, x2, idx, overwrite in self._edit_areas:
@@ -765,27 +755,14 @@ class ScoreMeasureItemImpl(base_track_item.MeasureItemImpl):
         if first:
             assert 0 <= start_tick < self._measure.duration.ticks
             assert self._layout.width > 0 and self._layout.height > 0
+            assert self._note_area is not None
 
-            pos = (
-                400 * self._measure.duration
+            left, width = self._note_area
+
+            pos = left + (
+                width * self._measure.duration
                 * start_tick
                 / self._measure.duration.ticks)
-
-            # TODO: That's ugly...
-            pos += 10
-
-            # clef
-            pos += 50
-
-            # key signature
-            if self._measure.key_signature.accidentals:
-                pos += 10 * len(self._measure.key_signature.accidentals)
-                pos += 10
-
-            # time signature
-            pos += 40
-
-            pos += 20
 
             self.playback_pos.setLine(0, 0, 0, self._layout.height)
             self.playback_pos.setPos(pos, 0)

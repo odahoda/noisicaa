@@ -1,5 +1,8 @@
 # -*- org-tags-column: -98 -*-
 
+* appending measure does not handle TrackGroups 					     :BUG:
+- tracks in a subgroup don't get extended
+- extending a track in a subgroup, only extends tracks in master group
 * More flexible instrument handling							      :FR:
 Have a list of instrument types
 - with scanners to list instruments
@@ -80,11 +83,6 @@ Icon next to controllable values, drag'n'drop onto editor.
 
 * Reparent mixer nodes when moving tracks between groups 				     :BUG:
 When reparenting a track, also reparent its mixer node.
-* Fixed horizontal time mapping								      :FR:
-- Same horizontal interval maps to same musical time interval anywhere.
-  Otherwise rendering control segments across measure boundaries becomes very confusing.
-- ScoreMeasure has to fit into given space no matter what.
-- Zooming along time axis.
 
 * turn any node parameter into a control input port					      :FR:
 - ports can be added and removed on the fly
@@ -111,6 +109,27 @@ When reparenting a track, also reparent its mixer node.
 * Sometimes hangs during shutdown							     :BUG:
 Last sign of life:
   INFO    :18195:7f91c16bc700:ui.editor_app: Shutting down.
+
+* More precise playback timepos reporting						      :FR:
+Currently the UI is behind a bit because of buffering in the pyaudio backend.
+- Backend in main audioproc pipeline has a callback that reports the timepos of the block actually
+  sent to the driver.
+- IPCNode listens on that and forwards to the player's IPCBackend.
+- IPCBackend applies timepos_offset and reports back to Player.
+- Player sends timepos to UI.
+* Audio pipeline sends data back to UI							      :FR:
+- For VU Meters, spectograms, etc.
+- Player buffers data frames.
+- When player receives the matching timepos from the main pipeline, send buffered data
+  to player client.
+
+* store sockets and pipes in $HOME/.noisicaa/run and cleanup after yourself.		      :FR:
+- also clean up old files when starting up
+- host specifc subdirs? host-pid?
+- how to figure out if a dir is obsolete?
+  - some lock file, which is held by the main process. if you can acquire it, remove the dir.
+  - some file that main process touches every Xmin. if older than Ymin, remove the dir.
+  - a socket that main process listens on. if you can't connect to it, remove the dir.
 
 * Custom csound filter node								      :FR:
 - make port list editable
@@ -227,18 +246,22 @@ Compute list of valid dest nodes and highlight those.
   - notes
 
 * copy/link via drag'n'drop								      :FR:
+* notes on the grid									      :FR:
+Alternate editing mode for ScoreMeasures.
+Insert notes at absolute time positions, recompute duration of preceding note.
+Switch with insert/overwrite key?
+How to deal with very short notes? I.e. grid too small.
+- set grid size based on visual scale, zoom in to get shorter intervals.
+What about triplets etc. which are off the grid?
 * player needs to get lock on state							     :BUG:
 possible exception when changing project while playing
 * Tool not visible on initial load							     :BUG:
 * changing backend in settings crashes pipeline loop					     :BUG:
-* generic csound filter									      :FR:
-- define audio and control ports
-- also event inputs for instruments?
-- freeform text input for csound code
-
 * Undo/redo doesn't replay pipeline mutations						     :BUG:
 - trigger pipeline mutations from listeners on model
 - don't trigger mutations while replaying log during load
+- store pipeline mutations as operations in command?
+
 * use recordfile for command log							 :CLEANUP:
    * need file offset
    * read record from offset

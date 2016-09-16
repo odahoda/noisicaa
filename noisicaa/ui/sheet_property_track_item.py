@@ -7,15 +7,13 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import music
+
 from .misc import QGraphicsGroup
 from . import ui_base
 from . import base_track_item
 
 logger = logging.getLogger(__name__)
-
-
-class SheetPropertyMeasureLayout(base_track_item.MeasureLayout):
-    pass
 
 
 class SheetPropertyMeasureItemImpl(base_track_item.MeasureItemImpl):
@@ -53,12 +51,16 @@ class SheetPropertyMeasureItemImpl(base_track_item.MeasureItemImpl):
             self.playback_pos.setPen(pen)
 
     def getLayout(self):
-        width = 100
+        if self._measure is not None:
+            duration = self._measure.duration
+        else:
+            duration = music.Duration(2, 4)
+
         height_above = 10
         height_below = 10
 
-        layout = SheetPropertyMeasureLayout()
-        layout.size = QtCore.QSize(width, height_above + height_below)
+        layout = base_track_item.MeasureLayout(duration)
+        layout.height = height_above + height_below
         layout.baseline = height_above
         return layout
 
