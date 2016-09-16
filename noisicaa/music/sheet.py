@@ -95,7 +95,7 @@ commands.Command.register_command(RemoveTrack)
 
 
 class InsertMeasure(commands.Command):
-    tracks = core.ListProperty(int)
+    tracks = core.ListProperty(str)
     pos = core.Property(int)
 
     def __init__(self, tracks=None, pos=None, state=None):
@@ -112,11 +112,11 @@ class InsertMeasure(commands.Command):
         else:
             sheet.property_track.append_measure()
 
-        for idx, track in enumerate(sheet.master_group.tracks):
+        for track in sheet.master_group.walk_tracks():
             if not isinstance(track, model.MeasuredTrack):
                 continue
 
-            if not self.tracks or idx in self.tracks:
+            if not self.tracks or track.id in self.tracks:
                 track.insert_measure(self.pos)
             else:
                 track.append_measure()

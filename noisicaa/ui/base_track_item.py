@@ -275,7 +275,7 @@ class MeasureItemImpl(QtWidgets.QGraphicsObject):
     def onInsertMeasure(self):
         self.send_command_async(
             self._sheet_view.sheet.id, 'InsertMeasure',
-            tracks=[self._measure.track.index],
+            tracks=[self._measure.track.id],
             pos=self._measure_reference.index)
 
     def onRemoveMeasure(self):

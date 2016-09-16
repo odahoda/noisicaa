@@ -1,8 +1,5 @@
 # -*- org-tags-column: -98 -*-
 
-* appending measure does not handle TrackGroups 					     :BUG:
-- tracks in a subgroup don't get extended
-- extending a track in a subgroup, only extends tracks in master group
 * More flexible instrument handling							      :FR:
 Have a list of instrument types
 - with scanners to list instruments
@@ -163,6 +160,19 @@ store node uri
 * per measure time signature								      :FR:
 Tracks can have different time signatures, measures do not have to align
 vertically.
+* Background eventset 									      :FR:
+Internal data structure that tracks noteon/noteoff events for a track.
+Efficient lookup of:
+- events in a given time interval.
+- list of notes that are on in a given time interval.
+Used by event based tracks (score, beat, ...).
+Track syncs all changes to eventset.
+Use eventset to generate player events.
+
+* Note fine tuning									      :FR:
+Tweak time of noteon/noteoff for each note.
+Only active at high zoom levels.
+
 * replace SheetPropertyTrack by a controllable parameter				      :FR:
 * SIGSEGV when editing PipelineGraphView						   :CRASH:
 Possibly caused by the use of QGraphicsEffect for dropshadows?
@@ -223,6 +233,9 @@ Compute list of valid dest nodes and highlight those.
 ** Remove all
 * PipelineGraphView: visualize mute, volume, bypass state in UI				      :FR:
 * PipelineGraphView: select port or connection filters node list to compatible nodes	      :FR:
+* ScoreMeasure: improve rendering for different zoom levels				      :FR:
+At low zoom levels, don't render full notes, just dots.
+
 * More instrument types									      :FR:
 - SFZ
 - arbitrary plugin
@@ -233,6 +246,10 @@ Compute list of valid dest nodes and highlight those.
 - a section is a clip or range of a clip
 - per section envelope
   - short (few msec) ramp up/down to avoid clicks
+* Lens											      :FR:
+At low zoom levels, click on an area to popup an overlay window showing that area at a higher
+zoom level for editing.
+
 * cut, copy, paste									      :FR:
 - Use QClipboard
 - select multiple items
