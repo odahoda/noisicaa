@@ -1,0 +1,11 @@
+# -*- mode: python -*-
+
+import os
+import os.path
+
+def make_ext(modname, pyxfilename):
+    from distutils.extension import Extension
+    return Extension(
+        name = modname,
+        sources=[pyxfilename],
+    )

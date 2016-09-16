@@ -1,5 +1,15 @@
 # -*- org-tags-column: -98 -*-
 
+* Support mono ports									      :FR:
+- Ports specify a list of channels: ['mono'], ['left', 'right'], etc.
+
+* TODO LADSPA support									      :FR:
+- how to map stereo connections to the right plugin ports?
+* Plugin support									      :FR:
+** LV2
+* Fix removing measures									     :BUG:
+- remove measure on SheetPropertyTrack causes exception
+- no way to remove trailing measures from sheet
 * More flexible instrument handling							      :FR:
 Have a list of instrument types
 - with scanners to list instruments
@@ -77,6 +87,16 @@ Icon next to controllable values, drag'n'drop onto editor.
 - remember active tool per track type
 - could also activate track by enter events
   - but if mouse then moves to tracks dock, it might cross other tracks causing confusion
+* Default track effects									      :FR:
+When creating new track, insert standard set of effects in pipeline.
+Default effects to bypass.
+Reverb, Delay, Pan, Equalizer.
+* Pipeline: don't execute unused nodes							      :FR:
+Skip node's run(), if all its outputs are bypassed.
+Skip node, when there are no unmuted upstream nodes. Pass this on, to disable complete subtrees.
+* Mixer strip										      :FR:
+Create mixer panel for each track.
+Add controls or monitors with drag'n'drop.
 
 * Reparent mixer nodes when moving tracks between groups 				     :BUG:
 When reparenting a track, also reparent its mixer node.
@@ -106,6 +126,10 @@ When reparenting a track, also reparent its mixer node.
 * Sometimes hangs during shutdown							     :BUG:
 Last sign of life:
   INFO    :18195:7f91c16bc700:ui.editor_app: Shutting down.
+
+* ScoreMeasure: only show clef, time- and key-signature when changed			      :FR:
+- if is_first or if different from prev_sibling
+- how is a keysignature change rendered that removes accidentals? e.g. to c-major
 
 * More precise playback timepos reporting						      :FR:
 Currently the UI is behind a bit because of buffering in the pyaudio backend.
@@ -174,13 +198,12 @@ Tweak time of noteon/noteoff for each note.
 Only active at high zoom levels.
 
 * replace SheetPropertyTrack by a controllable parameter				      :FR:
+- bpm is a parameter of Sheet
+- optionally make it a ControlTrack to change it over time.
 * SIGSEGV when editing PipelineGraphView						   :CRASH:
 Possibly caused by the use of QGraphicsEffect for dropshadows?
 
 * GIL free audio pipeline								      :FR:
-* Plugin support									      :FR:
-** LADSPA
-** LV2
 * Render audio to file									      :FR:
 * NodeDB: start_scan									      :FR:
 How to report scan progress back?
@@ -246,7 +269,7 @@ At low zoom levels, don't render full notes, just dots.
 - a section is a clip or range of a clip
 - per section envelope
   - short (few msec) ramp up/down to avoid clicks
-* Lens											      :FR:
+* Lens											    :IDEA:
 At low zoom levels, click on an area to popup an overlay window showing that area at a higher
 zoom level for editing.
 
@@ -375,6 +398,13 @@ instead over overriding handle_pipeline_*, client code should register a callbac
 - global actions, e.g. cut, copy, paste, are sent to that object
 - if receivers doesn't handle it, pass it on to parent
   - use custom Qt events?
+
+* Guitar track										    :IDEA:
+- physical simulation of guitar strings
+- edit finger positions
+- edit strokes
+
+* Move the various cython bindings to noisicaa.bindings					 :CLEANUP:
 
 * == unsorted nodes from gdoc =================================================
 
