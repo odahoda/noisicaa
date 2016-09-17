@@ -44,9 +44,6 @@ class AudioProcClientMixin(object):
     async def shutdown(self):
         await self._stub.call('SHUTDOWN')
 
-    async def list_node_types(self):
-        return await self._stub.call('LIST_NODE_TYPES', self._session_id)
-
     async def add_node(self, node_type, **args):
         return await self._stub.call('ADD_NODE', self._session_id, node_type, args)
 

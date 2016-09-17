@@ -9,11 +9,11 @@ import threading
 
 from noisicaa.core import ipc
 from noisicaa import music
+from noisicaa import node_db
 
 from .. import ports
 from .. import node
 from .. import frame
-from .. import node_types
 from .. import events
 from .. import audio_stream
 from .. import data
@@ -23,20 +23,21 @@ logger = logging.getLogger(__name__)
 
 
 class IPCNode(node.Node):
-    desc = node_types.NodeType()
-    desc.name = 'ipc'
-    desc.parameter('address', 'string')
-    desc.parameter('event_queue_name', 'string')
-    desc.port('out', 'output', 'audio')
+    class_name = 'ipc'
 
     def __init__(self, event_loop, address, event_queue_name):
-        super().__init__(event_loop)
+        description = node_db.SystemNodeDescription(
+            ports=[
+                node_db.AudioPortDescription(
+                    name='out',
+                    direction=node_db.PortDirection.Output,
+                    channels='stereo'),
+            ])
+
+        super().__init__(event_loop, description)
 
         self._stream = audio_stream.AudioStreamClient(address)
         self._event_queue_name = event_queue_name
-
-        self._output = ports.AudioOutputPort('out', audio_format.CHANNELS_STEREO)
-        self.add_output(self._output)
 
     async def setup(self):
         await super().setup()
@@ -61,8 +62,9 @@ class IPCNode(node.Node):
             response.duration, ctxt.duration)
         ctxt.perf.add_spans(response.perf_data)
 
-        self._output.frame.resize(0)
-        self._output.frame.append_samples(
+        output_port = self.outputs['out']
+        output_port.frame.resize(0)
+        output_port.frame.append_samples(
             response.samples, response.num_samples)
-        assert len(self._output.frame) <= ctxt.duration
-        self._output.frame.resize(ctxt.duration)
+        assert len(output_port.frame) <= ctxt.duration
+        output_port.frame.resize(ctxt.duration)

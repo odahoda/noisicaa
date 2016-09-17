@@ -1,14 +1,20 @@
 # -*- org-tags-column: -98 -*-
 
 * Fully replace obsolete node descriptions						 :CLEANUP:
-- all node instances have a NodeDescription
-- merge DescribedNode into Node
+- get PipelineGraphMonitor working again
 
 * Plugin support									      :FR:
 ** LV2
 * Fix removing measures									     :BUG:
 - remove measure on SheetPropertyTrack causes exception
 - no way to remove trailing measures from sheet
+* Gracefully handle pipeline crashes
+- exceptions in pipeline loop thread terminate pipeline process
+- notify player
+  - not via exception, because the process my die hard with a SIGSEGV, etc.
+- notify player_client
+- UI dialog: quit app, restart player, undo last command and restart player
+
 * More flexible instrument handling							      :FR:
 Have a list of instrument types
 - with scanners to list instruments

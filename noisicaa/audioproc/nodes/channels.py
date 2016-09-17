@@ -4,18 +4,13 @@ import logging
 
 from .. import ports
 from .. import node
-from .. import node_types
 from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
 
 class SplitChannels(node.Node):
-    desc = node_types.NodeType()
-    desc.name = 'split_channels'
-    desc.port('in', 'input', 'audio')
-    desc.port('left', 'output', 'audio')
-    desc.port('right', 'output', 'audio')
+    class_name = 'split_channels'
 
     def __init__(self, event_loop, description=None, name='passthru', id=None):
         super().__init__(event_loop, name, id)
@@ -38,11 +33,7 @@ class SplitChannels(node.Node):
 
 
 class JoinChannels(node.Node):
-    desc = node_types.NodeType()
-    desc.name = 'join_channels'
-    desc.port('left', 'input', 'audio')
-    desc.port('right', 'input', 'audio')
-    desc.port('in', 'output', 'audio')
+    class_name = 'join_channels'
 
     def __init__(self, event_loop, description=None, name='passthru', id=None):
         super().__init__(event_loop, name, id)

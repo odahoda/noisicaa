@@ -88,8 +88,6 @@ class AudioProcProcessMixin(object):
             'END_SESSION', self.handle_end_session)
         self.server.add_command_handler('SHUTDOWN', self.handle_shutdown)
         self.server.add_command_handler(
-            'LIST_NODE_TYPES', self.handle_list_node_types)
-        self.server.add_command_handler(
             'ADD_NODE', self.handle_add_node)
         self.server.add_command_handler(
             'REMOVE_NODE', self.handle_remove_node)
@@ -222,10 +220,6 @@ class AudioProcProcessMixin(object):
         logger.info("Waiting for shutdown to complete...")
         await self._shutdown_complete.wait()
         logger.info("Shutdown complete.")
-
-    def handle_list_node_types(self, session_id):
-        self.get_session(session_id)
-        return self.node_db.node_types
 
     async def handle_add_node(self, session_id, name, args):
         session = self.get_session(session_id)

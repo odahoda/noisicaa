@@ -12,7 +12,6 @@ from noisicaa.core import ipc
 
 from . import audioproc_process
 from . import audioproc_client
-from . import node_types
 
 
 class TestClientImpl(object):
@@ -65,12 +64,6 @@ class ProxyTest(asynctest.TestCase):
         await self.client.cleanup()
         await asyncio.wait_for(self.audioproc_task, None)
         await self.audioproc_process.cleanup()
-
-    async def test_list_node_types(self):
-        result = await self.client.list_node_types()
-        self.assertTrue(
-            all(isinstance(nt, node_types.NodeType) for nt in result),
-            result)
 
     async def test_add_node(self):
         node_id = await self.client.add_node('passthru')

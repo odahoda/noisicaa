@@ -12,7 +12,6 @@ from noisicaa import node_db
 from .. import csound
 from .. import ports
 from .. import node
-from .. import node_types
 from .. import frame
 from .. import events
 from .. import audio_format
@@ -20,7 +19,7 @@ from .. import audio_format
 logger = logging.getLogger(__name__)
 
 
-class CSoundBase(node.DescribedNode):
+class CSoundBase(node.Node):
     def __init__(self, event_loop, description, name=None, id=None):
         super().__init__(event_loop, description, name, id)
 
@@ -165,10 +164,7 @@ class CSoundBase(node.DescribedNode):
 
 
 class CSoundFilter(CSoundBase):
-    desc = node_types.NodeType()
-    desc.name = 'csound_filter'
-    desc.port('in', 'input', 'audio')
-    desc.port('out', 'output', 'audio')
+    class_name = 'csound_filter'
 
     def __init__(self, event_loop, description, name=None, id=None):
         super().__init__(event_loop, description, name, id)
@@ -183,10 +179,7 @@ class CSoundFilter(CSoundBase):
 
 
 class CustomCSound(CSoundBase):
-    desc = node_types.NodeType()
-    desc.name = 'custom_csound'
-    desc.port('in', 'input', 'audio')
-    desc.port('out', 'output', 'audio')
+    class_name = 'custom_csound'
 
     def __init__(self, event_loop, description, name=None, id=None):
         super().__init__(event_loop, description, name, id)

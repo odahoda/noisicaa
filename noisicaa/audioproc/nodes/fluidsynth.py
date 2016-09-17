@@ -4,6 +4,8 @@ import logging
 import queue
 import time
 
+from noisicaa import node_db
+
 from ..resample import (Resampler,
                         AV_CH_LAYOUT_STEREO,
                         AV_SAMPLE_FMT_S16,
@@ -13,7 +15,6 @@ from ..exceptions import SetupError
 from ..ports import EventInputPort, AudioOutputPort
 from ..node import Node
 from ..events import NoteOnEvent, NoteOffEvent, EndOfStreamEvent
-from ..node_types import NodeType
 from ..frame import Frame
 from .. import audio_format
 
@@ -21,26 +22,25 @@ logger = logging.getLogger(__name__)
 
 
 class FluidSynthSource(Node):
-    desc = NodeType()
-    desc.name = 'fluidsynth'
-    desc.port('in', 'input', 'events')
-    desc.port('out', 'output', 'audio')
-    desc.parameter('soundfont_path', 'path')
-    desc.parameter('bank', 'int')
-    desc.parameter('preset', 'int')
+    class_name = 'fluidsynth'
 
     master_synth = libfluidsynth.Synth()
     master_sfonts = {}
 
     def __init__(self, event_loop, name=None, id=None,
                  soundfont_path=None, bank=None, preset=None):
-        super().__init__(event_loop, name, id)
+        description = node_db.SystemNodeDescription(
+            ports=[
+                node_db.EventPortDescription(
+                    name='in',
+                    direction=node_db.PortDirection.Input),
+                node_db.AudioPortDescription(
+                    name='out',
+                    direction=node_db.PortDirection.Output,
+                    channels='stereo'),
+            ])
 
-        self._input = EventInputPort('in')
-        self.add_input(self._input)
-
-        self._output = AudioOutputPort('out', audio_format.CHANNELS_STEREO)
-        self.add_output(self._output)
+        super().__init__(event_loop, description, name, id)
 
         self._soundfont_path = soundfont_path
         self._bank = bank
@@ -105,7 +105,7 @@ class FluidSynthSource(Node):
         samples = bytes()
         tp = ctxt.sample_pos
 
-        for event in self._input.events:
+        for event in self.inputs['in'].events:
             if event.sample_pos != -1:
                 assert ctxt.sample_pos <= event.sample_pos < ctxt.sample_pos + ctxt.duration, (
                     ctxt.sample_pos, event.sample_pos, ctxt.sample_pos + ctxt.duration)
@@ -138,7 +138,8 @@ class FluidSynthSource(Node):
         samples = self._resampler.convert(
             samples, len(samples) // 4)
 
-        af = self._output.frame.audio_format
+        output_port = self.outputs['out']
+        af = output_port.frame.audio_format
         frame = Frame(af, 0, set())
         frame.append_samples(
             samples, len(samples) // (
@@ -147,5 +148,5 @@ class FluidSynthSource(Node):
                 af.num_channels * af.bytes_per_sample))
         assert len(frame) == ctxt.duration
 
-        self._output.frame.resize(ctxt.duration)
-        self._output.frame.copy_from(frame)
+        output_port.frame.resize(ctxt.duration)
+        output_port.frame.copy_from(frame)

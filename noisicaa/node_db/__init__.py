@@ -1,5 +1,6 @@
 from .client import NodeDBClientMixin
 from .node_description import (
+    NodeDescription,
     SystemNodeDescription,
     UserNodeDescription,
 

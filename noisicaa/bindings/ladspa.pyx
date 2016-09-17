@@ -353,11 +353,13 @@ cdef class Library(object):
     cdef void* handle
     cdef readonly list descriptors
 
-    def __cinit__(self, path):
+    def __init__(self, path):
         cdef char* error
         cdef LADSPA_Descriptor_Function ladspa_descriptor
         cdef const LADSPA_Descriptor* ld
         cdef object ld_object
+
+        self.descriptors = []
 
         self.handle = dlopen(path.encode(sys.getfilesystemencoding()), RTLD_NOW)
         if self.handle == NULL:
@@ -368,7 +370,6 @@ cdef class Library(object):
         if error != NULL:
             raise Error(unicode(error, 'utf-8'))
 
-        self.descriptors = []
         for index in itertools.count(0):
             ld = ladspa_descriptor(index)
             if ld == NULL:

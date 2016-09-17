@@ -13,81 +13,33 @@ logger = logging.getLogger(__name__)
 
 
 class Node(object):
-    desc = None
+    class_name = None
 
-    def __init__(self, event_loop, name=None, id=None):
+    init_ports_from_description = True
+    init_parameters_from_description = True
+
+    def __init__(self, event_loop, description, name=None, id=None):
+        assert isinstance(description, node_db.NodeDescription)
+
         self.event_loop = event_loop
-        self.id = id or uuid.uuid4().hex
-        self.pipeline = None
+        self._description = description
         self._name = name or type(self).__name__
+        self.id = id or uuid.uuid4().hex
+
+        self.pipeline = None
         self.inputs = {}
         self.outputs = {}
+
+        self.__parameters = {}
+
+        if self.init_ports_from_description:
+            self.init_ports()
+        if self.init_parameters_from_description:
+            self.init_parameters()
 
     @property
     def name(self):
         return self._name
-
-    def set_param(self):
-        pass
-
-    def send_notification(self, notification):
-        self.pipeline.add_notification(self.id, notification)
-
-    def add_input(self, port):
-        if not isinstance(port, ports.InputPort):
-            raise Error("Must be InputPort")
-        port.owner = self
-        self.inputs[port.name] = port
-
-    def add_output(self, port):
-        if not isinstance(port, ports.OutputPort):
-            raise Error("Must be OutputPort")
-        port.owner = self
-        self.outputs[port.name] = port
-
-    @property
-    def parent_nodes(self):
-        parents = []
-        for port in self.inputs.values():
-            for upstream_port in port.inputs:
-                parents.append(upstream_port.owner)
-        return parents
-
-    async def setup(self):
-        """Set up the node.
-
-        Any expensive initialization should go here.
-        """
-        logger.info("%s: setup()", self.name)
-
-    async def cleanup(self):
-        """Clean up the node.
-
-        The counterpart of setup().
-        """
-        logger.info("%s: cleanup()", self.name)
-
-    def collect_inputs(self, ctxt):
-        for port in self.inputs.values():
-            port.collect_inputs(ctxt)
-
-    def post_run(self, ctxt):
-        for port in self.outputs.values():
-            port.post_run(ctxt)
-
-    def run(self, ctxt):
-        raise NotImplementedError
-
-
-class DescribedNode(Node):
-    def __init__(self, event_loop, description, name=None, id=None):
-        super().__init__(event_loop, name, id)
-
-        self._description = description
-        self.__parameters = {}
-
-        self.init_ports()
-        self.init_parameters()
 
     def init_ports(self):
         port_cls_map = {
@@ -165,4 +117,52 @@ class DescribedNode(Node):
 
     def get_param(self, parameter_name):
         return self.__parameters[parameter_name]['value']
+
+    def send_notification(self, notification):
+        self.pipeline.add_notification(self.id, notification)
+
+    def add_input(self, port):
+        if not isinstance(port, ports.InputPort):
+            raise Error("Must be InputPort")
+        port.owner = self
+        self.inputs[port.name] = port
+
+    def add_output(self, port):
+        if not isinstance(port, ports.OutputPort):
+            raise Error("Must be OutputPort")
+        port.owner = self
+        self.outputs[port.name] = port
+
+    @property
+    def parent_nodes(self):
+        parents = []
+        for port in self.inputs.values():
+            for upstream_port in port.inputs:
+                parents.append(upstream_port.owner)
+        return parents
+
+    async def setup(self):
+        """Set up the node.
+
+        Any expensive initialization should go here.
+        """
+        logger.info("%s: setup()", self.name)
+
+    async def cleanup(self):
+        """Clean up the node.
+
+        The counterpart of setup().
+        """
+        logger.info("%s: cleanup()", self.name)
+
+    def collect_inputs(self, ctxt):
+        for port in self.inputs.values():
+            port.collect_inputs(ctxt)
+
+    def post_run(self, ctxt):
+        for port in self.outputs.values():
+            port.post_run(ctxt)
+
+    def run(self, ctxt):
+        raise NotImplementedError
 

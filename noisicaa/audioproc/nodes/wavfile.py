@@ -3,6 +3,8 @@
 import logging
 import wave
 
+from noisicaa import node_db
+
 from ..resample import (Resampler,
                         AV_CH_LAYOUT_MONO,
                         AV_CH_LAYOUT_STEREO,
@@ -12,25 +14,24 @@ from ..resample import (Resampler,
 from ..ports import AudioOutputPort
 from ..node import Node
 from ..frame import Frame
-from ..node_types import NodeType
 from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
 
 class WavFileSource(Node):
-    desc = NodeType()
-    desc.name = 'wavfile'
-    desc.port('out', 'output', 'audio')
-    desc.parameter('path', 'path')
-    desc.parameter('loop', 'bool')
-    desc.parameter('end_notification', 'string')
+    class_name = 'wavfile'
 
     def __init__(self, event_loop, path, loop=False, end_notification=None):
-        super().__init__(event_loop)
+        description = node_db.SystemNodeDescription(
+            ports=[
+                node_db.AudioPortDescription(
+                    name='out',
+                    direction=node_db.PortDirection.Output,
+                    channels='stereo'),
+            ])
 
-        self._output = AudioOutputPort('out', audio_format.CHANNELS_STEREO)
-        self.add_output(self._output)
+        super().__init__(event_loop, description)
 
         self._path = path
         self._loop = loop
@@ -78,7 +79,9 @@ class WavFileSource(Node):
         fp.close()
 
     def run(self, ctxt):
-        af = self._output.audio_format
+        output_port = self.outputs['out']
+
+        af = output_port.audio_format
         frame = Frame(af, 0, set())
 
         if self._playing:
@@ -100,5 +103,5 @@ class WavFileSource(Node):
         assert len(frame) <= ctxt.duration
         frame.resize(ctxt.duration)
 
-        self._output.frame.resize(ctxt.duration)
-        self._output.frame.copy_from(frame)
+        output_port.frame.resize(ctxt.duration)
+        output_port.frame.copy_from(frame)

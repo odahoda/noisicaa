@@ -9,17 +9,13 @@ from noisicaa import node_db
 
 from .. import ports
 from .. import node
-from .. import node_types
 from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
 
-class Ladspa(node.DescribedNode):
-    desc = node_types.NodeType()
-    desc.name = 'ladspa'
-    desc.port('in', 'input', 'audio')
-    desc.port('out', 'output', 'audio')
+class Ladspa(node.Node):
+    class_name = 'ladspa'
 
     def __init__(self, event_loop, description=None, name='ladspa', id=None):
         super().__init__(event_loop, description, name, id)

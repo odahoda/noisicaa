@@ -10,7 +10,6 @@ from ..exceptions import SetupError
 from ..ports import EventInputPort, AudioOutputPort
 from ..node import Node
 from ..events import NoteOnEvent, NoteOffEvent, EndOfStreamEvent
-from ..node_types import NodeType
 from ..frame import Frame
 from . import csound
 
@@ -18,11 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class SamplePlayer(csound.CSoundBase):
-    desc = NodeType()
-    desc.name = 'sample_player'
-    desc.port('in', 'input', 'events')
-    desc.port('out', 'output', 'audio')
-    desc.parameter('sample_path', 'path')
+    class_name = 'sample_player'
 
     def __init__(self, event_loop, name=None, id=None, sample_path=None):
         description = node_db.UserNodeDescription(

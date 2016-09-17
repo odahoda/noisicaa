@@ -245,15 +245,15 @@ class EditorApp(BaseEditorApp):
         logger.info("Creating PipelinePerfMonitor.")
         self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self)
 
-        logger.info("Creating PipelineGraphMonitor.")
-        self.pipeline_graph_monitor = pipeline_graph_monitor.PipelineGraphMonitor(self)
+        #logger.info("Creating PipelineGraphMonitor.")
+        #self.pipeline_graph_monitor = pipeline_graph_monitor.PipelineGraphMonitor(self)
 
         logger.info("Creating EditorWindow.")
         self.win = EditorWindow(self)
         await self.win.setup()
         self.win.show()
 
-        self.pipeline_graph_monitor.addWindow(self.win)
+        #self.pipeline_graph_monitor.addWindow(self.win)
 
         if self.paths:
             logger.info("Starting with projects from cmdline.")

@@ -16,13 +16,13 @@ import pyaudio
 
 from noisicaa import music
 from noisicaa import core
+from noisicaa import node_db
 
 from .resample import (Resampler,
                        AV_CH_LAYOUT_STEREO,
                        AV_SAMPLE_FMT_S16,
                        AV_SAMPLE_FMT_FLT)
 from .node import Node
-from .node_types import NodeType
 from .ports import AudioInputPort, EventOutputPort
 from . import events
 from . import audio_format
@@ -34,39 +34,45 @@ logger = logging.getLogger(__name__)
 
 
 class AudioSinkNode(Node):
-    desc = NodeType()
-    desc.name = 'audiosink'
-    desc.port('in', 'input', 'audio')
-    desc.is_system = True
+    class_name = 'audiosink'
 
     def __init__(self, event_loop):
-        super().__init__(event_loop, id='sink')
+        description = node_db.SystemNodeDescription(
+            ports=[
+                node_db.AudioPortDescription(
+                    name='in',
+                    direction=node_db.PortDirection.Input,
+                    channels='stereo'),
+            ])
 
-        self._input = AudioInputPort('in', audio_format.CHANNELS_STEREO)
-        self.add_input(self._input)
+        super().__init__(event_loop, description, id='sink')
 
     def run(self, ctxt):
+        input_port = self.inputs['in']
+
         ctxt.out_frame = data.FrameData()
         ctxt.out_frame.sample_pos = ctxt.sample_pos
         ctxt.out_frame.duration = ctxt.duration
-        ctxt.out_frame.samples = self._input.frame.as_bytes()
-        ctxt.out_frame.num_samples = len(self._input.frame)
+        ctxt.out_frame.samples = input_port.frame.as_bytes()
+        ctxt.out_frame.num_samples = len(input_port.frame)
 
 
 class SystemEventSourceNode(Node):
-    desc = NodeType()
-    desc.name = 'systemeventsource'
-    desc.port('out', 'output', 'events')
-    desc.is_system = True
+    class_name = 'systemeventsource'
 
     def __init__(self, event_loop):
-        super().__init__(event_loop)
+        description = node_db.SystemNodeDescription(
+            ports=[
+                node_db.EventPortDescription(
+                    name='out',
+                    direction=node_db.PortDirection.Output),
+            ])
 
-        self._output = EventOutputPort('out')
-        self.add_output(self._output)
+        super().__init__(event_loop, description)
 
     def run(self, ctxt):
-        self._output.events.clear()
+        output_port = self.outputs['out']
+        output_port.events.clear()
 
 
 class Backend(object):

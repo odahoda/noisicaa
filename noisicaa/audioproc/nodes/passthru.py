@@ -2,29 +2,35 @@
 
 import logging
 
+from noisicaa import node_db
+
 from .. import ports
 from .. import node
-from .. import node_types
 from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
 
 class PassThru(node.Node):
-    desc = node_types.NodeType()
-    desc.name = 'passthru'
-    desc.port('in', 'input', 'audio')
-    desc.port('out', 'output', 'audio')
+    class_name = 'passthru'
 
-    def __init__(self, event_loop, description=None, name='passthru', id=None):
-        super().__init__(event_loop, name, id)
+    def __init__(self, event_loop, name='passthru', id=None):
+        description = node_db.SystemNodeDescription(
+            ports=[
+                node_db.AudioPortDescription(
+                    name='in',
+                    direction=node_db.PortDirection.Input,
+                    channels='stereo'),
+                node_db.AudioPortDescription(
+                    name='out',
+                    direction=node_db.PortDirection.Output,
+                    channels='stereo'),
+            ])
 
-        self._input = ports.AudioInputPort('in', audio_format.CHANNELS_STEREO)
-        self.add_input(self._input)
-
-        self._output = ports.AudioOutputPort('out', audio_format.CHANNELS_STEREO)
-        self.add_output(self._output)
+        super().__init__(event_loop, description, name, id)
 
     def run(self, ctxt):
-        self._output.frame.resize(ctxt.duration)
-        self._output.frame.copy_from(self._input.frame)
+        input_port = self.inputs['in']
+        output_port = self.outputs['out']
+        output_port.frame.resize(ctxt.duration)
+        output_port.frame.copy_from(input_port.frame)
