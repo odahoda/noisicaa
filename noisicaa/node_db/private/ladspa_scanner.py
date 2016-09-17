@@ -36,11 +36,60 @@ class LadspaScanner(scanner.Scanner):
 
                 for desc in lib.descriptors:
                     uri = 'ladspa://%s/%s' % (filename, desc.label)
-                    logger.info("Added LADSPA plugin %s", uri)
+                    logger.info("Adding LADSPA plugin %s", uri)
 
                     ports = []
                     parameters = []
-                    # TODO: fill in ports and parameters from descriptor
+
+                    for port in desc.ports:
+                        if (port.type == ladspa.PortType.Control
+                                and port.direction == ladspa.PortDirection.Input):
+                            if port.is_integer:
+                                # TODO: this should be IntParameter
+                                parameter_cls = node_db.FloatParameterDescription
+                            else:
+                                parameter_cls = node_db.FloatParameterDescription
+
+                            kwargs = {}
+                            kwargs['name'] = 'port%d' % port.index
+                            kwargs['display_name'] = port.name
+
+                            # Using a fixed sample rate is pretty ugly...
+                            kwargs['min'] = port.lower_bound(44100)
+                            kwargs['max'] = port.upper_bound(44100)
+                            default = port.default(44100)
+                            if default is not None:
+                                kwargs['default'] = default
+
+                            parameter_desc = parameter_cls(**kwargs)
+                            parameters.append(parameter_desc)
+
+                        else:
+                            port_type = {
+                                ladspa.PortType.Audio: node_db.PortType.Audio,
+                                ladspa.PortType.Control: node_db.PortType.Control,
+                            }[port.type]
+
+                            direction = {
+                                ladspa.PortDirection.Input: node_db.PortDirection.Input,
+                                ladspa.PortDirection.Output: node_db.PortDirection.Output,
+                            }[port.direction]
+
+                            kwargs = {}
+
+                            if port_type == node_db.PortType.Audio:
+                                kwargs['channels'] = 'stereo'
+
+                            port_cls = {
+                                node_db.PortType.Audio: node_db.AudioPortDescription,
+                                node_db.PortType.Control: node_db.ControlPortDescription,
+                            }[port_type]
+
+                            port_desc = port_cls(
+                                name=port.name,
+                                direction=direction,
+                                **kwargs)
+                            ports.append(port_desc)
 
                     parameters.append(
                         node_db.InternalParameterDescription(

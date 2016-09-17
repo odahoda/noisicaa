@@ -139,7 +139,11 @@ class FloatParameterDescription(ParameterDescription):
         self.default = default
 
     def validate(self, value):
-        return min(self.max, max(self.min, value))
+        if self.min is not None:
+            value = max(self.min, value)
+        if self.max is not None:
+            value = min(self.max, value)
+        return value
 
     def to_string(self, value):
         return str(value)

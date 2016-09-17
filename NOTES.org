@@ -1,6 +1,7 @@
 # -*- org-tags-column: -98 -*-
 
 * TODO LADSPA support									      :FR:
+- map ladspa port list to ports and parameters
 - how to map stereo connections to the right plugin ports?
 * Plugin support									      :FR:
 ** LV2

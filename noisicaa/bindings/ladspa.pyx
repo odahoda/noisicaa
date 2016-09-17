@@ -136,18 +136,21 @@ cdef class Port(object):
     def __str__(self):
         s = '<port "%s" %s %s' % (self.name, self.type.value, self.direction.value)
         if self.is_bounded:
+            lower = self.lower_bound(1)
+            upper = self.upper_bound(1)
             s += ' ['
-            if self.lower_bound is not None:
-                s += str(self.lower_bound)
+            if lower is not None:
+                s += str(lower)
             s += ':'
-            if self.upper_bound is not None:
-                s += str(self.upper_bound)
+            if upper is not None:
+                s += str(upper)
             s += ']'
             if self.is_sample_rate:
                 s += '*sr'
 
-        if self.default is not None:
-            s += ' default=%f' % self.default
+        default = self.default(1)
+        if default is not None:
+            s += ' default=%f' % default
 
         if self.is_logarithmic:
             s += ' logarithmic'
@@ -182,28 +185,29 @@ cdef class Port(object):
             LADSPA_IS_HINT_BOUNDED_BELOW(self._range_hint.HintDescriptor)
             or LADSPA_IS_HINT_BOUNDED_ABOVE(self._range_hint.HintDescriptor))
 
-    @property
-    def lower_bound(self):
+    def lower_bound(self, sample_rate):
         if LADSPA_IS_HINT_BOUNDED_BELOW(self._range_hint.HintDescriptor):
             if self.is_integer:
                 return int(self._range_hint.LowerBound)
+            elif self.is_sample_rate:
+                return self._range_hint.LowerBound * sample_rate
             else:
                 return self._range_hint.LowerBound
         else:
             return None
 
-    @property
-    def upper_bound(self):
+    def upper_bound(self, sample_rate):
         if LADSPA_IS_HINT_BOUNDED_ABOVE(self._range_hint.HintDescriptor):
             if self.is_integer:
                 return int(self._range_hint.UpperBound)
+            elif self.is_sample_rate:
+                return self._range_hint.UpperBound * sample_rate
             else:
                 return self._range_hint.UpperBound
         else:
             return None
 
-    @property
-    def default(self):
+    def default(self, sample_rate):
         if LADSPA_IS_HINT_DEFAULT_0(self._range_hint.HintDescriptor):
             return 0.0
         if LADSPA_IS_HINT_DEFAULT_1(self._range_hint.HintDescriptor):
@@ -213,32 +217,34 @@ cdef class Port(object):
         if LADSPA_IS_HINT_DEFAULT_440(self._range_hint.HintDescriptor):
             return 440.0
         if LADSPA_IS_HINT_DEFAULT_MINIMUM(self._range_hint.HintDescriptor):
-            return self.lower_bound
+            return self.lower_bound(sample_rate)
         if LADSPA_IS_HINT_DEFAULT_MAXIMUM(self._range_hint.HintDescriptor):
-            return self.upper_bound
+            return self.upper_bound(sample_rate)
         if LADSPA_IS_HINT_DEFAULT_LOW(self._range_hint.HintDescriptor):
-            if self.is_logarithmic:
-                return math.exp(
-                    0.75 * math.log(self.lower_bound)
-                    + 0.25 * math.log(self.upper_bound))
-            else:
-                return 0.75 * self.lower_bound + 0.25 * self.upper_bound
+            return self.weighted_mean(sample_rate, 0.75, 0.25)
         if LADSPA_IS_HINT_DEFAULT_MIDDLE(self._range_hint.HintDescriptor):
-            if self.is_logarithmic:
-                return math.exp(
-                    0.5 * math.log(self.lower_bound)
-                    + 0.5 * math.log(self.upper_bound))
-            else:
-                return 0.5 * self.lower_bound + 0.5 * self.upper_bound
+            return self.weighted_mean(sample_rate, 0.5, 0.5)
         if LADSPA_IS_HINT_DEFAULT_HIGH(self._range_hint.HintDescriptor):
-            if self.is_logarithmic:
-                return math.exp(
-                    0.25 * math.log(self.lower_bound)
-                    + 0.75 * math.log(self.upper_bound))
-            else:
-                return 0.25 * self.lower_bound + 0.75 * self.upper_bound
+            return self.weighted_mean(sample_rate, 0.25, 0.75)
 
         return None
+
+    def weighted_mean(self, sample_rate, w1, w2):
+        lower = self.lower_bound(sample_rate)
+        if lower is None:
+            lower = 0.0
+        upper = self.upper_bound(sample_rate)
+        if upper is None:
+            upper = lower + 1.0
+        if self.is_logarithmic:
+            try:
+                return math.exp(w1 * math.log(lower) + w2 * math.log(upper))
+            except ValueError:
+                # Crappy plugins might specify a logarithmic port with
+                # a lower bound of zero...
+                return lower
+        else:
+            return w1 * lower + w2 * upper
 
     @property
     def is_sample_rate(self):

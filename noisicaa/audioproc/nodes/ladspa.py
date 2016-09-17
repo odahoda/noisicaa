@@ -25,6 +25,9 @@ class Ladspa(node.Node):
         self._output = ports.AudioOutputPort('out', audio_format.CHANNELS_MONO)
         self.add_output(self._output)
 
+    def set_param(self, **kwargs):
+        pass
+
     def run(self, ctxt):
         self._output.frame.resize(ctxt.duration)
         self._output.frame.copy_from(self._input.frame)
