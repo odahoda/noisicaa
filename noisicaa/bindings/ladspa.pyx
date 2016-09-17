@@ -3,6 +3,9 @@ import itertools
 import math
 import sys
 
+import numpy
+cimport numpy
+
 ### DECLARATIONS ##########################################################
 
 cdef extern from "dlfcn.h":
@@ -260,35 +263,53 @@ cdef class Port(object):
 
 
 cdef class Instance(object):
-    cdef const LADSPA_Descriptor* _desc
+    cdef Descriptor _desc
     cdef LADSPA_Handle _handle
 
     def __dealloc__(self):
         if self._handle != NULL:
-            self._desc.cleanup(self._handle)
+            self._desc._desc.cleanup(self._handle)
             self._handle = NULL
 
-    # def connect_port(self, port, LADSPA_Data* data_location):
-    #     self._desc.connect_port(self._handle, port.index, data_location)
+    def connect_port(self, port, numpy.ndarray[float, ndim=1, mode="c"] data_location):
+        assert self._handle != NULL
+        self._desc._desc.connect_port(self._handle, port.index, <LADSPA_Data*>&data_location[0])
 
     def activate(self):
-        if self._desc.activate != NULL:
-            self._desc.activate(self._handle)
+        assert self._handle != NULL
+        if self._desc._desc.activate != NULL:
+            self._desc._desc.activate(self._handle)
 
     def run(self, num_samples):
-        self._desc.run(self._handle, num_samples)
+        assert self._handle != NULL
+        self._desc._desc.run(self._handle, num_samples)
 
     def deactivate(self):
-        if self._desc.deactivate != NULL:
-            self._desc.deactivate(self._handle)
+        assert self._handle != NULL
+        if self._desc._desc.deactivate != NULL:
+            self._desc._desc.deactivate(self._handle)
+
+    def cleanup(self):
+        if self._handle != NULL:
+            self._desc._desc.cleanup(self._handle)
+            self._handle = NULL
+
+    def close(self):
+        self.cleanup()
+        self._desc._instances.remove(self)
 
 
 cdef class Descriptor(object):
     cdef const LADSPA_Descriptor* _desc
+    cdef list _instances
     cdef readonly list ports
 
     def __init__(self):
+        self._instances = []
         self.ports = []
+
+    def __dealloc__(self):
+        self.close_all_instances()
 
     @property
     def id(self):
@@ -317,8 +338,15 @@ cdef class Descriptor(object):
         if handle == NULL:
             raise Error
         instance = Instance()
-        instance._desc = self._desc
+        instance._desc = self
         instance._handle = handle
+        self._instances.append(instance)
+        return instance
+
+    def close_all_instances(self):
+        for instance in self._instances:
+            instance.cleanup()
+        self._instances.clear()
 
 
 cdef class Library(object):
@@ -359,7 +387,16 @@ cdef class Library(object):
             self.descriptors.append(pd)
 
     def __dealloc__(self):
+        for descriptor in self.descriptors:
+            descriptor.close_all_instances()
+        self.descriptors.clear()
+
         if self.handle != NULL:
             dlclose(self.handle)
             self.handle = NULL
 
+    def get_descriptor(self, label):
+        for descriptor in self.descriptors:
+            if descriptor.label == label:
+                return descriptor
+        raise KeyError(label)

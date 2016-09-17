@@ -123,8 +123,8 @@ class AudioInputPort(InputPort):
         if not isinstance(port, AudioOutputPort):
             raise Error("Can only connect to AudioOutputPort")
         if port.audio_format != self.audio_format:
-            raise Error("OutputPort has mismatching audio format %s"
-                        % port.audio_format)
+            raise Error("OutputPort has mismatching audio format (got %s, expected %s)"
+                        % (port.audio_format, self.audio_format))
 
     def collect_inputs(self, ctxt):
         self.frame.resize(ctxt.duration)

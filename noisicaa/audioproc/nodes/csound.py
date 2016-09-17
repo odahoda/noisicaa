@@ -20,85 +20,12 @@ from .. import audio_format
 logger = logging.getLogger(__name__)
 
 
-class CSoundBase(node.Node):
-    def __init__(self, event_loop, name=None, id=None):
-        super().__init__(event_loop, name, id)
+class CSoundBase(node.DescribedNode):
+    def __init__(self, event_loop, description, name=None, id=None):
+        super().__init__(event_loop, description, name, id)
 
-        self._parameters = {}
         self._csnd = None
         self._next_csnd = queue.Queue()
-
-    def init_ports(self, description):
-        port_cls_map = {
-            (node_db.PortType.Audio,
-             node_db.PortDirection.Input): ports.AudioInputPort,
-            (node_db.PortType.Audio,
-             node_db.PortDirection.Output): ports.AudioOutputPort,
-            (node_db.PortType.Control,
-             node_db.PortDirection.Input): ports.ControlInputPort,
-            (node_db.PortType.Control,
-             node_db.PortDirection.Output): ports.ControlOutputPort,
-            (node_db.PortType.Events,
-             node_db.PortDirection.Input): ports.EventInputPort,
-            (node_db.PortType.Events,
-             node_db.PortDirection.Output): ports.EventOutputPort,
-        }
-
-        for port_desc in description.ports:
-            port_cls = port_cls_map[
-                (port_desc.port_type, port_desc.direction)]
-            kwargs = {}
-
-            if (port_desc.direction == node_db.PortDirection.Output
-                    and port_desc.port_type == node_db.PortType.Audio):
-                if port_desc.bypass_port is not None:
-                    kwargs['bypass_port'] = port_desc.bypass_port
-                if port_desc.drywet_port is not None:
-                    kwargs['drywet_port'] = port_desc.drywet_port
-
-            if (port_desc.direction == node_db.PortDirection.Input
-                    and port_desc.port_type == node_db.PortType.Events):
-                kwargs['csound_instr'] = port_desc.csound_instr
-
-            if (port_desc.port_type == node_db.PortType.Audio):
-                kwargs['channels'] = audio_format.CHANNELS_STEREO
-
-            port = port_cls(port_desc.name, **kwargs)
-            if port_desc.direction == node_db.PortDirection.Input:
-                self.add_input(port)
-            else:
-                self.add_output(port)
-
-    def init_parameters(self, description):
-        for parameter in description.parameters:
-            if parameter.param_type in (
-                    node_db.ParameterType.Float,
-                    node_db.ParameterType.String,
-                    node_db.ParameterType.Text):
-                self._parameters[parameter.name] = {
-                    'value': parameter.default,
-                    'description': parameter,
-                }
-            elif parameter.param_type == node_db.ParameterType.Internal:
-                pass
-            else:
-                raise ValueError(parameter)
-
-    def set_param(self, **kwargs):
-        for parameter_name, value in kwargs.items():
-            assert parameter_name in self._parameters
-            parameter = self._parameters[parameter_name]['description']
-            if parameter.param_type == node_db.ParameterType.Float:
-                assert isinstance(value, float), type(value)
-                self._parameters[parameter_name]['value'] = value
-            elif parameter.param_type == node_db.ParameterType.Text:
-                assert isinstance(value, str), type(value)
-                self._parameters[parameter_name]['value'] = value
-            else:
-                raise ValueError(parameter)
-
-    def get_param(self, parameter_name):
-        return self._parameters[parameter_name]['value']
 
     def set_code(self, orchestra, score):
         csnd = csound.CSound()
@@ -244,15 +171,10 @@ class CSoundFilter(CSoundBase):
     desc.port('out', 'output', 'audio')
 
     def __init__(self, event_loop, description, name=None, id=None):
-        super().__init__(event_loop, name, id)
+        super().__init__(event_loop, description, name, id)
 
-        self._description = description
-
-        self.init_ports(self._description)
-        self.init_parameters(self._description)
-
-        self._orchestra = self._description.get_parameter('orchestra').value
-        self._score = self._description.get_parameter('score').value
+        self._orchestra = description.get_parameter('orchestra').value
+        self._score = description.get_parameter('score').value
 
     async def setup(self):
         await super().setup()
@@ -267,12 +189,7 @@ class CustomCSound(CSoundBase):
     desc.port('out', 'output', 'audio')
 
     def __init__(self, event_loop, description, name=None, id=None):
-        super().__init__(event_loop, name, id)
-
-        self._description = description
-
-        self.init_ports(self._description)
-        self.init_parameters(self._description)
+        super().__init__(event_loop, description, name, id)
 
         self._orchestra_preamble = textwrap.dedent("""\
             ksmps=32

@@ -1,8 +1,9 @@
 # -*- org-tags-column: -98 -*-
 
-* TODO LADSPA support									      :FR:
-- map ladspa port list to ports and parameters
-- how to map stereo connections to the right plugin ports?
+* Fully replace obsolete node descriptions						 :CLEANUP:
+- all node instances have a NodeDescription
+- merge DescribedNode into Node
+
 * Plugin support									      :FR:
 ** LV2
 * Fix removing measures									     :BUG:
@@ -119,8 +120,6 @@ When reparenting a track, also reparent its mixer node.
   - or separate setup() method?
 - all object references (child, lists, etc.) only store IDs in state, do
   lazy dereferencing on __get__
-
-* Fully replace obsolete node descriptions						 :CLEANUP:
 * BeatTrack: move beats to arbitrary positions						      :FR:
 * Sometimes hangs during shutdown							     :BUG:
 Last sign of life:
@@ -140,7 +139,7 @@ Currently the UI is behind a bit because of buffering in the pyaudio backend.
 * Built-in way to split/join channels							      :FR:
 - how often do you have to go from mono->stereo or vice versa?
 - going through splitter/joiner nodes is too cumbersome
-
+- implicit up/down mixing in Port.collect_inputs?
 * Ports that that any number of channels						      :FR:
 - specify that an output port has the same number of channels as an input port.
 - number of channels changes at runtime
@@ -224,6 +223,10 @@ Storage location: $HOME/.cache/noisicaä
 Track time of scan
 Load cache on startup
 Rescan if time of last scan > X
+* Run LADSPA plugins at higher rate							      :FR:
+So changing control parameters are updated at a fixed rate instead of the backend's frame size.
+Do it like csound, call run() with e.g. num_samples=32 until output buffer if filled.
+
 * PipelineGraphView: edit node name							      :FR:
 * Track volume/mute properties: change connect trackmixer node instead.			     :BUG:
 * Color code tracks and measures.							      :FR:

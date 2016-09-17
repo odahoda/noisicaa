@@ -25,11 +25,7 @@ class SamplePlayer(csound.CSoundBase):
     desc.parameter('sample_path', 'path')
 
     def __init__(self, event_loop, name=None, id=None, sample_path=None):
-        super().__init__(event_loop, name, id)
-
-        self._sample_path = sample_path
-
-        self._description = node_db.UserNodeDescription(
+        description = node_db.UserNodeDescription(
             display_name="Sample Player",
             node_cls='sample_player',
             ports=[
@@ -42,8 +38,9 @@ class SamplePlayer(csound.CSoundBase):
                     channels='stereo'),
             ])
 
-        self.init_ports(self._description)
-        self.init_parameters(self._description)
+        super().__init__(event_loop, description, name, id)
+
+        self._sample_path = sample_path
 
     async def setup(self):
         await super().setup()

@@ -51,7 +51,7 @@ class LadspaScanner(scanner.Scanner):
                                 parameter_cls = node_db.FloatParameterDescription
 
                             kwargs = {}
-                            kwargs['name'] = 'port%d' % port.index
+                            kwargs['name'] = port.name
                             kwargs['display_name'] = port.name
 
                             # Using a fixed sample rate is pretty ugly...
@@ -78,7 +78,7 @@ class LadspaScanner(scanner.Scanner):
                             kwargs = {}
 
                             if port_type == node_db.PortType.Audio:
-                                kwargs['channels'] = 'stereo'
+                                kwargs['channels'] = 'mono'
 
                             port_cls = {
                                 node_db.PortType.Audio: node_db.AudioPortDescription,
