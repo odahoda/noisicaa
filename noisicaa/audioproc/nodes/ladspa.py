@@ -28,8 +28,8 @@ class Ladspa(node.Node):
     async def setup(self):
         await super().setup()
 
-        library_path = self._description.get_parameter('library_path').value
-        label = self._description.get_parameter('label').value
+        library_path = self.description.get_parameter('library_path').value
+        label = self.description.get_parameter('label').value
 
         self.__library = ladspa.Library(library_path)
         self.__descriptor = self.__library.get_descriptor(label)
@@ -80,7 +80,7 @@ class Ladspa(node.Node):
             else:
                 raise ValueError(port)
 
-        for parameter in self._description.parameters:
+        for parameter in self.description.parameters:
             if parameter.param_type == node_db.ParameterType.Float:
                 self.__buffers[parameter.name][0] = self.get_param(parameter.name)
 

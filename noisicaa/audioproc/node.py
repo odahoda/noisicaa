@@ -22,7 +22,7 @@ class Node(object):
         assert isinstance(description, node_db.NodeDescription)
 
         self.event_loop = event_loop
-        self._description = description
+        self.description = description
         self._name = name or type(self).__name__
         self.id = id or uuid.uuid4().hex
 
@@ -57,7 +57,7 @@ class Node(object):
              node_db.PortDirection.Output): ports.EventOutputPort,
         }
 
-        for port_desc in self._description.ports:
+        for port_desc in self.description.ports:
             port_cls = port_cls_map[
                 (port_desc.port_type, port_desc.direction)]
             kwargs = {}
@@ -88,7 +88,7 @@ class Node(object):
                 self.add_output(port)
 
     def init_parameters(self):
-        for parameter in self._description.parameters:
+        for parameter in self.description.parameters:
             if parameter.param_type in (
                     node_db.ParameterType.Float,
                     node_db.ParameterType.String,

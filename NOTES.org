@@ -1,8 +1,5 @@
 # -*- org-tags-column: -98 -*-
 
-* Fully replace obsolete node descriptions						 :CLEANUP:
-- get PipelineGraphMonitor working again
-
 * Plugin support									      :FR:
 ** LV2
 * Fix removing measures									     :BUG:

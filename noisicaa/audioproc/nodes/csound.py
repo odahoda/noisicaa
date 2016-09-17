@@ -138,7 +138,7 @@ class CSoundBase(node.Node):
                         raise NotImplementedError(
                             "Event class %s not supported" % type(event).__name__)
 
-            for parameter in self._description.parameters:
+            for parameter in self.description.parameters:
                 if parameter.param_type == node_db.ParameterType.Float:
                     self._csnd.set_control_channel_value(
                         parameter.name, self.get_param(parameter.name))

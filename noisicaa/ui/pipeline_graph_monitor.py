@@ -11,6 +11,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
+from noisicaa import node_db
 from noisicaa.core import ipc
 from . import ui_base
 
@@ -40,16 +41,15 @@ class AudioProcClient(
 
 
 class Port(QtWidgets.QGraphicsRectItem):
-    def __init__(self, parent, node_id, port_name, port_direction):
+    def __init__(self, parent, node_id, description):
         super().__init__(parent)
         self.node_id = node_id
-        self.port_name = port_name
-        self.port_direction = port_direction
+        self.description = description
 
         self.setRect(0, 0, 45, 15)
         self.setBrush(Qt.white)
 
-        if self.port_direction == 'input':
+        if self.port_direction == node_db.PortDirection.Input:
             self.dot_pos = QtCore.QPoint(7, 7)
         else:
             self.dot_pos = QtCore.QPoint(45-7, 7)
@@ -59,17 +59,25 @@ class Port(QtWidgets.QGraphicsRectItem):
         dot.setPos(self.dot_pos)
         dot.setBrush(Qt.black)
 
+    @property
+    def port_name(self):
+        return self.description.name
+
+    @property
+    def port_direction(self):
+        return self.description.direction
+
 
 class Node(QtWidgets.QGraphicsRectItem):
-    def __init__(self, node_id, desc):
+    def __init__(self, node_id, description):
         super().__init__()
         self.node_id = node_id
-        self.desc = desc
+        self.description = description
 
         self.setFlag(self.ItemSendsGeometryChanges, True)
 
         self.setRect(0, 0, 100, 60)
-        if self.desc.is_system:
+        if isinstance(self.description, node_db.SystemNodeDescription):
             self.setBrush(QtGui.QBrush(QtGui.QColor(200, 200, 255)))
         else:
             self.setBrush(Qt.white)
@@ -79,24 +87,24 @@ class Node(QtWidgets.QGraphicsRectItem):
 
         label = QtWidgets.QGraphicsTextItem(self)
         label.setPos(2, 2)
-        label.setPlainText(self.desc.name)
+        label.setPlainText(node_id)
 
         in_y = 25
         out_y = 25
-        for port_name, port_direction, port_type in self.desc.ports:
-            if port_direction == 'input':
+        for port_desc in self.description.ports:
+            if port_desc.direction == node_db.PortDirection.Input:
                 x = -5
                 y = in_y
                 in_y += 20
 
-            elif port_direction == 'output':
+            elif port_desc.direction == node_db.PortDirection.Output:
                 x = 105-45
                 y = out_y
                 out_y += 20
 
-            port = Port(self, self.node_id, port_name, port_direction)
+            port = Port(self, self.node_id, port_desc)
             port.setPos(x, y)
-            self.ports[port_name] = port
+            self.ports[port_desc.name] = port
 
     def itemChange(self, change, value):
         if change == self.ItemPositionHasChanged:
@@ -240,7 +248,7 @@ class PipelineGraphMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
     def onPipelineMutation(self, mutation):
         if isinstance(mutation, audioproc.AddNode):
-            node = Node(mutation.id, mutation.desc)
+            node = Node(mutation.id, mutation.node_description)
             node.setPos(random.randint(-200, 200), random.randint(-200, 200))
             self.scene.addItem(node)
             self.nodes[mutation.id] = node

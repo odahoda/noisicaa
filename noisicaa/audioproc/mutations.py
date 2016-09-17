@@ -8,10 +8,10 @@ class Mutation(object):
 class AddNode(Mutation):
     def __init__(self, node):
         self.id = node.id
-        self.class_name = node.class_name
+        self.node_description = node.description
 
     def __str__(self):
-        return '<AddNode id="%s" name="%s">' % (self.id, self.class_name)
+        return '<AddNode id="%s" description="%s">' % (self.id, self.node_description)
 
 
 class RemoveNode(Mutation):
