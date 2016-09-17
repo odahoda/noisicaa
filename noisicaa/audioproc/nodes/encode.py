@@ -11,6 +11,7 @@ from ..resample import (Resampler,
                         AV_CH_LAYOUT_STEREO,
                         AV_SAMPLE_FMT_S16,
                         AV_SAMPLE_FMT_FLT)
+from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ class EncoderSink(Node):
         self._encoder = self.formats[self.output_format](path)
         self._frames_processed = None
 
-        self._input = AudioInputPort('in')
+        self._input = AudioInputPort('in', audio_format.CHANNELS_STEREO)
         self.add_input(self._input)
 
     async def setup(self):

@@ -24,10 +24,54 @@ class BuiltinScanner(scanner.Scanner):
                 ports=[
                     node_db.AudioPortDescription(
                         name='in',
-                        direction=node_db.PortDirection.Input),
+                        direction=node_db.PortDirection.Input,
+                        channels='stereo'),
                     node_db.AudioPortDescription(
                         name='out',
-                        direction=node_db.PortDirection.Output),
+                        direction=node_db.PortDirection.Output,
+                        channels='stereo'),
+                ])
+        )
+
+        yield (
+            'builtin://split_channel',
+            node_db.UserNodeDescription(
+                display_name='Split Channels',
+                node_cls='split_channels',
+                ports=[
+                    node_db.AudioPortDescription(
+                        name='in',
+                        direction=node_db.PortDirection.Input,
+                        channels='stereo'),
+                    node_db.AudioPortDescription(
+                        name='left',
+                        direction=node_db.PortDirection.Output,
+                        channels='mono'),
+                    node_db.AudioPortDescription(
+                        name='right',
+                        direction=node_db.PortDirection.Output,
+                        channels='mono'),
+                ])
+        )
+
+        yield (
+            'builtin://join_channels',
+            node_db.UserNodeDescription(
+                display_name='Join Channels',
+                node_cls='join_channels',
+                ports=[
+                    node_db.AudioPortDescription(
+                        name='left',
+                        direction=node_db.PortDirection.Input,
+                        channels='mono'),
+                    node_db.AudioPortDescription(
+                        name='right',
+                        direction=node_db.PortDirection.Input,
+                        channels='mono'),
+                    node_db.AudioPortDescription(
+                        name='out',
+                        direction=node_db.PortDirection.Output,
+                        channels='stereo'),
                 ])
         )
 
@@ -39,7 +83,8 @@ class BuiltinScanner(scanner.Scanner):
                 ports=[
                     node_db.AudioPortDescription(
                         name='in',
-                        direction=node_db.PortDirection.Input),
+                        direction=node_db.PortDirection.Input,
+                        channels='stereo'),
                     node_db.ControlPortDescription(
                         name='ctrl',
                         direction=node_db.PortDirection.Input),
@@ -48,7 +93,8 @@ class BuiltinScanner(scanner.Scanner):
                         direction=node_db.PortDirection.Input),
                     node_db.AudioPortDescription(
                         name='out',
-                        direction=node_db.PortDirection.Output),
+                        direction=node_db.PortDirection.Output,
+                        channels='stereo'),
                 ],
                 parameters=[
                     node_db.TextParameterDescription(

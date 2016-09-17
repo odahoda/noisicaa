@@ -39,8 +39,13 @@ cdef class Frame:
     def __len__(self):
         return self.length
 
+    @property
+    def num_channels(self):
+        return self.audio_format.num_channels
+
     def __str__(self):
-        return '<frame timepos=%d length=%d>' % (self.timepos, self.length)
+        return '<frame channels=%d timepos=%d length=%d>' % (
+            self.num_channels, self.timepos, self.length)
 
     property samples:
         def __get__(self):

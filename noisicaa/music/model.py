@@ -254,7 +254,8 @@ class AudioOutPipelineGraphNode(BasePipelineGraphNode):
         ports=[
             node_db.AudioPortDescription(
                 name='in',
-                direction=node_db.PortDirection.Input),
+                direction=node_db.PortDirection.Input,
+                channels='stereo'),
         ])
 
     @property
@@ -273,10 +274,12 @@ class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
         ports=[
             node_db.AudioPortDescription(
                 name='in',
-                direction=node_db.PortDirection.Input),
+                direction=node_db.PortDirection.Input,
+                channels='stereo'),
             node_db.AudioPortDescription(
                 name='out',
-                direction=node_db.PortDirection.Output),
+                direction=node_db.PortDirection.Output,
+                channels='stereo'),
         ])
 
     @property
@@ -336,7 +339,8 @@ class InstrumentPipelineGraphNode(BasePipelineGraphNode):
                 direction=node_db.PortDirection.Input),
             node_db.AudioPortDescription(
                 name='out',
-                direction=node_db.PortDirection.Output),
+                direction=node_db.PortDirection.Output,
+                channels='stereo'),
         ])
 
     @property

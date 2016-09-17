@@ -15,6 +15,7 @@ from .. import node
 from .. import node_types
 from .. import frame
 from .. import events
+from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,9 @@ class CSoundBase(node.Node):
             if (port_desc.direction == node_db.PortDirection.Input
                     and port_desc.port_type == node_db.PortType.Events):
                 kwargs['csound_instr'] = port_desc.csound_instr
+
+            if (port_desc.port_type == node_db.PortType.Audio):
+                kwargs['channels'] = audio_format.CHANNELS_STEREO
 
             port = port_cls(port_desc.name, **kwargs)
             if port_desc.direction == node_db.PortDirection.Input:

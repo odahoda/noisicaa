@@ -6,3 +6,5 @@ from .csound import CSoundFilter, CustomCSound
 from .fluidsynth import FluidSynthSource
 from .wavfile import WavFileSource
 from .sample_player import SamplePlayer
+from .channels import SplitChannels, JoinChannels
+from .ladspa import Ladspa

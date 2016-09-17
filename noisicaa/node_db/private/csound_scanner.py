@@ -64,6 +64,9 @@ class CSoundScanner(scanner.Scanner):
                         if csound_elem is not None:
                             kwargs['csound_instr'] = csound_elem.get('instr')
 
+                    if port_type == node_db.PortType.Audio:
+                        kwargs['channels'] = 'stereo'
+
                     port_cls = {
                         node_db.PortType.Audio: node_db.AudioPortDescription,
                         node_db.PortType.Control: node_db.ControlPortDescription,

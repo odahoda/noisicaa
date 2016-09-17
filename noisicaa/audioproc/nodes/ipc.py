@@ -17,6 +17,7 @@ from .. import node_types
 from .. import events
 from .. import audio_stream
 from .. import data
+from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class IPCNode(node.Node):
         self._stream = audio_stream.AudioStreamClient(address)
         self._event_queue_name = event_queue_name
 
-        self._output = ports.AudioOutputPort('out')
+        self._output = ports.AudioOutputPort('out', audio_format.CHANNELS_STEREO)
         self.add_output(self._output)
 
     async def setup(self):

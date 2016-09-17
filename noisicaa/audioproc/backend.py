@@ -42,7 +42,7 @@ class AudioSinkNode(Node):
     def __init__(self, event_loop):
         super().__init__(event_loop, id='sink')
 
-        self._input = AudioInputPort('in')
+        self._input = AudioInputPort('in', audio_format.CHANNELS_STEREO)
         self.add_input(self._input)
 
     def run(self, ctxt):

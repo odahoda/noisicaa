@@ -107,11 +107,11 @@ class OutputPort(Port):
 
 
 class AudioInputPort(InputPort):
-    def __init__(self, name):
+    def __init__(self, name, channels):
         super().__init__(name)
 
         # TODO: get sample_rate from pipeline
-        self._audio_format = AudioFormat(CHANNELS_STEREO, SAMPLE_FMT_FLT, 44100)
+        self._audio_format = AudioFormat(channels, SAMPLE_FMT_FLT, 44100)
         self.frame = Frame(self._audio_format, 0, set())
 
     @property
@@ -136,10 +136,11 @@ class AudioInputPort(InputPort):
 
 
 class AudioOutputPort(OutputPort):
-    def __init__(self, name, drywet_port=None, **kwargs):
+    def __init__(self, name, channels, drywet_port=None, **kwargs):
         super().__init__(name, **kwargs)
+
         # TODO: get sample_rate from pipeline
-        self._audio_format = AudioFormat(CHANNELS_STEREO, SAMPLE_FMT_FLT, 44100)
+        self._audio_format = AudioFormat(channels, SAMPLE_FMT_FLT, 44100)
 
         self.frame = Frame(self._audio_format, 0, set())
 

@@ -15,6 +15,7 @@ from ..node import Node
 from ..events import NoteOnEvent, NoteOffEvent, EndOfStreamEvent
 from ..node_types import NodeType
 from ..frame import Frame
+from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ class FluidSynthSource(Node):
         self._input = EventInputPort('in')
         self.add_input(self._input)
 
-        self._output = AudioOutputPort('out')
+        self._output = AudioOutputPort('out', audio_format.CHANNELS_STEREO)
         self.add_output(self._output)
 
         self._soundfont_path = soundfont_path

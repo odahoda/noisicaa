@@ -38,7 +38,8 @@ class SamplePlayer(csound.CSoundBase):
                     direction=node_db.PortDirection.Input),
                 node_db.AudioPortDescription(
                     name='out',
-                    direction=node_db.PortDirection.Output),
+                    direction=node_db.PortDirection.Output,
+                    channels='stereo'),
             ])
 
         self.init_ports(self._description)

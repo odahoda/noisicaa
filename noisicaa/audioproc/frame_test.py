@@ -20,6 +20,7 @@ class FrameTest(unittest.TestCase):
     def testProperties(self):
         f = frame.Frame(AudioFormat(CHANNELS_STEREO, SAMPLE_FMT_S16, 44100))
         self.assertEqual(len(f), 0)
+        self.assertEqual(f.num_channels, 2)
         self.assertEqual(
             f.audio_format, AudioFormat(CHANNELS_STEREO, SAMPLE_FMT_S16, 44100))
 

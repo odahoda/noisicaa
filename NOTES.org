@@ -1,8 +1,5 @@
 # -*- org-tags-column: -98 -*-
 
-* Support mono ports									      :FR:
-- Ports specify a list of channels: ['mono'], ['left', 'right'], etc.
-
 * TODO LADSPA support									      :FR:
 - how to map stereo connections to the right plugin ports?
 * Plugin support									      :FR:
@@ -110,6 +107,7 @@ When reparenting a track, also reparent its mixer node.
 - 'dict_values' object is not an iterator
 - no traceback?
 
+* Most instruments should produce mono data						 :CLEANUP:
 * Abstract base class for ui mixins							 :CLEANUP:
 - to make pylint happy
 
@@ -138,6 +136,15 @@ Currently the UI is behind a bit because of buffering in the pyaudio backend.
 - IPCNode listens on that and forwards to the player's IPCBackend.
 - IPCBackend applies timepos_offset and reports back to Player.
 - Player sends timepos to UI.
+* Built-in way to split/join channels							      :FR:
+- how often do you have to go from mono->stereo or vice versa?
+- going through splitter/joiner nodes is too cumbersome
+
+* Ports that that any number of channels						      :FR:
+- specify that an output port has the same number of channels as an input port.
+- number of channels changes at runtime
+- or do nodes always just take frames and mismatching channel number is a runtime error?
+
 * Audio pipeline sends data back to UI							      :FR:
 - For VU Meters, spectograms, etc.
 - Player buffers data frames.

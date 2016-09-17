@@ -6,7 +6,7 @@ from .node_description import (
     AudioPortDescription,
     ControlPortDescription,
     EventPortDescription,
-    PortDirection, PortType,
+    Channel, PortDirection, PortType,
 
     ParameterType,
     InternalParameterDescription,

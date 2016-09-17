@@ -13,6 +13,7 @@ from ..ports import AudioOutputPort
 from ..node import Node
 from ..frame import Frame
 from ..node_types import NodeType
+from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class WavFileSource(Node):
     def __init__(self, event_loop, path, loop=False, end_notification=None):
         super().__init__(event_loop)
 
-        self._output = AudioOutputPort('out')
+        self._output = AudioOutputPort('out', audio_format.CHANNELS_STEREO)
         self.add_output(self._output)
 
         self._path = path

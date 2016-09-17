@@ -10,19 +10,19 @@ from .. import audio_format
 logger = logging.getLogger(__name__)
 
 
-class PassThru(node.Node):
+class Ladspa(node.Node):
     desc = node_types.NodeType()
-    desc.name = 'passthru'
+    desc.name = 'ladspa'
     desc.port('in', 'input', 'audio')
     desc.port('out', 'output', 'audio')
 
-    def __init__(self, event_loop, description=None, name='passthru', id=None):
+    def __init__(self, event_loop, description=None, name='ladspa', id=None):
         super().__init__(event_loop, name, id)
 
-        self._input = ports.AudioInputPort('in', audio_format.CHANNELS_STEREO)
+        self._input = ports.AudioInputPort('in', audio_format.CHANNELS_MONO)
         self.add_input(self._input)
 
-        self._output = ports.AudioOutputPort('out', audio_format.CHANNELS_STEREO)
+        self._output = ports.AudioOutputPort('out', audio_format.CHANNELS_MONO)
         self.add_output(self._output)
 
     def run(self, ctxt):

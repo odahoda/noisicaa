@@ -64,14 +64,23 @@ class Port(QtWidgets.QGraphicsRectItem):
         sym.setPos(sym_pos)
 
     def getInfoText(self):
-        return {
-            (node_db.PortType.Audio, node_db.PortDirection.Input): "Audio Input port",
-            (node_db.PortType.Audio, node_db.PortDirection.Output): "Audio Output port",
-            (node_db.PortType.Control, node_db.PortDirection.Input): "Control Input port",
-            (node_db.PortType.Control, node_db.PortDirection.Output): "Control Output port",
-            (node_db.PortType.Events, node_db.PortDirection.Input): "Event Input port",
-            (node_db.PortType.Events, node_db.PortDirection.Output): "Event Output port",
+        text = '%s: ' % self.port_desc.name
+        text += {
+            (node_db.PortType.Audio, node_db.PortDirection.Input): "audio input",
+            (node_db.PortType.Audio, node_db.PortDirection.Output): "audio output",
+            (node_db.PortType.Control, node_db.PortDirection.Input): "control input",
+            (node_db.PortType.Control, node_db.PortDirection.Output): "control output",
+            (node_db.PortType.Events, node_db.PortDirection.Input): "event input",
+            (node_db.PortType.Events, node_db.PortDirection.Output): "event output",
         }[(self.port_desc.port_type, self.port_desc.direction)]
+
+        if self.port_desc.port_type == node_db.PortType.Audio:
+            if len(self.port_desc.channels) == 1:
+                text += ', 1 channel'
+            else:
+                text += ', %d channels' % len(self.port_desc.channels)
+
+        return text
 
     def setHighlighted(self, highlighted):
         if highlighted:
@@ -745,8 +754,15 @@ class ConnectionItemImpl(QtWidgets.QGraphicsPathItem):
         cpos = QtCore.QPointF(min(100, abs(pos2.x() - pos1.x()) / 2), 0)
 
         path = QtGui.QPainterPath()
-        path.moveTo(pos1)
-        path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
+        if (port1_item.port_desc.port_type != node_db.PortType.Audio
+                or len(port1_item.port_desc.channels) == 1):
+            path.moveTo(pos1)
+            path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
+        else:
+            q = math.copysign(1, pos2.x()- pos1.x()) * math.copysign(1, pos2.y()- pos1.y())
+            for d in [QtCore.QPointF(q, -1), QtCore.QPointF(-q, 1)]:
+                path.moveTo(pos1 + d)
+                path.cubicTo(pos1 + d + cpos, pos2 + d - cpos, pos2 + d)
         self.setPath(path)
 
     def setHighlighted(self, highlighted):
@@ -785,8 +801,15 @@ class DragConnection(QtWidgets.QGraphicsPathItem):
         cpos = QtCore.QPointF(min(100, abs(pos2.x() - pos1.x()) / 2), 0)
 
         path = QtGui.QPainterPath()
-        path.moveTo(pos1)
-        path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
+        if (self.port.port_desc.port_type != node_db.PortType.Audio
+                or len(self.port.port_desc.channels) == 1):
+            path.moveTo(pos1)
+            path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
+        else:
+            q = math.copysign(1, pos2.x()- pos1.x()) * math.copysign(1, pos2.y()- pos1.y())
+            for d in [QtCore.QPointF(q, -1), QtCore.QPointF(-q, 1)]:
+                path.moveTo(pos1 + d)
+                path.cubicTo(pos1 + d + cpos, pos2 + d - cpos, pos2 + d)
         self.setPath(path)
 
 
@@ -939,6 +962,9 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
                     if dest_desc.port_type != src_desc.port_type:
                         continue
                     if dest_desc.direction == src_desc.direction:
+                        continue
+                    if (dest_desc.port_type == node_db.PortType.Audio
+                            and dest_desc.channels != src_desc.channels):
                         continue
 
                     port_pos = port_item.mapToScene(port_item.dot_pos)
