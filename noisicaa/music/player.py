@@ -13,6 +13,8 @@ import threading
 import time
 import uuid
 
+import posix_ipc
+
 from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa.core import model_base
@@ -354,6 +356,11 @@ class Player(object):
         self.mutation_listener = self.sheet.listeners.add(
             'pipeline_mutations', self.handle_pipeline_mutation)
 
+        self.audioproc_shm = posix_ipc.SharedMemory(
+            '/noisicaa-player.%s' % self.id,
+            posix_ipc.O_CREAT | posix_ipc.O_EXCL,
+            size=1024)
+
         logger.info("Starting audio process...")
         self.audioproc_backend = AudioProcBackend(self, self.event_loop)
         self.audioproc_backend_state_listener = self.audioproc_backend.add_state_listener(
@@ -387,6 +394,11 @@ class Player(object):
         logger.info("Stopping audio process...")
         await self.stop_audioproc()
 
+        if self.audioproc_shm is not None:
+            self.audioproc_shm.close_fd()
+            self.audioproc_shm.unlink()
+            self.audioproc_shm = None
+
         if self.callback_stub is not None:
             logger.info("Closing connection to client callback server...")
             await self.callback_stub.close()
@@ -410,7 +422,8 @@ class Player(object):
 
         logger.info("Creating audioproc process...")
         self.audioproc_address = await self.manager.call(
-            'CREATE_AUDIOPROC_PROCESS', 'player')
+            'CREATE_AUDIOPROC_PROCESS', 'player',
+            shm=self.audioproc_shm.name)
 
         logger.info("Creating audioproc client...")
         self.audioproc_client = AudioProcClient(
@@ -469,6 +482,13 @@ class Player(object):
         logger.info("Audioproc backend stopped.")
 
     async def audioproc_stopped(self):
+        if self.audioproc_shm is not None:
+            os.lseek(self.audioproc_shm.fd, 0, os.SEEK_SET)
+            logger.info(
+                "audioproc_shm:\n%s\n%s",
+                os.read(self.audioproc_shm.fd, 512).hex(),
+                os.read(self.audioproc_shm.fd, 512).hex())
+
         now = time.time()
         if (self.audioproc_backend_last_crash_time is None
                 or now - self.audioproc_backend_last_crash_time > 30):

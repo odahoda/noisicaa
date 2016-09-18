@@ -2,6 +2,7 @@
 
 import os
 import signal
+import time
 
 from .. import node
 
@@ -15,6 +16,7 @@ class PipelineCrasher(node.Node):
             raise RuntimeError("Kaboom!")
         if trigger < -0.5:
             os.kill(os.getpid(), signal.SIGSEGV)
+            time.sleep(10)
 
         input_port = self.inputs['in']
         output_port = self.outputs['out']

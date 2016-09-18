@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import logging
+import mmap
 import threading
 import os
 import pprint
@@ -13,6 +14,7 @@ from ..rwlock import RWLock
 from .exceptions import Error
 from noisicaa import core
 from . import data
+from . import ports
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 class Pipeline(object):
-    def __init__(self):
+    def __init__(self, shm=None):
+        self._shm = shm
+        self._shm_data = None
+        self._crasher_id = None
         self._sample_rate = 44100
         self._frame_size = 1024
         self._nodes = set()
@@ -64,6 +69,28 @@ class Pipeline(object):
         assert not self._running
         self._running = True
 
+        self._crasher_id = None
+        if self._shm is not None:
+            assert self._shm.size >= 1024, self._shm.size
+            self._shm_data = mmap.mmap(self._shm.fd, 1024)
+
+            if self._shm_data[512] != 0:
+                id_encoded = self._shm_data[512:1024]
+                eos = id_encoded.find(0)
+                if eos != -1:
+                    id_encoded = id_encoded[:eos]
+                self._crasher_id = id_encoded.decode('ascii')
+
+            elif self._shm_data[0] != 0:
+                id_encoded = self._shm_data[0:512]
+                eos = id_encoded.find(0)
+                if eos != -1:
+                    id_encoded = id_encoded[:eos]
+                self._crasher_id = id_encoded.decode('ascii')
+
+            if self._crasher_id is not None:
+                logger.info("Crasher ID: %s", self._crasher_id)
+
         self._stopping.clear()
         self._started.clear()
         self._thread = threading.Thread(target=self.mainloop)
@@ -87,6 +114,10 @@ class Pipeline(object):
         if self._backend is not None:
             self._backend.cleanup()
             self._backend = None
+
+        if self._shm_data is not None:
+            self._shm_data.close()
+            self._shm_data = None
 
         self._running = False
 
@@ -182,12 +213,31 @@ class Pipeline(object):
             with ctxt.perf.track('sort_nodes'):
                 nodes = self.sorted_nodes
             for node in nodes:
+                if not node.active:
+                    for port in node.outputs.values():
+                        if isinstance(port, ports.AudioOutputPort):
+                            port.frame.resize(ctxt.duration)
+                            port.frame.clear()
+                        elif isinstance(port, ports.ControlOutputPort):
+                            port.frame.resize(ctxt.duration)
+                            port.frame.fill(0.0)
+                        elif isinstance(port, ports.EventOutputPort):
+                            port.events.clear()
+                        else:
+                            raise ValueError(port)
+                    continue
+
                 if self._mainloop_logging:
                     logger.debug("Running node %s", node.name)
                 with ctxt.perf.track('collect_inputs(%s)' % node.id):
                     node.collect_inputs(ctxt)
                 with ctxt.perf.track('run(%s)' % node.id):
+                    if self._shm_data is not None:
+                        marker = node.id.encode('ascii') + b'\0'
+                        self._shm_data[0:len(marker)] = marker
                     node.run(ctxt)
+                    if self._shm_data is not None:
+                        self._shm_data[0] = 0
                 with ctxt.perf.track('post_run(%s)' % node.id):
                     node.post_run(ctxt)
 
@@ -208,6 +258,23 @@ class Pipeline(object):
             if node.id == node_id:
                 return node
         raise Error("Unknown node %s" % node_id)
+
+    async def setup_node(self, node):
+        if node.id == self._crasher_id:
+            logger.warning(
+                "Node %s (%s) has been deactivated, because it crashed the pipeline.",
+                node.id, type(node).__name__)
+            node.active = False
+            return
+
+        if self._shm_data is not None:
+            marker = node.id.encode('ascii') + b'\0'
+            self._shm_data[512:512+len(marker)] = marker
+        await node.setup()
+        if self._shm_data is not None:
+            self._shm_data[512] = 0
+
+        node.active = True
 
     def add_node(self, node):
         if node.pipeline is not None:

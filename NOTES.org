@@ -3,13 +3,13 @@
 
 * Gracefully handle pipeline crashes							      :FR:
 Blacklist crashing nodes
-- before calling setup() on a node, write some persistent marker identifying the node.
-- when restarting from a crash and marker is found, deactivate node and mark it as broken.
 - user can manually reactivate node
-- dito for run()
-- use shared memory owned by player to store these markers?
-  - must be fast and lock-free
 - directly mark node as broken, when it throws an exception during setup() or run()
+- report node deactivation back to player, persist in model
+  -> that gets propagated to UI
+  - visualize deactivated nodes in UI
+- also send error message to UI
+  -> or pull with player.get_node_state(id)?
 
 * Graceful AudioStream shutdown								      :FR:
 send close message to backend

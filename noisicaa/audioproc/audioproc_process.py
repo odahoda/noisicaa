@@ -5,6 +5,8 @@ import functools
 import logging
 import uuid
 
+import posix_ipc
+
 from noisicaa import core
 from noisicaa.core import ipc
 
@@ -71,8 +73,10 @@ class Session(object):
 
 
 class AudioProcProcessMixin(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, shm=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.shm_name = shm
+        self.shm = None
         self.pipeline = None
 
     async def setup(self):
@@ -124,16 +128,19 @@ class AudioProcProcessMixin(object):
         self.node_db.add(nodes.Ladspa)
         self.node_db.add(nodes.PipelineCrasher)
 
-        self.pipeline = pipeline.Pipeline()
+        if self.shm_name is not None:
+            self.shm = posix_ipc.SharedMemory(self.shm_name)
+
+        self.pipeline = pipeline.Pipeline(shm=self.shm)
         self.pipeline.utilization_callback = self.utilization_callback
         self.pipeline.listeners.add('perf_data', self.perf_data_callback)
 
         self.audiosink = backend.AudioSinkNode(self.event_loop)
-        await self.audiosink.setup()
+        await self.pipeline.setup_node(self.audiosink)
         self.pipeline.add_node(self.audiosink)
 
         self.eventsource = backend.SystemEventSourceNode(self.event_loop)
-        await self.eventsource.setup()
+        await self.pipeline.setup_node(self.eventsource)
         self.pipeline.add_node(self.eventsource)
 
         self.pipeline.start()
@@ -141,6 +148,10 @@ class AudioProcProcessMixin(object):
         self.sessions = {}
 
     async def cleanup(self):
+        if self.shm is not None:
+            self.shm.close_fd()
+            self.shm = None
+
         if self.pipeline is not None:
             self.pipeline.stop()
             self.pipeline = None
@@ -221,7 +232,7 @@ class AudioProcProcessMixin(object):
     async def handle_add_node(self, session_id, name, args):
         session = self.get_session(session_id)
         node = self.node_db.create(self.event_loop, name, args)
-        await node.setup()
+        await self.pipeline.setup_node(node)
         with self.pipeline.writer_lock():
             self.pipeline.add_node(node)
         self.publish_mutation(mutations.AddNode(node))

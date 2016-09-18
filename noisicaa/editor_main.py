@@ -135,12 +135,13 @@ class Main(object):
             'project', 'noisicaa.music.project_process.ProjectProcess')
         return proc.address
 
-    async def handle_create_audioproc_process(self, name):
+    async def handle_create_audioproc_process(self, name, **kwargs):
         # TODO: keep map of name->proc, only create processes for new
         # names.
         proc = await self.manager.start_process(
             'audioproc<%s>' % name,
-            'noisicaa.audioproc.audioproc_process.AudioProcProcess')
+            'noisicaa.audioproc.audioproc_process.AudioProcProcess',
+            **kwargs)
         return proc.address
 
     async def handle_create_node_db_process(self):
