@@ -132,6 +132,8 @@ class ProjectProcessMixin(object):
         self.server.add_command_handler(
             'PLAYER_STOP', self.handle_player_stop)
         self.server.add_command_handler(
+            'RESTART_PLAYER_PIPELINE', self.handle_restart_player_pipeline)
+        self.server.add_command_handler(
             'DUMP', self.handle_dump)
 
         node_db_address = await self.manager.call(
@@ -365,6 +367,11 @@ class ProjectProcessMixin(object):
         session = self.get_session(session_id)
         p = session.players[player_id]
         await p.playback_stop()
+
+    async def handle_restart_player_pipeline(self, session_id, player_id):
+        session = self.get_session(session_id)
+        p = session.players[player_id]
+        p.restart_pipeline()
 
     async def handle_dump(self, session_id):
         assert self.project is not None

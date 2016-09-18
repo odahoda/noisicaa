@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 class RemoteException(Exception): pass
 class Error(Exception): pass
 class InvalidResponseError(Error): pass
+class ConnectionClosed(Error): pass
 
 
 class ConnState(enum.Enum):
@@ -125,6 +126,10 @@ class Server(object):
         if log_level is not None:
             self._command_log_levels[cmd] = log_level
 
+    def remove_command_handler(self, cmd):
+        if cmd in self._command_handlers:
+            del self._command_handlers[cmd]
+
     def new_connection_id(self):
         self._next_connection_id += 1
         return self._next_connection_id
@@ -201,6 +206,8 @@ class ClientProtocol(asyncio.Protocol):
 
     def connection_lost(self, exc):
         self.closed_event.set()
+        logger.info("Client connection lost.")
+        self.response_queue.put_nowait(self.stub.CLOSE_SENTINEL)
 
     def data_received(self, data):
         self.buf.extend(data)
@@ -237,6 +244,8 @@ class Stub(object):
     serialize = functools.partial(
         pickle.dumps, protocol=pickle.HIGHEST_PROTOCOL)
     deserialize = pickle.loads
+
+    CLOSE_SENTINEL = object()
 
     def __init__(self, event_loop, server_address):
         self._event_loop = event_loop
@@ -283,13 +292,18 @@ class Stub(object):
                     exc, pprint.pformat(args), pprint.pformat(kwargs))
             ) from None
 
+        if self._transport.is_closing():
+            raise ConnectionClosed()
+
         self._transport.write(b'CALL %s %d\n' % (cmd, len(payload)))
         if payload:
             self._transport.write(payload)
 
         response = await self._protocol.response_queue.get()
 
-        if response == b'OK':
+        if response is self.CLOSE_SENTINEL:
+            raise ConnectionClosed
+        elif response == b'OK':
             return None
         elif response.startswith(b'OK:'):
             return self.deserialize(response[3:])

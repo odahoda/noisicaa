@@ -22,6 +22,11 @@ class AudioProcClientMixin(object):
             'PIPELINE_STATUS', self.handle_pipeline_status,
             log_level=-1)
 
+    async def cleanup(self):
+        self.server.remove_command_handler('PIPELINE_MUTATION')
+        self.server.remove_command_handler('PIPELINE_STATUS')
+        await super().cleanup()
+
     async def connect(self, address, flags=None):
         assert self._stub is None
         self._stub = ipc.Stub(self.event_loop, address)

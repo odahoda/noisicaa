@@ -263,6 +263,10 @@ class ProjectClientMixin(object):
         return await self._stub.call(
             'PLAYER_STOP', self._session_id, player_id)
 
+    async def restart_player_pipeline(self, player_id):
+        return await self._stub.call(
+            'RESTART_PLAYER_PIPELINE', self._session_id, player_id)
+
     def add_player_status_listener(self, player_id, callback):
         return self.listeners.add(
             'player_status:%s' % player_id, callback)

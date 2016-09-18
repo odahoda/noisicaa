@@ -21,6 +21,7 @@ class StreamError(Exception):
 
 class AudioStreamBase(object):
     def __init__(self, address):
+        assert address is not None
         self._address = address
 
         self._pipe_in = None
@@ -29,6 +30,10 @@ class AudioStreamBase(object):
 
         self._closed = False
         self._buffer = bytearray()
+
+    @property
+    def address(self):
+        return self._address
 
     def setup(self):
         self._poller = select.poll()
@@ -90,6 +95,9 @@ class AudioStreamBase(object):
         frame.perf_data = []
 
         line = self._get_line()
+        if line == b'#CLOSE':
+            raise StreamClosed
+
         assert line.startswith(b'#FR=')
         frame.sample_pos = int(line[4:])
         while True:
@@ -231,10 +239,16 @@ class AudioStreamClient(AudioStreamBase):
     def cleanup(self):
         super().cleanup()
 
+        if self._pipe_out is not None:
+            request = bytearray()
+            request.extend(b'#CLOSE\n')
+            while request:
+                written = os.write(self._pipe_out, request)
+                del request[:written]
+
+            os.close(self._pipe_out)
+            self._pipe_out = None
+
         if self._pipe_in is not None:
             os.close(self._pipe_in)
             self._pipe_in = None
-
-        if self._pipe_out is not None:
-            os.close(self._pipe_out)
-            self._pipe_out = None

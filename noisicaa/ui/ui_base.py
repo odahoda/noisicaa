@@ -48,7 +48,10 @@ class CommonMixin(object):
 
     def __call_async_cb(self, task, callback):
         if task.exception() is not None:
-            self.__app.crashWithMessage("Exception in callback", str(task.exception()))
+            self.__app.crashWithMessage(
+                "Exception in callback",
+                ("Callback: %s\n" % task
+                 + "Exception: %s" % task.exception()))
             raise task.exception()
 
         if callback is not None:

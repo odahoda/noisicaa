@@ -266,6 +266,7 @@ class IPCBackend(Backend):
                 self.add_event(queue, event)
 
         except audio_stream.StreamClosed:
+            logger.warning("Stopping IPC backend.")
             self.stop()
 
     def write(self, ctxt):

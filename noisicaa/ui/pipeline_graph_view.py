@@ -498,7 +498,7 @@ class NodePropertyDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
 
     def onFloatParameterEdited(self, widget, parameter):
         value, ok = widget.locale().toDouble(widget.text())
-        if ok:
+        if ok and value != self.__parameter_values[parameter.name]:
             self.send_command_async(
                 self._node_item.node.id, 'SetPipelineGraphNodeParameter',
                 parameter_name=parameter.name,
@@ -508,10 +508,12 @@ class NodePropertyDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         widget.setPlainText(new_value)
 
     def onTextParameterEdited(self, widget, parameter):
-        self.send_command_async(
-            self._node_item.node.id, 'SetPipelineGraphNodeParameter',
-            parameter_name=parameter.name,
-            str_value=widget.toPlainText())
+        value = widget.toPlainText()
+        if value != self.__parameter_values[parameter.name]:
+            self.send_command_async(
+                self._node_item.node.id, 'SetPipelineGraphNodeParameter',
+                parameter_name=parameter.name,
+                str_value=value)
 
     def onPortMutedEdited(self, port, volume_widget, value):
         volume_widget.setEnabled(not value)

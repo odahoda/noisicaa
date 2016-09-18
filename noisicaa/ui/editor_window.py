@@ -335,9 +335,12 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def createStatusBar(self):
         self.statusbar = QtWidgets.QStatusBar()
 
-        self.player_status = LoadHistoryWidget(100, 30)
-        self.player_status.setToolTip("Load of the playback engine.")
-        self.statusbar.addPermanentWidget(self.player_status)
+        # self.pipeline_load = LoadHistoryWidget(100, 30)
+        # self.pipeline_load.setToolTip("Load of the playback engine.")
+        # self.statusbar.addPermanentWidget(self.pipeline_load)
+
+        self.pipeline_status = QtWidgets.QLabel()
+        self.statusbar.addPermanentWidget(self.pipeline_status)
 
         self.setStatusBar(self.statusbar)
 

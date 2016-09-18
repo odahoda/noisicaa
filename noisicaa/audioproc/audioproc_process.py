@@ -73,7 +73,6 @@ class Session(object):
 class AudioProcProcessMixin(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.backend = None
         self.pipeline = None
 
     async def setup(self):
@@ -123,12 +122,11 @@ class AudioProcProcessMixin(object):
         self.node_db.add(nodes.SplitChannels)
         self.node_db.add(nodes.JoinChannels)
         self.node_db.add(nodes.Ladspa)
+        self.node_db.add(nodes.PipelineCrasher)
 
         self.pipeline = pipeline.Pipeline()
         self.pipeline.utilization_callback = self.utilization_callback
         self.pipeline.listeners.add('perf_data', self.perf_data_callback)
-
-        self.backend = None
 
         self.audiosink = backend.AudioSinkNode(self.event_loop)
         await self.audiosink.setup()
@@ -146,7 +144,6 @@ class AudioProcProcessMixin(object):
         if self.pipeline is not None:
             self.pipeline.stop()
             self.pipeline = None
-            self.backend = None
 
         await super().cleanup()
 

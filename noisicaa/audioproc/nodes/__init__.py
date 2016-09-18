@@ -8,3 +8,4 @@ from .wavfile import WavFileSource
 from .sample_player import SamplePlayer
 from .channels import SplitChannels, JoinChannels
 from .ladspa import Ladspa
+from .pipeline_crasher import PipelineCrasher

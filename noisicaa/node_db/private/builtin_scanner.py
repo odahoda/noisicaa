@@ -34,6 +34,31 @@ class BuiltinScanner(scanner.Scanner):
         )
 
         yield (
+            'builtin://pipeline_crasher',
+            node_db.UserNodeDescription(
+                display_name='PipelineCrasher',
+                node_cls='pipeline_crasher',
+                ports=[
+                    node_db.AudioPortDescription(
+                        name='in',
+                        direction=node_db.PortDirection.Input,
+                        channels='stereo'),
+                    node_db.AudioPortDescription(
+                        name='out',
+                        direction=node_db.PortDirection.Output,
+                        channels='stereo'),
+                ],
+                parameters=[
+                    node_db.FloatParameterDescription(
+                        name='trigger',
+                        display_name='Trigger',
+                        min=-1.0,
+                        max=1.0,
+                        default=0.0),
+                ])
+        )
+
+        yield (
             'builtin://split_channel',
             node_db.UserNodeDescription(
                 display_name='Split Channels',

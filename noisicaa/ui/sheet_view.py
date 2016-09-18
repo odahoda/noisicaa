@@ -437,7 +437,8 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
         self.call_async(
             self.project_client.player_stop(self._player_id))
 
-    def onPlayerStatus(self, playback_pos=None, **kwargs):
+    def onPlayerStatus(
+            self, playback_pos=None, pipeline_state=None, pipeline_disabled=None, **kwargs):
         if playback_pos is not None:
             sample_pos, num_samples = playback_pos
 
@@ -458,10 +459,41 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
                     start_measure_idx, start_measure_tick,
                     end_measure_idx, end_measure_tick)
 
+        if pipeline_state is not None:
+            self.window.pipeline_status.setText(pipeline_state)
+            logger.info("pipeline state: %s", pipeline_state)
+
+        if pipeline_disabled:
+            dialog = QtWidgets.QMessageBox(self)
+            dialog.setIcon(QtWidgets.QMessageBox.Critical)
+            dialog.setWindowTitle("noisicaa - Crash")
+            dialog.setText(
+                "The audio pipeline has been disabled, because it is repeatedly crashing.")
+            quit_button = dialog.addButton("Quit", QtWidgets.QMessageBox.DestructiveRole)
+            undo_and_restart_button = dialog.addButton(
+                "Undo last command and restart pipeline", QtWidgets.QMessageBox.ActionRole)
+            restart_button = dialog.addButton("Restart pipeline", QtWidgets.QMessageBox.AcceptRole)
+            dialog.setDefaultButton(restart_button)
+            dialog.finished.connect(lambda _: self.call_async(
+                self.onPipelineDisabledDialogFinished(
+                    dialog, quit_button, undo_and_restart_button, restart_button)))
+            dialog.show()
+
+    async def onPipelineDisabledDialogFinished(
+            self, dialog, quit_button, undo_and_restart_button, restart_button):
+        if dialog.clickedButton() == quit_button:
+            self.app.quit()
+
+        elif dialog.clickedButton() == restart_button:
+            await self.project_client.restart_player_pipeline(self._player_id)
+
+        elif dialog.clickedButton() == undo_and_restart_button:
+            await self.project_client.undo()
+            await self.project_client.restart_player_pipeline(self._player_id)
+
     def onRender(self):
         dialog = RenderSheetDialog(self, self.app, self._sheet)
         dialog.exec_()
-
 
     def onCopy(self):
         if not self._selection_set:

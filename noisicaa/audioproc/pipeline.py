@@ -2,6 +2,7 @@
 
 import logging
 import threading
+import os
 import pprint
 import sys
 import time
@@ -74,6 +75,7 @@ class Pipeline(object):
         if self._backend is not None:
             logger.info("Stopping backend...")
             self._backend.stop()
+            logger.info("Backend stopped...")
 
         if self._thread is not None:
             logger.info("Stopping pipeline thread...")
@@ -81,6 +83,10 @@ class Pipeline(object):
             self.wait()
             logger.info("Pipeline thread stopped.")
             self._thread = None
+
+        if self._backend is not None:
+            self._backend.cleanup()
+            self._backend = None
 
         self._running = False
 
@@ -164,6 +170,10 @@ class Pipeline(object):
 
         except:  # pylint: disable=bare-except
             sys.excepthook(*sys.exc_info())
+            os._exit(1)
+
+        finally:
+            logger.info("Mainloop finished.")
 
     def process_frame(self, ctxt):
         with self.reader_lock():
