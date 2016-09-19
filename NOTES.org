@@ -1,5 +1,17 @@
 # -*- org-tags-column: -98 -*-
 
+* TODO More flexible instrument handling						      :FR:
+Use display_name in track_property_dock
+- query instrument_db for description
+- fallback to URI, if description not found
+
+Have a list of instrument types
+- with scanners to list instruments
+- that know how to create the node for it (which node_uri and which parameters)
+- when opening a file, ask each intrument type if it can handle it. if more than one, ask which
+  one to use.
+- configure search paths for each type
+
 * Session state										      :FR:
 - store binary log for efficiency
 - replay log on open
@@ -26,20 +38,12 @@ Blacklist crashing nodes
 * Graceful AudioStream shutdown								      :FR:
 send close message to backend
 
+* InstrumentLibrary: remember the selected MIDI source					      :FR:
 * Plugin support									      :FR:
 ** LV2
 * Fix removing measures									     :BUG:
 - remove measure on SheetPropertyTrack causes exception
 - no way to remove trailing measures from sheet
-
-* More flexible instrument handling							      :FR:
-Have a list of instrument types
-- with scanners to list instruments
-- that know how to create the node for it (which node_uri and which parameters)
-- when opening a file, ask each intrument type if it can handle it. if more than one, ask which
-  one to use.
-- separate instrument db (like node db)?
-- configure search paths for each type
 
 * Unify instrument handling in ScoreTrack and BeatTrack					 :CLEANUP:
 * Move BackendManager to noisicaa.core							 :CLEANUP:

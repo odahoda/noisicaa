@@ -35,11 +35,17 @@ class Main(object):
         self.manager.server.add_command_handler(
             'CREATE_NODE_DB_PROCESS',
             self.handle_create_node_db_process)
+        self.manager.server.add_command_handler(
+            'CREATE_INSTRUMENT_DB_PROCESS',
+            self.handle_create_instrument_db_process)
         self.stop_event = asyncio.Event()
         self.returncode = 0
 
         self.node_db_process = None
         self.node_db_process_lock = asyncio.Lock(loop=self.event_loop)
+
+        self.instrument_db_process = None
+        self.instrument_db_process_lock = asyncio.Lock(loop=self.event_loop)
 
     def run(self, argv):
         self.parse_args(argv)
@@ -152,6 +158,15 @@ class Main(object):
                     'noisicaa.node_db.process.NodeDBProcess')
 
         return self.node_db_process.address
+
+    async def handle_create_instrument_db_process(self):
+        async with self.instrument_db_process_lock:
+            if self.instrument_db_process is None:
+                self.instrument_db_process = await self.manager.start_process(
+                    'instrument_db',
+                    'noisicaa.instrument_db.process.InstrumentDBProcess')
+
+        return self.instrument_db_process.address
 
 
 if __name__ == '__main__':

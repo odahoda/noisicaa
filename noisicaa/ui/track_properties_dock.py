@@ -12,7 +12,6 @@ from .dock_widget import DockWidget
 from . import instrument_library
 from . import ui_base
 from noisicaa.music import model
-from noisicaa.instr import library
 from . import mute_button
 
 logger = logging.getLogger(__name__)
@@ -117,7 +116,7 @@ class ScoreTrackProperties(TrackProperties):
 
         self._instrument = QtWidgets.QLineEdit(self, readOnly=True)
         if self._track.instrument is not None:
-            self._instrument.setText(self._track.instrument.name)
+            self._instrument.setText(self._track.instrument)
         else:
             self._instrument.setText('---')
         self._listeners.append(
@@ -146,7 +145,7 @@ class ScoreTrackProperties(TrackProperties):
 
     def onInstrumentChanged(self, old_instrument, new_instrument):
         if new_instrument is not None:
-            self._instrument.setText(new_instrument.name)
+            self._instrument.setText(new_instrument)
         else:
             self._instrument.setText('---')
 
@@ -163,7 +162,7 @@ class ScoreTrackProperties(TrackProperties):
             lambda _: self.onSelectInstrumentClosed(dialog))
         await dialog.setup()
         if self._track.instrument is not None:
-            dialog.selectInstrument(self._track.instrument.library_id)
+            dialog.selectInstrument(self._track.instrument)
         dialog.show()
 
     def onSelectInstrumentClosed(self, dialog):
@@ -171,29 +170,14 @@ class ScoreTrackProperties(TrackProperties):
             self.onInstrumentEdited(dialog.instrument())
         self.call_async(dialog.cleanup())
 
-    def onInstrumentEdited(self, instr):
+    def onInstrumentEdited(self, description):
+        if description is None:
+            return
+
         client = self.window.getCurrentProjectView().project_client
-        if instr is not None:
-            if isinstance(instr, library.SoundFontInstrument):
-                self.call_async(client.send_command(
-                    self._track.id, 'SetInstrument',
-                    instrument_type='SoundFontInstrument',
-                    instrument_args={
-                        'name': instr.name,
-                        'library_id': instr.id,
-                        'path': instr.path,
-                        'bank': instr.bank,
-                        'preset': instr.preset}))
-            elif isinstance(instr, library.SampleInstrument):
-                self.call_async(client.send_command(
-                    self._track.id, 'SetInstrument',
-                    instrument_type='SampleInstrument',
-                    instrument_args={
-                        'name': instr.name,
-                        'library_id': instr.id,
-                        'path': instr.path}))
-            else:
-                raise ValueError(type(instr).__name__)
+        self.call_async(client.send_command(
+            self._track.id, 'SetInstrument',
+            instrument=description.uri))
 
     def onTransposeOctavesChanged(
             self, old_transpose_octaves, new_transpose_octaves):
@@ -219,7 +203,7 @@ class BeatTrackProperties(TrackProperties):
 
         self._instrument = QtWidgets.QLineEdit(self, readOnly=True)
         if self._track.instrument is not None:
-            self._instrument.setText(self._track.instrument.name)
+            self._instrument.setText(self._track.instrument)
         else:
             self._instrument.setText('---')
         self._listeners.append(
@@ -241,7 +225,7 @@ class BeatTrackProperties(TrackProperties):
 
     def onInstrumentChanged(self, old_instrument, new_instrument):
         if new_instrument is not None:
-            self._instrument.setText(new_instrument.name)
+            self._instrument.setText(new_instrument)
         else:
             self._instrument.setText('---')
 
@@ -261,7 +245,7 @@ class BeatTrackProperties(TrackProperties):
             lambda _: self.onSelectInstrumentClosed(dialog))
         await dialog.setup()
         if self._track.instrument is not None:
-            dialog.selectInstrument(self._track.instrument.library_id)
+            dialog.selectInstrument(self._track.instrument)
         dialog.show()
 
     def onSelectInstrumentClosed(self, dialog):
@@ -269,31 +253,14 @@ class BeatTrackProperties(TrackProperties):
             self.onInstrumentEdited(dialog.instrument())
         self.call_async(dialog.cleanup())
 
-    def onInstrumentEdited(self, instr):
-        if instr is None:
+    def onInstrumentEdited(self, description):
+        if description is None:
             return
 
         client = self.window.getCurrentProjectView().project_client
-        if isinstance(instr, library.SoundFontInstrument):
-            self.call_async(client.send_command(
-                self._track.id, 'SetBeatTrackInstrument',
-                instrument_type='SoundFontInstrument',
-                instrument_args={
-                    'name': instr.name,
-                    'library_id': instr.id,
-                    'path': instr.path,
-                    'bank': instr.bank,
-                    'preset': instr.preset}))
-        elif isinstance(instr, library.SampleInstrument):
-            self.call_async(client.send_command(
-                self._track.id, 'SetBeatTrackInstrument',
-                instrument_type='SampleInstrument',
-                instrument_args={
-                    'name': instr.name,
-                    'library_id': instr.id,
-                    'path': instr.path}))
-        else:
-            raise ValueError(type(instr).__name__)
+        self.call_async(client.send_command(
+            self._track.id, 'SetBeatTrackInstrument',
+            instrument=description.uri))
 
     def onPitchChanged(self, old_value, new_value):
         self._pitch.setText(str(new_value))

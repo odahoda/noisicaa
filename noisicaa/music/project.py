@@ -20,7 +20,6 @@ from .time import Duration
 from . import model
 from . import state
 from . import commands
-from . import instruments
 from . import sheet
 from . import misc
 
@@ -232,18 +231,16 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
         for mref in s.property_track.measure_list:
             mref.measure.bpm = 140
 
-        instr1 = instruments.SoundFontInstrument(
-            name="Flute",
-            path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=73)
         track1 = ScoreTrack(
-            name="Track 1", instrument=instr1, num_measures=5)
+            name="Track 1",
+            instrument='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=73',
+            num_measures=5)
         s.add_track(s.master_group, 0, track1)
 
-        instr2 = instruments.SoundFontInstrument(
-            name="Yamaha Grand Piano",
-            path='/usr/share/sounds/sf2/FluidR3_GM.sf2', bank=0, preset=0)
         track2 = ScoreTrack(
-            name="Track 2", instrument=instr2, num_measures=5)
+            name="Track 2",
+            instrument='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0',
+            num_measures=5)
         s.add_track(s.master_group, 1, track2)
 
         track1.measure_list[0].measure.notes.append(

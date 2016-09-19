@@ -4,6 +4,7 @@ import io
 import logging
 from xml.etree import ElementTree
 
+from noisicaa import instrument_db
 from noisicaa import core
 from noisicaa import node_db
 
@@ -488,21 +489,11 @@ class InstrumentPipelineGraphNode(
             connection.add_to_pipeline()
 
     def add_to_pipeline(self):
-        instr = self.track.instrument
-
-        if isinstance(instr, model.SoundFontInstrument):
-            self.sheet.handle_pipeline_mutation(
-                mutations.AddNode(
-                    'fluidsynth', self.pipeline_node_id, self.name,
-                    soundfont_path=instr.path,
-                    bank=instr.bank,
-                    preset=instr.preset))
-
-        elif isinstance(instr, model.SampleInstrument):
-            self.sheet.handle_pipeline_mutation(
-                mutations.AddNode(
-                    'sample_player', self.pipeline_node_id, self.name,
-                    sample_path=instr.path))
+        node_cls, node_args = instrument_db.parse_uri(self.track.instrument)
+        self.sheet.handle_pipeline_mutation(
+            mutations.AddNode(
+                node_cls, self.pipeline_node_id, self.name,
+                **node_args))
 
         self.set_initial_parameters()
 

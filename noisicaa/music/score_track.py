@@ -13,7 +13,6 @@ from .time import Duration
 from . import model
 from . import state
 from . import commands
-from . import instruments
 from . import mutations
 from . import pipeline_graph
 from . import misc
@@ -22,27 +21,17 @@ logger = logging.getLogger(__name__)
 
 
 class SetInstrument(commands.Command):
-    instrument_type = core.Property(str)
-    instrument_args = core.DictProperty()
+    instrument = core.Property(str)
 
-    def __init__(self, instrument_type=None, instrument_args=None,
-                 state=None):
+    def __init__(self, instrument=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.instrument_type = instrument_type
-            self.instrument_args.update(instrument_args)
+            self.instrument = instrument
 
     def run(self, track):
         assert isinstance(track, MeasuredTrack)
 
-        if self.instrument_type == 'SoundFontInstrument':
-            instr = instruments.SoundFontInstrument(**self.instrument_args)
-        elif self.instrument_type == 'SampleInstrument':
-            instr = instruments.SampleInstrument(**self.instrument_args)
-        else:
-            raise ValueError(self.instrument_type)
-
-        track.instrument = instr
+        track.instrument = self.instrument
         track.instrument_node.update_pipeline()
 
 commands.Command.register_command(SetInstrument)
@@ -365,11 +354,7 @@ class ScoreTrack(model.ScoreTrack, MeasuredTrack):
 
         if state is None:
             if instrument is None:
-                self.instrument = instruments.SoundFontInstrument(
-                    name="Default Piano",
-                    path='/usr/share/sounds/sf2/FluidR3_GM.sf2',
-                    bank=0,
-                    preset=0)
+                self.instrument = 'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0'
             else:
                 self.instrument = instrument
 

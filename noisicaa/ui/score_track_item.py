@@ -144,7 +144,7 @@ class ScoreMeasureItemImpl(base_track_item.MeasureItemImpl):
             # TODO: update when changed
             text = self._instr_item = QtWidgets.QGraphicsSimpleTextItem(layer)
             text.setText(
-                track.instrument.name if track.instrument is not None else "")
+                track.instrument if track.instrument is not None else "")
             text.setPos(0, 20)
 
 

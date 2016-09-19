@@ -9,12 +9,12 @@ from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
+from noisicaa import instrument_db
 from noisicaa import node_db
 from noisicaa import devices
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
-from ..instr import library
 
 from . import project_registry
 from . import pipeline_perf_monitor
@@ -79,6 +79,22 @@ class NodeDBClient(node_db.NodeDBClientMixin, NodeDBClientImpl):
     pass
 
 
+class InstrumentDBClientImpl(object):
+    def __init__(self, event_loop, server):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = server
+
+    async def setup(self):
+        pass
+
+    async def cleanup(self):
+        pass
+
+class InstrumentDBClient(instrument_db.InstrumentDBClientMixin, InstrumentDBClientImpl):
+    pass
+
+
 class BaseEditorApp(QtWidgets.QApplication):
     def __init__(self, process, runtime_settings, settings=None):
         super().__init__(['noisicaä'])
@@ -104,6 +120,7 @@ class BaseEditorApp(QtWidgets.QApplication):
         self.audioproc_client = None
         self.audioproc_process = None
         self.node_db = None
+        self.instrument_db = None
 
     async def setup(self):
         self.default_style = self.style().objectName()
@@ -114,6 +131,7 @@ class BaseEditorApp(QtWidgets.QApplication):
             self.setStyle(style)
 
         await self.createNodeDB()
+        await self.createInstrumentDB()
 
         self.project_registry = project_registry.ProjectRegistry(
             self.process.event_loop, self.process.manager, self.node_db)
@@ -139,6 +157,16 @@ class BaseEditorApp(QtWidgets.QApplication):
             await self.audioproc_client.disconnect(shutdown=True)
             await self.audioproc_client.cleanup()
             self.audioproc_client = None
+
+        if self.instrument_db is not None:
+            await self.instrument_db.disconnect(shutdown=True)
+            await self.instrument_db.cleanup()
+            self.instrument_db = None
+
+        if self.node_db is not None:
+            await self.node_db.disconnect(shutdown=True)
+            await self.node_db.cleanup()
+            self.node_db = None
 
         if self.midi_hub is not None:
             self.midi_hub.stop()
@@ -172,6 +200,15 @@ class BaseEditorApp(QtWidgets.QApplication):
             self.process.event_loop, self.process.server)
         await self.node_db.setup()
         await self.node_db.connect(node_db_address)
+
+    async def createInstrumentDB(self):
+        instrument_db_address = await self.process.manager.call(
+            'CREATE_INSTRUMENT_DB_PROCESS')
+
+        self.instrument_db = InstrumentDBClient(
+            self.process.event_loop, self.process.server)
+        await self.instrument_db.setup()
+        await self.instrument_db.connect(instrument_db_address)
 
     def dumpSettings(self):
         for key in self.settings.allKeys():
@@ -238,9 +275,6 @@ class EditorApp(BaseEditorApp):
         sys.excepthook = ExceptHook(self)
 
         await super().setup()
-
-        logger.info("Creating InstrumentLibrary.")
-        self.instrument_library = library.InstrumentLibrary()
 
         logger.info("Creating PipelinePerfMonitor.")
         self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self)

@@ -13,10 +13,10 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
+from noisicaa import instrument_db
 
 from .piano import PianoWidget
 from . import ui_base
-from ..instr import library
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +32,14 @@ logger = logging.getLogger(__name__)
 # - add/remove
 
 class InstrumentListItem(QtWidgets.QListWidgetItem):
-    def __init__(self, parent, instrument):
+    def __init__(self, parent, description):
         super().__init__(parent, 0)
-        self.instrument = instrument
+        self.description = description
+        self.setText(description.display_name)
 
 
 class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
-    instrumentChanged = QtCore.pyqtSignal(library.Instrument)
+    instrumentChanged = QtCore.pyqtSignal(instrument_db.InstrumentDescription)
 
     def __init__(self, parent=None, selectButton=False, **kwargs):
         super().__init__(parent=parent, **kwargs)
@@ -48,6 +49,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self._pipeline_lock = asyncio.Lock()
         self._pipeline_mixer_id = None
         self._pipeline_instrument_id = None
+        self._pipeline_event_source_id = None
 
         self._instrument = None
 
@@ -96,18 +98,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.instrument_name = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Name", self.instrument_name)
-
-        self.instrument_type = QtWidgets.QLineEdit(self, readOnly=True)
-        form_layout.addRow("Type", self.instrument_type)
-
-        self.instrument_path = QtWidgets.QLineEdit(self, readOnly=True)
-        form_layout.addRow("Path", self.instrument_path)
-
-        self.instrument_collection = QtWidgets.QLineEdit(self, readOnly=True)
-        form_layout.addRow("Collection", self.instrument_collection)
-
-        self.instrument_location = QtWidgets.QLineEdit(self, readOnly=True)
-        form_layout.addRow("Location", self.instrument_location)
 
         layout.addStretch(1)
 
@@ -178,11 +168,12 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                 self._pipeline_mixer_id)
             self._pipeline_mixer_id = None
 
-    async def addInstrumentToPipeline(self, node_type, **args):
+    async def addInstrumentToPipeline(self, uri):
         assert self._pipeline_instrument_id is None
 
+        node_cls, node_args = instrument_db.parse_uri(uri)
         self._pipeline_instrument_id = await self.audioproc_client.add_node(
-            node_type, **args)
+            node_cls, **node_args)
         await self.audioproc_client.connect_ports(
             self._pipeline_instrument_id, 'out',
             self._pipeline_mixer_id, 'in')
@@ -220,64 +211,36 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
     def updateInstrumentList(self):
         self.instruments_list.clear()
-        for idx, instr in enumerate(self.library.instruments):
-            item = InstrumentListItem(self.instruments_list, instr)
-            item.setText(instr.name)
-            self.instruments_list.addItem(item)
+        for description in self.app.instrument_db.instruments:
+            self.instruments_list.addItem(
+                InstrumentListItem(self.instruments_list, description))
 
-    def selectInstrument(self, instr_id):
+    def selectInstrument(self, uri):
         for idx in range(self.instruments_list.count()):
             item = self.instruments_list.item(idx)
-            if item.instrument.id == instr_id:
+            if item.description.uri == uri:
                 self.instruments_list.setCurrentRow(idx)
                 break
 
     def onInstrumentItemSelected(self, item):
         if item is None:
             self.instrument_name.setText("")
-            self.instrument_collection.setText("")
-            self.instrument_type.setText("")
-            self.instrument_path.setText("")
-            self.instrument_location.setText("")
             return
 
-        self.call_async(self.setCurrentInstrument(item.instrument))
+        self.call_async(self.setCurrentInstrument(item.description))
 
-    async def setCurrentInstrument(self, instr):
+    async def setCurrentInstrument(self, description):
         await self.removeInstrumentFromPipeline()
 
-        self.instrument_name.setText(instr.name)
+        self.instrument_name.setText(description.display_name)
 
-        if instr.collection is not None:
-            self.instrument_collection.setText(instr.collection.name)
-        else:
-            self.instrument_collection.setText("")
-
-        if isinstance(instr, library.SoundFontInstrument):
-            self.instrument_type.setText("SoundFont")
-            self.instrument_path.setText(instr.path)
-            self.instrument_location.setText(
-                "bank %d, preset %d" % (instr.bank, instr.preset))
-
-            await self.addInstrumentToPipeline(
-                'fluidsynth',
-                soundfont_path=instr.path,
-                bank=instr.bank, preset=instr.preset)
-
-        elif isinstance(instr, library.SampleInstrument):
-            self.instrument_type.setText("Sample")
-            self.instrument_path.setText(instr.path)
-            self.instrument_location.setText("")
-
-            await self.addInstrumentToPipeline(
-                'sample_player',
-                sample_path=instr.path)
+        await self.addInstrumentToPipeline(description.uri)
 
         self.piano.setVisible(True)
         self.piano.setFocus(Qt.OtherFocusReason)
 
-        self._instrument = instr
-        self.instrumentChanged.emit(instr)
+        self._instrument = description
+        self.instrumentChanged.emit(description)
 
     def onInstrumentSearchChanged(self, text):
         for idx in range(self.instruments_list.count()):
@@ -301,7 +264,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         if not path:
             return
 
-        self.library.add_soundfont(path)
         self.updateInstrumentList()
 
     def keyPressEvent(self, event):

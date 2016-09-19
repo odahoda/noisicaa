@@ -12,21 +12,6 @@ from . import time_signature
 from . import misc
 
 
-class Instrument(core.ObjectBase):
-    name = core.Property(str)
-    library_id = core.Property(str, allow_none=True)
-
-
-class SoundFontInstrument(Instrument):
-    path = core.Property(str)
-    bank = core.Property(int)
-    preset = core.Property(int)
-
-
-class SampleInstrument(Instrument):
-    path = core.Property(str)
-
-
 class Track(core.ObjectBase):
     name = core.Property(str)
 
@@ -153,7 +138,7 @@ class ScoreMeasure(Measure):
 
 
 class ScoreTrack(MeasuredTrack):
-    instrument = core.ObjectProperty(cls=Instrument)
+    instrument = core.Property(str)
     transpose_octaves = core.Property(int, default=0)
 
 
@@ -175,7 +160,7 @@ class BeatMeasure(Measure):
 
 
 class BeatTrack(MeasuredTrack):
-    instrument = core.ObjectProperty(cls=Instrument)
+    instrument = core.Property(str)
     pitch = core.Property(pitch.Pitch)
 
 
