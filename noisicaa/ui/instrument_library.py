@@ -7,9 +7,12 @@
 import asyncio
 import logging
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
+
+from noisicaa import audioproc
 
 from .piano import PianoWidget
 from . import ui_base
@@ -110,6 +113,8 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.piano = PianoWidget(self, self.app)
         self.piano.setVisible(False)
+        self.piano.noteOn.connect(self.onNoteOn)
+        self.piano.noteOff.connect(self.onNoteOff)
         layout.addWidget(self.piano)
 
         self.tabs.addTab(self.instruments_page, "Instruments")
@@ -183,7 +188,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             self._pipeline_mixer_id, 'in')
 
         self._pipeline_event_source_id = await self.audioproc_client.add_node(
-            'track_event_source')
+            'track_event_source', queue_name='instrument_library')
         await self.audioproc_client.connect_ports(
             self._pipeline_event_source_id, 'out',
             self._pipeline_instrument_id, 'in')
@@ -268,8 +273,8 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                 'sample_player',
                 sample_path=instr.path)
 
-        #self.piano.setVisible(True)
-        #self.piano.setFocus(Qt.OtherFocusReason)
+        self.piano.setVisible(True)
+        self.piano.setFocus(Qt.OtherFocusReason)
 
         self._instrument = instr
         self.instrumentChanged.emit(instr)
@@ -304,3 +309,18 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
     def keyReleaseEvent(self, event):
         self.piano.keyReleaseEvent(event)
+
+    def onNoteOn(self, note, volume):
+        if self._pipeline_event_source_id is not None:
+            self.call_async(
+                self.audioproc_client.add_event(
+                    'instrument_library',
+                    audioproc.NoteOnEvent(-1, note, volume)))
+
+
+    def onNoteOff(self, note):
+        if self._pipeline_event_source_id is not None:
+            self.call_async(
+                self.audioproc_client.add_event(
+                    'instrument_library',
+                    audioproc.NoteOffEvent(-1, note)))

@@ -19,20 +19,12 @@ Stores
 Blacklist crashing nodes
 - user can manually reactivate node
 - directly mark node as broken, when it throws an exception during setup() or run()
-- report node deactivation back to player, persist in model
-  - model modifications must be a command
-    -> would be weird when this can undone...
-    - rather in session state?
-  -> that gets propagated to UI
-  - visualize deactivated nodes in UI
+- when building initial state, mark nodes as broken from session state.
 - also send error message to UI
   -> or pull with player.get_node_state(id)?
 
 * Graceful AudioStream shutdown								      :FR:
 send close message to backend
-
-* Reanimate piano in instrument library							      :FR:
-So I can preview instruments again
 
 * Plugin support									      :FR:
 ** LV2

@@ -83,8 +83,13 @@ class InstrumentLibrary(object):
         if add_default_instruments:
             for p in sorted(glob.glob('/usr/share/sounds/sf2/*.sf2')):
                 self.add_soundfont(p)
-            for p in sorted(glob.glob('/storage/home/share/samples/ST-01/*.wav')):
-                self.add_sample(p)
+
+            for d in sorted(glob.glob('/storage/home/share/samples/ST-0?')):
+                if not os.path.isdir(d):
+                    continue
+
+                for p in sorted(glob.glob(os.path.join(d, '*.wav'))):
+                    self.add_sample(p)
 
         if self.default_instrument is None:
             self.default_instrument = self.instruments[0]

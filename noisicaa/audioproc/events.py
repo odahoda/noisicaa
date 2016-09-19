@@ -32,6 +32,9 @@ class NoteOnEvent(NoteEvent):
         super().__init__(sample_pos, note, tags)
         self.volume = volume
 
+    def __str__(self):
+        return "%s(%d, %s %s)" % (self.__class__.__name__, self.sample_pos, self.note, self.volume)
+
 
 class NoteOffEvent(NoteEvent):
     def __init__(self, sample_pos, note, tags=None):
