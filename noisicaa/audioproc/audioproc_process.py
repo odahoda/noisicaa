@@ -134,6 +134,7 @@ class AudioProcProcessMixin(object):
         self.pipeline = pipeline.Pipeline(shm=self.shm)
         self.pipeline.utilization_callback = self.utilization_callback
         self.pipeline.listeners.add('perf_data', self.perf_data_callback)
+        self.pipeline.listeners.add('node_state', self.node_state_callback)
 
         self.audiosink = backend.AudioSinkNode(self.event_loop)
         await self.pipeline.setup_node(self.audiosink)
@@ -296,6 +297,11 @@ class AudioProcProcessMixin(object):
         self.event_loop.call_soon_threadsafe(
             functools.partial(
                 self.publish_status, perf_data=perf_data))
+
+    def node_state_callback(self, node_id, **kwargs):
+        self.event_loop.call_soon_threadsafe(
+            functools.partial(
+                self.publish_status, node_state=(node_id, kwargs)))
 
     async def handle_play_file(self, session_id, path):
         self.get_session(session_id)

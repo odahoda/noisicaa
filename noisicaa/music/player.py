@@ -309,6 +309,8 @@ class Player(object):
         self.callback_address = callback_address
         self.event_loop = event_loop
 
+        self.listeners = core.CallbackRegistry()
+
         self.id = uuid.uuid4().hex
         self.server = ipc.Server(self.event_loop, 'player')
 
@@ -319,6 +321,7 @@ class Player(object):
         self.audioproc_backend_last_crash_time = None
         self.audioproc_address = None
         self.audioproc_client = None
+        self.audioproc_status_listener = None
         self.audiostream_address = None
         self.audiostream_client = None
 
@@ -428,6 +431,9 @@ class Player(object):
         logger.info("Creating audioproc client...")
         self.audioproc_client = AudioProcClient(
             self.event_loop, self.server)
+        self.audioproc_status_listener = self.audioproc_client.listeners.add(
+            'pipeline_status', functools.partial(
+                self.listeners.call, 'pipeline_status'))
         await self.audioproc_client.setup()
 
         logger.info("Connecting audioproc client...")
@@ -467,6 +473,10 @@ class Player(object):
             self.audiostream_client.cleanup()
             self.audiostream_client = None
             self.audiostream_address = None
+
+        if self.audioproc_status_listener is not None:
+            self.audioproc_status_listener.remove()
+            self.audioproc_status_listener = None
 
         if self.audioproc_client is not None:
             logger.info("Disconnecting audioproc client...")

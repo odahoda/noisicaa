@@ -27,7 +27,7 @@ class Node(object):
         self.id = id or uuid.uuid4().hex
 
         self.pipeline = None
-        self.active = False
+        self.broken = False
         self.inputs = {}
         self.outputs = {}
 

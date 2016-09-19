@@ -599,6 +599,14 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
             port.setPos(x, y)
             self.ports[port_desc.name] = port
 
+        self._broken_sign = QtWidgets.QGraphicsSimpleTextItem(self)
+        self._broken_sign.setText("BROKEN")
+        self._broken_sign.setPen(QtGui.QColor(255, 0, 0))
+        self._broken_sign.setVisible(self.is_broken)
+        self._broken_listener = self.add_session_listener(
+            'pipeline_graph_node/%s/broken' % self.node.id,
+            self._broken_sign.setVisible)
+
         self.setPos(self._node.graph_pos.x, self._node.graph_pos.y)
         self._graph_pos_listener = self._node.listeners.add(
             'graph_pos', self.onGraphPosChanged)
@@ -616,6 +624,11 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
     def node_description(self):
         return self._node.description
 
+    @property
+    def is_broken(self):
+        return self.get_session_value(
+            'pipeline_graph_node/%s/broken' % self.node.id, False)
+
     def getInfoText(self):
         info_lines = []
 
@@ -632,6 +645,10 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         return '\n'.join(info_lines)
 
     def cleanup(self):
+        if self._broken_listener is not None:
+            self._broken_listener.remove()
+            self._broken_listener = None
+
         if self._graph_pos_listener is not None:
             self._graph_pos_listener.remove()
             self._graph_pos_listener = None

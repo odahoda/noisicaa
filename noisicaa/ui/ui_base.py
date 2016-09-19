@@ -97,3 +97,6 @@ class ProjectMixin(CommonMixin):
 
     def get_session_value(self, key, default):
         return self.project_client.get_session_value(key, default)
+
+    def add_session_listener(self, key, listener):
+        return self.project_client.listeners.add('session_data:' + key, listener)

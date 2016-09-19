@@ -13,6 +13,7 @@ class AudioProcClientMixin(object):
         super().__init__(*args, **kwargs)
         self._stub = None
         self._session_id = None
+        self.listeners = core.CallbackRegistry()
 
     async def setup(self):
         await super().setup()
@@ -98,3 +99,4 @@ class AudioProcClientMixin(object):
 
     def handle_pipeline_status(self, status):
         logger.info("Status update received: %s" % status)
+        self.listeners.call('pipeline_status', status)

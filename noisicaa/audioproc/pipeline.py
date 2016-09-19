@@ -213,7 +213,7 @@ class Pipeline(object):
             with ctxt.perf.track('sort_nodes'):
                 nodes = self.sorted_nodes
             for node in nodes:
-                if not node.active:
+                if node.broken:
                     for port in node.outputs.values():
                         if isinstance(port, ports.AudioOutputPort):
                             port.frame.resize(ctxt.duration)
@@ -264,7 +264,8 @@ class Pipeline(object):
             logger.warning(
                 "Node %s (%s) has been deactivated, because it crashed the pipeline.",
                 node.id, type(node).__name__)
-            node.active = False
+            self.listeners.call('node_state', node.id, broken=True)
+            node.broken = True
             return
 
         if self._shm_data is not None:
@@ -273,8 +274,6 @@ class Pipeline(object):
         await node.setup()
         if self._shm_data is not None:
             self._shm_data[512] = 0
-
-        node.active = True
 
     def add_node(self, node):
         if node.pipeline is not None:

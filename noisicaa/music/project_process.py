@@ -39,12 +39,31 @@ class Session(object):
         self.id = uuid.uuid4().hex
         self.session_data = {}
         self.session_data_path = None
-        self.players = {}
+        self._players = {}
 
     async def cleanup(self):
-        for p in self.players.values():
+        for listener, p in self._players.values():
+            listener.remove()
             await p.cleanup()
-        self.players.clear()
+        self._players.clear()
+
+    def get_player(self, player_id):
+        return self._players[player_id][1]
+
+    def add_player(self, player):
+        listener = player.listeners.add('pipeline_status', self.handle_pipeline_status)
+        self._players[player.id] = (listener, player)
+
+    def remove_player(self, player):
+        listener = self._players[player.id][0]
+        listener.remove()
+        del self._players[player.id]
+
+    def handle_pipeline_status(self, status):
+        if 'node_state' in status:
+            node_id, state = status['node_state']
+            if 'broken' in state:
+                self.set_value('pipeline_graph_node/%s/broken' % node_id, state['broken'])
 
     async def publish_mutations(self, mutations):
         assert self.callback_stub.connected
@@ -74,7 +93,7 @@ class Session(object):
         await self.callback_stub.call('SESSION_DATA_MUTATION', self.session_data)
 
     def set_value(self, key, value, from_client=False):
-        self.set_value({key: value}, from_client=from_client)
+        self.set_values({key: value}, from_client=from_client)
 
     def set_values(self, data, from_client=False):
         assert self.session_data_path is not None
@@ -388,40 +407,40 @@ class ProjectProcessMixin(object):
             sheet, client_address, self.manager, self.event_loop)
         await p.setup()
 
-        session.players[p.id] = p
+        session.add_player(p)
 
         return p.id, p.proxy_address
 
     async def handle_get_player_audioproc_address(
         self, session_id, player_id):
         session = self.get_session(session_id)
-        p = session.players[player_id]
+        p = session.get_player(player_id)
         return p.audioproc_address
 
     async def handle_delete_player(self, session_id, player_id):
         session = self.get_session(session_id)
-        p = session.players[player_id]
+        p = session.get_player(player_id)
         await p.cleanup()
-        del session.players[player_id]
+        session.remove_player(p)
 
     async def handle_player_start(self, session_id, player_id):
         session = self.get_session(session_id)
-        p = session.players[player_id]
+        p = session.get_player(player_id)
         await p.playback_start()
 
     async def handle_player_pause(self, session_id, player_id):
         session = self.get_session(session_id)
-        p = session.players[player_id]
+        p = session.get_player(player_id)
         await p.playback_pause()
 
     async def handle_player_stop(self, session_id, player_id):
         session = self.get_session(session_id)
-        p = session.players[player_id]
+        p = session.get_player(player_id)
         await p.playback_stop()
 
     async def handle_restart_player_pipeline(self, session_id, player_id):
         session = self.get_session(session_id)
-        p = session.players[player_id]
+        p = session.get_player(player_id)
         p.restart_pipeline()
 
     async def handle_dump(self, session_id):
