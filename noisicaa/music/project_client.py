@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 
 import asyncio
+import getpass
 import logging
+import socket
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -59,6 +61,7 @@ class ProjectClientMixin(object):
         self._node_db = node_db
         self._stub = None
         self._session_id = None
+        self._session_data = {}
         self._object_map = {}
         self.project = None
         self.cls_map = {}
@@ -78,13 +81,17 @@ class ProjectClientMixin(object):
         self.server.add_command_handler(
             'PLAYER_STATUS', self.handle_player_status,
             log_level=-1)
+        self.server.add_command_handler(
+            'SESSION_DATA_MUTATION', self.handle_session_data_mutation)
 
     async def connect(self, address):
         assert self._stub is None
         self._stub = ipc.Stub(self.event_loop, address)
         await self._stub.connect()
+        self._session_data = {}
+        session_name = '%s.%s' % (getpass.getuser(), socket.getfqdn())
         self._session_id, root_id = await self._stub.call(
-            'START_SESSION', self.server.address)
+            'START_SESSION', self.server.address, session_name)
         if root_id is not None:
             # Connected to a loaded project.
             self.__set_project(root_id)
@@ -201,17 +208,17 @@ class ProjectClientMixin(object):
 
     async def create(self, path):
         assert self.project is None
-        root_id = await self._stub.call('CREATE', path)
+        root_id = await self._stub.call('CREATE', self._session_id, path)
         self.__set_project(root_id)
 
     async def create_inmemory(self):
         assert self.project is None
-        root_id = await self._stub.call('CREATE_INMEMORY')
+        root_id = await self._stub.call('CREATE_INMEMORY', self._session_id)
         self.__set_project(root_id)
 
     async def open(self, path):
         assert self.project is None
-        root_id = await self._stub.call('OPEN', path)
+        root_id = await self._stub.call('OPEN', self._session_id, path)
         self.__set_project(root_id)
 
     async def close(self):
@@ -276,6 +283,25 @@ class ProjectClientMixin(object):
 
     async def dump(self):
         await self._stub.call('DUMP', self._session_id)
+
+    async def handle_session_data_mutation(self, data):
+        for key, value in data.items():
+            if key not in self._session_data or self._session_data[key] != value:
+                self._session_data[key] = value
+                self.listeners.call('session_data:%s' % key, value)
+
+    def set_session_values(self, data):
+        assert isinstance(data, dict), data
+        for key, value in data.items():
+            assert isinstance(key, str), key
+            assert isinstance(value, (str, bytes, bool, int, float)), value
+
+        self._session_data.update(data)
+        self.event_loop.create_task(
+            self._stub.call('SET_SESSION_VALUES', self._session_id, data))
+
+    def get_session_value(self, key, default):
+        return self._session_data.get(key, default)
 
 class ProjectClient(ProjectClientMixin, ProjectClientBase):
     pass

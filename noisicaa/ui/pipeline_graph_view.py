@@ -15,6 +15,7 @@ from noisicaa import node_db
 from . import ui_base
 from . import dock_widget
 from . import mute_button
+from . import session_helpers
 
 logger = logging.getLogger(__name__)
 
@@ -244,9 +245,12 @@ class ParameterValuesConnector(object):
         self.__parameter_values[parameter_name] = new_value
 
 
-class NodePropertyDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
+class NodePropertyDialog(
+        session_helpers.ManagedWindowMixin, ui_base.ProjectMixin, QtWidgets.QDialog):
     def __init__(self, node_item, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(
+            session_prefix='pipeline_graph_node/%s/properties_dialog/' % node_item.node.id,
+            **kwargs)
 
         self.setWindowTitle("%s - Properties" % node_item.node.name)
 
@@ -548,8 +552,6 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         self._node = node
         self._view = view
 
-        self._properties_dialog = None
-
         self._listeners = []
 
         self._moving = False
@@ -600,6 +602,11 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         self.setPos(self._node.graph_pos.x, self._node.graph_pos.y)
         self._graph_pos_listener = self._node.listeners.add(
             'graph_pos', self.onGraphPosChanged)
+
+        self._properties_dialog = NodePropertyDialog(
+            node_item=self,
+            parent=self.window,
+            **self.context)
 
     @property
     def node(self):
@@ -718,15 +725,10 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
             node_id=self._node.id)
 
     def onEdit(self, pos=None):
-        if self._properties_dialog is None:
-            self._properties_dialog = NodePropertyDialog(
-                node_item=self,
-                parent=self.window,
-                **self.context)
-
         if not self._properties_dialog.isVisible():
-            self._properties_dialog.move(pos)
             self._properties_dialog.show()
+            if pos is not None:
+                self._properties_dialog.move(pos)
         self._properties_dialog.activateWindow()
 
 class NodeItem(ui_base.ProjectMixin, NodeItemImpl):

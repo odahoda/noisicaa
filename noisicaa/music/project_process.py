@@ -3,11 +3,13 @@
 import asyncio
 import functools
 import logging
+import os.path
 import pprint
 import threading
 import time
 import traceback
 import uuid
+import pickle
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -29,10 +31,14 @@ class InvalidSessionError(Exception): pass
 
 
 class Session(object):
-    def __init__(self, event_loop, callback_stub):
+    def __init__(self, event_loop, callback_stub, session_name):
         self.event_loop = event_loop
         self.callback_stub = callback_stub
+        self.session_name = session_name
+
         self.id = uuid.uuid4().hex
+        self.session_data = {}
+        self.session_data_path = None
         self.players = {}
 
     async def cleanup(self):
@@ -53,6 +59,43 @@ class Session(object):
             logger.error(
                 "PROJECT_MUTATIONS %s failed with exception:\n%s",
                 mutations, traceback.format_exc())
+
+    async def init_session_data(self, data_dir):
+        self.session_data = {}
+        self.session_data_path = os.path.join(data_dir, 'sessions', self.session_name)
+        if not os.path.isdir(self.session_data_path):
+            os.makedirs(self.session_data_path)
+
+        checkpoint_path = os.path.join(self.session_data_path, 'checkpoint')
+        if os.path.isfile(checkpoint_path):
+            with open(checkpoint_path, 'rb') as fp:
+                self.session_data = pickle.load(fp)
+
+        await self.callback_stub.call('SESSION_DATA_MUTATION', self.session_data)
+
+    def set_value(self, key, value, from_client=False):
+        self.set_value({key: value}, from_client=from_client)
+
+    def set_values(self, data, from_client=False):
+        assert self.session_data_path is not None
+
+        changes = {}
+        for key, value in data.items():
+            if key in self.session_data and self.session_data[key] == value:
+                continue
+            changes[key] = value
+
+        if not changes:
+            return
+
+        self.session_data.update(changes)
+
+        with open(os.path.join(self.session_data_path, 'checkpoint'), 'wb') as fp:
+            pickle.dump(self.session_data, fp)
+
+        if not from_client:
+            self.event_loop.create_task(
+                self.callback_stub.call('SESSION_DATA_MUTATION', data))
 
 
 class AudioProcClientImpl(object):
@@ -135,6 +178,8 @@ class ProjectProcessMixin(object):
             'RESTART_PLAYER_PIPELINE', self.handle_restart_player_pipeline)
         self.server.add_command_handler(
             'DUMP', self.handle_dump)
+        self.server.add_command_handler(
+            'SET_SESSION_VALUES', self.handle_set_session_values)
 
         node_db_address = await self.manager.call(
             'CREATE_NODE_DB_PROCESS')
@@ -199,10 +244,10 @@ class ProjectProcessMixin(object):
                 session.publish_mutations(mutations)))
         await asyncio.wait(tasks, loop=self.event_loop)
 
-    async def handle_start_session(self, client_address):
+    async def handle_start_session(self, client_address, session_name):
         client_stub = ipc.Stub(self.event_loop, client_address)
         await client_stub.connect()
-        session = Session(self.event_loop, client_stub)
+        session = Session(self.event_loop, client_stub, session_name)
         self.sessions[session.id] = session
         if self.project is not None:
             await session.publish_mutations(
@@ -246,30 +291,36 @@ class ProjectProcessMixin(object):
         s.add_track(s.master_group, 0, score_track.ScoreTrack(name="Track 1"))
         return project
 
-    async def handle_create(self, path):
+    async def handle_create(self, session_id, path):
+        session = self.get_session(session_id)
         assert self.project is None
         self.project = self._create_blank_project(project.Project)
         self.project.create(path)
         await self.send_initial_mutations()
         self.project.listeners.add(
             'model_changes', self.handle_model_change)
+        await session.init_session_data(self.project.data_dir)
         return self.project.id
 
-    async def handle_create_inmemory(self):
+    async def handle_create_inmemory(self, session_id):
+        session = self.get_session(session_id)
         assert self.project is None
         self.project = self._create_blank_project(project.BaseProject)
         await self.send_initial_mutations()
         self.project.listeners.add(
             'model_changes', self.handle_model_change)
+        await session.init_session_data(self.project.data_dir)
         return self.project.id
 
-    async def handle_open(self, path):
+    async def handle_open(self, session_id, path):
+        session = self.get_session(session_id)
         assert self.project is None
         self.project = project.Project(node_db=self.node_db)
         self.project.open(path)
         await self.send_initial_mutations()
         self.project.listeners.add(
             'model_changes', self.handle_model_change)
+        await session.init_session_data(self.project.data_dir)
         return self.project.id
 
     def handle_close(self):
@@ -377,6 +428,11 @@ class ProjectProcessMixin(object):
         assert self.project is not None
         session = self.get_session(session_id)
         logger.info("%s", pprint.pformat(self.project.serialize()))
+
+    async def handle_set_session_values(self, session_id, data):
+        assert self.project is not None
+        session = self.get_session(session_id)
+        session.set_values(data, from_client=True)
 
 
 class ProjectProcess(ProjectProcessMixin, core.ProcessImpl):

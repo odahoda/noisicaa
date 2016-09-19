@@ -1,11 +1,28 @@
 # -*- org-tags-column: -98 -*-
 
+* Session state										      :FR:
+- store binary log for efficiency
+- replay log on open
+- checkpoints
+
+Stores
+- have std handlers to connect a widget to UI state
+  - when connecting, should set values from session
+  - sets up listeners to sync widget state to session
+  - QTabWidget
+- pipeline node enabled state
+- track/node mute/solo/visible states
+- current track
+
 
 * Gracefully handle pipeline crashes							      :FR:
 Blacklist crashing nodes
 - user can manually reactivate node
 - directly mark node as broken, when it throws an exception during setup() or run()
 - report node deactivation back to player, persist in model
+  - model modifications must be a command
+    -> would be weird when this can undone...
+    - rather in session state?
   -> that gets propagated to UI
   - visualize deactivated nodes in UI
 - also send error message to UI
@@ -13,6 +30,9 @@ Blacklist crashing nodes
 
 * Graceful AudioStream shutdown								      :FR:
 send close message to backend
+
+* Reanimate piano in instrument library							      :FR:
+So I can preview instruments again
 
 * Plugin support									      :FR:
 ** LV2
@@ -30,6 +50,9 @@ Have a list of instrument types
 - configure search paths for each type
 
 * Unify instrument handling in ScoreTrack and BeatTrack					 :CLEANUP:
+* Move BackendManager to noisicaa.core							 :CLEANUP:
+* Review licenses of all used modules							      :FR:
+All compatible with GPL?
 * SampleInstrument: tuning								      :FR:
 Set the base tuning of the instrument.
 - also look at sample rate (ftsr function)
@@ -295,6 +318,12 @@ At low zoom levels, don't render full notes, just dots.
 * Lens											    :IDEA:
 At low zoom levels, click on an area to popup an overlay window showing that area at a higher
 zoom level for editing.
+
+* Canvas tracks										    :IDEA:
+Free form painting on the track.
+Turn into array of a-rate values to feed into instrument.
+E.g. each row is an oscillator, row index is pitch, value is frequency.
+Do crazy stuff in csound.
 
 * cut, copy, paste									      :FR:
 - Use QClipboard

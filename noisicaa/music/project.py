@@ -326,6 +326,12 @@ class Project(BaseProject):
             return self.storage.path
         return None
 
+    @property
+    def data_dir(self):
+        if self.storage:
+            return self.storage.data_dir
+        return None
+
     def open(self, path):
         assert self.storage is None
 

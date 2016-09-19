@@ -88,3 +88,12 @@ class ProjectMixin(CommonMixin):
         self.call_async(
             self.project_client.send_command(target_id, cmd, **kwargs),
             callback=callback)
+
+    def set_session_value(self, key, value):
+        self.project_client.set_session_values({key: value})
+
+    def set_session_values(self, data):
+        self.project_client.set_session_values(data)
+
+    def get_session_value(self, key, default):
+        return self.project_client.get_session_value(key, default)

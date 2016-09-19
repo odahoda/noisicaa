@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import functools
 import logging
 
 from PyQt5.QtCore import Qt
@@ -60,7 +61,10 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         project_tab.addTab(mixer_tab, "Mixer")
         project_tab.setTabEnabled(1, False)
         project_tab.addTab(graph_tab, "Graph")
-        project_tab.setCurrentIndex(0)
+        project_tab.setCurrentIndex(self.get_session_value(
+            'project_view/current_tab_index', 0))
+        project_tab.currentChanged.connect(functools.partial(
+            self.set_session_value, 'project_view/current_tab_index'))
         self.setCentralWidget(project_tab)
 
         self._sheet_listener = self.project.listeners.add(
