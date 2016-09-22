@@ -11,6 +11,7 @@ EXIT_RESTART_CLEAN = 18
 
 DATA_DIR = os.path.abspath(os.path.join(__file__, '..', '..', 'data'))
 
+CACHE_DIR = os.path.abspath(os.path.join(os.path.expanduser('~'), '.cache', 'noisicaä'))
 
 # Cleanup namespace
 del os

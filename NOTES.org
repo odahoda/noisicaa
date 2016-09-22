@@ -5,12 +5,69 @@ Use display_name in track_property_dock
 - query instrument_db for description
 - fallback to URI, if description not found
 
-Have a list of instrument types
-- with scanners to list instruments
-- that know how to create the node for it (which node_uri and which parameters)
-- when opening a file, ask each intrument type if it can handle it. if more than one, ask which
-  one to use.
-- configure search paths for each type
+Batch mutations to speed up startup
+
+Async scanning
+- UI installs listener to get updates when InstrumentDescription of an URI changed
+  - TrackItem and TrackPropertiesDock
+
+Full vs. incremental scans
+- report scan progress to clients
+
+Deep scanning
+- Collect more information about instruments and store in InstrumentDescription
+- instrument type, path, mtime, copyright, #channels, sample rate, sample format
+
+Handle file moves
+- store file checksum
+- when same checksum with different path detected, then...?
+  - custom attributes are keyed by checksum?
+
+Organize library
+- add custom attributes to instruments
+  - star items
+  - tags
+  - comments
+
+Add individual files
+- dialog or filesystem browser in the UI?
+- integration with external sources (freesound.org, etc.)?
+
+Library UI
+- keep list sorted
+  - when inserting new items, sort by display_name
+  - how to do that O(log n)?
+- icon for instrument type
+- filter lists by
+  - tags
+  - only starred
+  - mono/stereo
+  - sample rate (range)
+  - sample format
+- edit multiple entries
+  - add/remove tag/star
+- view as tree by
+  - path
+  - tag
+- query DB if selected file is up-to-date
+  - show "File has changed, rescan" button
+  - install listener on URI to update info fields when changed
+- keep list in sync added/removed files
+- menu
+  - Incremental scan
+  - Full scan
+- status bar with progress while scanning
+  - when finished: Library scan finished XX ago: %d added, %d removed, %d updated
+  - status is tracked by app
+    - status:
+      - 'init_scan', #files_found
+      - 'scanning', #files_done, #files_total
+      - 'done', done_timestamp, #inst_added, #inst_remove, #inst_updated
+
+
+* transposing a measure works only once							     :BUG:
+need to move the mouse again to before it works again
+MeasureItem loses focus?
 
 * Session state										      :FR:
 - store binary log for efficiency

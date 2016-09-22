@@ -51,6 +51,8 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self._pipeline_instrument_id = None
         self._pipeline_event_source_id = None
 
+        self.instrument_mutation_listener = None
+
         self._instrument = None
 
         self.setWindowTitle("noisicaä - Instrument Library")
@@ -77,15 +79,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         layout.addWidget(instrument_list, 1)
         instrument_list.currentItemChanged.connect(
             lambda current, prev: self.onInstrumentItemSelected(current))
-
-        buttons = QtWidgets.QHBoxLayout()
-        layout.addLayout(buttons)
-
-        add_button = QtWidgets.QPushButton("Add")
-        add_button.clicked.connect(self.onInstrumentAdd)
-        buttons.addWidget(add_button)
-        buttons.addWidget(QtWidgets.QPushButton("Remove"))
-        buttons.addStretch(1)
 
         instrument_info = QtWidgets.QWidget(self)
         self.instruments_page.addWidget(instrument_info)
@@ -137,8 +130,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.setLayout(layout)
 
-        self.updateInstrumentList()
-
     @property
     def library(self):
         return self.app.instrument_library
@@ -148,6 +139,13 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
     async def setup(self):
         logger.info("Setting up instrument library dialog...")
+
+        self.instruments_list.clear()
+        for description in self.app.instrument_db.instruments:
+            self.instruments_list.addItem(
+                InstrumentListItem(self.instruments_list, description))
+        self._instrument_mutation_listener = self.app.instrument_db.listeners.add(
+            'mutation', self.handleInstrumentMutation)
 
         self._pipeline_mixer_id = await self.audioproc_client.add_node(
             'passthru', name='library-mixer')
@@ -167,6 +165,16 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             await self.audioproc_client.remove_node(
                 self._pipeline_mixer_id)
             self._pipeline_mixer_id = None
+
+        if self._instrument_mutation_listener is not None:
+            self._instrument_mutation_listener.remove()
+            self._instrument_mutation_listener = None
+
+    def handleInstrumentMutation(self, mutation):
+        logger.info("Mutation received: %s", mutation)
+        description = mutation.description
+        self.instruments_list.addItem(
+            InstrumentListItem(self.instruments_list, description))
 
     async def addInstrumentToPipeline(self, uri):
         assert self._pipeline_instrument_id is None
@@ -209,12 +217,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         super().closeEvent(event)
 
-    def updateInstrumentList(self):
-        self.instruments_list.clear()
-        for description in self.app.instrument_db.instruments:
-            self.instruments_list.addItem(
-                InstrumentListItem(self.instruments_list, description))
-
     def selectInstrument(self, uri):
         for idx in range(self.instruments_list.count()):
             item = self.instruments_list.item(idx)
@@ -249,22 +251,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                 item.setHidden(False)
             else:
                 item.setHidden(True)
-
-    def onInstrumentAdd(self):
-        # TODO: persists directory/filter in app settings.
-        path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
-            parent=self,
-            caption="Open Project",
-            # directory=self.ui_state.get(
-            #     'instruments_add_dialog_path', ''),
-            filter="All Files (*);;SoundFont Files (*.sf2)",
-            # initialFilter=self.ui_state.get(
-            #     'instruments_add_dialog_path', '')
-        )
-        if not path:
-            return
-
-        self.updateInstrumentList()
 
     def keyPressEvent(self, event):
         self.piano.keyPressEvent(event)

@@ -3,8 +3,10 @@
 import asyncio
 import functools
 import logging
+import time
 import uuid
 
+from noisicaa import constants
 from noisicaa import core
 from noisicaa.core import ipc
 
@@ -53,7 +55,11 @@ class InstrumentDBProcessMixin(object):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sessions = {}
-        self.db = db.InstrumentDB()
+        self.db = None
+        self.search_paths = [
+            '/usr/share/sounds/sf2/',
+            '/storage/home/share/samples/',
+        ]
 
     async def setup(self):
         await super().setup()
@@ -69,10 +75,17 @@ class InstrumentDBProcessMixin(object):
         self.server.add_command_handler(
             'START_SCAN', self.handle_start_scan)
 
+        self.db = db.InstrumentDB(self.event_loop, constants.CACHE_DIR)
         self.db.setup()
+        self.db.add_mutation_listener(self.publish_mutation)
+        if time.time() - self.db.last_scan_time > 3600:
+            self.db.start_scan(self.search_paths, True)
 
     async def cleanup(self):
-        self.db.cleanup()
+        if self.db is not None:
+            self.db.cleanup()
+            self.db = None
+
         await super().cleanup()
 
     async def run(self):
@@ -128,7 +141,7 @@ class InstrumentDBProcessMixin(object):
 
     async def handle_start_scan(self, session_id):
         self.get_session(session_id)
-        return self.db.start_scan()
+        return self.db.start_scan(self.search_paths, True)
 
 
 class InstrumentDBProcess(InstrumentDBProcessMixin, core.ProcessImpl):
