@@ -6,7 +6,6 @@
 - set track properties
 
 * Play head is completely off after measures are added					:ANNOYING:
-* Batch instrument db mutations to speed up startup					:ANNOYING:
 * More flexible instrument handling							      :FR:
 Use display_name in track_property_dock
 - query instrument_db for description

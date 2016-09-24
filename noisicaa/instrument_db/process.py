@@ -29,26 +29,26 @@ class Session(object):
     def cleanup(self):
         pass
 
-    def publish_mutation(self, mutation):
+    def publish_mutations(self, mutations):
         if not self.callback_stub.connected:
-            self.pending_mutations.append(mutation)
+            self.pending_mutations.extend(mutations)
             return
 
         callback_task = self.event_loop.create_task(
-            self.callback_stub.call('INSTRUMENTDB_MUTATION', mutation))
-        callback_task.add_done_callback(self.publish_mutation_done)
+            self.callback_stub.call('INSTRUMENTDB_MUTATIONS', mutations))
+        callback_task.add_done_callback(self.publish_mutations_done)
 
-    def publish_mutation_done(self, callback_task):
+    def publish_mutations_done(self, callback_task):
         assert callback_task.done()
         exc = callback_task.exception()
         if exc is not None:
             logger.error(
-                "INSTRUMENTDB_MUTATION failed with exception: %s", exc)
+                "INSTRUMENTDB_MUTATIONS failed with exception: %s", exc)
 
     def callback_stub_connected(self):
         assert self.callback_stub.connected
-        while self.pending_mutations:
-            self.publish_mutation(self.pending_mutations.pop(0))
+        self.publish_mutations(self.pending_mutations)
+        self.pending_mutations.clear()
 
 
 class InstrumentDBProcessMixin(object):
@@ -77,7 +77,7 @@ class InstrumentDBProcessMixin(object):
 
         self.db = db.InstrumentDB(self.event_loop, constants.CACHE_DIR)
         self.db.setup()
-        self.db.add_mutation_listener(self.publish_mutation)
+        self.db.add_mutations_listener(self.publish_mutations)
         if time.time() - self.db.last_scan_time > 3600:
             self.db.start_scan(self.search_paths, True)
 
@@ -99,9 +99,9 @@ class InstrumentDBProcessMixin(object):
         except KeyError:
             raise InvalidSessionError
 
-    def publish_mutation(self, mutation):
+    def publish_mutations(self, mutations):
         for session in self.sessions.values():
-            session.publish_mutation(mutation)
+            session.publish_mutations(mutations)
 
     def handle_start_session(self, client_address, flags):
         client_stub = ipc.Stub(self.event_loop, client_address)
@@ -113,8 +113,7 @@ class InstrumentDBProcessMixin(object):
 
         # Send initial mutations to build up the current pipeline
         # state.
-        for mutation in self.db.initial_mutations():
-            session.publish_mutation(mutation)
+        session.publish_mutations(list(self.db.initial_mutations()))
 
         return session.id
 

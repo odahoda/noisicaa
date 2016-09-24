@@ -64,8 +64,8 @@ class InstrumentDB(object):
             self.scan_thread.join()
             self.scan_thread = None
 
-    def add_mutation_listener(self, callback):
-        return self.listeners.add('db_mutation', callback)
+    def add_mutations_listener(self, callback):
+        return self.listeners.add('db_mutations', callback)
 
     def load_cache(self, path, default):
         if not os.path.isfile(path):
@@ -101,10 +101,14 @@ class InstrumentDB(object):
         self.event_loop.call_soon_threadsafe(
             self.listeners.call, 'scan-state', state, *args)
 
-    def add_instrument(self, description):
-        self.instruments[description.uri] = description
+    def add_instruments(self, descriptions):
+        for description in descriptions:
+            self.instruments[description.uri] = description
+
         self.listeners.call(
-            'db_mutation', instrument_db.AddInstrumentDescription(description))
+            'db_mutations',
+            [instrument_db.AddInstrumentDescription(description)
+             for description in descriptions])
 
     def scan_main(self):
         while not self.stopping.is_set():
@@ -172,6 +176,7 @@ class InstrumentDB(object):
             soundfont_scanner.SoundFontScanner(),
         ]
 
+        batch = []
         for idx, path in enumerate(file_list):
             if self.stopping.is_set():
                 raise ScanAborted
@@ -181,10 +186,18 @@ class InstrumentDB(object):
 
             for scanner in scanners:
                 for description in scanner.scan(path):
-                    self.event_loop.call_soon_threadsafe(
-                        self.add_instrument, description)
+                    batch.append(description)
+                    if len(batch) > 10:
+                        self.event_loop.call_soon_threadsafe(
+                            self.add_instruments, batch)
+                        batch.clear()
 
             self.file_map[path] = os.path.getmtime(path)
+
+        if batch:
+            self.event_loop.call_soon_threadsafe(
+                self.add_instruments, batch)
+            batch.clear()
 
         self.publish_scan_state('complete')
 

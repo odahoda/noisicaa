@@ -28,7 +28,7 @@ class InstrumentDBClientMixin(object):
     async def setup(self):
         await super().setup()
         self.server.add_command_handler(
-            'INSTRUMENTDB_MUTATION', self.handle_mutation)
+            'INSTRUMENTDB_MUTATIONS', self.handle_mutation)
 
     async def connect(self, address, flags=None):
         assert self._stub is None
@@ -55,12 +55,13 @@ class InstrumentDBClientMixin(object):
     async def start_scan(self):
         return await self._stub.call('START_SCAN', self._session_id)
 
-    def handle_mutation(self, mutation):
-        logger.info("Mutation received: %s" % mutation)
-        if isinstance(mutation, mutations.AddInstrumentDescription):
-            assert mutation.description.uri not in self._instruments
-            self._instruments[mutation.description.uri] = mutation.description
-        else:
-            raise ValueError(mutation)
+    def handle_mutation(self, mutations):
+        for mutation in mutations:
+            logger.info("Mutation received: %s" % mutation)
+            if isinstance(mutation, mutations.AddInstrumentDescription):
+                assert mutation.description.uri not in self._instruments
+                self._instruments[mutation.description.uri] = mutation.description
+            else:
+                raise ValueError(mutation)
 
-        self.listeners.call('mutation', mutation)
+            self.listeners.call('mutation', mutation)
