@@ -379,11 +379,9 @@ class ScoreTrack(model.ScoreTrack, MeasuredTrack):
 
     @property
     def event_source_node(self):
-        for node in self.sheet.pipeline_graph_nodes:
-            if isinstance(node, pipeline_graph.EventSourcePipelineGraphNode) and node.track is self:
-                return node
-
-        raise ValueError("No event source node found.")
+        if self.event_source_id is None:
+            raise ValueError("No event source node found.")
+        return self.root.get_object(self.event_source_id)
 
     @property
     def instr_name(self):
@@ -391,11 +389,10 @@ class ScoreTrack(model.ScoreTrack, MeasuredTrack):
 
     @property
     def instrument_node(self):
-        for node in self.sheet.pipeline_graph_nodes:
-            if isinstance(node, pipeline_graph.InstrumentPipelineGraphNode) and node.track is self:
-                return node
+        if self.instrument_id is None:
+            raise ValueError("No instrument node found.")
 
-        raise ValueError("No instrument node found.")
+        return self.root.get_object(self.instrument_id)
 
     def add_pipeline_nodes(self):
         super().add_pipeline_nodes()
@@ -407,6 +404,7 @@ class ScoreTrack(model.ScoreTrack, MeasuredTrack):
             graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
         self.sheet.add_pipeline_graph_node(instrument_node)
+        self.instrument_id = instrument_node.id
 
         conn = pipeline_graph.PipelineGraphConnection(
             instrument_node, 'out', self.mixer_node, 'in')
@@ -417,6 +415,7 @@ class ScoreTrack(model.ScoreTrack, MeasuredTrack):
             graph_pos=instrument_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
         self.sheet.add_pipeline_graph_node(event_source_node)
+        self.event_source_id = event_source_node.id
 
         conn = pipeline_graph.PipelineGraphConnection(
             event_source_node, 'out', instrument_node, 'in')
@@ -424,7 +423,9 @@ class ScoreTrack(model.ScoreTrack, MeasuredTrack):
 
     def remove_pipeline_nodes(self):
         self.sheet.remove_pipeline_graph_node(self.event_source_node)
+        self.event_source_id = None
         self.sheet.remove_pipeline_graph_node(self.instrument_node)
+        self.instrument_id = None
         super().remove_pipeline_nodes()
 
 state.StateBase.register_class(ScoreTrack)

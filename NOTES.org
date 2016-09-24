@@ -1,14 +1,21 @@
 # -*- org-tags-column: -98 -*-
 
-* TODO More flexible instrument handling						      :FR:
+* Store IDs of pipeline graph nodes in track						 :CLEANUP:
+- create track object
+- create pipeline objects
+- set track properties
+
+* Play head is completely off after measures are added					:ANNOYING:
+* Batch instrument db mutations to speed up startup					:ANNOYING:
+* More flexible instrument handling							      :FR:
 Use display_name in track_property_dock
 - query instrument_db for description
 - fallback to URI, if description not found
 
-Batch mutations to speed up startup
 
 Async scanning
 - UI installs listener to get updates when InstrumentDescription of an URI changed
+  - InstrumentDBClient also calls 'mutation:$(uri)' callback
   - TrackItem and TrackPropertiesDock
 
 Full vs. incremental scans
@@ -64,7 +71,6 @@ Library UI
       - 'scanning', #files_done, #files_total
       - 'done', done_timestamp, #inst_added, #inst_remove, #inst_updated
 
-
 * transposing a measure works only once							     :BUG:
 need to move the mouse again to before it works again
 MeasureItem loses focus?
@@ -82,7 +88,6 @@ Stores
 - pipeline node enabled state
 - track/node mute/solo/visible states
 - current track
-
 
 * Gracefully handle pipeline crashes							      :FR:
 Blacklist crashing nodes

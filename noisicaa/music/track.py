@@ -145,11 +145,10 @@ class Track(model.Track, state.StateBase):
 
     @property
     def mixer_node(self):
-        for node in self.sheet.pipeline_graph_nodes:
-            if isinstance(node, pipeline_graph.TrackMixerPipelineGraphNode) and node.track is self:
-                return node
+        if self.mixer_id is None:
+            raise ValueError("No mixer node found.")
 
-        raise ValueError("No mixer node found.")
+        return self.root.get_object(self.mixer_id)
 
     @property
     def relative_position_to_parent_mixer(self):
@@ -169,6 +168,7 @@ class Track(model.Track, state.StateBase):
                 + self.relative_position_to_parent_mixer),
             track=self)
         self.sheet.add_pipeline_graph_node(mixer_node)
+        self.mixer_id = mixer_node.id
 
         conn = pipeline_graph.PipelineGraphConnection(
             mixer_node, 'out', parent_mixer_node, 'in')
@@ -176,6 +176,7 @@ class Track(model.Track, state.StateBase):
 
     def remove_pipeline_nodes(self):
         self.sheet.remove_pipeline_graph_node(self.mixer_node)
+        self.mixer_id = None
 
 
 class Measure(model.Measure, state.StateBase):

@@ -19,6 +19,8 @@ class Track(core.ObjectBase):
     muted = core.Property(bool, default=False)
     volume = core.Property(float, default=100.0)
 
+    mixer_id = core.Property(str, allow_none=True)
+
     @property
     def project(self):
         return self.sheet.project
@@ -140,6 +142,9 @@ class ScoreMeasure(Measure):
 class ScoreTrack(MeasuredTrack):
     instrument = core.Property(str)
     transpose_octaves = core.Property(int, default=0)
+
+    instrument_id = core.Property(str, allow_none=True)
+    event_source_id = core.Property(str, allow_none=True)
 
 
 class Beat(core.ObjectBase):
