@@ -68,6 +68,9 @@ class Session(object):
     async def publish_mutations(self, mutations):
         assert self.callback_stub.connected
 
+        if not mutations:
+            return
+
         logger.info(
             "Publish mutations:\n%s",
             '\n'.join(str(mutation) for mutation in mutations))
