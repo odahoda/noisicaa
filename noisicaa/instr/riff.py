@@ -39,8 +39,15 @@ class RiffFile(object):
                 raise FormatError("RIFF signature not found")
 
             size = struct.unpack('<L', fp.read(4))[0]
-            if size + 8 > os.path.getsize(path):
-                raise DataError("File truncated")
+            logger.debug("0x%08x: Content size %r", 4, size)
+            if size == os.path.getsize(path):
+                logger.debug("Uncorrect content size (includes RIFF header)")
+                size -= 8
+
+            if size + 8 != os.path.getsize(path):
+                raise DataError(
+                    "File size mismatch (expected %d, got %d)"
+                    % (size + 8, os.path.getsize(path)))
 
             self._parse_list(fp, [], 8, size + 8)
 
@@ -75,9 +82,13 @@ class RiffFile(object):
                 self.handle_chunk(identifier, path + [list_identifier], chunksize, fp)
                 fp.seek(offset + (chunksize + 1) & 0xfffffffe, io.SEEK_SET)
 
-            offset += (chunksize + 1) & 0xfffffffe
-            if offset > end_offset:
-                raise FormatError("%d > %d" % (offset, end_offset))
+            if offset + chunksize == end_offset and chunksize & 1 == 1:
+                logger.debug("Ignoring missing pad byte on last chunk.")
+                offset = end_offset
+            else:
+                offset += (chunksize + 1) & 0xfffffffe
+                if offset > end_offset:
+                    raise FormatError("%d > %d" % (offset, end_offset))
 
         self.end_list(list_identifier, path)
 
@@ -94,4 +105,5 @@ if __name__ == '__main__':
             print(
                 "CHUNK %s (%d bytes)" % (' > '.join(path + [identifier]), size))
 
+    logger.setLevel(logging.DEBUG)
     DumpStructure().parse(sys.argv[1])

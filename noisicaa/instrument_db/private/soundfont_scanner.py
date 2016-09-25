@@ -30,6 +30,8 @@ class SoundFontScanner(scanner.Scanner):
 
             description = instrument_db.InstrumentDescription(
                 uri=uri,
-                display_name=preset.name)
+                path=path,
+                display_name=preset.name,
+                properties={})
 
             yield description

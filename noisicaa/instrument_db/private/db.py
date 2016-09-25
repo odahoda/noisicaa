@@ -48,6 +48,8 @@ class InstrumentDB(object):
             self.instruments = cache_data['instruments']
             self.file_map = cache_data['file_map']
             self.last_scan_time = cache_data['last_scan_time']
+            logger.info("%d instruments.", len(self.instruments))
+            logger.info("last scan: %s.", time.ctime(self.last_scan_time))
         else:
             logger.info("Starting with empty instrument database.")
             self.instruments = {}
@@ -189,14 +191,14 @@ class InstrumentDB(object):
                     batch.append(description)
                     if len(batch) > 10:
                         self.event_loop.call_soon_threadsafe(
-                            self.add_instruments, batch)
+                            self.add_instruments, list(batch))
                         batch.clear()
 
             self.file_map[path] = os.path.getmtime(path)
 
         if batch:
             self.event_loop.call_soon_threadsafe(
-                self.add_instruments, batch)
+                self.add_instruments, list(batch))
             batch.clear()
 
         self.publish_scan_state('complete')

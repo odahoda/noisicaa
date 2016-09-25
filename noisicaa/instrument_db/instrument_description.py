@@ -3,11 +3,31 @@
 import enum
 import urllib.parse
 
-class InstrumentDescription(object):
-    def __init__(self, uri, display_name):
-        self.uri = uri
-        self.display_name = display_name
+class Property(enum.Enum):
+    # int
+    BitsPerSample = 'bits-per-sample'
 
+    # int
+    NumChannels = 'num-channels'
+
+    SampleFormat = 'sample-format'
+
+    # int, samples per seconds
+    SampleRate = 'sample-rate'
+
+    # int
+    NumSamples = 'num-samples'
+
+    # float, in seconds
+    Duration = 'duration'
+
+
+class InstrumentDescription(object):
+    def __init__(self, uri, path, display_name, properties):
+        self.uri = uri
+        self.path = path
+        self.display_name = display_name
+        self.properties = properties
 
 def parse_uri(uri):
     fmt, _, path, _, args, _ = urllib.parse.urlparse(uri)

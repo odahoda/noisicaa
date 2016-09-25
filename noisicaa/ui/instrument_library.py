@@ -6,6 +6,7 @@
 
 import asyncio
 import logging
+import pprint
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -91,6 +92,9 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.instrument_name = QtWidgets.QLineEdit(self, readOnly=True)
         form_layout.addRow("Name", self.instrument_name)
+
+        self.instrument_data = QtWidgets.QTextEdit(self, readOnly=True)
+        form_layout.addRow("Description", self.instrument_data)
 
         layout.addStretch(1)
 
@@ -227,6 +231,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     def onInstrumentItemSelected(self, item):
         if item is None:
             self.instrument_name.setText("")
+            self.instrument_data.setText("")
             return
 
         self.call_async(self.setCurrentInstrument(item.description))
@@ -235,6 +240,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         await self.removeInstrumentFromPipeline()
 
         self.instrument_name.setText(description.display_name)
+        self.instrument_data.setPlainText(pprint.pformat(description.properties))
 
         await self.addInstrumentToPipeline(description.uri)
 

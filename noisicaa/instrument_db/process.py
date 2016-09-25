@@ -30,12 +30,15 @@ class Session(object):
         pass
 
     def publish_mutations(self, mutations):
+        if not mutations:
+            return
+
         if not self.callback_stub.connected:
             self.pending_mutations.extend(mutations)
             return
 
         callback_task = self.event_loop.create_task(
-            self.callback_stub.call('INSTRUMENTDB_MUTATIONS', mutations))
+            self.callback_stub.call('INSTRUMENTDB_MUTATIONS', list(mutations)))
         callback_task.add_done_callback(self.publish_mutations_done)
 
     def publish_mutations_done(self, callback_task):
@@ -46,6 +49,9 @@ class Session(object):
                 "INSTRUMENTDB_MUTATIONS failed with exception: %s", exc)
 
     def callback_stub_connected(self):
+        logger.info(
+            "Client callback connection established, sending %d pending mutations.",
+            len(self.pending_mutations))
         assert self.callback_stub.connected
         self.publish_mutations(self.pending_mutations)
         self.pending_mutations.clear()

@@ -1,9 +1,9 @@
 # -*- org-tags-column: -98 -*-
 
+* Pan node										      :FR:
+- left/right
 * Store IDs of pipeline graph nodes in track						 :CLEANUP:
-- create track object
-- create pipeline objects
-- set track properties
+- refs from PipelineGraphNode should use IDs, too
 
 * Play head is completely off after measures are added					:ANNOYING:
 * More flexible instrument handling							      :FR:
@@ -21,8 +21,12 @@ Full vs. incremental scans
 - report scan progress to clients
 
 Deep scanning
-- Collect more information about instruments and store in InstrumentDescription
-- instrument type, path, mtime, copyright, #channels, sample rate, sample format
+- instrument type, mtime
+- sample_scanner:
+  - any metadata (copyright, ..) in common headers? iXML?
+- soundfont_scanner
+  - fields from soundfont.py
+  - audio format data (#channels, sample rate, sample format)?
 
 Handle file moves
 - store file checksum

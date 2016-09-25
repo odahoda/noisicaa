@@ -55,11 +55,10 @@ class InstrumentDBClientMixin(object):
     async def start_scan(self):
         return await self._stub.call('START_SCAN', self._session_id)
 
-    def handle_mutation(self, mutations):
-        for mutation in mutations:
+    def handle_mutation(self, mutation_list):
+        for mutation in mutation_list:
             logger.info("Mutation received: %s" % mutation)
             if isinstance(mutation, mutations.AddInstrumentDescription):
-                assert mutation.description.uri not in self._instruments
                 self._instruments[mutation.description.uri] = mutation.description
             else:
                 raise ValueError(mutation)
