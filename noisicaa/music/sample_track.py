@@ -21,6 +21,82 @@ from . import time_mapper
 logger = logging.getLogger(__name__)
 
 
+class AddSample(commands.Command):
+    timepos = core.Property(Duration)
+    path = core.Property(str)
+
+    def __init__(self, timepos=None, path=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.timepos = timepos
+            self.path = path
+
+    def run(self, track):
+        assert isinstance(track, SampleTrack)
+
+        sheet = track.sheet
+
+        smpl = Sample(path=self.path)
+        sheet.samples.append(smpl)
+
+        smpl_ref = SampleRef(timepos=self.timepos, sample_id=smpl.id)
+        track.samples.append(smpl_ref)
+
+commands.Command.register_command(AddSample)
+
+
+class RemoveSample(commands.Command):
+    sample_id = core.Property(str)
+
+    def __init__(self, sample_id=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.sample_id = sample_id
+
+    def run(self, track):
+        assert isinstance(track, SampleTrack)
+
+        root = track.root
+        smpl_ref = root.get_object(self.sample_id)
+        assert smpl_ref.is_child_of(track)
+
+        del track.samples[smpl_ref.index]
+
+commands.Command.register_command(RemoveSample)
+
+
+class MoveSample(commands.Command):
+    sample_id = core.Property(str)
+    timepos = core.Property(Duration)
+
+    def __init__(self, sample_id=None, timepos=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.sample_id = sample_id
+            self.timepos = timepos
+
+    def run(self, track):
+        assert isinstance(track, SampleTrack)
+
+        root = track.root
+        smpl_ref = root.get_object(self.sample_id)
+        assert smpl_ref.is_child_of(track)
+
+        smpl_ref.timepos = self.timepos
+
+commands.Command.register_command(MoveSample)
+
+
+class Sample(model.Sample, state.StateBase):
+    def __init__(self, path=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            self.path = path
+
+state.StateBase.register_class(Sample)
+
+
 class SampleRef(model.SampleRef, state.StateBase):
     def __init__(self, timepos=None, sample_id=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
