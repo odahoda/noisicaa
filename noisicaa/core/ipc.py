@@ -240,6 +240,20 @@ class ClientProtocol(asyncio.Protocol):
                 raise RuntimeError("Invalid state %d" % self.state)
 
 
+class ResponseContainer(object):
+    def __init__(self, event_loop):
+        self.response = None
+        self._event = asyncio.Event(loop=event_loop)
+
+    def set(self, response):
+        self.response = response
+        self._event.set()
+
+    async def wait(self):
+        await self._event.wait()
+        return self.response
+
+
 class Stub(object):
     serialize = functools.partial(
         pickle.dumps, protocol=pickle.HIGHEST_PROTOCOL)
@@ -252,6 +266,8 @@ class Stub(object):
         self._server_address = server_address
         self._transport = None
         self._protocol = None
+        self._command_queue = None
+        self._command_loop_task = None
 
     @property
     def connected(self):
@@ -265,7 +281,17 @@ class Stub(object):
                 self._server_address))
         logger.info("Connected to server at %s", self._server_address)
 
+        self._command_queue = asyncio.Queue(loop=self._event_loop)
+        self._command_loop_task = self._event_loop.create_task(self.command_loop())
+
     async def close(self):
+        if self._command_loop_task is not None:
+            self._command_loop_task.cancel()
+            self._command_loop_task = None
+
+        if self._command_queue is not None:
+            self._command_queue = None
+
         assert self._transport is not None
         self._transport.close()
         await self._protocol.closed_event.wait()
@@ -281,6 +307,21 @@ class Stub(object):
         await self.close()
         return False
 
+    async def command_loop(self):
+        while True:
+            cmd, payload, response_container = await self._command_queue.get()
+
+            if self._transport.is_closing():
+                response_container.set(self.CLOSE_SENTINEL)
+                continue
+
+            self._transport.write(b'CALL %s %d\n' % (cmd, len(payload)))
+            if payload:
+                self._transport.write(payload)
+
+            response = await self._protocol.response_queue.get()
+            response_container.set(response)
+
     async def call(self, cmd, *args, **kwargs):
         if not isinstance(cmd, bytes):
             cmd = cmd.encode('ascii')
@@ -292,14 +333,9 @@ class Stub(object):
                     exc, pprint.pformat(args), pprint.pformat(kwargs))
             ) from None
 
-        if self._transport.is_closing():
-            raise ConnectionClosed()
-
-        self._transport.write(b'CALL %s %d\n' % (cmd, len(payload)))
-        if payload:
-            self._transport.write(payload)
-
-        response = await self._protocol.response_queue.get()
+        response_container = ResponseContainer(self._event_loop)
+        self._command_queue.put_nowait((cmd, payload, response_container))
+        response = await response_container.wait()
 
         if response is self.CLOSE_SENTINEL:
             raise ConnectionClosed
