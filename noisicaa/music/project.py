@@ -460,11 +460,12 @@ class Project(BaseProject):
         now = time.time()
         result = super().dispatch_command(obj_id, cmd)
 
-        self.storage.append_log_entry(
-            self.serialize_command(cmd, obj_id, now))
+        if not cmd.is_noop:
+            self.storage.append_log_entry(
+                self.serialize_command(cmd, obj_id, now))
 
-        if self.storage.logs_since_last_checkpoint > 1000:
-            self.create_checkpoint()
+            if self.storage.logs_since_last_checkpoint > 1000:
+                self.create_checkpoint()
 
         return result
 

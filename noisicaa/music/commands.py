@@ -109,6 +109,10 @@ class Command(state.RootMixin, state.StateBase):
         c = cls.command_classes[cls_name]
         return c(state=state)
 
+    @property
+    def is_noop(self):
+        return len(self.log.ops) == 0
+
     def set_property(self, obj, prop_name, new_value):
         old_value = getattr(obj, prop_name)
         with self.__custom_mutator():
