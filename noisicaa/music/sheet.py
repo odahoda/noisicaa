@@ -12,6 +12,7 @@ from . import mutations
 from . import score_track
 from . import beat_track
 from . import control_track
+from . import sample_track
 from . import track_group
 from . import sheet_property_track
 from . import pipeline_graph
@@ -52,6 +53,7 @@ class AddTrack(commands.Command):
             'score': score_track.ScoreTrack,
             'beat': beat_track.BeatTrack,
             'control': control_track.ControlTrack,
+            'sample': sample_track.SampleTrack,
             'group': track_group.TrackGroup,
         }
         track_cls = track_cls_map[self.track_type]

@@ -49,6 +49,8 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
                 os.path.join(DATA_DIR, 'icons', 'track-type-beat.svg'))
         self._control_icon = QtGui.QIcon(
                 os.path.join(DATA_DIR, 'icons', 'track-type-control.svg'))
+        self._sample_icon = QtGui.QIcon(
+                os.path.join(DATA_DIR, 'icons', 'track-type-sample.svg'))
         self._group_icon = QtGui.QIcon(
                 os.path.join(DATA_DIR, 'icons', 'track-type-group.svg'))
 
@@ -192,6 +194,8 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
                     return self._beat_icon
                 elif isinstance(track, model.ControlTrack):
                     return self._control_icon
+                elif isinstance(track, model.SampleTrack):
+                    return self._sample_icon
                 elif isinstance(track, model.TrackGroup):
                     return self._group_icon
                 else:
@@ -398,6 +402,11 @@ class TracksDockWidget(DockWidget):
                 os.path.join(DATA_DIR, 'icons', 'track-type-control.svg')),
             "Control track", self,
             triggered=functools.partial(self.onAddClicked, 'control'))
+        self._add_sample_track_action = QtWidgets.QAction(
+            QtGui.QIcon(
+                os.path.join(DATA_DIR, 'icons', 'track-type-sample.svg')),
+            "Sample track", self,
+            triggered=functools.partial(self.onAddClicked, 'sample'))
         self._add_track_group_action = QtWidgets.QAction(
             QtGui.QIcon(
                 os.path.join(DATA_DIR, 'icons', 'track-type-group.svg')),
@@ -408,6 +417,7 @@ class TracksDockWidget(DockWidget):
         self._add_track_menu.addAction(self._add_score_track_action)
         self._add_track_menu.addAction(self._add_beat_track_action)
         self._add_track_menu.addAction(self._add_control_track_action)
+        self._add_track_menu.addAction(self._add_sample_track_action)
         self._add_track_menu.addAction(self._add_track_group_action)
 
         self._add_button = QtWidgets.QToolButton(

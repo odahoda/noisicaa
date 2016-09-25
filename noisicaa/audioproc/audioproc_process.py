@@ -119,6 +119,7 @@ class AudioProcProcessMixin(object):
         self.node_db.add(nodes.IPCNode)
         self.node_db.add(nodes.PassThru)
         self.node_db.add(nodes.TrackControlSource)
+        self.node_db.add(nodes.TrackAudioSource)
         self.node_db.add(nodes.TrackEventSource)
         self.node_db.add(nodes.CSoundFilter)
         self.node_db.add(nodes.CustomCSound)

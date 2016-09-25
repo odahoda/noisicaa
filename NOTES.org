@@ -1,5 +1,12 @@
 # -*- org-tags-column: -98 -*-
 
+* TODO Audio tracks									      :FR:
+- keep separate list of audio clips
+- drag'n'drop sections onto audio tracks
+- a section is a clip or range of a clip
+- per section envelope
+  - short (few msec) ramp up/down to avoid clicks
+
 * Pan node										      :FR:
 - left/right
 * Store IDs of pipeline graph nodes in track						 :CLEANUP:
@@ -369,13 +376,6 @@ At low zoom levels, don't render full notes, just dots.
 * More instrument types									      :FR:
 - SFZ
 - arbitrary plugin
-
-* Audio tracks										      :FR:
-- keep separate list of audio clips
-- drag'n'drop sections onto audio tracks
-- a section is a clip or range of a clip
-- per section envelope
-  - short (few msec) ramp up/down to avoid clicks
 * Lens											    :IDEA:
 At low zoom levels, click on an area to popup an overlay window showing that area at a higher
 zoom level for editing.

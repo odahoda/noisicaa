@@ -189,6 +189,16 @@ class ControlTrack(Track):
     points = core.ObjectListProperty(ControlPoint)
 
 
+class SampleRef(core.ObjectBase):
+    timepos = core.Property(time.Duration)
+    sample_id = core.Property(str)
+
+
+class SampleTrack(Track):
+    samples = core.ObjectListProperty(SampleRef)
+    audio_source_id = core.Property(str, allow_none=True)
+
+
 class PipelineGraphNodeParameterValue(core.ObjectBase):
     name = core.Property(str)
     value = core.Property((str, float, int))
@@ -315,6 +325,26 @@ class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
         return self.__description
 
 
+class AudioSourcePipelineGraphNode(BasePipelineGraphNode):
+    track = core.ObjectReferenceProperty()
+
+    @property
+    def removable(self):
+        return False
+
+    __description = node_db.SystemNodeDescription(
+        ports=[
+            node_db.AudioPortDescription(
+                name='out',
+                direction=node_db.PortDirection.Output,
+                channels='stereo'),
+        ])
+
+    @property
+    def description(self):
+        return self.__description
+
+
 class InstrumentPipelineGraphNode(BasePipelineGraphNode):
     track = core.ObjectReferenceProperty()
 
@@ -345,6 +375,10 @@ class PipelineGraphConnection(core.ObjectBase):
     dest_port = core.Property(str)
 
 
+class Sample(core.ObjectBase):
+    path = core.Property(str)
+
+
 class Sheet(core.ObjectBase):
     name = core.Property(str, default="Sheet")
     master_group = core.ObjectProperty(TrackGroup)
@@ -352,6 +386,7 @@ class Sheet(core.ObjectBase):
     pipeline_graph_nodes = core.ObjectListProperty(PipelineGraphNode)
     pipeline_graph_connections = core.ObjectListProperty(
         PipelineGraphConnection)
+    samples = core.ObjectListProperty(Sample)
 
     @property
     def sheet(self):

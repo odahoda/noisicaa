@@ -104,6 +104,11 @@ class ControlTrackProperties(TrackProperties):
         super().__init__(**kwargs)
 
 
+class SampleTrackProperties(TrackProperties):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
 class ScoreTrackProperties(TrackProperties):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -317,6 +322,10 @@ class TrackPropertiesDockWidget(DockWidget):
 
         elif isinstance(self._track, model.ControlTrack):
             self.setWidget(ControlTrackProperties(
+                track=self._track, **self.context))
+
+        elif isinstance(self._track, model.SampleTrack):
+            self.setWidget(SampleTrackProperties(
                 track=self._track, **self.context))
 
         else:

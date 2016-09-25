@@ -22,6 +22,7 @@ from . import score_track_item
 from . import beat_track_item
 from . import sheet_property_track_item
 from . import control_track_item
+from . import sample_track_item
 from . import layout
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ class SheetViewImpl(QtWidgets.QGraphicsView):
         'BeatTrack': beat_track_item.BeatTrackItem,
         'SheetPropertyTrack': sheet_property_track_item.SheetPropertyTrackItem,
         'ControlTrack': control_track_item.ControlTrackItem,
+        'SampleTrack': sample_track_item.SampleTrackItem,
     }
 
     def __init__(self, sheet, **kwargs):

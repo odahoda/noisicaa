@@ -40,6 +40,8 @@ class TrackGroup(model.TrackGroup, project_client.ObjectProxy): pass
 class MasterTrackGroup(model.MasterTrackGroup, project_client.ObjectProxy): pass
 class ControlPoint(model.ControlPoint, project_client.ObjectProxy): pass
 class ControlTrack(model.ControlTrack, project_client.ObjectProxy): pass
+class SampleRef(model.SampleRef, project_client.ObjectProxy): pass
+class SampleTrack(model.SampleTrack, project_client.ObjectProxy): pass
 class SheetPropertyMeasure(model.SheetPropertyMeasure, project_client.ObjectProxy): pass
 class SheetPropertyTrack(model.SheetPropertyTrack, project_client.ObjectProxy): pass
 class PipelineGraphNodeParameterValue(model.PipelineGraphNodeParameterValue, project_client.ObjectProxy): pass
@@ -48,9 +50,11 @@ class PipelineGraphNode(model.PipelineGraphNode, project_client.ObjectProxy): pa
 class AudioOutPipelineGraphNode(model.AudioOutPipelineGraphNode, project_client.ObjectProxy): pass
 class TrackMixerPipelineGraphNode(model.TrackMixerPipelineGraphNode, project_client.ObjectProxy): pass
 class ControlSourcePipelineGraphNode(model.ControlSourcePipelineGraphNode, project_client.ObjectProxy): pass
+class AudioSourcePipelineGraphNode(model.AudioSourcePipelineGraphNode, project_client.ObjectProxy): pass
 class EventSourcePipelineGraphNode(model.EventSourcePipelineGraphNode, project_client.ObjectProxy): pass
 class InstrumentPipelineGraphNode(model.InstrumentPipelineGraphNode, project_client.ObjectProxy): pass
 class PipelineGraphConnection(model.PipelineGraphConnection, project_client.ObjectProxy): pass
+class Sample(model.Sample, project_client.ObjectProxy): pass
 class Sheet(model.Sheet, project_client.ObjectProxy): pass
 class Metadata(model.Metadata, project_client.ObjectProxy): pass
 class Project(model.Project, project_client.ObjectProxy):
@@ -91,6 +95,8 @@ cls_map = {
     'MasterTrackGroup': MasterTrackGroup,
     'ControlPoint': ControlPoint,
     'ControlTrack': ControlTrack,
+    'SampleRef': SampleRef,
+    'SampleTrack': SampleTrack,
     'SheetPropertyMeasure': SheetPropertyMeasure,
     'SheetPropertyTrack': SheetPropertyTrack,
     'PipelineGraphNodeParameterValue': PipelineGraphNodeParameterValue,
@@ -99,9 +105,11 @@ cls_map = {
     'AudioOutPipelineGraphNode': AudioOutPipelineGraphNode,
     'TrackMixerPipelineGraphNode': TrackMixerPipelineGraphNode,
     'ControlSourcePipelineGraphNode': ControlSourcePipelineGraphNode,
+    'AudioSourcePipelineGraphNode': AudioSourcePipelineGraphNode,
     'EventSourcePipelineGraphNode': EventSourcePipelineGraphNode,
     'InstrumentPipelineGraphNode': InstrumentPipelineGraphNode,
     'PipelineGraphConnection': PipelineGraphConnection,
+    'Sample': Sample,
     'Sheet': Sheet,
     'Metadata': Metadata,
     'Project': Project,
