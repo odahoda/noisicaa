@@ -60,6 +60,8 @@ class SampleItem(QtWidgets.QGraphicsRectItem):
         self._group = group
         self._sample = sample
 
+        self._overlay = None
+
         self._listeners = [
             self._sample.listeners.add('timepos', self.onTimeposChanged),
         ]
@@ -68,13 +70,17 @@ class SampleItem(QtWidgets.QGraphicsRectItem):
         self.setPen(Qt.black)
         self.setBrush(Qt.white)
 
+        overlay = QtWidgets.QGraphicsSimpleTextItem(self)
+        overlay.setText("Rendering...")
+        self.setOverlay(overlay)
+
     @property
     def sample_id(self):
         return self._sample.id
 
     @property
     def width(self):
-        return 50
+        return self.rect().width()
 
     def close(self):
         for listener in self._listeners:
@@ -90,7 +96,23 @@ class SampleItem(QtWidgets.QGraphicsRectItem):
         if highlighted:
             self.setBrush(QtGui.QColor(200, 200, 255))
         else:
-            self.setBrush(QtGui.QBrush(Qt.NoBrush))
+            self.setBrush(Qt.white)
+
+    def setOverlay(self, overlay):
+        if self._overlay is not None:
+            self._overlay.scene().removeItem(self._overlay)
+            self._overlay = None
+
+        self._overlay = overlay
+
+    def renderSample(self, render_result):
+        status, *args = render_result
+        if status == 'broken':
+            self.setRect(0, 0, 50, self._group.height)
+
+            overlay = QtWidgets.QGraphicsSimpleTextItem(self)
+            overlay.setText("Broken")
+            self.setOverlay(overlay)
 
 
 class SampleGroup(ui_base.ProjectMixin, QGraphicsGroup):
@@ -189,6 +211,11 @@ class SampleGroup(ui_base.ProjectMixin, QGraphicsGroup):
         item = SampleItem(parent=self, group=self, sample=sample)
         item.setPos(self.timeposToX(sample.timepos), 0)
         self._samples.insert(insert_index, item)
+
+        self.send_command_async(
+            sample.id, 'RenderSample',
+            scale_x=Fraction(500),
+            callback=item.renderSample)
 
     def removeSample(self, remove_index, sample):
         item = self._samples.pop(remove_index)

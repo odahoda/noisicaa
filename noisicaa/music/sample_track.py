@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from fractions import Fraction
 import logging
 
 import numpy
@@ -85,6 +86,22 @@ class MoveSample(commands.Command):
         smpl_ref.timepos = self.timepos
 
 commands.Command.register_command(MoveSample)
+
+
+class RenderSample(commands.Command):
+    scale_x = core.Property(Fraction)
+
+    def __init__(self, scale_x=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.scale_x = scale_x
+
+    def run(self, sample):
+        assert isinstance(sample, SampleRef)
+
+        return ['broken']
+
+commands.Command.register_command(RenderSample)
 
 
 class Sample(model.Sample, state.StateBase):

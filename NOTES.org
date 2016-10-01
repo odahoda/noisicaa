@@ -1,6 +1,15 @@
 # -*- org-tags-column: -98 -*-
 
+* use libsndfile
+- instead of custom WAVE parsing
+- to load sample data into memory
+
 * TODO Audio tracks									      :FR:
+- project process loads sample data into memory
+- rendering
+  - render by project process (which has the sample data in memory)
+  - don't use a normal command, make it an special call
+- SampleEntitySource feeds samples to autoproc
 - keep separate list of audio clips
 - drag'n'drop sections onto audio tracks
 - a section is a clip or range of a clip
