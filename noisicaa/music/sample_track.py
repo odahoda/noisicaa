@@ -7,6 +7,7 @@ import numpy
 
 from noisicaa import core
 from noisicaa import audioproc
+from noisicaa.bindings import sndfile
 
 from .track import Track
 from .time import Duration
@@ -96,10 +97,42 @@ class RenderSample(commands.Command):
         if state is None:
             self.scale_x = scale_x
 
-    def run(self, sample):
-        assert isinstance(sample, SampleRef)
+    def run(self, sample_ref):
+        assert isinstance(sample_ref, SampleRef)
 
-        return ['broken']
+        root = sample_ref.root
+        sample = root.get_object(sample_ref.sample_id)
+
+        try:
+            samples = sample.samples
+        except sndfile.Error:
+            return ['broken']
+
+        samples = sample.samples[...,0]
+
+        tmap = time_mapper.TimeMapper(sample.sheet)
+
+        begin_timepos = sample_ref.timepos
+        begin_samplepos = tmap.timepos2sample(begin_timepos)
+        end_samplepos = begin_samplepos + len(samples)
+        end_timepos = tmap.sample2timepos(end_samplepos)
+
+        width = int(self.scale_x * (end_timepos - begin_timepos))
+
+        print(begin_samplepos, end_samplepos, begin_timepos, end_timepos, self.scale_x, width)
+
+        if width < len(samples) / 10:
+            rms = []
+            for p in range(0, width):
+                p_start = p * len(samples) // width
+                p_end = (p + 1) * len(samples) // width
+                s = samples[p_start:p_end]
+                rms.append(numpy.sqrt(numpy.mean(numpy.square(s))))
+
+            return ['rms', rms]
+
+        else:
+            return ['broken']
 
 commands.Command.register_command(RenderSample)
 
@@ -110,6 +143,15 @@ class Sample(model.Sample, state.StateBase):
 
         if state is None:
             self.path = path
+
+        self._samples = None
+
+    @property
+    def samples(self):
+        if self._samples is None:
+            with sndfile.SndFile(self.path) as sf:
+                self._samples = sf.get_samples()
+        return self._samples
 
 state.StateBase.register_class(Sample)
 

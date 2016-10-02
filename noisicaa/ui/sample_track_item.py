@@ -23,8 +23,11 @@ class SampleTrackLayout(layout.TrackLayout):
         super().__init__()
         self._track = track
         self._widths = []
+        self._scale_x = None
 
     def compute(self, scale_x):
+        self._scale_x = scale_x
+
         timepos = Fraction(0, 1)
         x = 0
 
@@ -51,6 +54,10 @@ class SampleTrackLayout(layout.TrackLayout):
     @property
     def height(self):
         return 120
+
+    @property
+    def scale_x(self):
+        return self._scale_x
 
 
 class SampleItem(QtWidgets.QGraphicsRectItem):
@@ -114,9 +121,54 @@ class SampleItem(QtWidgets.QGraphicsRectItem):
             overlay.setText("Broken")
             self.setOverlay(overlay)
 
+        elif status == 'highres':
+            samples, = args
+
+            self.setRect(0, 0, len(samples), self._group.height)
+            pixmap = QtGui.QPixmap(len(samples), self._group.height)
+            pixmap.fill(Qt.white)
+            painter = QtGui.QPainter(pixmap)
+            painter.setPen(QtGui.QColor(200, 200, 200))
+            painter.drawLine(0, self._group.height // 2, len(samples) - 1, self._group.height // 2)
+
+            painter.setPen(Qt.black)
+            p_y = None
+            for x, smpl in enumerate(samples):
+                y = max(0, min(self._group.height - 1, int(self._group.height * (1.0 - smpl) / 2.0)))
+                if x > 0:
+                    painter.drawLine(x - 1, p_y, x, y)
+                p_y = y
+            painter = None
+            pixmap_item = QtWidgets.QGraphicsPixmapItem(pixmap, self)
+            self.setOverlay(pixmap_item)
+
+        elif status == 'rms':
+            samples, = args
+
+            ycenter = self._group.height // 2
+
+            self.setRect(0, 0, len(samples), self._group.height)
+            pixmap = QtGui.QPixmap(len(samples), self._group.height)
+            pixmap.fill(Qt.transparent)
+            painter = QtGui.QPainter(pixmap)
+            painter.setPen(QtGui.QColor(200, 200, 200))
+            painter.drawLine(0, ycenter, len(samples) - 1, ycenter)
+
+            painter.setPen(Qt.black)
+            for x, smpl in enumerate(samples):
+                h = min(self._group.height, int(self._group.height * smpl / 2.0))
+                painter.drawLine(x, ycenter - h // 2, x, ycenter + h // 2)
+
+            painter = None
+            pixmap_item = QtWidgets.QGraphicsPixmapItem(pixmap, self)
+            self.setOverlay(pixmap_item)
+
 
 class SampleGroup(ui_base.ProjectMixin, QGraphicsGroup):
-    def __init__(self, track_item=None, size=None, widths=None, durations=None, **kwargs):
+    def __init__(
+            self,
+            track_item=None, size=None, widths=None, durations=None, scale_x=None,
+            **kwargs):
         super().__init__(**kwargs)
 
         self._track_item = track_item
@@ -124,6 +176,7 @@ class SampleGroup(ui_base.ProjectMixin, QGraphicsGroup):
         self._size = size
         self._widths = widths
         self._durations = durations
+        self._scale_x = scale_x
 
         self._samples = []
         self._listeners = []
@@ -214,7 +267,7 @@ class SampleGroup(ui_base.ProjectMixin, QGraphicsGroup):
 
         self.send_command_async(
             sample.id, 'RenderSample',
-            scale_x=Fraction(500),
+            scale_x=self._scale_x,
             callback=item.renderSample)
 
     def removeSample(self, remove_index, sample):
@@ -403,6 +456,7 @@ class SampleTrackItemImpl(base_track_item.TrackItemImpl):
             durations=[
                 mref.measure.duration
                 for mref in self._track.sheet.property_track.measure_list],
+            scale_x=track_layout.scale_x,
             **self.context)
         self._group.setPos(0, y + 20)
 

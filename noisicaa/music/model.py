@@ -378,6 +378,10 @@ class PipelineGraphConnection(core.ObjectBase):
 class Sample(core.ObjectBase):
     path = core.Property(str)
 
+    @property
+    def sheet(self):
+        return self.parent
+
 
 class Sheet(core.ObjectBase):
     name = core.Property(str, default="Sheet")
