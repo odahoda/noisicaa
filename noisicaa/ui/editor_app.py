@@ -379,5 +379,7 @@ class EditorApp(BaseEditorApp):
             logger.error(
                 "Failed to show crash dialog: %s", traceback.format_exc())
 
+        sys.stdout.flush()
+        sys.stderr.flush()
         os._exit(EXIT_EXCEPTION)
 

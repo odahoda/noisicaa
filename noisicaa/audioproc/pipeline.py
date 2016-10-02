@@ -200,7 +200,9 @@ class Pipeline(object):
                 ctxt.duration = self._frame_size
 
         except:  # pylint: disable=bare-except
+            sys.stdout.flush()
             sys.excepthook(*sys.exc_info())
+            sys.stderr.flush()
             os._exit(1)
 
         finally:

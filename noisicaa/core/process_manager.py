@@ -370,6 +370,8 @@ class ProcessImpl(object):
 
     def error_handler(self, event_loop, context):
         event_loop.default_exception_handler(context)
+        sys.stdout.flush()
+        sys.stderr.flush()
         os._exit(1)
 
     def main(self, ready_callback, *args, **kwargs):
