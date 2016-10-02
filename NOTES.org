@@ -1,5 +1,17 @@
 # -*- org-tags-column: -98 -*-
 
+* TODO redesign sheet rendering								 :CLEANUP:
+- is QGraphicsView appropriate?
+  - becomes super slow with long samples
+  - sample rendering is cut off at some point
+- or rather a generic QWidget with custom rendering
+- e.g. long samples at high zoom level leads to extremely big QGraphicsItem
+- also makes stuff like fixed track controls on the left hand side or time meter on the top easier.
+
+* crash when appending measure								   :CRASH:
+when there's a sample extending the total duration
+probably because time mapper is out of sync?
+
 * clarify time handling									 :CLEANUP:
 - musical time
   - base unit full note (4 beats)
@@ -8,27 +20,30 @@
   - tracked as fraction, e.g. (sample_pos/sample_rate)
 - UI renders musical time, i.e. 100 horizontal pixels always map to a fixed musical time interval
 - wall time = musical time / (bpm / 4 / 60)
-
-* redesign sheet rendering								 :CLEANUP:
-- is QGraphicsView appropriate?
-- or rather a generic QWidget with custom rendering
-- e.g. long samples at high zoom level leads to extremely big QGraphicsItem
-- also makes stuff like fixed track controls on the left hand side or time meter on the top easier.
+- get rid of ticks
+- work out how changing bpm works
+- single TimeMapper per sheet
 
 * use libsndfile									      :FR:
 - instead of custom WAVE parsing
 
 * TODO Audio tracks									      :FR:
-- project process loads sample data into memory
 - rendering
-  - render by project process (which has the sample data in memory)
-  - don't use a normal command, make it an special call
-- SampleEntitySource feeds samples to autoproc
-- keep separate list of audio clips
+- don't use a normal command, make it a special call
 - drag'n'drop sections onto audio tracks
 - a section is a clip or range of a clip
 - per section envelope
   - short (few msec) ramp up/down to avoid clicks
+- manage list of samples owned by sheet
+- garbage collect unused samples
+- handle samples with different sample rate
+  - resample at playback
+  - or resample full sample at playback and cache result
+  - or resample full sample when importing it
+- mono/stereo tracks
+  - select when creating track
+  - mono samples can be placed on left, right or both channels
+  - stereo samples are downsampled on mono tracks
 
 * Pan node										      :FR:
 - left/right
@@ -326,6 +341,12 @@ Used by event based tracks (score, beat, ...).
 Track syncs all changes to eventset.
 Use eventset to generate player events.
 
+* ScoreTrack: tweak noteon position, duration						      :FR:
+- control properties of track
+- offset for noteon events
+- multiplier of note duration
+- probably best to implement after background eventset
+
 * Note fine tuning									      :FR:
 Tweak time of noteon/noteoff for each note.
 Only active at high zoom levels.
@@ -408,6 +429,15 @@ Free form painting on the track.
 Turn into array of a-rate values to feed into instrument.
 E.g. each row is an oscillator, row index is pitch, value is frequency.
 Do crazy stuff in csound.
+
+* Track freezing									    :IDEA:
+- render audio at track mixer, write to file
+- replace track with playback of that frozen audio data
+- gain/mute on track mixer still works
+- also freeze output of all upstream nodes, that are connected to nodes outside of track
+- all upstream nodes of track mixer in PipelineGraphView are disabled
+- rerender track
+- unfreeze track
 
 * cut, copy, paste									      :FR:
 - Use QClipboard

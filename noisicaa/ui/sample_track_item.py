@@ -107,7 +107,8 @@ class SampleItem(QtWidgets.QGraphicsRectItem):
 
     def setOverlay(self, overlay):
         if self._overlay is not None:
-            self._overlay.scene().removeItem(self._overlay)
+            if self._overlay.scene() is not None:
+                self._overlay.scene().removeItem(self._overlay)
             self._overlay = None
 
         self._overlay = overlay
