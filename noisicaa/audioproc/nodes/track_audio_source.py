@@ -33,10 +33,11 @@ class TrackAudioSource(node.Node):
     def run(self, ctxt):
         output_port = self.outputs['out']
 
-        output_port.frame.resize(ctxt.duration)
+        output_port.frame.resize(0)
 
         entity = ctxt.in_frame.entities.get(self.entity_name, None)
         if entity is not None:
-            output_port.frame.copy_from(entity.frame)
+            assert entity.frame.shape == (ctxt.duration, 2)
+            output_port.frame.append_samples(bytes(entity.frame.data), ctxt.duration)
         else:
-            output_port.frame.clear()
+            output_port.frame.resize(ctxt.duration)

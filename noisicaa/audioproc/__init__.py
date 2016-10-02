@@ -9,6 +9,7 @@ from .audio_stream import (
 )
 from .data import (
     ControlFrameEntity,
+    AudioFrameEntity,
     FrameData,
 )
 from .mutations import (

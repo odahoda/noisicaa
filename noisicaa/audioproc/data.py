@@ -16,6 +16,13 @@ class Entity(object):
 
 class ControlFrameEntity(Entity):
     def __init__(self):
+        super().__init__()
+        self.frame = None
+
+
+class AudioFrameEntity(Entity):
+    def __init__(self):
+        super().__init__()
         self.frame = None
 
 

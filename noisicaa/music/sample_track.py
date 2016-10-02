@@ -173,40 +173,41 @@ class SampleEntitySource(track.EntitySource):
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
     def get_entities(self, frame_data, sample_pos_offset):
-        # entity = audioproc.ControlFrameEntity()
+        entity = audioproc.AudioFrameEntity()
+        entity.frame = numpy.zeros(
+            shape=(frame_data.duration, 2), dtype=numpy.float32)
 
-        # if len(self._track.points) > 0:
-        #     sample_pos = frame_data.sample_pos - sample_pos_offset
+        f1 = frame_data.sample_pos - sample_pos_offset
+        f1 = f1 % self.time_mapper.total_duration_samples
+        f2 = f1 + frame_data.duration
 
-        #     timepos = self.time_mapper.sample2timepos(
-        #         sample_pos % self.time_mapper.total_duration_samples)
-        #     for point in self._track.points:
-        #         if timepos <= point.timepos:
-        #             if point.is_first:
-        #                 entity.frame = numpy.full(
-        #                     frame_data.duration, point.value, dtype=numpy.float32)
-        #             else:
-        #                 prev = point.prev_sibling
+        for sample_ref in self._track.samples:
+            s1 = self.time_mapper.timepos2sample(sample_ref.timepos)
+            if s1 >= f2:
+                continue
 
-        #                 # TODO: don't use a constant value per frame,
-        #                 # compute control value at a-rate.
-        #                 value = (
-        #                     prev.value
-        #                     + (timepos - prev.timepos)
-        #                     * (point.value - prev.value)
-        #                     / (point.timepos - prev.timepos))
-        #                 entity.frame = numpy.full(
-        #                     frame_data.duration, value, dtype=numpy.float32)
-        #             break
-        #     else:
-        #         entity.frame = numpy.full(
-        #             frame_data.duration, self._track.points[-1].value, dtype=numpy.float32)
+            sample = self._track.root.get_object(sample_ref.sample_id)
+            samples = sample.samples
+            assert len(samples.shape) == 2, samples.shape
+            assert samples.shape[1] in (1, 2), samples.shape
 
-        # else:
-        #     entity.frame = numpy.zeros(frame_data.duration, dtype=numpy.float32)
+            s2 = s1 + samples.shape[0]
+            if s2 <= f1:
+                continue
 
-        # frame_data.entities['track:%s' % self._track.id] = entity
-        pass
+            if f1 >= s1:
+                src = f1 - s1
+                dest = 0
+                length = min(frame_data.duration, s2 - f1)
+            else:
+                src = 0
+                dest = s1 - f1
+                length = min(s2, f2) - s1
+
+            for ch in range(2):
+                entity.frame[dest:dest+length,ch] = samples[src:src+length,ch % samples.shape[1]]
+
+        frame_data.entities['track:%s' % self._track.id] = entity
 
 
 class SampleTrack(model.SampleTrack, Track):
