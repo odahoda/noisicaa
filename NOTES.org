@@ -1,8 +1,22 @@
 # -*- org-tags-column: -98 -*-
 
-* use libsndfile
+* clarify time handling									 :CLEANUP:
+- musical time
+  - base unit full note (4 beats)
+- wall time
+  - base unit 1sec
+  - tracked as fraction, e.g. (sample_pos/sample_rate)
+- UI renders musical time, i.e. 100 horizontal pixels always map to a fixed musical time interval
+- wall time = musical time / (bpm / 4 / 60)
+
+* redesign sheet rendering								 :CLEANUP:
+- is QGraphicsView appropriate?
+- or rather a generic QWidget with custom rendering
+- e.g. long samples at high zoom level leads to extremely big QGraphicsItem
+- also makes stuff like fixed track controls on the left hand side or time meter on the top easier.
+
+* use libsndfile									      :FR:
 - instead of custom WAVE parsing
-- to load sample data into memory
 
 * TODO Audio tracks									      :FR:
 - project process loads sample data into memory

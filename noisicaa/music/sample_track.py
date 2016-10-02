@@ -114,18 +114,17 @@ class RenderSample(commands.Command):
 
         begin_timepos = sample_ref.timepos
         begin_samplepos = tmap.timepos2sample(begin_timepos)
-        end_samplepos = begin_samplepos + len(samples)
+        num_samples = min(tmap.total_duration_samples - begin_samplepos, len(samples))
+        end_samplepos = begin_samplepos + num_samples
         end_timepos = tmap.sample2timepos(end_samplepos)
 
         width = int(self.scale_x * (end_timepos - begin_timepos))
 
-        print(begin_samplepos, end_samplepos, begin_timepos, end_timepos, self.scale_x, width)
-
-        if width < len(samples) / 10:
+        if width < num_samples / 10:
             rms = []
             for p in range(0, width):
-                p_start = p * len(samples) // width
-                p_end = (p + 1) * len(samples) // width
+                p_start = p * num_samples // width
+                p_end = (p + 1) * num_samples // width
                 s = samples[p_start:p_end]
                 rms.append(numpy.sqrt(numpy.mean(numpy.square(s))))
 
