@@ -1,5 +1,10 @@
 # -*- org-tags-column: -98 -*-
 
+* control playback position								:ANNOYING:
+- rewind to start
+- move manually
+- loop range
+
 * TODO redesign sheet rendering								 :CLEANUP:
 - is QGraphicsView appropriate?
   - becomes super slow with long samples
@@ -7,10 +12,6 @@
 - or rather a generic QWidget with custom rendering
 - e.g. long samples at high zoom level leads to extremely big QGraphicsItem
 - also makes stuff like fixed track controls on the left hand side or time meter on the top easier.
-
-* crash when appending measure								   :CRASH:
-when there's a sample extending the total duration
-probably because time mapper is out of sync?
 
 * clarify time handling									 :CLEANUP:
 - musical time
