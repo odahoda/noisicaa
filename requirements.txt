@@ -3,8 +3,7 @@ coverage
 lxml
 cssutils
 numpy
-# cython 0.24 seems broken to me...
-cython==0.23
+cython
 pyfakefs
 mox3
 portalocker
