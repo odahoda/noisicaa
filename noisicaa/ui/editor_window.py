@@ -6,7 +6,6 @@
 
 import logging
 import textwrap
-import pprint
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -18,13 +17,11 @@ from .command_shell import CommandShell
 from .settings import SettingsDialog
 from .project_view import ProjectView
 from .dock_widget import DockWidget
-from .tool_dock import ToolsDockWidget
-from .tracks_dock import TracksDockWidget
-from .track_properties_dock import TrackPropertiesDockWidget
 from ..importers.abc import ABCImporter, ImporterError
 from .load_history import LoadHistoryWidget
 from . import ui_base
 from . import instrument_library
+from . import selection_set
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +59,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             **self.context, parent=self)
 
         self._current_project_view = None
-
-        self._clipboard = None
 
         self.setWindowTitle("noisicaä")
         self.resize(1200, 800)
@@ -235,12 +230,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             statusTip="Open the instrument library dialog.",
             triggered=self.openInstrumentLibrary)
 
-        self._add_score_track_action = QtWidgets.QAction(
-            "Score", self,
-            statusTip="Add a new score track to the current sheet.",
-            triggered=self.onAddScoreTrack,
-            enabled=False)
-
         self._player_start_action = QtWidgets.QAction(
             QtGui.QIcon.fromTheme('media-playback-start'),
             "Play",
@@ -297,9 +286,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._project_menu.addSeparator()
         self._edit_menu.addAction(self._copy_action)
         self._edit_menu.addAction(self._paste_as_link_action)
-        self._project_menu.addSeparator()
-        add_track_menu = self._edit_menu.addMenu("Add Track")
-        add_track_menu.addAction(self._add_score_track_action)
 
         self._view_menu = menu_bar.addMenu("View")
 
@@ -345,15 +331,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.setStatusBar(self.statusbar)
 
     def createDockWidgets(self):
-        self.tools_dock = ToolsDockWidget(self.app, self)
-        self._docks.append(self.tools_dock)
-
-        self._tracks_dock = TracksDockWidget(self.app, self)
-        self._docks.append(self._tracks_dock)
-
-        self._track_properties_dock = TrackPropertiesDockWidget(self.app, self)
-        self._docks.append(self._track_properties_dock)
-
         self._docks.append(CommandShellDockWidget(self.app, self))
 
     def storeState(self):
@@ -439,17 +416,15 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
     async def addProjectView(self, project_connection):
         view = ProjectView(
-            **self.context, project_connection=project_connection)
+            selection_set=selection_set.SelectionSet(),
+            project_connection=project_connection,
+            **self.context)
         await view.setup()
-
-        view.setCurrentTool(self.tools_dock.currentTool())
-        self.tools_dock.toolChanged.connect(view.setCurrentTool)
 
         idx = self._project_tabs.addTab(view, project_connection.name)
 
         self._project_tabs.setCurrentIndex(idx)
         self._close_current_project_action.setEnabled(True)
-        self._add_score_track_action.setEnabled(True)
         self._main_area.setCurrentIndex(0)
 
         self.projectListChanged.emit()
@@ -462,8 +437,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
                 if self._project_tabs.count() == 0:
                     self._main_area.setCurrentIndex(1)
                 self._close_current_project_action.setEnabled(
-                    self._project_tabs.count() > 0)
-                self._add_score_track_action.setEnabled(
                     self._project_tabs.count() > 0)
 
                 await view.cleanup()
@@ -580,10 +553,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         view = self._project_tabs.currentWidget()
         view.onPasteAsLink()
 
-    def onAddScoreTrack(self):
-        view = self._project_tabs.currentWidget()
-        view.onAddTrack('score')
-
     def onPlayerStart(self):
         view = self._project_tabs.currentWidget()
         view.onPlayerStart()
@@ -595,11 +564,3 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def onPlayerStop(self):
         view = self._project_tabs.currentWidget()
         view.onPlayerStop()
-
-    def setClipboardContent(self, content):
-        logger.info(
-            "Setting clipboard contents to: %s", pprint.pformat(content))
-        self._clipboard = content
-
-    def clipboardContent(self):
-        return self._clipboard

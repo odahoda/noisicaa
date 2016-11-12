@@ -4,11 +4,15 @@ import functools
 import inspect
 import logging
 import os.path
+from unittest import mock
 
 import asynctest
 from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
 
+from noisicaa import instrument_db
+from noisicaa import node_db
+from noisicaa.core import ipc
 from noisicaa.runtime_settings import RuntimeSettings
 from .editor_app import BaseEditorApp
 from . import model
@@ -107,17 +111,80 @@ class MockSequencer(object):
         return None
 
 
+class AsyncSetupBase():
+    async def setup(self):
+        pass
+
+    async def cleanup(self):
+        pass
+
+
+class TestNodeDBProcess(node_db.NodeDBProcessBase, AsyncSetupBase):
+    def __init__(self, event_loop):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = ipc.Server(self.event_loop, 'node_db')
+
+    async def setup(self):
+        await super().setup()
+        await self.server.setup()
+
+    async def cleanup(self):
+        await self.server.cleanup()
+        await super().cleanup()
+
+    def handle_start_session(self, client_address, flags):
+        return '123'
+
+    def handle_end_session(self, session_id):
+        return None
+
+    def handle_shutdown(self):
+        pass
+
+
+class TestInstrumentDBProcess(instrument_db.InstrumentDBProcessBase, AsyncSetupBase):
+    def __init__(self, event_loop):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = ipc.Server(self.event_loop, 'instrument_db')
+
+    async def setup(self):
+        await super().setup()
+        await self.server.setup()
+
+    async def cleanup(self):
+        await self.server.cleanup()
+        await super().cleanup()
+
+    def handle_start_session(self, client_address, flags):
+        return '123'
+
+    def handle_end_session(self, session_id):
+        return None
+
+    def handle_shutdown(self):
+        pass
+
+
 class MockProcess(object):
-    def __init__(self):
-        self.event_loop = None
-        self.manager = None
+    def __init__(self, event_loop, manager):
+        self.event_loop = event_loop
+        self.manager = manager
         self.project = None
+        self.server = ipc.Server(self.event_loop, 'ui')
+
+    async def setup(self):
+        await self.server.setup()
+
+    async def cleanup(self):
+        await self.server.cleanup()
 
 
 class MockApp(BaseEditorApp):
     def __init__(self):
         super().__init__(None, RuntimeSettings(), MockSettings())
-        self.process = MockProcess()
+        self.process = None
 
     def createSequencer(self):
         return MockSequencer()
@@ -134,8 +201,29 @@ class UITest(asynctest.TestCase):
     app = None
 
     async def setUp(self):
+        self.node_db_process = TestNodeDBProcess(self.loop)
+        await self.node_db_process.setup()
+
+        self.instrument_db_process = TestInstrumentDBProcess(self.loop)
+        await self.instrument_db_process.setup()
+
+        self.manager = mock.Mock()
+        async def mock_call(cmd, *args, **kwargs):
+            if cmd == 'CREATE_NODE_DB_PROCESS':
+                return self.node_db_process.server.address
+            elif cmd == 'CREATE_INSTRUMENT_DB_PROCESS':
+                return self.instrument_db_process.server.address
+            else:
+                self.fail(cmd)
+
+        self.manager.call.side_effect = mock_call
+
+        self.process = MockProcess(self.loop, self.manager)
+        await self.process.setup()
+
         if UITest.app is None:
             UITest.app = MockApp()
+        UITest.app.process = self.process
         await UITest.app.setup()
 
         self.window = None
@@ -149,6 +237,10 @@ class UITest(asynctest.TestCase):
 
     async def tearDown(self):
         await UITest.app.cleanup()
+        UITest.app.process = None
+        await self.process.cleanup()
+        await self.instrument_db_process.cleanup()
+        await self.node_db_process.cleanup()
 
     _snapshot_numbers = {}
 

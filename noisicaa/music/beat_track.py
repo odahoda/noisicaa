@@ -80,6 +80,7 @@ class AddBeat(commands.Command):
         assert isinstance(measure, BeatMeasure)
 
         beat = Beat(timepos=self.timepos, velocity=100)
+        assert 0 <= beat.timepos < measure.duration
         measure.beats.append(beat)
 
 commands.Command.register_command(AddBeat)

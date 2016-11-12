@@ -8,8 +8,7 @@ logger = logging.getLogger(__name__)
 UNSET = object()
 
 class CommonMixin(object):
-    def __init__(self, __no_positional_args=UNSET, app=None, **kwargs):
-        assert __no_positional_args is UNSET
+    def __init__(self, *, app=None, **kwargs):
         assert app is not None
         self.__app = app
         super().__init__(**kwargs)
@@ -60,17 +59,23 @@ class CommonMixin(object):
 
 class ProjectMixin(CommonMixin):
     def __init__(
-            self, __no_positional_args=UNSET, project_connection=None,
+            self, *, project_connection=None, selection_set=None,
             **kwargs):
-        assert __no_positional_args is UNSET
         assert project_connection is not None
         self.__project_connection = project_connection
+        assert selection_set is not None
+        self.__selection_set = selection_set
         super().__init__(**kwargs)
 
     def _get_context(self):
         context = super()._get_context()
         context['project_connection'] = self.__project_connection
+        context['selection_set'] = self.__selection_set
         return context
+
+    @property
+    def selection_set(self):
+        return self.__selection_set
 
     @property
     def project_connection(self):

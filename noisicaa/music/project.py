@@ -222,7 +222,7 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
     @classmethod
     def make_demo(cls):
         project = cls()
-        s = sheet.Sheet(name="Demo Sheet", num_tracks=0)
+        s = sheet.Sheet(name="Demo Sheet")
         project.add_sheet(s)
 
         while len(s.property_track.measure_list) < 5:

@@ -11,7 +11,7 @@ from . import time_signature
 class TimeMapperTest(unittest.TestCase):
     def setUp(self):
         self.project = project.BaseProject()
-        self.sheet = sheet.Sheet(name='Test', num_tracks=0)
+        self.sheet = sheet.Sheet(name='Test')
         self.project.sheets.append(self.sheet)
 
         assert len(self.sheet.property_track.measure_list) == 1

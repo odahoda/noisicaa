@@ -51,7 +51,8 @@ class FlowLayout(QtWidgets.QLayout):
         return height
 
     def invalidate(self):
-        self.heightForWidth.cache_clear()
+        # pylint doesn't know about the lru_cache's attributes
+        self.heightForWidth.cache_clear()  # pylint: disable=no-member
         super().invalidate()
 
     def setGeometry(self, rect):
@@ -78,6 +79,9 @@ class FlowLayout(QtWidgets.QLayout):
 
         for item in self.itemList:
             wid = item.widget()
+            if not wid.isVisible():
+                continue
+
             spaceX = self.spacing() # + wid.style().layoutSpacing(QSizePolicy.PushButton, QSizePolicy.PushButton, Qt.Horizontal)
             spaceY = self.spacing() # + wid.style().layoutSpacing(QSizePolicy.PushButton, QSizePolicy.PushButton, Qt.Vertical)
             nextX = x + item.sizeHint().width() + spaceX

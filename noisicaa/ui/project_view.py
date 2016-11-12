@@ -8,16 +8,21 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from . import tool_dock
+from . import tracks_dock
+from . import track_properties_dock
 from . import pipeline_graph_view
 from . import sheet_view
 from . import tool_dock
 from . import ui_base
+from . import tools
 
 logger = logging.getLogger(__name__)
 
 
 class ProjectViewImpl(QtWidgets.QMainWindow):
-    currentToolChanged = QtCore.pyqtSignal(tool_dock.Tool)
+    currentToolChanged = QtCore.pyqtSignal(tools.Tool)
+    supportedToolsChanged = QtCore.pyqtSignal(set)
     currentSheetChanged = QtCore.pyqtSignal(object)
 
     def __init__(self, **kwargs):
@@ -67,6 +72,22 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
             self.set_session_value, 'project_view/current_tab_index'))
         self.setCentralWidget(project_tab)
 
+        self._docks = []
+
+        self._tools_dock = tool_dock.ToolsDockWidget(parent=self, **self.context)
+        self._docks.append(self._tools_dock)
+        self.currentToolChanged.connect(self._tools_dock.setCurrentTool)
+        self.supportedToolsChanged.connect(self._tools_dock.setSupportedTools)
+        self._tools_dock.toolChanged.connect(self.setCurrentTool)
+
+        self._tracks_dock = tracks_dock.TracksDockWidget(parent=self, **self.context)
+        self._docks.append(self._tracks_dock)
+        self.currentSheetChanged.connect(self._tracks_dock.setCurrentSheet)
+
+        self._track_properties_dock = track_properties_dock.TrackPropertiesDockWidget(parent=self, **self.context)
+        self._docks.append(self._track_properties_dock)
+        self._tracks_dock.currentTrackChanged.connect(self._track_properties_dock.setTrack)
+
         self._sheet_listener = self.project.listeners.add(
             'sheets',
             lambda *args, **kwargs: self.call_async(
@@ -113,10 +134,16 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         if self._current_sheet_view is not None:
             self._current_sheet_view.currentToolChanged.disconnect(
                 self.currentToolChanged)
+            self._current_sheet_view.supportedToolsChanged.disconnect(
+                self.supportedToolsChanged)
 
         if sheet_view is not None:
             sheet_view.currentToolChanged.connect(
                 self.currentToolChanged)
+            self.currentToolChanged.emit(sheet_view.currentTool())
+            sheet_view.supportedToolsChanged.connect(
+                self.supportedToolsChanged)
+            self.supportedToolsChanged.emit(sheet_view.supportedTools())
 
         self._current_sheet_view = sheet_view
 
@@ -195,17 +222,23 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         view = self.currentSheetView()
         view.onPlayerStop()
 
-    def onAddTrack(self, track_type):
-        view = self.currentSheetView()
-        view.onAddTrack(track_type)
-
     def onRender(self):
         view = self.currentSheetView()
         view.onRender()
 
     def onCopy(self):
-        view = self.currentSheetView()
-        view.onCopy()
+        if self.selection_set.empty():
+            return
+
+        self.call_async(self.onCopyAsync())
+
+    async def onCopyAsync(self):
+        data = []
+        for obj in self.selection_set:
+            data.append(await obj.getCopy())
+
+        self.app.setClipboardContent(
+            {'type': 'measures', 'data': data})
 
     def onPasteAsLink(self):
         view = self.currentSheetView()

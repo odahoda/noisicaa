@@ -1173,6 +1173,7 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
 
         self._node_list_dock = NodeListDock(
             parent=self.window, **self.common_context)
+        self._node_list_dock.hide()
 
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))

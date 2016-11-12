@@ -267,6 +267,7 @@ class Stub(object):
         self._transport = None
         self._protocol = None
         self._command_queue = None
+        self._command_loop_cancelled = None
         self._command_loop_task = None
 
     @property
@@ -282,11 +283,13 @@ class Stub(object):
         logger.info("Connected to server at %s", self._server_address)
 
         self._command_queue = asyncio.Queue(loop=self._event_loop)
+        self._command_loop_cancelled = asyncio.Event(loop=self._event_loop)
         self._command_loop_task = self._event_loop.create_task(self.command_loop())
 
     async def close(self):
         if self._command_loop_task is not None:
-            self._command_loop_task.cancel()
+            self._command_loop_cancelled.set()
+            await asyncio.wait_for(self._command_loop_task, None)
             self._command_loop_task = None
 
         if self._command_queue is not None:
@@ -308,8 +311,18 @@ class Stub(object):
         return False
 
     async def command_loop(self):
-        while True:
-            cmd, payload, response_container = await self._command_queue.get()
+        cancelled_task = asyncio.ensure_future(self._command_loop_cancelled.wait())
+        while not self._command_loop_cancelled.is_set():
+            get_task = asyncio.ensure_future(self._command_queue.get())
+            done, pending = await asyncio.wait(
+                [get_task, cancelled_task],
+                return_when=asyncio.FIRST_COMPLETED)
+            if get_task not in done:
+                get_task.cancel()
+                asyncio.gather(get_task, return_exceptions=True)
+                continue
+
+            cmd, payload, response_container = get_task.result()
 
             if self._transport.is_closing():
                 response_container.set(self.CLOSE_SENTINEL)
@@ -321,6 +334,9 @@ class Stub(object):
 
             response = await self._protocol.response_queue.get()
             response_container.set(response)
+
+        cancelled_task.cancel()
+        asyncio.gather(cancelled_task, return_exceptions=True)
 
     async def call(self, cmd, *args, **kwargs):
         if not isinstance(cmd, bytes):

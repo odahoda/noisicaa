@@ -370,18 +370,18 @@ class TrackList(QtWidgets.QTreeView):
         self.currentIndexChanged.emit(current)
 
 
-class TracksDockWidget(DockWidget):
-    def __init__(self, app, window):
+class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
+    currentTrackChanged = QtCore.pyqtSignal(object)
+
+    def __init__(self, **kwargs):
         super().__init__(
-            app=app,
-            parent=window,
             identifier='tracks',
             title="Tracks",
             allowed_areas=Qt.AllDockWidgetAreas,
             initial_area=Qt.RightDockWidgetArea,
-            initial_visible=True)
+            initial_visible=True,
+            **kwargs)
 
-        self._window = window
         self._model = None
         self._tracks_list = TrackList(self)
         self._tracks_list.currentIndexChanged.connect(
@@ -473,17 +473,14 @@ class TracksDockWidget(DockWidget):
         main_area.setLayout(main_layout)
         self.setWidget(main_area)
 
-        self._window.currentSheetChanged.connect(self.onCurrentSheetChanged)
-
-    def onCurrentSheetChanged(self, sheet):
+    def setCurrentSheet(self, sheet):
         if self._model is not None:
             self._model.close()
             self._model = None
             self._tracks_list.setModel(None)
 
         if sheet is not None:
-            self._model = TracksModel(
-                **self.window.getCurrentProjectView().context, sheet=sheet)
+            self._model = TracksModel(sheet=sheet, **self.context)
             self._tracks_list.setModel(self._model)
             # TODO: select current track of sheet
             self.onCurrentChanged(None)
@@ -507,12 +504,12 @@ class TracksDockWidget(DockWidget):
             self._move_right_button.setEnabled(
                 not track.is_master_group and not track.is_first
                 and isinstance(track.prev_sibling, model.TrackGroup))
-            self._window.currentTrackChanged.emit(track)
+            self.currentTrackChanged.emit(track)
         else:
             self._remove_button.setEnabled(False)
             self._move_up_button.setEnabled(False)
             self._move_down_button.setEnabled(False)
-            self._window.currentTrackChanged.emit(None)
+            self.currentTrackChanged.emit(None)
 
     def onAddClicked(self, track_type):
         if self._model is None:

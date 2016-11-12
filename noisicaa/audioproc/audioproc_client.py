@@ -24,6 +24,7 @@ class AudioProcClientMixin(object):
             log_level=-1)
 
     async def cleanup(self):
+        await self.disconnect()
         self.server.remove_command_handler('PIPELINE_MUTATION')
         self.server.remove_command_handler('PIPELINE_STATUS')
         await super().cleanup()

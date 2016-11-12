@@ -20,3 +20,4 @@ from .mutations import (
     AddNodeDescription,
     RemoveNodeDescription,
 )
+from .process_base import NodeDBProcessBase

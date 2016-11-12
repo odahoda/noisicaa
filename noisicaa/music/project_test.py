@@ -108,8 +108,8 @@ class RenameSheetTest(unittest.TestCase):
 class SetCurrentSheetTest(unittest.TestCase):
     def test_ok(self):
         p = project.BaseProject()
-        p.sheets.append(sheet.Sheet(name='Sheet 1'))
-        p.sheets.append(sheet.Sheet(name='Sheet 2'))
+        p.add_sheet(sheet.Sheet(name='Sheet 1'))
+        p.add_sheet(sheet.Sheet(name='Sheet 2'))
         cmd = project.SetCurrentSheet(name='Sheet 2')
         p.dispatch_command(p.id, cmd)
         self.assertEqual(p.current_sheet, 1)
@@ -175,21 +175,21 @@ class ProjectTest(unittest.TestCase):
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
 
 
-class ScoreEventSource(unittest.TestCase):
-    def test_get_events(self):
-        proj = project.BaseProject()
-        s = sheet.Sheet(name='test')
-        proj.sheets.append(s)
-        track = project.ScoreTrack(name='test', num_measures=2)
-        s.master_group.tracks.append(track)
-        s.equalize_tracks()
+# class ScoreEventSource(unittest.TestCase):
+#     def test_get_events(self):
+#         proj = project.BaseProject()
+#         s = sheet.Sheet(name='test')
+#         proj.sheets.append(s)
+#         track = project.ScoreTrack(name='test', num_measures=2)
+#         s.master_group.tracks.append(track)
+#         s.equalize_tracks()
 
-        source = track.create_event_source()
-        events = []
-        for sample_pos in range(0, 100000, 4096):
-            events.extend(source.get_events(sample_pos, sample_pos + 4096))
+#         source = track.create_event_source()
+#         events = []
+#         for sample_pos in range(0, 100000, 4096):
+#             events.extend(source.get_events(sample_pos, sample_pos + 4096))
 
-        print(events)
+#         print(events)
 
 
 if __name__ == '__main__':

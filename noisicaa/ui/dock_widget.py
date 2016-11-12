@@ -32,8 +32,6 @@ class DockWidget(ui_base.CommonMixin, QtWidgets.QDockWidget):
         if initial_floating and initial_pos is not None:
             self.move(initial_pos)
 
-        self.parent()._view_menu.addAction(self.toggleViewAction())
-
         name = QtWidgets.QLabel(self, textFormat=Qt.PlainText)
         name.setText(self.windowTitle())
         #self.windowTitleChanged.connect(name.setText)

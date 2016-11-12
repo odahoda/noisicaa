@@ -11,6 +11,7 @@ from noisicaa import core
 from noisicaa.core import ipc
 
 from .private import db
+from . import process_base
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,10 @@ class Session(object):
         self.id = uuid.uuid4().hex
         self.pending_mutations = []
 
-    def cleanup(self):
-        pass
+    async def cleanup(self):
+        if self.callback_stub is not None:
+            await self.callback_stub.close()
+            self.callback_stub = None
 
     def publish_mutations(self, mutations):
         if not mutations:
@@ -57,7 +60,7 @@ class Session(object):
         self.pending_mutations.clear()
 
 
-class InstrumentDBProcessMixin(object):
+class InstrumentDBProcessMixin(process_base.InstrumentDBProcessBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sessions = {}
@@ -73,14 +76,6 @@ class InstrumentDBProcessMixin(object):
         self._shutting_down = asyncio.Event()
         self._shutdown_complete = asyncio.Event()
 
-        self.server.add_command_handler(
-            'START_SESSION', self.handle_start_session)
-        self.server.add_command_handler(
-            'END_SESSION', self.handle_end_session)
-        self.server.add_command_handler('SHUTDOWN', self.handle_shutdown)
-        self.server.add_command_handler(
-            'START_SCAN', self.handle_start_scan)
-
         self.db = db.InstrumentDB(self.event_loop, constants.CACHE_DIR)
         self.db.setup()
         self.db.add_mutations_listener(self.publish_mutations)
@@ -88,6 +83,10 @@ class InstrumentDBProcessMixin(object):
             self.db.start_scan(self.search_paths, True)
 
     async def cleanup(self):
+        for session in self.sessions.values():
+            await session.cleanup()
+        self.sessions.clear()
+
         if self.db is not None:
             self.db.cleanup()
             self.db = None
@@ -132,9 +131,9 @@ class InstrumentDBProcessMixin(object):
 
         session.callback_stub_connected()
 
-    def handle_end_session(self, session_id):
+    async def handle_end_session(self, session_id):
         session = self.get_session(session_id)
-        session.cleanup()
+        await session.cleanup()
         del self.sessions[session_id]
 
     async def handle_shutdown(self):

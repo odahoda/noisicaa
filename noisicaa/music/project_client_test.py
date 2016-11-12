@@ -9,6 +9,7 @@ from unittest import mock
 import asynctest
 
 from noisicaa import core
+from noisicaa import node_db
 from noisicaa.core import ipc
 from noisicaa.ui import model
 
@@ -35,9 +36,10 @@ class TestClient(project_client.ProjectClientMixin, TestClientImpl):
 
 
 class TestProjectProcessImpl(object):
-    def __init__(self, event_loop):
+    def __init__(self, event_loop, manager):
         super().__init__()
         self.event_loop = event_loop
+        self.manager = manager
         self.server = ipc.Server(self.event_loop, 'project')
 
     async def setup(self):
@@ -51,9 +53,47 @@ class TestProjectProcess(
         project_process.ProjectProcessMixin, TestProjectProcessImpl):
     pass
 
+
+class AsyncSetupBase():
+    async def setup(self):
+        pass
+
+    async def cleanup(self):
+        pass
+
+class TestNodeDBProcess(node_db.NodeDBProcessBase, AsyncSetupBase):
+    def __init__(self, event_loop):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = ipc.Server(self.event_loop, 'node_db')
+
+    async def setup(self):
+        await super().setup()
+        await self.server.setup()
+
+    async def cleanup(self):
+        await self.server.cleanup()
+        await super().cleanup()
+
+    def handle_start_session(self, client_address, flags):
+        return '123'
+
+    def handle_end_session(self, session_id):
+        return None
+
+
 class ProxyTest(asynctest.TestCase):
     async def setUp(self):
-        self.project_process = TestProjectProcess(self.loop)
+        self.node_db_process = TestNodeDBProcess(self.loop)
+        await self.node_db_process.setup()
+
+        self.manager = mock.Mock()
+        async def mock_call(cmd, *args, **kwargs):
+            self.assertEqual(cmd, 'CREATE_NODE_DB_PROCESS')
+            return self.node_db_process.server.address
+        self.manager.call.side_effect = mock_call
+
+        self.project_process = TestProjectProcess(self.loop, self.manager)
         await self.project_process.setup()
         self.client = TestClient(self.loop)
         self.client.cls_map = model.cls_map
@@ -65,6 +105,7 @@ class ProxyTest(asynctest.TestCase):
         await self.client.disconnect()
         await self.client.cleanup()
         await self.project_process.cleanup()
+        await self.node_db_process.cleanup()
 
     async def test_basic(self):
         await self.client.create_inmemory()

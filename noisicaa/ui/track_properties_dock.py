@@ -17,7 +17,7 @@ from . import mute_button
 logger = logging.getLogger(__name__)
 
 
-class TrackProperties(ui_base.CommonMixin, QtWidgets.QWidget):
+class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
     def __init__(self, track, **kwargs):
         super().__init__(**kwargs)
 
@@ -70,18 +70,16 @@ class TrackProperties(ui_base.CommonMixin, QtWidgets.QWidget):
 
     def onNameEdited(self, name):
         if name != self._track.name:
-            client = self.window.getCurrentProjectView().project_client
-            self.call_async(client.send_command(
-                self._track.id, 'UpdateTrackProperties', name=name))
+            self.send_command_async(
+                self._track.id, 'UpdateTrackProperties', name=name)
 
     def onVolumeChanged(self, old_volume, new_volume):
         self._volume.setValue(new_volume)
 
     def onVolumeEdited(self, volume):
         if volume != self._track.volume:
-            client = self.window.getCurrentProjectView().project_client
-            self.call_async(client.send_command(
-                self._track.id, 'UpdateTrackProperties', volume=volume))
+            self.send_command_async(
+                self._track.id, 'UpdateTrackProperties', volume=volume)
 
     def onMutedChanged(self, old_value, new_value):
         self._muted.setChecked(new_value)
@@ -89,9 +87,8 @@ class TrackProperties(ui_base.CommonMixin, QtWidgets.QWidget):
 
     def onMutedEdited(self, muted):
         if muted != self._track.muted:
-            client = self.window.getCurrentProjectView().project_client
-            self.call_async(client.send_command(
-                self._track.id, 'UpdateTrackProperties', muted=muted))
+            self.send_command_async(
+                self._track.id, 'UpdateTrackProperties', muted=muted)
 
 
 class TrackGroupProperties(TrackProperties):
@@ -179,10 +176,9 @@ class ScoreTrackProperties(TrackProperties):
         if description is None:
             return
 
-        client = self.window.getCurrentProjectView().project_client
-        self.call_async(client.send_command(
+        self.send_command_async(
             self._track.id, 'SetInstrument',
-            instrument=description.uri))
+            instrument=description.uri)
 
     def onTransposeOctavesChanged(
             self, old_transpose_octaves, new_transpose_octaves):
@@ -190,10 +186,9 @@ class ScoreTrackProperties(TrackProperties):
 
     def onTransposeOctavesEdited(self, transpose_octaves):
         if transpose_octaves != self._track.transpose_octaves:
-            client = self.window.getCurrentProjectView().project_client
-            self.call_async(client.send_command(
+            self.send_command_async(
                 self._track.id, 'UpdateTrackProperties',
-                transpose_octaves=transpose_octaves))
+                transpose_octaves=transpose_octaves)
 
 
 class BeatTrackProperties(TrackProperties):
@@ -262,10 +257,9 @@ class BeatTrackProperties(TrackProperties):
         if description is None:
             return
 
-        client = self.window.getCurrentProjectView().project_client
-        self.call_async(client.send_command(
+        self.send_command_async(
             self._track.id, 'SetBeatTrackInstrument',
-            instrument=description.uri))
+            instrument=description.uri)
 
     def onPitchChanged(self, old_value, new_value):
         self._pitch.setText(str(new_value))
@@ -277,28 +271,23 @@ class BeatTrackProperties(TrackProperties):
             self._pitch.setText(str(self._track.pitch))
         else:
             if pitch != self._track.pitch:
-                client = self.window.getCurrentProjectView().project_client
-                self.call_async(client.send_command(
-                    self._track.id, 'SetBeatTrackPitch', pitch=pitch))
+                self.send_command_async(
+                    self._track.id, 'SetBeatTrackPitch', pitch=pitch)
 
 
-class TrackPropertiesDockWidget(DockWidget):
-    def __init__(self, app, window):
+class TrackPropertiesDockWidget(ui_base.ProjectMixin, DockWidget):
+    def __init__(self, **kwargs):
         super().__init__(
-            app=app,
-            parent=window,
             identifier='track-properties',
             title="Track Properties",
             allowed_areas=Qt.AllDockWidgetAreas,
             initial_area=Qt.RightDockWidgetArea,
-            initial_visible=True)
+            initial_visible=True,
+            **kwargs)
 
-        self._window = window
         self._track = None
 
-        self._window.currentTrackChanged.connect(self.onCurrentTrackChanged)
-
-    def onCurrentTrackChanged(self, track):
+    def setTrack(self, track):
         if track is self._track:
             return
 

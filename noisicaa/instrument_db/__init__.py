@@ -8,3 +8,4 @@ from .mutations import (
     AddInstrumentDescription,
     RemoveInstrumentDescription,
 )
+from .process_base import InstrumentDBProcessBase

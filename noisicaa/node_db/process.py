@@ -9,6 +9,7 @@ from noisicaa import core
 from noisicaa.core import ipc
 
 from .private import db
+from . import process_base
 
 logger = logging.getLogger(__name__)
 
@@ -22,34 +23,18 @@ class Session(object):
         self.callback_stub = callback_stub
         self.flags = flags or set()
         self.id = uuid.uuid4().hex
-        self.pending_mutations = []
 
-    def cleanup(self):
-        pass
+    async def cleanup(self):
+        if self.callback_stub is not None:
+            await self.callback_stub.close()
+            self.callback_stub = None
 
-    def publish_mutation(self, mutation):
-        if not self.callback_stub.connected:
-            self.pending_mutations.append(mutation)
-            return
-
-        callback_task = self.event_loop.create_task(
-            self.callback_stub.call('NODEDB_MUTATION', mutation))
-        callback_task.add_done_callback(self.publish_mutation_done)
-
-    def publish_mutation_done(self, callback_task):
-        assert callback_task.done()
-        exc = callback_task.exception()
-        if exc is not None:
-            logger.error(
-                "NODEDB_MUTATION failed with exception: %s", exc)
-
-    def callback_stub_connected(self):
+    async def publish_mutation(self, mutation):
         assert self.callback_stub.connected
-        while self.pending_mutations:
-            self.publish_mutation(self.pending_mutations.pop(0))
+        await self.callback_stub.call('NODEDB_MUTATION', mutation)
 
 
-class NodeDBProcessMixin(object):
+class NodeDBProcessMixin(process_base.NodeDBProcessBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sessions = {}
@@ -60,14 +45,6 @@ class NodeDBProcessMixin(object):
 
         self._shutting_down = asyncio.Event()
         self._shutdown_complete = asyncio.Event()
-
-        self.server.add_command_handler(
-            'START_SESSION', self.handle_start_session)
-        self.server.add_command_handler(
-            'END_SESSION', self.handle_end_session)
-        self.server.add_command_handler('SHUTDOWN', self.handle_shutdown)
-        self.server.add_command_handler(
-            'START_SCAN', self.handle_start_scan)
 
         self.db.setup()
 
@@ -90,33 +67,22 @@ class NodeDBProcessMixin(object):
         for session in self.sessions.values():
             session.publish_mutation(mutation)
 
-    def handle_start_session(self, client_address, flags):
+    async def handle_start_session(self, client_address, flags):
         client_stub = ipc.Stub(self.event_loop, client_address)
-        connect_task = self.event_loop.create_task(client_stub.connect())
+        await client_stub.connect()
         session = Session(self.event_loop, client_stub, flags)
-        connect_task.add_done_callback(
-            functools.partial(self._client_connected, session))
         self.sessions[session.id] = session
 
         # Send initial mutations to build up the current pipeline
         # state.
         for mutation in self.db.initial_mutations():
-            session.publish_mutation(mutation)
+            await session.publish_mutation(mutation)
 
         return session.id
 
-    def _client_connected(self, session, connect_task):
-        assert connect_task.done()
-        exc = connect_task.exception()
-        if exc is not None:
-            logger.error("Failed to connect to callback client: %s", exc)
-            return
-
-        session.callback_stub_connected()
-
-    def handle_end_session(self, session_id):
+    async def handle_end_session(self, session_id):
         session = self.get_session(session_id)
-        session.cleanup()
+        await session.cleanup()
         del self.sessions[session_id]
 
     async def handle_shutdown(self):

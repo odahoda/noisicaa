@@ -23,11 +23,13 @@ from . import player
 
 logger = logging.getLogger(__name__)
 
+
 class MockAudioProcClient(object):
     def __init__(self, event_loop, server):
         self.audiostream_server = None
         self.backend_thread = None
         self.stop_backend = None
+        self.listeners = core.CallbackRegistry()
 
     async def setup(self):
         pass
@@ -83,7 +85,7 @@ class MockAudioProcClient(object):
 class PlayerTest(asynctest.TestCase):
     async def setUp(self):
         self.project = project.BaseProject()
-        self.sheet = sheet.Sheet(name='Test', num_tracks=0)
+        self.sheet = sheet.Sheet(name='Test')
         self.project.sheets.append(self.sheet)
 
         self.player_status_calls = asyncio.Queue()
@@ -97,7 +99,7 @@ class PlayerTest(asynctest.TestCase):
         await self.audioproc_server.setup()
 
         self.mock_manager = mock.Mock()
-        async def mock_call(cmd, *args):
+        async def mock_call(cmd, *args, **kwargs):
             assert cmd == 'CREATE_AUDIOPROC_PROCESS'
             name, = args
             assert name == 'player'

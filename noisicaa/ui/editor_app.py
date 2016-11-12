@@ -2,6 +2,7 @@
 
 import logging
 import os
+import pprint
 import sys
 import traceback
 
@@ -121,6 +122,8 @@ class BaseEditorApp(QtWidgets.QApplication):
         self.audioproc_process = None
         self.node_db = None
         self.instrument_db = None
+
+        self.__clipboard = None
 
     async def setup(self):
         self.default_style = self.style().objectName()
@@ -256,6 +259,14 @@ class BaseEditorApp(QtWidgets.QApplication):
 
     def onPipelineStatus(self, status):
         pass
+
+    def setClipboardContent(self, content):
+        logger.info(
+            "Setting clipboard contents to: %s", pprint.pformat(content))
+        self.__clipboard = content
+
+    def clipboardContent(self):
+        return self.__clipboard
 
 
 class EditorApp(BaseEditorApp):

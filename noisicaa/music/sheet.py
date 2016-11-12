@@ -291,7 +291,7 @@ commands.Command.register_command(RemovePipelineGraphConnection)
 
 
 class Sheet(model.Sheet, state.StateBase):
-    def __init__(self, name=None, num_tracks=1, state=None):
+    def __init__(self, name=None, state=None):
         super().__init__(state)
 
         if state is None:
@@ -299,12 +299,6 @@ class Sheet(model.Sheet, state.StateBase):
 
             self.master_group = track_group.MasterTrackGroup(name="Master")
             self.property_track = sheet_property_track.SheetPropertyTrack(name="Time")
-
-            for i in range(num_tracks):
-                track = score_track.ScoreTrack(name="Track %d" % i)
-                self.add_track(
-                    self.master_group, len(self.master_group.tracks),
-                    track)
 
     @property
     def project(self):

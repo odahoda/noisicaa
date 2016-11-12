@@ -47,6 +47,10 @@ class Session(object):
             await p.cleanup()
         self._players.clear()
 
+        if self.callback_stub is not None:
+            await self.callback_stub.close()
+            self.callback_stub = None
+
     def get_player(self, player_id):
         return self._players[player_id][1]
 
@@ -84,14 +88,16 @@ class Session(object):
 
     async def init_session_data(self, data_dir):
         self.session_data = {}
-        self.session_data_path = os.path.join(data_dir, 'sessions', self.session_name)
-        if not os.path.isdir(self.session_data_path):
-            os.makedirs(self.session_data_path)
 
-        checkpoint_path = os.path.join(self.session_data_path, 'checkpoint')
-        if os.path.isfile(checkpoint_path):
-            with open(checkpoint_path, 'rb') as fp:
-                self.session_data = pickle.load(fp)
+        if data_dir is not None:
+            self.session_data_path = os.path.join(data_dir, 'sessions', self.session_name)
+            if not os.path.isdir(self.session_data_path):
+                os.makedirs(self.session_data_path)
+
+            checkpoint_path = os.path.join(self.session_data_path, 'checkpoint')
+            if os.path.isfile(checkpoint_path):
+                with open(checkpoint_path, 'rb') as fp:
+                    self.session_data = pickle.load(fp)
 
         await self.callback_stub.call('SESSION_DATA_MUTATION', self.session_data)
 
@@ -112,8 +118,9 @@ class Session(object):
 
         self.session_data.update(changes)
 
-        with open(os.path.join(self.session_data_path, 'checkpoint'), 'wb') as fp:
-            pickle.dump(self.session_data, fp)
+        if self.session_data_path is not None:
+            with open(os.path.join(self.session_data_path, 'checkpoint'), 'wb') as fp:
+                pickle.dump(self.session_data, fp)
 
         if not from_client:
             self.event_loop.create_task(
@@ -210,9 +217,12 @@ class ProjectProcessMixin(object):
         await self.node_db.connect(node_db_address)
 
     async def cleanup(self):
-        if self.node_db is None:
-            self.node_db.close()
-            self.node_db.cleanup()
+        for session in self.sessions.values():
+            await session.cleanup()
+        self.sessions.clear()
+
+        if self.node_db is not None:
+            await self.node_db.cleanup()
             self.node_db = None
         await super().cleanup()
 
@@ -308,7 +318,7 @@ class ProjectProcessMixin(object):
 
     def _create_blank_project(self, project_cls):
         project = project_cls(node_db=self.node_db)
-        s = sheet.Sheet(name='Sheet 1', num_tracks=0)
+        s = sheet.Sheet(name='Sheet 1')
         project.add_sheet(s)
         s.add_track(s.master_group, 0, score_track.ScoreTrack(name="Track 1"))
         return project
@@ -331,7 +341,7 @@ class ProjectProcessMixin(object):
         await self.send_initial_mutations()
         self.project.listeners.add(
             'model_changes', self.handle_model_change)
-        await session.init_session_data(self.project.data_dir)
+        await session.init_session_data(None)
         return self.project.id
 
     async def handle_open(self, session_id, path):

@@ -12,97 +12,58 @@ from PyQt5 import QtWidgets
 from noisicaa import constants
 from . import flowlayout
 from . import dock_widget
+from . import tools
+from . import ui_base
 
 logger = logging.getLogger(__name__)
 
 
-class Tool(enum.IntEnum):
-    # pylint: disable=bad-whitespace
+class ToolsDockWidget(ui_base.ProjectMixin, dock_widget.DockWidget):
+    toolChanged = QtCore.pyqtSignal(tools.Tool)
 
-    NOTE_WHOLE   = 100
-    NOTE_HALF    = 101
-    NOTE_QUARTER = 102
-    NOTE_8TH     = 103
-    NOTE_16TH    = 104
-    NOTE_32TH    = 105
-
-    REST_WHOLE   = 200
-    REST_HALF    = 201
-    REST_QUARTER = 202
-    REST_8TH     = 203
-    REST_16TH    = 204
-    REST_32TH    = 205
-
-    ACCIDENTAL_NATURAL      = 300
-    ACCIDENTAL_FLAT         = 301
-    ACCIDENTAL_SHARP        = 302
-    ACCIDENTAL_DOUBLE_FLAT  = 303
-    ACCIDENTAL_DOUBLE_SHARP = 304
-
-    DURATION_DOT        = 400
-    DURATION_TRIPLET    = 401
-    DURATION_QUINTUPLET = 402
-
-    @property
-    def is_note(self):
-        return Tool.NOTE_WHOLE <= self <= Tool.NOTE_32TH
-
-    @property
-    def is_rest(self):
-        return Tool.REST_WHOLE <= self <= Tool.REST_32TH
-
-    @property
-    def is_accidental(self):
-        return Tool.ACCIDENTAL_NATURAL <= self <= Tool.ACCIDENTAL_DOUBLE_SHARP
-
-    @property
-    def is_duration(self):
-        return Tool.DURATION_DOT <= self <= Tool.DURATION_QUINTUPLET
-
-
-class ToolsDockWidget(dock_widget.DockWidget):
-    toolChanged = QtCore.pyqtSignal(Tool)
-
-    def __init__(self, app, parent):
+    def __init__(self, **kwargs):
         super().__init__(
-            app=app,
-            parent=parent,
             identifier='tools',
             title="Tools",
             allowed_areas=Qt.AllDockWidgetAreas,
             initial_area=Qt.RightDockWidgetArea,
-            initial_visible=True)
+            initial_visible=True,
+            **kwargs)
+
+        self.__supported_tools = { tools.Tool.POINTER }
 
         self.group = QtWidgets.QButtonGroup()
         self.layout = flowlayout.FlowLayout(spacing=1)
 
-        self.addButton(Tool.NOTE_WHOLE, 'note-whole.svg')
-        self.addButton(Tool.NOTE_HALF, 'note-half.svg')
-        self.addButton(Tool.NOTE_QUARTER, 'note-quarter.svg')
-        self.addButton(Tool.NOTE_8TH, 'note-8th.svg')
-        self.addButton(Tool.NOTE_16TH, 'note-16th.svg')
-        self.addButton(Tool.NOTE_32TH, 'note-32th.svg')
+        self.addButton(tools.Tool.POINTER)
 
-        self.addButton(Tool.REST_WHOLE, 'rest-whole.svg')
-        self.addButton(Tool.REST_HALF, 'rest-half.svg')
-        self.addButton(Tool.REST_QUARTER, 'rest-quarter.svg')
-        self.addButton(Tool.REST_8TH, 'rest-8th.svg')
-        self.addButton(Tool.REST_16TH, 'rest-16th.svg')
-        self.addButton(Tool.REST_32TH, 'rest-32th.svg')
+        self.addButton(tools.Tool.NOTE_WHOLE)
+        self.addButton(tools.Tool.NOTE_HALF)
+        self.addButton(tools.Tool.NOTE_QUARTER)
+        self.addButton(tools.Tool.NOTE_8TH)
+        self.addButton(tools.Tool.NOTE_16TH)
+        self.addButton(tools.Tool.NOTE_32TH)
 
-        self.addButton(Tool.ACCIDENTAL_NATURAL, 'accidental-natural.svg')
-        self.addButton(Tool.ACCIDENTAL_SHARP, 'accidental-sharp.svg')
-        self.addButton(Tool.ACCIDENTAL_FLAT, 'accidental-flat.svg')
+        self.addButton(tools.Tool.REST_WHOLE)
+        self.addButton(tools.Tool.REST_HALF)
+        self.addButton(tools.Tool.REST_QUARTER)
+        self.addButton(tools.Tool.REST_8TH)
+        self.addButton(tools.Tool.REST_16TH)
+        self.addButton(tools.Tool.REST_32TH)
+
+        self.addButton(tools.Tool.ACCIDENTAL_NATURAL)
+        self.addButton(tools.Tool.ACCIDENTAL_SHARP)
+        self.addButton(tools.Tool.ACCIDENTAL_FLAT)
         # double accidentals are not properly supported yet.
-        #self.addButton(Tool.ACCIDENTAL_DOUBLE_SHARP, 'accidental-double-sharp.svg')
-        #self.addButton(Tool.ACCIDENTAL_DOUBLE_FLAT, 'accidental-double-flat.svg')
+        #self.addButton(tools.Tool.ACCIDENTAL_DOUBLE_SHARP)
+        #self.addButton(tools.Tool.ACCIDENTAL_DOUBLE_FLAT)
 
-        self.addButton(Tool.DURATION_DOT, 'duration-dot.svg')
-        self.addButton(Tool.DURATION_TRIPLET, 'duration-triplet.svg')
-        self.addButton(Tool.DURATION_QUINTUPLET, 'duration-quintuplet.svg')
+        self.addButton(tools.Tool.DURATION_DOT)
+        self.addButton(tools.Tool.DURATION_TRIPLET)
+        self.addButton(tools.Tool.DURATION_QUINTUPLET)
 
         current_tool = int(
-            self.app.settings.value('tool/current', Tool.NOTE_QUARTER))
+            self.app.settings.value('tool/current', tools.Tool.NOTE_QUARTER))
         for button in self.group.buttons():
             if self.group.id(button) == current_tool:
                 button.setChecked(True)
@@ -114,24 +75,35 @@ class ToolsDockWidget(dock_widget.DockWidget):
         main_area.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         self.setWidget(main_area)
 
-    def addButton(self, tool_id, icon):
+    def addButton(self, tool):
         button = QtWidgets.QToolButton(
-            icon=QtGui.QIcon(os.path.join(constants.DATA_DIR, 'icons', icon)),
+            icon=QtGui.QIcon(tool.icon_path),
             iconSize=QtCore.QSize(32, 32),
             checkable=True,
             autoRaise=True)
-        self.group.addButton(button, tool_id)
+        self.group.addButton(button, tool)
         self.layout.addWidget(button)
 
     def onButtonClicked(self, button):
         tool_id = self.group.id(button)
         self.app.settings.setValue('tool/current', tool_id)
-        self.toolChanged.emit(Tool(tool_id))
+        self.toolChanged.emit(tools.Tool(tool_id))
 
     def currentTool(self):
-        return Tool(self.group.checkedId())
+        return tools.Tool(self.group.checkedId())
 
     def setCurrentTool(self, tool):
         for button in self.group.buttons():
             if self.group.id(button) == tool:
                 button.setChecked(True)
+
+    def supportedTools(self):
+        return self.__supported_tools
+
+    def setSupportedTools(self, supported_tools):
+        logger.info(supported_tools)
+        self.__supported_tools = set(supported_tools)
+        for button in self.group.buttons():
+            button.setVisible(
+                self.group.id(button) in self.__supported_tools)
+

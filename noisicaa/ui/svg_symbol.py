@@ -10,6 +10,7 @@ import tempfile
 from xml.etree import ElementTree
 
 import cssutils
+from PyQt5 import QtCore
 from PyQt5.QtSvg import QSvgRenderer, QGraphicsSvgItem
 from PyQt5.QtWidgets import QGraphicsItemGroup
 
@@ -37,6 +38,8 @@ def _fqattr(ns, attr):
 
 
 class SvgSymbol(object):
+    _cache = {}
+
     def __init__(self, path, cache_dir=None):
         self._orig_path = path
         if not os.path.isfile(self._orig_path):
@@ -139,6 +142,33 @@ class SvgSymbol(object):
         origin_x = float(root.get(_fqattr('noisicaa', 'origin-x'), '0'))
         origin_y = float(root.get(_fqattr('noisicaa', 'origin-y'), '0'))
         return (origin_x, origin_y)
+
+    @utils.memoize
+    def get_renderer(self):
+        return QSvgRenderer(self.get_xml())
+
+    @classmethod
+    def get(cls, symbol_name):
+        try:
+            svg_symbol = cls._cache[symbol_name]
+        except KeyError:
+            path = os.path.join(DATA_DIR, 'symbols', '%s.svg' % symbol_name)
+            svg_symbol = SvgSymbol(path)
+            cls._cache[symbol_name] = svg_symbol
+
+        return svg_symbol
+
+
+def paintSymbol(painter, symbol_name, pos):
+    sym = SvgSymbol.get(symbol_name)
+    sym_renderer = sym.get_renderer()
+    origin_x, origin_y = sym.get_origin()
+    box = QtCore.QRectF(
+        QtCore.QPointF(-origin_x, -origin_y),
+        sym_renderer.viewBoxF().size() * 0.5)
+    sym_renderer.render(
+        painter,
+        box.translated(pos))
 
 
 class SymbolItem(QGraphicsItemGroup):

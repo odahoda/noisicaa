@@ -30,6 +30,10 @@ class NodeDBClientMixin(object):
         self.server.add_command_handler(
             'NODEDB_MUTATION', self.handle_mutation)
 
+    async def cleanup(self):
+        await self.disconnect()
+        await super().cleanup()
+
     async def connect(self, address, flags=None):
         assert self._stub is None
         self._stub = ipc.Stub(self.event_loop, address)

@@ -30,8 +30,10 @@ class Session(object):
         self.id = uuid.uuid4().hex
         self.pending_mutations = []
 
-    def cleanup(self):
-        pass
+    async def cleanup(self):
+        if self.callback_stub is not None:
+            await self.callback_stub.close()
+            self.callback_stub = None
 
     def publish_mutation(self, mutation):
         if not self.callback_stub.connected:
@@ -150,6 +152,10 @@ class AudioProcProcessMixin(object):
         self.sessions = {}
 
     async def cleanup(self):
+        for session in self.sessions.values():
+            session.cleanup()
+        self.sessions.clear()
+
         if self.shm is not None:
             self.shm.close_fd()
             self.shm = None
@@ -219,9 +225,9 @@ class AudioProcProcessMixin(object):
 
         session.callback_stub_connected()
 
-    def handle_end_session(self, session_id):
+    async def handle_end_session(self, session_id):
         session = self.get_session(session_id)
-        session.cleanup()
+        await session.cleanup()
         del self.sessions[session_id]
 
     async def handle_shutdown(self):
