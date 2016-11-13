@@ -1,5 +1,9 @@
 # -*- org-tags-column: -98 -*-
 
+* stats module										      :FR:
+- rules
+- UI
+
 * SheetEditor: show/hide tracks does work anymore 					     :BUG:
 * ScoreEditorTrackItem: Improve rendering						      :FR:
 ** ghost notes should be closer to real insert position

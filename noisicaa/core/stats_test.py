@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import time
 import unittest
 
 from . import stats
@@ -38,9 +39,43 @@ class StatsTest(unittest.TestCase):
         tracker.get(stats.Counter, name='counter', l='two')
 
         self.assertEqual(
-            [s.key for s in tracker.select()],
+            sorted([s.key for s in tracker.select()]),
             ['l=one:name=counter', 'l=two:name=counter'])
 
+        self.assertEqual(
+            sorted([s.key for s in tracker.select(l='one')]),
+            ['l=one:name=counter'])
+
+    def test_collect(self):
+        tracker = stats.StatsTracker(timeseries_length=5)
+        s1 = tracker.get(stats.Counter, name='s1')
+        s2 = tracker.get(stats.Counter, name='s2')
+        for _ in range(10):
+            s1.incr()
+            s2.incr(2)
+            tracker.collect()
+
+    def test_rule(self):
+        tracker = stats.StatsTracker(timeseries_length=5)
+        s = tracker.get(stats.Counter, name='s')
+        r = stats.Rule(stats.StatName(name='r'), lambda tsdata: 1)
+        tracker.add_rule(r)
+        for _ in range(10):
+            s.incr()
+            tracker.collect()
+
+    def test_collection(self):
+        tracker = stats.StatsTracker(collection_interval=100, timeseries_length=10)
+        tracker.setup()
+        try:
+            s1 = tracker.get(stats.Counter, name='s1')
+            s2 = tracker.get(stats.Counter, name='s2')
+            for _ in range(10):
+                s1.incr()
+                s2.incr(2)
+                time.sleep(0.1)
+        finally:
+            tracker.cleanup()
 
 if __name__ == '__main__':
     unittest.main()
