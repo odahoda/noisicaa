@@ -7,13 +7,16 @@ import importlib
 import logging
 import os
 import pickle
+import select
 import signal
 import struct
 import sys
+import threading
 import time
 import traceback
 
 from . import ipc
+from . import stats
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +115,137 @@ class ChildLogHandler(logging.Handler):
             msg = msg[written:]
 
 
+class ChildConnection(object):
+    def __init__(self, fd_in, fd_out):
+        self.fd_in = fd_in
+        self.fd_out = fd_out
+
+        self.__reader_state = 0
+        self.__reader_buf = None
+        self.__reader_length = None
+
+    def write(self, request):
+        assert isinstance(request, bytes)
+        header = b'#%d\n' % len(request)
+        msg = header + request
+        while msg:
+            written = os.write(self.fd_out, msg)
+            msg = msg[written:]
+
+    def __reader_start(self):
+        self.__reader_state = 0
+        self.__reader_buf = None
+        self.__reader_length = None
+
+    def __read_internal(self):
+        if self.__reader_state == 0:
+            d = os.read(self.fd_in, 1)
+            assert d == b'#'
+            self.__reader_buf = bytearray()
+            self.__reader_state = 1
+
+        elif self.__reader_state == 1:
+            d = os.read(self.fd_in, 1)
+            if d == b'\n':
+                self.__reader_length = int(self.__reader_buf)
+                self.__reader_buf = bytearray()
+                self.__reader_state = 2
+            else:
+                self.__reader_buf += d
+
+        elif self.__reader_state == 2:
+            if len(self.__reader_buf) < self.__reader_length:
+                d = os.read(self.fd_in, self.__reader_length - len(self.__reader_buf))
+                self.__reader_buf += d
+
+            if len(self.__reader_buf) == self.__reader_length:
+                self.__reader_state = 3
+
+    @property
+    def __reader_done(self):
+        return self.__reader_state == 3
+
+    @property
+    def __reader_response(self):
+        assert self.__reader_done
+        return self.__reader_buf
+
+    def read(self):
+        self.__reader_start()
+        while not self.__reader_done:
+            self.__read_internal()
+        return self.__reader_response
+
+    async def read_async(self, event_loop):
+        done = asyncio.Event(loop=event_loop)
+        def read_cb():
+            try:
+                self.__read_internal()
+            except:
+                event_loop.remove_reader(self.fd_in)
+                raise
+            if self.__reader_done:
+                event_loop.remove_reader(self.fd_in)
+                done.set()
+
+        self.__reader_start()
+        event_loop.add_reader(self.fd_in, read_cb)
+        await done.wait()
+
+        return self.__reader_response
+
+    def close(self):
+        os.close(self.fd_in)
+        os.close(self.fd_out)
+
+
+class ChildCollector(object):
+    def __init__(self):
+        self.__lock = threading.Lock()
+        self.__connections = {}
+        self.__poller = select.poll()
+        self.__fd_map = {}
+        self.__stop = None
+        self.__thread = None
+
+    def setup(self):
+        self.__stop = threading.Event()
+        self.__thread = threading.Thread(target=self.__main)
+        self.__thread.start()
+
+    def cleanup(self):
+        if self.__thread is not None:
+            self.__stop.set()
+            self.__thread.join()
+            self.__thread = None
+
+    def add_child(self, pid, connection):
+        with self.__lock:
+            self.__connections[pid] = connection
+            self.__fd_map[connection.fd_in] = pid
+            self.__poller.register(connection.fd_in, select.POLLIN | select.POLLHUP)
+
+    def remove_child(self, pid):
+        with self.__lock:
+            connection = self.__connections.pop(pid, None)
+            if connection is not None:
+                self.__poller.unregister(connection.fd_in)
+                del self.__fd_map[connection.fd_in]
+                connection.close()
+
+    def __main(self):
+        while not self.__stop.is_set():
+            with self.__lock:
+                for pid, connection in self.__connections.items():
+                    t0 = time.perf_counter()
+                    connection.write(b'COLLECT_STATS')
+                    response = connection.read()
+                    t1 = time.perf_counter()
+                    print("polled %s in %.2fµs" % (pid, (t1 - t0) * 1e6))
+
+            time.sleep(0.1)
+
+
 class ProcessManager(object):
     def __init__(self, event_loop):
         self._event_loop = event_loop
@@ -119,6 +253,7 @@ class ProcessManager(object):
         self._sigchld_received = asyncio.Event()
 
         self._server = ipc.Server(event_loop, 'manager')
+        self._collector = ChildCollector()
 
     @property
     def server(self):
@@ -130,8 +265,11 @@ class ProcessManager(object):
             signal.SIGCHLD, self.sigchld_handler)
 
         await self._server.setup()
+        self._collector.setup()
 
     async def cleanup(self):
+        self._collector.cleanup()
+
         await self.terminate_all_children()
         await self._server.cleanup()
 
@@ -172,8 +310,8 @@ class ProcessManager(object):
     async def start_process(self, name, cls, **kwargs):
         proc = ProcessHandle()
 
-        barrier_in, barrier_out = os.pipe()
-        announce_in, announce_out = os.pipe()
+        request_in, request_out = os.pipe()
+        response_in, response_out = os.pipe()
         stdout_in, stdout_out = os.pipe()
         stderr_in, stderr_out = os.pipe()
         logger_in, logger_out = os.pipe()
@@ -189,8 +327,8 @@ class ProcessManager(object):
                     self._event_loop.remove_signal_handler(sig)
 
                 # Close the "other ends" of the pipes.
-                os.close(barrier_out)
-                os.close(announce_in)
+                os.close(request_out)
+                os.close(response_in)
                 os.close(stdout_in)
                 os.close(stderr_in)
                 os.close(logger_in)
@@ -203,11 +341,13 @@ class ProcessManager(object):
 
                 # TODO: ensure that sys.stdout/err use utf-8
 
+                child_connection = ChildConnection(request_in, response_out)
+
                 # Wait until manager told us it's ok to start. Avoid race
                 # condition where child terminates and generates SIGCHLD
                 # before manager has added it to its process map.
-                os.read(barrier_in, 1)
-                os.close(barrier_in)
+                msg = child_connection.read()
+                assert msg == b'START'
 
                 # Remove all existing log handlers, and install a new
                 # handler to pipe all log messages back to the manager
@@ -216,6 +356,7 @@ class ProcessManager(object):
                 while root_logger.handlers:
                     root_logger.removeHandler(root_logger.handlers[0])
                 root_logger.addHandler(ChildLogHandler(logger_out))
+                #root_logger.addHandler(logging.StreamHandler())
 
                 if isinstance(cls, str):
                     mod_name, cls_name = cls.rsplit('.', 1)
@@ -224,16 +365,7 @@ class ProcessManager(object):
                 impl = cls(
                     name=name, manager_address=manager_address, **kwargs)
 
-                # TODO: if crashes before ready_callback was sent, write
-                # back failure message to pipe.
-                def ready_callback():
-                    stub_address = impl.server.address.encode('utf-8')
-                    while stub_address:
-                        written = os.write(announce_out, stub_address)
-                        stub_address = stub_address[written:]
-                    os.close(announce_out)
-
-                rc = impl.main(ready_callback)
+                rc = impl.main(child_connection)
 
             except SystemExit as exc:
                 rc = exc.code
@@ -247,13 +379,15 @@ class ProcessManager(object):
 
         else:
             # In manager process.
-            os.close(barrier_in)
-            os.close(announce_out)
+            os.close(request_in)
+            os.close(response_out)
             os.close(stdout_out)
             os.close(stderr_out)
             os.close(logger_out)
 
             self._processes[pid] = proc
+
+            child_connection = ChildConnection(response_in, request_out)
 
             proc.pid = pid
             proc.create_loggers()
@@ -265,24 +399,11 @@ class ProcessManager(object):
 
             # Unleash the child.
             proc.state = ProcessState.RUNNING
+            child_connection.write(b'START')
 
-            # TODO: There's no simpler way than this?
-            transport, _ = await self._event_loop.connect_write_pipe(
-                asyncio.Protocol, os.fdopen(barrier_out))
-            transport.write(b'1')
-            transport.close()  # Does this close the FD?
+            stub_address = await child_connection.read_async(self._event_loop)
 
-            # Wait for it to write back its server address.
-            # TODO: need to timeout? what happens when child terminates
-            # before full address is written?
-            reader = asyncio.StreamReader(loop=self._event_loop)
-            transport, protocol = await self._event_loop.connect_read_pipe(
-                functools.partial(
-                    asyncio.StreamReaderProtocol,
-                    reader, loop=self._event_loop),
-                os.fdopen(announce_in))
-            stub_address = await reader.read()
-            transport.close()  # Does this close the FD?
+            self._collector.add_child(pid, child_connection)
 
             proc.address = stub_address.decode('utf-8')
             logger.info(
@@ -352,6 +473,7 @@ class ProcessManager(object):
             dead_children.add(pid)
 
         for pid in dead_children:
+            self._collector.remove_child(pid)
             del self._processes[pid]
 
 
@@ -362,6 +484,8 @@ class ProcessImpl(object):
         self.event_loop = None
         self.pid = os.getpid()
 
+        self.__handler_stop = None
+        self.__handler_thread = None
         self.manager = None
         self.server = None
 
@@ -375,20 +499,34 @@ class ProcessImpl(object):
         sys.stderr.flush()
         os._exit(1)
 
-    def main(self, ready_callback, *args, **kwargs):
-        # Create a new event loop to replace the one we inherited.
-        self.event_loop = self.create_event_loop()
-        self.event_loop.set_exception_handler(self.error_handler)
-        asyncio.set_event_loop(self.event_loop)
+    def __handler_main(self, child_connection):
+        poller = select.poll()
+        poller.register(child_connection.fd_in, select.POLLIN)
+        while not self.__handler_stop.is_set():
+            for fd, evt in poller.poll(0.01):
+                if fd == child_connection.fd_in and evt & select.POLLIN:
+                    request = child_connection.read()
+                    response = b'pong'
+                    child_connection.write(response)
 
+    def main(self, child_connection, *args, **kwargs):
+        stats.tracker.setup()
         try:
-            return self.event_loop.run_until_complete(
-                self.main_async(ready_callback, *args, **kwargs))
-        finally:
-            self.event_loop.stop()
-            self.event_loop.close()
+            # Create a new event loop to replace the one we inherited.
+            self.event_loop = self.create_event_loop()
+            self.event_loop.set_exception_handler(self.error_handler)
+            asyncio.set_event_loop(self.event_loop)
 
-    async def main_async(self, ready_callback, *args, **kwargs):
+            try:
+                return self.event_loop.run_until_complete(
+                    self.main_async(child_connection, *args, **kwargs))
+            finally:
+                self.event_loop.stop()
+                self.event_loop.close()
+        finally:
+            stats.tracker.cleanup()
+
+    async def main_async(self, child_connection, *args, **kwargs):
         self.manager = ManagerStub(self.event_loop, self.manager_address)
         async with self.manager:
             self.server = ipc.Server(self.event_loop, self.name)
@@ -396,15 +534,27 @@ class ProcessImpl(object):
                 try:
                     logger.info("Setting up process.")
                     await self.setup()
-                    ready_callback()
 
-                    logger.info("Entering run method.")
-                    return await self.run(*args, **kwargs)
-                except Exception as exc:
-                    logger.error(
-                        "Unhandled exception in process %s:\n%s",
-                        self.name, traceback.format_exc())
-                    raise
+                    stub_address = self.server.address.encode('utf-8')
+                    child_connection.write(stub_address)
+
+                    self.__handler_stop = threading.Event()
+                    self.__handler_thread = threading.Thread(
+                        target=self.__handler_main, args=(child_connection,))
+                    self.__handler_thread.start()
+                    try:
+                        logger.info("Entering run method.")
+                        return await self.run(*args, **kwargs)
+
+                    except Exception as exc:
+                        logger.error(
+                            "Unhandled exception in process %s:\n%s",
+                            self.name, traceback.format_exc())
+                        raise
+
+                    finally:
+                        self.__handler_stop.set()
+                        self.__handler_thread.join()
                 finally:
                     await self.cleanup()
 

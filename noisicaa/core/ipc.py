@@ -12,6 +12,8 @@ import tempfile
 import traceback
 import uuid
 
+from . import stats
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,6 +49,7 @@ class ServerProtocol(asyncio.Protocol):
 
     def data_received(self, data):
         self.inbuf.extend(data)
+        self.server.stat_bytes_received.incr(len(data))
 
         while self.inbuf:
             if self.state == ConnState.READ_MESSAGE:
@@ -59,7 +62,9 @@ class ServerProtocol(asyncio.Protocol):
                 self.inbuf = self.inbuf[eol+1:]
                 if header == b'PING':
                     self.logger.debug("PING received")
-                    self.transport.write(b'ACK 4\nPONG')
+                    response = b'ACK 4\nPONG'
+                    self.transport.write(response)
+                    self.server.stat_bytes_sent.incr(len(response))
 
                 elif header.startswith(b'CALL '):
                     command, length = header[5:].split(b' ')
@@ -92,9 +97,12 @@ class ServerProtocol(asyncio.Protocol):
             raise task.exception()
 
         response = task.result() or b''
-        self.transport.write(b'ACK %d\n' % len(response))
+        header = b'ACK %d\n' % len(response)
+        self.transport.write(header)
+        #self.server.stat_bytes_sent.incr(len(header))
         if response:
             self.transport.write(response)
+            #self.server.stat_bytes_sent.incr(len(response))
 
 
 class Server(object):
@@ -120,6 +128,9 @@ class Server(object):
         self._command_handlers = {}
         self._command_log_levels = {}
 
+        self.stat_bytes_sent = None
+        self.stat_bytes_received = None
+
     def add_command_handler(self, cmd, handler, log_level=None):
         assert cmd not in self._command_handlers
         self._command_handlers[cmd] = handler
@@ -135,6 +146,11 @@ class Server(object):
         return self._next_connection_id
 
     async def setup(self):
+        self.stat_bytes_sent = stats.tracker.register(
+            stats.Counter, stats.StatName(name='ipc_server_bytes_sent', server=self.name))
+        self.stat_bytes_received = stats.tracker.register(
+            stats.Counter, stats.StatName(name='ipc_server_bytes_received', server=self.name))
+
         self._server = await self.event_loop.create_unix_server(
             functools.partial(ServerProtocol, self.event_loop, self),
             path=self.address)
@@ -147,6 +163,14 @@ class Server(object):
             os.unlink(self.address)
             self._server = None
             self.logger.info("Server closed")
+
+        if self.stat_bytes_sent is not None:
+            self.stat_bytes_sent.unregister()
+            self.stat_bytes_sent = None
+
+        if self.stat_bytes_received is not None:
+            self.stat_bytes_received.unregister()
+            self.stat_bytes_received = None
 
     async def __aenter__(self):
         await self.setup()

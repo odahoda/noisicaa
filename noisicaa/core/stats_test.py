@@ -21,7 +21,19 @@ class StatNameTest(unittest.TestCase):
             stats.StatName(a=1, b=2, c=3).is_subset_of(stats.StatName(a=1, b=2)))
 
 
-class StatsTest(unittest.TestCase):
+class TimeseriesSetTest(unittest.TestCase):
+    def test_select(self):
+        s = stats.TimeseriesSet()
+        ts1 = stats.Timeseries()
+        s[stats.StatName(n=1)] = ts1
+        ts2 = stats.Timeseries()
+        s[stats.StatName(n=2)] = ts2
+
+        r = s.select(n=1)
+        self.assertEqual(len(r), 1)
+
+
+class StatsTrackerTest(unittest.TestCase):
     def test_counter(self):
         tracker = stats.StatsTracker()
         tracker.get(stats.Counter, name='counter', l='one').incr()
@@ -57,11 +69,13 @@ class StatsTest(unittest.TestCase):
 
     def test_rule(self):
         tracker = stats.StatsTracker(timeseries_length=5)
-        s = tracker.get(stats.Counter, name='s')
-        r = stats.Rule(stats.StatName(name='r'), lambda tsdata: 1)
+        s1 = tracker.get(stats.Counter, name='s', l=1)
+        s2 = tracker.get(stats.Counter, name='s', l=2)
+        r = stats.Rule(stats.StatName(name='r'), lambda tsdata: tsdata.select(name='s').latest())
         tracker.add_rule(r)
         for _ in range(10):
-            s.incr()
+            s1.incr()
+            s2.incr(2)
             tracker.collect()
 
     def test_collection(self):

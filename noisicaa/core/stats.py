@@ -40,10 +40,16 @@ class StatName(object):
 
         return True
 
+    def merge(self, other):
+        labels = self.__labels.copy()
+        labels.update(other.__labels)
+        return StatName(**labels)
+
 
 class BaseStat(object):
-    def __init__(self, name, lock):
+    def __init__(self, name, tracker, lock):
         self.name = name
+        self.tracker = tracker
         self._lock = lock
 
     def __str__(self):
@@ -54,10 +60,14 @@ class BaseStat(object):
     def key(self):
         return self.name.key
 
+    def unregister(self):
+        self.tracker.unregister(self)
+        self.tracker = None
+
 
 class Counter(BaseStat):
-    def __init__(self, name, lock):
-        super().__init__(name, lock)
+    def __init__(self, name, tracker, lock):
+        super().__init__(name, tracker, lock)
 
         self.__value = 0
 
@@ -87,11 +97,68 @@ class Rule(object):
         return self.__func(tsdata)
 
 
+class Value(object):
+    def __init__(self, timestamp, value):
+        self.timestamp = timestamp
+        self.value = value
+
+    def __str__(self):
+        return str(self.value)
+
+    def __repr__(self):
+        return repr(self.value)
+
+
+class ValueSet(collections.UserDict):
+    def __init__(self, data=None):
+        super().__init__(data)
+
+    def select(self, **labels):
+        name = StatName(**labels)
+
+        result = ValueSet()
+        for value_name, value in self.data.items():
+            if name.is_subset_of(value_name):
+                result[value_name] = value
+
+        return result
+
+
+class Timeseries(collections.UserList):
+    def __init__(self, values=None):
+        super().__init__(values)
+
+    def latest(self):
+        return self.data[0]
+
+
+class TimeseriesSet(collections.UserDict):
+    def __init__(self, data=None):
+        super().__init__(data)
+
+    def select(self, **labels):
+        name = StatName(**labels)
+
+        result = TimeseriesSet()
+        for ts_name, ts in self.data.items():
+            if name.is_subset_of(ts_name):
+                result[ts_name] = ts
+
+        return result
+
+    def latest(self):
+        result = ValueSet()
+        for ts_name, ts in self.data.items():
+            result[ts_name] = ts.latest()
+
+        return result
+
+
 class StatsTracker(object):
-    def __init__(self, collection_interval=10, timeseries_length=60*10*100):
+    def __init__(self, collection_interval=100, timeseries_length=60*10*10):
         self.__lock = threading.RLock()
         self.__stats = {}
-        self.__timeseries = {}
+        self.__timeseries = TimeseriesSet()
         self.__rules = collections.OrderedDict()
 
         self.__collection_interval = collection_interval
@@ -122,6 +189,17 @@ class StatsTracker(object):
             self.collect()
             next_collection += self.__collection_interval / 1e3
 
+    def register(self, stat_cls, name):
+        with self.__lock:
+            assert name not in self.__stats
+            stat = stat_cls(name, self, self.__lock)
+            self.__stats[name] = stat
+            return stat
+
+    def unregister(self, stat):
+        with self.__lock:
+            del self.__stats[stat.name]
+
     def get(self, stat_cls, **labels):
         with self.__lock:
             stat_name = StatName(**labels)
@@ -147,9 +225,10 @@ class StatsTracker(object):
 
     def collect(self):
         with self.__lock:
+            now = time.time()
             for stat in self.__stats.values():
-                ts = self.__timeseries.setdefault(stat.name, [])
-                ts.insert(0, stat.value)
+                ts = self.__timeseries.setdefault(stat.name, Timeseries())
+                ts.insert(0, Value(now, stat.value))
 
                 drop_count = len(ts) - self.__timeseries_length
                 if drop_count > 0:
@@ -157,11 +236,29 @@ class StatsTracker(object):
 
             for rule in self.__rules.values():
                 value = rule.evaluate(self.__timeseries)
-                ts = self.__timeseries.setdefault(rule.name, [])
-                ts.insert(0, value)
+                if isinstance(value, (Timeseries, TimeseriesSet)):
+                    value = value.latest()
 
-                drop_count = len(ts) - self.__timeseries_length
-                if drop_count > 0:
-                    del ts[-drop_count:]
+                if isinstance(value, Value):
+                    value = value.value
 
-            print(self.__timeseries)
+                if isinstance(value, ValueSet):
+                    for name, value in value.items():
+                        rname = name.merge(rule.name)
+                        ts = self.__timeseries.setdefault(rname, Timeseries())
+                        ts.insert(0, Value(now, value.value))
+                        drop_count = len(ts) - self.__timeseries_length
+                        if drop_count > 0:
+                            del ts[-drop_count:]
+
+                elif isinstance(value, (int, float)):
+                    ts = self.__timeseries.setdefault(rule.name, Timeseries())
+                    ts.insert(0, Value(now, value))
+                    drop_count = len(ts) - self.__timeseries_length
+                    if drop_count > 0:
+                        del ts[-drop_count:]
+
+            #print(self.__timeseries)
+
+
+tracker = StatsTracker()
