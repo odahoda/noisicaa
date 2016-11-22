@@ -7,6 +7,7 @@ import importlib
 import logging
 import os
 import pickle
+import pprint
 import select
 import signal
 import struct
@@ -14,6 +15,8 @@ import sys
 import threading
 import time
 import traceback
+
+import eventfd
 
 from . import ipc
 from . import stats
@@ -200,15 +203,25 @@ class ChildConnection(object):
 
 
 class ChildCollector(object):
-    def __init__(self):
+    def __init__(self, stats_collector, stats_registry, collection_interval=100):
+        self.__stats_collector = stats_collector
+        self.__stats_registry = stats_registry
+        self.__collection_interval = collection_interval
+
+        self.__stat_poll_duration = None
+        self.__stat_poll_count = None
+
         self.__lock = threading.Lock()
         self.__connections = {}
-        self.__poller = select.poll()
-        self.__fd_map = {}
         self.__stop = None
         self.__thread = None
 
     def setup(self):
+        self.__stat_poll_duration = self.__stats_registry.register(
+            stats.Counter, stats.StatName(name='stat_collector_duration_total'))
+        self.__stat_poll_count = self.__stats_registry.register(
+            stats.Counter, stats.StatName(name='stat_collector_collections'))
+
         self.__stop = threading.Event()
         self.__thread = threading.Thread(target=self.__main)
         self.__thread.start()
@@ -218,32 +231,77 @@ class ChildCollector(object):
             self.__stop.set()
             self.__thread.join()
             self.__thread = None
+            self.__stop = None
+
+        for connection in self.__connections.values():
+            connection.close()
+        self.__connections.clear()
+
+        if self.__stat_poll_duration is not None:
+            self.__stat_poll_duration.unregister()
+            self.__stat_poll_duration = None
+
+        if self.__stat_poll_count is not None:
+            self.__stat_poll_count.unregister()
+            self.__stat_poll_count = None
 
     def add_child(self, pid, connection):
         with self.__lock:
             self.__connections[pid] = connection
-            self.__fd_map[connection.fd_in] = pid
-            self.__poller.register(connection.fd_in, select.POLLIN | select.POLLHUP)
 
     def remove_child(self, pid):
         with self.__lock:
             connection = self.__connections.pop(pid, None)
             if connection is not None:
-                self.__poller.unregister(connection.fd_in)
-                del self.__fd_map[connection.fd_in]
                 connection.close()
 
-    def __main(self):
-        while not self.__stop.is_set():
-            with self.__lock:
-                for pid, connection in self.__connections.items():
-                    t0 = time.perf_counter()
-                    connection.write(b'COLLECT_STATS')
-                    response = connection.read()
-                    t1 = time.perf_counter()
-                    print("polled %s in %.2fµs" % (pid, (t1 - t0) * 1e6))
+    def collect(self):
+        with self.__lock:
+            poll_start = time.perf_counter()
 
-            time.sleep(0.1)
+            pending = {}
+            poller = select.poll()
+            for pid, connection in self.__connections.items():
+                t0 = time.perf_counter()
+                connection.write(b'COLLECT_STATS')
+                pending[connection.fd_in] = (t0, pid, connection)
+                poller.register(connection.fd_in)
+
+            while pending:
+                for fd, evt in poller.poll():
+                    t0, pid, connection = pending[fd]
+                    if evt & select.POLLIN:
+                        response = connection.read()
+                        latency = time.perf_counter() - t0
+
+                        child_name = stats.StatName(pid=pid)
+                        for name, value in pickle.loads(response):
+                            self.__stats_collector.add_value(
+                                name.merge(child_name), value)
+
+                        poller.unregister(fd)
+                        del pending[fd]
+
+                    elif evt & select.POLLHUP:
+                        poller.unregister(fd)
+                        del pending[fd]
+
+            poll_duration = time.perf_counter() - poll_start
+            self.__stat_poll_duration.incr(poll_duration)
+            self.__stat_poll_count.incr(1)
+
+        self.__stats_collector.collect(self.__stats_registry)
+        self.__stats_collector.evaluate_rules()
+
+    def __main(self):
+        next_collection = time.perf_counter()
+        while not self.__stop.is_set():
+            delay = next_collection - time.perf_counter()
+            if delay > 0:
+                time.sleep(delay)
+
+            self.collect()
+            next_collection += self.__collection_interval / 1e3
 
 
 class ProcessManager(object):
@@ -253,7 +311,10 @@ class ProcessManager(object):
         self._sigchld_received = asyncio.Event()
 
         self._server = ipc.Server(event_loop, 'manager')
-        self._collector = ChildCollector()
+        self._stats_registry = stats.Registry()
+        self._stats_collector = stats.Collector()
+        self._child_collector = ChildCollector(
+            self._stats_collector, self._stats_registry)
 
     @property
     def server(self):
@@ -265,10 +326,10 @@ class ProcessManager(object):
             signal.SIGCHLD, self.sigchld_handler)
 
         await self._server.setup()
-        self._collector.setup()
+        self._child_collector.setup()
 
     async def cleanup(self):
-        self._collector.cleanup()
+        self._child_collector.cleanup()
 
         await self.terminate_all_children()
         await self._server.cleanup()
@@ -403,7 +464,7 @@ class ProcessManager(object):
 
             stub_address = await child_connection.read_async(self._event_loop)
 
-            self._collector.add_child(pid, child_connection)
+            self._child_collector.add_child(pid, child_connection)
 
             proc.address = stub_address.decode('utf-8')
             logger.info(
@@ -473,8 +534,56 @@ class ProcessManager(object):
             dead_children.add(pid)
 
         for pid in dead_children:
-            self._collector.remove_child(pid)
+            self._child_collector.remove_child(pid)
             del self._processes[pid]
+
+
+class ChildConnectionHandler(object):
+    def __init__(self, connection):
+        self.connection = connection
+
+        self.__stop = None
+        self.__thread = None
+
+    def setup(self):
+        self.__stop = eventfd.EventFD()
+        self.__thread = threading.Thread(target=self.__main)
+        self.__thread.start()
+
+    def cleanup(self):
+        if self.__thread is not None:
+            logger.info("Stopping ChildConnectionHandler...")
+            self.__stop.set()
+            self.__thread.join()
+            self.__thread = None
+            self.__stop = None
+
+    def __main(self):
+        fd_in = self.connection.fd_in
+
+        poller = select.poll()
+        poller.register(fd_in, select.POLLIN | select.POLLHUP)
+        poller.register(self.__stop, select.POLLIN)
+        while not self.__stop.is_set():
+            for fd, evt in poller.poll():
+                if fd == fd_in and evt & select.POLLIN:
+                    request = self.connection.read()
+                    if request == b'COLLECT_STATS':
+                        data = stats.registry.collect()
+                        response = pickle.dumps(data, protocol=-1)
+                    else:
+                        raise ValueError(request)
+
+                    try:
+                        self.connection.write(response)
+                    except BrokenPipeError:
+                        logger.warning("Failed to write COLLECT_STATS response.")
+
+                elif fd == fd_in and evt & select.POLLHUP:
+                    logger.warning("Child connection closed.")
+                    poller.unregister(fd_in)
+
+        logger.info("ChildConnectionHandler stopped.")
 
 
 class ProcessImpl(object):
@@ -484,8 +593,6 @@ class ProcessImpl(object):
         self.event_loop = None
         self.pid = os.getpid()
 
-        self.__handler_stop = None
-        self.__handler_thread = None
         self.manager = None
         self.server = None
 
@@ -499,32 +606,18 @@ class ProcessImpl(object):
         sys.stderr.flush()
         os._exit(1)
 
-    def __handler_main(self, child_connection):
-        poller = select.poll()
-        poller.register(child_connection.fd_in, select.POLLIN)
-        while not self.__handler_stop.is_set():
-            for fd, evt in poller.poll(0.01):
-                if fd == child_connection.fd_in and evt & select.POLLIN:
-                    request = child_connection.read()
-                    response = b'pong'
-                    child_connection.write(response)
-
     def main(self, child_connection, *args, **kwargs):
-        stats.tracker.setup()
-        try:
-            # Create a new event loop to replace the one we inherited.
-            self.event_loop = self.create_event_loop()
-            self.event_loop.set_exception_handler(self.error_handler)
-            asyncio.set_event_loop(self.event_loop)
+        # Create a new event loop to replace the one we inherited.
+        self.event_loop = self.create_event_loop()
+        self.event_loop.set_exception_handler(self.error_handler)
+        asyncio.set_event_loop(self.event_loop)
 
-            try:
-                return self.event_loop.run_until_complete(
-                    self.main_async(child_connection, *args, **kwargs))
-            finally:
-                self.event_loop.stop()
-                self.event_loop.close()
+        try:
+            return self.event_loop.run_until_complete(
+                self.main_async(child_connection, *args, **kwargs))
         finally:
-            stats.tracker.cleanup()
+            self.event_loop.stop()
+            self.event_loop.close()
 
     async def main_async(self, child_connection, *args, **kwargs):
         self.manager = ManagerStub(self.event_loop, self.manager_address)
@@ -538,10 +631,8 @@ class ProcessImpl(object):
                     stub_address = self.server.address.encode('utf-8')
                     child_connection.write(stub_address)
 
-                    self.__handler_stop = threading.Event()
-                    self.__handler_thread = threading.Thread(
-                        target=self.__handler_main, args=(child_connection,))
-                    self.__handler_thread.start()
+                    child_connection_handler = ChildConnectionHandler(child_connection)
+                    child_connection_handler.setup()
                     try:
                         logger.info("Entering run method.")
                         return await self.run(*args, **kwargs)
@@ -553,8 +644,9 @@ class ProcessImpl(object):
                         raise
 
                     finally:
-                        self.__handler_stop.set()
-                        self.__handler_thread.join()
+                        child_connection_handler.cleanup()
+                        child_connection.close()
+
                 finally:
                     await self.cleanup()
 

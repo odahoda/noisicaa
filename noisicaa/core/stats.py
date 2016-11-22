@@ -2,8 +2,10 @@
 
 import collections
 import logging
+import pickle
 import threading
 import time
+import pprint
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,9 @@ class StatName(object):
     def __str__(self):
         return self.__key
     __repr__ = __str__
+
+    def __lt__(self, other):
+        return self.key < other.key
 
     def __eq__(self, other):
         return self.key == other.key
@@ -47,9 +52,9 @@ class StatName(object):
 
 
 class BaseStat(object):
-    def __init__(self, name, tracker, lock):
+    def __init__(self, name, registry, lock):
         self.name = name
-        self.tracker = tracker
+        self.registry = registry
         self._lock = lock
 
     def __str__(self):
@@ -61,13 +66,13 @@ class BaseStat(object):
         return self.name.key
 
     def unregister(self):
-        self.tracker.unregister(self)
-        self.tracker = None
+        self.registry.unregister(self)
+        self.registry = None
 
 
 class Counter(BaseStat):
-    def __init__(self, name, tracker, lock):
-        super().__init__(name, tracker, lock)
+    def __init__(self, name, registry, lock):
+        super().__init__(name, registry, lock)
 
         self.__value = 0
 
@@ -154,40 +159,10 @@ class TimeseriesSet(collections.UserDict):
         return result
 
 
-class StatsTracker(object):
-    def __init__(self, collection_interval=100, timeseries_length=60*10*10):
+class Registry(object):
+    def __init__(self):
         self.__lock = threading.RLock()
         self.__stats = {}
-        self.__timeseries = TimeseriesSet()
-        self.__rules = collections.OrderedDict()
-
-        self.__collection_interval = collection_interval
-        self.__timeseries_length = timeseries_length
-        self.__collector_thread = None
-        self.__stop_collector_thread = None
-
-    def setup(self):
-        assert self.__collector_thread is None
-        self.__stop_collector_thread = threading.Event()
-        self.__collector_thread = threading.Thread(target=self.__collector_main)
-        self.__collector_thread.start()
-
-    def cleanup(self):
-        if self.__collector_thread is not None:
-            self.__stop_collector_thread.set()
-            self.__collector_thread.join()
-            self.__collector_thread = None
-            self.__stop_collector_thread = None
-
-    def __collector_main(self):
-        next_collection = time.perf_counter()
-        while not self.__stop_collector_thread.is_set():
-            delay = next_collection - time.perf_counter()
-            if delay > 0:
-                time.sleep(delay)
-
-            self.collect()
-            next_collection += self.__collection_interval / 1e3
 
     def register(self, stat_cls, name):
         with self.__lock:
@@ -200,65 +175,60 @@ class StatsTracker(object):
         with self.__lock:
             del self.__stats[stat.name]
 
-    def get(self, stat_cls, **labels):
+    def collect(self):
+        data = []
         with self.__lock:
-            stat_name = StatName(**labels)
-            try:
-                stat = self.__stats[stat_name]
-                assert isinstance(stat, stat_cls)
-            except KeyError:
-                stat = stat_cls(stat_name, self.__lock)
-                self.__stats[stat_name] = stat
-        return stat
+            now = time.time()
+            for name, stat in self.__stats.items():
+                data.append((name, Value(now, stat.value)))
+
+        return data
+
+
+class Collector(object):
+    def __init__(self, timeseries_length=60*10*10):
+        self.__timeseries = TimeseriesSet()
+        self.__rules = collections.OrderedDict()
+        self.__timeseries_length = timeseries_length
+
+    def add_value(self, name, value):
+        ts = self.__timeseries.setdefault(name, Timeseries())
+        ts.insert(0, value)
+
+        drop_count = len(ts) - self.__timeseries_length
+        if drop_count > 0:
+            del ts[-drop_count:]
 
     def add_rule(self, rule):
         with self.__lock:
             assert rule.name not in self.__rules
             self.__rules[rule.name] = rule
 
-    def select(self, **labels):
-        with self.__lock:
-            stat_name = StatName(**labels)
-            for stat in self.__stats.values():
-                if stat_name.is_subset_of(stat.name):
-                    yield stat
+    def collect(self, registry):
+        for name, value in registry.collect():
+            self.add_value(name, value)
 
-    def collect(self):
-        with self.__lock:
-            now = time.time()
-            for stat in self.__stats.values():
-                ts = self.__timeseries.setdefault(stat.name, Timeseries())
-                ts.insert(0, Value(now, stat.value))
+    def evaluate_rules(self):
+        now = time.time()
+        for rule in self.__rules.values():
+            value = rule.evaluate(self.__timeseries)
+            if isinstance(value, (Timeseries, TimeseriesSet)):
+                value = value.latest()
 
-                drop_count = len(ts) - self.__timeseries_length
-                if drop_count > 0:
-                    del ts[-drop_count:]
+            if isinstance(value, Value):
+                value = value.value
 
-            for rule in self.__rules.values():
-                value = rule.evaluate(self.__timeseries)
-                if isinstance(value, (Timeseries, TimeseriesSet)):
-                    value = value.latest()
+            if isinstance(value, ValueSet):
+                for name, value in value.items():
+                    rname = name.merge(rule.name)
+                    self.add_value(rname, Value(now, value.value))
 
-                if isinstance(value, Value):
-                    value = value.value
+            elif isinstance(value, (int, float)):
+                self.add_value(rule.name, Value(now, value))
 
-                if isinstance(value, ValueSet):
-                    for name, value in value.items():
-                        rname = name.merge(rule.name)
-                        ts = self.__timeseries.setdefault(rname, Timeseries())
-                        ts.insert(0, Value(now, value.value))
-                        drop_count = len(ts) - self.__timeseries_length
-                        if drop_count > 0:
-                            del ts[-drop_count:]
-
-                elif isinstance(value, (int, float)):
-                    ts = self.__timeseries.setdefault(rule.name, Timeseries())
-                    ts.insert(0, Value(now, value))
-                    drop_count = len(ts) - self.__timeseries_length
-                    if drop_count > 0:
-                        del ts[-drop_count:]
-
-            #print(self.__timeseries)
+    def dump(self):
+        for name, ts in sorted(self.__timeseries.items()):
+            logger.info("%s = %s", name, ts.latest())
 
 
-tracker = StatsTracker()
+registry = Registry()

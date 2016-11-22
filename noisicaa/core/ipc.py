@@ -146,9 +146,9 @@ class Server(object):
         return self._next_connection_id
 
     async def setup(self):
-        self.stat_bytes_sent = stats.tracker.register(
+        self.stat_bytes_sent = stats.registry.register(
             stats.Counter, stats.StatName(name='ipc_server_bytes_sent', server=self.name))
-        self.stat_bytes_received = stats.tracker.register(
+        self.stat_bytes_received = stats.registry.register(
             stats.Counter, stats.StatName(name='ipc_server_bytes_received', server=self.name))
 
         self._server = await self.event_loop.create_unix_server(
