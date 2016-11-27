@@ -16,3 +16,4 @@ quamash
 ./3rdparty/csound/
 posix_ipc
 eventfd
+psutil

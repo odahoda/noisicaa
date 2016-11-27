@@ -12,13 +12,13 @@ from .runtime_settings import RuntimeSettings
 from . import logging
 from .core import process_manager
 
-# Unload all noisicaa modules, so that every subprocess reloads everything
-# from scratch again.
-noisicaa_modules = [
-    mod for mod in sys.modules.keys()
-    if mod == 'noisicaa' or mod.startswith('noisicaa.')]
-for mod in noisicaa_modules:
-    del sys.modules[mod]
+# # Unload all noisicaa modules, so that every subprocess reloads everything
+# # from scratch again.
+# noisicaa_modules = [
+#     mod for mod in sys.modules.keys()
+#     if mod == 'noisicaa' or mod.startswith('noisicaa.')]
+# for mod in noisicaa_modules:
+#     del sys.modules[mod]
 
 
 class Main(object):

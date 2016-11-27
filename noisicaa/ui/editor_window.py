@@ -262,6 +262,15 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             self.app.pipeline_graph_monitor.visibilityChanged.connect(
                 self._show_pipeline_graph_monitor_action.setChecked)
 
+        self._show_stat_monitor_action = QtWidgets.QAction(
+            "Stat Monitor", self,
+            checkable=True,
+            checked=self.app.stat_monitor.isVisible())
+        self._show_stat_monitor_action.toggled.connect(
+            self.app.stat_monitor.setVisible)
+        self.app.stat_monitor.visibilityChanged.connect(
+            self._show_stat_monitor_action.setChecked)
+
     def createMenus(self):
         menu_bar = self.menuBar()
 
@@ -297,11 +306,11 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             self._dev_menu.addAction(self._restart_clean_action)
             self._dev_menu.addAction(self._crash_action)
             self._dev_menu.addAction(self.app.show_edit_areas_action)
-            self._dev_menu.addAction(
-                self._show_pipeline_perf_monitor_action)
+            self._dev_menu.addAction(self._show_pipeline_perf_monitor_action)
             if self.app.pipeline_graph_monitor is not None:
                 self._dev_menu.addAction(
                     self._show_pipeline_graph_monitor_action)
+            self._dev_menu.addAction(self._show_stat_monitor_action)
 
         menu_bar.addSeparator()
 

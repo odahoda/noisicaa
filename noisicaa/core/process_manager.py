@@ -203,9 +203,8 @@ class ChildConnection(object):
 
 
 class ChildCollector(object):
-    def __init__(self, stats_collector, stats_registry, collection_interval=100):
+    def __init__(self, stats_collector, collection_interval=100):
         self.__stats_collector = stats_collector
-        self.__stats_registry = stats_registry
         self.__collection_interval = collection_interval
 
         self.__stat_poll_duration = None
@@ -217,9 +216,9 @@ class ChildCollector(object):
         self.__thread = None
 
     def setup(self):
-        self.__stat_poll_duration = self.__stats_registry.register(
+        self.__stat_poll_duration = stats.registry.register(
             stats.Counter, stats.StatName(name='stat_collector_duration_total'))
-        self.__stat_poll_count = self.__stats_registry.register(
+        self.__stat_poll_count = stats.registry.register(
             stats.Counter, stats.StatName(name='stat_collector_collections'))
 
         self.__stop = threading.Event()
@@ -290,8 +289,10 @@ class ChildCollector(object):
             self.__stat_poll_duration.incr(poll_duration)
             self.__stat_poll_count.incr(1)
 
-        self.__stats_collector.collect(self.__stats_registry)
-        self.__stats_collector.evaluate_rules()
+        manager_name = stats.StatName(pid=os.getpid())
+        for name, value in stats.registry.collect():
+            self.__stats_collector.add_value(
+                name.merge(manager_name), value)
 
     def __main(self):
         next_collection = time.perf_counter()
@@ -311,10 +312,9 @@ class ProcessManager(object):
         self._sigchld_received = asyncio.Event()
 
         self._server = ipc.Server(event_loop, 'manager')
-        self._stats_registry = stats.Registry()
         self._stats_collector = stats.Collector()
         self._child_collector = ChildCollector(
-            self._stats_collector, self._stats_registry)
+            self._stats_collector)
 
     @property
     def server(self):
@@ -325,6 +325,11 @@ class ProcessManager(object):
         self._event_loop.add_signal_handler(
             signal.SIGCHLD, self.sigchld_handler)
 
+        self._server.add_command_handler(
+            'STATS_LIST', self.handle_stats_list)
+        self._server.add_command_handler(
+            'STATS_FETCH', self.handle_stats_fetch)
+
         await self._server.setup()
         self._child_collector.setup()
 
@@ -333,6 +338,9 @@ class ProcessManager(object):
 
         await self.terminate_all_children()
         await self._server.cleanup()
+
+        self._server.remove_command_handler('STATS_LIST')
+        self._server.remove_command_handler('STATS_FETCH')
 
     async def __aenter__(self):
         await self.setup()
@@ -386,6 +394,9 @@ class ProcessManager(object):
                 # Remove all signal handlers.
                 for sig in signal.Signals:
                     self._event_loop.remove_signal_handler(sig)
+
+                # Clear all stats inherited from the manager process.
+                stats.registry.clear()
 
                 # Close the "other ends" of the pipes.
                 os.close(request_out)
@@ -536,6 +547,12 @@ class ProcessManager(object):
         for pid in dead_children:
             self._child_collector.remove_child(pid)
             del self._processes[pid]
+
+    def handle_stats_list(self):
+        return self._stats_collector.list_stats()
+
+    def handle_stats_fetch(self, expressions):
+        return self._stats_collector.fetch_stats(expressions)
 
 
 class ChildConnectionHandler(object):
