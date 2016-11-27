@@ -99,6 +99,7 @@ class ServerProtocol(asyncio.Protocol):
         response = task.result() or b''
         header = b'ACK %d\n' % len(response)
         self.transport.write(header)
+        # TODO: uncomment when Server.cleanup waits for outstanding commands
         #self.server.stat_bytes_sent.incr(len(header))
         if response:
             self.transport.write(response)
