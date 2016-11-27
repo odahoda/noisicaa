@@ -9,8 +9,8 @@ import sys
 import time
 import zipfile
 
-VERSION = '6.7.0'
-DOWNLOAD_URL = 'https://github.com/csound/csound/archive/6.07.0.zip'
+VERSION = '6.8.0'
+DOWNLOAD_URL = 'https://github.com/csound/csound/archive/6.08.0.zip'
 
 assert os.getenv('VIRTUAL_ENV'), "Not running in a virtualenv."
 
