@@ -10,41 +10,68 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa.core import stats
+
 from . import ui_base
 
 class StatGraph(QtWidgets.QWidget):
-    def __init__(self, *, parent, name):
+    clicked = QtCore.pyqtSignal()
+
+    def __init__(self, *, parent):
         super().__init__(parent)
 
         self.setMinimumHeight(200)
         self.setMaximumHeight(200)
 
-        self.__name = name
+        self.__selected = False
+        self.__expression = None
+        self.__compiled_expression = None
         self.__id = uuid.uuid4().hex
         self.__timeseries_set = None
-
-    def name(self):
-        return self.__name
 
     def id(self):
         return self.__id
 
+    def selected(self):
+        return self.__selected
+
+    def setSelected(self, selected):
+        self.__selected = bool(selected)
+        self.update()
+
     def expression(self):
-        return [
-            ('SELECT', self.__name),
-            ('RATE',)]
+        return self.__expression
+
+    def compiled_expression(self):
+        return self.__compiled_expression
+
+    def setExpression(self, expr, compiled):
+        self.__expression = expr
+        self.__compiled_expression = compiled
+
+    def is_valid(self):
+        return self.__compiled_expression is not None
 
     def setTimeseriesSet(self, ts_set):
         self.__timeseries_set = ts_set
         self.update()
 
+    def mousePressEvent(self, evt):
+        self.clicked.emit()
+
     def paintEvent(self, evt):
         super().paintEvent(evt)
 
         painter = QtGui.QPainter(self)
-        painter.fillRect(0, 0, self.width(), self.height(), Qt.black)
+
+        if self.__selected:
+            painter.fillRect(0, 0, self.width(), self.height(), QtGui.QColor(60, 0, 0))
+        else:
+            painter.fillRect(0, 0, self.width(), self.height(), Qt.black)
+
         painter.setPen(Qt.white)
-        painter.drawText(5, 16, str(self.__name))
+        if self.__expression is not None:
+            painter.drawText(200, 16, self.__expression)
 
         if self.__timeseries_set is not None:
             vmin = self.__timeseries_set.min()
@@ -53,6 +80,9 @@ class StatGraph(QtWidgets.QWidget):
             if vmax == vmin:
                 vmin = vmin - 1
                 vmax = vmax + 1
+
+            painter.drawText(5, 16, str(vmax))
+            painter.drawText(5, self.height() - 10, str(vmin))
 
             for name, ts in self.__timeseries_set.items():
                 px, py = None, None
@@ -64,6 +94,37 @@ class StatGraph(QtWidgets.QWidget):
                     px, py = x, y
 
         painter.end()
+
+
+class QTextEdit(QtWidgets.QTextEdit):
+    editingFinished = QtCore.pyqtSignal()
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+        self.setAcceptRichText(False)
+        self.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
+
+        self.__initial_text = None
+
+    def keyPressEvent(self, evt):
+        if (evt.modifiers() == Qt.ControlModifier and evt.key() == Qt.Key_Return):
+            self.editingFinished.emit()
+            self.__initial_text = self.toPlainText()
+            evt.accept()
+            return
+        super().keyPressEvent(evt)
+
+    def focusInEvent(self, evt):
+        super().focusInEvent(evt)
+        self.__initial_text = self.toPlainText()
+
+    def focusOutEvent(self, evt):
+        super().focusOutEvent(evt)
+        new_text = self.toPlainText()
+        if new_text != self.__initial_text:
+            self.editingFinished.emit()
+        self.__initial_text = None
 
 
 class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
@@ -94,15 +155,10 @@ class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
             QtGui.QIcon.fromTheme('zoom-out'),
             "Zoom Out",
             self, triggered=self.onZoomOut)
-
-        self.__stats_menu = QtWidgets.QMenu()
-        self.__stats_menu.aboutToShow.connect(self.onUpdateStatsMenu)
-
         self.__add_stat_action = QtWidgets.QAction(
             QtGui.QIcon.fromTheme('list-add'),
             "Add stat",
-            self)
-        self.__add_stat_action.setMenu(self.__stats_menu)
+            self, triggered=self.onAddStat)
 
         self.__toolbar = QtWidgets.QToolBar()
         self.__toolbar.addAction(self.__pause_action)
@@ -112,6 +168,7 @@ class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.addToolBar(Qt.TopToolBarArea, self.__toolbar)
 
         self.__stat_graphs = []
+        self.__selected_graph = None
 
         self.__stat_list_layout = QtWidgets.QVBoxLayout()
         self.__stat_list_layout.setSpacing(4)
@@ -124,7 +181,19 @@ class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.__scroll_area.setWidgetResizable(True)
         self.__scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        self.setCentralWidget(self.__scroll_area)
+        self.__expression_input = QTextEdit(self)
+        self.__expression_input.setMaximumHeight(100)
+        self.__expression_input.editingFinished.connect(
+            self.onExpressionInputEdited)
+
+        main_layout = QtWidgets.QVBoxLayout()
+        main_layout.addWidget(self.__scroll_area)
+        main_layout.addWidget(self.__expression_input)
+
+        main_widget = QtWidgets.QWidget(self)
+        main_widget.setLayout(main_layout)
+
+        self.setCentralWidget(main_widget)
 
         self.setVisible(
             int(self.app.settings.value(
@@ -150,6 +219,18 @@ class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.visibilityChanged.emit(False)
         super().hideEvent(event)
 
+    def setSelectedGraph(self, graph):
+        if self.__selected_graph is not None:
+            self.__selected_graph.setSelected(False)
+            self.__selected_graph = None
+
+        if graph is not None:
+            graph.setSelected(True)
+            self.__selected_graph = graph
+            self.__expression_input.setPlainText(graph.expression())
+        else:
+            self.__expression_input.setPlainText('')
+
     def onToggleRealtime(self):
         if self.__realtime:
             self.__realtime = False
@@ -169,8 +250,9 @@ class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
     def onUpdate(self):
         expressions = {
-            graph.id(): graph.expression()
-            for graph in self.__stat_graphs}
+            graph.id(): graph.compiled_expression()
+            for graph in self.__stat_graphs
+            if graph.is_valid()}
         self.call_async(
             self.app.process.manager.call('STATS_FETCH', expressions),
             callback=self.onStatsFetched)
@@ -179,18 +261,20 @@ class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         for graph in self.__stat_graphs:
             graph.setTimeseriesSet(result.get(graph.id(), None))
 
-    def onUpdateStatsMenu(self):
-        self.__stats_menu.clear()
-        self.call_async(self.updateStatsMenuAsync())
-
-    async def updateStatsMenuAsync(self):
-        stat_list = await self.app.process.manager.call(
-            'STATS_LIST')
-        for name in stat_list:
-            action = self.__stats_menu.addAction(str(name))
-            action.triggered.connect(functools.partial(self.onAddStat, name))
-
-    def onAddStat(self, name):
-        graph = StatGraph(parent=self.__stat_list, name=name)
+    def onAddStat(self):
+        graph = StatGraph(parent=self.__stat_list)
+        graph.clicked.connect(functools.partial(self.setSelectedGraph, graph))
+        self.setSelectedGraph(graph)
         self.__stat_graphs.append(graph)
         self.__stat_list_layout.addWidget(graph)
+
+    def onExpressionInputEdited(self):
+        if self.__selected_graph is None:
+            return
+
+        expr = self.__expression_input.toPlainText()
+        try:
+            compiled = stats.compile_expression(expr)
+        except stats.InvalidExpressionError:
+            return
+        self.__selected_graph.setExpression(expr, compiled)

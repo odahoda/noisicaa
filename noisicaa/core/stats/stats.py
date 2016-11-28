@@ -27,6 +27,10 @@ class StatName(object):
         return hash(self.__key)
 
     @property
+    def labels(self):
+        return list(self.__labels.items())
+
+    @property
     def key(self):
         return self.__key
 

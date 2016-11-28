@@ -87,7 +87,13 @@ class TimeseriesSet(collections.UserDict):
         return result
 
     def min(self):
-        return min(ts.min() for ts in self.values())
+        if self.data:
+            return min(ts.min() for ts in self.values())
+        else:
+            return 0
 
     def max(self):
-        return min(ts.max() for ts in self.values())
+        if self.data:
+            return max(ts.max() for ts in self.values())
+        else:
+            return 0
