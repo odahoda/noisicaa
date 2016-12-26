@@ -1,19 +1,29 @@
 # -*- org-tags-column: -98 -*-
 
 * stats module										      :FR:
-- each process has StatsTracker, that only contains stats
-- ProcessManager maintains ChildConnection based on a pair of anonymous pipes
-  - use it for the start barrier, response is server address
-  - ProcessImpl spins up thread to listen to further commands from ChildConnection
-    - 'COLLECT_STATS'
-- ProcessManager collects stats from each process
-  - StatsCollector class
-  - stats thread that polls all childs with a child connection
-  - handle dead children
-  - add in PID label
-- rules
-- UI
-
+- graph rendering slows down UI
+- label stats with process name
+- operations
+  - aggregate functions
+    - sum, min, max
+  - rate over interval
+  - mean over interval
+- StatMonitor:
+  - history
+  - presets
+  - time axis
+    - render
+    - select range
+  - key
+    - different colors per graph
+    - show non-common labels
+     - latest values
+  - vertical range
+    - round min/max
+    - render grid
+  - correct rendering along x axis
+    - map timestamps to x position
+    - interpolation
 * ipc.Server: shutdown waits for outstanding commands to finish				     :BUG:
 - could crash in ServerProtocol.command_complete, if Server instance has already been cleaned up
 - does it need to lameduck?
