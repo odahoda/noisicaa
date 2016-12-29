@@ -19,7 +19,7 @@ class Node(object):
     init_parameters_from_description = True
 
     def __init__(self, event_loop, description, name=None, id=None):
-        assert isinstance(description, node_db.NodeDescription)
+        assert isinstance(description, node_db.NodeDescription), description
 
         self.event_loop = event_loop
         self.description = description

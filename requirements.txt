@@ -17,3 +17,5 @@ quamash
 posix_ipc
 eventfd
 psutil
+./3rdparty/lv2/
+./3rdparty/lilv/

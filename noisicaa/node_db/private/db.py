@@ -12,6 +12,7 @@ from noisicaa import node_db
 from . import csound_scanner
 from . import builtin_scanner
 from . import ladspa_scanner
+from . import lv2_scanner
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class NodeDB(object):
             csound_scanner.CSoundScanner(),
             builtin_scanner.BuiltinScanner(),
             ladspa_scanner.LadspaScanner(),
+            lv2_scanner.LV2Scanner(),
         ]
         for scanner in scanners:
             for uri, node_description in scanner.scan():

@@ -2,12 +2,12 @@
 
 import unittest
 
-from . import ladspa_scanner
+from . import lv2_scanner
 
 
-class LadspaScannerTest(unittest.TestCase):
+class LV2ScannerTest(unittest.TestCase):
     def test_scan(self):
-        scanner = ladspa_scanner.LadspaScanner()
+        scanner = lv2_scanner.LV2Scanner()
         for uri, node_description in scanner.scan():
             pass
 

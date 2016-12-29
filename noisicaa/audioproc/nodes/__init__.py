@@ -9,4 +9,5 @@ from .wavfile import WavFileSource
 from .sample_player import SamplePlayer
 from .channels import SplitChannels, JoinChannels
 from .ladspa import Ladspa
+from .lv2 import LV2
 from .pipeline_crasher import PipelineCrasher

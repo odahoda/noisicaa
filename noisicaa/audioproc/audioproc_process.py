@@ -129,6 +129,7 @@ class AudioProcProcessMixin(object):
         self.node_db.add(nodes.SplitChannels)
         self.node_db.add(nodes.JoinChannels)
         self.node_db.add(nodes.Ladspa)
+        self.node_db.add(nodes.LV2)
         self.node_db.add(nodes.PipelineCrasher)
 
         if self.shm_name is not None:

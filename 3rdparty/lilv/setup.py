@@ -7,56 +7,53 @@ import os.path
 import subprocess
 import sys
 import time
-import zipfile
+import tarfile
 
-VERSION = '6.8.0'
-DOWNLOAD_URL = 'https://github.com/csound/csound/archive/6.08.0.zip'
+VERSION = '0.24.0'
+FILENAME = 'lilv-%s.tar.bz2' % VERSION
+DOWNLOAD_URL = 'http://git.drobilla.net/cgit.cgi/lilv.git/snapshot/%s' % FILENAME
 
 assert os.getenv('VIRTUAL_ENV'), "Not running in a virtualenv."
 
 
-class CSoundMixin(object):
+class LilvMixin(object):
     user_options = [
         ('build-base=', 'b',
          "base directory for build library"),
         ]
 
     def initialize_options(self):
-        self.build_base = os.path.join(os.getenv('VIRTUAL_ENV'), 'build', 'csound')
+        self.build_base = os.path.join(os.getenv('VIRTUAL_ENV'), 'build', 'lilv')
 
     def finalize_options(self):
         pass
 
     @property
-    def zip_path(self):
-        return os.path.join(self.build_base, 'csound.zip')
+    def archive_path(self):
+        return os.path.join(self.build_base, FILENAME)
 
     @property
     def src_dir(self):
         return os.path.join(self.build_base, 'src')
 
-    @property
-    def make_dir(self):
-        return os.path.join(self.build_base, 'cs6make')
 
-
-class BuildCSound(CSoundMixin, core.Command):
+class BuildLilv(LilvMixin, core.Command):
     def run(self):
         if not os.path.isdir(self.build_base):
             os.makedirs(self.build_base)
 
-        self._download_zip(self.zip_path)
-        self._unpack_zip(self.zip_path, self.src_dir)
-        self._cmake(self.src_dir, self.make_dir)
-        self._make(self.make_dir)
+        self._download_archive(self.archive_path)
+        self._unpack_archive(self.archive_path, self.src_dir)
+        self._configure(self.src_dir)
+        self._build(self.src_dir)
 
-    def _download_zip(self, zip_path):
-        if os.path.exists(zip_path):
+    def _download_archive(self, archive_path):
+        if os.path.exists(archive_path):
             return
 
         total_bytes = 0
         with urllib.request.urlopen(DOWNLOAD_URL) as fp_in:
-            with open(zip_path + '.partial', 'wb') as fp_out:
+            with open(archive_path + '.partial', 'wb') as fp_out:
                 last_report = time.time()
                 try:
                     while True:
@@ -75,18 +72,18 @@ class BuildCSound(CSoundMixin, core.Command):
                     sys.stderr.write('\033[K')
                     sys.stderr.flush()
 
-        os.rename(zip_path + '.partial', zip_path)
+        os.rename(archive_path + '.partial', archive_path)
         print('Downloaded %s: %d bytes' % (DOWNLOAD_URL, total_bytes))
 
-    def _unpack_zip(self, zip_path, src_dir):
+    def _unpack_archive(self, archive_path, src_dir):
         if os.path.isdir(src_dir):
             return
 
         print("Extracting...")
 
         base_dir = None
-        with zipfile.ZipFile(zip_path) as fp:
-            for path in fp.namelist():
+        with tarfile.open(archive_path, 'r:bz2') as fp:
+            for path in fp.getnames():
                 while path:
                     path, b = os.path.split(path)
                     if not path:
@@ -102,49 +99,53 @@ class BuildCSound(CSoundMixin, core.Command):
         print("Extracted to %s" % src_dir)
         return src_dir
 
-    def _cmake(self, src_dir, make_dir):
-        if os.path.exists(os.path.join(make_dir, 'Makefile')):
+    def _configure(self, src_dir):
+        if os.path.exists(os.path.join(src_dir, '.configure.complete')):
             return
 
-        if not os.path.isdir(make_dir):
-            os.makedirs(make_dir)
-
-        print("Running cmake...")
+        print("Running waf configure...")
         subprocess.run(
-            ['cmake',
-             '-DBUILD_PYTHON_INTERFACE=0',
-             '-DCMAKE_INSTALL_PREFIX=' + os.getenv('VIRTUAL_ENV'),
-             os.path.abspath(src_dir)
+            ['./waf',
+             'configure',
+             '--prefix=%s' % os.getenv('VIRTUAL_ENV'),
+             '--bindings',
+             '--no-utils',
+             '--no-bash-completion',
+             '--test',
             ],
-            cwd=make_dir,
+            cwd=src_dir,
+            env=dict(
+                os.environ,
+                PKG_CONFIG_PATH=os.path.join(os.getenv('VIRTUAL_ENV'), 'lib', 'pkgconfig')),
             check=True)
+        open(os.path.join(src_dir, '.configure.complete'), 'w').close()
 
-    def _make(self, make_dir):
-        if os.path.exists(os.path.join(make_dir, '.build.complete')):
+    def _build(self, src_dir):
+        if os.path.exists(os.path.join(src_dir, '.build.complete')):
             return
 
-        print("Running make...")
+        print("Running waf build...")
         subprocess.run(
-            ['make', '-j8'],
-            cwd=make_dir,
+            ['./waf', 'build'],
+            cwd=src_dir,
             check=True)
-        open(os.path.join(make_dir, '.build.complete'), 'w').close()
+        open(os.path.join(src_dir, '.build.complete'), 'w').close()
 
 
-class InstallCSound(CSoundMixin, core.Command):
+class InstallLilv(LilvMixin, core.Command):
     @property
     def sentinel_path(self):
         return os.path.join(
-            os.getenv('VIRTUAL_ENV'), '.csound-%s-installed' % VERSION)
+            os.getenv('VIRTUAL_ENV'), '.lilv-%s-installed' % VERSION)
 
     def run(self):
         if os.path.exists(self.sentinel_path):
             return
 
-        print("Running make install...")
+        print("Running waf install...")
         subprocess.run(
-            ['make', 'install'],
-            cwd=self.make_dir,
+            ['./waf', 'install'],
+            cwd=self.src_dir,
             check=True)
         open(self.sentinel_path, 'w').close()
 
@@ -152,15 +153,16 @@ class InstallCSound(CSoundMixin, core.Command):
         return [self.sentinel_path]
 
 
-build.sub_commands.append(('build_csound', None))
-install.sub_commands.insert(0, ('install_csound', None))
+build.sub_commands.append(('build_lilv', None))
+install.sub_commands.insert(0, ('install_lilv', None))
 
 
 core.setup(
-    name = 'csound',
+    name = 'lilv',
     version = VERSION,
     cmdclass = {
-        'build_csound': BuildCSound,
-        'install_csound': InstallCSound,
+        'build_lilv': BuildLilv,
+        'install_lilv': InstallLilv,
     },
+    requires=['lv2'],
 )
