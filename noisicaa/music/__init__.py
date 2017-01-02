@@ -3,7 +3,10 @@ from .time_signature import TimeSignature
 from .clef import Clef
 from .pitch import Pitch, NOTE_TO_MIDI
 from .time import Duration
-from .project_client import ProjectClient
+from .project_client import (
+    ProjectClient,
+    PlayerSettings,
+)
 
 from .project import (
     BaseProject, Project,

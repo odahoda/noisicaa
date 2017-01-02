@@ -55,6 +55,15 @@ class ProjectClientBase(object):
         await self.server.cleanup()
 
 
+class PlayerSettings(object):
+    def __init__(self, *, state=None, sample_pos=None, range_start=None, range_end=None, loop=None):
+        self.state = state
+        self.sample_pos = sample_pos
+        self.range_start = range_start
+        self.range_end = range_end
+        self.loop = loop
+
+
 class ProjectClientMixin(object):
     def __init__(self, *args, node_db=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -262,17 +271,9 @@ class ProjectClientMixin(object):
         return await self._stub.call(
             'DELETE_PLAYER', self._session_id, player_id)
 
-    async def player_start(self, player_id):
+    async def player_update_settings(self, player_id, settings):
         return await self._stub.call(
-            'PLAYER_START', self._session_id, player_id)
-
-    async def player_pause(self, player_id):
-        return await self._stub.call(
-            'PLAYER_PAUSE', self._session_id, player_id)
-
-    async def player_stop(self, player_id):
-        return await self._stub.call(
-            'PLAYER_STOP', self._session_id, player_id)
+            'PLAYER_UPDATE_SETTINGS', self._session_id, player_id, settings)
 
     async def restart_player_pipeline(self, player_id):
         return await self._stub.call(

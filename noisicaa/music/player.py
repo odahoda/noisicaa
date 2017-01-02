@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import os.path
+import queue
 import random
 import sys
 import tempfile
@@ -25,6 +26,8 @@ from . import project
 from . import mutations
 from . import commands
 from . import model
+from . import time_mapper
+from . import project_client
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +213,7 @@ class AudioStreamProxy(object):
         self._client = None
 
         self._stopped = threading.Event()
+        self._settings_queue = queue.Queue()
         self._thread = threading.Thread(target=self.main)
 
     def setup(self):
@@ -230,9 +234,15 @@ class AudioStreamProxy(object):
         with self._lock:
             self._client = client
 
+    def update_settings(self, settings):
+        self._settings_queue.put(settings)
+
     def main(self):
-        state = 'stopped'
         sample_pos_offset = None
+        settings = project_client.PlayerSettings()
+        settings.state = 'stopped'
+        settings.sample_pos = 0
+        tmap = time_mapper.TimeMapper(self._player.sheet)
 
         logger.info("Player proxy started.")
         try:
@@ -245,17 +255,33 @@ class AudioStreamProxy(object):
 
                 perf = core.PerfStats()
 
-                new_state = self._player.playback_state
-                if state != new_state:
-                    if new_state == 'playing':
-                        sample_pos_offset = request.sample_pos - self._player.playback_sample_pos
-                    state = new_state
+                while True:
+                    try:
+                        new_settings = self._settings_queue.get_nowait()
+                    except queue.Empty:
+                        break
 
-                if state == 'playing':
+                    if new_settings.sample_pos is not None:
+                        settings.sample_pos = new_settings.sample_pos
+                        if settings.state == 'playing':
+                            sample_pos_offset = request.sample_pos - settings.sample_pos
+
+                    if new_settings.state is not None:
+                        new_state = new_settings.state
+                        if settings.state != new_state:
+                            if new_state == 'playing':
+                                sample_pos_offset = request.sample_pos - settings.sample_pos
+                            settings.state = new_state
+
+                if settings.state == 'playing':
                     with perf.track('get_track_entities'):
                         self._player.get_track_entities(request, sample_pos_offset)
 
-                    self._player.playback_sample_pos += request.duration
+                    settings.sample_pos += request.duration
+                    duration = tmap.total_duration_samples
+                    while settings.sample_pos >= duration:
+                        settings.sample_pos -= duration
+                        sample_pos_offset += duration
 
                 with self._lock:
                     if self._client is not None:
@@ -280,7 +306,7 @@ class AudioStreamProxy(object):
 
                 perf.add_spans(response.perf_data)
                 response.perf_data = perf.get_spans()
-                if state == 'playing':
+                if settings.state == 'playing':
                     self._player.publish_status_async(
                         playback_pos=(
                             request.sample_pos - sample_pos_offset,
@@ -330,8 +356,6 @@ class Player(object):
 
         self.proxy = None
 
-        self.playback_state = 'stopped'
-        self.playback_sample_pos = 0
         self.track_entity_sources = {}
         self.group_listeners = {}
 
@@ -596,22 +620,6 @@ class Player(object):
         except ipc.ConnectionClosed:
             self.audioproc_backend.backend_crashed()
 
-    def _set_playback_state(self, new_state):
-        assert new_state in ('stopped', 'playing')
-        if new_state == self.playback_state:
-            return
-
-        logger.info(
-            "Change playback state %s -> %s.",
-            self.playback_state, new_state)
-        self.playback_state = new_state
-
-    async def playback_start(self):
-        self._set_playback_state('playing')
-
-    async def playback_pause(self):
-        self._set_playback_state('stopped')
-
-    async def playback_stop(self):
-        self._set_playback_state('stopped')
+    async def update_settings(self, settings):
+        self.proxy.update_settings(settings)
 

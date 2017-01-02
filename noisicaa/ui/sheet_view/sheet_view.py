@@ -922,7 +922,9 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
             return
 
         self.call_async(
-            self.project_client.player_start(self.__player_id))
+            self.project_client.player_update_settings(
+                self.__player_id,
+                music.PlayerSettings(state='playing', sample_pos=0)))
 
     def onPlayerPause(self):
         if self.__player_id is None:
@@ -930,15 +932,20 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
             return
 
         self.call_async(
-            self.project_client.player_pause(self.__player_id))
+            self.project_client.player_update_settings(
+                self.__player_id,
+                music.PlayerSettings(state='stopped')))
 
     def onPlayerStop(self):
         if self.__player_id is None:
             logger.warning("Player stop action without active player.")
             return
 
+
         self.call_async(
-            self.project_client.player_stop(self.__player_id))
+            self.project_client.player_update_settings(
+                self.__player_id,
+                music.PlayerSettings(state='stopped')))
 
     def onPlayerStatus(
             self, playback_pos=None, pipeline_state=None, pipeline_disabled=None, **kwargs):

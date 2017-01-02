@@ -198,11 +198,7 @@ class ProjectProcessMixin(object):
             'GET_PLAYER_AUDIOPROC_ADDRESS',
             self.handle_get_player_audioproc_address)
         self.server.add_command_handler(
-            'PLAYER_START', self.handle_player_start)
-        self.server.add_command_handler(
-            'PLAYER_PAUSE', self.handle_player_pause)
-        self.server.add_command_handler(
-            'PLAYER_STOP', self.handle_player_stop)
+            'PLAYER_UPDATE_SETTINGS', self.handle_player_update_settings)
         self.server.add_command_handler(
             'RESTART_PLAYER_PIPELINE', self.handle_restart_player_pipeline)
         self.server.add_command_handler(
@@ -436,20 +432,10 @@ class ProjectProcessMixin(object):
         await p.cleanup()
         session.remove_player(p)
 
-    async def handle_player_start(self, session_id, player_id):
+    async def handle_player_update_settings(self, session_id, player_id, settings):
         session = self.get_session(session_id)
         p = session.get_player(player_id)
-        await p.playback_start()
-
-    async def handle_player_pause(self, session_id, player_id):
-        session = self.get_session(session_id)
-        p = session.get_player(player_id)
-        await p.playback_pause()
-
-    async def handle_player_stop(self, session_id, player_id):
-        session = self.get_session(session_id)
-        p = session.get_player(player_id)
-        await p.playback_stop()
+        await p.update_settings(settings)
 
     async def handle_restart_player_pipeline(self, session_id, player_id):
         session = self.get_session(session_id)

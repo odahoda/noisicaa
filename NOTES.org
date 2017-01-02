@@ -1,5 +1,21 @@
 # -*- org-tags-column: -98 -*-
 
+* TODO Rework player position tracking							      :FR:
+** Move playhead from UI
+** Set loop range on UI
+** UI buttons:
+- Start playback from start
+- Continue playback from current pos
+- Pause
+- Toggle loop mode
+** How to handle wraps in the middle of a frame?
+- split entity generation into continous chunks
+- "splitter" needs to know about playback range, loop vs. no loop, etc.
+** Always in range [0:max_duration]
+** Playhead can ignore out of range positions
+- Should only happen when sheet has been edited while playing
+** Loop vs. single-shot playback
+
 * Use flatbuffers for RPC serialization							      :FR:
 - https://github.com/google/flatbuffers
 
@@ -108,11 +124,6 @@ Traceback (most recent call last):
 noisicaa.core.ipc.ConnectionClosed
 
 * when changing scale_x, keep view centered on current position				      :FR:
-* control playback position								:ANNOYING:
-- rewind to start
-- move manually
-- loop range
-
 * clarify time handling									 :CLEANUP:
 - musical time
   - base unit full note (4 beats)
@@ -151,7 +162,6 @@ noisicaa.core.ipc.ConnectionClosed
 * Store IDs of pipeline graph nodes in track						 :CLEANUP:
 - refs from PipelineGraphNode should use IDs, too
 
-* Play head is completely off after measures are added					:ANNOYING:
 * More flexible instrument handling							      :FR:
 Use display_name in track_property_dock
 - query instrument_db for description
