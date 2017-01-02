@@ -1,5 +1,18 @@
 # -*- org-tags-column: -98 -*-
 
+* Use flatbuffers for RPC serialization							      :FR:
+- https://github.com/google/flatbuffers
+
+* Message router									      :FR:
+- Send messages to ports, which might live in another process.
+- Ports have a unique ID within its process.
+- Port address is (process ID, port ID).
+- Messages to other processes are sent over IPC channel.
+- Process's IPC server routes message to local port.
+- IPC server address can be queries from ProcessManager.
+  - Create stubs on demand?
+- RPC are implemented as request/reply pair with a unique RPC id.
+  - RPC client tracks set of outstanding RPC, by RPC id.
 * stats module										      :FR:
 - graph rendering slows down UI
 - label stats with process name
@@ -60,7 +73,9 @@
 ** render exceeding notes differently
 ** proper chord rendering
 ** note beams
-* Exception when reordering tracks							   :CRASH:
+** use http://www.smufl.org/?
+- fonts & data files: https://github.com/musescore/MuseScore/tree/master/fonts
+* Exception when reordering tracks 							   :CRASH:
 Traceback (most recent call last):
   File "/storage/users/pink/projects/noisicaä/noisicaa/ui/tracks_dock.py", line 499, in onCurrentChanged
     not track.is_master_group and not track.is_first)
