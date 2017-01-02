@@ -533,6 +533,7 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
     def updateGhost(self, pos):
         if pos is None:
             self.setGhost(None)
+            return
 
         ymid = self.height() // 2
         stave_line = int(ymid + 5 - pos.y()) // 10 + self.measure.clef.center_pitch.stave_line

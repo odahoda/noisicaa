@@ -272,6 +272,8 @@ class AudioStreamProxy(object):
                             if new_state == 'playing':
                                 sample_pos_offset = request.sample_pos - settings.sample_pos
                             settings.state = new_state
+                            self._player.publish_status_async(
+                                player_state=new_state)
 
                 if settings.state == 'playing':
                     with perf.track('get_track_entities'):
