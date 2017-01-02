@@ -8,7 +8,7 @@ fi
 BASEDIR=$(readlink -f "$(dirname "$0")/..")
 LIBSDIR="$BASEDIR/libs"
 
-#LILV_DEPS="lv2-dev libserd-dev libsord-dev libsratom-dev swig"
+LILV_DEPS="libserd-dev libsord-dev libsratom-dev"
 LADSPA_DEPS="ladspa-sdk"
 CSOUND_DEPS="libsndfile1-dev libsamplerate0-dev libboost-dev flex bison cmake"
 
@@ -16,7 +16,7 @@ PYVERSION=3.5
 
 PACKAGES_QT5="python3-pyqt5 python3-pyqt5.qtsvg"
 
-PACKAGES="python$PYVERSION python$PYVERSION-venv python$PYVERSION-dev libxml2-dev libxslt1-dev portaudio19-dev libavutil-dev libavutil-ffmpeg54 libswresample-dev libswresample-ffmpeg1 libfluidsynth1 libfluidsynth-dev inkscape timgm6mb-soundfont fluid-soundfont-gs fluid-soundfont-gm flac zlib1g-dev $PACKAGES_QT5 $CSOUND_DEPS $LADSPA_DEPS"
+PACKAGES="python$PYVERSION python$PYVERSION-venv python$PYVERSION-dev libxml2-dev libxslt1-dev portaudio19-dev libavutil-dev libavutil-ffmpeg54 libswresample-dev libswresample-ffmpeg1 libfluidsynth1 libfluidsynth-dev inkscape timgm6mb-soundfont fluid-soundfont-gs fluid-soundfont-gm flac zlib1g-dev $PACKAGES_QT5 $CSOUND_DEPS $LADSPA_DEPS $LILV_DEPS"
 
 function pkg-status() {
     PKG="$1"
