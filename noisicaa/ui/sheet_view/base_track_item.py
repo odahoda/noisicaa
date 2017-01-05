@@ -411,9 +411,9 @@ class MeasureEditorItem(BaseMeasureEditorItem):
                 self.paintLayer(layer, layer_painter)
                 t2 = time.perf_counter()
                 layer_painter.end()
-                logger.info(
-                    "%s.paintLayer(%s): %.2fµs",
-                    type(self).__name__, layer, 1e6 * (t2 - t1))
+                # logger.info(
+                #     "%s.paintLayer(%s): %.2fµs",
+                #     type(self).__name__, layer, 1e6 * (t2 - t1))
 
                 self.__paint_caches[layer] = pixmap
 

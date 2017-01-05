@@ -139,7 +139,7 @@ class BeatEntitySource(EntitySource):
     def get_events(self, start_sample_pos, end_sample_pos):
         # logger.debug("get_events(%d, %d)", start_sample_pos, end_sample_pos)
 
-        if self._current_micro_sample_pos >= 1000000 * start_sample_pos:
+        if self._current_micro_sample_pos >= 1000000 * end_sample_pos:
             self._current_measure = 0
             self._current_tick = 0
             self._current_micro_sample_pos = 0

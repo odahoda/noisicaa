@@ -583,7 +583,7 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
 
         t2 = time.perf_counter()
 
-        logger.info("SheetEditor.paintEvent(%s): %.2fµs", evt.rect(), 1e6 * (t2 - t1))
+        #logger.info("SheetEditor.paintEvent(%s): %.2fµs", evt.rect(), 1e6 * (t2 - t1))
 
 
 class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
