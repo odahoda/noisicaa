@@ -56,11 +56,11 @@ class ProjectClientBase(object):
 
 
 class PlayerSettings(object):
-    def __init__(self, *, state=None, sample_pos=None, range_start=None, range_end=None, loop=None):
+    def __init__(self, *, state=None, sample_pos=None, loop_start=None, loop_end=None, loop=None):
         self.state = state
         self.sample_pos = sample_pos
-        self.range_start = range_start
-        self.range_end = range_end
+        self.loop_start = loop_start
+        self.loop_end = loop_end
         self.loop = loop
 
 

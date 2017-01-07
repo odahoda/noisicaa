@@ -33,6 +33,78 @@ class AsyncSetupBase(object):
         pass
 
 
+class PlayerState(QtCore.QObject):
+    stateChanged = QtCore.pyqtSignal(str)
+    playbackSamplePosChanged = QtCore.pyqtSignal(object)
+    loopStartSamplePosChanged = QtCore.pyqtSignal(object)
+    loopEndSamplePosChanged = QtCore.pyqtSignal(object)
+
+    def __init__(self, time_mapper):
+        super().__init__()
+
+        self.__time_mapper = time_mapper
+
+        self.__state = 'stopped'
+        self.__playback_sample_pos = None
+        self.__loop_start_sample_pos = None
+        self.__loop_end_sample_pos = None
+
+    def setState(self, state):
+        if state == self.__state:
+            return
+
+        self.__state = state
+        self.stateChanged.emit(state)
+
+    def state(self):
+        return self.__state
+
+    def setPlaybackSamplePos(self, sample_pos):
+        if sample_pos == self.__playback_sample_pos:
+            return
+
+        self.__playback_sample_pos = sample_pos
+        self.playbackSamplePosChanged.emit(sample_pos)
+
+    def playbackSamplePos(self):
+        return self.__playback_sample_pos
+
+    def playbackTimepos(self):
+        if self.__playback_sample_pos is None:
+            return None
+        return self.__time_mapper.sample2timepos(self.__playback_sample_pos)
+
+    def setLoopStartSamplePos(self, sample_pos):
+        if sample_pos == self.__loop_start_sample_pos:
+            return
+
+        self.__loop_start_sample_pos = sample_pos
+        self.loopStartSamplePosChanged.emit(sample_pos)
+
+    def loopStartSamplePos(self):
+        return self.__loop_start_sample_pos
+
+    def loopStartTimepos(self):
+        if self.__loop_start_sample_pos is None:
+            return None
+        return self.__time_mapper.sample2timepos(self.__loop_start_sample_pos)
+
+    def setLoopEndSamplePos(self, sample_pos):
+        if sample_pos == self.__loop_end_sample_pos:
+            return
+
+        self.__loop_end_sample_pos = sample_pos
+        self.loopEndSamplePosChanged.emit(sample_pos)
+
+    def loopEndSamplePos(self):
+        return self.__loop_end_sample_pos
+
+    def loopEndTimepos(self):
+        if self.__loop_end_sample_pos is None:
+            return None
+        return self.__time_mapper.sample2timepos(self.__loop_end_sample_pos)
+
+
 class TrackViewMixin(object):
     currentTrackChanged = QtCore.pyqtSignal(object)
 
@@ -148,8 +220,10 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
         'SampleTrack': sample_track_item.SampleTrackEditorItem,
     }
 
-    def __init__(self, sheet, **kwargs):
+    def __init__(self, *, sheet, player_state, **kwargs):
         self.__sheet = sheet
+        self.__player_state = player_state
+
         self.__current_tool = None
         self.__mouse_grabber = None
         self.__current_track_item = None
@@ -182,6 +256,9 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
         self.updateTracks()
         self.currentTrackChanged.connect(
             self.__onCurrentTrackChanged)
+
+        self.__player_state.playbackSamplePosChanged.connect(
+            lambda sample_pos: self.setPlaybackPos(sample_pos, 1))
 
     def createTrack(self, track):
         track_item_cls = self.track_cls_map[type(track).__name__]
@@ -591,7 +668,7 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
     xOffsetChanged = QtCore.pyqtSignal(int)
     pageWidthChanged = QtCore.pyqtSignal(int)
 
-    def __init__(self, *, sheet, sheet_view, **kwargs):
+    def __init__(self, *, sheet, sheet_view, player_state, **kwargs):
         super().__init__(**kwargs)
 
         self.setAttribute(Qt.WA_OpaquePaintEvent)
@@ -600,14 +677,21 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
 
         self.__sheet = sheet
         self.__sheet_view = sheet_view
+        self.__player_state = player_state
         self.__time_mapper = time_mapper.TimeMapper(self.__sheet)
-        self.__playback_timepos = None
         self.__scale_x = Fraction(500, 1)
         self.__x_offset = 0
         self.__content_width = 200
         self.__player_id = None
         self.__move_timepos = False
         self.__old_player_state = None
+
+        self.__player_state.playbackSamplePosChanged.connect(
+            lambda _: self.update())
+        self.__player_state.loopStartSamplePosChanged.connect(
+            lambda _: self.update())
+        self.__player_state.loopEndSamplePosChanged.connect(
+            lambda _: self.update())
 
     def setPlayerID(self, player_id):
         self.__player_id = player_id
@@ -670,20 +754,27 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
 
         return music.Duration(timepos)
 
-    def setPlaybackPos(self, sample_pos, num_samples):
-        if not (0 <= sample_pos < self.__time_mapper.total_duration_samples):
-            return
+    def onSetLoopStart(self, sample_pos):
+        self.call_async(
+            self.project_client.player_update_settings(
+                self.__player_id,
+                music.PlayerSettings(loop_start=sample_pos)))
 
-        timepos = self.__time_mapper.sample2timepos(sample_pos)
-        self.__playback_timepos = timepos
-        self.update()
+    def onSetLoopEnd(self, sample_pos):
+        self.call_async(
+            self.project_client.player_update_settings(
+                self.__player_id,
+                music.PlayerSettings(loop_end=sample_pos)))
+
+    def onClearLoop(self):
+        pass
 
     def mousePressEvent(self, evt):
         if (self.__player_id is not None
             and evt.button() == Qt.LeftButton
             and evt.modifiers() == Qt.NoModifier):
             self.__move_timepos = True
-            self.__old_player_state = self.__sheet_view.playerState()
+            self.__old_player_state = self.__player_state.state()
             x = evt.pos().x() + self.__x_offset
             timepos = self.xToTimepos(x)
             sample_pos = self.__time_mapper.timepos2sample(timepos)
@@ -692,7 +783,7 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
                     self.__player_id,
                     music.PlayerSettings(state='stopped')))
             self.__sheet_view.setPlaybackPosMode('manual')
-            self.__sheet_view.setPlaybackPos(sample_pos, 1)
+            self.__player_state.setPlaybackSamplePos(sample_pos)
             evt.accept()
             return
 
@@ -703,7 +794,7 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
             x = evt.pos().x() + self.__x_offset
             timepos = self.xToTimepos(x)
             sample_pos = self.__time_mapper.timepos2sample(timepos)
-            self.__sheet_view.setPlaybackPos(sample_pos, 1)
+            self.__player_state.setPlaybackSamplePos(sample_pos)
             evt.accept()
             return
 
@@ -728,6 +819,27 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
             return
 
         super().mouseReleaseEvent(evt)
+
+    def contextMenuEvent(self, evt):
+        menu = QtWidgets.QMenu()
+
+        if (self.__player_state.state() == 'stopped'
+            and self.__player_state.playbackSamplePos() is not None):
+            menu.addAction(QtWidgets.QAction(
+                "Set loop start", menu,
+                triggered=lambda _: self.onSetLoopStart(self.__player_state.playbackSamplePos())))
+            menu.addAction(QtWidgets.QAction(
+                "Set loop end", menu,
+                triggered=lambda _: self.onSetLoopEnd(self.__player_state.playbackSamplePos())))
+
+        menu.addAction(QtWidgets.QAction(
+            "Clear loop", menu,
+            triggered=lambda _: self.onClearLoop()))
+
+        if not menu.isEmpty():
+            menu.exec_(evt.globalPos())
+            evt.accept()
+            return
 
     def resizeEvent(self, evt):
         super().resizeEvent(evt)
@@ -762,9 +874,40 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
                     pos = int(width * i / measure.time_signature.lower)
                     painter.fillRect(x + pos, 0, 1, self.height() // 2, Qt.black)
 
-                if (self.__playback_timepos is not None
-                        and timepos <= self.__playback_timepos < timepos + measure.duration):
-                    pos = int(width * (self.__playback_timepos - timepos) / measure.duration)
+                loop_start_timepos = self.__player_state.loopStartTimepos()
+                if (loop_start_timepos is not None
+                        and timepos <= loop_start_timepos < timepos + measure.duration):
+                    pos = int(width * (loop_start_timepos - timepos) / measure.duration)
+                    painter.setBrush(Qt.black)
+                    painter.setPen(Qt.NoPen)
+                    polygon = QtGui.QPolygon()
+                    polygon.append(QtCore.QPoint(x + pos, 0))
+                    polygon.append(QtCore.QPoint(x + pos + 7, 0))
+                    polygon.append(QtCore.QPoint(x + pos + 2, 5))
+                    polygon.append(QtCore.QPoint(x + pos + 2, self.height() - 5))
+                    polygon.append(QtCore.QPoint(x + pos + 7, self.height()))
+                    polygon.append(QtCore.QPoint(x + pos, self.height()))
+                    painter.drawPolygon(polygon)
+
+                loop_end_timepos = self.__player_state.loopEndTimepos()
+                if (loop_end_timepos is not None
+                        and timepos <= loop_end_timepos < timepos + measure.duration):
+                    pos = int(width * (loop_end_timepos - timepos) / measure.duration)
+                    painter.setBrush(Qt.black)
+                    painter.setPen(Qt.NoPen)
+                    polygon = QtGui.QPolygon()
+                    polygon.append(QtCore.QPoint(x + pos - 6, 0))
+                    polygon.append(QtCore.QPoint(x + pos + 2, 0))
+                    polygon.append(QtCore.QPoint(x + pos + 2, self.height()))
+                    polygon.append(QtCore.QPoint(x + pos - 6, self.height()))
+                    polygon.append(QtCore.QPoint(x + pos, self.height() - 6))
+                    polygon.append(QtCore.QPoint(x + pos, 6))
+                    painter.drawPolygon(polygon)
+
+                playback_timepos = self.__player_state.playbackTimepos()
+                if (playback_timepos is not None
+                        and timepos <= playback_timepos < timepos + measure.duration):
+                    pos = int(width * (playback_timepos - timepos) / measure.duration)
                     painter.fillRect(x + pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
 
             x += width
@@ -888,16 +1031,22 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
         super().__init__(**kwargs)
 
         self.__sheet = sheet
+        self.__time_mapper = time_mapper.TimeMapper(self.__sheet)
+        self.__player_state = PlayerState(self.__time_mapper)
 
         sheet_editor_frame = Frame(parent=self)
-        self.__sheet_editor = SheetEditor(sheet=sheet, parent=sheet_editor_frame, **self.context)
+        self.__sheet_editor = SheetEditor(
+            sheet=sheet, player_state=self.__player_state,
+            parent=sheet_editor_frame, **self.context)
         sheet_editor_frame.setWidget(self.__sheet_editor)
 
         self.__sheet_editor.currentToolChanged.connect(self.currentToolChanged)
         self.__sheet_editor.supportedToolsChanged.connect(self.supportedToolsChanged)
 
         time_line_frame = Frame(parent=self)
-        self.__time_line = TimeLine(sheet=sheet, sheet_view=self, parent=time_line_frame, **self.context)
+        self.__time_line = TimeLine(
+            sheet=sheet, sheet_view=self, player_state=self.__player_state,
+            parent=time_line_frame, **self.context)
         time_line_frame.setWidget(self.__time_line)
 
         track_list_frame = Frame(parent=self)
@@ -956,7 +1105,6 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
         self.__player_stream_address = None
         self.__player_node_id = None
         self.__player_status_listener = None
-        self.__player_state = 'stopped'
         self.__playback_pos_mode = 'follow'
 
         self.player_audioproc_address = None
@@ -1018,13 +1166,6 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
         assert mode in ('follow', 'manual')
         self.__playback_pos_mode = mode
 
-    def setPlaybackPos(self, sample_pos, num_samples):
-        self.__sheet_editor.setPlaybackPos(sample_pos, num_samples)
-        self.__time_line.setPlaybackPos(sample_pos, num_samples)
-
-    def playerState(self):
-        return self.__player_state
-
     def onPlayerStart(self):
         if self.__player_id is None:
             logger.warning("Player start action without active player.")
@@ -1050,20 +1191,26 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
             logger.warning("Player stop action without active player.")
             return
 
-
         self.call_async(
             self.project_client.player_update_settings(
                 self.__player_id,
                 music.PlayerSettings(state='stopped')))
 
     def onPlayerStatus(
-            self, playback_pos=None, player_state=None, pipeline_state=None, pipeline_disabled=None, **kwargs):
+            self, playback_pos=None, player_state=None, loop_start=None, loop_end=None,
+            pipeline_state=None, pipeline_disabled=None, **kwargs):
         if playback_pos is not None and self.__playback_pos_mode == 'follow':
             sample_pos, num_samples = playback_pos
-            self.setPlaybackPos(sample_pos, num_samples)
+            self.__player_state.setPlaybackSamplePos(sample_pos)
 
         if player_state is not None:
-            self.__player_state = player_state
+            self.__player_state.setState(player_state)
+
+        if loop_start is not None:
+            self.__player_state.setLoopStartSamplePos(loop_start)
+
+        if loop_end is not None:
+            self.__player_state.setLoopEndSamplePos(loop_end)
 
         if pipeline_state is not None:
             self.window.pipeline_status.setText(pipeline_state)

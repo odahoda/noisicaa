@@ -266,6 +266,16 @@ class AudioStreamProxy(object):
                         if settings.state == 'playing':
                             sample_pos_offset = request.sample_pos - settings.sample_pos
 
+                    if new_settings.loop_start is not None:
+                        settings.loop_start = new_settings.loop_start
+                        self._player.publish_status_async(
+                            loop_start=settings.loop_start)
+
+                    if new_settings.loop_end is not None:
+                        settings.loop_end = new_settings.loop_end
+                        self._player.publish_status_async(
+                            loop_end=settings.loop_end)
+
                     if new_settings.state is not None:
                         new_state = new_settings.state
                         if settings.state != new_state:
@@ -280,10 +290,17 @@ class AudioStreamProxy(object):
                         self._player.get_track_entities(request, sample_pos_offset)
 
                     settings.sample_pos += request.duration
-                    duration = tmap.total_duration_samples
-                    while settings.sample_pos >= duration:
-                        settings.sample_pos -= duration
-                        sample_pos_offset += duration
+
+                    if settings.loop_start is not None and settings.loop_end is not None:
+                        range_start = settings.loop_start
+                        range_end = settings.loop_end
+                    else:
+                        range_start = 0
+                        range_end = tmap.total_duration_samples
+
+                    while settings.sample_pos >= range_end:
+                        settings.sample_pos -= range_end - range_start
+                        sample_pos_offset += range_end - range_start
 
                 with self._lock:
                     if self._client is not None:

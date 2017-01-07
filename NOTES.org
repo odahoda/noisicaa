@@ -1,8 +1,9 @@
 # -*- org-tags-column: -98 -*-
 
 * TODO Rework player position tracking							      :FR:
-** Move playhead from UI
 ** Set loop range on UI
+- clear loop
+- drag loop markers
 ** UI buttons:
 - Start playback from start
 - Continue playback from current pos
@@ -11,9 +12,6 @@
 ** How to handle wraps in the middle of a frame?
 - split entity generation into continous chunks
 - "splitter" needs to know about playback range, loop vs. no loop, etc.
-** Always in range [0:max_duration]
-** Playhead can ignore out of range positions
-- Should only happen when sheet has been edited while playing
 ** Loop vs. single-shot playback
 
 * Use flatbuffers for RPC serialization							      :FR:
