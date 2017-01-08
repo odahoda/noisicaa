@@ -236,28 +236,33 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self._player_move_to_start_action = QtWidgets.QAction(
             QtGui.QIcon.fromTheme('media-skip-backward'),
-            "Move to start",
-            self, triggered=lambda: self.onPlayerMoveTo('start'))
+            "Move to start", self,
+            shortcut=QtGui.QKeySequence('Home'), shortcutContext=Qt.ApplicationShortcut,
+            triggered=lambda: self.onPlayerMoveTo('start'))
 
         self._player_move_to_end_action = QtWidgets.QAction(
             QtGui.QIcon.fromTheme('media-skip-forward'),
-            "Move to end",
-            self, triggered=lambda: self.onPlayerMoveTo('end'))
+            "Move to end", self,
+            shortcut=QtGui.QKeySequence('End'), shortcutContext=Qt.ApplicationShortcut,
+            triggered=lambda: self.onPlayerMoveTo('end'))
 
         self._player_move_to_prev_action = QtWidgets.QAction(
             QtGui.QIcon.fromTheme('media-seek-backward'),
-            "Move to previous measure",
-            self, triggered=lambda: self.onPlayerMoveTo('prev'))
+            "Move to previous measure", self,
+            shortcut=QtGui.QKeySequence('PgUp'), shortcutContext=Qt.ApplicationShortcut,
+            triggered=lambda: self.onPlayerMoveTo('prev'))
 
         self._player_move_to_next_action = QtWidgets.QAction(
             QtGui.QIcon.fromTheme('media-seek-forward'),
-            "Move to next measure",
-            self, triggered=lambda: self.onPlayerMoveTo('next'))
+            "Move to next measure", self,
+            shortcut=QtGui.QKeySequence('PgDown'), shortcutContext=Qt.ApplicationShortcut,
+            triggered=lambda: self.onPlayerMoveTo('next'))
 
         self._player_toggle_action = QtWidgets.QAction(
             QtGui.QIcon.fromTheme('media-playback-start'),
-            "Play",
-            self, triggered=self.onPlayerToggle)
+            "Play", self,
+            shortcut=QtGui.QKeySequence('Space'), shortcutContext=Qt.ApplicationShortcut,
+            triggered=self.onPlayerToggle)
 
         self._player_loop_action = QtWidgets.QAction(
             QtGui.QIcon.fromTheme('media-playlist-repeat'),
