@@ -445,8 +445,10 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
                 self.currentSheetChanged)
             project_view.playbackStateChanged.connect(
                 self.playbackStateChanged)
+            self.playbackStateChanged.emit(project_view.playbackState())
             project_view.playbackLoopChanged.connect(
                 self.playbackLoopChanged)
+            self.playbackLoopChanged.emit(project_view.playbackLoop())
 
         self._current_project_view = project_view
 
@@ -615,6 +617,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         view = self._project_tabs.currentWidget()
         view.onPlayerToggle()
 
-    def onPlayerLoop(self):
+    def onPlayerLoop(self, loop):
         view = self._project_tabs.currentWidget()
-        view.onPlayerLoop()
+        view.onPlayerLoop(loop)

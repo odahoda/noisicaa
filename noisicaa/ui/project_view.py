@@ -126,6 +126,16 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         if self.currentSheetView() is not None:
             self.currentSheetView().setCurrentTool(tool)
 
+    def playbackState(self):
+        if self._current_sheet_view is not None:
+            return self._current_sheet_view.playbackState()
+        return 'stopped'
+
+    def playbackLoop(self):
+        if self._current_sheet_view is not None:
+            return self._current_sheet_view.playbackLoop()
+        return False
+
     def currentSheetView(self):
         return self._sheets_widget.currentWidget()
 
@@ -233,9 +243,9 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         view = self.currentSheetView()
         view.onPlayerToggle()
 
-    def onPlayerLoop(self):
+    def onPlayerLoop(self, loop):
         view = self.currentSheetView()
-        view.onPlayerLoop()
+        view.onPlayerLoop(loop)
 
     def onRender(self):
         view = self.currentSheetView()

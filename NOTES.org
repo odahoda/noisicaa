@@ -7,8 +7,8 @@
 ** How to handle wraps in the middle of a frame?
 - split entity generation into continous chunks
 - "splitter" needs to know about playback range, loop vs. no loop, etc.
-** Persist PlayerState in session
 
+* SheetView follows playback position							      :FR:
 * Use flatbuffers for RPC serialization							      :FR:
 - https://github.com/google/flatbuffers
 

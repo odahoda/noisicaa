@@ -33,23 +33,31 @@ class AsyncSetupBase(object):
         pass
 
 
-class PlayerState(QtCore.QObject):
+class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
     stateChanged = QtCore.pyqtSignal(str)
     playbackSamplePosChanged = QtCore.pyqtSignal(object)
     loopStartSamplePosChanged = QtCore.pyqtSignal(object)
     loopEndSamplePosChanged = QtCore.pyqtSignal(object)
     loopChanged = QtCore.pyqtSignal(bool)
 
-    def __init__(self, time_mapper):
-        super().__init__()
+    def __init__(self, sheet, time_mapper, **kwargs):
+        super().__init__(**kwargs)
 
         self.__time_mapper = time_mapper
+        self.__session_prefix = 'player_state:%s' % sheet.id
+        self.__last_playback_sample_pos_update = None
 
         self.__state = 'stopped'
-        self.__playback_sample_pos = 0
-        self.__loop_start_sample_pos = None
-        self.__loop_end_sample_pos = None
-        self.__loop = False
+        self.__playback_sample_pos = self.__get_session_value('playback_sample_pos', 0)
+        self.__loop_start_sample_pos = self.__get_session_value('loop_start_sample_pos', None)
+        self.__loop_end_sample_pos = self.__get_session_value('loop_end_sample_pos', None)
+        self.__loop = self.__get_session_value('loop', False)
+
+    def __get_session_value(self, key, default):
+        return super().get_session_value(self.__session_prefix + key, default)
+
+    def __set_session_value(self, key, value):
+        super().set_session_value(self.__session_prefix + key, value)
 
     def setState(self, state):
         if state == self.__state:
@@ -66,6 +74,10 @@ class PlayerState(QtCore.QObject):
             return
 
         self.__playback_sample_pos = sample_pos
+        if (self.__last_playback_sample_pos_update is None
+            or time.time() - self.__last_playback_sample_pos_update > 5):
+            self.__set_session_value('playback_sample_pos', sample_pos)
+            self.__last_playback_sample_pos_update = time.time()
         self.playbackSamplePosChanged.emit(sample_pos)
 
     def playbackSamplePos(self):
@@ -79,6 +91,7 @@ class PlayerState(QtCore.QObject):
             return
 
         self.__loop_start_sample_pos = sample_pos
+        self.__set_session_value('loop_start_sample_pos', sample_pos)
         self.loopStartSamplePosChanged.emit(sample_pos)
 
     def loopStartSamplePos(self):
@@ -94,6 +107,7 @@ class PlayerState(QtCore.QObject):
             return
 
         self.__loop_end_sample_pos = sample_pos
+        self.__set_session_value('loop_end_sample_pos', sample_pos)
         self.loopEndSamplePosChanged.emit(sample_pos)
 
     def loopEndSamplePos(self):
@@ -110,6 +124,7 @@ class PlayerState(QtCore.QObject):
             return
 
         self.__loop = loop
+        self.__set_session_value('loop', loop)
         self.loopChanged.emit(loop)
 
     def loop(self):
@@ -1044,7 +1059,7 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
 
         self.__sheet = sheet
         self.__time_mapper = time_mapper.TimeMapper(self.__sheet)
-        self.__player_state = PlayerState(self.__time_mapper)
+        self.__player_state = PlayerState(self.__sheet, self.__time_mapper, **self.context)
         self.__player_state.stateChanged.connect(self.playbackStateChanged)
         self.__player_state.loopChanged.connect(self.playbackLoopChanged)
 
@@ -1131,6 +1146,13 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
             self.__player_id, self.onPlayerStatus)
 
         self.__time_line.setPlayerID(self.__player_id)
+        await self.project_client.player_update_settings(
+            self.__player_id,
+            music.PlayerSettings(
+                sample_pos=self.__player_state.playbackSamplePos(),
+                loop=self.__player_state.loop(),
+                loop_start=self.__player_state.loopStartSamplePos(),
+                loop_end=self.__player_state.loopEndSamplePos()))
 
         self.player_audioproc_address = await self.project_client.get_player_audioproc_address(self.__player_id)
 
@@ -1252,7 +1274,7 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
                 self.__player_id,
                 music.PlayerSettings(state=new_state)))
 
-    def onPlayerLoop(self):
+    def onPlayerLoop(self, loop):
         if self.__player_id is None:
             logger.warning("Player action without active player.")
             return
@@ -1260,7 +1282,7 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
         self.call_async(
             self.project_client.player_update_settings(
                 self.__player_id,
-                music.PlayerSettings(loop=not self.__player_state.loop())))
+                music.PlayerSettings(loop=loop)))
 
     def onPlayerStatus(
             self, playback_pos=None, player_state=None,
