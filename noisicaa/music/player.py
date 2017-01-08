@@ -265,6 +265,10 @@ class AudioStreamProxy(object):
                         settings.sample_pos = new_settings.sample_pos
                         if settings.state == 'playing':
                             sample_pos_offset = request.sample_pos - settings.sample_pos
+                        self._player.publish_status_async(
+                            playback_pos=(
+                                settings.sample_pos,
+                                request.duration))
 
                     if new_settings.loop_start is not None:
                         settings.loop_start = new_settings.loop_start
@@ -275,6 +279,11 @@ class AudioStreamProxy(object):
                         settings.loop_end = new_settings.loop_end
                         self._player.publish_status_async(
                             loop_end=settings.loop_end)
+
+                    if new_settings.loop is not None:
+                        settings.loop = new_settings.loop
+                        self._player.publish_status_async(
+                            loop=settings.loop)
 
                     if new_settings.state is not None:
                         new_state = new_settings.state
@@ -291,16 +300,25 @@ class AudioStreamProxy(object):
 
                     settings.sample_pos += request.duration
 
-                    if settings.loop_start is not None and settings.loop_end is not None:
+                    if settings.loop_start is not None:
                         range_start = settings.loop_start
-                        range_end = settings.loop_end
                     else:
                         range_start = 0
+
+                    if settings.loop_end is not None:
+                        range_end = settings.loop_end
+                    else:
                         range_end = tmap.total_duration_samples
 
-                    while settings.sample_pos >= range_end:
-                        settings.sample_pos -= range_end - range_start
-                        sample_pos_offset += range_end - range_start
+                    if settings.sample_pos >= range_end:
+                        if settings.loop:
+                            while settings.sample_pos >= range_end:
+                                settings.sample_pos = range_start + (settings.sample_pos - range_end)
+                                sample_pos_offset = request.sample_pos - settings.sample_pos
+                        else:
+                            settings.state = 'stopped'
+                            self._player.publish_status_async(
+                                player_state=settings.state)
 
                 with self._lock:
                     if self._client is not None:

@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 class ProjectViewImpl(QtWidgets.QMainWindow):
     currentToolChanged = QtCore.pyqtSignal(tools.Tool)
     supportedToolsChanged = QtCore.pyqtSignal(set)
+    playbackStateChanged = QtCore.pyqtSignal(str)
+    playbackLoopChanged = QtCore.pyqtSignal(bool)
     currentSheetChanged = QtCore.pyqtSignal(object)
 
     def __init__(self, **kwargs):
@@ -136,14 +138,27 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
                 self.currentToolChanged)
             self._current_sheet_view.supportedToolsChanged.disconnect(
                 self.supportedToolsChanged)
+            self._current_sheet_view.playbackStateChanged.disconnect(
+                self.playbackStateChanged)
+            self._current_sheet_view.playbackLoopChanged.disconnect(
+                self.playbackLoopChanged)
 
         if sheet_view is not None:
             sheet_view.currentToolChanged.connect(
                 self.currentToolChanged)
             self.currentToolChanged.emit(sheet_view.currentTool())
+
             sheet_view.supportedToolsChanged.connect(
                 self.supportedToolsChanged)
             self.supportedToolsChanged.emit(sheet_view.supportedTools())
+
+            sheet_view.playbackStateChanged.connect(
+                self.playbackStateChanged)
+            self.playbackStateChanged.emit(sheet_view.playbackState())
+
+            sheet_view.playbackLoopChanged.connect(
+                self.playbackLoopChanged)
+            self.playbackLoopChanged.emit(sheet_view.playbackLoop())
 
         self._current_sheet_view = sheet_view
 
@@ -210,17 +225,17 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
             self.project.id, 'DeleteSheet',
             name=self.currentSheetView().sheet.name)
 
-    def onPlayerStart(self):
+    def onPlayerMoveTo(self, where):
         view = self.currentSheetView()
-        view.onPlayerStart()
+        view.onPlayerMoveTo(where)
 
-    def onPlayerPause(self):
+    def onPlayerToggle(self):
         view = self.currentSheetView()
-        view.onPlayerPause()
+        view.onPlayerToggle()
 
-    def onPlayerStop(self):
+    def onPlayerLoop(self):
         view = self.currentSheetView()
-        view.onPlayerStop()
+        view.onPlayerLoop()
 
     def onRender(self):
         view = self.currentSheetView()

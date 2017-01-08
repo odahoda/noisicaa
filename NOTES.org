@@ -4,15 +4,10 @@
 ** Set loop range on UI
 - clear loop
 - drag loop markers
-** UI buttons:
-- Start playback from start
-- Continue playback from current pos
-- Pause
-- Toggle loop mode
 ** How to handle wraps in the middle of a frame?
 - split entity generation into continous chunks
 - "splitter" needs to know about playback range, loop vs. no loop, etc.
-** Loop vs. single-shot playback
+** Persist PlayerState in session
 
 * Use flatbuffers for RPC serialization							      :FR:
 - https://github.com/google/flatbuffers

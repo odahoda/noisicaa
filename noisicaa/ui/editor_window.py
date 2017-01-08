@@ -46,7 +46,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     currentProjectChanged = QtCore.pyqtSignal(object)
     currentSheetChanged = QtCore.pyqtSignal(object)
     currentTrackChanged = QtCore.pyqtSignal(object)
-
+    playbackStateChanged = QtCore.pyqtSignal(str)
+    playbackLoopChanged = QtCore.pyqtSignal(bool)
     projectListChanged = QtCore.pyqtSignal()
 
     def __init__(self, app):
@@ -68,6 +69,9 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.createToolBar()
         self.createStatusBar()
         self.createDockWidgets()
+
+        self.playbackStateChanged.connect(self.onPlaybackStateChanged)
+        self.playbackLoopChanged.connect(self.onPlaybackLoopChanged)
 
         self._project_tabs = QtWidgets.QTabWidget(self)
         self._project_tabs.setTabBarAutoHide(True)
@@ -230,18 +234,36 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             statusTip="Open the instrument library dialog.",
             triggered=self.openInstrumentLibrary)
 
-        self._player_start_action = QtWidgets.QAction(
+        self._player_move_to_start_action = QtWidgets.QAction(
+            QtGui.QIcon.fromTheme('media-skip-backward'),
+            "Move to start",
+            self, triggered=lambda: self.onPlayerMoveTo('start'))
+
+        self._player_move_to_end_action = QtWidgets.QAction(
+            QtGui.QIcon.fromTheme('media-skip-forward'),
+            "Move to end",
+            self, triggered=lambda: self.onPlayerMoveTo('end'))
+
+        self._player_move_to_prev_action = QtWidgets.QAction(
+            QtGui.QIcon.fromTheme('media-seek-backward'),
+            "Move to previous measure",
+            self, triggered=lambda: self.onPlayerMoveTo('prev'))
+
+        self._player_move_to_next_action = QtWidgets.QAction(
+            QtGui.QIcon.fromTheme('media-seek-forward'),
+            "Move to next measure",
+            self, triggered=lambda: self.onPlayerMoveTo('next'))
+
+        self._player_toggle_action = QtWidgets.QAction(
             QtGui.QIcon.fromTheme('media-playback-start'),
             "Play",
-            self, triggered=self.onPlayerStart)
-        self._player_pause_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('media-playback-pause'),
-            "Pause",
-            self, triggered=self.onPlayerPause)
-        self._player_stop_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('media-playback-stop'),
-            "Stop",
-            self, triggered=self.onPlayerStop)
+            self, triggered=self.onPlayerToggle)
+
+        self._player_loop_action = QtWidgets.QAction(
+            QtGui.QIcon.fromTheme('media-playlist-repeat'),
+            "Loop playback",
+            self, toggled=self.onPlayerLoop,
+            checkable=True)
 
         self._show_pipeline_perf_monitor_action = QtWidgets.QAction(
             "Pipeline Performance Monitor", self,
@@ -321,9 +343,13 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def createToolBar(self):
         self.toolbar = QtWidgets.QToolBar()
         self.toolbar.setObjectName('toolbar:main')
-        self.toolbar.addAction(self._player_start_action)
-        #elf.toolbar.addAction(self._player_pause_action)
-        self.toolbar.addAction(self._player_stop_action)
+        self.toolbar.addAction(self._player_toggle_action)
+        self.toolbar.addAction(self._player_loop_action)
+        self.toolbar.addSeparator()
+        self.toolbar.addAction(self._player_move_to_start_action)
+        self.toolbar.addAction(self._player_move_to_prev_action)
+        self.toolbar.addAction(self._player_move_to_next_action)
+        self.toolbar.addAction(self._player_move_to_end_action)
 
         self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
@@ -409,10 +435,18 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         if self._current_project_view is not None:
             self._current_project_view.currentSheetChanged.disconnect(
                 self.currentSheetChanged)
+            self._current_project_view.playbackStateChanged.disconnect(
+                self.playbackStateChanged)
+            self._current_project_view.playbackLoopChanged.disconnect(
+                self.playbackLoopChanged)
 
         if project_view is not None:
             project_view.currentSheetChanged.connect(
                 self.currentSheetChanged)
+            project_view.playbackStateChanged.connect(
+                self.playbackStateChanged)
+            project_view.playbackLoopChanged.connect(
+                self.playbackLoopChanged)
 
         self._current_project_view = project_view
 
@@ -562,14 +596,25 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         view = self._project_tabs.currentWidget()
         view.onPasteAsLink()
 
-    def onPlayerStart(self):
-        view = self._project_tabs.currentWidget()
-        view.onPlayerStart()
+    def onPlaybackStateChanged(self, state):
+        if state == 'playing':
+            self._player_toggle_action.setIcon(
+                QtGui.QIcon.fromTheme('media-playback-pause'))
+        else:
+            self._player_toggle_action.setIcon(
+                QtGui.QIcon.fromTheme('media-playback-start'))
 
-    def onPlayerPause(self):
-        view = self._project_tabs.currentWidget()
-        view.onPlayerPause()
+    def onPlaybackLoopChanged(self, loop):
+        self._player_loop_action.setChecked(loop)
 
-    def onPlayerStop(self):
+    def onPlayerMoveTo(self, where):
         view = self._project_tabs.currentWidget()
-        view.onPlayerStop()
+        view.onPlayerMoveTo(where)
+
+    def onPlayerToggle(self):
+        view = self._project_tabs.currentWidget()
+        view.onPlayerToggle()
+
+    def onPlayerLoop(self):
+        view = self._project_tabs.currentWidget()
+        view.onPlayerLoop()

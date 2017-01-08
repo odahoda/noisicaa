@@ -38,6 +38,7 @@ class PlayerState(QtCore.QObject):
     playbackSamplePosChanged = QtCore.pyqtSignal(object)
     loopStartSamplePosChanged = QtCore.pyqtSignal(object)
     loopEndSamplePosChanged = QtCore.pyqtSignal(object)
+    loopChanged = QtCore.pyqtSignal(bool)
 
     def __init__(self, time_mapper):
         super().__init__()
@@ -45,9 +46,10 @@ class PlayerState(QtCore.QObject):
         self.__time_mapper = time_mapper
 
         self.__state = 'stopped'
-        self.__playback_sample_pos = None
+        self.__playback_sample_pos = 0
         self.__loop_start_sample_pos = None
         self.__loop_end_sample_pos = None
+        self.__loop = False
 
     def setState(self, state):
         if state == self.__state:
@@ -70,8 +72,6 @@ class PlayerState(QtCore.QObject):
         return self.__playback_sample_pos
 
     def playbackTimepos(self):
-        if self.__playback_sample_pos is None:
-            return None
         return self.__time_mapper.sample2timepos(self.__playback_sample_pos)
 
     def setLoopStartSamplePos(self, sample_pos):
@@ -103,6 +103,17 @@ class PlayerState(QtCore.QObject):
         if self.__loop_end_sample_pos is None:
             return None
         return self.__time_mapper.sample2timepos(self.__loop_end_sample_pos)
+
+    def setLoop(self, loop):
+        loop = bool(loop)
+        if loop == self.__loop:
+            return
+
+        self.__loop = loop
+        self.loopChanged.emit(loop)
+
+    def loop(self):
+        return self.__loop
 
 
 class TrackViewMixin(object):
@@ -905,8 +916,7 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
                     painter.drawPolygon(polygon)
 
                 playback_timepos = self.__player_state.playbackTimepos()
-                if (playback_timepos is not None
-                        and timepos <= playback_timepos < timepos + measure.duration):
+                if timepos <= playback_timepos < timepos + measure.duration:
                     pos = int(width * (playback_timepos - timepos) / measure.duration)
                     painter.fillRect(x + pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
 
@@ -1026,6 +1036,8 @@ class Frame(QtWidgets.QFrame):
 class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
     currentToolChanged = QtCore.pyqtSignal(tools.Tool)
     supportedToolsChanged = QtCore.pyqtSignal(set)
+    playbackStateChanged = QtCore.pyqtSignal(str)
+    playbackLoopChanged = QtCore.pyqtSignal(bool)
 
     def __init__(self, sheet, **kwargs):
         super().__init__(**kwargs)
@@ -1033,6 +1045,8 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
         self.__sheet = sheet
         self.__time_mapper = time_mapper.TimeMapper(self.__sheet)
         self.__player_state = PlayerState(self.__time_mapper)
+        self.__player_state.stateChanged.connect(self.playbackStateChanged)
+        self.__player_state.loopChanged.connect(self.playbackLoopChanged)
 
         sheet_editor_frame = Frame(parent=self)
         self.__sheet_editor = SheetEditor(
@@ -1162,42 +1176,95 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
     def supportedTools(self):
         return self.__sheet_editor.supportedTools()
 
+    def playbackState(self):
+        return self.__player_state.state()
+
+    def playbackLoop(self):
+        return self.__player_state.loop()
+
     def setPlaybackPosMode(self, mode):
         assert mode in ('follow', 'manual')
         self.__playback_pos_mode = mode
 
-    def onPlayerStart(self):
+    def onPlayerMoveTo(self, where):
         if self.__player_id is None:
-            logger.warning("Player start action without active player.")
+            logger.warning("Player action without active player.")
+            return
+
+        sample_pos = None
+
+        if where == 'start':
+            sample_pos = 0
+        elif where == 'end':
+            sample_pos = self.__time_mapper.total_duration_samples - 1
+        elif where == 'prev':
+            timepos = music.Duration()
+            prev_timepos = music.Duration()
+            for midx, mref in enumerate(self.__sheet.property_track.measure_list):
+                measure = mref.measure
+                playback_timepos = self.__player_state.playbackTimepos()
+                if timepos <= playback_timepos < timepos + measure.duration:
+                    if playback_timepos < timepos + music.Duration(1, 16):
+                        sample_pos = self.__time_mapper.timepos2sample(prev_timepos)
+                    else:
+                        sample_pos = self.__time_mapper.timepos2sample(timepos)
+                    break
+
+                prev_timepos = timepos
+                timepos += measure.duration
+
+        elif where == 'next':
+            timepos = music.Duration()
+            for midx, mref in enumerate(self.__sheet.property_track.measure_list):
+                measure = mref.measure
+                playback_timepos = self.__player_state.playbackTimepos()
+                if timepos <= playback_timepos < timepos + measure.duration:
+                    if midx == len(self.__sheet.property_track.measure_list) - 1:
+                        sample_pos = self.__time_mapper.total_duration_samples - 1
+                    else:
+                        sample_pos = self.__time_mapper.timepos2sample(
+                            timepos + measure.duration)
+                    break
+
+                timepos += measure.duration
+
+        else:
+            raise ValueError(where)
+
+        if sample_pos is not None:
+            self.call_async(
+                self.project_client.player_update_settings(
+                    self.__player_id,
+                    music.PlayerSettings(sample_pos=sample_pos)))
+
+    def onPlayerToggle(self):
+        if self.__player_id is None:
+            logger.warning("Player action without active player.")
+            return
+
+        if self.__player_state.state() == 'playing':
+            new_state = 'stopped'
+        else:
+            new_state = 'playing'
+
+        self.call_async(
+            self.project_client.player_update_settings(
+                self.__player_id,
+                music.PlayerSettings(state=new_state)))
+
+    def onPlayerLoop(self):
+        if self.__player_id is None:
+            logger.warning("Player action without active player.")
             return
 
         self.call_async(
             self.project_client.player_update_settings(
                 self.__player_id,
-                music.PlayerSettings(state='playing', sample_pos=0)))
-
-    def onPlayerPause(self):
-        if self.__player_id is None:
-            logger.warning("Player pause action without active player.")
-            return
-
-        self.call_async(
-            self.project_client.player_update_settings(
-                self.__player_id,
-                music.PlayerSettings(state='stopped')))
-
-    def onPlayerStop(self):
-        if self.__player_id is None:
-            logger.warning("Player stop action without active player.")
-            return
-
-        self.call_async(
-            self.project_client.player_update_settings(
-                self.__player_id,
-                music.PlayerSettings(state='stopped')))
+                music.PlayerSettings(loop=not self.__player_state.loop())))
 
     def onPlayerStatus(
-            self, playback_pos=None, player_state=None, loop_start=None, loop_end=None,
+            self, playback_pos=None, player_state=None,
+            loop=None, loop_start=None, loop_end=None,
             pipeline_state=None, pipeline_disabled=None, **kwargs):
         if playback_pos is not None and self.__playback_pos_mode == 'follow':
             sample_pos, num_samples = playback_pos
@@ -1205,6 +1272,9 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
 
         if player_state is not None:
             self.__player_state.setState(player_state)
+
+        if loop is not None:
+            self.__player_state.setLoop(loop)
 
         if loop_start is not None:
             self.__player_state.setLoopStartSamplePos(loop_start)
