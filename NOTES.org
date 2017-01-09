@@ -4,11 +4,8 @@
 ** Set loop range on UI
 - clear loop
 - drag loop markers
-** How to handle wraps in the middle of a frame?
-- split entity generation into continous chunks
-- "splitter" needs to know about playback range, loop vs. no loop, etc.
-
-* SheetView follows playback position							      :FR:
+* SheetView follows playback position 							      :FR:
+* ControlTrack: point y values messed up after restarting editor			     :BUG:
 * Use flatbuffers for RPC serialization							      :FR:
 - https://github.com/google/flatbuffers
 

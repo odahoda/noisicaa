@@ -295,10 +295,10 @@ class AudioStreamProxy(object):
                                 player_state=new_state)
 
                 if settings.state == 'playing':
-                    with perf.track('get_track_entities'):
-                        self._player.get_track_entities(request, sample_pos_offset)
-
-                    settings.sample_pos += request.duration
+                    self._player.publish_status_async(
+                        playback_pos=(
+                            request.sample_pos - sample_pos_offset,
+                            request.duration))
 
                     if settings.loop_start is not None:
                         range_start = settings.loop_start
@@ -310,15 +310,29 @@ class AudioStreamProxy(object):
                     else:
                         range_end = tmap.total_duration_samples
 
-                    if settings.sample_pos >= range_end:
-                        if settings.loop:
-                            while settings.sample_pos >= range_end:
-                                settings.sample_pos = range_start + (settings.sample_pos - range_end)
-                                sample_pos_offset = request.sample_pos - settings.sample_pos
-                        else:
-                            settings.state = 'stopped'
-                            self._player.publish_status_async(
-                                player_state=settings.state)
+                    with perf.track('get_track_entities'):
+                        duration = request.duration
+                        out_sample_pos = request.sample_pos
+                        while duration > 0:
+                            end_pos = min(settings.sample_pos + duration, range_end)
+                            self._player.get_track_entities(
+                                request,
+                                settings.sample_pos, end_pos,
+                                sample_pos_offset)
+
+                            duration -= end_pos - settings.sample_pos
+                            out_sample_pos += end_pos - settings.sample_pos
+
+                            if end_pos >= range_end:
+                                settings.sample_pos = range_start
+                                sample_pos_offset = out_sample_pos - settings.sample_pos
+                                if not settings.loop:
+                                    settings.state = 'stopped'
+                                    self._player.publish_status_async(
+                                        player_state=settings.state)
+                                    break
+                            else:
+                                settings.sample_pos = end_pos
 
                 with self._lock:
                     if self._client is not None:
@@ -343,11 +357,6 @@ class AudioStreamProxy(object):
 
                 perf.add_spans(response.perf_data)
                 response.perf_data = perf.get_spans()
-                if settings.state == 'playing':
-                    self._player.publish_status_async(
-                        playback_pos=(
-                            request.sample_pos - sample_pos_offset,
-                            request.duration))
 
                 try:
                     self._server.send_frame(response)
@@ -609,9 +618,9 @@ class Player(object):
             else:
                 del self.track_entity_sources[t.id]
 
-    def get_track_entities(self, frame_data, sample_pos_offset):
+    def get_track_entities(self, frame_data, start_pos, end_pos, sample_pos_offset):
         for entity_source in self.track_entity_sources.values():
-            entity_source.get_entities(frame_data, sample_pos_offset)
+            entity_source.get_entities(frame_data, start_pos, end_pos, sample_pos_offset)
 
     def handle_pipeline_mutation(self, mutation):
         if self.pending_pipeline_mutations is not None:

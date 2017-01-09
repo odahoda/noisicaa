@@ -203,10 +203,9 @@ class EntitySource(object):
         self._track = track
         self._sheet = track.sheet
 
-    def get_entities(self, frame_data, sample_pos_offset):
+    def get_entities(self, frame_data, start_pos, end_pos, sample_pos_offset):
         sample_pos = frame_data.sample_pos - sample_pos_offset
-        for event in self.get_events(
-                sample_pos, sample_pos + frame_data.duration):
+        for event in self.get_events(start_pos, end_pos):
             event.sample_pos += sample_pos_offset
             frame_data.events.append(('track:%s' % self._track.id, event))
 

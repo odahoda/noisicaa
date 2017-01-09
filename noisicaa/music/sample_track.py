@@ -172,14 +172,12 @@ class SampleEntitySource(track.EntitySource):
 
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
-    def get_entities(self, frame_data, sample_pos_offset):
-        entity = audioproc.AudioFrameEntity()
-        entity.frame = numpy.zeros(
-            shape=(frame_data.duration, 2), dtype=numpy.float32)
+    def get_entities(self, frame_data, start_pos, end_pos, sample_pos_offset):
+        frame = numpy.zeros(
+            shape=(end_pos - start_pos, 2), dtype=numpy.float32)
 
-        f1 = frame_data.sample_pos - sample_pos_offset
-        f1 = f1 % self.time_mapper.total_duration_samples
-        f2 = f1 + frame_data.duration
+        f1 = start_pos
+        f2 = end_pos
 
         for sample_ref in self._track.samples:
             s1 = self.time_mapper.timepos2sample(sample_ref.timepos)
@@ -198,16 +196,22 @@ class SampleEntitySource(track.EntitySource):
             if f1 >= s1:
                 src = f1 - s1
                 dest = 0
-                length = min(frame_data.duration, s2 - f1)
+                length = min(end_pos - start_pos, s2 - f1)
             else:
                 src = 0
                 dest = s1 - f1
                 length = min(s2, f2) - s1
 
             for ch in range(2):
-                entity.frame[dest:dest+length,ch] = samples[src:src+length,ch % samples.shape[1]]
+                frame[dest:dest+length,ch] = samples[src:src+length,ch % samples.shape[1]]
 
-        frame_data.entities['track:%s' % self._track.id] = entity
+        entity_id = 'track:%s' % self._track.id
+        try:
+            entity = frame_data.entities[entity_id]
+        except KeyError:
+            entity = audioproc.AudioFrameEntity(2)
+            frame_data.entities[entity_id] = entity
+        entity.append(frame)
 
 
 class SampleTrack(model.SampleTrack, Track):

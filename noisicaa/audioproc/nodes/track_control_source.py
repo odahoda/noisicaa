@@ -36,6 +36,6 @@ class TrackControlSource(node.Node):
 
         entity = ctxt.in_frame.entities.get(self.entity_name, None)
         if entity is not None:
-            numpy.copyto(output_port.frame, entity.frame)
+            output_port.frame[0:len(entity.frame)] = entity.frame
         else:
             output_port.frame.fill(0.0)

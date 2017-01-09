@@ -2,6 +2,9 @@
 
 import pickle
 
+import numpy
+
+
 class Entity(object):
     def __init__(self):
         pass
@@ -17,13 +20,27 @@ class Entity(object):
 class ControlFrameEntity(Entity):
     def __init__(self):
         super().__init__()
-        self.frame = None
+        self.frame = numpy.array([], dtype=numpy.float32)
+
+    def append(self, frame):
+        r1 = len(self.frame)
+        r2 = r1 + len(frame)
+        self.frame.resize(r2)
+        self.frame[r1:r2] = frame
 
 
 class AudioFrameEntity(Entity):
-    def __init__(self):
+    def __init__(self, channels):
         super().__init__()
-        self.frame = None
+        self.frame = numpy.ndarray(shape=(0, channels), dtype=numpy.float32)
+
+    def append(self, frame):
+        assert len(frame.shape) == 2
+        assert frame.shape[1] == self.frame.shape[1]
+        r1 = len(self.frame)
+        r2 = r1 + len(frame)
+        self.frame.resize((r2, self.frame.shape[1]))
+        self.frame[r1:r2] = frame
 
 
 class FrameData(object):

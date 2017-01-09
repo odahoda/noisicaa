@@ -126,19 +126,22 @@ class ControlEntitySource(track.EntitySource):
 
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
-    def get_entities(self, frame_data, sample_pos_offset):
-        entity = audioproc.ControlFrameEntity()
+    def get_entities(self, frame_data, start_pos, end_pos, sample_pos_offset):
+        entity_id = 'track:%s' % self._track.id
+        try:
+            entity = frame_data.entities[entity_id]
+        except KeyError:
+            entity = audioproc.ControlFrameEntity()
+            frame_data.entities[entity_id] = entity
 
+        duration = end_pos - start_pos
         if len(self._track.points) > 0:
-            sample_pos = frame_data.sample_pos - sample_pos_offset
-
-            timepos = self.time_mapper.sample2timepos(
-                sample_pos % self.time_mapper.total_duration_samples)
+            timepos = self.time_mapper.sample2timepos(start_pos)
             for point in self._track.points:
                 if timepos <= point.timepos:
                     if point.is_first:
-                        entity.frame = numpy.full(
-                            frame_data.duration, point.value, dtype=numpy.float32)
+                        entity.append(numpy.full(
+                            duration, point.value, dtype=numpy.float32))
                     else:
                         prev = point.prev_sibling
 
@@ -149,17 +152,15 @@ class ControlEntitySource(track.EntitySource):
                             + (timepos - prev.timepos)
                             * (point.value - prev.value)
                             / (point.timepos - prev.timepos))
-                        entity.frame = numpy.full(
-                            frame_data.duration, value, dtype=numpy.float32)
+                        entity.append(numpy.full(
+                            duration, value, dtype=numpy.float32))
                     break
             else:
-                entity.frame = numpy.full(
-                    frame_data.duration, self._track.points[-1].value, dtype=numpy.float32)
+                entity.append(numpy.full(
+                    duration, self._track.points[-1].value, dtype=numpy.float32))
 
         else:
-            entity.frame = numpy.zeros(frame_data.duration, dtype=numpy.float32)
-
-        frame_data.entities['track:%s' % self._track.id] = entity
+            entity.append(numpy.zeros(duration, dtype=numpy.float32))
 
 
 class ControlTrack(model.ControlTrack, Track):
