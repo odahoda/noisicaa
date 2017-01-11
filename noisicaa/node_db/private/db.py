@@ -13,6 +13,7 @@ from . import csound_scanner
 from . import builtin_scanner
 from . import ladspa_scanner
 from . import lv2_scanner
+from . import preset_scanner
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,13 @@ class NodeDB(object):
             for uri, node_description in scanner.scan():
                 assert uri not in self._nodes
                 self._nodes[uri] = node_description
+
+        scanner = preset_scanner.PresetScanner(self._nodes)
+        presets = {}
+        for uri, preset_description in scanner.scan():
+            assert uri not in presets
+            presets[uri] = preset_description
+        self._nodes.update(presets)
 
     def cleanup(self):
         pass

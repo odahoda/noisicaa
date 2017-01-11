@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<preset>
+  <display-name>Light Reverb</display-name>
+  <node uri="builtin://custom_csound"/>
+  <parameter-values>
+    <parameter name="orchestra"><![CDATA[
+ksmps=32
+nchnls=2
+
+gaInL chnexport "in/left", 1
+gaInR chnexport "in/right", 1
+
+gaOutL chnexport "out/left", 2
+gaOutR chnexport "out/right", 2
+
+gkFeedback chnexport "feedback", 1
+gkCutoff   chnexport "cutoff", 1
+
+instr 1
+  gaOutL, gaOutR reverbsc gaInL, gaInR, 0.2, 2000
+endin
+]]></parameter>
+    <parameter name="score"><![CDATA[
+i1 0 -1
+]]></parameter>
+  </parameter-values>
+</preset>

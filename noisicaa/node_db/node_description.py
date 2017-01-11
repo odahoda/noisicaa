@@ -130,6 +130,7 @@ class TextParameterDescription(ParameterDescription):
         self.content_type = content_type
         self.default = default
 
+
 class FloatParameterDescription(ParameterDescription):
     def __init__(self, min=0.0, max=1.0, default=0.0, **kwargs):
         super().__init__(param_type=ParameterType.Float, **kwargs)

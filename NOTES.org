@@ -1,5 +1,29 @@
 # -*- org-tags-column: -98 -*-
 
+* Node presets										      :FR:
+- track current directory for import/export file dialogs
+  - which default directory?
+- which file extension?
+- serialize port list (if editable)
+- serialize param descriptions (if editable)
+- add to nodedb
+  - nodedb scans preset directory
+  - store presets in $HOME/.noisicaä/presets
+- node remembers preset it was created from (or saved to)
+- UI
+  - save as
+  - save (if linked to preset)
+  - load from preset
+    - select from all presets for this node URI
+  - import/export
+    - load/save to arbitrary paths
+  - edit metadata
+- metadata
+  - open "edit metadata" dialog on "save as" or "export"
+  - author
+  - copyright
+  - license
+  - comment
 * TODO Rework player position tracking							      :FR:
 ** Set loop range on UI
 - clear loop
@@ -261,30 +285,6 @@ Set the base tuning of the instrument.
 * reanimate PipelineGraphMonitor							     :BUG:
 - doesn't know how to handle changing address of audioproc process
 
-* Node presets										      :FR:
-- track current directory for import/export file dialogs
-  - which default directory?
-- which file extension?
-- serialize port list (if editable)
-- serialize param descriptions (if editable)
-- add to nodedb
-  - nodedb scans preset directory
-  - store presets in $HOME/.noisicaä/presets
-- node remembers preset it was created from (or saved to)
-- UI
-  - save as
-  - save (if linked to preset)
-  - load from preset
-    - select from all presets for this node URI
-  - import/export
-    - load/save to arbitrary paths
-  - edit metadata
-- metadata
-  - open "edit metadata" dialog on "save as" or "export"
-  - author
-  - copyright
-  - license
-  - comment
 * Control tracks									      :FR:
 Any controllable value can be turned into a control track.
 Icon next to controllable values, drag'n'drop onto editor.

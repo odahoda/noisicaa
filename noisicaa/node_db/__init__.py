@@ -16,6 +16,12 @@ from .node_description import (
     TextParameterDescription,
     FloatParameterDescription,
 )
+from .presets import (
+    Preset,
+
+    PresetError,
+    PresetLoadError,
+)
 from .mutations import (
     AddNodeDescription,
     RemoveNodeDescription,

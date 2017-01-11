@@ -267,11 +267,14 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
         doc.text = '\n'
         doc.tail = '\n'
 
-        node_uri_elem = ElementTree.SubElement(doc, 'node_uri')
-        node_uri_elem.text = self.node_uri
+        display_name_elem = ElementTree.SubElement(doc, 'display-name')
+        display_name_elem.text = "User preset"
+        display_name_elem.tail = '\n'
+
+        node_uri_elem = ElementTree.SubElement(doc, 'node', uri=self.node_uri)
         node_uri_elem.tail = '\n'
 
-        parameters_elem = ElementTree.SubElement(doc, 'parameters')
+        parameters_elem = ElementTree.SubElement(doc, 'parameter-values')
         parameters_elem.text = '\n'
         parameters_elem.tail = '\n'
 
@@ -287,7 +290,10 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
 
             parameter_elem = ElementTree.SubElement(
                 parameters_elem, 'parameter', name=parameter.name)
-            parameter_elem.text = parameter.to_string(value)
+            if parameter.param_type == node_db.ParameterType.Text:
+                parameter_elem.text = parameter.to_string(value)
+            else:
+                parameter_elem.set('value', parameter.to_string(value))
             parameter_elem.tail = '\n'
 
         tree = ElementTree.ElementTree(doc)
@@ -295,48 +301,17 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
         tree.write(buf, encoding='utf-8', xml_declaration=True)
         return buf.getvalue()
 
-    def from_preset(self, preset):
-        buf = io.BytesIO(preset)
-        tree = ElementTree.parse(buf)
-        doc = tree.getroot()
-        if doc.tag != 'preset':
-            raise PresetLoadError("Not a preset file.")
+    def from_preset(self, xml):
+        preset = node_db.Preset.parse(io.BytesIO(xml), self.project.get_node_description)
 
-        version = doc.get('version', '')
-        if version not in ('1',):
-            raise PresetLoadError(
-                "Unsupported preset version %s." % version)
-
-        node_uri_elem = doc.find('node_uri')
-        if node_uri_elem is None:
-            raise PresetLoadError("Missing <node_uri> element.")
-
-        node_uri = ''.join(node_uri_elem.itertext()).strip()
-        if node_uri != self.node_uri:
-            raise PresetLoadError(
+        if preset.node_uri != self.node_uri:
+            raise node_db.PresetLoadError(
                 "Mismatching node_uri (Expected %s, got %s)."
-                % (self.node_uri, node_uri))
-
-        parameter_values = {}
-        parameters_elem = doc.find('parameters')
-        if parameters_elem is not None:
-            parameter_descriptions = {
-                p.name: p
-                for p in self.description.parameters}
-            for parameter_elem in parameters_elem.findall('parameter'):
-                parameter_name = parameter_elem.get('name', '')
-                if not parameter_name:
-                    raise PresetLoadError("Missing name on <parameter>.")
-                if parameter_name not in parameter_descriptions:
-                    raise PresetLoadError("Unknown parameter %s." % parameter_name)
-                parameter = parameter_descriptions[parameter_name]
-                value_str = ''.join(parameter_elem.itertext())
-                value = parameter.from_string(value_str)
-                parameter_values[parameter_name] = value
+                % (self.node_uri, preset.node_uri))
 
         self.parameter_values.clear()
-        if parameter_values:
-            self.set_parameters(parameter_values)
+        if preset.parameter_values:
+            self.set_parameters(preset.parameter_values)
 
     @property
     def pipeline_node_id(self):
