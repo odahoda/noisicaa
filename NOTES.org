@@ -1,5 +1,11 @@
 # -*- org-tags-column: -98 -*-
 
+* Exception when opening InstrumentLibrary						   :CRASH:
+Exception in callback:
+Callback: <Task finished coro=<BeatTrackProperties.onSelectInstrumentAsync() done,
+   defined at /storage/users/pink/projects/noisicaä/noisicaa/ui/track_properties_dock.py:238>
+   exception=TypeError("'selection_set' is an unknown keyword argument",)>
+
 * Node presets										      :FR:
 - track current directory for import/export file dialogs
   - which default directory?
@@ -28,6 +34,14 @@
 ** Set loop range on UI
 - clear loop
 - drag loop markers
+* Port groups										      :FR:
+** Audio ports are single channel
+** PortGroups group a set of channel with role identifier (left, right, ...)
+** Connecting port groups implicitly connect matching ports in the groups
+** LV2 spec: http://lv2plug.in/ns/ext/port-groups/port-groups.html
+** UI prefers showing port groups instead of individual ports, option to ungroup ports
+** Implicit coercing of mono->stereo ports
+
 * SheetView follows playback position 							      :FR:
 * ControlTrack: point y values messed up after restarting editor			     :BUG:
 * Use flatbuffers for RPC serialization							      :FR:
@@ -326,6 +340,7 @@ Icon next to controllable values, drag'n'drop onto editor.
 When creating new track, insert standard set of effects in pipeline.
 Default effects to bypass.
 Reverb, Delay, Pan, Equalizer.
+Or build effects into Mixer node?
 * Pipeline: don't execute unused nodes							      :FR:
 Skip node's run(), if all its outputs are bypassed.
 Skip node, when there are no unmuted upstream nodes. Pass this on, to disable complete subtrees.

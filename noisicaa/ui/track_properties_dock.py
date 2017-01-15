@@ -156,7 +156,7 @@ class ScoreTrackProperties(TrackProperties):
 
     async def onSelectInstrumentAsync(self):
         dialog = instrument_library.InstrumentLibraryDialog(
-            **self.context, selectButton=True, parent=self)
+            **self.common_context, selectButton=True, parent=self)
         dialog.setWindowTitle(
             "Select instrument for track '%s'" % self._track.name)
         dialog.setModal(True)
@@ -237,7 +237,7 @@ class BeatTrackProperties(TrackProperties):
 
     async def onSelectInstrumentAsync(self):
         dialog = instrument_library.InstrumentLibraryDialog(
-            **self.context, selectButton=True, parent=self)
+            **self.common_context, selectButton=True, parent=self)
         dialog.setWindowTitle(
             "Select instrument for track '%s'" % self._track.name)
         dialog.setModal(True)

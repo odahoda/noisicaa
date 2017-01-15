@@ -52,7 +52,7 @@ class LV2(node.Node):
         for port in self.description.ports:
             initial_length = 1
             if port.port_type == node_db.PortType.Audio:
-                initial_length = 1024
+                initial_length = 10240
             logger.info("Creating port buffer %s (%s floats)...", port.name, initial_length)
 
             buf = numpy.zeros(shape=(initial_length,), dtype=numpy.float32)
@@ -96,7 +96,7 @@ class LV2(node.Node):
                 raise ValueError
 
             if len(buf) < required_length:
-                buf.resize(required_length)
+                buf.resize(required_length, refcheck=False)
                 lv2_port = self.__plugin.get_port_by_symbol(port.name)
                 assert lv2_port is not None, port.name
                 self.__instance.connect_port(lv2_port.get_index(), buf)
