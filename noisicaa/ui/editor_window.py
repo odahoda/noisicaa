@@ -12,6 +12,8 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
+
 from ..exceptions import RestartAppException, RestartAppCleanException
 from .command_shell import CommandShell
 from .settings import SettingsDialog
@@ -528,9 +530,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         path, open_filter = QtWidgets.QFileDialog.getSaveFileName(
             parent=self,
             caption="Select Project File",
-            #directory=self.ui_state.get(
-            #    'instruments_add_dialog_path', ''),
-            filter="All Files (*);;noisicaä Projects (*.emp)",
+            directory=constants.PROJECT_DIR,
+            filter="All Files (*);;noisicaä Projects (*.noise)",
             #initialFilter=self.ui_state.get(
             #'instruments_add_dialog_path', ''),
         )
@@ -543,9 +544,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
             parent=self,
             caption="Open Project",
-            #directory=self.ui_state.get(
-            #'instruments_add_dialog_path', ''),
-            filter="All Files (*);;noisicaä Projects (*.emp)",
+            directory=constants.PROJECT_DIR,
+            filter="All Files (*);;noisicaä Projects (*.noise)",
             #initialFilter=self.ui_state.get(
             #    'instruments_add_dialog_path', ''),
         )

@@ -1,10 +1,10 @@
 # -*- org-tags-column: -98 -*-
 
-* Exception when opening InstrumentLibrary						   :CRASH:
-Exception in callback:
-Callback: <Task finished coro=<BeatTrackProperties.onSelectInstrumentAsync() done,
-   defined at /storage/users/pink/projects/noisicaä/noisicaa/ui/track_properties_dock.py:238>
-   exception=TypeError("'selection_set' is an unknown keyword argument",)>
+* replace SheetPropertyTrack by a controllable parameter				      :FR:
+- bpm is a parameter of Sheet
+- optionally make it a ControlTrack to change it over time.
+* Samples are show at wrong position when x scale changes				     :BUG:
+Stays at the same absolute position on screen
 
 * Node presets										      :FR:
 - track current directory for import/export file dialogs
@@ -462,9 +462,6 @@ Use eventset to generate player events.
 Tweak time of noteon/noteoff for each note.
 Only active at high zoom levels.
 
-* replace SheetPropertyTrack by a controllable parameter				      :FR:
-- bpm is a parameter of Sheet
-- optionally make it a ControlTrack to change it over time.
 * SIGSEGV when editing PipelineGraphView						   :CRASH:
 Possibly caused by the use of QGraphicsEffect for dropshadows?
 
