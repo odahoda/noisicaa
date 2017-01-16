@@ -15,7 +15,7 @@ class TimeMapperTest(unittest.TestCase):
         self.project.sheets.append(self.sheet)
 
         assert len(self.sheet.property_track.measure_list) == 1
-        assert self.sheet.property_track.measure_list[0].measure.bpm == 120
+        assert self.sheet.bpm == 120
         assert self.sheet.property_track.measure_list[0].measure.time_signature == time_signature.TimeSignature(4, 4)
 
     def test_total_duration(self):

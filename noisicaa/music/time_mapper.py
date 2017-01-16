@@ -20,7 +20,7 @@ class TimeMapper(object):
     def _durations(self):
         for mref in self.sheet.property_track.measure_list:
             measure = mref.measure
-            beats_per_sec = Fraction(measure.bpm, 60)
+            beats_per_sec = Fraction(self.sheet.bpm, 60)
             timesig = measure.time_signature
 
             duration_ticks = int(

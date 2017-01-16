@@ -22,6 +22,28 @@ from . import track
 logger = logging.getLogger(__name__)
 
 
+class UpdateSheetProperties(commands.Command):
+    name = core.Property(str, allow_none=True)
+    bpm = core.Property(int, allow_none=True)
+
+    def __init__(self, name=None, bpm=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.name = name
+            self.bpm = bpm
+
+    def run(self, sheet):
+        assert isinstance(sheet, Sheet)
+
+        if self.name is not None:
+            sheet.name = self.name
+
+        if self.bpm is not None:
+            sheet.bpm = self.bpm
+
+commands.Command.register_command(UpdateSheetProperties)
+
+
 class AddTrack(commands.Command):
     track_type = core.Property(str)
     parent_group_id = core.Property(str)

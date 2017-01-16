@@ -9,6 +9,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from . import tool_dock
+from . import sheet_properties_dock
 from . import tracks_dock
 from . import track_properties_dock
 from . import pipeline_graph_view
@@ -81,6 +82,11 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         self.currentToolChanged.connect(self._tools_dock.setCurrentTool)
         self.supportedToolsChanged.connect(self._tools_dock.setSupportedTools)
         self._tools_dock.toolChanged.connect(self.setCurrentTool)
+
+        self._sheet_properties_dock = sheet_properties_dock.SheetPropertiesDockWidget(
+            parent=self, **self.context)
+        self._docks.append(self._sheet_properties_dock)
+        self.currentSheetChanged.connect(self._sheet_properties_dock.setSheet)
 
         self._tracks_dock = tracks_dock.TracksDockWidget(parent=self, **self.context)
         self._docks.append(self._tracks_dock)

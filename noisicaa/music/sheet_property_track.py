@@ -32,25 +32,6 @@ class SetTimeSignature(commands.Command):
 commands.Command.register_command(SetTimeSignature)
 
 
-class SetBPM(commands.Command):
-    bpm = core.Property(int)
-
-    def __init__(self, bpm=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.bpm = bpm
-
-    def run(self, measure):
-        assert isinstance(measure, SheetPropertyMeasure)
-
-        if self.bpm <= 0 or self.bpm > 10000:
-            raise ValueError
-
-        measure.bpm = self.bpm
-
-commands.Command.register_command(SetBPM)
-
-
 class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
     def __init__(self, state=None):
         super().__init__(state)
@@ -60,12 +41,6 @@ class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
     @property
     def empty(self):
         return True
-
-    def get_num_samples(self, sample_rate):
-        return int(
-            sample_rate
-            * Duration(self.time_signature.upper, self.time_signature.lower)
-            * 4 * 60 // self.bpm)
 
 state.StateBase.register_class(SheetPropertyMeasure)
 
@@ -84,15 +59,8 @@ class SheetPropertyTrack(model.SheetPropertyTrack, MeasuredTrack):
         measure = super().create_empty_measure(ref)
 
         if ref is not None:
-            measure.bpm = ref.bpm
             measure.time_signature = ref.time_signature
 
         return measure
-
-    def get_num_samples(self, sample_rate):
-        return sum(
-            (mref.measure.get_num_samples(sample_rate)
-             for mref in self.measure_list),
-            0)
 
 state.StateBase.register_class(SheetPropertyTrack)

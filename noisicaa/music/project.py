@@ -223,13 +223,11 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
     def make_demo(cls):
         project = cls()
         s = sheet.Sheet(name="Demo Sheet")
+        s.bpm = 140
         project.add_sheet(s)
 
         while len(s.property_track.measure_list) < 5:
             s.property_track.append_measure()
-
-        for mref in s.property_track.measure_list:
-            mref.measure.bpm = 140
 
         track1 = ScoreTrack(
             name="Track 1",

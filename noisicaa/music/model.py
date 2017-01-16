@@ -170,7 +170,6 @@ class BeatTrack(MeasuredTrack):
 
 
 class SheetPropertyMeasure(Measure):
-    bpm = core.Property(int, default=120)
     time_signature = core.Property(
         time_signature.TimeSignature,
         default=time_signature.TimeSignature(4, 4))
@@ -391,6 +390,7 @@ class Sheet(core.ObjectBase):
     pipeline_graph_connections = core.ObjectListProperty(
         PipelineGraphConnection)
     samples = core.ObjectListProperty(Sample)
+    bpm = core.Property(int, default=120)
 
     @property
     def sheet(self):
@@ -406,7 +406,7 @@ class Sheet(core.ObjectBase):
                 + list(self.master_group.walk_tracks()))
 
     def get_bpm(self, measure_idx, tick):  # pylint: disable=unused-argument
-        return self.property_track.measure_list[measure_idx].measure.bpm
+        return self.bpm
 
     def get_time_signature(self, measure_idx):
         return self.property_track.measure_list[measure_idx].measure.time_signature

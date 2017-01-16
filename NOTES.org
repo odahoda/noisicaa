@@ -1,8 +1,8 @@
 # -*- org-tags-column: -98 -*-
 
-* replace SheetPropertyTrack by a controllable parameter				      :FR:
-- bpm is a parameter of Sheet
-- optionally make it a ControlTrack to change it over time.
+* Previously opened projects are not rememebered correctly				     :BUG:
+Seems to open 2nd most recent project.
+
 * Samples are show at wrong position when x scale changes				     :BUG:
 Stays at the same absolute position on screen
 
