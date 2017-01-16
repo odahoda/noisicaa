@@ -6,8 +6,6 @@ That used to work better...
 - pipeline thread increments counter on every iteration
 - watchdog thread checks counter
 - if not incremented for N * blocksize / samplerate, SIGABRT the process
-* Previously opened projects are not rememebered correctly				     :BUG:
-Seems to open 2nd most recent project.
 * List of recently opened projects							      :FR:
 use xdg function to store projects
 http://pyxdg.readthedocs.io/en/latest/recentfiles.html

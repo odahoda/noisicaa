@@ -252,11 +252,12 @@ class BaseEditorApp(QtWidgets.QApplication):
 
     async def addProject(self, project_connection):
         await self.win.addProjectView(project_connection)
+        self._updateOpenedProjects()
 
     async def removeProject(self, project_connection):
         await self.win.removeProjectView(project_connection)
-        self._updateOpenedProjects()
         await self.project_registry.close_project(project_connection)
+        self._updateOpenedProjects()
 
     def onPipelineStatus(self, status):
         pass
