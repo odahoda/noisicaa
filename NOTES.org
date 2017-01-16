@@ -1,7 +1,16 @@
 # -*- org-tags-column: -98 -*-
 
+* Exceptions in pipeline thread are not handled gracefully anymore?			     :BUG:
+That used to work better...
+* Watchdog for pipeline thread								      :FR:
+- pipeline thread increments counter on every iteration
+- watchdog thread checks counter
+- if not incremented for N * blocksize / samplerate, SIGABRT the process
 * Previously opened projects are not rememebered correctly				     :BUG:
 Seems to open 2nd most recent project.
+* List of recently opened projects							      :FR:
+use xdg function to store projects
+http://pyxdg.readthedocs.io/en/latest/recentfiles.html
 
 * Samples are show at wrong position when x scale changes				     :BUG:
 Stays at the same absolute position on screen
