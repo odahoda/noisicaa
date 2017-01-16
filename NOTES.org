@@ -1,7 +1,9 @@
 # -*- org-tags-column: -98 -*-
 
-* Exceptions in pipeline thread are not handled gracefully anymore?			     :BUG:
-That used to work better...
+* cmdline tool to fix project files							      :FR:
+- undo/redo commands
+- create new snapshot
+
 * Watchdog for pipeline thread								      :FR:
 - pipeline thread increments counter on every iteration
 - watchdog thread checks counter

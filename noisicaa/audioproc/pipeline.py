@@ -19,10 +19,6 @@ from . import ports
 logger = logging.getLogger(__name__)
 
 
-# TODO
-# - audio ports get their format's sample rate from pipeline
-
-
 class Pipeline(object):
     def __init__(self, shm=None):
         self._shm = shm
