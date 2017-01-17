@@ -21,10 +21,12 @@ from .core import process_manager
 #     del sys.modules[mod]
 
 
-class Main(object):
-    def __init__(self):
-        self.runtime_settings = RuntimeSettings()
-        self.paths = []
+class Editor(object):
+    def __init__(self, runtime_settings, paths, logger):
+        self.runtime_settings = runtime_settings
+        self.paths = paths
+        self.logger = logger
+
         self.event_loop = asyncio.get_event_loop()
         self.manager = process_manager.ProcessManager(self.event_loop)
         self.manager.server.add_command_handler(
@@ -47,25 +49,16 @@ class Main(object):
         self.instrument_db_process = None
         self.instrument_db_process_lock = asyncio.Lock(loop=self.event_loop)
 
-    def run(self, argv):
-        self.parse_args(argv)
+    def run(self):
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            self.event_loop.add_signal_handler(
+                sig, functools.partial(self.handle_signal, sig))
 
-        with logging.LogManager(self.runtime_settings):
-            self.logger = logging.getLogger(__name__)
-
-            if self.runtime_settings.dev_mode:
-                import pyximport
-                pyximport.install()
-
-            for sig in (signal.SIGINT, signal.SIGTERM):
-                self.event_loop.add_signal_handler(
-                    sig, functools.partial(self.handle_signal, sig))
-
-            try:
-                self.event_loop.run_until_complete(self.run_async())
-            finally:
-                self.event_loop.stop()
-                self.event_loop.close()
+        try:
+            self.event_loop.run_until_complete(self.run_async())
+        finally:
+            self.event_loop.stop()
+            self.event_loop.close()
 
         return self.returncode
 
@@ -122,18 +115,6 @@ class Main(object):
             self.returncode = task.result()
         self.stop_event.set()
 
-    def parse_args(self, argv):
-        parser = argparse.ArgumentParser(
-            prog=argv[0])
-        parser.add_argument(
-            'path',
-            nargs='*',
-            help="Project file to open.")
-        self.runtime_settings.init_argparser(parser)
-        args = parser.parse_args(args=argv[1:])
-        self.runtime_settings.set_from_args(args)
-        self.paths = args.path
-
     async def handle_create_project_process(self, uri):
         # TODO: keep map of uri->proc, only create processes for new
         # URIs.
@@ -167,6 +148,54 @@ class Main(object):
                     'noisicaa.instrument_db.process.InstrumentDBProcess')
 
         return self.instrument_db_process.address
+
+
+class Main(object):
+    def __init__(self):
+        self.action = None
+        self.runtime_settings = RuntimeSettings()
+        self.paths = []
+        self.logger = None
+
+    def run(self, argv):
+        self.parse_args(argv)
+
+        with logging.LogManager(self.runtime_settings):
+            self.logger = logging.getLogger(__name__)
+
+            if self.runtime_settings.dev_mode:
+                import pyximport
+                pyximport.install()
+
+            if self.action == 'editor':
+                rc = Editor(self.runtime_settings, self.paths, self.logger).run()
+
+            elif self.action == 'pdb':
+                from . import pdb
+                rc = pdb.ProjectDebugger(self.runtime_settings, self.paths).run()
+
+            else:
+                raise ValueError(self.action)
+
+        return rc
+
+    def parse_args(self, argv):
+        parser = argparse.ArgumentParser(
+            prog=argv[0])
+        parser.add_argument(
+            '--action',
+            choices=['editor', 'pdb'],
+            default='editor',
+            help="Action to execute. editor: Open editor UI. pdb: Run project debugger.")
+        parser.add_argument(
+            'path',
+            nargs='*',
+            help="Project file to open.")
+        self.runtime_settings.init_argparser(parser)
+        args = parser.parse_args(args=argv[1:])
+        self.runtime_settings.set_from_args(args)
+        self.paths = args.path
+        self.action = args.action
 
 
 if __name__ == '__main__':

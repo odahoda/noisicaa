@@ -1,9 +1,11 @@
 # -*- org-tags-column: -98 -*-
 
-* cmdline tool to fix project files							      :FR:
-- undo/redo commands
-- create new snapshot
+* Muting an audiotrack mutes it parent mixer						     :BUG:
+Audio tracks should have a mixer node, too
 
+* ProjectDebugger: list command log 							      :FR:
+* ProjectDebugger: create new snapshot 							      :FR:
+* ProjectDebugger: purge command log 							      :FR:
 * Watchdog for pipeline thread								      :FR:
 - pipeline thread increments counter on every iteration
 - watchdog thread checks counter
