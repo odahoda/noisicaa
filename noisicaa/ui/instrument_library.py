@@ -77,6 +77,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.instruments_search.textChanged.connect(self.onInstrumentSearchChanged)
 
         self.instruments_list = instrument_list = QtWidgets.QListWidget(self)
+        instrument_list.setMinimumWidth(250)
         layout.addWidget(instrument_list, 1)
         instrument_list.currentItemChanged.connect(
             lambda current, prev: self.onInstrumentItemSelected(current))
