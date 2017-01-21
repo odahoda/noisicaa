@@ -1,5 +1,16 @@
 # -*- org-tags-column: -98 -*-
 
+* Background eventset 									      :FR:
+Internal data structure that tracks noteon/noteoff events for a track.
+Efficient lookup of:
+- events in a given time interval.
+- list of notes that are on in a given time interval.
+Used by event based tracks (score, beat, ...).
+Track syncs all changes to eventset.
+Use eventset to generate player events.
+https://en.wikipedia.org/wiki/Interval_tree
+https://pypi.python.org/pypi/intervaltree
+
 * TimeLine xoffset incorrect when playback pos gets near the end 			     :BUG:
 - need to compute proper content size to know what the max x position is.
 * Muting an audiotrack mutes it parent mixer						     :BUG:
@@ -464,15 +475,6 @@ store node uri
 * per measure time signature								      :FR:
 Tracks can have different time signatures, measures do not have to align
 vertically.
-* Background eventset 									      :FR:
-Internal data structure that tracks noteon/noteoff events for a track.
-Efficient lookup of:
-- events in a given time interval.
-- list of notes that are on in a given time interval.
-Used by event based tracks (score, beat, ...).
-Track syncs all changes to eventset.
-Use eventset to generate player events.
-
 * ScoreTrack: tweak noteon position, duration						      :FR:
 - control properties of track
 - offset for noteon events
