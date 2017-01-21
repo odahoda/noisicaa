@@ -5,6 +5,7 @@ import asyncio.streams
 import logging
 import pprint
 import os
+import subprocess
 import sys
 import textwrap
 
@@ -81,8 +82,9 @@ class ProjectDebugger(object):
                     self.project.undo()
 
                 elif inp.lower() == 'dump':
-                    self.write(pprint.pformat(self.project.serialize()))
-                    self.write('\n')
+                    subprocess.run(
+                        ['/usr/bin/less'],
+                        input=pprint.pformat(self.project.serialize()).encode('utf-8'))
 
                 else:
                     self.write(
