@@ -713,7 +713,7 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__old_player_state = None
 
         self.__player_state.playbackSamplePosChanged.connect(
-            lambda _: self.update())
+            self.onPlaybackSamplePosChanged)
         self.__player_state.loopStartSamplePosChanged.connect(
             lambda _: self.update())
         self.__player_state.loopEndSamplePosChanged.connect(
@@ -794,6 +794,19 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
 
     def onClearLoop(self):
         pass
+
+    def onPlaybackSamplePosChanged(self, sample_pos):
+        if self.isVisible():
+            x = self.timeposToX(self.__player_state.playbackTimepos())
+
+            left = self.__x_offset + 1 * self.width() / 5
+            right = self.__x_offset + 4 * self.width() / 5
+            if x < left:
+                self.setXOffset(max(0, x - 1 * self.width() / 5))
+            elif x > right:
+                self.setXOffset(x - 4 * self.width() / 5)
+
+        self.update()
 
     def mousePressEvent(self, evt):
         if (self.__player_id is not None
@@ -1104,6 +1117,8 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
         self.__sheet_editor.pageWidthChanged.connect(
             scroll_x.setPageStep)
         self.__sheet_editor.xOffsetChanged.connect(
+            scroll_x.setValue)
+        self.__time_line.xOffsetChanged.connect(
             scroll_x.setValue)
         scroll_x.valueChanged.connect(
             self.__sheet_editor.setXOffset)

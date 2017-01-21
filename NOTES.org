@@ -1,5 +1,7 @@
 # -*- org-tags-column: -98 -*-
 
+* TimeLine xoffset incorrect when playback pos gets near the end 			     :BUG:
+- need to compute proper content size to know what the max x position is.
 * Muting an audiotrack mutes it parent mixer						     :BUG:
 Audio tracks should have a mixer node, too
 
@@ -41,7 +43,7 @@ Stays at the same absolute position on screen
   - copyright
   - license
   - comment
-* TODO Rework player position tracking							      :FR:
+* Rework player position tracking							      :FR:
 ** Set loop range on UI
 - clear loop
 - drag loop markers
@@ -53,7 +55,6 @@ Stays at the same absolute position on screen
 ** UI prefers showing port groups instead of individual ports, option to ungroup ports
 ** Implicit coercing of mono->stereo ports
 
-* SheetView follows playback position 							      :FR:
 * ControlTrack: point y values messed up after restarting editor			     :BUG:
 * Use flatbuffers for RPC serialization							      :FR:
 - https://github.com/google/flatbuffers
@@ -178,8 +179,10 @@ noisicaa.core.ipc.ConnectionClosed
 * use libsndfile									      :FR:
 - instead of custom WAVE parsing
 
-* TODO Audio tracks									      :FR:
+* Audio tracks										      :FR:
 - rendering
+  - transfer whole, decoded sample to UI
+  - do all rendering UI side
 - don't use a normal command, make it a special call
 - drag'n'drop sections onto audio tracks
 - a section is a clip or range of a clip
