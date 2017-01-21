@@ -168,6 +168,8 @@ class BeatTrack(MeasuredTrack):
     instrument = core.Property(str)
     pitch = core.Property(pitch.Pitch)
 
+    instrument_id = core.Property(str, allow_none=True)
+    event_source_id = core.Property(str, allow_none=True)
 
 class SheetPropertyMeasure(Measure):
     time_signature = core.Property(
