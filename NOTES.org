@@ -399,6 +399,13 @@ Currently the UI is behind a bit because of buffering in the pyaudio backend.
 - IPCNode listens on that and forwards to the player's IPCBackend.
 - IPCBackend applies timepos_offset and reports back to Player.
 - Player sends timepos to UI.
+- Player needs a list of stream->sheet time mapping to get correct offset.
+  Add entry every a time position seek happens
+
+UI polls timepos, instead of player pushing it
+- fixed rate of updates
+- ensure some min time between each call, so it degrades gracefully, if UI thread becomes overloaded
+
 * Built-in way to split/join channels							      :FR:
 - how often do you have to go from mono->stereo or vice versa?
 - going through splitter/joiner nodes is too cumbersome
