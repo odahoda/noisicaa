@@ -221,14 +221,6 @@ class SampleTrack(model.SampleTrack, base_track.Track):
         return SampleEntitySource(self)
 
     @property
-    def mixer_name(self):
-        return self.parent_mixer_name
-
-    @property
-    def mixer_node(self):
-        return self.parent_mixer_node
-
-    @property
     def audio_source_name(self):
         return '%s-control' % self.id
 
@@ -240,20 +232,25 @@ class SampleTrack(model.SampleTrack, base_track.Track):
         return self.root.get_object(self.audio_source_id)
 
     def add_pipeline_nodes(self):
+        super().add_pipeline_nodes()
+
+        mixer_node = self.mixer_node
+
         audio_source_node = pipeline_graph.AudioSourcePipelineGraphNode(
             name="Audio Source",
-            graph_pos=self.parent_mixer_node.graph_pos - misc.Pos2F(200, 0),
+            graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
         self.sheet.add_pipeline_graph_node(audio_source_node)
         self.audio_source_id = audio_source_node.id
 
         conn = pipeline_graph.PipelineGraphConnection(
-            audio_source_node, 'out', self.mixer_node, 'in')
+            audio_source_node, 'out', mixer_node, 'in')
         self.sheet.add_pipeline_graph_connection(conn)
 
     def remove_pipeline_nodes(self):
         self.sheet.remove_pipeline_graph_node(self.audio_source_node)
         self.audio_source_id = None
+        super().remove_pipeline_nodes()
 
 
 state.StateBase.register_class(SampleTrack)
