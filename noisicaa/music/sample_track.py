@@ -9,13 +9,12 @@ from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.bindings import sndfile
 
-from .track import Track
 from .time import Duration
 from . import model
 from . import state
 from . import commands
 from . import mutations
-from . import track
+from . import base_track
 from . import pipeline_graph
 from . import misc
 from . import time_mapper
@@ -166,7 +165,7 @@ class SampleRef(model.SampleRef, state.StateBase):
 state.StateBase.register_class(SampleRef)
 
 
-class SampleEntitySource(track.EntitySource):
+class SampleEntitySource(base_track.EntitySource):
     def __init__(self, track):
         super().__init__(track)
 
@@ -214,7 +213,7 @@ class SampleEntitySource(track.EntitySource):
         entity.append(frame)
 
 
-class SampleTrack(model.SampleTrack, Track):
+class SampleTrack(model.SampleTrack, base_track.Track):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 

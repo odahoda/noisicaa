@@ -8,13 +8,13 @@ from . import model
 from . import state
 from . import commands
 from . import mutations
-from . import track
+from . import base_track
 from . import misc
 
 logger = logging.getLogger(__name__)
 
 
-class TrackGroup(model.TrackGroup, track.Track):
+class TrackGroup(model.TrackGroup, base_track.Track):
     def __init__(self, state=None, num_measures=None, **kwargs):
         super().__init__(state=state, **kwargs)
 

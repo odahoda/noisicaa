@@ -17,7 +17,7 @@ from . import track_group
 from . import sheet_property_track
 from . import pipeline_graph
 from . import misc
-from . import track
+from . import base_track
 
 logger = logging.getLogger(__name__)
 
@@ -189,12 +189,12 @@ class PasteMeasuresAsLink(commands.Command):
         root = sheet.root
 
         src_measures = [root.get_object(obj_id) for obj_id in self.src_ids]
-        assert all(isinstance(obj, track.Measure) for obj in src_measures)
+        assert all(isinstance(obj, base_track.Measure) for obj in src_measures)
 
         target_measures = [
             root.get_object(obj_id) for obj_id in self.target_ids]
         assert all(
-            isinstance(obj, track.MeasureReference) for obj in target_measures)
+            isinstance(obj, base_track.MeasureReference) for obj in target_measures)
 
         affected_track_ids = set(
             obj.track.id for obj in src_measures + target_measures)

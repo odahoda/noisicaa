@@ -11,7 +11,7 @@ from .project_client import (
 from .project import (
     BaseProject, Project,
 )
-from .track import (
+from .base_track import (
     Track,
     MeasuredTrack, Measure,
 )

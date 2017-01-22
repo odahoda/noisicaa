@@ -6,7 +6,6 @@ import logging
 from noisicaa import core
 from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
 
-from .track import MeasuredTrack, Measure, EntitySource, MeasuredEventSetConnector, EventSetEntitySource
 from .time import Duration
 from .pitch import Pitch
 from . import model
@@ -18,6 +17,7 @@ from . import misc
 from . import time_mapper
 from . import event_set
 from . import time
+from . import base_track
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ class Beat(model.Beat, state.StateBase):
 state.StateBase.register_class(Beat)
 
 
-class BeatMeasure(model.BeatMeasure, Measure):
+class BeatMeasure(model.BeatMeasure, base_track.Measure):
     def __init__(self, state=None):
         super().__init__(state=state)
         self.listeners.add(
@@ -138,12 +138,12 @@ class BeatMeasure(model.BeatMeasure, Measure):
 state.StateBase.register_class(BeatMeasure)
 
 
-class BeatEntitySource(EventSetEntitySource):
+class BeatEntitySource(base_track.EventSetEntitySource):
     def _create_connector(self, track, event_set):
         return EventSetConnector(track, event_set)
 
 
-class EventSetConnector(MeasuredEventSetConnector):
+class EventSetConnector(base_track.MeasuredEventSetConnector):
     def _add_track_listeners(self):
         self._listeners['pitch'] = self._track.listeners.add(
             'pitch', self.__pitch_changed)
@@ -180,7 +180,7 @@ class EventSetConnector(MeasuredEventSetConnector):
             timepos += mref.measure.duration
 
 
-class BeatTrack(model.BeatTrack, MeasuredTrack):
+class BeatTrack(model.BeatTrack, base_track.MeasuredTrack):
     measure_cls = BeatMeasure
 
     def __init__(

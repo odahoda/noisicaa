@@ -8,8 +8,8 @@ from noisicaa import core
 from .pitch import Pitch
 from .clef import Clef
 from .key_signature import KeySignature
-from .track import MeasureReference, MeasuredTrack, Measure, EntitySource, MeasuredEventSetConnector, EventSetEntitySource
 from .time import Duration
+from . import base_track
 from . import model
 from . import state
 from . import commands
@@ -32,7 +32,7 @@ class SetInstrument(commands.Command):
             self.instrument = instrument
 
     def run(self, track):
-        assert isinstance(track, MeasuredTrack)
+        assert isinstance(track, base_track.MeasuredTrack)
 
         track.instrument = self.instrument
         track.instrument_node.update_pipeline()
@@ -289,7 +289,7 @@ class Note(model.Note, state.StateBase):
 state.StateBase.register_class(Note)
 
 
-class ScoreMeasure(model.ScoreMeasure, Measure):
+class ScoreMeasure(model.ScoreMeasure, base_track.Measure):
     def __init__(self, state=None):
         super().__init__(state=state)
         if state is None:
@@ -304,12 +304,12 @@ class ScoreMeasure(model.ScoreMeasure, Measure):
 state.StateBase.register_class(ScoreMeasure)
 
 
-class ScoreEntitySource(EventSetEntitySource):
+class ScoreEntitySource(base_track.EventSetEntitySource):
     def _create_connector(self, track, event_set):
         return EventSetConnector(track, event_set)
 
 
-class EventSetConnector(MeasuredEventSetConnector):
+class EventSetConnector(base_track.MeasuredEventSetConnector):
     def __init__(self, track, event_set):
         super().__init__(track, event_set)
 
@@ -352,7 +352,7 @@ class EventSetConnector(MeasuredEventSetConnector):
             timepos += mref.measure.duration
 
 
-class ScoreTrack(model.ScoreTrack, MeasuredTrack):
+class ScoreTrack(model.ScoreTrack, base_track.MeasuredTrack):
     measure_cls = ScoreMeasure
 
     def __init__(

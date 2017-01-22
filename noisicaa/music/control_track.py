@@ -7,13 +7,12 @@ import numpy
 from noisicaa import core
 from noisicaa import audioproc
 
-from .track import Track
 from .time import Duration
 from . import model
 from . import state
 from . import commands
 from . import mutations
-from . import track
+from . import base_track
 from . import pipeline_graph
 from . import misc
 from . import time_mapper
@@ -120,7 +119,7 @@ class ControlPoint(model.ControlPoint, state.StateBase):
 state.StateBase.register_class(ControlPoint)
 
 
-class ControlEntitySource(track.EntitySource):
+class ControlEntitySource(base_track.EntitySource):
     def __init__(self, track):
         super().__init__(track)
 
@@ -163,7 +162,7 @@ class ControlEntitySource(track.EntitySource):
             entity.append(numpy.zeros(duration, dtype=numpy.float32))
 
 
-class ControlTrack(model.ControlTrack, Track):
+class ControlTrack(model.ControlTrack, base_track.Track):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 

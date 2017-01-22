@@ -5,11 +5,11 @@ import logging
 from noisicaa import core
 
 from .time_signature import TimeSignature
-from .track import MeasuredTrack, Measure
 from .time import Duration
 from . import model
 from . import commands
 from . import state
+from . import base_track
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class SetTimeSignature(commands.Command):
 commands.Command.register_command(SetTimeSignature)
 
 
-class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
+class SheetPropertyMeasure(model.SheetPropertyMeasure, base_track.Measure):
     def __init__(self, state=None):
         super().__init__(state)
         if state is None:
@@ -45,7 +45,7 @@ class SheetPropertyMeasure(model.SheetPropertyMeasure, Measure):
 state.StateBase.register_class(SheetPropertyMeasure)
 
 
-class SheetPropertyTrack(model.SheetPropertyTrack, MeasuredTrack):
+class SheetPropertyTrack(model.SheetPropertyTrack, base_track.MeasuredTrack):
     measure_cls = SheetPropertyMeasure
 
     def __init__(self, name=None, num_measures=1, state=None):
