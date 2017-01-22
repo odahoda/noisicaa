@@ -169,6 +169,7 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
         self.__samples = []
         self.__listeners = []
 
+        self.__playback_timepos = None
         self.__highlighted_sample = None
         self.__mouse_pos = None
         self.__moving_sample = None
@@ -262,6 +263,19 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
         item = self.__samples.pop(remove_index)
         item.close()
         self.rectChanged.emit(self.sheetRect())
+
+    def setPlaybackPos(self, timepos):
+        if self.__playback_timepos is not None:
+            x = self.timeposToX(self.__playback_timepos)
+            self.rectChanged.emit(
+                QtCore.QRect(self.sheetLeft() + x, self.sheetTop(), 2, self.height()))
+
+        self.__playback_timepos = timepos
+
+        if self.__playback_timepos is not None:
+            x = self.timeposToX(self.__playback_timepos)
+            self.rectChanged.emit(
+                QtCore.QRect(self.sheetLeft() + x, self.sheetTop(), 2, self.height()))
 
 
     def setHighlightedSample(self, sample):
@@ -458,6 +472,10 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
                     item.paint(painter, sample_rect.translated(-item.pos()))
                 finally:
                     painter.restore()
+
+        if self.__playback_timepos is not None:
+            pos = self.timeposToX(self.__playback_timepos)
+            painter.fillRect(pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
 
 
 class SampleTrackEditorItem(ui_base.ProjectMixin, SampleTrackEditorItemImpl):

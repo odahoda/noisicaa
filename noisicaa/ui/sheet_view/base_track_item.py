@@ -78,6 +78,12 @@ class BaseTrackItem(QtCore.QObject):
     def sheetTopLeft(self):
         return self.__sheet_top_left
 
+    def sheetLeft(self):
+        return self.__sheet_top_left.x()
+
+    def sheetTop(self):
+        return self.__sheet_top_left.y()
+
     def setSheetTopLeft(self, top_left):
         self.__sheet_top_left = QtCore.QPoint(top_left)
 
