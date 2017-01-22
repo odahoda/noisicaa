@@ -531,9 +531,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             parent=self,
             caption="Select Project File",
             directory=constants.PROJECT_DIR,
-            filter="All Files (*);;noisicaä Projects (*.noise)",
-            #initialFilter=self.ui_state.get(
-            #'instruments_add_dialog_path', ''),
+            filter="All Files(*);;noisicaä Projects(*.noise)",
+            initialFilter='noisicaä Projects(*.noise)',
         )
         if not path:
             return
@@ -545,9 +544,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             parent=self,
             caption="Open Project",
             directory=constants.PROJECT_DIR,
-            filter="All Files (*);;noisicaä Projects (*.noise)",
-            #initialFilter=self.ui_state.get(
-            #    'instruments_add_dialog_path', ''),
+            filter="All Files(*);;noisicaä Projects(*.noise)",
+            initialFilter='noisicaä Projects(*.noise)',
         )
         if not path:
             return
