@@ -1,15 +1,7 @@
 # -*- org-tags-column: -98 -*-
 
-* Background eventset 									      :FR:
-Internal data structure that tracks noteon/noteoff events for a track.
-Efficient lookup of:
-- events in a given time interval.
-- list of notes that are on in a given time interval.
-Used by event based tracks (score, beat, ...).
-Track syncs all changes to eventset.
-Use eventset to generate player events.
-https://en.wikipedia.org/wiki/Interval_tree
-https://pypi.python.org/pypi/intervaltree
+* Loop start/end move around when BPM is changed					     :BUG:
+because they're tracked in sample time, not music time
 
 * TimeLine xoffset incorrect when playback pos gets near the end 			     :BUG:
 - need to compute proper content size to know what the max x position is.

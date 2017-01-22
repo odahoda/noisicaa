@@ -70,6 +70,9 @@ class Pitch(object):
     def __repr__(self):
         return 'Pitch(%s)' % self.name
 
+    def __hash__(self):
+        return hash((self._is_rest, self._value, self._accidental, self._octave))
+
     def __eq__(self, other):
         if other is None:
             return False

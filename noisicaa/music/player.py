@@ -451,6 +451,8 @@ class Player(object):
             listener.remove()
         self.group_listeners.clear()
 
+        for entity_source in self.track_entity_sources.values():
+            entity_source.close()
         self.track_entity_sources.clear()
 
         if self.mutation_listener is not None:
@@ -612,11 +614,11 @@ class Player(object):
     def remove_track(self, track):
         for t in track.walk_tracks(groups=True, tracks=True):
             if isinstance(t, model.TrackGroup):
-                listener = self.group_listeners[t.id]
+                listener = self.group_listeners.pop(t.id)
                 listener.remove()
-                del self.group_listeners[t.id]
             else:
-                del self.track_entity_sources[t.id]
+                entity_source = self.track_entity_sources.pop(t.id)
+                entity_source.close()
 
     def get_track_entities(self, frame_data, start_pos, end_pos, sample_pos_offset):
         for entity_source in self.track_entity_sources.values():

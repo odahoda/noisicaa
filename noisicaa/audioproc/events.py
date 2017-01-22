@@ -13,6 +13,9 @@ class Event(object):
         if tags is not None:
             self.tags |= tags
 
+    def __lt__(self, other):
+        return self.sample_pos < other.sample_pos
+
 
 class EmptyEvent(Event):
     pass

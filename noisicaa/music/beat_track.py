@@ -1,11 +1,12 @@
 #!/usr/bin/python3
 
+import functools
 import logging
 
 from noisicaa import core
 from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
 
-from .track import MeasuredTrack, Measure, EntitySource
+from .track import MeasuredTrack, Measure, EntitySource, MeasuredEventSetConnector, EventSetEntitySource
 from .time import Duration
 from .pitch import Pitch
 from . import model
@@ -15,6 +16,8 @@ from . import mutations
 from . import pipeline_graph
 from . import misc
 from . import time_mapper
+from . import event_set
+from . import time
 
 logger = logging.getLogger(__name__)
 
@@ -114,12 +117,19 @@ class Beat(model.Beat, state.StateBase):
             self.timepos = timepos
             self.velocity = velocity
 
+    def property_changed(self, changes):
+        super().property_changed(changes)
+        if self.measure is not None:
+            self.measure.listeners.call('beats-changed')
+
 state.StateBase.register_class(Beat)
 
 
 class BeatMeasure(model.BeatMeasure, Measure):
     def __init__(self, state=None):
         super().__init__(state=state)
+        self.listeners.add(
+            'beats', lambda *args: self.listeners.call('beats-changed'))
 
     @property
     def empty(self):
@@ -128,43 +138,46 @@ class BeatMeasure(model.BeatMeasure, Measure):
 state.StateBase.register_class(BeatMeasure)
 
 
-class BeatEntitySource(EntitySource):
-    def __init__(self, track):
-        super().__init__(track)
-        self._time_mapper = time_mapper.TimeMapper(track.sheet)
-        self._current_micro_sample_pos = 0
-        self._current_tick = 0
-        self._current_measure = 0
+class BeatEntitySource(EventSetEntitySource):
+    def _create_connector(self, track, event_set):
+        return EventSetConnector(track, event_set)
 
-    def get_events(self, start_sample_pos, end_sample_pos):
-        # logger.debug("get_events(%d, %d)", start_sample_pos, end_sample_pos)
 
-        if self._current_micro_sample_pos >= 1000000 * end_sample_pos:
-            self._current_measure = 0
-            self._current_tick = 0
-            self._current_micro_sample_pos = 0
+class EventSetConnector(MeasuredEventSetConnector):
+    def _add_track_listeners(self):
+        self._listeners['pitch'] = self._track.listeners.add(
+            'pitch', self.__pitch_changed)
 
-        while self._current_micro_sample_pos < 1000000 * end_sample_pos:
-            sample_pos = self._current_micro_sample_pos // 1000000
-            measure = self._track.measure_list[self._current_measure].measure
+    def _add_measure_listeners(self, mref):
+        self._listeners['measure:%s:beats' % mref.id] = mref.measure.listeners.add(
+            'beats-changed', functools.partial(
+                self.__measure_beats_changed, mref))
 
-            if self._current_micro_sample_pos >= 1000000 * start_sample_pos:
-                for beat in measure.beats:
-                    if beat.timepos.ticks == self._current_tick:
-                        yield NoteOnEvent(
-                            sample_pos, self._track.pitch, volume=beat.velocity)
+    def _remove_measure_listeners(self, mref):
+        self._listeners.pop('measure:%s:beats' % mref.id).remove()
 
-            bpm = self._track.sheet.get_bpm(measure.index, self._current_tick)
-            micro_samples_per_tick = int(
-                1000000 * 4 * 44100 * 60 // bpm * Duration.tick_duration)
+    def _create_events(self, timepos, measure):
+        for beat in measure.beats:
+            event = event_set.NoteEvent(
+                beat.timepos + timepos, beat.timepos + timepos + time.Duration(1, 4),
+                self._track.pitch, 127)
+            yield event
 
-            self._current_micro_sample_pos += micro_samples_per_tick
-            self._current_tick += 1
-            if self._current_tick >= measure.duration.ticks:
-                self._current_tick = 0
-                self._current_measure += 1
-                if self._current_measure >= len(self._track.measure_list):
-                    self._current_measure = 0
+    def __pitch_changed(self, change):
+        timepos = time.Duration()
+        for mref in self._track.measure_list:
+            self._update_measure(timepos, mref)
+            timepos += mref.measure.duration
+
+    def __measure_beats_changed(self, mref):
+        timepos = time.Duration()
+        for mr in self._track.measure_list:
+            if mr.index == mref.index:
+                assert mr is mref
+                self._update_measure(timepos, mref)
+                break
+
+            timepos += mref.measure.duration
 
 
 class BeatTrack(model.BeatTrack, MeasuredTrack):

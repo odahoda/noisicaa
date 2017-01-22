@@ -1,14 +1,14 @@
 #!/usr/bin/python3
 
+import functools
 import logging
 
 from noisicaa import core
-from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
 
 from .pitch import Pitch
 from .clef import Clef
 from .key_signature import KeySignature
-from .track import MeasuredTrack, Measure, EntitySource
+from .track import MeasureReference, MeasuredTrack, Measure, EntitySource, MeasuredEventSetConnector, EventSetEntitySource
 from .time import Duration
 from . import model
 from . import state
@@ -16,6 +16,9 @@ from . import commands
 from . import mutations
 from . import pipeline_graph
 from . import misc
+from . import time
+from . import event_set
+from . import time_mapper
 
 logger = logging.getLogger(__name__)
 
@@ -278,6 +281,11 @@ class Note(model.Note, state.StateBase):
 
         return n
 
+    def property_changed(self, changes):
+        super().property_changed(changes)
+        if self.measure is not None:
+            self.measure.listeners.call('notes-changed')
+
 state.StateBase.register_class(Note)
 
 
@@ -286,6 +294,8 @@ class ScoreMeasure(model.ScoreMeasure, Measure):
         super().__init__(state=state)
         if state is None:
             pass
+        self.listeners.add(
+            'notes', lambda *args: self.listeners.call('notes-changed'))
 
     @property
     def empty(self):
@@ -294,60 +304,52 @@ class ScoreMeasure(model.ScoreMeasure, Measure):
 state.StateBase.register_class(ScoreMeasure)
 
 
-class ScoreEntitySource(EntitySource):
-    def __init__(self, track):
-        super().__init__(track)
-        self._active_pitches = []
-        self._current_measure = 0
-        self._current_tick = 0
-        self._current_micro_sample_pos = 0
+class ScoreEntitySource(EventSetEntitySource):
+    def _create_connector(self, track, event_set):
+        return EventSetConnector(track, event_set)
 
-    def get_events(self, start_sample_pos, end_sample_pos):
-        # logger.debug("get_events(%d, %d)", start_sample_pos, end_sample_pos)
 
-        if self._current_micro_sample_pos >= 1000000 * end_sample_pos:
-            self._current_measure = 0
-            self._current_tick = 0
-            self._current_micro_sample_pos = 0
+class EventSetConnector(MeasuredEventSetConnector):
+    def __init__(self, track, event_set):
+        super().__init__(track, event_set)
 
-        while self._current_micro_sample_pos < 1000000 * end_sample_pos:
-            measure = self._track.measure_list[self._current_measure].measure
-            sample_pos = self._current_micro_sample_pos // 1000000
+    def _add_track_listeners(self):
+        self._listeners['transpose_octaves'] = self._track.listeners.add(
+            'transpose_octaves', self.__transpose_octaves_changed)
 
-            if self._current_micro_sample_pos >= 1000000 * start_sample_pos:
-                t = 0
-                for idx, note in enumerate(measure.notes):
-                    if t == self._current_tick:
-                        for pitch in self._active_pitches:
-                            yield NoteOffEvent(sample_pos, pitch)
-                        self._active_pitches.clear()
+    def _add_measure_listeners(self, mref):
+        self._listeners['measure:%s:notes' % mref.id] = mref.measure.listeners.add(
+            'notes-changed', functools.partial(
+                self.__measure_notes_changed, mref))
 
-                        if not note.is_rest:
-                            for pitch in note.pitches:
-                                pitch = pitch.transposed(
-                                    octaves=self._track.transpose_octaves)
-                                # logger.debug(
-                                #     "Play %s @%d for %s",
-                                #     pitch.name, sample_pos, note.duration)
-                                yield NoteOnEvent(
-                                    sample_pos, pitch,
-                                    tags={(measure.id, 'noteon', idx)})
-                                self._active_pitches.append(pitch)
-                    t += note.duration.ticks
+    def _remove_measure_listeners(self, mref):
+        self._listeners.pop('measure:%s:notes' % mref.id).remove()
 
-            # This should be a function of (measure, tick)
-            bpm = self._track.sheet.get_bpm(
-                self._current_measure, self._current_tick)
-            micro_samples_per_tick = int(
-                1000000 * 4 * 44100 * 60 // bpm * Duration.tick_duration)
+    def _create_events(self, timepos, measure):
+        for note in measure.notes:
+            if not note.is_rest:
+                for pitch in note.pitches:
+                    pitch = pitch.transposed(octaves=self._track.transpose_octaves)
+                    event = event_set.NoteEvent(timepos, timepos + note.duration, pitch, 127)
+                    yield event
 
-            self._current_micro_sample_pos += micro_samples_per_tick
-            self._current_tick += 1
-            if self._current_tick >= measure.duration.ticks:
-                self._current_tick = 0
-                self._current_measure += 1
-                if self._current_measure >= len(self._track.measure_list):
-                    self._current_measure = 0
+            timepos += note.duration
+
+    def __transpose_octaves_changed(self, change):
+        timepos = time.Duration()
+        for mref in self._track.measure_list:
+            self._update_measure(timepos, mref)
+            timepos += mref.measure.duration
+
+    def __measure_notes_changed(self, mref):
+        timepos = time.Duration()
+        for mr in self._track.measure_list:
+            if mr.index == mref.index:
+                assert mr is mref
+                self._update_measure(timepos, mref)
+                break
+
+            timepos += mref.measure.duration
 
 
 class ScoreTrack(model.ScoreTrack, MeasuredTrack):

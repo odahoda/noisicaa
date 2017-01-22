@@ -2,6 +2,7 @@
 
 import logging
 
+from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
 from noisicaa import core
 
 from . import model
@@ -10,6 +11,9 @@ from . import commands
 from . import mutations
 from . import pipeline_graph
 from . import misc
+from . import time
+from . import event_set
+from . import time_mapper
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +207,9 @@ class EntitySource(object):
         self._track = track
         self._sheet = track.sheet
 
+    def close(self):
+        pass
+
     def get_entities(self, frame_data, start_pos, end_pos, sample_pos_offset):
         sample_pos = frame_data.sample_pos - sample_pos_offset
         for event in self.get_events(start_pos, end_pos):
@@ -211,6 +218,121 @@ class EntitySource(object):
 
     def get_events(self, start_sample_pos, end_sample_pos):
         raise NotImplementedError
+
+
+class EventSetEntitySource(EntitySource):
+    def __init__(self, track):
+        super().__init__(track)
+        self.__event_set = event_set.EventSet()
+        self.__connector = self._create_connector(track, self.__event_set)
+        self.__time_mapper = time_mapper.TimeMapper(track.sheet)
+
+    def _create_connector(self, track, event_set):
+        raise NotImplementedError
+
+    def close(self):
+        self.__connector.close()
+        super().close()
+
+    def get_events(self, start_sample_pos, end_sample_pos):
+        start_timepos = self.__time_mapper.sample2timepos(start_sample_pos)
+        end_timepos = self.__time_mapper.sample2timepos(end_sample_pos)
+
+        events = []
+        for event in sorted(self.__event_set.get_intervals(start_timepos, end_timepos)):
+            if event.begin >= start_timepos:
+                sample_pos = self.__time_mapper.timepos2sample(event.begin)
+                assert start_sample_pos <= sample_pos < end_sample_pos
+                events.append(NoteOnEvent(sample_pos, event.pitch, event.velocity))
+
+            if event.end < end_timepos:
+                sample_pos = self.__time_mapper.timepos2sample(event.end)
+                assert start_sample_pos <= sample_pos < end_sample_pos
+                events.append(NoteOffEvent(sample_pos, event.pitch))
+
+        return events
+
+
+class MeasuredEventSetConnector(object):
+    def __init__(self, track, event_set):
+        self._track = track
+        self._listeners = {}
+
+        self.__event_set = event_set
+        self.__measure_events = {}
+
+        timepos = time.Duration()
+        for mref in self._track.measure_list:
+            self.__add_measure(timepos, mref)
+            timepos += mref.measure.duration
+
+        self._listeners['measure_list'] = self._track.listeners.add(
+            'measure_list', self.__measure_list_changed)
+        self._add_track_listeners()
+
+    def close(self):
+        for listener in self._listeners.values():
+            listener.remove()
+        self._listeners.clear()
+
+    def _add_track_listeners(self):
+        pass
+
+    def _add_measure_listeners(self, mref):
+        pass
+
+    def _remove_measure_listeners(self, mref):
+        pass
+
+    def _create_events(self, timepos, measure):
+        raise NotImplementedError
+
+    def _update_measure(self, timepos, mref):
+        assert isinstance(mref, MeasureReference)
+        events = self.__measure_events[mref.id]
+        for event in events:
+            self.__event_set.remove(event)
+        events.clear()
+        for event in self._create_events(timepos, mref.measure):
+            self.__event_set.add(event)
+            events.append(event)
+
+    def __measure_list_changed(self, change):
+        if isinstance(change, core.PropertyListInsert):
+            timepos = time.Duration()
+            for mref in self._track.measure_list:
+                if mref.index == change.new_value.index:
+                    assert mref is change.new_value
+                    self.__add_measure(timepos, mref)
+                elif mref.index > change.new_value.index:
+                    self._update_measure(timepos, mref)
+
+                timepos += mref.measure.duration
+
+        elif isinstance(change, core.PropertyListDelete):
+            mref = change.old_value
+            self.__remove_measure(mref)
+        else:
+            raise TypeError(
+                "Unsupported change type %s" % type(change))
+
+    def __add_measure(self, timepos, mref):
+        assert isinstance(mref, MeasureReference)
+        assert mref.id not in self.__measure_events
+
+        events = self.__measure_events[mref.id] = []
+        for event in self._create_events(timepos, mref.measure):
+            self.__event_set.add(event)
+            events.append(event)
+
+        self._add_measure_listeners(mref)
+
+    def __remove_measure(self, mref):
+        assert isinstance(mref, MeasureReference)
+        self._remove_measure_listeners(mref)
+
+        for event in self.__measure_events.pop(mref.id):
+            self.__event_set.remove(event)
 
 
 class MeasuredTrack(model.MeasuredTrack, Track):
