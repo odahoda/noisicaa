@@ -94,6 +94,8 @@ class SampleItem(object):
 
     def purgePaintCaches(self):
         self.__render_result = ('init', )
+        self.__pos = QtCore.QPoint(
+            self.__track_item.timeposToX(self.__sample.timepos), 0)
         self.__width = 50
 
     def paint(self, painter, paint_rect):

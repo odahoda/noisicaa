@@ -16,9 +16,6 @@ because they're tracked in sample time, not music time
 use xdg function to store projects
 http://pyxdg.readthedocs.io/en/latest/recentfiles.html
 
-* Samples are show at wrong position when x scale changes				     :BUG:
-Stays at the same absolute position on screen
-
 * Node presets										      :FR:
 - track current directory for import/export file dialogs
   - which default directory?
