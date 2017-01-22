@@ -5,9 +5,6 @@ because they're tracked in sample time, not music time
 
 * TimeLine xoffset incorrect when playback pos gets near the end 			     :BUG:
 - need to compute proper content size to know what the max x position is.
-* Muting an audiotrack mutes it parent mixer						     :BUG:
-Audio tracks should have a mixer node, too
-
 * ProjectDebugger: list command log 							      :FR:
 * ProjectDebugger: create new snapshot 							      :FR:
 * ProjectDebugger: purge command log 							      :FR:
