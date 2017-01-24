@@ -336,20 +336,10 @@ class EventSetConnector(base_track.MeasuredEventSetConnector):
             timepos += note.duration
 
     def __transpose_octaves_changed(self, change):
-        timepos = time.Duration()
-        for mref in self._track.measure_list:
-            self._update_measure(timepos, mref)
-            timepos += mref.measure.duration
+        self._update_measure_range(0, len(self._track.measure_list))
 
     def __measure_notes_changed(self, mref):
-        timepos = time.Duration()
-        for mr in self._track.measure_list:
-            if mr.index == mref.index:
-                assert mr is mref
-                self._update_measure(timepos, mref)
-                break
-
-            timepos += mref.measure.duration
+        self._update_measure_range(mref.index, mref.index + 1)
 
 
 class ScoreTrack(model.ScoreTrack, base_track.MeasuredTrack):

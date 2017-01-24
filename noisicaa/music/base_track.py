@@ -297,6 +297,17 @@ class MeasuredEventSetConnector(object):
             self.__event_set.add(event)
             events.append(event)
 
+    def _update_measure_range(self, begin, end):
+        timepos = time.Duration()
+        for mref in self._track.measure_list:
+            if mref.index >= end:
+                break
+
+            if mref.index >= begin:
+                self._update_measure(timepos, mref)
+
+            timepos += mref.measure.duration
+
     def __measure_list_changed(self, change):
         if isinstance(change, core.PropertyListInsert):
             timepos = time.Duration()
@@ -325,14 +336,28 @@ class MeasuredEventSetConnector(object):
             self.__event_set.add(event)
             events.append(event)
 
+        self._listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
+            'measure_id', lambda _: self.__measure_id_changed(mref))
         self._add_measure_listeners(mref)
 
     def __remove_measure(self, mref):
         assert isinstance(mref, MeasureReference)
+
         self._remove_measure_listeners(mref)
+        self._listeners.pop('measure:%s:ref' % mref.id).remove()
 
         for event in self.__measure_events.pop(mref.id):
             self.__event_set.remove(event)
+
+    def __measure_id_changed(self, mref):
+        self._remove_measure_listeners(mref)
+        self._listeners.pop('measure:%s:ref' % mref.id).remove()
+
+        self._listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
+            'measure_id', lambda _: self.__measure_id_changed(mref))
+        self._add_measure_listeners(mref)
+
+        self._update_measure_range(mref.index, mref.index + 1)
 
 
 class MeasuredTrack(model.MeasuredTrack, Track):
