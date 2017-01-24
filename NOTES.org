@@ -2,6 +2,7 @@
 
 * Loop start/end move around when BPM is changed					     :BUG:
 because they're tracked in sample time, not music time
+can also cause crashes on BPM changes, if loop marker go out of range
 
 * TimeLine xoffset incorrect when playback pos gets near the end 			     :BUG:
 - need to compute proper content size to know what the max x position is.

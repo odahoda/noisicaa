@@ -913,40 +913,52 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
                     pos = int(width * i / measure.time_signature.lower)
                     painter.fillRect(x + pos, 0, 1, self.height() // 2, Qt.black)
 
-                loop_start_timepos = self.__player_state.loopStartTimepos()
-                if (loop_start_timepos is not None
-                        and timepos <= loop_start_timepos < timepos + measure.duration):
-                    pos = int(width * (loop_start_timepos - timepos) / measure.duration)
-                    painter.setBrush(Qt.black)
-                    painter.setPen(Qt.NoPen)
-                    polygon = QtGui.QPolygon()
-                    polygon.append(QtCore.QPoint(x + pos, 0))
-                    polygon.append(QtCore.QPoint(x + pos + 7, 0))
-                    polygon.append(QtCore.QPoint(x + pos + 2, 5))
-                    polygon.append(QtCore.QPoint(x + pos + 2, self.height() - 5))
-                    polygon.append(QtCore.QPoint(x + pos + 7, self.height()))
-                    polygon.append(QtCore.QPoint(x + pos, self.height()))
-                    painter.drawPolygon(polygon)
+                try:
+                    loop_start_timepos = self.__player_state.loopStartTimepos()
+                except time_mapper.TimeOutOfRange:
+                    pass
+                else:
+                    if (loop_start_timepos is not None
+                            and timepos <= loop_start_timepos < timepos + measure.duration):
+                        pos = int(width * (loop_start_timepos - timepos) / measure.duration)
+                        painter.setBrush(Qt.black)
+                        painter.setPen(Qt.NoPen)
+                        polygon = QtGui.QPolygon()
+                        polygon.append(QtCore.QPoint(x + pos, 0))
+                        polygon.append(QtCore.QPoint(x + pos + 7, 0))
+                        polygon.append(QtCore.QPoint(x + pos + 2, 5))
+                        polygon.append(QtCore.QPoint(x + pos + 2, self.height() - 5))
+                        polygon.append(QtCore.QPoint(x + pos + 7, self.height()))
+                        polygon.append(QtCore.QPoint(x + pos, self.height()))
+                        painter.drawPolygon(polygon)
 
-                loop_end_timepos = self.__player_state.loopEndTimepos()
-                if (loop_end_timepos is not None
-                        and timepos <= loop_end_timepos < timepos + measure.duration):
-                    pos = int(width * (loop_end_timepos - timepos) / measure.duration)
-                    painter.setBrush(Qt.black)
-                    painter.setPen(Qt.NoPen)
-                    polygon = QtGui.QPolygon()
-                    polygon.append(QtCore.QPoint(x + pos - 6, 0))
-                    polygon.append(QtCore.QPoint(x + pos + 2, 0))
-                    polygon.append(QtCore.QPoint(x + pos + 2, self.height()))
-                    polygon.append(QtCore.QPoint(x + pos - 6, self.height()))
-                    polygon.append(QtCore.QPoint(x + pos, self.height() - 6))
-                    polygon.append(QtCore.QPoint(x + pos, 6))
-                    painter.drawPolygon(polygon)
+                try:
+                    loop_end_timepos = self.__player_state.loopEndTimepos()
+                except time_mapper.TimeOutOfRange:
+                    pass
+                else:
+                    if (loop_end_timepos is not None
+                            and timepos <= loop_end_timepos < timepos + measure.duration):
+                        pos = int(width * (loop_end_timepos - timepos) / measure.duration)
+                        painter.setBrush(Qt.black)
+                        painter.setPen(Qt.NoPen)
+                        polygon = QtGui.QPolygon()
+                        polygon.append(QtCore.QPoint(x + pos - 6, 0))
+                        polygon.append(QtCore.QPoint(x + pos + 2, 0))
+                        polygon.append(QtCore.QPoint(x + pos + 2, self.height()))
+                        polygon.append(QtCore.QPoint(x + pos - 6, self.height()))
+                        polygon.append(QtCore.QPoint(x + pos, self.height() - 6))
+                        polygon.append(QtCore.QPoint(x + pos, 6))
+                        painter.drawPolygon(polygon)
 
-                playback_timepos = self.__player_state.playbackTimepos()
-                if timepos <= playback_timepos < timepos + measure.duration:
-                    pos = int(width * (playback_timepos - timepos) / measure.duration)
-                    painter.fillRect(x + pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
+                try:
+                    playback_timepos = self.__player_state.playbackTimepos()
+                except time_mapper.TimeOutOfRange:
+                    pass
+                else:
+                    if timepos <= playback_timepos < timepos + measure.duration:
+                        pos = int(width * (playback_timepos - timepos) / measure.duration)
+                        painter.fillRect(x + pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
 
             x += width
             timepos += measure.duration
