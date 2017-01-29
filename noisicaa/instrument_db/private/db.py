@@ -113,14 +113,21 @@ class InstrumentDB(object):
              for description in descriptions])
 
     def scan_main(self):
-        while not self.stopping.is_set():
-            cmd, *args = self.scan_commands.get()
-            if cmd == 'STOP':
-                break
-            elif cmd == 'SCAN':
-                self.do_scan(*args)
-            else:
-                raise ValueError(cmd)
+        try:
+            while not self.stopping.is_set():
+                cmd, *args = self.scan_commands.get()
+                if cmd == 'STOP':
+                    break
+                elif cmd == 'SCAN':
+                    self.do_scan(*args)
+                else:
+                    raise ValueError(cmd)
+
+        except:  # pylint: disable=bare-except
+            sys.stdout.flush()
+            sys.excepthook(*sys.exc_info())
+            sys.stderr.flush()
+            os._exit(1)
 
     def update_cache(self):
         cache_data = {

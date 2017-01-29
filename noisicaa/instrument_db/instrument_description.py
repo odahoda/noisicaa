@@ -29,6 +29,11 @@ class InstrumentDescription(object):
         self.display_name = display_name
         self.properties = properties
 
+    @property
+    def format(self):
+        return urllib.parse.urlparse(self.uri).scheme
+
+
 def parse_uri(uri):
     fmt, _, path, _, args, _ = urllib.parse.urlparse(uri)
     path = urllib.parse.unquote(path)

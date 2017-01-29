@@ -8,6 +8,7 @@ import urllib.parse
 from noisicaa import constants
 from noisicaa import instrument_db
 from noisicaa.instr import soundfont
+from noisicaa.instr import riff
 
 from . import scanner
 
@@ -23,7 +24,12 @@ class SoundFontScanner(scanner.Scanner):
             return
 
         sf = soundfont.SoundFont()
-        sf.parse(path)
+        try:
+            sf.parse(path)
+        except riff.Error as exc:
+            logger.error("Failed to parse %s: %s" % (path, exc))
+            return
+
         for preset in sf.presets:
             uri = self.make_uri('sf2', path, bank=preset.bank, preset=preset.preset)
             logger.info("Adding soundfont instrument %s...", uri)

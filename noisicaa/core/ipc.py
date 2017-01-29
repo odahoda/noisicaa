@@ -48,6 +48,10 @@ class ServerProtocol(asyncio.Protocol):
         self.logger.info("Connection closed.")
 
     def data_received(self, data):
+        if self.server.closed:
+            self.logger.warning("Received data in closed server.")
+            return
+
         self.inbuf.extend(data)
         self.server.stat_bytes_received.incr(len(data))
 
@@ -131,6 +135,10 @@ class Server(object):
 
         self.stat_bytes_sent = None
         self.stat_bytes_received = None
+
+    @property
+    def closed(self):
+        return self._server is None
 
     def add_command_handler(self, cmd, handler, log_level=None):
         assert cmd not in self._command_handlers

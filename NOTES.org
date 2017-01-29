@@ -203,10 +203,13 @@ noisicaa.core.ipc.ConnectionClosed
 - refs from PipelineGraphNode should use IDs, too
 
 * More flexible instrument handling							      :FR:
+Remove disappeared instrument in full scan
+- track set of touch instruments
+- instruments not touched after scan are obsolete
+
 Use display_name in track_property_dock
 - query instrument_db for description
 - fallback to URI, if description not found
-
 
 Async scanning
 - UI installs listener to get updates when InstrumentDescription of an URI changed

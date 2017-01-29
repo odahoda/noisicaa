@@ -67,7 +67,7 @@ class InstrumentDBProcessMixin(process_base.InstrumentDBProcessBase):
         self.db = None
         self.search_paths = [
             '/usr/share/sounds/sf2/',
-            '/storage/home/share/samples/',
+            '/data/instruments/',
         ]
 
     async def setup(self):

@@ -7,7 +7,7 @@ from . import riff
 
 logger = logging.getLogger(__name__)
 
-class Error(Exception):
+class Error(riff.Error):
     pass
 
 class FormatError(Error):

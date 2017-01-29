@@ -5,7 +5,9 @@
 # pylint: disable=W0212
 
 import asyncio
+import bisect
 import logging
+import pathlib
 import pprint
 
 from PyQt5.QtCore import Qt
@@ -32,11 +34,256 @@ logger = logging.getLogger(__name__)
 # - sorting
 # - add/remove
 
-class InstrumentListItem(QtWidgets.QListWidgetItem):
-    def __init__(self, parent, description):
-        super().__init__(parent, 0)
+
+class Item(object):
+    def __init__(self, *, parent):
+        self.parent = parent
+
+    def __lt__(self, other):
+        return self.key < other.key
+
+    @property
+    def key(self):
+        raise NotImplementedError
+
+    @property
+    def display_name(self):
+        raise NotImplementedError
+
+    def walk(self):
+        raise NotImplementedError
+
+
+class Folder(Item):
+    def __init__(self, *, folder_name, **kwargs):
+        super().__init__(**kwargs)
+
+        self.folder_name = folder_name
+        self.children = []
+
+    @property
+    def key(self):
+        return (0, self.folder_name.lower(), self.folder_name)
+
+    @property
+    def display_name(self):
+        return self.folder_name
+
+    def walk(self):
+        yield self
+        for child in self.children:
+            yield from child.walk()
+
+
+class Instrument(Item):
+    def __init__(self, *, description, **kwargs):
+        super().__init__(**kwargs)
         self.description = description
-        self.setText(description.display_name)
+
+    @property
+    def key(self):
+        return (0, self.description.display_name.lower(), self.description.uri)
+
+    @property
+    def display_name(self):
+        return self.description.display_name
+
+    def walk(self):
+        yield self
+
+
+class LibraryModelImpl(QtCore.QAbstractItemModel):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.__root_item = Folder(folder_name='[root]', parent=None)
+
+    def close(self):
+        self.__root_item = None
+
+    def clear(self):
+        self.__root_item = Folder(folder_name='[root]', parent=None)
+
+    def addInstrument(self, description):
+        parent = self.__root_item
+        parent_index = self.indexForItem(parent)
+
+        if description.format == 'sf2':
+            folder_path = pathlib.Path(description.path)
+        else:
+            folder_path = pathlib.Path(description.path).parent
+
+        for folder_name in folder_path.parts:
+            for folder in parent.children:
+                if not isinstance(folder, Folder):
+                    continue
+                if folder.folder_name == folder_name:
+                    break
+
+            else:
+                folder = Folder(folder_name=folder_name, parent=parent)
+                insert_pos = bisect.bisect(parent.children, folder)
+                self.beginInsertRows(parent_index, insert_pos, insert_pos)
+                parent.children.insert(insert_pos, folder)
+                self.endInsertRows()
+
+            parent = folder
+            parent_index = self.indexForItem(folder)
+
+        instr = Instrument(
+            description=description,
+            parent=parent)
+        insert_pos = bisect.bisect(parent.children, instr)
+
+        self.beginInsertRows(parent_index, insert_pos, insert_pos)
+        parent.children.insert(insert_pos, instr)
+        self.endInsertRows()
+
+    def instruments(self):
+        for item in self.__root_item.walk():
+            if isinstance(item, Instrument):
+                yield item
+
+    def item(self, index):
+        if not index.isValid():
+            raise ValueError("Invalid index")
+
+        item = index.internalPointer()
+        assert item is not None
+        return item
+
+    def indexForItem(self, item, column=0):
+        if item.parent is None:
+            return QtCore.QModelIndex()
+        else:
+            return self.createIndex(
+                item.parent.children.index(item), column, item)
+
+    def rowCount(self, parent):
+        if parent.column() > 0:  # pragma: no coverage
+            return 0
+
+        if not parent.isValid():
+            return len(self.__root_item.children)
+
+        parent_item = parent.internalPointer()
+        if parent_item is None:
+            return 0
+
+        if isinstance(parent_item, Folder):
+            return len(parent_item.children)
+        else:
+            return 0
+
+    def columnCount(self, parent):
+        return 1
+
+    def index(self, row, column=0, parent=QtCore.QModelIndex()):
+        if not self.hasIndex(row, column, parent):  # pragma: no coverage
+            return QtCore.QModelIndex()
+
+        if not parent.isValid():
+            assert row == 0, row
+            return self.createIndex(row, column, self.__root_item.children[row])
+
+        parent_item = parent.internalPointer()
+        assert isinstance(parent_item, Folder), parent_item.track
+
+        item = parent_item.children[row]
+        return self.createIndex(row, column, item)
+
+    def parent(self, index):
+        if not index.isValid():
+            return QtCore.QModelIndex()
+
+        item = index.internalPointer()
+        if item is None or item.parent is None:
+            return QtCore.QModelIndex()
+
+        return self.indexForItem(item.parent)
+
+    def data(self, index, role):
+        if not index.isValid():  # pragma: no coverage
+            return None
+
+        item = index.internalPointer()
+        if item is None:
+            return None
+
+        if role in (Qt.DisplayRole, Qt.EditRole):
+            if index.column() == 0:
+                return item.display_name
+
+        return None  # pragma: no coverage
+
+    def headerData(self, section, orientation, role):  # pragma: no coverage
+        return None
+
+
+class LibraryModel(ui_base.CommonMixin, LibraryModelImpl):
+    pass
+
+
+class FilterModel(QtCore.QSortFilterProxyModel):
+    def __init__(self, source, **kwargs):
+        super().__init__(**kwargs)
+
+        self.setSourceModel(source)
+
+        self.__source = source
+        self.__filter = ''
+
+    def setFilter(self, text):
+        words = text.split()
+        words = [word.strip() for word in words]
+        words = [word for word in words if word]
+        words = [word.lower() for word in words]
+        self.__filter = words
+        self.invalidateFilter()
+
+    def filterAcceptsRow(self, row, parent):
+        if not self.__filter:
+            return True
+
+        if not parent.isValid():
+            return True
+
+        parent_item = self.__source.item(parent)
+        item = parent_item.children[row]
+
+        if isinstance(item, Folder):
+            # Urgh... this is O(n^2)
+            folder_index = self.__source.index(row, 0, parent)
+            return any(
+                self.filterAcceptsRow(subrow, folder_index)
+                for subrow in range(len(item.children)))
+
+        return all(word in item.display_name.lower() for word in self.__filter)
+
+
+class LibraryView(QtWidgets.QTreeView):
+    currentIndexChanged = QtCore.pyqtSignal(QtCore.QModelIndex)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setHeaderHidden(True)
+        self.setMinimumWidth(250)
+
+    def currentChanged(self, current, previous):
+        self.currentIndexChanged.emit(current)
+
+    def contextMenuEvent(self, evt):
+        menu = QtWidgets.QMenu()
+
+        expand_all = menu.addAction("Expand all")
+        expand_all.triggered.connect(self.expandAll)
+
+        collaps_all = menu.addAction("Collaps all")
+        collaps_all.triggered.connect(self.collapseAll)
+
+        menu.exec_(evt.globalPos())
+        evt.accept()
 
 
 class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
@@ -52,11 +299,20 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self._pipeline_instrument_id = None
         self._pipeline_event_source_id = None
 
-        self.instrument_mutation_listener = None
+        self._instrument_mutation_listener = None
 
         self._instrument = None
 
         self.setWindowTitle("noisicaä - Instrument Library")
+
+        menubar = QtWidgets.QMenuBar(self)
+        library_menu = menubar.addMenu("Library")
+
+        rescan_action = QtWidgets.QAction(
+            "Rescan", self,
+            statusTip="Rescan library for updates.",
+            triggered=self.onRescan)
+        library_menu.addAction(rescan_action)
 
         self.tabs = QtWidgets.QTabWidget(self)
 
@@ -76,11 +332,12 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.instruments_search.addAction(action, QtWidgets.QLineEdit.TrailingPosition)
         self.instruments_search.textChanged.connect(self.onInstrumentSearchChanged)
 
-        self.instruments_list = instrument_list = QtWidgets.QListWidget(self)
-        instrument_list.setMinimumWidth(250)
-        layout.addWidget(instrument_list, 1)
-        instrument_list.currentItemChanged.connect(
-            lambda current, prev: self.onInstrumentItemSelected(current))
+        self.__model = LibraryModel(**self.context)
+        self.__model_filter = FilterModel(self.__model)
+        self.__view = LibraryView(self)
+        self.__view.setModel(self.__model_filter)
+        layout.addWidget(self.__view, 1)
+        self.__view.currentIndexChanged.connect(self.onInstrumentItemSelected)
 
         instrument_info = QtWidgets.QWidget(self)
         self.instruments_page.addWidget(instrument_info)
@@ -130,6 +387,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         buttons.addWidget(close)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setMenuBar(menubar)
         layout.addWidget(self.tabs, 1)
         layout.addLayout(buttons)
 
@@ -145,10 +403,11 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     async def setup(self):
         logger.info("Setting up instrument library dialog...")
 
-        self.instruments_list.clear()
+        self.__model.clear()
         for description in self.app.instrument_db.instruments:
-            self.instruments_list.addItem(
-                InstrumentListItem(self.instruments_list, description))
+            self.__model.addInstrument(description)
+        self.__view.expandToDepth(1)
+
         self._instrument_mutation_listener = self.app.instrument_db.listeners.add(
             'mutation', self.handleInstrumentMutation)
 
@@ -177,9 +436,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
     def handleInstrumentMutation(self, mutation):
         logger.info("Mutation received: %s", mutation)
-        description = mutation.description
-        self.instruments_list.addItem(
-            InstrumentListItem(self.instruments_list, description))
+        self.__model.addInstrument(mutation.description)
 
     async def addInstrumentToPipeline(self, uri):
         assert self._pipeline_instrument_id is None
@@ -222,15 +479,20 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         super().closeEvent(event)
 
-    def selectInstrument(self, uri):
-        for idx in range(self.instruments_list.count()):
-            item = self.instruments_list.item(idx)
-            if item.description.uri == uri:
-                self.instruments_list.setCurrentRow(idx)
-                break
+    def onRescan(self):
+        self.call_async(self.app.instrument_db.start_scan())
 
-    def onInstrumentItemSelected(self, item):
-        if item is None:
+    def selectInstrument(self, uri):
+        for instr in self.__model.instruments():
+            if instr.description.uri == uri:
+                index = self.__model.indexForItem(instr)
+                index = self.__model_filter.mapFromSource(index)
+                self.__view.setCurrentIndex(index)
+
+    def onInstrumentItemSelected(self, index):
+        index = self.__model_filter.mapToSource(index)
+        item = self.__model.item(index)
+        if item is None or not isinstance(item, Instrument):
             self.instrument_name.setText("")
             self.instrument_data.setText("")
             return
@@ -241,7 +503,12 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         await self.removeInstrumentFromPipeline()
 
         self.instrument_name.setText(description.display_name)
-        self.instrument_data.setPlainText(pprint.pformat(description.properties))
+        self.instrument_data.setPlainText("""\
+uri: {uri}
+properties: {properties}
+            """.format(
+                uri=description.uri,
+                properties=pprint.pformat(description.properties)))
 
         await self.addInstrumentToPipeline(description.uri)
 
@@ -252,12 +519,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.instrumentChanged.emit(description)
 
     def onInstrumentSearchChanged(self, text):
-        for idx in range(self.instruments_list.count()):
-            item = self.instruments_list.item(idx)
-            if text.lower() in item.text().lower():
-                item.setHidden(False)
-            else:
-                item.setHidden(True)
+        self.__model_filter.setFilter(text)
 
     def keyPressEvent(self, event):
         self.piano.keyPressEvent(event)
