@@ -35,9 +35,12 @@ class RuntimeSettings(object):
             help="Start with clean settings.")
         parser.add_argument(
             '--log-level',
-            choices=['debug', 'info', 'warning', 'error', 'critical'],
             default='error',
-            help="Minimum level for log messages written to STDERR.")
+            help=("Minimum level for log messages written to STDERR. A comma separated list"
+                  " of logger=level pairs, where 'logger' is the name of a logger and 'level'"
+                  " one of 'debug', 'info', 'warning', 'error', 'critical'. A bare 'level'"
+                  " applies to the root logger. E.g. 'error,noisicaa.ui=info' will print"
+                  " INFO level logs for 'noisicaa.ui' and ERROR level for all other logger."))
         parser.add_argument(
             '--log-file',
             default='/tmp/noisicaä.log',

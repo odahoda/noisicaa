@@ -11,6 +11,35 @@ class WrappingFormatter(Formatter):
         return super().formatMessage(record)
 
 
+class LogFilter(object):
+    def __init__(self, level_spec):
+        self.levels = []
+
+        for pair in level_spec.split(','):
+            if '=' in pair:
+                logger_name, level_name = pair.split('=')
+            else:
+                logger_name = ''
+                level_name = pair
+            log_level = {
+                'debug': DEBUG,
+                'info': INFO,
+                'warning': WARNING,
+                'error': ERROR,
+                'critical': CRITICAL,
+            }[level_name]
+            self.levels.append((logger_name, log_level))
+
+    def filter(self, record):
+        for logger_name, level in self.levels:
+            if ((logger_name == ''
+                 or record.name == logger_name
+                 or record.name.startswith(logger_name + '.'))
+                and record.levelno >= level):
+                return True
+        return False
+
+
 class LogManager(object):
     def __init__(self, runtime_settings):
         self.runtime_settings = runtime_settings
@@ -72,15 +101,8 @@ class LogManager(object):
             self.queue = None
 
     def create_stderr_logger(self):
-        log_level = {
-            'debug': DEBUG,
-            'info': INFO,
-            'warning': WARNING,
-            'error': ERROR,
-            'critical': CRITICAL,
-            }[self.runtime_settings.log_level]
         handler = StreamHandler(sys.stderr)
-        handler.setLevel(log_level)
+        handler.addFilter(LogFilter(self.runtime_settings.log_level))
         handler.setFormatter(
             WrappingFormatter(
                 '%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s'))
