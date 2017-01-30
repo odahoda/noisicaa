@@ -4,8 +4,7 @@ import logging
 import os
 import os.path
 
-import lilv
-
+from noisicaa.bindings import lilv
 from noisicaa import constants
 from noisicaa import node_db
 
@@ -26,13 +25,14 @@ class LV2Scanner(scanner.Scanner):
         plugins = world.get_all_plugins()
 
         for plugin in plugins:
-            logger.info("Adding LV2 plugin %s", plugin.get_uri())
+            missing_features = plugin.get_missing_features()
+            if missing_features:
+                logger.warning(
+                    "Not adding LV2 plugin %s, because it requires unsupported features %s",
+                    plugin.get_uri(), ", ".join(missing_features))
+                continue
 
-            # TODO: Check required features
-            for feature in plugin.get_required_features():
-                logger.info('REQUIRED FEATURE: %s', feature)
-            for feature in plugin.get_optional_features():
-                logger.info('OPTIONAL FEATURE: %s', feature)
+            logger.info("Adding LV2 plugin %s", plugin.get_uri())
 
             ports = []
             parameters = []

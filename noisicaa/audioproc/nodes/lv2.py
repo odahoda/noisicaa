@@ -3,9 +3,9 @@
 import logging
 import threading
 
-import lilv
 import numpy
 
+from noisicaa.bindings import lilv
 from noisicaa import node_db
 
 from .. import ports
@@ -42,10 +42,11 @@ class LV2(node.Node):
             logger.info("Loading plugin...")
             plugins = self.__world.get_all_plugins()
             uri_node = self.__world.new_uri(uri)
-            self.__plugin = plugins[uri_node]
+            self.__plugin = plugins.get_by_uri(uri_node)
+            assert self.__plugin is not None
 
             logger.info("Creating instance...")
-            self.__instance = lilv.Instance(self.__plugin, 44100)
+            self.__instance = self.__plugin.instantiate(44100)
             self.__instance.activate()
 
         self.__buffers = {}
@@ -58,7 +59,7 @@ class LV2(node.Node):
             buf = numpy.zeros(shape=(initial_length,), dtype=numpy.float32)
             self.__buffers[port.name] = buf
 
-            lv2_port = self.__plugin.get_port_by_symbol(port.name)
+            lv2_port = self.__plugin.get_port_by_symbol(self.__world.new_string(port.name))
             assert lv2_port is not None, port.name
             self.__instance.connect_port(lv2_port.get_index(), buf)
 
@@ -69,7 +70,7 @@ class LV2(node.Node):
                 buf = numpy.zeros(shape=(1,), dtype=numpy.float32)
                 self.__buffers[parameter.name] = buf
 
-                lv2_port = self.__plugin.get_port_by_symbol(parameter.name)
+                lv2_port = self.__plugin.get_port_by_symbol(self.__world.new_string(parameter.name))
                 assert lv2_port is not None, parameter.name
                 self.__instance.connect_port(lv2_port.get_index(), buf)
 
@@ -97,14 +98,14 @@ class LV2(node.Node):
 
             if len(buf) < required_length:
                 buf.resize(required_length, refcheck=False)
-                lv2_port = self.__plugin.get_port_by_symbol(port.name)
+                lv2_port = self.__plugin.get_port_by_symbol(self.__world.new_string(port.name))
                 assert lv2_port is not None, port.name
                 self.__instance.connect_port(lv2_port.get_index(), buf)
 
         for port_name, port in self.inputs.items():
             buf = self.__buffers[port_name]
             if isinstance(port, ports.AudioInputPort):
-                numpy.copyto(buf, port.frame.samples[0])
+                buf[0:ctxt.duration] = port.frame.samples[0]
             elif isinstance(port, ports.ControlInputPort):
                 buf[0] = port.frame[0]
             else:
@@ -120,7 +121,7 @@ class LV2(node.Node):
             buf = self.__buffers[port_name]
             if isinstance(port, ports.AudioOutputPort):
                 port.frame.resize(ctxt.duration)
-                numpy.copyto(port.frame.samples[0], buf)
+                port.frame.samples[0] = buf[0:ctxt.duration]
             elif isinstance(port, ports.ControlOutputPort):
                 port.frame.fill(buf[0])
             else:
