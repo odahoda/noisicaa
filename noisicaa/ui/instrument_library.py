@@ -51,28 +51,47 @@ class Item(object):
         raise NotImplementedError
 
     def walk(self):
-        raise NotImplementedError
+        yield self
 
 
-class Folder(Item):
-    def __init__(self, *, folder_name, **kwargs):
+class AbstractFolder(Item):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.folder_name = folder_name
         self.children = []
+
+    def walk(self):
+        yield from super().walk()
+        for child in self.children:
+            yield from child.walk()
+
+
+class Root(AbstractFolder):
+    def __init__(self):
+        super().__init__(parent=None)
 
     @property
     def key(self):
-        return (0, self.folder_name.lower(), self.folder_name)
+        return (0, str(self.path).lower(), str(self.path))
 
     @property
     def display_name(self):
-        return self.folder_name
+        return '[root]'
 
-    def walk(self):
-        yield self
-        for child in self.children:
-            yield from child.walk()
+
+class Folder(AbstractFolder):
+    def __init__(self, *, path, **kwargs):
+        super().__init__(**kwargs)
+
+        self.path = path
+
+    @property
+    def key(self):
+        return (0, str(self.path).lower(), str(self.path))
+
+    @property
+    def display_name(self):
+        return str(self.path)
 
 
 class Instrument(Item):
@@ -88,21 +107,18 @@ class Instrument(Item):
     def display_name(self):
         return self.description.display_name
 
-    def walk(self):
-        yield self
-
 
 class LibraryModelImpl(QtCore.QAbstractItemModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.__root_item = Folder(folder_name='[root]', parent=None)
+        self.__root_item = Root()
 
     def close(self):
         self.__root_item = None
 
     def clear(self):
-        self.__root_item = Folder(folder_name='[root]', parent=None)
+        self.__root_item = Root()
 
     def addInstrument(self, description):
         parent = self.__root_item
@@ -113,19 +129,54 @@ class LibraryModelImpl(QtCore.QAbstractItemModel):
         else:
             folder_path = pathlib.Path(description.path).parent
 
-        for folder_name in folder_path.parts:
-            for folder in parent.children:
-                if not isinstance(folder, Folder):
+        folder_parts = folder_path.parts
+        assert len(folder_parts) > 0, description.path
+        while folder_parts:
+            for folder_idx, folder in enumerate(parent.children):
+                if not isinstance(folder, AbstractFolder):
                     continue
-                if folder.folder_name == folder_name:
+
+                match_length = 0
+                for idx, part in enumerate(folder.path.parts):
+                    if part != folder_parts[idx]:
+                        break
+                    match_length += 1
+
+                if match_length > 0:
                     break
 
             else:
-                folder = Folder(folder_name=folder_name, parent=parent)
-                insert_pos = bisect.bisect(parent.children, folder)
-                self.beginInsertRows(parent_index, insert_pos, insert_pos)
-                parent.children.insert(insert_pos, folder)
+                folder = Folder(path=pathlib.Path(*folder_parts), parent=parent)
+                match_length = len(folder_parts)
+                folder_idx = bisect.bisect(parent.children, folder)
+                self.beginInsertRows(parent_index, folder_idx, folder_idx)
+                parent.children.insert(folder_idx, folder)
                 self.endInsertRows()
+
+            assert folder_parts[:match_length] == folder.path.parts[:match_length]
+
+            if match_length < len(folder.path.parts):
+                self.beginRemoveRows(parent_index, folder_idx, folder_idx)
+                old_folder = parent.children.pop(folder_idx)
+                self.endRemoveRows()
+
+                folder = Folder(path=pathlib.Path(*folder_parts[:match_length]), parent=parent)
+                folder_idx = bisect.bisect(parent.children, folder)
+                self.beginInsertRows(parent_index, folder_idx, folder_idx)
+                parent.children.insert(folder_idx, folder)
+                self.endInsertRows()
+
+                new_folder = Folder(path=pathlib.Path(
+                    *old_folder.path.parts[match_length:]), parent=folder)
+                for child in old_folder.children:
+                    child.parent = new_folder
+                    new_folder.children.append(child)
+                new_folder_idx = bisect.bisect(folder.children, folder)
+                self.beginInsertRows(self.indexForItem(folder), new_folder_idx, new_folder_idx)
+                folder.children.insert(folder_idx, new_folder)
+                self.endInsertRows()
+
+            folder_parts = folder_parts[match_length:]
 
             parent = folder
             parent_index = self.indexForItem(folder)
@@ -143,6 +194,25 @@ class LibraryModelImpl(QtCore.QAbstractItemModel):
         for item in self.__root_item.walk():
             if isinstance(item, Instrument):
                 yield item
+
+    def flattened(self, parent=None):
+        if parent is None:
+            parent = self.__root_item
+
+        path = []
+        folder = parent
+        while folder.parent is not None:
+            path.insert(0, folder.display_name)
+            folder = folder.parent
+
+        if path:
+            yield path
+
+        for item in parent.children:
+            if isinstance(item, Instrument):
+                yield path + [item.display_name]
+            elif isinstance(item, AbstractFolder):
+                yield from self.flattened(item)
 
     def item(self, index):
         if not index.isValid():
@@ -170,7 +240,7 @@ class LibraryModelImpl(QtCore.QAbstractItemModel):
         if parent_item is None:
             return 0
 
-        if isinstance(parent_item, Folder):
+        if isinstance(parent_item, AbstractFolder):
             return len(parent_item.children)
         else:
             return 0
@@ -183,11 +253,10 @@ class LibraryModelImpl(QtCore.QAbstractItemModel):
             return QtCore.QModelIndex()
 
         if not parent.isValid():
-            assert row == 0, row
             return self.createIndex(row, column, self.__root_item.children[row])
 
         parent_item = parent.internalPointer()
-        assert isinstance(parent_item, Folder), parent_item.track
+        assert isinstance(parent_item, AbstractFolder), parent_item.track
 
         item = parent_item.children[row]
         return self.createIndex(row, column, item)
@@ -251,7 +320,7 @@ class FilterModel(QtCore.QSortFilterProxyModel):
         parent_item = self.__source.item(parent)
         item = parent_item.children[row]
 
-        if isinstance(item, Folder):
+        if isinstance(item, AbstractFolder):
             # Urgh... this is O(n^2)
             folder_index = self.__source.index(row, 0, parent)
             return any(
@@ -406,7 +475,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.__model.clear()
         for description in self.app.instrument_db.instruments:
             self.__model.addInstrument(description)
-        self.__view.expandToDepth(1)
 
         self._instrument_mutation_listener = self.app.instrument_db.listeners.add(
             'mutation', self.handleInstrumentMutation)
