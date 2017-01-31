@@ -29,7 +29,8 @@ class LV2Scanner(scanner.Scanner):
             if missing_features:
                 logger.warning(
                     "Not adding LV2 plugin %s, because it requires unsupported features %s",
-                    plugin.get_uri(), ", ".join(missing_features))
+                    plugin.get_uri(),
+                    ", ".join(sorted(str(feature) for feature in missing_features)))
                 continue
 
             logger.info("Adding LV2 plugin %s", plugin.get_uri())
