@@ -502,7 +502,7 @@ cdef class Plugin(object):
         missing = []
 
         for feature_uri in self.get_required_features():
-            if not self.world.supports_feature(feature_uri):
+            if not supports_feature(feature_uri):
                 missing.append(feature_uri)
 
         return missing
@@ -1305,22 +1305,12 @@ cdef class World(object):
     cdef readonly Namespaces ns
 
     cdef URID_Mapper urid_mapper
-    cdef URID_Map_Feature urid_map_feature
-    cdef URID_Unmap_Feature urid_unmap_feature
-    cdef dict feature_map
 
     def __cinit__(self):
         self.world = NULL
 
     def __init__(self):
         self.urid_mapper = URID_Mapper()
-        self.urid_map_feature = URID_Map_Feature(self.urid_mapper)
-        self.urid_unmap_feature = URID_Unmap_Feature(self.urid_mapper)
-
-        self.feature_map = {
-            URID_Map_Feature.uri: self.urid_map_feature,
-            URID_Unmap_Feature.uri: self.urid_unmap_feature,
-        }
 
         self.world = lilv_world_new()
         assert self.world != NULL
@@ -1333,12 +1323,6 @@ cdef class World(object):
         if self.world != NULL:
             lilv_world_free(self.world)
             self.world = NULL
-
-    cdef bool supports_feature(self, BaseNode uri):
-        return str(uri) in self.feature_map
-
-    cdef Feature get_feature(self, BaseNode uri):
-        return self.feature_map[str(uri)]
 
     # def set_option(self, uri, value):
     #     """Set a world option.
@@ -1583,32 +1567,40 @@ cdef class Instance(object):
     cdef World world
     cdef Plugin plugin
     cdef double rate
-    cdef const LV2_Feature** features
+
+    cdef list features
+    cdef const LV2_Feature** lv2_features
     cdef LilvInstance* instance
 
     def __cinit__(self):
-        self.features = NULL
+        self.lv2_features = NULL
+        self.instance = NULL
 
     cdef init(self, World world, Plugin plugin, double rate):
         self.world = world
         self.plugin = plugin
         self.rate = rate
 
+        self.features = []
+
         logger.info("Instantiate plugin %s...", self.plugin.get_uri())
 
         used_features = []
         for feature_uri in self.plugin.get_supported_features():
-            if self.world.supports_feature(feature_uri):
+            if supports_feature(feature_uri):
                 logger.info("with feature %s", feature_uri)
                 used_features.append(feature_uri)
 
-        self.features = <const LV2_Feature**>stdlib.calloc(
+        self.lv2_features = <const LV2_Feature**>stdlib.calloc(
             sizeof(LV2_Feature*), len(used_features) + 1)
+        cdef Feature feature
         for idx, feature_uri in enumerate(used_features):
-            self.features[idx] = self.world.get_feature(feature_uri).create_lv2_feature()
-        self.features[len(used_features)] = NULL
+            feature = get_feature(self, feature_uri)
+            self.features.append(feature)
+            self.lv2_features[idx] = feature.create_lv2_feature()
+        self.lv2_features[len(used_features)] = NULL
 
-        self.instance = lilv_plugin_instantiate(plugin.plugin, rate, self.features)
+        self.instance = lilv_plugin_instantiate(plugin.plugin, rate, self.lv2_features)
         assert self.instance != NULL
         return self
 
@@ -1617,14 +1609,24 @@ cdef class Instance(object):
             lilv_instance_free(self.instance)
             self.instance = NULL
 
-        if self.features != NULL:
+        if self.lv2_features != NULL:
             idx = 0
-            while self.features[idx] != NULL:
-                stdlib.free(<void*>self.features[idx])
+            while self.lv2_features[idx] != NULL:
+                stdlib.free(<void*>self.lv2_features[idx])
                 idx += 1
 
-            stdlib.free(<void*>self.features)
-            self.features = NULL
+            stdlib.free(<void*>self.lv2_features)
+            self.lv2_features = NULL
+
+        self.features.clear()
+
+    @staticmethod
+    cdef Feature create_urid_map_feature(Instance instance):
+        return URID_Map_Feature(instance.world.urid_mapper)
+
+    @staticmethod
+    cdef Feature create_urid_unmap_feature(Instance instance):
+        return URID_Unmap_Feature(instance.world.urid_mapper)
 
     def get_uri(self):
         """Get the URI of the plugin which `instance` is an instance of.
@@ -1677,6 +1679,18 @@ cdef class Instance(object):
 #         """
 #         if self.get_descriptor().extension_data:
 #             return self.get_descriptor().extension_data(str(uri))
+
+feature_map = {
+    URID_Map_Feature.uri: Instance.create_urid_map_feature,
+    URID_Unmap_Feature.uri: Instance.create_urid_unmap_feature,
+}
+
+cdef bool supports_feature(BaseNode uri):
+    return str(uri) in feature_map
+
+cdef Feature get_feature(Instance instance, BaseNode uri):
+    return feature_map[str(uri)](instance)
+
 
 # class State(Structure):
 #     """Plugin state (TODO)."""
