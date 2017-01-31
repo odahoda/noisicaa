@@ -92,6 +92,12 @@ http://pyxdg.readthedocs.io/en/latest/recentfiles.html
     - map timestamps to x position
     - interpolation
 * LV2 support										      :FR:
+** support zynaddsubfx
+- required features:
+  - http://lv2plug.in/ns/ext/worker#schedule
+  - http://lv2plug.in/ns/ext/options#options
+- atom input port
+- how to load instrument w/o UI?
 ** Native UI support
 - ref implementation:
   - http://dev.drobilla.net/browser/suil
@@ -100,14 +106,10 @@ http://pyxdg.readthedocs.io/en/latest/recentfiles.html
 - pass port value changes from audioproc process to UI
   - for every block cycle or rate limited to Xfps?
 ** features
-- check for required features when listing plugins
 - plugins with unsupported features:
-  - just skip with LOG message?
   - include in NodeDB, but mark as non-functional, with reason text?
 - provide features
   - which ones are most common?
-  - http://lv2plug.in/ns/ext/urid/urid.html
-    - http://lv2plug.in/ns/ext/urid#map
   - http://lv2plug.in/ns/ext/worker/worker.html
     - http://lv2plug.in/ns/ext/worker#schedule
   - http://lv2plug.in/ns/ext/options/options.html

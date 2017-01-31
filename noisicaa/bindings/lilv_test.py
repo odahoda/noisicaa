@@ -99,7 +99,7 @@ class PluginTest(unittest.TestCase):
         self.assertIsNot(plugin, None)
 
         self.assertEqual(
-            plugin.get_missing_features(),
+            sorted(str(f) for f in plugin.get_missing_features()),
             ['http://lv2plug.in/ns/ext/buf-size#boundedBlockLength',
              'http://lv2plug.in/ns/ext/worker#schedule'])
 

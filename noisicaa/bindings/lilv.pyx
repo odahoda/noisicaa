@@ -4,6 +4,7 @@ from libc cimport stdlib
 from libc cimport string
 cimport numpy
 
+import logging
 import operator
 import numpy
 
@@ -433,6 +434,8 @@ cdef extern from "lilv/lilv.h" nogil:
 
 ### CLIENT CODE ###########################################################
 
+logger = logging.getLogger(__name__)
+
 __opmap = [
     operator.lt,
     operator.le,
@@ -498,31 +501,14 @@ cdef class Plugin(object):
     def get_missing_features(self):
         missing = []
 
-        cdef LilvIter* it
-        cdef const LilvNode* feature
-        cdef const char* feature_uri
+        for feature_uri in self.get_required_features():
+            if not self.world.supports_feature(feature_uri):
+                missing.append(feature_uri)
 
-        cdef const LV2_Feature* const* supported = self.world.features
-        cdef LilvNode* required = lilv_plugin_get_required_features(self.plugin)
-        try:
-            it = lilv_nodes_begin(required)
-            while not lilv_nodes_is_end(required, it):
-                feature = lilv_nodes_get(required, it)
-                feature_uri = lilv_node_as_uri(feature)
-
-                if not self.world.supports_feature(feature_uri):
-                    missing.append(feature_uri.decode('utf-8'))
-
-                it = lilv_nodes_next(required, it)
-
-        finally:
-            lilv_nodes_free(required)
-
-        missing.sort()
         return missing
 
     def instantiate(self, double rate):
-        return Instance().init(self.world, self.plugin, rate)
+        return Instance().init(self.world, self, rate)
 
     def get_uri(self):
         """Get the URI of `plugin`.
@@ -1317,18 +1303,24 @@ cdef class World(object):
 
     cdef LilvWorld* world
     cdef readonly Namespaces ns
-    cdef const LV2_Feature* const* features
-    cdef dict url_map
-    cdef dict url_reverse_map
-    cdef int next_urid
+
+    cdef URID_Mapper urid_mapper
+    cdef URID_Map_Feature urid_map_feature
+    cdef URID_Unmap_Feature urid_unmap_feature
+    cdef dict feature_map
+
+    def __cinit__(self):
+        self.world = NULL
 
     def __init__(self):
-        self.url_map = {}
-        self.url_reverse_map = {}
-        self.next_urid = 100
+        self.urid_mapper = URID_Mapper()
+        self.urid_map_feature = URID_Map_Feature(self.urid_mapper)
+        self.urid_unmap_feature = URID_Unmap_Feature(self.urid_mapper)
 
-        self.features = self.__build_features()
-        assert self.features != NULL
+        self.feature_map = {
+            URID_Map_Feature.uri: self.urid_map_feature,
+            URID_Unmap_Feature.uri: self.urid_unmap_feature,
+        }
 
         self.world = lilv_world_new()
         assert self.world != NULL
@@ -1342,64 +1334,11 @@ cdef class World(object):
             lilv_world_free(self.world)
             self.world = NULL
 
-        if self.features != NULL:
-            stdlib.free(<void*>self.features)
-            self.features = NULL
+    cdef bool supports_feature(self, BaseNode uri):
+        return str(uri) in self.feature_map
 
-    cdef bool supports_feature(self, const char* uri):
-        cdef int idx = 0
-        while self.features[idx] != NULL:
-            if string.strcmp(self.features[idx].URI, uri) == 0:
-                return True
-            idx += 1
-        return False
-
-    @staticmethod
-    cdef LV2_Feature* __alloc_feature(str uri, void* data):
-        cdef LV2_Feature* feature = <LV2_Feature*>stdlib.calloc(sizeof(LV2_Feature), 1)
-        feature.URI = allocstr(uri)
-        feature.data = data
-        return feature
-
-    cdef const LV2_Feature** __build_features(self):
-        cdef LV2_URID_Map* urid_map_data = <LV2_URID_Map*>stdlib.calloc(sizeof(LV2_URID_Map), 1)
-        urid_map_data.handle = <PyObject*>self
-        urid_map_data.map = self.urid_map
-
-        cdef LV2_URID_Unmap* urid_unmap_data = (
-            <LV2_URID_Unmap*>stdlib.calloc(sizeof(LV2_URID_Unmap), 1))
-        urid_unmap_data.handle = <PyObject*>self
-        urid_unmap_data.unmap = self.urid_unmap
-
-        cdef const LV2_Feature** features = (
-            <const LV2_Feature**>stdlib.calloc(sizeof(LV2_Feature*), 3))
-        features[0] = World.__alloc_feature('http://lv2plug.in/ns/ext/urid#map', urid_map_data)
-        features[1] = World.__alloc_feature('http://lv2plug.in/ns/ext/urid#unmap', urid_unmap_data)
-        features[2] = NULL
-
-        return features
-
-    @staticmethod
-    cdef LV2_URID urid_map(LV2_URID_Map_Handle handle, const char* uri):
-        self = <World>handle
-
-        try:
-            urid = self.url_map[uri]
-        except KeyError:
-            urid = self.url_map[uri] = self.next_urid
-            self.url_reverse_map[urid] = bytes(uri)
-            self.next_urid += 1
-
-        return urid
-
-    @staticmethod
-    cdef const char* urid_unmap(LV2_URID_Map_Handle handle, LV2_URID urid):
-        self = <World>handle
-
-        try:
-            return self.url_reverse_map[urid]
-        except KeyError:
-            return NULL
+    cdef Feature get_feature(self, BaseNode uri):
+        return self.feature_map[str(uri)]
 
     # def set_option(self, uri, value):
     #     """Set a world option.
@@ -1568,22 +1507,108 @@ cdef class World(object):
         """Create a new bool node."""
         return WrapNode(lilv_new_bool(self.world, val))
 
+cdef class Feature(object):
+    cdef LV2_Feature* create_lv2_feature(self):
+        return <LV2_Feature*>stdlib.calloc(sizeof(LV2_Feature), 1)
+
+
+cdef class URID_Map_Feature(Feature):
+    cdef LV2_URID_Map data
+
+    uri = 'http://lv2plug.in/ns/ext/urid#map'
+
+    def __init__(self, URID_Mapper mapper):
+        self.data.handle = <PyObject*>mapper
+        self.data.map = mapper.urid_map
+
+    cdef LV2_Feature* create_lv2_feature(self):
+        cdef LV2_Feature* feature = Feature.create_lv2_feature(self)
+        feature.URI = allocstr(self.uri)
+        feature.data = &self.data
+        return feature
+
+
+cdef class URID_Unmap_Feature(Feature):
+    cdef LV2_URID_Unmap data
+
+    uri = 'http://lv2plug.in/ns/ext/urid#unmap'
+
+    def __init__(self, URID_Mapper mapper):
+        self.data.handle = <PyObject*>mapper
+        self.data.unmap = mapper.urid_unmap
+
+    cdef LV2_Feature* create_lv2_feature(self):
+        cdef LV2_Feature* feature = Feature.create_lv2_feature(self)
+        feature.URI = allocstr(self.uri)
+        feature.data = &self.data
+        return feature
+
+
+cdef class URID_Mapper(object):
+    cdef dict url_map
+    cdef dict url_reverse_map
+    cdef int next_urid
+
+    def __init__(self):
+        self.url_map = {}
+        self.url_reverse_map = {}
+        self.next_urid = 100
+
+    @staticmethod
+    cdef LV2_URID urid_map(LV2_URID_Map_Handle handle, const char* uri):
+        cdef URID_Mapper self = <URID_Mapper>handle
+
+        try:
+            urid = self.url_map[uri]
+        except KeyError:
+            urid = self.url_map[uri] = self.next_urid
+            self.url_reverse_map[urid] = bytes(uri)
+            self.next_urid += 1
+
+        return urid
+
+    @staticmethod
+    cdef const char* urid_unmap(LV2_URID_Map_Handle handle, LV2_URID urid):
+        cdef URID_Mapper self = <URID_Mapper>handle
+
+        try:
+            return self.url_reverse_map[urid]
+        except KeyError:
+            return NULL
+
+
 cdef class Instance(object):
     """Plugin instance."""
 
     cdef World world
-    cdef const LilvPlugin* plugin
+    cdef Plugin plugin
     cdef double rate
+    cdef const LV2_Feature** features
     cdef LilvInstance* instance
 
     def __cinit__(self):
-        self.plugin = NULL
+        self.features = NULL
 
-    cdef init(self, World world, const LilvPlugin* plugin, double rate):
+    cdef init(self, World world, Plugin plugin, double rate):
         self.world = world
         self.plugin = plugin
         self.rate = rate
-        self.instance = lilv_plugin_instantiate(plugin, rate, world.features)
+
+        logger.info("Instantiate plugin %s...", self.plugin.get_uri())
+
+        used_features = []
+        for feature_uri in self.plugin.get_supported_features():
+            if self.world.supports_feature(feature_uri):
+                logger.info("with feature %s", feature_uri)
+                used_features.append(feature_uri)
+
+        self.features = <const LV2_Feature**>stdlib.calloc(
+            sizeof(LV2_Feature*), len(used_features) + 1)
+        for idx, feature_uri in enumerate(used_features):
+            self.features[idx] = self.world.get_feature(feature_uri).create_lv2_feature()
+        self.features[len(used_features)] = NULL
+
+        self.instance = lilv_plugin_instantiate(plugin.plugin, rate, self.features)
         assert self.instance != NULL
         return self
 
@@ -1591,6 +1616,15 @@ cdef class Instance(object):
         if self.instance != NULL:
             lilv_instance_free(self.instance)
             self.instance = NULL
+
+        if self.features != NULL:
+            idx = 0
+            while self.features[idx] != NULL:
+                stdlib.free(<void*>self.features[idx])
+                idx += 1
+
+            stdlib.free(<void*>self.features)
+            self.features = NULL
 
     def get_uri(self):
         """Get the URI of the plugin which `instance` is an instance of.
