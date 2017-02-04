@@ -56,12 +56,14 @@ def main(argv):
             dirnames.remove('__pycache__')
 
         for filename in filenames:
-            if not fnmatch.fnmatch(filename, '*.py'):
+            if not (fnmatch.fnmatch(filename, '*.py') or fnmatch.fnmatch(filename, '*.pyx')):
                 continue
+
+            filename = os.path.splitext(filename)[0]
 
             modpath = os.path.join(dirpath, filename)
             assert modpath.startswith(LIBDIR + '/')
-            modpath = modpath[len(LIBDIR)+1:-3]
+            modpath = modpath[len(LIBDIR)+1:]
             modname = modpath.replace('/', '.')
 
             if args.selectors:

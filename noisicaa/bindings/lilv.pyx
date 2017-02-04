@@ -8,87 +8,20 @@ import logging
 import operator
 import numpy
 
+from .lv2 cimport (
+    Feature,
+    URID_Mapper,
+    URID_Map_Feature,
+    URID_Unmap_Feature,
+    LV2_Feature,
+    LV2_URID_Map,
+    LV2_URID_Unmap,
+)
+
 ### DECLARATIONS ##########################################################
 
 cdef extern from "stdbool.h" nogil:
     ctypedef bint bool
-
-
-cdef extern from "lv2.h" nogil:
-#     ctypedef void* LV2_Handle
-
-    cdef struct _LV2_Feature:
-        char* URI
-        void* data
-
-    ctypedef _LV2_Feature LV2_Feature
-
-#     ctypedef LV2_Handle (*_LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_instantiate_ft)(_LV2_Descriptor* descriptor, double sample_rate, char* bundle_path, LV2_Feature** features)
-
-#     ctypedef void (*_LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_connect_port_ft)(LV2_Handle instance, uint32_t port, void* data_location)
-
-#     ctypedef void (*_LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_activate_ft)(LV2_Handle instance)
-
-#     ctypedef void (*_LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_run_ft)(LV2_Handle instance, uint32_t sample_count)
-
-#     ctypedef void (*_LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_deactivate_ft)(LV2_Handle instance)
-
-#     ctypedef void (*_LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_cleanup_ft)(LV2_Handle instance)
-
-#     ctypedef void* (*_LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_extension_data_ft)(char* uri)
-
-#     cdef struct _LV2_Descriptor:
-#         char* URI
-#         _LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_instantiate_ft instantiate
-#         _LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_connect_port_ft connect_port
-#         _LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_activate_ft activate
-#         _LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_run_ft run
-#         _LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_deactivate_ft deactivate
-#         _LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_cleanup_ft cleanup
-#         _LV2_Descriptor_LV2_Descriptor__LV2_Descriptor_extension_data_ft extension_data
-
-#     ctypedef _LV2_Descriptor LV2_Descriptor
-
-#     LV2_Descriptor* lv2_descriptor(uint32_t index)
-
-#     ctypedef LV2_Descriptor* (*LV2_Descriptor_Function)(uint32_t index)
-
-#     ctypedef void* LV2_Lib_Handle
-
-#     ctypedef void (*_LV2_Lib_Descriptor_LV2_Lib_Descriptor_cleanup_ft)(LV2_Lib_Handle handle)
-
-#     ctypedef LV2_Descriptor* (*_LV2_Lib_Descriptor_LV2_Lib_Descriptor_get_plugin_ft)(LV2_Lib_Handle handle, uint32_t index)
-
-#     cdef struct _LV2_Lib_Descriptor_s:
-#         LV2_Lib_Handle handle
-#         uint32_t size
-#         _LV2_Lib_Descriptor_LV2_Lib_Descriptor_cleanup_ft cleanup
-#         _LV2_Lib_Descriptor_LV2_Lib_Descriptor_get_plugin_ft get_plugin
-
-#     ctypedef _LV2_Lib_Descriptor_s LV2_Lib_Descriptor
-
-#     LV2_Lib_Descriptor* lv2_lib_descriptor(char* bundle_path, LV2_Feature** features)
-
-#     ctypedef LV2_Lib_Descriptor* (*LV2_Lib_Descriptor_Function)(char* bundle_path, LV2_Feature** features)
-
-    ctypedef void* LV2_URID_Map_Handle
-
-    ctypedef void* LV2_URID_Unmap_Handle
-
-    ctypedef uint32_t LV2_URID
-
-
-    cdef struct _LV2_URID_Map:
-        LV2_URID_Map_Handle handle
-        LV2_URID (*map)(LV2_URID_Map_Handle handle, const char* uri)
-
-    ctypedef _LV2_URID_Map LV2_URID_Map
-
-    cdef struct _LV2_URID_Unmap:
-        LV2_URID_Unmap_Handle handle
-        const char* (*unmap)(LV2_URID_Unmap_Handle handle, LV2_URID urid)
-
-    ctypedef _LV2_URID_Unmap LV2_URID_Unmap
 
 
 cdef extern from "lilv/lilv.h" nogil:
@@ -446,13 +379,6 @@ __opmap = [
 ]
 
 
-cdef char* allocstr(str s):
-    cdef char* r
-    b = s.encode('utf-8')
-    r = <char*>stdlib.malloc(len(b) + 1)
-    string.strcpy(r, b)
-    return r
-
 # Set namespaced aliases for all lilv functions
 
 # class String(str):
@@ -470,7 +396,7 @@ cdef char* allocstr(str s):
 
 
 cdef class Plugin(object):
-    """LV2 PluginFIXME(418)."""
+    """LV2 Plugin."""
 
     cdef World world
     cdef const LilvPlugin* plugin
@@ -1490,75 +1416,6 @@ cdef class World(object):
     def new_bool(self, val):
         """Create a new bool node."""
         return WrapNode(lilv_new_bool(self.world, val))
-
-cdef class Feature(object):
-    cdef LV2_Feature* create_lv2_feature(self):
-        return <LV2_Feature*>stdlib.calloc(sizeof(LV2_Feature), 1)
-
-
-cdef class URID_Map_Feature(Feature):
-    cdef LV2_URID_Map data
-
-    uri = 'http://lv2plug.in/ns/ext/urid#map'
-
-    def __init__(self, URID_Mapper mapper):
-        self.data.handle = <PyObject*>mapper
-        self.data.map = mapper.urid_map
-
-    cdef LV2_Feature* create_lv2_feature(self):
-        cdef LV2_Feature* feature = Feature.create_lv2_feature(self)
-        feature.URI = allocstr(self.uri)
-        feature.data = &self.data
-        return feature
-
-
-cdef class URID_Unmap_Feature(Feature):
-    cdef LV2_URID_Unmap data
-
-    uri = 'http://lv2plug.in/ns/ext/urid#unmap'
-
-    def __init__(self, URID_Mapper mapper):
-        self.data.handle = <PyObject*>mapper
-        self.data.unmap = mapper.urid_unmap
-
-    cdef LV2_Feature* create_lv2_feature(self):
-        cdef LV2_Feature* feature = Feature.create_lv2_feature(self)
-        feature.URI = allocstr(self.uri)
-        feature.data = &self.data
-        return feature
-
-
-cdef class URID_Mapper(object):
-    cdef dict url_map
-    cdef dict url_reverse_map
-    cdef int next_urid
-
-    def __init__(self):
-        self.url_map = {}
-        self.url_reverse_map = {}
-        self.next_urid = 100
-
-    @staticmethod
-    cdef LV2_URID urid_map(LV2_URID_Map_Handle handle, const char* uri):
-        cdef URID_Mapper self = <URID_Mapper>handle
-
-        try:
-            urid = self.url_map[uri]
-        except KeyError:
-            urid = self.url_map[uri] = self.next_urid
-            self.url_reverse_map[urid] = bytes(uri)
-            self.next_urid += 1
-
-        return urid
-
-    @staticmethod
-    cdef const char* urid_unmap(LV2_URID_Map_Handle handle, LV2_URID urid):
-        cdef URID_Mapper self = <URID_Mapper>handle
-
-        try:
-            return self.url_reverse_map[urid]
-        except KeyError:
-            return NULL
 
 
 cdef class Instance(object):
