@@ -11,7 +11,7 @@ import unittest
 import coverage
 
 import pyximport
-pyximport.install()
+pyximport.install(setup_args={'script_args': ['--verbose']})
 
 LIBDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, LIBDIR)

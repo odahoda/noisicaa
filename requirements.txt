@@ -20,3 +20,4 @@ psutil
 ./3rdparty/lv2/
 ./3rdparty/lilv/
 intervaltree
+pkgconfig

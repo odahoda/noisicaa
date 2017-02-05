@@ -1,5 +1,5 @@
 from cpython.ref cimport PyObject
-from libc.stdint cimport uint32_t
+from libc.stdint cimport uint8_t, uint32_t
 from libc cimport stdlib
 from libc cimport string
 cimport numpy
@@ -1230,7 +1230,7 @@ cdef class World(object):
     cdef LilvWorld* world
     cdef readonly Namespaces ns
 
-    cdef URID_Mapper urid_mapper
+    cdef readonly URID_Mapper urid_mapper
 
     def __cinit__(self):
         self.world = NULL
@@ -1492,16 +1492,26 @@ cdef class Instance(object):
         """
         return str(lilv_instance_get_uri(self.instance))
 
-    def connect_port(self, port_index, numpy.ndarray[float, ndim=1, mode="c"] data):
+    def connect_port(self, port_index, data):
         """Connect a port to a data location.
 
            This may be called regardless of whether the plugin is activated,
            activation and deactivation does not destroy port connections.
         """
+
+        cdef void* ptr
+        cdef numpy.ndarray[float, ndim=1, mode="c"] arr
         if data is None:
-            lilv_instance_connect_port(self.instance, port_index, NULL)
+            ptr = NULL
+        elif isinstance(data, numpy.ndarray):
+            arr = data
+            ptr = &arr[0]
+        elif isinstance(data, (bytes, bytearray)):
+            ptr = <uint8_t*>data
         else:
-            lilv_instance_connect_port(self.instance, port_index, <void*>&data[0])
+            raise TypeError(type(data))
+
+        lilv_instance_connect_port(self.instance, port_index, ptr)
 
     def activate(self):
         """Activate a plugin instance.

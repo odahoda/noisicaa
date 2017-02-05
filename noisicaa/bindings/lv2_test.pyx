@@ -3,6 +3,7 @@ from libc cimport stdlib
 import unittest
 
 from . cimport lv2
+from . import sratom
 
 
 class URIDTest(unittest.TestCase):
@@ -61,3 +62,18 @@ class URIDTest(unittest.TestCase):
         finally:
             stdlib.free(map_lv2_feature)
 
+
+class AtomForgeTest(unittest.TestCase):
+    def test_forge(self):
+        buf = bytearray(1024)
+
+        mapper = lv2.URID_Mapper()
+
+        forge = lv2.AtomForge(mapper)
+        forge.set_buffer(buf, 1024)
+
+        with forge.sequence():
+            forge.write_midi_event(0, b'abc', 3)
+            forge.write_midi_event(1, b'abc', 3)
+
+        print(sratom.atom_to_turtle(mapper, buf))
