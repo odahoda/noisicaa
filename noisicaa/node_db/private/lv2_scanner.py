@@ -70,6 +70,12 @@ class LV2Scanner(scanner.Scanner):
                     parameter_desc = parameter_cls(**kwargs)
                     parameters.append(parameter_desc)
 
+                elif port.is_a(ns.atom.AtomPort) and port.is_a(ns.lv2.InputPort):
+                    port_desc = node_db.EventPortDescription(
+                        name=str(port.get_symbol()),
+                        direction=node_db.PortDirection.Input)
+                    ports.append(port_desc)
+
                 elif port.is_a(ns.lv2.AudioPort):
                     if port.is_a(ns.lv2.InputPort):
                         direction = node_db.PortDirection.Input
