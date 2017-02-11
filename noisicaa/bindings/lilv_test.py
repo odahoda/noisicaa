@@ -99,14 +99,13 @@ class PluginTest(unittest.TestCase):
         self.assertIsNot(instance, None)
 
     def test_not_supported(self):
-        uri_node = self.world.new_uri('http://guitarix.sourceforge.net/plugins/gx_cabinet#CABINET')
+        uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-sampler')
         plugin = self.plugins.get_by_uri(uri_node)
         self.assertIsNot(plugin, None)
 
         self.assertEqual(
             sorted(str(f) for f in plugin.get_missing_features()),
-            ['http://lv2plug.in/ns/ext/buf-size#boundedBlockLength',
-             'http://lv2plug.in/ns/ext/worker#schedule'])
+            ['http://lv2plug.in/ns/ext/state#loadDefaultState'])
 
     def test_instantiate(self):
         uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-amp')
@@ -201,6 +200,40 @@ class PluginTest(unittest.TestCase):
             list(numpy.array([1, 2, 3, 0, 0, 0, 0, 0, 0, 0], dtype=numpy.float32)))
 
     def test_instantiate_fifths(self):
+        uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-fifths')
+        plugin = self.plugins.get_by_uri(uri_node)
+        self.assertIsNot(plugin, None)
+        self.assertEqual(plugin.get_uri(), uri_node)
+
+        in_port = plugin.get_port_by_symbol(self.world.new_string('in'))
+        out_port = plugin.get_port_by_symbol(self.world.new_string('out'))
+
+        instance = plugin.instantiate(44100)
+        self.assertIsNot(instance, None)
+
+        in_buf = bytearray(1024)
+        instance.connect_port(in_port.get_index(), in_buf)
+
+        forge = lv2.AtomForge(self.world.urid_mapper)
+        forge.set_buffer(in_buf, 1024)
+        with forge.sequence():
+            forge.write_midi_event(3, bytes([0b10010000, 65, 127]), 3)
+            forge.write_midi_event(8, bytes([0b10000000, 65, 0]), 3)
+
+        logger.info(sratom.atom_to_turtle(self.world.urid_mapper, in_buf))
+
+        out_buf = bytearray(1024)
+        instance.connect_port(out_port.get_index(), out_buf)
+
+        instance.activate()
+        instance.run(1024)
+        instance.deactivate()
+
+        logger.info(sratom.atom_to_turtle(self.world.urid_mapper, out_buf))
+
+        # TODO: verify that out_buf contains 4 midi events.
+
+    def test_instantiate_(self):
         uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-fifths')
         plugin = self.plugins.get_by_uri(uri_node)
         self.assertIsNot(plugin, None)

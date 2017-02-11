@@ -10,12 +10,16 @@ import numpy
 
 from .lv2 cimport (
     Feature,
-    URID_Mapper,
-    URID_Map_Feature,
-    URID_Unmap_Feature,
     LV2_Feature,
     LV2_URID_Map,
     LV2_URID_Unmap,
+    URID_Mapper,
+    URID_Map_Feature,
+    URID_Unmap_Feature,
+    Options_Feature,
+    BufSize_BoundedBlockLength_Feature,
+    BufSize_PowerOf2BlockLength_Feature,
+    Worker_Feature,
 )
 
 ### DECLARATIONS ##########################################################
@@ -1454,7 +1458,7 @@ cdef class Instance(object):
         for idx, feature_uri in enumerate(used_features):
             feature = get_feature(self, feature_uri)
             self.features.append(feature)
-            self.lv2_features[idx] = feature.create_lv2_feature()
+            self.lv2_features[idx] = &feature.lv2_feature
         self.lv2_features[len(used_features)] = NULL
 
         self.instance = lilv_plugin_instantiate(plugin.plugin, rate, self.lv2_features)
@@ -1467,11 +1471,6 @@ cdef class Instance(object):
             self.instance = NULL
 
         if self.lv2_features != NULL:
-            idx = 0
-            while self.lv2_features[idx] != NULL:
-                stdlib.free(<void*>self.lv2_features[idx])
-                idx += 1
-
             stdlib.free(<void*>self.lv2_features)
             self.lv2_features = NULL
 
@@ -1484,6 +1483,22 @@ cdef class Instance(object):
     @staticmethod
     cdef Feature create_urid_unmap_feature(Instance instance):
         return URID_Unmap_Feature(instance.world.urid_mapper)
+
+    @staticmethod
+    cdef Feature create_options_feature(Instance instance):
+        return Options_Feature(instance.world.urid_mapper)
+
+    @staticmethod
+    cdef Feature create_bufsize_boundedblocklength_feature(Instance instance):
+        return BufSize_BoundedBlockLength_Feature()
+
+    @staticmethod
+    cdef Feature create_bufsize_powerof2blocklength_feature(Instance instance):
+        return BufSize_PowerOf2BlockLength_Feature()
+
+    @staticmethod
+    cdef Feature create_worker_feature(Instance instance):
+        return Worker_Feature()
 
     def get_uri(self):
         """Get the URI of the plugin which `instance` is an instance of.
@@ -1550,6 +1565,10 @@ cdef class Instance(object):
 feature_map = {
     URID_Map_Feature.uri: Instance.create_urid_map_feature,
     URID_Unmap_Feature.uri: Instance.create_urid_unmap_feature,
+    Options_Feature.uri: Instance.create_options_feature,
+    BufSize_BoundedBlockLength_Feature.uri: Instance.create_bufsize_boundedblocklength_feature,
+    BufSize_PowerOf2BlockLength_Feature.uri: Instance.create_bufsize_powerof2blocklength_feature,
+    Worker_Feature.uri: Instance.create_worker_feature,
 }
 
 cdef bool supports_feature(BaseNode uri):
