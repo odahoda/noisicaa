@@ -378,8 +378,6 @@ class EditorApp(BaseEditorApp):
             self.settings.value('audio/backend', 'pyaudio'))
 
     def onPipelineStatus(self, status):
-        if 'utilization' in status:
-            pass
         if 'perf_data' in status:
             if self.pipeline_perf_monitor is not None:
                 self.pipeline_perf_monitor.addPerfData(

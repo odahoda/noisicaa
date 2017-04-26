@@ -1507,7 +1507,7 @@ cdef class Instance(object):
         """
         return str(lilv_instance_get_uri(self.instance))
 
-    def connect_port(self, port_index, data):
+    def connect_port(self, port_index, data, offset=0):
         """Connect a port to a data location.
 
            This may be called regardless of whether the plugin is activated,
@@ -1526,6 +1526,7 @@ cdef class Instance(object):
         else:
             raise TypeError(type(data))
 
+        ptr = <uint8_t*>ptr + <int>offset
         lilv_instance_connect_port(self.instance, port_index, ptr)
 
     def activate(self):

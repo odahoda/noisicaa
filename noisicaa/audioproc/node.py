@@ -6,8 +6,8 @@ import uuid
 from noisicaa import node_db
 
 from .exceptions import Error
-from . import audio_format
 from . import ports
+from . import ast
 
 logger = logging.getLogger(__name__)
 
@@ -73,14 +73,6 @@ class Node(object):
             if (port_desc.direction == node_db.PortDirection.Input
                     and port_desc.port_type == node_db.PortType.Events):
                 kwargs['csound_instr'] = port_desc.csound_instr
-
-            if (port_desc.port_type == node_db.PortType.Audio):
-                if len(port_desc.channels) == 1:
-                    kwargs['channels'] = audio_format.CHANNELS_MONO
-                elif len(port_desc.channels) == 2:
-                    kwargs['channels'] = audio_format.CHANNELS_STEREO
-                else:
-                    raise ValueError(port_desc.channels)
 
             port = port_cls(port_desc.name, **kwargs)
             if port_desc.direction == node_db.PortDirection.Input:
@@ -156,14 +148,20 @@ class Node(object):
         """
         logger.info("%s: cleanup()", self.name)
 
-    def collect_inputs(self, ctxt):
-        for port in self.inputs.values():
-            port.collect_inputs(ctxt)
+    def get_ast(self):
+        raise NotImplementedError
 
-    def post_run(self, ctxt):
-        for port in self.outputs.values():
-            port.post_run(ctxt)
+
+class CustomNode(Node):
+    def get_ast(self):
+        return ast.CallNode(self.id)
+
+    def connect_port(self, port_name, buf, offset):
+        raise NotImplementedError
 
     def run(self, ctxt):
         raise NotImplementedError
 
+
+class BuiltinNode(Node):
+    pass

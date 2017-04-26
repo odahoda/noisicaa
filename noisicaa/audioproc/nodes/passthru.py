@@ -7,11 +7,12 @@ from noisicaa import node_db
 from .. import ports
 from .. import node
 from .. import audio_format
+from .. import ast
 
 logger = logging.getLogger(__name__)
 
 
-class PassThru(node.Node):
+class PassThru(node.CustomNode):
     class_name = 'passthru'
 
     def __init__(self, event_loop, name='passthru', id=None):
@@ -19,12 +20,10 @@ class PassThru(node.Node):
             ports=[
                 node_db.AudioPortDescription(
                     name='in',
-                    direction=node_db.PortDirection.Input,
-                    channels='stereo'),
+                    direction=node_db.PortDirection.Input),
                 node_db.AudioPortDescription(
                     name='out',
-                    direction=node_db.PortDirection.Output,
-                    channels='stereo'),
+                    direction=node_db.PortDirection.Output),
             ])
 
         super().__init__(event_loop, description, name, id)

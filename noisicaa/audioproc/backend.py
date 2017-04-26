@@ -33,30 +33,6 @@ from . import data
 logger = logging.getLogger(__name__)
 
 
-class AudioSinkNode(Node):
-    class_name = 'audiosink'
-
-    def __init__(self, event_loop):
-        description = node_db.SystemNodeDescription(
-            ports=[
-                node_db.AudioPortDescription(
-                    name='in',
-                    direction=node_db.PortDirection.Input,
-                    channels='stereo'),
-            ])
-
-        super().__init__(event_loop, description, id='sink')
-
-    def run(self, ctxt):
-        input_port = self.inputs['in']
-
-        ctxt.out_frame = data.FrameData()
-        ctxt.out_frame.sample_pos = ctxt.sample_pos
-        ctxt.out_frame.duration = ctxt.duration
-        ctxt.out_frame.samples = input_port.frame.as_bytes()
-        ctxt.out_frame.num_samples = len(input_port.frame)
-
-
 class SystemEventSourceNode(Node):
     class_name = 'systemeventsource'
 
@@ -98,10 +74,16 @@ class Backend(object):
     def stop(self):
         self._stopped.set()
 
-    def wait(self, ctxt):
+    def begin_frame(self, ctxt):
+        raise NotImplementedError
+
+    def end_frame(self, ctxt):
         raise NotImplementedError
 
     def write(self, ctxt):
+        raise NotImplementedError
+
+    def output(self, layout, num_samples, samples):
         raise NotImplementedError
 
     def clear_events(self):
@@ -128,10 +110,13 @@ class Backend(object):
 
 
 class NullBackend(Backend):
-    def wait(self, sample_pos):
+    def begin_frame(self, ctxt):
         time.sleep(0.01)
 
-    def write(self, frame):
+    def end_frame(self, ctxt):
+        pass
+
+    def write(self, ctxt):
         pass
 
 
@@ -206,22 +191,35 @@ class PyAudioBackend(Backend):
         super().stop()
         self._need_more.set()
 
-    def wait(self, ctxt):
+    def begin_frame(self, ctxt):
         if self.stopped:
             return
         self._need_more.wait()
+        self.clear_events()
 
-    def write(self, ctxt):
-        assert ctxt.out_frame is not None
-        assert ctxt.out_frame.samples is not None
-        assert ctxt.out_frame.num_samples > 0
-        samples = self._resampler.convert(
-            ctxt.out_frame.samples, ctxt.out_frame.num_samples)
+    def end_frame(self, ctxt):
+        pass
+
+    def output(self, layout, num_samples, samples):
+        assert layout == AV_CH_LAYOUT_STEREO
+
+        # TODO: feed non-interleaved sample buffers directly into
+        # resample
+        interleaved = bytearray(8 * num_samples)
+        interleaved[0::8] = samples[0][0::4]
+        interleaved[1::8] = samples[0][1::4]
+        interleaved[2::8] = samples[0][2::4]
+        interleaved[3::8] = samples[0][3::4]
+        interleaved[4::8] = samples[1][0::4]
+        interleaved[5::8] = samples[1][1::4]
+        interleaved[6::8] = samples[1][2::4]
+        interleaved[7::8] = samples[1][3::4]
+
+        converted = self._resampler.convert(interleaved, num_samples)
         with self._buffer_lock:
-            self._buffer.extend(samples)
+            self._buffer.extend(converted)
             if len(self._buffer) >= self._buffer_threshold:
                 self._need_more.clear()
-        self.clear_events()
 
 
 class Stopped(Exception):
@@ -253,7 +251,7 @@ class IPCBackend(Backend):
         self._stream.close()
         super().stop()
 
-    def wait(self, ctxt):
+    def begin_frame(self, ctxt):
         try:
             ctxt.in_frame = self._stream.receive_frame()
             ctxt.duration = ctxt.in_frame.duration
@@ -268,6 +266,9 @@ class IPCBackend(Backend):
         except audio_stream.StreamClosed:
             logger.warning("Stopping IPC backend.")
             self.stop()
+
+    def end_frame(self, ctxt):
+        pass
 
     def write(self, ctxt):
         assert ctxt.out_frame is not None

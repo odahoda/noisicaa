@@ -11,7 +11,7 @@ from noisicaa import core
 from noisicaa.core import ipc
 
 from . import backend
-from . import pipeline
+from . import pipeline_vm
 from . import mutations
 from . import node_db
 from . import nodes
@@ -79,13 +79,13 @@ class AudioProcProcessMixin(object):
         super().__init__(*args, **kwargs)
         self.shm_name = shm
         self.shm = None
-        self.pipeline = None
+        self.__vm = None
 
     async def setup(self):
         await super().setup()
 
-        self._shutting_down = asyncio.Event()
-        self._shutdown_complete = asyncio.Event()
+        self.__shutting_down = asyncio.Event()
+        self.__shutdown_complete = asyncio.Event()
 
         self.server.add_command_handler(
             'START_SESSION', self.handle_start_session)
@@ -135,20 +135,15 @@ class AudioProcProcessMixin(object):
         if self.shm_name is not None:
             self.shm = posix_ipc.SharedMemory(self.shm_name)
 
-        self.pipeline = pipeline.Pipeline(shm=self.shm)
-        self.pipeline.utilization_callback = self.utilization_callback
-        self.pipeline.listeners.add('perf_data', self.perf_data_callback)
-        self.pipeline.listeners.add('node_state', self.node_state_callback)
+        self.__vm = pipeline_vm.PipelineVM(shm=self.shm)
+        self.__vm.listeners.add('perf_data', self.perf_data_callback)
+        self.__vm.listeners.add('node_state', self.node_state_callback)
 
-        self.audiosink = backend.AudioSinkNode(self.event_loop)
-        await self.pipeline.setup_node(self.audiosink)
-        self.pipeline.add_node(self.audiosink)
+        self.__vm.setup()
 
-        self.eventsource = backend.SystemEventSourceNode(self.event_loop)
-        await self.pipeline.setup_node(self.eventsource)
-        self.pipeline.add_node(self.eventsource)
-
-        self.pipeline.start()
+        sink = nodes.Sink(self.event_loop)
+        await self.__vm.setup_node(sink)
+        self.__vm.add_node(sink)
 
         self.sessions = {}
 
@@ -161,24 +156,18 @@ class AudioProcProcessMixin(object):
             self.shm.close_fd()
             self.shm = None
 
-        if self.pipeline is not None:
-            self.pipeline.stop()
-            self.pipeline = None
+        if self.__vm is not None:
+            self.__vm.cleanup()
+            self.__vm = None
 
         await super().cleanup()
 
     async def run(self):
-        await self._shutting_down.wait()
+        await self.__shutting_down.wait()
         logger.info("Shutting down...")
-        self.pipeline.stop()
-        self.pipeline.wait()
+        self.__vm.cleanup()
         logger.info("Pipeline finished.")
-        self._shutdown_complete.set()
-
-    def utilization_callback(self, utilization):
-        self.event_loop.call_soon_threadsafe(
-            functools.partial(
-                self.publish_status, utilization=utilization))
+        self.__shutdown_complete.set()
 
     def get_session(self, session_id):
         try:
@@ -199,16 +188,16 @@ class AudioProcProcessMixin(object):
         connect_task = self.event_loop.create_task(client_stub.connect())
         session = Session(self.event_loop, client_stub, flags)
         connect_task.add_done_callback(
-            functools.partial(self._client_connected, session))
+            functools.partial(self.__client_connected, session))
         self.sessions[session.id] = session
 
         # Send initial mutations to build up the current pipeline
         # state.
-        with self.pipeline.reader_lock():
-            for node in self.pipeline._nodes:
+        with self.__vm.reader_lock():
+            for node in self.__vm.nodes:
                 mutation = mutations.AddNode(node)
                 session.publish_mutation(mutation)
-            for node in self.pipeline._nodes:
+            for node in self.__vm.nodes:
                 for port in node.inputs.values():
                     for upstream_port in port.inputs:
                         mutation = mutations.ConnectPorts(
@@ -217,7 +206,7 @@ class AudioProcProcessMixin(object):
 
         return session.id
 
-    def _client_connected(self, session, connect_task):
+    def __client_connected(self, session, connect_task):
         assert connect_task.done()
         exc = connect_task.exception()
         if exc is not None:
@@ -233,34 +222,34 @@ class AudioProcProcessMixin(object):
 
     async def handle_shutdown(self):
         logger.info("Shutdown received.")
-        self._shutting_down.set()
+        self.__shutting_down.set()
         logger.info("Waiting for shutdown to complete...")
-        await self._shutdown_complete.wait()
+        await self.__shutdown_complete.wait()
         logger.info("Shutdown complete.")
 
     async def handle_add_node(self, session_id, name, args):
         session = self.get_session(session_id)
         node = self.node_db.create(self.event_loop, name, args)
-        await self.pipeline.setup_node(node)
-        with self.pipeline.writer_lock():
-            self.pipeline.add_node(node)
+        await self.__vm.setup_node(node)
+        with self.__vm.writer_lock():
+            self.__vm.add_node(node)
         self.publish_mutation(mutations.AddNode(node))
         return node.id
 
     async def handle_remove_node(self, session_id, node_id):
         session = self.get_session(session_id)
-        node = self.pipeline.find_node(node_id)
-        with self.pipeline.writer_lock():
-            self.pipeline.remove_node(node)
+        node = self.__vm.find_node(node_id)
+        with self.__vm.writer_lock():
+            self.__vm.remove_node(node)
         await node.cleanup()
         self.publish_mutation(mutations.RemoveNode(node))
 
     def handle_connect_ports(
             self, session_id, node1_id, port1_name, node2_id, port2_name):
         session = self.get_session(session_id)
-        node1 = self.pipeline.find_node(node1_id)
-        node2 = self.pipeline.find_node(node2_id)
-        with self.pipeline.writer_lock():
+        node1 = self.__vm.find_node(node1_id)
+        node2 = self.__vm.find_node(node2_id)
+        with self.__vm.writer_lock():
             node2.inputs[port2_name].connect(node1.outputs[port1_name])
         self.publish_mutation(
             mutations.ConnectPorts(
@@ -269,9 +258,9 @@ class AudioProcProcessMixin(object):
     def handle_disconnect_ports(
             self, session_id, node1_id, port1_name, node2_id, port2_name):
         session = self.get_session(session_id)
-        node1 = self.pipeline.find_node(node1_id)
-        node2 = self.pipeline.find_node(node2_id)
-        with self.pipeline.writer_lock():
+        node1 = self.__vm.find_node(node1_id)
+        node2 = self.__vm.find_node(node2_id)
+        with self.__vm.writer_lock():
             node2.inputs[port2_name].disconnect(node1.outputs[port1_name])
         self.publish_mutation(
             mutations.DisconnectPorts(
@@ -294,12 +283,12 @@ class AudioProcProcessMixin(object):
         else:
             raise ValueError("Invalid backend name %s" % name)
 
-        self.pipeline.set_backend(be)
+        self.__vm.set_backend(be)
         return result
 
     def handle_set_frame_size(self, session_id, frame_size):
         self.get_session(session_id)
-        self.pipeline.set_frame_size(frame_size)
+        self.__vm.set_frame_size(frame_size)
 
     def perf_data_callback(self, perf_data):
         self.event_loop.call_soon_threadsafe(
@@ -319,13 +308,13 @@ class AudioProcProcessMixin(object):
             path=path, loop=False, end_notification='end')
         await node.setup()
 
-        self.pipeline.notification_listener.add(
+        self.__vm.notification_listener.add(
             node.id,
             functools.partial(self.play_file_done, node_id=node.id))
 
-        with self.pipeline.writer_lock():
-            sink = self.pipeline.find_node('sink')
-            self.pipeline.add_node(node)
+        with self.__vm.writer_lock():
+            sink = self.__vm.find_node('sink')
+            self.__vm.add_node(node)
             sink.inputs['in'].connect(node.outputs['out'])
 
         return node.id
@@ -333,8 +322,8 @@ class AudioProcProcessMixin(object):
     async def handle_add_event(self, session_id, queue, event):
         self.get_session(session_id)
 
-        with self.pipeline.writer_lock():
-            backend = self.pipeline.backend
+        with self.__vm.writer_lock():
+            backend = self.__vm.backend
             if backend is None:
                 logger.warning(
                     "Ignoring event %s: no backend active:", event)
@@ -345,28 +334,28 @@ class AudioProcProcessMixin(object):
         self, session_id, node_id, port_name, kwargs):
         self.get_session(session_id)
 
-        node = self.pipeline.find_node(node_id)
+        node = self.__vm.find_node(node_id)
         port = node.outputs[port_name]
-        with self.pipeline.writer_lock():
+        with self.__vm.writer_lock():
             port.set_prop(**kwargs)
 
     async def handle_set_node_param(self, session_id, node_id, kwargs):
         self.get_session(session_id)
 
-        node = self.pipeline.find_node(node_id)
-        with self.pipeline.writer_lock():
+        node = self.__vm.find_node(node_id)
+        with self.__vm.writer_lock():
             node.set_param(**kwargs)
 
     def play_file_done(self, notification, node_id):
-        with self.pipeline.writer_lock():
-            node = self.pipeline.find_node(node_id)
-            sink = self.pipeline.find_node('sink')
+        with self.__vm.writer_lock():
+            node = self.__vm.find_node(node_id)
+            sink = self.__vm.find_node('sink')
             sink.inputs['in'].disconnect(node.outputs['out'])
-            self.pipeline.remove_node(node)
+            self.__vm.remove_node(node)
         self.event_loop.create_task(node.cleanup())
 
     def handle_dump(self, session_id):
-        self.pipeline.dump()
+        self.__vm.dump()
 
 
 class AudioProcProcess(AudioProcProcessMixin, core.ProcessImpl):

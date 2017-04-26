@@ -56,17 +56,8 @@ class Channel(enum.Enum):
 
 
 class AudioPortDescription(PortDescription):
-    def __init__(self, channels, drywet_port=None, drywet_default=0.0, **kwargs):
+    def __init__(self, drywet_port=None, drywet_default=0.0, **kwargs):
         super().__init__(port_type=PortType.Audio, **kwargs)
-
-        if channels == 'mono':
-            self.channels = [Channel.Mono]
-        elif channels == 'stereo':
-            self.channels = [Channel.Left, Channel.Right]
-        else:
-            assert isinstance(channels, list), channels
-            assert all(isinstance(c, Channel) for c in channels), channels
-            self.channels = list(channels)
 
         self.drywet_port = drywet_port
         self.drywet_default = drywet_default
