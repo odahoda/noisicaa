@@ -29,6 +29,10 @@ class Port(object):
     def pipeline(self):
         return self.owner.pipeline
 
+    @property
+    def buf_name(self):
+        return '%s:%s' % (self.owner.id, self._name)
+
     def set_prop(self):
         pass
 

@@ -122,7 +122,7 @@ class PipelineVMTest(asynctest.TestCase):
         ctxt.sample_pos = 0
         ctxt.duration = 128
 
-        vm.run_vm(spec, ctxt)
+        vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
 
     async def test_OUTPUT_STEREO(self):
         spec = engine.PipelineVMSpec()
@@ -145,7 +145,7 @@ class PipelineVMTest(asynctest.TestCase):
         ctxt.sample_pos = 0
         ctxt.duration = 4
 
-        vm.run_vm(spec, ctxt)
+        vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
 
         self.assertEqual(len(backend.written_frames), 1)
         layout, num_samples, samples = backend.written_frames[0]
@@ -172,7 +172,7 @@ class PipelineVMTest(asynctest.TestCase):
         ctxt.sample_pos = 0
         ctxt.duration = 4
 
-        vm.run_vm(spec, ctxt)
+        vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
 
         for sample in struct.unpack('=ffff', vm.get_buffer_bytes('buf')):
             self.assertGreaterEqual(sample, -1.0)
@@ -197,7 +197,7 @@ class PipelineVMTest(asynctest.TestCase):
         ctxt.sample_pos = 0
         ctxt.duration = 4
 
-        vm.run_vm(spec, ctxt)
+        vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
 
         self.assertEqual(
             vm.get_buffer_bytes('buf'),
@@ -224,7 +224,7 @@ class PipelineVMTest(asynctest.TestCase):
         ctxt.sample_pos = 0
         ctxt.duration = 4
 
-        vm.run_vm(spec, ctxt)
+        vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
 
         self.assertEqual(
             struct.unpack('=ffff', vm.get_buffer_bytes('buf1')),
@@ -263,7 +263,15 @@ class PipelineVMTest(asynctest.TestCase):
             spec = engine.PipelineVMSpec()
             spec.buffers.append(engine.FloatBufferRef('buf1', 0, 4))
             spec.buffers.append(engine.FloatBufferRef('buf2', 16, 4))
-            spec.nodes.append(['node', [('in', 'buf1'), ('out', 'buf2')]])
+            spec.nodes.append('node')
+            spec.opcodes.append(
+                engine.OpCode(
+                    'CONNECT_PORT',
+                    node_idx=0, port_name='in', offset=0))
+            spec.opcodes.append(
+                engine.OpCode(
+                    'CONNECT_PORT',
+                    node_idx=0, port_name='out', offset=16))
             spec.opcodes.append(
                 engine.OpCode(
                     'CALL', node_idx=0))
@@ -278,7 +286,8 @@ class PipelineVMTest(asynctest.TestCase):
             ctxt.sample_pos = 0
             ctxt.duration = 4
 
-            vm.run_vm(spec, ctxt)
+            vm.run_vm(spec, ctxt, engine.RunAt.INIT)
+            vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
 
             self.assertEqual(
                 struct.unpack('=ffff', vm.get_buffer_bytes('buf2')),

@@ -29,7 +29,7 @@ class CompilerTest(asynctest.TestCase):
         node3.inputs['audio_left'].connect(node2.outputs['out'])
         node3.inputs['audio_right'].connect(node2.outputs['out'])
 
-        comp = compiler.Compiler(g)
+        comp = compiler.Compiler(graph=g, frame_size=64)
         ast = comp.build_ast()
         print(ast.dump())
 

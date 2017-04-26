@@ -18,8 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 class Compiler(object):
-    def __init__(self, graph):
+    def __init__(self, *, graph, frame_size):
         self.__graph = graph
+        self.__frame_size = frame_size
+
+    @property
+    def frame_size(self):
+        return self.__frame_size
 
     def build_ast(self):
         root = ast.Sequence()
@@ -29,6 +34,6 @@ class Compiler(object):
             sort=False)
 
         for n in sorted_nodes:
-            root.children.append(n.get_ast())
+            root.add(n.get_ast(self))
 
         return root

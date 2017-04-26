@@ -62,6 +62,20 @@ class PipelineVMSpec(object):
         self.nodes = []
 
 
+class RunAt(enum.Enum):
+    PERFORMANCE = 1
+    INIT = 2
+
+
+def at_performance(func):
+    func.run_at = RunAt.PERFORMANCE
+    return func
+
+def at_init(func):
+    func.run_at = RunAt.INIT
+    return func
+
+
 class PipelineVM(object):
     def __init__(
             self, *,
@@ -79,6 +93,7 @@ class PipelineVM(object):
 
         self.__backend = None
         self.__spec = None
+        self.__spec_initialized = None
         self.__opcode_states = None
         self.__buffer = None
         self.__buffer_map = None
@@ -122,18 +137,15 @@ class PipelineVM(object):
         self.allocate_buffer(buffer_size)
         self.__buffer_map = {buf.id: buf for buf in spec.buffers}
         self.__opcode_states = [{} for _ in spec.opcodes]
-        for node_id, buffer_spec in spec.nodes:
-            node = self.__graph.find_node(node_id)
-            for port_name, buffer_id in buffer_spec:
-                buffer_ref = self.__buffer_map[buffer_id]
-                node.connect_port(
-                    port_name, self.__buffer, buffer_ref.offset)
         self.__spec = spec
+        self.__spec_initialized = False
 
     def cleanup_spec(self):
         self.__buffer = None
         self.__buffer_map = None
+        self.__opcode_states = None
         self.__spec = None
+        self.__spec_initialized = None
 
     def set_spec(self, spec):
         logger.info("spec=%s", spec)
@@ -257,7 +269,10 @@ class PipelineVM(object):
                     with self.reader_lock():
                         spec = self.__spec
                         if spec is not None:
-                            self.run_vm(spec, ctxt)
+                            if not self.__spec_initialized:
+                                self.run_vm(spec, ctxt, RunAt.INIT)
+                                self.__spec_initialized = True
+                            self.run_vm(spec, ctxt, RunAt.PERFORMANCE)
                         else:
                             time.sleep(0.05)
 
@@ -277,12 +292,14 @@ class PipelineVM(object):
         finally:
             logger.info("VM finished.")
 
-    def run_vm(self, spec, ctxt):
+    def run_vm(self, spec, ctxt, run_at):
         for opcode, state in zip(spec.opcodes, self.__opcode_states):
-            logger.info("Executing opcode %s", opcode)
             opmethod = getattr(self, 'op_' + opcode.op)
-            opmethod(ctxt, state, **opcode.args)
+            if opmethod.run_at == run_at:
+                logger.info("Executing opcode %s", opcode)
+                opmethod(ctxt, state, **opcode.args)
 
+    @at_performance
     def op_COPY_BUFFER(
             self, ctxt, state, *, src_offset, dest_offset, length):
         assert 0 <= src_offset <= len(self.__buffer) - length
@@ -290,6 +307,7 @@ class PipelineVM(object):
 
         self.__buffer[dest_offset:dest_offset+length] = self.__buffer[src_offset:src_offset+length]
 
+    @at_performance
     def op_CLEAR_BUFFER(
             self, ctxt, state, *, offset, length):
         assert 0 <= offset <= len(self.__buffer) - length
@@ -297,11 +315,13 @@ class PipelineVM(object):
         for i in range(offset, offset + length):
             self.__buffer[i] = 0
 
+    @at_performance
     def op_SET_FLOAT(self, ctxt, state, *, offset, value):
         assert 0 <= offset <= len(self.__buffer) - 4
 
         struct.pack_into('=f', self.__buffer, offset, value)
 
+    @at_performance
     def op_OUTPUT_STEREO(
             self, ctxt, state, *, offset_l, offset_r, num_samples):
         assert 0 <= offset_l <= len(self.__buffer) - 4 * num_samples
@@ -314,6 +334,7 @@ class PipelineVM(object):
             [bytes(self.__buffer[offset_l:offset_l+4*num_samples]),
              bytes(self.__buffer[offset_r:offset_r+4*num_samples])])
 
+    @at_performance
     def op_NOISE(self, ctxt, state, *, offset, num_samples):
         assert 0 <= offset <= len(self.__buffer) - 4 * num_samples
         assert num_samples > 0
@@ -322,6 +343,7 @@ class PipelineVM(object):
             self.__buffer[i:i+4] = struct.pack(
                 '=f', 2 * random.random() - 1.0)
 
+    @at_performance
     def op_SINE(self, ctxt, state, *, offset, num_samples, freq):
         assert 0 <= offset <= len(self.__buffer) - 4 * num_samples
         assert num_samples > 0
@@ -335,6 +357,7 @@ class PipelineVM(object):
                 p -= 2 * math.pi
         state['p'] = p
 
+    @at_performance
     def op_MUL(self, ctxt, state, *, offset, num_samples, factor):
         assert 0 <= offset <= len(self.__buffer) - 4 * num_samples
         assert num_samples > 0
@@ -344,6 +367,7 @@ class PipelineVM(object):
                 '=f', factor * struct.unpack(
                     '=f', self.__buffer[i:i+4])[0])
 
+    @at_performance
     def op_MIX(
             self, ctxt, state, *,
             src_offset, dest_offset, num_samples, factor):
@@ -359,7 +383,16 @@ class PipelineVM(object):
             self.__buffer[dest_offset+i:dest_offset+i+4] = struct.pack(
                 '=f', dest_val + factor * src_val)
 
+    @at_init
+    def op_CONNECT_PORT(
+            self, ctxt, state, *, node_idx, port_name, offset):
+        node_id = self.__spec.nodes[node_idx]
+        node = self.__graph.find_node(node_id)
+        node.connect_port(
+            port_name, self.__buffer, offset)
+
+    @at_performance
     def op_CALL(self, ctxt, state, *, node_idx):
-        node_id = self.__spec.nodes[node_idx][0]
+        node_id = self.__spec.nodes[node_idx]
         node = self.__graph.find_node(node_id)
         node.run(ctxt)

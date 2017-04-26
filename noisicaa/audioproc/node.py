@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import itertools
 import logging
 import uuid
 
@@ -148,13 +149,30 @@ class Node(object):
         """
         logger.info("%s: cleanup()", self.name)
 
-    def get_ast(self):
-        raise NotImplementedError
+    def get_ast(self, compiler):
+        seq = ast.Sequence()
+        for port in itertools.chain(
+                self.inputs.values(), self.outputs.values()):
+            seq.add(ast.AllocBuffer(
+                port.buf_name,
+                ast.BufferType.FLOATS,
+                compiler.frame_size))
+            seq.add(ast.ConnectPort(self.id, port.name, port.buf_name))
+
+        for port in self.inputs.values():
+            seq.add(ast.ClearBuffer(port.buf_name))
+            for upstream_port in port.inputs:
+                seq.add(ast.MixBuffers(
+                    upstream_port.buf_name, port.buf_name))
+
+        return seq
 
 
 class CustomNode(Node):
-    def get_ast(self):
-        return ast.CallNode(self.id)
+    def get_ast(self, compiler):
+        seq = super().get_ast(compiler)
+        seq.add(ast.CallNode(self.id))
+        return seq
 
     def connect_port(self, port_name, buf, offset):
         raise NotImplementedError

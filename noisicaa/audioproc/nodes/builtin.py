@@ -26,5 +26,7 @@ class Sink(node.BuiltinNode):
 
         super().__init__(event_loop, description, id='sink')
 
-    def get_ast(self):
-        return ast.OutputStereo()
+    def get_ast(self, compiler):
+        seq = super().get_ast(compiler)
+        seq.add(ast.OutputStereo())
+        return seq
