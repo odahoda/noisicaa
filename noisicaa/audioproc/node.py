@@ -7,7 +7,7 @@ from noisicaa import node_db
 
 from .exceptions import Error
 from . import ports
-from . import ast
+from .vm import ast
 
 logger = logging.getLogger(__name__)
 

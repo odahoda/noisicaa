@@ -5,7 +5,7 @@ import logging
 from noisicaa import node_db
 
 from .. import node
-from .. import ast
+from ..vm import ast
 
 logger = logging.getLogger(__name__)
 

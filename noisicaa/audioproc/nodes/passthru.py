@@ -7,7 +7,6 @@ from noisicaa import node_db
 from .. import ports
 from .. import node
 from .. import audio_format
-from .. import ast
 
 logger = logging.getLogger(__name__)
 

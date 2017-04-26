@@ -9,11 +9,11 @@ import unittest
 import asynctest
 
 from noisicaa import node_db
-from . import backend
-from . import data
-from . import pipeline_vm
-from . import resample
-from . import nodes
+from .. import backend
+from .. import data
+from .. import resample
+from .. import nodes
+from . import engine
 
 logger = logging.getLogger(__name__)
 
@@ -54,37 +54,13 @@ class TestBackend(backend.Backend):
         self.step_done.clear()
 
 
-class CompileSpecTest(asynctest.TestCase):
-    async def test_foo(self):
-        graph = pipeline_vm.PipelineGraph()
-
-        node1 = nodes.PassThru(self.loop)
-        graph.add_node(node1)
-
-        node2 = nodes.PassThru(self.loop)
-        graph.add_node(node2)
-        node2.inputs['in'].connect(node1.outputs['out'])
-
-        node3 = nodes.Sink(self.loop)
-        graph.add_node(node3)
-        node3.inputs['audio_left'].connect(node1.outputs['out'])
-        node3.inputs['audio_left'].connect(node2.outputs['out'])
-        node3.inputs['audio_right'].connect(node2.outputs['out'])
-
-        spec = pipeline_vm.compile_spec(graph, 1024)
-
-        print("Buffers:\n%s" % '\n'.join(repr(i) for i in spec.buffers))
-        print("Nodes:\n%s" % '\n'.join(repr(i) for i in spec.nodes))
-        print("Opcodes:\n%s" % '\n'.join(repr(i) for i in spec.opcodes))
-
-
 class PipelineVMTest(asynctest.TestCase):
 
     async def test_get_buffer_bytes(self):
-        vm = pipeline_vm.PipelineVM()
+        vm = engine.PipelineVM()
 
-        spec = pipeline_vm.PipelineVMSpec()
-        spec.buffers.append(pipeline_vm.FloatBufferRef('buf', 0, 4))
+        spec = engine.PipelineVMSpec()
+        spec.buffers.append(engine.FloatBufferRef('buf', 0, 4))
         vm.setup_spec(spec)
 
         vm.set_buffer_bytes('buf', struct.pack('=ffff', 1, 2, 3, 4))
@@ -93,7 +69,7 @@ class PipelineVMTest(asynctest.TestCase):
             struct.pack('=ffff', 1, 2, 3, 4))
 
     async def test_vm_thread(self):
-        vm = pipeline_vm.PipelineVM()
+        vm = engine.PipelineVM()
         try:
             vm.setup()
             backend = TestBackend(step_mode=True)
@@ -103,18 +79,18 @@ class PipelineVMTest(asynctest.TestCase):
             backend.next_step()
 
             # run with a spec
-            spec = pipeline_vm.PipelineVMSpec()
-            spec.buffers.append(pipeline_vm.FloatBufferRef('foo', 0, 1))
+            spec = engine.PipelineVMSpec()
+            spec.buffers.append(engine.FloatBufferRef('foo', 0, 1))
             spec.opcodes.append(
-                pipeline_vm.OpCode('SET_FLOAT', offset=0, value=12))
+                engine.OpCode('SET_FLOAT', offset=0, value=12))
             vm.set_spec(spec)
             backend.next_step()
 
             # replace spec
-            spec = pipeline_vm.PipelineVMSpec()
-            spec.buffers.append(pipeline_vm.FloatBufferRef('foo', 0, 1))
+            spec = engine.PipelineVMSpec()
+            spec.buffers.append(engine.FloatBufferRef('foo', 0, 1))
             spec.opcodes.append(
-                pipeline_vm.OpCode('SET_FLOAT', offset=0, value=14))
+                engine.OpCode('SET_FLOAT', offset=0, value=14))
             vm.set_spec(spec)
             backend.next_step()
 
@@ -126,20 +102,20 @@ class PipelineVMTest(asynctest.TestCase):
             vm.cleanup()
 
     async def test_run_vm(self):
-        spec = pipeline_vm.PipelineVMSpec()
-        spec.buffers.append(pipeline_vm.FloatBufferRef('float', 0, 1))
-        spec.buffers.append(pipeline_vm.FloatBufferRef('buf1', 4, 256))
-        spec.buffers.append(pipeline_vm.FloatBufferRef('buf2', 1028, 256))
+        spec = engine.PipelineVMSpec()
+        spec.buffers.append(engine.FloatBufferRef('float', 0, 1))
+        spec.buffers.append(engine.FloatBufferRef('buf1', 4, 256))
+        spec.buffers.append(engine.FloatBufferRef('buf2', 1028, 256))
         spec.opcodes.append(
-            pipeline_vm.OpCode(
+            engine.OpCode(
                 'SET_FLOAT',
                 offset=0, value=12))
         spec.opcodes.append(
-            pipeline_vm.OpCode(
+            engine.OpCode(
                 'COPY_BUFFER',
                 src_offset=4, dest_offset=1024, length=1024))
 
-        vm = pipeline_vm.PipelineVM()
+        vm = engine.PipelineVM()
         vm.setup_spec(spec)
 
         ctxt = data.FrameContext()
@@ -149,16 +125,16 @@ class PipelineVMTest(asynctest.TestCase):
         vm.run_vm(spec, ctxt)
 
     async def test_OUTPUT_STEREO(self):
-        spec = pipeline_vm.PipelineVMSpec()
-        spec.buffers.append(pipeline_vm.FloatBufferRef('bufl', 0, 4))
-        spec.buffers.append(pipeline_vm.FloatBufferRef('bufr', 16, 4))
+        spec = engine.PipelineVMSpec()
+        spec.buffers.append(engine.FloatBufferRef('bufl', 0, 4))
+        spec.buffers.append(engine.FloatBufferRef('bufr', 16, 4))
         spec.opcodes.append(
-            pipeline_vm.OpCode(
+            engine.OpCode(
                 'OUTPUT_STEREO', offset_l=0, offset_r=16, num_samples=4))
 
         backend = TestBackend()
 
-        vm = pipeline_vm.PipelineVM()
+        vm = engine.PipelineVM()
         vm.setup_spec(spec)
         vm.setup_backend(backend)
 
@@ -180,15 +156,15 @@ class PipelineVMTest(asynctest.TestCase):
         self.assertEqual(samples[1], struct.pack('=ffff', 5, 6, 7, 8))
 
     async def test_NOISE(self):
-        spec = pipeline_vm.PipelineVMSpec()
-        spec.buffers.append(pipeline_vm.FloatBufferRef('buf', 0, 4))
+        spec = engine.PipelineVMSpec()
+        spec.buffers.append(engine.FloatBufferRef('buf', 0, 4))
         spec.opcodes.append(
-            pipeline_vm.OpCode(
+            engine.OpCode(
                 'NOISE', offset=0, num_samples=4))
 
         backend = TestBackend()
 
-        vm = pipeline_vm.PipelineVM()
+        vm = engine.PipelineVM()
         vm.setup_spec(spec)
         vm.setup_backend(backend)
 
@@ -203,15 +179,15 @@ class PipelineVMTest(asynctest.TestCase):
             self.assertLessEqual(sample, 1.0)
 
     async def test_MUL(self):
-        spec = pipeline_vm.PipelineVMSpec()
-        spec.buffers.append(pipeline_vm.FloatBufferRef('buf', 0, 4))
+        spec = engine.PipelineVMSpec()
+        spec.buffers.append(engine.FloatBufferRef('buf', 0, 4))
         spec.opcodes.append(
-            pipeline_vm.OpCode(
+            engine.OpCode(
                 'MUL', offset=0, num_samples=4, factor=2))
 
         backend = TestBackend()
 
-        vm = pipeline_vm.PipelineVM()
+        vm = engine.PipelineVM()
         vm.setup_spec(spec)
         vm.setup_backend(backend)
 
@@ -228,16 +204,16 @@ class PipelineVMTest(asynctest.TestCase):
             struct.pack('=ffff', 2, 4, 6, 8))
 
     async def test_MIX(self):
-        spec = pipeline_vm.PipelineVMSpec()
-        spec.buffers.append(pipeline_vm.FloatBufferRef('buf1', 0, 4))
-        spec.buffers.append(pipeline_vm.FloatBufferRef('buf2', 16, 4))
+        spec = engine.PipelineVMSpec()
+        spec.buffers.append(engine.FloatBufferRef('buf1', 0, 4))
+        spec.buffers.append(engine.FloatBufferRef('buf2', 16, 4))
         spec.opcodes.append(
-            pipeline_vm.OpCode(
+            engine.OpCode(
                 'MIX', src_offset=16, dest_offset=0, num_samples=4, factor=0.5))
 
         backend = TestBackend()
 
-        vm = pipeline_vm.PipelineVM()
+        vm = engine.PipelineVM()
         vm.setup_spec(spec)
         vm.setup_backend(backend)
 
@@ -255,7 +231,7 @@ class PipelineVMTest(asynctest.TestCase):
             (2.0, 3.0, 5.0, 6.0))
 
     async def test_CALL(self):
-        vm = pipeline_vm.PipelineVM()
+        vm = engine.PipelineVM()
 
         description = node_db.NodeDescription(
             ports=[
@@ -284,12 +260,12 @@ class PipelineVMTest(asynctest.TestCase):
 
             vm.add_node(node)
 
-            spec = pipeline_vm.PipelineVMSpec()
-            spec.buffers.append(pipeline_vm.FloatBufferRef('buf1', 0, 4))
-            spec.buffers.append(pipeline_vm.FloatBufferRef('buf2', 16, 4))
+            spec = engine.PipelineVMSpec()
+            spec.buffers.append(engine.FloatBufferRef('buf1', 0, 4))
+            spec.buffers.append(engine.FloatBufferRef('buf2', 16, 4))
             spec.nodes.append(['node', [('in', 'buf1'), ('out', 'buf2')]])
             spec.opcodes.append(
-                pipeline_vm.OpCode(
+                engine.OpCode(
                     'CALL', node_idx=0))
             vm.setup_spec(spec)
 
@@ -313,28 +289,28 @@ class PipelineVMTest(asynctest.TestCase):
 
 
     # async def test_play(self):
-    #     vm = pipeline_vm.PipelineVM()
+    #     vm = engine.PipelineVM()
     #     try:
     #         vm.setup()
     #         vm.set_backend(backend.PyAudioBackend())
 
-    #         spec = pipeline_vm.PipelineVMSpec()
-    #         spec.buffers.append(pipeline_vm.FloatBufferRef('buf1', 0, 128))
-    #         spec.buffers.append(pipeline_vm.FloatBufferRef('buf2', 512, 128))
+    #         spec = engine.PipelineVMSpec()
+    #         spec.buffers.append(engine.FloatBufferRef('buf1', 0, 128))
+    #         spec.buffers.append(engine.FloatBufferRef('buf2', 512, 128))
     #         spec.opcodes.append(
-    #             pipeline_vm.OpCode(
+    #             engine.OpCode(
     #                 'SINE', offset=0, num_samples=128, freq=440))
     #         spec.opcodes.append(
-    #             pipeline_vm.OpCode(
+    #             engine.OpCode(
     #                 'MUL', offset=0, num_samples=128, factor=0.8))
     #         spec.opcodes.append(
-    #             pipeline_vm.OpCode(
+    #             engine.OpCode(
     #                 'NOISE', offset=512, num_samples=128))
     #         spec.opcodes.append(
-    #             pipeline_vm.OpCode(
+    #             engine.OpCode(
     #                 'MIX', src_offset=512, dest_offset=0, num_samples=128, factor=0.2))
     #         spec.opcodes.append(
-    #             pipeline_vm.OpCode(
+    #             engine.OpCode(
     #                 'OUTPUT_STEREO', offset_l=0, offset_r=0, num_samples=128))
     #         vm.set_spec(spec)
 

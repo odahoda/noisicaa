@@ -14,9 +14,10 @@ import toposort
 
 from noisicaa import core
 from noisicaa import rwlock
-from . import data
-from . import resample
-from . import node
+from .. import data
+from .. import resample
+from .. import node
+from . import graph
 
 logger = logging.getLogger(__name__)
 
@@ -61,99 +62,6 @@ class PipelineVMSpec(object):
         self.nodes = []
 
 
-class PipelineGraph(object):
-    def __init__(self):
-        self.__nodes = {}
-
-    @property
-    def nodes(self):
-        return set(self.__nodes.values())
-
-    def find_node(self, node_id):
-        return self.__nodes[node_id]
-
-    def add_node(self, node):
-        self.__nodes[node.id] = node
-
-    def remove_node(self, node):
-        del self.__nodes[node.id]
-
-
-def compile_spec(graph, frame_size):
-    spec = PipelineVMSpec()
-
-    sorted_nodes = toposort.toposort_flatten(
-        {n: set(n.parent_nodes) for n in graph.nodes},
-        sort=False)
-
-    buffer_offset = 0
-    buffer_map = {}
-    for n in sorted_nodes:
-        node_idx = len(spec.nodes)
-        port_map = []
-        for port_name, port in n.outputs.items():
-            buffer_id = '%s:%s' % (n.id, port_name)
-            port_map.append((port_name, buffer_id))
-            buffer_ref = FloatBufferRef(
-                buffer_id, buffer_offset, frame_size)
-            buffer_map[buffer_id] = buffer_ref
-            spec.buffers.append(buffer_ref)
-            buffer_offset += buffer_ref.length
-
-        for port_name, port in n.inputs.items():
-            buffer_id = '%s:%s' % (n.id, port_name)
-            port_map.append((port_name, buffer_id))
-            buffer_ref = FloatBufferRef(
-                buffer_id, buffer_offset, frame_size)
-            buffer_map[buffer_id] = buffer_ref
-            spec.buffers.append(buffer_ref)
-            buffer_offset += buffer_ref.length
-
-        spec.nodes.append([n.id, port_map])
-
-        for port_name, port in n.inputs.items():
-            buffer_id = '%s:%s' % (n.id, port_name)
-            buffer_ref = buffer_map[buffer_id]
-
-            first = True
-            for upstream_port in port.inputs:
-                upstream_buffer_id = '%s:%s' % (
-                    upstream_port.owner.id, upstream_port.name)
-                upstream_buffer_ref = buffer_map[upstream_buffer_id]
-
-                assert buffer_ref.length == upstream_buffer_ref.length
-
-                if first:
-                    spec.opcodes.append(OpCode(
-                        'COPY_BUFFER',
-                        src_offset=upstream_buffer_ref.offset,
-                        dest_offset=buffer_ref.offset,
-                        length=buffer_ref.length))
-                    first = False
-                else:
-                    spec.opcodes.append(OpCode(
-                        'MIX',
-                        src_offset=upstream_buffer_ref.offset,
-                        dest_offset=buffer_ref.offset,
-                        num_samples=frame_size,
-                        factor=1.0))
-
-            if first:
-                spec.opcodes.append(OpCode(
-                    'CLEAR_BUFFER',
-                    offset=buffer_ref.offset,
-                    length=buffer_ref.length))
-
-        if isinstance(n, node.CustomNode):
-            spec.opcodes.append(OpCode('CALL', node_idx=node_idx))
-        elif isinstance(n, node.BuiltinNode):
-            spec.opcodes.extend(n.opcodes())
-        else:
-            raise TypeError(type(n))
-
-    return spec
-
-
 class PipelineVM(object):
     def __init__(
             self, *,
@@ -174,7 +82,7 @@ class PipelineVM(object):
         self.__opcode_states = None
         self.__buffer = None
         self.__buffer_map = None
-        self.__graph = PipelineGraph()
+        self.__graph = graph.PipelineGraph()
 
     def reader_lock(self):
         return self.__vm_lock.reader_lock
