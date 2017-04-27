@@ -157,7 +157,6 @@ class Node(object):
                 port.buf_name,
                 ast.BufferType.FLOATS,
                 compiler.frame_size))
-            seq.add(ast.ConnectPort(self.id, port.name, port.buf_name))
 
         for port in self.inputs.values():
             seq.add(ast.ClearBuffer(port.buf_name))
@@ -171,6 +170,9 @@ class Node(object):
 class CustomNode(Node):
     def get_ast(self, compiler):
         seq = super().get_ast(compiler)
+        for port in itertools.chain(
+                self.inputs.values(), self.outputs.values()):
+            seq.add(ast.ConnectPort(self.id, port.name, port.buf_name))
         seq.add(ast.CallNode(self.id))
         return seq
 

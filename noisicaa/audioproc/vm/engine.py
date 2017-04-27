@@ -18,48 +18,9 @@ from .. import data
 from .. import resample
 from .. import node
 from . import graph
+from . import spec
 
 logger = logging.getLogger(__name__)
-
-
-class OpCode(object):
-    def __init__(self, op, **args):
-        self.op = op
-        self.args = args
-
-    def __repr__(self):
-        return '%s(%s)' % (
-            self.op,
-            ', '.join(
-                '%s=%r' % (k, v) for k, v in sorted(self.args.items())))
-
-
-class BufferType(enum.Enum):
-    FLOATS = 1
-
-
-class BufferRef(object):
-    def __init__(self, id, offset, length, type):
-        self.id = id
-        self.offset = offset
-        self.length = length
-        self.type = type
-
-    def __repr__(self):
-        return '%s (%s): %d@%d' % (
-            self.id, self.type.name, self.length, self.offset)
-
-
-class FloatBufferRef(BufferRef):
-    def __init__(self, id, offset, count):
-        super().__init__(id, offset, 4 * count, BufferType.FLOATS)
-
-
-class PipelineVMSpec(object):
-    def __init__(self):
-        self.opcodes = []
-        self.buffers = []
-        self.nodes = []
 
 
 class RunAt(enum.Enum):
@@ -132,45 +93,39 @@ class PipelineVM(object):
         self.cleanup_backend()
         self.cleanup_spec()
 
-    def setup_spec(self, spec):
-        buffer_size = sum(buf.length for buf in spec.buffers)
-        self.allocate_buffer(buffer_size)
-        self.__buffer_map = {buf.id: buf for buf in spec.buffers}
-        self.__opcode_states = [{} for _ in spec.opcodes]
-        self.__spec = spec
+    def setup_spec(self, s):
+        self.allocate_buffer(s.buffer_size)
+        self.__opcode_states = [{} for _ in s.opcodes]
+        self.__spec = s
         self.__spec_initialized = False
 
     def cleanup_spec(self):
         self.__buffer = None
-        self.__buffer_map = None
         self.__opcode_states = None
         self.__spec = None
         self.__spec_initialized = None
 
-    def set_spec(self, spec):
-        logger.info("spec=%s", spec)
+    def set_spec(self, s):
+        logger.info("spec=%s", s)
         with self.writer_lock():
             self.cleanup_spec()
 
-            if spec is not None:
-                self.setup_spec(spec)
+            if s is not None:
+                self.setup_spec(s)
 
     def build_spec(self):
-        spec = PipelineVMSpec()
+        s = PipelineVMSpec()
 
-        return spec
+        return s
 
     def allocate_buffer(self, size):
         self.__buffer = bytearray(size)
 
-    def get_buffer_bytes(self, buf_id):
-        ref = self.__buffer_map[buf_id]
-        return bytes(self.__buffer[ref.offset:ref.offset+ref.length])
+    def get_buffer_bytes(self, offset, length):
+        return bytes(self.__buffer[offset:offset+length])
 
-    def set_buffer_bytes(self, buf_id, data):
-        ref = self.__buffer_map[buf_id]
-        assert len(data) == ref.length
-        self.__buffer[ref.offset:ref.offset+ref.length] = data
+    def set_buffer_bytes(self, offset, data):
+        self.__buffer[offset:offset+len(data)] = data
 
     def cleanup_backend(self):
         if self.__backend is not None:
@@ -267,12 +222,11 @@ class PipelineVM(object):
                         break
 
                     with self.reader_lock():
-                        spec = self.__spec
-                        if spec is not None:
+                        if self.__spec is not None:
                             if not self.__spec_initialized:
-                                self.run_vm(spec, ctxt, RunAt.INIT)
+                                self.run_vm(self.__spec, ctxt, RunAt.INIT)
                                 self.__spec_initialized = True
-                            self.run_vm(spec, ctxt, RunAt.PERFORMANCE)
+                            self.run_vm(self.__spec, ctxt, RunAt.PERFORMANCE)
                         else:
                             time.sleep(0.05)
 
@@ -292,8 +246,8 @@ class PipelineVM(object):
         finally:
             logger.info("VM finished.")
 
-    def run_vm(self, spec, ctxt, run_at):
-        for opcode, state in zip(spec.opcodes, self.__opcode_states):
+    def run_vm(self, s, ctxt, run_at):
+        for opcode, state in zip(s.opcodes, self.__opcode_states):
             opmethod = getattr(self, 'op_' + opcode.op)
             if opmethod.run_at == run_at:
                 logger.info("Executing opcode %s", opcode)
@@ -370,7 +324,7 @@ class PipelineVM(object):
     @at_performance
     def op_MIX(
             self, ctxt, state, *,
-            src_offset, dest_offset, num_samples, factor):
+            src_offset, dest_offset, num_samples):
         assert 0 <= src_offset <= len(self.__buffer) - 4 * num_samples
         assert 0 <= dest_offset <= len(self.__buffer) - 4 * num_samples
         assert num_samples > 0
@@ -381,7 +335,7 @@ class PipelineVM(object):
             dest_val = struct.unpack(
                 '=f', self.__buffer[dest_offset+i:dest_offset+i+4])[0]
             self.__buffer[dest_offset+i:dest_offset+i+4] = struct.pack(
-                '=f', dest_val + factor * src_val)
+                '=f', dest_val + src_val)
 
     @at_init
     def op_CONNECT_PORT(

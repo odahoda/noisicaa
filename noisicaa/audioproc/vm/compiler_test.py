@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class CompilerTest(asynctest.TestCase):
-    async def test_foo(self):
+    def _build_graph(self):
         g = graph.PipelineGraph()
 
         node1 = nodes.PassThru(self.loop)
@@ -29,9 +29,28 @@ class CompilerTest(asynctest.TestCase):
         node3.inputs['audio_left'].connect(node2.outputs['out'])
         node3.inputs['audio_right'].connect(node2.outputs['out'])
 
+        return g
+
+    async def test_build_ast(self):
+        g = self._build_graph()
         comp = compiler.Compiler(graph=g, frame_size=64)
         ast = comp.build_ast()
         print(ast.dump())
+
+    async def test_build_symbol_table(self):
+        g = self._build_graph()
+        comp = compiler.Compiler(graph=g, frame_size=64)
+        ast = comp.build_ast()
+        symbol_table = comp.build_symbol_table(ast)
+        print(symbol_table.dump())
+
+    async def test_build_spec(self):
+        g = self._build_graph()
+        comp = compiler.Compiler(graph=g, frame_size=64)
+        ast = comp.build_ast()
+        symbol_table = comp.build_symbol_table(ast)
+        spec = comp.build_spec(ast, symbol_table)
+        print(spec.dump())
 
 
 if __name__ == '__main__':

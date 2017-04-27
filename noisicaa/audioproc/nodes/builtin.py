@@ -28,5 +28,7 @@ class Sink(node.BuiltinNode):
 
     def get_ast(self, compiler):
         seq = super().get_ast(compiler)
-        seq.add(ast.OutputStereo())
+        seq.add(ast.OutputStereo(
+            self.inputs['audio_left'].buf_name,
+            self.inputs['audio_right'].buf_name))
         return seq

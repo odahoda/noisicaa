@@ -14,6 +14,7 @@ from .. import data
 from .. import resample
 from .. import nodes
 from . import engine
+from . import spec
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +60,13 @@ class PipelineVMTest(asynctest.TestCase):
     async def test_get_buffer_bytes(self):
         vm = engine.PipelineVM()
 
-        spec = engine.PipelineVMSpec()
-        spec.buffers.append(engine.FloatBufferRef('buf', 0, 4))
-        vm.setup_spec(spec)
+        vm_spec = spec.PipelineVMSpec()
+        vm_spec.buffer_size = 16
+        vm.setup_spec(vm_spec)
 
-        vm.set_buffer_bytes('buf', struct.pack('=ffff', 1, 2, 3, 4))
+        vm.set_buffer_bytes(0, struct.pack('=ffff', 1, 2, 3, 4))
         self.assertEqual(
-            vm.get_buffer_bytes('buf'),
+            vm.get_buffer_bytes(0, 16),
             struct.pack('=ffff', 1, 2, 3, 4))
 
     async def test_vm_thread(self):
@@ -79,19 +80,19 @@ class PipelineVMTest(asynctest.TestCase):
             backend.next_step()
 
             # run with a spec
-            spec = engine.PipelineVMSpec()
-            spec.buffers.append(engine.FloatBufferRef('foo', 0, 1))
-            spec.opcodes.append(
-                engine.OpCode('SET_FLOAT', offset=0, value=12))
-            vm.set_spec(spec)
+            vm_spec = spec.PipelineVMSpec()
+            vm_spec.buffer_size = 4
+            vm_spec.opcodes.append(
+                spec.OpCode('SET_FLOAT', offset=0, value=12))
+            vm.set_spec(vm_spec)
             backend.next_step()
 
             # replace spec
-            spec = engine.PipelineVMSpec()
-            spec.buffers.append(engine.FloatBufferRef('foo', 0, 1))
-            spec.opcodes.append(
-                engine.OpCode('SET_FLOAT', offset=0, value=14))
-            vm.set_spec(spec)
+            vm_spec = spec.PipelineVMSpec()
+            vm_spec.buffer_size = 4
+            vm_spec.opcodes.append(
+                spec.OpCode('SET_FLOAT', offset=0, value=14))
+            vm.set_spec(vm_spec)
             backend.next_step()
 
             # run once w/o a spec
@@ -102,50 +103,47 @@ class PipelineVMTest(asynctest.TestCase):
             vm.cleanup()
 
     async def test_run_vm(self):
-        spec = engine.PipelineVMSpec()
-        spec.buffers.append(engine.FloatBufferRef('float', 0, 1))
-        spec.buffers.append(engine.FloatBufferRef('buf1', 4, 256))
-        spec.buffers.append(engine.FloatBufferRef('buf2', 1028, 256))
-        spec.opcodes.append(
-            engine.OpCode(
+        vm_spec = spec.PipelineVMSpec()
+        vm_spec.buffer_size = 4 + 1024 + 1024
+        vm_spec.opcodes.append(
+            spec.OpCode(
                 'SET_FLOAT',
                 offset=0, value=12))
-        spec.opcodes.append(
-            engine.OpCode(
+        vm_spec.opcodes.append(
+            spec.OpCode(
                 'COPY_BUFFER',
                 src_offset=4, dest_offset=1024, length=1024))
 
         vm = engine.PipelineVM()
-        vm.setup_spec(spec)
+        vm.setup_spec(vm_spec)
 
         ctxt = data.FrameContext()
         ctxt.sample_pos = 0
         ctxt.duration = 128
 
-        vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
+        vm.run_vm(vm_spec, ctxt, engine.RunAt.PERFORMANCE)
 
     async def test_OUTPUT_STEREO(self):
-        spec = engine.PipelineVMSpec()
-        spec.buffers.append(engine.FloatBufferRef('bufl', 0, 4))
-        spec.buffers.append(engine.FloatBufferRef('bufr', 16, 4))
-        spec.opcodes.append(
-            engine.OpCode(
+        vm_spec = spec.PipelineVMSpec()
+        vm_spec.buffer_size = 32
+        vm_spec.opcodes.append(
+            spec.OpCode(
                 'OUTPUT_STEREO', offset_l=0, offset_r=16, num_samples=4))
 
         backend = TestBackend()
 
         vm = engine.PipelineVM()
-        vm.setup_spec(spec)
+        vm.setup_spec(vm_spec)
         vm.setup_backend(backend)
 
-        vm.set_buffer_bytes('bufl', struct.pack('=ffff', 1, 2, 3, 4))
-        vm.set_buffer_bytes('bufr', struct.pack('=ffff', 5, 6, 7, 8))
+        vm.set_buffer_bytes(0, struct.pack('=ffff', 1, 2, 3, 4))
+        vm.set_buffer_bytes(16, struct.pack('=ffff', 5, 6, 7, 8))
 
         ctxt = data.FrameContext()
         ctxt.sample_pos = 0
         ctxt.duration = 4
 
-        vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
+        vm.run_vm(vm_spec, ctxt, engine.RunAt.PERFORMANCE)
 
         self.assertEqual(len(backend.written_frames), 1)
         layout, num_samples, samples = backend.written_frames[0]
@@ -156,79 +154,78 @@ class PipelineVMTest(asynctest.TestCase):
         self.assertEqual(samples[1], struct.pack('=ffff', 5, 6, 7, 8))
 
     async def test_NOISE(self):
-        spec = engine.PipelineVMSpec()
-        spec.buffers.append(engine.FloatBufferRef('buf', 0, 4))
-        spec.opcodes.append(
-            engine.OpCode(
+        vm_spec = spec.PipelineVMSpec()
+        vm_spec.buffer_size = 16
+        vm_spec.opcodes.append(
+            spec.OpCode(
                 'NOISE', offset=0, num_samples=4))
 
         backend = TestBackend()
 
         vm = engine.PipelineVM()
-        vm.setup_spec(spec)
+        vm.setup_spec(vm_spec)
         vm.setup_backend(backend)
 
         ctxt = data.FrameContext()
         ctxt.sample_pos = 0
         ctxt.duration = 4
 
-        vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
+        vm.run_vm(vm_spec, ctxt, engine.RunAt.PERFORMANCE)
 
-        for sample in struct.unpack('=ffff', vm.get_buffer_bytes('buf')):
+        for sample in struct.unpack('=ffff', vm.get_buffer_bytes(0, 16)):
             self.assertGreaterEqual(sample, -1.0)
             self.assertLessEqual(sample, 1.0)
 
     async def test_MUL(self):
-        spec = engine.PipelineVMSpec()
-        spec.buffers.append(engine.FloatBufferRef('buf', 0, 4))
-        spec.opcodes.append(
-            engine.OpCode(
+        vm_spec = spec.PipelineVMSpec()
+        vm_spec.buffer_size = 16
+        vm_spec.opcodes.append(
+            spec.OpCode(
                 'MUL', offset=0, num_samples=4, factor=2))
 
         backend = TestBackend()
 
         vm = engine.PipelineVM()
-        vm.setup_spec(spec)
+        vm.setup_spec(vm_spec)
         vm.setup_backend(backend)
 
-        vm.set_buffer_bytes('buf', struct.pack('=ffff', 1, 2, 3, 4))
+        vm.set_buffer_bytes(0, struct.pack('=ffff', 1, 2, 3, 4))
 
         ctxt = data.FrameContext()
         ctxt.sample_pos = 0
         ctxt.duration = 4
 
-        vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
+        vm.run_vm(vm_spec, ctxt, engine.RunAt.PERFORMANCE)
 
         self.assertEqual(
-            vm.get_buffer_bytes('buf'),
+            vm.get_buffer_bytes(0, 16),
             struct.pack('=ffff', 2, 4, 6, 8))
 
     async def test_MIX(self):
-        spec = engine.PipelineVMSpec()
-        spec.buffers.append(engine.FloatBufferRef('buf1', 0, 4))
-        spec.buffers.append(engine.FloatBufferRef('buf2', 16, 4))
-        spec.opcodes.append(
-            engine.OpCode(
-                'MIX', src_offset=16, dest_offset=0, num_samples=4, factor=0.5))
+        vm_spec = spec.PipelineVMSpec()
+        vm_spec.buffer_size = 32
+        vm_spec.opcodes.append(
+            spec.OpCode(
+                'MIX', src_offset=16, dest_offset=0, num_samples=4))
 
         backend = TestBackend()
 
         vm = engine.PipelineVM()
-        vm.setup_spec(spec)
+        vm.setup_spec(vm_spec)
         vm.setup_backend(backend)
 
-        vm.set_buffer_bytes('buf1', struct.pack('=ffff', 1, 2, 3, 4))
-        vm.set_buffer_bytes('buf2', struct.pack('=ffff', 2, 2, 4, 4))
+        vm.set_buffer_bytes(0, struct.pack('=ffff', 1, 2, 3, 4))
+        vm.set_buffer_bytes(16, struct.pack('=ffff', 2, 2, 4, 4))
 
         ctxt = data.FrameContext()
         ctxt.sample_pos = 0
         ctxt.duration = 4
 
-        vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
+        vm.run_vm(vm_spec, ctxt, engine.RunAt.PERFORMANCE)
 
         self.assertEqual(
-            struct.unpack('=ffff', vm.get_buffer_bytes('buf1')),
-            (2.0, 3.0, 5.0, 6.0))
+            struct.unpack('=ffff', vm.get_buffer_bytes(0, 16)),
+            (3.0, 4.0, 7.0, 8.0))
 
     async def test_CALL(self):
         vm = engine.PipelineVM()
@@ -260,42 +257,40 @@ class PipelineVMTest(asynctest.TestCase):
 
             vm.add_node(node)
 
-            spec = engine.PipelineVMSpec()
-            spec.buffers.append(engine.FloatBufferRef('buf1', 0, 4))
-            spec.buffers.append(engine.FloatBufferRef('buf2', 16, 4))
-            spec.nodes.append('node')
-            spec.opcodes.append(
-                engine.OpCode(
+            vm_spec = spec.PipelineVMSpec()
+            vm_spec.buffer_size = 32
+            vm_spec.nodes.append('node')
+            vm_spec.opcodes.append(
+                spec.OpCode(
                     'CONNECT_PORT',
                     node_idx=0, port_name='in', offset=0))
-            spec.opcodes.append(
-                engine.OpCode(
+            vm_spec.opcodes.append(
+                spec.OpCode(
                     'CONNECT_PORT',
                     node_idx=0, port_name='out', offset=16))
-            spec.opcodes.append(
-                engine.OpCode(
+            vm_spec.opcodes.append(
+                spec.OpCode(
                     'CALL', node_idx=0))
-            vm.setup_spec(spec)
+            vm.setup_spec(vm_spec)
 
             backend = TestBackend()
             vm.setup_backend(backend)
 
-            vm.set_buffer_bytes('buf1', struct.pack('=ffff', 20, 40, 60, 80))
+            vm.set_buffer_bytes(0, struct.pack('=ffff', 20, 40, 60, 80))
 
             ctxt = data.FrameContext()
             ctxt.sample_pos = 0
             ctxt.duration = 4
 
-            vm.run_vm(spec, ctxt, engine.RunAt.INIT)
-            vm.run_vm(spec, ctxt, engine.RunAt.PERFORMANCE)
+            vm.run_vm(vm_spec, ctxt, engine.RunAt.INIT)
+            vm.run_vm(vm_spec, ctxt, engine.RunAt.PERFORMANCE)
 
             self.assertEqual(
-                struct.unpack('=ffff', vm.get_buffer_bytes('buf2')),
+                struct.unpack('=ffff', vm.get_buffer_bytes(16, 16)),
                 (2.0, 4.0, 6.0, 8.0))
 
         finally:
             await node.cleanup()
-
 
     # async def test_play(self):
     #     vm = engine.PipelineVM()
@@ -303,25 +298,27 @@ class PipelineVMTest(asynctest.TestCase):
     #         vm.setup()
     #         vm.set_backend(backend.PyAudioBackend())
 
-    #         spec = engine.PipelineVMSpec()
-    #         spec.buffers.append(engine.FloatBufferRef('buf1', 0, 128))
-    #         spec.buffers.append(engine.FloatBufferRef('buf2', 512, 128))
-    #         spec.opcodes.append(
-    #             engine.OpCode(
+    #         vm_spec = spec.PipelineVMSpec()
+    #         vm_spec.buffer_size = 1024
+    #         vm_spec.opcodes.append(
+    #             spec.OpCode(
     #                 'SINE', offset=0, num_samples=128, freq=440))
-    #         spec.opcodes.append(
-    #             engine.OpCode(
+    #         vm_spec.opcodes.append(
+    #             spec.OpCode(
     #                 'MUL', offset=0, num_samples=128, factor=0.8))
-    #         spec.opcodes.append(
-    #             engine.OpCode(
+    #         vm_spec.opcodes.append(
+    #             spec.OpCode(
     #                 'NOISE', offset=512, num_samples=128))
-    #         spec.opcodes.append(
-    #             engine.OpCode(
-    #                 'MIX', src_offset=512, dest_offset=0, num_samples=128, factor=0.2))
-    #         spec.opcodes.append(
-    #             engine.OpCode(
+    #         vm_spec.opcodes.append(
+    #             spec.OpCode(
+    #                 'MUL', offset=512, num_samples=128, factor=0.2))
+    #         vm_spec.opcodes.append(
+    #             spec.OpCode(
+    #                 'MIX', src_offset=512, dest_offset=0, num_samples=128))
+    #         vm_spec.opcodes.append(
+    #             spec.OpCode(
     #                 'OUTPUT_STEREO', offset_l=0, offset_r=0, num_samples=128))
-    #         vm.set_spec(spec)
+    #         vm.set_spec(vm_spec)
 
     #         time.sleep(2.0)
 
