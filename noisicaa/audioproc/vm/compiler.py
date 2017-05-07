@@ -119,3 +119,10 @@ class Compiler(object):
 
         return s
 
+
+def compile_graph(*, graph, frame_size):
+    compiler = Compiler(graph=graph, frame_size=frame_size)
+    ast = compiler.build_ast()
+    symbol_table = compiler.build_symbol_table(ast)
+    spec = compiler.build_spec(ast, symbol_table)
+    return spec

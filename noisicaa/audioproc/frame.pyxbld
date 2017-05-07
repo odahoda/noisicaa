@@ -5,7 +5,6 @@ def make_ext(modname, pyxfilename):
     return Extension(
         name = modname,
         sources=[pyxfilename],
-        libraries=['avutil-ffmpeg'],
     )
 
 # def make_setup_args():

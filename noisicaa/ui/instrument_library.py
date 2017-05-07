@@ -482,7 +482,9 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self._pipeline_mixer_id = await self.audioproc_client.add_node(
             'passthru', name='library-mixer')
         await self.audioproc_client.connect_ports(
-            self._pipeline_mixer_id, 'out', 'sink', 'in')
+            self._pipeline_mixer_id, 'out', 'sink', 'audio_left')
+        await self.audioproc_client.connect_ports(
+            self._pipeline_mixer_id, 'out', 'sink', 'audio_right')
 
     async def cleanup(self):
         logger.info("Cleaning up instrument library dialog...")
@@ -493,7 +495,9 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         if self._pipeline_mixer_id is not None:
             await self.audioproc_client.disconnect_ports(
-                self._pipeline_mixer_id, 'out', 'sink', 'in')
+                self._pipeline_mixer_id, 'out', 'sink', 'audio_right')
+            await self.audioproc_client.disconnect_ports(
+                self._pipeline_mixer_id, 'out', 'sink', 'audio_left')
             await self.audioproc_client.remove_node(
                 self._pipeline_mixer_id)
             self._pipeline_mixer_id = None

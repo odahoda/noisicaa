@@ -19,7 +19,7 @@ from .. import audio_format
 logger = logging.getLogger(__name__)
 
 
-class CSoundBase(node.Node):
+class CSoundBase(node.CustomNode):
     def __init__(self, event_loop, description, name=None, id=None):
         super().__init__(event_loop, description, name, id)
 

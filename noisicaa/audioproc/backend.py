@@ -263,20 +263,31 @@ class IPCBackend(Backend):
                     event.sample_pos -= self.sample_pos_offset
                 self.add_event(queue, event)
 
+            ctxt.out_frame = data.FrameData()
+            ctxt.out_frame.sample_pos = ctxt.sample_pos
+            ctxt.out_frame.duration = ctxt.duration
+
         except audio_stream.StreamClosed:
             logger.warning("Stopping IPC backend.")
             self.stop()
 
     def end_frame(self, ctxt):
-        pass
+        self._stream.send_frame(ctxt.out_frame)
+        self.clear_events()
 
-    def write(self, ctxt):
+        ctxt.in_frame = None
+        ctxt.out_frame = None
+
+    def output(self, layout, num_samples, samples):
+        assert layout == AV_CH_LAYOUT_STEREO
+
         assert ctxt.out_frame is not None
+        assert ctxt.out_frame.samples is None
         assert ctxt.perf.current_span_id == 0
 
         perf_data = ctxt.perf.get_spans()
 
+        ctxt.out_frame.samples = samples[0] + samples[1]
+        ctxt.out_frame.num_samples = num_samples
         ctxt.out_frame.sample_pos += self.sample_pos_offset
         ctxt.out_frame.perf_data = perf_data
-        self._stream.send_frame(ctxt.out_frame)
-        self.clear_events()

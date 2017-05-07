@@ -13,7 +13,7 @@ from ..resample import (Resampler,
 from .. import libfluidsynth
 from ..exceptions import SetupError
 from ..ports import EventInputPort, AudioOutputPort
-from ..node import Node
+from .. import node
 from ..events import NoteOnEvent, NoteOffEvent, EndOfStreamEvent
 from ..frame import Frame
 from .. import audio_format
@@ -21,7 +21,7 @@ from .. import audio_format
 logger = logging.getLogger(__name__)
 
 
-class FluidSynthSource(Node):
+class FluidSynthSource(node.CustomNode):
     class_name = 'fluidsynth'
 
     master_synth = libfluidsynth.Synth()

@@ -7,7 +7,7 @@ import time
 from .. import node
 
 
-class PipelineCrasher(node.Node):
+class PipelineCrasher(node.CustomNode):
     class_name = 'pipeline_crasher'
 
     def run(self, ctxt):

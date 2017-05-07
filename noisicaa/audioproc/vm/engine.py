@@ -19,6 +19,7 @@ from .. import resample
 from .. import node
 from . import graph
 from . import spec
+from . import compiler
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,9 @@ class PipelineVM(object):
         self.__buffer = None
         self.__buffer_map = None
         self.__graph = graph.PipelineGraph()
+
+        self.__notifications = []
+        self.notification_listener = core.CallbackRegistry()
 
     def reader_lock(self):
         return self.__vm_lock.reader_lock
@@ -106,17 +110,17 @@ class PipelineVM(object):
         self.__spec_initialized = None
 
     def set_spec(self, s):
-        logger.info("spec=%s", s)
+        logger.info("spec=%s", s.dump() if s is not None else None)
         with self.writer_lock():
             self.cleanup_spec()
 
             if s is not None:
                 self.setup_spec(s)
 
-    def build_spec(self):
-        s = PipelineVMSpec()
-
-        return s
+    def update_spec(self):
+        with self.writer_lock():
+            s = compiler.compile_graph(graph=self.__graph, frame_size=self.__frame_size)
+            self.set_spec(s)
 
     def allocate_buffer(self, size):
         self.__buffer = bytearray(size)
@@ -147,6 +151,11 @@ class PipelineVM(object):
 
             if backend is not None:
                 self.setup_backend(backend)
+
+    def set_frame_size(self, frame_size):
+        with self.writer_lock():
+            self.__frame_size = frame_size
+            # TODO: recompute buffers
 
     @property
     def nodes(self):
@@ -183,6 +192,9 @@ class PipelineVM(object):
         await node.setup()
         # if self._shm_data is not None:
         #     self._shm_data[512] = 0
+
+    def add_notification(self, node_id, notification):
+        self.__notifications.append((node_id, notification))
 
     def vm_main(self):
         try:
@@ -231,6 +243,13 @@ class PipelineVM(object):
                             time.sleep(0.05)
 
                 finally:
+                    notifications = self.__notifications
+                    self.__notifications = []
+
+                    with ctxt.perf.track('send_notifications'):
+                        for node_id, notification in notifications:
+                            self.notification_listener.call(node_id, notification)
+
                     with ctxt.perf.track('backend_end_frame'):
                         backend.end_frame(ctxt)
 
@@ -250,7 +269,7 @@ class PipelineVM(object):
         for opcode, state in zip(s.opcodes, self.__opcode_states):
             opmethod = getattr(self, 'op_' + opcode.op)
             if opmethod.run_at == run_at:
-                logger.info("Executing opcode %s", opcode)
+                logger.debug("Executing opcode %s", opcode)
                 opmethod(ctxt, state, **opcode.args)
 
     @at_performance

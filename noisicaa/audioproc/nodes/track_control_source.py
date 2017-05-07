@@ -14,7 +14,7 @@ from .. import events
 
 logger = logging.getLogger(__name__)
 
-class TrackControlSource(node.Node):
+class TrackControlSource(node.CustomNode):
     class_name = 'track_control_source'
 
     def __init__(self, event_loop, name=None, id=None, entity_name=None):

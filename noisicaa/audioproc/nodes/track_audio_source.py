@@ -14,7 +14,7 @@ from .. import events
 
 logger = logging.getLogger(__name__)
 
-class TrackAudioSource(node.Node):
+class TrackAudioSource(node.CustomNode):
     class_name = 'track_audio_source'
 
     def __init__(self, event_loop, name=None, id=None, entity_name=None):

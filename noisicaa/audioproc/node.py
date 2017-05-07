@@ -177,10 +177,10 @@ class CustomNode(Node):
         return seq
 
     def connect_port(self, port_name, buf, offset):
-        raise NotImplementedError
+        raise NotImplementedError(type(self))
 
     def run(self, ctxt):
-        raise NotImplementedError
+        raise NotImplementedError(type(self))
 
 
 class BuiltinNode(Node):

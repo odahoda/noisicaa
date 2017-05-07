@@ -9,7 +9,7 @@ from .. import audio_format
 logger = logging.getLogger(__name__)
 
 
-class SplitChannels(node.Node):
+class SplitChannels(node.CustomNode):
     class_name = 'split_channels'
 
     def __init__(self, event_loop, description=None, name='passthru', id=None):
@@ -32,7 +32,7 @@ class SplitChannels(node.Node):
         self._right.frame.samples[0] = self._input.frame.samples[1]
 
 
-class JoinChannels(node.Node):
+class JoinChannels(node.CustomNode):
     class_name = 'join_channels'
 
     def __init__(self, event_loop, description=None, name='passthru', id=None):

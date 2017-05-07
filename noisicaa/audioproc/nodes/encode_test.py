@@ -4,7 +4,6 @@ import unittest
 
 import asynctest
 
-from ..pipeline import Pipeline
 from . import encode
 
 

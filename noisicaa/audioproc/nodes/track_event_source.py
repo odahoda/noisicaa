@@ -12,7 +12,7 @@ from .. import events
 
 logger = logging.getLogger(__name__)
 
-class TrackEventSource(node.Node):
+class TrackEventSource(node.CustomNode):
     class_name = 'track_event_source'
 
     def __init__(self, event_loop, name=None, id=None, queue_name=None):

@@ -11,7 +11,7 @@ from noisicaa import core
 from noisicaa.core import ipc
 
 from . import backend
-from . import pipeline_vm
+from . import vm
 from . import mutations
 from . import node_db
 from . import nodes
@@ -135,7 +135,7 @@ class AudioProcProcessMixin(object):
         if self.shm_name is not None:
             self.shm = posix_ipc.SharedMemory(self.shm_name)
 
-        self.__vm = pipeline_vm.PipelineVM(shm=self.shm)
+        self.__vm = vm.PipelineVM(shm=self.shm)
         self.__vm.listeners.add('perf_data', self.perf_data_callback)
         self.__vm.listeners.add('node_state', self.node_state_callback)
 
@@ -251,6 +251,7 @@ class AudioProcProcessMixin(object):
         node2 = self.__vm.find_node(node2_id)
         with self.__vm.writer_lock():
             node2.inputs[port2_name].connect(node1.outputs[port1_name])
+            self.__vm.update_spec()
         self.publish_mutation(
             mutations.ConnectPorts(
                 node1.outputs[port1_name], node2.inputs[port2_name]))
@@ -262,6 +263,7 @@ class AudioProcProcessMixin(object):
         node2 = self.__vm.find_node(node2_id)
         with self.__vm.writer_lock():
             node2.inputs[port2_name].disconnect(node1.outputs[port1_name])
+            self.__vm.update_spec()
         self.publish_mutation(
             mutations.DisconnectPorts(
                 node1.outputs[port1_name], node2.inputs[port2_name]))
@@ -306,7 +308,7 @@ class AudioProcProcessMixin(object):
         node = nodes.WavFileSource(
             self.event_loop,
             path=path, loop=False, end_notification='end')
-        await node.setup()
+        await self.__vm.setup_node(node)
 
         self.__vm.notification_listener.add(
             node.id,
@@ -315,9 +317,21 @@ class AudioProcProcessMixin(object):
         with self.__vm.writer_lock():
             sink = self.__vm.find_node('sink')
             self.__vm.add_node(node)
-            sink.inputs['in'].connect(node.outputs['out'])
+            sink.inputs['audio_left'].connect(node.outputs['out_left'])
+            sink.inputs['audio_right'].connect(node.outputs['out_right'])
+            self.__vm.update_spec()
 
         return node.id
+
+    def play_file_done(self, notification, node_id):
+        with self.__vm.writer_lock():
+            node = self.__vm.find_node(node_id)
+            sink = self.__vm.find_node('sink')
+            sink.inputs['audio_left'].disconnect(node.outputs['out_left'])
+            sink.inputs['audio_right'].disconnect(node.outputs['out_right'])
+            self.__vm.remove_node(node)
+            self.__vm.update_spec()
+        self.event_loop.create_task(node.cleanup())
 
     async def handle_add_event(self, session_id, queue, event):
         self.get_session(session_id)
@@ -345,14 +359,6 @@ class AudioProcProcessMixin(object):
         node = self.__vm.find_node(node_id)
         with self.__vm.writer_lock():
             node.set_param(**kwargs)
-
-    def play_file_done(self, notification, node_id):
-        with self.__vm.writer_lock():
-            node = self.__vm.find_node(node_id)
-            sink = self.__vm.find_node('sink')
-            sink.inputs['in'].disconnect(node.outputs['out'])
-            self.__vm.remove_node(node)
-        self.event_loop.create_task(node.cleanup())
 
     def handle_dump(self, session_id):
         self.__vm.dump()

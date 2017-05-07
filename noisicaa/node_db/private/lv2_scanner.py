@@ -84,13 +84,9 @@ class LV2Scanner(scanner.Scanner):
                     else:
                         raise ValueError(port)
 
-                    kwargs = {}
-                    kwargs['channels'] = 'mono'
-
                     port_desc = node_db.AudioPortDescription(
                         name=str(port.get_symbol()),
-                        direction=direction,
-                        **kwargs)
+                        direction=direction)
                     ports.append(port_desc)
                 else:
                     # TODO: support other port types (atom, control output, ...).

@@ -15,12 +15,10 @@ class LV2Test(asynctest.TestCase):
             ports=[
                 node_db.AudioPortDescription(
                     name='in',
-                    direction=node_db.PortDirection.Input,
-                    channels='mono'),
+                    direction=node_db.PortDirection.Input),
                 node_db.AudioPortDescription(
                     name='out',
-                    direction=node_db.PortDirection.Output,
-                    channels='mono'),
+                    direction=node_db.PortDirection.Output),
             ],
             parameters=[
                 node_db.InternalParameterDescription(
@@ -34,12 +32,15 @@ class LV2Test(asynctest.TestCase):
             ])
         ctxt = data.FrameContext()
         ctxt.sample_pos = 0
-        ctxt.duration = 1024
+        ctxt.duration = 256
+
+        buf = bytearray(2048)
 
         node = lv2.LV2(self.loop, description)
         await node.setup()
         try:
-            node.collect_inputs(ctxt)
+            node.connect_port('in', buf, 0)
+            node.connect_port('out', buf, 1024)
             node.run(ctxt)
         finally:
             await node.cleanup()

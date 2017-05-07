@@ -75,11 +75,6 @@ class LadspaScanner(scanner.Scanner):
                                 ladspa.PortDirection.Output: node_db.PortDirection.Output,
                             }[port.direction]
 
-                            kwargs = {}
-
-                            if port_type == node_db.PortType.Audio:
-                                kwargs['channels'] = 'mono'
-
                             port_cls = {
                                 node_db.PortType.Audio: node_db.AudioPortDescription,
                                 node_db.PortType.Control: node_db.ControlPortDescription,
@@ -87,8 +82,7 @@ class LadspaScanner(scanner.Scanner):
 
                             port_desc = port_cls(
                                 name=port.name,
-                                direction=direction,
-                                **kwargs)
+                                direction=direction)
                             ports.append(port_desc)
 
                     parameters.append(
