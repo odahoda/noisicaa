@@ -80,9 +80,6 @@ class Backend(object):
     def end_frame(self, ctxt):
         raise NotImplementedError
 
-    def write(self, ctxt):
-        raise NotImplementedError
-
     def output(self, layout, num_samples, samples):
         raise NotImplementedError
 
@@ -114,9 +111,6 @@ class NullBackend(Backend):
         time.sleep(0.01)
 
     def end_frame(self, ctxt):
-        pass
-
-    def write(self, ctxt):
         pass
 
 

@@ -1,15 +1,6 @@
 #!/usr/bin/python3
 
-import collections
-import enum
 import logging
-import math
-import os
-import random
-import struct
-import sys
-import threading
-import time
 
 import toposort
 
@@ -21,26 +12,22 @@ logger = logging.getLogger(__name__)
 
 class SymbolTable(object):
     def __init__(self):
-        self.__buffers = collections.OrderedDict()
-        self.__buffer_size = None
+        self.__buffer_map = {}
+        self.__buffers = []
         self.__node_map = {}
         self.__nodes = []
 
-    @property
-    def buffer_size(self):
-        assert self.__buffer_size is not None
-        return self.__buffer_size
+    def add_buffer(self, name, buf_type):
+        buf_idx = len(self.__buffers)
+        self.__buffers.append(buf_type)
+        self.__buffer_map[name] = buf_idx
+        return buf_idx
 
-    @buffer_size.setter
-    def buffer_size(self, value):
-        assert self.__buffer_size is None
-        self.__buffer_size = value
+    def get_buffer_idx(self, name):
+        return self.__buffer_map[name]
 
-    def add_buffer(self, ref):
-        self.__buffers[ref.name] = ref
-
-    def get_buffer(self, name):
-        return self.__buffers[name]
+    def buffers(self):
+        return self.__buffers[:]
 
     def add_node(self, node_id):
         node_idx = len(self.__nodes)
@@ -57,8 +44,8 @@ class SymbolTable(object):
     def dump(self):
         out = ''
         out += 'buffers:\n'
-        for buffer_ref in self.__buffers.values():
-            out += '  %s\n' % buffer_ref
+        for buf_idx, buffer_ref in enumerate(self.__buffers):
+            out += '  %s: %s\n' % (buf_idx, buffer_ref)
         out += 'nodes:\n'
         for node_idx, node_id in enumerate(self.__nodes):
             out += '  %s: %s\n' % (node_id, node_idx)
@@ -89,30 +76,19 @@ class Compiler(object):
     def build_symbol_table(self, root):
         symbol_table = SymbolTable()
 
-        offset = 0
         for node in root.walk():
             if isinstance(node, ast.AllocBuffer):
-                if node.buf_type == ast.BufferType.FLOATS:
-                    length = 4 * node.length
-                else:
-                    raise ValueError(node.buf_type)
-
-                buffer_ref = ast.BufferRef(
-                    node.buf_name, offset, length, node.buf_type)
-                symbol_table.add_buffer(buffer_ref)
-
-                offset += length
+                symbol_table.add_buffer(node.buf_name, node.buf_type)
 
             elif isinstance(node, ast.CallNode):
                 symbol_table.add_node(node.node_id)
 
-        symbol_table.buffer_size = offset
         return symbol_table
 
     def build_spec(self, root, symbol_table):
         s = spec.PipelineVMSpec()
+        s.buffers = symbol_table.buffers()
         s.nodes = symbol_table.nodes()
-        s.buffer_size = symbol_table.buffer_size
 
         for node in root.walk():
             s.opcodes.extend(node.get_opcodes(symbol_table))

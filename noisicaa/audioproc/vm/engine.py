@@ -5,23 +5,23 @@ import logging
 import math
 import os
 import random
-import struct
 import sys
 import threading
 import time
 
-import toposort
-
 from noisicaa import core
 from noisicaa import rwlock
-from .. import data
+from noisicaa import audioproc
 from .. import resample
-from .. import node
+from . import buffer_type
 from . import graph
-from . import spec
 from . import compiler
 
 logger = logging.getLogger(__name__)
+
+
+class GraphError(Exception):
+    pass
 
 
 class RunAt(enum.Enum):
@@ -36,6 +36,28 @@ def at_performance(func):
 def at_init(func):
     func.run_at = RunAt.INIT
     return func
+
+
+class Buffer(object):
+    def __init__(self, buf_type):
+        self.__type = buf_type
+        self.__data = bytearray(len(self.__type))
+        self.view = self.__type.make_view(self.__data)
+
+    @property
+    def type(self):
+        return self.__type
+
+    @property
+    def data(self):
+        return self.__data
+
+    def to_bytes(self):
+        return bytes(self.__data)
+
+    def set_bytes(self, data):
+        assert len(self.__data) == len(data)
+        self.__data[:] = data
 
 
 class PipelineVM(object):
@@ -57,8 +79,7 @@ class PipelineVM(object):
         self.__spec = None
         self.__spec_initialized = None
         self.__opcode_states = None
-        self.__buffer = None
-        self.__buffer_map = None
+        self.__buffers = None
         self.__graph = graph.PipelineGraph()
 
         self.__notifications = []
@@ -97,39 +118,36 @@ class PipelineVM(object):
         self.cleanup_backend()
         self.cleanup_spec()
 
-    def setup_spec(self, s):
-        self.allocate_buffer(s.buffer_size)
-        self.__opcode_states = [{} for _ in s.opcodes]
-        self.__spec = s
+    def setup_spec(self, spec):
+        self.__buffers = [Buffer(btype) for btype in spec.buffers]
+        self.__opcode_states = [{} for _ in spec.opcodes]
+        self.__spec = spec
         self.__spec_initialized = False
 
     def cleanup_spec(self):
-        self.__buffer = None
+        self.__buffers = None
         self.__opcode_states = None
         self.__spec = None
         self.__spec_initialized = None
 
-    def set_spec(self, s):
-        logger.info("spec=%s", s.dump() if s is not None else None)
+    def set_spec(self, spec):
+        logger.info("spec=%s", spec.dump() if spec is not None else None)
         with self.writer_lock():
             self.cleanup_spec()
 
-            if s is not None:
-                self.setup_spec(s)
+            if spec is not None:
+                self.setup_spec(spec)
 
     def update_spec(self):
         with self.writer_lock():
-            s = compiler.compile_graph(graph=self.__graph, frame_size=self.__frame_size)
-            self.set_spec(s)
+            spec = compiler.compile_graph(graph=self.__graph, frame_size=self.__frame_size)
+            self.set_spec(spec)
 
-    def allocate_buffer(self, size):
-        self.__buffer = bytearray(size)
+    def get_buffer_bytes(self, buf_idx):
+        return self.__buffers[buf_idx].to_bytes()
 
-    def get_buffer_bytes(self, offset, length):
-        return bytes(self.__buffer[offset:offset+length])
-
-    def set_buffer_bytes(self, offset, data):
-        self.__buffer[offset:offset+len(data)] = data
+    def set_buffer_bytes(self, buf_idx, data):
+        self.__buffers[buf_idx].set_bytes(data)
 
     def cleanup_backend(self):
         if self.__backend is not None:
@@ -166,13 +184,13 @@ class PipelineVM(object):
 
     def add_node(self, node):
         if node.pipeline is not None:
-            raise Error("Node has already been added to a pipeline")
+            raise GraphError("Node has already been added to a pipeline")
         node.pipeline = self
         self.__graph.add_node(node)
 
     def remove_node(self, node):
         if node.pipeline is not self:
-            raise Error("Node has not been added to this pipeline")
+            raise GraphError("Node has not been added to this pipeline")
         node.pipeline = None
         self.__graph.remove_node(node)
 
@@ -200,7 +218,7 @@ class PipelineVM(object):
         try:
             logger.info("Starting VM...")
 
-            ctxt = data.FrameContext()
+            ctxt = audioproc.FrameContext()
             ctxt.perf = core.PerfStats()
             ctxt.sample_pos = 0
             ctxt.duration = self.__frame_size
@@ -272,97 +290,82 @@ class PipelineVM(object):
                 logger.debug("Executing opcode %s", opcode)
                 opmethod(ctxt, state, **opcode.args)
 
-    @at_performance
-    def op_COPY_BUFFER(
-            self, ctxt, state, *, src_offset, dest_offset, length):
-        assert 0 <= src_offset <= len(self.__buffer) - length
-        assert 0 <= dest_offset <= len(self.__buffer) - length
-
-        self.__buffer[dest_offset:dest_offset+length] = self.__buffer[src_offset:src_offset+length]
+    # Many opcodes don't use the ctxt or state argument.
+    # pylint: disable=unused-argument
 
     @at_performance
-    def op_CLEAR_BUFFER(
-            self, ctxt, state, *, offset, length):
-        assert 0 <= offset <= len(self.__buffer) - length
-
-        for i in range(offset, offset + length):
-            self.__buffer[i] = 0
+    def op_COPY_BUFFER(self, ctxt, state, *, src_idx, dest_idx):
+        src = self.__buffers[src_idx].view
+        dest = self.__buffers[dest_idx].view
+        dest[:] = src
 
     @at_performance
-    def op_SET_FLOAT(self, ctxt, state, *, offset, value):
-        assert 0 <= offset <= len(self.__buffer) - 4
-
-        struct.pack_into('=f', self.__buffer, offset, value)
+    def op_CLEAR_BUFFER(self, ctxt, state, *, buf_idx):
+        buf = self.__buffers[buf_idx].view
+        buf.fill(0)
 
     @at_performance
-    def op_OUTPUT_STEREO(
-            self, ctxt, state, *, offset_l, offset_r, num_samples):
-        assert 0 <= offset_l <= len(self.__buffer) - 4 * num_samples
-        assert 0 <= offset_r <= len(self.__buffer) - 4 * num_samples
-        assert num_samples > 0
+    def op_SET_FLOAT(self, ctxt, state, *, buf_idx, value):
+        buf = self.__buffers[buf_idx]
+        assert isinstance(buf.type, buffer_type.Float), str(buf.type)
+        buf.view[0] = value
+
+    @at_performance
+    def op_OUTPUT_STEREO(self, ctxt, state, *, buf_idx_l, buf_idx_r):
+        buf_l = self.__buffers[buf_idx_l]
+        assert isinstance(buf_l.type, buffer_type.FloatArray), str(buf_l.type)
+        buf_r = self.__buffers[buf_idx_r]
+        assert isinstance(buf_r.type, buffer_type.FloatArray), str(buf_r.type)
+        assert buf_l.type.size == buf_r.type.size
+
+        data_l = self.__buffers[buf_idx_l].to_bytes()
+        data_r = self.__buffers[buf_idx_r].to_bytes()
 
         self.__backend.output(
             resample.AV_CH_LAYOUT_STEREO,
-            num_samples,
-            [bytes(self.__buffer[offset_l:offset_l+4*num_samples]),
-             bytes(self.__buffer[offset_r:offset_r+4*num_samples])])
+            buf_l.type.size,
+            [data_l, data_r])
 
     @at_performance
-    def op_NOISE(self, ctxt, state, *, offset, num_samples):
-        assert 0 <= offset <= len(self.__buffer) - 4 * num_samples
-        assert num_samples > 0
+    def op_NOISE(self, ctxt, state, *, buf_idx):
+        buf = self.__buffers[buf_idx]
+        assert isinstance(buf.type, buffer_type.FloatArray), str(buf.type)
+        view = buf.view
 
-        for i in range(offset, offset + 4 * num_samples, 4):
-            self.__buffer[i:i+4] = struct.pack(
-                '=f', 2 * random.random() - 1.0)
+        for i in range(buf.type.size):
+            view[i] = 2 * random.random() - 1.0
 
     @at_performance
-    def op_SINE(self, ctxt, state, *, offset, num_samples, freq):
-        assert 0 <= offset <= len(self.__buffer) - 4 * num_samples
-        assert num_samples > 0
+    def op_SINE(self, ctxt, state, *, buf_idx, freq):
+        buf = self.__buffers[buf_idx]
+        assert isinstance(buf.type, buffer_type.FloatArray), str(buf.type)
+        view = buf.view
 
         p = state.get('p', 0.0)
-        for i in range(offset, offset + 4 * num_samples, 4):
-            self.__buffer[i:i+4] = struct.pack(
-                '=f', math.sin(p))
+        for i in range(buf.type.size):
+            view[i] = math.sin(p)
             p += 2 * math.pi * freq / self.__sample_rate
             if p > 2 * math.pi:
                 p -= 2 * math.pi
         state['p'] = p
 
     @at_performance
-    def op_MUL(self, ctxt, state, *, offset, num_samples, factor):
-        assert 0 <= offset <= len(self.__buffer) - 4 * num_samples
-        assert num_samples > 0
-
-        for i in range(offset, offset + 4 * num_samples, 4):
-            self.__buffer[i:i+4] = struct.pack(
-                '=f', factor * struct.unpack(
-                    '=f', self.__buffer[i:i+4])[0])
+    def op_MUL(self, ctxt, state, *, buf_idx, factor):
+        buf = self.__buffers[buf_idx].view
+        buf *= factor
 
     @at_performance
-    def op_MIX(
-            self, ctxt, state, *,
-            src_offset, dest_offset, num_samples):
-        assert 0 <= src_offset <= len(self.__buffer) - 4 * num_samples
-        assert 0 <= dest_offset <= len(self.__buffer) - 4 * num_samples
-        assert num_samples > 0
-
-        for i in range(0, 4 * num_samples, 4):
-            src_val = struct.unpack(
-                '=f', self.__buffer[src_offset+i:src_offset+i+4])[0]
-            dest_val = struct.unpack(
-                '=f', self.__buffer[dest_offset+i:dest_offset+i+4])[0]
-            self.__buffer[dest_offset+i:dest_offset+i+4] = struct.pack(
-                '=f', dest_val + src_val)
+    def op_MIX(self, ctxt, state, *, src_idx, dest_idx):
+        src = self.__buffers[src_idx].view
+        dest = self.__buffers[dest_idx].view
+        dest += src
 
     @at_init
-    def op_CONNECT_PORT(
-            self, ctxt, state, *, node_idx, port_name, offset):
+    def op_CONNECT_PORT(self, ctxt, state, *, node_idx, port_name, buf_idx):
         node_id = self.__spec.nodes[node_idx]
         node = self.__graph.find_node(node_id)
-        node.connect_port(
-            port_name, self.__buffer, offset)
+        buf = self.__buffers[buf_idx].data
+        node.connect_port(port_name, buf, 0)
 
     @at_performance
     def op_CALL(self, ctxt, state, *, node_idx):

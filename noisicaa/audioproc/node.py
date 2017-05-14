@@ -9,6 +9,7 @@ from noisicaa import node_db
 from .exceptions import Error
 from . import ports
 from .vm import ast
+from .vm import buffer_type
 
 logger = logging.getLogger(__name__)
 
@@ -155,8 +156,7 @@ class Node(object):
                 self.inputs.values(), self.outputs.values()):
             seq.add(ast.AllocBuffer(
                 port.buf_name,
-                ast.BufferType.FLOATS,
-                compiler.frame_size))
+                buffer_type.FloatArray(compiler.frame_size)))
 
         for port in self.inputs.values():
             seq.add(ast.ClearBuffer(port.buf_name))

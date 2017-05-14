@@ -11,6 +11,7 @@ from .data import (
     ControlFrameEntity,
     AudioFrameEntity,
     FrameData,
+    FrameContext,
 )
 from .mutations import (
     Mutation,
