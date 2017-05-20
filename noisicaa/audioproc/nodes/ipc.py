@@ -52,11 +52,11 @@ class IPCNode(node.CustomNode):
         self.__stream.cleanup()
         await super().cleanup()
 
-    def connect_port(self, port_name, buf, offset):
+    def connect_port(self, port_name, buf):
         if port_name == 'out_left':
-            self.__out_l = (buf, offset)
+            self.__out_l = buf
         elif port_name == 'out_right':
-            self.__out_r = (buf, offset)
+            self.__out_r = buf
         else:
             raise ValueError(port_name)
 
@@ -75,10 +75,7 @@ class IPCNode(node.CustomNode):
             response.duration, ctxt.duration)
         ctxt.perf.add_spans(response.perf_data)
 
-        outbuf_l, offset_l = self.__out_l
-        outbuf_r, offset_r = self.__out_r
-
         length = 4 * response.duration
         assert len(response.samples) == 2 * length
-        outbuf_l[offset_l:offset_l+length] = response.samples[0:length]
-        outbuf_r[offset_r:offset_r+length] = response.samples[length:]
+        self.__out_l[0:length] = response.samples[0:length]
+        self.__out_r[0:length] = response.samples[length:]

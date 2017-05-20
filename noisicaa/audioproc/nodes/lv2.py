@@ -97,11 +97,11 @@ class LV2(node.CustomNode):
 
         await super().cleanup()
 
-    def connect_port(self, port_name, buf, offset):
+    def connect_port(self, port_name, buf):
         lv2_port = self.__plugin.get_port_by_symbol(
             self.__world.new_string(port_name))
         assert lv2_port is not None, port_name
-        self.__instance.connect_port(lv2_port.get_index(), buf, offset)
+        self.__instance.connect_port(lv2_port.get_index(), buf)
 
     def run(self, ctxt):
         # for port_name, port in self.inputs.items():

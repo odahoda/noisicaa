@@ -34,13 +34,14 @@ class LV2Test(asynctest.TestCase):
         ctxt.sample_pos = 0
         ctxt.duration = 256
 
-        buf = bytearray(2048)
+        buf_in = bytearray(1024)
+        buf_out = bytearray(1024)
 
         node = lv2.LV2(self.loop, description)
         await node.setup()
         try:
-            node.connect_port('in', buf, 0)
-            node.connect_port('out', buf, 1024)
+            node.connect_port('in', buf_in)
+            node.connect_port('out', buf_out)
             node.run(ctxt)
         finally:
             await node.cleanup()

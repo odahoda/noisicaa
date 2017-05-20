@@ -15,9 +15,10 @@ class WavFileSourceTest(asynctest.TestCase):
             self.loop, os.path.join(TESTDATA_DIR, 'ping.wav'))
         await node.setup()
         try:
-            buf = bytearray(2048)
-            node.connect_port('out_left', buf, 0)
-            node.connect_port('out_right', buf, 1024)
+            buf_l = bytearray(1024)
+            buf_r = bytearray(1024)
+            node.connect_port('out_left', buf_in)
+            node.connect_port('out_right', buf_out)
 
             ctxt = data.FrameContext()
             ctxt.sample_pos = 0

@@ -88,18 +88,18 @@ class WavFileSource(node.CustomNode):
 
         fp.close()
 
-    def connect_port(self, port_name, buf, offset):
+    def connect_port(self, port_name, buf):
         if port_name == 'out_left':
-            self.__out_left = (buf, offset)
+            self.__out_left = buf
         elif port_name == 'out_right':
-            self.__out_right = (buf, offset)
+            self.__out_right = buf
         else:
             raise ValueError(port_name)
 
     def run(self, ctxt):
         samples_written = 0
-        outbuf_l, offset_l = self.__out_left
-        outbuf_r, offset_r = self.__out_right
+        outbuf_l, offset_l = self.__out_left, 0
+        outbuf_r, offset_r = self.__out_right, 0
 
         if self.__playing:
             num_samples = min(ctxt.duration, self.__num_samples - self.__pos)

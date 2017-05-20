@@ -30,16 +30,14 @@ class PassThru(node.CustomNode):
         self.__in = None
         self.__out = None
 
-    def connect_port(self, port_name, buf, offset):
+    def connect_port(self, port_name, buf):
         if port_name == 'in':
-            self.__in = (buf, offset)
+            self.__in = buf
         elif port_name == 'out':
-            self.__out = (buf, offset)
+            self.__out = buf
         else:
             raise ValueError(port_name)
 
     def run(self, ctxt):
         length = 4 * ctxt.duration
-        buf_in, offset_in = self.__in
-        buf_out, offset_out = self.__out
-        buf_out[offset_out:offset_out+length] = buf_in[offset_in:offset_in+length]
+        self.__out[0:length] = self.__in[0:length]

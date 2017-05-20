@@ -1,17 +1,9 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- build sequence of opcodes when graph changes
-  - topo sort nodes
-- preallocate buffers and connect nodes
-  - Node has connect_port(label, ptr) method
-    - lv2, ladspa, etc. nodes proxy call to plugin
+- event ports
+  - pickle? atom?
 - what about parameters?
-- opcodes
-  - run_node(node)
-  - clear_buffer(bufnum)
-  - copy_buffer(src_bufnum, dest_bufnum)
-  - merge_buffer(src_bufnum, dest_bufnum)
 - buffer conversion methods?
   - different buffer types for events (native, atom, ...)
   - auto convert as needed

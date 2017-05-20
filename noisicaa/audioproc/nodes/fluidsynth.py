@@ -35,9 +35,11 @@ class FluidSynthSource(node.CustomNode):
                     name='in',
                     direction=node_db.PortDirection.Input),
                 node_db.AudioPortDescription(
-                    name='out',
-                    direction=node_db.PortDirection.Output,
-                    channels='stereo'),
+                    name='out_left',
+                    direction=node_db.PortDirection.Output),
+                node_db.AudioPortDescription(
+                    name='out_right',
+                    direction=node_db.PortDirection.Output),
             ])
 
         super().__init__(event_loop, description, name, id)
@@ -50,6 +52,10 @@ class FluidSynthSource(node.CustomNode):
         self._sfont = None
         self._sfid = None
         self._resampler = None
+
+        self.__in = None
+        self.__out_left = None
+        self.__out_right = None
 
     async def setup(self):
         await super().setup()
@@ -100,6 +106,16 @@ class FluidSynthSource(node.CustomNode):
                 self._sfont = None
             self._synth.delete()
             self._synth = None
+
+    def connect_port(self, port_name, buf):
+        if port_name == 'in':
+            self.__in = buf
+        elif port_name == 'out_left':
+            self.__out_left = buf
+        elif port_name == 'out_right':
+            self.__out_right = buf
+        else:
+            raise ValueError(port_name)
 
     def run(self, ctxt):
         samples = bytes()

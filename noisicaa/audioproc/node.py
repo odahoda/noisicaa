@@ -176,7 +176,7 @@ class CustomNode(Node):
         seq.add(ast.CallNode(self.id))
         return seq
 
-    def connect_port(self, port_name, buf, offset):
+    def connect_port(self, port_name, buf):
         raise NotImplementedError(type(self))
 
     def run(self, ctxt):

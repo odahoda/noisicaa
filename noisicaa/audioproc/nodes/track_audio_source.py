@@ -21,24 +21,37 @@ class TrackAudioSource(node.CustomNode):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.AudioPortDescription(
-                    name='out',
-                    direction=node_db.PortDirection.Output,
-                    channels='stereo'),
+                    name='left',
+                    direction=node_db.PortDirection.Output),
+                node_db.AudioPortDescription(
+                    name='right',
+                    direction=node_db.PortDirection.Output),
             ])
 
         super().__init__(event_loop, description, name, id)
 
         self.entity_name = entity_name
 
+        self.__left = None
+        self.__right = None
+
+    def connect_port(self, port_name, buf):
+        if port_name == 'left':
+            self.__left = buf
+        elif port_name == 'right':
+            self.__right = buf
+        else:
+            raise ValueError(port_name)
+
     def run(self, ctxt):
-        output_port = self.outputs['out']
-
-        output_port.frame.resize(0)
-
         entity = ctxt.in_frame.entities.get(self.entity_name, None)
         if entity is not None:
             assert len(entity.frame.shape) == 2
+            assert entity.frame.shape[0] == ctxt.duration
             assert entity.frame.shape[1] == 2
-            output_port.frame.append_samples(bytes(entity.frame.data), len(entity.frame))
 
-        output_port.frame.resize(ctxt.duration)
+            bytes_l = entity.frame[:,0].tobytes()
+            bytes_r = entity.frame[:,1].tobytes()
+
+            self.__left[0:len(buf_l)] = bytes_l
+            self.__right[0:len(buf_r)] = bytes_r

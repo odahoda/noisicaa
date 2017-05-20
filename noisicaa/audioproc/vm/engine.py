@@ -365,7 +365,7 @@ class PipelineVM(object):
         node_id = self.__spec.nodes[node_idx]
         node = self.__graph.find_node(node_id)
         buf = self.__buffers[buf_idx].data
-        node.connect_port(port_name, buf, 0)
+        node.connect_port(port_name, buf)
 
     @at_performance
     def op_CALL(self, ctxt, state, *, node_idx):
