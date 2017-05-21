@@ -17,8 +17,8 @@ class WavFileSourceTest(asynctest.TestCase):
         try:
             buf_l = bytearray(1024)
             buf_r = bytearray(1024)
-            node.connect_port('out_left', buf_in)
-            node.connect_port('out_right', buf_out)
+            node.connect_port('out_left', buf_l)
+            node.connect_port('out_right', buf_r)
 
             ctxt = data.FrameContext()
             ctxt.sample_pos = 0
