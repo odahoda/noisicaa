@@ -10,6 +10,7 @@ from .audio_stream import (
 from .data import (
     ControlFrameEntity,
     AudioFrameEntity,
+    AtomEntity,
     FrameData,
     FrameContext,
 )

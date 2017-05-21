@@ -1,12 +1,9 @@
 from libc.stdint cimport uint8_t
 from libc cimport stdlib
 
-from .lv2 cimport (
-    URID_Mapper,
-    URID_Map_Feature,
-    URID_Unmap_Feature,
-    LV2_Atom,
-)
+from .lv2.urid cimport URID_Mapper, URID_Map_Feature, URID_Unmap_Feature
+from .lv2.atom cimport LV2_Atom
+
 
 def atom_to_turtle(URID_Mapper mapper, const uint8_t* atom):
     cdef URID_Map_Feature map = URID_Map_Feature(mapper)

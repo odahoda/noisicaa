@@ -8,19 +8,25 @@ import logging
 import operator
 import numpy
 
-from .lv2 cimport (
+from .lv2.core cimport (
     Feature,
     LV2_Feature,
+)
+from .lv2.urid cimport (
     LV2_URID_Map,
     LV2_URID_Unmap,
     URID_Mapper,
+    URID_DynamicMapper,
     URID_Map_Feature,
     URID_Unmap_Feature,
-    Options_Feature,
+)
+from .lv2.options cimport Options_Feature
+from .lv2.bufsize cimport (
     BufSize_BoundedBlockLength_Feature,
     BufSize_PowerOf2BlockLength_Feature,
-    Worker_Feature,
 )
+from .lv2.worker cimport Worker_Feature
+
 
 ### DECLARATIONS ##########################################################
 
@@ -1234,13 +1240,13 @@ cdef class World(object):
     cdef LilvWorld* world
     cdef readonly Namespaces ns
 
-    cdef readonly URID_Mapper urid_mapper
+    cdef readonly URID_DynamicMapper urid_mapper
 
     def __cinit__(self):
         self.world = NULL
 
     def __init__(self):
-        self.urid_mapper = URID_Mapper()
+        self.urid_mapper = URID_DynamicMapper()
 
         self.world = lilv_world_new()
         assert self.world != NULL

@@ -2,7 +2,8 @@
 
 import logging
 
-from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
+from noisicaa.bindings import lv2
+from noisicaa import audioproc
 from noisicaa import core
 
 from . import model
@@ -211,12 +212,6 @@ class EntitySource(object):
         pass
 
     def get_entities(self, frame_data, start_pos, end_pos, sample_pos_offset):
-        sample_pos = frame_data.sample_pos - sample_pos_offset
-        for event in self.get_events(start_pos, end_pos):
-            event.sample_pos += sample_pos_offset
-            frame_data.events.append(('track:%s' % self._track.id, event))
-
-    def get_events(self, start_sample_pos, end_sample_pos):
         raise NotImplementedError
 
 
@@ -234,23 +229,38 @@ class EventSetEntitySource(EntitySource):
         self.__connector.close()
         super().close()
 
-    def get_events(self, start_sample_pos, end_sample_pos):
+    def get_entities(self, frame_data, start_sample_pos, end_sample_pos, sample_pos_offset):
+        sample_pos = frame_data.sample_pos - sample_pos_offset
         start_timepos = self.__time_mapper.sample2timepos(start_sample_pos)
         end_timepos = self.__time_mapper.sample2timepos(end_sample_pos)
 
-        events = []
-        for event in sorted(self.__event_set.get_intervals(start_timepos, end_timepos)):
-            if event.begin >= start_timepos:
-                sample_pos = self.__time_mapper.timepos2sample(event.begin)
-                assert start_sample_pos <= sample_pos < end_sample_pos
-                events.append(NoteOnEvent(sample_pos, event.pitch, event.velocity))
+        entity_id = 'track:%s' % self._track.id
+        try:
+            entity = frame_data.entities[entity_id]
+        except KeyError:
+            entity = audioproc.AtomEntity()
+            frame_data.entities[entity_id] = entity
 
-            if event.end < end_timepos:
-                sample_pos = self.__time_mapper.timepos2sample(event.end)
-                assert start_sample_pos <= sample_pos < end_sample_pos
-                events.append(NoteOffEvent(sample_pos, event.pitch))
+        forge = lv2.AtomForge(lv2.static_mapper)
+        forge.set_buffer(entity.buf, entity.size)
 
-        return events
+        with forge.sequence():
+            for event in sorted(self.__event_set.get_intervals(start_timepos, end_timepos)):
+                if event.begin >= start_timepos:
+                    sample_pos = self.__time_mapper.timepos2sample(event.begin)
+                    assert start_sample_pos <= sample_pos < end_sample_pos
+                    forge.write_midi_event(
+                        sample_pos + sample_pos_offset,
+                        bytes([0b10010000, event.pitch.midi_note, event.velocity]),
+                        3)
+
+                if event.end < end_timepos:
+                    sample_pos = self.__time_mapper.timepos2sample(event.end)
+                    assert start_sample_pos <= sample_pos < end_sample_pos
+                    forge.write_midi_event(
+                        sample_pos + sample_pos_offset,
+                        bytes([0b10000000, event.pitch.midi_note, 0]),
+                        3)
 
 
 class MeasuredEventSetConnector(object):

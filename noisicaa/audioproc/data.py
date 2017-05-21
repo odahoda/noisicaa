@@ -43,6 +43,14 @@ class AudioFrameEntity(Entity):
         self.frame[r1:r2] = frame
 
 
+class AtomEntity(Entity):
+    size = 10240
+
+    def __init__(self):
+        super().__init__()
+        self.buf = bytearray(self.size)
+
+
 class FrameData(object):
     def __init__(self):
         self.sample_pos = None
