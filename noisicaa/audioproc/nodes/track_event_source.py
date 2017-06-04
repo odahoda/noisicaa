@@ -27,8 +27,14 @@ class TrackEventSource(node.CustomNode):
 
         self.queue_name = queue_name
 
+    def connect_port(self, port_name, buf):
+        # TODO
+        pass
+
     def run(self, ctxt):
-        output_port = self.outputs['out']
-        output_port.events.clear()
-        output_port.events.extend(
-            self.pipeline.backend.get_events(self.queue_name))
+        # TODO
+        pass
+        # output_port = self.outputs['out']
+        # output_port.events.clear()
+        # output_port.events.extend(
+        #     self.pipeline.backend.get_events(self.queue_name))

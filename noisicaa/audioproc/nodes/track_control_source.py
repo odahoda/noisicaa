@@ -34,7 +34,7 @@ class TrackControlSource(node.CustomNode):
 
         output_port.frame.resize(ctxt.duration)
 
-        entity = ctxt.in_frame.entities.get(self.entity_name, None)
+        entity = ctxt.entities.get(self.entity_name, None)
         if entity is not None:
             output_port.frame[0:len(entity.frame)] = entity.frame
         else:

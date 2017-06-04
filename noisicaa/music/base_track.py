@@ -176,7 +176,11 @@ class Track(model.Track, state.StateBase):
         self.mixer_id = mixer_node.id
 
         conn = pipeline_graph.PipelineGraphConnection(
-            mixer_node, 'out', parent_mixer_node, 'in')
+            mixer_node, 'out:left', parent_mixer_node, 'in:left')
+        self.sheet.add_pipeline_graph_connection(conn)
+
+        conn = pipeline_graph.PipelineGraphConnection(
+            mixer_node, 'out:right', parent_mixer_node, 'in:right')
         self.sheet.add_pipeline_graph_connection(conn)
 
     def remove_pipeline_nodes(self):

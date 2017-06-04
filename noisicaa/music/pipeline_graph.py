@@ -372,7 +372,11 @@ class TrackMixerPipelineGraphNode(
                 'passthru', self.pipeline_node_id, self.name))
         self.sheet.handle_pipeline_mutation(
             mutations.SetPortProperty(
-                self.pipeline_node_id, 'out',
+                self.pipeline_node_id, 'out:left',
+                muted=self.track.muted, volume=self.track.volume))
+        self.sheet.handle_pipeline_mutation(
+            mutations.SetPortProperty(
+                self.pipeline_node_id, 'out:right',
                 muted=self.track.muted, volume=self.track.volume))
 
         self.set_initial_parameters()

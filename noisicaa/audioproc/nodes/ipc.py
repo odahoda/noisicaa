@@ -29,10 +29,10 @@ class IPCNode(node.CustomNode):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.AudioPortDescription(
-                    name='out_left',
+                    name='out:left',
                     direction=node_db.PortDirection.Output),
                 node_db.AudioPortDescription(
-                    name='out_right',
+                    name='out:right',
                     direction=node_db.PortDirection.Output),
             ])
 
@@ -53,9 +53,9 @@ class IPCNode(node.CustomNode):
         await super().cleanup()
 
     def connect_port(self, port_name, buf):
-        if port_name == 'out_left':
+        if port_name == 'out:left':
             self.__out_l = buf
-        elif port_name == 'out_right':
+        elif port_name == 'out:right':
             self.__out_r = buf
         else:
             raise ValueError(port_name)
@@ -64,8 +64,9 @@ class IPCNode(node.CustomNode):
         request = data.FrameData()
         request.sample_pos = ctxt.sample_pos
         request.duration = ctxt.duration
-        request.events = self.pipeline.backend.get_events_for_prefix(
-            self.__event_queue_name)
+        # TODO: get (event) buffers for this sheet.
+        # request.events = self.pipeline.backend.get_events_for_prefix(
+        #     self.__event_queue_name)
         self.__stream.send_frame(request)
         response = self.__stream.receive_frame()
 
@@ -75,7 +76,9 @@ class IPCNode(node.CustomNode):
             response.duration, ctxt.duration)
         ctxt.perf.add_spans(response.perf_data)
 
-        length = 4 * response.duration
-        assert len(response.samples) == 2 * length
-        self.__out_l[0:length] = response.samples[0:length]
-        self.__out_r[0:length] = response.samples[length:]
+        if response.samples:
+            length = 4 * response.duration
+            assert len(response.samples) == 2 * length, (
+                '%s != %s' % (len(response.samples), 2 * length))
+            self.__out_l[0:length] = response.samples[0:length]
+            self.__out_r[0:length] = response.samples[length:]

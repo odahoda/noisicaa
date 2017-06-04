@@ -3,6 +3,7 @@
 import asyncio
 import functools
 import logging
+import sys
 import uuid
 
 import posix_ipc
@@ -233,6 +234,7 @@ class AudioProcProcessMixin(object):
         await self.__vm.setup_node(node)
         with self.__vm.writer_lock():
             self.__vm.add_node(node)
+            self.__vm.update_spec()
         self.publish_mutation(mutations.AddNode(node))
         return node.id
 
@@ -241,16 +243,33 @@ class AudioProcProcessMixin(object):
         node = self.__vm.find_node(node_id)
         with self.__vm.writer_lock():
             self.__vm.remove_node(node)
+            self.__vm.update_spec()
         await node.cleanup()
         self.publish_mutation(mutations.RemoveNode(node))
 
     def handle_connect_ports(
             self, session_id, node1_id, port1_name, node2_id, port2_name):
         session = self.get_session(session_id)
+
         node1 = self.__vm.find_node(node1_id)
+        try:
+            port1 = node1.outputs[port1_name]
+        except KeyError as exc:
+            raise KeyError(
+                "Node %s (%s) has no port %s"
+                % (node1.id, type(node1).__name__, port1_name)
+            ).with_traceback(sys.exc_info()[2]) from None
+
         node2 = self.__vm.find_node(node2_id)
+        try:
+            port2 = node2.inputs[port2_name]
+        except KeyError as exc:
+            raise KeyError(
+                "Node %s (%s) has no port %s"
+                % (node2.id, type(node2).__name__, port2_name)
+            ).with_traceback(sys.exc_info()[2]) from None
         with self.__vm.writer_lock():
-            node2.inputs[port2_name].connect(node1.outputs[port1_name])
+            port2.connect(port1)
             self.__vm.update_spec()
         self.publish_mutation(
             mutations.ConnectPorts(
@@ -317,8 +336,8 @@ class AudioProcProcessMixin(object):
         with self.__vm.writer_lock():
             sink = self.__vm.find_node('sink')
             self.__vm.add_node(node)
-            sink.inputs['audio_left'].connect(node.outputs['out_left'])
-            sink.inputs['audio_right'].connect(node.outputs['out_right'])
+            sink.inputs['in:left'].connect(node.outputs['out:left'])
+            sink.inputs['in:right'].connect(node.outputs['out:right'])
             self.__vm.update_spec()
 
         return node.id
@@ -327,8 +346,8 @@ class AudioProcProcessMixin(object):
         with self.__vm.writer_lock():
             node = self.__vm.find_node(node_id)
             sink = self.__vm.find_node('sink')
-            sink.inputs['audio_left'].disconnect(node.outputs['out_left'])
-            sink.inputs['audio_right'].disconnect(node.outputs['out_right'])
+            sink.inputs['in:left'].disconnect(node.outputs['out:left'])
+            sink.inputs['in:right'].disconnect(node.outputs['out:right'])
             self.__vm.remove_node(node)
             self.__vm.update_spec()
         self.event_loop.create_task(node.cleanup())

@@ -35,10 +35,10 @@ class FluidSynthSource(node.CustomNode):
                     name='in',
                     direction=node_db.PortDirection.Input),
                 node_db.AudioPortDescription(
-                    name='out_left',
+                    name='out:left',
                     direction=node_db.PortDirection.Output),
                 node_db.AudioPortDescription(
-                    name='out_right',
+                    name='out:right',
                     direction=node_db.PortDirection.Output),
             ])
 
@@ -110,59 +110,60 @@ class FluidSynthSource(node.CustomNode):
     def connect_port(self, port_name, buf):
         if port_name == 'in':
             self.__in = buf
-        elif port_name == 'out_left':
+        elif port_name == 'out:left':
             self.__out_left = buf
-        elif port_name == 'out_right':
+        elif port_name == 'out:right':
             self.__out_right = buf
         else:
             raise ValueError(port_name)
 
     def run(self, ctxt):
-        samples = bytes()
-        tp = ctxt.sample_pos
+        pass  # TODO
+        # samples = bytes()
+        # tp = ctxt.sample_pos
 
-        for event in self.inputs['in'].events:
-            if event.sample_pos != -1:
-                assert ctxt.sample_pos <= event.sample_pos < ctxt.sample_pos + ctxt.duration, (
-                    ctxt.sample_pos, event.sample_pos, ctxt.sample_pos + ctxt.duration)
-                esample_pos = event.sample_pos
-            else:
-                esample_pos = ctxt.sample_pos
+        # for event in self.inputs['in'].events:
+        #     if event.sample_pos != -1:
+        #         assert ctxt.sample_pos <= event.sample_pos < ctxt.sample_pos + ctxt.duration, (
+        #             ctxt.sample_pos, event.sample_pos, ctxt.sample_pos + ctxt.duration)
+        #         esample_pos = event.sample_pos
+        #     else:
+        #         esample_pos = ctxt.sample_pos
 
-            if esample_pos > tp:
-                samples += bytes(
-                    self._synth.get_samples(esample_pos - tp))
-                tp = esample_pos
+        #     if esample_pos > tp:
+        #         samples += bytes(
+        #             self._synth.get_samples(esample_pos - tp))
+        #         tp = esample_pos
 
-            if isinstance(event, NoteOnEvent):
-                self._synth.noteon(
-                    0, event.note.midi_note, event.volume)
-            elif isinstance(event, NoteOffEvent):
-                self._synth.noteoff(
-                    0, event.note.midi_note)
-            elif isinstance(event, EndOfStreamEvent):
-                break
-            else:
-                raise NotImplementedError(
-                    "Event class %s not supported" % type(event).__name__)
+        #     if isinstance(event, NoteOnEvent):
+        #         self._synth.noteon(
+        #             0, event.note.midi_note, event.volume)
+        #     elif isinstance(event, NoteOffEvent):
+        #         self._synth.noteoff(
+        #             0, event.note.midi_note)
+        #     elif isinstance(event, EndOfStreamEvent):
+        #         break
+        #     else:
+        #         raise NotImplementedError(
+        #             "Event class %s not supported" % type(event).__name__)
 
-        if tp < ctxt.sample_pos + ctxt.duration:
-            samples += bytes(
-                self._synth.get_samples(
-                    ctxt.sample_pos + ctxt.duration - tp))
+        # if tp < ctxt.sample_pos + ctxt.duration:
+        #     samples += bytes(
+        #         self._synth.get_samples(
+        #             ctxt.sample_pos + ctxt.duration - tp))
 
-        samples = self._resampler.convert(
-            samples, len(samples) // 4)
+        # samples = self._resampler.convert(
+        #     samples, len(samples) // 4)
 
-        output_port = self.outputs['out']
-        af = output_port.frame.audio_format
-        frame = Frame(af, 0, set())
-        frame.append_samples(
-            samples, len(samples) // (
-                # pylint thinks that frame.audio_format is a class object.
-                # pylint: disable=E1101
-                af.num_channels * af.bytes_per_sample))
-        assert len(frame) == ctxt.duration
+        # output_port = self.outputs['out']
+        # af = output_port.frame.audio_format
+        # frame = Frame(af, 0, set())
+        # frame.append_samples(
+        #     samples, len(samples) // (
+        #         # pylint thinks that frame.audio_format is a class object.
+        #         # pylint: disable=E1101
+        #         af.num_channels * af.bytes_per_sample))
+        # assert len(frame) == ctxt.duration
 
-        output_port.frame.resize(ctxt.duration)
-        output_port.frame.copy_from(frame)
+        # output_port.frame.resize(ctxt.duration)
+        # output_port.frame.copy_from(frame)

@@ -77,7 +77,7 @@ class Backend(object):
     def begin_frame(self, ctxt):
         raise NotImplementedError
 
-    def end_frame(self, ctxt):
+    def end_frame(self):
         raise NotImplementedError
 
     def output(self, layout, num_samples, samples):
@@ -107,75 +107,83 @@ class Backend(object):
 
 
 class NullBackend(Backend):
-    def begin_frame(self, ctxt):
-        time.sleep(0.01)
+    def __init__(self, *, frame_size=512):
+        super().__init__()
+        self.__frame_size = frame_size
 
-    def end_frame(self, ctxt):
+    def begin_frame(self, ctxt):
+        ctxt.duration = self.__frame_size
+
+    def end_frame(self):
+        pass
+
+    def output(self, layout, num_samples, samples):
         pass
 
 
 class PyAudioBackend(Backend):
-    def __init__(self):
+    def __init__(self, *, frame_size=512):
         super().__init__()
 
-        self._audio = None
-        self._stream = None
-        self._resampler = None
-        self._buffer_lock = threading.Lock()
-        self._buffer = bytearray()
-        self._need_more = threading.Event()
-        self._bytes_per_sample = 2 * 2
-        self._buffer_threshold = 4096 * self._bytes_per_sample
+        self.__audio = None
+        self.__stream = None
+        self.__resampler = None
+        self.__buffer_lock = threading.Lock()
+        self.__buffer = bytearray()
+        self.__need_more = threading.Event()
+        self.__bytes_per_sample = 2 * 2
+        self.__buffer_threshold = 4096 * self.__bytes_per_sample
+        self.__frame_size = frame_size
 
     def setup(self, sample_rate):
         super().setup(sample_rate)
 
-        self._audio = pyaudio.PyAudio()
+        self.__audio = pyaudio.PyAudio()
 
         ch_layout = AV_CH_LAYOUT_STEREO
         sample_fmt = AV_SAMPLE_FMT_S16
         sample_rate = 44100
 
-        self._stream = self._audio.open(
+        self.__stream = self.__audio.open(
             format=pyaudio.paInt16,
             channels=2,
             rate=sample_rate,
             output=True,
-            stream_callback=self._callback)
+            stream_callback=self.__callback)
 
         # use format of input buffer
-        self._resampler = Resampler(
+        self.__resampler = Resampler(
             AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_FLT, self.sample_rate,
             ch_layout, sample_fmt, sample_rate)
 
-        self._buffer.clear()
-        self._need_more.set()
+        self.__buffer.clear()
+        self.__need_more.set()
 
     def cleanup(self):
-        if self._stream is not None:
-            self._stream.close()
-            self._stream = None
+        if self.__stream is not None:
+            self.__stream.close()
+            self.__stream = None
 
-        if self._audio is not None:
-            self._audio.terminate()
-            self._audio = None
+        if self.__audio is not None:
+            self.__audio.terminate()
+            self.__audio = None
 
-        self._resampler = None
+        self.__resampler = None
 
-    def _callback(self, in_data, frame_count, time_info, status):
-        num_bytes = frame_count * self._bytes_per_sample
-        with self._buffer_lock:
-            samples = self._buffer[:num_bytes]
-            del self._buffer[:num_bytes]
+    def __callback(self, in_data, frame_count, time_info, status):
+        num_bytes = frame_count * self.__bytes_per_sample
+        with self.__buffer_lock:
+            samples = self.__buffer[:num_bytes]
+            del self.__buffer[:num_bytes]
 
-            if len(self._buffer) < self._buffer_threshold:
-                self._need_more.set()
+            if len(self.__buffer) < self.__buffer_threshold:
+                self.__need_more.set()
 
         if len(samples) < num_bytes:
             # buffer underrun, pad with silence
             logger.warning(
                 "Buffer underrun, need %d samples, but only have %d",
-                frame_count, len(samples) / self._bytes_per_sample)
+                frame_count, len(samples) / self.__bytes_per_sample)
 
             samples.extend([0] * (num_bytes - len(samples)))
 
@@ -183,15 +191,16 @@ class PyAudioBackend(Backend):
 
     def stop(self):
         super().stop()
-        self._need_more.set()
+        self.__need_more.set()
 
     def begin_frame(self, ctxt):
         if self.stopped:
             return
-        self._need_more.wait()
+        self.__need_more.wait()
         self.clear_events()
+        ctxt.duration = self.__frame_size
 
-    def end_frame(self, ctxt):
+    def end_frame(self):
         pass
 
     def output(self, layout, num_samples, samples):
@@ -209,11 +218,11 @@ class PyAudioBackend(Backend):
         interleaved[6::8] = samples[1][2::4]
         interleaved[7::8] = samples[1][3::4]
 
-        converted = self._resampler.convert(interleaved, num_samples)
-        with self._buffer_lock:
-            self._buffer.extend(converted)
-            if len(self._buffer) >= self._buffer_threshold:
-                self._need_more.clear()
+        converted = self.__resampler.convert(interleaved, num_samples)
+        with self.__buffer_lock:
+            self.__buffer.extend(converted)
+            if len(self.__buffer) >= self.__buffer_threshold:
+                self.__need_more.clear()
 
 
 class Stopped(Exception):
@@ -230,58 +239,58 @@ class IPCBackend(Backend):
         self.address = os.path.join(
             socket_dir, 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
-        self._stream = audio_stream.AudioStreamServer(self.address)
-        self._sample_pos_offset = None
+        self.__stream = audio_stream.AudioStreamServer(self.address)
+        self.__sample_pos_offset = None
+        self.__ctxt = None
+        self.__out_frame = None
 
     def setup(self, sample_rate):
         super().setup(sample_rate)
-        self._stream.setup()
+        self.__stream.setup()
 
     def cleanup(self):
-        self._stream.cleanup()
+        self.__stream.cleanup()
         super().cleanup()
 
     def stop(self):
-        self._stream.close()
+        self.__stream.close()
         super().stop()
 
     def begin_frame(self, ctxt):
+        self.__ctxt = ctxt
         try:
-            ctxt.in_frame = self._stream.receive_frame()
-            ctxt.duration = ctxt.in_frame.duration
-            self.sample_pos_offset = ctxt.in_frame.sample_pos - ctxt.sample_pos
-            ctxt.in_frame.sample_pos = ctxt.sample_pos
-            for queue, event in ctxt.in_frame.events:
-                # Correct event's sample_pos.
-                if event.sample_pos != -1:
-                    event.sample_pos -= self.sample_pos_offset
-                self.add_event(queue, event)
+            in_frame = self.__stream.receive_frame()
+            ctxt.duration = in_frame.duration
+            ctxt.entities = in_frame.entities
+            self.__sample_pos_offset = in_frame.sample_pos - ctxt.sample_pos
 
-            ctxt.out_frame = data.FrameData()
-            ctxt.out_frame.sample_pos = ctxt.sample_pos
-            ctxt.out_frame.duration = ctxt.duration
+            self.__out_frame = data.FrameData()
+            self.__out_frame.sample_pos = ctxt.sample_pos
+            self.__out_frame.duration = ctxt.duration
 
         except audio_stream.StreamClosed:
             logger.warning("Stopping IPC backend.")
             self.stop()
 
-    def end_frame(self, ctxt):
-        self._stream.send_frame(ctxt.out_frame)
+    def end_frame(self):
+        if self.__out_frame is not None:
+            self.__stream.send_frame(self.__out_frame)
+
         self.clear_events()
 
-        ctxt.in_frame = None
-        ctxt.out_frame = None
+        self.__out_frame = None
+        self.__ctxt = None
 
     def output(self, layout, num_samples, samples):
         assert layout == AV_CH_LAYOUT_STEREO
 
-        assert ctxt.out_frame is not None
-        assert ctxt.out_frame.samples is None
-        assert ctxt.perf.current_span_id == 0
+        assert self.__out_frame is not None
+        assert self.__out_frame.samples is None
+        assert self.__ctxt.perf.current_span_id == 0
 
-        perf_data = ctxt.perf.get_spans()
+        perf_data = self.__ctxt.perf.get_spans()
 
-        ctxt.out_frame.samples = samples[0] + samples[1]
-        ctxt.out_frame.num_samples = num_samples
-        ctxt.out_frame.sample_pos += self.sample_pos_offset
-        ctxt.out_frame.perf_data = perf_data
+        self.__out_frame.samples = samples[0] + samples[1]
+        self.__out_frame.num_samples = num_samples
+        self.__out_frame.sample_pos += self.__sample_pos_offset
+        self.__out_frame.perf_data = perf_data

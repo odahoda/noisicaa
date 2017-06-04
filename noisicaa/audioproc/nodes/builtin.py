@@ -17,10 +17,10 @@ class Sink(node.BuiltinNode):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.AudioPortDescription(
-                    name='audio_left',
+                    name='in:left',
                     direction=node_db.PortDirection.Input),
                 node_db.AudioPortDescription(
-                    name='audio_right',
+                    name='in:right',
                     direction=node_db.PortDirection.Input),
             ])
 
@@ -29,6 +29,6 @@ class Sink(node.BuiltinNode):
     def get_ast(self, compiler):
         seq = super().get_ast(compiler)
         seq.add(ast.OutputStereo(
-            self.inputs['audio_left'].buf_name,
-            self.inputs['audio_right'].buf_name))
+            self.inputs['in:left'].buf_name,
+            self.inputs['in:right'].buf_name))
         return seq

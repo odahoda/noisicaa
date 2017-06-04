@@ -44,7 +44,7 @@ class TrackAudioSource(node.CustomNode):
             raise ValueError(port_name)
 
     def run(self, ctxt):
-        entity = ctxt.in_frame.entities.get(self.entity_name, None)
+        entity = ctxt.entities.get(self.entity_name, None)
         if entity is not None:
             assert len(entity.frame.shape) == 2
             assert entity.frame.shape[0] == ctxt.duration

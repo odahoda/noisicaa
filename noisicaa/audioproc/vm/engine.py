@@ -91,6 +91,10 @@ class PipelineVM(object):
     def writer_lock(self):
         return self.__vm_lock.writer_lock
 
+    def dump(self):
+        # TODO: reimplement
+        pass
+
     def setup(self):
         self.__vm_started = threading.Event()
         self.__vm_exit = threading.Event()
@@ -140,7 +144,9 @@ class PipelineVM(object):
 
     def update_spec(self):
         with self.writer_lock():
-            spec = compiler.compile_graph(graph=self.__graph, frame_size=self.__frame_size)
+            spec = compiler.compile_graph(
+                graph=self.__graph,
+                frame_size=self.__frame_size)
             self.set_spec(spec)
 
     def get_buffer_bytes(self, buf_idx):
@@ -171,9 +177,10 @@ class PipelineVM(object):
                 self.setup_backend(backend)
 
     def set_frame_size(self, frame_size):
+        logger.info("frame_size=%d", frame_size)
         with self.writer_lock():
             self.__frame_size = frame_size
-            # TODO: recompute buffers
+            self.update_spec()
 
     @property
     def nodes(self):
@@ -221,7 +228,7 @@ class PipelineVM(object):
             ctxt = audioproc.FrameContext()
             ctxt.perf = core.PerfStats()
             ctxt.sample_pos = 0
-            ctxt.duration = self.__frame_size
+            ctxt.duration = -1
 
             self.__vm_started.set()
 
@@ -229,10 +236,6 @@ class PipelineVM(object):
                 if self.__vm_exit.is_set():
                     logger.info("Exiting VM mainloop.")
                     break
-
-                # TODO: remove traces of in/out_frame
-                ctxt.in_frame = None
-                ctxt.out_frame = None
 
                 backend = self.__backend
                 if backend is None:
@@ -250,6 +253,9 @@ class PipelineVM(object):
                 try:
                     if backend.stopped:
                         break
+
+                    if ctxt.duration != self.__frame_size:
+                        self.set_frame_size(ctxt.duration)
 
                     with self.reader_lock():
                         if self.__spec is not None:
@@ -269,10 +275,9 @@ class PipelineVM(object):
                             self.notification_listener.call(node_id, notification)
 
                     with ctxt.perf.track('backend_end_frame'):
-                        backend.end_frame(ctxt)
+                        backend.end_frame()
 
                 ctxt.sample_pos += ctxt.duration
-                ctxt.duration = self.__frame_size
 
         except:  # pragma: no coverage  # pylint: disable=bare-except
             sys.stdout.flush()

@@ -20,10 +20,10 @@ class WavFileSource(node.CustomNode):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.AudioPortDescription(
-                    name='out_left',
+                    name='out:left',
                     direction=node_db.PortDirection.Output),
                 node_db.AudioPortDescription(
-                    name='out_right',
+                    name='out:right',
                     direction=node_db.PortDirection.Output),
             ])
 
@@ -89,9 +89,9 @@ class WavFileSource(node.CustomNode):
         fp.close()
 
     def connect_port(self, port_name, buf):
-        if port_name == 'out_left':
+        if port_name == 'out:left':
             self.__out_left = buf
-        elif port_name == 'out_right':
+        elif port_name == 'out:right':
             self.__out_right = buf
         else:
             raise ValueError(port_name)
