@@ -42,8 +42,3 @@ class NoteOnEvent(NoteEvent):
 class NoteOffEvent(NoteEvent):
     def __init__(self, sample_pos, note, tags=None):
         super().__init__(sample_pos, note)
-
-
-class EndOfStreamEvent(Event):
-    def __init__(self, sample_pos, tags=None):
-        super().__init__(sample_pos, tags)

@@ -6,17 +6,9 @@ import time
 
 from noisicaa import node_db
 
-from ..resample import (Resampler,
-                        AV_CH_LAYOUT_STEREO,
-                        AV_SAMPLE_FMT_S16,
-                        AV_SAMPLE_FMT_FLT)
-from .. import libfluidsynth
-from ..exceptions import SetupError
-from ..ports import EventInputPort, AudioOutputPort
+from noisicaa.bindings import fluidsynth
+from noisicaa.bindings import lv2
 from .. import node
-from ..events import NoteOnEvent, NoteOffEvent, EndOfStreamEvent
-from ..frame import Frame
-from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +16,7 @@ logger = logging.getLogger(__name__)
 class FluidSynthSource(node.CustomNode):
     class_name = 'fluidsynth'
 
-    master_synth = libfluidsynth.Synth()
+    master_synth = fluidsynth.Synth()
     master_sfonts = {}
 
     def __init__(self, event_loop, name=None, id=None,
@@ -44,14 +36,13 @@ class FluidSynthSource(node.CustomNode):
 
         super().__init__(event_loop, description, name, id)
 
-        self._soundfont_path = soundfont_path
-        self._bank = bank
-        self._preset = preset
+        self.__soundfont_path = soundfont_path
+        self.__bank = bank
+        self.__preset = preset
 
-        self._synth = None
-        self._sfont = None
-        self._sfid = None
-        self._resampler = None
+        self.__synth = None
+        self.__sfont = None
+        self.__sfid = None
 
         self.__in = None
         self.__out_left = None
@@ -60,52 +51,43 @@ class FluidSynthSource(node.CustomNode):
     async def setup(self):
         await super().setup()
 
-        assert self._synth is None
+        assert self.__synth is None
 
-        self._synth = libfluidsynth.Synth(gain=0.5)
+        self.__settings = fluidsynth.Settings()
+        self.__settings.synth_gain = 0.5
+        self.__settings.synth_sample_rate = 44100  # TODO: get from pipeline
+        self.__synth = fluidsynth.Synth(self.__settings)
         try:
-            sfont = self.master_sfonts[self._soundfont_path]
+            sfont = self.master_sfonts[self.__soundfont_path]
         except KeyError:
             logger.info(
                 "Adding new soundfont %s to master synth.",
-                self._soundfont_path)
-            master_sfid = self.master_synth.sfload(self._soundfont_path)
-            if master_sfid == -1:
-                raise SetupError(
-                    "Failed to load SoundFont %s" % self._soundfont_path)
+                self.__soundfont_path)
+            master_sfid = self.master_synth.sfload(self.__soundfont_path)
             sfont = self.master_synth.get_sfont(master_sfid)
-            self.master_sfonts[self._soundfont_path] = sfont
+            self.master_sfonts[self.__soundfont_path] = sfont
 
-        logger.debug("Using soundfont %s", sfont)
-        self._sfid = self._synth.add_sfont(sfont)
-        logger.debug("Soundfont id=%s", self._sfid)
-        if self._sfid == -1:
-            raise SetupError(
-                "Failed to add SoundFont %s" % self._soundfont_path)
-        self._sfont = sfont
+        logger.debug("Using soundfont %s", sfont.id)
+        self.__sfid = self.__synth.add_sfont(sfont)
+        logger.debug("Soundfont id=%s", self.__sfid)
+        self.__sfont = sfont
 
-        self._synth.system_reset()
-        self._synth.program_select(
-            0, self._sfid, self._bank, self._preset)
-
-        self._resampler = Resampler(
-            AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_S16, 44100,
-            AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_FLT, 44100)
+        self.__synth.system_reset()
+        self.__synth.program_select(
+            0, self.__sfid, self.__bank, self.__preset)
 
     async def cleanup(self):
         await super().cleanup()
 
-        self._resampler = None
-        if self._synth is not None:
-            self._synth.system_reset()
-            if self._sfont is not None:
+        if self.__synth is not None:
+            self.__synth.system_reset()
+            if self.__sfont is not None:
                 # TODO: This call spits out a ton of "CRITICAL **:
                 # fluid_synth_sfont_unref: assertion 'sfont_info != NULL' failed"
                 # messages on STDERR
-                self._synth.remove_sfont(self._sfont)
-                self._sfont = None
-            self._synth.delete()
-            self._synth = None
+                self.__synth.remove_sfont(self.__sfont)
+                self.__sfont = None
+            self.__synth = None
 
     def connect_port(self, port_name, buf):
         if port_name == 'in':
@@ -118,52 +100,36 @@ class FluidSynthSource(node.CustomNode):
             raise ValueError(port_name)
 
     def run(self, ctxt):
-        pass  # TODO
-        # samples = bytes()
-        # tp = ctxt.sample_pos
+        seq = lv2.wrap_atom(lv2.static_mapper, self.__in)
+        segment_start = 0
+        bytes_written = 0
+        for event in seq.events:
+            if event.frames != -1:
+                assert 0 <= event.frames < ctxt.duration, (
+                    event.frames, ctxt.duration)
+                esample_pos = event.frames
+            else:
+                esample_pos = 0
 
-        # for event in self.inputs['in'].events:
-        #     if event.sample_pos != -1:
-        #         assert ctxt.sample_pos <= event.sample_pos < ctxt.sample_pos + ctxt.duration, (
-        #             ctxt.sample_pos, event.sample_pos, ctxt.sample_pos + ctxt.duration)
-        #         esample_pos = event.sample_pos
-        #     else:
-        #         esample_pos = ctxt.sample_pos
+            if esample_pos >= segment_start:
+                segmentl, segmentr = self.__synth.get_samples(
+                    esample_pos - segment_start)
+                self.__out_left[bytes_written:bytes_written+len(segmentl)] = segmentl
+                self.__out_right[bytes_written:bytes_written+len(segmentl)] = segmentr
+                segment_start = esample_pos
+                bytes_written += len(segmentl)
 
-        #     if esample_pos > tp:
-        #         samples += bytes(
-        #             self._synth.get_samples(esample_pos - tp))
-        #         tp = esample_pos
+            midi = event.atom.data
+            if midi[0] & 0xf0 == 0x90:
+                self.__synth.noteon(0, midi[1], midi[2])
+            elif midi[0] & 0xf0 == 0x80:
+                self.__synth.noteoff(0, midi[1])
+            else:
+                raise NotImplementedError(
+                    "Event class %s not supported" % type(event).__name__)
 
-        #     if isinstance(event, NoteOnEvent):
-        #         self._synth.noteon(
-        #             0, event.note.midi_note, event.volume)
-        #     elif isinstance(event, NoteOffEvent):
-        #         self._synth.noteoff(
-        #             0, event.note.midi_note)
-        #     elif isinstance(event, EndOfStreamEvent):
-        #         break
-        #     else:
-        #         raise NotImplementedError(
-        #             "Event class %s not supported" % type(event).__name__)
-
-        # if tp < ctxt.sample_pos + ctxt.duration:
-        #     samples += bytes(
-        #         self._synth.get_samples(
-        #             ctxt.sample_pos + ctxt.duration - tp))
-
-        # samples = self._resampler.convert(
-        #     samples, len(samples) // 4)
-
-        # output_port = self.outputs['out']
-        # af = output_port.frame.audio_format
-        # frame = Frame(af, 0, set())
-        # frame.append_samples(
-        #     samples, len(samples) // (
-        #         # pylint thinks that frame.audio_format is a class object.
-        #         # pylint: disable=E1101
-        #         af.num_channels * af.bytes_per_sample))
-        # assert len(frame) == ctxt.duration
-
-        # output_port.frame.resize(ctxt.duration)
-        # output_port.frame.copy_from(frame)
+        if segment_start < ctxt.duration:
+            segmentl, segmentr = self.__synth.get_samples(
+                ctxt.duration - segment_start)
+            self.__out_left[bytes_written:bytes_written+len(segmentl)] = segmentl
+            self.__out_right[bytes_written:bytes_written+len(segmentl)] = segmentr

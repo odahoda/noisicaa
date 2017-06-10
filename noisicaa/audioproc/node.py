@@ -155,8 +155,7 @@ class Node(object):
         for port in itertools.chain(
                 self.inputs.values(), self.outputs.values()):
             seq.add(ast.AllocBuffer(
-                port.buf_name,
-                buffer_type.FloatArray(compiler.frame_size)))
+                port.buf_name, port.get_buf_type(compiler)))
 
         for port in self.inputs.values():
             seq.add(ast.ClearBuffer(port.buf_name))

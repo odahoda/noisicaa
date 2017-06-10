@@ -134,6 +134,43 @@ cdef extern from "lv2/lv2plug.in/ns/ext/atom/atom.h" nogil:
         LV2_Atom_Sequence_Body body  # Body.
 
 
+cdef extern from "lv2/lv2plug.in/ns/ext/atom/util.h" nogil:
+    uint32_t lv2_atom_total_size(const LV2_Atom* atom)
+    bool lv2_atom_is_null(const LV2_Atom* atom)
+    bool lv2_atom_equals(const LV2_Atom* a, const LV2_Atom* b)
+
+    LV2_Atom_Event* lv2_atom_sequence_begin(const LV2_Atom_Sequence_Body* body)
+    LV2_Atom_Event* lv2_atom_sequence_end(const LV2_Atom_Sequence_Body* body,
+                                          uint32_t size)
+    bool lv2_atom_sequence_is_end(const LV2_Atom_Sequence_Body* body,
+                                  uint32_t                      size,
+                                  const LV2_Atom_Event*         i)
+    LV2_Atom_Event* lv2_atom_sequence_next(const LV2_Atom_Event* i)
+
+    void lv2_atom_sequence_clear(LV2_Atom_Sequence* seq)
+    LV2_Atom_Event* lv2_atom_sequence_append_event(LV2_Atom_Sequence*    seq,
+                                                   uint32_t              capacity,
+                                                   const LV2_Atom_Event* event)
+    LV2_Atom* lv2_atom_tuple_begin(const LV2_Atom_Tuple* tup)
+    bool lv2_atom_tuple_is_end(const void* body, uint32_t size, const LV2_Atom* i)
+    LV2_Atom* lv2_atom_tuple_next(const LV2_Atom* i)
+
+    LV2_Atom_Property_Body* lv2_atom_object_begin(const LV2_Atom_Object_Body* body)
+    bool lv2_atom_object_is_end(const LV2_Atom_Object_Body*   body,
+                                uint32_t                      size,
+                                const LV2_Atom_Property_Body* i)
+    LV2_Atom_Property_Body* lv2_atom_object_next(const LV2_Atom_Property_Body* i)
+
+    ctypedef struct LV2_Atom_Object_Query:
+        uint32_t         key
+        const LV2_Atom** value
+
+    int lv2_atom_object_query(const LV2_Atom_Object* object,
+                              LV2_Atom_Object_Query* query)
+    int lv2_atom_object_body_get(uint32_t size, const LV2_Atom_Object_Body* body, ...)
+    int lv2_atom_object_get(const LV2_Atom_Object* object, ...)
+
+
 cdef extern from "lv2/lv2plug.in/ns/ext/atom/forge.h" nogil:
     # Handle for LV2_Atom_Forge_Sink.
     ctypedef void* LV2_Atom_Forge_Sink_Handle
@@ -430,3 +467,22 @@ cdef class AtomForge(object):
     cdef URID_Map_Feature map
     cdef LV2_URID midi_event
     cdef LV2_URID frame_time
+
+
+cdef class Atom(object):
+    cdef LV2_Atom* atom
+    cdef URID_Mapper mapper
+    cdef init(self, LV2_Atom* atom)
+
+
+cdef class MidiEvent(Atom):
+    pass
+
+
+cdef class Event(object):
+    cdef readonly int64_t frames
+    cdef readonly Atom atom
+
+
+cdef class Sequence(Atom):
+    cdef init(self, LV2_Atom* atom)

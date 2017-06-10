@@ -234,7 +234,6 @@ class EventSetEntitySource(EntitySource):
         super().close()
 
     def get_entities(self, frame_data, start_sample_pos, end_sample_pos, sample_pos_offset):
-        sample_pos = frame_data.sample_pos - sample_pos_offset
         start_timepos = self.__time_mapper.sample2timepos(start_sample_pos)
         end_timepos = self.__time_mapper.sample2timepos(end_sample_pos)
 
@@ -254,7 +253,7 @@ class EventSetEntitySource(EntitySource):
                     sample_pos = self.__time_mapper.timepos2sample(event.begin)
                     assert start_sample_pos <= sample_pos < end_sample_pos
                     forge.write_midi_event(
-                        sample_pos + sample_pos_offset,
+                        sample_pos - start_sample_pos,
                         bytes([0b10010000, event.pitch.midi_note, event.velocity]),
                         3)
 
@@ -262,7 +261,7 @@ class EventSetEntitySource(EntitySource):
                     sample_pos = self.__time_mapper.timepos2sample(event.end)
                     assert start_sample_pos <= sample_pos < end_sample_pos
                     forge.write_midi_event(
-                        sample_pos + sample_pos_offset,
+                        sample_pos - start_sample_pos,
                         bytes([0b10000000, event.pitch.midi_note, 0]),
                         3)
 

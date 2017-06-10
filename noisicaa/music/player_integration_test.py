@@ -99,7 +99,7 @@ class PlayerTest(asynctest.TestCase):
         await self.audioproc_client_main.setup()
         await self.audioproc_client_main.connect(
             self.audioproc_server_main.server.address)
-        await self.audioproc_client_main.set_backend('pyaudio', frame_size=1024)
+        await self.audioproc_client_main.set_backend('null', frame_size=1024)
 
         self.audioproc_server_player = TestAudioProcProcess(self.loop, 'player_process')
         await self.audioproc_server_player.setup()
@@ -150,6 +150,9 @@ class PlayerTest(asynctest.TestCase):
                 self.assertEqual(
                     await self.callback_server.wait_for('pipeline_state'),
                     'running')
+
+                # TODO: wait for player ready (node setup complete).
+                await asyncio.sleep(1)
 
                 await p.update_settings(project_client.PlayerSettings(state='playing'))
 

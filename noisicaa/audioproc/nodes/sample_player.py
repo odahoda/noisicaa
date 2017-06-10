@@ -8,7 +8,7 @@ import textwrap
 from noisicaa import node_db
 from ..exceptions import SetupError
 from ..ports import EventInputPort, AudioOutputPort
-from ..events import NoteOnEvent, NoteOffEvent, EndOfStreamEvent
+from ..events import NoteOnEvent, NoteOffEvent
 from ..frame import Frame
 from . import csound
 

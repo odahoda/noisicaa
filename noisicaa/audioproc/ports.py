@@ -3,6 +3,7 @@
 import logging
 
 from .exceptions import Error
+from .vm import buffer_type
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,9 @@ class Port(object):
     @property
     def buf_name(self):
         return '%s:%s' % (self.owner.id, self._name)
+
+    def get_buf_type(self, compiler):
+        raise NotImplementedError(type(self).__name__)
 
     def set_prop(self):
         pass
@@ -97,6 +101,9 @@ class AudioInputPort(InputPort):
         if not isinstance(port, AudioOutputPort):
             raise Error("Can only connect to AudioOutputPort")
 
+    def get_buf_type(self, compiler):
+        return buffer_type.FloatArray(compiler.frame_size)
+
 
 class AudioOutputPort(OutputPort):
     def __init__(self, name, drywet_port=None, **kwargs):
@@ -139,6 +146,9 @@ class AudioOutputPort(OutputPort):
         if drywet is not None:
             self.drywet = drywet
 
+    def get_buf_type(self, compiler):
+        return buffer_type.FloatArray(compiler.frame_size)
+
 
 class ControlInputPort(InputPort):
     def check_port(self, port):
@@ -161,6 +171,10 @@ class EventInputPort(InputPort):
         if not isinstance(port, EventOutputPort):
             raise Error("Can only connect to EventOutputPort")
 
+    def get_buf_type(self, compiler):
+        return buffer_type.AtomData(10240)
+
 
 class EventOutputPort(OutputPort):
-    pass
+    def get_buf_type(self, compiler):
+        return buffer_type.AtomData(10240)

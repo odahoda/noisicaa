@@ -56,8 +56,17 @@ class Buffer(object):
         return bytes(self.__data)
 
     def set_bytes(self, data):
-        assert len(self.__data) == len(data)
+        assert len(self.__data) == len(data), \
+            '%s != %s' % (len(self.__data), len(data))
         self.__data[:] = data
+
+    def clear(self):
+        self.__type.clear_buffer(self.__data)
+
+    def mix(self, other):
+        assert self.type == other.type, \
+            '%s != %s' % (self.type, other.type)
+        self.__type.mix_buffers(self.__data, other.__data)
 
 
 class PipelineVM(object):
@@ -283,6 +292,7 @@ class PipelineVM(object):
             sys.stdout.flush()
             sys.excepthook(*sys.exc_info())
             sys.stderr.flush()
+            time.sleep(0.2)
             os._exit(1)  # pylint: disable=protected-access
 
         finally:
@@ -306,8 +316,7 @@ class PipelineVM(object):
 
     @at_performance
     def op_CLEAR_BUFFER(self, ctxt, state, *, buf_idx):
-        buf = self.__buffers[buf_idx].view
-        buf.fill(0)
+        self.__buffers[buf_idx].clear()
 
     @at_performance
     def op_SET_FLOAT(self, ctxt, state, *, buf_idx, value):
@@ -330,6 +339,16 @@ class PipelineVM(object):
             resample.AV_CH_LAYOUT_STEREO,
             buf_l.type.size,
             [data_l, data_r])
+
+    @at_performance
+    def op_FETCH_ENTITY(self, ctxt, state, *, entity_id, buf_idx):
+        buf = self.__buffers[buf_idx]
+        try:
+            entity = ctxt.entities[entity_id]
+        except KeyError:
+            buf.clear()
+        else:
+            entity.copy_to_buffer(buf)
 
     @at_performance
     def op_NOISE(self, ctxt, state, *, buf_idx):
@@ -361,9 +380,7 @@ class PipelineVM(object):
 
     @at_performance
     def op_MIX(self, ctxt, state, *, src_idx, dest_idx):
-        src = self.__buffers[src_idx].view
-        dest = self.__buffers[dest_idx].view
-        dest += src
+        self.__buffers[dest_idx].mix(self.__buffers[src_idx])
 
     @at_init
     def op_CONNECT_PORT(self, ctxt, state, *, node_idx, port_name, buf_idx):

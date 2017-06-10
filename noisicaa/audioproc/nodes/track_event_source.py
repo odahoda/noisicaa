@@ -9,13 +9,14 @@ from noisicaa import node_db
 from .. import ports
 from .. import node
 from .. import events
+from ..vm import ast
 
 logger = logging.getLogger(__name__)
 
-class TrackEventSource(node.CustomNode):
+class TrackEventSource(node.BuiltinNode):
     class_name = 'track_event_source'
 
-    def __init__(self, event_loop, name=None, id=None, queue_name=None):
+    def __init__(self, event_loop, name=None, id=None, entity_id=None):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.EventPortDescription(
@@ -25,16 +26,11 @@ class TrackEventSource(node.CustomNode):
 
         super().__init__(event_loop, description, name, id)
 
-        self.queue_name = queue_name
+        self.entity_id = entity_id
 
-    def connect_port(self, port_name, buf):
-        # TODO
-        pass
-
-    def run(self, ctxt):
-        # TODO
-        pass
-        # output_port = self.outputs['out']
-        # output_port.events.clear()
-        # output_port.events.extend(
-        #     self.pipeline.backend.get_events(self.queue_name))
+    def get_ast(self, compiler):
+        seq = super().get_ast(compiler)
+        seq.add(ast.FetchEntity(
+            self.entity_id,
+            self.outputs['out'].buf_name))
+        return seq

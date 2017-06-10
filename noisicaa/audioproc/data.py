@@ -4,6 +4,8 @@ import pickle
 
 import numpy
 
+from .vm import buffer_type
+
 
 class Entity(object):
     def __init__(self):
@@ -15,6 +17,9 @@ class Entity(object):
 
     def serialize(self):
         return pickle.dumps(self)
+
+    def copy_to_buffer(self, buf):
+        raise NotImplementedError
 
 
 class ControlFrameEntity(Entity):
@@ -49,6 +54,10 @@ class AtomEntity(Entity):
     def __init__(self):
         super().__init__()
         self.buf = bytearray(self.size)
+
+    def copy_to_buffer(self, buf):
+        assert isinstance(buf.type, buffer_type.AtomData), str(buf.type)
+        buf.set_bytes(self.buf)
 
 
 class FrameData(object):
