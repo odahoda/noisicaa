@@ -75,11 +75,11 @@ class Port(QtWidgets.QGraphicsRectItem):
             (node_db.PortType.Events, node_db.PortDirection.Output): "event output",
         }[(self.port_desc.port_type, self.port_desc.direction)]
 
-        if self.port_desc.port_type == node_db.PortType.Audio:
-            if len(self.port_desc.channels) == 1:
-                text += ', 1 channel'
-            else:
-                text += ', %d channels' % len(self.port_desc.channels)
+        # if self.port_desc.port_type == node_db.PortType.Audio:
+        #     if len(self.port_desc.channels) == 1:
+        #         text += ', 1 channel'
+        #     else:
+        #         text += ', %d channels' % len(self.port_desc.channels)
 
         return text
 
@@ -629,6 +629,14 @@ class NodeItemImpl(QtWidgets.QGraphicsRectItem):
         return self.get_session_value(
             'pipeline_graph_node/%s/broken' % self.node.id, False)
 
+    def getPort(self, port_id):
+        try:
+            return self.ports[port_id]
+        except KeyError:
+            raise KeyError(
+                '%s (%s) has no port %s'
+                % (self.node.name, self.node.id, port_id))
+
     def getInfoText(self):
         info_lines = []
 
@@ -762,28 +770,28 @@ class ConnectionItemImpl(QtWidgets.QGraphicsPathItem):
         self.update()
 
     def update(self):
-        node1_item = self._view.getNodeItem(
-            self.connection.source_node.id)
-        port1_item = node1_item.ports[self.connection.source_port]
+        node1_item = self._view.getNodeItem(self.connection.source_node.id)
+        port1_item = node1_item.getPort(self.connection.source_port)
 
-        node2_item = self._view.getNodeItem(
-            self.connection.dest_node.id)
-        port2_item = node2_item.ports[self.connection.dest_port]
+        node2_item = self._view.getNodeItem(self.connection.dest_node.id)
+        port2_item = node2_item.getPort(self.connection.dest_port)
 
         pos1 = port1_item.mapToScene(port1_item.dot_pos)
         pos2 = port2_item.mapToScene(port2_item.dot_pos)
         cpos = QtCore.QPointF(min(100, abs(pos2.x() - pos1.x()) / 2), 0)
 
         path = QtGui.QPainterPath()
-        if (port1_item.port_desc.port_type != node_db.PortType.Audio
-                or len(port1_item.port_desc.channels) == 1):
-            path.moveTo(pos1)
-            path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
-        else:
-            q = math.copysign(1, pos2.x()- pos1.x()) * math.copysign(1, pos2.y()- pos1.y())
-            for d in [QtCore.QPointF(q, -1), QtCore.QPointF(-q, 1)]:
-                path.moveTo(pos1 + d)
-                path.cubicTo(pos1 + d + cpos, pos2 + d - cpos, pos2 + d)
+        path.moveTo(pos1)
+        path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
+        # if (port1_item.port_desc.port_type != node_db.PortType.Audio
+        #         or len(port1_item.port_desc.channels) == 1):
+        #     path.moveTo(pos1)
+        #     path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
+        # else:
+        #     q = math.copysign(1, pos2.x()- pos1.x()) * math.copysign(1, pos2.y()- pos1.y())
+        #     for d in [QtCore.QPointF(q, -1), QtCore.QPointF(-q, 1)]:
+        #         path.moveTo(pos1 + d)
+        #         path.cubicTo(pos1 + d + cpos, pos2 + d - cpos, pos2 + d)
         self.setPath(path)
 
     def setHighlighted(self, highlighted):
@@ -822,15 +830,17 @@ class DragConnection(QtWidgets.QGraphicsPathItem):
         cpos = QtCore.QPointF(min(100, abs(pos2.x() - pos1.x()) / 2), 0)
 
         path = QtGui.QPainterPath()
-        if (self.port.port_desc.port_type != node_db.PortType.Audio
-                or len(self.port.port_desc.channels) == 1):
-            path.moveTo(pos1)
-            path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
-        else:
-            q = math.copysign(1, pos2.x()- pos1.x()) * math.copysign(1, pos2.y()- pos1.y())
-            for d in [QtCore.QPointF(q, -1), QtCore.QPointF(-q, 1)]:
-                path.moveTo(pos1 + d)
-                path.cubicTo(pos1 + d + cpos, pos2 + d - cpos, pos2 + d)
+        path.moveTo(pos1)
+        path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
+        # if (self.port.port_desc.port_type != node_db.PortType.Audio
+        #         or len(self.port.port_desc.channels) == 1):
+        #     path.moveTo(pos1)
+        #     path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
+        # else:
+        #     q = math.copysign(1, pos2.x()- pos1.x()) * math.copysign(1, pos2.y()- pos1.y())
+        #     for d in [QtCore.QPointF(q, -1), QtCore.QPointF(-q, 1)]:
+        #         path.moveTo(pos1 + d)
+        #         path.cubicTo(pos1 + d + cpos, pos2 + d - cpos, pos2 + d)
         self.setPath(path)
 
 
@@ -984,9 +994,9 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
                         continue
                     if dest_desc.direction == src_desc.direction:
                         continue
-                    if (dest_desc.port_type == node_db.PortType.Audio
-                            and dest_desc.channels != src_desc.channels):
-                        continue
+                    # if (dest_desc.port_type == node_db.PortType.Audio
+                    #         and dest_desc.channels != src_desc.channels):
+                    #     continue
 
                     port_pos = port_item.mapToScene(port_item.dot_pos)
                     dx = port_pos.x() - scene_pos.x()

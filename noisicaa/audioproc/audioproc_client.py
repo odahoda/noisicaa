@@ -83,9 +83,9 @@ class AudioProcClientMixin(object):
         return await self._stub.call(
             'PLAY_FILE', self._session_id, path)
 
-    async def add_event(self, queue, event):
+    async def add_event(self, entity_id, event):
         return await self._stub.call(
-            'ADD_EVENT', self._session_id, queue, event)
+            'ADD_EVENT', self._session_id, entity_id, event)
 
     async def set_port_property(self, node_id, port_name, **kwargs):
         return await self._stub.call(

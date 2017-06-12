@@ -1188,7 +1188,9 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
             address=self.__player_stream_address,
             event_queue_name='sheet:%s' % self.__sheet.id)
         await self.audioproc_client.connect_ports(
-            self.__player_node_id, 'out', 'sink', 'in')
+            self.__player_node_id, 'out:left', 'sink', 'in:left')
+        await self.audioproc_client.connect_ports(
+            self.__player_node_id, 'out:right', 'sink', 'in:right')
 
     async def cleanup(self):
         await super().cleanup()
@@ -1197,7 +1199,9 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
 
         if self.__player_node_id is not None:
             await self.audioproc_client.disconnect_ports(
-                self.__player_node_id, 'out', 'sink', 'in')
+                self.__player_node_id, 'out:left', 'sink', 'in:left')
+            await self.audioproc_client.disconnect_ports(
+                self.__player_node_id, 'out:right', 'sink', 'in:right')
             await self.audioproc_client.remove_node(
                 self.__player_node_id)
             self.__player_node_id = None

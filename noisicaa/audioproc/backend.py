@@ -3,58 +3,26 @@
 import logging
 import os
 import os.path
-import pickle
-import queue
-import random
-import select
 import tempfile
 import threading
-import time
 import uuid
 
 import pyaudio
-
-from noisicaa import music
-from noisicaa import core
-from noisicaa import node_db
 
 from .resample import (Resampler,
                        AV_CH_LAYOUT_STEREO,
                        AV_SAMPLE_FMT_S16,
                        AV_SAMPLE_FMT_FLT)
-from .node import Node
-from .ports import AudioInputPort, EventOutputPort
-from . import events
-from . import audio_format
-from . import frame
 from . import audio_stream
 from . import data
 
 logger = logging.getLogger(__name__)
 
 
-class SystemEventSourceNode(Node):
-    class_name = 'systemeventsource'
-
-    def __init__(self, event_loop):
-        description = node_db.SystemNodeDescription(
-            ports=[
-                node_db.EventPortDescription(
-                    name='out',
-                    direction=node_db.PortDirection.Output),
-            ])
-
-        super().__init__(event_loop, description)
-
-    def run(self, ctxt):
-        output_port = self.outputs['out']
-        output_port.events.clear()
-
-
 class Backend(object):
     def __init__(self):
-        self._stopped = threading.Event()
-        self._event_queues = {}
+        self.__stopped = threading.Event()
+        self.__event_queues = {}
         self.__sample_rate = None
 
     def setup(self, sample_rate):
@@ -69,10 +37,10 @@ class Backend(object):
 
     @property
     def stopped(self):
-        return self._stopped.is_set()
+        return self.__stopped.is_set()
 
     def stop(self):
-        self._stopped.set()
+        self.__stopped.set()
 
     def begin_frame(self, ctxt):
         raise NotImplementedError
@@ -84,18 +52,18 @@ class Backend(object):
         raise NotImplementedError
 
     def clear_events(self):
-        self._event_queues.clear()
+        self.__event_queues.clear()
 
     def add_event(self, queue, event):
-        self._event_queues.setdefault(queue, []).append(event)
+        self.__event_queues.setdefault(queue, []).append(event)
 
     def get_events(self, queue):
-        return self._event_queues.get(queue, [])
+        return self.__event_queues.get(queue, [])
 
     def get_events_for_prefix(self, prefix):
         events = []
 
-        for queue, qevents in self._event_queues.items():
+        for queue, qevents in self.__event_queues.items():
             if '/' not in queue:
                 continue
 
@@ -223,10 +191,6 @@ class PyAudioBackend(Backend):
             self.__buffer.extend(converted)
             if len(self.__buffer) >= self.__buffer_threshold:
                 self.__need_more.clear()
-
-
-class Stopped(Exception):
-    pass
 
 
 class IPCBackend(Backend):

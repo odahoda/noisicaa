@@ -352,7 +352,7 @@ class AudioProcProcessMixin(object):
             self.__vm.update_spec()
         self.event_loop.create_task(node.cleanup())
 
-    async def handle_add_event(self, session_id, queue, event):
+    async def handle_add_event(self, session_id, entity_id, event):
         self.get_session(session_id)
 
         with self.__vm.writer_lock():
@@ -361,7 +361,7 @@ class AudioProcProcessMixin(object):
                 logger.warning(
                     "Ignoring event %s: no backend active:", event)
 
-            backend.add_event(queue, event)
+            backend.add_event(entity_id, event)
 
     async def handle_set_port_prop(
         self, session_id, node_id, port_name, kwargs):

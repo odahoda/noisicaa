@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 
 import functools
+import io
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +49,13 @@ class CommonMixin(object):
 
     def __call_async_cb(self, task, callback):
         if task.exception() is not None:
+            buf = io.StringIO()
+            task.print_stack(file=buf)
+
             self.__app.crashWithMessage(
                 "Exception in callback",
-                ("Callback: %s\n" % task
-                 + "Exception: %s" % task.exception()))
-            raise task.exception()
+                buf.getvalue())
+            raise exc
 
         if callback is not None:
             callback(task.result())
