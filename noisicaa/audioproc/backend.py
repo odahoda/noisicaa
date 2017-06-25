@@ -50,7 +50,7 @@ class Backend(object):
     def end_frame(self):
         raise NotImplementedError
 
-    def output(self, layout, num_samples, samples):
+    def output(self, channel, samples):
         raise NotImplementedError
 
     def clear_events(self):
@@ -87,7 +87,7 @@ class NullBackend(Backend):
     def end_frame(self):
         pass
 
-    def output(self, layout, num_samples, samples):
+    def output(self, channel, samples):
         pass
 
 
@@ -104,6 +104,7 @@ class PyAudioBackend(Backend):
         self.__bytes_per_sample = 2 * 2
         self.__buffer_threshold = 4096 * self.__bytes_per_sample
         self.__frame_size = frame_size
+        self.__outputs = {}
 
     def setup(self, sample_rate):
         super().setup(sample_rate)
@@ -168,31 +169,37 @@ class PyAudioBackend(Backend):
             return
         self.__need_more.wait()
         self.clear_events()
+        self.__outputs.clear()
         ctxt.duration = self.__frame_size
 
     def end_frame(self):
-        pass
-
-    def output(self, layout, num_samples, samples):
-        assert layout == AV_CH_LAYOUT_STEREO
-
         # TODO: feed non-interleaved sample buffers directly into
         # resample
-        interleaved = bytearray(8 * num_samples)
-        interleaved[0::8] = samples[0][0::4]
-        interleaved[1::8] = samples[0][1::4]
-        interleaved[2::8] = samples[0][2::4]
-        interleaved[3::8] = samples[0][3::4]
-        interleaved[4::8] = samples[1][0::4]
-        interleaved[5::8] = samples[1][1::4]
-        interleaved[6::8] = samples[1][2::4]
-        interleaved[7::8] = samples[1][3::4]
+        interleaved = bytearray(8 * self.__frame_size)
+        if 'left' in self.__outputs:
+            interleaved[0::8] = self.__outputs['left'][0::4]
+            interleaved[1::8] = self.__outputs['left'][1::4]
+            interleaved[2::8] = self.__outputs['left'][2::4]
+            interleaved[3::8] = self.__outputs['left'][3::4]
+        else:
+            logger.info("no left")
 
-        converted = self.__resampler.convert(interleaved, num_samples)
+        if 'right' in self.__outputs:
+            interleaved[4::8] = self.__outputs['right'][0::4]
+            interleaved[5::8] = self.__outputs['right'][1::4]
+            interleaved[6::8] = self.__outputs['right'][2::4]
+            interleaved[7::8] = self.__outputs['right'][3::4]
+        else:
+            logger.info("no right")
+
+        converted = self.__resampler.convert(interleaved, self.__frame_size)
         with self.__buffer_lock:
             self.__buffer.extend(converted)
             if len(self.__buffer) >= self.__buffer_threshold:
                 self.__need_more.clear()
+
+    def output(self, channel, samples):
+        self.__outputs[channel] = samples
 
 
 class IPCBackend(Backend):
@@ -208,6 +215,7 @@ class IPCBackend(Backend):
         self.__stream = audio_stream.AudioStreamServer(self.address)
         self.__ctxt = None
         self.__out_frame = None
+        self.__entities = None
 
     def setup(self, sample_rate):
         super().setup(sample_rate)
@@ -234,6 +242,7 @@ class IPCBackend(Backend):
             self.__out_frame = frame_data_capnp.FrameData.new_message()
             self.__out_frame.samplePos = in_frame.samplePos
             self.__out_frame.frameSize = in_frame.frameSize
+            self.__entities = []
 
         except audio_stream.StreamClosed:
             logger.warning("Stopping IPC backend.")
@@ -241,33 +250,29 @@ class IPCBackend(Backend):
 
     def end_frame(self):
         if self.__out_frame is not None:
+            self.__out_frame.init('entities', len(self.__entities))
+            for idx, entity in enumerate(self.__entities):
+                self.__out_frame.entities[idx] = entity
+
+            assert self.__ctxt.perf.current_span_id == 0
+
+            perf_data = self.__ctxt.perf.get_spans()
+            #self.__out_frame.perf_data = perf_data
+
             self.__stream.send_frame(self.__out_frame)
 
         self.clear_events()
 
-        self.__out_frame = None
         self.__ctxt = None
+        self.__out_frame = None
+        self.__entities = None
 
-    def output(self, layout, num_samples, samples):
-        assert layout == AV_CH_LAYOUT_STEREO
-
+    def output(self, channel, samples):
         assert self.__out_frame is not None
-        assert self.__ctxt.perf.current_span_id == 0
 
-        perf_data = self.__ctxt.perf.get_spans()
-
-        self.__out_frame.init('entities', 2)
-
-        e = self.__out_frame.entities[0]
-        e.id = 'output:left'
-        e.type = entity_capnp.Entity.Type.audio
-        e.size = 4 * num_samples
-        e.data = bytes(samples[0])
-
-        e = self.__out_frame.entities[1]
-        e.id = 'output:right'
-        e.type = entity_capnp.Entity.Type.audio
-        e.size = 4 * num_samples
-        e.data = bytes(samples[1])
-
-        #self.__out_frame.perf_data = perf_data
+        entity = entity_capnp.Entity.new_message()
+        entity.id = 'output:%s' % channel
+        entity.type = entity_capnp.Entity.Type.audio
+        entity.size = len(samples)
+        entity.data = bytes(samples)
+        self.__entities.append(entity)

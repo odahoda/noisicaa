@@ -283,8 +283,7 @@ class PipelineVM(object):
                         for node_id, notification in notifications:
                             self.notification_listener.call(node_id, notification)
 
-                    with ctxt.perf.track('backend_end_frame'):
-                        backend.end_frame()
+                    backend.end_frame()
 
                 ctxt.sample_pos += ctxt.duration
 
@@ -325,20 +324,14 @@ class PipelineVM(object):
         buf.view[0] = value
 
     @at_performance
-    def op_OUTPUT_STEREO(self, ctxt, state, *, buf_idx_l, buf_idx_r):
-        buf_l = self.__buffers[buf_idx_l]
-        assert isinstance(buf_l.type, buffer_type.FloatArray), str(buf_l.type)
-        buf_r = self.__buffers[buf_idx_r]
-        assert isinstance(buf_r.type, buffer_type.FloatArray), str(buf_r.type)
-        assert buf_l.type.size == buf_r.type.size
+    def op_OUTPUT(self, ctxt, state, *, buf_idx, channel):
+        buf = self.__buffers[buf_idx]
+        assert isinstance(buf.type, buffer_type.FloatArray), str(buf.type)
+        assert buf.type.size == ctxt.duration
 
-        data_l = self.__buffers[buf_idx_l].to_bytes()
-        data_r = self.__buffers[buf_idx_r].to_bytes()
+        data = self.__buffers[buf_idx].to_bytes()
 
-        self.__backend.output(
-            resample.AV_CH_LAYOUT_STEREO,
-            buf_l.type.size,
-            [data_l, data_r])
+        self.__backend.output(channel, data)
 
     @at_performance
     def op_FETCH_ENTITY(self, ctxt, state, *, entity_id, buf_idx):

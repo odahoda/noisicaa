@@ -129,26 +129,25 @@ class CallNode(ASTNode):
         ]
 
 
-class OutputStereo(ASTNode):
-    def __init__(self, buf_name_l, buf_name_r):
+class Output(ASTNode):
+    def __init__(self, buf_name, channel):
         super().__init__()
 
-        self.buf_name_l = buf_name_l
-        self.buf_name_r = buf_name_r
+        self.buf_name = buf_name
+        self.channel = channel
 
     def __str__(self):
         return '%s(%r, %r)' % (
             super().__str__(),
-            self.buf_name_l, self.buf_name_r)
+            self.buf_name, self.channel)
 
     def get_opcodes(self, symbol_table):
-        buf_idx_l = symbol_table.get_buffer_idx(self.buf_name_l)
-        buf_idx_r = symbol_table.get_buffer_idx(self.buf_name_r)
+        buf_idx = symbol_table.get_buffer_idx(self.buf_name)
         return [
             spec.OpCode(
-                'OUTPUT_STEREO',
-                buf_idx_l=buf_idx_l,
-                buf_idx_r=buf_idx_r)
+                'OUTPUT',
+                buf_idx=buf_idx,
+                channel=self.channel)
         ]
 
 

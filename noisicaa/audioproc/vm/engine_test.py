@@ -39,9 +39,9 @@ class TestBackend(backend.Backend):
         if self.step_mode:
             self.step_done.set()
 
-    def output(self, layout, num_samples, samples):
+    def output(self, channel, samples):
         logger.info("Backend received frame.")
-        self.written_frames.append([layout, num_samples, samples])
+        self.written_frames.append([channel, samples])
 
     def stop(self):
         if self.step_mode:
@@ -117,11 +117,10 @@ class PipelineVMTest(asynctest.TestCase):
 
         vm.run_vm(vm_spec, ctxt, engine.RunAt.PERFORMANCE)
 
-    async def test_OUTPUT_STEREO(self):
+    async def test_OUTPUT(self):
         vm_spec = spec.PipelineVMSpec()
         vm_spec.buffers.append(buffer_type.FloatArray(4))
-        vm_spec.buffers.append(buffer_type.FloatArray(4))
-        vm_spec.opcodes.append(spec.OpCode('OUTPUT_STEREO', buf_idx_l=0, buf_idx_r=1))
+        vm_spec.opcodes.append(spec.OpCode('OUTPUT', buf_idx=0, channel='center'))
 
         be = TestBackend()
 
@@ -130,7 +129,6 @@ class PipelineVMTest(asynctest.TestCase):
         vm.setup_backend(be)
 
         vm.set_buffer_bytes(0, struct.pack('=ffff', 1, 2, 3, 4))
-        vm.set_buffer_bytes(1, struct.pack('=ffff', 5, 6, 7, 8))
 
         ctxt = audioproc.FrameContext()
         ctxt.sample_pos = 0
@@ -139,12 +137,9 @@ class PipelineVMTest(asynctest.TestCase):
         vm.run_vm(vm_spec, ctxt, engine.RunAt.PERFORMANCE)
 
         self.assertEqual(len(be.written_frames), 1)
-        layout, num_samples, samples = be.written_frames[0]
-        self.assertEqual(layout, resample.AV_CH_LAYOUT_STEREO)
-        self.assertEqual(num_samples, 4)
-        self.assertEqual(len(samples), 2)
-        self.assertEqual(samples[0], struct.pack('=ffff', 1, 2, 3, 4))
-        self.assertEqual(samples[1], struct.pack('=ffff', 5, 6, 7, 8))
+        channel, samples = be.written_frames[0]
+        self.assertEqual(channel, 'center')
+        self.assertEqual(samples, struct.pack('=ffff', 1, 2, 3, 4))
 
     async def test_NOISE(self):
         vm_spec = spec.PipelineVMSpec()

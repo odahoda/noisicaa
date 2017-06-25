@@ -81,10 +81,10 @@ class IPCNode(node.CustomNode):
 
         for entity in response.entities:
             if entity.id == 'output:left':
-                assert entity.size == 4 * response.frameSize
                 assert entity.type == entity_capnp.Entity.Type.audio
+                assert entity.size == 4 * response.frameSize
                 self.__out_l[0:entity.size] = entity.data
             elif entity.id == 'output:right':
-                assert entity.size == 4 * response.frameSize
                 assert entity.type == entity_capnp.Entity.Type.audio
+                assert entity.size == 4 * response.frameSize
                 self.__out_r[0:entity.size] = entity.data
