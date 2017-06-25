@@ -7,10 +7,10 @@ import unittest
 import uuid
 
 from . import audio_stream
-from . import data
+from . import frame_data_capnp
 
 
-class AudioStreamSTest(unittest.TestCase):
+class AudioStreamTest(unittest.TestCase):
     def test_client_to_server(self):
         address = os.path.join(
             tempfile.gettempdir(),
@@ -23,9 +23,11 @@ class AudioStreamSTest(unittest.TestCase):
                 server.setup()
                 server_ready.set()
 
-                frame = server.receive_frame()
-                frame.sample_pos += 1
-                server.send_frame(frame)
+                request = server.receive_frame()
+                response = frame_data_capnp.FrameData.new_message()
+                response.samplePos = request.samplePos + 1
+                response.frameSize = request.frameSize
+                server.send_frame(response)
 
             finally:
                 server.cleanup()
@@ -38,21 +40,14 @@ class AudioStreamSTest(unittest.TestCase):
         try:
             client.setup()
 
-            frame = data.FrameData()
-            frame.sample_pos = 1234
-            frame.duration = 32
-            frame.samples = b'pling'
-            frame.num_samples = 3
-            frame.events = [('q1', 'event1'), ('q2', 'event2')]
-            client.send_frame(frame)
+            request = frame_data_capnp.FrameData.new_message()
+            request.samplePos = 1234
+            request.frameSize = 32
+            client.send_frame(request)
 
-            frame = client.receive_frame()
-            self.assertEqual(frame.sample_pos, 1235)
-            self.assertEqual(frame.duration, 32)
-            self.assertEqual(frame.samples, b'pling')
-            self.assertEqual(frame.num_samples, 3)
-            self.assertEqual(
-                frame.events, [('q1', 'event1'), ('q2', 'event2')])
+            response = client.receive_frame()
+            self.assertEqual(response.samplePos, 1235)
+            self.assertEqual(response.frameSize, 32)
 
         finally:
             client.cleanup()

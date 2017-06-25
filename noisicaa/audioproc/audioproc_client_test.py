@@ -76,13 +76,13 @@ class ProxyTest(asynctest.TestCase):
     async def test_connect_ports(self):
         node1_id = await self.client.add_node('passthru')
         node2_id = await self.client.add_node('passthru')
-        await self.client.connect_ports(node1_id, 'out', node2_id, 'in')
+        await self.client.connect_ports(node1_id, 'out:left', node2_id, 'in:left')
 
     async def test_disconnect_ports(self):
         node1_id = await self.client.add_node('passthru')
         node2_id = await self.client.add_node('passthru')
-        await self.client.connect_ports(node1_id, 'out', node2_id, 'in')
-        await self.client.disconnect_ports(node1_id, 'out', node2_id, 'in')
+        await self.client.connect_ports(node1_id, 'out:left', node2_id, 'in:left')
+        await self.client.disconnect_ports(node1_id, 'out:left', node2_id, 'in:left')
 
 
 if __name__ == '__main__':

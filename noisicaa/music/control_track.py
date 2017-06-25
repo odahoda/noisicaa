@@ -125,10 +125,10 @@ class ControlEntitySource(base_track.EntitySource):
 
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
-    def get_entities(self, frame_data, start_pos, end_pos, sample_pos_offset):
+    def get_entities(self, entities, start_pos, end_pos, sample_pos_offset):
         entity_id = 'track:%s' % self._track.id
         try:
-            entity = frame_data.entities[entity_id]
+            entity = entities[entity_id]
         except KeyError:
             entity = audioproc.ControlFrameEntity()
             frame_data.entities[entity_id] = entity

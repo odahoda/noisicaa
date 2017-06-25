@@ -34,7 +34,7 @@ class TestBackend(backend.Backend):
             self.start_step.wait()
             self.start_step.clear()
 
-    def end_frame(self, ctxt):
+    def end_frame(self):
         logger.info("Backend.end_frame()")
         if self.step_mode:
             self.step_done.set()

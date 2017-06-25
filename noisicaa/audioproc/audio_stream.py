@@ -7,7 +7,9 @@ import select
 import threading
 import uuid
 
-from . import data
+import capnp
+
+from . import frame_data_capnp
 
 logger = logging.getLogger(__name__)
 
@@ -88,98 +90,35 @@ class AudioStreamBase(object):
         del self._buffer[:num_bytes]
         return d
 
-    def receive_frame(self):
-        frame = data.FrameData()
-        frame.events = []
-        frame.entities = {}
-        frame.perf_data = []
-
+    def receive_frame_bytes(self):
         line = self._get_line()
         if line == b'#CLOSE':
             raise StreamClosed
 
-        assert line.startswith(b'#FR=')
-        frame.sample_pos = int(line[4:])
-        while True:
-            line = self._get_line()
-            if line == b'#END':
-                break
+        assert line.startswith(b'#FR='), line
+        payload = self._get_bytes(int(line[4:]))
 
-            elif line.startswith(b'DURATION='):
-                frame.duration = int(line[9:])
+        line = self._get_line()
+        assert line == b'#END', line
 
-            elif line.startswith(b'EVENT='):
-                queue = line[6:].decode('utf-8')
+        return payload
 
-                length = self._get_line()
-                assert length.startswith(b'LEN=')
-                serialized = self._get_bytes(int(length[4:]))
-                event = pickle.loads(serialized)
-                frame.events.append((queue, event))
+    def receive_frame(self):
+        return frame_data_capnp.FrameData.from_bytes_packed(
+            self.receive_frame_bytes())
 
-            elif line.startswith(b'ENTITY='):
-                name = line[7:].decode('utf-8')
-
-                length = self._get_line()
-                assert length.startswith(b'LEN=')
-                serialized = self._get_bytes(int(length[4:]))
-                entity = data.Entity.deserialize(serialized)
-                frame.entities[name] = entity
-
-            elif line.startswith(b'SAMPLES='):
-                frame.num_samples = int(line[8:])
-
-                line = self._get_line()
-                assert line.startswith(b'LEN=')
-                num_bytes = int(line[4:])
-
-                frame.samples = self._get_bytes(num_bytes)
-                assert len(frame.samples) == num_bytes
-
-            elif line.startswith(b'PERF='):
-                serialized = self._get_bytes(int(line[5:]))
-                span = pickle.loads(serialized)
-                frame.perf_data.append(span)
-
-            else:
-                raise StreamError("Unexpected token %r" % line)
-
-        return frame
-
-    def send_frame(self, frame):
+    def send_frame_bytes(self, frame_bytes):
         request = bytearray()
-        request.extend(b'#FR=%d\n' % frame.sample_pos)
-        request.extend(b'DURATION=%d\n' % frame.duration)
-
-        if frame.events:
-            for queue, event in frame.events:
-                request.extend(b'EVENT=%s\n' % queue.encode('utf-8'))
-                serialized = pickle.dumps(event)
-                request.extend(b'LEN=%d\n' % len(serialized))
-                request.extend(serialized)
-
-        if frame.entities:
-            for name, entity in frame.entities.items():
-                request.extend(b'ENTITY=%s\n' % name.encode('utf-8'))
-                serialized = entity.serialize()
-                request.extend(b'LEN=%d\n' % len(serialized))
-                request.extend(serialized)
-
-        if frame.samples:
-            request.extend(b'SAMPLES=%d\n' % frame.num_samples)
-            request.extend(b'LEN=%d\n' % len(frame.samples))
-            request.extend(frame.samples)
-
-        for span in frame.perf_data or []:
-            serialized = pickle.dumps(span)
-            request.extend(b'PERF=%d\n' % len(serialized))
-            request.extend(serialized)
-
+        request.extend(b'#FR=%d\n' % len(frame_bytes))
+        request.extend(frame_bytes)
         request.extend(b'#END\n')
 
         while request:
             written = os.write(self._pipe_out, request)
             del request[:written]
+
+    def send_frame(self, frame):
+        self.send_frame_bytes(frame.to_bytes_packed())
 
 
 class AudioStreamServer(AudioStreamBase):

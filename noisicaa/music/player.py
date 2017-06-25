@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 
+import asyncio
 import enum
 import functools
-import asyncio
+import itertools
 import logging
 import os
 import os.path
@@ -248,12 +249,18 @@ class AudioStreamProxy(object):
         try:
             while not self._stopped.is_set():
                 try:
-                    request = self._server.receive_frame()
+                    server_request = self._server.receive_frame()
                 except audioproc.StreamClosed:
                     logger.warning("Stream to PlayerClient closed.")
                     raise
 
                 perf = core.PerfStats()
+
+                request = audioproc.FrameData.new_message()
+                request.samplePos = server_request.samplePos
+                request.frameSize = server_request.frameSize
+
+                entities = {}
 
                 while True:
                     try:
@@ -264,11 +271,11 @@ class AudioStreamProxy(object):
                     if new_settings.sample_pos is not None:
                         settings.sample_pos = new_settings.sample_pos
                         if settings.state == 'playing':
-                            sample_pos_offset = request.sample_pos - settings.sample_pos
+                            sample_pos_offset = request.samplePos - settings.sample_pos
                         self._player.publish_status_async(
                             playback_pos=(
                                 settings.sample_pos,
-                                request.duration))
+                                request.frameSize))
 
                     if new_settings.loop_start is not None:
                         settings.loop_start = new_settings.loop_start
@@ -289,7 +296,7 @@ class AudioStreamProxy(object):
                         new_state = new_settings.state
                         if settings.state != new_state:
                             if new_state == 'playing':
-                                sample_pos_offset = request.sample_pos - settings.sample_pos
+                                sample_pos_offset = request.samplePos - settings.sample_pos
                             settings.state = new_state
                             self._player.publish_status_async(
                                 player_state=new_state)
@@ -297,8 +304,8 @@ class AudioStreamProxy(object):
                 if settings.state == 'playing':
                     self._player.publish_status_async(
                         playback_pos=(
-                            request.sample_pos - sample_pos_offset,
-                            request.duration))
+                            request.samplePos - sample_pos_offset,
+                            request.frameSize))
 
                     if settings.loop_start is not None:
                         range_start = settings.loop_start
@@ -311,12 +318,12 @@ class AudioStreamProxy(object):
                         range_end = tmap.total_duration_samples
 
                     with perf.track('get_track_entities'):
-                        duration = request.duration
-                        out_sample_pos = request.sample_pos
+                        duration = request.frameSize
+                        out_sample_pos = request.samplePos
                         while duration > 0:
                             end_pos = min(settings.sample_pos + duration, range_end)
                             self._player.get_track_entities(
-                                request,
+                                entities,
                                 settings.sample_pos, end_pos,
                                 sample_pos_offset)
 
@@ -334,13 +341,23 @@ class AudioStreamProxy(object):
                             else:
                                 settings.sample_pos = end_pos
 
+                request.init(
+                    'entities',
+                    len(server_request.entities) + len(entities))
+                for idx, entity in enumerate(
+                        itertools.chain(
+                            server_request.entities, entities.values())):
+                    request.entities[idx] = entity
+
                 with self._lock:
                     if self._client is not None:
                         try:
                             with perf.track('send_frame'):
                                 self._client.send_frame(request)
                             with perf.track('receive_frame'):
-                                response = self._client.receive_frame()
+                                client_response = self._client.receive_frame()
+                            #perf.add_spans(response.perf_data)
+
                         except audioproc.StreamClosed:
                             logger.warning("Stream to pipeline closed.")
                             self._player.event_loop.call_soon_threadsafe(
@@ -348,15 +365,18 @@ class AudioStreamProxy(object):
                             self._client = None
 
                     if self._client is None:
-                        response = audioproc.FrameData()
-                        response.sample_pos = request.sample_pos
-                        response.duration = request.duration
-                        response.events = []
-                        response.entities = {}
-                        response.perf_data = []
+                        client_response = audioproc.FrameData.new_message()
+                        client_response.samplePos = request.samplePos
+                        client_response.frameSize = request.frameSize
 
-                perf.add_spans(response.perf_data)
-                response.perf_data = perf.get_spans()
+
+                response = audioproc.FrameData.new_message()
+                response.samplePos = client_response.samplePos
+                response.frameSize = client_response.frameSize
+                response.init('entities', len(client_response.entities))
+                for idx, entity in enumerate(client_response.entities):
+                    response.entities[idx] = entity
+                #response.perf_data = perf.get_spans()
 
                 try:
                     self._server.send_frame(response)
@@ -620,9 +640,9 @@ class Player(object):
                 entity_source = self.track_entity_sources.pop(t.id)
                 entity_source.close()
 
-    def get_track_entities(self, frame_data, start_pos, end_pos, sample_pos_offset):
+    def get_track_entities(self, entities, start_pos, end_pos, sample_pos_offset):
         for entity_source in self.track_entity_sources.values():
-            entity_source.get_entities(frame_data, start_pos, end_pos, sample_pos_offset)
+            entity_source.get_entities(entities, start_pos, end_pos, sample_pos_offset)
 
     def handle_pipeline_mutation(self, mutation):
         if self.pending_pipeline_mutations is not None:

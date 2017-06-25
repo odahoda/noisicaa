@@ -348,7 +348,8 @@ class PipelineVM(object):
         except KeyError:
             buf.clear()
         else:
-            entity.copy_to_buffer(buf)
+            assert entity.size == len(buf.type)
+            buf.set_bytes(entity.data)
 
     @at_performance
     def op_NOISE(self, ctxt, state, *, buf_idx):

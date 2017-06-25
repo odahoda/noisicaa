@@ -21,3 +21,4 @@ psutil
 ./3rdparty/lilv/
 intervaltree
 pkgconfig
+pycapnp

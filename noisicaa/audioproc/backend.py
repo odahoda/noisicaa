@@ -7,6 +7,7 @@ import tempfile
 import threading
 import uuid
 
+import capnp
 import pyaudio
 
 from .resample import (Resampler,
@@ -14,7 +15,8 @@ from .resample import (Resampler,
                        AV_SAMPLE_FMT_S16,
                        AV_SAMPLE_FMT_FLT)
 from . import audio_stream
-from . import data
+from . import entity_capnp
+from . import frame_data_capnp
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +206,6 @@ class IPCBackend(Backend):
             socket_dir, 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
         self.__stream = audio_stream.AudioStreamServer(self.address)
-        self.__sample_pos_offset = None
         self.__ctxt = None
         self.__out_frame = None
 
@@ -224,13 +225,15 @@ class IPCBackend(Backend):
         self.__ctxt = ctxt
         try:
             in_frame = self.__stream.receive_frame()
-            ctxt.duration = in_frame.duration
-            ctxt.entities = in_frame.entities
-            self.__sample_pos_offset = in_frame.sample_pos - ctxt.sample_pos
+            ctxt.duration = in_frame.frameSize
+            ctxt.entities = {
+                entity.id: entity
+                for entity in in_frame.entities
+            }
 
-            self.__out_frame = data.FrameData()
-            self.__out_frame.sample_pos = ctxt.sample_pos
-            self.__out_frame.duration = ctxt.duration
+            self.__out_frame = frame_data_capnp.FrameData.new_message()
+            self.__out_frame.samplePos = in_frame.samplePos
+            self.__out_frame.frameSize = in_frame.frameSize
 
         except audio_stream.StreamClosed:
             logger.warning("Stopping IPC backend.")
@@ -249,12 +252,22 @@ class IPCBackend(Backend):
         assert layout == AV_CH_LAYOUT_STEREO
 
         assert self.__out_frame is not None
-        assert self.__out_frame.samples is None
         assert self.__ctxt.perf.current_span_id == 0
 
         perf_data = self.__ctxt.perf.get_spans()
 
-        self.__out_frame.samples = samples[0] + samples[1]
-        self.__out_frame.num_samples = num_samples
-        self.__out_frame.sample_pos += self.__sample_pos_offset
-        self.__out_frame.perf_data = perf_data
+        self.__out_frame.init('entities', 2)
+
+        e = self.__out_frame.entities[0]
+        e.id = 'output:left'
+        e.type = entity_capnp.Entity.Type.audio
+        e.size = 4 * num_samples
+        e.data = bytes(samples[0])
+
+        e = self.__out_frame.entities[1]
+        e.id = 'output:right'
+        e.type = entity_capnp.Entity.Type.audio
+        e.size = 4 * num_samples
+        e.data = bytes(samples[1])
+
+        #self.__out_frame.perf_data = perf_data

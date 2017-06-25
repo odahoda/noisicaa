@@ -7,13 +7,9 @@ from .audio_stream import (
     AudioStreamServer,
     StreamClosed
 )
-from .data import (
-    ControlFrameEntity,
-    AudioFrameEntity,
-    AtomEntity,
-    FrameData,
-    FrameContext,
-)
+from .data import FrameContext
+from .entity_capnp import Entity
+from .frame_data_capnp import FrameData
 from .mutations import (
     Mutation,
     AddNode, RemoveNode,

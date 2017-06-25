@@ -21,13 +21,14 @@ class CompilerTest(asynctest.TestCase):
 
         node2 = nodes.PassThru(self.loop)
         g.add_node(node2)
-        node2.inputs['in'].connect(node1.outputs['out'])
+        node2.inputs['in:left'].connect(node1.outputs['out:left'])
+        node2.inputs['in:right'].connect(node1.outputs['out:right'])
 
         node3 = nodes.Sink(self.loop)
         g.add_node(node3)
-        node3.inputs['audio_left'].connect(node1.outputs['out'])
-        node3.inputs['audio_left'].connect(node2.outputs['out'])
-        node3.inputs['audio_right'].connect(node2.outputs['out'])
+        node3.inputs['in:left'].connect(node1.outputs['out:left'])
+        node3.inputs['in:left'].connect(node2.outputs['out:left'])
+        node3.inputs['in:right'].connect(node2.outputs['out:right'])
 
         return g
 
