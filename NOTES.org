@@ -1,21 +1,8 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- integration test of player+audio process
-  - with NullBackend
-  - play back demo project beginning to end
-- event ports
-  - pickle? atom?
 - what about parameters?
   - handle as single float buffers
-- FETCH_ENTITY opcode
-  - FETCH_ENTITY 'entity_id', buf
-- OUTPUT opcode
-  - take single buffer and channel position
-  - stereo output ->
-      OUTPUT bufl, #left
-      OUTPUT bufr, #right
-  - backends gather buffers in map, write out in end_frame()
 - buffer conversion methods?
   - different buffer types for events (native, atom, ...)
   - auto convert as needed
