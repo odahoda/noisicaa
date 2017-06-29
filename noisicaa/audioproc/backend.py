@@ -238,6 +238,7 @@ class IPCBackend(Backend):
                 entity.id: entity
                 for entity in in_frame.entities
             }
+            ctxt.messages = in_frame.messages
 
             self.__out_frame = frame_data_capnp.FrameData.new_message()
             self.__out_frame.samplePos = in_frame.samplePos

@@ -81,6 +81,7 @@ cdef class URID_StaticMapper(URID_Mapper):
         self.__insert(b'http://lv2plug.in/ns/ext/atom#URI')
         self.__insert(b'http://lv2plug.in/ns/ext/atom#URID')
         self.__insert(b'http://lv2plug.in/ns/ext/atom#Vector')
+        self.__insert(b'http://lv2plug.in/ns/ext/atom#Event')
 
     cdef LV2_URID __insert(self, const char* uri) except -1:
         assert bytes(uri) not in self.url_map

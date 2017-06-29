@@ -2,6 +2,8 @@
 import contextlib
 import logging
 
+from . import urid
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,10 +32,50 @@ cdef class AtomForge(object):
         yield
         lv2_atom_forge_pop(&self.forge, &frame)
 
+    def write_raw_event(self, uint32_t time, const uint8_t* atom, uint32_t length):
+        lv2_atom_forge_frame_time(&self.forge, time)
+        lv2_atom_forge_write(&self.forge, atom, length)
+
+    def write_raw(self, const uint8_t* atom, uint32_t length):
+        lv2_atom_forge_write(&self.forge, atom, length)
+
+    def write_atom_event(self, uint32_t time, LV2_URID type, const uint8_t* data, uint32_t length):
+        lv2_atom_forge_frame_time(&self.forge, time)
+        lv2_atom_forge_atom(&self.forge, length, type)
+        lv2_atom_forge_write(&self.forge, data, length)
+
+    def write_atom(self, LV2_URID type, const uint8_t* data, uint32_t length):
+        lv2_atom_forge_atom(&self.forge, length, type)
+        lv2_atom_forge_write(&self.forge, data, length)
+
     def write_midi_event(self, uint32_t time, const uint8_t* msg, uint32_t length):
         lv2_atom_forge_frame_time(&self.forge, time)
+        self.write_midi_atom(msg, length)
+
+    def write_midi_atom(self, const uint8_t* msg, uint32_t length):
         lv2_atom_forge_atom(&self.forge, length, self.midi_event)
         lv2_atom_forge_write(&self.forge, msg, length)
+
+    @classmethod
+    def build_midi_atom(cls, bytes msg):
+        forge = cls(urid.static_mapper)
+        buf = bytearray(1024)
+        forge.set_buffer(buf, 1024)
+        forge.write_midi_atom(msg, len(msg))
+        return bytes(buf[:forge.bytes_written])
+
+    @classmethod
+    def build_midi_noteon(cls, channel, pitch, velocity):
+        assert 0 <= channel < 16, channel
+        assert 0 <= pitch < 128, pitch
+        assert 0 <= velocity < 128, velocity
+        return cls.build_midi_atom(bytes([0x90 + channel, pitch, velocity]))
+
+    @classmethod
+    def build_midi_noteoff(cls, channel, pitch):
+        assert 0 <= channel < 16, channel
+        assert 0 <= pitch < 128, pitch
+        return cls.build_midi_atom(bytes([0x80 + channel, pitch, 0]))
 
 
 cdef class Atom(object):
@@ -64,7 +106,12 @@ cdef class Atom(object):
     @property
     def data(self):
         cdef uint8_t* d = <uint8_t*>self.atom + sizeof(LV2_Atom)
-        return bytes(d[0:self.size])
+        return bytes(d[:self.size])
+
+    @property
+    def as_bytes(self):
+        cdef uint8_t* d = <uint8_t*>self.atom
+        return bytes(d[:sizeof(LV2_Atom) + self.size])
 
 
 cdef class MidiEvent(Atom):

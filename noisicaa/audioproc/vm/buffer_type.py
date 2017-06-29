@@ -103,5 +103,43 @@ class AtomData(BufferType):
             pass
 
     def mix_buffers(self, buf1, buf2):
-        # TODO: merge the two buffers (assuming they are sequences).
-        buf1[:] = buf2[:]
+        merged = bytearray(self.__size)
+
+        seq1 = lv2.wrap_atom(lv2.static_mapper, buf1)
+        events1 = seq1.events
+        seq2 = lv2.wrap_atom(lv2.static_mapper, buf2)
+        events2 = seq2.events
+
+        forge = lv2.AtomForge(lv2.static_mapper)
+        forge.set_buffer(merged, self.__size)
+
+        with forge.sequence():
+            idx1 = 0
+            idx2 = 0
+            while idx1 < len(events1) and idx2 < len(events2):
+                if events1[idx1].frames <= events2[idx2].frames:
+                    event = events1[idx1]
+                    idx1 += 1
+                else:
+                    event = events2[idx2]
+                    idx2 += 1
+                atom = event.atom
+                forge.write_atom_event(
+                    event.frames,
+                    atom.type_urid, atom.data, atom.size)
+
+            for idx in range(idx1, len(events1)):
+                event = events1[idx]
+                atom = event.atom
+                forge.write_atom_event(
+                    event.frames,
+                    atom.type_urid, atom.data, atom.size)
+
+            for idx in range(idx2, len(events2)):
+                event = events2[idx]
+                atom = event.atom
+                forge.write_atom_event(
+                    event.frames,
+                    atom.type_urid, atom.data, atom.size)
+
+        buf1[:] = merged

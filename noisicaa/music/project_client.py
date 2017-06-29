@@ -278,6 +278,10 @@ class ProjectClientMixin(object):
         return await self._stub.call(
             'PLAYER_UPDATE_SETTINGS', self._session_id, player_id, settings)
 
+    async def player_send_message(self, player_id, msg):
+        return await self._stub.call(
+            'PLAYER_SEND_MESSAGE', self._session_id, player_id, msg)
+
     async def restart_player_pipeline(self, player_id):
         return await self._stub.call(
             'RESTART_PLAYER_PIPELINE', self._session_id, player_id)

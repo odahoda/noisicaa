@@ -12,6 +12,7 @@ import time
 from noisicaa import core
 from noisicaa import rwlock
 from noisicaa import audioproc
+from noisicaa.bindings import lv2
 from .. import resample
 from . import buffer_type
 from . import graph
@@ -343,6 +344,30 @@ class PipelineVM(object):
         else:
             assert entity.size == len(buf.type)
             buf.set_bytes(entity.data)
+
+    @at_performance
+    def op_FETCH_MESSAGES(self, ctxt, state, *, labelset, buf_idx):
+        buf = self.__buffers[buf_idx]
+
+        forge = lv2.AtomForge(lv2.static_mapper)
+        forge.set_buffer(buf.data, len(buf.type))
+
+        with forge.sequence():
+            for msg in ctxt.messages:
+                if msg.type != core.MessageType.atom:
+                    continue
+
+                matched = all(
+                    any(label_b.key == label_a.key and label_b.value == label_a.value
+                        for label_b in msg.labelset.labels)
+                    for label_a in labelset.labels)
+
+                if not matched:
+                    continue
+
+                forge.write_raw_event(0, msg.data, len(msg.data))
+
+        # TODO: clear remainder of buf.
 
     @at_performance
     def op_NOISE(self, ctxt, state, *, buf_idx):

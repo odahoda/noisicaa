@@ -6,7 +6,7 @@ from . import urid
 
 
 class AtomForgeTest(unittest.TestCase):
-    def test_forge(self):
+    def test_sequence(self):
         buf = bytearray(1024)
 
         forge = atom.AtomForge(urid.static_mapper)
@@ -17,6 +17,12 @@ class AtomForgeTest(unittest.TestCase):
             forge.write_midi_event(1, b'abc', 3)
 
         print(sratom.atom_to_turtle(urid.static_mapper, buf))
+
+    def test_build_midi_atom(self):
+        buf = atom.AtomForge.build_midi_atom(b'123')
+
+        a = atom.wrap_atom(urid.static_mapper, buf)
+        self.assertIsInstance(a, atom.MidiEvent)
 
 
 class AtomTest(unittest.TestCase):
@@ -32,4 +38,3 @@ class AtomTest(unittest.TestCase):
         seq = atom.wrap_atom(urid.static_mapper, buf)
         self.assertIsInstance(seq, atom.Sequence)
         print(seq)
-

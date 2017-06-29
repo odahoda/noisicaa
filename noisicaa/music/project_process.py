@@ -200,6 +200,8 @@ class ProjectProcessMixin(object):
         self.server.add_command_handler(
             'PLAYER_UPDATE_SETTINGS', self.handle_player_update_settings)
         self.server.add_command_handler(
+            'PLAYER_SEND_MESSAGE', self.handle_player_send_message)
+        self.server.add_command_handler(
             'RESTART_PLAYER_PIPELINE', self.handle_restart_player_pipeline)
         self.server.add_command_handler(
             'DUMP', self.handle_dump)
@@ -436,6 +438,11 @@ class ProjectProcessMixin(object):
         session = self.get_session(session_id)
         p = session.get_player(player_id)
         await p.update_settings(settings)
+
+    async def handle_player_send_message(self, session_id, player_id, msg):
+        session = self.get_session(session_id)
+        p = session.get_player(player_id)
+        p.send_message(msg)
 
     async def handle_restart_player_pipeline(self, session_id, player_id):
         session = self.get_session(session_id)

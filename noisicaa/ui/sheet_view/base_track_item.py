@@ -22,7 +22,7 @@ class BaseTrackItem(QtCore.QObject):
     rectChanged = QtCore.pyqtSignal(QtCore.QRect)
     sizeChanged = QtCore.pyqtSignal(QtCore.QSize)
 
-    def __init__(self, track, **kwargs):
+    def __init__(self, *, track, **kwargs):
         super().__init__(**kwargs)
 
         self.__track = track
@@ -150,11 +150,15 @@ class BaseTrackItem(QtCore.QObject):
 class BaseTrackEditorItem(BaseTrackItem):
     currentToolChanged = QtCore.pyqtSignal(tools.Tool)
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, player_state, **kwargs):
         super().__init__(**kwargs)
 
+        self.__player_state = player_state
         self.__current_tool = self.defaultTool()
         self.__previous_tool = None
+
+    def playerState(self):
+        return self.__player_state
 
     def supportedTools(self):
         raise NotImplementedError

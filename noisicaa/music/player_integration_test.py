@@ -16,6 +16,7 @@ from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.audioproc import audioproc_process
 from noisicaa.audioproc import audioproc_client
+from noisicaa.bindings import lv2
 from noisicaa.core import ipc
 from noisicaa.ui import model
 
@@ -129,7 +130,7 @@ class PlayerTest(asynctest.TestCase):
 
         await self.callback_server.cleanup()
 
-    async def test_foo(self):
+    async def test_playback_demo(self):
         p = player.Player(self.sheet, self.callback_server.address, self.mock_manager, self.loop)
         try:
             await p.setup()
@@ -151,9 +152,6 @@ class PlayerTest(asynctest.TestCase):
                     await self.callback_server.wait_for('pipeline_state'),
                     'running')
 
-                # TODO: wait for player ready (node setup complete).
-                await asyncio.sleep(1)
-
                 await p.update_settings(project_client.PlayerSettings(state='playing'))
 
                 self.assertEqual(
@@ -165,6 +163,52 @@ class PlayerTest(asynctest.TestCase):
                 self.assertEqual(
                     await self.callback_server.wait_for('player_state'),
                     'stopped')
+
+            finally:
+                await self.audioproc_client_main.disconnect_ports(
+                    player_node_id, 'out:left', 'sink', 'in:left')
+                await self.audioproc_client_main.disconnect_ports(
+                    player_node_id, 'out:right', 'sink', 'in:right')
+                await self.audioproc_client_main.remove_node(player_node_id)
+
+        except:
+            logger.exception("")
+            raise
+
+        finally:
+            await p.cleanup()
+
+    async def test_send_message(self):
+        p = player.Player(self.sheet, self.callback_server.address, self.mock_manager, self.loop)
+        try:
+            await p.setup()
+
+            player_node_id = await self.audioproc_client_main.add_node(
+                'ipc',
+                address=p.proxy_address,
+                event_queue_name='sheet:%s' % self.sheet.id)
+            await self.audioproc_client_main.connect_ports(
+                player_node_id, 'out:left', 'sink', 'in:left')
+            await self.audioproc_client_main.connect_ports(
+                player_node_id, 'out:right', 'sink', 'in:right')
+            try:
+                logger.info("Wait until audioproc is ready...")
+                self.assertEqual(
+                    await self.callback_server.wait_for('pipeline_state'),
+                    'starting')
+                self.assertEqual(
+                    await self.callback_server.wait_for('pipeline_state'),
+                    'running')
+                logger.info("audioproc is ready...")
+
+                logger.info("Send messsage...")
+                p.send_message(core.build_message(
+                    {core.MessageKey.trackId: self.sheet.master_group.tracks[0].id},
+                    core.MessageType.atom,
+                    lv2.AtomForge.build_midi_noteon(0, 65, 127)))
+
+                # TODO: wait for player ready (node setup complete).
+                await asyncio.sleep(1)
 
             finally:
                 await self.audioproc_client_main.disconnect_ports(

@@ -215,6 +215,7 @@ class AudioStreamProxy(object):
 
         self._stopped = threading.Event()
         self._settings_queue = queue.Queue()
+        self._message_queue = queue.Queue()
         self._thread = threading.Thread(target=self.main)
 
     def setup(self):
@@ -237,6 +238,9 @@ class AudioStreamProxy(object):
 
     def update_settings(self, settings):
         self._settings_queue.put(settings)
+
+    def send_message(self, msg):
+        self._message_queue.put(msg)
 
     def main(self):
         sample_pos_offset = None
@@ -261,6 +265,7 @@ class AudioStreamProxy(object):
                 request.frameSize = server_request.frameSize
 
                 entities = {}
+                messages = []
 
                 while True:
                     try:
@@ -300,6 +305,15 @@ class AudioStreamProxy(object):
                             settings.state = new_state
                             self._player.publish_status_async(
                                 player_state=new_state)
+
+                while True:
+                    try:
+                        msg = self._message_queue.get_nowait()
+                    except queue.Empty:
+                        break
+
+                    logger.info(str(msg))
+                    messages.append(msg)
 
                 if settings.state == 'playing':
                     self._player.publish_status_async(
@@ -348,6 +362,14 @@ class AudioStreamProxy(object):
                         itertools.chain(
                             server_request.entities, entities.values())):
                     request.entities[idx] = entity
+
+                request.init(
+                    'messages',
+                    len(server_request.messages) + len(messages))
+                for idx, msg in enumerate(
+                        itertools.chain(
+                            server_request.messages, messages)):
+                    request.messages[idx] = msg
 
                 with self._lock:
                     if self._client is not None:
@@ -414,6 +436,7 @@ class Player(object):
         self.audioproc_address = None
         self.audioproc_client = None
         self.audioproc_status_listener = None
+        self.audioproc_ready = None
         self.audiostream_address = None
         self.audiostream_client = None
 
@@ -455,10 +478,14 @@ class Player(object):
             size=1024)
 
         logger.info("Starting audio process...")
+        self.audioproc_ready = asyncio.Event(loop=self.event_loop)
         self.audioproc_backend = AudioProcBackend(self, self.event_loop)
         self.audioproc_backend_state_listener = self.audioproc_backend.add_state_listener(
             self.audioproc_state_changed)
         self.audioproc_backend.start()
+
+        # TODO: with timeout
+        await self.audioproc_ready.wait()
 
         self.add_track(self.sheet.master_group)
 
@@ -485,6 +512,8 @@ class Player(object):
 
         if self.audioproc_backend is not None:
             self.audioproc_backend = None
+
+        self.audioproc_ready = None
 
         logger.info("Stopping audio process...")
         await self.stop_audioproc()
@@ -553,6 +582,8 @@ class Player(object):
             await self.audioproc_client.dump()
 
             self.proxy.set_client(self.audiostream_client)
+
+            self.audioproc_ready.set()
 
         except ipc.ConnectionClosed:
             self.audioproc_backend.backend_crashed()
@@ -691,3 +722,5 @@ class Player(object):
     async def update_settings(self, settings):
         self.proxy.update_settings(settings)
 
+    def send_message(self, msg):
+        self.proxy.send_message(msg)

@@ -21,3 +21,9 @@ from .callbacks import (
 from .perf_stats import (
     PerfStats,
 )
+from .message import (
+    build_labelset,
+    build_message,
+    MessageType,
+    MessageKey,
+)

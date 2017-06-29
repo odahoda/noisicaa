@@ -53,11 +53,19 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
         self.__loop_end_sample_pos = self.__get_session_value('loop_end_sample_pos', None)
         self.__loop = self.__get_session_value('loop', False)
 
+        self.__player_id = None
+
     def __get_session_value(self, key, default):
         return super().get_session_value(self.__session_prefix + key, default)
 
     def __set_session_value(self, key, value):
         super().set_session_value(self.__session_prefix + key, value)
+
+    def playerID(self):
+        return self.__player_id
+
+    def setPlayerID(self, player_id):
+        self.__player_id = player_id
 
     def setState(self, state):
         if state == self.__state:
@@ -288,7 +296,8 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
 
     def createTrack(self, track):
         track_item_cls = self.track_cls_map[type(track).__name__]
-        track_item = track_item_cls(**self.context, track=track)
+        track_item = track_item_cls(
+            **self.context, track=track, player_state=self.__player_state)
         track_item.rectChanged.connect(
             lambda rect: self.update(rect.translated(-self.offset())))
         track_item.sizeChanged.connect(
@@ -1173,6 +1182,8 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
             self.__player_id, self.onPlayerStatus)
 
         self.__time_line.setPlayerID(self.__player_id)
+        self.__player_state.setPlayerID(self.__player_id)
+
         await self.project_client.player_update_settings(
             self.__player_id,
             music.PlayerSettings(

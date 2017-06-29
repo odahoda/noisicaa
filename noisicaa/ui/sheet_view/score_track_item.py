@@ -7,8 +7,10 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import music
+from noisicaa.bindings import lv2
 from noisicaa.ui import svg_symbol
 from noisicaa.ui import ui_base
 from noisicaa.ui import tools
@@ -766,21 +768,31 @@ class ScoreTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
     def playNoteOn(self, pitch):
         self.playNoteOff()
 
-        self.call_async(
-            self.audioproc_client.add_event(
-                'sheet:%s/track:%s' % (
-                    self.sheet.id, self.track.id),
-                audioproc.NoteOnEvent(-1, pitch)))
+        if self.playerState().playerID():
+            self.call_async(
+                self.project_client.player_send_message(
+                    self.playerState().playerID(),
+                    core.build_message(
+                        {core.MessageKey.sheetId: self.sheet.id,
+                         core.MessageKey.trackId: self.track.id},
+                        core.MessageType.atom,
+                        lv2.AtomForge.build_midi_noteon(0, pitch.midi_note, 127))))
 
-        self.__play_last_pitch = pitch
+            self.__play_last_pitch = pitch
 
     def playNoteOff(self):
         if self.__play_last_pitch is not None:
-            self.call_async(
-                self.audioproc_client.add_event(
-                    'sheet:%s/track:%s' % (
-                        self.sheet.id, self.track.id),
-                    audioproc.NoteOffEvent(-1, self.__play_last_pitch)))
+            if self.playerState().playerID():
+                self.call_async(
+                    self.project_client.player_send_message(
+                        self.playerState().playerID(),
+                        core.build_message(
+                            {core.MessageKey.sheetId: self.sheet.id,
+                             core.MessageKey.trackId: self.track.id},
+                            core.MessageType.atom,
+                            lv2.AtomForge.build_midi_noteoff(
+                                0, self.__play_last_pitch.midi_note))))
+
             self.__play_last_pitch = None
 
     def keyPressEvent(self, evt):

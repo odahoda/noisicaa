@@ -458,7 +458,7 @@ class EventSourcePipelineGraphNode(
         self.sheet.handle_pipeline_mutation(
             mutations.AddNode(
                 'track_event_source', self.pipeline_node_id, self.name,
-                entity_id='track:%s' % self.track.id))
+                track_id=self.track.id))
 
         self.set_initial_parameters()
 

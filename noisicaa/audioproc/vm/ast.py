@@ -171,3 +171,24 @@ class FetchEntity(ASTNode):
                 entity_id=self.entity_id,
                 buf_idx=buf_idx)
         ]
+
+class FetchMessages(ASTNode):
+    def __init__(self, labelset, buf_name):
+        super().__init__()
+
+        self.labelset = labelset
+        self.buf_name = buf_name
+
+    def __str__(self):
+        return '%s(%r, %r)' % (
+            super().__str__(),
+            self.labelset, self.buf_name)
+
+    def get_opcodes(self, symbol_table):
+        buf_idx = symbol_table.get_buffer_idx(self.buf_name)
+        return [
+            spec.OpCode(
+                'FETCH_MESSAGES',
+                labelset=self.labelset,
+                buf_idx=buf_idx)
+        ]

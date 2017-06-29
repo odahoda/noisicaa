@@ -77,8 +77,10 @@ class MockAudioProcClient(object):
             while not self.stop_backend.is_set():
                 logger.debug("Waiting for request...")
                 request = self.audiostream_server.receive_frame()
-                logger.debug("Got request %s, sending response.", request.sample_pos)
-                self.audiostream_server.send_frame(request)
+                logger.debug("Got request %s, sending response.", request.samplePos)
+
+                response = audioproc.FrameData.new_message(**request.to_dict())
+                self.audiostream_server.send_frame(response)
         except audioproc.StreamClosed:
             pass
 
@@ -130,14 +132,14 @@ class PlayerTest(asynctest.TestCase):
 
             sample_pos = 0
             while True:
-                request = audioproc.FrameData()
-                request.sample_pos = sample_pos
-                request.duration = 10
+                request = audioproc.FrameData.new_message()
+                request.samplePos = sample_pos
+                request.frameSize = 10
                 logger.debug("Sending frame %s...", sample_pos)
                 client.send_frame(request)
                 logger.debug("Waiting for response...")
                 response = client.receive_frame()
-                logger.debug("Got response %s.", response.sample_pos)
+                logger.debug("Got response %s.", response.samplePos)
 
                 sample_pos += 1
 

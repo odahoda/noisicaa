@@ -6,5 +6,6 @@ class FrameContext(object):
         self.sample_pos = None
         self.duration = None
         self.entities = None
+        self.messages = None
         self.perf_stats = None
 
