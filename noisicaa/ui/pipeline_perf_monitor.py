@@ -107,12 +107,12 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self.gantt_scene.clear()
 
-        spans = sorted(perf_data, key=lambda span: span.start_time_nsec)
+        spans = sorted(perf_data.spans, key=lambda span: span.startTimeNSec)
 
         if spans:
             self.max_time_nsec = max(
                 99 * self.max_time_nsec // 100,
-                max(span.end_time_nsec - spans[0].start_time_nsec
+                max(span.endTimeNSec - spans[0].startTimeNSec
                     for span in spans))
 
         scale = self.time_scale / 1e9
@@ -152,7 +152,7 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         if not spans:
             return
 
-        timebase = spans[0].start_time_nsec
+        timebase = spans[0].startTimeNSec
         y = 20
         for span in spans:
             label = QtWidgets.QGraphicsTextItem()
@@ -161,8 +161,8 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
             label.setPos(0, y - 4)
             self.gantt_scene.addItem(label)
 
-            x = loffset + scale * (span.start_time_nsec - timebase)
-            w = max(1, scale * span.duration)
+            x = loffset + scale * (span.startTimeNSec - timebase)
+            w = max(1, scale * (span.endTimeNSec - span.startTimeNSec))
 
             bar = QtWidgets.QGraphicsRectItem()
             bar.setRect(x, y, w, 14)

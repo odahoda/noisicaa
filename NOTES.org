@@ -1,6 +1,8 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
+- create FrameData wrapper class with pythonic API
+- move atom sequence mixing into atom.pyx
 - what about parameters?
   - handle as single float buffers
 - buffer conversion methods?

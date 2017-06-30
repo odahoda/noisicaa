@@ -5,12 +5,16 @@ import random
 import threading
 import time
 
+import capnp
+
+from . import perf_stats_capnp
+
 
 class Span(object):
-    def __init__(self, name, parent_id):
-        self.id = random.getrandbits(64)
-        self.name = name
-        self.parent_id = parent_id
+    def __init__(self):
+        self.id = None
+        self.name = None
+        self.parent_id = None
         self.start_time_nsec = None
         self.end_time_nsec = None
 
@@ -34,9 +38,18 @@ class PerfStats(object):
         self._spans = []
         self._stacks = threading.local()
 
-    def get_spans(self):
+    def serialize(self):
+        msg = perf_stats_capnp.PerfStats.new_message()
         with self._lock:
-            return self._spans[:]
+            msg.init('spans', len(self._spans))
+            for idx, span in enumerate(self._spans):
+                s = msg.spans[idx]
+                s.id = span.id
+                s.name = span.name
+                s.parentId = span.parent_id
+                s.startTimeNSec = span.start_time_nsec
+                s.endTimeNSec = span.end_time_nsec
+        return msg
 
     def get_time_nsec(self):  # pragma: no coverage
         return int(time.perf_counter() * 1e9)
@@ -57,7 +70,10 @@ class PerfStats(object):
         stack = self.get_stack()
         if parent_id is None:
             parent_id = stack[-1].id if stack else 0
-        span = Span(name, parent_id)
+        span = Span()
+        span.id = random.getrandbits(64)
+        span.name = name
+        span.parent_id = parent_id
         span.start_time_nsec = self.get_time_nsec()
         stack.append(span)
         with self._lock:
@@ -76,10 +92,16 @@ class PerfStats(object):
         finally:
             self.end_span()
 
-    def add_spans(self, spans):
+    def add_spans(self, msg):
         with self._lock:
-            for span in spans:
-                if span.parent_id is 0:
+            for s in msg.spans:
+                span = Span()
+                span.id = s.id
+                span.name = s.name
+                if s.parentId == 0:
                     span.parent_id = self.current_span_id
+                else:
+                    span.parent_id = s.parentId
+                span.start_time_nsec = s.startTimeNSec
+                span.end_time_nsec = s.endTimeNSec
                 self._spans.append(span)
-

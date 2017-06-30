@@ -252,8 +252,7 @@ class PipelineVM(object):
                     time.sleep(0.1)
                     continue
 
-                self.listeners.call(
-                    'perf_data', ctxt.perf.get_spans())
+                self.listeners.call('perf_data', ctxt.perf.serialize())
 
                 ctxt.perf = core.PerfStats()
 

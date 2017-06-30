@@ -256,9 +256,7 @@ class IPCBackend(Backend):
                 self.__out_frame.entities[idx] = entity
 
             assert self.__ctxt.perf.current_span_id == 0
-
-            perf_data = self.__ctxt.perf.get_spans()
-            #self.__out_frame.perf_data = perf_data
+            self.__out_frame.perfData = self.__ctxt.perf.serialize()
 
             self.__stream.send_frame(self.__out_frame)
 

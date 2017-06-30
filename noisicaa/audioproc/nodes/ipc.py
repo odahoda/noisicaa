@@ -77,7 +77,7 @@ class IPCNode(node.CustomNode):
             response.samplePos, ctxt.sample_pos)
         assert response.frameSize == ctxt.duration, (
             response.frameSize, ctxt.duration)
-        #ctxt.perf.add_spans(response.perf_data)
+        ctxt.perf.add_spans(response.perfData)
 
         for entity in response.entities:
             if entity.id == 'output:left':

@@ -378,7 +378,7 @@ class AudioStreamProxy(object):
                                 self._client.send_frame(request)
                             with perf.track('receive_frame'):
                                 client_response = self._client.receive_frame()
-                            #perf.add_spans(response.perf_data)
+                            perf.add_spans(client_response.perfData)
 
                         except audioproc.StreamClosed:
                             logger.warning("Stream to pipeline closed.")
@@ -398,7 +398,7 @@ class AudioStreamProxy(object):
                 response.init('entities', len(client_response.entities))
                 for idx, entity in enumerate(client_response.entities):
                     response.entities[idx] = entity
-                #response.perf_data = perf.get_spans()
+                response.perfData = perf.serialize()
 
                 try:
                     self._server.send_frame(response)
