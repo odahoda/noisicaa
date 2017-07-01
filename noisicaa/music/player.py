@@ -334,15 +334,17 @@ class AudioStreamProxy(object):
                     with perf.track('get_track_entities'):
                         duration = request.frameSize
                         out_sample_pos = request.samplePos
+                        frame_sample_pos = 0
                         while duration > 0:
                             end_pos = min(settings.sample_pos + duration, range_end)
                             self._player.get_track_entities(
                                 entities,
                                 settings.sample_pos, end_pos,
-                                sample_pos_offset)
+                                frame_sample_pos)
 
                             duration -= end_pos - settings.sample_pos
                             out_sample_pos += end_pos - settings.sample_pos
+                            frame_sample_pos += end_pos - settings.sample_pos
 
                             if end_pos >= range_end:
                                 settings.sample_pos = range_start
@@ -671,9 +673,9 @@ class Player(object):
                 entity_source = self.track_entity_sources.pop(t.id)
                 entity_source.close()
 
-    def get_track_entities(self, entities, start_pos, end_pos, sample_pos_offset):
+    def get_track_entities(self, entities, start_pos, end_pos, frame_sample_pos):
         for entity_source in self.track_entity_sources.values():
-            entity_source.get_entities(entities, start_pos, end_pos, sample_pos_offset)
+            entity_source.get_entities(entities, start_pos, end_pos, frame_sample_pos)
 
     def handle_pipeline_mutation(self, mutation):
         if self.pending_pipeline_mutations is not None:

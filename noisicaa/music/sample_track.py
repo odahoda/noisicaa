@@ -171,7 +171,7 @@ class SampleEntitySource(base_track.EntitySource):
 
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
-    def get_entities(self, frame_data, start_pos, end_pos, sample_pos_offset):
+    def get_entities(self, frame_data, start_pos, end_pos, frame_sample_pos):
         frame = numpy.zeros(
             shape=(end_pos - start_pos, 2), dtype=numpy.float32)
 

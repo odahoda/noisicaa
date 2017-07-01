@@ -215,7 +215,7 @@ class EntitySource(object):
     def close(self):
         pass
 
-    def get_entities(self, entities, start_pos, end_pos, sample_pos_offset):
+    def get_entities(self, entities, start_pos, end_pos, frame_sample_pos):
         raise NotImplementedError
 
 
@@ -233,21 +233,36 @@ class EventSetEntitySource(EntitySource):
         self.__connector.close()
         super().close()
 
-    def get_entities(self, entities, start_sample_pos, end_sample_pos, sample_pos_offset):
+    def get_entities(self, entities, start_sample_pos, end_sample_pos, frame_sample_pos):
         start_timepos = self.__time_mapper.sample2timepos(start_sample_pos)
         end_timepos = self.__time_mapper.sample2timepos(end_sample_pos)
+        entity_id = 'track:%s' % self._track.id
 
         buf = bytearray(10240)
         forge = lv2.AtomForge(lv2.static_mapper)
         forge.set_buffer(buf, len(buf))
 
         with forge.sequence():
+            try:
+                entity = entities[entity_id]
+            except KeyError:
+                pass
+            else:
+                # Copy events from existing entity.
+                assert entity.type == audioproc.Entity.Type.atom
+
+                for event in lv2.wrap_atom(lv2.static_mapper, entity.data).events:
+                    atom = event.atom
+                    forge.write_atom_event(
+                        event.frames,
+                        atom.type_urid, atom.data, atom.size)
+
             for event in sorted(self.__event_set.get_intervals(start_timepos, end_timepos)):
                 if event.begin >= start_timepos:
                     sample_pos = self.__time_mapper.timepos2sample(event.begin)
                     assert start_sample_pos <= sample_pos < end_sample_pos
                     forge.write_midi_event(
-                        sample_pos - start_sample_pos,
+                        sample_pos - start_sample_pos + frame_sample_pos,
                         bytes([0b10010000, event.pitch.midi_note, event.velocity]),
                         3)
 
@@ -255,27 +270,17 @@ class EventSetEntitySource(EntitySource):
                     sample_pos = self.__time_mapper.timepos2sample(event.end)
                     assert start_sample_pos <= sample_pos < end_sample_pos
                     forge.write_midi_event(
-                        sample_pos - start_sample_pos,
+                        sample_pos - start_sample_pos + frame_sample_pos,
                         bytes([0b10000000, event.pitch.midi_note, 0]),
                         3)
 
-        entity_id = 'track:%s' % self._track.id
-        try:
-            entity = entities[entity_id]
-            assert entity.type == audioproc.Entity.Type.atom
+        entity = audioproc.Entity.new_message()
+        entity.id = entity_id
+        entity.type = audioproc.Entity.Type.atom
+        entity.size = len(buf)
+        entity.data = bytes(buf)
 
-            # TODO: merge buf into existing entity
-            raise NotImplementedError
-
-        except KeyError:
-            entity = audioproc.Entity.new_message()
-            entity.id = entity_id
-            entity.type = audioproc.Entity.Type.atom
-            entity.size = len(buf)
-            entity.data = bytes(buf)
-
-            entities[entity_id] = entity
-
+        entities[entity_id] = entity
 
 
 class MeasuredEventSetConnector(object):

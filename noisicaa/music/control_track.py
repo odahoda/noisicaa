@@ -125,7 +125,7 @@ class ControlEntitySource(base_track.EntitySource):
 
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
-    def get_entities(self, entities, start_pos, end_pos, sample_pos_offset):
+    def get_entities(self, entities, start_pos, end_pos, frame_sample_pos):
         entity_id = 'track:%s' % self._track.id
         try:
             entity = entities[entity_id]
