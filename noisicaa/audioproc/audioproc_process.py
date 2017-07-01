@@ -104,7 +104,7 @@ class AudioProcProcessMixin(object):
         self.server.add_command_handler(
             'SET_BACKEND', self.handle_set_backend)
         self.server.add_command_handler(
-            'SET_FRAME_SIZE', self.handle_set_frame_size)
+            'SET_BACKEND_PARAMETERS', self.handle_set_backend_parameters)
         self.server.add_command_handler(
             'PLAY_FILE', self.handle_play_file)
         self.server.add_command_handler(
@@ -287,17 +287,17 @@ class AudioProcProcessMixin(object):
             mutations.DisconnectPorts(
                 node1.outputs[port1_name], node2.inputs[port2_name]))
 
-    def handle_set_backend(self, session_id, name, args):
+    def handle_set_backend(self, session_id, name, parameters):
         self.get_session(session_id)
 
         result = None
 
         if name == 'pyaudio':
-            be = backend.PyAudioBackend(**args)
+            be = backend.PyAudioBackend(parameters)
         elif name == 'null':
-            be = backend.NullBackend(**args)
+            be = backend.NullBackend(parameters)
         elif name == 'ipc':
-            be = backend.IPCBackend(**args)
+            be = backend.IPCBackend(parameters)
             result = be.address
         elif name is None:
             be = None
@@ -307,9 +307,9 @@ class AudioProcProcessMixin(object):
         self.__vm.set_backend(be)
         return result
 
-    def handle_set_frame_size(self, session_id, frame_size):
+    def handle_set_backend_parameters(self, session_id, parameters):
         self.get_session(session_id)
-        self.__vm.set_frame_size(frame_size)
+        self.__vm.set_backend_parameters(parameters)
 
     def perf_data_callback(self, perf_data):
         self.event_loop.call_soon_threadsafe(

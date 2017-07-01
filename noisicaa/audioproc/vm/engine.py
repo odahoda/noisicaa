@@ -186,11 +186,13 @@ class PipelineVM(object):
             if backend is not None:
                 self.setup_backend(backend)
 
-    def set_frame_size(self, frame_size):
-        logger.info("frame_size=%d", frame_size)
+    def set_backend_parameters(self, parameters):
+        logger.info(
+            "%s backend: set_parameters(%s)",
+            type(self.__backend).__name__, parameters)
         with self.writer_lock():
-            self.__frame_size = frame_size
-            self.update_spec()
+            if self.__backend is not None:
+                self.__backend.set_parameters(**parameters)
 
     @property
     def nodes(self):
@@ -264,7 +266,10 @@ class PipelineVM(object):
                         break
 
                     if ctxt.duration != self.__frame_size:
-                        self.set_frame_size(ctxt.duration)
+                        logger.info("frame_size=%d", ctxt.duration)
+                        with self.writer_lock():
+                            self.__frame_size = ctxt.duration
+                            self.update_spec()
 
                     with self.reader_lock():
                         if self.__spec is not None:

@@ -372,10 +372,9 @@ class EditorApp(BaseEditorApp):
         await self.audioproc_client.connect(
             self.audioproc_process, {'perf_data'})
 
-        await self.audioproc_client.set_frame_size(
-            2 ** int(self.settings.value('audio/frame_size', 10)))
         await self.audioproc_client.set_backend(
-            self.settings.value('audio/backend', 'pyaudio'))
+            self.settings.value('audio/backend', 'pyaudio'),
+            frame_size=2 ** int(self.settings.value('audio/frame_size', 10)))
 
     def onPipelineStatus(self, status):
         if 'perf_data' in status:

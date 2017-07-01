@@ -71,13 +71,13 @@ class AudioProcClientMixin(object):
             'DISCONNECT_PORTS', self._session_id,
             node1_id, port1_name, node2_id, port2_name)
 
-    async def set_backend(self, name, **args):
+    async def set_backend(self, name, **parameters):
         return await self._stub.call(
-            'SET_BACKEND', self._session_id, name, args)
+            'SET_BACKEND', self._session_id, name, parameters)
 
-    async def set_frame_size(self, frame_size):
+    async def set_backend_parameters(self, **parameters):
         return await self._stub.call(
-            'SET_FRAME_SIZE', self._session_id, frame_size)
+            'SET_BACKEND_PARAMETERS', self._session_id, parameters)
 
     async def play_file(self, path):
         return await self._stub.call(

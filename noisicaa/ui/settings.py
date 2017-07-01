@@ -171,7 +171,9 @@ class AudioPage(Page):
         backend = self._backends[index]
 
         self.call_async(
-            self.app.audioproc_client.set_backend(backend),
+            self.app.audioproc_client.set_backend(
+                backend,
+                frame_size=2 ** int(self.app.settings.value('audio/frame_size', 10))),
             callback=functools.partial(
                 self._set_backend_done, backend=backend))
 
@@ -180,7 +182,8 @@ class AudioPage(Page):
 
     def frameSizeChanged(self, frame_size):
         self.call_async(
-            self.app.audioproc_client.set_frame_size(2 ** frame_size),
+            self.app.audioproc_client.set_backend_parameters(
+                frame_size=2 ** frame_size),
             callback=functools.partial(
                 self._set_frame_size_done, frame_size=frame_size))
 

@@ -20,6 +20,8 @@ from . import frame_data_capnp
 
 logger = logging.getLogger(__name__)
 
+UNSET = object()
+
 
 class Backend(object):
     def __init__(self):
@@ -31,6 +33,9 @@ class Backend(object):
         self.__sample_rate = sample_rate
 
     def cleanup(self):
+        pass
+
+    def set_parameters(self):
         pass
 
     @property
@@ -77,9 +82,17 @@ class Backend(object):
 
 
 class NullBackend(Backend):
-    def __init__(self, *, frame_size=512):
+    def __init__(self, parameters):
         super().__init__()
-        self.__frame_size = frame_size
+        self.__frame_size = 512
+
+        self.set_parameters(**parameters)
+
+    def set_parameters(self, *, frame_size=UNSET, **parameters):
+        super().set_parameters(**parameters)
+
+        if frame_size is not UNSET:
+            self.__frame_size = frame_size
 
     def begin_frame(self, ctxt):
         ctxt.duration = self.__frame_size
@@ -92,7 +105,7 @@ class NullBackend(Backend):
 
 
 class PyAudioBackend(Backend):
-    def __init__(self, *, frame_size=512):
+    def __init__(self, parameters):
         super().__init__()
 
         self.__audio = None
@@ -103,8 +116,16 @@ class PyAudioBackend(Backend):
         self.__need_more = threading.Event()
         self.__bytes_per_sample = 2 * 2
         self.__buffer_threshold = 4096 * self.__bytes_per_sample
-        self.__frame_size = frame_size
+        self.__frame_size = 512
         self.__outputs = {}
+
+        self.set_parameters(**parameters)
+
+    def set_parameters(self, *, frame_size=UNSET, **parameters):
+        super().set_parameters(**parameters)
+
+        if frame_size is not UNSET:
+            self.__frame_size = frame_size
 
     def setup(self, sample_rate):
         super().setup(sample_rate)
@@ -203,7 +224,7 @@ class PyAudioBackend(Backend):
 
 
 class IPCBackend(Backend):
-    def __init__(self, socket_dir=None):
+    def __init__(self, parameters, socket_dir=None):
         super().__init__()
 
         if socket_dir is None:
@@ -216,6 +237,8 @@ class IPCBackend(Backend):
         self.__ctxt = None
         self.__out_frame = None
         self.__entities = None
+
+        self.set_parameters(**parameters)
 
     def setup(self, sample_rate):
         super().setup(sample_rate)

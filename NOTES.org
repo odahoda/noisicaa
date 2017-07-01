@@ -8,9 +8,6 @@
 - buffer conversion methods?
   - different buffer types for events (native, atom, ...)
   - auto convert as needed
-- frame_size is a property of the backend
-  - only PyAudioBackend supports it
-  - audioproc cmd 'SET_BACKEND_PROPERTY'
 
 * Loop start/end move around when BPM is changed					     :BUG:
 because they're tracked in sample time, not music time
