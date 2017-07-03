@@ -27,9 +27,11 @@ class SamplePlayer(csound.CSoundBase):
                     name='in',
                     direction=node_db.PortDirection.Input),
                 node_db.AudioPortDescription(
-                    name='out',
-                    direction=node_db.PortDirection.Output,
-                    channels='stereo'),
+                    name='out:left',
+                    direction=node_db.PortDirection.Output),
+                node_db.AudioPortDescription(
+                    name='out:right',
+                    direction=node_db.PortDirection.Output),
             ])
 
         super().__init__(event_loop, description, name, id)
@@ -43,8 +45,8 @@ class SamplePlayer(csound.CSoundBase):
             ksmps=32
             nchnls=2
 
-            gaOutL chnexport "out/left", 2
-            gaOutR chnexport "out/right", 2
+            gaOutL chnexport "out:left", 2
+            gaOutR chnexport "out:right", 2
 
             instr 1
               iPitch = p4

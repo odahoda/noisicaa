@@ -85,7 +85,7 @@ class CallbackServer(ipc.Server):
 
 class PlayerTest(asynctest.TestCase):
     async def setUp(self):
-        self.project = project.BaseProject.make_demo()
+        self.project = project.BaseProject.make_demo(demo='complex')
         self.sheet = self.project.sheets[0]
 
         self.callback_server = CallbackServer(self.loop)
@@ -100,7 +100,7 @@ class PlayerTest(asynctest.TestCase):
         await self.audioproc_client_main.setup()
         await self.audioproc_client_main.connect(
             self.audioproc_server_main.server.address)
-        await self.audioproc_client_main.set_backend('null', frame_size=1024)
+        await self.audioproc_client_main.set_backend('pyaudio', frame_size=1024)
 
         self.audioproc_server_player = TestAudioProcProcess(self.loop, 'player_process')
         await self.audioproc_server_player.setup()

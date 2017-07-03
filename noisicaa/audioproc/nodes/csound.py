@@ -8,8 +8,9 @@ import queue
 import numpy
 
 from noisicaa import node_db
+from noisicaa.bindings import csound
+from noisicaa.bindings import lv2
 
-from .. import csound
 from .. import ports
 from .. import node
 from .. import frame
@@ -23,8 +24,9 @@ class CSoundBase(node.CustomNode):
     def __init__(self, event_loop, description, name=None, id=None):
         super().__init__(event_loop, description, name, id)
 
-        self._csnd = None
-        self._next_csnd = queue.Queue()
+        self.__csnd = None
+        self.__next_csnd = queue.Queue()
+        self.__buffers = {}
 
     def set_code(self, orchestra, score):
         csnd = csound.CSound()
@@ -42,123 +44,98 @@ class CSoundBase(node.CustomNode):
             csnd.close()
             return
 
-        self._next_csnd.put(csnd)
+        self.__next_csnd.put(csnd)
 
     async def cleanup(self):
-        if self._csnd is not None:
-            self._csnd.close()
-            self._csnd = None
+        if self.__csnd is not None:
+            self.__csnd.close()
+            self.__csnd = None
 
-        while not self._next_csnd.empty():
-            csnd = self._next_csnd.get()
+        while not self.__next_csnd.empty():
+            csnd = self.__next_csnd.get()
             csnd.close()
 
         await super().cleanup()
 
+    def connect_port(self, port_name, buf):
+        if port_name not in self.outputs and port_name not in self.inputs:
+            raise ValueError(port_name)
+
+        self.__buffers[port_name] = buf
+
     def run(self, ctxt):
         try:
-            next_csnd = self._next_csnd.get_nowait()
+            next_csnd = self.__next_csnd.get_nowait()
         except queue.Empty:
             pass
         else:
-            if self._csnd is not None:
-                self._csnd.close()
-                self._csnd = None
+            if self.__csnd is not None:
+                self.__csnd.close()
+                self.__csnd = None
 
-            self._csnd = next_csnd
+            self.__csnd = next_csnd
 
-        if self._csnd is None:
+        if self.__csnd is None:
             for port in self.outputs.values():
-                if isinstance(port, ports.AudioOutputPort):
-                    port.frame.resize(ctxt.duration)
-                    port.frame.clear()
-                elif isinstance(port, ports.ControlOutputPort):
-                    port.frame.resize(ctxt.duration)
-                    port.frame.fill(0.0)
+                if isinstance(port, (ports.AudioOutputPort, ports.ControlOutputPort)):
+                    self.__buffers[port.name] = [0] * ctxt.duration
                 else:
                     raise ValueError(port)
 
             return
 
-        in_samples = {}
-        in_control = {}
         in_events = {}
         for port in self.inputs.values():
-            if isinstance(port, ports.AudioInputPort):
-                assert len(port.frame) == ctxt.duration
-                in_samples[port.name] = port.frame.samples
-            elif isinstance(port, ports.ControlInputPort):
-                in_control[port.name] = port.frame
-            elif isinstance(port, ports.EventInputPort):
-                in_events[port.name] = (port.csound_instr, list(port.events))
-            else:
-                raise ValueError(port)
-
-        out_samples = {}
-        out_control = {}
-        for port in self.outputs.values():
-            if isinstance(port, ports.AudioOutputPort):
-                port.frame.resize(ctxt.duration)
-                out_samples[port.name] = port.frame.samples
-            elif isinstance(port, ports.ControlOutputPort):
-                port.frame.resize(ctxt.duration)
-                out_control[port.name] = port.frame
-            else:
-                raise ValueError(port)
+            if isinstance(port, ports.EventInputPort):
+                in_events[port.name] = (
+                    port.csound_instr,
+                    list(lv2.wrap_atom(
+                        lv2.static_mapper, self.__buffers[port.name]).events))
 
         pos = 0
         while pos < ctxt.duration:
-            for port_name, samples in in_samples.items():
-                self._csnd.set_audio_channel_data(
-                    '%s/left' % port_name,
-                    samples[0][pos:pos+self._csnd.ksmps])
-                self._csnd.set_audio_channel_data(
-                    '%s/right' % port_name,
-                    samples[1][pos:pos+self._csnd.ksmps])
+            for port in self.inputs.values():
+                if isinstance(port, (ports.AudioInputPort, ports.ControlInputPort)):
+                    self.__csnd.set_audio_channel_data(
+                        port.name,
+                        self.__buffers[port.name][4*pos:4*(pos+self.__csnd.ksmps)])
 
-            for port_name, samples in in_control.items():
-                self._csnd.set_audio_channel_data(
-                    '%s' % port_name,
-                    samples[pos:pos+self._csnd.ksmps])
+                elif isinstance(port, ports.EventInputPort):
+                    instr, pending_events = in_events[port.name]
+                    while (len(pending_events) > 0
+                           and pending_events[0].frames < (
+                               pos + ctxt.sample_pos + self.__csnd.ksmps)):
+                        event = pending_events.pop(0)
+                        midi = event.atom.data
+                        if midi[0] & 0xf0 == 0x90:
+                            self.__csnd.add_score_event(
+                                'i %s.%d 0 -1 %d %d' % (
+                                    instr, midi[1], midi[1], midi[2]))
 
-            for port_name, (instr, pending_events) in in_events.items():
-                while (len(pending_events) > 0
-                       and pending_events[0].sample_pos < (
-                           pos + ctxt.sample_pos + self._csnd.ksmps)):
-                    event = pending_events.pop(0)
-                    if isinstance(event, events.NoteOnEvent):
-                        self._csnd.add_score_event(
-                            'i %s.%d 0 -1 %d %d' % (
-                                instr, event.note.midi_note, event.note.midi_note, event.volume))
-                    elif isinstance(event, events.NoteOffEvent):
-                        self._csnd.add_score_event(
-                            'i -%s.%d 0 0 0' % (
-                                instr, event.note.midi_note))
-                    else:
-                        raise NotImplementedError(
-                            "Event class %s not supported" % type(event).__name__)
+                        elif midi[0] & 0xf0 == 0x80:
+                            self.__csnd.add_score_event(
+                                'i -%s.%d 0 0 0' % (
+                                    instr, midi[1]))
+
+                        else:
+                            raise NotImplementedError(
+                                "Event class %s not supported" % type(event).__name__)
 
             for parameter in self.description.parameters:
                 if parameter.param_type == node_db.ParameterType.Float:
-                    self._csnd.set_control_channel_value(
+                    self.__csnd.set_control_channel_value(
                         parameter.name, self.get_param(parameter.name))
 
-            self._csnd.perform()
+            self.__csnd.perform()
 
-            for port_name, samples in out_samples.items():
-                samples[0][pos:pos+self._csnd.ksmps] = (
-                    self._csnd.get_audio_channel_data(
-                        '%s/left' % port_name))
-                samples[1][pos:pos+self._csnd.ksmps] = (
-                    self._csnd.get_audio_channel_data(
-                        '%s/right' % port_name))
+            for port in self.outputs.values():
+                if isinstance(port, (ports.AudioOutputPort, ports.ControlOutputPort)):
+                    self.__buffers[port.name][4*pos:4*(pos+self.__csnd.ksmps)] = (
+                        self.__csnd.get_audio_channel_data(port.name))
+                else:
+                    raise ValueError(port)
 
-            for port_name, samples in out_control.items():
-                samples[pos:pos+self._csnd.ksmps] = (
-                    self._csnd.get_audio_channel_data(
-                        '%s' % port_name))
-
-            pos += self._csnd.ksmps
+            pos += self.__csnd.ksmps
 
         assert pos == ctxt.duration
 
@@ -169,13 +146,13 @@ class CSoundFilter(CSoundBase):
     def __init__(self, event_loop, description, name=None, id=None):
         super().__init__(event_loop, description, name, id)
 
-        self._orchestra = description.get_parameter('orchestra').value
-        self._score = description.get_parameter('score').value
+        self.__orchestra = description.get_parameter('orchestra').value
+        self.__score = description.get_parameter('score').value
 
     async def setup(self):
         await super().setup()
 
-        self.set_code(self._orchestra, self._score)
+        self.set_code(self.__orchestra, self.__score)
 
 
 class CustomCSound(CSoundBase):
@@ -184,7 +161,7 @@ class CustomCSound(CSoundBase):
     def __init__(self, event_loop, description, name=None, id=None):
         super().__init__(event_loop, description, name, id)
 
-        self._orchestra_preamble = textwrap.dedent("""\
+        self.__orchestra_preamble = textwrap.dedent("""\
             ksmps=32
             nchnls=2
             """)
@@ -192,27 +169,27 @@ class CustomCSound(CSoundBase):
         for port_desc in description.ports:
             if (port_desc.port_type == node_db.PortType.Audio
                     and port_desc.direction == node_db.PortDirection.Input):
-                self._orchestra_preamble += textwrap.dedent("""\
+                self.__orchestra_preamble += textwrap.dedent("""\
                     ga{1}L chnexport "{0}/left", 1
                     ga{1}R chnexport "{0}/right", 1
                     """.format(port_desc.name, port_desc.name.title()))
 
             elif (port_desc.port_type == node_db.PortType.Audio
                     and port_desc.direction == node_db.PortDirection.Output):
-                self._orchestra_preamble += textwrap.dedent("""\
+                self.__orchestra_preamble += textwrap.dedent("""\
                     ga{1}L chnexport "{0}/left", 2
                     ga{1}R chnexport "{0}/right", 2
                     """.format(port_desc.name, port_desc.name.title()))
 
             elif (port_desc.port_type == node_db.PortType.Control
                     and port_desc.direction == node_db.PortDirection.Input):
-                self._orchestra_preamble += textwrap.dedent("""\
+                self.__orchestra_preamble += textwrap.dedent("""\
                     ga{1} chnexport "{0}", 1
                     """.format(port_desc.name, port_desc.name.title()))
 
             elif (port_desc.port_type == node_db.PortType.Control
                     and port_desc.direction == node_db.PortDirection.Output):
-                self._orchestra_preamble += textwrap.dedent("""\
+                self.__orchestra_preamble += textwrap.dedent("""\
                     ga{1} chnexport "{0}", 2
                     """.format(port_desc.name, port_desc.name.title()))
 
@@ -223,24 +200,24 @@ class CustomCSound(CSoundBase):
             else:
                 raise ValueError(port_desc)
 
-        self._orchestra = self.get_param('orchestra')
-        self._score = self.get_param('score')
+        self.__orchestra = self.get_param('orchestra')
+        self.__score = self.get_param('score')
 
     async def setup(self):
         await super().setup()
 
-        self.set_code(self._orchestra_preamble + self._orchestra, self._score)
+        self.set_code(self.__orchestra_preamble + self.__orchestra, self.__score)
 
     def set_param(self, **kwargs):
         super().set_param(**kwargs)
 
         reinit = False
         if 'orchestra' in kwargs:
-            self._orchestra = kwargs.get('orchestra')
+            self.__orchestra = kwargs.get('orchestra')
             reinit = True
         if 'score' in kwargs:
-            self._score = kwargs.get('score')
+            self.__score = kwargs.get('score')
             reinit = True
 
         if reinit:
-            self.set_code(self._orchestra_preamble + self._orchestra, self._score)
+            self.set_code(self.__orchestra_preamble + self.__orchestra, self.__score)

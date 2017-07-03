@@ -295,9 +295,13 @@ cdef class CSound(object):
             self.csnd, &channel_dat,
             channel.name.encode('utf-8'), channel.cs_type))
 
-        return numpy.fromstring(
-            bytes((<char*>channel_dat)[:self.ksmps * sizeof(MYFLT)]),
-            count=self.ksmps, dtype=numpy.double)
+        out = bytearray(self.ksmps * sizeof(float))
+        cdef int i = 0
+        cdef float* outp = <float*><char*>out
+        while i < self.ksmps:
+            outp[i] = channel_dat[i]
+            i += 1
+        return out
 
     def set_audio_channel_data(self, name, samples):
         assert name in self.channels, name
@@ -305,19 +309,18 @@ cdef class CSound(object):
         assert channel.is_input, channel
         assert channel.type == ChannelType.Audio, channel
 
-        assert samples.shape == (self.ksmps,)
+        assert len(samples) == self.ksmps * sizeof(float)
 
-        dsamples = numpy.ndarray(
-            shape=samples.shape, dtype=numpy.double)
-        dsamples[:] = samples
-        dsamples = dsamples.tobytes()
         cdef MYFLT* channel_dat
         self._check(csoundGetChannelPtr(
             self.csnd, &channel_dat,
             channel.name.encode('utf-8'), channel.cs_type))
 
-        string.memmove(
-            channel_dat, <char *>dsamples, self.ksmps * sizeof(MYFLT))
+        cdef int i = 0
+        cdef float* inp = <float*><char*>samples
+        while i < self.ksmps:
+            channel_dat[i] = inp[i]
+            i += 1
 
     def set_control_channel_value(self, name, value):
         assert name in self.channels, name

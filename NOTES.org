@@ -1,6 +1,11 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
+- better test coverage
+  - support different demo projects
+  - add demo with all supported track types, different plugins, etc.
+  - use that for player_integration_test
+- SIGSEGV on exit, possibly caused by new fluidsynth binding
 - create FrameData wrapper class with pythonic API
 - move atom sequence mixing into atom.pyx
 - what about parameters?
