@@ -2,13 +2,21 @@
 <csound>
 <display-name>Reverb</display-name>
 <ports>
-  <port name="in" type="audio" direction="input"/>
-  <port name="out" type="audio" direction="output">
-    <drywet port="in" default="0"/>
-    <bypass port="in"/>
+  <port name="in:left" type="audio" direction="input"/>
+  <port name="in:right" type="audio" direction="input"/>
+  <port name="out:left" type="audio" direction="output">
+    <drywet port="in:left" default="0"/>
+    <bypass port="in:left"/>
+  </port>
+  <port name="out:right" type="audio" direction="output">
+    <drywet port="in:right" default="0"/>
+    <bypass port="in:right"/>
   </port>
 </ports>
 <parameters>
+  <parameter name="mix" type="float" min="0" max="1" default="1">
+    <display-name>Cutoff frequency</display-name>
+  </parameter>
   <parameter name="feedback" type="float" min="0" max="1" default="0.7">
     <display-name>Feedback level</display-name>
   </parameter>
@@ -20,17 +28,20 @@
 ksmps=32
 nchnls=2
 
-gaInL chnexport "in/left", 1
-gaInR chnexport "in/right", 1
+gaInL      chnexport "in:left", 1
+gaInR      chnexport "in:right", 1
 
-gaOutL chnexport "out/left", 2
-gaOutR chnexport "out/right", 2
+gaOutL     chnexport "out:left", 2
+gaOutR     chnexport "out:right", 2
 
+gkMix      chnexport "mix", 1
 gkFeedback chnexport "feedback", 1
 gkCutoff   chnexport "cutoff", 1
 
 instr 1
-  gaOutL, gaOutR reverbsc gaInL, gaInR, gkFeedback, gkCutoff
+    gaOutL, gaOutR reverbsc gaInL, gaInR, gkFeedback, gkCutoff
+    gaOutL = gaOutL + gkMix * gaInL
+    gaOutR = gaOutR + gkMix * gaInR
 endin
 </orchestra>
 <score>

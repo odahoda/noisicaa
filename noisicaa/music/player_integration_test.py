@@ -19,6 +19,7 @@ from noisicaa.audioproc import audioproc_client
 from noisicaa.bindings import lv2
 from noisicaa.core import ipc
 from noisicaa.ui import model
+from noisicaa.node_db.private import db as node_db
 
 from . import project
 from . import sheet
@@ -83,9 +84,26 @@ class CallbackServer(ipc.Server):
                 return status[name]
 
 
+class NodeDB(object):
+    def __init__(self):
+        self.db = node_db.NodeDB()
+
+    async def setup(self):
+        self.db.setup()
+
+    async def cleanup(self):
+        self.db.cleanup()
+
+    def get_node_description(self, uri):
+        return self.db._nodes[uri]
+
+
 class PlayerTest(asynctest.TestCase):
     async def setUp(self):
-        self.project = project.BaseProject.make_demo(demo='complex')
+        self.node_db = NodeDB()
+        await self.node_db.setup()
+
+        self.project = project.BaseProject.make_demo(demo='complex', node_db=self.node_db)
         self.sheet = self.project.sheets[0]
 
         self.callback_server = CallbackServer(self.loop)
@@ -129,6 +147,8 @@ class PlayerTest(asynctest.TestCase):
         await self.audioproc_server_main.cleanup()
 
         await self.callback_server.cleanup()
+
+        await self.node_db.cleanup()
 
     async def test_playback_demo(self):
         p = player.Player(self.sheet, self.callback_server.address, self.mock_manager, self.loop)

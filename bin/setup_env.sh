@@ -8,8 +8,8 @@ fi
 BASEDIR=$(readlink -f "$(dirname "$0")/..")
 LIBSDIR="$BASEDIR/libs"
 
-LILV_DEPS="libserd-dev libsord-dev libsratom-dev lv2-examples"
-LADSPA_DEPS="ladspa-sdk"
+LILV_DEPS="libserd-dev libsord-dev libsratom-dev lv2-examples mda-lv2"
+LADSPA_DEPS="ladspa-sdk swh-plugins"
 CSOUND_DEPS="libsndfile1-dev libsamplerate0-dev libboost-dev flex bison cmake"
 CAPNP_DEPS="capnproto libcapnp-0.5.3"
 

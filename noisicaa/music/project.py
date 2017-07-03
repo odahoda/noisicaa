@@ -19,6 +19,7 @@ from .time_signature import TimeSignature
 from .score_track import ScoreTrack, Note
 from .time import Duration
 from . import beat_track
+from . import pipeline_graph
 from . import model
 from . import state
 from . import commands
@@ -197,7 +198,7 @@ class JSONDecoder(json.JSONDecoder):
 class BaseProject(model.Project, state.RootMixin, state.StateBase):
     SERIALIZED_CLASS_NAME = 'Project'
 
-    def __init__(self, node_db=None, state=None):
+    def __init__(self, *, node_db=None, state=None):
         self.listeners = core.CallbackRegistry()
 
         super().__init__(state)
@@ -222,11 +223,13 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
         sheet.add_pipeline_nodes()
 
     @classmethod
-    def make_demo(cls, demo='basic'):
-        project = cls()
+    def make_demo(cls, demo='basic', **kwargs):
+        project = cls(**kwargs)
         s = sheet.Sheet(name="Demo Sheet")
         s.bpm = 140
         project.add_sheet(s)
+
+        sheet_mixer = s.master_group.mixer_node
 
         if demo == 'basic':
             while len(s.property_track.measure_list) < 5:
@@ -312,6 +315,58 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                 num_measures=4)
             s.add_track(s.master_group, 0, track1)
 
+            track1_mixer = track1.mixer_node
+
+            track1_mixer.set_port_parameters('out:left', volume=0.2)
+            track1_mixer.set_port_parameters('out:right', volume=0.2)
+
+            for connection in s.pipeline_graph_connections:
+                if (connection.source_node.id == track1_mixer.id
+                    and connection.source_port == 'out:left'):
+                    assert connection.dest_node.id == sheet_mixer.id
+                    assert connection.dest_port == 'in:left'
+                    s.remove_pipeline_graph_connection(connection)
+                    break
+            else:
+                raise AssertionError("Connection not found.")
+
+            for connection in s.pipeline_graph_connections:
+                if (connection.source_node.id == track1_mixer.id
+                    and connection.source_port == 'out:right'):
+                    assert connection.dest_node.id == sheet_mixer.id
+                    assert connection.dest_port == 'in:right'
+                    s.remove_pipeline_graph_connection(connection)
+                    break
+            else:
+                raise AssertionError("Connection not found.")
+
+            eq_node_uri = 'ladspa://dj_eq_1901.so/dj_eq'
+            eq_node = pipeline_graph.PipelineGraphNode(
+                name='EQ',
+                node_uri=eq_node_uri)
+            s.add_pipeline_graph_node(eq_node)
+            eq_node.set_parameter('Lo gain (dB)', -40.0)
+            eq_node.set_parameter('Mid gain (dB)', 0.0)
+            eq_node.set_parameter('Hi gain (dB)', 5.0)
+
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=track1_mixer, source_port='out:left',
+                    dest_node=eq_node, dest_port='Input L'))
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=track1_mixer, source_port='out:right',
+                    dest_node=eq_node, dest_port='Input R'))
+
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=eq_node, source_port='Output L',
+                    dest_node=sheet_mixer, dest_port='in:left'))
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=eq_node, source_port='Output R',
+                    dest_node=sheet_mixer, dest_port='in:right'))
+
             for i in range(4):
                 track1.measure_list[i].measure.notes.append(
                     Note(pitches=[Pitch('C4')], base_duration=Duration(1, 4)))
@@ -327,6 +382,69 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                 num_measures=4)
             track2.pitch = Pitch('C4')
             s.add_track(s.master_group, 1, track2)
+
+            track2_mixer = track2.mixer_node
+
+            for connection in s.pipeline_graph_connections:
+                if (connection.source_node.id == track2_mixer.id
+                    and connection.source_port == 'out:left'):
+                    assert connection.dest_node.id == sheet_mixer.id
+                    assert connection.dest_port == 'in:left'
+                    s.remove_pipeline_graph_connection(connection)
+                    break
+            else:
+                raise AssertionError("Connection not found.")
+
+            for connection in s.pipeline_graph_connections:
+                if (connection.source_node.id == track2_mixer.id
+                    and connection.source_port == 'out:right'):
+                    assert connection.dest_node.id == sheet_mixer.id
+                    assert connection.dest_port == 'in:right'
+                    s.remove_pipeline_graph_connection(connection)
+                    break
+            else:
+                raise AssertionError("Connection not found.")
+
+            delay_node_uri = 'http://drobilla.net/plugins/mda/Delay'
+            delay_node = pipeline_graph.PipelineGraphNode(
+                name='Delay',
+                node_uri=delay_node_uri)
+            s.add_pipeline_graph_node(delay_node)
+            delay_node.set_parameter('l_delay', 0.3)
+            delay_node.set_parameter('r_delay', 0.31)
+
+            reverb_node_uri = 'builtin://csound/reverb'
+            reverb_node = pipeline_graph.PipelineGraphNode(
+                name='Reverb',
+                node_uri=reverb_node_uri)
+            s.add_pipeline_graph_node(reverb_node)
+
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=track2_mixer, source_port='out:left',
+                    dest_node=delay_node, dest_port='left_in'))
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=track2_mixer, source_port='out:right',
+                    dest_node=delay_node, dest_port='right_in'))
+
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=delay_node, source_port='left_out',
+                    dest_node=reverb_node, dest_port='in:left'))
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=delay_node, source_port='right_out',
+                    dest_node=reverb_node, dest_port='in:right'))
+
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=reverb_node, source_port='out:left',
+                    dest_node=sheet_mixer, dest_port='in:left'))
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=reverb_node, source_port='out:right',
+                    dest_node=sheet_mixer, dest_port='in:right'))
 
             for i in range(4):
                 track2.measure_list[i].measure.beats.append(

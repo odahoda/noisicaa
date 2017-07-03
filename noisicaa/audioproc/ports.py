@@ -156,9 +156,13 @@ class ControlInputPort(InputPort):
         if not isinstance(port, ControlOutputPort):
             raise Error("Can only connect to ControlOutputPort")
 
+    def get_buf_type(self, compiler):
+        return buffer_type.Float()
+
 
 class ControlOutputPort(OutputPort):
-    pass
+    def get_buf_type(self, compiler):
+        return buffer_type.Float()
 
 
 class EventInputPort(InputPort):
