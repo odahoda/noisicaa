@@ -16,6 +16,8 @@ class SymbolTable(object):
         self.__buffers = []
         self.__node_map = {}
         self.__nodes = []
+        self.__parameter_map = {}
+        self.__parameters = []
 
     def add_buffer(self, name, buf_type):
         buf_idx = len(self.__buffers)
@@ -41,14 +43,30 @@ class SymbolTable(object):
     def nodes(self):
         return self.__nodes[:]
 
+    def add_parameter(self, name, buf_type):
+        assert name not in self.__parameter_map
+        idx = len(self.__parameters)
+        self.__parameters.append(buf_type)
+        self.__parameter_map[name] = idx
+        return idx
+
+    def get_parameter_idx(self, name):
+        return self.__parameter_map[name]
+
+    def parameters(self):
+        return self.__parameters[:]
+
     def dump(self):
         out = ''
         out += 'buffers:\n'
-        for buf_idx, buffer_ref in enumerate(self.__buffers):
-            out += '  %s: %s\n' % (buf_idx, buffer_ref)
+        for idx, buffer_ref in enumerate(self.__buffers):
+            out += '  %s: %s\n' % (idx, buffer_ref)
+        out += 'parameters:\n'
+        for idx, buf_type in enumerate(self.__parameters):
+            out += '  %s: %s\n' % (idx, buf_type)
         out += 'nodes:\n'
-        for node_idx, node_id in enumerate(self.__nodes):
-            out += '  %s: %s\n' % (node_id, node_idx)
+        for idx, node_id in enumerate(self.__nodes):
+            out += '  %s: %s\n' % (node_id, idx)
         return out
 
 
@@ -78,10 +96,17 @@ class Compiler(object):
 
         for node in root.walk():
             if isinstance(node, ast.AllocBuffer):
-                symbol_table.add_buffer(node.buf_name, node.buf_type)
+                idx = symbol_table.add_buffer(node.buf_name, node.buf_type)
+                logger.info("Added buffer #%d: %s (%s)", idx, node.buf_name, node.buf_type)
 
             elif isinstance(node, ast.CallNode):
                 symbol_table.add_node(node.node_id)
+
+            elif isinstance(node, ast.FetchParameter):
+                buf_idx = symbol_table.get_buffer_idx(node.buf_name)
+                logger.info(str((node.buf_name, buf_idx, symbol_table.buffers())))
+                buf_type = symbol_table.buffers()[buf_idx]
+                symbol_table.add_parameter(node.parameter_name, buf_type)
 
         return symbol_table
 
@@ -99,6 +124,7 @@ class Compiler(object):
 def compile_graph(*, graph, frame_size):
     compiler = Compiler(graph=graph, frame_size=frame_size)
     ast = compiler.build_ast()
+    logger.info(ast.dump())
     symbol_table = compiler.build_symbol_table(ast)
     spec = compiler.build_spec(ast, symbol_table)
     return spec

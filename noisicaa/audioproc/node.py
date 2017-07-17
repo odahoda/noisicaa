@@ -152,6 +152,12 @@ class Node(object):
 
     def get_ast(self, compiler):
         seq = ast.Sequence()
+
+        for parameter_name, parameter_desc in sorted(self.__parameters.items()):
+            buf_name = '%s:param:%s' % (self.id, parameter_name)
+            seq.add(ast.AllocBuffer(buf_name, buffer_type.Float()))
+            seq.add(ast.FetchParameter(buf_name, buf_name))
+
         for port in itertools.chain(
                 self.inputs.values(), self.outputs.values()):
             seq.add(ast.AllocBuffer(
@@ -172,6 +178,7 @@ class CustomNode(Node):
         for port in itertools.chain(
                 self.inputs.values(), self.outputs.values()):
             seq.add(ast.ConnectPort(self.id, port.name, port.buf_name))
+
         seq.add(ast.CallNode(self.id))
         return seq
 

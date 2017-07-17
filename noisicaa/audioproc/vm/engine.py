@@ -91,6 +91,7 @@ class PipelineVM(object):
         self.__opcode_states = None
         self.__buffers = None
         self.__graph = graph.PipelineGraph()
+        self.__parameters = {}
 
         self.__notifications = []
         self.notification_listener = core.CallbackRegistry()
@@ -230,6 +231,9 @@ class PipelineVM(object):
         # if self._shm_data is not None:
         #     self._shm_data[512] = 0
 
+    def set_parameter(self, name, value):
+        self.__parameters[name] = value
+
     def add_notification(self, node_id, notification):
         self.__notifications.append((node_id, notification))
 
@@ -348,6 +352,12 @@ class PipelineVM(object):
         else:
             assert entity.size == len(buf.type)
             buf.set_bytes(entity.data)
+
+    @at_performance
+    def op_FETCH_PARAMETER(self, ctxt, state, *, parameter_idx, buf_idx):
+        parameter_name = self.__parameters[parameter_idx]
+        buf = self.__buffers[buf_idx]
+        buf.clear()
 
     @at_performance
     def op_FETCH_MESSAGES(self, ctxt, state, *, labelset, buf_idx):

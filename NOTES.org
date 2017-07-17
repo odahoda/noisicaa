@@ -10,6 +10,15 @@
 - move atom sequence mixing into atom.pyx
 - what about parameters?
   - handle as single float buffers
+  - vm keeps map of parameter values
+  - opcode FETCH_PARAMETER #buf, 'param_name'
+  - player installs listeners on pipeline graph, incl. parameter changes
+  - collect graph mutations in player
+  - send mutations as batch along with FrameData
+  - apply mutations in VM at start of loop
+- port parameters
+  - volume, mute, bypass, dry_wet
+  - bypass needs conditionals
 - buffer conversion methods?
   - different buffer types for events (native, atom, ...)
   - auto convert as needed
