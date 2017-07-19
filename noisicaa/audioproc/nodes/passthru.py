@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class PassThru(node.CustomNode):
     class_name = 'passthru'
 
-    def __init__(self, event_loop, name='passthru', id=None):
+    def __init__(self, **kwargs):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.AudioPortDescription(
@@ -31,7 +31,7 @@ class PassThru(node.CustomNode):
                     direction=node_db.PortDirection.Output),
             ])
 
-        super().__init__(event_loop, description, name, id)
+        super().__init__(description=description, **kwargs)
 
         self.__in_left = None
         self.__in_right = None

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class TrackEventSource(node.BuiltinNode):
     class_name = 'track_event_source'
 
-    def __init__(self, event_loop, name=None, id=None, track_id=None):
+    def __init__(self, *, track_id, **kwargs):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.EventPortDescription(
@@ -27,7 +27,7 @@ class TrackEventSource(node.BuiltinNode):
                     direction=node_db.PortDirection.Output),
             ])
 
-        super().__init__(event_loop, description, name, id)
+        super().__init__(description=description, **kwargs)
 
         self.track_id = track_id
 

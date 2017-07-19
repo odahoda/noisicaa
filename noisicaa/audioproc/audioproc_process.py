@@ -142,8 +142,8 @@ class AudioProcProcessMixin(object):
 
         self.__vm.setup()
 
-        sink = nodes.Sink(self.event_loop)
-        await self.__vm.setup_node(sink)
+        sink = nodes.Sink()
+        self.__vm.setup_node(sink)
         self.__vm.add_node(sink)
 
         self.sessions = {}
@@ -194,16 +194,17 @@ class AudioProcProcessMixin(object):
 
         # Send initial mutations to build up the current pipeline
         # state.
-        with self.__vm.reader_lock():
-            for node in self.__vm.nodes:
-                mutation = mutations.AddNode(node)
-                session.publish_mutation(mutation)
-            for node in self.__vm.nodes:
-                for port in node.inputs.values():
-                    for upstream_port in port.inputs:
-                        mutation = mutations.ConnectPorts(
-                            upstream_port, port)
-                        session.publish_mutation(mutation)
+        # TODO: reanimate
+        # with self.__vm.reader_lock():
+        #     for node in self.__vm.nodes:
+        #         mutation = mutations.AddNode(node)
+        #         session.publish_mutation(mutation)
+        #     for node in self.__vm.nodes:
+        #         for port in node.inputs.values():
+        #             for upstream_port in port.inputs:
+        #                 mutation = mutations.ConnectPorts(
+        #                     upstream_port, port)
+        #                 session.publish_mutation(mutation)
 
         return session.id
 
@@ -228,24 +229,26 @@ class AudioProcProcessMixin(object):
         await self.__shutdown_complete.wait()
         logger.info("Shutdown complete.")
 
-    async def handle_add_node(self, session_id, name, args):
+    def handle_add_node(self, session_id, name, args):
         session = self.get_session(session_id)
-        node = self.node_db.create(self.event_loop, name, args)
-        await self.__vm.setup_node(node)
+        node = self.node_db.create(name, **args)
+        self.__vm.setup_node(node)
         with self.__vm.writer_lock():
             self.__vm.add_node(node)
             self.__vm.update_spec()
-        self.publish_mutation(mutations.AddNode(node))
+        # TODO: reanimate
+        # self.publish_mutation(mutations.AddNode(node))
         return node.id
 
-    async def handle_remove_node(self, session_id, node_id):
+    def handle_remove_node(self, session_id, node_id):
         session = self.get_session(session_id)
         node = self.__vm.find_node(node_id)
         with self.__vm.writer_lock():
             self.__vm.remove_node(node)
             self.__vm.update_spec()
-        await node.cleanup()
-        self.publish_mutation(mutations.RemoveNode(node))
+        node.cleanup()
+        # TODO: reanimate
+        # self.publish_mutation(mutations.RemoveNode(node))
 
     def handle_connect_ports(
             self, session_id, node1_id, port1_name, node2_id, port2_name):
@@ -271,9 +274,10 @@ class AudioProcProcessMixin(object):
         with self.__vm.writer_lock():
             port2.connect(port1)
             self.__vm.update_spec()
-        self.publish_mutation(
-            mutations.ConnectPorts(
-                node1.outputs[port1_name], node2.inputs[port2_name]))
+        # TODO: reanimate
+        # self.publish_mutation(
+        #     mutations.ConnectPorts(
+        #         node1.outputs[port1_name], node2.inputs[port2_name]))
 
     def handle_disconnect_ports(
             self, session_id, node1_id, port1_name, node2_id, port2_name):
@@ -283,9 +287,10 @@ class AudioProcProcessMixin(object):
         with self.__vm.writer_lock():
             node2.inputs[port2_name].disconnect(node1.outputs[port1_name])
             self.__vm.update_spec()
-        self.publish_mutation(
-            mutations.DisconnectPorts(
-                node1.outputs[port1_name], node2.inputs[port2_name]))
+        # TODO: reanimate
+        # self.publish_mutation(
+        #     mutations.DisconnectPorts(
+        #         node1.outputs[port1_name], node2.inputs[port2_name]))
 
     def handle_set_backend(self, session_id, name, parameters):
         self.get_session(session_id)
@@ -297,7 +302,7 @@ class AudioProcProcessMixin(object):
         elif name == 'null':
             be = backend.NullBackend(parameters)
         elif name == 'ipc':
-            be = backend.IPCBackend(parameters)
+            be = backend.IPCBackend(parameters, self.node_db, self.__vm)
             result = be.address
         elif name is None:
             be = None

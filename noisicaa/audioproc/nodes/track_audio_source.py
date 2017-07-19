@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class TrackAudioSource(node.CustomNode):
     class_name = 'track_audio_source'
 
-    def __init__(self, event_loop, name=None, id=None, entity_name=None):
+    def __init__(self, *, entity_name, **kwargs):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.AudioPortDescription(
@@ -28,7 +28,7 @@ class TrackAudioSource(node.CustomNode):
                     direction=node_db.PortDirection.Output),
             ])
 
-        super().__init__(event_loop, description, name, id)
+        super().__init__(description=description, **kwargs)
 
         self.entity_name = entity_name
 

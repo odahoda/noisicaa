@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 class CSoundBase(node.CustomNode):
-    def __init__(self, event_loop, description, name=None, id=None):
-        super().__init__(event_loop, description, name, id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.__csnd = None
         self.__next_csnd = queue.Queue()
@@ -46,7 +46,7 @@ class CSoundBase(node.CustomNode):
 
         self.__next_csnd.put(csnd)
 
-    async def cleanup(self):
+    def cleanup(self):
         if self.__csnd is not None:
             self.__csnd.close()
             self.__csnd = None
@@ -55,7 +55,7 @@ class CSoundBase(node.CustomNode):
             csnd = self.__next_csnd.get()
             csnd.close()
 
-        await super().cleanup()
+        super().cleanup()
 
     def connect_port(self, port_name, buf):
         if port_name not in self.outputs and port_name not in self.inputs:
@@ -143,14 +143,14 @@ class CSoundBase(node.CustomNode):
 class CSoundFilter(CSoundBase):
     class_name = 'csound_filter'
 
-    def __init__(self, event_loop, description, name=None, id=None):
-        super().__init__(event_loop, description, name, id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-        self.__orchestra = description.get_parameter('orchestra').value
-        self.__score = description.get_parameter('score').value
+        self.__orchestra = self.description.get_parameter('orchestra').value
+        self.__score = self.description.get_parameter('score').value
 
-    async def setup(self):
-        await super().setup()
+    def setup(self):
+        super().setup()
 
         self.set_code(self.__orchestra, self.__score)
 
@@ -158,15 +158,15 @@ class CSoundFilter(CSoundBase):
 class CustomCSound(CSoundBase):
     class_name = 'custom_csound'
 
-    def __init__(self, event_loop, description, name=None, id=None):
-        super().__init__(event_loop, description, name, id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.__orchestra_preamble = textwrap.dedent("""\
             ksmps=32
             nchnls=2
             """)
 
-        for port_desc in description.ports:
+        for port_desc in self.description.ports:
             if (port_desc.port_type == node_db.PortType.Audio
                     and port_desc.direction == node_db.PortDirection.Input):
                 self.__orchestra_preamble += textwrap.dedent("""\
@@ -203,8 +203,8 @@ class CustomCSound(CSoundBase):
         self.__orchestra = self.get_param('orchestra')
         self.__score = self.get_param('score')
 
-    async def setup(self):
-        await super().setup()
+    def setup(self):
+        super().setup()
 
         self.set_code(self.__orchestra_preamble + self.__orchestra, self.__score)
 

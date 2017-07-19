@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class WavFileSource(node.CustomNode):
     class_name = 'wavfile'
 
-    def __init__(self, event_loop, path, loop=False, end_notification=None):
+    def __init__(self, *, path, loop=False, end_notification=None, **kwargs):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.AudioPortDescription(
@@ -27,7 +27,7 @@ class WavFileSource(node.CustomNode):
                     direction=node_db.PortDirection.Output),
             ])
 
-        super().__init__(event_loop, description)
+        super().__init__(description=description, **kwargs)
 
         self.__path = path
         self.__loop = loop
@@ -43,8 +43,8 @@ class WavFileSource(node.CustomNode):
         self.__out_left = None
         self.__out_right = None
 
-    async def setup(self):
-        await super().setup()
+    def setup(self):
+        super().setup()
 
         fp = wave.open(self.__path, 'rb')
 

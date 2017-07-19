@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import asynctest
+import unittest
 import os
 import os.path
 
@@ -9,8 +9,8 @@ from noisicaa import node_db
 from noisicaa.audioproc import data
 from . import lv2
 
-class LV2Test(asynctest.TestCase):
-    async def test_foo(self):
+class LV2Test(unittest.TestCase):
+    def test_foo(self):
         description = node_db.NodeDescription(
             ports=[
                 node_db.AudioPortDescription(
@@ -37,14 +37,14 @@ class LV2Test(asynctest.TestCase):
         buf_in = bytearray(1024)
         buf_out = bytearray(1024)
 
-        node = lv2.LV2(self.loop, description)
-        await node.setup()
+        node = lv2.LV2(description=description)
+        node.setup()
         try:
             node.connect_port('in', buf_in)
             node.connect_port('out', buf_out)
             node.run(ctxt)
         finally:
-            await node.cleanup()
+            node.cleanup()
 
 
 if __name__ == '__main__':

@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class SamplePlayer(csound.CSoundBase):
     class_name = 'sample_player'
 
-    def __init__(self, event_loop, name=None, id=None, sample_path=None):
+    def __init__(self, *, sample_path, **kwargs):
         description = node_db.UserNodeDescription(
             display_name="Sample Player",
             node_cls='sample_player',
@@ -34,12 +34,12 @@ class SamplePlayer(csound.CSoundBase):
                     direction=node_db.PortDirection.Output),
             ])
 
-        super().__init__(event_loop, description, name, id)
+        super().__init__(description=description, **kwargs)
 
         self._sample_path = sample_path
 
-    async def setup(self):
-        await super().setup()
+    def setup(self):
+        super().setup()
 
         orchestra = textwrap.dedent("""\
             ksmps=32

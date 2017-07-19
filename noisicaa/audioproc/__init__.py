@@ -9,9 +9,13 @@ from .audio_stream import (
 )
 from .data import FrameContext
 from .entity_capnp import Entity
+from .pipeline_mutations_capnp import PipelineMutation
 from .frame_data_capnp import FrameData
 from .mutations import (
-    Mutation,
-    AddNode, RemoveNode,
-    ConnectPorts, DisconnectPorts,
+    AddNode,
+    RemoveNode,
+    ConnectPorts,
+    DisconnectPorts,
+    SetPortProperty,
+    SetNodeParameter,
 )

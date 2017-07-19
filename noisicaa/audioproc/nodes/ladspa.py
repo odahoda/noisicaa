@@ -17,16 +17,16 @@ logger = logging.getLogger(__name__)
 class Ladspa(node.CustomNode):
     class_name = 'ladspa'
 
-    def __init__(self, event_loop, description=None, name='ladspa', id=None):
-        super().__init__(event_loop, description, name, id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.__library = None
         self.__descriptor = None
         self.__instance = None
         self.__buffers = None
 
-    async def setup(self):
-        await super().setup()
+    def setup(self):
+        super().setup()
 
         library_path = self.description.get_parameter('library_path').value
         label = self.description.get_parameter('label').value
@@ -48,7 +48,7 @@ class Ladspa(node.CustomNode):
                     if port.name == parameter.name:
                         self.__instance.connect_port(port, buf)
 
-    async def cleanup(self):
+    def cleanup(self):
         if self.__instance is not None:
             self.__instance.deactivate()
             self.__instance = None
@@ -57,7 +57,7 @@ class Ladspa(node.CustomNode):
         self.__library = None
         self.__buffers = None
 
-        await super().cleanup()
+        super().cleanup()
 
     def connect_port(self, port_name, buf):
         for port in self.__descriptor.ports:

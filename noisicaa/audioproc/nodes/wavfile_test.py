@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-import asynctest
 import os.path
 import unittest
 
@@ -9,11 +8,11 @@ from . import wavfile
 
 TESTDATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'testdata')
 
-class WavFileSourceTest(asynctest.TestCase):
-    async def test_basic(self):
+class WavFileSourceTest(unittest.TestCase):
+    def test_basic(self):
         node = wavfile.WavFileSource(
-            self.loop, os.path.join(TESTDATA_DIR, 'ping.wav'))
-        await node.setup()
+            path=os.path.join(TESTDATA_DIR, 'ping.wav'))
+        node.setup()
         try:
             buf_l = bytearray(1024)
             buf_r = bytearray(1024)
@@ -26,7 +25,7 @@ class WavFileSourceTest(asynctest.TestCase):
             node.run(ctxt)
 
         finally:
-            await node.cleanup()
+            node.cleanup()
 
 
 if __name__ == '__main__':

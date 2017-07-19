@@ -3,6 +3,7 @@
 import logging
 import os
 import os.path
+import pickle
 import tempfile
 import threading
 import uuid
@@ -17,6 +18,7 @@ from .resample import (Resampler,
 from . import audio_stream
 from . import entity_capnp
 from . import frame_data_capnp
+from . import mutations
 
 logger = logging.getLogger(__name__)
 
@@ -224,8 +226,11 @@ class PyAudioBackend(Backend):
 
 
 class IPCBackend(Backend):
-    def __init__(self, parameters, socket_dir=None):
+    def __init__(self, parameters, node_db, vm, socket_dir=None):
         super().__init__()
+
+        self.__node_db = node_db
+        self.__vm = vm
 
         if socket_dir is None:
             socket_dir = tempfile.gettempdir()
@@ -252,6 +257,68 @@ class IPCBackend(Backend):
         self.__stream.close()
         super().stop()
 
+    def handle_pipeline_mutation(self, mutation):
+        logger.info(mutation)
+
+        if isinstance(mutation, mutations.AddNode):
+            node = self.__node_db.create(
+                mutation.node_type,
+                id=mutation.node_id, name=mutation.node_name, **mutation.args)
+            self.__vm.setup_node(node)
+            with self.__vm.writer_lock():
+                self.__vm.add_node(node)
+                self.__vm.update_spec()
+
+        elif isinstance(mutation, mutations.RemoveNode):
+            node = self.__vm.find_node(mutation.node_id)
+            with self.__vm.writer_lock():
+                self.__vm.remove_node(node)
+                self.__vm.update_spec()
+            node.cleanup()
+
+        elif isinstance(mutation, mutations.ConnectPorts):
+            node1 = self.__vm.find_node(mutation.src_node)
+            try:
+                port1 = node1.outputs[mutation.src_port]
+            except KeyError as exc:
+                raise KeyError(
+                    "Node %s (%s) has no port %s"
+                    % (node1.id, type(node1).__name__, mutation.src_port)
+                ).with_traceback(sys.exc_info()[2]) from None
+
+            node2 = self.__vm.find_node(mutation.dest_node)
+            try:
+                port2 = node2.inputs[mutation.dest_port]
+            except KeyError as exc:
+                raise KeyError(
+                    "Node %s (%s) has no port %s"
+                    % (node2.id, type(node2).__name__, mutation.dest_port)
+                ).with_traceback(sys.exc_info()[2]) from None
+            with self.__vm.writer_lock():
+                port2.connect(port1)
+                self.__vm.update_spec()
+
+        elif isinstance(mutation, mutations.DisconnectPorts):
+            node1 = self.__vm.find_node(mutation.src_node)
+            node2 = self.__vm.find_node(mutation.dest_node)
+            with self.__vm.writer_lock():
+                node2.inputs[mutation.dest_port].disconnect(node1.outputs[mutation.src_port])
+                self.__vm.update_spec()
+
+        elif isinstance(mutation, mutations.SetPortProperty):
+            node = self.__vm.find_node(mutation.node)
+            port = node.outputs[mutation.port]
+            with self.__vm.writer_lock():
+                port.set_prop(**mutation.kwargs)
+
+        elif isinstance(mutation, mutations.SetNodeParameter):
+            node = self.__vm.find_node(mutation.node)
+            with self.__vm.writer_lock():
+                node.set_param(**mutation.kwargs)
+
+        else:
+            raise ValueError(type(mutation))
+
     def begin_frame(self, ctxt):
         self.__ctxt = ctxt
         try:
@@ -262,6 +329,10 @@ class IPCBackend(Backend):
                 for entity in in_frame.entities
             }
             ctxt.messages = in_frame.messages
+
+            for mutation in in_frame.pipelineMutations:
+                mutation = pickle.loads(mutation.pickled)
+                self.handle_pipeline_mutation(mutation)
 
             self.__out_frame = frame_data_capnp.FrameData.new_message()
             self.__out_frame.samplePos = in_frame.samplePos

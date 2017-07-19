@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-import asyncio
 import logging
 import os
 import pickle
@@ -28,7 +27,7 @@ logger = logging.getLogger(__name__)
 class IPCNode(node.CustomNode):
     class_name = 'ipc'
 
-    def __init__(self, event_loop, address, event_queue_name):
+    def __init__(self, *, address, **kwargs):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.AudioPortDescription(
@@ -39,21 +38,20 @@ class IPCNode(node.CustomNode):
                     direction=node_db.PortDirection.Output),
             ])
 
-        super().__init__(event_loop, description)
+        super().__init__(description=description, **kwargs)
 
         self.__stream = audio_stream.AudioStreamClient(address)
-        self.__event_queue_name = event_queue_name
 
         self.__out_l = None
         self.__out_r = None
 
-    async def setup(self):
-        await super().setup()
+    def setup(self):
+        super().setup()
         self.__stream.setup()
 
-    async def cleanup(self):
+    def cleanup(self):
         self.__stream.cleanup()
-        await super().cleanup()
+        super().cleanup()
 
     def connect_port(self, port_name, buf):
         if port_name == 'out:left':
@@ -67,9 +65,6 @@ class IPCNode(node.CustomNode):
         request = frame_data_capnp.FrameData.new_message()
         request.samplePos = ctxt.sample_pos
         request.frameSize = ctxt.duration
-        # TODO: get (event) buffers for this sheet.
-        # request.events = self.pipeline.backend.get_events_for_prefix(
-        #     self.__event_queue_name)
         self.__stream.send_frame(request)
 
         response = self.__stream.receive_frame()

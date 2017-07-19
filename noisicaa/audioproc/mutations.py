@@ -6,41 +6,77 @@ class Mutation(object):
 
 
 class AddNode(Mutation):
-    def __init__(self, node):
-        self.id = node.id
-        self.node_description = node.description
+    def __init__(self, node_type, node_id, node_name, **args):
+        super().__init__()
+        self.node_type = node_type
+        self.node_id = node_id
+        self.node_name = node_name
+        self.args = args
 
     def __str__(self):
-        return '<AddNode id="%s" description="%s">' % (self.id, self.node_description)
+        return '<AddNode type=%s id=%s name=%s%s>' % (
+            self.node_type, self.node_id, self.node_name,
+            ''.join(' %s=%r' % (k, v)
+                     for k, v in sorted(self.args.items())))
 
 
 class RemoveNode(Mutation):
-    def __init__(self, node):
-        self.id = node.id
+    def __init__(self, node_id):
+        super().__init__()
+        self.node_id = node_id
 
     def __str__(self):
-        return '<RemoveNode id="%s">' % self.id
+        return '<RemoveNode id=%s>' % self.node_id
 
 
 class ConnectPorts(Mutation):
-    def __init__(self, port1, port2):
-        self.node1 = port1.owner.id
-        self.port1 = port1.name
-        self.node2 = port2.owner.id
-        self.port2 = port2.name
+    def __init__(self, src_node, src_port, dest_node, dest_port):
+        super().__init__()
+        self.src_node = src_node
+        self.src_port = src_port
+        self.dest_node = dest_node
+        self.dest_port = dest_port
 
     def __str__(self):
-        return '<ConnectPorts port1="%s:%s" port2="%s:%s">' % (
-            self.node1, self.port1, self.node2, self.port2)
+        return '<ConnectPorts src=%s:%s dest=%s:%s>' % (
+            self.src_node, self.src_port, self.dest_node, self.dest_port)
 
 
 class DisconnectPorts(Mutation):
-    def __init__(self, port1, port2):
-        self.node1 = port1.owner.id
-        self.port1 = port1.name
-        self.node2 = port2.owner.id
-        self.port2 = port2.name
+    def __init__(self, src_node, src_port, dest_node, dest_port):
+        super().__init__()
+        self.src_node = src_node
+        self.src_port = src_port
+        self.dest_node = dest_node
+        self.dest_port = dest_port
 
     def __str__(self):
-        return '<DisonnectPorts port1="%s:%s" port2="%s:%s">' % (
-            self.node1, self.port1, self.node2, self.port2)
+        return '<DisconnectPorts src=%s:%s dest=%s:%s>' % (
+            self.src_node, self.src_port, self.dest_node, self.dest_port)
+
+
+class SetPortProperty(Mutation):
+    def __init__(self, node, port, **kwargs):
+        super().__init__()
+        self.node = node
+        self.port = port
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return '<SetPortProperty port=%s:%s%s>' % (
+            self.node, self.port,
+            ''.join(' %s=%r' % (k, v)
+                    for k, v in sorted(self.kwargs.items())))
+
+
+class SetNodeParameter(Mutation):
+    def __init__(self, node, **kwargs):
+        super().__init__()
+        self.node = node
+        self.kwargs = kwargs
+
+    def __str__(self):
+        return '<SetNodeParameter node=%s%s>' % (
+            self.node,
+            ''.join(' %s=%r' % (k, v)
+                    for k, v in sorted(self.kwargs.items())))

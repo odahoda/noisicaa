@@ -20,10 +20,9 @@ class Node(object):
     init_ports_from_description = True
     init_parameters_from_description = True
 
-    def __init__(self, event_loop, description, name=None, id=None):
+    def __init__(self, *, description, name=None, id=None):
         assert isinstance(description, node_db.NodeDescription), description
 
-        self.event_loop = event_loop
         self.description = description
         self._name = name or type(self).__name__
         self.id = id or uuid.uuid4().hex
@@ -136,14 +135,14 @@ class Node(object):
                 parents.append(upstream_port.owner)
         return parents
 
-    async def setup(self):
+    def setup(self):
         """Set up the node.
 
         Any expensive initialization should go here.
         """
         logger.info("%s: setup()", self.name)
 
-    async def cleanup(self):
+    def cleanup(self):
         """Clean up the node.
 
         The counterpart of setup().

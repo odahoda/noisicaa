@@ -13,9 +13,11 @@
   - vm keeps map of parameter values
   - opcode FETCH_PARAMETER #buf, 'param_name'
   - player installs listeners on pipeline graph, incl. parameter changes
-  - collect graph mutations in player
-  - send mutations as batch along with FrameData
-  - apply mutations in VM at start of loop
+  - async node setup:
+    - track node state: SETUP, RUNNING, CRASHED
+    - schedule setup in worker thread
+    - VM skips node (perhaps with bypass), if not RUNNING
+  - replace PipelineMutation classed with classes from audioproc.mutations
 - port parameters
   - volume, mute, bypass, dry_wet
   - bypass needs conditionals

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import asynctest
+import unittest
 import os
 import os.path
 import struct
@@ -10,8 +10,8 @@ from noisicaa import node_db
 from noisicaa.audioproc import data
 from . import ladspa
 
-class LadspaTest(asynctest.TestCase):
-    async def test_foo(self):
+class LadspaTest(unittest.TestCase):
+    def test_foo(self):
         description = node_db.NodeDescription(
             ports=[
                 node_db.AudioPortDescription(
@@ -43,15 +43,15 @@ class LadspaTest(asynctest.TestCase):
 
         struct.pack_into('=f', buf_cutoff, 0, 400.0)
 
-        node = ladspa.Ladspa(self.loop, description)
-        await node.setup()
+        node = ladspa.Ladspa(description=description)
+        node.setup()
         try:
             node.connect_port('Cutoff Frequency (Hz)', buf_cutoff)
             node.connect_port('Input', buf_in)
             node.connect_port('Output', buf_out)
             node.run(ctxt)
         finally:
-            await node.cleanup()
+            node.cleanup()
 
 
 if __name__ == '__main__':

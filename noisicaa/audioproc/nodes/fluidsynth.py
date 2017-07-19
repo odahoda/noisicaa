@@ -19,8 +19,7 @@ class FluidSynthSource(node.CustomNode):
     master_synth = fluidsynth.Synth()
     master_sfonts = {}
 
-    def __init__(self, event_loop, name=None, id=None,
-                 soundfont_path=None, bank=None, preset=None):
+    def __init__(self, *, soundfont_path, bank, preset, **kwargs):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.EventPortDescription(
@@ -34,7 +33,7 @@ class FluidSynthSource(node.CustomNode):
                     direction=node_db.PortDirection.Output),
             ])
 
-        super().__init__(event_loop, description, name, id)
+        super().__init__(description=description, **kwargs)
 
         self.__soundfont_path = soundfont_path
         self.__bank = bank
@@ -48,8 +47,8 @@ class FluidSynthSource(node.CustomNode):
         self.__out_left = None
         self.__out_right = None
 
-    async def setup(self):
-        await super().setup()
+    def setup(self):
+        super().setup()
 
         assert self.__synth is None
 
@@ -76,8 +75,8 @@ class FluidSynthSource(node.CustomNode):
         self.__synth.program_select(
             0, self.__sfid, self.__bank, self.__preset)
 
-    async def cleanup(self):
-        await super().cleanup()
+    def cleanup(self):
+        super().cleanup()
 
         if self.__synth is not None:
             self.__synth.system_reset()

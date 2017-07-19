@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class Sink(node.BuiltinNode):
     class_name = 'sink'
 
-    def __init__(self, event_loop):
+    def __init__(self):
         description = node_db.SystemNodeDescription(
             ports=[
                 node_db.AudioPortDescription(
@@ -24,7 +24,7 @@ class Sink(node.BuiltinNode):
                     direction=node_db.PortDirection.Input),
             ])
 
-        super().__init__(event_loop, description, id='sink')
+        super().__init__(description=description, id='sink')
 
     def get_ast(self, compiler):
         seq = super().get_ast(compiler)

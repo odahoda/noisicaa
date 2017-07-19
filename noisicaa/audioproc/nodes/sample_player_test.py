@@ -1,18 +1,17 @@
 #!/usr/bin/python3
 
-import asynctest
+import unittest
 
 from noisicaa.audioproc import data
 from noisicaa.bindings import lv2
 from . import sample_player
 
 
-class SamplePlayerTest(asynctest.TestCase):
-    async def test_basic(self):
+class SamplePlayerTest(unittest.TestCase):
+    def test_basic(self):
         node = sample_player.SamplePlayer(
-            self.loop,
             sample_path='/usr/share/sounds/freedesktop/stereo/bell.oga')
-        await node.setup()
+        node.setup()
         try:
             buf_in = bytearray(10240)
             buf_out_l = bytearray(1024)
@@ -33,7 +32,7 @@ class SamplePlayerTest(asynctest.TestCase):
             node.run(ctxt)
 
         finally:
-            await node.cleanup()
+            node.cleanup()
 
 
 if __name__ == '__main__':

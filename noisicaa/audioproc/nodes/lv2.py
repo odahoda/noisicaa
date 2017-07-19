@@ -22,14 +22,14 @@ class LV2(node.CustomNode):
     __world = None
     __world_lock = threading.Lock()
 
-    def __init__(self, event_loop, description=None, name='lv2', id=None):
-        super().__init__(event_loop, description, name, id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.__plugin = None
         self.__buffers = None
 
-    async def setup(self):
-        await super().setup()
+    def setup(self):
+        super().setup()
 
         uri = self.description.get_parameter('uri').value
         logger.info("Setting up LV2 plugin %s...", uri)
@@ -62,7 +62,7 @@ class LV2(node.CustomNode):
                 assert lv2_port is not None, parameter.name
                 self.__instance.connect_port(lv2_port.get_index(), buf)
 
-    async def cleanup(self):
+    def cleanup(self):
         if self.__instance is not None:
             self.__instance.deactivate()
             self.__instance = None
@@ -71,7 +71,7 @@ class LV2(node.CustomNode):
 
         self.__buffers = None
 
-        await super().cleanup()
+        super().cleanup()
 
     def connect_port(self, port_name, buf):
         lv2_port = self.__plugin.get_port_by_symbol(

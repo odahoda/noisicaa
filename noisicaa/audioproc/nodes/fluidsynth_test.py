@@ -1,18 +1,17 @@
 #!/usr/bin/python3
 
-import asynctest
+import unittest
 
 from noisicaa.audioproc import data
 from noisicaa.bindings import lv2
 from . import fluidsynth
 
 
-class WavFileSourceTest(asynctest.TestCase):
-    async def test_basic(self):
+class WavFileSourceTest(unittest.TestCase):
+    def test_basic(self):
         node = fluidsynth.FluidSynthSource(
-            self.loop,
             soundfont_path='/usr/share/sounds/sf2/TimGM6mb.sf2', bank=0, preset=0)
-        await node.setup()
+        node.setup()
         try:
             buf_in = bytearray(10240)
             buf_out_l = bytearray(1024)
@@ -33,7 +32,7 @@ class WavFileSourceTest(asynctest.TestCase):
             node.run(ctxt)
 
         finally:
-            await node.cleanup()
+            node.cleanup()
 
 
 if __name__ == '__main__':

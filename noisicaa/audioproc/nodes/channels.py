@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 class SplitChannels(node.CustomNode):
     class_name = 'split_channels'
 
-    def __init__(self, event_loop, description=None, name='passthru', id=None):
-        super().__init__(event_loop, description=description, name=name, id=id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self._input = ports.AudioInputPort('in', audio_format.CHANNELS_STEREO)
         self.add_input(self._input)
@@ -35,8 +35,8 @@ class SplitChannels(node.CustomNode):
 class JoinChannels(node.CustomNode):
     class_name = 'join_channels'
 
-    def __init__(self, event_loop, description=None, name='passthru', id=None):
-        super().__init__(event_loop, description=description, name=name, id=id)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self._left = ports.AudioInputPort('left', audio_format.CHANNELS_MONO)
         self.add_input(self._left)

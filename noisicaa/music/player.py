@@ -7,6 +7,7 @@ import itertools
 import logging
 import os
 import os.path
+import pickle
 import queue
 import random
 import sys
@@ -216,6 +217,7 @@ class AudioStreamProxy(object):
         self._stopped = threading.Event()
         self._settings_queue = queue.Queue()
         self._message_queue = queue.Queue()
+        self._pipeline_mutations = queue.Queue()
         self._thread = threading.Thread(target=self.main)
 
     def setup(self):
@@ -242,6 +244,11 @@ class AudioStreamProxy(object):
     def send_message(self, msg):
         self._message_queue.put(msg)
 
+    def add_pipeline_mutation(self, mutation):
+        msg = audioproc.PipelineMutation.new_message()
+        msg.pickled = pickle.dumps(mutation, pickle.HIGHEST_PROTOCOL)
+        self._pipeline_mutations.put(msg)
+
     def main(self):
         sample_pos_offset = None
         settings = project_client.PlayerSettings()
@@ -266,6 +273,7 @@ class AudioStreamProxy(object):
 
                 entities = {}
                 messages = []
+                pipeline_mutations = []
 
                 while True:
                     try:
@@ -314,6 +322,15 @@ class AudioStreamProxy(object):
 
                     logger.info(str(msg))
                     messages.append(msg)
+
+                if self._client is not None:
+                    while True:
+                        try:
+                            mutation = self._pipeline_mutations.get_nowait()
+                        except queue.Empty:
+                            break
+
+                        pipeline_mutations.append(mutation)
 
                 if settings.state == 'playing':
                     self._player.publish_status_async(
@@ -372,6 +389,14 @@ class AudioStreamProxy(object):
                         itertools.chain(
                             server_request.messages, messages)):
                     request.messages[idx] = msg
+
+                request.init(
+                    'pipelineMutations',
+                    len(server_request.pipelineMutations) + len(pipeline_mutations))
+                for idx, mutation in enumerate(
+                        itertools.chain(
+                            server_request.pipelineMutations, pipeline_mutations)):
+                    request.pipelineMutations[idx] = mutation
 
                 with self._lock:
                     if self._client is not None:
@@ -572,15 +597,9 @@ class Player(object):
         logger.info("Audioproc backend started.")
 
     async def audioproc_started(self):
-        self.pending_pipeline_mutations = []
         self.sheet.add_to_pipeline()
-        pipeline_mutations = self.pending_pipeline_mutations[:]
-        self.pending_pipeline_mutations = None
 
         try:
-            for mutation in pipeline_mutations:
-                await self.publish_pipeline_mutation(mutation)
-
             await self.audioproc_client.dump()
 
             self.proxy.set_client(self.audiostream_client)
@@ -678,48 +697,7 @@ class Player(object):
             entity_source.get_entities(entities, start_pos, end_pos, frame_sample_pos)
 
     def handle_pipeline_mutation(self, mutation):
-        if self.pending_pipeline_mutations is not None:
-            self.pending_pipeline_mutations.append(mutation)
-        else:
-            self.event_loop.create_task(
-                self.publish_pipeline_mutation(mutation))
-
-    async def publish_pipeline_mutation(self, mutation):
-        if self.audioproc_client is None:
-            return
-
-        try:
-            if isinstance(mutation, mutations.AddNode):
-                await self.audioproc_client.add_node(
-                    mutation.node_type, id=mutation.node_id,
-                    name=mutation.node_name, **mutation.args)
-
-            elif isinstance(mutation, mutations.RemoveNode):
-                await self.audioproc_client.remove_node(mutation.node_id)
-
-            elif isinstance(mutation, mutations.ConnectPorts):
-                await self.audioproc_client.connect_ports(
-                    mutation.src_node, mutation.src_port,
-                    mutation.dest_node, mutation.dest_port)
-
-            elif isinstance(mutation, mutations.DisconnectPorts):
-                await self.audioproc_client.disconnect_ports(
-                    mutation.src_node, mutation.src_port,
-                    mutation.dest_node, mutation.dest_port)
-
-            elif isinstance(mutation, mutations.SetPortProperty):
-                await self.audioproc_client.set_port_property(
-                    mutation.node, mutation.port, **mutation.kwargs)
-
-            elif isinstance(mutation, mutations.SetNodeParameter):
-                await self.audioproc_client.set_node_parameter(
-                    mutation.node, **mutation.kwargs)
-
-            else:
-                raise ValueError(type(mutation))
-
-        except ipc.ConnectionClosed:
-            self.audioproc_backend.backend_crashed()
+        self.proxy.add_pipeline_mutation(mutation)
 
     async def update_settings(self, settings):
         self.proxy.update_settings(settings)

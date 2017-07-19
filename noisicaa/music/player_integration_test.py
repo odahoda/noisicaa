@@ -156,9 +156,7 @@ class PlayerTest(asynctest.TestCase):
             await p.setup()
 
             player_node_id = await self.audioproc_client_main.add_node(
-                'ipc',
-                address=p.proxy_address,
-                event_queue_name='sheet:%s' % self.sheet.id)
+                'ipc', address=p.proxy_address)
             await self.audioproc_client_main.connect_ports(
                 player_node_id, 'out:left', 'sink', 'in:left')
             await self.audioproc_client_main.connect_ports(
@@ -204,9 +202,7 @@ class PlayerTest(asynctest.TestCase):
             await p.setup()
 
             player_node_id = await self.audioproc_client_main.add_node(
-                'ipc',
-                address=p.proxy_address,
-                event_queue_name='sheet:%s' % self.sheet.id)
+                'ipc', address=p.proxy_address)
             await self.audioproc_client_main.connect_ports(
                 player_node_id, 'out:left', 'sink', 'in:left')
             await self.audioproc_client_main.connect_ports(

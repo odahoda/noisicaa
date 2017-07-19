@@ -1196,8 +1196,7 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
 
         self.__player_node_id = await self.audioproc_client.add_node(
             'ipc',
-            address=self.__player_stream_address,
-            event_queue_name='sheet:%s' % self.__sheet.id)
+            address=self.__player_stream_address)
         await self.audioproc_client.connect_ports(
             self.__player_node_id, 'out:left', 'sink', 'in:left')
         await self.audioproc_client.connect_ports(

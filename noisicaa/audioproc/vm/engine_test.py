@@ -5,8 +5,6 @@ import struct
 import threading
 import unittest
 
-import asynctest
-
 from noisicaa import node_db
 from noisicaa import audioproc
 from .. import backend
@@ -55,9 +53,9 @@ class TestBackend(backend.Backend):
         self.step_done.clear()
 
 
-class PipelineVMTest(asynctest.TestCase):
+class PipelineVMTest(unittest.TestCase):
 
-    async def test_get_buffer_bytes(self):
+    def test_get_buffer_bytes(self):
         vm = engine.PipelineVM()
 
         vm_spec = spec.PipelineVMSpec()
@@ -69,7 +67,7 @@ class PipelineVMTest(asynctest.TestCase):
             vm.get_buffer_bytes(0),
             struct.pack('=ffff', 1, 2, 3, 4))
 
-    async def test_vm_thread(self):
+    def test_vm_thread(self):
         vm = engine.PipelineVM()
         try:
             vm.setup()
@@ -100,7 +98,7 @@ class PipelineVMTest(asynctest.TestCase):
         finally:
             vm.cleanup()
 
-    async def test_run_vm(self):
+    def test_run_vm(self):
         vm_spec = spec.PipelineVMSpec()
         vm_spec.buffers.append(buffer_type.Float())
         vm_spec.buffers.append(buffer_type.FloatArray(256))
@@ -117,7 +115,7 @@ class PipelineVMTest(asynctest.TestCase):
 
         vm.run_vm(vm_spec, ctxt, engine.RunAt.PERFORMANCE)
 
-    async def test_OUTPUT(self):
+    def test_OUTPUT(self):
         vm_spec = spec.PipelineVMSpec()
         vm_spec.buffers.append(buffer_type.FloatArray(4))
         vm_spec.opcodes.append(spec.OpCode('OUTPUT', buf_idx=0, channel='center'))
@@ -141,7 +139,7 @@ class PipelineVMTest(asynctest.TestCase):
         self.assertEqual(channel, 'center')
         self.assertEqual(samples, struct.pack('=ffff', 1, 2, 3, 4))
 
-    async def test_NOISE(self):
+    def test_NOISE(self):
         vm_spec = spec.PipelineVMSpec()
         vm_spec.buffers.append(buffer_type.FloatArray(4))
         vm_spec.opcodes.append(spec.OpCode('NOISE', buf_idx=0))
@@ -162,7 +160,7 @@ class PipelineVMTest(asynctest.TestCase):
             self.assertGreaterEqual(sample, -1.0)
             self.assertLessEqual(sample, 1.0)
 
-    async def test_MUL(self):
+    def test_MUL(self):
         vm_spec = spec.PipelineVMSpec()
         vm_spec.buffers.append(buffer_type.FloatArray(4))
         vm_spec.opcodes.append(spec.OpCode('MUL', buf_idx=0, factor=2))
@@ -185,7 +183,7 @@ class PipelineVMTest(asynctest.TestCase):
             vm.get_buffer_bytes(0),
             struct.pack('=ffff', 2, 4, 6, 8))
 
-    async def test_MIX(self):
+    def test_MIX(self):
         vm_spec = spec.PipelineVMSpec()
         vm_spec.buffers.append(buffer_type.FloatArray(4))
         vm_spec.buffers.append(buffer_type.FloatArray(4))
@@ -210,7 +208,7 @@ class PipelineVMTest(asynctest.TestCase):
             struct.unpack('=ffff', vm.get_buffer_bytes(0)),
             (3.0, 4.0, 7.0, 8.0))
 
-    async def test_CALL(self):
+    def test_CALL(self):
         vm = engine.PipelineVM()
 
         description = node_db.NodeDescription(
@@ -233,8 +231,8 @@ class PipelineVMTest(asynctest.TestCase):
                     max=24.0),
             ])
 
-        node = nodes.LV2(self.loop, description, id='node')
-        await node.setup()
+        node = nodes.LV2(description=description, id='node')
+        node.setup()
         try:
             node.set_param(gain=-20.0)
 
@@ -269,9 +267,9 @@ class PipelineVMTest(asynctest.TestCase):
                 (2.0, 4.0, 6.0, 8.0))
 
         finally:
-            await node.cleanup()
+            node.cleanup()
 
-    # async def test_play(self):
+    # def test_play(self):
     #     vm = engine.PipelineVM()
     #     try:
     #         vm.setup()

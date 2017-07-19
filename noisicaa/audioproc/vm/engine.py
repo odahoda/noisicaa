@@ -214,7 +214,7 @@ class PipelineVM(object):
         node.pipeline = None
         self.__graph.remove_node(node)
 
-    async def setup_node(self, node):
+    def setup_node(self, node):
         # TODO: reanimate crash handling
         # if node.id == self._crasher_id:
         #     logger.warning(
@@ -227,7 +227,7 @@ class PipelineVM(object):
         # if self._shm_data is not None:
         #     marker = node.id.encode('ascii') + b'\0'
         #     self._shm_data[512:512+len(marker)] = marker
-        await node.setup()
+        node.setup()
         # if self._shm_data is not None:
         #     self._shm_data[512] = 0
 
@@ -355,7 +355,7 @@ class PipelineVM(object):
 
     @at_performance
     def op_FETCH_PARAMETER(self, ctxt, state, *, parameter_idx, buf_idx):
-        parameter_name = self.__parameters[parameter_idx]
+        #parameter_name = self.__parameters[parameter_idx]
         buf = self.__buffers[buf_idx]
         buf.clear()
 
