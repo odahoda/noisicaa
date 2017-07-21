@@ -54,6 +54,7 @@ class AudioProcClientMixin(object):
     async def shutdown(self):
         await self._stub.call('SHUTDOWN')
 
+    # TODO: remove these, use pipeline_mutation() instead
     async def add_node(self, node_type, **args):
         return await self._stub.call('ADD_NODE', self._session_id, node_type, args)
 
@@ -71,6 +72,19 @@ class AudioProcClientMixin(object):
             'DISCONNECT_PORTS', self._session_id,
             node1_id, port1_name, node2_id, port2_name)
 
+    async def set_port_property(self, node_id, port_name, **kwargs):
+        return await self._stub.call(
+            'SET_PORT_PROP', self._session_id, node_id, port_name, kwargs)
+
+    async def set_node_parameter(self, node_id, **kwargs):
+        return await self._stub.call(
+            'SET_NODE_PARAM', self._session_id, node_id, kwargs)
+    # END TODO
+
+    async def pipeline_mutation(self, mutation):
+        return await self._stub.call(
+            'PIPELINE_MUTATION', self._session_id, mutation)
+
     async def set_backend(self, name, **parameters):
         return await self._stub.call(
             'SET_BACKEND', self._session_id, name, parameters)
@@ -86,14 +100,6 @@ class AudioProcClientMixin(object):
     async def add_event(self, entity_id, event):
         return await self._stub.call(
             'ADD_EVENT', self._session_id, entity_id, event)
-
-    async def set_port_property(self, node_id, port_name, **kwargs):
-        return await self._stub.call(
-            'SET_PORT_PROP', self._session_id, node_id, port_name, kwargs)
-
-    async def set_node_parameter(self, node_id, **kwargs):
-        return await self._stub.call(
-            'SET_NODE_PARAM', self._session_id, node_id, kwargs)
 
     async def dump(self):
         return await self._stub.call('DUMP', self._session_id)

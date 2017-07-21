@@ -114,6 +114,8 @@ class AudioProcProcessMixin(object):
         self.server.add_command_handler(
             'SET_NODE_PARAM', self.handle_set_node_param)
         self.server.add_command_handler(
+            'PIPELINE_MUTATION', self.handle_pipeline_mutation)
+        self.server.add_command_handler(
             'DUMP', self.handle_dump)
 
         self.node_db = node_db.NodeDB()
@@ -292,6 +294,85 @@ class AudioProcProcessMixin(object):
         #     mutations.DisconnectPorts(
         #         node1.outputs[port1_name], node2.inputs[port2_name]))
 
+    async def handle_set_port_prop(
+        self, session_id, node_id, port_name, kwargs):
+        self.get_session(session_id)
+
+        node = self.__vm.find_node(node_id)
+        port = node.outputs[port_name]
+        with self.__vm.writer_lock():
+            port.set_prop(**kwargs)
+
+    async def handle_set_node_param(self, session_id, node_id, kwargs):
+        self.get_session(session_id)
+
+        node = self.__vm.find_node(node_id)
+        with self.__vm.writer_lock():
+            node.set_param(**kwargs)
+
+    async def handle_pipeline_mutation(self, session_id, mutation):
+        self.get_session(session_id)
+
+        if isinstance(mutation, mutations.AddNode):
+            node = self.node_db.create(
+                mutation.node_type,
+                id=mutation.node_id, name=mutation.node_name, **mutation.args)
+            # TODO: schedule setup in a worker thread.
+            self.__vm.setup_node(node)
+            with self.__vm.writer_lock():
+                self.__vm.add_node(node)
+                self.__vm.update_spec()
+
+        elif isinstance(mutation, mutations.RemoveNode):
+            node = self.__vm.find_node(mutation.node_id)
+            with self.__vm.writer_lock():
+                self.__vm.remove_node(node)
+                self.__vm.update_spec()
+            node.cleanup()
+
+        elif isinstance(mutation, mutations.ConnectPorts):
+            node1 = self.__vm.find_node(mutation.src_node)
+            try:
+                port1 = node1.outputs[mutation.src_port]
+            except KeyError as exc:
+                raise KeyError(
+                    "Node %s (%s) has no port %s"
+                    % (node1.id, type(node1).__name__, mutation.src_port)
+                ).with_traceback(sys.exc_info()[2]) from None
+
+            node2 = self.__vm.find_node(mutation.dest_node)
+            try:
+                port2 = node2.inputs[mutation.dest_port]
+            except KeyError as exc:
+                raise KeyError(
+                    "Node %s (%s) has no port %s"
+                    % (node2.id, type(node2).__name__, mutation.dest_port)
+                ).with_traceback(sys.exc_info()[2]) from None
+            with self.__vm.writer_lock():
+                port2.connect(port1)
+                self.__vm.update_spec()
+
+        elif isinstance(mutation, mutations.DisconnectPorts):
+            node1 = self.__vm.find_node(mutation.src_node)
+            node2 = self.__vm.find_node(mutation.dest_node)
+            with self.__vm.writer_lock():
+                node2.inputs[mutation.dest_port].disconnect(node1.outputs[mutation.src_port])
+                self.__vm.update_spec()
+
+        elif isinstance(mutation, mutations.SetPortProperty):
+            node = self.__vm.find_node(mutation.node)
+            port = node.outputs[mutation.port]
+            with self.__vm.writer_lock():
+                port.set_prop(**mutation.kwargs)
+
+        elif isinstance(mutation, mutations.SetNodeParameter):
+            node = self.__vm.find_node(mutation.node)
+            with self.__vm.writer_lock():
+                node.set_param(**mutation.kwargs)
+
+        else:
+            raise ValueError(type(mutation))
+
     def handle_set_backend(self, session_id, name, parameters):
         self.get_session(session_id)
 
@@ -302,7 +383,7 @@ class AudioProcProcessMixin(object):
         elif name == 'null':
             be = backend.NullBackend(parameters)
         elif name == 'ipc':
-            be = backend.IPCBackend(parameters, self.node_db, self.__vm)
+            be = backend.IPCBackend(parameters)
             result = be.address
         elif name is None:
             be = None
@@ -367,22 +448,6 @@ class AudioProcProcessMixin(object):
                     "Ignoring event %s: no backend active:", event)
 
             backend.add_event(entity_id, event)
-
-    async def handle_set_port_prop(
-        self, session_id, node_id, port_name, kwargs):
-        self.get_session(session_id)
-
-        node = self.__vm.find_node(node_id)
-        port = node.outputs[port_name]
-        with self.__vm.writer_lock():
-            port.set_prop(**kwargs)
-
-    async def handle_set_node_param(self, session_id, node_id, kwargs):
-        self.get_session(session_id)
-
-        node = self.__vm.find_node(node_id)
-        with self.__vm.writer_lock():
-            node.set_param(**kwargs)
 
     def handle_dump(self, session_id):
         self.__vm.dump()
