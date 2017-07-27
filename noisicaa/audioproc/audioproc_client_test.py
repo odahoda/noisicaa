@@ -65,24 +65,20 @@ class ProxyTest(asynctest.TestCase):
         await asyncio.wait_for(self.audioproc_task, None)
         await self.audioproc_process.cleanup()
 
-    async def test_add_node(self):
-        node_id = await self.client.add_node('passthru')
-        self.assertIsInstance(node_id, str)
-
-    async def test_remove_node(self):
-        node_id = await self.client.add_node('passthru')
-        await self.client.remove_node(node_id)
+    async def test_add_remove_node(self):
+        await self.client.add_node('passthru', id='test')
+        await self.client.remove_node('test')
 
     async def test_connect_ports(self):
-        node1_id = await self.client.add_node('passthru')
-        node2_id = await self.client.add_node('passthru')
-        await self.client.connect_ports(node1_id, 'out:left', node2_id, 'in:left')
+        await self.client.add_node('passthru', id='node1')
+        await self.client.add_node('passthru', id='node2')
+        await self.client.connect_ports('node1', 'out:left', 'node2', 'in:left')
 
     async def test_disconnect_ports(self):
-        node1_id = await self.client.add_node('passthru')
-        node2_id = await self.client.add_node('passthru')
-        await self.client.connect_ports(node1_id, 'out:left', node2_id, 'in:left')
-        await self.client.disconnect_ports(node1_id, 'out:left', node2_id, 'in:left')
+        await self.client.add_node('passthru', id='node1')
+        await self.client.add_node('passthru', id='node2')
+        await self.client.connect_ports('node1', 'out:left', 'node2', 'in:left')
+        await self.client.disconnect_ports('node1', 'out:left', 'node2', 'in:left')
 
 
 if __name__ == '__main__':

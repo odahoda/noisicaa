@@ -10,6 +10,7 @@ from . import fluidsynth
 class WavFileSourceTest(unittest.TestCase):
     def test_basic(self):
         node = fluidsynth.FluidSynthSource(
+            id='test',
             soundfont_path='/usr/share/sounds/sf2/TimGM6mb.sf2', bank=0, preset=0)
         node.setup()
         try:

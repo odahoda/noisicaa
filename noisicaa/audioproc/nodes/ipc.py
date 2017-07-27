@@ -14,7 +14,6 @@ from noisicaa import node_db
 
 from .. import ports
 from .. import node
-from .. import frame
 from .. import events
 from .. import audio_stream
 from .. import entity_capnp

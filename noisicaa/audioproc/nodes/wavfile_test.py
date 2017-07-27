@@ -11,6 +11,7 @@ TESTDATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'testdata')
 class WavFileSourceTest(unittest.TestCase):
     def test_basic(self):
         node = wavfile.WavFileSource(
+            id='test',
             path=os.path.join(TESTDATA_DIR, 'ping.wav'))
         node.setup()
         try:

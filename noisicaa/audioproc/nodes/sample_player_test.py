@@ -10,6 +10,7 @@ from . import sample_player
 class SamplePlayerTest(unittest.TestCase):
     def test_basic(self):
         node = sample_player.SamplePlayer(
+            id='test',
             sample_path='/usr/share/sounds/freedesktop/stereo/bell.oga')
         node.setup()
         try:

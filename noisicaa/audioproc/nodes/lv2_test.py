@@ -37,7 +37,7 @@ class LV2Test(unittest.TestCase):
         buf_in = bytearray(1024)
         buf_out = bytearray(1024)
 
-        node = lv2.LV2(description=description)
+        node = lv2.LV2(id='test', description=description)
         node.setup()
         try:
             node.connect_port('in', buf_in)

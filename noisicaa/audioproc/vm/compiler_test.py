@@ -14,10 +14,10 @@ class CompilerTest(unittest.TestCase):
     def _build_graph(self):
         g = graph.PipelineGraph()
 
-        node1 = nodes.PassThru()
+        node1 = nodes.PassThru(id='node1')
         g.add_node(node1)
 
-        node2 = nodes.PassThru()
+        node2 = nodes.PassThru(id='node2')
         g.add_node(node2)
         node2.inputs['in:left'].connect(node1.outputs['out:left'])
         node2.inputs['in:right'].connect(node1.outputs['out:right'])

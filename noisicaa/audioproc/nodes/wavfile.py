@@ -7,7 +7,6 @@ from noisicaa import node_db
 
 from .. import resample
 from .. import node
-from ..frame import Frame
 from .. import audio_format
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,6 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- can I get rid of frame.pyx?
 - use protos for PipelineMutations instead of pickled objects.
 - better test coverage
   - base class for node unittests

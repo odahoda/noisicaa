@@ -43,7 +43,7 @@ class LadspaTest(unittest.TestCase):
 
         struct.pack_into('=f', buf_cutoff, 0, 400.0)
 
-        node = ladspa.Ladspa(description=description)
+        node = ladspa.Ladspa(id='test', description=description)
         node.setup()
         try:
             node.connect_port('Cutoff Frequency (Hz)', buf_cutoff)

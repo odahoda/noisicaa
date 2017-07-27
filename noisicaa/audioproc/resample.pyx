@@ -2,7 +2,6 @@ from libc.stdint cimport int64_t, uint8_t
 
 from .libavutil cimport *
 from .libswresample cimport *
-from .frame import *
 
 __version__ = 'libswresample %d' % swresample_version()
 __configuration__ = str(swresample_configuration(), 'ascii')
