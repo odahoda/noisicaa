@@ -4,6 +4,7 @@ from fractions import Fraction
 import functools
 import logging
 import time
+import uuid
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -1194,8 +1195,10 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
 
         self.player_audioproc_address = await self.project_client.get_player_audioproc_address(self.__player_id)
 
-        self.__player_node_id = await self.audioproc_client.add_node(
+        self.__player_node_id = uuid.uuid4().hex
+        await self.audioproc_client.add_node(
             'ipc',
+            id=self.__player_node_id,
             address=self.__player_stream_address)
         await self.audioproc_client.connect_ports(
             self.__player_node_id, 'out:left', 'sink', 'in:left')

@@ -321,8 +321,8 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
         self.sheet.handle_pipeline_mutation(
             audioproc.AddNode(
                 self.description.node_cls,
-                self.pipeline_node_id,
-                self.name,
+                id=self.pipeline_node_id,
+                name=self.name,
                 description=self.description))
 
         self.set_initial_parameters()
@@ -369,7 +369,7 @@ class TrackMixerPipelineGraphNode(
     def add_to_pipeline(self):
         self.sheet.handle_pipeline_mutation(
             audioproc.AddNode(
-                'passthru', self.pipeline_node_id, self.name))
+                'passthru', id=self.pipeline_node_id, name=self.name))
         self.sheet.handle_pipeline_mutation(
             audioproc.SetPortProperty(
                 self.pipeline_node_id, 'out:left',
@@ -403,7 +403,7 @@ class ControlSourcePipelineGraphNode(
     def add_to_pipeline(self):
         self.sheet.handle_pipeline_mutation(
             audioproc.AddNode(
-                'track_control_source', self.pipeline_node_id, self.name,
+                'track_control_source', id=self.pipeline_node_id, name=self.name,
                 entity_name='track:%s' % self.track.id))
 
         self.set_initial_parameters()
@@ -430,7 +430,7 @@ class AudioSourcePipelineGraphNode(
     def add_to_pipeline(self):
         self.sheet.handle_pipeline_mutation(
             audioproc.AddNode(
-                'track_audio_source', self.pipeline_node_id, self.name,
+                'track_audio_source', id=self.pipeline_node_id, name=self.name,
                 entity_name='track:%s' % self.track.id))
 
         self.set_initial_parameters()
@@ -457,7 +457,7 @@ class EventSourcePipelineGraphNode(
     def add_to_pipeline(self):
         self.sheet.handle_pipeline_mutation(
             audioproc.AddNode(
-                'track_event_source', self.pipeline_node_id, self.name,
+                'track_event_source', id=self.pipeline_node_id, name=self.name,
                 track_id=self.track.id))
 
         self.set_initial_parameters()
@@ -498,7 +498,7 @@ class InstrumentPipelineGraphNode(
         node_cls, node_args = instrument_db.parse_uri(self.track.instrument)
         self.sheet.handle_pipeline_mutation(
             audioproc.AddNode(
-                node_cls, self.pipeline_node_id, self.name,
+                node_cls, id=self.pipeline_node_id, name=self.name,
                 **node_args))
 
         self.set_initial_parameters()

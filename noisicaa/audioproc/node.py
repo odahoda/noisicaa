@@ -20,12 +20,12 @@ class Node(object):
     init_ports_from_description = True
     init_parameters_from_description = True
 
-    def __init__(self, *, description, name=None, id=None):
+    def __init__(self, *, description, id, name=None):
         assert isinstance(description, node_db.NodeDescription), description
 
         self.description = description
         self._name = name or type(self).__name__
-        self.id = id or uuid.uuid4().hex
+        self.id = id
 
         self.pipeline = None
         self.broken = False

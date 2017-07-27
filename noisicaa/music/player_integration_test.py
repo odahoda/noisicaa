@@ -155,12 +155,12 @@ class PlayerTest(asynctest.TestCase):
         try:
             await p.setup()
 
-            player_node_id = await self.audioproc_client_main.add_node(
-                'ipc', address=p.proxy_address)
+            await self.audioproc_client_main.add_node(
+                'ipc', id='player', address=p.proxy_address)
             await self.audioproc_client_main.connect_ports(
-                player_node_id, 'out:left', 'sink', 'in:left')
+                'player', 'out:left', 'sink', 'in:left')
             await self.audioproc_client_main.connect_ports(
-                player_node_id, 'out:right', 'sink', 'in:right')
+                'player', 'out:right', 'sink', 'in:right')
             try:
                 logger.info("Wait until audioproc is ready...")
                 self.assertEqual(
@@ -184,10 +184,10 @@ class PlayerTest(asynctest.TestCase):
 
             finally:
                 await self.audioproc_client_main.disconnect_ports(
-                    player_node_id, 'out:left', 'sink', 'in:left')
+                    'player', 'out:left', 'sink', 'in:left')
                 await self.audioproc_client_main.disconnect_ports(
-                    player_node_id, 'out:right', 'sink', 'in:right')
-                await self.audioproc_client_main.remove_node(player_node_id)
+                    'player', 'out:right', 'sink', 'in:right')
+                await self.audioproc_client_main.remove_node('player')
 
         except:
             logger.exception("")
@@ -201,12 +201,12 @@ class PlayerTest(asynctest.TestCase):
         try:
             await p.setup()
 
-            player_node_id = await self.audioproc_client_main.add_node(
-                'ipc', address=p.proxy_address)
+            await self.audioproc_client_main.add_node(
+                'ipc', id='player', address=p.proxy_address)
             await self.audioproc_client_main.connect_ports(
-                player_node_id, 'out:left', 'sink', 'in:left')
+                'player', 'out:left', 'sink', 'in:left')
             await self.audioproc_client_main.connect_ports(
-                player_node_id, 'out:right', 'sink', 'in:right')
+                'player', 'out:right', 'sink', 'in:right')
             try:
                 logger.info("Wait until audioproc is ready...")
                 self.assertEqual(
@@ -228,10 +228,10 @@ class PlayerTest(asynctest.TestCase):
 
             finally:
                 await self.audioproc_client_main.disconnect_ports(
-                    player_node_id, 'out:left', 'sink', 'in:left')
+                    'player', 'out:left', 'sink', 'in:left')
                 await self.audioproc_client_main.disconnect_ports(
-                    player_node_id, 'out:right', 'sink', 'in:right')
-                await self.audioproc_client_main.remove_node(player_node_id)
+                    'player', 'out:right', 'sink', 'in:right')
+                await self.audioproc_client_main.remove_node('player')
 
         except:
             logger.exception("")

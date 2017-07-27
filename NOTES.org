@@ -1,10 +1,12 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
+- can I get rid of frame.pyx?
+- use protos for PipelineMutations instead of pickled objects.
 - better test coverage
-  - support different demo projects
-  - add demo with all supported track types, different plugins, etc.
-  - use that for player_integration_test
+  - base class for node unittests
+- ControlTrack, SampleTrack
+  - add to complex demo
 - SIGSEGV on exit, possibly caused by new fluidsynth binding
 - create FrameData wrapper class with pythonic API
 - move atom sequence mixing into atom.pyx
@@ -23,6 +25,7 @@
 - buffer conversion methods?
   - different buffer types for events (native, atom, ...)
   - auto convert as needed
+- cythonize vm main loop
 
 * Loop start/end move around when BPM is changed					     :BUG:
 because they're tracked in sample time, not music time

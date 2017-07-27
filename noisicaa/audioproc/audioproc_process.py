@@ -94,14 +94,6 @@ class AudioProcProcessMixin(object):
             'END_SESSION', self.handle_end_session)
         self.server.add_command_handler('SHUTDOWN', self.handle_shutdown)
         self.server.add_command_handler(
-            'ADD_NODE', self.handle_add_node)
-        self.server.add_command_handler(
-            'REMOVE_NODE', self.handle_remove_node)
-        self.server.add_command_handler(
-            'CONNECT_PORTS', self.handle_connect_ports)
-        self.server.add_command_handler(
-            'DISCONNECT_PORTS', self.handle_disconnect_ports)
-        self.server.add_command_handler(
             'SET_BACKEND', self.handle_set_backend)
         self.server.add_command_handler(
             'SET_BACKEND_PARAMETERS', self.handle_set_backend_parameters)
@@ -109,10 +101,6 @@ class AudioProcProcessMixin(object):
             'PLAY_FILE', self.handle_play_file)
         self.server.add_command_handler(
             'ADD_EVENT', self.handle_add_event)
-        self.server.add_command_handler(
-            'SET_PORT_PROP', self.handle_set_port_prop)
-        self.server.add_command_handler(
-            'SET_NODE_PARAM', self.handle_set_node_param)
         self.server.add_command_handler(
             'PIPELINE_MUTATION', self.handle_pipeline_mutation)
         self.server.add_command_handler(
@@ -231,92 +219,11 @@ class AudioProcProcessMixin(object):
         await self.__shutdown_complete.wait()
         logger.info("Shutdown complete.")
 
-    def handle_add_node(self, session_id, name, args):
-        session = self.get_session(session_id)
-        node = self.node_db.create(name, **args)
-        self.__vm.setup_node(node)
-        with self.__vm.writer_lock():
-            self.__vm.add_node(node)
-            self.__vm.update_spec()
-        # TODO: reanimate
-        # self.publish_mutation(mutations.AddNode(node))
-        return node.id
-
-    def handle_remove_node(self, session_id, node_id):
-        session = self.get_session(session_id)
-        node = self.__vm.find_node(node_id)
-        with self.__vm.writer_lock():
-            self.__vm.remove_node(node)
-            self.__vm.update_spec()
-        node.cleanup()
-        # TODO: reanimate
-        # self.publish_mutation(mutations.RemoveNode(node))
-
-    def handle_connect_ports(
-            self, session_id, node1_id, port1_name, node2_id, port2_name):
-        session = self.get_session(session_id)
-
-        node1 = self.__vm.find_node(node1_id)
-        try:
-            port1 = node1.outputs[port1_name]
-        except KeyError as exc:
-            raise KeyError(
-                "Node %s (%s) has no port %s"
-                % (node1.id, type(node1).__name__, port1_name)
-            ).with_traceback(sys.exc_info()[2]) from None
-
-        node2 = self.__vm.find_node(node2_id)
-        try:
-            port2 = node2.inputs[port2_name]
-        except KeyError as exc:
-            raise KeyError(
-                "Node %s (%s) has no port %s"
-                % (node2.id, type(node2).__name__, port2_name)
-            ).with_traceback(sys.exc_info()[2]) from None
-        with self.__vm.writer_lock():
-            port2.connect(port1)
-            self.__vm.update_spec()
-        # TODO: reanimate
-        # self.publish_mutation(
-        #     mutations.ConnectPorts(
-        #         node1.outputs[port1_name], node2.inputs[port2_name]))
-
-    def handle_disconnect_ports(
-            self, session_id, node1_id, port1_name, node2_id, port2_name):
-        session = self.get_session(session_id)
-        node1 = self.__vm.find_node(node1_id)
-        node2 = self.__vm.find_node(node2_id)
-        with self.__vm.writer_lock():
-            node2.inputs[port2_name].disconnect(node1.outputs[port1_name])
-            self.__vm.update_spec()
-        # TODO: reanimate
-        # self.publish_mutation(
-        #     mutations.DisconnectPorts(
-        #         node1.outputs[port1_name], node2.inputs[port2_name]))
-
-    async def handle_set_port_prop(
-        self, session_id, node_id, port_name, kwargs):
-        self.get_session(session_id)
-
-        node = self.__vm.find_node(node_id)
-        port = node.outputs[port_name]
-        with self.__vm.writer_lock():
-            port.set_prop(**kwargs)
-
-    async def handle_set_node_param(self, session_id, node_id, kwargs):
-        self.get_session(session_id)
-
-        node = self.__vm.find_node(node_id)
-        with self.__vm.writer_lock():
-            node.set_param(**kwargs)
-
     async def handle_pipeline_mutation(self, session_id, mutation):
         self.get_session(session_id)
 
         if isinstance(mutation, mutations.AddNode):
-            node = self.node_db.create(
-                mutation.node_type,
-                id=mutation.node_id, name=mutation.node_name, **mutation.args)
+            node = self.node_db.create(mutation.node_type, **mutation.args)
             # TODO: schedule setup in a worker thread.
             self.__vm.setup_node(node)
             with self.__vm.writer_lock():

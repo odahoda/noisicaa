@@ -5,6 +5,8 @@ import logging
 from noisicaa import core
 from noisicaa.core import ipc
 
+from . import mutations
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,32 +56,29 @@ class AudioProcClientMixin(object):
     async def shutdown(self):
         await self._stub.call('SHUTDOWN')
 
-    # TODO: remove these, use pipeline_mutation() instead
     async def add_node(self, node_type, **args):
-        return await self._stub.call('ADD_NODE', self._session_id, node_type, args)
+        return await self.pipeline_mutation(
+            mutations.AddNode(node_type, **args))
 
     async def remove_node(self, node_id):
-        return await self._stub.call('REMOVE_NODE', self._session_id, node_id)
+        return await self.pipeline_mutation(
+            mutations.RemoveNode(node_id))
 
     async def connect_ports(self, node1_id, port1_name, node2_id, port2_name):
-        return await self._stub.call(
-            'CONNECT_PORTS', self._session_id,
-            node1_id, port1_name, node2_id, port2_name)
+        return await self.pipeline_mutation(
+            mutations.ConnectPorts(node1_id, port1_name, node2_id, port2_name))
 
-    async def disconnect_ports(
-        self, node1_id, port1_name, node2_id, port2_name):
-        return await self._stub.call(
-            'DISCONNECT_PORTS', self._session_id,
-            node1_id, port1_name, node2_id, port2_name)
+    async def disconnect_ports(self, node1_id, port1_name, node2_id, port2_name):
+        return await self.pipeline_mutation(
+            mutations.DisconnectPorts(node1_id, port1_name, node2_id, port2_name))
 
     async def set_port_property(self, node_id, port_name, **kwargs):
-        return await self._stub.call(
-            'SET_PORT_PROP', self._session_id, node_id, port_name, kwargs)
+        return await self.pipeline_mutation(
+            mutations.SetPortProperty(node_id, port_name, **kwargs))
 
     async def set_node_parameter(self, node_id, **kwargs):
-        return await self._stub.call(
-            'SET_NODE_PARAM', self._session_id, node_id, kwargs)
-    # END TODO
+        return await self.pipeline_mutation(
+            mutations.SetNodeParameter(node_id, **kwargs))
 
     async def pipeline_mutation(self, mutation):
         return await self._stub.call(

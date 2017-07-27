@@ -6,16 +6,14 @@ class Mutation(object):
 
 
 class AddNode(Mutation):
-    def __init__(self, node_type, node_id, node_name, **args):
+    def __init__(self, node_type, **args):
         super().__init__()
         self.node_type = node_type
-        self.node_id = node_id
-        self.node_name = node_name
         self.args = args
 
     def __str__(self):
-        return '<AddNode type=%s id=%s name=%s%s>' % (
-            self.node_type, self.node_id, self.node_name,
+        return '<AddNode type=%s%s>' % (
+            self.node_type,
             ''.join(' %s=%r' % (k, v)
                      for k, v in sorted(self.args.items())))
 

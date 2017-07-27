@@ -9,6 +9,7 @@ import bisect
 import logging
 import pathlib
 import pprint
+import uuid
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -479,8 +480,9 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self._instrument_mutation_listener = self.app.instrument_db.listeners.add(
             'mutation', self.handleInstrumentMutation)
 
-        self._pipeline_mixer_id = await self.audioproc_client.add_node(
-            'passthru', name='library-mixer')
+        self._pipeline_mixer_id = uuid.uuid4().hex
+        await self.audioproc_client.add_node(
+            'passthru', id=self._pipeline_mixer_id, name='library-mixer')
         await self.audioproc_client.connect_ports(
             self._pipeline_mixer_id, 'out:left', 'sink', 'in:left')
         await self.audioproc_client.connect_ports(
@@ -514,8 +516,9 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         assert self._pipeline_instrument_id is None
 
         node_cls, node_args = instrument_db.parse_uri(uri)
-        self._pipeline_instrument_id = await self.audioproc_client.add_node(
-            node_cls, **node_args)
+        self._pipeline_instrument_id = uuid.uuid4().hex
+        await self.audioproc_client.add_node(
+            node_cls, id=self._pipeline_instrument_id, **node_args)
         await self.audioproc_client.connect_ports(
             self._pipeline_instrument_id, 'out:left',
             self._pipeline_mixer_id, 'in:left')
@@ -523,8 +526,11 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             self._pipeline_instrument_id, 'out:right',
             self._pipeline_mixer_id, 'in:right')
 
-        self._pipeline_event_source_id = await self.audioproc_client.add_node(
-            'track_event_source', entity_id='instrument_library')
+        self._pipeline_event_source_id = uuid.uuid4().hex
+        await self.audioproc_client.add_node(
+            'track_event_source',
+            id=self._pipeline_event_source_id,
+            entity_id='instrument_library')
         await self.audioproc_client.connect_ports(
             self._pipeline_event_source_id, 'out',
             self._pipeline_instrument_id, 'in')
