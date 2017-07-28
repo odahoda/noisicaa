@@ -342,7 +342,10 @@ class AudioSourcePipelineGraphNode(BasePipelineGraphNode):
     __description = node_db.SystemNodeDescription(
         ports=[
             node_db.AudioPortDescription(
-                name='out',
+                name='out:left',
+                direction=node_db.PortDirection.Output),
+            node_db.AudioPortDescription(
+                name='out:right',
                 direction=node_db.PortDirection.Output),
         ])
 

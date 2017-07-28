@@ -4,7 +4,7 @@
 - use protos for PipelineMutations instead of pickled objects.
 - better test coverage
   - base class for node unittests
-- ControlTrack, SampleTrack
+- SampleTrack
   - add to complex demo
 - SIGSEGV on exit, possibly caused by new fluidsynth binding
 - create FrameData wrapper class with pythonic API
@@ -26,6 +26,15 @@
   - auto convert as needed
 - cythonize vm main loop
 
+* Move pianoroll into VM								      :FR:
+- player collects mutations from track
+- sends batch of mutations along with FrameData
+- pianoroll node in VM applies mutations on frame start, generates events
+- player doesn't generate track entity anymore
+- no need to share lock between player thread and project process (except for list of mutations,
+  which could be lock-free queue?)
+- similar approach for control and sample tracks (have structure optimized for playback in VM,
+  keep in sync with project state via mutations).
 * Loop start/end move around when BPM is changed					     :BUG:
 because they're tracked in sample time, not music time
 can also cause crashes on BPM changes, if loop marker go out of range

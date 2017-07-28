@@ -171,9 +171,31 @@ class SampleEntitySource(base_track.EntitySource):
 
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
-    def get_entities(self, frame_data, start_pos, end_pos, frame_sample_pos):
-        frame = numpy.zeros(
-            shape=(end_pos - start_pos, 2), dtype=numpy.float32)
+    def get_entities(self, entities, start_pos, end_pos, frame_sample_pos):
+        output = numpy.zeros(
+            shape=(end_pos - start_pos + frame_sample_pos, 2), dtype=numpy.float32)
+
+        entity_left_id = 'track:%s:left' % self._track.id
+        try:
+            entity_left = entities[entity_left_id]
+        except KeyError:
+            pass
+        else:
+            # Copy events from existing entity.
+            assert entity_left.type == audioproc.Entity.Type.audio
+            assert entity_left.size == frame_sample_pos * 4
+            output[:frame_sample_pos,0] = numpy.frombuffer(entity_left.data, dtype=numpy.float32)
+
+        entity_right_id = 'track:%s:left' % self._track.id
+        try:
+            entity_right = entities[entity_right_id]
+        except KeyError:
+            pass
+        else:
+            # Copy events from existing entity.
+            assert entity_right.type == audioproc.Entity.Type.audio
+            assert entity_right.size == frame_sample_pos * 4
+            output[:frame_sample_pos,1] = numpy.frombuffer(entity_right.data, dtype=numpy.float32)
 
         f1 = start_pos
         f2 = end_pos
@@ -194,23 +216,31 @@ class SampleEntitySource(base_track.EntitySource):
 
             if f1 >= s1:
                 src = f1 - s1
-                dest = 0
+                dest = frame_sample_pos
                 length = min(end_pos - start_pos, s2 - f1)
             else:
                 src = 0
-                dest = s1 - f1
+                dest = s1 - f1 + frame_sample_pos
                 length = min(s2, f2) - s1
 
             for ch in range(2):
-                frame[dest:dest+length,ch] = samples[src:src+length,ch % samples.shape[1]]
+                output[dest:dest+length,ch] = samples[src:src+length,ch % samples.shape[1]]
 
-        entity_id = 'track:%s' % self._track.id
-        try:
-            entity = frame_data.entities[entity_id]
-        except KeyError:
-            entity = audioproc.AudioFrameEntity(2)
-            frame_data.entities[entity_id] = entity
-        entity.append(frame)
+        samples_left = output[:,0].tobytes()
+        entity_left = audioproc.Entity.new_message()
+        entity_left.id = entity_left_id
+        entity_left.type = audioproc.Entity.Type.audio
+        entity_left.size = len(samples_left)
+        entity_left.data = bytes(samples_left)
+        entities[entity_left_id] = entity_left
+
+        samples_right = output[:,1].tobytes()
+        entity_right = audioproc.Entity.new_message()
+        entity_right.id = entity_right_id
+        entity_right.type = audioproc.Entity.Type.audio
+        entity_right.size = len(samples_right)
+        entity_right.data = bytes(samples_right)
+        entities[entity_right_id] = entity_right
 
 
 class SampleTrack(model.SampleTrack, base_track.Track):
@@ -243,9 +273,12 @@ class SampleTrack(model.SampleTrack, base_track.Track):
         self.sheet.add_pipeline_graph_node(audio_source_node)
         self.audio_source_id = audio_source_node.id
 
-        conn = pipeline_graph.PipelineGraphConnection(
-            audio_source_node, 'out', mixer_node, 'in')
-        self.sheet.add_pipeline_graph_connection(conn)
+        self.sheet.add_pipeline_graph_connection(
+            pipeline_graph.PipelineGraphConnection(
+                audio_source_node, 'out:left', mixer_node, 'in:left'))
+        self.sheet.add_pipeline_graph_connection(
+            pipeline_graph.PipelineGraphConnection(
+                audio_source_node, 'out:right', mixer_node, 'in:right'))
 
     def remove_pipeline_nodes(self):
         self.sheet.remove_pipeline_graph_node(self.audio_source_node)

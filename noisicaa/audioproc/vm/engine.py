@@ -57,9 +57,11 @@ class Buffer(object):
         return bytes(self.__data)
 
     def set_bytes(self, data):
-        assert len(self.__data) == len(data), \
-            '%s != %s' % (len(self.__data), len(data))
-        self.__data[:] = data
+        assert len(data) <= len(self.__data), \
+            '%s > %s' % (len(data), len(self.__data))
+        if len(data) < len(self.__data):
+            self.__type.clear_buffer(self.__data)
+        self.__data[:len(data)] = data
 
     def clear(self):
         self.__type.clear_buffer(self.__data)
@@ -350,7 +352,6 @@ class PipelineVM(object):
         except KeyError:
             buf.clear()
         else:
-            assert entity.size == len(buf.type)
             buf.set_bytes(entity.data)
 
     @at_performance

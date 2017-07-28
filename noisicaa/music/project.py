@@ -16,9 +16,10 @@ from .pitch import Pitch
 from .clef import Clef
 from .key_signature import KeySignature
 from .time_signature import TimeSignature
-from .score_track import ScoreTrack, Note
 from .time import Duration
 from . import beat_track
+from . import score_track
+from . import sample_track
 from . import pipeline_graph
 from . import model
 from . import state
@@ -235,81 +236,81 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             while len(s.property_track.measure_list) < 5:
                 s.property_track.append_measure()
 
-            track1 = ScoreTrack(
+            track1 = score_track.ScoreTrack(
                 name="Track 1",
                 instrument='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=73',
                 num_measures=5)
             s.add_track(s.master_group, 0, track1)
 
-            track2 = ScoreTrack(
+            track2 = score_track.ScoreTrack(
                 name="Track 2",
                 instrument='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0',
                 num_measures=5)
             s.add_track(s.master_group, 1, track2)
 
             track1.measure_list[0].measure.notes.append(
-                Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
             track1.measure_list[0].measure.notes.append(
-                Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
             track1.measure_list[0].measure.notes.append(
-                Note(pitches=[Pitch('E5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('E5')], base_duration=Duration(1, 4)))
             track1.measure_list[0].measure.notes.append(
-                Note(pitches=[Pitch('F5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('F5')], base_duration=Duration(1, 4)))
 
             track1.measure_list[1].measure.notes.append(
-                Note(pitches=[Pitch('C5')], base_duration=Duration(1, 2)))
+                score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 2)))
             track1.measure_list[1].measure.notes.append(
-                Note(pitches=[Pitch('F5')], base_duration=Duration(1, 8)))
+                score_track.Note(pitches=[Pitch('F5')], base_duration=Duration(1, 8)))
             track1.measure_list[1].measure.notes.append(
-                Note(pitches=[Pitch('E5')], base_duration=Duration(1, 8)))
+                score_track.Note(pitches=[Pitch('E5')], base_duration=Duration(1, 8)))
             track1.measure_list[1].measure.notes.append(
-                Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
 
             track1.measure_list[2].measure.notes.append(
-                Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
             track1.measure_list[2].measure.notes.append(
-                Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
             track1.measure_list[2].measure.notes.append(
-                Note(pitches=[Pitch('E5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('E5')], base_duration=Duration(1, 4)))
             track1.measure_list[2].measure.notes.append(
-                Note(pitches=[Pitch('F5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('F5')], base_duration=Duration(1, 4)))
 
             track1.measure_list[3].measure.notes.append(
-                Note(pitches=[Pitch('C5')], base_duration=Duration(1, 2)))
+                score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 2)))
             track1.measure_list[3].measure.notes.append(
-                Note(pitches=[Pitch('F5')], base_duration=Duration(1, 8)))
+                score_track.Note(pitches=[Pitch('F5')], base_duration=Duration(1, 8)))
             track1.measure_list[3].measure.notes.append(
-                Note(pitches=[Pitch('E5')], base_duration=Duration(1, 8)))
+                score_track.Note(pitches=[Pitch('E5')], base_duration=Duration(1, 8)))
             track1.measure_list[3].measure.notes.append(
-                Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
 
             track1.measure_list[4].measure.notes.append(
-                Note(pitches=[Pitch('C5')], base_duration=Duration(1, 1)))
+                score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 1)))
 
 
             track2.measure_list[0].measure.notes.append(
-                Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
+                score_track.Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
                      base_duration=Duration(1, 1)))
             track2.measure_list[1].measure.notes.append(
-                Note(pitches=[Pitch('F3'), Pitch('A4'), Pitch('C4')],
+                score_track.Note(pitches=[Pitch('F3'), Pitch('A4'), Pitch('C4')],
                      base_duration=Duration(1, 1)))
 
             track2.measure_list[2].measure.notes.append(
-                Note(pitches=[Pitch('A3'), Pitch('C4'), Pitch('E4')],
+                score_track.Note(pitches=[Pitch('A3'), Pitch('C4'), Pitch('E4')],
                      base_duration=Duration(1, 1)))
             track2.measure_list[3].measure.notes.append(
-                Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
+                score_track.Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
                      base_duration=Duration(1, 1)))
 
             track2.measure_list[4].measure.notes.append(
-                Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
+                score_track.Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
                      base_duration=Duration(1, 1)))
 
         elif demo == 'complex':
             while len(s.property_track.measure_list) < 4:
                 s.property_track.append_measure()
 
-            track1 = ScoreTrack(
+            track1 = score_track.ScoreTrack(
                 name="Track 1",
                 instrument='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0',
                 num_measures=4)
@@ -369,11 +370,11 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
 
             for i in range(4):
                 track1.measure_list[i].measure.notes.append(
-                    Note(pitches=[Pitch('C4')], base_duration=Duration(1, 4)))
+                    score_track.Note(pitches=[Pitch('C4')], base_duration=Duration(1, 4)))
                 track1.measure_list[i].measure.notes.append(
-                    Note(pitches=[Pitch('E4')], base_duration=Duration(1, 4)))
+                    score_track.Note(pitches=[Pitch('E4')], base_duration=Duration(1, 4)))
                 track1.measure_list[i].measure.notes.append(
-                    Note(pitches=[Pitch('G4')], base_duration=Duration(1, 2)))
+                    score_track.Note(pitches=[Pitch('G4')], base_duration=Duration(1, 2)))
 
             track2 = beat_track.BeatTrack(
                 name="Track 2",
@@ -455,6 +456,20 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                     beat_track.Beat(timepos=Duration(2, 4), velocity=60))
                 track2.measure_list[i].measure.beats.append(
                     beat_track.Beat(timepos=Duration(3, 4), velocity=40))
+
+            track3 = sample_track.SampleTrack(
+                name="Track 3")
+            s.add_track(s.master_group, 2, track3)
+
+            smpl = sample_track.Sample(
+                path=os.path.abspath(os.path.join(
+                    os.path.dirname(__file__), 'testdata', 'future-thunder1.wav')))
+            s.samples.append(smpl)
+
+            track3.samples.append(
+                sample_track.SampleRef(timepos=Duration(2, 4), sample_id=smpl.id))
+            track3.samples.append(
+                sample_track.SampleRef(timepos=Duration(14, 4), sample_id=smpl.id))
 
         return project
 
