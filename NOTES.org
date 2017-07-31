@@ -4,8 +4,6 @@
 - use protos for PipelineMutations instead of pickled objects.
 - better test coverage
   - base class for node unittests
-- SampleTrack
-  - add to complex demo
 - SIGSEGV on exit, possibly caused by new fluidsynth binding
 - create FrameData wrapper class with pythonic API
 - move atom sequence mixing into atom.pyx

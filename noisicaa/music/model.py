@@ -322,7 +322,7 @@ class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
 
     __description = node_db.SystemNodeDescription(
         ports=[
-            node_db.ControlPortDescription(
+            node_db.ARateControlPortDescription(
                 name='out',
                 direction=node_db.PortDirection.Output),
         ])

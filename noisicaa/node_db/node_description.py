@@ -32,7 +32,8 @@ class UserNodeDescription(NodeDescription):
 
 class PortType(enum.Enum):
     Audio = 'audio'
-    Control = 'control'
+    ARateControl = 'arate_control'
+    KRateControl = 'krate_control'
     Events = 'events'
 
 
@@ -63,9 +64,14 @@ class AudioPortDescription(PortDescription):
         self.drywet_default = drywet_default
 
 
-class ControlPortDescription(PortDescription):
+class ARateControlPortDescription(PortDescription):
     def __init__(self, **kwargs):
-        super().__init__(port_type=PortType.Control, **kwargs)
+        super().__init__(port_type=PortType.ARateControl, **kwargs)
+
+
+class KRateControlPortDescription(PortDescription):
+    def __init__(self, **kwargs):
+        super().__init__(port_type=PortType.KRateControl, **kwargs)
 
 
 class EventPortDescription(PortDescription):

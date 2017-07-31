@@ -8,6 +8,7 @@ import logging
 import os.path
 import time
 import json
+import textwrap
 
 from noisicaa import core
 from noisicaa.core import storage
@@ -20,6 +21,7 @@ from .time import Duration
 from . import beat_track
 from . import score_track
 from . import sample_track
+from . import control_track
 from . import pipeline_graph
 from . import model
 from . import state
@@ -350,6 +352,21 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             eq_node.set_parameter('Mid gain (dB)', 0.0)
             eq_node.set_parameter('Hi gain (dB)', 5.0)
 
+            filter_node_uri = 'builtin://custom_csound'
+            filter_node = pipeline_graph.PipelineGraphNode(
+                name='Filter',
+                node_uri=filter_node_uri)
+            s.add_pipeline_graph_node(filter_node)
+            filter_node.set_parameter(
+                'orchestra',
+                textwrap.dedent('''\
+                    instr 2
+                        printk(0.5, k(gaCtrl))
+                        gaOutLeft = butterlp(gaInLeft, 200 + 2000 * gaCtrl)
+                        gaOutRight = butterlp(gaInRight, 200 + 2000 * gaCtrl)
+                    endin
+                '''))
+
             s.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=track1_mixer, source_port='out:left',
@@ -362,10 +379,19 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             s.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=eq_node, source_port='Output L',
-                    dest_node=sheet_mixer, dest_port='in:left'))
+                    dest_node=filter_node, dest_port='in:left'))
             s.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=eq_node, source_port='Output R',
+                    dest_node=filter_node, dest_port='in:right'))
+
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=filter_node, source_port='out:left',
+                    dest_node=sheet_mixer, dest_port='in:left'))
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=filter_node, source_port='out:right',
                     dest_node=sheet_mixer, dest_port='in:right'))
 
             for i in range(4):
@@ -470,6 +496,22 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                 sample_track.SampleRef(timepos=Duration(2, 4), sample_id=smpl.id))
             track3.samples.append(
                 sample_track.SampleRef(timepos=Duration(14, 4), sample_id=smpl.id))
+
+            track4 = control_track.ControlTrack(
+                name="Track 4")
+            s.add_track(s.master_group, 3, track4)
+
+            track4.points.append(
+                control_track.ControlPoint(timepos=Duration(0, 4), value=1.0))
+            track4.points.append(
+                control_track.ControlPoint(timepos=Duration(4, 4), value=0.0))
+            track4.points.append(
+                control_track.ControlPoint(timepos=Duration(8, 4), value=1.0))
+
+            s.add_pipeline_graph_connection(
+                pipeline_graph.PipelineGraphConnection(
+                    source_node=track4.control_source_node, source_port='out',
+                    dest_node=filter_node, dest_port='ctrl'))
 
         return project
 

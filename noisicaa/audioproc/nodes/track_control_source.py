@@ -1,41 +1,40 @@
 #!/usr/bin/python3
 
 import logging
-import random
 
-import numpy
-
-from noisicaa import music
 from noisicaa import node_db
 
-from .. import ports
 from .. import node
-from .. import events
+from ..vm import ast
 
 logger = logging.getLogger(__name__)
 
-class TrackControlSource(node.CustomNode):
+class TrackControlSource(node.BuiltinNode):
     class_name = 'track_control_source'
 
-    def __init__(self, *, entity_name, **kwargs):
+    def __init__(self, *, track_id, **kwargs):
         description = node_db.SystemNodeDescription(
             ports=[
-                node_db.ControlPortDescription(
+                node_db.ARateControlPortDescription(
                     name='out',
                     direction=node_db.PortDirection.Output),
             ])
 
         super().__init__(description=description, **kwargs)
 
-        self.entity_name = entity_name
+        self.track_id = track_id
 
-    def run(self, ctxt):
-        output_port = self.outputs['out']
+        self.__buf = None
 
-        output_port.frame.resize(ctxt.duration)
-
-        entity = ctxt.entities.get(self.entity_name, None)
-        if entity is not None:
-            output_port.frame[0:len(entity.frame)] = entity.frame
+    def connect_port(self, port_name, buf):
+        if port_name == 'out':
+            self.__buf = buf
         else:
-            output_port.frame.fill(0.0)
+            raise ValueError(port_name)
+
+    def get_ast(self, compiler):
+        seq = super().get_ast(compiler)
+        seq.add(ast.FetchEntity(
+            'track:' + self.track_id,
+            self.outputs['out'].buf_name))
+        return seq

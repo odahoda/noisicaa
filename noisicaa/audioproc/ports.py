@@ -150,17 +150,32 @@ class AudioOutputPort(OutputPort):
         return buffer_type.FloatArray(compiler.frame_size)
 
 
-class ControlInputPort(InputPort):
+class ARateControlInputPort(InputPort):
     def check_port(self, port):
         super().check_port(port)
-        if not isinstance(port, ControlOutputPort):
-            raise Error("Can only connect to ControlOutputPort")
+        if not isinstance(port, ARateControlOutputPort):
+            raise Error("Can only connect to ARateControlOutputPort")
+
+    def get_buf_type(self, compiler):
+        return buffer_type.FloatArray(compiler.frame_size)
+
+
+class ARateControlOutputPort(OutputPort):
+    def get_buf_type(self, compiler):
+        return buffer_type.FloatArray(compiler.frame_size)
+
+
+class KRateControlInputPort(InputPort):
+    def check_port(self, port):
+        super().check_port(port)
+        if not isinstance(port, KRateControlOutputPort):
+            raise Error("Can only connect to KRateControlOutputPort")
 
     def get_buf_type(self, compiler):
         return buffer_type.Float()
 
 
-class ControlOutputPort(OutputPort):
+class KRateControlOutputPort(OutputPort):
     def get_buf_type(self, compiler):
         return buffer_type.Float()
 

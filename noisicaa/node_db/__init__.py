@@ -5,7 +5,8 @@ from .node_description import (
     UserNodeDescription,
 
     AudioPortDescription,
-    ControlPortDescription,
+    ARateControlPortDescription,
+    KRateControlPortDescription,
     EventPortDescription,
     Channel, PortDirection, PortType,
 

@@ -404,7 +404,7 @@ class ControlSourcePipelineGraphNode(
         self.sheet.handle_pipeline_mutation(
             audioproc.AddNode(
                 'track_control_source', id=self.pipeline_node_id, name=self.name,
-                entity_name='track:%s' % self.track.id))
+                track_id=self.track.id))
 
         self.set_initial_parameters()
 

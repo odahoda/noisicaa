@@ -133,14 +133,31 @@ class ControlEntitySource(base_track.EntitySource):
             entity = audioproc.ControlFrameEntity()
             frame_data.entities[entity_id] = entity
 
+
+
+    def get_entities(self, entities, start_pos, end_pos, frame_sample_pos):
+        output = numpy.zeros(
+            shape=end_pos - start_pos + frame_sample_pos, dtype=numpy.float32)
+
+        entity_id = 'track:%s' % self._track.id
+        try:
+            entity = entities[entity_id]
+        except KeyError:
+            pass
+        else:
+            # Copy prepend existing entity.
+            assert entity.type == audioproc.Entity.Type.control
+            assert entity.size == frame_sample_pos * 4
+            output[:frame_sample_pos] = numpy.frombuffer(entity.data, dtype=numpy.float32)
+
         duration = end_pos - start_pos
         if len(self._track.points) > 0:
             timepos = self.time_mapper.sample2timepos(start_pos)
             for point in self._track.points:
                 if timepos <= point.timepos:
                     if point.is_first:
-                        entity.append(numpy.full(
-                            duration, point.value, dtype=numpy.float32))
+                        output[frame_sample_pos:] = numpy.full(
+                            duration, point.value, dtype=numpy.float32)
                     else:
                         prev = point.prev_sibling
 
@@ -151,15 +168,23 @@ class ControlEntitySource(base_track.EntitySource):
                             + (timepos - prev.timepos)
                             * (point.value - prev.value)
                             / (point.timepos - prev.timepos))
-                        entity.append(numpy.full(
-                            duration, value, dtype=numpy.float32))
+                        output[frame_sample_pos:] = numpy.full(
+                            duration, value, dtype=numpy.float32)
                     break
             else:
-                entity.append(numpy.full(
-                    duration, self._track.points[-1].value, dtype=numpy.float32))
+                output[frame_sample_pos:] = numpy.full(
+                    duration, self._track.points[-1].value, dtype=numpy.float32)
 
         else:
-            entity.append(numpy.zeros(duration, dtype=numpy.float32))
+            output[frame_sample_pos:] = numpy.zeros(duration, dtype=numpy.float32)
+
+        data = output.tobytes()
+        entity = audioproc.Entity.new_message()
+        entity.id = entity_id
+        entity.type = audioproc.Entity.Type.control
+        entity.size = len(data)
+        entity.data = bytes(data)
+        entities[entity_id] = entity
 
 
 class ControlTrack(model.ControlTrack, base_track.Track):

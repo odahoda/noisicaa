@@ -76,7 +76,7 @@ class CSoundBase(node.CustomNode):
 
         if self.__csnd is None:
             for port in self.outputs.values():
-                if isinstance(port, (ports.AudioOutputPort, ports.ControlOutputPort)):
+                if isinstance(port, (ports.AudioOutputPort, ports.ARateControlOutputPort)):
                     self.__buffers[port.name] = [0] * ctxt.duration
                 else:
                     raise ValueError(port)
@@ -94,7 +94,7 @@ class CSoundBase(node.CustomNode):
         pos = 0
         while pos < ctxt.duration:
             for port in self.inputs.values():
-                if isinstance(port, (ports.AudioInputPort, ports.ControlInputPort)):
+                if isinstance(port, (ports.AudioInputPort, ports.ARateControlInputPort)):
                     self.__csnd.set_audio_channel_data(
                         port.name,
                         self.__buffers[port.name][4*pos:4*(pos+self.__csnd.ksmps)])
@@ -128,7 +128,7 @@ class CSoundBase(node.CustomNode):
             self.__csnd.perform()
 
             for port in self.outputs.values():
-                if isinstance(port, (ports.AudioOutputPort, ports.ControlOutputPort)):
+                if isinstance(port, (ports.AudioOutputPort, ports.ARateControlOutputPort)):
                     self.__buffers[port.name][4*pos:4*(pos+self.__csnd.ksmps)] = (
                         self.__csnd.get_audio_channel_data(port.name))
                 else:
@@ -169,28 +169,26 @@ class CustomCSound(CSoundBase):
             if (port_desc.port_type == node_db.PortType.Audio
                     and port_desc.direction == node_db.PortDirection.Input):
                 self.__orchestra_preamble += textwrap.dedent("""\
-                    ga{1}L chnexport "{0}/left", 1
-                    ga{1}R chnexport "{0}/right", 1
-                    """.format(port_desc.name, port_desc.name.title()))
+                    ga{1} chnexport "{0}", 1
+                    """.format(port_desc.name, port_desc.name.title().replace(':', '')))
 
             elif (port_desc.port_type == node_db.PortType.Audio
                     and port_desc.direction == node_db.PortDirection.Output):
                 self.__orchestra_preamble += textwrap.dedent("""\
-                    ga{1}L chnexport "{0}/left", 2
-                    ga{1}R chnexport "{0}/right", 2
-                    """.format(port_desc.name, port_desc.name.title()))
+                    ga{1} chnexport "{0}", 2
+                    """.format(port_desc.name, port_desc.name.title().replace(':', '')))
 
-            elif (port_desc.port_type == node_db.PortType.Control
+            elif (port_desc.port_type == node_db.PortType.ARateControl
                     and port_desc.direction == node_db.PortDirection.Input):
                 self.__orchestra_preamble += textwrap.dedent("""\
                     ga{1} chnexport "{0}", 1
-                    """.format(port_desc.name, port_desc.name.title()))
+                    """.format(port_desc.name, port_desc.name.title().replace(':', '')))
 
-            elif (port_desc.port_type == node_db.PortType.Control
+            elif (port_desc.port_type == node_db.PortType.ARateControl
                     and port_desc.direction == node_db.PortDirection.Output):
                 self.__orchestra_preamble += textwrap.dedent("""\
                     ga{1} chnexport "{0}", 2
-                    """.format(port_desc.name, port_desc.name.title()))
+                    """.format(port_desc.name, port_desc.name.title().replace(':', '')))
 
             elif (port_desc.port_type == node_db.PortType.Events
                     and port_desc.direction == node_db.PortDirection.Input):

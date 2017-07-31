@@ -67,7 +67,7 @@ class LadspaScanner(scanner.Scanner):
                         else:
                             port_type = {
                                 ladspa.PortType.Audio: node_db.PortType.Audio,
-                                ladspa.PortType.Control: node_db.PortType.Control,
+                                ladspa.PortType.Control: node_db.PortType.KRateControl,
                             }[port.type]
 
                             direction = {
@@ -77,7 +77,7 @@ class LadspaScanner(scanner.Scanner):
 
                             port_cls = {
                                 node_db.PortType.Audio: node_db.AudioPortDescription,
-                                node_db.PortType.Control: node_db.ControlPortDescription,
+                                node_db.PortType.KRateControl: node_db.KRateControlPortDescription,
                             }[port_type]
 
                             port_desc = port_cls(

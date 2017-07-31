@@ -61,22 +61,22 @@ class BuiltinScanner(scanner.Scanner):
                 node_cls='custom_csound',
                 ports=[
                     node_db.AudioPortDescription(
-                        name='in_left',
+                        name='in:left',
                         direction=node_db.PortDirection.Input),
                     node_db.AudioPortDescription(
-                        name='in_right',
+                        name='in:right',
                         direction=node_db.PortDirection.Input),
-                    node_db.ControlPortDescription(
+                    node_db.ARateControlPortDescription(
                         name='ctrl',
                         direction=node_db.PortDirection.Input),
                     node_db.EventPortDescription(
                         name='ev',
                         direction=node_db.PortDirection.Input),
                     node_db.AudioPortDescription(
-                        name='out_left',
+                        name='out:left',
                         direction=node_db.PortDirection.Output),
                     node_db.AudioPortDescription(
-                        name='out_right',
+                        name='out:right',
                         direction=node_db.PortDirection.Output),
                 ],
                 parameters=[
@@ -86,8 +86,8 @@ class BuiltinScanner(scanner.Scanner):
                         content_type='text/csound-orchestra',
                         default=textwrap.dedent("""\
                             instr 2
-                                gaOutL = gaInL
-                                gaOutR = gaInR
+                                gaOutLeft = gaInLeft
+                                gaOutRight = gaInRight
                             endin
                         """)),
                     node_db.TextParameterDescription(

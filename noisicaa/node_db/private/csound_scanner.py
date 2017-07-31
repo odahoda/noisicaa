@@ -37,7 +37,7 @@ class CSoundScanner(scanner.Scanner):
                 for port_elem in root.find('ports').findall('port'):
                     port_type = {
                         'audio': node_db.PortType.Audio,
-                        'control': node_db.PortType.Control,
+                        'control': node_db.PortType.ARateControl,
                         'events': node_db.PortType.Events,
                     }[port_elem.get('type')]
 
@@ -66,7 +66,8 @@ class CSoundScanner(scanner.Scanner):
 
                     port_cls = {
                         node_db.PortType.Audio: node_db.AudioPortDescription,
-                        node_db.PortType.Control: node_db.ControlPortDescription,
+                        node_db.PortType.ARateControl: node_db.ARateControlPortDescription,
+                        node_db.PortType.KRateControl: node_db.KRateControlPortDescription,
                         node_db.PortType.Events: node_db.EventPortDescription,
                     }[port_type]
 

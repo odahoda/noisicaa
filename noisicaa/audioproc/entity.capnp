@@ -5,7 +5,8 @@ struct Entity {
 
   enum Type {
     audio @0;
-    atom @1;
+    control @1;
+    atom @2;
   }
   type @1 :Type;
 
