@@ -206,21 +206,23 @@ class BeatTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
     def playNoteOn(self, pitch):
         self.playNoteOff()
 
-        self.call_async(
-            self.audioproc_client.add_event(
-                'sheet:%s/track:%s' % (
-                    self.sheet.id, self.track.id),
-                audioproc.NoteOnEvent(-1, pitch)))
+        # TODO: use messages instead
+        # self.call_async(
+        #     self.audioproc_client.add_event(
+        #         'sheet:%s/track:%s' % (
+        #             self.sheet.id, self.track.id),
+        #         audioproc.NoteOnEvent(-1, pitch)))
 
         self.__play_last_pitch = pitch
 
     def playNoteOff(self):
         if self.__play_last_pitch is not None:
-            self.call_async(
-                self.audioproc_client.add_event(
-                    'sheet:%s/track:%s' % (
-                        self.sheet.id, self.track.id),
-                    audioproc.NoteOffEvent(-1, self.__play_last_pitch)))
+            # TODO: use messages instead
+            # self.call_async(
+            #     self.audioproc_client.add_event(
+            #         'sheet:%s/track:%s' % (
+            #             self.sheet.id, self.track.id),
+            #         audioproc.NoteOffEvent(-1, self.__play_last_pitch)))
             self.__play_last_pitch = None
 
 

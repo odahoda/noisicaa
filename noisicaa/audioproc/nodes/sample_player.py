@@ -1,14 +1,9 @@
 #!/usr/bin/python3
 
 import logging
-import queue
-import time
 import textwrap
 
 from noisicaa import node_db
-from ..exceptions import SetupError
-from ..ports import EventInputPort, AudioOutputPort
-from ..events import NoteOnEvent, NoteOffEvent
 from . import csound
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,6 @@ import functools
 import logging
 
 from noisicaa import core
-from noisicaa.audioproc.events import NoteOnEvent, NoteOffEvent
 
 from .time import Duration
 from .pitch import Pitch

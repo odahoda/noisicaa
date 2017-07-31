@@ -175,22 +175,5 @@ class ProjectTest(unittest.TestCase):
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
 
 
-# class ScoreEventSource(unittest.TestCase):
-#     def test_get_events(self):
-#         proj = project.BaseProject()
-#         s = sheet.Sheet(name='test')
-#         proj.sheets.append(s)
-#         track = project.ScoreTrack(name='test', num_measures=2)
-#         s.master_group.tracks.append(track)
-#         s.equalize_tracks()
-
-#         source = track.create_event_source()
-#         events = []
-#         for sample_pos in range(0, 100000, 4096):
-#             events.extend(source.get_events(sample_pos, sample_pos + 4096))
-
-#         print(events)
-
-
 if __name__ == '__main__':
     unittest.main()

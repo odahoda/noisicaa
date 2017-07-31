@@ -26,7 +26,6 @@ UNSET = object()
 class Backend(object):
     def __init__(self):
         self.__stopped = threading.Event()
-        self.__event_queues = {}
         self.__sample_rate = None
 
     def setup(self, sample_rate):
@@ -57,28 +56,6 @@ class Backend(object):
 
     def output(self, channel, samples):
         raise NotImplementedError
-
-    def clear_events(self):
-        self.__event_queues.clear()
-
-    def add_event(self, queue, event):
-        self.__event_queues.setdefault(queue, []).append(event)
-
-    def get_events(self, queue):
-        return self.__event_queues.get(queue, [])
-
-    def get_events_for_prefix(self, prefix):
-        events = []
-
-        for queue, qevents in self.__event_queues.items():
-            if '/' not in queue:
-                continue
-
-            qprefix, qremainder = queue.split('/', 1)
-            events.extend((qremainder, event) for event in qevents)
-
-        events.sort(key=lambda e: e[1].sample_pos)
-        return events
 
 
 class NullBackend(Backend):
@@ -189,7 +166,6 @@ class PyAudioBackend(Backend):
         if self.stopped:
             return
         self.__need_more.wait()
-        self.clear_events()
         self.__outputs.clear()
         ctxt.duration = self.__frame_size
 
@@ -282,8 +258,6 @@ class IPCBackend(Backend):
             self.__out_frame.perfData = self.__ctxt.perf.serialize()
 
             self.__stream.send_frame(self.__out_frame)
-
-        self.clear_events()
 
         self.__ctxt = None
         self.__out_frame = None

@@ -100,8 +100,6 @@ class AudioProcProcessMixin(object):
         self.server.add_command_handler(
             'PLAY_FILE', self.handle_play_file)
         self.server.add_command_handler(
-            'ADD_EVENT', self.handle_add_event)
-        self.server.add_command_handler(
             'PIPELINE_MUTATION', self.handle_pipeline_mutation)
         self.server.add_command_handler(
             'DUMP', self.handle_dump)
@@ -344,17 +342,6 @@ class AudioProcProcessMixin(object):
             self.__vm.remove_node(node)
             self.__vm.update_spec()
         self.event_loop.create_task(node.cleanup())
-
-    async def handle_add_event(self, session_id, entity_id, event):
-        self.get_session(session_id)
-
-        with self.__vm.writer_lock():
-            backend = self.__vm.backend
-            if backend is None:
-                logger.warning(
-                    "Ignoring event %s: no backend active:", event)
-
-            backend.add_event(entity_id, event)
 
     def handle_dump(self, session_id):
         self.__vm.dump()

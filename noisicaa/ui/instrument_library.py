@@ -613,15 +613,18 @@ properties: {properties}
 
     def onNoteOn(self, note, volume):
         if self._pipeline_event_source_id is not None:
-            self.call_async(
-                self.audioproc_client.add_event(
-                    'instrument_library',
-                    audioproc.NoteOnEvent(-1, note, volume)))
-
+            # TODO: use messages instead
+            # self.call_async(
+            #     self.audioproc_client.add_event(
+            #         'instrument_library',
+            #         audioproc.NoteOnEvent(-1, note, volume)))
+            pass
 
     def onNoteOff(self, note):
         if self._pipeline_event_source_id is not None:
-            self.call_async(
-                self.audioproc_client.add_event(
-                    'instrument_library',
-                    audioproc.NoteOffEvent(-1, note)))
+            # TODO: use messages instead
+            # self.call_async(
+            #     self.audioproc_client.add_event(
+            #         'instrument_library',
+            #         audioproc.NoteOffEvent(-1, note)))
+            pass

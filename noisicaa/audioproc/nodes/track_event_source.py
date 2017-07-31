@@ -9,7 +9,6 @@ from noisicaa import node_db
 
 from .. import ports
 from .. import node
-from .. import events
 from ..vm import ast
 from ..vm import buffer_type
 

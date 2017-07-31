@@ -13,7 +13,6 @@ from noisicaa.bindings import lv2
 
 from .. import ports
 from .. import node
-from .. import events
 from .. import audio_format
 
 logger = logging.getLogger(__name__)
