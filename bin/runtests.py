@@ -16,6 +16,8 @@ pyximport.install(setup_args={'script_args': ['--verbose']})
 LIBDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, LIBDIR)
 
+from noisicaa import constants
+
 os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
 
 def main(argv):
@@ -28,7 +30,10 @@ def main(argv):
         default='error',
         help="Minimum level for log messages written to STDERR.")
     parser.add_argument('--nocoverage', action='store_true', default=False)
+    parser.add_argument('--write_perf_stats', action='store_true', default=False)
     args = parser.parse_args(argv[1:])
+
+    constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
 
     logging.basicConfig()
     logging.getLogger().setLevel({

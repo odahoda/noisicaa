@@ -60,17 +60,20 @@ class IPCNode(node.CustomNode):
             raise ValueError(port_name)
 
     def run(self, ctxt):
-        request = frame_data_capnp.FrameData.new_message()
-        request.samplePos = ctxt.sample_pos
-        request.frameSize = ctxt.duration
-        self.__stream.send_frame(request)
+        with ctxt.perf.track('ipc'):
+            request = frame_data_capnp.FrameData.new_message()
+            request.samplePos = ctxt.sample_pos
+            request.frameSize = ctxt.duration
+            with ctxt.perf.track('ipc.send_frame'):
+                self.__stream.send_frame(request)
 
-        response = self.__stream.receive_frame()
-        assert response.samplePos == ctxt.sample_pos, (
-            response.samplePos, ctxt.sample_pos)
-        assert response.frameSize == ctxt.duration, (
-            response.frameSize, ctxt.duration)
-        ctxt.perf.add_spans(response.perfData)
+            with ctxt.perf.track('ipc.receive_frame'):
+                response = self.__stream.receive_frame()
+            assert response.samplePos == ctxt.sample_pos, (
+                response.samplePos, ctxt.sample_pos)
+            assert response.frameSize == ctxt.duration, (
+                response.frameSize, ctxt.duration)
+            ctxt.perf.add_spans(response.perfData)
 
         for entity in response.entities:
             if entity.id == 'output:left':

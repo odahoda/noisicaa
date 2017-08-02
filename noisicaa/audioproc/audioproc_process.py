@@ -5,6 +5,7 @@ import functools
 import logging
 import sys
 import uuid
+import io
 
 import posix_ipc
 
@@ -67,7 +68,9 @@ class Session(object):
         assert callback_task.done()
         exc = callback_task.exception()
         if exc is not None:
-            logger.error("PUBLISH_STATUS failed with exception: %s", exc)
+            buf = io.StringIO()
+            callback_task.print_stack(file=buf)
+            logger.error("PUBLISH_STATUS failed with exception: %s\n%s", exc, buf.getvalue())
 
     def callback_stub_connected(self):
         assert self.callback_stub.connected

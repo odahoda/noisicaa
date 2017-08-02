@@ -27,6 +27,12 @@ class Backend(object):
     def __init__(self):
         self.__stopped = threading.Event()
         self.__sample_rate = None
+        self.__ctxt = None
+
+    @property
+    def ctxt(self):
+        assert self.__ctxt is not None
+        return self.__ctxt
 
     def setup(self, sample_rate):
         self.__sample_rate = sample_rate
@@ -49,10 +55,10 @@ class Backend(object):
         self.__stopped.set()
 
     def begin_frame(self, ctxt):
-        raise NotImplementedError
+        self.__ctxt = ctxt
 
     def end_frame(self):
-        raise NotImplementedError
+        self.__ctxt = None
 
     def output(self, channel, samples):
         raise NotImplementedError
@@ -72,10 +78,13 @@ class NullBackend(Backend):
             self.__frame_size = frame_size
 
     def begin_frame(self, ctxt):
+        super().begin_frame(ctxt)
+        ctxt.perf.start_span('frame')
         ctxt.duration = self.__frame_size
 
     def end_frame(self):
-        pass
+        self.ctxt.perf.end_span()
+        super().end_frame()
 
     def output(self, channel, samples):
         pass
@@ -163,13 +172,17 @@ class PyAudioBackend(Backend):
         self.__need_more.set()
 
     def begin_frame(self, ctxt):
+        super().begin_frame(ctxt)
         if self.stopped:
             return
         self.__need_more.wait()
+        ctxt.perf.start_span('frame')
         self.__outputs.clear()
         ctxt.duration = self.__frame_size
 
     def end_frame(self):
+        self.ctxt.perf.end_span()
+
         # TODO: feed non-interleaved sample buffers directly into
         # resample
         interleaved = bytearray(8 * self.__frame_size)
@@ -195,6 +208,8 @@ class PyAudioBackend(Backend):
             if len(self.__buffer) >= self.__buffer_threshold:
                 self.__need_more.clear()
 
+        super().end_frame()
+
     def output(self, channel, samples):
         self.__outputs[channel] = samples
 
@@ -210,7 +225,6 @@ class IPCBackend(Backend):
             socket_dir, 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
         self.__stream = audio_stream.AudioStreamServer(self.address)
-        self.__ctxt = None
         self.__out_frame = None
         self.__entities = None
 
@@ -229,9 +243,12 @@ class IPCBackend(Backend):
         super().stop()
 
     def begin_frame(self, ctxt):
-        self.__ctxt = ctxt
+        super().begin_frame(ctxt)
+
         try:
             in_frame = self.__stream.receive_frame()
+            ctxt.perf.start_span('frame')
+
             ctxt.duration = in_frame.frameSize
             ctxt.entities = {
                 entity.id: entity
@@ -250,18 +267,21 @@ class IPCBackend(Backend):
 
     def end_frame(self):
         if self.__out_frame is not None:
+            self.ctxt.perf.end_span()
+
             self.__out_frame.init('entities', len(self.__entities))
             for idx, entity in enumerate(self.__entities):
                 self.__out_frame.entities[idx] = entity
 
-            assert self.__ctxt.perf.current_span_id == 0
-            self.__out_frame.perfData = self.__ctxt.perf.serialize()
+            assert self.ctxt.perf.current_span_id == 0
+            self.__out_frame.perfData = self.ctxt.perf.serialize()
 
             self.__stream.send_frame(self.__out_frame)
 
-        self.__ctxt = None
         self.__out_frame = None
         self.__entities = None
+
+        super().end_frame()
 
     def output(self, channel, samples):
         assert self.__out_frame is not None

@@ -264,8 +264,7 @@ class PipelineVM(object):
 
                 ctxt.perf = core.PerfStats()
 
-                with ctxt.perf.track('backend_begin_frame'):
-                    backend.begin_frame(ctxt)
+                backend.begin_frame(ctxt)
 
                 try:
                     if backend.stopped:

@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+# Important: This module must not import any other noisicaa modules.
+
 import os
 import os.path
 import subprocess
@@ -29,6 +31,11 @@ for d in ['noisicaä', 'Noisicaä', 'noisicaa', 'Noisicaa']:
         break
 else:
     PROJECT_DIR = MUSIC_DIR
+
+# Test related stuff.
+TESTLOG_DIR = os.path.abspath(os.path.join(__file__, '..', '..', 'testlogs'))
+class TEST_OPTS(object):
+    WRITE_PERF_STATS = False
 
 # Cleanup namespace
 del os

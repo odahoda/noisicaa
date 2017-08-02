@@ -1,13 +1,10 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- performance test
-  - collect per-frame timings in player_integration_test
-  - total e2e time per frame
-  - min, max, avg, stddev
-  - append to csv file
-  - datetime, cpuinfo, timing data
-  - cpuinfo: py-cpuinfo module
+- player_integration_test with null backend
+  vm thread seems to saturate CPU, doesn't let main thread handle pipeline_status messages.
+  When turning pipeline down, queued messages cause lots of errors.
+  - make sure to flush messages out before shutting down
 - use protos for PipelineMutations instead of pickled objects.
 - better test coverage
   - base class for node unittests

@@ -320,6 +320,13 @@ class Stub(object):
         self._command_loop_task = self._event_loop.create_task(self.command_loop())
 
     async def close(self):
+        assert self._transport is not None
+        self._transport.close()
+        await self._protocol.closed_event.wait()
+
+        self._transport = None
+        self._protocol = None
+
         if self._command_loop_task is not None:
             self._command_loop_cancelled.set()
             await asyncio.wait_for(self._command_loop_task, None)
@@ -327,13 +334,6 @@ class Stub(object):
 
         if self._command_queue is not None:
             self._command_queue = None
-
-        assert self._transport is not None
-        self._transport.close()
-        await self._protocol.closed_event.wait()
-
-        self._transport = None
-        self._protocol = None
 
     async def __aenter__(self):
         await self.connect()
