@@ -9,9 +9,7 @@ import sys
 import unittest
 
 import coverage
-
 import pyximport
-pyximport.install(setup_args={'script_args': ['--verbose']})
 
 LIBDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, LIBDIR)
@@ -31,9 +29,11 @@ def main(argv):
         help="Minimum level for log messages written to STDERR.")
     parser.add_argument('--nocoverage', action='store_true', default=False)
     parser.add_argument('--write_perf_stats', action='store_true', default=False)
+    parser.add_argument('--profile', action='store_true', default=False)
     args = parser.parse_args(argv[1:])
 
     constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
+    constants.TEST_OPTS.ENABLE_PROFILER = args.profile
 
     logging.basicConfig()
     logging.getLogger().setLevel({
@@ -43,6 +43,25 @@ def main(argv):
         'error': logging.ERROR,
         'critical': logging.CRITICAL,
         }[args.log_level if not args.debug else 'debug'])
+
+    build_dir = 'pyxbuild'
+    directives = {}
+
+    if args.profile:
+        directives['profile'] = True
+        build_dir += '-profile'
+
+    pyximport.install(
+        build_dir=os.path.join(os.getenv('VIRTUAL_ENV'), build_dir),
+        setup_args={
+            'script_args': ['--verbose'],
+            'options': {
+                'build_ext': {
+                    'cython_directives': directives,
+                }
+            }
+        }
+    )
 
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()

@@ -159,7 +159,12 @@ class PlayerTest(asynctest.TestCase):
             self.audioproc_server_main.server.address, flags={'perf_data'})
         await self.audioproc_client_main.set_backend('pyaudio', frame_size=1024)
 
-        self.audioproc_server_player = TestAudioProcProcess(self.loop, 'player_process')
+        profile_path = None
+        if constants.TEST_OPTS.ENABLE_PROFILER:
+            profile_path = os.path.join(tempfile.gettempdir(), self.id() + '.prof')
+        self.audioproc_server_player = TestAudioProcProcess(
+            self.loop, 'player_process',
+            profile_path=profile_path)
         await self.audioproc_server_player.setup()
         self.audioproc_server_player_task = self.loop.create_task(
             self.audioproc_server_player.run())

@@ -8,6 +8,7 @@ import random
 import sys
 import threading
 import time
+import cProfile
 
 from noisicaa import core
 from noisicaa import rwlock
@@ -75,12 +76,13 @@ class Buffer(object):
 class PipelineVM(object):
     def __init__(
             self, *,
-            sample_rate=44100, frame_size=128, shm=None):
+            sample_rate=44100, frame_size=128, shm=None, profile_path=None):
         self.listeners = core.CallbackRegistry()
 
         self.__sample_rate = sample_rate
         self.__frame_size = frame_size
         self.__shm = shm
+        self.__profile_path = profile_path
 
         self.__vm_thread = None
         self.__vm_started = None
@@ -240,62 +242,21 @@ class PipelineVM(object):
         self.__notifications.append((node_id, notification))
 
     def vm_main(self):
+        profiler = None
         try:
             logger.info("Starting VM...")
 
-            ctxt = audioproc.FrameContext()
-            ctxt.perf = core.PerfStats()
-            ctxt.sample_pos = 0
-            ctxt.duration = -1
-
             self.__vm_started.set()
 
-            while True:
-                if self.__vm_exit.is_set():
-                    logger.info("Exiting VM mainloop.")
-                    break
-
-                backend = self.__backend
-                if backend is None:
-                    time.sleep(0.1)
-                    continue
-
-                self.listeners.call('perf_data', ctxt.perf.serialize())
-
-                ctxt.perf = core.PerfStats()
-
-                backend.begin_frame(ctxt)
-
-                try:
-                    if backend.stopped:
-                        break
-
-                    if ctxt.duration != self.__frame_size:
-                        logger.info("frame_size=%d", ctxt.duration)
-                        with self.writer_lock():
-                            self.__frame_size = ctxt.duration
-                            self.update_spec()
-
-                    with self.reader_lock():
-                        if self.__spec is not None:
-                            if not self.__spec_initialized:
-                                self.run_vm(self.__spec, ctxt, RunAt.INIT)
-                                self.__spec_initialized = True
-                            self.run_vm(self.__spec, ctxt, RunAt.PERFORMANCE)
-                        else:
-                            time.sleep(0.05)
-
-                finally:
-                    notifications = self.__notifications
-                    self.__notifications = []
-
-                    with ctxt.perf.track('send_notifications'):
-                        for node_id, notification in notifications:
-                            self.notification_listener.call(node_id, notification)
-
-                    backend.end_frame()
-
-                ctxt.sample_pos += ctxt.duration
+            if self.__profile_path:
+                profiler = cProfile.Profile()
+                profiler.enable()
+            try:
+                self.vm_loop()
+            finally:
+                if profiler is not None:
+                    profiler.disable()
+                    profiler.dump_stats(self.__profile_path)
 
         except:  # pragma: no coverage  # pylint: disable=bare-except
             sys.stdout.flush()
@@ -306,6 +267,59 @@ class PipelineVM(object):
 
         finally:
             logger.info("VM finished.")
+
+    def vm_loop(self):
+        ctxt = audioproc.FrameContext()
+        ctxt.perf = core.PerfStats()
+        ctxt.sample_pos = 0
+        ctxt.duration = -1
+
+        while True:
+            if self.__vm_exit.is_set():
+                logger.info("Exiting VM mainloop.")
+                break
+
+            backend = self.__backend
+            if backend is None:
+                time.sleep(0.1)
+                continue
+
+            self.listeners.call('perf_data', ctxt.perf.serialize())
+
+            ctxt.perf = core.PerfStats()
+
+            backend.begin_frame(ctxt)
+
+            try:
+                if backend.stopped:
+                    break
+
+                if ctxt.duration != self.__frame_size:
+                    logger.info("frame_size=%d", ctxt.duration)
+                    with self.writer_lock():
+                        self.__frame_size = ctxt.duration
+                        self.update_spec()
+
+                with self.reader_lock():
+                    if self.__spec is not None:
+                        if not self.__spec_initialized:
+                            self.run_vm(self.__spec, ctxt, RunAt.INIT)
+                            self.__spec_initialized = True
+                        self.run_vm(self.__spec, ctxt, RunAt.PERFORMANCE)
+                    else:
+                        time.sleep(0.05)
+
+            finally:
+                notifications = self.__notifications
+                self.__notifications = []
+
+                with ctxt.perf.track('send_notifications'):
+                    for node_id, notification in notifications:
+                        self.notification_listener.call(node_id, notification)
+
+                backend.end_frame()
+
+            ctxt.sample_pos += ctxt.duration
 
     def run_vm(self, s, ctxt, run_at):
         for opcode, state in zip(s.opcodes, self.__opcode_states):

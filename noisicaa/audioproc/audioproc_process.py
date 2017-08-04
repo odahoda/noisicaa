@@ -79,9 +79,10 @@ class Session(object):
 
 
 class AudioProcProcessMixin(object):
-    def __init__(self, *args, shm=None, **kwargs):
+    def __init__(self, *args, shm=None, profile_path=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.shm_name = shm
+        self.profile_path = profile_path
         self.shm = None
         self.__vm = None
 
@@ -127,7 +128,9 @@ class AudioProcProcessMixin(object):
         if self.shm_name is not None:
             self.shm = posix_ipc.SharedMemory(self.shm_name)
 
-        self.__vm = vm.PipelineVM(shm=self.shm)
+        self.__vm = vm.PipelineVM(
+            shm=self.shm,
+            profile_path=self.profile_path)
         self.__vm.listeners.add('perf_data', self.perf_data_callback)
         self.__vm.listeners.add('node_state', self.node_state_callback)
 
@@ -157,7 +160,9 @@ class AudioProcProcessMixin(object):
     async def run(self):
         await self.__shutting_down.wait()
         logger.info("Shutting down...")
-        self.__vm.cleanup()
+        if self.__vm is not None:
+            self.__vm.cleanup()
+            self.__vm = None
         logger.info("Pipeline finished.")
         self.__shutdown_complete.set()
 
