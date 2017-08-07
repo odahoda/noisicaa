@@ -1,2 +1,3 @@
 "datetime","CPU brand","CPU speed","CPU cores","testname","#frames","mean","stddev","50.0th %tile","75.0th %tile","90.0th %tile","95.0th %tile","99.0th %tile","99.9th %tile"
 "2017-08-02 22:19:14","AMD E2-3000M APU with Radeon(tm) HD Graphics","1.8000 GHz","2","playback_demo","297","24958.8114478","2201.20644257","24687.0","26225.0","27529.4","28141.0","30097.64","40285.448"
+"2017-08-07 23:00:16","AMD E2-3000M APU with Radeon(tm) HD Graphics","1.8000 GHz","2","playback_demo","298","23834.3657718","2372.91535295","23785.5","24958.5","26284.2","27525.5","30908.36","38198.322"

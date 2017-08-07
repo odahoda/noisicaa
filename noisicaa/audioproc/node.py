@@ -9,7 +9,7 @@ from noisicaa import node_db
 from .exceptions import Error
 from . import ports
 from .vm import ast
-from .vm import buffer_type
+from .vm import buffers
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +158,7 @@ class Node(object):
 
         for parameter_name, parameter_desc in sorted(self.__parameters.items()):
             buf_name = '%s:param:%s' % (self.id, parameter_name)
-            seq.add(ast.AllocBuffer(buf_name, buffer_type.Float()))
+            seq.add(ast.AllocBuffer(buf_name, buffers.Float()))
             seq.add(ast.FetchParameter(buf_name, buf_name))
 
         for port in itertools.chain(

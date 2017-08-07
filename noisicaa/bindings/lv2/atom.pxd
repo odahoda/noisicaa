@@ -473,6 +473,8 @@ cdef class Atom(object):
     cdef LV2_Atom* atom
     cdef URID_Mapper mapper
     cdef init(self, LV2_Atom* atom)
+    @staticmethod
+    cdef Atom wrap(URID_Mapper mapper, uint8_t* buf)
 
 
 cdef class MidiEvent(Atom):

@@ -1522,6 +1522,7 @@ cdef class Instance(object):
 
         cdef void* ptr
         cdef numpy.ndarray[float, ndim=1, mode="c"] arr
+        cdef char[:] view
         if data is None:
             ptr = NULL
         elif isinstance(data, numpy.ndarray):
@@ -1529,6 +1530,9 @@ cdef class Instance(object):
             ptr = &arr[0]
         elif isinstance(data, (bytes, bytearray)):
             ptr = <uint8_t*>data
+        elif isinstance(data, memoryview):
+            view = data
+            ptr = &view[0]
         else:
             raise TypeError(type(data))
 

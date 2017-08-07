@@ -10,7 +10,7 @@ from noisicaa import node_db
 from .. import ports
 from .. import node
 from ..vm import ast
-from ..vm import buffer_type
+from ..vm import buffers
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class TrackEventSource(node.BuiltinNode):
             'track:' + self.track_id,
             self.outputs['out'].buf_name))
         seq.add(ast.AllocBuffer(
-            self.id + ':messages', buffer_type.AtomData(10240)))
+            self.id + ':messages', buffers.AtomData(10240)))
         seq.add(ast.FetchMessages(
             core.build_labelset({core.MessageKey.trackId: self.track_id}),
             self.id + ':messages'))

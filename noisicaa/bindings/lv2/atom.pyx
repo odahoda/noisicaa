@@ -1,8 +1,9 @@
+from libc.stdint cimport uint8_t
 
 import contextlib
 import logging
 
-from . import urid
+from . cimport urid
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ cdef class AtomForge(object):
 
     @classmethod
     def build_midi_atom(cls, bytes msg):
-        forge = cls(urid.static_mapper)
+        forge = cls(urid.get_static_mapper())
         buf = bytearray(1024)
         forge.set_buffer(buf, 1024)
         forge.write_midi_atom(msg, len(msg))
@@ -86,6 +87,17 @@ cdef class Atom(object):
     cdef init(self, LV2_Atom* atom):
         self.atom = atom
         return self
+
+    @staticmethod
+    cdef Atom wrap(URID_Mapper mapper, uint8_t* buf):
+        cdef LV2_Atom* atom = <LV2_Atom*>buf
+        type_uri = mapper.unmap(atom.type)
+        if type_uri == b'http://lv2plug.in/ns/ext/atom#Sequence':
+            return Sequence(mapper).init(atom)
+        elif type_uri == b'http://lv2plug.in/ns/ext/midi#MidiEvent':
+            return MidiEvent(mapper).init(atom)
+        else:
+            return Atom(mapper).init(atom)
 
     def __str__(self):
         return '<Atom type="%s" size=%d>' % (self.type_uri.decode('utf-8'), self.size)
@@ -144,17 +156,20 @@ cdef class Sequence(Atom):
         event = lv2_atom_sequence_begin(&seq.body)
         while not lv2_atom_sequence_is_end(&seq.body, seq.atom.size, event):
             result.append(
-                Event(event.time.frames, wrap_atom(self.mapper, <uint8_t*>&event.body)))
+                Event(event.time.frames, Atom.wrap(self.mapper, <uint8_t*>&event.body)))
             event = lv2_atom_sequence_next(event)
         return result
 
 
-cpdef wrap_atom(URID_Mapper mapper, uint8_t* buf):
-    cdef LV2_Atom* atom = <LV2_Atom*>buf
-    type_uri = mapper.unmap(atom.type)
-    if type_uri == b'http://lv2plug.in/ns/ext/atom#Sequence':
-        return Sequence(mapper).init(atom)
-    elif type_uri == b'http://lv2plug.in/ns/ext/midi#MidiEvent':
-        return MidiEvent(mapper).init(atom)
+def wrap_atom(mapper, buf):
+    cdef uint8_t* ptr
+    cdef char[:] view
+    if isinstance(buf, memoryview):
+        view = buf
+        ptr = <uint8_t*>(&view[0])
+    elif isinstance(buf, (bytes, bytearray)):
+        ptr = <uint8_t*>buf
     else:
-        return Atom(mapper).init(atom)
+        raise TypeError(type(buf))
+
+    return Atom.wrap(mapper, ptr)

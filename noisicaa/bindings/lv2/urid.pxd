@@ -51,6 +51,8 @@ cdef class URID_StaticMapper(URID_Mapper):
     cpdef LV2_URID map(self, const char* uri) except -1
     cpdef const char* unmap(self, LV2_URID urid) except <const char*>-1
 
+cdef URID_Mapper get_static_mapper()
+
 
 cdef class URID_DynamicMapper(URID_StaticMapper):
     cdef LV2_URID next_urid

@@ -10,7 +10,7 @@ from noisicaa import audioproc
 from .. import backend
 from .. import resample
 from .. import nodes
-from . import buffer_type
+from . import buffers
 from . import engine
 from . import spec
 
@@ -59,7 +59,7 @@ class PipelineVMTest(unittest.TestCase):
         vm = engine.PipelineVM()
 
         vm_spec = spec.PipelineVMSpec()
-        vm_spec.buffers.append(buffer_type.FloatArray(4))
+        vm_spec.buffers.append(buffers.FloatArray(4))
         vm.setup_spec(vm_spec)
 
         vm.set_buffer_bytes(0, struct.pack('=ffff', 1, 2, 3, 4))
@@ -79,14 +79,14 @@ class PipelineVMTest(unittest.TestCase):
 
             # run with a spec
             vm_spec = spec.PipelineVMSpec()
-            vm_spec.buffers.append(buffer_type.Float())
+            vm_spec.buffers.append(buffers.Float())
             vm_spec.opcodes.append(spec.OpCode('SET_FLOAT', buf_idx=0, value=12))
             vm.set_spec(vm_spec)
             be.next_step()
 
             # replace spec
             vm_spec = spec.PipelineVMSpec()
-            vm_spec.buffers.append(buffer_type.Float())
+            vm_spec.buffers.append(buffers.Float())
             vm_spec.opcodes.append(spec.OpCode('SET_FLOAT', buf_idx=0, value=14))
             vm.set_spec(vm_spec)
             be.next_step()
@@ -100,9 +100,9 @@ class PipelineVMTest(unittest.TestCase):
 
     def test_run_vm(self):
         vm_spec = spec.PipelineVMSpec()
-        vm_spec.buffers.append(buffer_type.Float())
-        vm_spec.buffers.append(buffer_type.FloatArray(256))
-        vm_spec.buffers.append(buffer_type.FloatArray(256))
+        vm_spec.buffers.append(buffers.Float())
+        vm_spec.buffers.append(buffers.FloatArray(256))
+        vm_spec.buffers.append(buffers.FloatArray(256))
         vm_spec.opcodes.append(spec.OpCode('SET_FLOAT', buf_idx=0, value=12))
         vm_spec.opcodes.append(spec.OpCode('COPY_BUFFER', src_idx=1, dest_idx=2))
 
@@ -117,7 +117,7 @@ class PipelineVMTest(unittest.TestCase):
 
     def test_OUTPUT(self):
         vm_spec = spec.PipelineVMSpec()
-        vm_spec.buffers.append(buffer_type.FloatArray(4))
+        vm_spec.buffers.append(buffers.FloatArray(4))
         vm_spec.opcodes.append(spec.OpCode('OUTPUT', buf_idx=0, channel='center'))
 
         be = TestBackend()
@@ -141,7 +141,7 @@ class PipelineVMTest(unittest.TestCase):
 
     def test_NOISE(self):
         vm_spec = spec.PipelineVMSpec()
-        vm_spec.buffers.append(buffer_type.FloatArray(4))
+        vm_spec.buffers.append(buffers.FloatArray(4))
         vm_spec.opcodes.append(spec.OpCode('NOISE', buf_idx=0))
 
         be = TestBackend()
@@ -162,7 +162,7 @@ class PipelineVMTest(unittest.TestCase):
 
     def test_MUL(self):
         vm_spec = spec.PipelineVMSpec()
-        vm_spec.buffers.append(buffer_type.FloatArray(4))
+        vm_spec.buffers.append(buffers.FloatArray(4))
         vm_spec.opcodes.append(spec.OpCode('MUL', buf_idx=0, factor=2))
 
         be = TestBackend()
@@ -185,8 +185,8 @@ class PipelineVMTest(unittest.TestCase):
 
     def test_MIX(self):
         vm_spec = spec.PipelineVMSpec()
-        vm_spec.buffers.append(buffer_type.FloatArray(4))
-        vm_spec.buffers.append(buffer_type.FloatArray(4))
+        vm_spec.buffers.append(buffers.FloatArray(4))
+        vm_spec.buffers.append(buffers.FloatArray(4))
         vm_spec.opcodes.append(spec.OpCode('MIX', src_idx=1, dest_idx=0))
 
         be = TestBackend()
@@ -239,8 +239,8 @@ class PipelineVMTest(unittest.TestCase):
             vm.add_node(node)
 
             vm_spec = spec.PipelineVMSpec()
-            vm_spec.buffers.append(buffer_type.FloatArray(4))
-            vm_spec.buffers.append(buffer_type.FloatArray(4))
+            vm_spec.buffers.append(buffers.FloatArray(4))
+            vm_spec.buffers.append(buffers.FloatArray(4))
             vm_spec.nodes.append('node')
             vm_spec.opcodes.append(spec.OpCode(
                 'CONNECT_PORT', node_idx=0, port_name='in', buf_idx=0))
@@ -276,8 +276,8 @@ class PipelineVMTest(unittest.TestCase):
     #         vm.set_backend(backend.PyAudioBackend())
 
     #         vm_spec = spec.PipelineVMSpec()
-    #         vm_spec.buffers.append(buffer_type.FloatArray(128))
-    #         vm_spec.buffers.append(buffer_type.FloatArray(128))
+    #         vm_spec.buffers.append(buffers.FloatArray(128))
+    #         vm_spec.buffers.append(buffers.FloatArray(128))
     #         vm_spec.opcodes.append(spec.OpCode(
     #             'SINE', buf_idx=0, freq=440))
     #         vm_spec.opcodes.append(spec.OpCode(

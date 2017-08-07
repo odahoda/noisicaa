@@ -316,11 +316,19 @@ cdef class CSound(object):
             self.csnd, &channel_dat,
             channel.name.encode('utf-8'), channel.cs_type))
 
-        cdef int i = 0
-        cdef float* inp = <float*><char*>samples
-        while i < self.ksmps:
+        cdef float* inp
+        cdef char[:] view
+        if isinstance(samples, memoryview):
+            view = samples
+            inp = <float*>(&view[0])
+        elif isinstance(samples, (bytes, bytearray)):
+            inp = <float*><char*>samples
+        else:
+            raise TypeError(type(samples))
+
+        cdef int i
+        for i in range(self.ksmps):
             channel_dat[i] = inp[i]
-            i += 1
 
     def set_control_channel_value(self, name, value):
         assert name in self.channels, name

@@ -27,6 +27,7 @@ from noisicaa.bindings import lv2
 from noisicaa.core import ipc
 from noisicaa.ui import model
 from noisicaa.node_db.private import db as node_db
+from noisidev import perf_stats
 
 from . import project
 from . import sheet
@@ -34,38 +35,6 @@ from . import player
 from . import project_client
 
 logger = logging.getLogger(__name__)
-
-
-def write_frame_stats(testname, frame_times):
-    frame_times = numpy.array(frame_times, dtype=numpy.int64)
-    data = []
-    data.append(
-        ('datetime', datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
-
-    ci = cpuinfo.get_cpu_info()
-    data.append(('CPU brand', ci['brand']))
-    data.append(('CPU speed', ci['hz_advertised']))
-    data.append(('CPU cores', ci['count']))
-
-    data.append(('testname', testname))
-    data.append(('#frames', len(frame_times)))
-    data.append(('mean', frame_times.mean()))
-    data.append(('stddev', frame_times.std()))
-
-    for p in (50, 75, 90, 95, 99, 99.9):
-        data.append(
-            ('%.1fth %%tile' % p, numpy.percentile(frame_times, p)))
-
-    logger.info("Frame stats:\n%s", pprint.pformat(data))
-
-    if constants.TEST_OPTS.WRITE_PERF_STATS:
-        with open(
-                os.path.join(constants.TESTLOG_DIR, 'player_integration_test.csv'),
-                'a', newline='', encoding='utf-8') as fp:
-            writer = csv.writer(fp, dialect=csv.unix_dialect)
-            if fp.tell() == 0:
-                writer.writerow([h for h, _ in data])
-            writer.writerow([v for _, v in data])
 
 
 class TestAudioProcProcessImpl(object):
@@ -210,7 +179,9 @@ class PlayerTest(asynctest.TestCase):
         try:
             yield
 
-            write_frame_stats(testname, frame_times)
+            perf_stats.write_frame_stats(
+                os.path.splitext(os.path.basename(__file__))[0],
+                testname, frame_times)
 
         finally:
             listener.remove()

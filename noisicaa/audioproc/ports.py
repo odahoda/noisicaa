@@ -3,7 +3,7 @@
 import logging
 
 from .exceptions import Error
-from .vm import buffer_type
+from .vm import buffers
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ class AudioInputPort(InputPort):
             raise Error("Can only connect to AudioOutputPort")
 
     def get_buf_type(self, compiler):
-        return buffer_type.FloatArray(compiler.frame_size)
+        return buffers.FloatArray(compiler.frame_size)
 
 
 class AudioOutputPort(OutputPort):
@@ -147,7 +147,7 @@ class AudioOutputPort(OutputPort):
             self.drywet = drywet
 
     def get_buf_type(self, compiler):
-        return buffer_type.FloatArray(compiler.frame_size)
+        return buffers.FloatArray(compiler.frame_size)
 
 
 class ARateControlInputPort(InputPort):
@@ -157,12 +157,12 @@ class ARateControlInputPort(InputPort):
             raise Error("Can only connect to ARateControlOutputPort")
 
     def get_buf_type(self, compiler):
-        return buffer_type.FloatArray(compiler.frame_size)
+        return buffers.FloatArray(compiler.frame_size)
 
 
 class ARateControlOutputPort(OutputPort):
     def get_buf_type(self, compiler):
-        return buffer_type.FloatArray(compiler.frame_size)
+        return buffers.FloatArray(compiler.frame_size)
 
 
 class KRateControlInputPort(InputPort):
@@ -172,12 +172,12 @@ class KRateControlInputPort(InputPort):
             raise Error("Can only connect to KRateControlOutputPort")
 
     def get_buf_type(self, compiler):
-        return buffer_type.Float()
+        return buffers.Float()
 
 
 class KRateControlOutputPort(OutputPort):
     def get_buf_type(self, compiler):
-        return buffer_type.Float()
+        return buffers.Float()
 
 
 class EventInputPort(InputPort):
@@ -191,9 +191,9 @@ class EventInputPort(InputPort):
             raise Error("Can only connect to EventOutputPort")
 
     def get_buf_type(self, compiler):
-        return buffer_type.AtomData(10240)
+        return buffers.AtomData(10240)
 
 
 class EventOutputPort(OutputPort):
     def get_buf_type(self, compiler):
-        return buffer_type.AtomData(10240)
+        return buffers.AtomData(10240)

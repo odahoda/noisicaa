@@ -276,11 +276,15 @@ cdef class Instance(object):
     def connect_port(self, port, data):
         cdef void* ptr
         cdef numpy.ndarray[float, ndim=1, mode="c"] arr
+        cdef char[:] view
         if data is None:
             ptr = NULL
         elif isinstance(data, numpy.ndarray):
             arr = data
             ptr = &arr[0]
+        elif isinstance(data, memoryview):
+            view = data
+            ptr = &view[0]
         elif isinstance(data, (bytes, bytearray)):
             ptr = <uint8_t*>data
         else:

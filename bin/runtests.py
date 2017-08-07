@@ -28,8 +28,9 @@ def main(argv):
         default='error',
         help="Minimum level for log messages written to STDERR.")
     parser.add_argument('--nocoverage', action='store_true', default=False)
-    parser.add_argument('--write_perf_stats', action='store_true', default=False)
+    parser.add_argument('--write-perf-stats', action='store_true', default=False)
     parser.add_argument('--profile', action='store_true', default=False)
+    parser.add_argument('--gdb', action='store_true', default=False)
     args = parser.parse_args(argv[1:])
 
     constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
@@ -50,6 +51,10 @@ def main(argv):
     if args.profile:
         directives['profile'] = True
         build_dir += '-profile'
+
+    if args.profile:
+        directives['gdb_debug'] = True
+        build_dir += '-dbg'
 
     pyximport.install(
         build_dir=os.path.join(os.getenv('VIRTUAL_ENV'), build_dir),
@@ -90,21 +95,24 @@ def main(argv):
             modpath = modpath[len(LIBDIR)+1:]
             modname = modpath.replace('/', '.')
 
+            is_test = modname.endswith('test')
+            is_unittest = modname.endswith('_test')
+
             if args.selectors:
                 matched = False
                 for selector in args.selectors:
-                    if modname.startswith(selector):
-                        matched = True
+                    if modname == selector:
+                        matched = is_test
+                    elif modname.startswith(selector):
+                        matched = is_unittest
             else:
-                matched = True
+                matched = is_unittest
 
-            is_test = modname.endswith('_test')
-
-            if (is_test and matched) or not args.nocoverage:
+            if matched or not args.nocoverage:
                 logging.info("Loading module %s...", modname)
                 __import__(modname)
 
-            if not is_test or not matched:
+            if not matched:
                 continue
 
             modsuite = loader.loadTestsFromName(modname)

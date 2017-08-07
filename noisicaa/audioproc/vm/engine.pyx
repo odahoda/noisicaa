@@ -1,5 +1,8 @@
 #!/usr/bin/python3
 
+from libc cimport stdlib
+from libc cimport string
+
 import enum
 import logging
 import math
@@ -15,7 +18,8 @@ from noisicaa import rwlock
 from noisicaa import audioproc
 from noisicaa.bindings import lv2
 from .. import resample
-from . import buffer_type
+from . cimport buffers
+from . import buffers
 from . import graph
 from . import compiler
 
@@ -38,39 +42,6 @@ def at_performance(func):
 def at_init(func):
     func.run_at = RunAt.INIT
     return func
-
-
-class Buffer(object):
-    def __init__(self, buf_type):
-        self.__type = buf_type
-        self.__data = bytearray(len(self.__type))
-        self.view = self.__type.make_view(self.__data)
-
-    @property
-    def type(self):
-        return self.__type
-
-    @property
-    def data(self):
-        return self.__data
-
-    def to_bytes(self):
-        return bytes(self.__data)
-
-    def set_bytes(self, data):
-        assert len(data) <= len(self.__data), \
-            '%s > %s' % (len(data), len(self.__data))
-        if len(data) < len(self.__data):
-            self.__type.clear_buffer(self.__data)
-        self.__data[:len(data)] = data
-
-    def clear(self):
-        self.__type.clear_buffer(self.__data)
-
-    def mix(self, other):
-        assert self.type == other.type, \
-            '%s != %s' % (self.type, other.type)
-        self.__type.mix_buffers(self.__data, other.__data)
 
 
 class PipelineVM(object):
@@ -110,12 +81,13 @@ class PipelineVM(object):
         # TODO: reimplement
         pass
 
-    def setup(self):
+    def setup(self, *, start_thread=True):
         self.__vm_started = threading.Event()
         self.__vm_exit = threading.Event()
-        self.__vm_thread = threading.Thread(target=self.vm_main)
-        self.__vm_thread.start()
-        self.__vm_started.wait()
+        if start_thread:
+            self.__vm_thread = threading.Thread(target=self.vm_main)
+            self.__vm_thread.start()
+            self.__vm_started.wait()
         logger.info("VM up and running.")
 
     def cleanup(self):
@@ -138,7 +110,7 @@ class PipelineVM(object):
         self.cleanup_spec()
 
     def setup_spec(self, spec):
-        self.__buffers = [Buffer(btype) for btype in spec.buffers]
+        self.__buffers = [buffers.Buffer(btype) for btype in spec.buffers]
         self.__opcode_states = [{} for _ in spec.opcodes]
         self.__spec = spec
         self.__spec_initialized = False
@@ -333,33 +305,33 @@ class PipelineVM(object):
 
     @at_performance
     def op_COPY_BUFFER(self, ctxt, state, *, src_idx, dest_idx):
-        src = self.__buffers[src_idx].view
-        dest = self.__buffers[dest_idx].view
-        dest[:] = src
+        cdef buffers.Buffer src = self.__buffers[src_idx]
+        cdef buffers.Buffer dest = self.__buffers[dest_idx]
+        assert len(src.type) == len(dest.type)
+        string.memmove(dest.data, src.data, len(dest.type))
 
     @at_performance
     def op_CLEAR_BUFFER(self, ctxt, state, *, buf_idx):
-        self.__buffers[buf_idx].clear()
+        cdef buffers.Buffer buf = self.__buffers[buf_idx]
+        buf.clear()
 
     @at_performance
     def op_SET_FLOAT(self, ctxt, state, *, buf_idx, value):
-        buf = self.__buffers[buf_idx]
-        assert isinstance(buf.type, buffer_type.Float), str(buf.type)
-        buf.view[0] = value
+        cdef buffers.Buffer buf = self.__buffers[buf_idx]
+        assert isinstance(buf.type, buffers.Float), str(buf.type)
+        cdef float* data = <float*>buf.data
+        data[0] = value
 
     @at_performance
     def op_OUTPUT(self, ctxt, state, *, buf_idx, channel):
-        buf = self.__buffers[buf_idx]
-        assert isinstance(buf.type, buffer_type.FloatArray), str(buf.type)
+        cdef buffers.Buffer buf = self.__buffers[buf_idx]
+        assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
         assert buf.type.size == ctxt.duration
-
-        data = self.__buffers[buf_idx].to_bytes()
-
-        self.__backend.output(channel, data)
+        self.__backend.output(channel, buf.to_bytes())
 
     @at_performance
     def op_FETCH_ENTITY(self, ctxt, state, *, entity_id, buf_idx):
-        buf = self.__buffers[buf_idx]
+        cdef buffers.Buffer buf = self.__buffers[buf_idx]
         try:
             entity = ctxt.entities[entity_id]
         except KeyError:
@@ -370,12 +342,12 @@ class PipelineVM(object):
     @at_performance
     def op_FETCH_PARAMETER(self, ctxt, state, *, parameter_idx, buf_idx):
         #parameter_name = self.__parameters[parameter_idx]
-        buf = self.__buffers[buf_idx]
+        cdef buffers.Buffer buf = self.__buffers[buf_idx]
         buf.clear()
 
     @at_performance
     def op_FETCH_MESSAGES(self, ctxt, state, *, labelset, buf_idx):
-        buf = self.__buffers[buf_idx]
+        cdef buffers.Buffer buf = self.__buffers[buf_idx]
 
         forge = lv2.AtomForge(lv2.static_mapper)
         forge.set_buffer(buf.data, len(buf.type))
@@ -399,18 +371,18 @@ class PipelineVM(object):
 
     @at_performance
     def op_NOISE(self, ctxt, state, *, buf_idx):
-        buf = self.__buffers[buf_idx]
-        assert isinstance(buf.type, buffer_type.FloatArray), str(buf.type)
-        view = buf.view
+        cdef buffers.Buffer buf = self.__buffers[buf_idx]
+        assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
 
+        cdef float* view = <float*>buf.data
         for i in range(buf.type.size):
             view[i] = 2 * random.random() - 1.0
 
     @at_performance
     def op_SINE(self, ctxt, state, *, buf_idx, freq):
-        buf = self.__buffers[buf_idx]
-        assert isinstance(buf.type, buffer_type.FloatArray), str(buf.type)
-        view = buf.view
+        cdef buffers.Buffer buf = self.__buffers[buf_idx]
+        assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
+        cdef float* view = <float*>buf.data
 
         p = state.get('p', 0.0)
         for i in range(buf.type.size):
@@ -422,8 +394,11 @@ class PipelineVM(object):
 
     @at_performance
     def op_MUL(self, ctxt, state, *, buf_idx, factor):
-        buf = self.__buffers[buf_idx].view
-        buf *= factor
+        cdef buffers.Buffer buf = self.__buffers[buf_idx]
+        assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
+        cdef float* view = <float*>buf.data
+        for i in range(buf.type.size):
+            view[i] *= factor
 
     @at_performance
     def op_MIX(self, ctxt, state, *, src_idx, dest_idx):
@@ -433,8 +408,8 @@ class PipelineVM(object):
     def op_CONNECT_PORT(self, ctxt, state, *, node_idx, port_name, buf_idx):
         node_id = self.__spec.nodes[node_idx]
         node = self.__graph.find_node(node_id)
-        buf = self.__buffers[buf_idx].data
-        node.connect_port(port_name, buf)
+        cdef buffers.Buffer buf = self.__buffers[buf_idx]
+        node.connect_port(port_name, memoryview(buf))
 
     @at_performance
     def op_CALL(self, ctxt, state, *, node_idx):

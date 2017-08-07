@@ -101,6 +101,8 @@ cdef class URID_StaticMapper(URID_Mapper):
 
 static_mapper = URID_StaticMapper()
 
+cdef URID_Mapper get_static_mapper():
+    return static_mapper
 
 cdef class URID_DynamicMapper(URID_StaticMapper):
     def __init__(self):
