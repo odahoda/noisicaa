@@ -1,18 +1,20 @@
 #!/usr/bin/python3
 
+from libc cimport string
+
 import logging
 import wave
 
 from noisicaa import node_db
 
 from .. import resample
-from .. import node
+from .. cimport node
 from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
 
-class WavFileSource(node.CustomNode):
+cdef class WavFileSource(node.CustomNode):
     class_name = 'wavfile'
 
     def __init__(self, *, path, loop=False, end_notification=None, **kwargs):
@@ -34,8 +36,8 @@ class WavFileSource(node.CustomNode):
 
         self.__playing = True
 
-        self.__pos = None
-        self.__num_samples = None
+        self.__pos = 0
+        self.__num_samples = 0
         self.__samples_l = None
         self.__samples_r = None
 
@@ -87,28 +89,34 @@ class WavFileSource(node.CustomNode):
 
         fp.close()
 
-    def connect_port(self, port_name, buf):
+    cdef int connect_port(self, port_name, buf) except -1:
         if port_name == 'out:left':
             self.__out_left = buf
         elif port_name == 'out:right':
             self.__out_right = buf
         else:
             raise ValueError(port_name)
+        return 0
 
-    def run(self, ctxt):
+    cdef int run(self, ctxt) except -1:
+        cdef:
+            uint32_t samples_written
+            uint32_t num_samples
+            uint32_t offset
+            uint32_t length
+
         samples_written = 0
-        outbuf_l, offset_l = self.__out_left, 0
-        outbuf_r, offset_r = self.__out_right, 0
 
         if self.__playing:
             num_samples = min(ctxt.duration, self.__num_samples - self.__pos)
-            offset = 4 * self.__pos
-            length = 4 * num_samples
-
-            outbuf_l[offset_l:offset_l+length] = self.__samples_l[offset:offset+length]
-            outbuf_r[offset_r:offset_r+length] = self.__samples_r[offset:offset+length]
-
-            logger.info("offset=%d, length=%d", offset, length)
+            string.memmove(
+                self.__out_left.data,
+                <char*>self.__samples_l + self.__pos * sizeof(float),
+                num_samples * sizeof(float))
+            string.memmove(
+                self.__out_right.data,
+                <char*>self.__samples_r + self.__pos * sizeof(float),
+                num_samples * sizeof(float))
 
             samples_written += num_samples
             self.__pos += num_samples
@@ -120,8 +128,14 @@ class WavFileSource(node.CustomNode):
                         self.send_notification(self.__end_notification)
 
 
-        while samples_written < ctxt.duration:
-            outbuf_l[offset_l:offset_l+4] = (0, 0, 0, 0)
-            outbuf_r[offset_r:offset_r+4] = (0, 0, 0, 0)
-            samples_written += 1
+        if samples_written < ctxt.duration:
+            string.memset(
+                self.__out_left.data + samples_written * sizeof(float),
+                0,
+                (ctxt.duration - samples_written) * sizeof(float))
+            string.memset(
+                self.__out_right.data + samples_written * sizeof(float),
+                0,
+                (ctxt.duration - samples_written) * sizeof(float))
 
+        return 0

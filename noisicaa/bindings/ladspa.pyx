@@ -133,11 +133,6 @@ class PortType(Enum):
 
 
 cdef class Port(object):
-    cdef LADSPA_PortDescriptor _desc
-    cdef LADSPA_PortRangeHint _range_hint
-    cdef int _index
-    cdef const char* _name
-
     def __str__(self):
         s = '<port "%s" %s %s' % (self.name, self.type.value, self.direction.value)
         if self.is_bounded:
@@ -265,64 +260,40 @@ cdef class Port(object):
 
 
 cdef class Instance(object):
-    cdef Descriptor _desc
-    cdef LADSPA_Handle _handle
-
     def __dealloc__(self):
         if self._handle != NULL:
             self._desc._desc.cleanup(self._handle)
             self._handle = NULL
 
-    def connect_port(self, port, data):
-        cdef void* ptr
-        cdef numpy.ndarray[float, ndim=1, mode="c"] arr
-        cdef char[:] view
-        if data is None:
-            ptr = NULL
-        elif isinstance(data, numpy.ndarray):
-            arr = data
-            ptr = &arr[0]
-        elif isinstance(data, memoryview):
-            view = data
-            ptr = &view[0]
-        elif isinstance(data, (bytes, bytearray)):
-            ptr = <uint8_t*>data
-        else:
-            raise TypeError(type(data))
-
+    cdef connect_port(self, Port port, char* data):
         assert self._handle != NULL
-        self._desc._desc.connect_port(
-            self._handle, port.index, <LADSPA_Data*>ptr)
+        self._desc._desc.connect_port(self._handle, port.index, <LADSPA_Data*>data)
 
-    def activate(self):
+    cdef activate(self):
         assert self._handle != NULL
         if self._desc._desc.activate != NULL:
             self._desc._desc.activate(self._handle)
 
-    def run(self, num_samples):
+    cdef run(self, int num_samples):
         assert self._handle != NULL
         self._desc._desc.run(self._handle, num_samples)
 
-    def deactivate(self):
+    cdef deactivate(self):
         assert self._handle != NULL
         if self._desc._desc.deactivate != NULL:
             self._desc._desc.deactivate(self._handle)
 
-    def cleanup(self):
+    cdef cleanup(self):
         if self._handle != NULL:
             self._desc._desc.cleanup(self._handle)
             self._handle = NULL
 
-    def close(self):
+    cdef close(self):
         self.cleanup()
         self._desc._instances.remove(self)
 
 
 cdef class Descriptor(object):
-    cdef const LADSPA_Descriptor* _desc
-    cdef list _instances
-    cdef readonly list ports
-
     def __init__(self):
         self._instances = []
         self.ports = []
@@ -363,15 +334,13 @@ cdef class Descriptor(object):
         return instance
 
     def close_all_instances(self):
+        cdef Instance instance
         for instance in self._instances:
             instance.cleanup()
         self._instances.clear()
 
 
 cdef class Library(object):
-    cdef void* handle
-    cdef readonly list descriptors
-
     def __init__(self, path):
         cdef char* error
         cdef LADSPA_Descriptor_Function ladspa_descriptor

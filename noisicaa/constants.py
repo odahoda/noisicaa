@@ -12,6 +12,7 @@ EXIT_EXCEPTION = 1
 EXIT_RESTART = 17
 EXIT_RESTART_CLEAN = 18
 
+ROOT = os.path.abspath(os.path.dirname(__file__))
 
 DATA_DIR = os.path.abspath(os.path.join(__file__, '..', '..', 'data'))
 

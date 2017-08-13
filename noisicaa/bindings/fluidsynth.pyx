@@ -1,93 +1,6 @@
 import logging
 import os
 
-
-### DECLARATIONS ##########################################################
-
-cdef extern from "fluidsynth.h":
-    ## fluidsynth/types.h - Type declarations
-
-    ctypedef void fluid_settings_t
-    ctypedef void fluid_synth_t
-    ctypedef _fluid_sfont_t fluid_sfont_t
-    ctypedef void fluid_preset_t
-
-
-    ## fluidsynth/settings.h - Synthesizer settings
-
-    fluid_settings_t* new_fluid_settings()
-    void delete_fluid_settings(fluid_settings_t* settings)
-
-    int fluid_settings_setnum(fluid_settings_t* settings, const char *name, double val)
-    int fluid_settings_getnum(fluid_settings_t* settings, const char *name, double* val)
-
-    int fluid_settings_setint(fluid_settings_t* settings, const char *name, int val)
-    int fluid_settings_getint(fluid_settings_t* settings, const char *name, int* val)
-
-
-    ## fluidsynth/version.h - Library version functions and defines
-
-    void fluid_version(int *major, int *minor, int *micro)
-    char* fluid_version_str()
-
-
-    ## fluidsynth/synth.h - Embeddable SoundFont synthesizer
-
-    fluid_synth_t* new_fluid_synth(fluid_settings_t* settings)
-    int delete_fluid_synth(fluid_synth_t* synth)
-    int fluid_synth_noteon(fluid_synth_t* synth, int chan, int key, int vel)
-    int fluid_synth_noteoff(fluid_synth_t* synth, int chan, int key)
-    int fluid_synth_program_select(fluid_synth_t* synth, int chan, unsigned int sfont_id,
-                                   unsigned int bank_num, unsigned int preset_num)
-    int fluid_synth_system_reset(fluid_synth_t* synth)
-    int fluid_synth_sfload(fluid_synth_t* synth, const char* filename, int reset_presets);
-    int fluid_synth_add_sfont(fluid_synth_t* synth, fluid_sfont_t* sfont)
-    void fluid_synth_remove_sfont(fluid_synth_t* synth, fluid_sfont_t* sfont)
-    fluid_sfont_t* fluid_synth_get_sfont_by_id(fluid_synth_t* synth, unsigned int id)
-    char* fluid_synth_error(fluid_synth_t* synth)
-    int fluid_synth_nwrite_float(fluid_synth_t* synth, int len,
-                                 float** left, float** right,
-                                 float** fx_left, float** fx_right)
-
-
-    ## fluidsynth/misc.h - Miscellaneous utility functions and defines
-
-    cdef enum:
-        FLUID_OK = 0
-        FLUID_FAILED = -1
-
-
-    ## fluisynth/sfont.h - SoundFont plugins
-
-    cdef struct _fluid_sfont_t:
-        void* data
-        unsigned int id
-        int (*free)(fluid_sfont_t* sfont);
-        char* (*get_name)(fluid_sfont_t* sfont);
-        fluid_preset_t* (*get_preset)(fluid_sfont_t* sfont, unsigned int bank, unsigned int prenum);
-        void (*iteration_start)(fluid_sfont_t* sfont);
-        int (*iteration_next)(fluid_sfont_t* sfont, fluid_preset_t* preset);
-
-
-    ## fluidsynth/log.h - Logging interface
-
-    cdef enum fluid_log_level:
-        FLUID_PANIC
-        FLUID_ERR
-        FLUID_WARN
-        FLUID_INFO
-        FLUID_DBG
-        LAST_LOG_LEVEL
-
-    ctypedef void (*fluid_log_function_t)(int level, char* message, void* data)
-
-    fluid_log_function_t fluid_set_log_function(int level, fluid_log_function_t fun, void* data)
-    void fluid_default_log_function(int level, char* message, void* data)
-    int fluid_log(int level, const char *fmt, ...)
-
-
-### CLIENT CODE ###########################################################
-
 __version__ = bytes(fluid_version_str()).decode('ascii')
 
 def version():
@@ -106,8 +19,9 @@ __log_level_map = {
 
 logger = logging.getLogger(__name__)
 
-cdef void __log_cb(int level, char* message, void* data):
-    logger.log(__log_level_map[level], message.decode('utf-8'))
+cdef void __log_cb(int level, char* message, void* data) nogil:
+    with gil:
+        logger.log(__log_level_map[level], message.decode('utf-8'))
 
 fluid_set_log_function(FLUID_PANIC, __log_cb, NULL)
 fluid_set_log_function(FLUID_ERR, __log_cb, NULL)
@@ -122,8 +36,6 @@ class Error(Exception):
 
 
 cdef class Settings(object):
-    cdef fluid_settings_t* handle
-
     def __init__(self):
         self.handle = new_fluid_settings()
         if self.handle == NULL:
@@ -182,7 +94,7 @@ cdef class Settings(object):
         cdef int ok = fluid_settings_getint(self.handle, 'synth.audio-channels', &val)
         if not ok:
             raise ValueError("Failed to get synth.audio-channels")
-        return float(val)
+        return val
 
     @synth_audio_channels.setter
     def synth_audio_channels(self, int val):
@@ -192,8 +104,6 @@ cdef class Settings(object):
 
 
 cdef class Soundfont(object):
-    cdef fluid_sfont_t* handle
-
     def __cinit__(self):
         self.handle = NULL
 
@@ -211,9 +121,6 @@ cdef class Soundfont(object):
 
 
 cdef class Synth(object):
-    cdef fluid_synth_t* handle
-    cdef readonly Settings settings
-
     def __cinit__(self):
         self.handle = NULL
         self.settings = None
@@ -229,9 +136,11 @@ cdef class Synth(object):
             delete_fluid_synth(self.handle)
             self.handle = NULL
 
-    cdef __check_failed(self, int status):
+    cdef int __check_failed(self, int status) nogil except -1:
         if status == FLUID_FAILED:
-            raise Error(fluid_synth_error(self.handle).decode('ascii'))
+            with gil:
+                raise Error(fluid_synth_error(self.handle).decode('ascii'))
+        return 0
 
     def sfload(self, str path, int reset_presets=0):
         pathb = os.fsencode(path)
@@ -262,21 +171,26 @@ cdef class Synth(object):
         self.__check_failed(
             fluid_synth_program_select(self.handle, channel, sf_id, bank, preset))
 
-    def noteon(self, int channel, int key, int vel):
+    cdef int noteon(self, int channel, int key, int vel) nogil except -1:
         self.__check_failed(
             fluid_synth_noteon(self.handle, channel, key, vel))
+        return 0
 
-    def noteoff(self, int channel, int key):
+    cdef void noteoff(self, int channel, int key) nogil:
         fluid_synth_noteoff(self.handle, channel, key)
 
     def get_samples(self, int num_samples):
-        assert self.settings.synth_audio_channels == 1
-        leftb = bytearray(4 * num_samples)
-        rightb = bytearray(4 * num_samples)
-        cdef float* left[1]
-        cdef float* right[1]
-        left[0] = <float*><char*>leftb
-        right[0] = <float*><char*>rightb
+        left = bytearray(4 * num_samples)
+        right = bytearray(4 * num_samples)
+        self.get_samples_into(num_samples, <float*><char*>left, <float*><char*>right)
+        return left, right
+
+    cdef int get_samples_into(
+        self, int num_samples, float* left, float* right) nogil except -1:
+        cdef float* lmap[1]
+        cdef float* rmap[1]
+        lmap[0] = left
+        rmap[0] = right
         self.__check_failed(
-            fluid_synth_nwrite_float(self.handle, num_samples, left, right, NULL, NULL))
-        return leftb, rightb
+            fluid_synth_nwrite_float(self.handle, num_samples, lmap, rmap, NULL, NULL))
+        return 0

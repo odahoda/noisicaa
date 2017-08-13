@@ -14,7 +14,7 @@ from .vm import buffers
 logger = logging.getLogger(__name__)
 
 
-class Node(object):
+cdef class Node(object):
     class_name = None
 
     init_ports_from_description = True
@@ -24,7 +24,7 @@ class Node(object):
         assert isinstance(description, node_db.NodeDescription), description
 
         self.description = description
-        self._name = name or type(self).__name__
+        self.name = name or type(self).__name__
         self.id = id
 
         self.pipeline = None
@@ -38,10 +38,6 @@ class Node(object):
             self.init_ports()
         if self.init_parameters_from_description:
             self.init_parameters()
-
-    @property
-    def name(self):
-        return self._name
 
     def init_ports(self):
         port_cls_map = {
@@ -175,7 +171,7 @@ class Node(object):
         return seq
 
 
-class CustomNode(Node):
+cdef class CustomNode(Node):
     def get_ast(self, compiler):
         seq = super().get_ast(compiler)
         for port in itertools.chain(
@@ -185,10 +181,10 @@ class CustomNode(Node):
         seq.add(ast.CallNode(self.id))
         return seq
 
-    def connect_port(self, port_name, buf):
+    cdef int connect_port(self, port_name, buf) except -1:
         raise NotImplementedError(type(self))
 
-    def run(self, ctxt):
+    cdef int run(self, ctxt) except -1:
         raise NotImplementedError(type(self))
 
 

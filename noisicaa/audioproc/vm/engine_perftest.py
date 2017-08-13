@@ -1,22 +1,15 @@
 #!/usr/bin/python3
 
 import logging
-import struct
-import threading
 import unittest
 import os.path
 
-from noisicaa import node_db
-from noisicaa import audioproc
 from noisidev import perf_stats
+from noisidev import profutil
 
 from .. import backend
-from .. import resample
 from .. import nodes
 from . import engine
-from . import spec
-from . import compiler
-from . import graph
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +86,7 @@ class PipelineVMPerfTest(unittest.TestCase):
             be = TestBackend()
             vm.setup_backend(be)
 
-            vm.vm_loop()
+            profutil.profile(self.id(), vm.vm_loop)
 
             perf_stats.write_frame_stats(
                 os.path.splitext(os.path.basename(__file__))[0],

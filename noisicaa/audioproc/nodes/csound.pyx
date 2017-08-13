@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+from libc.stdint cimport uint8_t
+
 import logging
 import textwrap
 import time
@@ -8,17 +10,21 @@ import queue
 import numpy
 
 from noisicaa import node_db
+from noisicaa.bindings cimport csound
 from noisicaa.bindings import csound
 from noisicaa.bindings import lv2
+from noisicaa.bindings.lv2 cimport atom
+from noisicaa.bindings.lv2 cimport urid
 
 from .. import ports
-from .. import node
+from .. cimport node
 from .. import audio_format
+from ..vm cimport buffers
 
 logger = logging.getLogger(__name__)
 
 
-class CSoundBase(node.CustomNode):
+cdef class CSoundBase(node.CustomNode):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -55,13 +61,15 @@ class CSoundBase(node.CustomNode):
 
         super().cleanup()
 
-    def connect_port(self, port_name, buf):
+    cdef int connect_port(self, port_name, buf) except -1:
         if port_name not in self.outputs and port_name not in self.inputs:
             raise ValueError(port_name)
 
         self.__buffers[port_name] = buf
 
-    def run(self, ctxt):
+        return 0
+
+    cdef int run(self, ctxt) except -1:
         try:
             next_csnd = self.__next_csnd.get_nowait()
         except queue.Empty:
@@ -76,27 +84,25 @@ class CSoundBase(node.CustomNode):
         if self.__csnd is None:
             for port in self.outputs.values():
                 if isinstance(port, (ports.AudioOutputPort, ports.ARateControlOutputPort)):
-                    self.__buffers[port.name] = [0] * ctxt.duration
+                    self.__buffers[port.name].clear()
                 else:
                     raise ValueError(port)
 
-            return
+            return 0
 
         in_events = {}
         for port in self.inputs.values():
             if isinstance(port, ports.EventInputPort):
-                in_events[port.name] = (
-                    port.csound_instr,
-                    list(lv2.wrap_atom(
-                        lv2.static_mapper, self.__buffers[port.name]).events))
+                l = list(atom.Atom.wrap(urid.get_static_mapper(), <uint8_t*>(<buffers.Buffer>self.__buffers[port.name]).data).events)
+                in_events[port.name] = (port.csound_instr, l)
 
-        pos = 0
+        cdef int pos = 0
         while pos < ctxt.duration:
             for port in self.inputs.values():
                 if isinstance(port, (ports.AudioInputPort, ports.ARateControlInputPort)):
                     self.__csnd.set_audio_channel_data(
                         port.name,
-                        self.__buffers[port.name][4*pos:4*(pos+self.__csnd.ksmps)])
+                        (<buffers.Buffer>self.__buffers[port.name]).data[4*pos:4*(pos+self.__csnd.ksmps)])
 
                 elif isinstance(port, ports.EventInputPort):
                     instr, pending_events = in_events[port.name]
@@ -128,17 +134,19 @@ class CSoundBase(node.CustomNode):
 
             for port in self.outputs.values():
                 if isinstance(port, (ports.AudioOutputPort, ports.ARateControlOutputPort)):
-                    self.__buffers[port.name][4*pos:4*(pos+self.__csnd.ksmps)] = (
-                        self.__csnd.get_audio_channel_data(port.name))
+                    self.__csnd.get_audio_channel_data_into(
+                        port.name,
+                        (<float*>(<buffers.Buffer>self.__buffers[port.name]).data) + pos)
                 else:
                     raise ValueError(port)
 
             pos += self.__csnd.ksmps
 
         assert pos == ctxt.duration
+        return 0
 
 
-class CSoundFilter(CSoundBase):
+cdef class CSoundFilter(CSoundBase):
     class_name = 'csound_filter'
 
     def __init__(self, **kwargs):
@@ -153,7 +161,7 @@ class CSoundFilter(CSoundBase):
         self.set_code(self.__orchestra, self.__score)
 
 
-class CustomCSound(CSoundBase):
+cdef class CustomCSound(CSoundBase):
     class_name = 'custom_csound'
 
     def __init__(self, **kwargs):

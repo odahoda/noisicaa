@@ -1,17 +1,20 @@
 #!/usr/bin/python3
 
+from libc.stdint cimport uint32_t
+from libc cimport string
+
 import logging
 
 from noisicaa import node_db
 
 from .. import ports
-from .. import node
+from .. cimport node
 from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
 
-class PassThru(node.CustomNode):
+cdef class PassThru(node.CustomNode):
     class_name = 'passthru'
 
     def __init__(self, **kwargs):
@@ -38,7 +41,7 @@ class PassThru(node.CustomNode):
         self.__out_left = None
         self.__out_right = None
 
-    def connect_port(self, port_name, buf):
+    cdef int connect_port(self, port_name, buf) except -1:
         if port_name == 'in:left':
             self.__in_left = buf
         elif port_name == 'in:right':
@@ -50,7 +53,11 @@ class PassThru(node.CustomNode):
         else:
             raise ValueError(port_name)
 
-    def run(self, ctxt):
-        length = 4 * ctxt.duration
-        self.__out_left[0:length] = self.__in_left[0:length]
-        self.__out_right[0:length] = self.__in_right[0:length]
+        return 0
+
+    cdef int run(self, ctxt) except -1:
+        cdef uint32_t length = 4 * ctxt.duration
+        string.memmove(self.__out_left.data, self.__in_left.data, length)
+        string.memmove(self.__out_right.data, self.__in_right.data, length)
+        return 0
+

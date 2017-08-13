@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 
+import struct
 import unittest
 
 import numpy
 
-from . import ladspa
+from . cimport ladspa
 
 
 class LadspaTest(unittest.TestCase):
@@ -19,17 +20,15 @@ class LadspaTest(unittest.TestCase):
     def test_run_instance(self):
         lib = ladspa.Library('/usr/lib/ladspa/sine.so')
         desc = lib.get_descriptor('sine_fcac')
-        inst = desc.instantiate(44100)
+        cdef ladspa.Instance inst = desc.instantiate(44100)
         try:
-            p1 = numpy.ndarray(shape=(1,), dtype=numpy.float32)
-            p1[0] = 440.0
-            p2 = numpy.ndarray(shape=(1,), dtype=numpy.float32)
-            p2[0] = 1.0
-            p3 = numpy.ndarray(shape=(100,), dtype=numpy.float32)
+            p1 = struct.pack('=f', 440.0)
+            p2 = struct.pack('=f', 1.0)
+            p3 = bytearray(400)
 
-            inst.connect_port(desc.ports[0], p1)
-            inst.connect_port(desc.ports[1], p2)
-            inst.connect_port(desc.ports[2], p3)
+            inst.connect_port(desc.ports[0], <char*>p1)
+            inst.connect_port(desc.ports[1], <char*>p2)
+            inst.connect_port(desc.ports[2], <char*>p3)
 
             inst.activate()
             inst.run(100)

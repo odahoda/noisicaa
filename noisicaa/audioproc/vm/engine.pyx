@@ -18,6 +18,7 @@ from noisicaa import rwlock
 from noisicaa import audioproc
 from noisicaa.bindings import lv2
 from .. import resample
+from .. cimport node
 from . cimport buffers
 from . import buffers
 from . import graph
@@ -407,12 +408,12 @@ class PipelineVM(object):
     @at_init
     def op_CONNECT_PORT(self, ctxt, state, *, node_idx, port_name, buf_idx):
         node_id = self.__spec.nodes[node_idx]
-        node = self.__graph.find_node(node_id)
+        cdef node.CustomNode n = self.__graph.find_node(node_id)
         cdef buffers.Buffer buf = self.__buffers[buf_idx]
-        node.connect_port(port_name, memoryview(buf))
+        n.connect_port(port_name, buf)
 
     @at_performance
     def op_CALL(self, ctxt, state, *, node_idx):
         node_id = self.__spec.nodes[node_idx]
-        node = self.__graph.find_node(node_id)
-        node.run(ctxt)
+        cdef node.CustomNode n = self.__graph.find_node(node_id)
+        n.run(ctxt)

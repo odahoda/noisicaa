@@ -1,31 +1,36 @@
 #!/usr/bin/python3
 
 import logging
+import struct
 import threading
 
 import numpy
 
-from noisicaa.bindings import lilv
+from noisicaa.bindings cimport lilv
 from noisicaa.bindings import lv2
 from noisicaa import node_db
 
 from .. import ports
-from .. import node
+from .. cimport node
 from .. import audio_format
+from ..vm cimport buffers
 
 logger = logging.getLogger(__name__)
 
 
-class LV2(node.CustomNode):
+world_initialized = False
+world_lock = threading.Lock()
+
+cdef class LV2(node.CustomNode):
     class_name = 'lv2'
 
-    __world = None
-    __world_lock = threading.Lock()
+    __world = lilv.World()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self.__plugin = None
+        self.__instance = None
         self.__buffers = None
 
     def setup(self):
@@ -34,11 +39,12 @@ class LV2(node.CustomNode):
         uri = self.description.get_parameter('uri').value
         logger.info("Setting up LV2 plugin %s...", uri)
 
-        with self.__world_lock:
-            if self.__world is None:
+        with world_lock:
+            global world_initialized
+            if not world_initialized:
                 logger.info("Creating new LV2 world...")
-                self.__world = lilv.World()
                 self.__world.load_all()
+                world_initialized = True
 
             logger.info("Loading plugin...")
             plugins = self.__world.get_all_plugins()
@@ -55,12 +61,12 @@ class LV2(node.CustomNode):
             if parameter.param_type == node_db.ParameterType.Float:
                 logger.info("Creating parameter buffer %s...", parameter.name)
 
-                buf = numpy.zeros(shape=(1,), dtype=numpy.float32)
+                buf = bytearray(4)
                 self.__buffers[parameter.name] = buf
 
                 lv2_port = self.__plugin.get_port_by_symbol(self.__world.new_string(parameter.name))
                 assert lv2_port is not None, parameter.name
-                self.__instance.connect_port(lv2_port.get_index(), buf)
+                self.__instance.connect_port(lv2_port.get_index(), <char*>buf)
 
     def cleanup(self):
         if self.__instance is not None:
@@ -73,15 +79,17 @@ class LV2(node.CustomNode):
 
         super().cleanup()
 
-    def connect_port(self, port_name, buf):
+    cdef int connect_port(self, port_name, buf) except -1:
         lv2_port = self.__plugin.get_port_by_symbol(
             self.__world.new_string(port_name))
         assert lv2_port is not None, port_name
-        self.__instance.connect_port(lv2_port.get_index(), buf)
+        self.__instance.connect_port(lv2_port.get_index(), (<buffers.Buffer>buf).data)
 
-    def run(self, ctxt):
+    cdef int run(self, ctxt) except -1:
         for parameter in self.description.parameters:
             if parameter.param_type == node_db.ParameterType.Float:
-                self.__buffers[parameter.name][0] = self.get_param(parameter.name)
+                self.__buffers[parameter.name][:] = struct.pack('=f', self.get_param(parameter.name))
 
         self.__instance.run(ctxt.duration)
+
+        return 0

@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import logging
+import struct
 
 import numpy
 
@@ -8,13 +9,14 @@ from noisicaa.bindings import ladspa
 from noisicaa import node_db
 
 from .. import ports
-from .. import node
+from .. cimport node
 from .. import audio_format
+from ..vm cimport buffers
 
 logger = logging.getLogger(__name__)
 
 
-class Ladspa(node.CustomNode):
+cdef class Ladspa(node.CustomNode):
     class_name = 'ladspa'
 
     def __init__(self, **kwargs):
@@ -41,12 +43,12 @@ class Ladspa(node.CustomNode):
             if parameter.param_type == node_db.ParameterType.Float:
                 logger.info("Creating parameter buffer %s...", parameter.name)
 
-                buf = numpy.zeros(shape=(1,), dtype=numpy.float32)
+                buf = bytearray(4)
                 self.__buffers[parameter.name] = buf
 
                 for port in self.__descriptor.ports:
                     if port.name == parameter.name:
-                        self.__instance.connect_port(port, buf)
+                        self.__instance.connect_port(port, <char*>buf)
 
     def cleanup(self):
         if self.__instance is not None:
@@ -59,14 +61,17 @@ class Ladspa(node.CustomNode):
 
         super().cleanup()
 
-    def connect_port(self, port_name, buf):
+    cdef int connect_port(self, port_name, buf) except -1:
         for port in self.__descriptor.ports:
             if port.name == port_name:
-                self.__instance.connect_port(port, buf)
+                self.__instance.connect_port(port, (<buffers.Buffer>buf).data)
+        return 0
 
-    def run(self, ctxt):
+    cdef int run(self, ctxt) except -1:
         for parameter in self.description.parameters:
             if parameter.param_type == node_db.ParameterType.Float:
-                self.__buffers[parameter.name][0] = self.get_param(parameter.name)
+                self.__buffers[parameter.name][:] = struct.pack('=f', self.get_param(parameter.name))
 
         self.__instance.run(ctxt.duration)
+
+        return 0

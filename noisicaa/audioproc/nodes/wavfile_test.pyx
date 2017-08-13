@@ -3,20 +3,28 @@
 import os.path
 import unittest
 
+from noisicaa import constants
 from noisicaa.audioproc import data
-from . import wavfile
+from . cimport wavfile
+from ..vm cimport buffers
 
-TESTDATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'testdata')
+TESTDATA_DIR = os.path.join(constants.ROOT, 'audioproc', 'testdata')
+
 
 class WavFileSourceTest(unittest.TestCase):
     def test_basic(self):
+        cdef:
+            wavfile.WavFileSource node
+            buffers.Buffer buf_l
+            buffers.Buffer buf_r
+
         node = wavfile.WavFileSource(
             id='test',
             path=os.path.join(TESTDATA_DIR, 'ping.wav'))
         node.setup()
         try:
-            buf_l = bytearray(1024)
-            buf_r = bytearray(1024)
+            buf_l = buffers.Buffer(buffers.FloatArray(256))
+            buf_r = buffers.Buffer(buffers.FloatArray(256))
             node.connect_port('out:left', buf_l)
             node.connect_port('out:right', buf_r)
 

@@ -8,10 +8,18 @@ import struct
 from noisicaa import constants
 from noisicaa import node_db
 from noisicaa.audioproc import data
-from . import ladspa
+from . cimport ladspa
+from ..vm cimport buffers
+
 
 class LadspaTest(unittest.TestCase):
     def test_foo(self):
+        cdef:
+            ladspa.Ladspa node
+            buffers.Buffer buf_cutoff
+            buffers.Buffer buf_in
+            buffers.Buffer buf_out
+
         description = node_db.NodeDescription(
             ports=[
                 node_db.AudioPortDescription(
@@ -37,11 +45,11 @@ class LadspaTest(unittest.TestCase):
         ctxt.sample_pos = 0
         ctxt.duration = 256
 
-        buf_cutoff = bytearray(4)
-        buf_in = bytearray(1024)
-        buf_out = bytearray(1024)
+        buf_cutoff = buffers.Buffer(buffers.Float())
+        buf_in = buffers.Buffer(buffers.FloatArray(256))
+        buf_out = buffers.Buffer(buffers.FloatArray(256))
 
-        struct.pack_into('=f', buf_cutoff, 0, 400.0)
+        buf_cutoff.set_bytes(struct.pack('=f', 400.0))
 
         node = ladspa.Ladspa(id='test', description=description)
         node.setup()

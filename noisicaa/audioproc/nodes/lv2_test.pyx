@@ -7,10 +7,16 @@ import os.path
 from noisicaa import constants
 from noisicaa import node_db
 from noisicaa.audioproc import data
-from . import lv2
+from . cimport lv2
+from ..vm cimport buffers
 
 class LV2Test(unittest.TestCase):
     def test_foo(self):
+        cdef:
+            lv2.LV2 node
+            buffers.Buffer buf_in
+            buffers.Buffer buf_out
+
         description = node_db.NodeDescription(
             ports=[
                 node_db.AudioPortDescription(
@@ -34,8 +40,8 @@ class LV2Test(unittest.TestCase):
         ctxt.sample_pos = 0
         ctxt.duration = 256
 
-        buf_in = bytearray(1024)
-        buf_out = bytearray(1024)
+        buf_in = buffers.Buffer(buffers.FloatArray(256))
+        buf_out = buffers.Buffer(buffers.FloatArray(256))
 
         node = lv2.LV2(id='test', description=description)
         node.setup()

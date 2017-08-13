@@ -1,0 +1,14 @@
+# -*- mode: python -*-
+
+import os
+import os.path
+
+def make_ext(modname, pyxfilename):
+    from distutils.extension import Extension
+    return Extension(
+        name = modname,
+        sources=[pyxfilename],
+        include_dirs=[os.path.join(os.getenv('VIRTUAL_ENV'), 'include', 'lilv-0')],
+        library_dirs=[os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')],
+        libraries=['lilv-0'],
+    )

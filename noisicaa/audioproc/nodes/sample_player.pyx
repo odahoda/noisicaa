@@ -4,12 +4,12 @@ import logging
 import textwrap
 
 from noisicaa import node_db
-from . import csound
+from . cimport csound
 
 logger = logging.getLogger(__name__)
 
 
-class SamplePlayer(csound.CSoundBase):
+cdef class SamplePlayer(csound.CSoundBase):
     class_name = 'sample_player'
 
     def __init__(self, *, sample_path, **kwargs):
@@ -30,7 +30,7 @@ class SamplePlayer(csound.CSoundBase):
 
         super().__init__(description=description, **kwargs)
 
-        self._sample_path = sample_path
+        self.__sample_path = sample_path
 
     def setup(self):
         super().setup()
@@ -65,6 +65,6 @@ class SamplePlayer(csound.CSoundBase):
 
         score = textwrap.dedent("""\
             f 1 0 0 1 "{path}" 0 0 0
-            """).format(path=self._sample_path)
+            """).format(path=self.__sample_path)
 
         self.set_code(orchestra, score)

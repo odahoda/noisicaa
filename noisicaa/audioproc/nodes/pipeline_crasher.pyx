@@ -4,13 +4,13 @@ import os
 import signal
 import time
 
-from .. import node
+from .. cimport node
 
 
-class PipelineCrasher(node.CustomNode):
+cdef class PipelineCrasher(node.CustomNode):
     class_name = 'pipeline_crasher'
 
-    def run(self, ctxt):
+    cdef int run(self, ctxt) except -1:
         trigger = self.get_param('trigger')
         if trigger > 0.5:
             raise RuntimeError("Kaboom!")
@@ -22,3 +22,5 @@ class PipelineCrasher(node.CustomNode):
         output_port = self.outputs['out']
         output_port.frame.resize(ctxt.duration)
         output_port.frame.copy_from(input_port.frame)
+
+        return 0

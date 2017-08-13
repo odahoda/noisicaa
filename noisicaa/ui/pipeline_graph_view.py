@@ -53,7 +53,7 @@ class Port(QtWidgets.QGraphicsRectItem):
         if self.port_desc.port_type == node_db.PortType.Audio:
             sym = QtWidgets.QGraphicsSimpleTextItem(self)
             sym.setText('A')
-        elif self.port_desc.port_type == node_db.PortType.Control:
+        elif self.port_desc.port_type == node_db.PortType.KRateControl:
             sym = QtWidgets.QGraphicsSimpleTextItem(self)
             sym.setText('C')
         elif self.port_desc.port_type == node_db.PortType.Events:
@@ -69,8 +69,8 @@ class Port(QtWidgets.QGraphicsRectItem):
         text += {
             (node_db.PortType.Audio, node_db.PortDirection.Input): "audio input",
             (node_db.PortType.Audio, node_db.PortDirection.Output): "audio output",
-            (node_db.PortType.Control, node_db.PortDirection.Input): "control input",
-            (node_db.PortType.Control, node_db.PortDirection.Output): "control output",
+            (node_db.PortType.KRateControl, node_db.PortDirection.Input): "control input",
+            (node_db.PortType.KRateControl, node_db.PortDirection.Output): "control output",
             (node_db.PortType.Events, node_db.PortDirection.Input): "event input",
             (node_db.PortType.Events, node_db.PortDirection.Output): "event output",
         }[(self.port_desc.port_type, self.port_desc.direction)]

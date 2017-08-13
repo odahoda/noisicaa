@@ -38,15 +38,12 @@ class ScoreEntitySourceTest(unittest.TestCase):
         tr = pr.sheets[0].master_group.tracks[0]
         src = score_track.ScoreEntitySource(tr)
 
-        frdata = audioproc.FrameData()
-        frdata.sample_pos = 0
-        frdata.entities = {}
+        entities = {}
+        src.get_entities(entities, 0, 1024, 0)
 
-        src.get_entities(frdata, 0, 1024, 0)
+        entity = entities['track:%s' % tr.id]
 
-        buf = frdata.entities['track:%s' % tr.id].buf
-
-        turtle = sratom.atom_to_turtle(lv2.static_mapper, buf)
+        turtle = sratom.atom_to_turtle(lv2.static_mapper, entity.data)
         print(turtle)
 
 

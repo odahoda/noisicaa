@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+from libc cimport string
+
 import logging
 import os
 import pickle
@@ -13,7 +15,7 @@ from noisicaa import music
 from noisicaa import node_db
 
 from .. import ports
-from .. import node
+from .. cimport node
 from .. import audio_stream
 from .. import entity_capnp
 from .. import frame_data_capnp
@@ -22,7 +24,7 @@ from .. import audio_format
 logger = logging.getLogger(__name__)
 
 
-class IPCNode(node.CustomNode):
+cdef class IPCNode(node.CustomNode):
     class_name = 'ipc'
 
     def __init__(self, *, address, **kwargs):
@@ -51,7 +53,7 @@ class IPCNode(node.CustomNode):
         self.__stream.cleanup()
         super().cleanup()
 
-    def connect_port(self, port_name, buf):
+    cdef int connect_port(self, port_name, buf) except -1:
         if port_name == 'out:left':
             self.__out_l = buf
         elif port_name == 'out:right':
@@ -59,7 +61,9 @@ class IPCNode(node.CustomNode):
         else:
             raise ValueError(port_name)
 
-    def run(self, ctxt):
+        return 0
+
+    cdef int run(self, ctxt) except -1:
         with ctxt.perf.track('ipc'):
             request = frame_data_capnp.FrameData.new_message()
             request.samplePos = ctxt.sample_pos
@@ -79,8 +83,11 @@ class IPCNode(node.CustomNode):
             if entity.id == 'output:left':
                 assert entity.type == entity_capnp.Entity.Type.audio
                 assert entity.size == 4 * response.frameSize
-                self.__out_l[0:entity.size] = entity.data
+                string.memmove(self.__out_l.data, <char*>entity.data, entity.size)
             elif entity.id == 'output:right':
                 assert entity.type == entity_capnp.Entity.Type.audio
                 assert entity.size == 4 * response.frameSize
-                self.__out_r[0:entity.size] = entity.data
+                string.memmove(self.__out_r.data, <char*>entity.data, entity.size)
+
+        return 0
+

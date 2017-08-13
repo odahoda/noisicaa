@@ -2,10 +2,9 @@
 
 import logging
 import unittest
+import struct
 
-import numpy
-
-from . import lilv
+from . cimport lilv
 from . import lv2
 from . import sratom
 
@@ -108,6 +107,12 @@ class PluginTest(unittest.TestCase):
     #         ['http://lv2plug.in/ns/ext/state#loadDefaultState'])
 
     def test_instantiate(self):
+        cdef:
+            cdef lilv.Instance instance
+            cdef bytearray in_buf
+            cdef bytearray out_buf
+            cdef bytearray gain_buf
+
         uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-amp')
         plugin = self.plugins.get_by_uri(uri_node)
         self.assertIsNot(plugin, None)
@@ -120,20 +125,26 @@ class PluginTest(unittest.TestCase):
         instance = plugin.instantiate(44100)
         self.assertIsNot(instance, None)
 
-        in_buf = numpy.zeros(shape=(1024,), dtype=numpy.float32)
-        instance.connect_port(in_port.get_index(), in_buf)
+        in_buf = bytearray(4096)
+        instance.connect_port(in_port.get_index(), <char*>in_buf)
 
-        out_buf = numpy.zeros(shape=(1024,), dtype=numpy.float32)
-        instance.connect_port(out_port.get_index(), out_buf)
+        out_buf = bytearray(4096)
+        instance.connect_port(out_port.get_index(), <char*>out_buf)
 
-        gain_buf = numpy.zeros(shape=(1,), dtype=numpy.float32)
-        instance.connect_port(gain_port.get_index(), gain_buf)
+        gain_buf = bytearray(4)
+        instance.connect_port(gain_port.get_index(), <char*>gain_buf)
 
         instance.activate()
         instance.run(1024)
         instance.deactivate()
 
     def test_instantiate_amp(self):
+        cdef:
+            cdef lilv.Instance instance
+            cdef bytearray in_buf
+            cdef bytearray out_buf
+            cdef bytearray gain_buf
+
         uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-amp')
         plugin = self.plugins.get_by_uri(uri_node)
         self.assertIsNot(plugin, None)
@@ -146,20 +157,23 @@ class PluginTest(unittest.TestCase):
         instance = plugin.instantiate(44100)
         self.assertIsNot(instance, None)
 
-        in_buf = numpy.zeros(shape=(1024,), dtype=numpy.float32)
-        instance.connect_port(in_port.get_index(), in_buf)
+        in_buf = bytearray(4096)
+        instance.connect_port(in_port.get_index(), <char*>in_buf)
 
-        out_buf = numpy.zeros(shape=(1024,), dtype=numpy.float32)
-        instance.connect_port(out_port.get_index(), out_buf)
+        out_buf = bytearray(4096)
+        instance.connect_port(out_port.get_index(), <char*>out_buf)
 
-        gain_buf = numpy.zeros(shape=(1,), dtype=numpy.float32)
-        instance.connect_port(gain_port.get_index(), gain_buf)
+        gain_buf = bytearray(4)
+        instance.connect_port(gain_port.get_index(), <char*>gain_buf)
 
         instance.activate()
         instance.run(1024)
         instance.deactivate()
 
     def test_instantiate_midigate(self):
+        cdef:
+            cdef lilv.Instance instance
+
         uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-midigate')
         plugin = self.plugins.get_by_uri(uri_node)
         self.assertIsNot(plugin, None)
@@ -173,7 +187,7 @@ class PluginTest(unittest.TestCase):
         self.assertIsNot(instance, None)
 
         control_buf = bytearray(1024)
-        instance.connect_port(control_port.get_index(), control_buf)
+        instance.connect_port(control_port.get_index(), <char*>control_buf)
 
         forge = lv2.AtomForge(self.world.urid_mapper)
         forge.set_buffer(control_buf, 1024)
@@ -183,11 +197,11 @@ class PluginTest(unittest.TestCase):
 
         logger.info(sratom.atom_to_turtle(self.world.urid_mapper, control_buf))
 
-        in_buf = numpy.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], dtype=numpy.float32)
-        instance.connect_port(in_port.get_index(), in_buf)
+        in_buf = struct.pack('=ffffffffff', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+        instance.connect_port(in_port.get_index(), <char*>in_buf)
 
-        out_buf = numpy.zeros(shape=(10,), dtype=numpy.float32)
-        instance.connect_port(out_port.get_index(), out_buf)
+        out_buf = bytearray(40)
+        instance.connect_port(out_port.get_index(), <char*>out_buf)
 
         instance.activate()
         instance.run(10)
@@ -196,10 +210,13 @@ class PluginTest(unittest.TestCase):
         # The output should rather be [0, 0, 0, 4, 5, 6, 7, 0, 0, 0], but eg-midigate does not
         # work correctly.
         self.assertEqual(
-            list(out_buf),
-            list(numpy.array([1, 2, 3, 0, 0, 0, 0, 0, 0, 0], dtype=numpy.float32)))
+            out_buf,
+            struct.pack('=ffffffffff', 1, 2, 3, 0, 0, 0, 0, 0, 0, 0))
 
     def test_instantiate_fifths(self):
+        cdef:
+            cdef lilv.Instance instance
+
         uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-fifths')
         plugin = self.plugins.get_by_uri(uri_node)
         self.assertIsNot(plugin, None)
@@ -212,7 +229,7 @@ class PluginTest(unittest.TestCase):
         self.assertIsNot(instance, None)
 
         in_buf = bytearray(1024)
-        instance.connect_port(in_port.get_index(), in_buf)
+        instance.connect_port(in_port.get_index(), <char*>in_buf)
 
         forge = lv2.AtomForge(self.world.urid_mapper)
         forge.set_buffer(in_buf, 1024)
@@ -223,7 +240,7 @@ class PluginTest(unittest.TestCase):
         logger.info(sratom.atom_to_turtle(self.world.urid_mapper, in_buf))
 
         out_buf = bytearray(1024)
-        instance.connect_port(out_port.get_index(), out_buf)
+        instance.connect_port(out_port.get_index(), <char*>out_buf)
 
         instance.activate()
         instance.run(1024)
@@ -234,6 +251,9 @@ class PluginTest(unittest.TestCase):
         # TODO: verify that out_buf contains 4 midi events.
 
     def test_instantiate_(self):
+        cdef:
+            cdef lilv.Instance instance
+
         uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-fifths')
         plugin = self.plugins.get_by_uri(uri_node)
         self.assertIsNot(plugin, None)
@@ -246,7 +266,7 @@ class PluginTest(unittest.TestCase):
         self.assertIsNot(instance, None)
 
         in_buf = bytearray(1024)
-        instance.connect_port(in_port.get_index(), in_buf)
+        instance.connect_port(in_port.get_index(), <char*>in_buf)
 
         forge = lv2.AtomForge(self.world.urid_mapper)
         forge.set_buffer(in_buf, 1024)
@@ -257,7 +277,7 @@ class PluginTest(unittest.TestCase):
         logger.info(sratom.atom_to_turtle(self.world.urid_mapper, in_buf))
 
         out_buf = bytearray(1024)
-        instance.connect_port(out_port.get_index(), out_buf)
+        instance.connect_port(out_port.get_index(), <char*>out_buf)
 
         instance.activate()
         instance.run(1024)

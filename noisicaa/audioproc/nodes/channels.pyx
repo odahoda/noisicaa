@@ -3,13 +3,13 @@
 import logging
 
 from .. import ports
-from .. import node
+from .. cimport node
 from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
 
-class SplitChannels(node.CustomNode):
+cdef class SplitChannels(node.CustomNode):
     class_name = 'split_channels'
 
     def __init__(self, **kwargs):
@@ -24,15 +24,17 @@ class SplitChannels(node.CustomNode):
         self._right = ports.AudioOutputPort('right', audio_format.CHANNELS_MONO)
         self.add_output(self._right)
 
-    def run(self, ctxt):
+    cdef int run(self, ctxt) except -1:
         self._left.frame.resize(ctxt.duration)
         self._right.frame.resize(ctxt.duration)
 
         self._left.frame.samples[0] = self._input.frame.samples[0]
         self._right.frame.samples[0] = self._input.frame.samples[1]
 
+        return 0
 
-class JoinChannels(node.CustomNode):
+
+cdef class JoinChannels(node.CustomNode):
     class_name = 'join_channels'
 
     def __init__(self, **kwargs):
@@ -47,7 +49,7 @@ class JoinChannels(node.CustomNode):
         self._output = ports.AudioOutputPort('out', audio_format.CHANNELS_STEREO)
         self.add_output(self._output)
 
-    def run(self, ctxt):
+    cdef int run(self, ctxt) except -1:
         assert len(self._left.frame) == ctxt.duration
         assert len(self._right.frame) == ctxt.duration
 
@@ -55,3 +57,5 @@ class JoinChannels(node.CustomNode):
 
         self._output.frame.samples[0] = self._left.frame.samples[0]
         self._output.frame.samples[1] = self._right.frame.samples[0]
+
+        return 0

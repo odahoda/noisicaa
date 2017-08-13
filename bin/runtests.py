@@ -5,6 +5,7 @@ import fnmatch
 import logging
 import os
 import os.path
+import shutil
 import sys
 import unittest
 
@@ -31,6 +32,7 @@ def main(argv):
     parser.add_argument('--write-perf-stats', action='store_true', default=False)
     parser.add_argument('--profile', action='store_true', default=False)
     parser.add_argument('--gdb', action='store_true', default=False)
+    parser.add_argument('--rebuild', action='store_true', default=False)
     args = parser.parse_args(argv[1:])
 
     constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
@@ -45,19 +47,27 @@ def main(argv):
         'critical': logging.CRITICAL,
         }[args.log_level if not args.debug else 'debug'])
 
-    build_dir = 'pyxbuild'
     directives = {}
+    modifiers = set()
 
     if args.profile:
         directives['profile'] = True
-        build_dir += '-profile'
+        modifiers.add('prof')
 
-    if args.profile:
+    if args.gdb:
         directives['gdb_debug'] = True
-        build_dir += '-dbg'
+        modifiers.add('dbg')
+
+    build_dir = os.path.join(
+        os.getenv('VIRTUAL_ENV'),
+        'pyxbuild',
+        '-'.join(sorted(modifiers)) or 'vanilla')
+
+    if args.rebuild:
+        shutil.rmtree(build_dir)
 
     pyximport.install(
-        build_dir=os.path.join(os.getenv('VIRTUAL_ENV'), build_dir),
+        build_dir=build_dir,
         setup_args={
             'script_args': ['--verbose'],
             'options': {
