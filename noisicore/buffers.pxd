@@ -30,5 +30,5 @@ cdef extern from "buffers.h" namespace "noisicaa" nogil:
         Status allocate(uint32_t frame_size)
 
         Status clear()
-        Status mix(const Buffer& other)
+        Status mix(const Buffer* other)
         Status mul(float factor)

@@ -17,7 +17,7 @@ set(TEST_SRCS
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
 add_library(noisicore STATIC ${LIB_SRCS})
-target_compile_options(noisicore PRIVATE -fPIC)
+target_compile_options(noisicore PRIVATE -fPIC -g)
 
 foreach(TEST_SRC ${TEST_SRCS})
   string(REGEX REPLACE "\.pyx$" "" TEST_MOD ${TEST_SRC})

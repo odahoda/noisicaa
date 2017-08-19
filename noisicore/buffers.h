@@ -60,21 +60,21 @@ class AtomData : public BufferType {
 
 class Buffer {
  public:
-  Buffer(BufferType* type);
+  Buffer(const BufferType* type);
   ~Buffer();
 
-  const BufferType* type() const { return _type.get(); }
+  const BufferType* type() const { return _type; }
   BufferPtr data() { return _data; }
   uint32_t size() const { return _size; }
 
   Status allocate(uint32_t frame_size);
 
   Status clear();
-  Status mix(const Buffer& other);
+  Status mix(const Buffer* other);
   Status mul(float factor);
 
  private:
-  unique_ptr<BufferType> _type;
+  const BufferType* _type;
 
   uint32_t _frame_size;
   BufferPtr _data;

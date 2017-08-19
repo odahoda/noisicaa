@@ -146,7 +146,7 @@ Status AtomData::mul_buffer(uint32_t frame_size, BufferPtr buf, float factor) co
   return Status::Error("Operation not supported for AtomData");
 }
 
-Buffer::Buffer(BufferType* type)
+Buffer::Buffer(const BufferType* type)
   : _type(type),
     _frame_size(0),
     _data(nullptr),
@@ -191,11 +191,11 @@ Status Buffer::clear() {
   return _type->clear_buffer(_frame_size, _data);
 }
 
-Status Buffer::mix(const Buffer& other) {
+Status Buffer::mix(const Buffer* other) {
   // assert _frame_size > 0
   // assert other._frame_size == _frame_size
   // assert other._type == _type
-  return _type->mix_buffers(_frame_size, other._data, _data);
+  return _type->mix_buffers(_frame_size, other->_data, _data);
 }
 
 Status Buffer::mul(float factor) {

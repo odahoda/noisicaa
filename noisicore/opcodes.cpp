@@ -8,24 +8,24 @@ struct OpSpec opspecs[NUM_OPCODES] = {
   { OpCode::END, "" },
 
   // buffer access
-  { OpCode::COPY, "ii" },
-  { OpCode::CLEAR, "i" },
-  { OpCode::MIX, "ii" },
-  { OpCode::MUL, "if" },
-  { OpCode::SET_FLOAT, "if" },
+  { OpCode::COPY, "bb" },
+  { OpCode::CLEAR, "b" },
+  { OpCode::MIX, "bb" },
+  { OpCode::MUL, "bf" },
+  { OpCode::SET_FLOAT, "bf" },
 
   // I/O
-  { OpCode::OUTPUT, "is" },
-  { OpCode::FETCH_ENTITY, "si" },
-  { OpCode::FETCH_MESSAGES, "ii" },
-  { OpCode::FETCH_PARAMETER, "si" },
+  { OpCode::OUTPUT, "bs" },
+  { OpCode::FETCH_ENTITY, "sb" },
+  { OpCode::FETCH_MESSAGES, "ib" },
+  { OpCode::FETCH_PARAMETER, "sb" },
 
   // generators
-  { OpCode::NOISE, "i" },
-  { OpCode::SINE, "if" },
+  { OpCode::NOISE, "b" },
+  { OpCode::SINE, "bf" },
 
   // processors
-  { OpCode::CONNECT_PORT, "isi" },
+  { OpCode::CONNECT_PORT, "isb" },
   { OpCode::CALL, "i" },
 };
 

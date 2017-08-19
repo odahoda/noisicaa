@@ -85,7 +85,7 @@ class TestFloat(unittest.TestCase):
 
         data1[0] = 2.0
         data2[0] = 3.0
-        status = buf1.mix(buf2[0])
+        status = buf1.mix(buf2)
         self.assertFalse(status.is_error())
         self.assertEqual(data1[0], 5.0)
         self.assertEqual(data2[0], 3.0)
@@ -170,7 +170,7 @@ class TestFloatAudioFrame(unittest.TestCase):
 
         data1[0:4] = [1.0, 2.0, 3.0, 4.0]
         data2[0:4] = [3.0, 5.0, 1.0, 2.0]
-        status = buf1.mix(buf2[0])
+        status = buf1.mix(buf2)
         self.assertFalse(status.is_error())
         self.assertEqual([f for f in data1[0:4]], [4.0, 7.0, 4.0, 6.0])
         self.assertEqual([f for f in data2[0:4]], [3.0, 5.0, 1.0, 2.0])
@@ -276,7 +276,7 @@ class TestAtomData(unittest.TestCase):
 
         _fill_atom_buffer(buf1, [(0, b'0'), (10, b'10'), (20, b'20'), (30, b'30')])
         _fill_atom_buffer(buf2, [(1, b'1'), (9, b'9'), (11, b'11'), (15, b'15')])
-        status = buf1.mix(buf2[0])
+        status = buf1.mix(buf2)
         self.assertFalse(status.is_error())
         self.assertEqual(
             _read_atom_buffer(buf1),
