@@ -1,0 +1,22 @@
+add_python_package(
+  audio_playground.py
+  constants.py
+  editor_main.py
+  exceptions.py
+  logging.py
+  pdb.py
+  runtime_settings.py
+  rwlock.py
+  utils.py
+)
+
+add_subdirectory(audioproc)
+add_subdirectory(bindings)
+add_subdirectory(core)
+add_subdirectory(devices)
+add_subdirectory(importers)
+add_subdirectory(instr)
+add_subdirectory(instrument_db)
+add_subdirectory(music)
+add_subdirectory(node_db)
+add_subdirectory(ui)

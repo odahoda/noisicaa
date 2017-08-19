@@ -1,0 +1,14 @@
+add_python_package(
+  builtin_scanner.py
+  csound_scanner.py
+  csound_scanner_test.py
+  db.py
+  db_test.py
+  ladspa_scanner.py
+  ladspa_scanner_test.py
+  lv2_scanner.py
+  lv2_scanner_test.py
+  preset_scanner.py
+  preset_scanner_test.py
+  scanner.py
+)

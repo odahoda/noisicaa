@@ -1,6 +1,10 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
+- rebuild all cython modules before starting app
+- consistent use of either malloc or PyObject_Malloc
+  - is PyObject_Malloc nogil?
+- engine_perftest should focus on other opcodes than CALL
 - add more nogils to methods in bindings
 - can pyximport handle distutils pragmas?
 - StaticMapper should have common URIDs as attributes, so client code doesn't have to call map

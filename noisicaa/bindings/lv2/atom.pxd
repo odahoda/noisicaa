@@ -468,6 +468,7 @@ cdef class AtomForge(object):
     cdef LV2_URID midi_event
     cdef LV2_URID frame_time
 
+    cpdef set_buffer(self, uint8_t* buf, size_t size)
 
 cdef class Atom(object):
     cdef LV2_Atom* atom

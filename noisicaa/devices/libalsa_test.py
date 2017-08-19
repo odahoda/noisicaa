@@ -3,10 +3,6 @@
 import time
 import unittest
 
-if __name__ == '__main__':
-    import pyximport
-    pyximport.install()
-
 from . import libalsa
 
 class AlsaSequencerTest(unittest.TestCase):

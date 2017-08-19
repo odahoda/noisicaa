@@ -1,8 +1,5 @@
 #!/usr/bin/python3
 
-import pyximport
-pyximport.install()
-
 import asyncio
 import sys
 import argparse

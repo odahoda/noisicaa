@@ -163,10 +163,6 @@ class Main(object):
         with logging.LogManager(self.runtime_settings):
             self.logger = logging.getLogger(__name__)
 
-            if self.runtime_settings.dev_mode:
-                import pyximport
-                pyximport.install()
-
             if self.action == 'editor':
                 rc = Editor(self.runtime_settings, self.paths, self.logger).run()
 

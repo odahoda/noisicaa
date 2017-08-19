@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 
 import argparse
+import itertools
 import fnmatch
 import logging
 import os
 import os.path
 import shutil
+import subprocess
 import sys
 import unittest
 
 import coverage
-import pyximport
 
-LIBDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+LIBDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'build'))
 sys.path.insert(0, LIBDIR)
-
-from noisicaa import constants
 
 os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
 
@@ -32,11 +31,8 @@ def main(argv):
     parser.add_argument('--write-perf-stats', action='store_true', default=False)
     parser.add_argument('--profile', action='store_true', default=False)
     parser.add_argument('--gdb', action='store_true', default=False)
-    parser.add_argument('--rebuild', action='store_true', default=False)
+    parser.add_argument('--norebuild', action='store_true', default=False)
     args = parser.parse_args(argv[1:])
-
-    constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
-    constants.TEST_OPTS.ENABLE_PROFILER = args.profile
 
     logging.basicConfig()
     logging.getLogger().setLevel({
@@ -58,25 +54,12 @@ def main(argv):
         directives['gdb_debug'] = True
         modifiers.add('dbg')
 
-    build_dir = os.path.join(
-        os.getenv('VIRTUAL_ENV'),
-        'pyxbuild',
-        '-'.join(sorted(modifiers)) or 'vanilla')
+    if not args.norebuild:
+        subprocess.run(['make', '-j4'], cwd=LIBDIR, check=True)
 
-    if args.rebuild:
-        shutil.rmtree(build_dir)
-
-    pyximport.install(
-        build_dir=build_dir,
-        setup_args={
-            'script_args': ['--verbose'],
-            'options': {
-                'build_ext': {
-                    'cython_directives': directives,
-                }
-            }
-        }
-    )
+    from noisicaa import constants
+    constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
+    constants.TEST_OPTS.ENABLE_PROFILER = args.profile
 
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
@@ -89,13 +72,14 @@ def main(argv):
         cov.set_option("run:branch", True)
         cov.start()
 
-    for dirpath, dirnames, filenames in os.walk(
-        os.path.join(LIBDIR, 'noisicaa')):
+    for dirpath, dirnames, filenames in itertools.chain(
+            os.walk(os.path.join(LIBDIR, 'noisicaa')),
+            os.walk(os.path.join(LIBDIR, 'noisicore'))):
         if '__pycache__' in dirnames:
             dirnames.remove('__pycache__')
 
         for filename in filenames:
-            if not (fnmatch.fnmatch(filename, '*.py') or fnmatch.fnmatch(filename, '*.pyx')):
+            if not (fnmatch.fnmatch(filename, '*.py') or fnmatch.fnmatch(filename, '*.so')):
                 continue
 
             filename = os.path.splitext(filename)[0]

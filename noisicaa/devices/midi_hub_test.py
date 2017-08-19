@@ -6,10 +6,6 @@ import time
 import unittest
 from unittest import mock
 
-if __name__ == '__main__':
-    import pyximport
-    pyximport.install()
-
 from . import libalsa
 from . import midi_events
 from . import midi_hub

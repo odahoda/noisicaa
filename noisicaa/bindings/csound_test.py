@@ -3,10 +3,6 @@
 import textwrap
 import unittest
 
-if __name__ == '__main__':
-    import pyximport
-    pyximport.install()
-
 from . import csound
 
 

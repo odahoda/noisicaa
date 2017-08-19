@@ -6,10 +6,6 @@ import os.path
 import pprint
 import sys
 
-if __name__ == '__main__':
-    import pyximport
-    pyximport.install()
-
 from noisicaa import music
 from . import abc
 

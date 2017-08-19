@@ -2,10 +2,6 @@
 
 import unittest
 
-if __name__ == '__main__':
-    import pyximport
-    pyximport.install()
-
 from noisicaa.music import project
 from noisicaa.music import sheet
 from . import uitest_utils

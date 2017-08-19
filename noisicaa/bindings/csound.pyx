@@ -1,12 +1,12 @@
-import enum
-import logging
-import os
-
-import numpy
-
+from cpython.ref cimport PyObject
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from libc cimport stdio
 from libc cimport string
 from libc cimport stdint
+
+import enum
+import logging
+import os
 
 
 ### LOGGING ###############################################################
@@ -80,16 +80,16 @@ class CSoundError(Exception):
     pass
 
 
-class ChannelType(enum.Enum):
-    Control = 1
-    Audio = 2
-    String = 3
-    Pvs = 4
-    Var = 5
+cdef class Channel(object):
+    def __init__(self):
+        raise RuntimeError("Class cannot be instatiated from Python")
 
-class Channel(object):
-    def __init__(self, name, cs_type):
-        self.name = name
+    @staticmethod
+    cdef create(const char* name, int cs_type):
+        cdef Channel self = Channel.__new__(Channel)
+
+        self._name = bytes(name)
+        self.cs_name = <char*>self._name
         self.cs_type = cs_type
 
         self.type = {
@@ -99,14 +99,42 @@ class Channel(object):
             CSOUND_PVS_CHANNEL: ChannelType.Pvs,
             CSOUND_VAR_CHANNEL: ChannelType.Var,
         }[cs_type & CSOUND_CHANNEL_TYPE_MASK]
-        self.is_input = bool(cs_type & CSOUND_INPUT_CHANNEL)
-        self.is_output = bool(cs_type & CSOUND_OUTPUT_CHANNEL)
+        self.is_input = 1 if cs_type & CSOUND_INPUT_CHANNEL else 0
+        self.is_output = 1 if cs_type & CSOUND_OUTPUT_CHANNEL else 0
+
+        return self
+
+    @property
+    def name(self):
+        return self._name.decode('utf-8')
+
+    @property
+    def type_name(self):
+        if self.type == ChannelType.Control:
+            return 'control'
+        elif self.type == ChannelType.Audio:
+            return 'audio'
+        elif self.type == ChannelType.String:
+            return 'string'
+        elif self.type == ChannelType.Pvs:
+            return 'pvs'
+        elif self.type == ChannelType.Var:
+            return 'var'
+        else:
+            raise ValueError(self.type)
 
     def __str__(self):
         return '<Channel "%s" %s %s%s>' % (
-            self.name, self.type.name.lower(),
+            self.name, self.type_name,
             'in' if self.is_input else '',
             'out' if self.is_output else '')
+
+
+cdef int _check(int rc) nogil except -1:
+    if rc < 0:
+        with gil:
+            raise CSoundError(rc)
+    return rc
 
 
 cdef class CSound(object):
@@ -121,11 +149,7 @@ cdef class CSound(object):
         self.channels = None
         self.initialized = False
 
-        self._check(csoundSetOption(self.csnd, '-n'))
-
-    def _check(self, rc):
-        if rc < 0:
-            raise CSoundError(rc)
+        _check(csoundSetOption(self.csnd, '-n'))
 
     def set_orchestra(self, orc):
         assert not self.initialized
@@ -134,24 +158,26 @@ cdef class CSound(object):
             orc = orc.encode('utf-8')
 
         orc = b'sr=44100\n0dbfs=1\n' + orc
-        self._check(csoundCompileOrc(self.csnd, orc))
-        self._check(csoundStart(self.csnd))
+        _check(csoundCompileOrc(self.csnd, orc))
+        _check(csoundStart(self.csnd))
 
         self.ksmps = csoundGetKsmps(self.csnd)
 
-        self.channels = {}
+        if self.channel_list != NULL:
+            PyMem_Free(self.channel_list)
+            self.channel_list = NULL
 
         cdef controlChannelInfo_t* cinfo = NULL
-        num = csoundListChannels(self.csnd, &cinfo)
         try:
-            if num < 0:
-                raise CSoundError(num)
+            self.num_channels = _check(csoundListChannels(self.csnd, &cinfo))
 
-            for idx in range(num):
-                channel = Channel(
-                    name=bytes(cinfo[idx].name).decode('utf-8'),
-                    cs_type=cinfo[idx].type)
+            self.channels = {}
+            self.channel_list = <PyObject**>PyMem_Malloc(self.num_channels * sizeof(PyObject*))
+
+            for idx in range(self.num_channels):
+                channel = Channel.create(cinfo[idx].name, cinfo[idx].type)
                 self.channels[channel.name] = channel
+                self.channel_list[idx] = <PyObject*>channel
 
         finally:
             if cinfo != NULL:
@@ -164,39 +190,46 @@ cdef class CSound(object):
 
         if isinstance(score, str):
             score = score.encode('utf-8')
-        self._check(csoundReadScore(self.csnd, score))
+        _check(csoundReadScore(self.csnd, score))
 
     def add_score_event(self, score):
         assert self.initialized
 
         if isinstance(score, str):
             score = score.encode('ascii')
-        self._check(csoundReadScore(self.csnd, score))
+        _check(csoundReadScore(self.csnd, score))
 
     def perform(self):
-        assert self.initialized
+        cdef:
+            MYFLT* channel_dat
+            PyObject* channel
+            int idx
 
-        cdef MYFLT* channel_dat
-        for channel in self.channels.values():
-            if not channel.is_output:
-                continue
-            self._check(csoundGetChannelPtr(
-                self.csnd, &channel_dat,
-                channel.name.encode('utf-8'), channel.cs_type))
-            string.memset(channel_dat, 0, self.ksmps * sizeof(MYFLT))
+        with nogil:
+            if not self.initialized:
+                with gil:
+                    raise AssertionError
 
-        self._check(csoundPerformKsmps(self.csnd))
+            for idx in range(self.num_channels):
+                channel = self.channel_list[idx]
+                if not (<Channel>channel).is_output:
+                    continue
+                _check(csoundGetChannelPtr(
+                    self.csnd, &channel_dat,
+                    (<Channel>channel).cs_name, (<Channel>channel).cs_type))
+                string.memset(channel_dat, 0, self.ksmps * sizeof(MYFLT))
+
+            _check(csoundPerformKsmps(self.csnd))
 
     def get_audio_channel_data(self, name):
         assert name in self.channels, name
-        channel = self.channels[name]
+        cdef Channel channel = self.channels[name]
         assert channel.is_output, channel
         assert channel.type == ChannelType.Audio, channel
 
         cdef MYFLT* channel_dat
-        self._check(csoundGetChannelPtr(
-            self.csnd, &channel_dat,
-            channel.name.encode('utf-8'), channel.cs_type))
+        _check(csoundGetChannelPtr(
+            self.csnd, &channel_dat, channel.cs_name, channel.cs_type))
 
         out = bytearray(self.ksmps * sizeof(float))
         cdef int i = 0
@@ -207,34 +240,38 @@ cdef class CSound(object):
         return out
 
     cdef int get_audio_channel_data_into(self, str name, float* out) except -1:
-        assert name in self.channels, name
+        cdef:
+            Channel channel
+            MYFLT* channel_dat
+            int i
+
         channel = self.channels[name]
-        assert channel.is_output, channel
-        assert channel.type == ChannelType.Audio, channel
+        with nogil:
+            if not channel.is_output:
+                with gil:
+                    raise TypeError("Channel %s is not an output channel" % channel)
+            if channel.type != ChannelType.Audio:
+                with gil:
+                    raise TypeError("Channel %s is not an audio channel" % channel)
 
-        cdef MYFLT* channel_dat
-        self._check(csoundGetChannelPtr(
-            self.csnd, &channel_dat,
-            channel.name.encode('utf-8'), channel.cs_type))
+            _check(csoundGetChannelPtr(
+                self.csnd, &channel_dat, channel.cs_name, channel.cs_type))
 
-        cdef int i = 0
-        while i < self.ksmps:
-            out[i] = channel_dat[i]
-            i += 1
-        return 0
+            for i in range(self.ksmps):
+                out[i] = channel_dat[i]
+            return 0
 
     def set_audio_channel_data(self, name, samples):
         assert name in self.channels, name
-        channel = self.channels[name]
+        cdef Channel channel = self.channels[name]
         assert channel.is_input, channel
         assert channel.type == ChannelType.Audio, channel
 
         assert len(samples) == self.ksmps * sizeof(float)
 
         cdef MYFLT* channel_dat
-        self._check(csoundGetChannelPtr(
-            self.csnd, &channel_dat,
-            channel.name.encode('utf-8'), channel.cs_type))
+        _check(csoundGetChannelPtr(
+            self.csnd, &channel_dat, channel.cs_name, channel.cs_type))
 
         cdef float* inp
         cdef char[:] view
@@ -252,14 +289,18 @@ cdef class CSound(object):
 
     def set_control_channel_value(self, name, value):
         assert name in self.channels, name
-        channel = self.channels[name]
+        cdef Channel channel = self.channels[name]
         assert channel.is_input, channel
         assert channel.type == ChannelType.Control, channel
 
-        csoundSetControlChannel(
-            self.csnd, channel.name.encode('utf-8'), value)
+        csoundSetControlChannel(self.csnd, channel.cs_name, value)
 
     def close(self):
-        assert self.csnd != NULL
-        csoundDestroy(self.csnd)
-        self.csnd = NULL
+        if self.channel_list != NULL:
+            PyMem_Free(self.channel_list)
+            self.channel_list = NULL
+            self.channels = {}
+
+        if self.csnd != NULL:
+            csoundDestroy(self.csnd)
+            self.csnd = NULL

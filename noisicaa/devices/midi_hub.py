@@ -5,10 +5,6 @@ import select
 import time
 import threading
 
-if __name__ == '__main__':
-    import pyximport
-    pyximport.install()
-
 from noisicaa.core import callbacks
 from . import libalsa
 

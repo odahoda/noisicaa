@@ -8,10 +8,6 @@ import unittest
 from mox3 import stubout
 from pyfakefs import fake_filesystem
 
-if __name__ == '__main__':
-    import pyximport
-    pyximport.install()
-
 from noisicaa.core import fileutil
 from noisicaa.core import storage
 from . import project

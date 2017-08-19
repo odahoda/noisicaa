@@ -8,10 +8,6 @@ import fractions
 import unittest
 import glob
 
-if __name__ == '__main__':
-    import pyximport
-    pyximport.install()
-
 from noisicaa import music
 from . import abc
 

@@ -1,6 +1,7 @@
 import errno
 import logging
-import midi_events
+
+from . import midi_events
 
 logger = logging.getLogger(__name__)
 

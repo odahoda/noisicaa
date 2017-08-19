@@ -1,0 +1,11 @@
+add_python_package(
+  client.py
+  client_test.py
+  mutations.py
+  node_description.py
+  presets.py
+  presets_test.py
+  process_base.py
+  process.py
+)
+add_subdirectory(private)

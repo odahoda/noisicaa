@@ -1,6 +1,8 @@
 #!/bin/bash
 
-LIBDIR=$(readlink -f "$(dirname "$0")/..")
+LIBDIR=$(readlink -f "$(dirname "$0")/../build")
+(cd $LIBDIR && make)
 export PYTHONPATH="$LIBDIR:$PYTHONPATH"
 export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
+cd $HOME
 exec python3 -m noisicaa.editor_main "$@"

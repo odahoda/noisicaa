@@ -1,0 +1,9 @@
+add_python_package(
+  client.py
+  client_test.py
+  instrument_description.py
+  mutations.py
+  process_base.py
+  process.py
+)
+add_subdirectory(private)

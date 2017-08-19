@@ -1,0 +1,43 @@
+add_python_package(
+  base_track.py
+  beat_track.py
+  clef.py
+  commands.py
+  commands_test.py
+  control_track.py
+  event_set.py
+  event_set_test.py
+  exceptions.py
+  key_signature.py
+  key_signature_test.py
+  misc.py
+  model.py
+  mutations.py
+  pipeline_graph.py
+  pitch.py
+  pitch_test.py
+  player_integration_test.py
+  player.py
+  player_test.py
+  project_client.py
+  project_client_test.py
+  project_process.py
+  project.py
+  project_test.py
+  sample_track.py
+  score_track.py
+  score_track_test.py
+  sheet_property_track.py
+  sheet.py
+  sheet_test.py
+  state.py
+  state_test.py
+  time_mapper.py
+  time_mapper_test.py
+  time.py
+  time_signature.py
+  time_signature_test.py
+  track_group.py
+)
+
+file(COPY testdata DESTINATION .)

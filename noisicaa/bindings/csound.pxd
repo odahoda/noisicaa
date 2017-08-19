@@ -1,3 +1,4 @@
+from cpython.ref cimport PyObject
 from libc cimport stdint
 
 cdef extern from "stdarg.h" nogil:
@@ -92,8 +93,28 @@ cdef extern from "csound/csound.h" nogil:
     #long csoundGetOutputBufferSize(CSOUND* csnd)
 
 
+ctypedef enum ChannelType:
+    Control = 1
+    Audio = 2
+    String = 3
+    Pvs = 4
+    Var = 5
+
+cdef class Channel(object):
+    cdef bytes _name
+    cdef const char* cs_name
+    cdef int cs_type
+    cdef readonly ChannelType type
+    cdef readonly int is_input
+    cdef readonly int is_output
+
+    @staticmethod
+    cdef create(const char* name, int cs_type)
+
 cdef class CSound(object):
     cdef CSOUND* csnd
+    cdef int num_channels
+    cdef PyObject** channel_list
     cdef readonly dict channels
     cdef readonly int ksmps
     cdef int initialized

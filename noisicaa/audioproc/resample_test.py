@@ -4,10 +4,6 @@ import os.path
 import unittest
 import wave
 
-if __name__ == '__main__':
-    import pyximport
-    pyximport.install()
-
 from . import resample
 
 TESTDATA_DIR = os.path.join(os.path.dirname(__file__), 'testdata')
@@ -45,8 +41,3 @@ class ResampleTest(unittest.TestCase):
 
             out_samples = resampler.flush()
             self.assertIsInstance(out_samples, bytes)
-
-
-
-if __name__ == '__main__':
-    unittest.main()

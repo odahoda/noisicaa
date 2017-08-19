@@ -1,0 +1,44 @@
+add_python_package(
+  command_shell.py
+  dock_widget.py
+  editor_app.py
+  editor_window.py
+  flowlayout.py
+  instrument_library.py
+  instrument_library_test.py
+  load_history.py
+  misc.py
+  model.py
+  mute_button.py
+  piano.py
+  piano_test.py
+  pipeline_graph_monitor.py
+  pipeline_graph_view.py
+  pipeline_perf_monitor.py
+  project_registry.py
+  project_view.py
+  project_view_test.py
+  qled.py
+  render_sheet_dialog.py
+  render_sheet_dialog_test.py
+  selection_set.py
+  session_helpers.py
+  settings.py
+  sheet_properties_dock.py
+  stat_monitor.py
+  svg_symbol_filetest.py
+  svg_symbol.py
+  svg_symbol_test.py
+  tool_dock.py
+  tools.py
+  track_properties_dock.py
+  tracks_dock.py
+  tracks_dock_test.py
+  ui_base.py
+  ui_process.py
+  uitest_utils.py
+)
+
+file(COPY testdata DESTINATION .)
+
+add_subdirectory(sheet_view)

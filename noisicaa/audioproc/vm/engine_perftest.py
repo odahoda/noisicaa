@@ -56,30 +56,18 @@ class PipelineVMPerfTest(unittest.TestCase):
         try:
             vm.setup(start_thread=False)
 
-            node1 = nodes.FluidSynthSource(
-                id='node1',
-                soundfont_path='/usr/share/sounds/sf2/TimGM6mb.sf2', bank=0, preset=0)
-            node1.setup()
-            vm.add_node(node1)
-
-            node2 = nodes.FluidSynthSource(
-                id='node2',
-                soundfont_path='/usr/share/sounds/sf2/TimGM6mb.sf2', bank=0, preset=1)
-            node2.setup()
-            vm.add_node(node2)
-
-            node3 = nodes.FluidSynthSource(
-                id='node3',
-                soundfont_path='/usr/share/sounds/sf2/TimGM6mb.sf2', bank=0, preset=2)
-            node3.setup()
-            vm.add_node(node3)
-
             sink = nodes.Sink()
             sink.setup()
             vm.add_node(sink)
-            for src in (node1, node2, node3):
-                sink.inputs['in:left'].connect(src.outputs['out:left'])
-                sink.inputs['in:right'].connect(src.outputs['out:right'])
+
+            for idx in range(3):
+                node = nodes.FluidSynthSource(
+                    id='node%d' % idx,
+                    soundfont_path='/usr/share/sounds/sf2/TimGM6mb.sf2', bank=0, preset=idx)
+                node.setup()
+                vm.add_node(node)
+                sink.inputs['in:left'].connect(node.outputs['out:left'])
+                sink.inputs['in:right'].connect(node.outputs['out:right'])
 
             vm.update_spec()
 
