@@ -78,6 +78,9 @@ Status VM::process_block() {
     return Status::Ok();
   }
 
+  // TODO: also run_init=true, if program changed.
+  bool run_init = false;
+
   uint32_t new_block_size = _block_size.load();
   if (new_block_size != program->block_size) {
     log(LogLevel::INFO,
@@ -87,6 +90,8 @@ Status VM::process_block() {
     for(auto& buf : program->buffers) {
       buf->allocate(new_block_size);
     }
+
+    run_init = true;
   }
 
   const Spec* spec = program->spec.get();
@@ -101,6 +106,10 @@ Status VM::process_block() {
 
     OpCode opcode = spec->get_opcode(p);
     OpSpec opspec = opspecs[opcode];
+    if (run_init && opspec.init != nullptr) {
+      Status status = opspec.init(&state, spec->get_opargs(p));
+      if (status.is_error()) { return status; }
+    }
     if (opspec.run != nullptr) {
       Status status = opspec.run(&state, spec->get_opargs(p));
       if (status.is_error()) { return status; }
