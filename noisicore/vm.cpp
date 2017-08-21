@@ -4,15 +4,19 @@
 #include <string.h>
 
 #include "status.h"
+#include "misc.h"
+
+using std::atomic;
 
 namespace noisicaa {
 
-Status Program::setup(const Spec* s) {
+Status Program::setup(const Spec* s, uint32_t block_size) {
   spec.reset(s);
+  this->block_size = block_size;
 
   for (int i = 0 ; i < spec->num_buffers() ; ++i) {
     unique_ptr<Buffer> buf(new Buffer(spec->get_buffer(i)));
-    Status status = buf->allocate(spec->frame_size());
+    Status status = buf->allocate(block_size);
     if (status.is_error()) { return status; }
     buffers.emplace_back(buf.release());
   }
@@ -20,7 +24,7 @@ Status Program::setup(const Spec* s) {
   return Status::Ok();
 }
 
-VM::VM() {
+VM::VM() : _block_size(256) {
 }
 
 VM::~VM() {
@@ -30,16 +34,30 @@ Status VM::setup() {
   return Status::Ok();
 }
 
-Status VM::cleanup() {
+void VM::cleanup() {
+}
+
+Status VM::set_block_size(uint32_t block_size) {
+  _block_size.store(block_size);
   return Status::Ok();
 }
 
 Status VM::set_spec(const Spec* spec) {
   unique_ptr<Program> program(new Program);
 
-  Status status = program->setup(spec);
+  Status status = program->setup(spec, _block_size);
   if (status.is_error()) { return status; }
 
+  // TODO: lockfree program life cycle:
+  // 3 ptrs: new, current, old spec
+  // control thread:
+  // - if old is set, do atomic swap to temp ptr, then discard it.
+  // - when setting new, do atomic swap from temp into new. if there was an
+  //   existing new, discard it (it has never been used).
+  // audio thread:
+  // - do atomic swap of new into temp ptr. if set, do atomic swap of current into
+  //   old, then assert that current is null. set current to temp ptr.
+  // see std::atomic
   _program.reset(program.release());
   return Status::Ok();
 }
@@ -53,10 +71,21 @@ Buffer* VM::get_buffer(const string& name) {
   return _program->buffers[idx].get();
 }
 
-Status VM::process_frame() {
+Status VM::process_block() {
   Program *program = _program.get();
   if (program == nullptr) {
     return Status::Ok();
+  }
+
+  uint32_t new_block_size = _block_size.load();
+  if (new_block_size != program->block_size) {
+    log(LogLevel::INFO,
+	"Block size changed %d -> %d", program->block_size, new_block_size);
+    program->block_size = new_block_size;
+
+    for(auto& buf : program->buffers) {
+      buf->allocate(new_block_size);
+    }
   }
 
   const Spec* spec = program->spec.get();
@@ -71,6 +100,9 @@ Status VM::process_frame() {
     int p = next_p;
     ++next_p;
 
+    // TODO: replace switch by function pointer in opcodes table. functions
+    // live in opcodes.cc
+    // use struct ProgramState for program ptr, p, end, ...
     OpCode opcode = spec->get_opcode(p);
     bool end = false;
     switch (opcode) {

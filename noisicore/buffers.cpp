@@ -8,53 +8,53 @@
 
 namespace noisicaa {
 
-uint32_t Float::size(uint32_t frame_size) const {
+uint32_t Float::size(uint32_t block_size) const {
   return sizeof(float);
 }
 
-Status Float::clear_buffer(uint32_t frame_size, BufferPtr buf) const {
+Status Float::clear_buffer(uint32_t block_size, BufferPtr buf) const {
   float* ptr = (float*)buf;
   ptr[0] = 0.0;
   return Status::Ok();
 }
 
-Status Float::mix_buffers(uint32_t frame_size, const BufferPtr buf1, BufferPtr buf2) const {
+Status Float::mix_buffers(uint32_t block_size, const BufferPtr buf1, BufferPtr buf2) const {
   float* ptr1 = (float*)buf1;
   float* ptr2 = (float*)buf2;
   ptr2[0] += ptr1[0];
   return Status::Ok();
 }
 
-Status Float::mul_buffer(uint32_t frame_size, BufferPtr buf, float factor) const {
+Status Float::mul_buffer(uint32_t block_size, BufferPtr buf, float factor) const {
   float* ptr = (float*)buf;
   ptr[0] *= factor;
   return Status::Ok();
 }
 
-uint32_t FloatAudioFrame::size(uint32_t frame_size) const {
-  return frame_size * sizeof(float);
+uint32_t FloatAudioBlock::size(uint32_t block_size) const {
+  return block_size * sizeof(float);
 }
 
-Status FloatAudioFrame::clear_buffer(uint32_t frame_size, BufferPtr buf) const {
+Status FloatAudioBlock::clear_buffer(uint32_t block_size, BufferPtr buf) const {
   float* ptr = (float*)buf;
-  for (uint32_t i = 0 ; i < frame_size ; ++i) {
+  for (uint32_t i = 0 ; i < block_size ; ++i) {
     *ptr++ = 0.0;
   }
   return Status::Ok();
 }
 
-Status FloatAudioFrame::mix_buffers(uint32_t frame_size, const BufferPtr buf1, BufferPtr buf2) const {
+Status FloatAudioBlock::mix_buffers(uint32_t block_size, const BufferPtr buf1, BufferPtr buf2) const {
   float* ptr1 = (float*)buf1;
   float* ptr2 = (float*)buf2;
-  for (uint32_t i = 0 ; i < frame_size ; ++i) {
+  for (uint32_t i = 0 ; i < block_size ; ++i) {
     *ptr2++ += *ptr1++;
   }
   return Status::Ok();
 }
 
-Status FloatAudioFrame::mul_buffer(uint32_t frame_size, BufferPtr buf, float factor) const {
+Status FloatAudioBlock::mul_buffer(uint32_t block_size, BufferPtr buf, float factor) const {
   float* ptr = (float*)buf;
-  for (uint32_t i = 0 ; i < frame_size ; ++i) {
+  for (uint32_t i = 0 ; i < block_size ; ++i) {
     *ptr++ *= factor;
   }
   return Status::Ok();
@@ -66,11 +66,11 @@ AtomData::AtomData(LV2_URID_Map* map)
   _sequence_urid = _map->map(_map->handle, "http://lv2plug.in/ns/ext/atom#Sequence");
 }
 
-uint32_t AtomData::size(uint32_t frame_size) const {
+uint32_t AtomData::size(uint32_t block_size) const {
   return 10240;
 }
 
-Status AtomData::clear_buffer(uint32_t frame_size, BufferPtr buf) const {
+Status AtomData::clear_buffer(uint32_t block_size, BufferPtr buf) const {
   memset(buf, 0, 10240);
 
   LV2_Atom_Forge forge;
@@ -85,7 +85,7 @@ Status AtomData::clear_buffer(uint32_t frame_size, BufferPtr buf) const {
   return Status::Ok();
 }
 
-Status AtomData::mix_buffers(uint32_t frame_size, const BufferPtr buf1, BufferPtr buf2) const {
+Status AtomData::mix_buffers(uint32_t block_size, const BufferPtr buf1, BufferPtr buf2) const {
   LV2_Atom_Sequence* seq1 = (LV2_Atom_Sequence*)buf1;
   if (seq1->atom.type != _sequence_urid) {
     return Status::Error(sprintf("Excepted sequence, got %d.", seq1->atom.type));
@@ -142,64 +142,56 @@ Status AtomData::mix_buffers(uint32_t frame_size, const BufferPtr buf1, BufferPt
   return Status::Ok();
 }
 
-Status AtomData::mul_buffer(uint32_t frame_size, BufferPtr buf, float factor) const {
+Status AtomData::mul_buffer(uint32_t block_size, BufferPtr buf, float factor) const {
   return Status::Error("Operation not supported for AtomData");
 }
 
 Buffer::Buffer(const BufferType* type)
   : _type(type),
-    _frame_size(0),
+    _block_size(0),
     _data(nullptr),
     _size(0) {
 }
 
-Buffer::~Buffer() {
-  _free_data();
-}
+Buffer::~Buffer() {}
 
-void Buffer::_free_data() {
-  if (_data != nullptr) {
-    free(_data);
-    _data = nullptr;
-    _size = 0;
-  }
-}
+Status Buffer::allocate(uint32_t block_size) {
+  if (block_size > 0) {
+    uint32_t size = _type->size(block_size);
+    if (_size == size) {
+      return Status::Ok();
+    }
 
-Status Buffer::allocate(uint32_t frame_size) {
-  _free_data();
-
-  if (frame_size > 0) {
-    uint32_t size = _type->size(frame_size);
-    BufferPtr data = (BufferPtr)malloc(size);
-    if (data == nullptr) {
+    unique_ptr<uint8_t> data(new uint8_t[size]);
+    if (data.get() == nullptr) {
       return Status::Error(sprintf("Failed to allocate %d bytes.", size));
     }
 
-    Status status = _type->clear_buffer(frame_size, data);
+    Status status = _type->clear_buffer(block_size, data.get());
     if (status.is_error()) { return status; }
 
-    _frame_size = frame_size;
+    _block_size = block_size;
     _size = size;
-    _data = data;
+    _data.reset(data.release());
   }
 
   return Status::Ok();
 }
 
 Status Buffer::clear() {
-  // assert _frame_size > 0
-  return _type->clear_buffer(_frame_size, _data);
+  // assert _block_size > 0
+  return _type->clear_buffer(_block_size, _data.get());
 }
 
 Status Buffer::mix(const Buffer* other) {
-  // assert _frame_size > 0
-  // assert other._frame_size == _frame_size
+  // assert _block_size > 0
+  // assert other._block_size == _block_size
   // assert other._type == _type
-  return _type->mix_buffers(_frame_size, other->_data, _data);
+  return _type->mix_buffers(_block_size, other->_data.get(), _data.get());
 }
 
 Status Buffer::mul(float factor) {
-  // assert _frame_size > 0
-  return _type->mul_buffer(_frame_size, _data, factor);
+  // assert _block_size > 0
+  return _type->mul_buffer(_block_size, _data.get(), factor);
 }
 }  // namespace noisicaa

@@ -24,25 +24,25 @@ class TestVM(unittest.TestCase):
             self.assertFalse(status.is_error())
 
             spec = new Spec()
-            spec.append_buffer(b'buf1', new FloatAudioFrame())
-            spec.append_buffer(b'buf2', new FloatAudioFrame())
+            spec.append_buffer(b'buf1', new FloatAudioBlock())
+            spec.append_buffer(b'buf2', new FloatAudioBlock())
             spec.append_opcode(OpCode.MIX, b'buf1', b'buf2')
             status = vm.set_spec(spec)
             self.assertFalse(status.is_error())
 
             buf = vm.get_buffer(b'buf1')
-            self.assertEqual(buf.size(), 512)
+            self.assertEqual(buf.size(), 1024)
             data = <float*>buf.data()
             data[0] = 1.0
             data[1] = 2.0
 
             buf = vm.get_buffer(b'buf2')
-            self.assertEqual(buf.size(), 512)
+            self.assertEqual(buf.size(), 1024)
             data = <float*>buf.data()
             data[0] = 4.0
             data[1] = 5.0
 
-            status = vm.process_frame()
+            status = vm.process_block()
             self.assertFalse(status.is_error())
 
             buf = vm.get_buffer(b'buf2')
@@ -51,8 +51,46 @@ class TestVM(unittest.TestCase):
             self.assertEqual(data[1], 7.0)
 
         finally:
-            status = vm.cleanup()
+            vm.cleanup()
+
+    def test_block_size_changed(self):
+        cdef:
+            Status status
+            Spec* spec
+            Buffer* buf
+
+        cdef unique_ptr[VM] vmptr
+        vmptr.reset(new VM())
+        cdef VM* vm = vmptr.get()
+        try:
+            status = vm.setup()
             self.assertFalse(status.is_error())
+
+            status = vm.set_block_size(1024)
+            self.assertFalse(status.is_error())
+
+            spec = new Spec()
+            spec.append_buffer(b'buf1', new FloatAudioBlock())
+            status = vm.set_spec(spec)
+            self.assertFalse(status.is_error())
+
+            buf = vm.get_buffer(b'buf1')
+            self.assertEqual(buf.size(), 4096)
+
+            status = vm.set_block_size(256)
+            self.assertFalse(status.is_error())
+
+            buf = vm.get_buffer(b'buf1')
+            self.assertEqual(buf.size(), 4096)
+
+            status = vm.process_block()
+            self.assertFalse(status.is_error())
+
+            buf = vm.get_buffer(b'buf1')
+            self.assertEqual(buf.size(), 1024)
+
+        finally:
+            vm.cleanup()
 
 
 if __name__ == '__main__':

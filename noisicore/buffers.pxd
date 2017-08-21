@@ -14,7 +14,7 @@ cdef extern from "buffers.h" namespace "noisicaa" nogil:
     cppclass Float(BufferType):
         pass
 
-    cppclass FloatAudioFrame(BufferType):
+    cppclass FloatAudioBlock(BufferType):
         pass
 
     cppclass AtomData(BufferType):
@@ -27,7 +27,7 @@ cdef extern from "buffers.h" namespace "noisicaa" nogil:
         BufferPtr data()
         uint32_t size() const
 
-        Status allocate(uint32_t frame_size)
+        Status allocate(uint32_t block_size)
 
         Status clear()
         Status mix(const Buffer* other)

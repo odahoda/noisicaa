@@ -2,6 +2,7 @@ from libcpp.memory cimport unique_ptr
 
 from .buffers cimport *
 from .status cimport *
+from .vm cimport *
 from .backend cimport *
 
 import unittest
@@ -12,16 +13,19 @@ class TestPortAudioBackend(unittest.TestCase):
         cdef Status status
         cdef float samples[128]
 
+        cdef unique_ptr[VM] vm
+        vm.reset(new VM())
+
         cdef unique_ptr[Backend] beptr
         beptr.reset(Backend.create(b"portaudio"))
 
         cdef Backend* be = beptr.get()
-        status = be.setup()
+        status = be.setup(vm.get())
         try:
             self.assertFalse(status.is_error(), status.message())
 
             for _ in range(100):
-                status = be.begin_frame()
+                status = be.begin_block()
                 self.assertFalse(status.is_error(), status.message())
 
                 for i in range(128):
@@ -31,9 +35,8 @@ class TestPortAudioBackend(unittest.TestCase):
                 status = be.output(b"right", <BufferPtr>samples)
                 self.assertFalse(status.is_error(), status.message())
 
-                status = be.end_frame()
+                status = be.end_block()
                 self.assertFalse(status.is_error(), status.message())
 
         finally:
-            status = be.cleanup()
-            self.assertFalse(status.is_error(), status.message())
+            be.cleanup()

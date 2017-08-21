@@ -19,4 +19,17 @@ string sprintf(const string &fmt, ...) {
   return string(buf.get());
 }
 
+void log(LogLevel log_level, const char* fmt, ...) {
+  switch (log_level) {
+  case LogLevel::INFO:    printf("INFO: ");    break;
+  case LogLevel::WARNING: printf("WARNING: "); break;
+  case LogLevel::ERROR:   printf("ERROR: ");   break;
+  }
+
+  va_list args;
+  va_start(args, fmt);
+  std::vprintf(fmt, args);
+  std::printf("\n");
+}
+
 }

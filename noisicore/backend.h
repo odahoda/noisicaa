@@ -9,6 +9,8 @@ using std::string;
 
 namespace noisicaa {
 
+class VM;
+
 class Backend {
  public:
   Backend();
@@ -16,12 +18,15 @@ class Backend {
 
   static Backend* create(const string& name);
 
-  virtual Status setup() = 0;
-  virtual Status cleanup() = 0;
+  virtual Status setup(VM* vm);
+  virtual void cleanup() = 0;
 
-  virtual Status begin_frame() = 0;
-  virtual Status end_frame() = 0;
+  virtual Status begin_block() = 0;
+  virtual Status end_block() = 0;
   virtual Status output(const string& channel, BufferPtr samples) = 0;
+
+ protected:
+  VM* _vm;
 };
 
 }  // namespace noisicaa

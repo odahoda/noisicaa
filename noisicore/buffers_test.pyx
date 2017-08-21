@@ -91,7 +91,7 @@ class TestFloat(unittest.TestCase):
         self.assertEqual(data2[0], 3.0)
 
 
-class TestFloatAudioFrame(unittest.TestCase):
+class TestFloatAudioBlock(unittest.TestCase):
     def test_init(self):
         cdef:
             Status status
@@ -99,7 +99,7 @@ class TestFloatAudioFrame(unittest.TestCase):
             Buffer* buf
             float* data
 
-        bufptr.reset(new Buffer(new FloatAudioFrame()))
+        bufptr.reset(new Buffer(new FloatAudioBlock()))
         buf = bufptr.get()
 
         status = buf.allocate(64)
@@ -117,7 +117,7 @@ class TestFloatAudioFrame(unittest.TestCase):
             Buffer* buf
             float* data
 
-        bufptr.reset(new Buffer(new FloatAudioFrame()))
+        bufptr.reset(new Buffer(new FloatAudioBlock()))
         buf = bufptr.get()
 
         status = buf.allocate(4)
@@ -136,7 +136,7 @@ class TestFloatAudioFrame(unittest.TestCase):
             Buffer* buf
             float* data
 
-        bufptr.reset(new Buffer(new FloatAudioFrame()))
+        bufptr.reset(new Buffer(new FloatAudioBlock()))
         buf = bufptr.get()
         status = buf.allocate(4)
         self.assertFalse(status.is_error())
@@ -156,13 +156,13 @@ class TestFloatAudioFrame(unittest.TestCase):
             float* data1
             float* data2
 
-        bufptr1.reset(new Buffer(new FloatAudioFrame()))
+        bufptr1.reset(new Buffer(new FloatAudioBlock()))
         buf1 = bufptr1.get()
         status = buf1.allocate(4)
         self.assertFalse(status.is_error())
         data1 = <float*>buf1.data()
 
-        bufptr2.reset(new Buffer(new FloatAudioFrame()))
+        bufptr2.reset(new Buffer(new FloatAudioBlock()))
         buf2 = bufptr2.get()
         status = buf2.allocate(4)
         self.assertFalse(status.is_error())
@@ -292,7 +292,7 @@ if __name__ == '__main__':
     test_loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     suite.addTests(test_loader.loadTestsFromTestCase(TestFloat))
-    suite.addTests(test_loader.loadTestsFromTestCase(TestFloatAudioFrame))
+    suite.addTests(test_loader.loadTestsFromTestCase(TestFloatAudioBlock))
     suite.addTests(test_loader.loadTestsFromTestCase(TestAtomData))
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)

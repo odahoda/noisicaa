@@ -28,9 +28,6 @@ class Spec {
   Spec(const Spec&) = delete;
   Spec operator=(const Spec&) = delete;
 
-  Status set_frame_size(uint32_t frame_size);
-  uint32_t frame_size() const { return _frame_size; }
-
   Status append_opcode(OpCode opcode, ...);
   int num_ops() const { return _opcodes.size(); }
   OpCode get_opcode(int idx) const { return _opcodes[idx].opcode; }
@@ -42,7 +39,6 @@ class Spec {
   int get_buffer_idx(const string& name) const;
 
  private:
-  uint32_t _frame_size;
   vector<Instruction> _opcodes;
   vector<unique_ptr<const BufferType>> _buffers;
   map<string, int> _buffer_map;

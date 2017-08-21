@@ -17,40 +17,40 @@ class BufferType {
  public:
   virtual ~BufferType() {}
 
-  virtual uint32_t size(uint32_t frame_size) const = 0;
+  virtual uint32_t size(uint32_t block_size) const = 0;
 
-  virtual Status clear_buffer(uint32_t frame_size, BufferPtr buf) const = 0;
-  virtual Status mix_buffers(uint32_t frame_size, const BufferPtr buf1, BufferPtr buf2) const = 0;
-  virtual Status mul_buffer(uint32_t frame_size, BufferPtr buf, float factor) const = 0;
+  virtual Status clear_buffer(uint32_t block_size, BufferPtr buf) const = 0;
+  virtual Status mix_buffers(uint32_t block_size, const BufferPtr buf1, BufferPtr buf2) const = 0;
+  virtual Status mul_buffer(uint32_t block_size, BufferPtr buf, float factor) const = 0;
 };
 
 class Float : public BufferType {
  public:
-  uint32_t size(uint32_t frame_size) const override;
+  uint32_t size(uint32_t block_size) const override;
 
-  Status clear_buffer(uint32_t frame_size, BufferPtr buf) const override;
-  Status mix_buffers(uint32_t frame_size, const BufferPtr buf1, BufferPtr buf2) const override;
-  Status mul_buffer(uint32_t frame_size, BufferPtr buf, float factor) const override;
+  Status clear_buffer(uint32_t block_size, BufferPtr buf) const override;
+  Status mix_buffers(uint32_t block_size, const BufferPtr buf1, BufferPtr buf2) const override;
+  Status mul_buffer(uint32_t block_size, BufferPtr buf, float factor) const override;
 };
 
-class FloatAudioFrame : public BufferType {
+class FloatAudioBlock : public BufferType {
  public:
-  uint32_t size(uint32_t frame_size) const override;
+  uint32_t size(uint32_t block_size) const override;
 
-  Status clear_buffer(uint32_t frame_size, BufferPtr buf) const override;
-  Status mix_buffers(uint32_t frame_size, const BufferPtr buf1, BufferPtr buf2) const override;
-  Status mul_buffer(uint32_t frame_size, BufferPtr buf, float factor) const override;
+  Status clear_buffer(uint32_t block_size, BufferPtr buf) const override;
+  Status mix_buffers(uint32_t block_size, const BufferPtr buf1, BufferPtr buf2) const override;
+  Status mul_buffer(uint32_t block_size, BufferPtr buf, float factor) const override;
 };
 
 class AtomData : public BufferType {
  public:
   AtomData(LV2_URID_Map* map);
 
-  uint32_t size(uint32_t frame_size) const override;
+  uint32_t size(uint32_t block_size) const override;
 
-  Status clear_buffer(uint32_t frame_size, BufferPtr buf) const override;
-  Status mix_buffers(uint32_t frame_size, const BufferPtr buf1, BufferPtr buf2) const override;
-  Status mul_buffer(uint32_t frame_size, BufferPtr buf, float factor) const override;
+  Status clear_buffer(uint32_t block_size, BufferPtr buf) const override;
+  Status mix_buffers(uint32_t block_size, const BufferPtr buf1, BufferPtr buf2) const override;
+  Status mul_buffer(uint32_t block_size, BufferPtr buf, float factor) const override;
 
  private:
   LV2_URID_Map* _map;
@@ -64,10 +64,10 @@ class Buffer {
   ~Buffer();
 
   const BufferType* type() const { return _type; }
-  BufferPtr data() { return _data; }
+  BufferPtr data() { return _data.get(); }
   uint32_t size() const { return _size; }
 
-  Status allocate(uint32_t frame_size);
+  Status allocate(uint32_t block_size);
 
   Status clear();
   Status mix(const Buffer* other);
@@ -76,11 +76,9 @@ class Buffer {
  private:
   const BufferType* _type;
 
-  uint32_t _frame_size;
-  BufferPtr _data;
+  uint32_t _block_size;
+  unique_ptr<uint8_t> _data;
   uint32_t _size;
-
-  void _free_data();
 };
 
 }  // namespace noisicaa

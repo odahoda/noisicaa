@@ -18,7 +18,7 @@ class TestSpec(unittest.TestCase):
             Spec spec
             const BufferType *type
 
-        spec.append_buffer(b'buf1', new FloatAudioFrame())
+        spec.append_buffer(b'buf1', new FloatAudioBlock())
         spec.append_buffer(b'buf2', new Float())
         self.assertEqual(spec.num_buffers(), 2)
         self.assertEqual(spec.get_buffer_idx(b'buf1'), 0)
@@ -30,9 +30,9 @@ class TestSpec(unittest.TestCase):
             Spec spec
             const OpArg* arg
 
-        spec.append_buffer(b'buf1', new FloatAudioFrame())
-        spec.append_buffer(b'buf2', new FloatAudioFrame())
-        spec.append_buffer(b'buf3', new FloatAudioFrame())
+        spec.append_buffer(b'buf1', new FloatAudioBlock())
+        spec.append_buffer(b'buf2', new FloatAudioBlock())
+        spec.append_buffer(b'buf3', new FloatAudioBlock())
 
         status = spec.append_opcode(OpCode.NOOP)
         self.assertFalse(status.is_error())

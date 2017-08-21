@@ -5,16 +5,10 @@
 
 namespace noisicaa {
 
-Spec::Spec()
-  : _frame_size(128) {
+Spec::Spec() {
 }
 
 Spec::~Spec() {
-}
-
-Status Spec::set_frame_size(uint32_t frame_size) {
-  _frame_size = frame_size;
-  return Status::Ok();
 }
 
 Status Spec::append_opcode(OpCode opcode, ...) {

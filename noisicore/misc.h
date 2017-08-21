@@ -5,7 +5,13 @@
 
 namespace noisicaa {
 
-std::string sprintf(const std::string &fmt, ...);
+std::string sprintf(const std::string& fmt, ...);
+
+enum LogLevel {
+  INFO, WARNING, ERROR
+};
+
+void log(LogLevel log_level, const char* fmt, ...);
 
 }  // namespace noisicaa
 
