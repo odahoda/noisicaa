@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "status.h"
+#include "block_context.h"
 
 using std::string;
 using std::vector;
@@ -68,7 +69,8 @@ class OpArg {
   string _string_value;
 };
 
-typedef Status (*OpFunc)(ProgramState*, const vector<OpArg>& args);
+typedef Status (*OpFunc)(
+    BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args);
 
 struct OpSpec {
   OpCode opcode;

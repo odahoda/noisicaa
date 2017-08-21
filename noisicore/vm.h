@@ -9,6 +9,7 @@
 
 #include "spec.h"
 #include "status.h"
+#include "block_context.h"
 
 using std::atomic;
 using std::unique_ptr;
@@ -42,7 +43,7 @@ class VM {
 
   Status set_block_size(uint32_t block_size);
   Status set_spec(const Spec* spec);
-  Status process_block();
+  Status process_block(BlockContext* ctxt);
 
   Buffer* get_buffer(const string& name);
 

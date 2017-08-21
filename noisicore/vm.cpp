@@ -72,7 +72,7 @@ Buffer* VM::get_buffer(const string& name) {
   return _program->buffers[idx].get();
 }
 
-Status VM::process_block() {
+Status VM::process_block(BlockContext* ctxt) {
   Program *program = _program.get();
   if (program == nullptr) {
     return Status::Ok();
@@ -94,6 +94,8 @@ Status VM::process_block() {
     run_init = true;
   }
 
+  ctxt->block_size = program->block_size;
+
   const Spec* spec = program->spec.get();
   ProgramState state = { program, 0, false };
   while (!state.end) {
@@ -107,11 +109,11 @@ Status VM::process_block() {
     OpCode opcode = spec->get_opcode(p);
     OpSpec opspec = opspecs[opcode];
     if (run_init && opspec.init != nullptr) {
-      Status status = opspec.init(&state, spec->get_opargs(p));
+      Status status = opspec.init(ctxt, &state, spec->get_opargs(p));
       if (status.is_error()) { return status; }
     }
     if (opspec.run != nullptr) {
-      Status status = opspec.run(&state, spec->get_opargs(p));
+      Status status = opspec.run(ctxt, &state, spec->get_opargs(p));
       if (status.is_error()) { return status; }
     }
   }

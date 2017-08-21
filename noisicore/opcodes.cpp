@@ -5,12 +5,12 @@
 
 namespace noisicaa {
 
-Status run_END(ProgramState* state, const vector<OpArg>& args) {
+Status run_END(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
   state->end = true;
   return Status::Ok();
 }
 
-Status run_COPY(ProgramState* state, const vector<OpArg>& args) {
+Status run_COPY(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
   int idx1 = args[0].int_value();
   int idx2 = args[1].int_value();
   Buffer* buf1 = state->program->buffers[idx1].get();
@@ -20,14 +20,14 @@ Status run_COPY(ProgramState* state, const vector<OpArg>& args) {
   return Status::Ok();
 }
 
-Status run_CLEAR(ProgramState* state, const vector<OpArg>& args) {
+Status run_CLEAR(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
   int idx = args[0].int_value();
   Buffer* buf = state->program->buffers[idx].get();
   buf->clear();
   return Status::Ok();
 }
 
-Status run_MIX(ProgramState* state, const vector<OpArg>& args) {
+Status run_MIX(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
   int idx1 = args[0].int_value();
   int idx2 = args[1].int_value();
   Buffer* buf1 = state->program->buffers[idx1].get();
@@ -36,7 +36,7 @@ Status run_MIX(ProgramState* state, const vector<OpArg>& args) {
   return Status::Ok();
 }
 
-Status run_MUL(ProgramState* state, const vector<OpArg>& args) {
+Status run_MUL(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
     //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
     //     assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
     //     cdef float* view = <float*>buf.data
@@ -45,7 +45,7 @@ Status run_MUL(ProgramState* state, const vector<OpArg>& args) {
   return Status::Error("Not implemented yet.");
 }
 
-Status run_SET_FLOAT(ProgramState* state, const vector<OpArg>& args) {
+Status run_SET_FLOAT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
     // def op_SET_FLOAT(self, ctxt, state, *, buf_idx, value):
     //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
     //     assert isinstance(buf.type, buffers.Float), str(buf.type)
@@ -54,7 +54,7 @@ Status run_SET_FLOAT(ProgramState* state, const vector<OpArg>& args) {
   return Status::Error("Not implemented yet.");
 }
 
-Status run_OUTPUT(ProgramState* state, const vector<OpArg>& args) {
+Status run_OUTPUT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
     // def op_OUTPUT(self, ctxt, state, *, buf_idx, channel):
     //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
     //     assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
@@ -63,7 +63,7 @@ Status run_OUTPUT(ProgramState* state, const vector<OpArg>& args) {
   return Status::Error("Not implemented yet.");
 }
 
-Status run_FETCH_ENTITY(ProgramState* state, const vector<OpArg>& args) {
+Status run_FETCH_ENTITY(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
     // def op_FETCH_ENTITY(self, ctxt, state, *, entity_id, buf_idx):
     //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
     //     try:
@@ -75,7 +75,7 @@ Status run_FETCH_ENTITY(ProgramState* state, const vector<OpArg>& args) {
   return Status::Error("Not implemented yet.");
 }
 
-Status run_FETCH_MESSAGES(ProgramState* state, const vector<OpArg>& args) {
+Status run_FETCH_MESSAGES(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
     // def op_FETCH_MESSAGES(self, ctxt, state, *, labelset, buf_idx):
     //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
 
@@ -101,7 +101,7 @@ Status run_FETCH_MESSAGES(ProgramState* state, const vector<OpArg>& args) {
   return Status::Error("Not implemented yet.");
 }
 
-Status run_FETCH_PARAMETER(ProgramState* state, const vector<OpArg>& args) {
+Status run_FETCH_PARAMETER(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
     // def op_FETCH_PARAMETER(self, ctxt, state, *, parameter_idx, buf_idx):
     //     #parameter_name = self.__parameters[parameter_idx]
     //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
@@ -109,7 +109,7 @@ Status run_FETCH_PARAMETER(ProgramState* state, const vector<OpArg>& args) {
   return Status::Error("Not implemented yet.");
 }
 
-Status run_NOISE(ProgramState* state, const vector<OpArg>& args) {
+Status run_NOISE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
     // def op_NOISE(self, ctxt, state, *, buf_idx):
     //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
     //     assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
@@ -120,7 +120,7 @@ Status run_NOISE(ProgramState* state, const vector<OpArg>& args) {
   return Status::Error("Not implemented yet.");
 }
 
-Status run_SINE(ProgramState* state, const vector<OpArg>& args) {
+Status run_SINE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
     // def op_SINE(self, ctxt, state, *, buf_idx, freq):
     //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
     //     assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
@@ -136,7 +136,7 @@ Status run_SINE(ProgramState* state, const vector<OpArg>& args) {
   return Status::Error("Not implemented yet.");
 }
 
-Status init_CONNECT_PORT(ProgramState* state, const vector<OpArg>& args) {
+Status init_CONNECT_PORT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
     // def op_CONNECT_PORT(self, ctxt, state, *, node_idx, port_name, buf_idx):
     //     node_id = self.__spec.nodes[node_idx]
     //     cdef node.CustomNode n = self.__graph.find_node(node_id)
@@ -145,7 +145,7 @@ Status init_CONNECT_PORT(ProgramState* state, const vector<OpArg>& args) {
   return Status::Error("Not implemented yet.");
 }
 
-Status run_CALL(ProgramState* state, const vector<OpArg>& args) {
+Status run_CALL(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
     // def op_CALL(self, ctxt, state, *, node_idx):
     //     node_id = self.__spec.nodes[node_idx]
     //     cdef node.CustomNode n = self.__graph.find_node(node_id)
@@ -176,7 +176,7 @@ struct OpSpec opspecs[NUM_OPCODES] = {
   { OpCode::SINE, "bf", nullptr, run_SINE },
 
   // processors
-  { OpCode::CONNECT_PORT, "isb", init_CONNECT_PORT, nullptr },
+  { OpCode::CONNECT_PORT, "iib", init_CONNECT_PORT, nullptr },
   { OpCode::CALL, "i", nullptr, run_CALL },
 };
 

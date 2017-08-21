@@ -1,8 +1,9 @@
 from libcpp.memory cimport unique_ptr
 from .status cimport *
 from .spec cimport *
-from .vm cimport *
 from .buffers cimport *
+from .block_context cimport *
+from .vm cimport *
 
 import unittest
 import sys
@@ -14,6 +15,7 @@ class TestVM(unittest.TestCase):
             Spec* spec
             Buffer* buf
             float* data
+            BlockContext ctxt
 
         cdef unique_ptr[VM] vmptr
         vmptr.reset(new VM())
@@ -42,7 +44,7 @@ class TestVM(unittest.TestCase):
             data[0] = 4.0
             data[1] = 5.0
 
-            status = vm.process_block()
+            status = vm.process_block(&ctxt)
             self.assertFalse(status.is_error())
 
             buf = vm.get_buffer(b'buf2')
@@ -58,6 +60,7 @@ class TestVM(unittest.TestCase):
             Status status
             Spec* spec
             Buffer* buf
+            BlockContext ctxt
 
         cdef unique_ptr[VM] vmptr
         vmptr.reset(new VM())
@@ -83,7 +86,7 @@ class TestVM(unittest.TestCase):
             buf = vm.get_buffer(b'buf1')
             self.assertEqual(buf.size(), 4096)
 
-            status = vm.process_block()
+            status = vm.process_block(&ctxt)
             self.assertFalse(status.is_error())
 
             buf = vm.get_buffer(b'buf1')
