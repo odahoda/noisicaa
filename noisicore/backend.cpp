@@ -98,9 +98,11 @@ class PortAudioBackend : public Backend {
 
   Status end_block() override {
     PaError err = Pa_WriteStream(_stream, _samples, _block_size);
-    if (err != paNoError) {
+    if (err == paOutputUnderflowed) {
+      log(LogLevel::WARNING, "Buffer underrun.");
+    } else if (err != paNoError) {
       return Status::Error(
-	   sprintf("Failed to write to portaudio stream: %s", Pa_GetErrorText(err)));
+          sprintf("Failed to write to portaudio stream: %s", Pa_GetErrorText(err)));
     }
     return Status::Ok();
   }

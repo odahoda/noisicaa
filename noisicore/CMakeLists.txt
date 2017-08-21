@@ -12,6 +12,7 @@ set(LIB_SRCS
 set(TEST_SRCS
   backend_test.pyx
   buffers_test.pyx
+  opcodes_test.pyx
   spec_test.pyx
   vm_test.pyx
 )

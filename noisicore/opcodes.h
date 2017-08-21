@@ -2,11 +2,17 @@
 #define _NOISICORE_OPCODES_H
 
 #include <string>
+#include <vector>
 #include <stdint.h>
 
+#include "status.h"
+
 using std::string;
+using std::vector;
 
 namespace noisicaa {
+
+class ProgramState;
 
 enum OpCode {
   // control flow
@@ -62,9 +68,13 @@ class OpArg {
   string _string_value;
 };
 
+typedef Status (*OpFunc)(ProgramState*, const vector<OpArg>& args);
+
 struct OpSpec {
   OpCode opcode;
   const char* argspec;
+  OpFunc init;
+  OpFunc run;
 };
 
 extern struct OpSpec opspecs[NUM_OPCODES];

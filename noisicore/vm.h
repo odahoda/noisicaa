@@ -26,6 +26,12 @@ class Program {
   vector<unique_ptr<Buffer>> buffers;
 };
 
+struct ProgramState {
+  Program* program;
+  int p;
+  bool end;
+};
+
 class VM {
  public:
   VM();

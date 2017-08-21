@@ -5,6 +5,7 @@
 
 #include "status.h"
 #include "misc.h"
+#include "opcodes.h"
 
 using std::atomic;
 
@@ -89,64 +90,20 @@ Status VM::process_block() {
   }
 
   const Spec* spec = program->spec.get();
-  vector<unique_ptr<Buffer>>& buffers = program->buffers;
-
-  int next_p = 0;
-  while (true) {
-    if (next_p == spec->num_ops()) {
+  ProgramState state = { program, 0, false };
+  while (!state.end) {
+    if (state.p == spec->num_ops()) {
       break;
     }
 
-    int p = next_p;
-    ++next_p;
+    int p = state.p;
+    ++state.p;
 
-    // TODO: replace switch by function pointer in opcodes table. functions
-    // live in opcodes.cc
-    // use struct ProgramState for program ptr, p, end, ...
     OpCode opcode = spec->get_opcode(p);
-    bool end = false;
-    switch (opcode) {
-    case NOOP:
-      break;
-    case END:
-      end = true;
-      break;
-    case CLEAR: {
-      int idx = spec->get_oparg(p, 0).int_value();
-      Buffer* buf = buffers[idx].get();
-      buf->clear();
-      break;
-    }
-    case COPY: {
-      int idx1 = spec->get_oparg(p, 0).int_value();
-      int idx2 = spec->get_oparg(p, 1).int_value();
-      Buffer* buf1 = buffers[idx1].get();
-      Buffer* buf2 = buffers[idx2].get();
-      // assert buf1->size() == buf2->size()
-      memmove(buf2->data(), buf1->data(), buf2->size());
-      break;
-    }
-    case MIX: {
-      int idx1 = spec->get_oparg(p, 0).int_value();
-      int idx2 = spec->get_oparg(p, 1).int_value();
-      Buffer* buf1 = buffers[idx1].get();
-      Buffer* buf2 = buffers[idx2].get();
-      buf2->mix(buf1);
-      break;
-    }
-    case FETCH_ENTITY: {
-      const string& entity_id = spec->get_oparg(p, 0).string_value();
-      int idx = spec->get_oparg(p, 1).int_value();
-      printf("FETCH_ENTITY(%s, %d)\n", entity_id.c_str(), idx);
-      break;
-    }
-    default: {
-      break;
-    }
-    }
-
-    if (end) {
-      break;
+    OpSpec opspec = opspecs[opcode];
+    if (opspec.run != nullptr) {
+      Status status = opspec.run(&state, spec->get_opargs(p));
+      if (status.is_error()) { return status; }
     }
   }
   return Status::Ok();
