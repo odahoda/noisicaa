@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <stdint.h>
 #include "ladspa.h"
 
 #include "status.h"
@@ -20,10 +21,10 @@ class ProcessorLadspa : public Processor {
   ProcessorLadspa();
   ~ProcessorLadspa() override;
 
-  Status setup() override;
+  Status setup(const ProcessorSpec* spec) override;
   void cleanup() override;
 
-  Status connect_port(int port_idx, BufferPtr buf) override;
+  Status connect_port(uint32_t port_idx, BufferPtr buf) override;
   Status run(BlockContext* ctxt) override;
 
  private:

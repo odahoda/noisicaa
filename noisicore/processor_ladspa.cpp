@@ -1,6 +1,7 @@
 #include "processor_ladspa.h"
 
 #include <dlfcn.h>
+#include <stdint.h>
 #include "misc.h"
 
 namespace noisicaa {
@@ -14,12 +15,17 @@ ProcessorLadspa::ProcessorLadspa()
 ProcessorLadspa::~ProcessorLadspa() {
 }
 
-Status ProcessorLadspa::setup() {
-  Status status = Processor::setup();
+Status ProcessorLadspa::setup(const ProcessorSpec* spec) {
+  Status status = Processor::setup(spec);
   if (status.is_error()) { return status; }
 
-  string library_path = "/usr/lib/ladspa/amp.so";
-  string label = "amp_mono";
+  string library_path;
+  status = get_string_parameter("ladspa_library_path", &library_path);
+  if (status.is_error()) { return status; }
+
+  string label;
+  status = get_string_parameter("ladspa_plugin_label", &label);
+  if (status.is_error()) { return status; }
 
   _library = dlopen(library_path.c_str(), RTLD_NOW);
   if (_library == nullptr) {
@@ -84,8 +90,7 @@ void ProcessorLadspa::cleanup() {
   Processor::cleanup();
 }
 
-Status ProcessorLadspa::connect_port(int port_idx, BufferPtr buf) {
-  assert(port_idx >= 0);
+Status ProcessorLadspa::connect_port(uint32_t port_idx, BufferPtr buf) {
   assert(port_idx < _descriptor->PortCount);
   _descriptor->connect_port(_instance, port_idx, (LADSPA_Data*)buf);
   return Status::Ok();

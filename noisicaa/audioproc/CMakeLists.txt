@@ -16,9 +16,9 @@ add_python_package(
   resample_test.py
   )
 
-add_capnp(frame_data.capnp)
-add_capnp(entity.capnp)
-add_capnp(pipeline_mutations.capnp)
+add_py_capnp(frame_data.capnp)
+add_py_capnp(entity.capnp)
+add_py_capnp(pipeline_mutations.capnp)
 
 add_cython_module(resample C)
 target_link_libraries(${resample.so} PRIVATE swresample)

@@ -6,6 +6,7 @@ set(LIB_SRCS
   misc.cpp
   opcodes.cpp
   processor.cpp
+  processor_spec.cpp
   processor_ladspa.cpp
   spec.cpp
   vm.cpp
@@ -23,7 +24,7 @@ set(TEST_SRCS
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
 add_library(noisicore STATIC ${LIB_SRCS})
-target_compile_options(noisicore PRIVATE -fPIC -g)
+target_compile_options(noisicore PRIVATE -fPIC -g -std=c++11 -Wall -Werror -pedantic)
 target_link_libraries(noisicore PRIVATE portaudio)
 
 foreach(TEST_SRC ${TEST_SRCS})
@@ -31,3 +32,5 @@ foreach(TEST_SRC ${TEST_SRCS})
   add_cython_module(${TEST_MOD} CXX)
   target_link_libraries(${${TEST_MOD}.so} noisicore)
 endforeach(TEST_SRC)
+
+

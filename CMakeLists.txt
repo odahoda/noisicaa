@@ -48,7 +48,7 @@ macro(add_cython_module mod lang)
   set(${mod}.so ${pkg_target}.${mod})
 endmacro(add_cython_module)
 
-macro(add_capnp src)
+macro(add_py_capnp src)
   add_custom_command(
     OUTPUT ${src}
     COMMAND ln -sf ${CMAKE_CURRENT_LIST_DIR}/${src} ${src}
@@ -57,7 +57,15 @@ macro(add_capnp src)
   file(RELATIVE_PATH pkg_path ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
   string(REGEX REPLACE "/" "." pkg_target ${pkg_path})
   add_custom_target(${pkg_target}.${src} ALL DEPENDS ${src})
-endmacro(add_capnp)
+endmacro(add_py_capnp)
+
+macro(add_cpp_capnp src)
+  add_custom_command(
+    OUTPUT ${src}.c++ ${src}.h
+    COMMAND capnp compile --verbose --output=c++:${CMAKE_BINARY_DIR} --src-prefix=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
+  )
+endmacro(add_cpp_capnp)
 
 add_subdirectory(noisicore)
 add_subdirectory(noisicaa)

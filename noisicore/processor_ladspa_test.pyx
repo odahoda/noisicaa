@@ -1,11 +1,14 @@
+from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 from .status cimport *
 from .block_context cimport *
 from .buffers cimport *
 from .processor cimport *
+from .processor_spec cimport *
 
 import unittest
 import sys
+
 
 class TestProcessorLadspa(unittest.TestCase):
     def test_ladspa(self):
@@ -17,7 +20,15 @@ class TestProcessorLadspa(unittest.TestCase):
 
         cdef Processor* processor = processor_ptr.get()
 
-        status = processor.setup()
+        cdef unique_ptr[ProcessorSpec] spec
+        spec.reset(new ProcessorSpec())
+        spec.get().add_port(b'gain', PortType.kRateControl, PortDirection.Input)
+        spec.get().add_port(b'in', PortType.audio, PortDirection.Input)
+        spec.get().add_port(b'out', PortType.audio, PortDirection.Output)
+        spec.get().add_parameter(new StringParameterSpec(b'ladspa_library_path', b'/usr/lib/ladspa/amp.so'))
+        spec.get().add_parameter(new StringParameterSpec(b'ladspa_plugin_label', b'amp_mono'))
+
+        status = processor.setup(spec.release())
         self.assertFalse(status.is_error(), status.message())
 
         cdef float gain

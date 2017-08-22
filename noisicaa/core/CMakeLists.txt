@@ -19,7 +19,7 @@ add_python_package(
   storage_test.py
 )
 
-add_capnp(message.capnp)
-add_capnp(perf_stats.capnp)
+add_py_capnp(message.capnp)
+add_py_capnp(perf_stats.capnp)
 
 add_subdirectory(stats)
