@@ -7,13 +7,13 @@
 #include <stdint.h>
 #include "status.h"
 #include "opcodes.h"
-#include "buffers.h"
 
-using std::map;
-using std::unique_ptr;
-using std::vector;
+using namespace std;
 
 namespace noisicaa {
+
+class Processor;
+class BufferType;
 
 struct Instruction {
   OpCode opcode;
@@ -39,8 +39,15 @@ class Spec {
   const BufferType* get_buffer(int idx) const { return _buffers[idx].get(); }
   int get_buffer_idx(const string& name) const;
 
+  Status append_processor(Processor* processor);
+  int num_processors() const { return _processors.size(); }
+  Processor* get_processor(int idx) const { return _processors[idx]; }
+  int get_processor_idx(const Processor* processor);
+
  private:
   vector<Instruction> _opcodes;
+  vector<Processor*> _processors;
+  map<uint64_t, int> _processor_map;
   vector<unique_ptr<const BufferType>> _buffers;
   map<string, int> _buffer_map;
 };

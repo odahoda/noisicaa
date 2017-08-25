@@ -22,6 +22,8 @@ class Processor {
 
   static Processor* create(const string& name);
 
+  uint64_t id() const { return _id; }
+
   Status get_string_parameter(const string& name, string* value);
 
   virtual Status setup(const ProcessorSpec* spec);
@@ -31,7 +33,10 @@ class Processor {
   virtual Status run(BlockContext* ctxt) = 0;
 
  protected:
+  uint64_t _id;
   unique_ptr<const ProcessorSpec> _spec;
+
+  static uint64_t new_id();
 };
 
 }  // namespace noisicaa

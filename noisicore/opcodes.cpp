@@ -136,20 +136,22 @@ Status run_SINE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& ar
 }
 
 Status init_CONNECT_PORT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-    // def op_CONNECT_PORT(self, ctxt, state, *, node_idx, port_name, buf_idx):
-    //     node_id = self.__spec.nodes[node_idx]
-    //     cdef node.CustomNode n = self.__graph.find_node(node_id)
-    //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
-    //     n.connect_port(port_name, buf)
-  return Status::Error("Not implemented yet.");
+  int processor_idx = args[0].int_value();
+  int port_idx = args[1].int_value();
+  int buf_idx = args[2].int_value();
+  Processor* processor = state->program->spec->get_processor(processor_idx);
+  Buffer* buf = state->program->buffers[buf_idx].get();
+
+  processor->connect_port(port_idx, buf->data());
+  return Status::Ok();
 }
 
 Status run_CALL(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-    // def op_CALL(self, ctxt, state, *, node_idx):
-    //     node_id = self.__spec.nodes[node_idx]
-    //     cdef node.CustomNode n = self.__graph.find_node(node_id)
-    //     n.run(ctxt)
-  return Status::Error("Not implemented yet.");
+  int processor_idx = args[0].int_value();
+  Processor* processor = state->program->spec->get_processor(processor_idx);
+
+  processor->run(ctxt);
+  return Status::Ok();
 }
 
 struct OpSpec opspecs[NUM_OPCODES] = {
@@ -175,8 +177,8 @@ struct OpSpec opspecs[NUM_OPCODES] = {
   { OpCode::SINE, "bf", nullptr, run_SINE },
 
   // processors
-  { OpCode::CONNECT_PORT, "iib", init_CONNECT_PORT, nullptr },
-  { OpCode::CALL, "i", nullptr, run_CALL },
+  { OpCode::CONNECT_PORT, "pib", init_CONNECT_PORT, nullptr },
+  { OpCode::CALL, "p", nullptr, run_CALL },
 };
 
 }  // namespace noisicaa

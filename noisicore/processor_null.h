@@ -1,0 +1,28 @@
+#ifndef _NOISICORE_PROCESSOR_NULL_H
+#define _NOISICORE_PROCESSOR_NULL_H
+
+#include <stdint.h>
+
+#include "status.h"
+#include "buffers.h"
+#include "processor.h"
+
+namespace noisicaa {
+
+class BlockContext;
+
+class ProcessorNull : public Processor {
+ public:
+  ProcessorNull();
+  ~ProcessorNull() override;
+
+  Status setup(const ProcessorSpec* spec) override;
+  void cleanup() override;
+
+  Status connect_port(uint32_t port_idx, BufferPtr buf) override;
+  Status run(BlockContext* ctxt) override;
+};
+
+}  // namespace noisicaa
+
+#endif

@@ -1,15 +1,37 @@
 #include "processor.h"
 
+#include <random>
+#include <time.h>
+
 #include "misc.h"
+#include "processor_null.h"
 #include "processor_ladspa.h"
+
+using namespace std;
 
 namespace noisicaa {
 
-Processor::Processor() {
+Processor::Processor()
+  : _id(Processor::new_id()) {
 }
 
 Processor::~Processor() {
   cleanup();
+}
+
+Processor* Processor::create(const string& name) {
+  if (name == "null") {
+    return new ProcessorNull();
+  } else if (name == "ladspa") {
+    return new ProcessorLadspa();
+  } else {
+    return nullptr;
+  }
+}
+
+uint64_t Processor::new_id() {
+  static mt19937_64 rand(time(0));
+  return rand();
 }
 
 Status Processor::get_string_parameter(const string& name, string* value) {
@@ -30,22 +52,22 @@ Status Processor::get_string_parameter(const string& name, string* value) {
   return Status::Ok();
 }
 
-Processor* Processor::create(const string& name) {
-  if (name == "ladspa") {
-    return new ProcessorLadspa();
-  } else {
-    return nullptr;
-  }
-}
-
 Status Processor::setup(const ProcessorSpec* spec) {
+  if (_spec.get() != nullptr) {
+    return Status::Error(sprintf("Processor %llx already set up.", id()));
+  }
+
+  log(LogLevel::INFO, "Setting up processor %llx.", id());
   _spec.reset(spec);
 
   return Status::Ok();
 }
 
 void Processor::cleanup() {
-  _spec.reset();
+  if (_spec.get() != nullptr) {
+    _spec.reset();
+    log(LogLevel::INFO, "Processor %llx cleaned up.", id());
+  }
 }
 
 }  // namespace noisicaa

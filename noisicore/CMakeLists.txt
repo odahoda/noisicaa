@@ -5,8 +5,9 @@ set(LIB_SRCS
   buffers.cpp
   misc.cpp
   opcodes.cpp
-  processor.cpp
   processor_spec.cpp
+  processor.cpp
+  processor_null.cpp
   processor_ladspa.cpp
   spec.cpp
   vm.cpp
@@ -16,6 +17,7 @@ set(TEST_SRCS
   backend_test.pyx
   buffers_test.pyx
   opcodes_test.pyx
+  processor_test.pyx
   processor_ladspa_test.pyx
   spec_test.pyx
   vm_test.pyx

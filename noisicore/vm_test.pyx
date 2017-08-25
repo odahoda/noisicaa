@@ -2,10 +2,12 @@ from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 from .status cimport *
 from .spec cimport *
-from .buffers cimport *
 from .block_context cimport *
 from .vm cimport *
 from .backend cimport *
+from .processor cimport *
+from .processor_spec cimport *
+from .buffers cimport *
 
 import unittest
 import sys
@@ -29,7 +31,7 @@ class TestVM(unittest.TestCase):
             status = vm.setup()
             self.assertFalse(status.is_error())
 
-            status = vm.set_backend(Backend.create(b'portaudio'))
+            status = vm.set_backend(Backend.create(b'null'))
             self.assertFalse(status.is_error())
 
             spec = new Spec()
@@ -44,7 +46,7 @@ class TestVM(unittest.TestCase):
             status = vm.set_spec(spec)
             self.assertFalse(status.is_error())
 
-            for _ in range(1000):
+            for _ in range(100):
                 status = vm.process_block(&ctxt)
                 self.assertFalse(status.is_error(), status.message())
 
@@ -96,6 +98,80 @@ class TestVM(unittest.TestCase):
             data = <float*>buf.data()
             self.assertEqual(data[0], 5.0)
             self.assertEqual(data[1], 7.0)
+
+        finally:
+            vm.cleanup()
+
+    def test_processor(self):
+        cdef:
+            Status status
+            Spec* spec
+            Buffer* buf
+            float* data
+            BlockContext ctxt
+            unique_ptr[ProcessorSpec] processor_spec
+            unique_ptr[Processor] processor_ptr
+            Processor* processor
+
+        cdef unique_ptr[VM] vmptr
+        vmptr.reset(new VM())
+        cdef VM* vm = vmptr.get()
+
+        try:
+            status = vm.setup()
+            self.assertFalse(status.is_error())
+
+            status = vm.set_backend(Backend.create(b'null'))
+            self.assertFalse(status.is_error())
+
+            processor_spec.reset(new ProcessorSpec())
+            processor_spec.get().add_port(b'gain', PortType.kRateControl, PortDirection.Input)
+            processor_spec.get().add_port(b'in', PortType.audio, PortDirection.Input)
+            processor_spec.get().add_port(b'out', PortType.audio, PortDirection.Output)
+            processor_spec.get().add_parameter(new StringParameterSpec(b'ladspa_library_path', b'/usr/lib/ladspa/amp.so'))
+            processor_spec.get().add_parameter(new StringParameterSpec(b'ladspa_plugin_label', b'amp_mono'))
+
+            processor_ptr.reset(Processor.create(b'ladspa'))
+            self.assertTrue(processor_ptr.get() != NULL)
+            processor = processor_ptr.get()
+
+            status = processor.setup(processor_spec.release())
+            self.assertFalse(status.is_error(), status.message())
+
+            status = vm.add_processor(processor_ptr.release())
+            self.assertFalse(status.is_error(), status.message())
+
+            spec = new Spec()
+            spec.append_buffer(b'gain', new Float())
+            spec.append_buffer(b'in', new FloatAudioBlock())
+            spec.append_buffer(b'out', new FloatAudioBlock())
+            spec.append_processor(processor)
+            spec.append_opcode(OpCode.CONNECT_PORT, processor, 0, b'gain')
+            spec.append_opcode(OpCode.CONNECT_PORT, processor, 1, b'in')
+            spec.append_opcode(OpCode.CONNECT_PORT, processor, 2, b'out')
+            spec.append_opcode(OpCode.CALL, processor)
+            status = vm.set_spec(spec)
+            self.assertFalse(status.is_error())
+
+            buf = vm.get_buffer(b'gain')
+            (<float*>buf.data())[0] = 0.5
+
+            buf = vm.get_buffer(b'in')
+            data = <float*>buf.data()
+            data[0] = 1.0
+            data[1] = 2.0
+            data[2] = 3.0
+            data[3] = 4.0
+
+            status = vm.process_block(&ctxt)
+            self.assertFalse(status.is_error(), status.message())
+
+            buf = vm.get_buffer(b'out')
+            data = <float*>buf.data()
+            self.assertEqual(data[0], 0.5)
+            self.assertEqual(data[1], 1.0)
+            self.assertEqual(data[2], 1.5)
+            self.assertEqual(data[3], 2.0)
 
         finally:
             vm.cleanup()

@@ -5,6 +5,8 @@ from .buffers cimport *
 from .opcodes cimport *
 
 cdef extern from "spec.h" namespace "noisicaa" nogil:
+    cppclass Processor
+
     cppclass Spec:
         Status append_opcode(OpCode opcode, ...)
         int num_ops() const
@@ -15,4 +17,9 @@ cdef extern from "spec.h" namespace "noisicaa" nogil:
         int num_buffers() const
         const BufferType* get_buffer(int idx) const
         int get_buffer_idx(const string& name) const
+
+        Status append_processor(Processor* processor)
+        int num_buffers() const
+        Processor* get_processor(int idx) const
+        int get_processor_idx(const Processor* processor) const
 

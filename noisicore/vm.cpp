@@ -8,6 +8,7 @@
 #include "opcodes.h"
 #include "block_context.h"
 #include "backend.h"
+#include "processor.h"
 
 using std::atomic;
 
@@ -40,6 +41,12 @@ Status VM::setup() {
 void VM::cleanup() {
 }
 
+Status VM::add_processor(Processor* processor) {
+  assert(_processors.find(processor->id()) == _processors.end());
+  _processors.emplace(processor->id(), new ActiveProcessor(processor));
+  return Status::Ok();
+}
+
 Status VM::set_block_size(uint32_t block_size) {
   _block_size.store(block_size);
   return Status::Ok();
@@ -50,6 +57,26 @@ Status VM::set_spec(const Spec* spec) {
 
   Status status = program->setup(spec, _block_size);
   if (status.is_error()) { return status; }
+
+  if (_program.get() != nullptr) {
+    for (int i = 0 ; i < _program->spec->num_processors() ; ++i) {
+      Processor* processor = _program->spec->get_processor(i);
+      const auto& it = _processors.find(processor->id());
+      assert(it != _processors.end());
+      ActiveProcessor* active_processor = it->second.get();
+      --active_processor->ref_count;
+      if (active_processor->ref_count == 0) {
+	_processors.erase(it);
+      }
+    }
+  }
+
+  for (int i = 0 ; i < spec->num_processors() ; ++i) {
+    Processor* processor = spec->get_processor(i);
+    ActiveProcessor* active_processor = _processors[processor->id()].get();
+    assert(active_processor != nullptr);
+    ++active_processor->ref_count;
+  }
 
   // TODO: lockfree program life cycle:
   // 3 ptrs: new, current, old spec
@@ -111,8 +138,11 @@ Status VM::process_block(BlockContext* ctxt) {
       }
     });
 
-  // TODO: also run_init=true, if program changed.
   bool run_init = false;
+
+  if (!program->initialized) {
+    run_init = true;
+  }
 
   uint32_t new_block_size = _block_size.load();
   if (new_block_size != program->block_size) {
@@ -149,6 +179,10 @@ Status VM::process_block(BlockContext* ctxt) {
       Status status = opspec.run(ctxt, &state, spec->get_opargs(p));
       if (status.is_error()) { return status; }
     }
+  }
+
+  if (run_init) {
+    program->initialized = true;
   }
 
   end_block.dismiss();

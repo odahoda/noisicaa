@@ -2,6 +2,7 @@
 
 #include <stdarg.h>
 #include "misc.h"
+#include "processor.h"
 
 namespace noisicaa {
 
@@ -34,6 +35,15 @@ Status Spec::append_opcode(OpCode opcode, ...) {
       args.emplace_back(OpArg(value));
       break;
     }
+    case 'p': {
+      Processor* processor = va_arg(values, Processor*);
+      int64_t value = get_processor_idx(processor);
+      if (value == -1) {
+	return Status::Error(sprintf("Invalid processor %d", processor->id()));
+      }
+      args.emplace_back(OpArg(value));
+      break;
+    }
     case 'f': {
       float value = va_arg(values, double);
       args.emplace_back(OpArg(value));
@@ -60,6 +70,20 @@ Status Spec::append_buffer(const string& name, BufferType* type) {
 int Spec::get_buffer_idx(const string& name) const {
   auto it = _buffer_map.find(name);
   if (it != _buffer_map.end()) {
+    return it->second;
+  }
+  return -1;
+}
+
+Status Spec::append_processor(Processor* processor) {
+  _processor_map[processor->id()] = _processors.size();
+  _processors.push_back(processor);
+  return Status::Ok();
+}
+
+int Spec::get_processor_idx(const Processor* processor) {
+  auto it = _processor_map.find(processor->id());
+  if (it != _processor_map.end()) {
     return it->second;
   }
   return -1;

@@ -1,4 +1,4 @@
-from libc.stdint cimport uint32_t
+from libc.stdint cimport uint32_t, uint64_t
 from libcpp.string cimport string
 
 from .status cimport *
@@ -10,6 +10,8 @@ cdef extern from "processor.h" namespace "noisicaa" nogil:
     cppclass Processor:
         @staticmethod
         Processor* create(const string& name)
+
+        uint64_t id() const
 
         Status setup(const ProcessorSpec* spec)
         void cleanup()
