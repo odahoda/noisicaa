@@ -5,3 +5,9 @@ cdef extern from "status.h" namespace "noisicaa" nogil:
     cppclass Status:
         bool is_error() const
         string message() const
+
+        @staticmethod
+        Status Ok()
+
+        @staticmethod
+        Status Error(const string& message)

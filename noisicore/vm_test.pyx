@@ -1,14 +1,56 @@
 from libcpp.memory cimport unique_ptr
+from libcpp.string cimport string
 from .status cimport *
 from .spec cimport *
 from .buffers cimport *
 from .block_context cimport *
 from .vm cimport *
+from .backend cimport *
 
 import unittest
 import sys
 
+
 class TestVM(unittest.TestCase):
+    # TODO
+    # - test that end_block is called when there was an error
+    
+    def test_playback(self):
+        cdef:
+            Status status
+            Spec* spec
+            BlockContext ctxt
+
+        cdef unique_ptr[VM] vmptr
+        vmptr.reset(new VM())
+        cdef VM* vm = vmptr.get()
+
+        try:
+            status = vm.setup()
+            self.assertFalse(status.is_error())
+
+            status = vm.set_backend(Backend.create(b'portaudio'))
+            self.assertFalse(status.is_error())
+
+            spec = new Spec()
+            spec.append_buffer(b'buf1', new FloatAudioBlock())
+            spec.append_buffer(b'buf2', new FloatAudioBlock())
+            spec.append_opcode(OpCode.NOISE, b'buf1')
+            spec.append_opcode(OpCode.MUL, b'buf1', 0.3)
+            spec.append_opcode(OpCode.CLEAR, b'buf2')
+            spec.append_opcode(OpCode.MIX, b'buf1', b'buf2')
+            spec.append_opcode(OpCode.OUTPUT, b'buf2', b'left')
+            spec.append_opcode(OpCode.OUTPUT, b'buf2', b'right')
+            status = vm.set_spec(spec)
+            self.assertFalse(status.is_error())
+
+            for _ in range(1000):
+                status = vm.process_block(&ctxt)
+                self.assertFalse(status.is_error(), status.message())
+
+        finally:
+            vm.cleanup()
+
     def test_foo(self):
         cdef:
             Status status
@@ -23,6 +65,9 @@ class TestVM(unittest.TestCase):
 
         try:
             status = vm.setup()
+            self.assertFalse(status.is_error())
+
+            status = vm.set_backend(Backend.create(b'null'))
             self.assertFalse(status.is_error())
 
             spec = new Spec()
@@ -45,7 +90,7 @@ class TestVM(unittest.TestCase):
             data[1] = 5.0
 
             status = vm.process_block(&ctxt)
-            self.assertFalse(status.is_error())
+            self.assertFalse(status.is_error(), status.message())
 
             buf = vm.get_buffer(b'buf2')
             data = <float*>buf.data()
@@ -67,6 +112,9 @@ class TestVM(unittest.TestCase):
         cdef VM* vm = vmptr.get()
         try:
             status = vm.setup()
+            self.assertFalse(status.is_error())
+
+            status = vm.set_backend(Backend.create(b'null'))
             self.assertFalse(status.is_error())
 
             status = vm.set_block_size(1024)

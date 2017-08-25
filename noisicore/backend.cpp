@@ -125,11 +125,39 @@ class PortAudioBackend : public Backend {
   BufferPtr _samples[2];
 };
 
+class NullBackend : public Backend {
+ public:
+  NullBackend() {}
+  ~NullBackend() override {}
+
+  Status setup(VM* vm) override {
+    Status status = Backend::setup(vm);
+    if (status.is_error()) { return status; }
+    return Status::Ok();
+  }
+
+  void cleanup() override {}
+
+  Status begin_block() override {
+    return Status::Ok();
+  }
+
+  Status end_block() override {
+    return Status::Ok();
+  }
+
+  Status output(const string& channel, BufferPtr samples) override {
+    return Status::Ok();
+  }
+};
+
 Backend::Backend() : _vm(nullptr) {}
 
 Backend* Backend::create(const string& name) {
   if (name == "portaudio") {
     return new PortAudioBackend();
+  } else if (name == "null") {
+    return new NullBackend();
   } else {
     return nullptr;
   }

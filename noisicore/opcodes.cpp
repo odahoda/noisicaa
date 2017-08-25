@@ -1,5 +1,6 @@
 #include "opcodes.h"
 
+#include "backend.h"
 #include "vm.h"
 #include "misc.h"
 
@@ -37,12 +38,11 @@ Status run_MIX(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& arg
 }
 
 Status run_MUL(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-    //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
-    //     assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
-    //     cdef float* view = <float*>buf.data
-    //     for i in range(buf.type.size):
-    //         view[i] *= factor
-  return Status::Error("Not implemented yet.");
+  int idx = args[0].int_value();
+  float factor = args[1].float_value();
+  Buffer* buf = state->program->buffers[idx].get();
+  buf->mul(factor);
+  return Status::Ok();
 }
 
 Status run_SET_FLOAT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -55,12 +55,11 @@ Status run_SET_FLOAT(BlockContext* ctxt, ProgramState* state, const vector<OpArg
 }
 
 Status run_OUTPUT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-    // def op_OUTPUT(self, ctxt, state, *, buf_idx, channel):
-    //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
-    //     assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
-    //     assert buf.type.size == ctxt.duration
-    //     self.__backend.output(channel, buf.to_bytes())
-  return Status::Error("Not implemented yet.");
+  int idx = args[0].int_value();
+  string channel = args[1].string_value();
+  Buffer* buf = state->program->buffers[idx].get();
+
+  return state->backend->output(channel, buf->data());
 }
 
 Status run_FETCH_ENTITY(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -110,14 +109,14 @@ Status run_FETCH_PARAMETER(BlockContext* ctxt, ProgramState* state, const vector
 }
 
 Status run_NOISE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-    // def op_NOISE(self, ctxt, state, *, buf_idx):
-    //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
-    //     assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
+  int idx = args[0].int_value();
+  Buffer* buf = state->program->buffers[idx].get();
 
-    //     cdef float* view = <float*>buf.data
-    //     for i in range(buf.type.size):
-    //         view[i] = 2 * random.random() - 1.0
-  return Status::Error("Not implemented yet.");
+  float* data = (float*)buf->data();
+  for (uint32_t i = 0 ; i < ctxt->block_size ; ++i) {
+    *data++ = 2.0 * drand48() - 1.0;
+  }
+  return Status::Ok();
 }
 
 Status run_SINE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {

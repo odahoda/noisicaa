@@ -6,6 +6,8 @@
 #include "status.h"
 #include "misc.h"
 #include "opcodes.h"
+#include "block_context.h"
+#include "backend.h"
 
 using std::atomic;
 
@@ -63,6 +65,23 @@ Status VM::set_spec(const Spec* spec) {
   return Status::Ok();
 }
 
+Status VM::set_backend(Backend* backend) {
+  unique_ptr<Backend> be(backend);
+
+  // TODO: use same lockfree life cycle, as for the spec
+
+  Status status = be->setup(this);
+  if (status.is_error()) { return status; }
+
+  if (_backend.get() != nullptr) {
+    _backend->cleanup();
+    _backend.reset();
+  }
+
+  _backend.reset(be.release());
+  return Status::Ok();
+}
+
 Buffer* VM::get_buffer(const string& name) {
   if (_program.get() == nullptr) {
     return nullptr;
@@ -77,6 +96,20 @@ Status VM::process_block(BlockContext* ctxt) {
   if (program == nullptr) {
     return Status::Ok();
   }
+
+  Backend *backend = _backend.get();
+  if (backend == nullptr) {
+    return Status::Ok();
+  }
+
+  Status status = backend->begin_block();
+  if (status.is_error()) { return status; }
+  auto end_block = scopeGuard([&]() {
+      Status status = backend->end_block();
+      if (status.is_error()) {
+	log(LogLevel::ERROR, "Ignore error in Backend::end_block(): %s", status.message().c_str());
+      }
+    });
 
   // TODO: also run_init=true, if program changed.
   bool run_init = false;
@@ -97,7 +130,7 @@ Status VM::process_block(BlockContext* ctxt) {
   ctxt->block_size = program->block_size;
 
   const Spec* spec = program->spec.get();
-  ProgramState state = { program, 0, false };
+  ProgramState state = { program, backend, 0, false };
   while (!state.end) {
     if (state.p == spec->num_ops()) {
       break;
@@ -117,6 +150,11 @@ Status VM::process_block(BlockContext* ctxt) {
       if (status.is_error()) { return status; }
     }
   }
+
+  end_block.dismiss();
+  status = backend->end_block();
+  if (status.is_error()) { return status; }
+
   return Status::Ok();
 }
 

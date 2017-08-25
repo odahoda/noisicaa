@@ -1,6 +1,8 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
+- Status::Error should carry filename:lineno info
+  - can do without macro?
 - always call cleaup() in destructor
 - rebuild all cython modules before starting app
 - consistent use of either malloc or PyObject_Malloc
