@@ -73,7 +73,7 @@ class ProcessorSpec {
   ProcessorSpec();
 
   Status add_port(const string& name, PortType type, PortDirection direction);
-  int num_ports() const { return _ports.size(); }
+  uint32_t num_ports() const { return _ports.size(); }
   PortSpec get_port(int idx) const { return _ports[idx]; }
 
   Status add_parameter(ParameterSpec* param);

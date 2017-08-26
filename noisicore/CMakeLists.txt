@@ -11,6 +11,7 @@ set(LIB_SRCS
   processor_null.cpp
   processor_ladspa.cpp
   processor_lv2.cpp
+  processor_csound.cpp
   spec.cpp
   vm.cpp
 )
@@ -22,6 +23,7 @@ set(TEST_SRCS
   processor_test.pyx
   processor_ladspa_test.pyx
   processor_lv2_test.pyx
+  processor_csound_test.pyx
   spec_test.pyx
   vm_test.pyx
 )
@@ -33,6 +35,8 @@ target_compile_options(noisicore PRIVATE -fPIC -g -std=c++11 -Wall -Werror -peda
 target_link_libraries(noisicore PRIVATE portaudio)
 target_include_directories(noisicore PRIVATE ${LIBLILV_INCLUDE_DIRS})
 target_link_libraries(noisicore PRIVATE ${LIBLILV_LIBRARIES})
+target_include_directories(noisicore PRIVATE ${LIBCSOUND_INCLUDE_DIRS})
+target_link_libraries(noisicore PRIVATE ${LIBCSOUND_LIBRARIES})
 
 foreach(TEST_SRC ${TEST_SRCS})
   string(REGEX REPLACE "\.pyx$" "" TEST_MOD ${TEST_SRC})

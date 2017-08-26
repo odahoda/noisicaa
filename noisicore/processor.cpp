@@ -7,6 +7,7 @@
 #include "processor_null.h"
 #include "processor_ladspa.h"
 #include "processor_lv2.h"
+#include "processor_csound.h"
 
 using namespace std;
 
@@ -28,6 +29,8 @@ Processor* Processor::create(HostData* host_data, const string& name) {
     return new ProcessorLadspa(host_data);
   } else if (name == "lv2") {
     return new ProcessorLV2(host_data);
+  } else if (name == "csound") {
+    return new ProcessorCSound(host_data);
   } else {
     return nullptr;
   }
