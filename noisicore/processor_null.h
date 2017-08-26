@@ -10,10 +10,11 @@
 namespace noisicaa {
 
 class BlockContext;
+class HostData;
 
 class ProcessorNull : public Processor {
  public:
-  ProcessorNull();
+  ProcessorNull(HostData* host_data);
   ~ProcessorNull() override;
 
   Status setup(const ProcessorSpec* spec) override;

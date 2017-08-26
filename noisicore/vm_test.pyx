@@ -8,6 +8,7 @@ from .backend cimport *
 from .processor cimport *
 from .processor_spec cimport *
 from .buffers cimport *
+from .host_data cimport *
 
 import unittest
 import sys
@@ -20,11 +21,14 @@ class TestVM(unittest.TestCase):
     def test_playback(self):
         cdef:
             Status status
+            unique_ptr[HostData] host_data
             Spec* spec
             BlockContext ctxt
 
+        host_data.reset(new HostData())
+
         cdef unique_ptr[VM] vmptr
-        vmptr.reset(new VM())
+        vmptr.reset(new VM(host_data.get()))
         cdef VM* vm = vmptr.get()
 
         try:
@@ -56,13 +60,16 @@ class TestVM(unittest.TestCase):
     def test_foo(self):
         cdef:
             Status status
+            unique_ptr[HostData] host_data
             Spec* spec
             Buffer* buf
             float* data
             BlockContext ctxt
 
+        host_data.reset(new HostData())
+
         cdef unique_ptr[VM] vmptr
-        vmptr.reset(new VM())
+        vmptr.reset(new VM(host_data.get()))
         cdef VM* vm = vmptr.get()
 
         try:
@@ -105,6 +112,7 @@ class TestVM(unittest.TestCase):
     def test_processor(self):
         cdef:
             Status status
+            unique_ptr[HostData] host_data
             Spec* spec
             Buffer* buf
             float* data
@@ -113,8 +121,10 @@ class TestVM(unittest.TestCase):
             unique_ptr[Processor] processor_ptr
             Processor* processor
 
+        host_data.reset(new HostData())
+
         cdef unique_ptr[VM] vmptr
-        vmptr.reset(new VM())
+        vmptr.reset(new VM(host_data.get()))
         cdef VM* vm = vmptr.get()
 
         try:
@@ -131,7 +141,7 @@ class TestVM(unittest.TestCase):
             processor_spec.get().add_parameter(new StringParameterSpec(b'ladspa_library_path', b'/usr/lib/ladspa/amp.so'))
             processor_spec.get().add_parameter(new StringParameterSpec(b'ladspa_plugin_label', b'amp_mono'))
 
-            processor_ptr.reset(Processor.create(b'ladspa'))
+            processor_ptr.reset(vm.create_processor(b'ladspa'))
             self.assertTrue(processor_ptr.get() != NULL)
             processor = processor_ptr.get()
 
@@ -179,12 +189,15 @@ class TestVM(unittest.TestCase):
     def test_block_size_changed(self):
         cdef:
             Status status
+            unique_ptr[HostData] host_data
             Spec* spec
             Buffer* buf
             BlockContext ctxt
 
+        host_data.reset(new HostData())
+
         cdef unique_ptr[VM] vmptr
-        vmptr.reset(new VM())
+        vmptr.reset(new VM(host_data.get()))
         cdef VM* vm = vmptr.get()
         try:
             status = vm.setup()

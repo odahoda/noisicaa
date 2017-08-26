@@ -6,14 +6,10 @@
 
 namespace noisicaa {
 
-ProcessorLadspa::ProcessorLadspa()
-  : _library(nullptr),
-    _descriptor(nullptr),
-    _instance(nullptr) {
-}
+ProcessorLadspa::ProcessorLadspa(HostData* host_data)
+  : Processor(host_data) {}
 
-ProcessorLadspa::~ProcessorLadspa() {
-}
+ProcessorLadspa::~ProcessorLadspa() {}
 
 Status ProcessorLadspa::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);

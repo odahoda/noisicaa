@@ -11,15 +11,17 @@ import unittest
 import sys
 
 
-class TestProcessorLadspa(unittest.TestCase):
-    def test_ladspa(self):
+class TestProcessorLV2(unittest.TestCase):
+    def test_lv2(self):
         cdef Status status
 
         cdef unique_ptr[HostData] host_data
         host_data.reset(new HostData())
+        status = host_data.get().setup_lilv()
+        self.assertFalse(status.is_error(), status.message())
 
         cdef unique_ptr[Processor] processor_ptr
-        processor_ptr.reset(Processor.create(host_data.get(), b'ladspa'))
+        processor_ptr.reset(Processor.create(host_data.get(), b'lv2'))
         self.assertTrue(processor_ptr.get() != NULL)
 
         cdef Processor* processor = processor_ptr.get()
@@ -29,8 +31,7 @@ class TestProcessorLadspa(unittest.TestCase):
         spec.get().add_port(b'gain', PortType.kRateControl, PortDirection.Input)
         spec.get().add_port(b'in', PortType.audio, PortDirection.Input)
         spec.get().add_port(b'out', PortType.audio, PortDirection.Output)
-        spec.get().add_parameter(new StringParameterSpec(b'ladspa_library_path', b'/usr/lib/ladspa/amp.so'))
-        spec.get().add_parameter(new StringParameterSpec(b'ladspa_plugin_label', b'amp_mono'))
+        spec.get().add_parameter(new StringParameterSpec(b'lv2_uri', b'http://lv2plug.in/plugins/eg-amp'))
 
         status = processor.setup(spec.release())
         self.assertFalse(status.is_error(), status.message())
@@ -43,7 +44,7 @@ class TestProcessorLadspa(unittest.TestCase):
         processor.connect_port(1, <BufferPtr>inbuf)
         processor.connect_port(2, <BufferPtr>outbuf)
 
-        gain = 0.5
+        gain = -6
         for i in range(128):
             inbuf[i] = 1.0
         for i in range(128):
@@ -55,6 +56,6 @@ class TestProcessorLadspa(unittest.TestCase):
         processor.run(&ctxt)
 
         for i in range(128):
-            self.assertEqual(outbuf[i], 0.5)
+            self.assertAlmostEqual(outbuf[i], 0.5, places=2)
 
         processor.cleanup()

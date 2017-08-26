@@ -7,9 +7,11 @@ from .block_context cimport *
 from .processor_spec cimport *
 
 cdef extern from "processor.h" namespace "noisicaa" nogil:
+    cppclass HostData
+
     cppclass Processor:
         @staticmethod
-        Processor* create(const string& name)
+        Processor* create(HostData* host_data, const string& name)
 
         uint64_t id() const
 

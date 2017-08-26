@@ -17,6 +17,7 @@ namespace noisicaa {
 
 class Backend;
 class BlockContext;
+class HostData;
 
 class Program {
  public:
@@ -44,12 +45,13 @@ struct ActiveProcessor {
 
 class VM {
  public:
-  VM();
+  VM(HostData* host_data);
   ~VM();
 
   Status setup();
   void cleanup();
 
+  Processor* create_processor(const string& name);
   Status add_processor(Processor* processor);
 
   Status set_block_size(uint32_t block_size);
@@ -61,6 +63,7 @@ class VM {
   Buffer* get_buffer(const string& name);
 
  private:
+  HostData* _host_data;
   atomic<uint32_t> _block_size;
   unique_ptr<Program> _program;
   unique_ptr<Backend> _backend;

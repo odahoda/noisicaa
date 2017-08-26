@@ -4,6 +4,7 @@ from .buffers cimport *
 from .status cimport *
 from .vm cimport *
 from .backend cimport *
+from .host_data cimport *
 
 import unittest
 
@@ -13,8 +14,11 @@ class TestPortAudioBackend(unittest.TestCase):
         cdef Status status
         cdef float samples[128]
 
+        cdef unique_ptr[HostData] host_data
+        host_data.reset(new HostData())
+
         cdef unique_ptr[VM] vm
-        vm.reset(new VM())
+        vm.reset(new VM(host_data.get()))
 
         cdef unique_ptr[Backend] beptr
         beptr.reset(Backend.create(b"null"))

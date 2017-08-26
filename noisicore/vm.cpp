@@ -5,12 +5,13 @@
 
 #include "status.h"
 #include "misc.h"
+#include "host_data.h"
 #include "opcodes.h"
 #include "block_context.h"
 #include "backend.h"
 #include "processor.h"
 
-using std::atomic;
+using namespace std;
 
 namespace noisicaa {
 
@@ -28,7 +29,9 @@ Status Program::setup(const Spec* s, uint32_t block_size) {
   return Status::Ok();
 }
 
-VM::VM() : _block_size(256) {
+VM::VM(HostData* host_data)
+  : _host_data(host_data),
+    _block_size(256) {
 }
 
 VM::~VM() {
@@ -39,6 +42,10 @@ Status VM::setup() {
 }
 
 void VM::cleanup() {
+}
+
+Processor* VM::create_processor(const string& name) {
+  return Processor::create(_host_data, name);
 }
 
 Status VM::add_processor(Processor* processor) {

@@ -1,10 +1,10 @@
-#ifndef _NOISICORE_PROCESSOR_LADSPA_H
-#define _NOISICORE_PROCESSOR_LADSPA_H
+#ifndef _NOISICORE_PROCESSOR_LV2_H
+#define _NOISICORE_PROCESSOR_LV2_H
 
 #include <string>
 #include <vector>
 #include <stdint.h>
-#include "ladspa.h"
+#include "lilv/lilv.h"
 
 #include "status.h"
 #include "buffers.h"
@@ -14,13 +14,13 @@ using namespace std;
 
 namespace noisicaa {
 
-class HostData;
 class BlockContext;
+class HostData;
 
-class ProcessorLadspa : public Processor {
+class ProcessorLV2 : public Processor {
  public:
-  ProcessorLadspa(HostData* host_data);
-  ~ProcessorLadspa() override;
+  ProcessorLV2(HostData* host_data);
+  ~ProcessorLV2() override;
 
   Status setup(const ProcessorSpec* spec) override;
   void cleanup() override;
@@ -29,9 +29,8 @@ class ProcessorLadspa : public Processor {
   Status run(BlockContext* ctxt) override;
 
  private:
-  void* _library = nullptr;
-  const LADSPA_Descriptor*_descriptor = nullptr;
-  LADSPA_Handle _instance = nullptr;
+  const LilvPlugin* _plugin = nullptr;
+  LilvInstance* _instance = nullptr;
 };
 
 }  // namespace noisicaa

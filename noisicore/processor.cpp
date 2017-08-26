@@ -6,24 +6,28 @@
 #include "misc.h"
 #include "processor_null.h"
 #include "processor_ladspa.h"
+#include "processor_lv2.h"
 
 using namespace std;
 
 namespace noisicaa {
 
-Processor::Processor()
-  : _id(Processor::new_id()) {
+Processor::Processor(HostData* host_data)
+  : _host_data(host_data),
+    _id(Processor::new_id()) {
 }
 
 Processor::~Processor() {
   cleanup();
 }
 
-Processor* Processor::create(const string& name) {
+Processor* Processor::create(HostData* host_data, const string& name) {
   if (name == "null") {
-    return new ProcessorNull();
+    return new ProcessorNull(host_data);
   } else if (name == "ladspa") {
-    return new ProcessorLadspa();
+    return new ProcessorLadspa(host_data);
+  } else if (name == "lv2") {
+    return new ProcessorLV2(host_data);
   } else {
     return nullptr;
   }

@@ -10,17 +10,18 @@
 #include "block_context.h"
 #include "processor_spec.h"
 
-using std::string;
-using std::unique_ptr;
+using namespace std;
 
 namespace noisicaa {
 
+class HostData;
+
 class Processor {
  public:
-  Processor();
+  Processor(HostData* host_data);
   virtual ~Processor();
 
-  static Processor* create(const string& name);
+  static Processor* create(HostData* host_data, const string& name);
 
   uint64_t id() const { return _id; }
 
@@ -33,6 +34,7 @@ class Processor {
   virtual Status run(BlockContext* ctxt) = 0;
 
  protected:
+  HostData* _host_data;
   uint64_t _id;
   unique_ptr<const ProcessorSpec> _spec;
 
