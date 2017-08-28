@@ -8,10 +8,9 @@
 #include "status.h"
 #include "block_context.h"
 
-using std::string;
-using std::vector;
-
 namespace noisicaa {
+
+using namespace std;
 
 class ProgramState;
 

@@ -4,9 +4,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-using std::string;
-using std::unique_ptr;
-
 namespace noisicaa {
 
 string sprintf(const string &fmt, ...) {

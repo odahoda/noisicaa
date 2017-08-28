@@ -1,6 +1,15 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
+- no using in header files
+- event support for csound/lv2 nodes
+- lv2 features
+  - HostData lv2 struct with feature handlers
+- parameters:
+  - collect parameter changes in list as they come in from main thread
+  - at beginning of block, take current list, apply parameters by writing values to buffers
+  - what about string parameters?
+  - only for kRateControl values?
 - Status::Error should carry filename:lineno info
   - can do without macro?
 - always call cleaup() in destructor

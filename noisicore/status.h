@@ -3,9 +3,9 @@
 
 #include <string>
 
-using std::string;
-
 namespace noisicaa {
+
+using namespace std;
 
 class Status {
  public:

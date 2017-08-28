@@ -11,9 +11,9 @@
 #include "status.h"
 #include "processor.h"
 
-using namespace std;
-
 namespace noisicaa {
+
+using namespace std;
 
 class Backend;
 class BlockContext;

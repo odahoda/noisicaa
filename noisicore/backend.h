@@ -5,9 +5,9 @@
 #include "status.h"
 #include "buffers.h"
 
-using std::string;
-
 namespace noisicaa {
+
+using namespace std;
 
 class VM;
 

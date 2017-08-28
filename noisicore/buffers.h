@@ -7,9 +7,9 @@
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
 #include "status.h"
 
-using std::unique_ptr;
-
 namespace noisicaa {
+
+using namespace std;
 
 typedef uint8_t* BufferPtr;
 

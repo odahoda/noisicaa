@@ -9,8 +9,6 @@
 #include "processor_lv2.h"
 #include "processor_csound.h"
 
-using namespace std;
-
 namespace noisicaa {
 
 Processor::Processor(HostData* host_data)

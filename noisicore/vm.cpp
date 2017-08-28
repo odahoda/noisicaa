@@ -11,8 +11,6 @@
 #include "backend.h"
 #include "processor.h"
 
-using namespace std;
-
 namespace noisicaa {
 
 Status Program::setup(const Spec* s, uint32_t block_size) {

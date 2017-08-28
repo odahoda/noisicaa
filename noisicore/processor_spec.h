@@ -8,12 +8,9 @@
 #include <stdint.h>
 #include "status.h"
 
-using std::map;
-using std::string;
-using std::unique_ptr;
-using std::vector;
-
 namespace noisicaa {
+
+using namespace std;
 
 enum PortType {
   audio,

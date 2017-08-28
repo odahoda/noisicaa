@@ -8,9 +8,9 @@
 #include "status.h"
 #include "opcodes.h"
 
-using namespace std;
-
 namespace noisicaa {
+
+using namespace std;
 
 class Processor;
 class BufferType;

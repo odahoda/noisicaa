@@ -5,7 +5,9 @@
 
 namespace noisicaa {
 
-std::string sprintf(const std::string& fmt, ...);
+using namespace std;
+
+string sprintf(const string& fmt, ...);
 
 enum LogLevel {
   INFO, WARNING, ERROR
@@ -33,11 +35,11 @@ template<class F> struct ScopeGuard: public ScopeGuardBase {
 
   ScopeGuard(F f)
     : ScopeGuardBase(),
-      _f(std::move(f)) {}
+      _f(move(f)) {}
 
   ScopeGuard(ScopeGuard&& rhs)
-    : ScopeGuardBase(std::move(rhs)),
-      _f(std::move(rhs._f)) {}
+    : ScopeGuardBase(move(rhs)),
+      _f(move(rhs._f)) {}
 
   ~ScopeGuard() {
     if (_active) {
@@ -52,7 +54,7 @@ template<class F> struct ScopeGuard: public ScopeGuardBase {
 };
 
 template<class F> ScopeGuard<F> scopeGuard(F f) {
-  return ScopeGuard<F>(std::move(f));
+  return ScopeGuard<F>(move(f));
 }
 
 }  // namespace noisicaa

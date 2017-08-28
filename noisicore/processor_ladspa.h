@@ -10,9 +10,9 @@
 #include "buffers.h"
 #include "processor.h"
 
-using namespace std;
-
 namespace noisicaa {
+
+using namespace std;
 
 class HostData;
 class BlockContext;

@@ -5,8 +5,6 @@
 
 #include "status.h"
 
-using namespace std;
-
 namespace noisicaa {
 
 class HostData {

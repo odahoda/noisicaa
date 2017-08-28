@@ -10,9 +10,9 @@
 #include "block_context.h"
 #include "processor_spec.h"
 
-using namespace std;
-
 namespace noisicaa {
+
+using namespace std;
 
 class HostData;
 

@@ -3,6 +3,12 @@
 #include <stdint.h>
 #include "misc.h"
 
+
+// TODO: assuming the channel pointers are constant for the lifetime of a
+// Csound instance, create a vector of channel pointers and populate it
+// in set_code(). _{next,current,old}_instance should point to a struct with
+// the instance pointer and the vector for that instance's channel pointers.
+
 namespace noisicaa {
 
 ProcessorCSoundBase::ProcessorCSoundBase(HostData* host_data)
