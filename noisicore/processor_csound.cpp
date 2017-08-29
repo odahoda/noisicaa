@@ -133,9 +133,12 @@ Status ProcessorCSoundBase::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
   if (status.is_error()) { return status; }
 
-  for (uint32_t i = 0 ; i < spec->num_ports() ; ++i) {
-    _buffers.push_back(nullptr);
-  }
+  _buffers.resize(spec->num_ports());
+
+  // TODO: use urid mapper
+  _sequence_urid = 114;
+  _midi_event_urid = 100;
+  _event_input_ports.resize(spec->num_ports());
 
   return Status::Ok();
 }
@@ -210,16 +213,25 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
     return Status::Ok();
   }
 
-        // in_events = {}
-        // for port in self.inputs.values():
-        //     if isinstance(port, ports.EventInputPort):
-        //         l = list(atom.Atom.wrap(urid.get_static_mapper(), <uint8_t*>(<buffers.Buffer>self.__buffers[port.name]).data).events)
-        //         in_events[port.name] = (port.csound_instr, l)
+  for (uint32_t port_idx = 0 ; port_idx < _spec->num_ports() ; ++port_idx) {
+    const auto& port = _spec->get_port(port_idx);
+    if (port.direction() == PortDirection::Input
+	&& port.type() == PortType::atomData) {
+      LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[port_idx];
+      if (seq->atom.type != _sequence_urid) {
+	return Status::Error(
+            sprintf("Excepted sequence in port '%s', got %d.",
+		    port.name().c_str(), seq->atom.type));
+      }
+      LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
+      int instr = 1; // TODO: use port.csound_instr
+      _event_input_ports[port_idx] = {seq, event, instr};
+    }
+  }
 
   uint32_t pos = 0;
   uint32_t ksmps = csoundGetKsmps(instance->csnd);
   while (pos < ctxt->block_size) {
-
     // Copy input ports into Csound channels.
     for (uint32_t port_idx = 0 ; port_idx < _spec->num_ports() ; ++port_idx) {
       const auto& port = _spec->get_port(port_idx);
@@ -244,6 +256,44 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 	  csoundSpinLock(lock);
 	  *channel_ptr = *buf;
 	  csoundSpinUnLock(lock);
+	} else if (port.type() == PortType::atomData) {
+	  EventInputPort &ep = _event_input_ports[port_idx];
+
+	  // TODO: is instrument started with one ksmps delay? needs further testing.
+	  while (!lv2_atom_sequence_is_end(
+	             &ep.seq->body, ep.seq->atom.size, ep.event)
+		 && ep.event->time.frames < pos + ksmps) {
+	    LV2_Atom& atom = ep.event->body;
+	    if (atom.type == _midi_event_urid) {
+	      uint8_t* midi = (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &atom);
+	      if ((midi[0] & 0xf0) == 0x90) {
+		// note on
+		char buf[80];
+		snprintf(
+		    buf, sizeof(buf),
+		    "i %d.%d 0 -1 %d %d", ep.instr, midi[1], midi[1], midi[2]);
+		int rc = csoundReadScore(instance->csnd, buf);
+		if (rc < 0) {
+		  return Status::Error(sprintf(
+		      "csoundReadScore failed (code %d).", rc));
+		}
+	      } else if ((midi[0] & 0xf0) == 0x80) {
+		// note off
+		char buf[80];
+		snprintf(buf, sizeof(buf), "i -%d.%d 0 0 0", ep.instr, midi[1]);
+		int rc = csoundReadScore(instance->csnd, buf);
+		if (rc < 0) {
+		  return Status::Error(sprintf(
+		      "csoundReadScore failed (code %d).", rc));
+		}
+	      } else {
+		log(LogLevel::WARNING, "Ignoring unsupported midi event %d.", midi[0] & 0xf0);
+	      }
+	    } else {
+	      log(LogLevel::WARNING, "Ignoring event %d in sequence.", atom.type);
+	    }
+	    ep.event = lv2_atom_sequence_next(ep.event);
+	  }
 	} else {
 	  return Status::Error(sprintf(
 	      "Port %s has unsupported type %d",
@@ -251,27 +301,6 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 	}
       }
     }
-
-        //         elif isinstance(port, ports.EventInputPort):
-        //             instr, pending_events = in_events[port.name]
-        //             while (len(pending_events) > 0
-        //                    and pending_events[0].frames < (
-        //                        pos + ctxt.sample_pos + self.__csnd.ksmps)):
-        //                 event = pending_events.pop(0)
-        //                 midi = event.atom.data
-        //                 if midi[0] & 0xf0 == 0x90:
-        //                     self.__csnd.add_score_event(
-        //                         'i %s.%d 0 -1 %d %d' % (
-        //                             instr, midi[1], midi[1], midi[2]))
-
-        //                 elif midi[0] & 0xf0 == 0x80:
-        //                     self.__csnd.add_score_event(
-        //                         'i -%s.%d 0 0 0' % (
-        //                             instr, midi[1]))
-
-        //                 else:
-        //                     raise NotImplementedError(
-        //                         "Event class %s not supported" % type(event).__name__)
 
         //     for parameter in self.description.parameters:
         //         if parameter.param_type == node_db.ParameterType.Float:

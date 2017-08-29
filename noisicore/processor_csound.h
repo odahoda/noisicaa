@@ -8,6 +8,8 @@
 #include <vector>
 #include <stdint.h>
 #include "csound/csound.h"
+#include "lv2/lv2plug.in/ns/ext/atom/forge.h"
+#include "lv2/lv2plug.in/ns/ext/urid/urid.h"
 
 #include "status.h"
 #include "buffers.h"
@@ -50,7 +52,18 @@ private:
     vector<int*> channel_lock;
   };
 
+  struct EventInputPort {
+    LV2_Atom_Sequence* seq;
+    LV2_Atom_Event* event;
+    int instr;
+  };
+
   vector<BufferPtr> _buffers;
+
+  LV2_URID _sequence_urid;
+  LV2_URID _midi_event_urid;
+  vector<EventInputPort> _event_input_ports;
+
   atomic<Instance*> _next_instance;
   atomic<Instance*> _current_instance;
   atomic<Instance*> _old_instance;
