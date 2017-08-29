@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_OPCODES_H
 #define _NOISICORE_OPCODES_H
 
@@ -50,7 +52,7 @@ enum OpArgType {
 };
 
 class OpArg {
- public:
+public:
   OpArg(int64_t value) : _type(OpArgType::INT), _int_value(value) {}
   OpArg(float value) : _type(OpArgType::FLOAT), _float_value(value) {}
   OpArg(const string& value) : _type(OpArgType::STRING), _string_value(value) {}
@@ -61,7 +63,7 @@ class OpArg {
   float float_value() const { return _float_value; }
   const string& string_value() const { return _string_value; }
 
- private:
+private:
   OpArgType _type;
   int64_t _int_value;
   float _float_value;

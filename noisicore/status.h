@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_STATUS_H
 #define _NOISICORE_STATUS_H
 
@@ -8,7 +10,7 @@ namespace noisicaa {
 using namespace std;
 
 class Status {
- public:
+public:
   enum Code {
     OK,
     ERROR,
@@ -36,7 +38,7 @@ class Status {
   static Status Ok() { return Status(Code::OK, ""); }
   static Status Error(const string& message) { return Status(Code::ERROR, message); }
 
- private:
+private:
   Code _code;
   string _message;
 };

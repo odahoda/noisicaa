@@ -16,8 +16,8 @@ target_link_libraries(${csound.so} PRIVATE ${LIBCSOUND_LIBRARIES})
 add_cython_module(ladspa C)
 
 add_cython_module(lilv C)
-target_include_directories(${lilv.so} PUBLIC /.${LIBLILV_INCLUDE_DIRS})
-target_link_libraries(${lilv.so} PUBLIC ${LIBLILV_LIBRARIES})
+target_include_directories(${lilv.so} PRIVATE ${LIBLILV_INCLUDE_DIRS})
+target_link_libraries(${lilv.so} PRIVATE ${LIBLILV_LIBRARIES})
 
 add_cython_module(sndfile C)
 target_include_directories(${sndfile.so} PRIVATE ${LIBSNDFILE_INCLUDE_DIRS})

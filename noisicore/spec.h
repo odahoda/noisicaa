@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_SPEC_H
 #define _NOISICORE_SPEC_H
 
@@ -21,7 +23,7 @@ struct Instruction {
 };
 
 class Spec {
- public:
+public:
   Spec();
   ~Spec();
 
@@ -44,7 +46,7 @@ class Spec {
   Processor* get_processor(int idx) const { return _processors[idx]; }
   int get_processor_idx(const Processor* processor);
 
- private:
+private:
   vector<Instruction> _opcodes;
   vector<Processor*> _processors;
   map<uint64_t, int> _processor_map;

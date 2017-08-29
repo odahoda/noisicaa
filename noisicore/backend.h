@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_BACKEND_H
 #define _NOISICORE_BACKEND_H
 
@@ -12,7 +14,7 @@ using namespace std;
 class VM;
 
 class Backend {
- public:
+public:
   Backend();
   virtual ~Backend() {};
 
@@ -25,7 +27,7 @@ class Backend {
   virtual Status end_block() = 0;
   virtual Status output(const string& channel, BufferPtr samples) = 0;
 
- protected:
+protected:
   VM* _vm;
 };
 

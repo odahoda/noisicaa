@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_PROCESSOR_LADSPA_H
 #define _NOISICORE_PROCESSOR_LADSPA_H
 
@@ -18,7 +20,7 @@ class HostData;
 class BlockContext;
 
 class ProcessorLadspa : public Processor {
- public:
+public:
   ProcessorLadspa(HostData* host_data);
   ~ProcessorLadspa() override;
 
@@ -28,7 +30,7 @@ class ProcessorLadspa : public Processor {
   Status connect_port(uint32_t port_idx, BufferPtr buf) override;
   Status run(BlockContext* ctxt) override;
 
- private:
+private:
   void* _library = nullptr;
   const LADSPA_Descriptor*_descriptor = nullptr;
   LADSPA_Handle _instance = nullptr;

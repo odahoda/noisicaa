@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_BUFFERS_H
 #define _NOISICORE_BUFFERS_H
 
@@ -14,7 +16,7 @@ using namespace std;
 typedef uint8_t* BufferPtr;
 
 class BufferType {
- public:
+public:
   virtual ~BufferType() {}
 
   virtual uint32_t size(uint32_t block_size) const = 0;
@@ -25,7 +27,7 @@ class BufferType {
 };
 
 class Float : public BufferType {
- public:
+public:
   uint32_t size(uint32_t block_size) const override;
 
   Status clear_buffer(uint32_t block_size, BufferPtr buf) const override;
@@ -34,7 +36,7 @@ class Float : public BufferType {
 };
 
 class FloatAudioBlock : public BufferType {
- public:
+public:
   uint32_t size(uint32_t block_size) const override;
 
   Status clear_buffer(uint32_t block_size, BufferPtr buf) const override;
@@ -43,7 +45,7 @@ class FloatAudioBlock : public BufferType {
 };
 
 class AtomData : public BufferType {
- public:
+public:
   AtomData(LV2_URID_Map* map);
 
   uint32_t size(uint32_t block_size) const override;
@@ -52,14 +54,14 @@ class AtomData : public BufferType {
   Status mix_buffers(uint32_t block_size, const BufferPtr buf1, BufferPtr buf2) const override;
   Status mul_buffer(uint32_t block_size, BufferPtr buf, float factor) const override;
 
- private:
+private:
   LV2_URID_Map* _map;
   LV2_URID _frame_time_urid;
   LV2_URID _sequence_urid;
 };
 
 class Buffer {
- public:
+public:
   Buffer(const BufferType* type);
   ~Buffer();
 
@@ -73,7 +75,7 @@ class Buffer {
   Status mix(const Buffer* other);
   Status mul(float factor);
 
- private:
+private:
   const BufferType* _type;
 
   uint32_t _block_size;

@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_MISC_H
 #define _NOISICORE_MISC_H
 
@@ -24,7 +26,7 @@ struct ScopeGuardBase {
 
   void dismiss() { _active = false; }
 
- protected:
+protected:
   ~ScopeGuardBase() = default;
   bool _active;
 };
@@ -49,7 +51,7 @@ template<class F> struct ScopeGuard: public ScopeGuardBase {
 
   ScopeGuard& operator=(const ScopeGuard&) = delete;
 
- private:
+private:
   F _f;
 };
 

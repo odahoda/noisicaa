@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_HOST_DATA_H
 #define _NOISICORE_HOST_DATA_H
 
@@ -8,7 +10,7 @@
 namespace noisicaa {
 
 class HostData {
- public:
+public:
   ~HostData();
 
   Status setup();

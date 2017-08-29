@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_PROCESSOR_CSOUND_H
 #define _NOISICORE_PROCESSOR_CSOUND_H
 
@@ -19,7 +21,7 @@ class HostData;
 class BlockContext;
 
 class ProcessorCSoundBase : public Processor {
- public:
+public:
   ProcessorCSoundBase(HostData* host_data);
   ~ProcessorCSoundBase() override;
 
@@ -29,10 +31,10 @@ class ProcessorCSoundBase : public Processor {
   Status connect_port(uint32_t port_idx, BufferPtr buf) override;
   Status run(BlockContext* ctxt) override;
 
- protected:
+protected:
   Status set_code(const string& orchestra, const string& score);
 
- private:
+private:
   class Instance {
   public:
     Instance();
@@ -55,7 +57,7 @@ class ProcessorCSoundBase : public Processor {
 };
 
 class ProcessorCSound : public ProcessorCSoundBase {
- public:
+public:
   ProcessorCSound(HostData* host_data);
   ~ProcessorCSound() override;
 

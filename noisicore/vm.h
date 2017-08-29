@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_VM_H
 #define _NOISICORE_VM_H
 
@@ -20,7 +22,7 @@ class BlockContext;
 class HostData;
 
 class Program {
- public:
+public:
   Status setup(const Spec* spec, uint32_t block_size);
 
   bool initialized = false;
@@ -44,7 +46,7 @@ struct ActiveProcessor {
 };
 
 class VM {
- public:
+public:
   VM(HostData* host_data);
   ~VM();
 
@@ -62,7 +64,7 @@ class VM {
 
   Buffer* get_buffer(const string& name);
 
- private:
+private:
   HostData* _host_data;
   atomic<uint32_t> _block_size;
   unique_ptr<Program> _program;

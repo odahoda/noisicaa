@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_PROCESSOR_LV2_H
 #define _NOISICORE_PROCESSOR_LV2_H
 
@@ -18,7 +20,7 @@ class BlockContext;
 class HostData;
 
 class ProcessorLV2 : public Processor {
- public:
+public:
   ProcessorLV2(HostData* host_data);
   ~ProcessorLV2() override;
 
@@ -28,7 +30,7 @@ class ProcessorLV2 : public Processor {
   Status connect_port(uint32_t port_idx, BufferPtr buf) override;
   Status run(BlockContext* ctxt) override;
 
- private:
+private:
   const LilvPlugin* _plugin = nullptr;
   LilvInstance* _instance = nullptr;
 };

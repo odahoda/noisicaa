@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_PROCESSOR_NULL_H
 #define _NOISICORE_PROCESSOR_NULL_H
 
@@ -13,7 +15,7 @@ class BlockContext;
 class HostData;
 
 class ProcessorNull : public Processor {
- public:
+public:
   ProcessorNull(HostData* host_data);
   ~ProcessorNull() override;
 

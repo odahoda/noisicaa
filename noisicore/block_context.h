@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_BLOCK_CONTEXT_H
 #define _NOISICORE_BLOCK_CONTEXT_H
 

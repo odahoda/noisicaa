@@ -1,3 +1,5 @@
+// -*- mode: c++ -*-
+
 #ifndef _NOISICORE_PROCESSOR_H
 #define _NOISICORE_PROCESSOR_H
 
@@ -17,7 +19,7 @@ using namespace std;
 class HostData;
 
 class Processor {
- public:
+public:
   Processor(HostData* host_data);
   virtual ~Processor();
 
@@ -33,7 +35,7 @@ class Processor {
   virtual Status connect_port(uint32_t port_idx, BufferPtr buf) = 0;
   virtual Status run(BlockContext* ctxt) = 0;
 
- protected:
+protected:
   HostData* _host_data;
   uint64_t _id;
   unique_ptr<const ProcessorSpec> _spec;
