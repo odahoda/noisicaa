@@ -31,7 +31,8 @@ set(TEST_SRCS
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
 add_library(noisicore STATIC ${LIB_SRCS})
-target_compile_options(noisicore PRIVATE -fPIC -g -std=c++11 -Wall -Werror -pedantic)
+target_compile_options(noisicore PRIVATE -fPIC -g -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
+target_link_libraries(noisicore PRIVATE pthread)
 target_link_libraries(noisicore PRIVATE portaudio)
 target_include_directories(noisicore PRIVATE ${LIBLILV_INCLUDE_DIRS})
 target_link_libraries(noisicore PRIVATE ${LIBLILV_LIBRARIES})

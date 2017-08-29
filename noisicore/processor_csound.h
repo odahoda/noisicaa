@@ -33,10 +33,25 @@ class ProcessorCSoundBase : public Processor {
   Status set_code(const string& orchestra, const string& score);
 
  private:
+  class Instance {
+  public:
+    Instance();
+    ~Instance();
+
+    Instance(const Instance&) = delete;
+    Instance(Instance&&) = delete;
+    Instance& operator=(const Instance&) = delete;
+    Instance& operator=(Instance&&) = delete;
+
+    CSOUND* csnd = nullptr;
+    vector<MYFLT*> channel_ptr;
+    vector<int*> channel_lock;
+  };
+
   vector<BufferPtr> _buffers;
-  atomic<CSOUND*> _next_instance;
-  atomic<CSOUND*> _current_instance;
-  atomic<CSOUND*> _old_instance;
+  atomic<Instance*> _next_instance;
+  atomic<Instance*> _current_instance;
+  atomic<Instance*> _old_instance;
 };
 
 class ProcessorCSound : public ProcessorCSoundBase {

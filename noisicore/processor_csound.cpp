@@ -1,15 +1,19 @@
 #include "processor_csound.h"
 
+#include <assert.h>
 #include <stdint.h>
 #include "misc.h"
 
 
-// TODO: assuming the channel pointers are constant for the lifetime of a
-// Csound instance, create a vector of channel pointers and populate it
-// in set_code(). _{next,current,old}_instance should point to a struct with
-// the instance pointer and the vector for that instance's channel pointers.
-
 namespace noisicaa {
+
+ProcessorCSoundBase::Instance::Instance() {}
+
+ProcessorCSoundBase::Instance::~Instance() {
+  if (csnd) {
+    csoundDestroy(csnd);
+  }
+}
 
 ProcessorCSoundBase::ProcessorCSoundBase(HostData* host_data)
   : Processor(host_data),
@@ -20,53 +24,107 @@ ProcessorCSoundBase::ProcessorCSoundBase(HostData* host_data)
 ProcessorCSoundBase::~ProcessorCSoundBase() {}
 
 Status ProcessorCSoundBase::set_code(const string& orchestra, const string& score) {
-  CSOUND* instance;
-
   // Discard any next instance, which hasn't been picked up by the audio thread.
-  instance = _next_instance.exchange(nullptr);
-  if (instance != nullptr) {
-    csoundDestroy(instance);
+  Instance* prev_next_instance = _next_instance.exchange(nullptr);
+  if (prev_next_instance != nullptr) {
+    delete prev_next_instance;
   }
 
   // Discard instance, which the audio thread doesn't use anymore.
-  instance = _old_instance.exchange(nullptr);
-  if (instance != nullptr) {
-    csoundDestroy(instance);
+  Instance* old_instance = _old_instance.exchange(nullptr);
+  if (old_instance != nullptr) {
+    delete old_instance;
   }
 
   // Create the next instance.
-  instance = csoundCreate(nullptr);
-  if (instance == nullptr) {
+  unique_ptr<Instance> instance(new Instance());
+  instance->csnd = csoundCreate(nullptr);
+  if (instance->csnd == nullptr) {
     return Status::Error("Failed to create Csound instance.");
   }
 
-  auto destroy_instance = scopeGuard([&]() {
-      csoundDestroy(instance);
-    });
-
-  int rc = csoundSetOption(instance, "-n");
+  int rc = csoundSetOption(instance->csnd, "-n");
   if (rc < 0) {
     return Status::Error(sprintf("Failed to set Csound options (code %d)", rc));
   }
 
-  rc = csoundCompileOrc(instance, orchestra.c_str());
+  rc = csoundCompileOrc(instance->csnd, orchestra.c_str());
   if (rc < 0) {
     return Status::Error(sprintf("Failed to compile Csound orchestra (code %d)", rc));
   }
 
-  rc = csoundStart(instance);
+  rc = csoundStart(instance->csnd);
   if (rc < 0) {
     return Status::Error(sprintf("Failed to start Csound (code %d)", rc));
   }
 
-  rc = csoundReadScore(instance, score.c_str());
+  rc = csoundReadScore(instance->csnd, score.c_str());
   if (rc < 0) {
     return Status::Error(sprintf("Failed to read Csound score (code %d)", rc));
   }
 
-  destroy_instance.dismiss();
-  instance = _next_instance.exchange(instance);
-  assert(instance == nullptr);
+  instance->channel_ptr.resize(_spec->num_ports());
+  instance->channel_lock.resize(_spec->num_ports());
+  for (uint32_t port_idx = 0 ; port_idx < _spec->num_ports() ; ++port_idx) {
+    const auto& port = _spec->get_port(port_idx);
+
+    if (port.type() == PortType::atomData) {
+      continue;
+    }
+
+    MYFLT* channel_ptr;
+    int type = csoundGetChannelPtr(
+	instance->csnd, &channel_ptr, port.name().c_str(), 0);
+    if (type < 0) {
+      return Status::Error(
+	   sprintf("Orchestra does not define the channel '%s'",
+		   port.name().c_str()));
+    }
+
+    if (port.direction() == PortDirection::Output
+	&& !(type & CSOUND_OUTPUT_CHANNEL)) {
+      return Status::Error(
+	   sprintf("Channel '%s' is not an output channel", port.name().c_str()));
+    }
+
+    if (port.direction() == PortDirection::Input
+	&& !(type & CSOUND_INPUT_CHANNEL)) {
+      return Status::Error(
+	   sprintf("Channel '%s' is not an input channel", port.name().c_str()));
+    }
+
+    if (port.type() == PortType::audio	|| port.type() == PortType::aRateControl) {
+      if ((type & CSOUND_CHANNEL_TYPE_MASK) != CSOUND_AUDIO_CHANNEL) {
+	return Status::Error(
+	    sprintf("Channel '%s' is not an audio channel", port.name().c_str()));
+      }
+    } else if (port.type() == PortType::kRateControl) {
+      if ((type & CSOUND_CHANNEL_TYPE_MASK) != CSOUND_CONTROL_CHANNEL) {
+	return Status::Error(
+	    sprintf("Channel '%s' is not an control channel", port.name().c_str()));
+      }
+    } else {
+      return Status::Error(
+	  sprintf("Internal error, channel '%s' type %d",
+		  port.name().c_str(), port.type()));
+    }
+
+    int rc = csoundGetChannelPtr(
+	instance->csnd, &channel_ptr, port.name().c_str(), type);
+    if (rc < 0) {
+      return Status::Error(
+	   sprintf("Failed to get channel pointer for port '%s'",
+		   port.name().c_str()));
+    }
+    assert(channel_ptr != nullptr);
+
+    instance->channel_ptr[port_idx] = channel_ptr;
+    instance->channel_lock[port_idx] = csoundGetChannelLock(
+	instance->csnd, port.name().c_str());
+  }
+
+  prev_next_instance = _next_instance.exchange(instance.release());
+  assert(prev_next_instance == nullptr);
 
   return Status::Ok();
 }
@@ -83,17 +141,17 @@ Status ProcessorCSoundBase::setup(const ProcessorSpec* spec) {
 }
 
 void ProcessorCSoundBase::cleanup() {
-  CSOUND* instance = _next_instance.exchange(nullptr);
+  Instance* instance = _next_instance.exchange(nullptr);
   if (instance != nullptr) {
-    csoundDestroy(instance);
+    delete instance;
   }
   instance = _current_instance.exchange(nullptr);
   if (instance != nullptr) {
-    csoundDestroy(instance);
+    delete instance;
   }
   instance = _old_instance.exchange(nullptr);
   if (instance != nullptr) {
-    csoundDestroy(instance);
+    delete instance;
   }
 
   _buffers.clear();
@@ -120,9 +178,9 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
   // the old instance, which will eventually be destroyed in the main thread.
   // It must not happen that a next instance is available, before an old one has
   // been disposed of.
-  CSOUND* instance = _next_instance.exchange(nullptr);
+  Instance* instance = _next_instance.exchange(nullptr);
   if (instance != nullptr) {
-    CSOUND* old_instance = _current_instance.exchange(instance);
+    Instance* old_instance = _current_instance.exchange(instance);
     old_instance = _old_instance.exchange(old_instance);
     assert(old_instance == nullptr);
   }
@@ -159,41 +217,33 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
         //         in_events[port.name] = (port.csound_instr, l)
 
   uint32_t pos = 0;
-  uint32_t ksmps = csoundGetKsmps(instance);
+  uint32_t ksmps = csoundGetKsmps(instance->csnd);
   while (pos < ctxt->block_size) {
+
+    // Copy input ports into Csound channels.
     for (uint32_t port_idx = 0 ; port_idx < _spec->num_ports() ; ++port_idx) {
       const auto& port = _spec->get_port(port_idx);
       if (port.direction() == PortDirection::Input) {
 	if (port.type() == PortType::audio
 	    || port.type() == PortType::aRateControl) {
-	  MYFLT* channel_ptr;
-	  int rc = csoundGetChannelPtr(
-	      instance, &channel_ptr, port.name().c_str(),
-	      CSOUND_AUDIO_CHANNEL | CSOUND_INPUT_CHANNEL);
-	  if (rc < 0) {
-	    return Status::Error(sprintf(
-	        "Failed to get channel pointer for ort %s (code %d)",
-	        port.name().c_str(), rc));
-	  }
-
 	  float* buf = (float*)_buffers[port_idx];
 	  buf += pos;
+
+	  MYFLT* channel_ptr = instance->channel_ptr[port_idx];
+	  int *lock = instance->channel_lock[port_idx];
+	  csoundSpinLock(lock);
 	  for (uint32_t i = 0 ; i < ksmps ; ++i) {
 	    *channel_ptr++ = *buf++;
 	  }
+	  csoundSpinUnLock(lock);
 	} else if (port.type() == PortType::kRateControl) {
-	  MYFLT* channel_ptr;
-	  int rc = csoundGetChannelPtr(
-	      instance, &channel_ptr, port.name().c_str(),
-	      CSOUND_CONTROL_CHANNEL | CSOUND_INPUT_CHANNEL);
-	  if (rc < 0) {
-	    return Status::Error(sprintf(
-	        "Failed to get channel pointer for ort %s (code %d)",
-	        port.name().c_str(), rc));
-	  }
-
 	  float* buf = (float*)_buffers[port_idx];
+
+	  MYFLT* channel_ptr = instance->channel_ptr[port_idx];
+	  int *lock = instance->channel_lock[port_idx];
+	  csoundSpinLock(lock);
 	  *channel_ptr = *buf;
+	  csoundSpinUnLock(lock);
 	} else {
 	  return Status::Error(sprintf(
 	      "Port %s has unsupported type %d",
@@ -228,44 +278,35 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
         //             self.__csnd.set_control_channel_value(
         //                 parameter.name, self.get_param(parameter.name))
 
-    int rc = csoundPerformKsmps(instance);
+    int rc = csoundPerformKsmps(instance->csnd);
     if (rc < 0) {
       return Status::Error(sprintf("Csound performance failed (code %d)", rc));
     }
 
+    // Copy channel data from Csound into output ports.
     for (uint32_t port_idx = 0 ; port_idx < _spec->num_ports() ; ++port_idx) {
       const auto& port = _spec->get_port(port_idx);
       if (port.direction() == PortDirection::Output) {
 	if (port.type() == PortType::audio
 	    || port.type() == PortType::aRateControl) {
-	  MYFLT* channel_ptr;
-	  rc = csoundGetChannelPtr(
-	      instance, &channel_ptr, port.name().c_str(),
-	      CSOUND_AUDIO_CHANNEL | CSOUND_OUTPUT_CHANNEL);
-	  if (rc < 0) {
-	    return Status::Error(sprintf(
-	        "Failed to get channel pointer for ort %s (code %d)",
-	        port.name().c_str(), rc));
-	  }
-
 	  float* buf = (float*)_buffers[port_idx];
 	  buf += pos;
+
+	  MYFLT* channel_ptr = instance->channel_ptr[port_idx];
+	  int *lock = instance->channel_lock[port_idx];
+	  csoundSpinLock(lock);
 	  for (uint32_t i = 0 ; i < ksmps ; ++i) {
 	    *buf++ = *channel_ptr++;
 	  }
+	  csoundSpinUnLock(lock);
 	} else if (port.type() == PortType::kRateControl) {
-	  MYFLT* channel_ptr;
-	  rc = csoundGetChannelPtr(
-	      instance, &channel_ptr, port.name().c_str(),
-	      CSOUND_CONTROL_CHANNEL | CSOUND_OUTPUT_CHANNEL);
-	  if (rc < 0) {
-	    return Status::Error(sprintf(
-	        "Failed to get channel pointer for ort %s (code %d)",
-	        port.name().c_str(), rc));
-	  }
-
 	  float* buf = (float*)_buffers[port_idx];
+
+	  MYFLT* channel_ptr = instance->channel_ptr[port_idx];
+	  int *lock = instance->channel_lock[port_idx];
+	  csoundSpinLock(lock);
 	  *buf = *channel_ptr;
+	  csoundSpinUnLock(lock);
 	} else {
 	  return Status::Error(sprintf(
 	      "Port %s has unsupported type %d",

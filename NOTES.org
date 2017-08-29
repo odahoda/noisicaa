@@ -1,7 +1,6 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- no using in header files
 - event support for csound/lv2 nodes
 - lv2 features
   - HostData lv2 struct with feature handlers
