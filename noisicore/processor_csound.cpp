@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include "host_data.h"
 #include "misc.h"
 
 
@@ -10,7 +11,7 @@ namespace noisicaa {
 ProcessorCSoundBase::Instance::Instance() {}
 
 ProcessorCSoundBase::Instance::~Instance() {
-  if (csnd) {
+  if (csnd != nullptr) {
     csoundDestroy(csnd);
   }
 }
@@ -135,9 +136,13 @@ Status ProcessorCSoundBase::setup(const ProcessorSpec* spec) {
 
   _buffers.resize(spec->num_ports());
 
-  // TODO: use urid mapper
-  _sequence_urid = 114;
-  _midi_event_urid = 100;
+  _sequence_urid = _host_data->lv2_urid_map->map(
+      _host_data->lv2_urid_map->handle,
+      "http://lv2plug.in/ns/ext/atom#Sequence");
+  _midi_event_urid = _host_data->lv2_urid_map->map(
+      _host_data->lv2_urid_map->handle,
+      "http://lv2plug.in/ns/ext/midi#MidiEvent");
+
   _event_input_ports.resize(spec->num_ports());
 
   return Status::Ok();
@@ -158,6 +163,7 @@ void ProcessorCSoundBase::cleanup() {
   }
 
   _buffers.clear();
+  _event_input_ports.clear();
 
   Processor::cleanup();
 }
@@ -377,7 +383,6 @@ Status ProcessorCSound::setup(const ProcessorSpec* spec) {
 }
 
 void ProcessorCSound::cleanup() {
-
   ProcessorCSoundBase::cleanup();
 }
 

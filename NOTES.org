@@ -3,8 +3,7 @@
 * VM-based pipeline engine								      :FR:
 - lv2 features
   - HostData lv2 struct with feature handlers
-- event support for csound/lv2 nodes
-  - need urid mapper from hostdata
+- event support for lv2 nodes
 - parameters:
   - collect parameter changes in list as they come in from main thread
   - at beginning of block, take current list, apply parameters by writing values to buffers

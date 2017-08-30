@@ -24,6 +24,10 @@ class TestProcessorCSound(unittest.TestCase):
         cdef unique_ptr[HostData] host_data
         host_data.reset(new HostData())
 
+        cdef urid.URID_Mapper mapper = urid.get_static_mapper()
+        cdef urid.URID_Map_Feature map_feature = urid.URID_Map_Feature(mapper)
+        host_data.get().lv2_urid_map = &map_feature.data
+
         cdef unique_ptr[Processor] processor_ptr
         processor_ptr.reset(Processor.create(host_data.get(), b'csound'))
         self.assertTrue(processor_ptr.get() != NULL)
@@ -89,6 +93,10 @@ class TestProcessorCSound(unittest.TestCase):
         cdef unique_ptr[HostData] host_data
         host_data.reset(new HostData())
 
+        cdef urid.URID_Mapper mapper = urid.get_static_mapper()
+        cdef urid.URID_Map_Feature map_feature = urid.URID_Map_Feature(mapper)
+        host_data.get().lv2_urid_map = &map_feature.data
+
         cdef unique_ptr[Processor] processor_ptr
         processor_ptr.reset(Processor.create(host_data.get(), b'csound'))
         self.assertTrue(processor_ptr.get() != NULL)
@@ -110,8 +118,7 @@ class TestProcessorCSound(unittest.TestCase):
               iFreq = cpsmidinn(iPitch)
               iVolume = -20 * log10(127^2 / iVelocity^2)
 
-              aout = db(iVolume) * linseg(0, 0.08, 1, 0.1, 0.6, 0.5, 0.0) * poscil(1.0, iFreq)
-              gaOut = gaOut + aout
+              gaOut = db(iVolume) * linseg(0, 0.08, 1, 0.1, 0.6, 0.5, 0.0) * poscil(1.0, iFreq)
             endin
         ''').encode('utf-8')
 
