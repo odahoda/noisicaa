@@ -11,3 +11,6 @@ cdef extern from "status.h" namespace "noisicaa" nogil:
 
         @staticmethod
         Status Error(const string& message)
+
+    cppclass StatusOr[T](Status):
+        T result() const

@@ -1,6 +1,7 @@
 add_python_package()
 
 set(LIB_SRCS
+  audio_stream.cpp
   backend.cpp
   buffers.cpp
   host_data.cpp
@@ -17,6 +18,7 @@ set(LIB_SRCS
 )
 
 set(TEST_SRCS
+  audio_stream_test.pyx
   backend_test.pyx
   buffers_test.pyx
   opcodes_test.pyx
