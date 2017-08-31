@@ -17,7 +17,7 @@ import sys
 class TestVM(unittest.TestCase):
     # TODO
     # - test that end_block is called when there was an error
-    
+
     def test_playback(self):
         cdef:
             Status status

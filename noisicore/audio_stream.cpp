@@ -243,7 +243,7 @@ void AudioStreamClient::cleanup() {
       ssize_t bytes_written = write(_pipe_out, request.c_str(), request.size());
       if (bytes_written < 0) {
 	log(LogLevel::ERROR, "Failed to write to pipe.");
-	break
+	break;
       }
       request.erase(0, bytes_written);
     }

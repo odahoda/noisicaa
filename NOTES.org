@@ -2,13 +2,11 @@
 
 * VM-based pipeline engine								      :FR:
 - Status::FromErrno()
-- make noisicore a single module that can be pyimported
-  - just a single module linking in libnoisicore.a
-  - don't link test to libnoisicore.a
 - implement IPC backend
   - c++ implementation of stream protocol
-    - make python wrapper around classes, use those in player
-    - change API to make it more proto friendly with less copying
+    - use python wrapper in player
+    - add FrameData proto
+    - rename frame/block
 - lv2 features
   - HostData lv2 struct with feature handlers
 - event support for lv2 nodes

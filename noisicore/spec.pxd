@@ -19,7 +19,7 @@ cdef extern from "spec.h" namespace "noisicaa" nogil:
         int get_buffer_idx(const string& name) const
 
         Status append_processor(Processor* processor)
-        int num_buffers() const
+        int num_processors() const
         Processor* get_processor(int idx) const
         int get_processor_idx(const Processor* processor) const
 

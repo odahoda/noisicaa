@@ -1,4 +1,6 @@
-add_python_package()
+add_python_package(
+  audio_stream_test.py
+)
 
 set(LIB_SRCS
   audio_stream.cpp
@@ -18,7 +20,6 @@ set(LIB_SRCS
 )
 
 set(TEST_SRCS
-  audio_stream_test.pyx
   backend_test.pyx
   buffers_test.pyx
   opcodes_test.pyx
@@ -32,7 +33,7 @@ set(TEST_SRCS
 
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
-add_library(noisicore STATIC ${LIB_SRCS})
+add_library(noisicore SHARED ${LIB_SRCS})
 target_compile_options(noisicore PRIVATE -fPIC -g -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
 target_link_libraries(noisicore PRIVATE pthread)
 target_link_libraries(noisicore PRIVATE portaudio)
@@ -40,6 +41,11 @@ target_include_directories(noisicore PRIVATE ${LIBLILV_INCLUDE_DIRS})
 target_link_libraries(noisicore PRIVATE ${LIBLILV_LIBRARIES})
 target_include_directories(noisicore PRIVATE ${LIBCSOUND_INCLUDE_DIRS})
 target_link_libraries(noisicore PRIVATE ${LIBCSOUND_LIBRARIES})
+
+add_cython_module(audio_stream CXX)
+target_link_libraries(${audio_stream.so} PRIVATE noisicore)
+target_include_directories(${audio_stream.so} PRIVATE ${LIBLILV_INCLUDE_DIRS})
+target_link_libraries(${audio_stream.so} PRIVATE ${LIBLILV_LIBRARIES})
 
 foreach(TEST_SRC ${TEST_SRCS})
   string(REGEX REPLACE "\.pyx$" "" TEST_MOD ${TEST_SRC})
