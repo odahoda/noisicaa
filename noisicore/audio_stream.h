@@ -20,10 +20,10 @@ public:
   string address() const { return _address; }
 
   void close();
-  StatusOr<string> receive_frame_bytes();
-  StatusOr<string> receive_frame();
-  Status send_frame_bytes(const string& frame_bytes);
-  Status send_frame(const string& frame);
+  StatusOr<string> receive_block_bytes();
+  StatusOr<string> receive_block();
+  Status send_block_bytes(const string& block_bytes);
+  Status send_block(const string& block);
 
 protected:
   string _address;

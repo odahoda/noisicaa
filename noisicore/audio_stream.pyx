@@ -43,23 +43,23 @@ cdef class AudioStream(object):
         with nogil:
             stream.close()
 
-    def receive_frame_bytes(self):
+    def receive_block_bytes(self):
         cdef AudioStreamBase* stream = self.stream.get()
 
         cdef StatusOr[string] status_or_bytes
         with nogil:
-            status_or_bytes = stream.receive_frame_bytes();
+            status_or_bytes = stream.receive_block_bytes();
 
         if status_or_bytes.is_error():
             raise Error(status_or_bytes.message())
         return bytes(status_or_bytes.result())
 
-    def send_frame_bytes(self, const string& frame_bytes):
+    def send_block_bytes(self, const string& block_bytes):
         cdef AudioStreamBase* stream = self.stream.get()
 
         cdef Status status
         with nogil:
-            status = stream.send_frame_bytes(frame_bytes);
+            status = stream.send_block_bytes(block_bytes);
 
         if status.is_error():
             raise Error(status.message())

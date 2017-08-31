@@ -95,7 +95,7 @@ StatusOr<string> AudioStreamBase::get_bytes(size_t num_bytes) {
   return data;
 }
 
-StatusOr<string> AudioStreamBase::receive_frame_bytes() {
+StatusOr<string> AudioStreamBase::receive_block_bytes() {
   StatusOr<string> line_or_status = get_line();
   if (line_or_status.is_error()) { return line_or_status; }
   string line = line_or_status.result();
@@ -119,15 +119,15 @@ StatusOr<string> AudioStreamBase::receive_frame_bytes() {
   return payload;
 }
 
-StatusOr<string> AudioStreamBase::receive_frame() {
-  // TODO: deserialize frame
-  return receive_frame_bytes();
+StatusOr<string> AudioStreamBase::receive_block() {
+  // TODO: deserialize block
+  return receive_block_bytes();
 }
 
-Status AudioStreamBase::send_frame_bytes(const string& frame_bytes) {
+Status AudioStreamBase::send_block_bytes(const string& block_bytes) {
   string request;
-  request += sprintf("#LEN=%d\n", frame_bytes.size());
-  request += frame_bytes;
+  request += sprintf("#LEN=%d\n", block_bytes.size());
+  request += block_bytes;
   request += "#END\n";
 
   while (request.size() > 0) {
@@ -141,9 +141,9 @@ Status AudioStreamBase::send_frame_bytes(const string& frame_bytes) {
   return Status::Ok();
 }
 
-Status AudioStreamBase::send_frame(const string& frame) {
-  // TODO: serialize frame
-  return send_frame_bytes(frame);
+Status AudioStreamBase::send_block(const string& block) {
+  // TODO: serialize block
+  return send_block_bytes(block);
 }
 
 AudioStreamServer::AudioStreamServer(const string& address)
