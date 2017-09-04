@@ -4,6 +4,8 @@ from libcpp.string cimport string
 cdef extern from "status.h" namespace "noisicaa" nogil:
     cppclass Status:
         bool is_error() const
+        bool is_connection_closed() const
+        bool is_os_error() const
         string message() const
 
         @staticmethod

@@ -6,6 +6,10 @@ class Error(Exception):
     pass
 
 
+class ConnectionClosed(Exception):
+    pass
+
+
 cdef class AudioStream(object):
     cdef unique_ptr[AudioStreamBase] stream
 
@@ -24,14 +28,20 @@ cdef class AudioStream(object):
         obj.stream.reset(new AudioStreamClient(address))
         return obj
 
+    cdef _check(self, const Status& status):
+        if status.is_connection_closed():
+            raise ConnectionClosed()
+
+        if status.is_error():
+            raise Error(status.message())
+
     def setup(self):
         cdef AudioStreamBase* stream = self.stream.get()
 
         cdef Status status
         with nogil:
             status = stream.setup()
-        if status.is_error():
-            raise Error(status.message())
+        self._check(status)
 
     def cleanup(self):
         cdef AudioStreamBase* stream = self.stream.get()
@@ -43,23 +53,20 @@ cdef class AudioStream(object):
         with nogil:
             stream.close()
 
-    def receive_block_bytes(self):
+    def receive_bytes(self):
         cdef AudioStreamBase* stream = self.stream.get()
 
         cdef StatusOr[string] status_or_bytes
         with nogil:
-            status_or_bytes = stream.receive_block_bytes();
+            status_or_bytes = stream.receive_bytes();
+        self._check(status_or_bytes)
 
-        if status_or_bytes.is_error():
-            raise Error(status_or_bytes.message())
         return bytes(status_or_bytes.result())
 
-    def send_block_bytes(self, const string& block_bytes):
+    def send_bytes(self, const string& block_bytes):
         cdef AudioStreamBase* stream = self.stream.get()
 
         cdef Status status
         with nogil:
-            status = stream.send_block_bytes(block_bytes);
-
-        if status.is_error():
-            raise Error(status.message())
+            status = stream.send_bytes(block_bytes);
+        self._check(status)

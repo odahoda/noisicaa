@@ -22,6 +22,7 @@ class TestVM(unittest.TestCase):
         cdef:
             Status status
             unique_ptr[HostData] host_data
+            BackendSettings backend_settings
             Spec* spec
             BlockContext ctxt
 
@@ -35,7 +36,7 @@ class TestVM(unittest.TestCase):
             status = vm.setup()
             self.assertFalse(status.is_error())
 
-            status = vm.set_backend(Backend.create(b'null'))
+            status = vm.set_backend(Backend.create(b'null', backend_settings))
             self.assertFalse(status.is_error())
 
             spec = new Spec()
@@ -61,6 +62,7 @@ class TestVM(unittest.TestCase):
         cdef:
             Status status
             unique_ptr[HostData] host_data
+            BackendSettings backend_settings
             Spec* spec
             Buffer* buf
             float* data
@@ -76,7 +78,7 @@ class TestVM(unittest.TestCase):
             status = vm.setup()
             self.assertFalse(status.is_error())
 
-            status = vm.set_backend(Backend.create(b'null'))
+            status = vm.set_backend(Backend.create(b'null', backend_settings))
             self.assertFalse(status.is_error())
 
             spec = new Spec()
@@ -113,6 +115,7 @@ class TestVM(unittest.TestCase):
         cdef:
             Status status
             unique_ptr[HostData] host_data
+            BackendSettings backend_settings
             Spec* spec
             Buffer* buf
             float* data
@@ -131,7 +134,7 @@ class TestVM(unittest.TestCase):
             status = vm.setup()
             self.assertFalse(status.is_error())
 
-            status = vm.set_backend(Backend.create(b'null'))
+            status = vm.set_backend(Backend.create(b'null', backend_settings))
             self.assertFalse(status.is_error())
 
             processor_spec.reset(new ProcessorSpec())
@@ -190,6 +193,7 @@ class TestVM(unittest.TestCase):
         cdef:
             Status status
             unique_ptr[HostData] host_data
+            BackendSettings backend_settings
             Spec* spec
             Buffer* buf
             BlockContext ctxt
@@ -203,7 +207,7 @@ class TestVM(unittest.TestCase):
             status = vm.setup()
             self.assertFalse(status.is_error())
 
-            status = vm.set_backend(Backend.create(b'null'))
+            status = vm.set_backend(Backend.create(b'null', backend_settings))
             self.assertFalse(status.is_error())
 
             status = vm.set_block_size(1024)

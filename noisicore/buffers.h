@@ -13,7 +13,8 @@ namespace noisicaa {
 
 using namespace std;
 
-typedef uint8_t* BufferPtr;
+typedef uint8_t BufferData;
+typedef BufferData* BufferPtr;
 
 class BufferType {
 public:

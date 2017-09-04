@@ -61,11 +61,11 @@ Status AudioStreamBase::fill_buffer() {
       return Status::Ok();
     } else if (fds.revents & POLLHUP) {
       log(LogLevel::WARNING, "Pipe disconnected");
-      return Status::Error("Stream closed");
+      return Status::ConnectionClosed();
     }
 
     if (_closed) {
-      return Status::Error("Stream closed");
+      return Status::ConnectionClosed();
     }
   }
 }
@@ -95,13 +95,13 @@ StatusOr<string> AudioStreamBase::get_bytes(size_t num_bytes) {
   return data;
 }
 
-StatusOr<string> AudioStreamBase::receive_block_bytes() {
+StatusOr<string> AudioStreamBase::receive_bytes() {
   StatusOr<string> line_or_status = get_line();
   if (line_or_status.is_error()) { return line_or_status; }
   string line = line_or_status.result();
 
   if (line == "#CLOSE") {
-    return Status::Error("Stream closed");
+    return Status::ConnectionClosed();
   }
 
   assert(line.substr(0, 5) == "#LEN=");
@@ -119,16 +119,24 @@ StatusOr<string> AudioStreamBase::receive_block_bytes() {
   return payload;
 }
 
-StatusOr<string> AudioStreamBase::receive_block() {
-  // TODO: deserialize block
-  return receive_block_bytes();
+StatusOr<capnp::BlockData::Reader> AudioStreamBase::receive_block() {
+  StatusOr<string> stor_bytes = receive_bytes();
+  if (stor_bytes.is_error()) { return stor_bytes; }
+  _in_message = stor_bytes.result();
+
+  assert(_in_message.size() % sizeof(::capnp::word) == 0);
+  kj::ArrayPtr<::capnp::word> words(
+      (::capnp::word*)_in_message.c_str(),
+      _in_message.size() / sizeof(::capnp::word));
+  ::capnp::FlatArrayMessageReader message_reader(words);
+  return message_reader.getRoot<capnp::BlockData>();
 }
 
-Status AudioStreamBase::send_block_bytes(const string& block_bytes) {
+Status AudioStreamBase::send_bytes(const char* data, size_t size) {
   string request;
-  request += sprintf("#LEN=%d\n", block_bytes.size());
-  request += block_bytes;
-  request += "#END\n";
+  request.append(sprintf("#LEN=%d\n", size));
+  request.append(data, size);
+  request.append("#END\n");
 
   while (request.size() > 0) {
     ssize_t bytes_written = write(_pipe_out, request.c_str(), request.size());
@@ -141,9 +149,14 @@ Status AudioStreamBase::send_block_bytes(const string& block_bytes) {
   return Status::Ok();
 }
 
-Status AudioStreamBase::send_block(const string& block) {
-  // TODO: serialize block
-  return send_block_bytes(block);
+capnp::BlockData::Builder AudioStreamBase::block_data_builder() {
+  return _message_builder.initRoot<capnp::BlockData>();
+}
+
+Status AudioStreamBase::send_block(const capnp::BlockData::Builder& block) {
+  const auto& words = ::capnp::messageToFlatArray(_message_builder);
+  const auto& bytes = words.asChars();
+  return send_bytes(bytes.begin(), bytes.size());
 }
 
 AudioStreamServer::AudioStreamServer(const string& address)

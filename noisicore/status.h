@@ -15,6 +15,8 @@ public:
   enum Code {
     OK,
     ERROR,
+    CONNECTION_CLOSED,
+    OS_ERROR,
   };
 
   Status()
@@ -33,11 +35,17 @@ public:
   }
 
   Code code() const { return _code; }
-  bool is_error() const { return _code == Code::ERROR; }
+  bool is_error() const { return _code != Code::OK; }
+  bool is_connection_closed() const { return _code == Code::CONNECTION_CLOSED; }
+  bool is_os_error() const { return _code == Code::OS_ERROR; }
   string message() const { return _message; }
 
   static Status Ok() { return Status(Code::OK, ""); }
   static Status Error(const string& message) { return Status(Code::ERROR, message); }
+  static Status ConnectionClosed() {
+    return Status(Code::CONNECTION_CLOSED, "Connection closed");
+  }
+  static Status OSError(const string& message) { return Status(Code::OS_ERROR, message); }
 
 private:
   Code _code;

@@ -5,9 +5,12 @@ from .vm cimport *
 from .buffers cimport *
 
 cdef extern from "backend.h" namespace "noisicaa" nogil:
+    struct BackendSettings:
+        string ipc_address
+
     cppclass Backend:
         @staticmethod
-        Backend* create(const string& name)
+        Backend* create(const string& name, const BackendSettings& settings)
 
         Status setup(VM* vm)
         void cleanup()

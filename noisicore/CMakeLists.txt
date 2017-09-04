@@ -5,6 +5,9 @@ add_python_package(
 set(LIB_SRCS
   audio_stream.cpp
   backend.cpp
+  backend_ipc.cpp
+  backend_null.cpp
+  backend_portaudio.cpp
   buffers.cpp
   host_data.cpp
   misc.cpp
@@ -21,6 +24,7 @@ set(LIB_SRCS
 
 set(TEST_SRCS
   backend_test.pyx
+  backend_ipc_test.pyx
   buffers_test.pyx
   opcodes_test.pyx
   processor_test.pyx
@@ -32,9 +36,14 @@ set(TEST_SRCS
 )
 
 include_directories(${CMAKE_CURRENT_LIST_DIR})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_library(noisicore SHARED ${LIB_SRCS})
+add_cpp_capnp(block_data.capnp)
+add_py_capnp(block_data.capnp)
+
+add_library(noisicore SHARED ${LIB_SRCS} block_data.capnp.c++)
 target_compile_options(noisicore PRIVATE -fPIC -g -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
+target_link_libraries(noisicore PRIVATE capnp)
 target_link_libraries(noisicore PRIVATE pthread)
 target_link_libraries(noisicore PRIVATE portaudio)
 target_include_directories(noisicore PRIVATE ${LIBLILV_INCLUDE_DIRS})

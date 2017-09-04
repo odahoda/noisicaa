@@ -23,15 +23,15 @@ class TestAudioStream(unittest.TestCase):
         client.setup()
 
         def server_thread():
-            request = server.receive_block_bytes()
-            server.send_block_bytes(request)
+            request = server.receive_bytes()
+            server.send_bytes(request)
 
         thread = threading.Thread(target=server_thread)
         thread.start()
 
         request = b'123' * 100000
-        client.send_block_bytes(request)
-        response = client.receive_block_bytes()
+        client.send_bytes(request)
+        response = client.receive_bytes()
 
         self.assertEqual(response, b'123' * 100000)
 

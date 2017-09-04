@@ -20,8 +20,10 @@ class TestPortAudioBackend(unittest.TestCase):
         cdef unique_ptr[VM] vm
         vm.reset(new VM(host_data.get()))
 
+        cdef BackendSettings backend_settings
+
         cdef unique_ptr[Backend] beptr
-        beptr.reset(Backend.create(b"null"))
+        beptr.reset(Backend.create(b"null", backend_settings))
 
         cdef Backend* be = beptr.get()
         status = be.setup(vm.get())

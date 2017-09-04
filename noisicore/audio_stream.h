@@ -3,7 +3,12 @@
 #ifndef _NOISICORE_AUDIO_STREAM_H
 #define _NOISICORE_AUDIO_STREAM_H
 
+#include <stdint.h>
+#include <capnp/message.h>
+#include <capnp/serialize.h>
+
 #include "status.h"
+#include "block_data.capnp.h"
 
 namespace noisicaa {
 
@@ -20,10 +25,15 @@ public:
   string address() const { return _address; }
 
   void close();
-  StatusOr<string> receive_block_bytes();
-  StatusOr<string> receive_block();
-  Status send_block_bytes(const string& block_bytes);
-  Status send_block(const string& block);
+  StatusOr<string> receive_bytes();
+  StatusOr<capnp::BlockData::Reader> receive_block();
+
+  Status send_bytes(const char* data, size_t size);
+  Status send_bytes(const string& bytes) {
+    return send_bytes(bytes.c_str(), bytes.size());
+  }
+  capnp::BlockData::Builder block_data_builder();
+  Status send_block(const capnp::BlockData::Builder& builder);
 
 protected:
   string _address;
@@ -37,6 +47,8 @@ private:
 
   bool _closed = false;
   string _buffer;
+  ::capnp::MallocMessageBuilder _message_builder;
+  string _in_message;
 };
 
 class AudioStreamServer : public AudioStreamBase {

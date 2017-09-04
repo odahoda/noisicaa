@@ -2,11 +2,10 @@
 
 * VM-based pipeline engine								      :FR:
 - Status::FromErrno()
+  - use that in backend_ipc
 - implement IPC backend
   - c++ implementation of stream protocol
     - use python wrapper in player
-    - add FrameData proto
-    - rename frame/block
 - lv2 features
   - HostData lv2 struct with feature handlers
 - event support for lv2 nodes
