@@ -9,6 +9,7 @@ namespace noisicaa {
 
 struct BlockContext {
   uint32_t block_size;
+  uint32_t sample_pos;
 };
 
 }  // namespace noisicaa

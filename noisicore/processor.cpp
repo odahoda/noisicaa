@@ -8,6 +8,7 @@
 #include "processor_ladspa.h"
 #include "processor_lv2.h"
 #include "processor_csound.h"
+#include "processor_ipc.h"
 
 namespace noisicaa {
 
@@ -29,6 +30,8 @@ Processor* Processor::create(HostData* host_data, const string& name) {
     return new ProcessorLV2(host_data);
   } else if (name == "csound") {
     return new ProcessorCSound(host_data);
+  } else if (name == "ipc") {
+    return new ProcessorIPC(host_data);
   } else {
     return nullptr;
   }

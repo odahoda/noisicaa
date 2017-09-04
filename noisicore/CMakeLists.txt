@@ -18,6 +18,7 @@ set(LIB_SRCS
   processor_ladspa.cpp
   processor_lv2.cpp
   processor_csound.cpp
+  processor_ipc.cpp
   spec.cpp
   vm.cpp
 )
@@ -31,6 +32,7 @@ set(TEST_SRCS
   processor_ladspa_test.pyx
   processor_lv2_test.pyx
   processor_csound_test.pyx
+  processor_ipc_test.pyx
   spec_test.pyx
   vm_test.pyx
 )
