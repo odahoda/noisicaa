@@ -32,18 +32,18 @@ class EventSetConnectorTest(unittest.TestCase):
             connector.close()
 
 
-class ScoreEntitySourceTest(unittest.TestCase):
+class ScoreBufferSourceTest(unittest.TestCase):
     def test_foo(self):
         pr = project.BaseProject.make_demo()
         tr = pr.sheets[0].master_group.tracks[0]
-        src = score_track.ScoreEntitySource(tr)
+        src = score_track.ScoreBufferSource(tr)
 
-        entities = {}
-        src.get_entities(entities, 0, 1024, 0)
+        buffers = {}
+        src.get_buffers(buffers, 0, 1024, 0)
 
-        entity = entities['track:%s' % tr.id]
+        buf = buffers['track:%s' % tr.id]
 
-        turtle = sratom.atom_to_turtle(lv2.static_mapper, entity.data)
+        turtle = sratom.atom_to_turtle(lv2.static_mapper, buf.data)
         print(turtle)
 
 

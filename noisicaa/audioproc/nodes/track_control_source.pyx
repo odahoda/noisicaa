@@ -34,7 +34,7 @@ class TrackControlSource(node.BuiltinNode):
 
     def get_ast(self, compiler):
         seq = super().get_ast(compiler)
-        seq.add(ast.FetchEntity(
+        seq.add(ast.FetchBuffer(
             'track:' + self.track_id,
             self.outputs['out'].buf_name))
         return seq

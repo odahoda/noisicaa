@@ -45,6 +45,7 @@ add_py_capnp(block_data.capnp)
 
 add_library(noisicore SHARED ${LIB_SRCS} block_data.capnp.c++)
 target_compile_options(noisicore PRIVATE -fPIC -g -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
+target_link_libraries(noisicore PRIVATE noisicaa-core)
 target_link_libraries(noisicore PRIVATE capnp)
 target_link_libraries(noisicore PRIVATE pthread)
 target_link_libraries(noisicore PRIVATE portaudio)

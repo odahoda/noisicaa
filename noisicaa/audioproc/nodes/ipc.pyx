@@ -10,16 +10,13 @@ import threading
 
 import capnp
 
+import noisicore
 from noisicaa.core import ipc
 from noisicaa import music
 from noisicaa import node_db
 
 from .. import ports
 from .. cimport node
-from .. import audio_stream
-from .. import entity_capnp
-from .. import frame_data_capnp
-from .. import audio_format
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +37,7 @@ cdef class IPCNode(node.CustomNode):
 
         super().__init__(description=description, **kwargs)
 
-        self.__stream = audio_stream.AudioStreamClient(address)
+        self.__stream = noisicore.AudioStream.create_client(address)
 
         self.__out_l = None
         self.__out_r = None
@@ -65,29 +62,27 @@ cdef class IPCNode(node.CustomNode):
 
     cdef int run(self, ctxt) except -1:
         with ctxt.perf.track('ipc'):
-            request = frame_data_capnp.FrameData.new_message()
+            request = noisicore.BlockData.new_message()
             request.samplePos = ctxt.sample_pos
-            request.frameSize = ctxt.duration
-            with ctxt.perf.track('ipc.send_frame'):
-                self.__stream.send_frame(request)
+            request.blockSize = ctxt.duration
+            with ctxt.perf.track('ipc.send_block'):
+                self.__stream.send_block(request)
 
-            with ctxt.perf.track('ipc.receive_frame'):
-                response = self.__stream.receive_frame()
+            with ctxt.perf.track('ipc.receive_block'):
+                response = self.__stream.receive_block()
             assert response.samplePos == ctxt.sample_pos, (
                 response.samplePos, ctxt.sample_pos)
-            assert response.frameSize == ctxt.duration, (
-                response.frameSize, ctxt.duration)
+            assert response.blockSize == ctxt.duration, (
+                response.blockSize, ctxt.duration)
             ctxt.perf.add_spans(response.perfData)
 
-        for entity in response.entities:
-            if entity.id == 'output:left':
-                assert entity.type == entity_capnp.Entity.Type.audio
-                assert entity.size == 4 * response.frameSize
-                string.memmove(self.__out_l.data, <char*>entity.data, entity.size)
-            elif entity.id == 'output:right':
-                assert entity.type == entity_capnp.Entity.Type.audio
-                assert entity.size == 4 * response.frameSize
-                string.memmove(self.__out_r.data, <char*>entity.data, entity.size)
+        for buf in response.buffers:
+            if buf.id == 'output:left':
+                assert len(buf.data) == 4 * response.blockSize
+                string.memmove(self.__out_l.data, <char*>buf.data, len(buf.data))
+            elif buf.id == 'output:right':
+                assert len(buf.data) == 4 * response.blockSize
+                string.memmove(self.__out_r.data, <char*>buf.data, len(buf.data))
 
         return 0
 

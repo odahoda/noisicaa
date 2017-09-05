@@ -331,14 +331,14 @@ class PipelineVM(object):
         self.__backend.output(channel, buf.to_bytes())
 
     @at_performance
-    def op_FETCH_ENTITY(self, ctxt, state, *, entity_id, buf_idx):
-        cdef buffers.Buffer buf = self.__buffers[buf_idx]
+    def op_FETCH_BUFFER(self, ctxt, state, *, buf_id, buf_idx):
+        cdef buffers.Buffer out_buf = self.__buffers[buf_idx]
         try:
-            entity = ctxt.entities[entity_id]
+            in_buf = ctxt.buffers[buf_id]
         except KeyError:
-            buf.clear()
+            out_buf.clear()
         else:
-            buf.set_bytes(entity.data)
+            out_buf.set_bytes(in_buf.data)
 
     @at_performance
     def op_FETCH_PARAMETER(self, ctxt, state, *, parameter_idx, buf_idx):

@@ -2,6 +2,7 @@
 
 import logging
 
+import noisicore
 from noisicaa.bindings import lv2
 from noisicaa import audioproc
 from noisicaa import core
@@ -207,7 +208,7 @@ class MeasureReference(model.MeasureReference, state.StateBase):
 state.StateBase.register_class(MeasureReference)
 
 
-class EntitySource(object):
+class BufferSource(object):
     def __init__(self, track):
         self._track = track
         self._sheet = track.sheet
@@ -215,11 +216,11 @@ class EntitySource(object):
     def close(self):
         pass
 
-    def get_entities(self, entities, start_pos, end_pos, frame_sample_pos):
+    def get_buffers(self, buffers, start_pos, end_pos, frame_sample_pos):
         raise NotImplementedError
 
 
-class EventSetEntitySource(EntitySource):
+class EventSetBufferSource(BufferSource):
     def __init__(self, track):
         super().__init__(track)
         self.__event_set = event_set.EventSet()
@@ -233,25 +234,23 @@ class EventSetEntitySource(EntitySource):
         self.__connector.close()
         super().close()
 
-    def get_entities(self, entities, start_sample_pos, end_sample_pos, frame_sample_pos):
+    def get_buffers(self, buffers, start_sample_pos, end_sample_pos, frame_sample_pos):
         start_timepos = self.__time_mapper.sample2timepos(start_sample_pos)
         end_timepos = self.__time_mapper.sample2timepos(end_sample_pos)
-        entity_id = 'track:%s' % self._track.id
+        buffer_id = 'track:%s' % self._track.id
 
-        buf = bytearray(10240)
+        data = bytearray(10240)
         forge = lv2.AtomForge(lv2.static_mapper)
-        forge.set_buffer(buf, len(buf))
+        forge.set_buffer(data, len(data))
 
         with forge.sequence():
             try:
-                entity = entities[entity_id]
+                buf = buffers[buffer_id]
             except KeyError:
                 pass
             else:
-                # Copy events from existing entity.
-                assert entity.type == audioproc.Entity.Type.atom
-
-                for event in lv2.wrap_atom(lv2.static_mapper, entity.data).events:
+                # Copy events from existing buffer.
+                for event in lv2.wrap_atom(lv2.static_mapper, buf.data).events:
                     atom = event.atom
                     forge.write_atom_event(
                         event.frames,
@@ -274,13 +273,11 @@ class EventSetEntitySource(EntitySource):
                         bytes([0b10000000, event.pitch.midi_note, 0]),
                         3)
 
-        entity = audioproc.Entity.new_message()
-        entity.id = entity_id
-        entity.type = audioproc.Entity.Type.atom
-        entity.size = len(buf)
-        entity.data = bytes(buf)
+        buf = noisicore.Buffer.new_message()
+        buf.id = buffer_id
+        buf.data = bytes(data)
 
-        entities[entity_id] = entity
+        buffers[buffer_id] = buf
 
 
 class MeasuredEventSetConnector(object):

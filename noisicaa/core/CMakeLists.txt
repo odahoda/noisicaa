@@ -19,7 +19,11 @@ add_python_package(
   storage_test.py
 )
 
+add_cpp_capnp(message.capnp)
 add_py_capnp(message.capnp)
+add_cpp_capnp(perf_stats.capnp)
 add_py_capnp(perf_stats.capnp)
+
+add_library(noisicaa-core SHARED message.capnp.c++ perf_stats.capnp.c++)
 
 add_subdirectory(stats)

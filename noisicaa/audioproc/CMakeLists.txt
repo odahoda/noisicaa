@@ -3,21 +3,16 @@ add_python_package(
   audioproc_client.py
   audioproc_client_test.py
   audioproc_process.py
-  audio_stream.py
-  audio_stream_test.py
   backend.py
   data.py
   exceptions.py
-  frame_data_test.py
   libfluidsynth.py
   mutations.py
   node_db.py
   ports.py
   resample_test.py
-  )
+)
 
-add_py_capnp(frame_data.capnp)
-add_py_capnp(entity.capnp)
 add_py_capnp(pipeline_mutations.capnp)
 
 add_cython_module(resample C)

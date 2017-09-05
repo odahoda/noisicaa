@@ -5,6 +5,7 @@ import logging
 
 import numpy
 
+import noisicore
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.bindings import sndfile
@@ -165,37 +166,35 @@ class SampleRef(model.SampleRef, state.StateBase):
 state.StateBase.register_class(SampleRef)
 
 
-class SampleEntitySource(base_track.EntitySource):
+class SampleBufferSource(base_track.BufferSource):
     def __init__(self, track):
         super().__init__(track)
 
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
-    def get_entities(self, entities, start_pos, end_pos, frame_sample_pos):
+    def get_buffers(self, buffers, start_pos, end_pos, frame_sample_pos):
         output = numpy.zeros(
             shape=(end_pos - start_pos + frame_sample_pos, 2), dtype=numpy.float32)
 
-        entity_left_id = 'track:%s:left' % self._track.id
+        buffer_left_id = 'track:%s:left' % self._track.id
         try:
-            entity_left = entities[entity_left_id]
+            buffer_left = buffers[buffer_left_id]
         except KeyError:
             pass
         else:
-            # Copy events from existing entity.
-            assert entity_left.type == audioproc.Entity.Type.audio
-            assert entity_left.size == frame_sample_pos * 4
-            output[:frame_sample_pos,0] = numpy.frombuffer(entity_left.data, dtype=numpy.float32)
+            # Copy events from existing buffer.
+            assert len(buffer_left.data) == frame_sample_pos * 4
+            output[:frame_sample_pos,0] = numpy.frombuffer(buffer_left.data, dtype=numpy.float32)
 
-        entity_right_id = 'track:%s:left' % self._track.id
+        buffer_right_id = 'track:%s:left' % self._track.id
         try:
-            entity_right = entities[entity_right_id]
+            buffer_right = buffers[buffer_right_id]
         except KeyError:
             pass
         else:
-            # Copy events from existing entity.
-            assert entity_right.type == audioproc.Entity.Type.audio
-            assert entity_right.size == frame_sample_pos * 4
-            output[:frame_sample_pos,1] = numpy.frombuffer(entity_right.data, dtype=numpy.float32)
+            # Copy events from existing buffer.
+            assert len(buffer_right.data) == frame_sample_pos * 4
+            output[:frame_sample_pos,1] = numpy.frombuffer(buffer_right.data, dtype=numpy.float32)
 
         f1 = start_pos
         f2 = end_pos
@@ -227,28 +226,24 @@ class SampleEntitySource(base_track.EntitySource):
                 output[dest:dest+length,ch] = samples[src:src+length,ch % samples.shape[1]]
 
         samples_left = output[:,0].tobytes()
-        entity_left = audioproc.Entity.new_message()
-        entity_left.id = entity_left_id
-        entity_left.type = audioproc.Entity.Type.audio
-        entity_left.size = len(samples_left)
-        entity_left.data = bytes(samples_left)
-        entities[entity_left_id] = entity_left
+        buffer_left = noisicore.Buffer.new_message()
+        buffer_left.id = buffer_left_id
+        buffer_left.data = bytes(samples_left)
+        buffers[buffer_left_id] = buffer_left
 
         samples_right = output[:,1].tobytes()
-        entity_right = audioproc.Entity.new_message()
-        entity_right.id = entity_right_id
-        entity_right.type = audioproc.Entity.Type.audio
-        entity_right.size = len(samples_right)
-        entity_right.data = bytes(samples_right)
-        entities[entity_right_id] = entity_right
+        buffer_right = noisicore.Buffer.new_message()
+        buffer_right.id = buffer_right_id
+        buffer_right.data = bytes(samples_right)
+        buffers[buffer_right_id] = buffer_right
 
 
 class SampleTrack(model.SampleTrack, base_track.Track):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
-    def create_entity_source(self):
-        return SampleEntitySource(self)
+    def create_buffer_source(self):
+        return SampleBufferSource(self)
 
     @property
     def audio_source_name(self):

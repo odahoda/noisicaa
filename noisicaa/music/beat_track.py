@@ -137,7 +137,7 @@ class BeatMeasure(model.BeatMeasure, base_track.Measure):
 state.StateBase.register_class(BeatMeasure)
 
 
-class BeatEntitySource(base_track.EventSetEntitySource):
+class BeatBufferSource(base_track.EventSetBufferSource):
     def _create_connector(self, track, event_set):
         return EventSetConnector(track, event_set)
 
@@ -191,8 +191,8 @@ class BeatTrack(model.BeatTrack, base_track.MeasuredTrack):
             for _ in range(num_measures):
                 self.append_measure()
 
-    def create_entity_source(self):
-        return BeatEntitySource(self)
+    def create_buffer_source(self):
+        return BeatBufferSource(self)
 
     @property
     def event_source_name(self):

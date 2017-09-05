@@ -12,6 +12,7 @@ from unittest import mock
 
 import asynctest
 
+import noisicore
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.core import ipc
@@ -54,7 +55,7 @@ class MockAudioProcClient(object):
         if backend == 'ipc':
             address = os.path.join(
                 tempfile.gettempdir(), 'audioproc.%s.pipe' % uuid.uuid4().hex)
-            self.audiostream_server = audioproc.AudioStreamServer(address)
+            self.audiostream_server = noisicore.AudioStream.create_server(address)
             self.audiostream_server.setup()
             self.stop_backend = threading.Event()
             self.backend_thread = threading.Thread(target=self.backend_main)
@@ -76,12 +77,12 @@ class MockAudioProcClient(object):
         try:
             while not self.stop_backend.is_set():
                 logger.debug("Waiting for request...")
-                request = self.audiostream_server.receive_frame()
+                request = self.audiostream_server.receive_block()
                 logger.debug("Got request %s, sending response.", request.samplePos)
 
-                response = audioproc.FrameData.new_message(**request.to_dict())
-                self.audiostream_server.send_frame(response)
-        except audioproc.StreamClosed:
+                response = noisicore.BlockData.new_message(**request.to_dict())
+                self.audiostream_server.send_block(response)
+        except noisicore.ConnectionClosed:
             pass
 
 class PlayerTest(asynctest.TestCase):
@@ -126,24 +127,24 @@ class PlayerTest(asynctest.TestCase):
         self.proxy_client_thread.start()
 
     def proxy_client_main(self, address):
-        client = audioproc.AudioStreamClient(address)
+        client = noisicore.AudioStream.create_client(address)
         try:
             client.setup()
 
             sample_pos = 0
             while True:
-                request = audioproc.FrameData.new_message()
+                request = noisicore.BlockData.new_message()
                 request.samplePos = sample_pos
-                request.frameSize = 10
-                logger.debug("Sending frame %s...", sample_pos)
-                client.send_frame(request)
+                request.blockSize = 10
+                logger.debug("Sending block %s...", sample_pos)
+                client.send_block(request)
                 logger.debug("Waiting for response...")
-                response = client.receive_frame()
+                response = client.receive_block()
                 logger.debug("Got response %s.", response.samplePos)
 
                 sample_pos += 1
 
-        except audioproc.StreamClosed:
+        except noisicore.ConnectionClosed:
             pass
 
         finally:

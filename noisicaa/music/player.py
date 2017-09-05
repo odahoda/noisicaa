@@ -18,6 +18,7 @@ import uuid
 
 import posix_ipc
 
+import noisicore
 from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa.core import model_base
@@ -211,7 +212,7 @@ class AudioStreamProxy(object):
 
         self._lock = threading.Lock()
 
-        self._server = audioproc.AudioStreamServer(self.address)
+        self._server = noisicore.AudioStream.create_server(self.address)
         self._client = None
 
         self._stopped = threading.Event()
@@ -254,18 +255,18 @@ class AudioStreamProxy(object):
         try:
             while not self._stopped.is_set():
                 try:
-                    server_request = self._server.receive_frame()
-                except audioproc.StreamClosed:
+                    server_request = self._server.receive_block()
+                except noisicore.ConnectionClosed:
                     logger.warning("Stream to PlayerClient closed.")
                     raise
 
                 perf = core.PerfStats()
 
-                request = audioproc.FrameData.new_message()
+                request = noisicore.BlockData.new_message()
                 request.samplePos = server_request.samplePos
-                request.frameSize = server_request.frameSize
+                request.blockSize = server_request.blockSize
 
-                entities = {}
+                buffers = {}
                 messages = []
 
                 while True:
@@ -281,7 +282,7 @@ class AudioStreamProxy(object):
                         self._player.publish_status_async(
                             playback_pos=(
                                 settings.sample_pos,
-                                request.frameSize))
+                                request.blockSize))
 
                     if new_settings.loop_start is not None:
                         settings.loop_start = new_settings.loop_start
@@ -320,7 +321,7 @@ class AudioStreamProxy(object):
                     self._player.publish_status_async(
                         playback_pos=(
                             request.samplePos - sample_pos_offset,
-                            request.frameSize))
+                            request.blockSize))
 
                     if settings.loop_start is not None:
                         range_start = settings.loop_start
@@ -332,14 +333,14 @@ class AudioStreamProxy(object):
                     else:
                         range_end = tmap.total_duration_samples
 
-                    with perf.track('get_track_entities'):
-                        duration = request.frameSize
+                    with perf.track('get_track_buffers'):
+                        duration = request.blockSize
                         out_sample_pos = request.samplePos
                         frame_sample_pos = 0
                         while duration > 0:
                             end_pos = min(settings.sample_pos + duration, range_end)
-                            self._player.get_track_entities(
-                                entities,
+                            self._player.get_track_buffers(
+                                buffers,
                                 settings.sample_pos, end_pos,
                                 frame_sample_pos)
 
@@ -359,12 +360,12 @@ class AudioStreamProxy(object):
                                 settings.sample_pos = end_pos
 
                 request.init(
-                    'entities',
-                    len(server_request.entities) + len(entities))
-                for idx, entity in enumerate(
+                    'buffers',
+                    len(server_request.buffers) + len(buffers))
+                for idx, buf in enumerate(
                         itertools.chain(
-                            server_request.entities, entities.values())):
-                    request.entities[idx] = entity
+                            server_request.buffers, buffers.values())):
+                    request.buffers[idx] = buf
 
                 request.init(
                     'messages',
@@ -377,39 +378,39 @@ class AudioStreamProxy(object):
                 with self._lock:
                     if self._client is not None:
                         try:
-                            with perf.track('send_frame'):
-                                self._client.send_frame(request)
-                            with perf.track('receive_frame'):
-                                client_response = self._client.receive_frame()
-                            perf.add_spans(client_response.perfData)
+                            with perf.track('send_block'):
+                                self._client.send_block(request)
+                            with perf.track('receive_block'):
+                                client_response = self._client.receive_block()
+                            #perf.add_spans(client_response.perfData)
 
-                        except audioproc.StreamClosed:
+                        except noisicore.ConnectionClosed:
                             logger.warning("Stream to pipeline closed.")
                             self._player.event_loop.call_soon_threadsafe(
                                 self._player.audioproc_backend.backend_crashed)
                             self._client = None
 
                     if self._client is None:
-                        client_response = audioproc.FrameData.new_message()
+                        client_response = noisicore.BlockData.new_message()
                         client_response.samplePos = request.samplePos
-                        client_response.frameSize = request.frameSize
+                        client_response.blockSize = request.blockSize
 
 
-                response = audioproc.FrameData.new_message()
+                response = noisicore.BlockData.new_message()
                 response.samplePos = client_response.samplePos
-                response.frameSize = client_response.frameSize
-                response.init('entities', len(client_response.entities))
-                for idx, entity in enumerate(client_response.entities):
-                    response.entities[idx] = entity
+                response.blockSize = client_response.blockSize
+                response.init('buffers', len(client_response.buffers))
+                for idx, buf in enumerate(client_response.buffers):
+                    response.buffers[idx] = buf
                 response.perfData = perf.serialize()
 
                 try:
-                    self._server.send_frame(response)
-                except audioproc.StreamClosed:
+                    self._server.send_block(response)
+                except noisicore.ConnectionClosed:
                     logger.warning("Stream to PlayerClient closed.")
                     raise
 
-        except audioproc.StreamClosed:
+        except noisicore.ConnectionClosed:
             pass
 
         except:  # pylint: disable=bare-except
@@ -448,7 +449,7 @@ class Player(object):
 
         self.proxy = None
 
-        self.track_entity_sources = {}
+        self.track_buffer_sources = {}
         self.group_listeners = {}
 
     @property
@@ -501,9 +502,9 @@ class Player(object):
             listener.remove()
         self.group_listeners.clear()
 
-        for entity_source in self.track_entity_sources.values():
-            entity_source.close()
-        self.track_entity_sources.clear()
+        for buffer_source in self.track_buffer_sources.values():
+            buffer_source.close()
+        self.track_buffer_sources.clear()
 
         if self.mutation_listener is not None:
             self.mutation_listener.remove()
@@ -567,7 +568,7 @@ class Player(object):
         self.audiostream_address = await self.audioproc_client.set_backend('ipc')
 
         logger.info("Creating audiostream client...")
-        self.audiostream_client = audioproc.AudioStreamClient(self.audiostream_address)
+        self.audiostream_client = noisicore.AudioStream.create_client(self.audiostream_address)
         self.audiostream_client.setup()
 
         logger.info("Audioproc backend started.")
@@ -663,7 +664,7 @@ class Player(object):
                 self.group_listeners[t.id] = t.listeners.add(
                     'tracks', self.tracks_changed)
             else:
-                self.track_entity_sources[t.id] = t.create_entity_source()
+                self.track_buffer_sources[t.id] = t.create_buffer_source()
 
     def remove_track(self, track):
         for t in track.walk_tracks(groups=True, tracks=True):
@@ -671,12 +672,12 @@ class Player(object):
                 listener = self.group_listeners.pop(t.id)
                 listener.remove()
             else:
-                entity_source = self.track_entity_sources.pop(t.id)
-                entity_source.close()
+                buffer_source = self.track_buffer_sources.pop(t.id)
+                buffer_source.close()
 
-    def get_track_entities(self, entities, start_pos, end_pos, frame_sample_pos):
-        for entity_source in self.track_entity_sources.values():
-            entity_source.get_entities(entities, start_pos, end_pos, frame_sample_pos)
+    def get_track_buffers(self, buffers, start_pos, end_pos, frame_sample_pos):
+        for buffer_source in self.track_buffer_sources.values():
+            buffer_source.get_buffers(buffers, start_pos, end_pos, frame_sample_pos)
 
     def handle_pipeline_mutation(self, mutation):
         if self.pending_pipeline_mutations is not None:

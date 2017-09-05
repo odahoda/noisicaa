@@ -40,10 +40,10 @@ class TrackAudioSource(node.BuiltinNode):
 
     def get_ast(self, compiler):
         seq = super().get_ast(compiler)
-        seq.add(ast.FetchEntity(
+        seq.add(ast.FetchBuffer(
             'track:' + self.track_id + ':left',
             self.outputs['out:left'].buf_name))
-        seq.add(ast.FetchEntity(
+        seq.add(ast.FetchBuffer(
             'track:' + self.track_id + ':right',
             self.outputs['out:right'].buf_name))
 

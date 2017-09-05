@@ -10,13 +10,11 @@ import uuid
 import capnp
 import pyaudio
 
+import noisicore
 from .resample import (Resampler,
                        AV_CH_LAYOUT_STEREO,
                        AV_SAMPLE_FMT_S16,
                        AV_SAMPLE_FMT_FLT)
-from . import audio_stream
-from . import entity_capnp
-from . import frame_data_capnp
 
 logger = logging.getLogger(__name__)
 
@@ -224,9 +222,9 @@ class IPCBackend(Backend):
         self.address = os.path.join(
             socket_dir, 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
-        self.__stream = audio_stream.AudioStreamServer(self.address)
+        self.__stream = noisicore.AudioStream.create_server(self.address)
         self.__out_frame = None
-        self.__entities = None
+        self.__buffers = None
 
         self.set_parameters(**parameters)
 
@@ -246,22 +244,22 @@ class IPCBackend(Backend):
         super().begin_frame(ctxt)
 
         try:
-            in_frame = self.__stream.receive_frame()
+            in_frame = self.__stream.receive_block()
             ctxt.perf.start_span('frame')
 
-            ctxt.duration = in_frame.frameSize
-            ctxt.entities = {
-                entity.id: entity
-                for entity in in_frame.entities
+            ctxt.duration = in_frame.blockSize
+            ctxt.buffers = {
+                buf.id: buf
+                for buf in in_frame.buffers
             }
             ctxt.messages = in_frame.messages
 
-            self.__out_frame = frame_data_capnp.FrameData.new_message()
+            self.__out_frame = noisicore.BlockData.new_message()
             self.__out_frame.samplePos = in_frame.samplePos
-            self.__out_frame.frameSize = in_frame.frameSize
-            self.__entities = []
+            self.__out_frame.blockSize = in_frame.blockSize
+            self.__buffers = []
 
-        except audio_stream.StreamClosed:
+        except noisicore.ConnectionClosed:
             logger.warning("Stopping IPC backend.")
             self.stop()
 
@@ -269,26 +267,23 @@ class IPCBackend(Backend):
         if self.__out_frame is not None:
             self.ctxt.perf.end_span()
 
-            self.__out_frame.init('entities', len(self.__entities))
-            for idx, entity in enumerate(self.__entities):
-                self.__out_frame.entities[idx] = entity
+            self.__out_frame.init('buffers', len(self.__buffers))
+            for idx, (id, data) in enumerate(self.__buffers):
+                buf = self.__out_frame.buffers[idx]
+                buf.id = id
+                buf.data = data
 
             assert self.ctxt.perf.current_span_id == 0
             self.__out_frame.perfData = self.ctxt.perf.serialize()
 
-            self.__stream.send_frame(self.__out_frame)
+            self.__stream.send_block(self.__out_frame)
 
         self.__out_frame = None
-        self.__entities = None
+        self.__buffers = None
 
         super().end_frame()
 
     def output(self, channel, samples):
         assert self.__out_frame is not None
 
-        entity = entity_capnp.Entity.new_message()
-        entity.id = 'output:%s' % channel
-        entity.type = entity_capnp.Entity.Type.audio
-        entity.size = len(samples)
-        entity.data = bytes(samples)
-        self.__entities.append(entity)
+        self.__buffers.append(('output:%s' % channel, bytes(samples)))

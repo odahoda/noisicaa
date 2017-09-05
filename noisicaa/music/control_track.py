@@ -4,6 +4,7 @@ import logging
 
 import numpy
 
+import noisicore
 from noisicaa import core
 from noisicaa import audioproc
 
@@ -119,36 +120,25 @@ class ControlPoint(model.ControlPoint, state.StateBase):
 state.StateBase.register_class(ControlPoint)
 
 
-class ControlEntitySource(base_track.EntitySource):
+class ControlBufferSource(base_track.BufferSource):
     def __init__(self, track):
         super().__init__(track)
 
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
-    def get_entities(self, entities, start_pos, end_pos, frame_sample_pos):
-        entity_id = 'track:%s' % self._track.id
-        try:
-            entity = entities[entity_id]
-        except KeyError:
-            entity = audioproc.ControlFrameEntity()
-            frame_data.entities[entity_id] = entity
-
-
-
-    def get_entities(self, entities, start_pos, end_pos, frame_sample_pos):
+    def get_buffers(self, buffers, start_pos, end_pos, frame_sample_pos):
         output = numpy.zeros(
             shape=end_pos - start_pos + frame_sample_pos, dtype=numpy.float32)
 
-        entity_id = 'track:%s' % self._track.id
+        buffer_id = 'track:%s' % self._track.id
         try:
-            entity = entities[entity_id]
+            buf = buffers[buffer_id]
         except KeyError:
             pass
         else:
-            # Copy prepend existing entity.
-            assert entity.type == audioproc.Entity.Type.control
-            assert entity.size == frame_sample_pos * 4
-            output[:frame_sample_pos] = numpy.frombuffer(entity.data, dtype=numpy.float32)
+            # Copy prepend existing buffer.
+            assert len(buf.data) == frame_sample_pos * 4
+            output[:frame_sample_pos] = numpy.frombuffer(buf.data, dtype=numpy.float32)
 
         duration = end_pos - start_pos
         if len(self._track.points) > 0:
@@ -179,20 +169,18 @@ class ControlEntitySource(base_track.EntitySource):
             output[frame_sample_pos:] = numpy.zeros(duration, dtype=numpy.float32)
 
         data = output.tobytes()
-        entity = audioproc.Entity.new_message()
-        entity.id = entity_id
-        entity.type = audioproc.Entity.Type.control
-        entity.size = len(data)
-        entity.data = bytes(data)
-        entities[entity_id] = entity
+        buf = noisicore.Buffer.new_message()
+        buf.id = buffer_id
+        buf.data = bytes(data)
+        buffers[buffer_id] = buf
 
 
 class ControlTrack(model.ControlTrack, base_track.Track):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
-    def create_entity_source(self):
-        return ControlEntitySource(self)
+    def create_buffer_source(self):
+        return ControlBufferSource(self)
 
     @property
     def mixer_name(self):

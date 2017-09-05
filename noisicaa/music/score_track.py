@@ -304,7 +304,7 @@ class ScoreMeasure(model.ScoreMeasure, base_track.Measure):
 state.StateBase.register_class(ScoreMeasure)
 
 
-class ScoreEntitySource(base_track.EventSetEntitySource):
+class ScoreBufferSource(base_track.EventSetBufferSource):
     def _create_connector(self, track, event_set):
         return EventSetConnector(track, event_set)
 
@@ -367,8 +367,8 @@ class ScoreTrack(model.ScoreTrack, base_track.MeasuredTrack):
 
         return measure
 
-    def create_entity_source(self):
-        return ScoreEntitySource(self)
+    def create_buffer_source(self):
+        return ScoreBufferSource(self)
 
     @property
     def event_source_name(self):
