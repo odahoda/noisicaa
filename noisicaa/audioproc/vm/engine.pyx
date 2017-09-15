@@ -27,7 +27,6 @@ from noisicaa import core
 from noisicaa import rwlock
 from noisicaa import audioproc
 from noisicaa.bindings import lv2
-from .. import resample
 from .. import node
 from . import graph
 from . import compiler

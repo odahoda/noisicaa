@@ -4,8 +4,9 @@
 #define _NOISICORE_AUDIO_STREAM_H
 
 #include <stdint.h>
+#include <capnp/message.h>
+#include <capnp/serialize.h>
 #include "noisicore/status.h"
-#include "noisicore/block_data.h"
 #include "noisicore/block_data.capnp.h"
 
 namespace noisicaa {

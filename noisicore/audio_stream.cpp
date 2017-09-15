@@ -7,8 +7,6 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <capnp/message.h>
-#include <capnp/serialize.h>
 #include "noisicore/audio_stream.h"
 #include "noisicore/misc.h"
 

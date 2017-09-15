@@ -8,48 +8,46 @@ import unittest
 import noisicore
 from noisicaa import node_db
 from noisicaa import audioproc
-from .. import backend
-from .. import resample
 from .. import nodes
 from . import engine
 
 logger = logging.getLogger(__name__)
 
 
-class TestBackend(backend.Backend):
-    def __init__(self, step_mode=False):
-        super().__init__()
+# class TestBackend(backend.Backend):
+#     def __init__(self, step_mode=False):
+#         super().__init__()
 
-        self.written_frames = []
-        self.step_mode = step_mode
-        self.start_step = threading.Event()
-        self.step_done = threading.Event()
+#         self.written_frames = []
+#         self.step_mode = step_mode
+#         self.start_step = threading.Event()
+#         self.step_done = threading.Event()
 
-    def begin_frame(self, ctxt):
-        logger.info("Backend.begin_frame()")
-        if self.step_mode:
-            self.start_step.wait()
-            self.start_step.clear()
+#     def begin_frame(self, ctxt):
+#         logger.info("Backend.begin_frame()")
+#         if self.step_mode:
+#             self.start_step.wait()
+#             self.start_step.clear()
 
-    def end_frame(self):
-        logger.info("Backend.end_frame()")
-        if self.step_mode:
-            self.step_done.set()
+#     def end_frame(self):
+#         logger.info("Backend.end_frame()")
+#         if self.step_mode:
+#             self.step_done.set()
 
-    def output(self, channel, samples):
-        logger.info("Backend received frame.")
-        self.written_frames.append([channel, samples])
+#     def output(self, channel, samples):
+#         logger.info("Backend received frame.")
+#         self.written_frames.append([channel, samples])
 
-    def stop(self):
-        if self.step_mode:
-            self.start_step.set()
-        super().stop()
+#     def stop(self):
+#         if self.step_mode:
+#             self.start_step.set()
+#         super().stop()
 
-    def next_step(self):
-        assert self.step_mode
-        self.start_step.set()
-        self.step_done.wait()
-        self.step_done.clear()
+#     def next_step(self):
+#         assert self.step_mode
+#         self.start_step.set()
+#         self.step_done.wait()
+#         self.step_done.clear()
 
 
 class PipelineVMTest(unittest.TestCase):

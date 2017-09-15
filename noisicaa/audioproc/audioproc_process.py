@@ -13,7 +13,6 @@ import noisicore
 from noisicaa import core
 from noisicaa.core import ipc
 
-from . import backend
 from . import vm
 from . import mutations
 from . import node_db
@@ -113,21 +112,9 @@ class AudioProcProcessMixin(object):
 
         self.node_db = node_db.NodeDB()
         self.node_db.add(node.ProcessorNode)
-        #self.node_db.add(nodes.WavFileSource)
-        #self.node_db.add(nodes.FluidSynthSource)
-        #self.node_db.add(nodes.IPCNode)
-        #self.node_db.add(nodes.PassThru)
         self.node_db.add(nodes.TrackControlSource)
         self.node_db.add(nodes.TrackAudioSource)
         self.node_db.add(nodes.TrackEventSource)
-        #self.node_db.add(nodes.CSoundFilter)
-        #self.node_db.add(nodes.CustomCSound)
-        #self.node_db.add(nodes.SamplePlayer)
-        #self.node_db.add(nodes.SplitChannels)
-        #self.node_db.add(nodes.JoinChannels)
-        #self.node_db.add(nodes.Ladspa)
-        #self.node_db.add(nodes.LV2)
-        #self.node_db.add(nodes.PipelineCrasher)
 
         if self.shm_name is not None:
             self.shm = posix_ipc.SharedMemory(self.shm_name)
