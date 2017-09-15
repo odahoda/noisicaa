@@ -6,9 +6,8 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
-
-#include "status.h"
-#include "block_context.h"
+#include "noisicore/status.h"
+#include "noisicore/block_context.h"
 
 namespace noisicaa {
 
@@ -30,17 +29,22 @@ enum OpCode {
 
   // I/O
   OUTPUT,
-  FETCH_ENTITY,
+  FETCH_BUFFER,
   FETCH_MESSAGES,
   FETCH_PARAMETER,
 
   // generators
   NOISE,
   SINE,
+  MIDI_MONKEY,
 
   // processors
   CONNECT_PORT,
   CALL,
+
+  // misc
+  LOG_RMS,
+  LOG_ATOM,
 
   NUM_OPCODES,
 };

@@ -4,7 +4,7 @@ from libc.stdint cimport int64_t
 
 from .vm cimport *
 
-cdef extern from "opcodes.h" namespace "noisicaa" nogil:
+cdef extern from "noisicore/opcodes.h" namespace "noisicaa" nogil:
     enum OpCode:
         NOOP
         END
@@ -14,13 +14,16 @@ cdef extern from "opcodes.h" namespace "noisicaa" nogil:
         MUL
         SET_FLOAT
         OUTPUT
-        FETCH_ENTITY
+        FETCH_BUFFER
         FETCH_MESSAGES
         FETCH_PARAMETER
         NOISE
         SINE
+        MIDI_MONKEY,
         CONNECT_PORT
         CALL
+        LOG_RMS
+        LOG_ATOM
         NUM_OPCODES
 
     enum OpArgType:
@@ -29,6 +32,9 @@ cdef extern from "opcodes.h" namespace "noisicaa" nogil:
         STRING
 
     cppclass OpArg:
+        OpArg(int64_t value)
+        OpArg(float value)
+        OpArg(const string& value)
         OpArgType type()
         int64_t int_value() const
         float float_value() const

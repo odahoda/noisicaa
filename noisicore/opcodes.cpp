@@ -1,8 +1,9 @@
-#include "opcodes.h"
-
-#include "backend.h"
-#include "vm.h"
-#include "misc.h"
+#include <stdlib.h>
+#include "noisicore/opcodes.h"
+#include "noisicore/host_data.h"
+#include "noisicore/backend.h"
+#include "noisicore/vm.h"
+#include "noisicore/misc.h"
 
 namespace noisicaa {
 
@@ -46,12 +47,12 @@ Status run_MUL(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& arg
 }
 
 Status run_SET_FLOAT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-    // def op_SET_FLOAT(self, ctxt, state, *, buf_idx, value):
-    //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
-    //     assert isinstance(buf.type, buffers.Float), str(buf.type)
-    //     cdef float* data = <float*>buf.data
-    //     data[0] = value
-  return Status::Error("Not implemented yet.");
+  int idx = args[0].int_value();
+  float value = args[1].float_value();
+  Buffer* buf = state->program->buffers[idx].get();
+  float* data = (float*)buf->data();
+  *data = value;
+  return Status::Ok();
 }
 
 Status run_OUTPUT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -62,16 +63,24 @@ Status run_OUTPUT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& 
   return state->backend->output(channel, buf->data());
 }
 
-Status run_FETCH_ENTITY(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-    // def op_FETCH_ENTITY(self, ctxt, state, *, entity_id, buf_idx):
-    //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
-    //     try:
-    //         entity = ctxt.entities[entity_id]
-    //     except KeyError:
-    //         buf.clear()
-    //     else:
-    //         buf.set_bytes(entity.data)
-  return Status::Error("Not implemented yet.");
+Status run_FETCH_BUFFER(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
+  string in_buf_name = args[0].string_value();
+  int out_buf_idx = args[1].int_value();
+
+  Buffer* out_buf = state->program->buffers[out_buf_idx].get();
+
+  const auto& it = ctxt->buffers.find(in_buf_name);
+  if (it == ctxt->buffers.end()) {
+    log(LogLevel::WARNING, "Buffer %s not found in block context.", in_buf_name.c_str());
+    out_buf->clear();
+    return Status::Ok();
+  }
+  const BlockContext::Buffer& in_buf = it->second;
+
+  assert(in_buf.size == out_buf->size());
+  memmove(out_buf->data(), in_buf.data, in_buf.size);
+
+  return Status::Ok();
 }
 
 Status run_FETCH_MESSAGES(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -97,7 +106,7 @@ Status run_FETCH_MESSAGES(BlockContext* ctxt, ProgramState* state, const vector<
     //             forge.write_raw_event(0, msg.data, len(msg.data))
 
     //     # TODO: clear remainder of buf.
-  return Status::Error("Not implemented yet.");
+  return Status::Error("FETCH_MESSAGES not implemented yet.");
 }
 
 Status run_FETCH_PARAMETER(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -105,7 +114,7 @@ Status run_FETCH_PARAMETER(BlockContext* ctxt, ProgramState* state, const vector
     //     #parameter_name = self.__parameters[parameter_idx]
     //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
     //     buf.clear()
-  return Status::Error("Not implemented yet.");
+  return Status::Error("FETCH_PARAMETER not implemented yet.");
 }
 
 Status run_NOISE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -116,6 +125,34 @@ Status run_NOISE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& a
   for (uint32_t i = 0 ; i < ctxt->block_size ; ++i) {
     *data++ = 2.0 * drand48() - 1.0;
   }
+  return Status::Ok();
+}
+
+Status run_MIDI_MONKEY(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
+  int idx = args[0].int_value();
+  float prob = args[1].float_value();
+  Buffer* buf = state->program->buffers[idx].get();
+
+  LV2_URID frame_time_urid = state->host_data->lv2_urid_map->map(
+      state->host_data->lv2_urid_map->handle, "http://lv2plug.in/ns/ext/atom#frameTime");
+  LV2_URID midi_event_urid = state->host_data->lv2_urid_map->map(
+      state->host_data->lv2_urid_map->handle, "http://lv2plug.in/ns/ext/midi#MidiEvent");
+
+  LV2_Atom_Forge forge;
+  lv2_atom_forge_init(&forge, state->host_data->lv2_urid_map);
+
+  LV2_Atom_Forge_Frame frame;
+  lv2_atom_forge_set_buffer(&forge, buf->data(), buf->size());
+
+  lv2_atom_forge_sequence_head(&forge, &frame, frame_time_urid);
+  if (drand48() < prob) {
+    uint8_t msg[3] = { 0x90, 62, 100 };
+    lv2_atom_forge_frame_time(&forge, random() % ctxt->block_size);
+    lv2_atom_forge_atom(&forge, 3, midi_event_urid);
+    lv2_atom_forge_write(&forge, msg, 3);
+  }
+  lv2_atom_forge_pop(&forge, &frame);
+
   return Status::Ok();
 }
 
@@ -132,7 +169,7 @@ Status run_SINE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& ar
     //         if p > 2 * math.pi:
     //             p -= 2 * math.pi
     //     state['p'] = p
-  return Status::Error("Not implemented yet.");
+  return Status::Error("SINE not implemented yet.");
 }
 
 Status init_CONNECT_PORT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -141,16 +178,48 @@ Status init_CONNECT_PORT(BlockContext* ctxt, ProgramState* state, const vector<O
   int buf_idx = args[2].int_value();
   Processor* processor = state->program->spec->get_processor(processor_idx);
   Buffer* buf = state->program->buffers[buf_idx].get();
-
-  processor->connect_port(port_idx, buf->data());
-  return Status::Ok();
+  return processor->connect_port(port_idx, buf->data());
 }
 
 Status run_CALL(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
   int processor_idx = args[0].int_value();
   Processor* processor = state->program->spec->get_processor(processor_idx);
+  return processor->run(ctxt);
+}
 
-  processor->run(ctxt);
+Status run_LOG_RMS(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
+  int idx = args[0].int_value();
+  Buffer* buf = state->program->buffers[idx].get();
+
+  float* data = (float*)buf->data();
+  float sum = 0.0;
+  for (uint32_t i = 0 ; i < ctxt->block_size ; ++i) {
+    sum += data[i] * data[i];
+  }
+
+  log(LogLevel::INFO, "Block %d, rms=%.3f", idx, sum / ctxt->block_size);
+
+  return Status::Ok();
+}
+
+Status run_LOG_ATOM(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
+  int idx = args[0].int_value();
+  Buffer* buf = state->program->buffers[idx].get();
+
+  LV2_URID sequence_urid = state->host_data->lv2_urid_map->map(
+      state->host_data->lv2_urid_map->handle, "http://lv2plug.in/ns/ext/atom#Sequence");
+
+  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)buf->data();
+  if (seq->atom.type != sequence_urid) {
+    return Status::Error(sprintf("Buffer %d: Excepted sequence (%d), got %d.", idx, sequence_urid, seq->atom.type));
+  }
+  LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
+
+  while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)) {
+    log(LogLevel::INFO, "Buffer %d, event %d @%d", idx, event->body.type, event->time.frames);
+    event = lv2_atom_sequence_next(event);
+  }
+
   return Status::Ok();
 }
 
@@ -168,17 +237,22 @@ struct OpSpec opspecs[NUM_OPCODES] = {
 
   // I/O
   { OpCode::OUTPUT, "bs", nullptr, run_OUTPUT },
-  { OpCode::FETCH_ENTITY, "sb", nullptr, run_FETCH_ENTITY },
+  { OpCode::FETCH_BUFFER, "sb", nullptr, run_FETCH_BUFFER },
   { OpCode::FETCH_MESSAGES, "ib", nullptr, run_FETCH_MESSAGES },
   { OpCode::FETCH_PARAMETER, "sb", nullptr, run_FETCH_PARAMETER },
 
   // generators
   { OpCode::NOISE, "b", nullptr, run_NOISE },
   { OpCode::SINE, "bf", nullptr, run_SINE },
+  { OpCode::MIDI_MONKEY, "bf", nullptr, run_MIDI_MONKEY },
 
   // processors
   { OpCode::CONNECT_PORT, "pib", init_CONNECT_PORT, nullptr },
   { OpCode::CALL, "p", nullptr, run_CALL },
+
+  // processors
+  { OpCode::LOG_RMS, "b", nullptr, run_LOG_RMS },
+  { OpCode::LOG_ATOM, "b", nullptr, run_LOG_ATOM },
 };
 
 }  // namespace noisicaa

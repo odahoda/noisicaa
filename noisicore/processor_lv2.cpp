@@ -1,11 +1,10 @@
-#include "processor_lv2.h"
-
 #include <memory>
 #include <string>
 #include <assert.h>
 #include <stdint.h>
-#include "host_data.h"
-#include "misc.h"
+#include "noisicore/host_data.h"
+#include "noisicore/misc.h"
+#include "noisicore/processor_lv2.h"
 
 namespace noisicaa {
 
@@ -18,9 +17,9 @@ Status ProcessorLV2::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
   if (status.is_error()) { return status; }
 
-  string uri;
-  status = get_string_parameter("lv2_uri", &uri);
-  if (status.is_error()) { return status; }
+  StatusOr<string> stor_uri = get_string_parameter("lv2_uri");
+  if (stor_uri.is_error()) { return stor_uri; }
+  string uri = stor_uri.result();
 
   LilvWorld *world = _host_data->lilv_world;
   assert(world != nullptr);

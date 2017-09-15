@@ -1,6 +1,5 @@
 add_python_package(
   ast.py
-  buffers_test.py
   compiler.py
   compiler_test.py
   engine_perftest.py
@@ -9,5 +8,5 @@ add_python_package(
   spec.py
 )
 
-add_cython_module(engine C)
-add_cython_module(buffers C)
+add_cython_module(engine CXX)
+target_link_libraries(${engine.so} PRIVATE noisicore)

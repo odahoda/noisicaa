@@ -8,14 +8,6 @@ import capnp
 from . import block_data_capnp
 
 
-class Error(Exception):
-    pass
-
-
-class ConnectionClosed(Exception):
-    pass
-
-
 cdef class AudioStream(object):
     cdef unique_ptr[AudioStreamBase] stream
 
@@ -41,13 +33,6 @@ cdef class AudioStream(object):
         obj.stream.reset(new AudioStreamClient(address))
         return obj
 
-    cdef _check(self, const Status& status):
-        if status.is_connection_closed():
-            raise ConnectionClosed()
-
-        if status.is_error():
-            raise Error(status.message())
-
     @property
     def address(self):
         return os.fsdecode(self.stream.get().address())
@@ -58,7 +43,7 @@ cdef class AudioStream(object):
         cdef Status status
         with nogil:
             status = stream.setup()
-        self._check(status)
+        check(status)
 
     def cleanup(self):
         cdef AudioStreamBase* stream = self.stream.get()
@@ -76,7 +61,7 @@ cdef class AudioStream(object):
         cdef StatusOr[string] status_or_bytes
         with nogil:
             status_or_bytes = stream.receive_bytes();
-        self._check(status_or_bytes)
+        check(status_or_bytes)
 
         return bytes(status_or_bytes.result())
 
@@ -89,7 +74,7 @@ cdef class AudioStream(object):
         cdef Status status
         with nogil:
             status = stream.send_bytes(block_bytes);
-        self._check(status)
+        check(status)
 
     def send_block(self, block_data):
         return self.send_bytes(block_data.to_bytes())

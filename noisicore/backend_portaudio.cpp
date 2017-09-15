@@ -1,13 +1,13 @@
-#include "backend_portaudio.h"
-#include "misc.h"
-#include "vm.h"
+#include "noisicore/backend_portaudio.h"
+#include "noisicore/misc.h"
+#include "noisicore/vm.h"
 
 namespace noisicaa {
 
 PortAudioBackend::PortAudioBackend(const BackendSettings& settings)
   : Backend(settings),
     _initialized(false),
-    _block_size(128),
+    _block_size(settings.block_size),
     _stream(nullptr),
     _samples{nullptr, nullptr} {
 }
@@ -18,6 +18,10 @@ Status PortAudioBackend::setup(VM* vm) {
   Status status = Backend::setup(vm);
   if (status.is_error()) { return status; }
 
+  if (_block_size == 0) {
+   return Status::Error(sprintf("Invalid block_size %d", _block_size));
+  }
+
   PaError err;
 
   err = Pa_Initialize();
@@ -27,13 +31,24 @@ Status PortAudioBackend::setup(VM* vm) {
   }
   _initialized = true;
 
-  err = Pa_OpenDefaultStream(
+  PaDeviceIndex device_index = Pa_GetDefaultOutputDevice();
+  const PaDeviceInfo* device_info = Pa_GetDeviceInfo(device_index);
+  log(LogLevel::INFO, "PortAudio device: %s", device_info->name);
+
+  PaStreamParameters output_params;
+  output_params.device = device_index;
+  output_params.channelCount = 2;
+  output_params.sampleFormat = paFloat32 | paNonInterleaved;
+  output_params.suggestedLatency = device_info->defaultLowOutputLatency;
+  output_params.hostApiSpecificStreamInfo = nullptr;
+
+  err = Pa_OpenStream(
       /* stream */            &_stream,
-      /* numInputChannels */  0,
-      /* numOutputChannels */ 2,
-      /* sampleFormat */      paFloat32 | paNonInterleaved,
+      /* inputParameters */   NULL,
+      /* outputParameters */  &output_params,
       /* sampleRate */        44100,
       /* framesPerBuffer */   _block_size,
+      /* streamFlags */       paNoFlag,
       /* streamCallback */    nullptr,
       /* userdata */          nullptr);
   if (err != paNoError) {
@@ -83,7 +98,7 @@ void PortAudioBackend::cleanup() {
   Backend::cleanup();
 }
 
-Status PortAudioBackend::begin_block() {
+Status PortAudioBackend::begin_block(BlockContext* ctxt) {
   for (int c = 0 ; c < 2 ; ++c) {
     memset(_samples[c], 0, _block_size * sizeof(float));
   }

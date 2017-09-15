@@ -18,6 +18,7 @@ import struct
 
 import capnp
 
+from .status import ConnectionClosed
 from . import block_data_capnp
 from . import audio_stream
 
@@ -34,9 +35,10 @@ class TestProcessorIPC(unittest.TestCase):
                 tempfile.gettempdir(),
                 'test.%s.pipe' % uuid.uuid4().hex))
 
+        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'ipc')
+        check(stor_processor)
         cdef unique_ptr[Processor] processor_ptr
-        processor_ptr.reset(Processor.create(host_data.get(), b'ipc'))
-        self.assertTrue(processor_ptr.get() != NULL)
+        processor_ptr.reset(stor_processor.result())
 
         server = audio_stream.AudioStream.create_server(address)
         server.setup()
@@ -61,7 +63,7 @@ class TestProcessorIPC(unittest.TestCase):
                     response_bytes = response.to_bytes()
                     server.send_bytes(response_bytes)
 
-            except audio_stream.ConnectionClosed:
+            except ConnectionClosed:
                 pass
 
         thread = threading.Thread(target=server_thread)
@@ -75,16 +77,13 @@ class TestProcessorIPC(unittest.TestCase):
         spec.get().add_port(b'right', PortType.audio, PortDirection.Output)
         spec.get().add_parameter(new StringParameterSpec(b'ipc_address', address))
 
-        status = processor.setup(spec.release())
-        self.assertFalse(status.is_error(), status.message())
+        check(processor.setup(spec.release()))
 
         cdef float leftbuf[4]
         cdef float rightbuf[4]
 
-        status = processor.connect_port(0, <BufferPtr>leftbuf)
-        self.assertFalse(status.is_error(), status.message())
-        status = processor.connect_port(1, <BufferPtr>rightbuf)
-        self.assertFalse(status.is_error(), status.message())
+        check(processor.connect_port(0, <BufferPtr>leftbuf))
+        check(processor.connect_port(1, <BufferPtr>rightbuf))
 
         for i in range(4):
             leftbuf[i] = 0.0
@@ -96,7 +95,7 @@ class TestProcessorIPC(unittest.TestCase):
 
         with nogil:
             status = processor.run(&ctxt)
-        self.assertFalse(status.is_error(), status.message())
+        check(status)
 
         self.assertEqual(leftbuf, [0.0, 0.5, 1.0, 0.5])
         self.assertEqual(rightbuf, [0.0, -0.5, -1.0, -0.5])

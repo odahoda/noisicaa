@@ -28,9 +28,10 @@ class TestProcessorCSound(unittest.TestCase):
         cdef urid.URID_Map_Feature map_feature = urid.URID_Map_Feature(mapper)
         host_data.get().lv2_urid_map = &map_feature.data
 
+        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'csound')
+        check(stor_processor)
         cdef unique_ptr[Processor] processor_ptr
-        processor_ptr.reset(Processor.create(host_data.get(), b'csound'))
-        self.assertTrue(processor_ptr.get() != NULL)
+        processor_ptr.reset(stor_processor.result())
 
         cdef Processor* processor = processor_ptr.get()
 
@@ -59,8 +60,7 @@ class TestProcessorCSound(unittest.TestCase):
         spec.get().add_parameter(new StringParameterSpec(b'csound_orchestra', orchestra))
         spec.get().add_parameter(new StringParameterSpec(b'csound_score', score))
 
-        status = processor.setup(spec.release())
-        self.assertFalse(status.is_error(), status.message())
+        check(processor.setup(spec.release()))
 
         cdef float gain
         cdef float inbuf[128]
@@ -79,8 +79,7 @@ class TestProcessorCSound(unittest.TestCase):
         cdef BlockContext ctxt
         ctxt.block_size = 128
 
-        status = processor.run(&ctxt)
-        self.assertFalse(status.is_error(), status.message())
+        check(processor.run(&ctxt))
 
         for i in range(128):
             self.assertEqual(outbuf[i], 0.5)
@@ -97,9 +96,10 @@ class TestProcessorCSound(unittest.TestCase):
         cdef urid.URID_Map_Feature map_feature = urid.URID_Map_Feature(mapper)
         host_data.get().lv2_urid_map = &map_feature.data
 
+        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'csound')
+        check(stor_processor)
         cdef unique_ptr[Processor] processor_ptr
-        processor_ptr.reset(Processor.create(host_data.get(), b'csound'))
-        self.assertTrue(processor_ptr.get() != NULL)
+        processor_ptr.reset(stor_processor.result())
 
         cdef Processor* processor = processor_ptr.get()
 
@@ -129,8 +129,7 @@ class TestProcessorCSound(unittest.TestCase):
         spec.get().add_parameter(new StringParameterSpec(b'csound_orchestra', orchestra))
         spec.get().add_parameter(new StringParameterSpec(b'csound_score', b''))
 
-        status = processor.setup(spec.release())
-        self.assertFalse(status.is_error(), status.message())
+        check(processor.setup(spec.release()))
 
         cdef uint8_t inbuf[10240]
         cdef float outbuf[128]
@@ -150,8 +149,7 @@ class TestProcessorCSound(unittest.TestCase):
         cdef BlockContext ctxt
         ctxt.block_size = 128
 
-        status = processor.run(&ctxt)
-        self.assertFalse(status.is_error(), status.message())
+        check(processor.run(&ctxt))
 
         self.assertTrue(any(outbuf[i] != 0.0 for i in range(128)))
 

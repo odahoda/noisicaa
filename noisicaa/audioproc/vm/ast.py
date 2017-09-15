@@ -1,7 +1,5 @@
 #!/usr/bin/python3
 
-from . import spec
-
 
 class ASTNode(object):
     def __init__(self):
@@ -21,7 +19,7 @@ class ASTNode(object):
         for child in self.children:
             yield from child.walk()
 
-    def get_opcodes(self, symbol_table):  # pylint: disable=unused-argument
+    def get_opcodes(self):
         return []
 
 
@@ -54,12 +52,9 @@ class ClearBuffer(ASTNode):
             super().__str__(),
             self.buf_name)
 
-    def get_opcodes(self, symbol_table):
-        buf_idx = symbol_table.get_buffer_idx(self.buf_name)
+    def get_opcodes(self):
         return [
-            spec.OpCode(
-                'CLEAR_BUFFER',
-                buf_idx=buf_idx)
+            ('CLEAR', self.buf_name),
         ]
 
 
@@ -75,57 +70,43 @@ class MixBuffers(ASTNode):
             super().__str__(),
             self.src_buf_name, self.dest_buf_name)
 
-    def get_opcodes(self, symbol_table):
-        src_idx = symbol_table.get_buffer_idx(self.src_buf_name)
-        dest_idx = symbol_table.get_buffer_idx(self.dest_buf_name)
+    def get_opcodes(self):
         return [
-            spec.OpCode(
-                'MIX',
-                src_idx=src_idx,
-                dest_idx=dest_idx)
+            ('MIX', self.src_buf_name, self.dest_buf_name),
         ]
 
 
 class ConnectPort(ASTNode):
-    def __init__(self, node_id, port_name, buf_name):
+    def __init__(self, processor, port_idx, buf_name):
         super().__init__()
 
-        self.node_id = node_id
-        self.port_name = port_name
+        self.processor = processor
+        self.port_idx = port_idx
         self.buf_name = buf_name
 
     def __str__(self):
         return '%s(%r, %r, %r)' % (
             super().__str__(),
-            self.node_id, self.port_name, self.buf_name)
+            self.processor, self.port_idx, self.buf_name)
 
-    def get_opcodes(self, symbol_table):
-        buf_idx = symbol_table.get_buffer_idx(self.buf_name)
-        node_idx = symbol_table.get_node(self.node_id)
+    def get_opcodes(self):
         return [
-            spec.OpCode(
-                'CONNECT_PORT',
-                node_idx=node_idx,
-                port_name=self.port_name,
-                buf_idx=buf_idx)
+            ('CONNECT_PORT', self.processor, self.port_idx, self.buf_name),
         ]
 
 
 class CallNode(ASTNode):
-    def __init__(self, node_id):
+    def __init__(self, processor):
         super().__init__()
 
-        self.node_id = node_id
+        self.processor = processor
 
     def __str__(self):
-        return '%s(%r)' % (super().__str__(), self.node_id)
+        return '%s(%r)' % (super().__str__(), self.processor)
 
-    def get_opcodes(self, symbol_table):
-        node_idx = symbol_table.get_node(self.node_id)
+    def get_opcodes(self):
         return [
-            spec.OpCode(
-                'CALL',
-                node_idx=node_idx)
+            ('CALL', self.processor),
         ]
 
 
@@ -141,13 +122,9 @@ class Output(ASTNode):
             super().__str__(),
             self.buf_name, self.channel)
 
-    def get_opcodes(self, symbol_table):
-        buf_idx = symbol_table.get_buffer_idx(self.buf_name)
+    def get_opcodes(self):
         return [
-            spec.OpCode(
-                'OUTPUT',
-                buf_idx=buf_idx,
-                channel=self.channel)
+            ('OUTPUT', self.buf_name, self.channel),
         ]
 
 
@@ -163,13 +140,9 @@ class FetchBuffer(ASTNode):
             super().__str__(),
             self.buffer_id, self.buf_name)
 
-    def get_opcodes(self, symbol_table):
-        buf_idx = symbol_table.get_buffer_idx(self.buf_name)
+    def get_opcodes(self):
         return [
-            spec.OpCode(
-                'FETCH_BUFFER',
-                buf_id=self.buffer_id,
-                buf_idx=buf_idx)
+            ('FETCH_BUFFER', self.buffer_id, self.buf_name),
         ]
 
 class FetchParameter(ASTNode):
@@ -184,14 +157,9 @@ class FetchParameter(ASTNode):
             super().__str__(),
             self.parameter_name, self.buf_name)
 
-    def get_opcodes(self, symbol_table):
-        parameter_idx = symbol_table.get_parameter_idx(self.parameter_name)
-        buf_idx = symbol_table.get_buffer_idx(self.buf_name)
+    def get_opcodes(self):
         return [
-            spec.OpCode(
-                'FETCH_PARAMETER',
-                parameter_idx=parameter_idx,
-                buf_idx=buf_idx)
+            ('FETCH_PARAMETER', self.parameter_name, self.buf_name),
         ]
 
 class FetchMessages(ASTNode):
@@ -206,11 +174,39 @@ class FetchMessages(ASTNode):
             super().__str__(),
             self.labelset, self.buf_name)
 
-    def get_opcodes(self, symbol_table):
-        buf_idx = symbol_table.get_buffer_idx(self.buf_name)
+    def get_opcodes(self):
         return [
-            spec.OpCode(
-                'FETCH_MESSAGES',
-                labelset=self.labelset,
-                buf_idx=buf_idx)
+            ('FETCH_MESSAGES', self.labelset, self.buf_name),
+        ]
+
+class LogRMS(ASTNode):
+    def __init__(self, buf_name):
+        super().__init__()
+
+        self.buf_name = buf_name
+
+    def __str__(self):
+        return '%s(%r)' % (
+            super().__str__(),
+            self.buf_name)
+
+    def get_opcodes(self):
+        return [
+            ('LOG_RMS', self.buf_name),
+        ]
+
+class LogAtom(ASTNode):
+    def __init__(self, buf_name):
+        super().__init__()
+
+        self.buf_name = buf_name
+
+    def __str__(self):
+        return '%s(%r)' % (
+            super().__str__(),
+            self.buf_name)
+
+    def get_opcodes(self):
+        return [
+            ('LOG_ATOM', self.buf_name),
         ]

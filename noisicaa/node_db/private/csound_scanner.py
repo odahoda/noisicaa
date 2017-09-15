@@ -101,20 +101,20 @@ class CSoundScanner(scanner.Scanner):
                 orchestra = orchestra.strip() + '\n'
                 parameters.append(
                     node_db.InternalParameterDescription(
-                        name='orchestra', value=orchestra))
+                        name='csound_orchestra', value=orchestra))
 
                 score = ''.join(root.find('score').itertext())
                 score = score.strip() + '\n'
                 parameters.append(
                     node_db.InternalParameterDescription(
-                        name='score', value=score))
+                        name='csound_score', value=score))
 
                 display_name = ''.join(
                     root.find('display-name').itertext())
 
-                node_desc = node_db.UserNodeDescription(
+                node_desc = node_db.ProcessorDescription(
                     display_name=display_name,
-                    node_cls='csound_filter',
+                    processor_name='csound',
                     ports=ports,
                     parameters=parameters)
 

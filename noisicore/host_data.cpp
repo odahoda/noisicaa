@@ -1,6 +1,5 @@
-#include "host_data.h"
-
 #include <assert.h>
+#include "noisicore/host_data.h"
 
 namespace noisicaa {
 

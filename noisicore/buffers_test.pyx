@@ -1,6 +1,7 @@
 from libcpp.memory cimport unique_ptr
 from .status cimport *
 from .buffers cimport *
+from .host_data cimport *
 
 from noisicaa.bindings.lv2 cimport atom
 from noisicaa.bindings.lv2 cimport urid
@@ -18,7 +19,9 @@ class TestFloat(unittest.TestCase):
             Buffer* buf
             float* data
 
-        bufptr.reset(new Buffer(new Float()))
+        cdef PyHostData host_data = PyHostData()
+
+        bufptr.reset(new Buffer(host_data.ptr(), new Float()))
         buf = bufptr.get()
         status = buf.allocate(64)
         self.assertFalse(status.is_error())
@@ -34,7 +37,9 @@ class TestFloat(unittest.TestCase):
             Buffer* buf
             float* data
 
-        bufptr.reset(new Buffer(new Float()))
+        cdef PyHostData host_data = PyHostData()
+
+        bufptr.reset(new Buffer(host_data.ptr(), new Float()))
         buf = bufptr.get()
         status = buf.allocate(64)
         self.assertFalse(status.is_error())
@@ -51,7 +56,9 @@ class TestFloat(unittest.TestCase):
             Buffer* buf
             float* data
 
-        bufptr.reset(new Buffer(new Float()))
+        cdef PyHostData host_data = PyHostData()
+
+        bufptr.reset(new Buffer(host_data.ptr(), new Float()))
         buf = bufptr.get()
         status = buf.allocate(64)
         self.assertFalse(status.is_error())
@@ -71,13 +78,15 @@ class TestFloat(unittest.TestCase):
             float* data1
             float* data2
 
-        bufptr1.reset(new Buffer(new Float()))
+        cdef PyHostData host_data = PyHostData()
+
+        bufptr1.reset(new Buffer(host_data.ptr(), new Float()))
         buf1 = bufptr1.get()
         status = buf1.allocate(64)
         self.assertFalse(status.is_error())
         data1 = <float*>buf1.data()
 
-        bufptr2.reset(new Buffer(new Float()))
+        bufptr2.reset(new Buffer(host_data.ptr(), new Float()))
         buf2 = bufptr2.get()
         status = buf2.allocate(64)
         self.assertFalse(status.is_error())
@@ -99,7 +108,9 @@ class TestFloatAudioBlock(unittest.TestCase):
             Buffer* buf
             float* data
 
-        bufptr.reset(new Buffer(new FloatAudioBlock()))
+        cdef PyHostData host_data = PyHostData()
+
+        bufptr.reset(new Buffer(host_data.ptr(), new FloatAudioBlock()))
         buf = bufptr.get()
 
         status = buf.allocate(64)
@@ -117,7 +128,9 @@ class TestFloatAudioBlock(unittest.TestCase):
             Buffer* buf
             float* data
 
-        bufptr.reset(new Buffer(new FloatAudioBlock()))
+        cdef PyHostData host_data = PyHostData()
+
+        bufptr.reset(new Buffer(host_data.ptr(), new FloatAudioBlock()))
         buf = bufptr.get()
 
         status = buf.allocate(4)
@@ -136,7 +149,9 @@ class TestFloatAudioBlock(unittest.TestCase):
             Buffer* buf
             float* data
 
-        bufptr.reset(new Buffer(new FloatAudioBlock()))
+        cdef PyHostData host_data = PyHostData()
+
+        bufptr.reset(new Buffer(host_data.ptr(), new FloatAudioBlock()))
         buf = bufptr.get()
         status = buf.allocate(4)
         self.assertFalse(status.is_error())
@@ -156,13 +171,15 @@ class TestFloatAudioBlock(unittest.TestCase):
             float* data1
             float* data2
 
-        bufptr1.reset(new Buffer(new FloatAudioBlock()))
+        cdef PyHostData host_data = PyHostData()
+
+        bufptr1.reset(new Buffer(host_data.ptr(), new FloatAudioBlock()))
         buf1 = bufptr1.get()
         status = buf1.allocate(4)
         self.assertFalse(status.is_error())
         data1 = <float*>buf1.data()
 
-        bufptr2.reset(new Buffer(new FloatAudioBlock()))
+        bufptr2.reset(new Buffer(host_data.ptr(), new FloatAudioBlock()))
         buf2 = bufptr2.get()
         status = buf2.allocate(4)
         self.assertFalse(status.is_error())
@@ -206,9 +223,10 @@ class TestAtomData(unittest.TestCase):
             Buffer* buf
             urid.URID_Map_Feature mapper
 
-        mapper = urid.URID_Map_Feature(urid.get_static_mapper())
+        cdef PyHostData host_data = PyHostData()
+        host_data.setup()
 
-        bufptr.reset(new Buffer(new AtomData(&mapper.data)))
+        bufptr.reset(new Buffer(host_data.ptr(), new AtomData()))
         buf = bufptr.get()
 
         status = buf.allocate(64)
@@ -224,9 +242,10 @@ class TestAtomData(unittest.TestCase):
             Buffer* buf
             urid.URID_Map_Feature mapper
 
-        mapper = urid.URID_Map_Feature(urid.get_static_mapper())
+        cdef PyHostData host_data = PyHostData()
+        host_data.setup()
 
-        bufptr.reset(new Buffer(new AtomData(&mapper.data)))
+        bufptr.reset(new Buffer(host_data.ptr(), new AtomData()))
         buf = bufptr.get()
 
         status = buf.allocate(4)
@@ -243,9 +262,10 @@ class TestAtomData(unittest.TestCase):
             Buffer* buf
             urid.URID_Map_Feature mapper
 
-        mapper = urid.URID_Map_Feature(urid.get_static_mapper())
+        cdef PyHostData host_data = PyHostData()
+        host_data.setup()
 
-        bufptr.reset(new Buffer(new AtomData(&mapper.data)))
+        bufptr.reset(new Buffer(host_data.ptr(), new AtomData()))
         buf = bufptr.get()
         status = buf.allocate(4)
         self.assertFalse(status.is_error())
@@ -262,14 +282,15 @@ class TestAtomData(unittest.TestCase):
             Buffer* buf2
             urid.URID_Map_Feature mapper
 
-        mapper = urid.URID_Map_Feature(urid.get_static_mapper())
+        cdef PyHostData host_data = PyHostData()
+        host_data.setup()
 
-        bufptr1.reset(new Buffer(new AtomData(&mapper.data)))
+        bufptr1.reset(new Buffer(host_data.ptr(), new AtomData()))
         buf1 = bufptr1.get()
         status = buf1.allocate(4)
         self.assertFalse(status.is_error())
 
-        bufptr2.reset(new Buffer(new AtomData(&mapper.data)))
+        bufptr2.reset(new Buffer(host_data.ptr(), new AtomData()))
         buf2 = bufptr2.get()
         status = buf2.allocate(4)
         self.assertFalse(status.is_error())

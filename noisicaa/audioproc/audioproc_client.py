@@ -56,9 +56,9 @@ class AudioProcClientMixin(object):
     async def shutdown(self):
         await self._stub.call('SHUTDOWN')
 
-    async def add_node(self, node_type, **args):
+    async def add_node(self, *, description, **args):
         return await self.pipeline_mutation(
-            mutations.AddNode(node_type, **args))
+            mutations.AddNode(description=description, **args))
 
     async def remove_node(self, node_id):
         return await self.pipeline_mutation(

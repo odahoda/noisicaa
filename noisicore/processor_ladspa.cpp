@@ -1,8 +1,7 @@
-#include "processor_ladspa.h"
-
 #include <dlfcn.h>
 #include <stdint.h>
-#include "misc.h"
+#include "noisicore/processor_ladspa.h"
+#include "noisicore/misc.h"
 
 namespace noisicaa {
 
@@ -15,13 +14,13 @@ Status ProcessorLadspa::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
   if (status.is_error()) { return status; }
 
-  string library_path;
-  status = get_string_parameter("ladspa_library_path", &library_path);
-  if (status.is_error()) { return status; }
+  StatusOr<string> stor_or_library_path = get_string_parameter("ladspa_library_path");
+  if (stor_or_library_path.is_error()) { return stor_or_library_path; }
+  string library_path = stor_or_library_path.result();
 
-  string label;
-  status = get_string_parameter("ladspa_plugin_label", &label);
-  if (status.is_error()) { return status; }
+  StatusOr<string> stor_or_label = get_string_parameter("ladspa_plugin_label");
+  if (stor_or_label.is_error()) { return stor_or_label; }
+  string label = stor_or_label.result();
 
   _library = dlopen(library_path.c_str(), RTLD_NOW);
   if (_library == nullptr) {
@@ -45,6 +44,8 @@ Status ProcessorLadspa::setup(const ProcessorSpec* spec) {
       _descriptor = desc;
       break;
     }
+
+    ++idx;
   }
 
   if (_descriptor == nullptr) {

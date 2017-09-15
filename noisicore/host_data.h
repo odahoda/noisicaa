@@ -5,8 +5,7 @@
 
 #include "lilv/lilv.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
-
-#include "status.h"
+#include "noisicore/status.h"
 
 namespace noisicaa {
 

@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 
 from libc cimport stdlib
-from libc cimport string
+from libc.string cimport memmove
+from libcpp.memory cimport unique_ptr
 
 import enum
 import logging
@@ -13,14 +14,21 @@ import threading
 import time
 import cProfile
 
+from noisicore.status cimport *
+from noisicore.vm cimport *
+from noisicore.host_data cimport *
+from noisicore.spec cimport *
+from noisicore.block_context cimport *
+from noisicore.buffers cimport *
+from noisicore.backend cimport *
+
+import noisicore
 from noisicaa import core
 from noisicaa import rwlock
 from noisicaa import audioproc
 from noisicaa.bindings import lv2
 from .. import resample
-from .. cimport node
-from . cimport buffers
-from . import buffers
+from .. import node
 from . import graph
 from . import compiler
 
@@ -31,28 +39,34 @@ class GraphError(Exception):
     pass
 
 
-class RunAt(enum.Enum):
-    PERFORMANCE = 1
-    INIT = 2
+cdef class PipelineVM(object):
+    cdef unique_ptr[VM] __vm_ptr
+    cdef VM* __vm
 
+    cdef readonly object listeners
+    cdef PyHostData __host_data
+    cdef object __sample_rate
+    cdef object __block_size
+    cdef object __shm
+    cdef object __profile_path
+    cdef object __vm_thread
+    cdef object __vm_started
+    cdef object __vm_exit
+    cdef object __vm_lock
+    cdef object __graph
+    cdef object __parameters
+    cdef object __notifications
+    cdef readonly object notification_listener
 
-def at_performance(func):
-    func.run_at = RunAt.PERFORMANCE
-    return func
-
-def at_init(func):
-    func.run_at = RunAt.INIT
-    return func
-
-
-class PipelineVM(object):
     def __init__(
             self, *,
-            sample_rate=44100, frame_size=128, shm=None, profile_path=None):
+            host_data,
+            sample_rate=44100, block_size=128, shm=None, profile_path=None):
         self.listeners = core.CallbackRegistry()
 
+        self.__host_data = host_data
         self.__sample_rate = sample_rate
-        self.__frame_size = frame_size
+        self.__block_size = block_size
         self.__shm = shm
         self.__profile_path = profile_path
 
@@ -61,11 +75,6 @@ class PipelineVM(object):
         self.__vm_exit = None
         self.__vm_lock = rwlock.RWLock()
 
-        self.__backend = None
-        self.__spec = None
-        self.__spec_initialized = None
-        self.__opcode_states = None
-        self.__buffers = None
         self.__graph = graph.PipelineGraph()
         self.__parameters = {}
 
@@ -83,6 +92,11 @@ class PipelineVM(object):
         pass
 
     def setup(self, *, start_thread=True):
+        self.__vm_ptr.reset(new VM(self.__host_data.ptr()))
+        self.__vm = self.__vm_ptr.get()
+        check(self.__vm.setup())
+        self.__vm.set_block_size(self.__block_size)
+
         self.__vm_started = threading.Event()
         self.__vm_exit = threading.Event()
         if start_thread:
@@ -92,10 +106,10 @@ class PipelineVM(object):
         logger.info("VM up and running.")
 
     def cleanup(self):
-        if self.__backend is not None:
-            logger.info("Stopping backend...")
-            self.__backend.stop()
-            logger.info("Backend stopped...")
+        # if self.__backend is not None:
+        #     logger.info("Stopping backend...")
+        #     self.__backend.stop()
+        #     logger.info("Backend stopped...")
 
         if self.__vm_thread is not None:  # pragma: no branch
             logger.info("Shutting down VM thread...")
@@ -107,62 +121,44 @@ class PipelineVM(object):
         self.__vm_started = None
         self.__vm_exit = None
 
-        self.cleanup_backend()
-        self.cleanup_spec()
+        if self.__vm != NULL:
+            self.__vm.cleanup()
+        self.__vm_ptr.reset()
 
-    def setup_spec(self, spec):
-        self.__buffers = [buffers.Buffer(btype) for btype in spec.buffers]
-        self.__opcode_states = [{} for _ in spec.opcodes]
-        self.__spec = spec
-        self.__spec_initialized = False
-
-    def cleanup_spec(self):
-        self.__buffers = None
-        self.__opcode_states = None
-        self.__spec = None
-        self.__spec_initialized = None
-
-    def set_spec(self, spec):
-        logger.info("spec=%s", spec.dump() if spec is not None else None)
-        with self.writer_lock():
-            self.cleanup_spec()
-
-            if spec is not None:
-                self.setup_spec(spec)
+    def set_spec(self, PySpec spec):
+        self.__vm.set_spec(spec.release())
 
     def update_spec(self):
-        with self.writer_lock():
-            spec = compiler.compile_graph(
-                graph=self.__graph,
-                frame_size=self.__frame_size)
-            self.set_spec(spec)
+        spec = compiler.compile_graph(
+            graph=self.__graph)
+        self.set_spec(spec)
 
-    def get_buffer_bytes(self, buf_idx):
-        return self.__buffers[buf_idx].to_bytes()
+    def get_buffer_bytes(self, name):
+        if isinstance(name, str):
+            name = name.encode('ascii')
+        assert isinstance(name, bytes)
+        cdef Buffer* buf = self.__vm.get_buffer(name)
+        assert buf != NULL
+        return bytes(buf.data()[:buf.size()])
 
-    def set_buffer_bytes(self, buf_idx, data):
-        self.__buffers[buf_idx].set_bytes(data)
+    def set_buffer_bytes(self, name, data):
+        if isinstance(name, str):
+            name = name.encode('ascii')
+        assert isinstance(name, bytes)
+        cdef Buffer* buf = self.__vm.get_buffer(name)
+        assert buf != NULL
+        assert len(data) == buf.size()
+        memmove(buf.data(), <char*>data, buf.size())
 
-    def cleanup_backend(self):
-        if self.__backend is not None:
-            logger.info(
-                "Clean up backend %s", type(self.__backend).__name__)
-            self.__backend.cleanup()
-            self.__backend = None
+    def set_backend(self, name, **parameters):
+        if isinstance(name, str):
+            name = name.encode('ascii')
+        assert isinstance(name, bytes)
 
-    def setup_backend(self, backend):
-        logger.info(
-            "Set up backend %s", type(backend).__name__)
-        backend.setup(self.__sample_rate)
-        self.__backend = backend
-
-    def set_backend(self, backend):
-        logger.info("backend=%s", type(backend).__name__)
-        with self.writer_lock():
-            self.cleanup_backend()
-
-            if backend is not None:
-                self.setup_backend(backend)
+        cdef PyBackendSettings settings = PyBackendSettings(**parameters)
+        cdef StatusOr[Backend*] backend = Backend.create(name, settings.get())
+        check(backend)
+        check(self.__vm.set_backend(backend.result()))
 
     def set_backend_parameters(self, parameters):
         logger.info(
@@ -208,6 +204,13 @@ class PipelineVM(object):
         # if self._shm_data is not None:
         #     self._shm_data[512] = 0
 
+        logger.info("setup complete")
+        cdef PyProcessor processor = node.get_processor()
+        if processor is not None:
+            logger.info("adding processor")
+            self.__vm.add_processor(processor.release())
+            logger.info("done")
+
     def set_parameter(self, name, value):
         self.__parameters[name] = value
 
@@ -242,178 +245,61 @@ class PipelineVM(object):
             logger.info("VM finished.")
 
     def vm_loop(self):
-        ctxt = audioproc.FrameContext()
-        ctxt.perf = core.PerfStats()
+        cdef BlockContext ctxt
+        #ctxt.perf = core.PerfStats()
         ctxt.sample_pos = 0
-        ctxt.duration = -1
+        ctxt.block_size = self.__block_size
 
         while True:
             if self.__vm_exit.is_set():
                 logger.info("Exiting VM mainloop.")
                 break
 
-            backend = self.__backend
-            if backend is None:
-                time.sleep(0.1)
-                continue
+            with nogil:
+                check(self.__vm.process_block(&ctxt))
 
-            self.listeners.call('perf_data', ctxt.perf.serialize())
+            # backend = self.__backend
+            # if backend is None:
+            #     time.sleep(0.1)
+            #     continue
 
-            ctxt.perf = core.PerfStats()
+            # self.listeners.call('perf_data', ctxt.perf.serialize())
 
-            backend.begin_frame(ctxt)
+            # ctxt.perf = core.PerfStats()
 
-            try:
-                if backend.stopped:
-                    break
+            # backend.begin_frame(ctxt)
 
-                if ctxt.duration != self.__frame_size:
-                    logger.info("frame_size=%d", ctxt.duration)
-                    with self.writer_lock():
-                        self.__frame_size = ctxt.duration
-                        self.update_spec()
+            # try:
+            #     if backend.stopped:
+            #         break
 
-                with self.reader_lock():
-                    if self.__spec is not None:
-                        if not self.__spec_initialized:
-                            self.run_vm(self.__spec, ctxt, RunAt.INIT)
-                            self.__spec_initialized = True
-                        self.run_vm(self.__spec, ctxt, RunAt.PERFORMANCE)
-                    else:
-                        time.sleep(0.05)
+            #     if ctxt.duration != self.__frame_size:
+            #         logger.info("frame_size=%d", ctxt.duration)
+            #         with self.writer_lock():
+            #             self.__frame_size = ctxt.duration
+            #             self.update_spec()
 
-            finally:
-                notifications = self.__notifications
-                self.__notifications = []
+            #     with self.reader_lock():
+            #         if self.__spec is not None:
+            #             # if not self.__spec_initialized:
+            #             #     self.run_vm(self.__spec, ctxt, RunAt.INIT)
+            #             #     self.__spec_initialized = True
+            #             # self.run_vm(self.__spec, ctxt, RunAt.PERFORMANCE)
+            #             pass
+            #         else:
+            #             time.sleep(0.05)
 
-                with ctxt.perf.track('send_notifications'):
-                    for node_id, notification in notifications:
-                        self.notification_listener.call(node_id, notification)
+            # finally:
+            #     notifications = self.__notifications
+            #     self.__notifications = []
 
-                backend.end_frame()
+            #     with ctxt.perf.track('send_notifications'):
+            #         for node_id, notification in notifications:
+            #             self.notification_listener.call(node_id, notification)
 
-            ctxt.sample_pos += ctxt.duration
+            #     backend.end_frame()
 
-    def run_vm(self, s, ctxt, run_at):
-        for opcode, state in zip(s.opcodes, self.__opcode_states):
-            opmethod = getattr(self, 'op_' + opcode.op)
-            if opmethod.run_at == run_at:
-                logger.debug("Executing opcode %s", opcode)
-                opmethod(ctxt, state, **opcode.args)
+            ctxt.sample_pos += ctxt.block_size
 
-    # Many opcodes don't use the ctxt or state argument.
-    # pylint: disable=unused-argument
-
-    @at_performance
-    def op_COPY_BUFFER(self, ctxt, state, *, src_idx, dest_idx):
-        cdef buffers.Buffer src = self.__buffers[src_idx]
-        cdef buffers.Buffer dest = self.__buffers[dest_idx]
-        assert len(src.type) == len(dest.type)
-        string.memmove(dest.data, src.data, len(dest.type))
-
-    @at_performance
-    def op_CLEAR_BUFFER(self, ctxt, state, *, buf_idx):
-        cdef buffers.Buffer buf = self.__buffers[buf_idx]
-        buf.clear()
-
-    @at_performance
-    def op_SET_FLOAT(self, ctxt, state, *, buf_idx, value):
-        cdef buffers.Buffer buf = self.__buffers[buf_idx]
-        assert isinstance(buf.type, buffers.Float), str(buf.type)
-        cdef float* data = <float*>buf.data
-        data[0] = value
-
-    @at_performance
-    def op_OUTPUT(self, ctxt, state, *, buf_idx, channel):
-        cdef buffers.Buffer buf = self.__buffers[buf_idx]
-        assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
-        assert buf.type.size == ctxt.duration
-        self.__backend.output(channel, buf.to_bytes())
-
-    @at_performance
-    def op_FETCH_BUFFER(self, ctxt, state, *, buf_id, buf_idx):
-        cdef buffers.Buffer out_buf = self.__buffers[buf_idx]
-        try:
-            in_buf = ctxt.buffers[buf_id]
-        except KeyError:
-            out_buf.clear()
-        else:
-            out_buf.set_bytes(in_buf.data)
-
-    @at_performance
-    def op_FETCH_PARAMETER(self, ctxt, state, *, parameter_idx, buf_idx):
-        #parameter_name = self.__parameters[parameter_idx]
-        cdef buffers.Buffer buf = self.__buffers[buf_idx]
-        buf.clear()
-
-    @at_performance
-    def op_FETCH_MESSAGES(self, ctxt, state, *, labelset, buf_idx):
-        cdef buffers.Buffer buf = self.__buffers[buf_idx]
-
-        forge = lv2.AtomForge(lv2.static_mapper)
-        forge.set_buffer(buf.data, len(buf.type))
-
-        with forge.sequence():
-            for msg in ctxt.messages:
-                if msg.type != core.MessageType.atom:
-                    continue
-
-                matched = all(
-                    any(label_b.key == label_a.key and label_b.value == label_a.value
-                        for label_b in msg.labelset.labels)
-                    for label_a in labelset.labels)
-
-                if not matched:
-                    continue
-
-                forge.write_raw_event(0, msg.data, len(msg.data))
-
-        # TODO: clear remainder of buf.
-
-    @at_performance
-    def op_NOISE(self, ctxt, state, *, buf_idx):
-        cdef buffers.Buffer buf = self.__buffers[buf_idx]
-        assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
-
-        cdef float* view = <float*>buf.data
-        for i in range(buf.type.size):
-            view[i] = 2 * random.random() - 1.0
-
-    @at_performance
-    def op_SINE(self, ctxt, state, *, buf_idx, freq):
-        cdef buffers.Buffer buf = self.__buffers[buf_idx]
-        assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
-        cdef float* view = <float*>buf.data
-
-        p = state.get('p', 0.0)
-        for i in range(buf.type.size):
-            view[i] = math.sin(p)
-            p += 2 * math.pi * freq / self.__sample_rate
-            if p > 2 * math.pi:
-                p -= 2 * math.pi
-        state['p'] = p
-
-    @at_performance
-    def op_MUL(self, ctxt, state, *, buf_idx, factor):
-        cdef buffers.Buffer buf = self.__buffers[buf_idx]
-        assert isinstance(buf.type, buffers.FloatArray), str(buf.type)
-        cdef float* view = <float*>buf.data
-        for i in range(buf.type.size):
-            view[i] *= factor
-
-    @at_performance
-    def op_MIX(self, ctxt, state, *, src_idx, dest_idx):
-        self.__buffers[dest_idx].mix(self.__buffers[src_idx])
-
-    @at_init
-    def op_CONNECT_PORT(self, ctxt, state, *, node_idx, port_name, buf_idx):
-        node_id = self.__spec.nodes[node_idx]
-        cdef node.CustomNode n = self.__graph.find_node(node_id)
-        cdef buffers.Buffer buf = self.__buffers[buf_idx]
-        n.connect_port(port_name, buf)
-
-    @at_performance
-    def op_CALL(self, ctxt, state, *, node_idx):
-        node_id = self.__spec.nodes[node_idx]
-        cdef node.CustomNode n = self.__graph.find_node(node_id)
-        n.run(ctxt)
+    def process_block(self, PyBlockContext ctxt):
+        check(self.__vm.process_block(ctxt.ptr()))

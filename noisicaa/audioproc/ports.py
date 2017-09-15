@@ -2,8 +2,8 @@
 
 import logging
 
+import noisicore
 from .exceptions import Error
-from .vm import buffers
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class Port(object):
     def buf_name(self):
         return '%s:%s' % (self.owner.id, self._name)
 
-    def get_buf_type(self, compiler):
+    def get_buf_type(self):
         raise NotImplementedError(type(self).__name__)
 
     def set_prop(self):
@@ -101,8 +101,8 @@ class AudioInputPort(InputPort):
         if not isinstance(port, AudioOutputPort):
             raise Error("Can only connect to AudioOutputPort")
 
-    def get_buf_type(self, compiler):
-        return buffers.FloatArray(compiler.frame_size)
+    def get_buf_type(self):
+        return noisicore.FloatAudioBlock()
 
 
 class AudioOutputPort(OutputPort):
@@ -146,8 +146,8 @@ class AudioOutputPort(OutputPort):
         if drywet is not None:
             self.drywet = drywet
 
-    def get_buf_type(self, compiler):
-        return buffers.FloatArray(compiler.frame_size)
+    def get_buf_type(self):
+        return noisicore.FloatAudioBlock()
 
 
 class ARateControlInputPort(InputPort):
@@ -156,13 +156,13 @@ class ARateControlInputPort(InputPort):
         if not isinstance(port, ARateControlOutputPort):
             raise Error("Can only connect to ARateControlOutputPort")
 
-    def get_buf_type(self, compiler):
-        return buffers.FloatArray(compiler.frame_size)
+    def get_buf_type(self):
+        return noisicore.FloatAudioBlock()
 
 
 class ARateControlOutputPort(OutputPort):
-    def get_buf_type(self, compiler):
-        return buffers.FloatArray(compiler.frame_size)
+    def get_buf_type(self):
+        return noisicore.FloatAudioBlock()
 
 
 class KRateControlInputPort(InputPort):
@@ -171,13 +171,13 @@ class KRateControlInputPort(InputPort):
         if not isinstance(port, KRateControlOutputPort):
             raise Error("Can only connect to KRateControlOutputPort")
 
-    def get_buf_type(self, compiler):
-        return buffers.Float()
+    def get_buf_type(self):
+        return noisicore.Float()
 
 
 class KRateControlOutputPort(OutputPort):
-    def get_buf_type(self, compiler):
-        return buffers.Float()
+    def get_buf_type(self):
+        return noisicore.Float()
 
 
 class EventInputPort(InputPort):
@@ -190,10 +190,10 @@ class EventInputPort(InputPort):
         if not isinstance(port, EventOutputPort):
             raise Error("Can only connect to EventOutputPort")
 
-    def get_buf_type(self, compiler):
-        return buffers.AtomData(10240)
+    def get_buf_type(self):
+        return noisicore.AtomData()
 
 
 class EventOutputPort(OutputPort):
-    def get_buf_type(self, compiler):
-        return buffers.AtomData(10240)
+    def get_buf_type(self):
+        return noisicore.AtomData()

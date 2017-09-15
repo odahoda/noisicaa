@@ -7,10 +7,9 @@
 #include <vector>
 #include <stdint.h>
 #include "lilv/lilv.h"
-
-#include "status.h"
-#include "buffers.h"
-#include "processor.h"
+#include "noisicore/status.h"
+#include "noisicore/buffers.h"
+#include "noisicore/processor.h"
 
 namespace noisicaa {
 

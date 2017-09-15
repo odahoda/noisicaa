@@ -7,9 +7,10 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
-#include "audio_stream.h"
-#include "misc.h"
+#include <capnp/message.h>
+#include <capnp/serialize.h>
+#include "noisicore/audio_stream.h"
+#include "noisicore/misc.h"
 
 namespace {
 
@@ -118,20 +119,6 @@ StatusOr<string> AudioStreamBase::receive_bytes() {
   assert(line == "#END");
 
   return payload;
-}
-
-StatusOr<capnp::BlockData::Reader> AudioStreamBase::receive_block() {
-  StatusOr<string> stor_bytes = receive_bytes();
-  if (stor_bytes.is_error()) { return stor_bytes; }
-  _in_message = stor_bytes.result();
-  assert(_in_message.size() % sizeof(::capnp::word) == 0);
-  kj::ArrayPtr<::capnp::word> words(
-      (::capnp::word*)_in_message.c_str(),
-      _in_message.size() / sizeof(::capnp::word));
-
-  // TODO: does the returned builder get corrupted, when the message_reader goes out of scope?
-  ::capnp::FlatArrayMessageReader message_reader(words);
-  return message_reader.getRoot<capnp::BlockData>();
 }
 
 Status AudioStreamBase::send_bytes(const char* data, size_t size) {

@@ -4,10 +4,9 @@
 #define _NOISICORE_BACKEND_NULL_H
 
 #include <string.h>
-
-#include "backend.h"
-#include "buffers.h"
-#include "status.h"
+#include "noisicore/backend.h"
+#include "noisicore/buffers.h"
+#include "noisicore/status.h"
 
 namespace noisicaa {
 
@@ -21,7 +20,7 @@ class NullBackend : public Backend {
   Status setup(VM* vm) override;
   void cleanup() override;
 
-  Status begin_block() override;
+  Status begin_block(BlockContext* ctxt) override;
   Status end_block() override;
   Status output(const string& channel, BufferPtr samples) override;
 };

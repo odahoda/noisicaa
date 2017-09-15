@@ -4,11 +4,10 @@
 #include <stdint.h>
 #include "capnp/message.h"
 #include "capnp/serialize.h"
-
-#include "host_data.h"
-#include "misc.h"
-#include "block_data.capnp.h"
-#include "processor_ipc.h"
+#include "noisicore/host_data.h"
+#include "noisicore/misc.h"
+#include "noisicore/block_data.capnp.h"
+#include "noisicore/processor_ipc.h"
 
 namespace noisicaa {
 
@@ -21,9 +20,9 @@ Status ProcessorIPC::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
   if (status.is_error()) { return status; }
 
-  string address;
-  status = get_string_parameter("ipc_address", &address);
-  if (status.is_error()) { return status; }
+  StatusOr<string> stor_or_address = get_string_parameter("ipc_address");
+  if (stor_or_address.is_error()) { return stor_or_address; }
+  string address = stor_or_address.result();
 
   _stream.reset(new AudioStreamClient(address));
   status = _stream->setup();
@@ -93,6 +92,7 @@ Status ProcessorIPC::run(BlockContext* ctxt) {
 
   for (int p = 0 ; p < 2 ; ++p) {
     if (!ports_written[p]) {
+      log(LogLevel::WARNING, "Expected buffer output:%d not received", p);
       memset(_ports[p], 0, ctxt->block_size * sizeof(float));
     }
   }

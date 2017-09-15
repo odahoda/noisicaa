@@ -6,11 +6,10 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
-
-#include "status.h"
-#include "buffers.h"
-#include "processor.h"
-#include "audio_stream.h"
+#include "noisicore/status.h"
+#include "noisicore/buffers.h"
+#include "noisicore/processor.h"
+#include "noisicore/audio_stream.h"
 
 namespace noisicaa {
 

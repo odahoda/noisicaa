@@ -1,4 +1,4 @@
-#include "backend_null.h"
+#include "noisicore/backend_null.h"
 
 namespace noisicaa {
 
@@ -14,7 +14,7 @@ void NullBackend::cleanup() {
   Backend::cleanup();
 }
 
-Status NullBackend::begin_block() {
+Status NullBackend::begin_block(BlockContext* ctxt) {
   return Status::Ok();
 }
 

@@ -20,9 +20,9 @@ class TestProcessorLV2(unittest.TestCase):
         status = host_data.get().setup_lilv()
         self.assertFalse(status.is_error(), status.message())
 
+        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'lv2')
         cdef unique_ptr[Processor] processor_ptr
-        processor_ptr.reset(Processor.create(host_data.get(), b'lv2'))
-        self.assertTrue(processor_ptr.get() != NULL)
+        processor_ptr.reset(stor_processor.result())
 
         cdef Processor* processor = processor_ptr.get()
 
@@ -33,8 +33,7 @@ class TestProcessorLV2(unittest.TestCase):
         spec.get().add_port(b'out', PortType.audio, PortDirection.Output)
         spec.get().add_parameter(new StringParameterSpec(b'lv2_uri', b'http://lv2plug.in/plugins/eg-amp'))
 
-        status = processor.setup(spec.release())
-        self.assertFalse(status.is_error(), status.message())
+        check(processor.setup(spec.release()))
 
         cdef float gain
         cdef float inbuf[128]
@@ -53,7 +52,7 @@ class TestProcessorLV2(unittest.TestCase):
         cdef BlockContext ctxt
         ctxt.block_size = 128
 
-        processor.run(&ctxt)
+        check(processor.run(&ctxt))
 
         for i in range(128):
             self.assertAlmostEqual(outbuf[i], 0.5, places=2)

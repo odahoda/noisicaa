@@ -39,36 +39,48 @@ class LV2Scanner(scanner.Scanner):
             parameters = []
 
             for port in (plugin.get_port_by_index(i) for i in range(plugin.get_num_ports())):
-                if port.is_a(ns.lv2.ControlPort) and port.is_a(ns.lv2.InputPort):
-                    if port.has_property(ns.lv2.integer):
-                        # TODO: this should be IntParameter
-                        parameter_cls = node_db.FloatParameterDescription
+                if port.is_a(ns.lv2.ControlPort):  # and port.is_a(ns.lv2.InputPort):
+                    if port.is_a(ns.lv2.InputPort):
+                        direction = node_db.PortDirection.Input
+                    elif port.is_a(ns.lv2.OutputPort):
+                        direction = node_db.PortDirection.Output
                     else:
-                        parameter_cls = node_db.FloatParameterDescription
+                        raise ValueError(port)
 
-                    kwargs = {}
-                    kwargs['name'] = str(port.get_symbol())
-                    kwargs['display_name'] = str(port.get_name())
+                    port_desc = node_db.KRateControlPortDescription(
+                        name=str(port.get_symbol()),
+                        direction=direction)
+                    ports.append(port_desc)
 
-                    default, range_min, range_max = port.get_range()
-                    if default is not None:
-                        if default.is_int():
-                            kwargs['default'] = int(default)
-                        else:
-                            kwargs['default'] = float(default)
-                    if range_min is not None:
-                        if range_min.is_int():
-                            kwargs['min'] = int(range_min)
-                        else:
-                            kwargs['min'] = float(range_min)
-                    if range_max is not None:
-                        if range_max.is_int():
-                            kwargs['max'] = int(range_max)
-                        else:
-                            kwargs['max'] = float(range_max)
+                    # if port.has_property(ns.lv2.integer):
+                    #     # TODO: this should be IntParameter
+                    #     parameter_cls = node_db.FloatParameterDescription
+                    # else:
+                    #     parameter_cls = node_db.FloatParameterDescription
 
-                    parameter_desc = parameter_cls(**kwargs)
-                    parameters.append(parameter_desc)
+                    # kwargs = {}
+                    # kwargs['name'] = str(port.get_symbol())
+                    # kwargs['display_name'] = str(port.get_name())
+
+                    # default, range_min, range_max = port.get_range()
+                    # if default is not None:
+                    #     if default.is_int():
+                    #         kwargs['default'] = int(default)
+                    #     else:
+                    #         kwargs['default'] = float(default)
+                    # if range_min is not None:
+                    #     if range_min.is_int():
+                    #         kwargs['min'] = int(range_min)
+                    #     else:
+                    #         kwargs['min'] = float(range_min)
+                    # if range_max is not None:
+                    #     if range_max.is_int():
+                    #         kwargs['max'] = int(range_max)
+                    #     else:
+                    #         kwargs['max'] = float(range_max)
+
+                    # parameter_desc = parameter_cls(**kwargs)
+                    # parameters.append(parameter_desc)
 
                 elif port.is_a(ns.atom.AtomPort) and port.is_a(ns.lv2.InputPort):
                     port_desc = node_db.EventPortDescription(
@@ -88,6 +100,7 @@ class LV2Scanner(scanner.Scanner):
                         name=str(port.get_symbol()),
                         direction=direction)
                     ports.append(port_desc)
+
                 else:
                     # TODO: support other port types (atom, control output, ...).
                     logger.warn(
@@ -96,11 +109,11 @@ class LV2Scanner(scanner.Scanner):
 
             parameters.append(
                 node_db.InternalParameterDescription(
-                    name='uri', value=str(plugin.get_uri())))
+                    name='lv2_uri', value=str(plugin.get_uri())))
 
-            node_desc = node_db.UserNodeDescription(
+            node_desc = node_db.ProcessorDescription(
                 display_name=str(plugin.get_name()),
-                node_cls='lv2',
+                processor_name='lv2',
                 ports=ports,
                 parameters=parameters)
 

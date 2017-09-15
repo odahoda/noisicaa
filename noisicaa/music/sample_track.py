@@ -186,7 +186,7 @@ class SampleBufferSource(base_track.BufferSource):
             assert len(buffer_left.data) == frame_sample_pos * 4
             output[:frame_sample_pos,0] = numpy.frombuffer(buffer_left.data, dtype=numpy.float32)
 
-        buffer_right_id = 'track:%s:left' % self._track.id
+        buffer_right_id = 'track:%s:right' % self._track.id
         try:
             buffer_right = buffers[buffer_right_id]
         except KeyError:

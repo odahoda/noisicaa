@@ -43,14 +43,14 @@ def parse_uri(uri):
         args = {}
 
     if fmt == 'sf2':
-        return 'fluidsynth', {
+        return 'builtin://fluidsynth', {
             'soundfont_path': path,
             'bank': int(args['bank']),
             'preset': int(args['preset'])
         }
 
     elif fmt == 'sample':
-        return 'sample_player', {
+        return 'builtin://sample_player', {
             'sample_path': path,
         }
 

@@ -18,10 +18,10 @@ class TestProcessorLadspa(unittest.TestCase):
         cdef unique_ptr[HostData] host_data
         host_data.reset(new HostData())
 
+        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'ladspa')
+        check(stor_processor)
         cdef unique_ptr[Processor] processor_ptr
-        processor_ptr.reset(Processor.create(host_data.get(), b'ladspa'))
-        self.assertTrue(processor_ptr.get() != NULL)
-
+        processor_ptr.reset(stor_processor.result())
         cdef Processor* processor = processor_ptr.get()
 
         cdef unique_ptr[ProcessorSpec] spec
@@ -32,16 +32,15 @@ class TestProcessorLadspa(unittest.TestCase):
         spec.get().add_parameter(new StringParameterSpec(b'ladspa_library_path', b'/usr/lib/ladspa/amp.so'))
         spec.get().add_parameter(new StringParameterSpec(b'ladspa_plugin_label', b'amp_mono'))
 
-        status = processor.setup(spec.release())
-        self.assertFalse(status.is_error(), status.message())
+        check(processor.setup(spec.release()))
 
         cdef float gain
         cdef float inbuf[128]
         cdef float outbuf[128]
 
-        processor.connect_port(0, <BufferPtr>&gain)
-        processor.connect_port(1, <BufferPtr>inbuf)
-        processor.connect_port(2, <BufferPtr>outbuf)
+        check(processor.connect_port(0, <BufferPtr>&gain))
+        check(processor.connect_port(1, <BufferPtr>inbuf))
+        check(processor.connect_port(2, <BufferPtr>outbuf))
 
         gain = 0.5
         for i in range(128):
@@ -52,7 +51,7 @@ class TestProcessorLadspa(unittest.TestCase):
         cdef BlockContext ctxt
         ctxt.block_size = 128
 
-        processor.run(&ctxt)
+        check(processor.run(&ctxt))
 
         for i in range(128):
             self.assertEqual(outbuf[i], 0.5)

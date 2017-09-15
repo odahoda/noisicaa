@@ -16,16 +16,10 @@ import threading
 
 import capnp
 
+from .status import *
+from .status cimport *
 from . import audio_stream
 from . import block_data_capnp
-
-
-cdef _check(const Status& status):
-    if status.is_connection_closed():
-        raise audio_stream.ConnectionClosed
-
-    if status.is_error():
-        raise audio_stream.Error(status.message())
 
 
 class TestIPCBackend(unittest.TestCase):
@@ -39,14 +33,15 @@ class TestIPCBackend(unittest.TestCase):
         cdef unique_ptr[VM] vm
         vm.reset(new VM(host_data.get()))
 
-        cdef BackendSettings backend_settings
-        backend_settings.ipc_address = os.fsencode(
-            os.path.join(
+        cdef PyBackendSettings backend_settings = PyBackendSettings(
+            ipc_address=os.path.join(
                 tempfile.gettempdir(),
                 'test.%s.pipe' % uuid.uuid4().hex))
 
+        cdef StatusOr[Backend*] stor_backend = Backend.create(b"ipc", backend_settings.get())
+        check(stor_backend)
         cdef unique_ptr[Backend] beptr
-        beptr.reset(Backend.create(b"ipc", backend_settings))
+        beptr.reset(stor_backend.result())
 
         cdef Backend* be = beptr.get()
         status = be.setup(vm.get())
@@ -55,24 +50,25 @@ class TestIPCBackend(unittest.TestCase):
         def backend_thread():
             cdef Status status
             cdef float buf[4]
+            cdef BlockContext ctxt
 
             try:
                 while True:
                     with nogil:
-                        status = be.begin_block()
-                    _check(status)
+                        status = be.begin_block(&ctxt)
+                    check(status)
 
                     buf[0:4] = [0.0, 0.5, 1.0, 0.5]
-                    _check(be.output(b"left", <BufferPtr>buf))
+                    check(be.output(b"left", <BufferPtr>buf))
 
                     buf[0:4] = [0.0, -0.5, -1.0, -0.5]
-                    _check(be.output(b"right", <BufferPtr>buf))
+                    check(be.output(b"right", <BufferPtr>buf))
 
                     with nogil:
                         status = be.end_block()
-                    _check(status)
+                    check(status)
 
-            except audio_stream.ConnectionClosed:
+            except ConnectionClosed:
                 pass
 
         thread = threading.Thread(target=backend_thread)

@@ -9,6 +9,7 @@ import io
 
 import posix_ipc
 
+import noisicore
 from noisicaa import core
 from noisicaa.core import ipc
 
@@ -16,6 +17,7 @@ from . import backend
 from . import vm
 from . import mutations
 from . import node_db
+from . import node
 from . import nodes
 
 logger = logging.getLogger(__name__)
@@ -84,6 +86,7 @@ class AudioProcProcessMixin(object):
         self.shm_name = shm
         self.profile_path = profile_path
         self.shm = None
+        self.__host_data = None
         self.__vm = None
 
     async def setup(self):
@@ -109,26 +112,31 @@ class AudioProcProcessMixin(object):
             'DUMP', self.handle_dump)
 
         self.node_db = node_db.NodeDB()
-        self.node_db.add(nodes.WavFileSource)
-        self.node_db.add(nodes.FluidSynthSource)
-        self.node_db.add(nodes.IPCNode)
-        self.node_db.add(nodes.PassThru)
+        self.node_db.add(node.ProcessorNode)
+        #self.node_db.add(nodes.WavFileSource)
+        #self.node_db.add(nodes.FluidSynthSource)
+        #self.node_db.add(nodes.IPCNode)
+        #self.node_db.add(nodes.PassThru)
         self.node_db.add(nodes.TrackControlSource)
         self.node_db.add(nodes.TrackAudioSource)
         self.node_db.add(nodes.TrackEventSource)
-        self.node_db.add(nodes.CSoundFilter)
-        self.node_db.add(nodes.CustomCSound)
-        self.node_db.add(nodes.SamplePlayer)
-        self.node_db.add(nodes.SplitChannels)
-        self.node_db.add(nodes.JoinChannels)
-        self.node_db.add(nodes.Ladspa)
-        self.node_db.add(nodes.LV2)
-        self.node_db.add(nodes.PipelineCrasher)
+        #self.node_db.add(nodes.CSoundFilter)
+        #self.node_db.add(nodes.CustomCSound)
+        #self.node_db.add(nodes.SamplePlayer)
+        #self.node_db.add(nodes.SplitChannels)
+        #self.node_db.add(nodes.JoinChannels)
+        #self.node_db.add(nodes.Ladspa)
+        #self.node_db.add(nodes.LV2)
+        #self.node_db.add(nodes.PipelineCrasher)
 
         if self.shm_name is not None:
             self.shm = posix_ipc.SharedMemory(self.shm_name)
 
+        self.__host_data = noisicore.HostData()
+        self.__host_data.setup()
+
         self.__vm = vm.PipelineVM(
+            host_data=self.__host_data,
             shm=self.shm,
             profile_path=self.profile_path)
         self.__vm.listeners.add('perf_data', self.perf_data_callback)
@@ -136,7 +144,7 @@ class AudioProcProcessMixin(object):
 
         self.__vm.setup()
 
-        sink = nodes.Sink()
+        sink = nodes.Sink(host_data=self.__host_data)
         self.__vm.setup_node(sink)
         self.__vm.add_node(sink)
 
@@ -154,6 +162,10 @@ class AudioProcProcessMixin(object):
         if self.__vm is not None:
             self.__vm.cleanup()
             self.__vm = None
+
+        if self.__host_data is not None:
+            self.__host_data.cleanup()
+            self.__host_data = None
 
         await super().cleanup()
 
@@ -229,7 +241,12 @@ class AudioProcProcessMixin(object):
         self.get_session(session_id)
 
         if isinstance(mutation, mutations.AddNode):
-            node = self.node_db.create(mutation.node_type, **mutation.args)
+            logger.info("AddNode():\n%s", mutation.description)
+            node = self.node_db.create(
+                mutation.description.node_cls,
+                self.__host_data,
+                description=mutation.description,
+                **mutation.args)
             # TODO: schedule setup in a worker thread.
             self.__vm.setup_node(node)
             with self.__vm.writer_lock():
@@ -288,23 +305,7 @@ class AudioProcProcessMixin(object):
 
     def handle_set_backend(self, session_id, name, parameters):
         self.get_session(session_id)
-
-        result = None
-
-        if name == 'pyaudio':
-            be = backend.PyAudioBackend(parameters)
-        elif name == 'null':
-            be = backend.NullBackend(parameters)
-        elif name == 'ipc':
-            be = backend.IPCBackend(parameters)
-            result = be.address
-        elif name is None:
-            be = None
-        else:
-            raise ValueError("Invalid backend name %s" % name)
-
-        self.__vm.set_backend(be)
-        return result
+        self.__vm.set_backend(name, **parameters)
 
     def handle_set_backend_parameters(self, session_id, parameters):
         self.get_session(session_id)

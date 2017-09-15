@@ -10,10 +10,9 @@
 #include "csound/csound.h"
 #include "lv2/lv2plug.in/ns/ext/atom/forge.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
-
-#include "status.h"
-#include "buffers.h"
-#include "processor.h"
+#include "noisicore/status.h"
+#include "noisicore/buffers.h"
+#include "noisicore/processor.h"
 
 namespace noisicaa {
 
@@ -72,7 +71,14 @@ private:
 class ProcessorCSound : public ProcessorCSoundBase {
 public:
   ProcessorCSound(HostData* host_data);
-  ~ProcessorCSound() override;
+
+  Status setup(const ProcessorSpec* spec) override;
+  void cleanup() override;
+};
+
+class ProcessorCustomCSound : public ProcessorCSoundBase {
+public:
+  ProcessorCustomCSound(HostData* host_data);
 
   Status setup(const ProcessorSpec* spec) override;
   void cleanup() override;

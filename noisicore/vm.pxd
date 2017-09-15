@@ -1,21 +1,20 @@
 from libc.stdint cimport uint32_t
 
 from .status cimport *
+from .host_data cimport *
+from .block_context cimport *
 
-cdef extern from "vm.h" namespace "noisicaa" nogil:
+cdef extern from "noisicore/vm.h" namespace "noisicaa" nogil:
     cppclass Processor
     cppclass Spec
     cppclass Backend
-    cppclass BlockContext
     cppclass Buffer
-    cppclass HostData
 
     cppclass VM:
         VM(HostData* host_data)
 
         Status setup()
         void cleanup()
-        Processor* create_processor(const string& name)
         Status add_processor(Processor* processor)
         Status set_block_size(uint32_t block_size)
         Status set_spec(const Spec* spec)

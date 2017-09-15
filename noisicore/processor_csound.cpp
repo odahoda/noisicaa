@@ -1,10 +1,31 @@
-#include "processor_csound.h"
-
 #include <assert.h>
 #include <stdint.h>
-#include "host_data.h"
-#include "misc.h"
+#include "noisicore/host_data.h"
+#include "noisicore/misc.h"
+#include "noisicore/processor_csound.h"
 
+namespace {
+
+using namespace std;
+
+string port_name_to_csound_label(const string &port_name) {
+  string result;
+  bool was_alpha = false;
+  for (const auto& c : port_name) {
+    bool is_alpha = isalpha(c);
+    if (is_alpha && !was_alpha) {
+      result += toupper(c);
+    } else if (is_alpha) {
+      result += c;
+    }
+    was_alpha = is_alpha;
+  }
+
+  // name.title().replace(':', '')
+  return result;
+}
+
+}  // namespace
 
 namespace noisicaa {
 
@@ -49,6 +70,7 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
     return Status::Error(sprintf("Failed to set Csound options (code %d)", rc));
   }
 
+  log(LogLevel::INFO, "csound orchestra:\n%s", orchestra.c_str());
   rc = csoundCompileOrc(instance->csnd, orchestra.c_str());
   if (rc < 0) {
     return Status::Error(sprintf("Failed to compile Csound orchestra (code %d)", rc));
@@ -59,6 +81,7 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
     return Status::Error(sprintf("Failed to start Csound (code %d)", rc));
   }
 
+  log(LogLevel::INFO, "csound score:\n%s", score.c_str());
   rc = csoundReadScore(instance->csnd, score.c_str());
   if (rc < 0) {
     return Status::Error(sprintf("Failed to read Csound score (code %d)", rc));
@@ -358,23 +381,20 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
   return Status::Ok();
 }
 
-
-ProcessorCSound::ProcessorCSound(HostData* host_data)
+ProcessorCSound::ProcessorCSound(HostData *host_data)
   : ProcessorCSoundBase(host_data) {}
-
-ProcessorCSound::~ProcessorCSound() {}
 
 Status ProcessorCSound::setup(const ProcessorSpec* spec) {
   Status status = ProcessorCSoundBase::setup(spec);
   if (status.is_error()) { return status; }
 
-  string orchestra;
-  status = get_string_parameter("csound_orchestra", &orchestra);
-  if (status.is_error()) { return status; }
+  StatusOr<string> stor_orchestra = get_string_parameter("csound_orchestra");
+  if (stor_orchestra.is_error()) { return stor_orchestra; }
+  string orchestra = stor_orchestra.result();
 
-  string score;
-  status = get_string_parameter("csound_score", &score);
-  if (status.is_error()) { return status; }
+  StatusOr<string> stor_score = get_string_parameter("csound_score");
+  if (stor_score.is_error()) { return stor_score; }
+  string score = stor_score.result();
 
   status = set_code(orchestra, score);
   if (status.is_error()) { return status; }
@@ -383,6 +403,68 @@ Status ProcessorCSound::setup(const ProcessorSpec* spec) {
 }
 
 void ProcessorCSound::cleanup() {
+  ProcessorCSoundBase::cleanup();
+}
+
+
+ProcessorCustomCSound::ProcessorCustomCSound(HostData *host_data)
+  : ProcessorCSoundBase(host_data) {}
+
+Status ProcessorCustomCSound::setup(const ProcessorSpec* spec) {
+  Status status = ProcessorCSoundBase::setup(spec);
+  if (status.is_error()) { return status; }
+
+  StatusOr<string> stor_orchestra = get_string_parameter("csound_orchestra");
+  if (stor_orchestra.is_error()) { return stor_orchestra; }
+  string orchestra = stor_orchestra.result();
+
+  StatusOr<string> stor_score = get_string_parameter("csound_score");
+  if (stor_score.is_error()) { return stor_score; }
+  string score = stor_score.result();
+
+  string orchestra_preamble = "ksmps=32\nnchnls=2\n";
+
+  for (uint32_t i = 0 ; i < _spec->num_ports() ; ++i) {
+    const auto& port_spec = _spec->get_port(i);
+
+    if (port_spec.type() == PortType::audio
+	&& port_spec.direction() == PortDirection::Input) {
+      orchestra_preamble += sprintf(
+	  "ga%s chnexport \"%s\", 1\n",
+	  port_name_to_csound_label(port_spec.name()).c_str(),
+	  port_spec.name().c_str());
+    } else if (port_spec.type() == PortType::audio
+	       && port_spec.direction() == PortDirection::Output) {
+      orchestra_preamble += sprintf(
+	  "ga%s chnexport \"%s\", 2\n",
+	  port_name_to_csound_label(port_spec.name()).c_str(),
+	  port_spec.name().c_str());
+    } else if (port_spec.type() == PortType::aRateControl
+	       && port_spec.direction() == PortDirection::Input) {
+      orchestra_preamble += sprintf(
+	  "ga%s chnexport \"%s\", 1\n",
+	  port_name_to_csound_label(port_spec.name()).c_str(),
+	  port_spec.name().c_str());
+    } else if (port_spec.type() == PortType::aRateControl
+	       && port_spec.direction() == PortDirection::Output) {
+      orchestra_preamble += sprintf(
+	  "ga%s chnexport \"%s\", 2\n",
+	  port_name_to_csound_label(port_spec.name()).c_str(),
+	  port_spec.name().c_str());
+    } else if (port_spec.type() == PortType::atomData
+	       && port_spec.direction() == PortDirection::Input) {
+    } else {
+      return Status::Error(sprintf("Port %s not supported", port_spec.name().c_str()));
+    }
+  }
+
+  status = set_code(orchestra_preamble + orchestra, score);
+  if (status.is_error()) { return status; }
+
+  return Status::Ok();
+}
+
+void ProcessorCustomCSound::cleanup() {
   ProcessorCSoundBase::cleanup();
 }
 

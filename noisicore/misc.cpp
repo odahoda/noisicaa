@@ -1,8 +1,7 @@
-#include "misc.h"
-
 #include <memory>
 #include <stdio.h>
 #include <stdarg.h>
+#include "noisicore/misc.h"
 
 namespace noisicaa {
 
@@ -29,6 +28,8 @@ void log(LogLevel log_level, const char* fmt, ...) {
   va_start(args, fmt);
   std::vprintf(fmt, args);
   std::printf("\n");
+
+  std::fflush(stdout);
 }
 
 }

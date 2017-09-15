@@ -8,6 +8,7 @@ from unittest import mock
 import asynctest
 
 from noisicaa import core
+from noisicaa import node_db
 from noisicaa.core import ipc
 
 from . import audioproc_process
@@ -51,6 +52,23 @@ class TestAudioProcProcess(
 
 class ProxyTest(asynctest.TestCase):
     async def setUp(self):
+        self.passthru_description = node_db.ProcessorDescription(
+            processor_name='null',
+            ports=[
+                node_db.AudioPortDescription(
+                    name='in:left',
+                    direction=node_db.PortDirection.Input),
+                node_db.AudioPortDescription(
+                    name='in:right',
+                    direction=node_db.PortDirection.Input),
+                node_db.AudioPortDescription(
+                    name='out:left',
+                    direction=node_db.PortDirection.Output),
+                node_db.AudioPortDescription(
+                    name='out:right',
+                    direction=node_db.PortDirection.Output),
+            ])
+
         self.audioproc_process = TestAudioProcProcess(self.loop)
         await self.audioproc_process.setup()
         self.audioproc_task = self.loop.create_task(
@@ -66,17 +84,17 @@ class ProxyTest(asynctest.TestCase):
         await self.audioproc_process.cleanup()
 
     async def test_add_remove_node(self):
-        await self.client.add_node('passthru', id='test')
+        await self.client.add_node(id='test', description=self.passthru_description)
         await self.client.remove_node('test')
 
     async def test_connect_ports(self):
-        await self.client.add_node('passthru', id='node1')
-        await self.client.add_node('passthru', id='node2')
+        await self.client.add_node(id='node1', description=self.passthru_description)
+        await self.client.add_node(id='node2', description=self.passthru_description)
         await self.client.connect_ports('node1', 'out:left', 'node2', 'in:left')
 
     async def test_disconnect_ports(self):
-        await self.client.add_node('passthru', id='node1')
-        await self.client.add_node('passthru', id='node2')
+        await self.client.add_node(id='node1', description=self.passthru_description)
+        await self.client.add_node(id='node2', description=self.passthru_description)
         await self.client.connect_ports('node1', 'out:left', 'node2', 'in:left')
         await self.client.disconnect_ports('node1', 'out:left', 'node2', 'in:left')
 

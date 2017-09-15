@@ -4,6 +4,7 @@ import fractions
 
 from noisicaa import core
 from noisicaa import node_db
+from noisicaa import instrument_db
 from . import pitch
 from . import time
 from . import clef
@@ -251,19 +252,9 @@ class AudioOutPipelineGraphNode(BasePipelineGraphNode):
     def removable(self):
         return False
 
-    __description = node_db.SystemNodeDescription(
-        ports=[
-            node_db.AudioPortDescription(
-                name='in:left',
-                direction=node_db.PortDirection.Input),
-            node_db.AudioPortDescription(
-                name='in:right',
-                direction=node_db.PortDirection.Input),
-        ])
-
     @property
     def description(self):
-        return self.__description
+        return self.project.get_node_description('builtin://sink')
 
 
 class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
@@ -273,25 +264,9 @@ class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
     def removable(self):
         return False
 
-    __description = node_db.SystemNodeDescription(
-        ports=[
-            node_db.AudioPortDescription(
-                name='in:left',
-                direction=node_db.PortDirection.Input),
-            node_db.AudioPortDescription(
-                name='in:right',
-                direction=node_db.PortDirection.Input),
-            node_db.AudioPortDescription(
-                name='out:left',
-                direction=node_db.PortDirection.Output),
-            node_db.AudioPortDescription(
-                name='out:right',
-                direction=node_db.PortDirection.Output),
-        ])
-
     @property
     def description(self):
-        return self.__description
+        return self.project.get_node_description('builtin://track_mixer')
 
 
 class EventSourcePipelineGraphNode(BasePipelineGraphNode):
@@ -301,16 +276,9 @@ class EventSourcePipelineGraphNode(BasePipelineGraphNode):
     def removable(self):
         return False
 
-    __description = node_db.SystemNodeDescription(
-        ports=[
-            node_db.EventPortDescription(
-                name='out',
-                direction=node_db.PortDirection.Output),
-        ])
-
     @property
     def description(self):
-        return self.__description
+        return self.project.get_node_description('builtin://event_source')
 
 
 class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
@@ -320,16 +288,9 @@ class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
     def removable(self):
         return False
 
-    __description = node_db.SystemNodeDescription(
-        ports=[
-            node_db.ARateControlPortDescription(
-                name='out',
-                direction=node_db.PortDirection.Output),
-        ])
-
     @property
     def description(self):
-        return self.__description
+        return self.project.get_node_description('builtin://control_source')
 
 
 class AudioSourcePipelineGraphNode(BasePipelineGraphNode):
@@ -339,19 +300,9 @@ class AudioSourcePipelineGraphNode(BasePipelineGraphNode):
     def removable(self):
         return False
 
-    __description = node_db.SystemNodeDescription(
-        ports=[
-            node_db.AudioPortDescription(
-                name='out:left',
-                direction=node_db.PortDirection.Output),
-            node_db.AudioPortDescription(
-                name='out:right',
-                direction=node_db.PortDirection.Output),
-        ])
-
     @property
     def description(self):
-        return self.__description
+        return self.project.get_node_description('builtin://audio_source')
 
 
 class InstrumentPipelineGraphNode(BasePipelineGraphNode):
@@ -361,22 +312,10 @@ class InstrumentPipelineGraphNode(BasePipelineGraphNode):
     def removable(self):
         return False
 
-    __description = node_db.SystemNodeDescription(
-        ports=[
-            node_db.EventPortDescription(
-                name='in',
-                direction=node_db.PortDirection.Input),
-            node_db.AudioPortDescription(
-                name='out:left',
-                direction=node_db.PortDirection.Output),
-            node_db.AudioPortDescription(
-                name='out:right',
-                direction=node_db.PortDirection.Output),
-        ])
-
     @property
     def description(self):
-        return self.__description
+        node_uri, _ = instrument_db.parse_uri(self.track.instrument)
+        return self.project.get_node_description(node_uri)
 
 
 class PipelineGraphConnection(core.ObjectBase):

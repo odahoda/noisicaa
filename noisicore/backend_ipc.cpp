@@ -1,17 +1,24 @@
-#include "backend_ipc.h"
-#include "audio_stream.h"
-#include "misc.h"
-#include "vm.h"
+#include <iostream>
+#include "noisicore/backend_ipc.h"
+#include "noisicore/audio_stream.h"
+#include "noisicore/misc.h"
+#include "noisicore/vm.h"
 
 namespace noisicaa {
 
 IPCBackend::IPCBackend(const BackendSettings& settings)
-  : Backend(settings) {}
+  : Backend(settings),
+    _block_size(settings.block_size) {}
+
 IPCBackend::~IPCBackend() {}
 
 Status IPCBackend::setup(VM* vm) {
   Status status = Backend::setup(vm);
   if (status.is_error()) { return status; }
+
+  if (_block_size == 0) {
+   return Status::Error(sprintf("Invalid block_size %d", _block_size));
+  }
 
   if (_settings.ipc_address.size() == 0) {
     return Status::Error("ipc_address not set.");
@@ -39,19 +46,25 @@ void IPCBackend::cleanup() {
   Backend::cleanup();
 }
 
-Status IPCBackend::begin_block() {
+Status IPCBackend::begin_block(BlockContext* ctxt) {
   // try:
 
-  StatusOr<capnp::BlockData::Reader> stor_request = _stream->receive_block();
-  if (stor_request.is_error()) { return stor_request; }
-  capnp::BlockData::Reader request = stor_request.result();
+  StatusOr<string> stor_request_bytes = _stream->receive_bytes();
+  if (stor_request_bytes.is_error()) { return stor_request_bytes; }
+  string request_bytes = stor_request_bytes.result();
+  kj::ArrayPtr<::capnp::word> words(
+      (::capnp::word*)request_bytes.c_str(),
+      request_bytes.size() / sizeof(::capnp::word));
+  ::capnp::FlatArrayMessageReader message_reader(words);
+  capnp::BlockData::Reader request(message_reader.getRoot<capnp::BlockData>());
 
+  ctxt->buffers.clear();
+  for (const auto& block : request.getBuffers()) {
+    ::capnp::Data::Reader data = block.getData();
+    ctxt->buffers.emplace(string(block.getId().cStr()), BlockContext::Buffer{data.size(), (const BufferPtr)data.begin()});
+  }
   //     ctxt.perf.start_span('frame')
 
-  //     ctxt.entities = {
-  //         entity.id: entity
-  //         for entity in in_frame.entities
-  //     }
   //     ctxt.messages = in_frame.messages
 
   _out_block = _stream->block_data_builder();

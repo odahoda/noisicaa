@@ -22,7 +22,7 @@ cdef class URID_Map_Feature(Feature):
         self.lv2_feature.data = &self.data
 
     @staticmethod
-    cdef LV2_URID urid_map(LV2_URID_Map_Handle handle, const char* uri) except -1:
+    cdef LV2_URID urid_map(LV2_URID_Map_Handle handle, const char* uri) except -1 with gil:
         cdef URID_Mapper mapper = <URID_Mapper>handle
         return mapper.map(uri)
 
@@ -38,7 +38,7 @@ cdef class URID_Unmap_Feature(Feature):
         self.lv2_feature.data = &self.data
 
     @staticmethod
-    cdef const char* urid_unmap(LV2_URID_Map_Handle handle, LV2_URID urid) except <const char*>-1:
+    cdef const char* urid_unmap(LV2_URID_Map_Handle handle, LV2_URID urid) except <const char*>-1 with gil:
         cdef URID_Mapper mapper = <URID_Mapper>handle
         return mapper.unmap(urid)
 

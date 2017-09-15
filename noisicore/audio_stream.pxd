@@ -2,7 +2,7 @@ from libcpp.string cimport string
 
 from .status cimport *
 
-cdef extern from "audio_stream.h" namespace "noisicaa" nogil:
+cdef extern from "noisicore/audio_stream.h" namespace "noisicaa" nogil:
     cppclass AudioStreamBase:
         Status setup()
         void cleanup()

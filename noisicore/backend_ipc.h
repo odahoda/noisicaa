@@ -5,10 +5,10 @@
 
 #include <memory>
 #include <string>
-#include "audio_stream.h"
-#include "backend.h"
-#include "buffers.h"
-#include "block_data.capnp.h"
+#include "noisicore/audio_stream.h"
+#include "noisicore/backend.h"
+#include "noisicore/buffers.h"
+#include "noisicore/block_data.capnp.h"
 
 namespace noisicaa {
 
@@ -22,14 +22,14 @@ public:
   Status setup(VM* vm) override;
   void cleanup() override;
 
-  Status begin_block() override;
+  Status begin_block(BlockContext* ctxt) override;
   Status end_block() override;
   Status output(const string& channel, BufferPtr samples) override;
 
  private:
   unique_ptr<AudioStreamServer> _stream;
   capnp::BlockData::Builder _out_block = nullptr;
-  uint32_t _block_size = 128;
+  uint32_t _block_size;
   unique_ptr<BufferData> _samples[2];
   bool _channel_written[2];
 };

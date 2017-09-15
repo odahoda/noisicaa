@@ -8,10 +8,9 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
-
-#include "spec.h"
-#include "status.h"
-#include "processor.h"
+#include "noisicore/spec.h"
+#include "noisicore/status.h"
+#include "noisicore/processor.h"
 
 namespace noisicaa {
 
@@ -23,8 +22,12 @@ class HostData;
 
 class Program {
 public:
-  Status setup(const Spec* spec, uint32_t block_size);
+  Program(uint32_t version);
+  ~Program();
 
+  Status setup(HostData* host_data, const Spec* spec, uint32_t block_size);
+
+  uint32_t version = 0;
   bool initialized = false;
   unique_ptr<const Spec> spec;
   uint32_t block_size;
@@ -32,6 +35,7 @@ public:
 };
 
 struct ProgramState {
+  HostData* host_data;
   Program* program;
   Backend* backend;
   int p;
@@ -53,7 +57,6 @@ public:
   Status setup();
   void cleanup();
 
-  Processor* create_processor(const string& name);
   Status add_processor(Processor* processor);
 
   Status set_block_size(uint32_t block_size);
@@ -67,7 +70,10 @@ public:
 private:
   HostData* _host_data;
   atomic<uint32_t> _block_size;
-  unique_ptr<Program> _program;
+  atomic<Program*> _next_program;
+  atomic<Program*> _current_program;
+  atomic<Program*> _old_program;
+  uint32_t _program_version = 0;
   unique_ptr<Backend> _backend;
   map<uint64_t, unique_ptr<ActiveProcessor>> _processors;
 };

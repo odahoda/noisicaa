@@ -1,19 +1,24 @@
 #!/usr/bin/python3
 
+from noisicaa import node_db
+
 
 class Mutation(object):
     pass
 
 
 class AddNode(Mutation):
-    def __init__(self, node_type, **args):
+    def __init__(self, *, description, **args):
         super().__init__()
-        self.node_type = node_type
+        assert isinstance(description, node_db.NodeDescription)
+
+        self.description = description
         self.args = args
 
     def __str__(self):
-        return '<AddNode type=%s%s>' % (
-            self.node_type,
+        return '<AddNode name="%s" type=%s%s>' % (
+            self.description.display_name,
+            type(self.description).__name__,
             ''.join(' %s=%r' % (k, v)
                      for k, v in sorted(self.args.items())))
 

@@ -1,10 +1,12 @@
+from libcpp.memory cimport unique_ptr
 from libc.stdint cimport uint8_t, uint32_t
 
 from noisicaa.bindings.lv2 cimport urid
 
+from .host_data cimport *
 from .status cimport *
 
-cdef extern from "buffers.h" namespace "noisicaa" nogil:
+cdef extern from "noisicore/buffers.h" namespace "noisicaa" nogil:
     ctypedef uint8_t* BufferPtr
 
     cppclass BufferType:
@@ -17,10 +19,10 @@ cdef extern from "buffers.h" namespace "noisicaa" nogil:
         pass
 
     cppclass AtomData(BufferType):
-        AtomData(urid.LV2_URID_Map* map)
+        pass
 
     cppclass Buffer:
-        Buffer(BufferType* type)
+        Buffer(HostData* host_data, BufferType* type)
 
         const BufferType* type() const
         BufferPtr data()
@@ -31,3 +33,7 @@ cdef extern from "buffers.h" namespace "noisicaa" nogil:
         Status clear()
         Status mix(const Buffer* other)
         Status mul(float factor)
+
+
+cdef class PyBufferType(object):
+    cdef unique_ptr[BufferType] cpptype

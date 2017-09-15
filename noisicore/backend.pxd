@@ -1,19 +1,28 @@
+from libc.stdint cimport uint32_t
 from libcpp.string cimport string
 
 from .status cimport *
 from .vm cimport *
 from .buffers cimport *
+from .block_context cimport *
 
-cdef extern from "backend.h" namespace "noisicaa" nogil:
+cdef extern from "noisicore/backend.h" namespace "noisicaa" nogil:
     struct BackendSettings:
         string ipc_address
+        uint32_t block_size
 
     cppclass Backend:
         @staticmethod
-        Backend* create(const string& name, const BackendSettings& settings)
+        StatusOr[Backend*] create(const string& name, const BackendSettings& settings)
 
         Status setup(VM* vm)
         void cleanup()
-        Status begin_block()
+        Status begin_block(BlockContext* ctxt)
         Status end_block()
         Status output(const string& channel, BufferPtr samples)
+
+
+cdef class PyBackendSettings(object):
+    cdef BackendSettings __settings
+
+    cdef BackendSettings get(self)

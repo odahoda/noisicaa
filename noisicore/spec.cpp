@@ -1,8 +1,7 @@
-#include "spec.h"
-
 #include <stdarg.h>
-#include "misc.h"
-#include "processor.h"
+#include "noisicore/spec.h"
+#include "noisicore/misc.h"
+#include "noisicore/processor.h"
 
 namespace noisicaa {
 
@@ -28,20 +27,16 @@ Status Spec::append_opcode(OpCode opcode, ...) {
     }
     case 'b': {
       const char* buf_name = va_arg(values, char*);
-      int64_t value = get_buffer_idx(buf_name);
-      if (value == -1) {
-	return Status::Error(sprintf("Invalid buffer name %s", buf_name));
-      }
-      args.emplace_back(OpArg(value));
+      StatusOr<int> stor_value = get_buffer_idx(buf_name);
+      if (stor_value.is_error()) { return stor_value; }
+      args.emplace_back(OpArg((int64_t)stor_value.result()));
       break;
     }
     case 'p': {
       Processor* processor = va_arg(values, Processor*);
-      int64_t value = get_processor_idx(processor);
-      if (value == -1) {
-	return Status::Error(sprintf("Invalid processor %d", processor->id()));
-      }
-      args.emplace_back(OpArg(value));
+      StatusOr<int> stor_value = get_processor_idx(processor);
+      if (stor_value.is_error()) { return stor_value; }
+      args.emplace_back(OpArg((int64_t)stor_value.result()));
       break;
     }
     case 'f': {
@@ -57,6 +52,10 @@ Status Spec::append_opcode(OpCode opcode, ...) {
     }
   }
 
+  return append_opcode_args(opcode, args);
+}
+
+Status Spec::append_opcode_args(OpCode opcode, const vector<OpArg>& args) {
   _opcodes.push_back({opcode, args});
   return Status::Ok();
 }
@@ -67,12 +66,12 @@ Status Spec::append_buffer(const string& name, BufferType* type) {
   return Status::Ok();
 }
 
-int Spec::get_buffer_idx(const string& name) const {
+StatusOr<int> Spec::get_buffer_idx(const string& name) const {
   auto it = _buffer_map.find(name);
   if (it != _buffer_map.end()) {
     return it->second;
   }
-  return -1;
+  return Status::Error(sprintf("Invalid buffer name %s", name));
 }
 
 Status Spec::append_processor(Processor* processor) {
@@ -81,12 +80,12 @@ Status Spec::append_processor(Processor* processor) {
   return Status::Ok();
 }
 
-int Spec::get_processor_idx(const Processor* processor) {
+StatusOr<int> Spec::get_processor_idx(const Processor* processor) {
   auto it = _processor_map.find(processor->id());
   if (it != _processor_map.end()) {
     return it->second;
   }
-  return -1;
+  return Status::Error(sprintf("Invalid processor %016llx", processor->id()));
 }
 
 }  // namespace noisicaa

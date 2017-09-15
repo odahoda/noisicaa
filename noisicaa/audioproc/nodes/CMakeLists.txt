@@ -1,28 +1,6 @@
-add_python_package()
-
-add_cython_module(builtin C)
-add_cython_module(channels C)
-add_cython_module(csound C)
-add_cython_module(csound_perftest C)
-add_cython_module(encode C)
-add_cython_module(encode_test C)
-add_cython_module(fluidsynth C)
-add_cython_module(fluidsynth_test C)
-add_cython_module(ipc C)
-add_cython_module(ladspa C)
-add_cython_module(ladspa_test C)
-add_cython_module(lv2 C)
-target_include_directories(${lv2.so} PRIVATE ${LIBLILV_INCLUDE_DIRS})
-target_link_libraries(${lv2.so} PRIVATE ${LIBLILV_LIBRARIES})
-add_cython_module(lv2_test C)
-target_include_directories(${lv2_test.so} PRIVATE ${LIBLILV_INCLUDE_DIRS})
-target_link_libraries(${lv2_test.so} PRIVATE ${LIBLILV_LIBRARIES})
-add_cython_module(passthru C)
-add_cython_module(pipeline_crasher C)
-add_cython_module(sample_player C)
-add_cython_module(sample_player_test C)
-add_cython_module(track_audio_source C)
-add_cython_module(track_control_source C)
-add_cython_module(track_event_source C)
-add_cython_module(wavfile C)
-add_cython_module(wavfile_test C)
+add_python_package(
+  builtin.py
+  track_audio_source.py
+  track_control_source.py
+  track_event_source.py
+)

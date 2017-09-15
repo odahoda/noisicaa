@@ -1,31 +1,48 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
+- playback becomes slower over time...
+- reimplement sample_player
+- Better handling of partial blocks in player
+  - control/sample tracks should always produce complete blocks, padded with zeros
+- Properly handle stopped backend
+- Reanimate perf stats
+- Hook up log with python logging
+  - should have a lockfree queue in-between
+- capnp API is really awful. strongly consider rolling a custom format for FrameData
+  - are there any other places, where I care about zero-copy deserialization?
+- cleanup unused code
+  - noisicaa.bindings.fluidsynth?
+  - noisicaa.audioproc.audio_format?
+  - noisicaa.audioproc.[bindings]
+- have list of common URIDs in HostData, don't use map() calls in code
+- get rid of AST
+  - just let nodes add their stuff to the spec in topo order
+- rething directory structure
+  - rename noisicore/ to noisicaa/audioproc/audiocore
+    -> compile into libnoisicaa-audiocore
+- clean use of NodeDescription types
+  - which types are actually needed?
+- node parameters
+  - get rid of internal parameters, replace by 'hidden' attribute of normal parameters
+  - value of internal parameter becomes default
+  - parameters can be static or dynamic
+    static -> value used at setup time
+    dynamic -> value can be changed, processor must handle set_x_parameter
+  - is there any use for parameters on non-ProcessorNodes?
 - Status::FromErrno()
   - use that in backend_ipc
-- implement IPC backend
-  - c++ implementation of stream protocol
-    - use python wrapper in player
 - lv2 features
   - HostData lv2 struct with feature handlers
 - event support for lv2 nodes
-- parameters:
-  - collect parameter changes in list as they come in from main thread
-  - at beginning of block, take current list, apply parameters by writing values to buffers
-  - what about string parameters?
-  - only for kRateControl values?
+- control values:
+  - replace prev uses of parameters for kRateControl buffer
+  - collect CV changes in list as they come in from main thread
+  - at beginning of block, take current list, apply CVs by writing values to buffers
 - Status::Error should carry filename:lineno info
   - can do without macro?
 - always call cleaup() in destructor
-- rebuild all cython modules before starting app
-- consistent use of either malloc or PyObject_Malloc
-  - is PyObject_Malloc nogil?
 - engine_perftest should focus on other opcodes than CALL
-- add more nogils to methods in bindings
-- can pyximport handle distutils pragmas?
-- StaticMapper should have common URIDs as attributes, so client code doesn't have to call map
-  itself.
-- use consistent ctypedef for "pointer to block of bytes"
 - use this pattern for C-only classes
   https://github.com/cython/cython/wiki/FAQ#can-cython-create-objects-or-apply-operators-to-locally-created-objects-as-pure-c-code
 - player_integration_test with null backend
@@ -35,7 +52,6 @@
 - use protos for PipelineMutations instead of pickled objects.
 - better test coverage
   - base class for node unittests
-- SIGSEGV on exit, possibly caused by new fluidsynth binding
 - create FrameData wrapper class with pythonic API
 - move atom sequence mixing into atom.pyx
 - what about parameters?
@@ -53,8 +69,10 @@
 - buffer conversion methods?
   - different buffer types for events (native, atom, ...)
   - auto convert as needed
-- cythonize vm main loop
 
+* Debug crashes in gdb									      :FR:
+- where are cores dumped? anything to do to enable full core dumps
+- if runtests.py crashes, call gdb with core
 * Move pianoroll into VM								      :FR:
 - player collects mutations from track
 - sends batch of mutations along with FrameData

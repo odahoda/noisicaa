@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
-#include "status.h"
+#include "noisicore/status.h"
 
 namespace noisicaa {
 
@@ -40,12 +40,14 @@ private:
   PortDirection _direction;
 };
 
-enum ParameterType {
-  String,
-};
-
 class ParameterSpec {
 public:
+  enum ParameterType {
+    String,
+    Int,
+    Float,
+  };
+
   ParameterSpec(ParameterType type, const string& name);
   virtual ~ParameterSpec();
 
@@ -67,6 +69,26 @@ private:
   string _default_value;
 };
 
+class IntParameterSpec : public ParameterSpec {
+public:
+  IntParameterSpec(const string& name, int64_t default_value);
+
+  int64_t default_value() const { return _default_value; }
+
+private:
+  int64_t _default_value;
+};
+
+class FloatParameterSpec : public ParameterSpec {
+public:
+  FloatParameterSpec(const string& name, float default_value);
+
+  float default_value() const { return _default_value; }
+
+private:
+  float _default_value;
+};
+
 class ProcessorSpec {
 public:
   ProcessorSpec();
@@ -76,7 +98,7 @@ public:
   PortSpec get_port(int idx) const { return _ports[idx]; }
 
   Status add_parameter(ParameterSpec* param);
-  Status get_parameter(const string& name, ParameterSpec** param) const;
+  StatusOr<ParameterSpec*> get_parameter(const string& name) const;
 
 private:
   vector<PortSpec> _ports;

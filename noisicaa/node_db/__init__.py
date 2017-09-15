@@ -3,12 +3,13 @@ from .node_description import (
     NodeDescription,
     SystemNodeDescription,
     UserNodeDescription,
+    ProcessorDescription,
 
     AudioPortDescription,
     ARateControlPortDescription,
     KRateControlPortDescription,
     EventPortDescription,
-    Channel, PortDirection, PortType,
+    PortDirection, PortType,
 
     ParameterType,
     InternalParameterDescription,
@@ -16,6 +17,7 @@ from .node_description import (
     PathParameterDescription,
     TextParameterDescription,
     FloatParameterDescription,
+    IntParameterDescription,
 )
 from .presets import (
     Preset,

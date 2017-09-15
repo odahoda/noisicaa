@@ -1,7 +1,6 @@
-#include "processor_spec.h"
-
 #include <iostream>
-#include "misc.h"
+#include "noisicore/misc.h"
+#include "noisicore/processor_spec.h"
 
 namespace noisicaa {
 
@@ -18,6 +17,16 @@ StringParameterSpec::StringParameterSpec(
   : ParameterSpec(ParameterType::String, name),
     _default_value(default_value) {}
 
+IntParameterSpec::IntParameterSpec(
+    const string& name, int64_t default_value)
+  : ParameterSpec(ParameterType::Int, name),
+    _default_value(default_value) {}
+
+FloatParameterSpec::FloatParameterSpec(
+    const string& name, float default_value)
+  : ParameterSpec(ParameterType::Float, name),
+    _default_value(default_value) {}
+
 ProcessorSpec::ProcessorSpec() {
 }
 
@@ -32,11 +41,10 @@ Status ProcessorSpec::add_parameter(ParameterSpec* param) {
   return Status::Ok();
 }
 
-Status ProcessorSpec::get_parameter(const string& name, ParameterSpec** param) const {
+StatusOr<ParameterSpec*> ProcessorSpec::get_parameter(const string& name) const {
   const auto& it = _parameters.find(name);
   if (it != _parameters.end()) {
-    *param = it->second.get();
-    return Status::Ok();
+    return it->second.get();
   }
 
   return Status::Error(sprintf("Parameter '%s' not found.", name.c_str()));

@@ -22,27 +22,24 @@ class TestPortAudioBackend(unittest.TestCase):
 
         cdef BackendSettings backend_settings
 
-        cdef unique_ptr[Backend] beptr
-        beptr.reset(Backend.create(b"null", backend_settings))
+        cdef StatusOr[Backend*] stor_backend = Backend.create(b"null", backend_settings)
+        check(stor_backend)
 
-        cdef Backend* be = beptr.get()
-        status = be.setup(vm.get())
-        try:
-            self.assertFalse(status.is_error(), status.message())
+        cdef unique_ptr[Backend] backend_ptr
+        backend_ptr.reset(stor_backend.result())
 
-            for _ in range(100):
-                status = be.begin_block()
-                self.assertFalse(status.is_error(), status.message())
+        cdef Backend* be = backend_ptr.get()
+        check(be.setup(vm.get()))
 
-                for i in range(128):
-                    samples[i] = i / 128.0
-                status = be.output(b"left", <BufferPtr>samples)
-                self.assertFalse(status.is_error(), status.message())
-                status = be.output(b"right", <BufferPtr>samples)
-                self.assertFalse(status.is_error(), status.message())
+        cdef BlockContext ctxt
+        for _ in range(100):
+            check(be.begin_block(&ctxt))
 
-                status = be.end_block()
-                self.assertFalse(status.is_error(), status.message())
+            for i in range(128):
+                samples[i] = i / 128.0
+            check(be.output(b"left", <BufferPtr>samples))
+            check(be.output(b"right", <BufferPtr>samples))
 
-        finally:
-            be.cleanup()
+            check(be.end_block())
+
+        be.cleanup()

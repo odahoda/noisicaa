@@ -363,16 +363,14 @@ class AudioStreamProxy(object):
                     'buffers',
                     len(server_request.buffers) + len(buffers))
                 for idx, buf in enumerate(
-                        itertools.chain(
-                            server_request.buffers, buffers.values())):
+                        itertools.chain(server_request.buffers, buffers.values())):
                     request.buffers[idx] = buf
 
                 request.init(
                     'messages',
                     len(server_request.messages) + len(messages))
                 for idx, msg in enumerate(
-                        itertools.chain(
-                            server_request.messages, messages)):
+                        itertools.chain(server_request.messages, messages)):
                     request.messages[idx] = msg
 
                 with self._lock:
@@ -565,7 +563,9 @@ class Player(object):
         await self.audioproc_client.connect(self.audioproc_address)
 
         logger.info("Setting backend...")
-        self.audiostream_address = await self.audioproc_client.set_backend('ipc')
+        self.audiostream_address = os.path.join(
+            tempfile.gettempdir(), 'audiostream.%s.pipe' % uuid.uuid4().hex)
+        await self.audioproc_client.set_backend('ipc', ipc_address=self.audiostream_address)
 
         logger.info("Creating audiostream client...")
         self.audiostream_client = noisicore.AudioStream.create_client(self.audiostream_address)

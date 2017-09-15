@@ -4,11 +4,9 @@
 #define _NOISICORE_AUDIO_STREAM_H
 
 #include <stdint.h>
-#include <capnp/message.h>
-#include <capnp/serialize.h>
-
-#include "status.h"
-#include "block_data.capnp.h"
+#include "noisicore/status.h"
+#include "noisicore/block_data.h"
+#include "noisicore/block_data.capnp.h"
 
 namespace noisicaa {
 
@@ -26,7 +24,6 @@ public:
 
   void close();
   StatusOr<string> receive_bytes();
-  StatusOr<capnp::BlockData::Reader> receive_block();
 
   Status send_bytes(const char* data, size_t size);
   Status send_bytes(const string& bytes) {

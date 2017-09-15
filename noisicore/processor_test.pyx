@@ -11,12 +11,13 @@ class TestProcessor(unittest.TestCase):
         cdef unique_ptr[HostData] host_data
         host_data.reset(new HostData())
 
+        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'null')
+        check(stor_processor)
         cdef unique_ptr[Processor] processor1
-        processor1.reset(Processor.create(host_data.get(), b'null'))
-        self.assertTrue(processor1.get() != NULL)
+        processor1.reset(stor_processor.result())
 
+        stor_processor = Processor.create(host_data.get(), b'null')
         cdef unique_ptr[Processor] processor2
-        processor2.reset(Processor.create(host_data.get(), b'null'))
-        self.assertTrue(processor2.get() != NULL)
+        processor2.reset(stor_processor.result())
 
         self.assertNotEqual(processor1.get().id(), processor2.get().id())

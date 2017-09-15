@@ -6,8 +6,8 @@
 #include <string>
 #include <stdint.h>
 #include "portaudio.h"
-#include "backend.h"
-#include "buffers.h"
+#include "noisicore/backend.h"
+#include "noisicore/buffers.h"
 
 namespace noisicaa {
 
@@ -21,7 +21,7 @@ public:
   Status setup(VM* vm) override;
   void cleanup() override;
 
-  Status begin_block() override;
+  Status begin_block(BlockContext* ctxt) override;
   Status end_block() override;
   Status output(const string& channel, BufferPtr samples) override;
 
