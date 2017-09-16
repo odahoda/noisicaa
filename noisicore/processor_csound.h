@@ -58,9 +58,6 @@ private:
   };
 
   vector<BufferPtr> _buffers;
-
-  LV2_URID _sequence_urid;
-  LV2_URID _midi_event_urid;
   vector<EventInputPort> _event_input_ports;
 
   atomic<Instance*> _next_instance;

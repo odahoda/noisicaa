@@ -21,7 +21,7 @@ Status ProcessorLV2::setup(const ProcessorSpec* spec) {
   if (stor_uri.is_error()) { return stor_uri; }
   string uri = stor_uri.result();
 
-  LilvWorld *world = _host_data->lilv_world;
+  LilvWorld *world = _host_data->lv2->lilv_world;
   assert(world != nullptr);
 
   const LilvPlugins* all_plugins = lilv_world_get_all_plugins(world);

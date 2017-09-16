@@ -35,8 +35,6 @@ private:
 
   fluid_settings_t* _settings = nullptr;
   fluid_synth_t* _synth = nullptr;
-  LV2_URID _sequence_urid;
-  LV2_URID _midi_event_urid;
 };
 
 }  // namespace noisicaa

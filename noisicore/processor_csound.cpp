@@ -159,13 +159,6 @@ Status ProcessorCSoundBase::setup(const ProcessorSpec* spec) {
 
   _buffers.resize(spec->num_ports());
 
-  _sequence_urid = _host_data->lv2_urid_map->map(
-      _host_data->lv2_urid_map->handle,
-      "http://lv2plug.in/ns/ext/atom#Sequence");
-  _midi_event_urid = _host_data->lv2_urid_map->map(
-      _host_data->lv2_urid_map->handle,
-      "http://lv2plug.in/ns/ext/midi#MidiEvent");
-
   _event_input_ports.resize(spec->num_ports());
 
   return Status::Ok();
@@ -247,7 +240,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
     if (port.direction() == PortDirection::Input
 	&& port.type() == PortType::atomData) {
       LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[port_idx];
-      if (seq->atom.type != _sequence_urid) {
+      if (seq->atom.type != _host_data->lv2->urid.atom_sequence) {
 	return Status::Error(
             sprintf("Excepted sequence in port '%s', got %d.",
 		    port.name().c_str(), seq->atom.type));
@@ -293,7 +286,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 	             &ep.seq->body, ep.seq->atom.size, ep.event)
 		 && ep.event->time.frames < pos + ksmps) {
 	    LV2_Atom& atom = ep.event->body;
-	    if (atom.type == _midi_event_urid) {
+	    if (atom.type == _host_data->lv2->urid.midi_event) {
 	      uint8_t* midi = (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &atom);
 	      if ((midi[0] & 0xf0) == 0x90) {
 		// note on

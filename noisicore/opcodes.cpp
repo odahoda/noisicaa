@@ -133,22 +133,17 @@ Status run_MIDI_MONKEY(BlockContext* ctxt, ProgramState* state, const vector<OpA
   float prob = args[1].float_value();
   Buffer* buf = state->program->buffers[idx].get();
 
-  LV2_URID frame_time_urid = state->host_data->lv2_urid_map->map(
-      state->host_data->lv2_urid_map->handle, "http://lv2plug.in/ns/ext/atom#frameTime");
-  LV2_URID midi_event_urid = state->host_data->lv2_urid_map->map(
-      state->host_data->lv2_urid_map->handle, "http://lv2plug.in/ns/ext/midi#MidiEvent");
-
   LV2_Atom_Forge forge;
-  lv2_atom_forge_init(&forge, state->host_data->lv2_urid_map);
+  lv2_atom_forge_init(&forge, state->host_data->lv2->urid_map);
 
   LV2_Atom_Forge_Frame frame;
   lv2_atom_forge_set_buffer(&forge, buf->data(), buf->size());
 
-  lv2_atom_forge_sequence_head(&forge, &frame, frame_time_urid);
+  lv2_atom_forge_sequence_head(&forge, &frame, state->host_data->lv2->urid.atom_frame_time);
   if (drand48() < prob) {
     uint8_t msg[3] = { 0x90, 62, 100 };
     lv2_atom_forge_frame_time(&forge, random() % ctxt->block_size);
-    lv2_atom_forge_atom(&forge, 3, midi_event_urid);
+    lv2_atom_forge_atom(&forge, 3, state->host_data->lv2->urid.midi_event);
     lv2_atom_forge_write(&forge, msg, 3);
   }
   lv2_atom_forge_pop(&forge, &frame);
@@ -206,12 +201,9 @@ Status run_LOG_ATOM(BlockContext* ctxt, ProgramState* state, const vector<OpArg>
   int idx = args[0].int_value();
   Buffer* buf = state->program->buffers[idx].get();
 
-  LV2_URID sequence_urid = state->host_data->lv2_urid_map->map(
-      state->host_data->lv2_urid_map->handle, "http://lv2plug.in/ns/ext/atom#Sequence");
-
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)buf->data();
-  if (seq->atom.type != sequence_urid) {
-    return Status::Error(sprintf("Buffer %d: Excepted sequence (%d), got %d.", idx, sequence_urid, seq->atom.type));
+  if (seq->atom.type != state->host_data->lv2->urid.atom_sequence) {
+    return Status::Error(sprintf("Buffer %d: Excepted sequence (%d), got %d.", idx, state->host_data->lv2->urid.atom_sequence, seq->atom.type));
   }
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
 

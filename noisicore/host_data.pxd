@@ -3,14 +3,19 @@ from noisicaa.bindings.lv2.urid cimport *
 from .status cimport *
 
 cdef extern from "noisicore/host_data.h" namespace "noisicaa" nogil:
-    cppclass HostData:
+    cppclass LV2SubSystem:
         Status setup()
-        Status setup_lilv()
-        Status setup_lv2()
         void cleanup()
 
-        LV2_URID_Map* lv2_urid_map;
-        LV2_URID_Unmap* lv2_urid_unmap;
+        LV2_URID_Map* urid_map;
+        LV2_URID_Unmap* urid_unmap;
+
+    cppclass HostData:
+        Status setup()
+        void cleanup()
+
+        unique_ptr[LV2SubSystem] lv2;
+
 
 cdef class PyHostData(object):
     cdef unique_ptr[HostData] __host_data_ptr

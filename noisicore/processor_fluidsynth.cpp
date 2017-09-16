@@ -5,14 +5,7 @@
 namespace noisicaa {
 
 ProcessorFluidSynth::ProcessorFluidSynth(HostData* host_data)
-  : Processor(host_data) {
-  _sequence_urid = _host_data->lv2_urid_map->map(
-      _host_data->lv2_urid_map->handle,
-      "http://lv2plug.in/ns/ext/atom#Sequence");
-  _midi_event_urid = _host_data->lv2_urid_map->map(
-      _host_data->lv2_urid_map->handle,
-      "http://lv2plug.in/ns/ext/midi#MidiEvent");
-}
+  : Processor(host_data) {}
 
 ProcessorFluidSynth::~ProcessorFluidSynth() {}
 
@@ -125,7 +118,7 @@ Status ProcessorFluidSynth::connect_port(uint32_t port_idx, BufferPtr buf) {
 
 Status ProcessorFluidSynth::run(BlockContext* ctxt) {
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
-  if (seq->atom.type != _sequence_urid) {
+  if (seq->atom.type != _host_data->lv2->urid.atom_sequence) {
     return Status::Error(
 	sprintf("Excepted sequence in port 'in', got %d.", seq->atom.type));
   }
@@ -135,7 +128,7 @@ Status ProcessorFluidSynth::run(BlockContext* ctxt) {
   float* out_left = (float*)_buffers[1];
   float* out_right = (float*)_buffers[2];
   while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)) {
-    if (event->body.type == _midi_event_urid) {
+    if (event->body.type == _host_data->lv2->urid.midi_event) {
       uint32_t esample_pos;
 
       if (event->time.frames != -1) {

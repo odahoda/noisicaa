@@ -15,12 +15,10 @@ class TestProcessorLV2(unittest.TestCase):
     def test_lv2(self):
         cdef Status status
 
-        cdef unique_ptr[HostData] host_data
-        host_data.reset(new HostData())
-        status = host_data.get().setup_lilv()
-        self.assertFalse(status.is_error(), status.message())
+        cdef PyHostData host_data = PyHostData()
+        host_data.setup();
 
-        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'lv2')
+        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.ptr(), b'lv2')
         cdef unique_ptr[Processor] processor_ptr
         processor_ptr.reset(stor_processor.result())
 

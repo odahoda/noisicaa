@@ -11,7 +11,6 @@
   - should have a lockfree queue in-between
 - capnp API is really awful. strongly consider rolling a custom format for FrameData
   - are there any other places, where I care about zero-copy deserialization?
-- have list of common URIDs in HostData, don't use map() calls in code
 - get rid of AST
   - just let nodes add their stuff to the spec in topo order
 - rething directory structure

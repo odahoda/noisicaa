@@ -67,48 +67,40 @@ uint32_t AtomData::size(HostData* host_data, uint32_t block_size) const {
 Status AtomData::clear_buffer(HostData* host_data, uint32_t block_size, BufferPtr buf) const {
   memset(buf, 0, 10240);
 
-  LV2_URID frame_time_urid = host_data->lv2_urid_map->map(
-      host_data->lv2_urid_map->handle, "http://lv2plug.in/ns/ext/atom#frameTime");
-
   LV2_Atom_Forge forge;
-  lv2_atom_forge_init(&forge, host_data->lv2_urid_map);
+  lv2_atom_forge_init(&forge, host_data->lv2->urid_map);
 
   LV2_Atom_Forge_Frame frame;
   lv2_atom_forge_set_buffer(&forge, buf, 10240);
 
-  lv2_atom_forge_sequence_head(&forge, &frame, frame_time_urid);
+  lv2_atom_forge_sequence_head(&forge, &frame, host_data->lv2->urid.atom_frame_time);
   lv2_atom_forge_pop(&forge, &frame);
 
   return Status::Ok();
 }
 
 Status AtomData::mix_buffers(HostData* host_data, uint32_t block_size, const BufferPtr buf1, BufferPtr buf2) const {
-  LV2_URID frame_time_urid = host_data->lv2_urid_map->map(
-      host_data->lv2_urid_map->handle, "http://lv2plug.in/ns/ext/atom#frameTime");
-  LV2_URID sequence_urid = host_data->lv2_urid_map->map(
-      host_data->lv2_urid_map->handle, "http://lv2plug.in/ns/ext/atom#Sequence");
-
   LV2_Atom_Sequence* seq1 = (LV2_Atom_Sequence*)buf1;
-  if (seq1->atom.type != sequence_urid) {
+  if (seq1->atom.type != host_data->lv2->urid.atom_sequence) {
     return Status::Error(sprintf("Excepted sequence, got %d.", seq1->atom.type));
   }
   LV2_Atom_Event* event1 = lv2_atom_sequence_begin(&seq1->body);
 
   LV2_Atom_Sequence* seq2 = (LV2_Atom_Sequence*)buf2;
-  if (seq1->atom.type != sequence_urid) {
+  if (seq1->atom.type != host_data->lv2->urid.atom_sequence) {
     return Status::Error(sprintf("Excepted sequence, got %d.", seq2->atom.type));
   }
   LV2_Atom_Event* event2 = lv2_atom_sequence_begin(&seq2->body);
 
   LV2_Atom_Forge forge;
-  lv2_atom_forge_init(&forge, host_data->lv2_urid_map);
+  lv2_atom_forge_init(&forge, host_data->lv2->urid_map);
 
   uint8_t merged[10240];
   memset(merged, 0, 10240);
   lv2_atom_forge_set_buffer(&forge, merged, 10240);
 
   LV2_Atom_Forge_Frame frame;
-  lv2_atom_forge_sequence_head(&forge, &frame, frame_time_urid);
+  lv2_atom_forge_sequence_head(&forge, &frame, host_data->lv2->urid.atom_frame_time);
 
   while (!lv2_atom_sequence_is_end(&seq1->body, seq1->atom.size, event1)
 	 && !lv2_atom_sequence_is_end(&seq2->body, seq2->atom.size, event2)) {

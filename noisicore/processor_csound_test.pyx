@@ -21,14 +21,10 @@ class TestProcessorCSound(unittest.TestCase):
     def test_csound(self):
         cdef Status status
 
-        cdef unique_ptr[HostData] host_data
-        host_data.reset(new HostData())
+        cdef PyHostData host_data = PyHostData()
+        host_data.setup()
 
-        cdef urid.URID_Mapper mapper = urid.get_static_mapper()
-        cdef urid.URID_Map_Feature map_feature = urid.URID_Map_Feature(mapper)
-        host_data.get().lv2_urid_map = &map_feature.data
-
-        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'csound')
+        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.ptr(), b'csound')
         check(stor_processor)
         cdef unique_ptr[Processor] processor_ptr
         processor_ptr.reset(stor_processor.result())
@@ -89,14 +85,10 @@ class TestProcessorCSound(unittest.TestCase):
     def test_event_input_port(self):
         cdef Status status
 
-        cdef unique_ptr[HostData] host_data
-        host_data.reset(new HostData())
+        cdef PyHostData host_data = PyHostData()
+        host_data.setup()
 
-        cdef urid.URID_Mapper mapper = urid.get_static_mapper()
-        cdef urid.URID_Map_Feature map_feature = urid.URID_Map_Feature(mapper)
-        host_data.get().lv2_urid_map = &map_feature.data
-
-        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'csound')
+        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.ptr(), b'csound')
         check(stor_processor)
         cdef unique_ptr[Processor] processor_ptr
         processor_ptr.reset(stor_processor.result())
