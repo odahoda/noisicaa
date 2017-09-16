@@ -4,9 +4,9 @@ import unittest
 
 from . import perf_stats
 
-class TestPerfStats(perf_stats.PerfStats):
+class TestPerfStats(perf_stats.PyPerfStats):
     def __init__(self):
-        super().__init__()
+        super().__init__(self.get_time_nsec)
         self.fake_time = 0
 
     def get_time_nsec(self):

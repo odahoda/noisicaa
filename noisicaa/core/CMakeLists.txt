@@ -8,7 +8,6 @@ add_python_package(
   message.py
   message_test.py
   model_base.py
-  perf_stats.py
   perf_stats_test.py
   process_manager.py
   process_manager_test.py
@@ -19,11 +18,18 @@ add_python_package(
   storage_test.py
 )
 
+set(LIB_SRCS
+  perf_stats.cpp
+)
+
 add_cpp_capnp(message.capnp)
 add_py_capnp(message.capnp)
 add_cpp_capnp(perf_stats.capnp)
 add_py_capnp(perf_stats.capnp)
 
-add_library(noisicaa-core SHARED message.capnp.c++ perf_stats.capnp.c++)
+add_library(noisicaa-core SHARED ${LIB_SRCS} message.capnp.c++ perf_stats.capnp.c++)
+
+add_cython_module(perf_stats CXX)
+target_link_libraries(${perf_stats.so} PRIVATE noisicaa-core)
 
 add_subdirectory(stats)

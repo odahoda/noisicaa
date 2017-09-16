@@ -19,7 +19,7 @@ from .callbacks import (
     CallbackRegistry,
 )
 from .perf_stats import (
-    PerfStats,
+    PyPerfStats as PerfStats,
 )
 from .message import (
     build_labelset,
