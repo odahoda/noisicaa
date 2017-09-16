@@ -27,6 +27,8 @@ public:
   PerfStats();
   PerfStats(clock_func_t clock, void* clock_data);
 
+  void reset();
+
   void start_span(const string& name, uint64_t parent_id);
   void start_span(const string& name);
   void end_span();
@@ -43,6 +45,20 @@ private:
 
   vector<int> _stack;
   vector<Span> _spans;
+};
+
+class PerfTracker {
+public:
+  PerfTracker(PerfStats* stats, const string& name)
+    : _stats(stats) {
+    _stats->start_span(name);
+  }
+  ~PerfTracker() {
+    _stats->end_span();
+  }
+
+private:
+  PerfStats* _stats;
 };
 
 }  // namespace noisicaa

@@ -1,5 +1,6 @@
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
+
 from .status cimport *
 from .block_context cimport *
 from .buffers cimport *
@@ -48,10 +49,10 @@ class TestProcessorLadspa(unittest.TestCase):
         for i in range(128):
             outbuf[i] = 0.0
 
-        cdef BlockContext ctxt
+        cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.block_size = 128
 
-        check(processor.run(&ctxt))
+        check(processor.run(ctxt.get()))
 
         for i in range(128):
             self.assertEqual(outbuf[i], 0.5)

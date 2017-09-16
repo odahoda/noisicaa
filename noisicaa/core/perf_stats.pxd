@@ -16,6 +16,7 @@ cdef extern from "noisicaa/core/perf_stats.h" namespace "noisicaa" nogil:
         PerfStats()
         PerfStats(clock_func_t clock, void* clock_data)
 
+        void reset()
         void start_span(const string& name, uint64_t parent_id)
         void start_span(const string& name)
         void end_span()
@@ -26,9 +27,12 @@ cdef extern from "noisicaa/core/perf_stats.h" namespace "noisicaa" nogil:
 
 
 cdef class PyPerfStats(object):
-    cdef unique_ptr[PerfStats] __stats
+    cdef unique_ptr[PerfStats] __stats_ptr
+    cdef PerfStats* __stats
     cdef object __clock
 
     cdef PerfStats* get(self)
+    cdef PerfStats* release(self)
+
     @staticmethod
-    cdef uint64_t __clock_cb(void* data)
+    cdef uint64_t __clock_cb(void* data) with gil

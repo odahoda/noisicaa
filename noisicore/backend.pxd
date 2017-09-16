@@ -18,8 +18,8 @@ cdef extern from "noisicore/backend.h" namespace "noisicaa" nogil:
         Status setup(VM* vm)
         void cleanup()
         Status begin_block(BlockContext* ctxt)
-        Status end_block()
-        Status output(const string& channel, BufferPtr samples)
+        Status end_block(BlockContext* ctxt)
+        Status output(BlockContext* ctxt, const string& channel, BufferPtr samples)
 
 
 cdef class PyBackendSettings(object):

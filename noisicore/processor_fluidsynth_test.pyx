@@ -57,10 +57,10 @@ class TestProcessorFluidSynth(unittest.TestCase):
             outleftbuf[i] = 0.0
             outrightbuf[i] = 0.0
 
-        cdef BlockContext ctxt
+        cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.block_size = 128
 
-        check(processor.run(&ctxt))
+        check(processor.run(ctxt.get()))
 
         self.assertTrue(any(v != 0.0 for v in outleftbuf))
         self.assertTrue(any(v != 0.0 for v in outrightbuf))

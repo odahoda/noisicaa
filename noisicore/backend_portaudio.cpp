@@ -1,3 +1,4 @@
+#include "noisicaa/core/perf_stats.h"
 #include "noisicore/backend_portaudio.h"
 #include "noisicore/misc.h"
 #include "noisicore/vm.h"
@@ -99,13 +100,18 @@ void PortAudioBackend::cleanup() {
 }
 
 Status PortAudioBackend::begin_block(BlockContext* ctxt) {
+  assert(ctxt->perf->current_span_id() == 0);
+  ctxt->perf->start_span("frame");
   for (int c = 0 ; c < 2 ; ++c) {
     memset(_samples[c], 0, _block_size * sizeof(float));
   }
   return Status::Ok();
 }
 
-Status PortAudioBackend::end_block() {
+Status PortAudioBackend::end_block(BlockContext* ctxt) {
+  ctxt->perf->end_span();
+  assert(ctxt->perf->current_span_id() == 0);
+
   PaError err = Pa_WriteStream(_stream, _samples, _block_size);
   if (err == paOutputUnderflowed) {
     log(LogLevel::WARNING, "Buffer underrun.");
@@ -116,7 +122,7 @@ Status PortAudioBackend::end_block() {
   return Status::Ok();
 }
 
-Status PortAudioBackend::output(const string& channel, BufferPtr samples) {
+Status PortAudioBackend::output(BlockContext* ctxt, const string& channel, BufferPtr samples) {
   if (channel == "left") {
     memmove(_samples[0], samples, _block_size * sizeof(float));
   } else if (channel == "right") {

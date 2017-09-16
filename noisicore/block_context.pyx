@@ -1,6 +1,13 @@
 
 
 cdef class PyBlockContext(object):
+    def __init__(self):
+        self.__perf = PyPerfStats()
+        self.__ctxt.perf.reset(self.__perf.release())
+
+    cdef BlockContext* get(self) nogil:
+        return &self.__ctxt
+
     @property
     def block_size(self):
         return int(self.__ctxt.block_size)
@@ -17,5 +24,6 @@ cdef class PyBlockContext(object):
     def sample_pos(self, value):
         self.__ctxt.sample_pos = <uint32_t>value
 
-    cdef BlockContext* ptr(self):
-        return &self.__ctxt
+    @property
+    def perf(self):
+        return self.__perf

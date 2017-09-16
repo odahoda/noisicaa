@@ -1,4 +1,5 @@
 #include <iostream>
+#include "noisicaa/core/perf_stats.h"
 #include "noisicore/backend_ipc.h"
 #include "noisicore/audio_stream.h"
 #include "noisicore/misc.h"
@@ -50,6 +51,10 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
   // try:
 
   StatusOr<string> stor_request_bytes = _stream->receive_bytes();
+
+  assert(ctxt->perf->current_span_id() == 0);
+  ctxt->perf->start_span("frame");
+
   if (stor_request_bytes.is_error()) { return stor_request_bytes; }
   string request_bytes = stor_request_bytes.result();
   kj::ArrayPtr<::capnp::word> words(
@@ -63,7 +68,6 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
     ::capnp::Data::Reader data = block.getData();
     ctxt->buffers.emplace(string(block.getId().cStr()), BlockContext::Buffer{data.size(), (const BufferPtr)data.begin()});
   }
-  //     ctxt.perf.start_span('frame')
 
   //     ctxt.messages = in_frame.messages
 
@@ -72,12 +76,15 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
   _out_block.setSamplePos(request.getSamplePos());
 
   if (_block_size != request.getBlockSize()) {
+    PerfTracker(ctxt->perf.get(), "resize_buffers");
+
     log(LogLevel::INFO, "Block size changed %d -> %d", _block_size, request.getBlockSize());
     _block_size = request.getBlockSize();
     for (int c = 0 ; c < 2 ; ++c) {
       _samples[c].reset(new BufferData[_block_size * sizeof(float)]);
     }
-    _vm->set_block_size(_block_size);
+    Status status = _vm->set_block_size(_block_size);
+    if (status.is_error()) { return status; }
   }
 
   for (int c = 0 ; c < 2 ; ++c) {
@@ -91,10 +98,7 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
   return Status::Ok();
 }
 
-Status IPCBackend::end_block() {
-        // if self.__out_frame is not None:
-        //     self.ctxt.perf.end_span()
-
+Status IPCBackend::end_block(BlockContext* ctxt) {
   int num_buffers = 0;
   for (int c = 0 ; c < 2 ; ++c) {
     if (_channel_written[c]) {
@@ -119,8 +123,10 @@ Status IPCBackend::end_block() {
     }
   }
 
-        //     assert self.ctxt.perf.current_span_id == 0
-        //     self.__out_frame.perfData = self.ctxt.perf.serialize()
+  ctxt->perf->end_span();
+
+  assert(ctxt->perf->current_span_id() == 0);
+  //     self.__out_frame.perfData = self.ctxt.perf.serialize()
 
   Status status = _stream->send_block(_out_block);
   if (status.is_error()) { return status; }
@@ -130,7 +136,7 @@ Status IPCBackend::end_block() {
   return Status::Ok();
 }
 
-Status IPCBackend::output(const string& channel, BufferPtr samples) {
+Status IPCBackend::output(BlockContext* ctxt, const string& channel, BufferPtr samples) {
   int c;
   if (channel == "left") {
     c = 0;

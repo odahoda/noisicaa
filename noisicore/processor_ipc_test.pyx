@@ -1,5 +1,6 @@
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
+
 from .status cimport *
 from .block_context cimport *
 from .buffers cimport *
@@ -89,12 +90,12 @@ class TestProcessorIPC(unittest.TestCase):
             leftbuf[i] = 0.0
             rightbuf[i] = 0.0
 
-        cdef BlockContext ctxt
+        cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.block_size = 4
         ctxt.sample_pos = 1024
 
         with nogil:
-            status = processor.run(&ctxt)
+            status = processor.run(ctxt.get())
         check(status)
 
         self.assertEqual(leftbuf, [0.0, 0.5, 1.0, 0.5])

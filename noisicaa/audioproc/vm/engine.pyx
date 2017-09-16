@@ -244,8 +244,7 @@ cdef class PipelineVM(object):
             logger.info("VM finished.")
 
     def vm_loop(self):
-        cdef BlockContext ctxt
-        #ctxt.perf = core.PerfStats()
+        cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.sample_pos = 0
         ctxt.block_size = self.__block_size
 
@@ -254,51 +253,19 @@ cdef class PipelineVM(object):
                 logger.info("Exiting VM mainloop.")
                 break
 
-            with nogil:
-                check(self.__vm.process_block(&ctxt))
-
             # backend = self.__backend
             # if backend is None:
             #     time.sleep(0.1)
             #     continue
 
-            # self.listeners.call('perf_data', ctxt.perf.serialize())
+            if len(ctxt.perf) > 0:
+                self.listeners.call('perf_data', ctxt.perf.serialize())
+            ctxt.perf.reset()
 
-            # ctxt.perf = core.PerfStats()
-
-            # backend.begin_frame(ctxt)
-
-            # try:
-            #     if backend.stopped:
-            #         break
-
-            #     if ctxt.duration != self.__frame_size:
-            #         logger.info("frame_size=%d", ctxt.duration)
-            #         with self.writer_lock():
-            #             self.__frame_size = ctxt.duration
-            #             self.update_spec()
-
-            #     with self.reader_lock():
-            #         if self.__spec is not None:
-            #             # if not self.__spec_initialized:
-            #             #     self.run_vm(self.__spec, ctxt, RunAt.INIT)
-            #             #     self.__spec_initialized = True
-            #             # self.run_vm(self.__spec, ctxt, RunAt.PERFORMANCE)
-            #             pass
-            #         else:
-            #             time.sleep(0.05)
-
-            # finally:
-            #     notifications = self.__notifications
-            #     self.__notifications = []
-
-            #     with ctxt.perf.track('send_notifications'):
-            #         for node_id, notification in notifications:
-            #             self.notification_listener.call(node_id, notification)
-
-            #     backend.end_frame()
+            with nogil:
+                check(self.__vm.process_block(ctxt.get()))
 
             ctxt.sample_pos += ctxt.block_size
 
     def process_block(self, PyBlockContext ctxt):
-        check(self.__vm.process_block(ctxt.ptr()))
+        check(self.__vm.process_block(ctxt.get()))

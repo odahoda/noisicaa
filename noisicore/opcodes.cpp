@@ -60,7 +60,7 @@ Status run_OUTPUT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& 
   string channel = args[1].string_value();
   Buffer* buf = state->program->buffers[idx].get();
 
-  return state->backend->output(channel, buf->data());
+  return state->backend->output(ctxt, channel, buf->data());
 }
 
 Status run_FETCH_BUFFER(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {

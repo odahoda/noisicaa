@@ -22,8 +22,8 @@ public:
   void cleanup() override;
 
   Status begin_block(BlockContext* ctxt) override;
-  Status end_block() override;
-  Status output(const string& channel, BufferPtr samples) override;
+  Status end_block(BlockContext* ctxt) override;
+  Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) override;
 
  private:
   bool _initialized;

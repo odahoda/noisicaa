@@ -11,6 +11,11 @@ PerfStats::PerfStats(clock_func_t clock, void* clock_data)
   : _clock(clock),
     _clock_data(clock_data) {}
 
+void PerfStats::reset() {
+  _spans.clear();
+  _stack.clear();
+}
+
 void PerfStats::start_span(const string& name) {
   start_span(name, current_span_id());
 }

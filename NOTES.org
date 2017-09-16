@@ -1,12 +1,12 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
+- pass PerfStats of sub proc from IPCBackend to ProcessorIPC
 - playback becomes slower over time...
 - reimplement sample_player
 - Better handling of partial blocks in player
   - control/sample tracks should always produce complete blocks, padded with zeros
 - Properly handle stopped backend
-- Reanimate perf stats
 - Hook up log with python logging
   - should have a lockfree queue in-between
 - capnp API is really awful. strongly consider rolling a custom format for FrameData

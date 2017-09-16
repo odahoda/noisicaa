@@ -187,7 +187,7 @@ Status VM::process_block(BlockContext* ctxt) {
   Status status = backend->begin_block(ctxt);
   if (status.is_error()) { return status; }
   auto end_block = scopeGuard([&]() {
-      Status status = backend->end_block();
+      Status status = backend->end_block(ctxt);
       if (status.is_error()) {
 	log(LogLevel::ERROR, "Ignore error in Backend::end_block(): %s", status.message().c_str());
       }
@@ -244,7 +244,7 @@ Status VM::process_block(BlockContext* ctxt) {
   }
 
   end_block.dismiss();
-  status = backend->end_block();
+  status = backend->end_block(ctxt);
   if (status.is_error()) { return status; }
 
   return Status::Ok();

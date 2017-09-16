@@ -38,29 +38,31 @@ cdef class PyPerfStats(object):
     def __init__(self, clock=None):
         self.__clock = clock
         if clock is not None:
-            self.__stats.reset(
+            self.__stats_ptr.reset(
                 new PerfStats(<PerfStats.clock_func_t>PyPerfStats.__clock_cb, <PyObject*>self))
         else:
-            self.__stats.reset(new PerfStats())
+            self.__stats_ptr.reset(new PerfStats())
+
+        self.__stats = self.__stats_ptr.get()
 
     cdef PerfStats* get(self):
-        return self.__stats.get()
+        return self.__stats_ptr.get()
+
+    cdef PerfStats* release(self):
+        return self.__stats_ptr.release()
 
     @staticmethod
-    cdef uint64_t __clock_cb(void* data):
+    cdef uint64_t __clock_cb(void* data) with gil:
         cdef PyPerfStats self = <object>data
         return self.__clock()
 
-    @property
-    def current_span_id(self):
-        return int(self.__stats.get().current_span_id())
+    def __len__(self):
+        return int(self.__stats.num_spans())
 
-    @property
-    def spans(self):
-        cdef PerfStats* stats = self.__stats.get()
+    def __iter__(self):
         cdef PerfStats.Span span
-        for idx in range(stats.num_spans()):
-            span = stats.span(idx)
+        for idx in range(self.__stats.num_spans()):
+            span = self.__stats.span(idx)
             s = Span()
             s.id = int(span.id)
             s.name = bytes(span.name).decode('utf-8')
@@ -69,11 +71,21 @@ cdef class PyPerfStats(object):
             s.end_time_nsec = int(span.end_time_nsec)
             yield s
 
+    @property
+    def current_span_id(self):
+        return int(self.__stats.current_span_id())
+
+    @property
+    def spans(self):
+        return list(self)
+
+    def reset(self):
+        self.__stats.reset()
+
     def serialize(self):
-        spans = list(self.spans)
         msg = perf_stats_capnp.PerfStats.new_message()
-        msg.init('spans', len(spans))
-        for idx, span in enumerate(spans):
+        msg.init('spans', len(self))
+        for idx, span in enumerate(self):
             s = msg.spans[idx]
             s.id = span.id
             s.name = span.name
@@ -85,12 +97,12 @@ cdef class PyPerfStats(object):
     def start_span(self, name, parent_id=None):
         name = name.encode('utf-8')
         if parent_id is not None:
-            self.__stats.get().start_span(name, parent_id)
+            self.__stats.start_span(name, parent_id)
         else:
-            self.__stats.get().start_span(name)
+            self.__stats.start_span(name)
 
     def end_span(self):
-        self.__stats.get().end_span()
+        self.__stats.end_span()
 
     @contextlib.contextmanager
     def track(self, name, parent_id=None):
@@ -111,4 +123,4 @@ cdef class PyPerfStats(object):
                 span.parent_id = s.parentId
             span.start_time_nsec = s.startTimeNSec
             span.end_time_nsec = s.endTimeNSec
-            self.__stats.get().append_span(span)
+            self.__stats.append_span(span)

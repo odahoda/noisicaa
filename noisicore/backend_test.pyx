@@ -31,15 +31,15 @@ class TestPortAudioBackend(unittest.TestCase):
         cdef Backend* be = backend_ptr.get()
         check(be.setup(vm.get()))
 
-        cdef BlockContext ctxt
+        cdef PyBlockContext ctxt = PyBlockContext()
         for _ in range(100):
-            check(be.begin_block(&ctxt))
+            check(be.begin_block(ctxt.get()))
 
             for i in range(128):
                 samples[i] = i / 128.0
-            check(be.output(b"left", <BufferPtr>samples))
-            check(be.output(b"right", <BufferPtr>samples))
+            check(be.output(ctxt.get(), b"left", <BufferPtr>samples))
+            check(be.output(ctxt.get(), b"right", <BufferPtr>samples))
 
-            check(be.end_block())
+            check(be.end_block(ctxt.get()))
 
         be.cleanup()

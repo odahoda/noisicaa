@@ -1,5 +1,6 @@
 from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
+
 from .status cimport *
 from .spec cimport *
 from .block_context cimport *
@@ -74,10 +75,10 @@ class TestVM(unittest.TestCase):
         check(spec.append_opcode(OpCode.OUTPUT, b'out_right', b'right'))
         check(vm.set_spec(spec))
 
-        cdef BlockContext ctxt
+        cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.sample_pos = 0
         for _ in range(100):
-            check(vm.process_block(&ctxt))
+            check(vm.process_block(ctxt.get()))
             ctxt.sample_pos += ctxt.block_size
 
         vm.cleanup()
@@ -96,14 +97,14 @@ class TestVM(unittest.TestCase):
         check(stor_backend)
         check(vm.set_backend(stor_backend.result()))
 
-        cdef BlockContext ctxt
+        cdef PyBlockContext ctxt = PyBlockContext()
 
         cdef Spec* spec = new Spec()
         spec.append_buffer(b'buf1', new FloatAudioBlock())
         spec.append_buffer(b'buf2', new FloatAudioBlock())
         spec.append_opcode(OpCode.MIX, b'buf1', b'buf2')
         check(vm.set_spec(spec))
-        check(vm.process_block(&ctxt))
+        check(vm.process_block(ctxt.get()))
 
         cdef Buffer* buf = vm.get_buffer(b'buf1')
         self.assertEqual(buf.size(), 1024)
@@ -117,7 +118,7 @@ class TestVM(unittest.TestCase):
         data[0] = 4.0
         data[1] = 5.0
 
-        check(vm.process_block(&ctxt))
+        check(vm.process_block(ctxt.get()))
 
         buf = vm.get_buffer(b'buf2')
         data = <float*>buf.data()
@@ -168,8 +169,8 @@ class TestVM(unittest.TestCase):
         spec.append_opcode(OpCode.CALL, processor)
         check(vm.set_spec(spec))
 
-        cdef BlockContext ctxt
-        check(vm.process_block(&ctxt))
+        cdef PyBlockContext ctxt = PyBlockContext()
+        check(vm.process_block(ctxt.get()))
 
         cdef Buffer* buf = vm.get_buffer(b'gain')
         (<float*>buf.data())[0] = 0.5
@@ -181,7 +182,7 @@ class TestVM(unittest.TestCase):
         data[2] = 3.0
         data[3] = 4.0
 
-        check(vm.process_block(&ctxt))
+        check(vm.process_block(ctxt.get()))
 
         buf = vm.get_buffer(b'out')
         data = <float*>buf.data()
@@ -207,12 +208,12 @@ class TestVM(unittest.TestCase):
 
         check(vm.set_block_size(1024))
 
-        cdef BlockContext ctxt
+        cdef PyBlockContext ctxt = PyBlockContext()
 
         cdef Spec* spec = new Spec()
         spec.append_buffer(b'buf1', new FloatAudioBlock())
         check(vm.set_spec(spec))
-        check(vm.process_block(&ctxt))
+        check(vm.process_block(ctxt.get()))
 
         cdef Buffer* buf = vm.get_buffer(b'buf1')
         self.assertEqual(buf.size(), 4096)
@@ -222,7 +223,7 @@ class TestVM(unittest.TestCase):
         buf = vm.get_buffer(b'buf1')
         self.assertEqual(buf.size(), 4096)
 
-        check(vm.process_block(&ctxt))
+        check(vm.process_block(ctxt.get()))
 
         buf = vm.get_buffer(b'buf1')
         self.assertEqual(buf.size(), 1024)

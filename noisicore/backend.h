@@ -30,8 +30,8 @@ public:
   virtual void cleanup();
 
   virtual Status begin_block(BlockContext* ctxt) = 0;
-  virtual Status end_block() = 0;
-  virtual Status output(const string& channel, BufferPtr samples) = 0;
+  virtual Status end_block(BlockContext* ctxt) = 0;
+  virtual Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) = 0;
 
 protected:
   Backend(const BackendSettings& settings);

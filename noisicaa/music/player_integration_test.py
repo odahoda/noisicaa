@@ -175,6 +175,7 @@ class PlayerTest(asynctest.TestCase):
                 assert topspan.name == 'frame'
                 duration = (topspan.endTimeNSec - topspan.startTimeNSec) / 1000.0
                 frame_times.append(duration)
+                logger.info("frame duration=%.3fµs", duration)
         listener = self.audioproc_client_main.listeners.add('pipeline_status', cb)
         try:
             yield
