@@ -9,6 +9,7 @@ import os.path
 import shutil
 import subprocess
 import sys
+import textwrap
 import unittest
 
 import coverage
@@ -18,21 +19,63 @@ sys.path.insert(0, LIBDIR)
 
 os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
 
+def bool_arg(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        if value.lower() in ('true', 'y', 'yes', 'on', '1'):
+            return True
+        if value.lower() in ('false', 'n', 'no', 'off', '0'):
+            return False
+        raise ValueError("Invalid value '%s'." % value)
+    raise TypeError("Invalid type '%s'." % type(value).__name__)
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('selectors', type=str, nargs='*')
-    parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument(
         '--log-level',
         choices=['debug', 'info', 'warning', 'error', 'critical'],
         default='error',
         help="Minimum level for log messages written to STDERR.")
-    parser.add_argument('--nocoverage', action='store_true', default=False)
-    parser.add_argument('--write-perf-stats', action='store_true', default=False)
-    parser.add_argument('--profile', action='store_true', default=False)
-    parser.add_argument('--gdb', action='store_true', default=False)
-    parser.add_argument('--norebuild', action='store_true', default=False)
+    parser.add_argument('--coverage', nargs='?', type=bool_arg, const=True, default=False)
+    parser.add_argument('--write-perf-stats', nargs='?', type=bool_arg, const=True, default=False)
+    parser.add_argument('--profile', nargs='?', type=bool_arg, const=True, default=False)
+    parser.add_argument('--gdb', nargs='?', type=bool_arg, const=True, default=True)
+    parser.add_argument('--rebuild', nargs='?', type=bool_arg, const=True, default=True)
     args = parser.parse_args(argv[1:])
+
+    if args.gdb:
+        with open('/tmp/noisicaa.gdbinit', 'w') as fp:
+            fp.write(textwrap.dedent('''\
+                set $_exitcode = -1
+                run
+                if $_exitcode != -1
+                  quit
+                end
+                bt
+                '''))
+
+        subargv = [
+            '/usr/bin/gdb',
+            '--quiet',
+            '--command', '/tmp/noisicaa.gdbinit',
+            '--args', sys.executable, __file__]
+        for arg, value in sorted(args.__dict__.items()):
+            if arg == 'selectors':
+                continue
+            elif arg == 'gdb':
+                subargv.append('--%s=%s' % (arg, False))
+            elif value != parser.get_default(arg):
+                subargv.append('--%s=%s' % (arg, value))
+
+        if args.selectors:
+            subargv.append('--')
+            subargv.extend(args.selectors)
+
+        print(' '.join(subargv))
+        os.execv(subargv[0], subargv)
 
     logging.basicConfig()
     logging.getLogger().setLevel({
@@ -41,20 +84,9 @@ def main(argv):
         'warning': logging.WARNING,
         'error': logging.ERROR,
         'critical': logging.CRITICAL,
-        }[args.log_level if not args.debug else 'debug'])
+        }[args.log_level])
 
-    directives = {}
-    modifiers = set()
-
-    if args.profile:
-        directives['profile'] = True
-        modifiers.add('prof')
-
-    if args.gdb:
-        directives['gdb_debug'] = True
-        modifiers.add('dbg')
-
-    if not args.norebuild:
+    if args.rebuild:
         subprocess.run(['make', '-j4'], cwd=LIBDIR, check=True)
 
     from noisicaa import constants
@@ -64,7 +96,7 @@ def main(argv):
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
 
-    if not args.nocoverage:
+    if args.coverage:
         cov = coverage.Coverage(
             source=['noisicaa'],
             omit='*_*test.py',
@@ -102,7 +134,7 @@ def main(argv):
             else:
                 matched = is_unittest
 
-            if matched or not args.nocoverage:
+            if matched or args.coverage:
                 logging.info("Loading module %s...", modname)
                 __import__(modname)
 
@@ -115,7 +147,7 @@ def main(argv):
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
 
-    if not args.nocoverage:
+    if args.coverage:
         cov.stop()
         cov_data = cov.get_data()
         total_coverage = cov.html_report(

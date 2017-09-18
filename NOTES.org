@@ -65,9 +65,6 @@
   - different buffer types for events (native, atom, ...)
   - auto convert as needed
 
-* Debug crashes in gdb									      :FR:
-- where are cores dumped? anything to do to enable full core dumps
-- if runtests.py crashes, call gdb with core
 * Move pianoroll into VM								      :FR:
 - player collects mutations from track
 - sends batch of mutations along with FrameData

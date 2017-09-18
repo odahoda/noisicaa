@@ -1,3 +1,0 @@
-#!/bin/bash
-
-gdb -ex r --args python3 $(dirname $0)/runtests "$@"
