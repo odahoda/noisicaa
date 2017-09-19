@@ -53,7 +53,7 @@ uint64_t PerfStats::get_time_nsec() const {
   auto now = chrono::high_resolution_clock::now();
   auto ns = chrono::time_point_cast<std::chrono::nanoseconds>(now);
   auto epoch = ns.time_since_epoch();
-  auto value = chrono::duration_cast<std::chrono::milliseconds>(epoch);
+  auto value = chrono::duration_cast<std::chrono::nanoseconds>(epoch);
   return value.count();
 }
 
