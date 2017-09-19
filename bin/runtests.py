@@ -63,6 +63,7 @@ def main(argv):
             '--command', '/tmp/noisicaa.gdbinit',
             '--args', sys.executable, __file__]
         for arg, value in sorted(args.__dict__.items()):
+            arg = arg.replace('_', '-')
             if arg == 'selectors':
                 continue
             elif arg == 'gdb':
