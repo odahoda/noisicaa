@@ -1,5 +1,6 @@
 #include <dlfcn.h>
 #include <stdint.h>
+#include "noisicaa/core/perf_stats.h"
 #include "noisicore/processor_ladspa.h"
 #include "noisicore/misc.h"
 
@@ -94,6 +95,8 @@ Status ProcessorLadspa::connect_port(uint32_t port_idx, BufferPtr buf) {
 }
 
 Status ProcessorLadspa::run(BlockContext* ctxt) {
+  PerfTracker tracker(ctxt->perf.get(), "ladspa");
+
   _descriptor->run(_instance, ctxt->block_size);
   return Status::Ok();
 }

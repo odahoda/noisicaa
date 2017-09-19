@@ -9,18 +9,23 @@ PerfStats::PerfStats()
 
 PerfStats::PerfStats(clock_func_t clock, void* clock_data)
   : _clock(clock),
-    _clock_data(clock_data) {}
+    _clock_data(clock_data) {
+  // preallocate enough space, so we generally won't do any
+  // memory allocations when using the PerfStats instance.
+  _spans.reserve(1000);
+  _stack.reserve(20);
+}
 
 void PerfStats::reset() {
   _spans.clear();
   _stack.clear();
 }
 
-void PerfStats::start_span(const string& name) {
+void PerfStats::start_span(const char* name) {
   start_span(name, current_span_id());
 }
 
-void PerfStats::start_span(const string& name, uint64_t parent_id) {
+void PerfStats::start_span(const char* name, uint64_t parent_id) {
   static mt19937_64 rand(time(0));
   uint64_t id = rand();
 

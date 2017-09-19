@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 from cpython.ref cimport PyObject
+from libc.string cimport strncpy
 
 import contextlib
 import random
@@ -116,7 +117,7 @@ cdef class PyPerfStats(object):
         cdef PerfStats.Span span
         for s in msg.spans:
             span.id = s.id
-            span.name = s.name.encode('utf-8')
+            strncpy(span.name, s.name.encode('utf-8'), 128)
             if s.parentId == 0:
                 span.parent_id = self.current_span_id
             else:

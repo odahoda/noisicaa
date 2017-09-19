@@ -2,6 +2,7 @@
 #include <string>
 #include <assert.h>
 #include <stdint.h>
+#include "noisicaa/core/perf_stats.h"
 #include "noisicore/host_data.h"
 #include "noisicore/misc.h"
 #include "noisicore/processor_lv2.h"
@@ -63,6 +64,7 @@ Status ProcessorLV2::connect_port(uint32_t port_idx, BufferPtr buf) {
 }
 
 Status ProcessorLV2::run(BlockContext* ctxt) {
+  PerfTracker tracker(ctxt->perf.get(), "lv2");
   lilv_instance_run(_instance, ctxt->block_size);
   return Status::Ok();
 }

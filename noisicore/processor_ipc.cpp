@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "capnp/message.h"
 #include "capnp/serialize.h"
+#include "noisicaa/core/perf_stats.h"
 #include "noisicore/host_data.h"
 #include "noisicore/misc.h"
 #include "noisicore/block_data.capnp.h"
@@ -48,19 +49,25 @@ Status ProcessorIPC::connect_port(uint32_t port_idx, BufferPtr buf) {
 }
 
 Status ProcessorIPC::run(BlockContext* ctxt) {
-  // with ctxt.perf.track('ipc'):
+  PerfTracker tracker(ctxt->perf.get(), "ipc");
 
   capnp::BlockData::Builder request = _stream->block_data_builder();
   request.setBlockSize(ctxt->block_size);
   request.setSamplePos(ctxt->sample_pos);
-  //     with ctxt.perf.track('ipc.send_block'):
-  Status status = _stream->send_block(request);
-  if (status.is_error()) { return status; }
 
-  //     with ctxt.perf.track('ipc.receive_block'):
-  StatusOr<string> stor_bytes = _stream->receive_bytes();
-  if (stor_bytes.is_error()) { return stor_bytes; }
-  string bytes = stor_bytes.result();
+  {
+    PerfTracker tracker(ctxt->perf.get(), "send_block");
+    Status status = _stream->send_block(request);
+    if (status.is_error()) { return status; }
+  }
+
+  string bytes;
+  {
+    PerfTracker tracker(ctxt->perf.get(), "receive_block");
+    StatusOr<string> stor_bytes = _stream->receive_bytes();
+    if (stor_bytes.is_error()) { return stor_bytes; }
+    bytes = stor_bytes.result();
+  }
   assert(bytes.size() % sizeof(::capnp::word) == 0);
   kj::ArrayPtr<::capnp::word> words(
       (::capnp::word*)bytes.c_str(),
@@ -71,7 +78,15 @@ Status ProcessorIPC::run(BlockContext* ctxt) {
   assert(response.getBlockSize() == ctxt->block_size);
   assert(response.getSamplePos() == ctxt->sample_pos);
 
-  //     ctxt.perf.add_spans(response.perfData)
+  for (const auto& span : response.getPerfData().getSpans()) {
+    ctxt->perf->append_span(
+	PerfStats::Span{
+	  span.getId(),
+	  span.getName().cStr(),
+	  span.getParentId() != 0 ? span.getParentId() : ctxt->perf->current_span_id(),
+	  span.getStartTimeNSec(),
+	  span.getEndTimeNSec()});
+  }
 
   bool ports_written[2] = { false, false };
   for (const auto& buffer : response.getBuffers()) {

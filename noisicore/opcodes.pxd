@@ -45,6 +45,7 @@ cdef extern from "noisicore/opcodes.h" namespace "noisicaa" nogil:
 
     struct OpSpec:
         OpCode opcode
+        const char* name
         const char* argspec
         OpFunc init
         OpFunc run

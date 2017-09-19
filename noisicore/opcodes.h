@@ -79,6 +79,7 @@ typedef Status (*OpFunc)(
 
 struct OpSpec {
   OpCode opcode;
+  const char* name;
   const char* argspec;
   OpFunc init;
   OpFunc run;

@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdint.h>
+#include "noisicaa/core/perf_stats.h"
 #include "noisicore/host_data.h"
 #include "noisicore/misc.h"
 #include "noisicore/processor_csound.h"
@@ -193,6 +194,8 @@ Status ProcessorCSoundBase::connect_port(uint32_t port_idx, BufferPtr buf) {
 }
 
 Status ProcessorCSoundBase::run(BlockContext* ctxt) {
+  PerfTracker tracker(ctxt->perf.get(), "csound");
+
   for (uint32_t port_idx = 0 ; port_idx < _buffers.size() ; ++port_idx) {
     if (_buffers[port_idx] == nullptr) {
       return Status::Error(sprintf("Port %d not connected.", port_idx));

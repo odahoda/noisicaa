@@ -2,6 +2,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "noisicaa/core/perf_stats.h"
 #include "noisicore/vm.h"
 #include "noisicore/status.h"
 #include "noisicore/misc.h"
@@ -234,6 +235,9 @@ Status VM::process_block(BlockContext* ctxt) {
       if (status.is_error()) { return status; }
     }
     if (opspec.run != nullptr) {
+      char perf_label[PerfStats::NAME_LENGTH];
+      snprintf(perf_label, PerfStats::NAME_LENGTH, "opcode(%s)", opspec.name);
+      PerfTracker tracker(ctxt->perf.get(), perf_label);
       Status status = opspec.run(ctxt, &state, spec->get_opargs(p));
       if (status.is_error()) { return status; }
     }

@@ -217,34 +217,34 @@ Status run_LOG_ATOM(BlockContext* ctxt, ProgramState* state, const vector<OpArg>
 
 struct OpSpec opspecs[NUM_OPCODES] = {
   // control flow
-  { OpCode::NOOP, "", nullptr, nullptr },
-  { OpCode::END, "", nullptr, run_END },
+  { OpCode::NOOP, "NOOP", "", nullptr, nullptr },
+  { OpCode::END, "END", "", nullptr, run_END },
 
   // buffer access
-  { OpCode::COPY, "bb", nullptr, run_COPY },
-  { OpCode::CLEAR, "b", nullptr, run_CLEAR },
-  { OpCode::MIX, "bb", nullptr, run_MIX },
-  { OpCode::MUL, "bf", nullptr, run_MUL },
-  { OpCode::SET_FLOAT, "bf", nullptr, run_SET_FLOAT },
+  { OpCode::COPY, "COPY", "bb", nullptr, run_COPY },
+  { OpCode::CLEAR, "CLEAR", "b", nullptr, run_CLEAR },
+  { OpCode::MIX, "MIX", "bb", nullptr, run_MIX },
+  { OpCode::MUL, "MUL", "bf", nullptr, run_MUL },
+  { OpCode::SET_FLOAT, "SET_FLOAT", "bf", nullptr, run_SET_FLOAT },
 
   // I/O
-  { OpCode::OUTPUT, "bs", nullptr, run_OUTPUT },
-  { OpCode::FETCH_BUFFER, "sb", nullptr, run_FETCH_BUFFER },
-  { OpCode::FETCH_MESSAGES, "ib", nullptr, run_FETCH_MESSAGES },
-  { OpCode::FETCH_PARAMETER, "sb", nullptr, run_FETCH_PARAMETER },
+  { OpCode::OUTPUT, "OUTPUT", "bs", nullptr, run_OUTPUT },
+  { OpCode::FETCH_BUFFER, "FETCH_BUFFER", "sb", nullptr, run_FETCH_BUFFER },
+  { OpCode::FETCH_MESSAGES, "FETCH_MESSAGES", "ib", nullptr, run_FETCH_MESSAGES },
+  { OpCode::FETCH_PARAMETER, "FETCH_PARAMETER", "sb", nullptr, run_FETCH_PARAMETER },
 
   // generators
-  { OpCode::NOISE, "b", nullptr, run_NOISE },
-  { OpCode::SINE, "bf", nullptr, run_SINE },
-  { OpCode::MIDI_MONKEY, "bf", nullptr, run_MIDI_MONKEY },
+  { OpCode::NOISE, "NOISE", "b", nullptr, run_NOISE },
+  { OpCode::SINE, "SINE", "bf", nullptr, run_SINE },
+  { OpCode::MIDI_MONKEY, "MIDI_MONKEY", "bf", nullptr, run_MIDI_MONKEY },
 
   // processors
-  { OpCode::CONNECT_PORT, "pib", init_CONNECT_PORT, nullptr },
-  { OpCode::CALL, "p", nullptr, run_CALL },
+  { OpCode::CONNECT_PORT, "CONNECT_PORT", "pib", init_CONNECT_PORT, nullptr },
+  { OpCode::CALL, "CALL", "p", nullptr, run_CALL },
 
   // processors
-  { OpCode::LOG_RMS, "b", nullptr, run_LOG_RMS },
-  { OpCode::LOG_ATOM, "b", nullptr, run_LOG_ATOM },
+  { OpCode::LOG_RMS, "LOG_RMS", "b", nullptr, run_LOG_RMS },
+  { OpCode::LOG_ATOM, "LOG_ATOM", "b", nullptr, run_LOG_ATOM },
 };
 
 }  // namespace noisicaa

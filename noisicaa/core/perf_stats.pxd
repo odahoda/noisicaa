@@ -1,12 +1,11 @@
 from libc.stdint cimport uint64_t
 from libcpp.memory cimport unique_ptr
-from libcpp.string cimport string
 
 cdef extern from "noisicaa/core/perf_stats.h" namespace "noisicaa" nogil:
     cppclass PerfStats:
         struct Span:
             uint64_t id
-            string name
+            char name[128]
             uint64_t parent_id
             uint64_t start_time_nsec
             uint64_t end_time_nsec
@@ -17,8 +16,8 @@ cdef extern from "noisicaa/core/perf_stats.h" namespace "noisicaa" nogil:
         PerfStats(clock_func_t clock, void* clock_data)
 
         void reset()
-        void start_span(const string& name, uint64_t parent_id)
-        void start_span(const string& name)
+        void start_span(const char* name, uint64_t parent_id)
+        void start_span(const char* name)
         void end_span()
         void append_span(const Span& span)
         uint64_t current_span_id() const

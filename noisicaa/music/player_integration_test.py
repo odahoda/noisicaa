@@ -167,6 +167,12 @@ class PlayerTest(asynctest.TestCase):
     def track_frame_stats(self, testname):
         frame_times = []
 
+        def log_stats(spans, parent_id, indent):
+            for span in spans:
+                if span.parentId == parent_id:
+                    logger.info("%-40s: %10.3fµs", '  ' * indent + span.name, (span.endTimeNSec - span.startTimeNSec) / 1000.0)
+                    log_stats(spans, span.id, indent+1)
+
         def cb(status):
             perf_data = status.get('perf_data', None)
             if perf_data:
@@ -175,7 +181,8 @@ class PlayerTest(asynctest.TestCase):
                 assert topspan.name == 'frame'
                 duration = (topspan.endTimeNSec - topspan.startTimeNSec) / 1000.0
                 frame_times.append(duration)
-                logger.info("frame duration=%.3fµs", duration)
+                log_stats(sorted(perf_data.spans, key=lambda s: s.startTimeNSec), 0, 0)
+
         listener = self.audioproc_client_main.listeners.add('pipeline_status', cb)
         try:
             yield

@@ -261,6 +261,7 @@ class AudioStreamProxy(object):
                     raise
 
                 perf = core.PerfStats()
+                perf.start_span('player_proxy')
 
                 request = noisicore.BlockData.new_message()
                 request.samplePos = server_request.samplePos
@@ -380,7 +381,7 @@ class AudioStreamProxy(object):
                                 self._client.send_block(request)
                             with perf.track('receive_block'):
                                 client_response = self._client.receive_block()
-                            #perf.add_spans(client_response.perfData)
+                            perf.add_spans(client_response.perfData)
 
                         except noisicore.ConnectionClosed:
                             logger.warning("Stream to pipeline closed.")
@@ -400,6 +401,7 @@ class AudioStreamProxy(object):
                 response.init('buffers', len(client_response.buffers))
                 for idx, buf in enumerate(client_response.buffers):
                     response.buffers[idx] = buf
+                perf.end_span()
                 response.perfData = perf.serialize()
 
                 try:

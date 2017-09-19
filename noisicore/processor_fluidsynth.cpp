@@ -1,3 +1,4 @@
+#include "noisicaa/core/perf_stats.h"
 #include "noisicore/processor_fluidsynth.h"
 #include "noisicore/host_data.h"
 #include "noisicore/misc.h"
@@ -117,6 +118,8 @@ Status ProcessorFluidSynth::connect_port(uint32_t port_idx, BufferPtr buf) {
 }
 
 Status ProcessorFluidSynth::run(BlockContext* ctxt) {
+  PerfTracker tracker(ctxt->perf.get(), "fluidsynth");
+
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
   if (seq->atom.type != _host_data->lv2->urid.atom_sequence) {
     return Status::Error(

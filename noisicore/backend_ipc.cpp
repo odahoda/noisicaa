@@ -56,12 +56,15 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
   ctxt->perf->start_span("frame");
 
   if (stor_request_bytes.is_error()) { return stor_request_bytes; }
+
+  ctxt->perf->start_span("parse_request");
   string request_bytes = stor_request_bytes.result();
   kj::ArrayPtr<::capnp::word> words(
       (::capnp::word*)request_bytes.c_str(),
       request_bytes.size() / sizeof(::capnp::word));
   ::capnp::FlatArrayMessageReader message_reader(words);
   capnp::BlockData::Reader request(message_reader.getRoot<capnp::BlockData>());
+  ctxt->perf->end_span();
 
   ctxt->buffers.clear();
   for (const auto& block : request.getBuffers()) {
@@ -76,7 +79,7 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
   _out_block.setSamplePos(request.getSamplePos());
 
   if (_block_size != request.getBlockSize()) {
-    PerfTracker(ctxt->perf.get(), "resize_buffers");
+    PerfTracker tracker(ctxt->perf.get(), "resize_buffers");
 
     log(LogLevel::INFO, "Block size changed %d -> %d", _block_size, request.getBlockSize());
     _block_size = request.getBlockSize();
@@ -126,7 +129,16 @@ Status IPCBackend::end_block(BlockContext* ctxt) {
   ctxt->perf->end_span();
 
   assert(ctxt->perf->current_span_id() == 0);
-  //     self.__out_frame.perfData = self.ctxt.perf.serialize()
+  auto spans = _out_block.getPerfData().initSpans(ctxt->perf->num_spans());
+  for (int i = 0 ; i < ctxt->perf->num_spans() ; ++i) {
+    const auto& ispan = ctxt->perf->span(i);
+    auto ospan = spans[i];
+    ospan.setId(ispan.id);
+    ospan.setName(ispan.name);
+    ospan.setParentId(ispan.parent_id);
+    ospan.setStartTimeNSec(ispan.start_time_nsec);
+    ospan.setEndTimeNSec(ispan.end_time_nsec);
+  }
 
   Status status = _stream->send_block(_out_block);
   if (status.is_error()) { return status; }

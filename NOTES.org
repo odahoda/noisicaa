@@ -1,8 +1,11 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- pass PerfStats of sub proc from IPCBackend to ProcessorIPC
+- Some kind of callback object, that can call Python from C++
+  - use that for the clock ptr in PerfStats
 - playback becomes slower over time...
+- C++ implementation of URID mapper
+  - currently calls into python from audio thread.
 - reimplement sample_player
 - Better handling of partial blocks in player
   - control/sample tracks should always produce complete blocks, padded with zeros

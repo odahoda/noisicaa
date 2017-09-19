@@ -2,7 +2,7 @@
 _UNSET = object()
 
 cdef class PyBackendSettings(object):
-    def __init__(self, *, ipc_address=_UNSET, block_size=128):
+    def __init__(self, *, ipc_address=_UNSET, block_size=2048):
         if ipc_address is not _UNSET:
             self.ipc_address = ipc_address
         if block_size is not _UNSET:

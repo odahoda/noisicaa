@@ -4,9 +4,10 @@
 #define _NOISICAA_CORE_PERF_STATS_H
 
 #include <memory>
-#include <string>
 #include <vector>
+#include <assert.h>
 #include <stdint.h>
+#include <string.h>
 
 namespace noisicaa {
 
@@ -14,9 +15,28 @@ using namespace std;
 
 class PerfStats {
 public:
+  static const size_t NAME_LENGTH = 128;
+
   struct Span {
+    Span() {
+      this->id = 0;
+      memset(this->name, 0, NAME_LENGTH);
+      this->parent_id = 0;
+      this->start_time_nsec = 0;
+      this->end_time_nsec = 0;
+    };
+
+    Span(uint64_t id, const char* name, uint64_t parent_id, uint64_t start_time_nsec, uint64_t end_time_nsec) {
+      this->id = id;
+      assert(strlen(name) < NAME_LENGTH);
+      strncpy(this->name, name, NAME_LENGTH);
+      this->parent_id = parent_id;
+      this->start_time_nsec = start_time_nsec;
+      this->end_time_nsec = end_time_nsec;
+    };
+
     uint64_t id;
-    string name;
+    char name[NAME_LENGTH];
     uint64_t parent_id;
     uint64_t start_time_nsec;
     uint64_t end_time_nsec;
@@ -29,8 +49,8 @@ public:
 
   void reset();
 
-  void start_span(const string& name, uint64_t parent_id);
-  void start_span(const string& name);
+  void start_span(const char* name, uint64_t parent_id);
+  void start_span(const char* name);
   void end_span();
   void append_span(const Span& span);
 
@@ -49,7 +69,7 @@ private:
 
 class PerfTracker {
 public:
-  PerfTracker(PerfStats* stats, const string& name)
+  PerfTracker(PerfStats* stats, const char* name)
     : _stats(stats) {
     _stats->start_span(name);
   }
