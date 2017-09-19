@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-from cpython.ref cimport PyObject
 from libc.string cimport strncpy
 
 import contextlib
@@ -11,6 +10,10 @@ import time
 import capnp
 
 from . import perf_stats_capnp
+
+cdef extern from "<functional>" namespace "std" nogil:
+    # Ugly hack, because cython does not support variadic templates.
+    cdef PerfStats.clock_func_t bind(uint64_t (PyObject*), PyObject*) except +
 
 
 class Span(object):
@@ -40,7 +43,7 @@ cdef class PyPerfStats(object):
         self.__clock = clock
         if clock is not None:
             self.__stats_ptr.reset(
-                new PerfStats(<PerfStats.clock_func_t>PyPerfStats.__clock_cb, <PyObject*>self))
+                new PerfStats(bind(PyPerfStats.__clock_cb, <PyObject*>self)))
         else:
             self.__stats_ptr.reset(new PerfStats())
 
@@ -53,8 +56,8 @@ cdef class PyPerfStats(object):
         return self.__stats_ptr.release()
 
     @staticmethod
-    cdef uint64_t __clock_cb(void* data) with gil:
-        cdef PyPerfStats self = <object>data
+    cdef uint64_t __clock_cb(PyObject* s) with gil:
+        cdef PyPerfStats self = <object>s
         return self.__clock()
 
     def __len__(self):

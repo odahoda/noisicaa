@@ -1,8 +1,6 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- Some kind of callback object, that can call Python from C++
-  - use that for the clock ptr in PerfStats
 - playback becomes slower over time...
 - C++ implementation of URID mapper
   - currently calls into python from audio thread.

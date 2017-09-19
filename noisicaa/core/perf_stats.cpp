@@ -5,11 +5,10 @@
 namespace noisicaa {
 
 PerfStats::PerfStats()
-  : PerfStats(nullptr, nullptr) {}
+  : PerfStats(nullptr) {}
 
-PerfStats::PerfStats(clock_func_t clock, void* clock_data)
-  : _clock(clock),
-    _clock_data(clock_data) {
+PerfStats::PerfStats(clock_func_t clock)
+  : _clock(clock) {
   // preallocate enough space, so we generally won't do any
   // memory allocations when using the PerfStats instance.
   _spans.reserve(1000);
@@ -52,7 +51,7 @@ uint64_t PerfStats::current_span_id() const {
 
 uint64_t PerfStats::get_time_nsec() const {
   if (_clock != nullptr) {
-    return _clock(_clock_data);
+    return _clock();
   }
 
   auto now = chrono::high_resolution_clock::now();

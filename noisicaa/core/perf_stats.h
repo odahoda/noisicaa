@@ -3,6 +3,7 @@
 #ifndef _NOISICAA_CORE_PERF_STATS_H
 #define _NOISICAA_CORE_PERF_STATS_H
 
+#include <functional>
 #include <memory>
 #include <vector>
 #include <assert.h>
@@ -42,10 +43,10 @@ public:
     uint64_t end_time_nsec;
   };
 
-  typedef uint64_t (*clock_func_t)(void*);
+  typedef function<uint64_t()> clock_func_t;
 
   PerfStats();
-  PerfStats(clock_func_t clock, void* clock_data);
+  PerfStats(clock_func_t clock);
 
   void reset();
 
@@ -60,7 +61,6 @@ public:
 
 private:
   clock_func_t _clock;
-  void* _clock_data;
   uint64_t get_time_nsec() const;
 
   vector<int> _stack;

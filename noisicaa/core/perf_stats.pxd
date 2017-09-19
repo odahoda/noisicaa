@@ -1,4 +1,6 @@
+from cpython.ref cimport PyObject
 from libc.stdint cimport uint64_t
+from libcpp.functional cimport function
 from libcpp.memory cimport unique_ptr
 
 cdef extern from "noisicaa/core/perf_stats.h" namespace "noisicaa" nogil:
@@ -10,10 +12,10 @@ cdef extern from "noisicaa/core/perf_stats.h" namespace "noisicaa" nogil:
             uint64_t start_time_nsec
             uint64_t end_time_nsec
 
-        ctypedef uint64_t (*clock_func_t)(void*)
+        ctypedef function[uint64_t] clock_func_t
 
         PerfStats()
-        PerfStats(clock_func_t clock, void* clock_data)
+        PerfStats(clock_func_t clock)
 
         void reset()
         void start_span(const char* name, uint64_t parent_id)
@@ -34,4 +36,4 @@ cdef class PyPerfStats(object):
     cdef PerfStats* release(self)
 
     @staticmethod
-    cdef uint64_t __clock_cb(void* data) with gil
+    cdef uint64_t __clock_cb(PyObject* s) with gil
