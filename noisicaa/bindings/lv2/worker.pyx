@@ -34,5 +34,5 @@ cdef class Worker_Feature(Feature):
     cdef LV2_Worker_Status schedule_work(
         LV2_Worker_Schedule_Handle handle, uint32_t size, const void* data):
         cdef Worker_Feature self = <Worker_Feature>handle
-        logger.info("schedule_work(%d, %d)", size, <int>data)
+        logger.info("schedule_work(%d, %d)", size, <long>data)
         return LV2_WORKER_ERR_UNKNOWN

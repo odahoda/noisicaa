@@ -9,13 +9,14 @@ from .processor_spec cimport *
 from .host_data cimport *
 
 from noisicaa.bindings.lv2 cimport atom
+from noisicaa.bindings.lv2 import urid
 
 import unittest
 import sys
 
 
 class TestProcessorFluidSynth(unittest.TestCase):
-    def test_ladspa(self):
+    def test_fluidsynth(self):
         cdef Status status
 
         cdef PyHostData host_data = PyHostData()
@@ -47,7 +48,7 @@ class TestProcessorFluidSynth(unittest.TestCase):
         check(processor.connect_port(1, <BufferPtr>outleftbuf))
         check(processor.connect_port(2, <BufferPtr>outrightbuf))
 
-        cdef atom.AtomForge forge = atom.AtomForge(urid.get_static_mapper())
+        cdef atom.AtomForge forge = atom.AtomForge(urid.static_mapper)
         forge.set_buffer(inbuf, 10240)
         with forge.sequence():
             forge.write_midi_event(0, bytes([0x90, 60, 100]), 3)

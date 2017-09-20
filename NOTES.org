@@ -2,8 +2,6 @@
 
 * VM-based pipeline engine								      :FR:
 - playback becomes slower over time...
-- C++ implementation of URID mapper
-  - currently calls into python from audio thread.
 - reimplement sample_player
 - Better handling of partial blocks in player
   - control/sample tracks should always produce complete blocks, padded with zeros

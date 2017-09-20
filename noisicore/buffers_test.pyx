@@ -4,7 +4,7 @@ from .buffers cimport *
 from .host_data cimport *
 
 from noisicaa.bindings.lv2 cimport atom
-from noisicaa.bindings.lv2 cimport urid
+from noisicaa.bindings.lv2 import urid
 
 import struct
 import sys
@@ -194,12 +194,10 @@ class TestFloatAudioBlock(unittest.TestCase):
 
 
 cdef _fill_atom_buffer(Buffer* buf, data):
-    cdef urid.URID_Mapper mapper = urid.get_static_mapper()
-
-    cdef atom.AtomForge forge = atom.AtomForge(mapper)
+    cdef atom.AtomForge forge = atom.AtomForge(urid.static_mapper)
     forge.set_buffer(buf.data(), buf.size())
 
-    string_urid = mapper.map(b'http://lv2plug.in/ns/ext/atom#String')
+    string_urid = urid.static_mapper.map('http://lv2plug.in/ns/ext/atom#String')
     with forge.sequence():
         for frames, item in data:
             forge.write_atom_event(frames, string_urid, item, len(item))
@@ -207,10 +205,10 @@ cdef _fill_atom_buffer(Buffer* buf, data):
 cdef _read_atom_buffer(Buffer* buf):
     result = []
 
-    cdef urid.URID_Mapper mapper = urid.get_static_mapper()
-    seq = atom.Atom.wrap(mapper, buf.data())
+    seq = atom.Atom.wrap(urid.static_mapper, buf.data())
+    assert isinstance(seq, atom.Sequence), type(seq)
     for event in seq.events:
-        assert event.atom.type_uri == b'http://lv2plug.in/ns/ext/atom#String'
+        assert event.atom.type_uri == 'http://lv2plug.in/ns/ext/atom#String'
         result.append((event.frames, event.atom.data))
 
     return result
@@ -221,7 +219,6 @@ class TestAtomData(unittest.TestCase):
             Status status
             unique_ptr[Buffer] bufptr
             Buffer* buf
-            urid.URID_Map_Feature mapper
 
         cdef PyHostData host_data = PyHostData()
         host_data.setup()
@@ -240,7 +237,6 @@ class TestAtomData(unittest.TestCase):
             Status status
             unique_ptr[Buffer] bufptr
             Buffer* buf
-            urid.URID_Map_Feature mapper
 
         cdef PyHostData host_data = PyHostData()
         host_data.setup()
@@ -260,7 +256,6 @@ class TestAtomData(unittest.TestCase):
             Status status
             unique_ptr[Buffer] bufptr
             Buffer* buf
-            urid.URID_Map_Feature mapper
 
         cdef PyHostData host_data = PyHostData()
         host_data.setup()
@@ -280,7 +275,6 @@ class TestAtomData(unittest.TestCase):
             unique_ptr[Buffer] bufptr2
             Buffer* buf1
             Buffer* buf2
-            urid.URID_Map_Feature mapper
 
         cdef PyHostData host_data = PyHostData()
         host_data.setup()

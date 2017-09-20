@@ -10,6 +10,7 @@ set(LIB_SRCS
   backend_portaudio.cpp
   buffers.cpp
   host_data.cpp
+  host_system_lv2.cpp
   misc.cpp
   opcodes.cpp
   processor_spec.cpp
@@ -45,6 +46,7 @@ add_py_capnp(block_data.capnp)
 add_library(noisicore SHARED ${LIB_SRCS} block_data.capnp.c++)
 target_compile_options(noisicore PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
 target_link_libraries(noisicore PRIVATE noisicaa-core)
+target_link_libraries(noisicore PRIVATE noisicaa-lv2)
 target_link_libraries(noisicore PRIVATE capnp)
 target_link_libraries(noisicore PRIVATE pthread)
 target_link_libraries(noisicore PRIVATE portaudio)

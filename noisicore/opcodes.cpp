@@ -134,7 +134,7 @@ Status run_MIDI_MONKEY(BlockContext* ctxt, ProgramState* state, const vector<OpA
   Buffer* buf = state->program->buffers[idx].get();
 
   LV2_Atom_Forge forge;
-  lv2_atom_forge_init(&forge, state->host_data->lv2->urid_map);
+  lv2_atom_forge_init(&forge, &state->host_data->lv2->urid_map);
 
   LV2_Atom_Forge_Frame frame;
   lv2_atom_forge_set_buffer(&forge, buf->data(), buf->size());

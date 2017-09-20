@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 cdef class AtomForge(object):
-    def __cinit__(self, URID_Mapper mapper):
+    def __cinit__(self, URIDMapper mapper):
         self.map = URID_Map_Feature(mapper)
 
         self.midi_event = mapper.map(
@@ -80,7 +80,7 @@ cdef class AtomForge(object):
 
 
 cdef class Atom(object):
-    def __cinit__(self, URID_Mapper mapper):
+    def __cinit__(self, URIDMapper mapper):
         self.mapper = mapper
         self.atom = NULL
 
@@ -89,18 +89,18 @@ cdef class Atom(object):
         return self
 
     @staticmethod
-    cdef Atom wrap(URID_Mapper mapper, uint8_t* buf):
+    cdef Atom wrap(URIDMapper mapper, uint8_t* buf):
         cdef LV2_Atom* atom = <LV2_Atom*>buf
         type_uri = mapper.unmap(atom.type)
-        if type_uri == b'http://lv2plug.in/ns/ext/atom#Sequence':
+        if type_uri == 'http://lv2plug.in/ns/ext/atom#Sequence':
             return Sequence(mapper).init(atom)
-        elif type_uri == b'http://lv2plug.in/ns/ext/midi#MidiEvent':
+        elif type_uri == 'http://lv2plug.in/ns/ext/midi#MidiEvent':
             return MidiEvent(mapper).init(atom)
         else:
             return Atom(mapper).init(atom)
 
     def __str__(self):
-        return '<Atom type="%s" size=%d>' % (self.type_uri.decode('utf-8'), self.size)
+        return '<Atom type="%s" size=%d>' % (self.type_uri, self.size)
     __repr__ = __str__
 
     @property

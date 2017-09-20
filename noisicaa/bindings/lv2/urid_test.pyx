@@ -6,12 +6,12 @@ from . cimport urid
 
 class DynamicMapperTest(unittest.TestCase):
     def test_map(self):
-        cdef urid.URID_Mapper mapper
+        cdef urid.URIDMapper mapper
         cdef urid.URID_Map_Feature feature
         cdef core.LV2_Feature* lv2_feature
         cdef urid.LV2_URID_Map* map_feature
 
-        mapper = urid.URID_DynamicMapper()
+        mapper = urid.DynamicURIDMapper()
         feature = urid.URID_Map_Feature(mapper)
         lv2_feature = &feature.lv2_feature
 
@@ -25,7 +25,7 @@ class DynamicMapperTest(unittest.TestCase):
         self.assertNotEqual(urid1, urid2)
 
     def test_unmap(self):
-        cdef urid.URID_Mapper mapper
+        cdef urid.URIDMapper mapper
         cdef urid.URID_Map_Feature map_feature
         cdef core.LV2_Feature* map_lv2_feature
         cdef urid.LV2_URID_Map* map
@@ -33,7 +33,7 @@ class DynamicMapperTest(unittest.TestCase):
         cdef core.LV2_Feature* unmap_lv2_feature
         cdef urid.LV2_URID_Unmap* unmap
 
-        mapper = urid.URID_DynamicMapper()
+        mapper = urid.DynamicURIDMapper()
         map_feature = urid.URID_Map_Feature(mapper)
         map_lv2_feature = &map_feature.lv2_feature
 

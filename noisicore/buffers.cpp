@@ -68,7 +68,7 @@ Status AtomData::clear_buffer(HostData* host_data, uint32_t block_size, BufferPt
   memset(buf, 0, 10240);
 
   LV2_Atom_Forge forge;
-  lv2_atom_forge_init(&forge, host_data->lv2->urid_map);
+  lv2_atom_forge_init(&forge, &host_data->lv2->urid_map);
 
   LV2_Atom_Forge_Frame frame;
   lv2_atom_forge_set_buffer(&forge, buf, 10240);
@@ -93,7 +93,7 @@ Status AtomData::mix_buffers(HostData* host_data, uint32_t block_size, const Buf
   LV2_Atom_Event* event2 = lv2_atom_sequence_begin(&seq2->body);
 
   LV2_Atom_Forge forge;
-  lv2_atom_forge_init(&forge, host_data->lv2->urid_map);
+  lv2_atom_forge_init(&forge, &host_data->lv2->urid_map);
 
   uint8_t merged[10240];
   memset(merged, 0, 10240);

@@ -3,8 +3,8 @@ from libc.stdint cimport uint32_t, int32_t, int64_t, uint8_t, intptr_t
 from .urid cimport (
     LV2_URID,
     LV2_URID_Map,
-    URID_Mapper,
     URID_Map_Feature,
+    URIDMapper,
 )
 
 cdef extern from "stdbool.h" nogil:
@@ -472,10 +472,10 @@ cdef class AtomForge(object):
 
 cdef class Atom(object):
     cdef LV2_Atom* atom
-    cdef URID_Mapper mapper
+    cdef URIDMapper mapper
     cdef init(self, LV2_Atom* atom)
     @staticmethod
-    cdef Atom wrap(URID_Mapper mapper, uint8_t* buf)
+    cdef Atom wrap(URIDMapper mapper, uint8_t* buf)
 
 
 cdef class MidiEvent(Atom):

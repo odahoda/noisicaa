@@ -15,8 +15,7 @@ from .lv2.core cimport (
 from .lv2.urid cimport (
     LV2_URID_Map,
     LV2_URID_Unmap,
-#     URID_Mapper,
-    URID_DynamicMapper,
+    URIDMapper,
 #     URID_Map_Feature,
 #     URID_Unmap_Feature,
 )
@@ -433,7 +432,7 @@ cdef class World(object):
     cdef LilvWorld* world
     cdef readonly Namespaces ns
 
-    cdef readonly URID_DynamicMapper urid_mapper
+    cdef readonly URIDMapper urid_mapper
 
 
 cdef class Instance(object):

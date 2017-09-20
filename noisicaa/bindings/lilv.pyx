@@ -15,10 +15,9 @@ from .lv2.core cimport (
 from .lv2.urid cimport (
     LV2_URID_Map,
     LV2_URID_Unmap,
-    URID_Mapper,
-    URID_DynamicMapper,
     URID_Map_Feature,
     URID_Unmap_Feature,
+    DynamicURIDMapper,
 )
 from .lv2.options cimport Options_Feature
 from .lv2.bufsize cimport (
@@ -866,7 +865,7 @@ cdef class World(object):
         self.world = NULL
 
     def __init__(self):
-        self.urid_mapper = URID_DynamicMapper()
+        self.urid_mapper = DynamicURIDMapper()
 
         self.world = lilv_world_new()
         assert self.world != NULL

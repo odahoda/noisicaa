@@ -3,8 +3,7 @@ from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
 from noisicaa.bindings.lv2 cimport atom
-from noisicaa.bindings.lv2 cimport urid
-
+from noisicaa.bindings.lv2 import urid
 from .status cimport *
 from .block_context cimport *
 from .buffers cimport *
@@ -129,7 +128,7 @@ class TestProcessorCSound(unittest.TestCase):
         processor.connect_port(0, <BufferPtr>inbuf)
         processor.connect_port(1, <BufferPtr>outbuf)
 
-        cdef atom.AtomForge forge = atom.AtomForge(urid.get_static_mapper())
+        cdef atom.AtomForge forge = atom.AtomForge(urid.static_mapper)
         forge.set_buffer(inbuf, 10240)
         with forge.sequence():
             forge.write_midi_event(0, bytes([0x90, 60, 100]), 3)

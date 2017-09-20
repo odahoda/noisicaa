@@ -1,7 +1,6 @@
 from libc.stdint cimport uint32_t, int32_t, int64_t, uint8_t, intptr_t
 
 from .core cimport Feature, LV2_Handle
-from .urid cimport LV2_URID, URID_Mapper
 
 
 cdef extern from "lv2/lv2plug.in/ns/ext/worker/worker.h" nogil:
