@@ -11,12 +11,6 @@ using namespace std;
 
 string sprintf(const string& fmt, ...);
 
-enum LogLevel {
-  INFO, WARNING, ERROR
-};
-
-void log(LogLevel log_level, const char* fmt, ...);
-
 struct ScopeGuardBase {
   ScopeGuardBase() : _active(true) {}
 

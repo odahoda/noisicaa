@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <stdint.h>
+#include "noisicaa/core/logging.h"
 #include "noisicore/status.h"
 #include "noisicore/buffers.h"
 #include "noisicore/block_context.h"
@@ -20,7 +21,7 @@ class HostData;
 
 class Processor {
 public:
-  Processor(HostData* host_data);
+  Processor(const char* logger_name, HostData* host_data);
   virtual ~Processor();
 
   static StatusOr<Processor*> create(HostData* host_data, const string& name);
@@ -43,6 +44,7 @@ public:
   virtual Status run(BlockContext* ctxt) = 0;
 
 protected:
+  Logger* _logger;
   HostData* _host_data;
   uint64_t _id;
   unique_ptr<const ProcessorSpec> _spec;

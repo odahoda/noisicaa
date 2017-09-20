@@ -6,7 +6,7 @@
 namespace noisicaa {
 
 PortAudioBackend::PortAudioBackend(const BackendSettings& settings)
-  : Backend(settings),
+  : Backend("noisicore.backend.portaudio", settings),
     _initialized(false),
     _block_size(settings.block_size),
     _stream(nullptr),
@@ -34,7 +34,7 @@ Status PortAudioBackend::setup(VM* vm) {
 
   PaDeviceIndex device_index = Pa_GetDefaultOutputDevice();
   const PaDeviceInfo* device_info = Pa_GetDeviceInfo(device_index);
-  log(LogLevel::INFO, "PortAudio device: %s", device_info->name);
+  _logger->info("PortAudio device: %s", device_info->name);
 
   PaStreamParameters output_params;
   output_params.device = device_index;
@@ -83,7 +83,7 @@ void PortAudioBackend::cleanup() {
   if (_stream != nullptr) {
     PaError err = Pa_CloseStream(_stream);
     if (err != paNoError) {
-      log(LogLevel::ERROR, "Failed to close portaudio stream: %s", Pa_GetErrorText(err));
+      _logger->error("Failed to close portaudio stream: %s", Pa_GetErrorText(err));
     }
     _stream = nullptr;
   }
@@ -91,7 +91,7 @@ void PortAudioBackend::cleanup() {
   if (_initialized) {
     PaError err = Pa_Terminate();
     if (err != paNoError) {
-      log(LogLevel::ERROR, "Failed to terminate portaudio: %s", Pa_GetErrorText(err));
+      _logger->error("Failed to terminate portaudio: %s", Pa_GetErrorText(err));
     }
     _initialized = false;
   }
@@ -114,7 +114,7 @@ Status PortAudioBackend::end_block(BlockContext* ctxt) {
 
   PaError err = Pa_WriteStream(_stream, _samples, _block_size);
   if (err == paOutputUnderflowed) {
-    log(LogLevel::WARNING, "Buffer underrun.");
+    _logger->warning("Buffer underrun.");
   } else if (err != paNoError) {
     return Status::Error(
         sprintf("Failed to write to portaudio stream: %s", Pa_GetErrorText(err)));

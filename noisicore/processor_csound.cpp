@@ -38,8 +38,8 @@ ProcessorCSoundBase::Instance::~Instance() {
   }
 }
 
-ProcessorCSoundBase::ProcessorCSoundBase(HostData* host_data)
-  : Processor(host_data),
+ProcessorCSoundBase::ProcessorCSoundBase(const char* logger_name, HostData* host_data)
+  : Processor(logger_name, host_data),
     _next_instance(nullptr),
     _current_instance(nullptr),
     _old_instance(nullptr) {}
@@ -71,7 +71,7 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
     return Status::Error(sprintf("Failed to set Csound options (code %d)", rc));
   }
 
-  log(LogLevel::INFO, "csound orchestra:\n%s", orchestra.c_str());
+  _logger->info("csound orchestra:\n%s", orchestra.c_str());
   rc = csoundCompileOrc(instance->csnd, orchestra.c_str());
   if (rc < 0) {
     return Status::Error(sprintf("Failed to compile Csound orchestra (code %d)", rc));
@@ -82,7 +82,7 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
     return Status::Error(sprintf("Failed to start Csound (code %d)", rc));
   }
 
-  log(LogLevel::INFO, "csound score:\n%s", score.c_str());
+  _logger->info("csound score:\n%s", score.c_str());
   rc = csoundReadScore(instance->csnd, score.c_str());
   if (rc < 0) {
     return Status::Error(sprintf("Failed to read Csound score (code %d)", rc));
@@ -312,10 +312,10 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 		      "csoundReadScore failed (code %d).", rc));
 		}
 	      } else {
-		log(LogLevel::WARNING, "Ignoring unsupported midi event %d.", midi[0] & 0xf0);
+		_logger->warning("Ignoring unsupported midi event %d.", midi[0] & 0xf0);
 	      }
 	    } else {
-	      log(LogLevel::WARNING, "Ignoring event %d in sequence.", atom.type);
+	      _logger->warning("Ignoring event %d in sequence.", atom.type);
 	    }
 	    ep.event = lv2_atom_sequence_next(ep.event);
 	  }
@@ -378,7 +378,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 }
 
 ProcessorCSound::ProcessorCSound(HostData *host_data)
-  : ProcessorCSoundBase(host_data) {}
+  : ProcessorCSoundBase("noisicore.processor.csound", host_data) {}
 
 Status ProcessorCSound::setup(const ProcessorSpec* spec) {
   Status status = ProcessorCSoundBase::setup(spec);
@@ -404,7 +404,7 @@ void ProcessorCSound::cleanup() {
 
 
 ProcessorCustomCSound::ProcessorCustomCSound(HostData *host_data)
-  : ProcessorCSoundBase(host_data) {}
+  : ProcessorCSoundBase("noisicore.processor.custom_csound", host_data) {}
 
 Status ProcessorCustomCSound::setup(const ProcessorSpec* spec) {
   Status status = ProcessorCSoundBase::setup(spec);

@@ -10,7 +10,7 @@ import time
 from .constants import EXIT_SUCCESS, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .runtime_settings import RuntimeSettings
 from . import logging
-from .core import process_manager
+from .core import process_manager, init_pylogging
 
 # # Unload all noisicaa modules, so that every subprocess reloads everything
 # # from scratch again.
@@ -53,6 +53,8 @@ class Editor(object):
         for sig in (signal.SIGINT, signal.SIGTERM):
             self.event_loop.add_signal_handler(
                 sig, functools.partial(self.handle_signal, sig))
+
+        init_pylogging()
 
         try:
             self.event_loop.run_until_complete(self.run_async())

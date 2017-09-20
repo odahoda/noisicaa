@@ -18,7 +18,11 @@ add_python_package(
   storage_test.py
 )
 
+add_cython_module(logging_test CXX)
+target_link_libraries(${logging_test.so} PRIVATE noisicaa-core)
+
 set(LIB_SRCS
+  logging.cpp
   perf_stats.cpp
 )
 
@@ -31,5 +35,8 @@ add_library(noisicaa-core SHARED ${LIB_SRCS} message.capnp.c++ perf_stats.capnp.
 
 add_cython_module(perf_stats CXX)
 target_link_libraries(${perf_stats.so} PRIVATE noisicaa-core)
+
+add_cython_module(logging CXX)
+target_link_libraries(${logging.so} PRIVATE noisicaa-core)
 
 add_subdirectory(stats)

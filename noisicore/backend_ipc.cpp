@@ -8,7 +8,7 @@
 namespace noisicaa {
 
 IPCBackend::IPCBackend(const BackendSettings& settings)
-  : Backend(settings),
+  : Backend("noisicore.backend.ipc", settings),
     _block_size(settings.block_size) {}
 
 IPCBackend::~IPCBackend() {}
@@ -81,7 +81,7 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
   if (_block_size != request.getBlockSize()) {
     PerfTracker tracker(ctxt->perf.get(), "resize_buffers");
 
-    log(LogLevel::INFO, "Block size changed %d -> %d", _block_size, request.getBlockSize());
+    _logger->info("Block size changed %d -> %d", _block_size, request.getBlockSize());
     _block_size = request.getBlockSize();
     for (int c = 0 ; c < 2 ; ++c) {
       _samples[c].reset(new BufferData[_block_size * sizeof(float)]);

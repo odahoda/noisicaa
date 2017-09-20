@@ -27,3 +27,6 @@ from .message import (
     MessageType,
     MessageKey,
 )
+from .logging import (
+    init_pylogging,
+)

@@ -12,8 +12,9 @@
 
 namespace noisicaa {
 
-Processor::Processor(HostData* host_data)
-  : _host_data(host_data),
+Processor::Processor(const char* logger_name, HostData* host_data)
+  : _logger(LoggerRegistry::get_logger(logger_name)),
+    _host_data(host_data),
     _id(Processor::new_id()) {
 }
 
@@ -76,7 +77,7 @@ Status Processor::set_string_parameter(const string& name, const string& value) 
   // 	 sprintf("Parameter '%s' is not of type string.", name.c_str()));
   // }
 
-  log(LogLevel::INFO, "Set parameter %s='%s'", name.c_str(), value.c_str());
+  _logger->info("Set parameter %s='%s'", name.c_str(), value.c_str());
 
   _string_parameters[name] = value;
   return Status::Ok();
@@ -157,7 +158,7 @@ Status Processor::setup(const ProcessorSpec* spec) {
     return Status::Error(sprintf("Processor %llx already set up.", id()));
   }
 
-  log(LogLevel::INFO, "Setting up processor %llx.", id());
+  _logger->info("Setting up processor %llx.", id());
   _spec.reset(spec_ptr.release());
 
   return Status::Ok();
@@ -166,7 +167,7 @@ Status Processor::setup(const ProcessorSpec* spec) {
 void Processor::cleanup() {
   if (_spec.get() != nullptr) {
     _spec.reset();
-    log(LogLevel::INFO, "Processor %llx cleaned up.", id());
+    _logger->info("Processor %llx cleaned up.", id());
   }
 }
 

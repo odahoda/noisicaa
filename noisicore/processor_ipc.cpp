@@ -13,7 +13,7 @@
 namespace noisicaa {
 
 ProcessorIPC::ProcessorIPC(HostData* host_data)
-  : Processor(host_data) {}
+  : Processor("noisicore.processor.ipc", host_data) {}
 
 ProcessorIPC::~ProcessorIPC() {}
 
@@ -96,7 +96,7 @@ Status ProcessorIPC::run(BlockContext* ctxt) {
     } else if (buffer.getId() == "output:1") {
       p = 1;
     } else {
-      log(LogLevel::WARNING, "Ignoring unexpected buffer %s", buffer.getId().cStr());
+      _logger->warning("Ignoring unexpected buffer %s", buffer.getId().cStr());
       continue;
     }
 
@@ -107,7 +107,7 @@ Status ProcessorIPC::run(BlockContext* ctxt) {
 
   for (int p = 0 ; p < 2 ; ++p) {
     if (!ports_written[p]) {
-      log(LogLevel::WARNING, "Expected buffer output:%d not received", p);
+      _logger->warning("Expected buffer output:%d not received", p);
       memset(_ports[p], 0, ctxt->block_size * sizeof(float));
     }
   }

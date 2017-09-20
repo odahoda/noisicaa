@@ -27,8 +27,9 @@ Status set_blocking(int fd, int blocking) {
 
 namespace noisicaa {
 
-AudioStreamBase::AudioStreamBase(const string& address)
-  : _address(address) {}
+AudioStreamBase::AudioStreamBase(const char* logger_name, const string& address)
+  : _logger(LoggerRegistry::get_logger(logger_name)),
+    _address(address) {}
 
 AudioStreamBase::~AudioStreamBase() {
   cleanup();
@@ -60,7 +61,7 @@ Status AudioStreamBase::fill_buffer() {
       _buffer.append(buf, num_bytes);
       return Status::Ok();
     } else if (fds.revents & POLLHUP) {
-      log(LogLevel::WARNING, "Pipe disconnected");
+      _logger->warning("Pipe disconnected");
       return Status::ConnectionClosed();
     }
 
@@ -147,7 +148,7 @@ Status AudioStreamBase::send_block(const capnp::BlockData::Builder& block) {
 }
 
 AudioStreamServer::AudioStreamServer(const string& address)
-  : AudioStreamBase(address) {}
+  : AudioStreamBase("noisicore.audio_stream.server", address) {}
 
 Status AudioStreamServer::setup() {
 //         logger.info("Serving from %s", self._address)
@@ -208,7 +209,7 @@ void AudioStreamServer::cleanup() {
 }
 
 AudioStreamClient::AudioStreamClient(const string& address)
-  : AudioStreamBase(address) {}
+  : AudioStreamBase("noisicore.audio_stream.client", address) {}
 
 Status AudioStreamClient::setup() {
 //         logger.info("Connecting to %s...", self._address)
@@ -242,7 +243,7 @@ void AudioStreamClient::cleanup() {
     while (request.size() > 0) {
       ssize_t bytes_written = write(_pipe_out, request.c_str(), request.size());
       if (bytes_written < 0) {
-	log(LogLevel::ERROR, "Failed to write to pipe.");
+	_logger->error("Failed to write to pipe.");
 	break;
       }
       request.erase(0, bytes_written);

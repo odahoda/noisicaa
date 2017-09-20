@@ -4,6 +4,7 @@
 #define _NOISICORE_BACKEND_H
 
 #include <string>
+#include "noisicaa/core/logging.h"
 #include "noisicore/status.h"
 #include "noisicore/buffers.h"
 
@@ -34,8 +35,9 @@ public:
   virtual Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) = 0;
 
 protected:
-  Backend(const BackendSettings& settings);
+  Backend(const char* logger_name, const BackendSettings& settings);
 
+  Logger* _logger;
   BackendSettings _settings;
   VM* _vm = nullptr;
 };

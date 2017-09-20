@@ -23,7 +23,7 @@ class BlockContext;
 
 class ProcessorCSoundBase : public Processor {
 public:
-  ProcessorCSoundBase(HostData* host_data);
+  ProcessorCSoundBase(const char* logger_name, HostData* host_data);
   ~ProcessorCSoundBase() override;
 
   Status setup(const ProcessorSpec* spec) override;

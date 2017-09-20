@@ -10,7 +10,7 @@
 namespace noisicaa {
 
 ProcessorLV2::ProcessorLV2(HostData* host_data)
-  : Processor(host_data) {}
+  : Processor("noisicore.processor.lv2", host_data) {}
 
 ProcessorLV2::~ProcessorLV2() {}
 

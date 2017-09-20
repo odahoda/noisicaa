@@ -14,12 +14,14 @@
 
 namespace noisicaa {
 
-Program::Program(uint32_t version) : version(version) {
-  log(LogLevel::INFO, "Created program v%d", version);
+Program::Program(Logger* logger, uint32_t version)
+  : version(version),
+    _logger(logger) {
+  _logger->info("Created program v%d", version);
 }
 
 Program::~Program() {
-  log(LogLevel::INFO, "Deleted program v%d", version);
+  _logger->info("Deleted program v%d", version);
 }
 
 Status Program::setup(HostData* host_data, const Spec* s, uint32_t block_size) {
@@ -37,7 +39,8 @@ Status Program::setup(HostData* host_data, const Spec* s, uint32_t block_size) {
 }
 
 VM::VM(HostData* host_data)
-  : _host_data(host_data),
+  : _logger(LoggerRegistry::get_logger("noisicore.vm")),
+    _host_data(host_data),
     _block_size(256),
     _next_program(nullptr),
     _current_program(nullptr),
@@ -80,7 +83,7 @@ Status VM::set_block_size(uint32_t block_size) {
 }
 
 Status VM::set_spec(const Spec* spec) {
-  unique_ptr<Program> program(new Program(_program_version++));
+  unique_ptr<Program> program(new Program(_logger, _program_version++));
 
   Status status = program->setup(_host_data, spec, _block_size);
   if (status.is_error()) { return status; }
@@ -167,7 +170,7 @@ Status VM::process_block(BlockContext* ctxt) {
   // been disposed of.
   Program* program = _next_program.exchange(nullptr);
   if (program != nullptr) {
-    log(LogLevel::INFO, "Activate program v%d", program->version);
+    _logger->info("Activate program v%d", program->version);
     Program* old_program = _current_program.exchange(program);
     old_program = _old_program.exchange(old_program);
     assert(old_program == nullptr);
@@ -190,7 +193,7 @@ Status VM::process_block(BlockContext* ctxt) {
   auto end_block = scopeGuard([&]() {
       Status status = backend->end_block(ctxt);
       if (status.is_error()) {
-	log(LogLevel::ERROR, "Ignore error in Backend::end_block(): %s", status.message().c_str());
+	_logger->error("Ignore error in Backend::end_block(): %s", status.message().c_str());
       }
     });
 
@@ -202,8 +205,7 @@ Status VM::process_block(BlockContext* ctxt) {
 
   uint32_t new_block_size = _block_size.load();
   if (new_block_size != program->block_size) {
-    log(LogLevel::INFO,
-	"Block size changed %d -> %d", program->block_size, new_block_size);
+    _logger->info("Block size changed %d -> %d", program->block_size, new_block_size);
     program->block_size = new_block_size;
 
     for(auto& buf : program->buffers) {
@@ -217,10 +219,10 @@ Status VM::process_block(BlockContext* ctxt) {
   if (ctxt->block_size == 0) {
     return Status::Error("Invalid block_size 0");
   }
-  log(LogLevel::INFO, "Process block [%d,%d]", ctxt->sample_pos, ctxt->block_size);
+  _logger->debug("Process block [%d,%d]", ctxt->sample_pos, ctxt->block_size);
 
   const Spec* spec = program->spec.get();
-  ProgramState state = { _host_data, program, backend, 0, false };
+  ProgramState state = { _logger, _host_data, program, backend, 0, false };
   while (!state.end) {
     if (state.p == spec->num_ops()) {
       break;

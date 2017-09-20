@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
+#include "noisicaa/core/logging.h"
 #include "noisicore/spec.h"
 #include "noisicore/status.h"
 #include "noisicore/processor.h"
@@ -22,7 +23,7 @@ class HostData;
 
 class Program {
 public:
-  Program(uint32_t version);
+  Program(Logger* logger, uint32_t version);
   ~Program();
 
   Status setup(HostData* host_data, const Spec* spec, uint32_t block_size);
@@ -32,9 +33,13 @@ public:
   unique_ptr<const Spec> spec;
   uint32_t block_size;
   vector<unique_ptr<Buffer>> buffers;
+
+private:
+  Logger* _logger;
 };
 
 struct ProgramState {
+  Logger* logger;
   HostData* host_data;
   Program* program;
   Backend* backend;
@@ -68,6 +73,7 @@ public:
   Buffer* get_buffer(const string& name);
 
 private:
+  Logger* _logger;
   HostData* _host_data;
   atomic<uint32_t> _block_size;
   atomic<Program*> _next_program;

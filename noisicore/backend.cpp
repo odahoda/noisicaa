@@ -6,8 +6,9 @@
 
 namespace noisicaa {
 
-Backend::Backend(const BackendSettings& settings)
-  : _settings(settings) {}
+Backend::Backend(const char* logger_name, const BackendSettings& settings)
+  : _logger(LoggerRegistry::get_logger(logger_name)),
+    _settings(settings) {}
 
 Backend::~Backend() {
   cleanup();

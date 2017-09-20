@@ -3,7 +3,7 @@
 namespace noisicaa {
 
 ProcessorNull::ProcessorNull(HostData* host_data)
-  : Processor(host_data) {}
+  : Processor("noisicore.processor.null", host_data) {}
 ProcessorNull::~ProcessorNull() {}
 
 Status ProcessorNull::setup(const ProcessorSpec* spec) {

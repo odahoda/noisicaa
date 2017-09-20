@@ -94,6 +94,9 @@ def main(argv):
     constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
     constants.TEST_OPTS.ENABLE_PROFILER = args.profile
 
+    from noisicaa import core
+    core.init_pylogging()
+
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
 

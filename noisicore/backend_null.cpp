@@ -5,7 +5,7 @@
 namespace noisicaa {
 
 NullBackend::NullBackend(const BackendSettings& settings)
-  : Backend(settings) {}
+  : Backend("noisicore.backend.null", settings) {}
 NullBackend::~NullBackend() {}
 
 Status NullBackend::setup(VM* vm) {

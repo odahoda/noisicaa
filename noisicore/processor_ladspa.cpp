@@ -7,7 +7,7 @@
 namespace noisicaa {
 
 ProcessorLadspa::ProcessorLadspa(HostData* host_data)
-  : Processor(host_data) {}
+  : Processor("noisicore.processor.ladspa", host_data) {}
 
 ProcessorLadspa::~ProcessorLadspa() {}
 

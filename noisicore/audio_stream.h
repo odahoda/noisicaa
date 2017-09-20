@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <capnp/message.h>
 #include <capnp/serialize.h>
+#include "noisicaa/core/logging.h"
 #include "noisicore/status.h"
 #include "noisicore/block_data.capnp.h"
 
@@ -15,7 +16,7 @@ using namespace std;
 
 class AudioStreamBase {
 public:
-  AudioStreamBase(const string& address);
+  AudioStreamBase(const char* logger_name, const string& address);
   virtual ~AudioStreamBase();
 
   virtual Status setup();
@@ -34,6 +35,7 @@ public:
   Status send_block(const capnp::BlockData::Builder& builder);
 
 protected:
+  Logger* _logger;
   string _address;
   int _pipe_in = -1;
   int _pipe_out = -1;

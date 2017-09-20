@@ -1,13 +1,16 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- playback becomes slower over time...
 - reimplement sample_player
+- playback becomes slower over time...
 - Better handling of partial blocks in player
   - control/sample tracks should always produce complete blocks, padded with zeros
+  - currently produces a short buffer at end of playback (triggering an assert in the VM)
+- capture fluidsynth logs
+- capture csound logs
 - Properly handle stopped backend
-- Hook up log with python logging
-  - should have a lockfree queue in-between
+- Put a lockfree queue between C++ logging and Python logging
+  - only need that in the performance thread...
 - capnp API is really awful. strongly consider rolling a custom format for FrameData
   - are there any other places, where I care about zero-copy deserialization?
 - get rid of AST

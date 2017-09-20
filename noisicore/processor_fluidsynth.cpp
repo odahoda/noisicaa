@@ -6,7 +6,7 @@
 namespace noisicaa {
 
 ProcessorFluidSynth::ProcessorFluidSynth(HostData* host_data)
-  : Processor(host_data) {}
+  : Processor("noisicore.processor.fluidsynth", host_data) {}
 
 ProcessorFluidSynth::~ProcessorFluidSynth() {}
 
@@ -26,7 +26,7 @@ Status ProcessorFluidSynth::setup(const ProcessorSpec* spec) {
   if (stor_preset.is_error()) { return stor_preset; }
   int64_t preset = stor_preset.result();
 
-  log(LogLevel::INFO, "Setting up fluidsynth processor for %s, bank=%d, preset=%d",
+  _logger->info("Setting up fluidsynth processor for %s, bank=%d, preset=%d",
       soundfont_path.c_str(), bank, preset);
 
   _settings = new_fluid_settings();
@@ -165,18 +165,18 @@ Status ProcessorFluidSynth::run(BlockContext* ctxt) {
       if ((midi[0] & 0xf0) == 0x90) {
 	int rc = fluid_synth_noteon(_synth, 0, midi[1], midi[2]);
 	if (rc == FLUID_FAILED) {
-	  log(LogLevel::WARNING, "noteon failed.");
+	  _logger->warning("noteon failed.");
 	}
       } else if ((midi[0] & 0xf0) == 0x80) {
 	int rc = fluid_synth_noteoff(_synth, 0, midi[1]);
 	if (rc == FLUID_FAILED) {
-	  log(LogLevel::WARNING, "noteoff failed.");
+	  _logger->warning("noteoff failed.");
 	}
       } else {
-	log(LogLevel::WARNING, "Ignoring unsupported midi event %d.", midi[0] & 0xf0);
+	_logger->warning("Ignoring unsupported midi event %d.", midi[0] & 0xf0);
       }
     } else {
-      log(LogLevel::WARNING, "Ignoring event %d in sequence.", event->body.type);
+      _logger->warning("Ignoring event %d in sequence.", event->body.type);
     }
 
     event = lv2_atom_sequence_next(event);

@@ -71,7 +71,7 @@ Status run_FETCH_BUFFER(BlockContext* ctxt, ProgramState* state, const vector<Op
 
   const auto& it = ctxt->buffers.find(in_buf_name);
   if (it == ctxt->buffers.end()) {
-    log(LogLevel::WARNING, "Buffer %s not found in block context.", in_buf_name.c_str());
+    state->logger->warning("Buffer %s not found in block context.", in_buf_name.c_str());
     out_buf->clear();
     return Status::Ok();
   }
@@ -192,7 +192,7 @@ Status run_LOG_RMS(BlockContext* ctxt, ProgramState* state, const vector<OpArg>&
     sum += data[i] * data[i];
   }
 
-  log(LogLevel::INFO, "Block %d, rms=%.3f", idx, sum / ctxt->block_size);
+  state->logger->info("Block %d, rms=%.3f", idx, sum / ctxt->block_size);
 
   return Status::Ok();
 }
@@ -208,7 +208,7 @@ Status run_LOG_ATOM(BlockContext* ctxt, ProgramState* state, const vector<OpArg>
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
 
   while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)) {
-    log(LogLevel::INFO, "Buffer %d, event %d @%d", idx, event->body.type, event->time.frames);
+    state->logger->info("Buffer %d, event %d @%d", idx, event->body.type, event->time.frames);
     event = lv2_atom_sequence_next(event);
   }
 
