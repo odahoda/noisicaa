@@ -62,11 +62,3 @@ class TestSpec(unittest.TestCase):
         arg = &spec.get_oparg(2, 1)
         self.assertEqual(arg.type(), OpArgType.INT)
         self.assertEqual(arg.int_value(), 2)
-
-
-if __name__ == '__main__':
-    test_loader = unittest.TestLoader()
-    suite = test_loader.loadTestsFromTestCase(TestSpec)
-    runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
-    sys.exit(0 if result.wasSuccessful() else 1)

@@ -300,15 +300,3 @@ class TestAtomData(unittest.TestCase):
         self.assertEqual(
             _read_atom_buffer(buf2),
             [(1, b'1'), (9, b'9'), (11, b'11'), (15, b'15')])
-
-
-
-if __name__ == '__main__':
-    test_loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
-    suite.addTests(test_loader.loadTestsFromTestCase(TestFloat))
-    suite.addTests(test_loader.loadTestsFromTestCase(TestFloatAudioBlock))
-    suite.addTests(test_loader.loadTestsFromTestCase(TestAtomData))
-    runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
-    sys.exit(0 if result.wasSuccessful() else 1)

@@ -229,11 +229,3 @@ class TestVM(unittest.TestCase):
         self.assertEqual(buf.size(), 1024)
 
         vm.cleanup()
-
-
-if __name__ == '__main__':
-    test_loader = unittest.TestLoader()
-    suite = test_loader.loadTestsFromTestCase(TestVM)
-    runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
-    sys.exit(0 if result.wasSuccessful() else 1)
