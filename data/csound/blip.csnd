@@ -10,8 +10,9 @@
 <parameters>
 </parameters>
 <orchestra>
-ksmps=32
-nchnls=2
+0dbfs = 1.0
+ksmps = 32
+nchnls = 2
 
 gaOutL chnexport "out/left", 2
 gaOutR chnexport "out/right", 2

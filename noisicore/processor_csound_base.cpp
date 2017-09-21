@@ -54,6 +54,11 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
     return Status::Error(sprintf("Failed to compile Csound orchestra (code %d)", rc));
   }
 
+  double zerodbfs = csoundGet0dBFS(instance->csnd);
+  if (zerodbfs != 1.0) {
+    return Status::Error(sprintf("Csound orchestra must set 0dbfs=1.0 (found %f)", zerodbfs));
+  }
+
   rc = csoundStart(instance->csnd);
   if (rc < 0) {
     return Status::Error(sprintf("Failed to start Csound (code %d)", rc));
