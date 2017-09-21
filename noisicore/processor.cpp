@@ -7,6 +7,8 @@
 #include "noisicore/processor_ladspa.h"
 #include "noisicore/processor_lv2.h"
 #include "noisicore/processor_csound.h"
+#include "noisicore/processor_custom_csound.h"
+#include "noisicore/processor_sample_player.h"
 #include "noisicore/processor_ipc.h"
 #include "noisicore/processor_fluidsynth.h"
 
@@ -37,6 +39,8 @@ StatusOr<Processor*> Processor::create(HostData* host_data, const string& name) 
     return new ProcessorIPC(host_data);
   } else if (name == "fluidsynth") {
     return new ProcessorFluidSynth(host_data);
+  } else if (name == "sample_player") {
+    return new ProcessorSamplePlayer(host_data);
   }
 
   return Status::Error(sprintf("Invalid processor name '%s'", name.c_str()));

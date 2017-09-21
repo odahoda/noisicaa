@@ -1,9 +1,8 @@
 // -*- mode: c++ -*-
 
-#ifndef _NOISICORE_PROCESSOR_CSOUND_H
-#define _NOISICORE_PROCESSOR_CSOUND_H
+#ifndef _NOISICORE_PROCESSOR_CUSTOM_CSOUND_H
+#define _NOISICORE_PROCESSOR_CUSTOM_CSOUND_H
 
-#include "noisicore/status.h"
 #include "noisicore/processor_csound_base.h"
 
 namespace noisicaa {
@@ -13,9 +12,9 @@ using namespace std;
 class HostData;
 class ProcessorSpec;
 
-class ProcessorCSound : public ProcessorCSoundBase {
+class ProcessorCustomCSound : public ProcessorCSoundBase {
 public:
-  ProcessorCSound(HostData* host_data);
+  ProcessorCustomCSound(HostData* host_data);
 
   Status setup(const ProcessorSpec* spec) override;
   void cleanup() override;

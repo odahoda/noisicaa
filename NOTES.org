@@ -1,7 +1,18 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- reimplement sample_player
+- execptions get swallowed by logging callback?
+  - cython tests fail with
+    SystemError: <cyfunction TestProcessorSamplePlayer.test_sample_player at 0x7ffff5f68328> returned NULL without setting an error
+  - dump to stderr:
+    Exception ignored in: 'noisicaa.core.logging.pylogging_cb'
+    Traceback (most recent call last):
+      File "processor_sample_player_test.pyx", line 66, in noisicore.processor_sample_player_test.TestProcessorSamplePlayer.test_sample_player
+      File "/usr/lib/python3.5/unittest/case.py", line 678, in assertTrue
+        raise self.failureException(msg)
+    AssertionError: False is not true
+- rename sprintf to something less ambiguous
+- Status::Error(fmt, ...)
 - playback becomes slower over time...
 - Better handling of partial blocks in player
   - control/sample tracks should always produce complete blocks, padded with zeros

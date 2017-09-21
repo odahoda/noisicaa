@@ -166,7 +166,7 @@ class BuiltinScanner(scanner.Scanner):
             'builtin://sample_player',
             node_db.ProcessorDescription(
                 display_name='Sampler',
-                processor_name='null',  # TODO: 'sample_player',
+                processor_name='sample_player',
                 ports=[
                     node_db.EventPortDescription(
                         name='in',

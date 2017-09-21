@@ -18,9 +18,12 @@ set(LIB_SRCS
   processor_null.cpp
   processor_ladspa.cpp
   processor_lv2.cpp
+  processor_csound_base.cpp
   processor_csound.cpp
+  processor_custom_csound.cpp
   processor_ipc.cpp
   processor_fluidsynth.cpp
+  processor_sample_player.cpp
   spec.cpp
   vm.cpp
 )
@@ -36,6 +39,7 @@ set(TEST_SRCS
   processor_csound_test.pyx
   processor_ipc_test.pyx
   processor_fluidsynth_test.pyx
+  processor_sample_player_test.pyx
   spec_test.pyx
   vm_test.pyx
 )
