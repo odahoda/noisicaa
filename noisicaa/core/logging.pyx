@@ -1,8 +1,8 @@
 import logging
 
 cdef void pylogging_cb(
-    void* handle, const char* c_logger, LogLevel c_level, const char* c_msg) with gil:
-    logger = bytes(c_logger).decode('utf-8')
+    void* handle, const char* c_logger_name, LogLevel c_level, const char* c_msg) with gil:
+    logger_name = bytes(c_logger_name).decode('utf-8')
     level = {
         LogLevel.DEBUG: logging.DEBUG,
         LogLevel.INFO: logging.INFO,
@@ -11,7 +11,7 @@ cdef void pylogging_cb(
         }[c_level]
     msg = bytes(c_msg).decode('utf-8')
 
-    logger = logging.getLogger(logger)
+    logger = logging.getLogger(logger_name)
     logger.log(level, msg)
 
 
