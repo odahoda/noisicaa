@@ -16,6 +16,8 @@ cdef void pylogging_cb(
 
 
 def init_pylogging():
-    cdef LogSink* sink = new PyLogSink(NULL, pylogging_cb)
-    LoggerRegistry.get_registry().set_sink(sink)
-
+    # Not activating the PyLogSink, because it screws up exception handling.
+    # See https://github.com/cython/cython/issues/1877
+    # cdef LogSink* sink = new PyLogSink(NULL, pylogging_cb)
+    # LoggerRegistry.get_registry().set_sink(sink)
+    pass
