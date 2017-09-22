@@ -73,7 +73,8 @@ void VM::cleanup() {
 Status VM::add_processor(Processor* processor) {
   unique_ptr<Processor> ptr(processor);
   assert(_processors.find(processor->id()) == _processors.end());
-  _processors.emplace(processor->id(), new ActiveProcessor(ptr.release()));
+  _processors.emplace(
+       processor->id(), unique_ptr<ActiveProcessor>(new ActiveProcessor(ptr.release())));
   return Status::Ok();
 }
 

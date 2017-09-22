@@ -105,7 +105,7 @@ Logger* LoggerRegistry::_get_logger(const char *name) {
   }
 
   Logger* logger = new Logger(name, this);
-  _loggers.emplace(logger->name(), logger);
+  _loggers.emplace(logger->name(), unique_ptr<Logger>(logger));
   return logger;
 }
 

@@ -22,7 +22,7 @@ pkg_check_modules(LIBFLUIDSYNTH REQUIRED fluidsynth)
 set(LIBCSOUND_INCLUDE_DIRS)
 set(LIBCSOUND_LIBRARIES csound64)
 
-add_compile_options(-g)
+add_compile_options(-g -std=c++11)
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_BINARY_DIR})
 include_directories($ENV{VIRTUAL_ENV}/include)

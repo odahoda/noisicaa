@@ -3,8 +3,9 @@
 using Cxx = import "/capnp/c++.capnp";
 $Cxx.namespace("noisicaa::capnp");
 
-using import "/noisicaa/core/message.capnp".Message;
-using import "/noisicaa/core/perf_stats.capnp".PerfStats;
+# Absolute imports don't work reliably with Python.
+using import "../noisicaa/core/message.capnp".Message;
+using import "../noisicaa/core/perf_stats.capnp".PerfStats;
 
 struct Buffer {
   id @0 :Text;

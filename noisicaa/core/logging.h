@@ -17,13 +17,6 @@ enum LogLevel {
   DEBUG, INFO, WARNING, ERROR
 };
 
-struct LogRecord {
-  LogLevel level;
-  size_t logger_length;
-  size_t msg_length;
-  char data[];
-};
-
 class LogSink {
 public:
   ~LogSink();
