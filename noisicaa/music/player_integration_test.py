@@ -194,7 +194,7 @@ class PlayerTest(asynctest.TestCase):
         finally:
             listener.remove()
 
-    @unittest.skip("TODO: crashes at end of sheet.")
+    @unittest.skip("TODO: clean backend shutdown doesn't work.")
     async def test_playback_demo(self):
         logger.info("Yo!")
         p = player.Player(self.sheet, self.callback_server.address, self.mock_manager, self.loop)

@@ -216,7 +216,7 @@ class BufferSource(object):
     def close(self):
         pass
 
-    def get_buffers(self, buffers, start_pos, end_pos, frame_sample_pos):
+    def get_buffers(self, ctxt):
         raise NotImplementedError
 
 
@@ -234,9 +234,9 @@ class EventSetBufferSource(BufferSource):
         self.__connector.close()
         super().close()
 
-    def get_buffers(self, buffers, start_sample_pos, end_sample_pos, frame_sample_pos):
-        start_timepos = self.__time_mapper.sample2timepos(start_sample_pos)
-        end_timepos = self.__time_mapper.sample2timepos(end_sample_pos)
+    def get_buffers(self, ctxt):
+        start_timepos = self.__time_mapper.sample2timepos(ctxt.sample_pos)
+        end_timepos = self.__time_mapper.sample2timepos(ctxt.sample_pos + ctxt.length)
         buffer_id = 'track:%s' % self._track.id
 
         data = bytearray(10240)
@@ -245,7 +245,7 @@ class EventSetBufferSource(BufferSource):
 
         with forge.sequence():
             try:
-                buf = buffers[buffer_id]
+                buf = ctxt.buffers[buffer_id]
             except KeyError:
                 pass
             else:
@@ -259,17 +259,17 @@ class EventSetBufferSource(BufferSource):
             for event in sorted(self.__event_set.get_intervals(start_timepos, end_timepos)):
                 if event.begin >= start_timepos:
                     sample_pos = self.__time_mapper.timepos2sample(event.begin)
-                    assert start_sample_pos <= sample_pos < end_sample_pos
+                    assert ctxt.sample_pos <= sample_pos < ctxt.sample_pos + ctxt.length
                     forge.write_midi_event(
-                        sample_pos - start_sample_pos + frame_sample_pos,
+                        sample_pos - ctxt.sample_pos + ctxt.offset,
                         bytes([0b10010000, event.pitch.midi_note, event.velocity]),
                         3)
 
                 if event.end < end_timepos:
                     sample_pos = self.__time_mapper.timepos2sample(event.end)
-                    assert start_sample_pos <= sample_pos < end_sample_pos
+                    assert ctxt.sample_pos <= sample_pos < ctxt.sample_pos + ctxt.length
                     forge.write_midi_event(
-                        sample_pos - start_sample_pos + frame_sample_pos,
+                        sample_pos - ctxt.sample_pos + ctxt.offset,
                         bytes([0b10000000, event.pitch.midi_note, 0]),
                         3)
 
@@ -277,7 +277,7 @@ class EventSetBufferSource(BufferSource):
         buf.id = buffer_id
         buf.data = bytes(data)
 
-        buffers[buffer_id] = buf
+        ctxt.buffers[buffer_id] = buf
 
 
 class MeasuredEventSetConnector(object):

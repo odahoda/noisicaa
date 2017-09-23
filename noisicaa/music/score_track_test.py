@@ -11,6 +11,7 @@ from noisicaa.node_db.private import db as node_db
 
 from . import event_set
 from . import pitch
+from . import player
 from . import project
 from . import score_track
 
@@ -71,7 +72,10 @@ class ScoreBufferSourceTest(asynctest.TestCase):
         src = score_track.ScoreBufferSource(tr)
 
         buffers = {}
-        src.get_buffers(buffers, 0, 1024, 0)
+        ctxt = player.GetBuffersContext(buffers=buffers, block_size=1024)
+        ctxt.sample_pos = 0
+        ctxt.length = 1024
+        src.get_buffers(ctxt)
 
         buf = buffers['track:%s' % tr.id]
 

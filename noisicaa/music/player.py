@@ -43,6 +43,15 @@ class BackendState(enum.Enum):
     Stopping = 'stopping'
 
 
+class GetBuffersContext(object):
+    def __init__(self, *, buffers, block_size):
+        self.buffers = buffers
+        self.block_size = block_size
+        self.sample_pos = None
+        self.offset = 0
+        self.length = None
+
+
 class BackendManager(object):
     def __init__(self, event_loop):
         self._event_loop = event_loop
@@ -337,19 +346,20 @@ class AudioStreamProxy(object):
                     with perf.track('get_track_buffers'):
                         duration = request.blockSize
                         out_sample_pos = request.samplePos
-                        frame_sample_pos = 0
-                        while duration > 0:
-                            end_pos = min(settings.sample_pos + duration, range_end)
-                            self._player.get_track_buffers(
-                                buffers,
-                                settings.sample_pos, end_pos,
-                                frame_sample_pos)
 
-                            duration -= end_pos - settings.sample_pos
-                            out_sample_pos += end_pos - settings.sample_pos
-                            frame_sample_pos += end_pos - settings.sample_pos
+                        ctxt = GetBuffersContext(
+                            buffers=buffers,
+                            block_size=request.blockSize)
+                        while ctxt.offset < request.blockSize:
+                            ctxt.sample_pos = settings.sample_pos
+                            ctxt.length = min(request.blockSize, range_end - settings.sample_pos)
+                            self._player.get_track_buffers(ctxt)
 
-                            if end_pos >= range_end:
+                            ctxt.offset += ctxt.length
+                            out_sample_pos += ctxt.length
+                            settings.sample_pos += ctxt.length
+
+                            if settings.sample_pos >= range_end:
                                 settings.sample_pos = range_start
                                 sample_pos_offset = out_sample_pos - settings.sample_pos
                                 if not settings.loop:
@@ -357,8 +367,6 @@ class AudioStreamProxy(object):
                                     self._player.publish_status_async(
                                         player_state=settings.state)
                                     break
-                            else:
-                                settings.sample_pos = end_pos
 
                 request.init(
                     'buffers',
@@ -677,9 +685,9 @@ class Player(object):
                 buffer_source = self.track_buffer_sources.pop(t.id)
                 buffer_source.close()
 
-    def get_track_buffers(self, buffers, start_pos, end_pos, frame_sample_pos):
+    def get_track_buffers(self, ctxt):
         for buffer_source in self.track_buffer_sources.values():
-            buffer_source.get_buffers(buffers, start_pos, end_pos, frame_sample_pos)
+            buffer_source.get_buffers(ctxt)
 
     def handle_pipeline_mutation(self, mutation):
         if self.pending_pipeline_mutations is not None:

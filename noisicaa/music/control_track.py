@@ -126,28 +126,26 @@ class ControlBufferSource(base_track.BufferSource):
 
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
-    def get_buffers(self, buffers, start_pos, end_pos, frame_sample_pos):
-        output = numpy.zeros(
-            shape=end_pos - start_pos + frame_sample_pos, dtype=numpy.float32)
+    def get_buffers(self, ctxt):
+        output = numpy.zeros(shape=ctxt.block_size, dtype=numpy.float32)
 
         buffer_id = 'track:%s' % self._track.id
         try:
-            buf = buffers[buffer_id]
+            buf = ctxt.buffers[buffer_id]
         except KeyError:
             pass
         else:
             # Copy prepend existing buffer.
-            assert len(buf.data) == frame_sample_pos * 4
-            output[:frame_sample_pos] = numpy.frombuffer(buf.data, dtype=numpy.float32)
+            output[:ctxt.offset] = numpy.frombuffer(
+                buf.data, count=ctxt.offset, dtype=numpy.float32)
 
-        duration = end_pos - start_pos
         if len(self._track.points) > 0:
-            timepos = self.time_mapper.sample2timepos(start_pos)
+            timepos = self.time_mapper.sample2timepos(ctxt.sample_pos)
             for point in self._track.points:
                 if timepos <= point.timepos:
                     if point.is_first:
-                        output[frame_sample_pos:] = numpy.full(
-                            duration, point.value, dtype=numpy.float32)
+                        output[ctxt.offset:ctxt.offset+ctxt.length] = numpy.full(
+                            ctxt.length, point.value, dtype=numpy.float32)
                     else:
                         prev = point.prev_sibling
 
@@ -158,12 +156,12 @@ class ControlBufferSource(base_track.BufferSource):
                             + (timepos - prev.timepos)
                             * (point.value - prev.value)
                             / (point.timepos - prev.timepos))
-                        output[frame_sample_pos:] = numpy.full(
-                            duration, value, dtype=numpy.float32)
+                        output[ctxt.offset:ctxt.offset+ctxt.length] = numpy.full(
+                            ctxt.length, value, dtype=numpy.float32)
                     break
             else:
-                output[frame_sample_pos:] = numpy.full(
-                    duration, self._track.points[-1].value, dtype=numpy.float32)
+                output[ctxt.offset:ctxt.offset+ctxt.length] = numpy.full(
+                    ctxt.length, self._track.points[-1].value, dtype=numpy.float32)
 
         else:
             output[frame_sample_pos:] = numpy.zeros(duration, dtype=numpy.float32)
@@ -172,7 +170,7 @@ class ControlBufferSource(base_track.BufferSource):
         buf = noisicore.Buffer.new_message()
         buf.id = buffer_id
         buf.data = bytes(data)
-        buffers[buffer_id] = buf
+        ctxt.buffers[buffer_id] = buf
 
 
 class ControlTrack(model.ControlTrack, base_track.Track):

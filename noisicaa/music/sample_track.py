@@ -172,32 +172,31 @@ class SampleBufferSource(base_track.BufferSource):
 
         self.time_mapper = time_mapper.TimeMapper(self._sheet)
 
-    def get_buffers(self, buffers, start_pos, end_pos, frame_sample_pos):
-        output = numpy.zeros(
-            shape=(end_pos - start_pos + frame_sample_pos, 2), dtype=numpy.float32)
+    def get_buffers(self, ctxt):
+        output = numpy.zeros(shape=(ctxt.block_size, 2), dtype=numpy.float32)
 
         buffer_left_id = 'track:%s:left' % self._track.id
         try:
-            buffer_left = buffers[buffer_left_id]
+            buffer_left = ctxt.buffers[buffer_left_id]
         except KeyError:
             pass
         else:
             # Copy events from existing buffer.
-            assert len(buffer_left.data) == frame_sample_pos * 4
-            output[:frame_sample_pos,0] = numpy.frombuffer(buffer_left.data, dtype=numpy.float32)
+            output[:ctxt.offset,0] = numpy.frombuffer(
+                buffer_left.data, count=ctxt.offset, dtype=numpy.float32)
 
         buffer_right_id = 'track:%s:right' % self._track.id
         try:
-            buffer_right = buffers[buffer_right_id]
+            buffer_right = ctxt.buffers[buffer_right_id]
         except KeyError:
             pass
         else:
             # Copy events from existing buffer.
-            assert len(buffer_right.data) == frame_sample_pos * 4
-            output[:frame_sample_pos,1] = numpy.frombuffer(buffer_right.data, dtype=numpy.float32)
+            output[:ctxt.offset,1] = numpy.frombuffer(
+                buffer_right.data, count=ctxt.offset, dtype=numpy.float32)
 
-        f1 = start_pos
-        f2 = end_pos
+        f1 = ctxt.sample_pos
+        f2 = ctxt.sample_pos + ctxt.length
 
         for sample_ref in self._track.samples:
             s1 = self.time_mapper.timepos2sample(sample_ref.timepos)
@@ -215,11 +214,11 @@ class SampleBufferSource(base_track.BufferSource):
 
             if f1 >= s1:
                 src = f1 - s1
-                dest = frame_sample_pos
-                length = min(end_pos - start_pos, s2 - f1)
+                dest = ctxt.offset
+                length = min(ctxt.length, s2 - f1)
             else:
                 src = 0
-                dest = s1 - f1 + frame_sample_pos
+                dest = s1 - f1 + ctxt.offset
                 length = min(s2, f2) - s1
 
             for ch in range(2):
@@ -229,13 +228,13 @@ class SampleBufferSource(base_track.BufferSource):
         buffer_left = noisicore.Buffer.new_message()
         buffer_left.id = buffer_left_id
         buffer_left.data = bytes(samples_left)
-        buffers[buffer_left_id] = buffer_left
+        ctxt.buffers[buffer_left_id] = buffer_left
 
         samples_right = output[:,1].tobytes()
         buffer_right = noisicore.Buffer.new_message()
         buffer_right.id = buffer_right_id
         buffer_right.data = bytes(samples_right)
-        buffers[buffer_right_id] = buffer_right
+        ctxt.buffers[buffer_right_id] = buffer_right
 
 
 class SampleTrack(model.SampleTrack, base_track.Track):
