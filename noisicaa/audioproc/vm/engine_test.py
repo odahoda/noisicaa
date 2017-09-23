@@ -114,7 +114,7 @@ class PipelineVMTest(unittest.TestCase):
         vm = engine.PipelineVM(host_data=self.host_data, block_size=4)
         vm.setup(start_thread=False)
         try:
-            vm.set_backend('null')
+            vm.set_backend('null', block_size=4)
             vm.set_spec(spec)
 
             ctxt = noisicore.BlockContext()

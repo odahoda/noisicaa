@@ -1,6 +1,7 @@
 #include "noisicaa/core/perf_stats.h"
 #include "noisicore/backend_null.h"
 #include "noisicore/block_context.h"
+#include "noisicore/vm.h"
 
 namespace noisicaa {
 
@@ -9,7 +10,15 @@ NullBackend::NullBackend(const BackendSettings& settings)
 NullBackend::~NullBackend() {}
 
 Status NullBackend::setup(VM* vm) {
-  return Backend::setup(vm);
+  Status status = Backend::setup(vm);
+  if (status.is_error()) { return status; }
+
+  if (_settings.block_size == 0) {
+   return Status::Error("Invalid block_size %d", _settings.block_size);
+  }
+
+  vm->set_block_size(_settings.block_size);
+  return Status::Ok();
 }
 
 void NullBackend::cleanup() {

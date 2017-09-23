@@ -95,6 +95,7 @@ class TestVM(unittest.TestCase):
         check(vm.setup())
 
         cdef BackendSettings backend_settings
+        backend_settings.block_size = 256
         cdef StatusOr[Backend*] stor_backend = Backend.create(b"null", backend_settings)
         check(stor_backend)
         check(vm.set_backend(stor_backend.result()))
@@ -138,6 +139,7 @@ class TestVM(unittest.TestCase):
         check(vm.setup())
 
         cdef BackendSettings backend_settings
+        backend_settings.block_size = 128
         cdef StatusOr[Backend*] stor_backend = Backend.create(b"null", backend_settings)
         check(stor_backend)
         check(vm.set_backend(stor_backend.result()))
@@ -204,6 +206,7 @@ class TestVM(unittest.TestCase):
         check(vm.setup())
 
         cdef BackendSettings backend_settings
+        backend_settings.block_size = 128
         cdef StatusOr[Backend*] stor_backend = Backend.create(b"null", backend_settings)
         check(stor_backend)
         check(vm.set_backend(stor_backend.result()))
