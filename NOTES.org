@@ -2,7 +2,6 @@
 
 * VM-based pipeline engine								      :FR:
 - rename sprintf to something less ambiguous
-- Status::Error(fmt, ...)
 - playback becomes slower over time...
 - Better handling of partial blocks in player
   - control/sample tracks should always produce complete blocks, padded with zeros
