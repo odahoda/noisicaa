@@ -80,7 +80,7 @@ class AudioPlaygroundApp(QtWidgets.QApplication):
             await client.setup()
             try:
                 await client.connect(audioproc.server.address)
-                await client.set_backend('pyaudio')
+                await client.set_backend('portaudio')
 
                 window.set_node_types(await client.list_node_types())
 

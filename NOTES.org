@@ -1,13 +1,15 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- rename sprintf to something less ambiguous
-- playback becomes slower over time...
 - Better handling of partial blocks in player
+  - reenable player_integration_test
   - control/sample tracks should always produce complete blocks, padded with zeros
   - currently produces a short buffer at end of playback (triggering an assert in the VM)
+- rename sprintf to something less ambiguous
+- playback becomes slower over time...
 - capture fluidsynth logs
 - capture csound logs
+  - use per instance callback
 - Properly handle stopped backend
 - Put a lockfree queue between C++ logging and Python logging
   - only need that in the performance thread...
@@ -49,8 +51,6 @@
 - use protos for PipelineMutations instead of pickled objects.
 - better test coverage
   - base class for node unittests
-- create FrameData wrapper class with pythonic API
-- move atom sequence mixing into atom.pyx
 - what about parameters?
   - handle as single float buffers
   - vm keeps map of parameter values
@@ -74,6 +74,9 @@
 - create TestProject class
   - has dummy node_db (with builtin stuff and selected other stuff)
 
+* Capture per-node logs									      :FR:
+- csound, lv2 log extensions, ...
+- logs tab in node IU
 * Improve noisicaa.core.stats_test							 :CLEANUP:
 The module's code changed a lot, but the unittest wasn't updated.
 

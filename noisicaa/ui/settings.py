@@ -111,7 +111,7 @@ class AppearancePage(Page):
         self.app.settings.setValue('appearance/qtStyle', style_name)
 
 
-class QFrameSizeSpinBox(QtWidgets.QSpinBox):
+class QBlockSizeSpinBox(QtWidgets.QSpinBox):
     def __init__(self):
         super().__init__()
 
@@ -127,7 +127,7 @@ class QFrameSizeSpinBox(QtWidgets.QSpinBox):
 class AudioPage(Page):
     def __init__(self, app):
         self.title = "Audio"
-        self._backends = ['pyaudio', 'null']
+        self._backends = ['portaudio', 'null']
         super().__init__(app)
 
     def getIcon(self):
@@ -138,21 +138,21 @@ class AudioPage(Page):
         backend_widget = QtWidgets.QComboBox()
         #backend_layout.addWidget(combo, stretch=1)
 
-        current = self.app.settings.value('audio/backend', 'pyaudio')
+        current = self.app.settings.value('audio/backend', 'portaudio')
         for index, backend in enumerate(self._backends):
             backend_widget.addItem(backend)
             if backend == current:
                 backend_widget.setCurrentIndex(index)
         backend_widget.currentIndexChanged.connect(self.backendChanged)
 
-        frame_size_widget = QFrameSizeSpinBox()
-        frame_size_widget.setValue(int(
-            self.app.settings.value('audio/frame_size', 10)))
-        frame_size_widget.valueChanged.connect(self.frameSizeChanged)
+        block_size_widget = QBlockSizeSpinBox()
+        block_size_widget.setValue(int(
+            self.app.settings.value('audio/block_size', 10)))
+        block_size_widget.valueChanged.connect(self.blockSizeChanged)
 
         main_layout = QtWidgets.QFormLayout()
         main_layout.addRow("Backend:", backend_widget)
-        main_layout.addRow("Block size:", frame_size_widget)
+        main_layout.addRow("Block size:", block_size_widget)
 
         layout.addLayout(main_layout)
 
@@ -173,22 +173,22 @@ class AudioPage(Page):
         self.call_async(
             self.app.audioproc_client.set_backend(
                 backend,
-                frame_size=2 ** int(self.app.settings.value('audio/frame_size', 10))),
+                block_size=2 ** int(self.app.settings.value('audio/block_size', 10))),
             callback=functools.partial(
                 self._set_backend_done, backend=backend))
 
     def _set_backend_done(self, result, backend):
         self.app.settings.setValue('audio/backend', backend)
 
-    def frameSizeChanged(self, frame_size):
+    def blockSizeChanged(self, block_size):
         self.call_async(
             self.app.audioproc_client.set_backend_parameters(
-                frame_size=2 ** frame_size),
+                block_size=2 ** block_size),
             callback=functools.partial(
-                self._set_frame_size_done, frame_size=frame_size))
+                self._set_block_size_done, block_size=block_size))
 
-    def _set_frame_size_done(self, result, frame_size):
-        self.app.settings.setValue('audio/frame_size', frame_size)
+    def _set_block_size_done(self, result, block_size):
+        self.app.settings.setValue('audio/block_size', block_size)
 
     def testBackend(self):
         self.call_async(self._testBackendAsync())
