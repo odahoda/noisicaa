@@ -105,10 +105,11 @@ cdef class PipelineVM(object):
         logger.info("VM up and running.")
 
     def cleanup(self):
-        # if self.__backend is not None:
-        #     logger.info("Stopping backend...")
-        #     self.__backend.stop()
-        #     logger.info("Backend stopped...")
+        if self.__vm != NULL:
+            backend = self.__vm.backend()
+            if backend != NULL:
+                logger.info("Stopping backend...")
+                backend.stop()
 
         if self.__vm_thread is not None:  # pragma: no branch
             logger.info("Shutting down VM thread...")
@@ -244,6 +245,8 @@ cdef class PipelineVM(object):
             logger.info("VM finished.")
 
     def vm_loop(self):
+        cdef Backend* backend
+
         cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.sample_pos = 0
         ctxt.block_size = self.__block_size
@@ -253,10 +256,10 @@ cdef class PipelineVM(object):
                 logger.info("Exiting VM mainloop.")
                 break
 
-            # backend = self.__backend
-            # if backend is None:
-            #     time.sleep(0.1)
-            #     continue
+            backend = self.__vm.backend()
+            if backend != NULL and backend.stopped():
+                logger.info("Backend stopped, exiting VM mainloop.")
+                break
 
             if len(ctxt.perf) > 0:
                 self.listeners.call('perf_data', ctxt.perf.serialize())

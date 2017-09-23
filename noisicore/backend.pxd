@@ -21,6 +21,9 @@ cdef extern from "noisicore/backend.h" namespace "noisicaa" nogil:
         Status end_block(BlockContext* ctxt)
         Status output(BlockContext* ctxt, const string& channel, BufferPtr samples)
 
+        void stop()
+        bool stopped() const
+
 
 cdef class PyBackendSettings(object):
     cdef BackendSettings __settings

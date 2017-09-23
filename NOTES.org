@@ -1,8 +1,6 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
-- Properly handle stopped backend
-  - reenable player_integration_test
 - rename sprintf to something less ambiguous
 - playback becomes slower over time...
 - capture fluidsynth logs

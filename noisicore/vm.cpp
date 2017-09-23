@@ -198,6 +198,11 @@ Status VM::process_block(BlockContext* ctxt) {
       }
     });
 
+  if (backend->stopped()) {
+    _logger->debug("Backend stopped.");
+    return Status::Ok();
+  }
+
   bool run_init = false;
 
   if (!program->initialized) {

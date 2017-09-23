@@ -19,5 +19,6 @@ cdef extern from "noisicore/vm.h" namespace "noisicaa" nogil:
         Status set_block_size(uint32_t block_size)
         Status set_spec(const Spec* spec)
         Status set_backend(Backend* backend)
+        Backend* backend() const
         Status process_block(BlockContext* ctxt)
         Buffer* get_buffer(const string& name)

@@ -47,13 +47,16 @@ void IPCBackend::cleanup() {
 }
 
 Status IPCBackend::begin_block(BlockContext* ctxt) {
-  // try:
-
   StatusOr<string> stor_request_bytes = _stream->receive_bytes();
 
   assert(ctxt->perf->current_span_id() == 0);
   ctxt->perf->start_span("frame");
 
+  if (stor_request_bytes.is_connection_closed()) {
+    _logger->warning("Stopping IPC backend...");
+    stop();
+    return Status::Ok();
+  }
   if (stor_request_bytes.is_error()) { return stor_request_bytes; }
 
   ctxt->perf->start_span("parse_request");
@@ -92,10 +95,6 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
   for (int c = 0 ; c < 2 ; ++c) {
     _channel_written[c] = false;
   }
-
-  // except audio_stream.StreamClosed:
-  //     logger.warning("Stopping IPC backend.")
-  //     self.stop()
 
   return Status::Ok();
 }
@@ -139,10 +138,10 @@ Status IPCBackend::end_block(BlockContext* ctxt) {
     ospan.setEndTimeNSec(ispan.end_time_nsec);
   }
 
-  Status status = _stream->send_block(_out_block);
-  if (status.is_error()) { return status; }
-
-        // self.__out_frame = None
+  if (!stopped()) {
+    Status status = _stream->send_block(_out_block);
+    if (status.is_error()) { return status; }
+  }
 
   return Status::Ok();
 }

@@ -50,24 +50,21 @@ class TestIPCBackend(unittest.TestCase):
             cdef float buf[4]
             cdef PyBlockContext ctxt = PyBlockContext()
 
-            try:
-                while True:
-                    with nogil:
-                        status = be.begin_block(ctxt.get())
-                    check(status)
+            while True:
+                with nogil:
+                    check(be.begin_block(ctxt.get()))
 
-                    buf[0:4] = [0.0, 0.5, 1.0, 0.5]
-                    check(be.output(ctxt.get(), b"left", <BufferPtr>buf))
+                if be.stopped():
+                    break
 
-                    buf[0:4] = [0.0, -0.5, -1.0, -0.5]
-                    check(be.output(ctxt.get(), b"right", <BufferPtr>buf))
+                buf[0:4] = [0.0, 0.5, 1.0, 0.5]
+                check(be.output(ctxt.get(), b"left", <BufferPtr>buf))
 
-                    with nogil:
-                        status = be.end_block(ctxt.get())
-                    check(status)
+                buf[0:4] = [0.0, -0.5, -1.0, -0.5]
+                check(be.output(ctxt.get(), b"right", <BufferPtr>buf))
 
-            except ConnectionClosed:
-                pass
+                with nogil:
+                    check(be.end_block(ctxt.get()))
 
         thread = threading.Thread(target=backend_thread)
         thread.start()

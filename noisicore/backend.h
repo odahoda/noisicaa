@@ -34,12 +34,16 @@ public:
   virtual Status end_block(BlockContext* ctxt) = 0;
   virtual Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) = 0;
 
+  void stop() { _stopped = true; }
+  bool stopped() const { return _stopped; }
+
 protected:
   Backend(const char* logger_name, const BackendSettings& settings);
 
   Logger* _logger;
   BackendSettings _settings;
   VM* _vm = nullptr;
+  bool _stopped = false;
 };
 
 }  // namespace noisicaa

@@ -27,6 +27,7 @@ StatusOr<Backend*> Backend::create(const string& name, const BackendSettings& se
 
 Status Backend::setup(VM* vm) {
   _vm = vm;
+  _stopped = false;
   return Status::Ok();
 }
 
