@@ -126,7 +126,7 @@ class PlayerTest(asynctest.TestCase):
         await self.audioproc_client_main.setup()
         await self.audioproc_client_main.connect(
             self.audioproc_server_main.server.address, flags={'perf_data'})
-        await self.audioproc_client_main.set_backend('portaudio')
+        await self.audioproc_client_main.set_backend(constants.TEST_OPTS.PLAYBACK_BACKEND)
 
         profile_path = None
         if constants.TEST_OPTS.ENABLE_PROFILER:

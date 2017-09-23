@@ -67,9 +67,6 @@
   - different buffer types for events (native, atom, ...)
   - auto convert as needed
 
-* select playback backend for tests							      :FR:
-- for tests that to real playback, use null backend by default
-- can override with --backend=... flag to runtests
 * Reduce duplication in noisicaa/music/*_test.py					 :CLEANUP:
 - create TestProject class
   - has dummy node_db (with builtin stuff and selected other stuff)

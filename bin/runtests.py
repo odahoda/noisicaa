@@ -44,6 +44,7 @@ def main(argv):
     parser.add_argument('--profile', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--gdb', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--rebuild', nargs='?', type=bool_arg, const=True, default=True)
+    parser.add_argument('--playback-backend', type=str, default='null')
     args = parser.parse_args(argv[1:])
 
     if args.gdb:
@@ -93,6 +94,7 @@ def main(argv):
     from noisicaa import constants
     constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
     constants.TEST_OPTS.ENABLE_PROFILER = args.profile
+    constants.TEST_OPTS.PLAYBACK_BACKEND = args.playback_backend
 
     from noisicaa import core
     core.init_pylogging()

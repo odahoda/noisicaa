@@ -38,6 +38,7 @@ TESTLOG_DIR = os.path.abspath(os.path.join(__file__, '..', '..', 'testlogs'))
 class TEST_OPTS(object):
     WRITE_PERF_STATS = False
     ENABLE_PROFILER = False
+    PLAYBACK_BACKEND = 'null'
 
 # Cleanup namespace
 del os

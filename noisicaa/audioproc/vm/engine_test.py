@@ -6,6 +6,7 @@ import threading
 import unittest
 
 import noisicore
+from noisicaa import constants
 from noisicaa import node_db
 from noisicaa import audioproc
 from .. import nodes
@@ -291,7 +292,7 @@ class PipelineVMTest(unittest.TestCase):
         vm = engine.PipelineVM(host_data=self.host_data, block_size=256)
         try:
             vm.setup(start_thread=False)
-            vm.set_backend('portaudio', block_size=4096)
+            vm.set_backend(constants.TEST_OPTS.PLAYBACK_BACKEND, block_size=4096)
 
             spec = noisicore.Spec()
             spec.append_buffer('buf1', noisicore.FloatAudioBlock())

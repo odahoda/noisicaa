@@ -4,6 +4,7 @@ from libcpp.string cimport string
 import unittest
 import sys
 
+from noisicaa import constants
 from noisicaa.core.status cimport *
 from .spec cimport *
 from .block_context cimport *
@@ -31,7 +32,8 @@ class TestVM(unittest.TestCase):
 
         cdef BackendSettings backend_settings
         backend_settings.block_size = 4096
-        cdef StatusOr[Backend*] stor_backend = Backend.create(b"portaudio", backend_settings)
+        cdef StatusOr[Backend*] stor_backend = Backend.create(
+            constants.TEST_OPTS.PLAYBACK_BACKEND.encode('ascii'), backend_settings)
         check(stor_backend)
         check(vm.set_backend(stor_backend.result()))
 
