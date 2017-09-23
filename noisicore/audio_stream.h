@@ -7,7 +7,7 @@
 #include <capnp/message.h>
 #include <capnp/serialize.h>
 #include "noisicaa/core/logging.h"
-#include "noisicore/status.h"
+#include "noisicaa/core/status.h"
 #include "noisicore/block_data.capnp.h"
 
 namespace noisicaa {

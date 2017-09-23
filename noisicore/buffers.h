@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include "lv2/lv2plug.in/ns/ext/atom/forge.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
-#include "noisicore/status.h"
+#include "noisicaa/core/status.h"
 
 namespace noisicaa {
 

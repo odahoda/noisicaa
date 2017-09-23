@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
-#include "noisicore/status.h"
+#include "noisicaa/core/status.h"
 #include "noisicore/block_context.h"
 
 namespace noisicaa {

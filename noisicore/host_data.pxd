@@ -1,5 +1,6 @@
 from libcpp.memory cimport unique_ptr
-from .status cimport *
+from noisicaa.core.status cimport *
+
 
 cdef extern from "noisicore/host_data.h" namespace "noisicaa" nogil:
     cppclass LV2SubSystem:

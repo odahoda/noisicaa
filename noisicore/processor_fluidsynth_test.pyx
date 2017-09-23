@@ -1,18 +1,18 @@
 from libc.stdint cimport uint8_t
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
-from .status cimport *
+
+import unittest
+import sys
+
+from noisicaa.core.status cimport *
+from noisicaa.bindings.lv2 cimport atom
+from noisicaa.bindings.lv2 import urid
 from .block_context cimport *
 from .buffers cimport *
 from .processor cimport *
 from .processor_spec cimport *
 from .host_data cimport *
-
-from noisicaa.bindings.lv2 cimport atom
-from noisicaa.bindings.lv2 import urid
-
-import unittest
-import sys
 
 
 class TestProcessorFluidSynth(unittest.TestCase):

@@ -39,4 +39,7 @@ target_link_libraries(${perf_stats.so} PRIVATE noisicaa-core)
 add_cython_module(logging CXX)
 target_link_libraries(${logging.so} PRIVATE noisicaa-core)
 
+add_cython_module(status CXX)
+target_link_libraries(${status.so} PRIVATE noisicaa-core)
+
 add_subdirectory(stats)

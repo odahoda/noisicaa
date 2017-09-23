@@ -2,11 +2,12 @@ from libc.stdint cimport uint32_t, uint64_t
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
-from .status cimport *
+from noisicaa.core.status cimport *
 from .buffers cimport *
 from .block_context cimport *
 from .processor_spec cimport *
 from .host_data cimport *
+
 
 cdef extern from "noisicore/processor.h" namespace "noisicaa" nogil:
     cppclass Processor:

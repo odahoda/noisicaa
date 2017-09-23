@@ -2,7 +2,7 @@ from libc.stdint cimport int64_t
 from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 
-from .status cimport *
+from noisicaa.core.status cimport *
 
 cdef extern from "noisicore/processor_spec.h" namespace "noisicaa" nogil:
     enum PortType:

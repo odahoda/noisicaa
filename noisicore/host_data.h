@@ -4,8 +4,8 @@
 #define _NOISICORE_HOST_DATA_H
 
 #include <memory>
+#include "noisicaa/core/status.h"
 #include "noisicore/host_system_lv2.h"
-#include "noisicore/status.h"
 
 namespace noisicaa {
 

@@ -7,7 +7,7 @@
 #include <vector>
 #include <stdint.h>
 #include "ladspa.h"
-#include "noisicore/status.h"
+#include "noisicaa/core/status.h"
 #include "noisicore/buffers.h"
 #include "noisicore/processor.h"
 

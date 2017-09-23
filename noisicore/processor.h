@@ -8,7 +8,7 @@
 #include <string>
 #include <stdint.h>
 #include "noisicaa/core/logging.h"
-#include "noisicore/status.h"
+#include "noisicaa/core/status.h"
 #include "noisicore/buffers.h"
 #include "noisicore/block_context.h"
 #include "noisicore/processor_spec.h"

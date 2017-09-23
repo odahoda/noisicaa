@@ -4,7 +4,7 @@
 #define _NOISICORE_PROCESSOR_NULL_H
 
 #include <stdint.h>
-#include "noisicore/status.h"
+#include "noisicaa/core/status.h"
 #include "noisicore/buffers.h"
 #include "noisicore/processor.h"
 

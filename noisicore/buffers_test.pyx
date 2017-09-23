@@ -1,14 +1,14 @@
 from libcpp.memory cimport unique_ptr
-from .status cimport *
-from .buffers cimport *
-from .host_data cimport *
-
-from noisicaa.bindings.lv2 cimport atom
-from noisicaa.bindings.lv2 import urid
 
 import struct
 import sys
 import unittest
+
+from noisicaa.bindings.lv2 cimport atom
+from noisicaa.bindings.lv2 import urid
+from noisicaa.core.status cimport *
+from .buffers cimport *
+from .host_data cimport *
 
 
 class TestFloat(unittest.TestCase):

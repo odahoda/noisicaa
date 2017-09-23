@@ -1,8 +1,8 @@
 #include <string>
 #include <ctype.h>
 #include <stdint.h>
+#include "noisicaa/core/status.h"
 #include "noisicore/misc.h"
-#include "noisicore/status.h"
 #include "noisicore/processor_custom_csound.h"
 #include "noisicore/processor_spec.h"
 

@@ -1,11 +1,5 @@
 from libcpp.memory cimport unique_ptr
 
-from .buffers cimport *
-from .status cimport *
-from .vm cimport *
-from .backend cimport *
-from .host_data cimport *
-
 import os
 import os.path
 import struct
@@ -16,10 +10,14 @@ import threading
 
 import capnp
 
-from .status import *
-from .status cimport *
+from noisicaa.core.status cimport *
+from noisicaa.core.status import *
 from . import audio_stream
 from . import block_data_capnp
+from .buffers cimport *
+from .vm cimport *
+from .backend cimport *
+from .host_data cimport *
 
 
 class TestIPCBackend(unittest.TestCase):

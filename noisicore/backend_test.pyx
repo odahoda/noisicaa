@@ -1,7 +1,7 @@
 from libcpp.memory cimport unique_ptr
 
+from noisicaa.core.status cimport *
 from .buffers cimport *
-from .status cimport *
 from .vm cimport *
 from .backend cimport *
 from .host_data cimport *

@@ -3,7 +3,7 @@
 #ifndef _NOISICORE_PROCESSOR_SAMPLE_PLAYER_H
 #define _NOISICORE_PROCESSOR_SAMPLE_PLAYER_H
 
-#include "noisicore/status.h"
+#include "noisicaa/core/status.h"
 #include "noisicore/processor_csound_base.h"
 
 namespace noisicaa {

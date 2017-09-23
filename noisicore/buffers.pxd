@@ -2,9 +2,9 @@ from libcpp.memory cimport unique_ptr
 from libc.stdint cimport uint8_t, uint32_t
 
 from noisicaa.bindings.lv2 cimport urid
+from noisicaa.core.status cimport *
 
 from .host_data cimport *
-from .status cimport *
 
 cdef extern from "noisicore/buffers.h" namespace "noisicaa" nogil:
     ctypedef uint8_t* BufferPtr

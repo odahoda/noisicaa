@@ -1,7 +1,7 @@
 from libc.stdint cimport uint32_t
 from libcpp.string cimport string
 
-from .status cimport *
+from noisicaa.core.status cimport *
 from .vm cimport *
 from .buffers cimport *
 from .block_context cimport *

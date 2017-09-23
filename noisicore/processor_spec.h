@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
-#include "noisicore/status.h"
+#include "noisicaa/core/status.h"
 
 namespace noisicaa {
 

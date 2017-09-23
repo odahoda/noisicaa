@@ -30,3 +30,7 @@ from .message import (
 from .logging import (
     init_pylogging,
 )
+from .status import (
+    Error,
+    ConnectionClosed,
+)

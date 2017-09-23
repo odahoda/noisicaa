@@ -9,8 +9,8 @@
 #include <vector>
 #include <stdint.h>
 #include "noisicaa/core/logging.h"
+#include "noisicaa/core/status.h"
 #include "noisicore/spec.h"
-#include "noisicore/status.h"
 #include "noisicore/processor.h"
 
 namespace noisicaa {

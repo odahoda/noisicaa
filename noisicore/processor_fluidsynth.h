@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include "fluidsynth.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
-#include "noisicore/status.h"
+#include "noisicaa/core/status.h"
 #include "noisicore/buffers.h"
 #include "noisicore/processor.h"
 

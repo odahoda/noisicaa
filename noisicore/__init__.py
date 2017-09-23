@@ -5,10 +5,6 @@ from .block_data_capnp import (
     BlockData,
     Buffer,
 )
-from .status import (
-    Error,
-    ConnectionClosed,
-)
 from .spec import (
     PySpec as Spec
 )

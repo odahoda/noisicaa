@@ -5,7 +5,7 @@
 
 #include <string>
 #include "noisicaa/core/logging.h"
-#include "noisicore/status.h"
+#include "noisicaa/core/status.h"
 #include "noisicore/buffers.h"
 
 namespace noisicaa {

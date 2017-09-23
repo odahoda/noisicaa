@@ -64,9 +64,6 @@ target_link_libraries(noisicore PRIVATE ${LIBFLUIDSYNTH_LIBRARIES})
 add_cython_module(audio_stream CXX)
 target_link_libraries(${audio_stream.so} PRIVATE noisicore)
 
-add_cython_module(status CXX)
-target_link_libraries(${status.so} PRIVATE noisicore)
-
 add_cython_module(spec CXX)
 target_link_libraries(${spec.so} PRIVATE noisicore)
 

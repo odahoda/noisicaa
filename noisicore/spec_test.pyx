@@ -3,12 +3,12 @@ from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libc.stdint cimport int64_t
 
-from .buffers cimport *
-from .status cimport *
-from .spec cimport *
-
 import unittest
 import sys
+
+from noisicaa.core.status cimport *
+from .buffers cimport *
+from .spec cimport *
 
 
 class TestSpec(unittest.TestCase):

@@ -1,7 +1,10 @@
 from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 
-from .status cimport *
+import unittest
+import sys
+
+from noisicaa.core.status cimport *
 from .spec cimport *
 from .block_context cimport *
 from .vm cimport *
@@ -10,9 +13,6 @@ from .processor cimport *
 from .processor_spec cimport *
 from .buffers cimport *
 from .host_data cimport *
-
-import unittest
-import sys
 
 
 class TestVM(unittest.TestCase):

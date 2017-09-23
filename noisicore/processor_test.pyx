@@ -1,9 +1,10 @@
 from libcpp.memory cimport unique_ptr
-from .status cimport *
-from .processor cimport *
-from .host_data cimport *
 
 import unittest
+
+from noisicaa.core.status cimport *
+from .processor cimport *
+from .host_data cimport *
 
 
 class TestProcessor(unittest.TestCase):

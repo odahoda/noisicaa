@@ -1,4 +1,5 @@
-from .status cimport *
+from noisicaa.core.status cimport *
+
 
 cdef class PyHostData(object):
     def __init__(self):

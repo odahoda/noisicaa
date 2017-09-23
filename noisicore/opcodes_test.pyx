@@ -1,11 +1,12 @@
 from libcpp.memory cimport unique_ptr
-from .status cimport *
-from .spec cimport *
-from .vm cimport *
-from .opcodes cimport *
 
 import unittest
 import sys
+
+from noisicaa.core.status cimport *
+from .spec cimport *
+from .vm cimport *
+from .opcodes cimport *
 
 class TestOpCodes(unittest.TestCase):
     def test_opcode_field_matches(self):

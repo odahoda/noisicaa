@@ -1,7 +1,7 @@
 from libc.stdint cimport int64_t
 from libcpp.memory cimport unique_ptr
 
-from .status cimport *
+from noisicaa.core.status cimport *
 from .buffers cimport *
 from .opcodes cimport *
 from .processor cimport *

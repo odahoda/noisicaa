@@ -1,7 +1,7 @@
 from libcpp.vector cimport vector
 from libcpp.memory cimport unique_ptr
 
-from .status cimport *
+from noisicaa.core.status cimport *
 from .buffers cimport *
 from .opcodes cimport *
 from .processor cimport *

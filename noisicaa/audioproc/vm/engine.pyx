@@ -14,7 +14,7 @@ import threading
 import time
 import cProfile
 
-from noisicore.status cimport *
+from noisicaa.core.status cimport *
 from noisicore.vm cimport *
 from noisicore.host_data cimport *
 from noisicore.spec cimport *

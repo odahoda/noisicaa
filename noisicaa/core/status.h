@@ -1,7 +1,7 @@
 // -*- mode: c++ -*-
 
-#ifndef _NOISICORE_STATUS_H
-#define _NOISICORE_STATUS_H
+#ifndef _NOISICAA_CORE_STATUS_H
+#define _NOISICAA_CORE_STATUS_H
 
 #include <string>
 #include <assert.h>

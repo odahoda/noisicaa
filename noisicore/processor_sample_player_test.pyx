@@ -4,7 +4,7 @@ from libcpp.memory cimport unique_ptr
 
 from noisicaa.bindings.lv2 cimport atom
 from noisicaa.bindings.lv2 import urid
-from .status cimport *
+from noisicaa.core.status cimport *
 from .block_context cimport *
 from .buffers cimport *
 from .processor cimport *

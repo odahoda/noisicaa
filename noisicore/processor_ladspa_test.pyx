@@ -1,15 +1,15 @@
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
-from .status cimport *
+import unittest
+import sys
+
+from noisicaa.core.status cimport *
 from .block_context cimport *
 from .buffers cimport *
 from .processor cimport *
 from .processor_spec cimport *
 from .host_data cimport *
-
-import unittest
-import sys
 
 
 class TestProcessorLadspa(unittest.TestCase):

@@ -6,8 +6,8 @@
 #include <unordered_map>
 #include "lilv/lilv.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
+#include "noisicaa/core/status.h"
 #include "noisicaa/lv2/urid_mapper.h"
-#include "noisicore/status.h"
 
 namespace noisicaa {
 

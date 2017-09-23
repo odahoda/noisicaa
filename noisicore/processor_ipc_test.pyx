@@ -1,13 +1,6 @@
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
-from .status cimport *
-from .block_context cimport *
-from .buffers cimport *
-from .processor cimport *
-from .processor_spec cimport *
-from .host_data cimport *
-
 import unittest
 import sys
 import threading
@@ -19,9 +12,15 @@ import struct
 
 import capnp
 
-from .status import ConnectionClosed
+from noisicaa.core.status cimport *
+from noisicaa.core.status import ConnectionClosed
 from . import block_data_capnp
 from . import audio_stream
+from .block_context cimport *
+from .buffers cimport *
+from .processor cimport *
+from .processor_spec cimport *
+from .host_data cimport *
 
 
 class TestProcessorIPC(unittest.TestCase):

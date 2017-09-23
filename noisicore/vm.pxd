@@ -1,6 +1,6 @@
 from libc.stdint cimport uint32_t
 
-from .status cimport *
+from noisicaa.core.status cimport *
 from .host_data cimport *
 from .block_context cimport *
 

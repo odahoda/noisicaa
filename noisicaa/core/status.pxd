@@ -1,7 +1,7 @@
 from libcpp cimport bool
 from libcpp.string cimport string
 
-cdef extern from "noisicore/status.h" namespace "noisicaa" nogil:
+cdef extern from "noisicaa/core/status.h" namespace "noisicaa" nogil:
     cppclass Status:
         bool is_error() const
         bool is_connection_closed() const
