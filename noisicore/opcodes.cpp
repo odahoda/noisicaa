@@ -70,7 +70,6 @@ Status run_FETCH_BUFFER(BlockContext* ctxt, ProgramState* state, const vector<Op
 
   const auto& it = ctxt->buffers.find(in_buf_name);
   if (it == ctxt->buffers.end()) {
-    state->logger->warning("Buffer %s not found in block context.", in_buf_name.c_str());
     out_buf->clear();
     return Status::Ok();
   }
