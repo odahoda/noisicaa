@@ -5,7 +5,6 @@ add_python_package(
   engine_perftest.py
   engine_test.py
   graph.py
-  spec.py
 )
 
 add_cython_module(engine CXX)
