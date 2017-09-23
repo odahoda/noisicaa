@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include "noisicaa/core/perf_stats.h"
 #include "noisicore/host_data.h"
-#include "noisicore/misc.h"
 #include "noisicore/processor_lv2.h"
 
 namespace noisicaa {
@@ -31,13 +30,13 @@ Status ProcessorLV2::setup(const ProcessorSpec* spec) {
   _plugin = lilv_plugins_get_by_uri(all_plugins, uri_node);
   lilv_free(uri_node);
   if (_plugin == nullptr) {
-    return Status::Error(sprintf("Plugin '%s' not found.", uri.c_str()));
+    return Status::Error("Plugin '%s' not found.", uri.c_str());
   }
 
   // TODO: use features from host data.
   _instance = lilv_plugin_instantiate(_plugin, 44100.0, nullptr);
   if (_instance == nullptr) {
-    return Status::Error(sprintf("Failed to instantiate '%s'.", uri.c_str()));
+    return Status::Error("Failed to instantiate '%s'.", uri.c_str());
   }
 
   lilv_instance_activate(_instance);

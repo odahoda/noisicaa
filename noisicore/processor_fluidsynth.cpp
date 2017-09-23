@@ -1,7 +1,6 @@
 #include "noisicaa/core/perf_stats.h"
 #include "noisicore/processor_fluidsynth.h"
 #include "noisicore/host_data.h"
-#include "noisicore/misc.h"
 
 namespace noisicaa {
 
@@ -122,8 +121,7 @@ Status ProcessorFluidSynth::run(BlockContext* ctxt) {
 
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
   if (seq->atom.type != _host_data->lv2->urid.atom_sequence) {
-    return Status::Error(
-	sprintf("Excepted sequence in port 'in', got %d.", seq->atom.type));
+    return Status::Error("Excepted sequence in port 'in', got %d.", seq->atom.type);
   }
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
 
@@ -137,8 +135,7 @@ Status ProcessorFluidSynth::run(BlockContext* ctxt) {
       if (event->time.frames != -1) {
 	if (event->time.frames < 0 || event->time.frames >= ctxt->block_size) {
 	  return Status::Error(
-	      sprintf("Event timestamp %d out of bounds [0,%d]",
-		      event->time.frames, ctxt->block_size));
+	       "Event timestamp %d out of bounds [0,%d]", event->time.frames, ctxt->block_size);
 	}
 
 	esample_pos = event->time.frames;

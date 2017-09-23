@@ -1,6 +1,5 @@
 #include <stdarg.h>
 #include "noisicore/spec.h"
-#include "noisicore/misc.h"
 #include "noisicore/processor.h"
 
 namespace noisicaa {
@@ -71,7 +70,7 @@ StatusOr<int> Spec::get_buffer_idx(const string& name) const {
   if (it != _buffer_map.end()) {
     return it->second;
   }
-  return Status::Error(sprintf("Invalid buffer name %s", name));
+  return Status::Error("Invalid buffer name %s", name);
 }
 
 Status Spec::append_processor(Processor* processor) {
@@ -85,7 +84,7 @@ StatusOr<int> Spec::get_processor_idx(const Processor* processor) {
   if (it != _processor_map.end()) {
     return it->second;
   }
-  return Status::Error(sprintf("Invalid processor %016llx", processor->id()));
+  return Status::Error("Invalid processor %016llx", processor->id());
 }
 
 }  // namespace noisicaa

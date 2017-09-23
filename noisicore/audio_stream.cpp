@@ -18,7 +18,7 @@ Status set_blocking(int fd, int blocking) {
   int arg = !blocking;
   int rc = ioctl(fd, FIONBIO, &arg);
   if (rc < 0) {
-    return Status::Error(sprintf("Failed ioctl on FD %d: %d", fd, rc));
+    return Status::Error("Failed ioctl on FD %d: %d", fd, rc);
   }
   return Status::Ok();
 }
@@ -52,7 +52,7 @@ Status AudioStreamBase::fill_buffer() {
     struct pollfd fds = {_pipe_in, POLLIN, 0};
     int rc = poll(&fds, 1, 500);
     if (rc < 0) {
-      return Status::Error(sprintf("Failed to poll in pipe: %d", rc));
+      return Status::Error("Failed to poll in pipe: %d", rc);
     }
 
     if (fds.revents & POLLIN) {
@@ -161,24 +161,24 @@ Status AudioStreamServer::setup() {
 
   rc = mkfifo(address_in.c_str(), 0600);
   if (rc != 0) {
-    return Status::Error(sprintf("Failed to create %s: %d", address_in.c_str(), rc));
+    return Status::Error("Failed to create %s: %d", address_in.c_str(), rc);
   }
 
   _pipe_in = open(address_in.c_str(), O_RDONLY | O_NONBLOCK);
   if (_pipe_in < 0) {
-    return Status::Error(sprintf("Failed to open %s: %d", address_in.c_str(), _pipe_in));
+    return Status::Error("Failed to open %s: %d", address_in.c_str(), _pipe_in);
   }
   status = set_blocking(_pipe_in, true);
   if (status.is_error()) { return status; }
 
   rc = mkfifo(address_out.c_str(), 0600);
   if (rc != 0) {
-    return Status::Error(sprintf("Failed to create %s: %d", address_out.c_str(), rc));
+    return Status::Error("Failed to create %s: %d", address_out.c_str(), rc);
   }
 
   _pipe_out = open(address_out.c_str(), O_RDWR | O_NONBLOCK);
   if (_pipe_out < 0) {
-    return Status::Error(sprintf("Failed to open %s: %d", address_out.c_str(), _pipe_out));
+    return Status::Error("Failed to open %s: %d", address_out.c_str(), _pipe_out);
   }
   status = set_blocking(_pipe_out, true);
   if (status.is_error()) { return status; }
@@ -220,14 +220,14 @@ Status AudioStreamClient::setup() {
 
   _pipe_in = open(address_in.c_str(), O_RDONLY | O_NONBLOCK);
   if (_pipe_in < 0) {
-    return Status::Error(sprintf("Failed to open %s: %d", address_in.c_str(), _pipe_in));
+    return Status::Error("Failed to open %s: %d", address_in.c_str(), _pipe_in);
   }
   status = set_blocking(_pipe_in, true);
   if (status.is_error()) { return status; }
 
   _pipe_out = open(address_out.c_str(), O_RDWR | O_NONBLOCK);
   if (_pipe_out < 0) {
-    return Status::Error(sprintf("Failed to open %s: %d", address_out.c_str(), _pipe_out));
+    return Status::Error("Failed to open %s: %d", address_out.c_str(), _pipe_out);
   }
   status = set_blocking(_pipe_out, true);
   if (status.is_error()) { return status; }

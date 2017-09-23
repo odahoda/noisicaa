@@ -1,7 +1,6 @@
 #include <random>
 #include <time.h>
 
-#include "noisicore/misc.h"
 #include "noisicore/processor.h"
 #include "noisicore/processor_null.h"
 #include "noisicore/processor_ladspa.h"
@@ -43,7 +42,7 @@ StatusOr<Processor*> Processor::create(HostData* host_data, const string& name) 
     return new ProcessorSamplePlayer(host_data);
   }
 
-  return Status::Error(sprintf("Invalid processor name '%s'", name.c_str()));
+  return Status::Error("Invalid processor name '%s'", name.c_str());
 }
 
 uint64_t Processor::new_id() {
@@ -56,8 +55,7 @@ StatusOr<string> Processor::get_string_parameter(const string& name) {
   if (stor_param_spec.is_error()) { return stor_param_spec; }
 
   if (stor_param_spec.result()->type() != ParameterSpec::ParameterType::String) {
-    return Status::Error(
-	 sprintf("Parameter '%s' is not of type string.", name.c_str()));
+    return Status::Error("Parameter '%s' is not of type string.", name.c_str());
   }
 
   const auto& it = _string_parameters.find(name);
@@ -77,8 +75,7 @@ Status Processor::set_string_parameter(const string& name, const string& value) 
   // if (stor_or_param_spec.is_error()) { return stor_or_param_spec; }
 
   // if (stor_or_param_spec.result()->type() != ParameterSpec::ParameterType::String) {
-  //   return Status::Error(
-  // 	 sprintf("Parameter '%s' is not of type string.", name.c_str()));
+  //   return Status::Error("Parameter '%s' is not of type string.", name.c_str());
   // }
 
   _logger->info("Set parameter %s='%s'", name.c_str(), value.c_str());
@@ -92,8 +89,7 @@ StatusOr<int64_t> Processor::get_int_parameter(const string& name) {
   if (stor_param_spec.is_error()) { return stor_param_spec; }
 
   if (stor_param_spec.result()->type() != ParameterSpec::ParameterType::Int) {
-    return Status::Error(
-	 sprintf("Parameter '%s' is not of type int.", name.c_str()));
+    return Status::Error("Parameter '%s' is not of type int.", name.c_str());
   }
 
   const auto& it = _int_parameters.find(name);
@@ -113,8 +109,7 @@ Status Processor::set_int_parameter(const string& name, int64_t value) {
   // if (stor_param_spec.is_error()) { return stor_param_spec; }
 
   // if (stor_param_spec.result()->type() != ParameterSpec::ParameterType::Int) {
-  //   return Status::Error(
-  // 	 sprintf("Parameter '%s' is not of type string.", name.c_str()));
+  //   return Status::Error("Parameter '%s' is not of type string.", name.c_str());
   // }
 
   _int_parameters[name] = value;
@@ -126,8 +121,7 @@ StatusOr<float> Processor::get_float_parameter(const string& name) {
   if (stor_param_spec.is_error()) { return stor_param_spec; }
 
   if (stor_param_spec.result()->type() != ParameterSpec::ParameterType::Float) {
-    return Status::Error(
-	 sprintf("Parameter '%s' is not of type int.", name.c_str()));
+    return Status::Error("Parameter '%s' is not of type int.", name.c_str());
   }
 
   const auto& it = _float_parameters.find(name);
@@ -147,8 +141,7 @@ Status Processor::set_float_parameter(const string& name, float value) {
   // if (stor_param_spec.is_error()) { return stor_param_spec; }
 
   // if (stor_param_spec.result()->type() != ParameterSpec::ParameterType::Float) {
-  //   return Status::Error(
-  // 	 sprintf("Parameter '%s' is not of type string.", name.c_str()));
+  //   return Status::Error("Parameter '%s' is not of type string.", name.c_str());
   // }
 
   _int_parameters[name] = value;
@@ -159,7 +152,7 @@ Status Processor::setup(const ProcessorSpec* spec) {
   unique_ptr<const ProcessorSpec> spec_ptr(spec);
 
   if (_spec.get() != nullptr) {
-    return Status::Error(sprintf("Processor %llx already set up.", id()));
+    return Status::Error("Processor %llx already set up.", id());
   }
 
   _logger->info("Setting up processor %llx.", id());

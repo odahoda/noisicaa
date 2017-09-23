@@ -2,7 +2,6 @@
 #include "noisicore/backend_ipc.h"
 #include "noisicore/backend_null.h"
 #include "noisicore/backend_portaudio.h"
-#include "noisicore/misc.h"
 
 namespace noisicaa {
 
@@ -23,7 +22,7 @@ StatusOr<Backend*> Backend::create(const string& name, const BackendSettings& se
     return new NullBackend(settings);
   }
 
-  return Status::Error(sprintf("Invalid backend name '%s'", name.c_str()));
+  return Status::Error("Invalid backend name '%s'", name.c_str());
 }
 
 Status Backend::setup(VM* vm) {

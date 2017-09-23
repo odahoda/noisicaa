@@ -4,8 +4,8 @@
 
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/core/status.h"
-#include "noisicore/vm.h"
 #include "noisicore/misc.h"
+#include "noisicore/vm.h"
 #include "noisicore/host_data.h"
 #include "noisicore/opcodes.h"
 #include "noisicore/block_context.h"

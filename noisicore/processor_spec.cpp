@@ -1,5 +1,4 @@
 #include <iostream>
-#include "noisicore/misc.h"
 #include "noisicore/processor_spec.h"
 
 namespace noisicaa {
@@ -47,7 +46,7 @@ StatusOr<ParameterSpec*> ProcessorSpec::get_parameter(const string& name) const 
     return it->second.get();
   }
 
-  return Status::Error(sprintf("Parameter '%s' not found.", name.c_str()));
+  return Status::Error("Parameter '%s' not found.", name.c_str());
 }
 
 }  // namespace noisicaa

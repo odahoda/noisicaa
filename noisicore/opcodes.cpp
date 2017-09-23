@@ -3,7 +3,6 @@
 #include "noisicore/host_data.h"
 #include "noisicore/backend.h"
 #include "noisicore/vm.h"
-#include "noisicore/misc.h"
 
 namespace noisicaa {
 
@@ -203,7 +202,9 @@ Status run_LOG_ATOM(BlockContext* ctxt, ProgramState* state, const vector<OpArg>
 
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)buf->data();
   if (seq->atom.type != state->host_data->lv2->urid.atom_sequence) {
-    return Status::Error(sprintf("Buffer %d: Excepted sequence (%d), got %d.", idx, state->host_data->lv2->urid.atom_sequence, seq->atom.type));
+    return Status::Error(
+	"Buffer %d: Excepted sequence (%d), got %d.",
+	idx, state->host_data->lv2->urid.atom_sequence, seq->atom.type);
   }
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
 

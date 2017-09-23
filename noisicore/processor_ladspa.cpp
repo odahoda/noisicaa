@@ -2,7 +2,6 @@
 #include <stdint.h>
 #include "noisicaa/core/perf_stats.h"
 #include "noisicore/processor_ladspa.h"
-#include "noisicore/misc.h"
 
 namespace noisicaa {
 
@@ -25,7 +24,7 @@ Status ProcessorLadspa::setup(const ProcessorSpec* spec) {
 
   _library = dlopen(library_path.c_str(), RTLD_NOW);
   if (_library == nullptr) {
-    return Status::Error(sprintf("Failed to open LADSPA plugin: %s", dlerror()));
+    return Status::Error("Failed to open LADSPA plugin: %s", dlerror());
   }
 
   LADSPA_Descriptor_Function lib_descriptor =
@@ -33,7 +32,7 @@ Status ProcessorLadspa::setup(const ProcessorSpec* spec) {
 
   char* error = dlerror();
   if (error != nullptr) {
-    return Status::Error(sprintf("Failed to open LADSPA plugin: %s", error));
+    return Status::Error("Failed to open LADSPA plugin: %s", error);
   }
 
   int idx = 0;
@@ -50,8 +49,7 @@ Status ProcessorLadspa::setup(const ProcessorSpec* spec) {
   }
 
   if (_descriptor == nullptr) {
-    return Status::Error(
-	 sprintf("No LADSPA plugin with label %s found.", label.c_str()));
+    return Status::Error("No LADSPA plugin with label %s found.", label.c_str());
   }
 
   _instance = _descriptor->instantiate(_descriptor, 44100);

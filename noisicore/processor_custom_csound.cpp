@@ -77,7 +77,7 @@ Status ProcessorCustomCSound::setup(const ProcessorSpec* spec) {
     } else if (port_spec.type() == PortType::atomData
 	       && port_spec.direction() == PortDirection::Input) {
     } else {
-      return Status::Error(sprintf("Port %s not supported", port_spec.name().c_str()));
+      return Status::Error("Port %s not supported", port_spec.name().c_str());
     }
   }
 

@@ -24,6 +24,7 @@ target_link_libraries(${logging_test.so} PRIVATE noisicaa-core)
 set(LIB_SRCS
   logging.cpp
   perf_stats.cpp
+  status.cpp
 )
 
 add_cpp_capnp(message.capnp)

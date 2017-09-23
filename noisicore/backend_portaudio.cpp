@@ -1,6 +1,5 @@
 #include "noisicaa/core/perf_stats.h"
 #include "noisicore/backend_portaudio.h"
-#include "noisicore/misc.h"
 #include "noisicore/vm.h"
 
 namespace noisicaa {
@@ -20,15 +19,14 @@ Status PortAudioBackend::setup(VM* vm) {
   if (status.is_error()) { return status; }
 
   if (_block_size == 0) {
-   return Status::Error(sprintf("Invalid block_size %d", _block_size));
+   return Status::Error("Invalid block_size %d", _block_size);
   }
 
   PaError err;
 
   err = Pa_Initialize();
   if (err != paNoError) {
-    return Status::Error(
-        sprintf("Failed to initialize portaudio: %s", Pa_GetErrorText(err)));
+    return Status::Error("Failed to initialize portaudio: %s", Pa_GetErrorText(err));
   }
   _initialized = true;
 
@@ -53,14 +51,12 @@ Status PortAudioBackend::setup(VM* vm) {
       /* streamCallback */    nullptr,
       /* userdata */          nullptr);
   if (err != paNoError) {
-    return Status::Error(
-	sprintf("Failed to open portaudio stream: %s", Pa_GetErrorText(err)));
+    return Status::Error("Failed to open portaudio stream: %s", Pa_GetErrorText(err));
   }
 
   err = Pa_StartStream(_stream);
   if (err != paNoError) {
-    return Status::Error(
-	sprintf("Failed to start portaudio stream: %s", Pa_GetErrorText(err)));
+    return Status::Error("Failed to start portaudio stream: %s", Pa_GetErrorText(err));
   }
 
   for (int c = 0 ; c < 2 ; ++c) {
@@ -116,8 +112,7 @@ Status PortAudioBackend::end_block(BlockContext* ctxt) {
   if (err == paOutputUnderflowed) {
     _logger->warning("Buffer underrun.");
   } else if (err != paNoError) {
-    return Status::Error(
-        sprintf("Failed to write to portaudio stream: %s", Pa_GetErrorText(err)));
+    return Status::Error("Failed to write to portaudio stream: %s", Pa_GetErrorText(err));
   }
   return Status::Ok();
 }
@@ -128,7 +123,7 @@ Status PortAudioBackend::output(BlockContext* ctxt, const string& channel, Buffe
   } else if (channel == "right") {
     memmove(_samples[1], samples, _block_size * sizeof(float));
   } else {
-    return Status::Error(sprintf("Invalid channel %s", channel.c_str()));
+    return Status::Error("Invalid channel %s", channel.c_str());
   }
   return Status::Ok();
 }

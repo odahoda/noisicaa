@@ -6,7 +6,6 @@
 #include "capnp/serialize.h"
 #include "noisicaa/core/perf_stats.h"
 #include "noisicore/host_data.h"
-#include "noisicore/misc.h"
 #include "noisicore/block_data.capnp.h"
 #include "noisicore/processor_ipc.h"
 
@@ -42,7 +41,7 @@ void ProcessorIPC::cleanup() {
 
 Status ProcessorIPC::connect_port(uint32_t port_idx, BufferPtr buf) {
   if (port_idx > 1) {
-    return Status::Error(sprintf("Invalid port index %d", port_idx));
+    return Status::Error("Invalid port index %d", port_idx);
   }
   _ports[port_idx] = buf;
   return Status::Ok();

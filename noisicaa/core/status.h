@@ -42,6 +42,7 @@ public:
 
   static Status Ok() { return Status(Code::OK, ""); }
   static Status Error(const string& message) { return Status(Code::ERROR, message); }
+  static Status Error(const char* fmt, ...);
   static Status ConnectionClosed() {
     return Status(Code::CONNECTION_CLOSED, "Connection closed");
   }

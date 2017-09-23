@@ -2,7 +2,6 @@
 #include "noisicaa/core/perf_stats.h"
 #include "noisicore/backend_ipc.h"
 #include "noisicore/audio_stream.h"
-#include "noisicore/misc.h"
 #include "noisicore/vm.h"
 
 namespace noisicaa {
@@ -18,7 +17,7 @@ Status IPCBackend::setup(VM* vm) {
   if (status.is_error()) { return status; }
 
   if (_block_size == 0) {
-   return Status::Error(sprintf("Invalid block_size %d", _block_size));
+   return Status::Error("Invalid block_size %d", _block_size);
   }
 
   if (_settings.ipc_address.size() == 0) {
@@ -155,11 +154,11 @@ Status IPCBackend::output(BlockContext* ctxt, const string& channel, BufferPtr s
   } else if (channel == "right") {
     c = 1;
   } else {
-    return Status::Error(sprintf("Invalid channel %s", channel.c_str()));
+    return Status::Error("Invalid channel %s", channel.c_str());
   }
 
   if (_channel_written[c]) {
-    return Status::Error(sprintf("Channel %s written multiple times.", channel.c_str()));
+    return Status::Error("Channel %s written multiple times.", channel.c_str());
   }
   _channel_written[c] = true;
   memmove(_samples[c].get(), samples, _block_size * sizeof(float));
