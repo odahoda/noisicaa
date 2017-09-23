@@ -18,6 +18,7 @@ from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
 from noisicaa import instrument_db
+from noisicaa import node_db
 
 from .piano import PianoWidget
 from . import ui_base
@@ -482,7 +483,9 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self._pipeline_mixer_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
-            'passthru', id=self._pipeline_mixer_id, name='library-mixer')
+            description=node_db.TrackMixerDescription,
+            id=self._pipeline_mixer_id,
+            name='library-mixer')
         await self.audioproc_client.connect_ports(
             self._pipeline_mixer_id, 'out:left', 'sink', 'in:left')
         await self.audioproc_client.connect_ports(
