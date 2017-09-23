@@ -8,5 +8,9 @@ from .stats import (
     StatName,
     Counter,
 )
+from .timeseries import (
+    Timeseries,
+    TimeseriesSet,
+)
 
 registry = Registry()

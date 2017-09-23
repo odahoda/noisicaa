@@ -107,11 +107,13 @@ class ProxyTest(asynctest.TestCase):
         await self.project_process.cleanup()
         await self.node_db_process.cleanup()
 
+    @unittest.skip("TODO: Requires a properly setup node_db")
     async def test_basic(self):
         await self.client.create_inmemory()
         project = self.client.project
         self.assertTrue(hasattr(project, 'current_sheet'))
 
+    @unittest.skip("TODO: Requires a properly setup node_db")
     async def test_create_close_open(self):
         path = '/tmp/foo%s' % uuid.uuid4().hex
         await self.client.create(path)
@@ -121,6 +123,7 @@ class ProxyTest(asynctest.TestCase):
         # TODO: check property
         await self.client.close()
 
+    @unittest.skip("TODO: Requires a properly setup node_db")
     async def test_call_command(self):
         await self.client.create_inmemory()
         sheet = self.client.project.sheets[0]

@@ -40,7 +40,7 @@ class PresetTest(unittest.TestCase):
         self.assertEqual(preset.display_name, "Light Reverb")
         self.assertEqual(preset.node_uri, 'builtin://custom_csound')
         self.assertIsInstance(preset.node_description, node_description.NodeDescription)
-        self.assertEqual(preset.node_description.node_cls, 'custom_csound')
+        self.assertEqual(preset.node_description.node_cls, 'processor')
 
 
 if __name__ == '__main__':

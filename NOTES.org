@@ -67,6 +67,16 @@
   - different buffer types for events (native, atom, ...)
   - auto convert as needed
 
+* select playback backend for tests							      :FR:
+- for tests that to real playback, use null backend by default
+- can override with --backend=... flag to runtests
+* Reduce duplication in noisicaa/music/*_test.py					 :CLEANUP:
+- create TestProject class
+  - has dummy node_db (with builtin stuff and selected other stuff)
+
+* Improve noisicaa.core.stats_test							 :CLEANUP:
+The module's code changed a lot, but the unittest wasn't updated.
+
 * Move pianoroll into VM								      :FR:
 - player collects mutations from track
 - sends batch of mutations along with FrameData

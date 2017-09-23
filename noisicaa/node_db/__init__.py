@@ -19,6 +19,17 @@ from .node_description import (
     FloatParameterDescription,
     IntParameterDescription,
 )
+from .private.builtin_scanner import (
+    TrackMixerDescription,
+    IPCDescription,
+    AudioSourceDescription,
+    EventSourceDescription,
+    ControlSourceDescription,
+    SinkDescription,
+    FluidSynthDescription,
+    SamplePlayerDescription,
+    CustomCSoundDescription,
+)
 from .presets import (
     Preset,
 

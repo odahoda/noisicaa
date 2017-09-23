@@ -50,18 +50,16 @@ class MockAudioProcClient(object):
     async def disconnect(self, shutdown=False):
         logger.info("Disconnect audioproc client (shutdown=%s).", shutdown)
 
-    async def set_backend(self, backend):
+    async def set_backend(self, backend, **settings):
         logger.info("Set to audioproc backend to %s.", backend)
         if backend == 'ipc':
-            address = os.path.join(
-                tempfile.gettempdir(), 'audioproc.%s.pipe' % uuid.uuid4().hex)
-            self.audiostream_server = noisicore.AudioStream.create_server(address)
+            self.audiostream_server = noisicore.AudioStream.create_server(settings['ipc_address'])
             self.audiostream_server.setup()
             self.stop_backend = threading.Event()
             self.backend_thread = threading.Thread(target=self.backend_main)
             self.backend_thread.start()
-            return address
-        return None
+        else:
+            raise ValueError("Unexpected backend '%s'" % backend)
 
     async def dump(self):
         pass
@@ -82,7 +80,7 @@ class MockAudioProcClient(object):
 
                 response = noisicore.BlockData.new_message(**request.to_dict())
                 self.audiostream_server.send_block(response)
-        except noisicore.ConnectionClosed:
+        except core.ConnectionClosed:
             pass
 
 class PlayerTest(asynctest.TestCase):
@@ -144,7 +142,7 @@ class PlayerTest(asynctest.TestCase):
 
                 sample_pos += 1
 
-        except noisicore.ConnectionClosed:
+        except core.ConnectionClosed:
             pass
 
         finally:

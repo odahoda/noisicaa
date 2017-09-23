@@ -22,6 +22,7 @@ class AlsaSequencerTest(unittest.TestCase):
             for port_info in seq.list_all_ports():
                 self.assertIsInstance(port_info, libalsa.PortInfo)
 
+    @unittest.skip("Can't assume presence of real MIDI input on system.")
     def test_connect(self):
         with libalsa.AlsaSequencer() as seq:
             port_info = next(

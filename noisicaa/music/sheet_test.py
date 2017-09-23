@@ -1,18 +1,40 @@
 #!/usr/bin/python3
 
+import asynctest
 import unittest
 
+from noisicaa.node_db.private import db as node_db
 from . import project
 from . import sheet
 from . import score_track
 from . import track_group
 
 
-class SheetCommandTest(unittest.TestCase):
-    def setUp(self):
-        self.project = project.BaseProject()
+class NodeDB(object):
+    def __init__(self):
+        self.db = node_db.NodeDB()
+
+    async def setup(self):
+        self.db.setup()
+
+    async def cleanup(self):
+        self.db.cleanup()
+
+    def get_node_description(self, uri):
+        return self.db._nodes[uri]
+
+
+class SheetCommandTest(asynctest.TestCase):
+    async def setUp(self):
+        self.node_db = NodeDB()
+        await self.node_db.setup()
+
+        self.project = project.BaseProject(node_db=self.node_db)
         self.sheet = sheet.Sheet(name='Test')
         self.project.add_sheet(self.sheet)
+
+    async def tearDown(self):
+        await self.node_db.cleanup()
 
 
 class AddTrackTest(SheetCommandTest):

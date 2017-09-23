@@ -256,7 +256,7 @@ class AudioStreamProxy(object):
             while not self._stopped.is_set():
                 try:
                     server_request = self._server.receive_block()
-                except noisicore.ConnectionClosed:
+                except core.ConnectionClosed:
                     logger.warning("Stream to PlayerClient closed.")
                     raise
 
@@ -383,7 +383,7 @@ class AudioStreamProxy(object):
                                 client_response = self._client.receive_block()
                             perf.add_spans(client_response.perfData)
 
-                        except noisicore.ConnectionClosed:
+                        except core.ConnectionClosed:
                             logger.warning("Stream to pipeline closed.")
                             self._player.event_loop.call_soon_threadsafe(
                                 self._player.audioproc_backend.backend_crashed)
@@ -406,11 +406,11 @@ class AudioStreamProxy(object):
 
                 try:
                     self._server.send_block(response)
-                except noisicore.ConnectionClosed:
+                except core.ConnectionClosed:
                     logger.warning("Stream to PlayerClient closed.")
                     raise
 
-        except noisicore.ConnectionClosed:
+        except core.ConnectionClosed:
             pass
 
         except:  # pylint: disable=bare-except

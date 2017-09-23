@@ -254,7 +254,7 @@ class AudioOutPipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return self.project.get_node_description('builtin://sink')
+        return node_db.SinkDescription
 
 
 class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
@@ -266,7 +266,7 @@ class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return self.project.get_node_description('builtin://track_mixer')
+        return node_db.TrackMixerDescription
 
 
 class EventSourcePipelineGraphNode(BasePipelineGraphNode):
@@ -278,7 +278,7 @@ class EventSourcePipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return self.project.get_node_description('builtin://event_source')
+        return node_db.EventSourceDescription
 
 
 class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
@@ -290,7 +290,7 @@ class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return self.project.get_node_description('builtin://control_source')
+        return node_db.ControlSourceDescription
 
 
 class AudioSourcePipelineGraphNode(BasePipelineGraphNode):
@@ -302,7 +302,7 @@ class AudioSourcePipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return self.project.get_node_description('builtin://audio_source')
+        return node_db.AudioSourceDescription
 
 
 class InstrumentPipelineGraphNode(BasePipelineGraphNode):

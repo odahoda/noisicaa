@@ -5,9 +5,11 @@ import json
 import pprint
 import unittest
 
+import asynctest
 from mox3 import stubout
 from pyfakefs import fake_filesystem
 
+from noisicaa.node_db.private import db as node_db
 from noisicaa.core import fileutil
 from noisicaa.core import storage
 from . import project
@@ -20,20 +22,41 @@ def store_retrieve(obj):
     return deserialized
 
 
-class BaseProjectTest(unittest.TestCase):
+class NodeDB(object):
+    def __init__(self):
+        self.db = node_db.NodeDB()
+
+    async def setup(self):
+        self.db.setup()
+
+    async def cleanup(self):
+        self.db.cleanup()
+
+    def get_node_description(self, uri):
+        return self.db._nodes[uri]
+
+
+class BaseProjectTest(asynctest.TestCase):
+    async def setUp(self):
+        self.node_db = NodeDB()
+        await self.node_db.setup()
+
+    async def tearDown(self):
+        await self.node_db.cleanup()
+
     def test_serialize(self):
-        p = project.BaseProject()
+        p = project.BaseProject(node_db=self.node_db)
         self.assertIsInstance(p.serialize(), dict)
 
     def test_deserialize(self):
-        p = project.BaseProject()
+        p = project.BaseProject(node_db=self.node_db)
         p.sheets.append(sheet.Sheet(name='Sheet 1'))
         state = store_retrieve(p.serialize())
         p2 = project.Project(state=state)
         self.assertEqual(len(p2.sheets), 1)
 
     def test_demo(self):
-        p = project.BaseProject.make_demo()
+        p = project.BaseProject.make_demo(node_db=self.node_db)
         #pprint.pprint(p.serialize())
 
 
@@ -111,8 +134,11 @@ class SetCurrentSheetTest(unittest.TestCase):
         self.assertEqual(p.current_sheet, 1)
 
 
-class ProjectTest(unittest.TestCase):
-    def setUp(self):
+class ProjectTest(asynctest.TestCase):
+    async def setUp(self):
+        self.node_db = NodeDB()
+        await self.node_db.setup()
+
         self.stubs = stubout.StubOutForTesting()
         self.addCleanup(self.stubs.SmartUnsetAll)
 
@@ -123,6 +149,9 @@ class ProjectTest(unittest.TestCase):
         self.stubs.SmartSet(storage, 'os', self.fake_os)
         self.stubs.SmartSet(fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
+
+    async def tearDown(self):
+        await self.node_db.cleanup()
 
     def test_create(self):
         p = project.Project()
@@ -139,7 +168,7 @@ class ProjectTest(unittest.TestCase):
         self.assertIsInstance(contents, dict)
 
     def test_open_and_replay(self):
-        p = project.Project()
+        p = project.Project(node_db=self.node_db)
         p.create('/foo.noise')
         try:
             p.dispatch_command(p.id, project.AddSheet())
@@ -151,7 +180,7 @@ class ProjectTest(unittest.TestCase):
         finally:
             p.close()
 
-        p = project.Project()
+        p = project.Project(node_db=self.node_db)
         p.open('/foo.noise')
         try:
             self.assertEqual(p.sheets[-1].id, sheet_id)
