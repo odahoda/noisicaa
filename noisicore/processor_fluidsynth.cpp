@@ -143,7 +143,7 @@ Status ProcessorFluidSynth::run(BlockContext* ctxt) {
 	esample_pos = 0;
       }
 
-      if (esample_pos >= segment_start) {
+      if (esample_pos > segment_start) {
 	uint32_t num_samples = esample_pos - segment_start;
 	float *lmap[1] = { out_left };
 	float *rmap[1] = { out_right };
