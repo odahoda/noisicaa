@@ -20,11 +20,13 @@ public:
   void cleanup();
 
 private:
-  static CSoundSubSystem* _instance;
   Logger* _logger;
+
+  static CSoundSubSystem* _instance;
   static void _log_cb(CSOUND* csnd, int attr, const char* fmt, va_list args);
   void _log_cb(int attr, const char* fmt, va_list args);
   char _log_buf[10240];
+  bool _log_cb_installed = false;
 };
 
 }  // namespace noisicaa

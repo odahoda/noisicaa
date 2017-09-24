@@ -15,18 +15,21 @@ CSoundSubSystem::~CSoundSubSystem() {
 CSoundSubSystem* CSoundSubSystem::_instance = nullptr;
 
 Status CSoundSubSystem::setup() {
-  assert(_instance == nullptr);
-  _instance = this;
-  memset(_log_buf, 0, sizeof(_log_buf));
-
-  csoundSetDefaultMessageCallback(_log_cb);
+  if (_instance == nullptr) {
+    _instance = this;
+    memset(_log_buf, 0, sizeof(_log_buf));
+    csoundSetDefaultMessageCallback(_log_cb);
+    _log_cb_installed = true;
+  }
   return Status::Ok();
 }
 
 void CSoundSubSystem::cleanup() {
-  csoundSetDefaultMessageCallback(nullptr);
-
-  _instance = nullptr;
+  if (_log_cb_installed) {
+    csoundSetDefaultMessageCallback(nullptr);
+    _instance = nullptr;
+    _log_cb_installed = false;
+  }
 }
 
 void CSoundSubSystem::_log_cb(CSOUND* csnd, int attr, const char* fmt, va_list args) {
