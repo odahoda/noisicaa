@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
 #include "noisicaa/core/perf_stats.h"
 #include "noisicore/host_data.h"
 #include "noisicore/processor_csound.h"
@@ -22,6 +23,44 @@ ProcessorCSoundBase::ProcessorCSoundBase(const char* logger_name, HostData* host
 
 ProcessorCSoundBase::~ProcessorCSoundBase() {}
 
+void ProcessorCSoundBase::_log_cb(CSOUND* csnd, int attr, const char* fmt, va_list args) {
+  ProcessorCSoundBase* proc = (ProcessorCSoundBase*)csoundGetHostData(csnd);
+  assert(proc != nullptr);
+  proc->_log_cb(attr, fmt, args);
+}
+
+void ProcessorCSoundBase::_log_cb(int attr, const char* fmt, va_list args) {
+  LogLevel level;
+  switch (attr & CSOUNDMSG_TYPE_MASK) {
+  case CSOUNDMSG_ORCH:
+  case CSOUNDMSG_REALTIME:
+  case CSOUNDMSG_DEFAULT:
+    level = LogLevel::INFO;
+    break;
+  case CSOUNDMSG_WARNING:
+    level = LogLevel::WARNING;
+    break;
+  case CSOUNDMSG_ERROR:
+    level = LogLevel::ERROR;
+    break;
+  }
+
+  size_t bytes_used = strlen(_log_buf);
+  vsnprintf(_log_buf + bytes_used, sizeof(_log_buf) - bytes_used, fmt, args);
+
+  while (_log_buf[0]) {
+    char *eol = strchr(_log_buf, '\n');
+    if (eol == nullptr) {
+      break;
+    }
+
+    *eol = 0;
+    _logger->log(level, "%s", _log_buf);
+
+    memmove(_log_buf, eol + 1, strlen(eol + 1) + 1);
+  }
+}
+
 Status ProcessorCSoundBase::set_code(const string& orchestra, const string& score) {
   // Discard any next instance, which hasn't been picked up by the audio thread.
   Instance* prev_next_instance = _next_instance.exchange(nullptr);
@@ -37,10 +76,12 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
 
   // Create the next instance.
   unique_ptr<Instance> instance(new Instance());
-  instance->csnd = csoundCreate(nullptr);
+  instance->csnd = csoundCreate(this);
   if (instance->csnd == nullptr) {
     return Status::Error("Failed to create Csound instance.");
   }
+
+  csoundSetMessageCallback(instance->csnd, ProcessorCSoundBase::_log_cb);
 
   int rc = csoundSetOption(instance->csnd, "-n");
   if (rc < 0) {
@@ -129,8 +170,8 @@ Status ProcessorCSoundBase::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
   if (status.is_error()) { return status; }
 
+  memset(_log_buf, 0, sizeof(_log_buf));
   _buffers.resize(spec->num_ports());
-
   _event_input_ports.resize(spec->num_ports());
 
   return Status::Ok();

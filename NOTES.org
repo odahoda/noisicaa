@@ -3,8 +3,6 @@
 * VM-based pipeline engine								      :FR:
 - rename sprintf to something less ambiguous
 - capture fluidsynth logs
-- capture csound logs
-  - use per instance callback
 - Put a lockfree queue between C++ logging and Python logging
   - only need that in the performance thread...
   - thread local LogSink?

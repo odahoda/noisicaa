@@ -36,6 +36,10 @@ protected:
   Status set_code(const string& orchestra, const string& score);
 
 private:
+  static void _log_cb(CSOUND* csnd, int attr, const char* fmt, va_list args);
+  void _log_cb(int attr, const char* fmt, va_list args);
+  char _log_buf[10240];
+
   class Instance {
   public:
     Instance();

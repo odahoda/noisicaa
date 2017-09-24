@@ -11,6 +11,7 @@ set(LIB_SRCS
   buffers.cpp
   host_data.cpp
   host_system_lv2.cpp
+  host_system_csound.cpp
   misc.cpp
   opcodes.cpp
   processor_spec.cpp

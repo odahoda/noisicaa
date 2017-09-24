@@ -6,6 +6,7 @@
 #include <memory>
 #include "noisicaa/core/status.h"
 #include "noisicore/host_system_lv2.h"
+#include "noisicore/host_system_csound.h"
 
 namespace noisicaa {
 
@@ -18,6 +19,7 @@ public:
   void cleanup();
 
   unique_ptr<LV2SubSystem> lv2;
+  unique_ptr<CSoundSubSystem> csound;
 };
 
 }  // namespace noisicaa
