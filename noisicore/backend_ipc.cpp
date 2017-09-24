@@ -7,6 +7,25 @@
 
 namespace noisicaa {
 
+class IPCRequest {
+public:
+  IPCRequest(const string& request_bytes)
+    : _request_bytes(request_bytes),
+      _words(
+	  (::capnp::word*)_request_bytes.c_str(),
+	  _request_bytes.size() / sizeof(::capnp::word)),
+      _reader(_words) {}
+
+  capnp::BlockData::Reader reader() {
+    return _reader.getRoot<capnp::BlockData>();
+  }
+
+private:
+  string _request_bytes;
+  kj::ArrayPtr<::capnp::word> _words;
+  ::capnp::FlatArrayMessageReader _reader;
+};
+
 IPCBackend::IPCBackend(const BackendSettings& settings)
   : Backend("noisicore.backend.ipc", settings),
     _block_size(settings.block_size) {}
@@ -61,21 +80,26 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
   if (stor_request_bytes.is_error()) { return stor_request_bytes; }
 
   ctxt->perf->start_span("parse_request");
-  string request_bytes = stor_request_bytes.result();
-  kj::ArrayPtr<::capnp::word> words(
-      (::capnp::word*)request_bytes.c_str(),
-      request_bytes.size() / sizeof(::capnp::word));
-  ::capnp::FlatArrayMessageReader message_reader(words);
-  capnp::BlockData::Reader request(message_reader.getRoot<capnp::BlockData>());
+
+  // The request bytes and capnp reader must stay alive until end_block, because
+  // ctxt->buffers and ctxt->messages contain pointers into it.
+  // Only way with capnp seems to be to create it on the heap...
+  _request.reset(new IPCRequest(stor_request_bytes.result()));
+  capnp::BlockData::Reader request = _request->reader();
   ctxt->perf->end_span();
 
   ctxt->buffers.clear();
   for (const auto& block : request.getBuffers()) {
     ::capnp::Data::Reader data = block.getData();
-    ctxt->buffers.emplace(string(block.getId().cStr()), BlockContext::Buffer{data.size(), (const BufferPtr)data.begin()});
+    ctxt->buffers.emplace(
+        string(block.getId().cStr()),
+	BlockContext::Buffer{data.size(), (const BufferPtr)data.begin()});
   }
 
-  //     ctxt.messages = in_frame.messages
+  ctxt->messages.clear();
+  for (const auto& msg : request.getMessages()) {
+    ctxt->messages.emplace_back(msg);
+  }
 
   // TODO: Is there a way to reuse and reset an existing message builder, without
   // memory bloat?
@@ -104,6 +128,8 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
 }
 
 Status IPCBackend::end_block(BlockContext* ctxt) {
+  _request.reset();
+
   int num_buffers = 0;
   for (int c = 0 ; c < 2 ; ++c) {
     if (_channel_written[c]) {

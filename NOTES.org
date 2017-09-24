@@ -2,8 +2,6 @@
 
 * VM-based pipeline engine								      :FR:
 - rename sprintf to something less ambiguous
-- reimplement message passing
-  - so notes play feedback on insert
 - capture fluidsynth logs
 - capture csound logs
   - use per instance callback

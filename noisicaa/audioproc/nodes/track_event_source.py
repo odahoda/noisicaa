@@ -32,13 +32,12 @@ class TrackEventSource(node.BuiltinNode):
         # seq.add(ast.LogAtom(
         #     self.outputs['out'].buf_name))
 
-        # TODO: reanimate
-        # seq.add(ast.AllocBuffer(
-        #     self.id + ':messages', noisicore.AtomData()))
-        # seq.add(ast.FetchMessages(
-        #     core.build_labelset({core.MessageKey.trackId: self.track_id}),
-        #     self.id + ':messages'))
-        # seq.add(ast.MixBuffers(
-        #     self.id + ':messages', self.outputs['out'].buf_name))
+        seq.add(ast.AllocBuffer(
+            self.id + ':messages', noisicore.AtomData()))
+        seq.add(ast.FetchMessages(
+            core.build_labelset({core.MessageKey.trackId: self.track_id}).to_bytes(),
+            self.id + ':messages'))
+        seq.add(ast.MixBuffers(
+            self.id + ':messages', self.outputs['out'].buf_name))
 
         return seq

@@ -6,7 +6,9 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 #include <stdint.h>
+#include "noisicaa/core/message.capnp.h"
 #include "noisicore/buffers.h"
 
 namespace noisicaa {
@@ -26,6 +28,8 @@ struct BlockContext {
     const BufferPtr data;
   };
   map<string, Buffer> buffers;
+
+  vector<capnp::Message::Reader> messages;
 };
 
 }  // namespace noisicaa

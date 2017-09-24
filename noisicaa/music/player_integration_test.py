@@ -273,6 +273,8 @@ class PlayerTest(asynctest.TestCase):
                     'running')
                 logger.info("audioproc is ready...")
 
+                await asyncio.sleep(0.2)
+
                 logger.info("Send messsage...")
                 p.send_message(core.build_message(
                     {core.MessageKey.trackId: self.sheet.master_group.tracks[0].id},

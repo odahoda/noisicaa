@@ -1,5 +1,8 @@
 @0xb5afa1e45874d1ef;
 
+using Cxx = import "/capnp/c++.capnp";
+$Cxx.namespace("noisicaa::capnp");
+
 enum Key {
   sheetId @0;
   trackId @1;

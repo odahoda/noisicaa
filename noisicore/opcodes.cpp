@@ -1,4 +1,7 @@
 #include <stdlib.h>
+#include "capnp/pretty-print.h"
+#include "capnp/serialize.h"
+#include "noisicaa/core/message.capnp.h"
 #include "noisicore/opcodes.h"
 #include "noisicore/host_data.h"
 #include "noisicore/backend.h"
@@ -82,29 +85,59 @@ Status run_FETCH_BUFFER(BlockContext* ctxt, ProgramState* state, const vector<Op
 }
 
 Status run_FETCH_MESSAGES(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-    // def op_FETCH_MESSAGES(self, ctxt, state, *, labelset, buf_idx):
-    //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
+  string labelset_bytes = args[0].string_value();
+  int buf_idx = args[1].int_value();
 
-    //     forge = lv2.AtomForge(lv2.static_mapper)
-    //     forge.set_buffer(buf.data, len(buf.type))
+  kj::ArrayPtr<::capnp::word> words(
+      (::capnp::word*)labelset_bytes.c_str(),
+      labelset_bytes.size() / sizeof(::capnp::word));
+  ::capnp::FlatArrayMessageReader message_reader(words);
+  capnp::Labelset::Reader labelset(message_reader.getRoot<capnp::Labelset>());
 
-    //     with forge.sequence():
-    //         for msg in ctxt.messages:
-    //             if msg.type != core.MessageType.atom:
-    //                 continue
+  Buffer* buf = state->program->buffers[buf_idx].get();
 
-    //             matched = all(
-    //                 any(label_b.key == label_a.key and label_b.value == label_a.value
-    //                     for label_b in msg.labelset.labels)
-    //                 for label_a in labelset.labels)
+  LV2_Atom_Forge forge;
+  lv2_atom_forge_init(&forge, &state->host_data->lv2->urid_map);
 
-    //             if not matched:
-    //                 continue
+  LV2_Atom_Forge_Frame frame;
+  lv2_atom_forge_set_buffer(&forge, buf->data(), buf->size());
 
-    //             forge.write_raw_event(0, msg.data, len(msg.data))
+  lv2_atom_forge_sequence_head(&forge, &frame, state->host_data->lv2->urid.atom_frame_time);
 
-    //     # TODO: clear remainder of buf.
-  return Status::Error("FETCH_MESSAGES not implemented yet.");
+  for (const auto& msg : ctxt->messages) {
+    if (msg.getType() != capnp::Type::ATOM) {
+      continue;
+    }
+
+    // All labels in labelset must match some label in msg.labelset.
+    bool matched = false;
+    for (const auto& label_a : labelset.getLabels()) {
+      matched = false;
+      for (const auto& label_b : msg.getLabelset().getLabels()) {
+	if (label_b.getKey() == label_a.getKey() && label_b.getValue() == label_a.getValue()) {
+	  matched = true;
+	  break;
+	}
+      }
+
+      if (!matched) {
+	break;
+      }
+    }
+
+    if (!matched) {
+      continue;
+    }
+
+    lv2_atom_forge_frame_time(&forge, 0);
+    ::capnp::Data::Reader data = msg.getData();
+    lv2_atom_forge_write(&forge, data.begin(), data.size());
+  }
+
+  lv2_atom_forge_pop(&forge, &frame);
+  // TODO: clear remainder of buf.
+
+  return Status::Ok();
 }
 
 Status run_FETCH_PARAMETER(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -230,7 +263,7 @@ struct OpSpec opspecs[NUM_OPCODES] = {
   // I/O
   { OpCode::OUTPUT, "OUTPUT", "bs", nullptr, run_OUTPUT },
   { OpCode::FETCH_BUFFER, "FETCH_BUFFER", "sb", nullptr, run_FETCH_BUFFER },
-  { OpCode::FETCH_MESSAGES, "FETCH_MESSAGES", "ib", nullptr, run_FETCH_MESSAGES },
+  { OpCode::FETCH_MESSAGES, "FETCH_MESSAGES", "sb", nullptr, run_FETCH_MESSAGES },
   { OpCode::FETCH_PARAMETER, "FETCH_PARAMETER", "sb", nullptr, run_FETCH_PARAMETER },
 
   // generators

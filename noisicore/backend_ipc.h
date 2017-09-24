@@ -13,6 +13,7 @@
 
 namespace noisicaa {
 
+class IPCRequest;
 class VM;
 
 class IPCBackend : public Backend {
@@ -29,6 +30,7 @@ public:
 
  private:
   unique_ptr<AudioStreamServer> _stream;
+  unique_ptr<IPCRequest> _request;
   unique_ptr<::capnp::MallocMessageBuilder> _message_builder;
   capnp::BlockData::Builder _out_block = nullptr;
   uint32_t _block_size;
