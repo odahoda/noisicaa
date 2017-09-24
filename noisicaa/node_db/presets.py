@@ -108,7 +108,7 @@ class Preset(object):
             (p.name, p.value) for p in self.parameter_values)
 
         for parameter_name, value in sorted(self.parameter_values.items()):
-            if parameter.param_type == node_db.ParameterType.Internal:
+            if parameter.hidden:
                 continue
 
             value = parameter_values.get(parameter.name, parameter.default)

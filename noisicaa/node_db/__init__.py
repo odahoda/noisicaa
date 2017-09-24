@@ -12,7 +12,6 @@ from .node_description import (
     PortDirection, PortType,
 
     ParameterType,
-    InternalParameterDescription,
     StringParameterDescription,
     PathParameterDescription,
     TextParameterDescription,

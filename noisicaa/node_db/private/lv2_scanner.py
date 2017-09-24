@@ -108,8 +108,8 @@ class LV2Scanner(scanner.Scanner):
                         port.get_symbol(), ', '.join(str(cls) for cls in port.get_classes()))
 
             parameters.append(
-                node_db.InternalParameterDescription(
-                    name='lv2_uri', value=str(plugin.get_uri())))
+                node_db.StringParameterDescription(
+                    name='lv2_uri', default=str(plugin.get_uri()), hidden=True))
 
             node_desc = node_db.ProcessorDescription(
                 display_name=str(plugin.get_name()),

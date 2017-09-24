@@ -86,11 +86,11 @@ class LadspaScanner(scanner.Scanner):
                         ports.append(port_desc)
 
                     parameters.append(
-                        node_db.InternalParameterDescription(
-                            name='ladspa_library_path', value=path))
+                        node_db.StringParameterDescription(
+                            name='ladspa_library_path', default=path, hidden=True))
                     parameters.append(
-                        node_db.InternalParameterDescription(
-                            name='ladspa_plugin_label', value=desc.label))
+                        node_db.StringParameterDescription(
+                            name='ladspa_plugin_label', default=desc.label, hidden=True))
 
                     node_desc = node_db.ProcessorDescription(
                         display_name=desc.name,

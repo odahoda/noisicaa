@@ -89,19 +89,10 @@ class Node(object):
 
     def init_parameters(self):
         for parameter in self.description.parameters:
-            if parameter.param_type in (
-                    node_db.ParameterType.Int,
-                    node_db.ParameterType.Float,
-                    node_db.ParameterType.String,
-                    node_db.ParameterType.Text):
-                self.__parameters[parameter.name] = {
-                    'value': parameter.default,
-                    'description': parameter,
-                }
-            elif parameter.param_type == node_db.ParameterType.Internal:
-                pass
-            else:
-                raise ValueError(parameter)
+            self.__parameters[parameter.name] = {
+                'value': parameter.default,
+                'description': parameter,
+            }
 
         if self._initial_parameters is not None:
             self.set_param(**self._initial_parameters)

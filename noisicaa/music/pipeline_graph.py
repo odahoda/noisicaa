@@ -283,7 +283,7 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
             (p.name, p.value) for p in self.parameter_values)
 
         for parameter in parameters:
-            if parameter.param_type == node_db.ParameterType.Internal:
+            if parameter.hidden:
                 continue
 
             value = parameter_values.get(parameter.name, parameter.default)

@@ -12,6 +12,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import music
+from noisicaa import node_db
 from noisicaa.music import model
 from noisicaa.music import time_mapper
 from noisicaa.ui import tools
@@ -1197,9 +1198,9 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
 
         self.__player_node_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
-            'ipc',
+            description=node_db.IPCDescription,
             id=self.__player_node_id,
-            address=self.__player_stream_address)
+            initial_parameters=dict(ipc_address=self.__player_stream_address))
         await self.audioproc_client.connect_ports(
             self.__player_node_id, 'out:left', 'sink', 'in:left')
         await self.audioproc_client.connect_ports(

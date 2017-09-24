@@ -58,20 +58,5 @@ cdef class PyProcessorSpec(object):
             elif param.param_type == node_db.ParameterType.Float:
                 check(self.__spec.add_parameter(new FloatParameterSpec(name, param.default)))
 
-            elif param.param_type == node_db.ParameterType.Internal:
-                if isinstance(param.value, str):
-                    check(self.__spec.add_parameter(
-                        new StringParameterSpec(name, param.value.encode('utf-8'))))
-                elif isinstance(param.value, bytes):
-                    check(self.__spec.add_parameter(
-                        new StringParameterSpec(name, param.value)))
-                elif isinstance(param.value, int):
-                    check(self.__spec.add_parameter(
-                        new IntParameterSpec(name, param.value)))
-                elif isinstance(param.value, float):
-                    check(self.__spec.add_parameter(
-                        new FloatParameterSpec(name, param.value)))
-                else:
-                    raise TypeError(type(param.value).__name__)
             else:
                 raise TypeError(type(param).__name__)

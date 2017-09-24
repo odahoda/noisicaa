@@ -98,7 +98,6 @@ class EventPortDescription(PortDescription):
 
 
 class ParameterType(enum.Enum):
-    Internal = 'internal'
     String = 'string'
     Path = 'path'
     Text = 'text'
@@ -107,14 +106,15 @@ class ParameterType(enum.Enum):
 
 
 class ParameterDescription(object):
-    def __init__(self, param_type, name, display_name=None):
+    def __init__(self, *, param_type, name, display_name=None, hidden=False):
         self.name = name
         self.display_name = display_name or name
         self.param_type = param_type
+        self.hidden = hidden
 
     def __str__(self):
-        return "<Parameter name='%s' type=%s>" % (
-            self.name, self.param_type.name)
+        return "<Parameter name='%s' type=%s%s>" % (
+            self.name, self.param_type.name, " hidden" if self.hidden else "")
 
     def validate(self, value):
         return value
@@ -126,25 +126,19 @@ class ParameterDescription(object):
         return s
 
 
-class InternalParameterDescription(ParameterDescription):
-    def __init__(self, value, **kwargs):
-        super().__init__(param_type=ParameterType.Internal, **kwargs)
-        self.value = value
-
-
 class StringParameterDescription(ParameterDescription):
-    def __init__(self, default='', **kwargs):
+    def __init__(self, *, default='', **kwargs):
         super().__init__(param_type=ParameterType.String, **kwargs)
         self.default = default
 
 
 class PathParameterDescription(ParameterDescription):
-    def __init__(self, **kwargs):
+    def __init__(self, *, default='', **kwargs):
         super().__init__(param_type=ParameterType.Path, **kwargs)
 
 
 class TextParameterDescription(ParameterDescription):
-    def __init__(self, content_type='text/plain', default='', **kwargs):
+    def __init__(self, *, content_type='text/plain', default='', **kwargs):
         super().__init__(param_type=ParameterType.Text, **kwargs)
 
         self.content_type = content_type
@@ -152,7 +146,7 @@ class TextParameterDescription(ParameterDescription):
 
 
 class FloatParameterDescription(ParameterDescription):
-    def __init__(self, min=0.0, max=1.0, default=0.0, **kwargs):
+    def __init__(self, *, min=0.0, max=1.0, default=0.0, **kwargs):
         super().__init__(param_type=ParameterType.Float, **kwargs)
 
         self.min = min
@@ -173,7 +167,7 @@ class FloatParameterDescription(ParameterDescription):
         return float(s)
 
 class IntParameterDescription(ParameterDescription):
-    def __init__(self, min=None, max=None, default=0, **kwargs):
+    def __init__(self, *, min=None, max=None, default=0, **kwargs):
         super().__init__(param_type=ParameterType.Int, **kwargs)
 
         self.min = min

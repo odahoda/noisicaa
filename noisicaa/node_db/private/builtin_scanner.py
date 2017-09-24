@@ -29,20 +29,18 @@ TrackMixerDescription = node_db.ProcessorDescription(
             direction=node_db.PortDirection.Output),
     ],
     parameters=[
-        node_db.TextParameterDescription(
+        node_db.StringParameterDescription(
             name='csound_orchestra',
-            display_name='Orchestra Code',
-            content_type='text/csound-orchestra',
+            hidden=True,
             default=textwrap.dedent("""\
                 instr 2
                     gaOutLeft = gaInLeft
                     gaOutRight = gaInRight
                 endin
             """)),
-        node_db.TextParameterDescription(
+        node_db.StringParameterDescription(
             name='csound_score',
-            display_name='Score',
-            content_type='text/csound-score',
+            hidden=True,
             default='i2 0 -1'),
     ])
 
@@ -59,7 +57,7 @@ IPCDescription = node_db.ProcessorDescription(
     ],
     parameters=[
         node_db.StringParameterDescription(
-            name='ipc_address')
+            name='ipc_address', hidden=True)
     ])
 
 AudioSourceDescription = node_db.UserNodeDescription(
@@ -120,20 +118,11 @@ FluidSynthDescription = node_db.ProcessorDescription(
     ],
     parameters=[
         node_db.IntParameterDescription(
-            name='bank',
-            display_name='Bank',
-            min=0,
-            max=127,
-            default=0),
+            name='bank', hidden=True, min=0, max=127),
         node_db.IntParameterDescription(
-            name='preset',
-            display_name='Preset',
-            min=0,
-            max=127,
-            default=0),
+            name='preset', hidden=True, min=0, max=127),
         node_db.StringParameterDescription(
-            name='soundfont_path',
-            display_name='Path'),
+            name='soundfont_path', hidden=True),
     ])
 
 SamplePlayerDescription = node_db.ProcessorDescription(

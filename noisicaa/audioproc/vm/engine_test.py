@@ -240,8 +240,8 @@ class PipelineVMTest(unittest.TestCase):
     #                 direction=node_db.PortDirection.Output),
     #         ],
     #         parameters=[
-    #             node_db.InternalParameterDescription(
-    #                 name='uri', value='http://lv2plug.in/plugins/eg-amp'),
+    #             node_db.StringParameterDescription(
+    #                 name='uri', default='http://lv2plug.in/plugins/eg-amp', hidden=True),
     #             node_db.FloatParameterDescription(
     #                 name='gain',
     #                 display_name='Gain',

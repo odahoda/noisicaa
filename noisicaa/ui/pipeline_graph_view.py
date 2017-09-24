@@ -179,7 +179,7 @@ class ParameterValuesConnector(object):
 
         self.__parameter_values = {}
         for parameter in self.__node.description.parameters:
-            if parameter.param_type == node_db.ParameterType.Internal:
+            if parameter.hidden:
                 continue
 
             self.__parameter_values[parameter.name] = parameter.default
@@ -380,6 +380,9 @@ class NodePropertyDialog(
 
         self.__parameter_values = ParameterValuesConnector(node)
         for parameter in self._node_item.node_description.parameters:
+            if parameter.hidden:
+                continue
+
             if parameter.param_type == node_db.ParameterType.Float:
                 widget = QtWidgets.QLineEdit(self)
                 widget.setText(parameter.to_string(self.__parameter_values[parameter.name]))
@@ -404,9 +407,6 @@ class NodePropertyDialog(
                     self.__parameter_values.listeners.add(
                         parameter.name, functools.partial(
                             self.onTextParameterChanged, widget, parameter)))
-
-            elif parameter.param_type == node_db.ParameterType.Internal:
-                pass
 
             else:
                 raise ValueError(parameter)
