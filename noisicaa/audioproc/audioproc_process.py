@@ -9,7 +9,6 @@ import io
 
 import posix_ipc
 
-import noisicore
 from noisicaa import core
 from noisicaa.core import ipc
 
@@ -119,7 +118,7 @@ class AudioProcProcessMixin(object):
         if self.shm_name is not None:
             self.shm = posix_ipc.SharedMemory(self.shm_name)
 
-        self.__host_data = noisicore.HostData()
+        self.__host_data = vm.HostData()
         self.__host_data.setup()
 
         self.__vm = vm.PipelineVM(

@@ -4,7 +4,6 @@ import logging
 
 import numpy
 
-import noisicore
 from noisicaa import core
 from noisicaa import audioproc
 
@@ -167,7 +166,7 @@ class ControlBufferSource(base_track.BufferSource):
             output[frame_sample_pos:] = numpy.zeros(duration, dtype=numpy.float32)
 
         data = output.tobytes()
-        buf = noisicore.Buffer.new_message()
+        buf = audioproc.Buffer.new_message()
         buf.id = buffer_id
         buf.data = bytes(data)
         ctxt.buffers[buffer_id] = buf

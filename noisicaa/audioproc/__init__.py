@@ -9,3 +9,14 @@ from .mutations import (
     SetPortProperty,
     SetNodeParameter,
 )
+from .vm import (
+    Buffer,
+    BlockData,
+    AudioStream,
+    Spec,
+    Float,
+    FloatAudioBlock,
+    AtomData,
+    HostData,
+    BlockContext,
+)

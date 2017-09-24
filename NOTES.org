@@ -8,9 +8,6 @@
   - thread local LogSink?
 - capnp API is really awful. strongly consider rolling a custom format for FrameData
   - are there any other places, where I care about zero-copy deserialization?
-- rething directory structure
-  - rename noisicore/ to noisicaa/audioproc/audiocore
-    -> compile into libnoisicaa-audiocore
 - clean use of NodeDescription types
   - which types are actually needed?
 - node parameters

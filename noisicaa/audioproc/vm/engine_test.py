@@ -5,7 +5,6 @@ import struct
 import threading
 import unittest
 
-import noisicore
 from noisicaa import constants
 from noisicaa import node_db
 from noisicaa import audioproc
@@ -53,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 class PipelineVMTest(unittest.TestCase):
     def setUp(self):
-        self.host_data = noisicore.HostData()
+        self.host_data = audioproc.HostData()
         self.host_data.setup()
 
     def tearDown(self):
@@ -62,7 +61,7 @@ class PipelineVMTest(unittest.TestCase):
     # def test_get_buffer_bytes(self):
     #     vm = engine.PipelineVM()
 
-    #     spec = noisicore.Spec()
+    #     spec = vm.Spec()
     #     spec.buffers.append(buffers.FloatArray(4))
     #     vm.setup_spec(spec)
 
@@ -82,7 +81,7 @@ class PipelineVMTest(unittest.TestCase):
     #         be.next_step()
 
     #         # run with a spec
-    #         spec = noisicore.Spec()
+    #         spec = vm.Spec()
     #         spec.buffers.append(buffers.Float())
     #         spec.opcodes.append(spec.OpCode('SET_FLOAT', buf_idx=0, value=12))
     #         vm.set_spec(spec)
@@ -103,10 +102,10 @@ class PipelineVMTest(unittest.TestCase):
     #         vm.cleanup()
 
     def test_run_vm(self):
-        spec = noisicore.Spec()
-        spec.append_buffer('buf1', noisicore.Float())
-        spec.append_buffer('buf2', noisicore.FloatAudioBlock())
-        spec.append_buffer('buf3', noisicore.FloatAudioBlock())
+        spec = audioproc.Spec()
+        spec.append_buffer('buf1', audioproc.Float())
+        spec.append_buffer('buf2', audioproc.FloatAudioBlock())
+        spec.append_buffer('buf3', audioproc.FloatAudioBlock())
         spec.append_opcode('SET_FLOAT', 'buf1', 12.0)
         spec.append_opcode('COPY', 'buf2', 'buf3')
         spec.append_opcode('CLEAR', 'buf2')
@@ -117,7 +116,7 @@ class PipelineVMTest(unittest.TestCase):
             vm.set_backend('null', block_size=4)
             vm.set_spec(spec)
 
-            ctxt = noisicore.BlockContext()
+            ctxt = audioproc.BlockContext()
             ctxt.sample_pos = 0
             ctxt.block_size = 4
             vm.process_block(ctxt)
@@ -294,9 +293,9 @@ class PipelineVMTest(unittest.TestCase):
             vm.setup(start_thread=False)
             vm.set_backend(constants.TEST_OPTS.PLAYBACK_BACKEND, block_size=4096)
 
-            spec = noisicore.Spec()
-            spec.append_buffer('buf1', noisicore.FloatAudioBlock())
-            spec.append_buffer('buf2', noisicore.FloatAudioBlock())
+            spec = audioproc.Spec()
+            spec.append_buffer('buf1', audioproc.FloatAudioBlock())
+            spec.append_buffer('buf2', audioproc.FloatAudioBlock())
             spec.append_opcode('NOISE', 'buf1')
             spec.append_opcode('MUL', 'buf1', 0.2)
             spec.append_opcode('OUTPUT', 'buf1', 'left')
@@ -305,7 +304,7 @@ class PipelineVMTest(unittest.TestCase):
             spec.append_opcode('OUTPUT', 'buf2', 'right')
             vm.set_spec(spec)
 
-            ctxt = noisicore.BlockContext()
+            ctxt = audioproc.BlockContext()
             ctxt.sample_pos = 0
             ctxt.block_size = 256
 

@@ -1,7 +1,7 @@
 // -*- mode: c++ -*-
 
-#ifndef _NOISICORE_LOGGING_H
-#define _NOISICORE_LOGGING_H
+#ifndef _NOISICAA_CORE_LOGGING_H
+#define _NOISICAA_CORE_LOGGING_H
 
 #include <map>
 #include <memory>

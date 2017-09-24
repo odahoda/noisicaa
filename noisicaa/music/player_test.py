@@ -12,7 +12,6 @@ from unittest import mock
 
 import asynctest
 
-import noisicore
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.core import ipc
@@ -53,7 +52,7 @@ class MockAudioProcClient(object):
     async def set_backend(self, backend, **settings):
         logger.info("Set to audioproc backend to %s.", backend)
         if backend == 'ipc':
-            self.audiostream_server = noisicore.AudioStream.create_server(settings['ipc_address'])
+            self.audiostream_server = audioproc.AudioStream.create_server(settings['ipc_address'])
             self.audiostream_server.setup()
             self.stop_backend = threading.Event()
             self.backend_thread = threading.Thread(target=self.backend_main)
@@ -78,7 +77,7 @@ class MockAudioProcClient(object):
                 request = self.audiostream_server.receive_block()
                 logger.debug("Got request %s, sending response.", request.samplePos)
 
-                response = noisicore.BlockData.new_message(**request.to_dict())
+                response = audioproc.BlockData.new_message(**request.to_dict())
                 self.audiostream_server.send_block(response)
         except core.ConnectionClosed:
             pass
@@ -125,13 +124,13 @@ class PlayerTest(asynctest.TestCase):
         self.proxy_client_thread.start()
 
     def proxy_client_main(self, address):
-        client = noisicore.AudioStream.create_client(address)
+        client = audioproc.AudioStream.create_client(address)
         try:
             client.setup()
 
             sample_pos = 0
             while True:
-                request = noisicore.BlockData.new_message()
+                request = audioproc.BlockData.new_message()
                 request.samplePos = sample_pos
                 request.blockSize = 10
                 logger.debug("Sending block %s...", sample_pos)

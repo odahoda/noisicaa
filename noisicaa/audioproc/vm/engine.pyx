@@ -14,19 +14,16 @@ import threading
 import time
 import cProfile
 
-from noisicaa.core.status cimport *
-from noisicore.vm cimport *
-from noisicore.host_data cimport *
-from noisicore.spec cimport *
-from noisicore.block_context cimport *
-from noisicore.buffers cimport *
-from noisicore.backend cimport *
-
-import noisicore
 from noisicaa import core
 from noisicaa import rwlock
-from noisicaa import audioproc
 from noisicaa.bindings import lv2
+from noisicaa.core.status cimport *
+from .vm cimport *
+from .host_data cimport *
+from .spec cimport *
+from .block_context cimport *
+from .buffers cimport *
+from .backend cimport *
 from .. import node
 from . import graph
 from . import compiler

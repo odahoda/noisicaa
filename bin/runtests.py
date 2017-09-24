@@ -110,9 +110,7 @@ def main(argv):
         cov.set_option("run:branch", True)
         cov.start()
 
-    for dirpath, dirnames, filenames in itertools.chain(
-            os.walk(os.path.join(LIBDIR, 'noisicaa')),
-            os.walk(os.path.join(LIBDIR, 'noisicore'))):
+    for dirpath, dirnames, filenames in os.walk(os.path.join(LIBDIR, 'noisicaa')):
         if '__pycache__' in dirnames:
             dirnames.remove('__pycache__')
 

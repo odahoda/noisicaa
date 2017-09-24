@@ -4,10 +4,10 @@ import itertools
 import logging
 import uuid
 
-import noisicore
 from noisicaa import node_db
 
 from .exceptions import Error
+from . import vm
 from . import ports
 
 logger = logging.getLogger(__name__)
@@ -170,10 +170,10 @@ class ProcessorNode(Node):
     def setup(self):
         super().setup()
 
-        spec = noisicore.ProcessorSpec()
+        spec = vm.ProcessorSpec()
         spec.init(self.description)
 
-        self.__processor = noisicore.Processor(
+        self.__processor = vm.Processor(
             self._host_data,
             self.description.processor_name,
             spec)

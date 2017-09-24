@@ -69,7 +69,6 @@ macro(add_cpp_capnp src)
   )
 endmacro(add_cpp_capnp)
 
-add_subdirectory(noisicore)
 add_subdirectory(noisicaa)
 add_subdirectory(noisidev)
 

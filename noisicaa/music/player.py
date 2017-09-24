@@ -18,7 +18,6 @@ import uuid
 
 import posix_ipc
 
-import noisicore
 from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa.core import model_base
@@ -221,7 +220,7 @@ class AudioStreamProxy(object):
 
         self._lock = threading.Lock()
 
-        self._server = noisicore.AudioStream.create_server(self.address)
+        self._server = audioproc.AudioStream.create_server(self.address)
         self._client = None
 
         self._stopped = threading.Event()
@@ -272,7 +271,7 @@ class AudioStreamProxy(object):
                 perf = core.PerfStats()
                 perf.start_span('player_proxy')
 
-                request = noisicore.BlockData.new_message()
+                request = audioproc.BlockData.new_message()
                 request.samplePos = server_request.samplePos
                 request.blockSize = server_request.blockSize
 
@@ -398,12 +397,12 @@ class AudioStreamProxy(object):
                             self._client = None
 
                     if self._client is None:
-                        client_response = noisicore.BlockData.new_message()
+                        client_response = audioproc.BlockData.new_message()
                         client_response.samplePos = request.samplePos
                         client_response.blockSize = request.blockSize
 
 
-                response = noisicore.BlockData.new_message()
+                response = audioproc.BlockData.new_message()
                 response.samplePos = client_response.samplePos
                 response.blockSize = client_response.blockSize
                 response.init('buffers', len(client_response.buffers))
@@ -578,7 +577,7 @@ class Player(object):
         await self.audioproc_client.set_backend('ipc', ipc_address=self.audiostream_address)
 
         logger.info("Creating audiostream client...")
-        self.audiostream_client = noisicore.AudioStream.create_client(self.audiostream_address)
+        self.audiostream_client = audioproc.AudioStream.create_client(self.audiostream_address)
         self.audiostream_client.setup()
 
         logger.info("Audioproc backend started.")

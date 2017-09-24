@@ -2,7 +2,7 @@
 
 import logging
 
-import noisicore
+from . import vm
 from .exceptions import Error
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ class AudioInputPort(InputPort):
             raise Error("Can only connect to AudioOutputPort")
 
     def get_buf_type(self):
-        return noisicore.FloatAudioBlock()
+        return vm.FloatAudioBlock()
 
 
 class AudioOutputPort(OutputPort):
@@ -147,7 +147,7 @@ class AudioOutputPort(OutputPort):
             self.drywet = drywet
 
     def get_buf_type(self):
-        return noisicore.FloatAudioBlock()
+        return vm.FloatAudioBlock()
 
 
 class ARateControlInputPort(InputPort):
@@ -157,12 +157,12 @@ class ARateControlInputPort(InputPort):
             raise Error("Can only connect to ARateControlOutputPort")
 
     def get_buf_type(self):
-        return noisicore.FloatAudioBlock()
+        return vm.FloatAudioBlock()
 
 
 class ARateControlOutputPort(OutputPort):
     def get_buf_type(self):
-        return noisicore.FloatAudioBlock()
+        return vm.FloatAudioBlock()
 
 
 class KRateControlInputPort(InputPort):
@@ -172,12 +172,12 @@ class KRateControlInputPort(InputPort):
             raise Error("Can only connect to KRateControlOutputPort")
 
     def get_buf_type(self):
-        return noisicore.Float()
+        return vm.Float()
 
 
 class KRateControlOutputPort(OutputPort):
     def get_buf_type(self):
-        return noisicore.Float()
+        return vm.Float()
 
 
 class EventInputPort(InputPort):
@@ -191,9 +191,9 @@ class EventInputPort(InputPort):
             raise Error("Can only connect to EventOutputPort")
 
     def get_buf_type(self):
-        return noisicore.AtomData()
+        return vm.AtomData()
 
 
 class EventOutputPort(OutputPort):
     def get_buf_type(self):
-        return noisicore.AtomData()
+        return vm.AtomData()

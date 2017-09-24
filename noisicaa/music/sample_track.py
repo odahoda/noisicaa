@@ -5,7 +5,6 @@ import logging
 
 import numpy
 
-import noisicore
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.bindings import sndfile
@@ -225,13 +224,13 @@ class SampleBufferSource(base_track.BufferSource):
                 output[dest:dest+length,ch] = samples[src:src+length,ch % samples.shape[1]]
 
         samples_left = output[:,0].tobytes()
-        buffer_left = noisicore.Buffer.new_message()
+        buffer_left = audioproc.Buffer.new_message()
         buffer_left.id = buffer_left_id
         buffer_left.data = bytes(samples_left)
         ctxt.buffers[buffer_left_id] = buffer_left
 
         samples_right = output[:,1].tobytes()
-        buffer_right = noisicore.Buffer.new_message()
+        buffer_right = audioproc.Buffer.new_message()
         buffer_right.id = buffer_right_id
         buffer_right.data = bytes(samples_right)
         ctxt.buffers[buffer_right_id] = buffer_right

@@ -3,7 +3,7 @@
 import logging
 import unittest
 
-import noisicore
+from noisicaa.audioproc import vm
 from noisicaa import node_db
 from .. import node
 from . import compiler
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class CompilerTest(unittest.TestCase):
     def setUp(self):
-        self.host_data = noisicore.HostData()
+        self.host_data = vm.HostData()
 
     def _build_graph(self):
         g = graph.PipelineGraph()

@@ -4,7 +4,7 @@ import logging
 
 import toposort
 
-import noisicore
+from noisicaa.audioproc import vm
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class Compiler(object):
         self.__graph = graph
 
     def build_spec(self):
-        spec = noisicore.Spec()
+        spec = vm.Spec()
 
         sorted_nodes = toposort.toposort_flatten(
             {node: set(node.parent_nodes) for node in self.__graph.nodes},

@@ -3,13 +3,12 @@
 import logging
 import random
 
-import noisicore
 from noisicaa import core
 from noisicaa import music
 from noisicaa import node_db
-
 from .. import ports
 from .. import node
+from .. import vm
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class TrackEventSource(node.BuiltinNode):
 
         spec.append_opcode('FETCH_BUFFER', 'track:' + self.track_id, self.outputs['out'].buf_name)
 
-        spec.append_buffer(self.id + ':messages', noisicore.AtomData())
+        spec.append_buffer(self.id + ':messages', vm.AtomData())
         spec.append_opcode(
             'FETCH_MESSAGES',
             core.build_labelset({core.MessageKey.trackId: self.track_id}).to_bytes(),

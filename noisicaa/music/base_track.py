@@ -2,7 +2,6 @@
 
 import logging
 
-import noisicore
 from noisicaa.bindings import lv2
 from noisicaa import audioproc
 from noisicaa import core
@@ -273,7 +272,7 @@ class EventSetBufferSource(BufferSource):
                         bytes([0b10000000, event.pitch.midi_note, 0]),
                         3)
 
-        buf = noisicore.Buffer.new_message()
+        buf = audioproc.Buffer.new_message()
         buf.id = buffer_id
         buf.data = bytes(data)
 
