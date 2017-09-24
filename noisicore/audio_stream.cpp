@@ -155,16 +155,6 @@ Status AudioStreamBase::send_bytes(const char* data, size_t size) {
   return Status::Ok();
 }
 
-capnp::BlockData::Builder AudioStreamBase::block_data_builder() {
-  return _message_builder.initRoot<capnp::BlockData>();
-}
-
-Status AudioStreamBase::send_block(const capnp::BlockData::Builder& block) {
-  const auto& words = ::capnp::messageToFlatArray(_message_builder);
-  const auto& bytes = words.asChars();
-  return send_bytes(bytes.begin(), bytes.size());
-}
-
 AudioStreamServer::AudioStreamServer(const string& address)
   : AudioStreamBase("noisicore.audio_stream.server", address) {}
 

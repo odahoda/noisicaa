@@ -1,4 +1,5 @@
 #include <iostream>
+#include "capnp/serialize.h"
 #include "noisicaa/core/perf_stats.h"
 #include "noisicore/backend_ipc.h"
 #include "noisicore/audio_stream.h"
@@ -76,7 +77,10 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
 
   //     ctxt.messages = in_frame.messages
 
-  _out_block = _stream->block_data_builder();
+  // TODO: Is there a way to reuse and reset an existing message builder, without
+  // memory bloat?
+  _message_builder.reset(new ::capnp::MallocMessageBuilder());
+  _out_block = _message_builder->initRoot<capnp::BlockData>();
   _out_block.setBlockSize(request.getBlockSize());
   _out_block.setSamplePos(request.getSamplePos());
 
@@ -139,7 +143,10 @@ Status IPCBackend::end_block(BlockContext* ctxt) {
   }
 
   if (!stopped()) {
-    Status status = _stream->send_block(_out_block);
+    const auto& words = ::capnp::messageToFlatArray(*_message_builder.get());
+    const auto& bytes = words.asChars();
+
+    Status status = _stream->send_bytes(bytes.begin(), bytes.size());
     if (status.is_error()) { return status; }
   }
 

@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <string>
+#include "capnp/message.h"
 #include "noisicore/audio_stream.h"
 #include "noisicore/backend.h"
 #include "noisicore/buffers.h"
@@ -28,6 +29,7 @@ public:
 
  private:
   unique_ptr<AudioStreamServer> _stream;
+  unique_ptr<::capnp::MallocMessageBuilder> _message_builder;
   capnp::BlockData::Builder _out_block = nullptr;
   uint32_t _block_size;
   unique_ptr<BufferData> _samples[2];

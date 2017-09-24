@@ -4,11 +4,8 @@
 #define _NOISICORE_AUDIO_STREAM_H
 
 #include <stdint.h>
-#include <capnp/message.h>
-#include <capnp/serialize.h>
 #include "noisicaa/core/logging.h"
 #include "noisicaa/core/status.h"
-#include "noisicore/block_data.capnp.h"
 
 namespace noisicaa {
 
@@ -31,8 +28,6 @@ public:
   Status send_bytes(const string& bytes) {
     return send_bytes(bytes.c_str(), bytes.size());
   }
-  capnp::BlockData::Builder block_data_builder();
-  Status send_block(const capnp::BlockData::Builder& builder);
 
 protected:
   static const uint32_t BLOCK_START = 0x2f94727a;
@@ -48,7 +43,6 @@ protected:
 
 private:
   bool _closed = false;
-  ::capnp::MallocMessageBuilder _message_builder;
 };
 
 class AudioStreamServer : public AudioStreamBase {

@@ -50,13 +50,18 @@ Status ProcessorIPC::connect_port(uint32_t port_idx, BufferPtr buf) {
 Status ProcessorIPC::run(BlockContext* ctxt) {
   PerfTracker tracker(ctxt->perf.get(), "ipc");
 
-  capnp::BlockData::Builder request = _stream->block_data_builder();
+  ::capnp::MallocMessageBuilder message_builder;
+  capnp::BlockData::Builder request = message_builder.initRoot<capnp::BlockData>();
   request.setBlockSize(ctxt->block_size);
   request.setSamplePos(ctxt->sample_pos);
 
   {
     PerfTracker tracker(ctxt->perf.get(), "send_block");
-    Status status = _stream->send_block(request);
+
+    const auto& words = ::capnp::messageToFlatArray(message_builder);
+    const auto& bytes = words.asChars();
+
+    Status status = _stream->send_bytes(bytes.begin(), bytes.size());
     if (status.is_error()) { return status; }
   }
 
