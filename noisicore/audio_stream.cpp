@@ -18,6 +18,7 @@ Status set_blocking(int fd, int blocking) {
   int arg = !blocking;
   int rc = ioctl(fd, FIONBIO, &arg);
   if (rc < 0) {
+    // TODO: Status::ErrorFromErrno
     return Status::Error("Failed ioctl on FD %d: %d", fd, rc);
   }
   return Status::Ok();
@@ -40,99 +41,116 @@ Status AudioStreamBase::setup() {
 }
 
 void AudioStreamBase::cleanup() {
-  _buffer.erase();
 }
 
 void AudioStreamBase::close() {
   _closed = true;
 }
 
-Status AudioStreamBase::fill_buffer() {
-  while (true) {
+Status AudioStreamBase::pipe_read(char* data, size_t size) {
+  if (_closed) {
+    return Status::ConnectionClosed();
+  }
+
+  while (size > 0) {
     struct pollfd fds = {_pipe_in, POLLIN, 0};
     int rc = poll(&fds, 1, 500);
     if (rc < 0) {
+      // TODO: Status::ErrorFromErrno
       return Status::Error("Failed to poll in pipe: %d", rc);
-    }
-
-    if (fds.revents & POLLIN) {
-      char buf[1024];
-      ssize_t num_bytes = read(_pipe_in, buf, sizeof(buf));
-      _buffer.append(buf, num_bytes);
-      return Status::Ok();
-    } else if (fds.revents & POLLHUP) {
-      _logger->warning("Pipe disconnected");
-      return Status::ConnectionClosed();
     }
 
     if (_closed) {
       return Status::ConnectionClosed();
     }
-  }
-}
 
-StatusOr<string> AudioStreamBase::get_line() {
-  while (true) {
-    size_t eol = _buffer.find('\n');
-    if (eol != string::npos) {
-      string line = _buffer.substr(0, eol);
-      _buffer.erase(0, eol + 1);
-      return line;
+    if (fds.revents & POLLIN) {
+      ssize_t bytes_read = read(_pipe_in, data, size);
+      if (bytes_read < 0) {
+	// TODO: Status::ErrorFromErrno
+	return Status::Error("Failed to read from pipe.");
+      }
+      data += bytes_read;
+      size -= bytes_read;
+    } else if (fds.revents & POLLHUP) {
+      return Status::ConnectionClosed();
     }
-
-    Status status = fill_buffer();
-    if (status.is_error()) { return status; }
-  }
-}
-
-StatusOr<string> AudioStreamBase::get_bytes(size_t num_bytes) {
-  while (_buffer.size() < num_bytes) {
-    Status status = fill_buffer();
-    if (status.is_error()) { return status; }
   }
 
-  string data = _buffer.substr(0, num_bytes);
-  _buffer.erase(0, num_bytes);
-  return data;
+  return Status::Ok();
 }
 
-StatusOr<string> AudioStreamBase::receive_bytes() {
-  StatusOr<string> line_or_status = get_line();
-  if (line_or_status.is_error()) { return line_or_status; }
-  string line = line_or_status.result();
-
-  if (line == "#CLOSE") {
+Status AudioStreamBase::pipe_write(const char* data, size_t size) {
+  if (_closed) {
     return Status::ConnectionClosed();
   }
 
-  assert(line.substr(0, 5) == "#LEN=");
-  int len = atoi(line.substr(5).c_str());
+  while (size > 0) {
+    struct pollfd fds = {_pipe_out, POLLOUT, 0};
+    int rc = poll(&fds, 1, 500);
+    if (rc < 0) {
+      // TODO: Status::ErrorFromErrno
+      return Status::Error("Failed to poll out pipe: %d", rc);
+    }
 
-  StatusOr<string> payload_or_status = get_bytes(len);
-  if (payload_or_status.is_error()) { return payload_or_status; }
-  string payload = payload_or_status.result();
+    if (_closed) {
+      return Status::ConnectionClosed();
+    }
 
-  line_or_status = get_line();
-  if (line_or_status.is_error()) { return line_or_status; }
-  line = line_or_status.result();
-  assert(line == "#END");
+    if (fds.revents & POLLOUT) {
+      ssize_t bytes_written = write(_pipe_out, data, size);
+      if (bytes_written < 0) {
+	// TODO: Status::ErrorFromErrno
+	return Status::Error("Failed to write to pipe.");
+      }
+      data += bytes_written;
+      size -= bytes_written;
+    } else if (fds.revents & POLLHUP) {
+      return Status::ConnectionClosed();
+    }
+  }
 
-  return payload;
+  return Status::Ok();
+}
+
+StatusOr<string> AudioStreamBase::receive_bytes() {
+  Status status;
+
+  uint32_t magic;
+  status = pipe_read((char*)&magic, sizeof(magic));
+  if (status.is_error()) { return status; }
+
+  if (magic == CLOSE) {
+    return Status::ConnectionClosed();
+  } else if (magic == BLOCK_START) {
+    uint32_t num_bytes;
+    status = pipe_read((char*)&num_bytes, sizeof(num_bytes));
+    if (status.is_error()) { return status; }
+
+    string payload;
+    payload.resize(num_bytes);
+    status = pipe_read((char*)payload.data(), num_bytes);
+    if (status.is_error()) { return status; }
+
+    return payload;
+  } else {
+    return Status::Error("Unexpected magic token %08x", magic);
+  }
 }
 
 Status AudioStreamBase::send_bytes(const char* data, size_t size) {
-  string request;
-  request.append(sprintf("#LEN=%d\n", size));
-  request.append(data, size);
-  request.append("#END\n");
+  Status status;
 
-  while (request.size() > 0) {
-    ssize_t bytes_written = write(_pipe_out, request.c_str(), request.size());
-    if (bytes_written < 0) {
-      return Status::Error("Failed to write to pipe.");
-    }
-    request.erase(0, bytes_written);
+  if (size > 1 << 30) {
+    return Status::Error("Block too large (%d bytes)", size);
   }
+
+  uint32_t header[2] = { BLOCK_START, (uint32_t)size };
+  status = pipe_write((const char*)header, sizeof(header));
+  if (status.is_error()) { return status; }
+
+  status = pipe_write(data, size);
+  if (status.is_error()) { return status; }
 
   return Status::Ok();
 }
@@ -151,7 +169,7 @@ AudioStreamServer::AudioStreamServer(const string& address)
   : AudioStreamBase("noisicore.audio_stream.server", address) {}
 
 Status AudioStreamServer::setup() {
-//         logger.info("Serving from %s", self._address)
+  _logger->info("Serving from %s", _address.c_str());
 
   int rc;
   Status status;
@@ -183,9 +201,9 @@ Status AudioStreamServer::setup() {
   status = set_blocking(_pipe_out, true);
   if (status.is_error()) { return status; }
 
-  return AudioStreamBase::setup();
+  _logger->info("Server ready.");
 
-  //         logger.info("Server ready.")
+  return AudioStreamBase::setup();
 }
 
 void AudioStreamServer::cleanup() {
@@ -212,7 +230,8 @@ AudioStreamClient::AudioStreamClient(const string& address)
   : AudioStreamBase("noisicore.audio_stream.client", address) {}
 
 Status AudioStreamClient::setup() {
-//         logger.info("Connecting to %s...", self._address)
+  _logger->info("Connecting to %s...", _address.c_str());
+
   Status status;
 
   string address_in = _address + ".recv";
@@ -239,14 +258,10 @@ void AudioStreamClient::cleanup() {
   AudioStreamBase::cleanup();
 
   if (_pipe_out >= 0) {
-    string request = "#CLOSE\n";
-    while (request.size() > 0) {
-      ssize_t bytes_written = write(_pipe_out, request.c_str(), request.size());
-      if (bytes_written < 0) {
-	_logger->error("Failed to write to pipe.");
-	break;
-      }
-      request.erase(0, bytes_written);
+    uint32_t header[1] = { CLOSE };
+    Status status = pipe_write((const char*)header, sizeof(header));
+    if (status.is_error()) {
+      _logger->error("Failed to write close message to pipe: %s", status.message());
     }
 
     ::close(_pipe_out);

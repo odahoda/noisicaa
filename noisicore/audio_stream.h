@@ -35,20 +35,20 @@ public:
   Status send_block(const capnp::BlockData::Builder& builder);
 
 protected:
+  static const uint32_t BLOCK_START = 0x2f94727a;
+  static const uint32_t CLOSE = 0x3a948d75;
+
+  Status pipe_read(char* data, size_t size);
+  Status pipe_write(const char* data, size_t size);
+
   Logger* _logger;
   string _address;
   int _pipe_in = -1;
   int _pipe_out = -1;
 
 private:
-  Status fill_buffer();
-  StatusOr<string> get_line();
-  StatusOr<string> get_bytes(size_t num_bytes);
-
   bool _closed = false;
-  string _buffer;
   ::capnp::MallocMessageBuilder _message_builder;
-  string _in_message;
 };
 
 class AudioStreamServer : public AudioStreamBase {
