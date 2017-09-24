@@ -3,13 +3,18 @@
 #ifndef _NOISICAA_AUDIOPROC_VM_HOST_SYSTEM_LV2_H
 #define _NOISICAA_AUDIOPROC_VM_HOST_SYSTEM_LV2_H
 
-#include <unordered_map>
+#include <functional>
+#include <map>
+#include <string>
 #include "lilv/lilv.h"
+#include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
 #include "noisicaa/core/status.h"
 #include "noisicaa/lv2/urid_mapper.h"
 
 namespace noisicaa {
+
+using namespace std;
 
 class LV2SubSystem {
 public:
@@ -50,11 +55,20 @@ public:
     LV2_URID atom_event;
   } urid;
 
+  bool supports_feature(const char* uri) const;
+  void create_feature(const string& uri, LV2_Feature* feature);
+
 private:
   DynamicURIDMapper _urid_mapper;
 
   static LV2_URID _urid_map_proxy(LV2_URID_Map_Handle handle, const char* uri);
   static const char* _urid_unmap_proxy(LV2_URID_Unmap_Handle handle, LV2_URID urid);
+
+  typedef function<void(LV2_Feature*)> create_feature_t;
+  std::map<string, create_feature_t> _features;
+
+  void create_map_feature(LV2_Feature*);
+  void create_unmap_feature(LV2_Feature*);
 };
 
 }  // namespace noisicaa

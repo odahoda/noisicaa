@@ -33,8 +33,36 @@ Status ProcessorLV2::setup(const ProcessorSpec* spec) {
     return Status::Error("Plugin '%s' not found.", uri.c_str());
   }
 
-  // TODO: use features from host data.
-  _instance = lilv_plugin_instantiate(_plugin, 44100.0, nullptr);
+  LilvNodes* supported_features = lilv_plugin_get_supported_features(_plugin);
+  if (supported_features == nullptr) {
+    return Status::Error("Failed to get supported features.");
+  }
+
+  vector<string> feature_uris;
+  LilvIter* it = lilv_nodes_begin(supported_features);
+  while (!lilv_nodes_is_end(supported_features, it)) {
+    const LilvNode* node = lilv_nodes_get(supported_features, it);
+    assert(lilv_node_is_uri(node));
+    const char* uri = lilv_node_as_uri(node);
+    if (_host_data->lv2->supports_feature(uri)) {
+      _logger->info("with feature %s", uri);
+      feature_uris.emplace_back(uri);
+    }
+    it = lilv_nodes_next(supported_features, it);
+  }
+  lilv_nodes_free(supported_features);
+
+  _features = new LV2_Feature*[feature_uris.size() + 1];
+
+  LV2_Feature** feature = _features;
+  for (const string& uri : feature_uris) {
+    *feature = new LV2_Feature;
+    _host_data->lv2->create_feature(uri, *feature);
+    feature++;
+  }
+  *feature = nullptr;
+
+  _instance = lilv_plugin_instantiate(_plugin, 44100.0, _features);
   if (_instance == nullptr) {
     return Status::Error("Failed to instantiate '%s'.", uri.c_str());
   }
@@ -49,6 +77,14 @@ void ProcessorLV2::cleanup() {
     lilv_instance_deactivate(_instance);
     lilv_instance_free(_instance);
     _instance = nullptr;
+  }
+
+  if (_features) {
+    for (LV2_Feature** it = _features ; *it ; ++it) {
+      delete *it;
+    }
+    delete _features;
+    _features = nullptr;
   }
 
   if (_plugin != nullptr) {

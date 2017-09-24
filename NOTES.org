@@ -1,6 +1,9 @@
 # -*- org-tags-column: -98 -*-
 
 * VM-based pipeline engine								      :FR:
+- lv2 features
+  - implement options, buf-size, worker features
+
 - rename sprintf to something less ambiguous
 - capture fluidsynth logs
 - Put a lockfree queue between C++ logging and Python logging
@@ -17,8 +20,6 @@
   - is there any use for parameters on non-ProcessorNodes?
 - Status::FromErrno()
   - use that in backend_ipc
-- lv2 features
-  - HostData lv2 struct with feature handlers
 - event support for lv2 nodes
 - control values:
   - replace prev uses of parameters for kRateControl buffer

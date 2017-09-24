@@ -32,6 +32,7 @@ public:
 private:
   const LilvPlugin* _plugin = nullptr;
   LilvInstance* _instance = nullptr;
+  LV2_Feature** _features = nullptr;
 };
 
 }  // namespace noisicaa

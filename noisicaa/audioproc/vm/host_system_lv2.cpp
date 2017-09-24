@@ -1,4 +1,8 @@
 #include <assert.h>
+#include "lv2/lv2plug.in/ns/ext/urid/urid.h"
+#include "lv2/lv2plug.in/ns/ext/options/options.h"
+#include "lv2/lv2plug.in/ns/ext/buf-size/buf-size.h"
+#include "lv2/lv2plug.in/ns/ext/worker/worker.h"
 #include "noisicaa/audioproc/vm/host_system_lv2.h"
 
 namespace noisicaa {
@@ -44,6 +48,13 @@ Status LV2SubSystem::setup() {
   urid.atom_vector = map("http://lv2plug.in/ns/ext/atom#Vector");
   urid.atom_event = map("http://lv2plug.in/ns/ext/atom#Event");
 
+  _features[LV2_URID__map] = bind(&LV2SubSystem::create_map_feature, this, placeholders::_1);
+  _features[LV2_URID__unmap] = bind(&LV2SubSystem::create_unmap_feature, this, placeholders::_1);
+  // _features[LV2_OPTIONS__options] = nullptr;
+  // _features[LV2_BUF_SIZE__boundedBlockLength] = nullptr;
+  // _features[LV2_BUF_SIZE__powerOf2BlockLength] = nullptr;
+  // _features[LV2_WORKER__schedule] = nullptr;
+
   return Status::Ok();
 }
 
@@ -60,6 +71,24 @@ LV2_URID LV2SubSystem::_urid_map_proxy(LV2_URID_Map_Handle handle, const char* u
 
 const char* LV2SubSystem::_urid_unmap_proxy(LV2_URID_Unmap_Handle handle, LV2_URID urid) {
   return ((URIDMapper*)handle)->unmap(urid);
+}
+
+bool LV2SubSystem::supports_feature(const char* uri) const {
+  return _features.find(uri) != _features.end();
+}
+
+void LV2SubSystem::create_feature(const string& uri, LV2_Feature* feature) {
+  _features[uri](feature);
+}
+
+void LV2SubSystem::create_map_feature(LV2_Feature* feature) {
+  feature->URI = LV2_URID__map;
+  feature->data = &urid_map;
+}
+
+void LV2SubSystem::create_unmap_feature(LV2_Feature* feature) {
+  feature->URI = LV2_URID__unmap;
+  feature->data = &urid_unmap;
 }
 
 }  // namespace noisicaa
