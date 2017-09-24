@@ -1,7 +1,9 @@
 #!/bin/bash
 
 LIBDIR=$(readlink -f "$(dirname "$0")/../build")
-(cd $LIBDIR && make)
+
+(cd $LIBDIR && make) || exit 1
+
 export PYTHONPATH="$LIBDIR:$PYTHONPATH"
 export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
 cd $HOME
