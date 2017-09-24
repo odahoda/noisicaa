@@ -89,17 +89,10 @@ class CompilerTest(unittest.TestCase):
 
         return g
 
-    def test_build_ast(self):
-        g = self._build_graph()
-        comp = compiler.Compiler(graph=g)
-        ast = comp.build_ast()
-        print(ast.dump())
-
     def test_build_spec(self):
         g = self._build_graph()
         comp = compiler.Compiler(graph=g)
-        ast = comp.build_ast()
-        spec = comp.build_spec(ast)
+        spec = comp.build_spec()
         print(spec.dump())
 
 

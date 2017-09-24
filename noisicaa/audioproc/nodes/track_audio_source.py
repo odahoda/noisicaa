@@ -5,7 +5,6 @@ import logging
 from noisicaa import node_db
 
 from .. import node
-from ..vm import ast
 
 logger = logging.getLogger(__name__)
 
@@ -17,13 +16,10 @@ class TrackAudioSource(node.BuiltinNode):
 
         self.track_id = track_id
 
-    def get_ast(self):
-        seq = super().get_ast()
-        seq.add(ast.FetchBuffer(
-            'track:' + self.track_id + ':left',
-            self.outputs['out:left'].buf_name))
-        seq.add(ast.FetchBuffer(
-            'track:' + self.track_id + ':right',
-            self.outputs['out:right'].buf_name))
+    def add_to_spec(self, spec):
+        super().add_to_spec(spec)
 
-        return seq
+        spec.append_opcode(
+            'FETCH_BUFFER', 'track:' + self.track_id + ':left', self.outputs['out:left'].buf_name)
+        spec.append_opcode(
+            'FETCH_BUFFER', 'track:' + self.track_id + ':right', self.outputs['out:right'].buf_name)

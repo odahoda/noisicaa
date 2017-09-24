@@ -9,7 +9,6 @@ from noisicaa import node_db
 
 from .exceptions import Error
 from . import ports
-from .vm import ast
 
 logger = logging.getLogger(__name__)
 
@@ -146,26 +145,14 @@ class Node(object):
     def get_processor(self):
         return None
 
-    def get_ast(self):
-        seq = ast.Sequence()
+    def add_to_spec(self, spec):
+        for port in self.ports:
+            spec.append_buffer(port.buf_name, port.get_buf_type())
 
-        for parameter_name, parameter_desc in sorted(self.__parameters.items()):
-            buf_name = '%s:param:%s' % (self.id, parameter_name)
-            seq.add(ast.AllocBuffer(buf_name, noisicore.Float()))
-            seq.add(ast.FetchParameter(buf_name, buf_name))
-
-        for port in itertools.chain(
-                self.inputs.values(), self.outputs.values()):
-            seq.add(ast.AllocBuffer(
-                port.buf_name, port.get_buf_type()))
-
-        for port in self.inputs.values():
-            seq.add(ast.ClearBuffer(port.buf_name))
-            for upstream_port in port.inputs:
-                seq.add(ast.MixBuffers(
-                    upstream_port.buf_name, port.buf_name))
-
-        return seq
+            if isinstance(port, ports.InputPort):
+                spec.append_opcode('CLEAR', port.buf_name)
+                for upstream_port in port.inputs:
+                    spec.append_opcode('MIX', upstream_port.buf_name, port.buf_name)
 
 
 class ProcessorNode(Node):
@@ -210,19 +197,15 @@ class ProcessorNode(Node):
     def get_param(self, parameter_name):
         return self.__processor.get_string_parameter(parameter_name)
 
-    def get_ast(self):
-        seq = super().get_ast()
+    def add_to_spec(self, spec):
+        super().add_to_spec(spec)
+
+        spec.append_processor(self.__processor)
 
         for port_idx, port in enumerate(self.ports):
-            seq.add(ast.ConnectPort(self.__processor, port_idx, port.buf_name))
+            spec.append_opcode('CONNECT_PORT', self.__processor, port_idx, port.buf_name)
 
-        seq.add(ast.CallNode(self.__processor))
-
-        # for port in self.ports:
-        #     if isinstance(port, ports.AudioOutputPort):
-        #         seq.add(ast.LogRMS(port.buf_name))
-
-        return seq
+        spec.append_opcode('CALL', self.__processor)
 
 
 class BuiltinNode(Node):

@@ -5,7 +5,6 @@ import logging
 from noisicaa import node_db
 
 from .. import node
-from ..vm import ast
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +25,8 @@ class Sink(node.BuiltinNode):
 
         super().__init__(description=description, id='sink', **kwargs)
 
-    def get_ast(self):
-        seq = super().get_ast()
-        seq.add(ast.Output(
-            self.inputs['in:left'].buf_name,
-            'left'))
-        seq.add(ast.Output(
-            self.inputs['in:right'].buf_name,
-            'right'))
-        return seq
+    def add_to_spec(self, spec):
+        super().add_to_spec(spec)
+
+        spec.append_opcode('OUTPUT', self.inputs['in:left'].buf_name, 'left')
+        spec.append_opcode('OUTPUT', self.inputs['in:right'].buf_name, 'right')

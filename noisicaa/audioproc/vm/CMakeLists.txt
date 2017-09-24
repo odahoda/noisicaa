@@ -1,5 +1,4 @@
 add_python_package(
-  ast.py
   compiler.py
   compiler_test.py
   engine_perftest.py

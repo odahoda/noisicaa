@@ -10,7 +10,6 @@ from noisicaa import node_db
 
 from .. import ports
 from .. import node
-from ..vm import ast
 
 logger = logging.getLogger(__name__)
 
@@ -23,21 +22,14 @@ class TrackEventSource(node.BuiltinNode):
 
         self.track_id = track_id
 
-    def get_ast(self):
-        seq = super().get_ast()
-        seq.add(ast.FetchBuffer(
-            'track:' + self.track_id,
-            self.outputs['out'].buf_name))
+    def add_to_spec(self, spec):
+        super().add_to_spec(spec)
 
-        # seq.add(ast.LogAtom(
-        #     self.outputs['out'].buf_name))
+        spec.append_opcode('FETCH_BUFFER', 'track:' + self.track_id, self.outputs['out'].buf_name)
 
-        seq.add(ast.AllocBuffer(
-            self.id + ':messages', noisicore.AtomData()))
-        seq.add(ast.FetchMessages(
+        spec.append_buffer(self.id + ':messages', noisicore.AtomData())
+        spec.append_opcode(
+            'FETCH_MESSAGES',
             core.build_labelset({core.MessageKey.trackId: self.track_id}).to_bytes(),
-            self.id + ':messages'))
-        seq.add(ast.MixBuffers(
-            self.id + ':messages', self.outputs['out'].buf_name))
-
-        return seq
+            self.id + ':messages')
+        spec.append_opcode('MIX', self.id + ':messages', self.outputs['out'].buf_name)
