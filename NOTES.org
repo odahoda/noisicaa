@@ -6,8 +6,12 @@
   - some test plugins to validate features
     - point LV2_PATH to just those, so test don't see all plugins on a host
 
+- something swallows the audio from kick drum track in complex demo playback
 - rename sprintf to something less ambiguous
-- capture fluidsynth logs
+- ProcessorFluidSynth
+  - capture fluidsynth logs
+  - cache soundfonts in master instrument again
+  - sample precise scheduling of events once at the start of a block?
 - Put a lockfree queue between C++ logging and Python logging
   - only need that in the performance thread...
   - thread local LogSink?
@@ -56,8 +60,16 @@
   - different buffer types for events (native, atom, ...)
   - auto convert as needed
 
+* Add copyright block to every source file						      :FR:
+- also (text) data files
+* Do SVG conversion at build time							      :FR:
+- the stuff in SvgSymbol.strip_dom()
+* ProcessorFluidSynth
+- sample precise scheduling of events once at the start of a block?
+* ProcessorCSound									      :KR:
+- use block size for ksmps
+- allow any ksmps with block_size % ksmps == 0
 * Use CMAKE_BUILD_TYPE to set the right compiler flags					      :FR:
-
 * Reduce duplication in noisicaa/music/*_test.py					 :CLEANUP:
 - create TestProject class
   - has dummy node_db (with builtin stuff and selected other stuff)
