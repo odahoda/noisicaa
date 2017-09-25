@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <string.h>
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
 #include "lv2/lv2plug.in/ns/ext/options/options.h"
 #include "lv2/lv2plug.in/ns/ext/buf-size/buf-size.h"
@@ -48,11 +49,36 @@ Status LV2SubSystem::setup() {
   urid.atom_vector = map("http://lv2plug.in/ns/ext/atom#Vector");
   urid.atom_event = map("http://lv2plug.in/ns/ext/atom#Event");
 
-  _features[LV2_URID__map] = bind(&LV2SubSystem::create_map_feature, this, placeholders::_1);
-  _features[LV2_URID__unmap] = bind(&LV2SubSystem::create_unmap_feature, this, placeholders::_1);
-  // _features[LV2_OPTIONS__options] = nullptr;
-  // _features[LV2_BUF_SIZE__boundedBlockLength] = nullptr;
-  // _features[LV2_BUF_SIZE__powerOf2BlockLength] = nullptr;
+  _features.emplace_back(
+      Feature {
+	LV2_URID__map,
+	bind(&LV2SubSystem::create_map_feature, this, placeholders::_1),
+	nullptr
+      });
+  _features.emplace_back(
+      Feature {
+        LV2_URID__unmap,
+        bind(&LV2SubSystem::create_unmap_feature, this, placeholders::_1),
+        nullptr
+      });
+  _features.emplace_back(
+      Feature {
+        LV2_OPTIONS__options,
+        bind(&LV2SubSystem::create_options_feature, this, placeholders::_1),
+        bind(&LV2SubSystem::delete_options_feature, this, placeholders::_1)
+      });
+  _features.emplace_back(
+      Feature {
+        LV2_BUF_SIZE__boundedBlockLength,
+	nullptr,
+        nullptr
+      });
+  _features.emplace_back(
+      Feature {
+	LV2_BUF_SIZE__powerOf2BlockLength,
+	nullptr,
+	nullptr
+      });
   // _features[LV2_WORKER__schedule] = nullptr;
 
   return Status::Ok();
@@ -73,22 +99,100 @@ const char* LV2SubSystem::_urid_unmap_proxy(LV2_URID_Unmap_Handle handle, LV2_UR
   return ((URIDMapper*)handle)->unmap(urid);
 }
 
-bool LV2SubSystem::supports_feature(const char* uri) const {
-  return _features.find(uri) != _features.end();
+bool LV2SubSystem::supports_feature(const string& uri) const {
+  for (const auto& feature : _features) {
+    if (feature.uri == uri) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
-void LV2SubSystem::create_feature(const string& uri, LV2_Feature* feature) {
-  _features[uri](feature);
+LV2_Feature* LV2SubSystem::create_feature(const string& uri) {
+  for (const auto& f : _features) {
+    if (f.uri == uri) {
+      LV2_Feature* feature = new LV2_Feature;
+      feature->URI = f.uri.c_str();
+      if (f.create_func != nullptr) {
+	f.create_func(feature);
+      } else {
+	feature->data = nullptr;
+      }
+      return feature;
+    }
+  }
+
+  return nullptr;
+}
+
+void LV2SubSystem::delete_feature(LV2_Feature* feature) {
+  string uri = feature->URI;
+  for (const auto& f : _features) {
+    if (f.uri == uri) {
+      if (f.delete_func != nullptr) {
+	f.delete_func(feature);
+      }
+      delete feature;
+      return;
+    }
+  }
+
+  assert(false);
 }
 
 void LV2SubSystem::create_map_feature(LV2_Feature* feature) {
-  feature->URI = LV2_URID__map;
   feature->data = &urid_map;
 }
 
 void LV2SubSystem::create_unmap_feature(LV2_Feature* feature) {
-  feature->URI = LV2_URID__unmap;
   feature->data = &urid_unmap;
+}
+
+void LV2SubSystem::create_options_feature(LV2_Feature* feature) {
+  LV2_Options_Option* options = new LV2_Options_Option[5];
+
+  options[0].context = LV2_OPTIONS_INSTANCE;
+  options[0].subject = 0;
+  options[0].key = map("http://lv2plug.in/ns/ext/parameters#sampleRate");
+  options[0].size = sizeof(float);
+  options[0].type = urid.atom_float;
+  options[0].value = &_sample_rate;
+
+  options[1].context = LV2_OPTIONS_INSTANCE;
+  options[1].subject = 0;
+  options[1].key = map(LV2_BUF_SIZE__minBlockLength);
+  options[1].size = sizeof(int32_t);
+  options[1].type = urid.atom_int;
+  options[1].value = &_min_block_size;
+
+  options[2].context = LV2_OPTIONS_INSTANCE;
+  options[2].subject = 0;
+  options[2].key = map(LV2_BUF_SIZE__maxBlockLength);
+  options[2].size = sizeof(int32_t);
+  options[2].type = urid.atom_int;
+  options[2].value = &_max_block_size;
+
+  options[3].context = LV2_OPTIONS_INSTANCE;
+  options[3].subject = 0;
+  options[3].key = map(LV2_BUF_SIZE__sequenceSize);
+  options[3].size = sizeof(int32_t);
+  options[3].type = urid.atom_int;
+  options[3].value = &_atom_data_size;
+
+  options[4].context = LV2_OPTIONS_INSTANCE;
+  options[4].subject = 0;
+  options[4].key = 0;
+  options[4].size = 0;
+  options[4].type = 0;
+  options[4].value = nullptr;
+
+  feature->data = options;
+}
+
+void LV2SubSystem::delete_options_feature(LV2_Feature* feature) {
+  LV2_Options_Option* options = (LV2_Options_Option*)feature->data;
+  delete options;
 }
 
 }  // namespace noisicaa

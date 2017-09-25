@@ -26,6 +26,10 @@ StaticURIDMapper::StaticURIDMapper() {
   _rmap[urid++] = "http://lv2plug.in/ns/ext/atom#URID";
   _rmap[urid++] = "http://lv2plug.in/ns/ext/atom#Vector";
   _rmap[urid++] = "http://lv2plug.in/ns/ext/atom#Event";
+  _rmap[urid++] = "http://lv2plug.in/ns/ext/parameters#sampleRate";
+  _rmap[urid++] = "http://lv2plug.in/ns/ext/buf-size#minBlockLength";
+  _rmap[urid++] = "http://lv2plug.in/ns/ext/buf-size#maxBlockLength";
+  _rmap[urid++] = "http://lv2plug.in/ns/ext/buf-size#sequenceSize";
   assert(urid == _num_urids);
 
   urid = _first_urid;

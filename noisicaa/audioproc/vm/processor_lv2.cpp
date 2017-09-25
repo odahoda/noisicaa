@@ -56,9 +56,7 @@ Status ProcessorLV2::setup(const ProcessorSpec* spec) {
 
   LV2_Feature** feature = _features;
   for (const string& uri : feature_uris) {
-    *feature = new LV2_Feature;
-    _host_data->lv2->create_feature(uri, *feature);
-    feature++;
+    *feature++ = _host_data->lv2->create_feature(uri);
   }
   *feature = nullptr;
 
@@ -81,7 +79,7 @@ void ProcessorLV2::cleanup() {
 
   if (_features) {
     for (LV2_Feature** it = _features ; *it ; ++it) {
-      delete *it;
+      _host_data->lv2->delete_feature(*it);
     }
     delete _features;
     _features = nullptr;

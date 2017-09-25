@@ -55,8 +55,9 @@ public:
     LV2_URID atom_event;
   } urid;
 
-  bool supports_feature(const char* uri) const;
-  void create_feature(const string& uri, LV2_Feature* feature);
+  bool supports_feature(const string& uri) const;
+  LV2_Feature* create_feature(const string& uri);
+  void delete_feature(LV2_Feature* feature);
 
 private:
   DynamicURIDMapper _urid_mapper;
@@ -64,11 +65,22 @@ private:
   static LV2_URID _urid_map_proxy(LV2_URID_Map_Handle handle, const char* uri);
   static const char* _urid_unmap_proxy(LV2_URID_Unmap_Handle handle, LV2_URID urid);
 
-  typedef function<void(LV2_Feature*)> create_feature_t;
-  std::map<string, create_feature_t> _features;
+  float _sample_rate = 44100;
+  int32_t _min_block_size = 32;
+  int32_t _max_block_size = 2<<16;
+  int32_t _atom_data_size = 10240;
+
+  struct Feature {
+    string uri;
+    function<void(LV2_Feature*)> create_func;
+    function<void(LV2_Feature*)> delete_func;
+  };
+  vector<Feature> _features;
 
   void create_map_feature(LV2_Feature*);
   void create_unmap_feature(LV2_Feature*);
+  void create_options_feature(LV2_Feature*);
+  void delete_options_feature(LV2_Feature*);
 };
 
 }  // namespace noisicaa

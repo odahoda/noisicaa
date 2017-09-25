@@ -2,7 +2,10 @@
 
 * VM-based pipeline engine								      :FR:
 - lv2 features
-  - implement options, buf-size, worker features
+  - implement worker feature
+  - make atom buffer size a param of hostsystem
+  - some test plugins to validate features
+    - point LV2_PATH to just those, so test don't see all plugins on a host
 
 - rename sprintf to something less ambiguous
 - capture fluidsynth logs

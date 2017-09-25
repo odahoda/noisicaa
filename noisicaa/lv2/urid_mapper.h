@@ -4,6 +4,7 @@
 #define _NOISICAA_LV2_URID_MAPPER_H
 
 #include <map>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include "string.h"
@@ -32,7 +33,7 @@ public:
 
 private:
   static const LV2_URID _first_urid = 100;
-  static const int _num_urids = 21;
+  static const int _num_urids = 25;
 
   struct cmp_cstr {
     bool operator()(const char *a, const char *b) {
