@@ -38,6 +38,20 @@ Status Program::setup(HostData* host_data, const Spec* s, uint32_t block_size) {
   return Status::Ok();
 }
 
+ControlValue::ControlValue(Type type)
+  : _type(type) {}
+
+ControlValue::~ControlValue() {}
+
+FloatControlValue::FloatControlValue(float value)
+  : ControlValue(Float),
+    _value(value) {}
+
+IntControlValue::IntControlValue(int64_t value)
+  : ControlValue(Int),
+    _value(value) {}
+
+
 VM::VM(HostData* host_data)
   : _logger(LoggerRegistry::get_logger("noisicaa.audioproc.vm.vm")),
     _host_data(host_data),
@@ -162,6 +176,52 @@ Buffer* VM::get_buffer(const string& name) {
   StatusOr<int> stor_idx = program->spec->get_buffer_idx(name);
   if (stor_idx.is_error()) { return nullptr; }
   return program->buffers[stor_idx.result()].get();
+}
+
+Status VM::set_float_control_value(const string& name, float value) {
+  lock_guard<mutex> lock(_control_values_mutex);
+
+  const auto& it = _control_values.find(name);
+  if (it == _control_values.end()) {
+    _control_values.emplace(name, unique_ptr<ControlValue>(new FloatControlValue(value)));
+    return Status::Ok();
+  }
+
+  ControlValue* cv = it->second.get();
+  if (cv->type() != ControlValue::Float) {
+    return Status::Error("Control value '%s' is not of type Float.", name.c_str());
+  }
+
+  dynamic_cast<FloatControlValue*>(cv)->set_value(value);
+  return Status::Ok();
+}
+
+StatusOr<float> VM::get_float_control_value(const string& name) {
+  lock_guard<mutex> lock(_control_values_mutex);
+
+  const auto& it = _control_values.find(name);
+  if (it == _control_values.end()) {
+    return Status::Error("Control value '%s' not found.", name.c_str());
+  }
+
+  ControlValue* cv = it->second.get();
+  if (cv->type() != ControlValue::Float) {
+    return Status::Error("Control value '%s' is not of type Float.", name.c_str());
+  }
+
+  return dynamic_cast<FloatControlValue*>(cv)->value();
+}
+
+Status VM::delete_control_value(const string& name) {
+  lock_guard<mutex> lock(_control_values_mutex);
+
+  const auto& it = _control_values.find(name);
+  if (it == _control_values.end()) {
+    return Status::Error("Control value '%s' not found.", name.c_str());
+  }
+
+  _control_values.erase(it);
+  return Status::Ok();
 }
 
 Status VM::process_block(BlockContext* ctxt) {

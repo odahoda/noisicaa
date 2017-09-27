@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <stdint.h>
@@ -54,6 +55,46 @@ struct ActiveProcessor {
   int ref_count;
 };
 
+class ControlValue {
+public:
+  enum Type {
+    Float,
+    Int,
+  };
+
+  virtual ~ControlValue();
+
+  Type type() const { return _type; }
+
+protected:
+  ControlValue(Type type);
+
+private:
+  Type _type;
+};
+
+class FloatControlValue : public ControlValue {
+public:
+  FloatControlValue(float value);
+
+  float value() const { return _value; }
+  void set_value(float value) { _value = value; }
+
+private:
+  float _value;
+};
+
+class IntControlValue : public ControlValue {
+public:
+  IntControlValue(int64_t value);
+
+  int64_t value() const { return _value; }
+  void set_value(int64_t value) { _value = value; }
+
+private:
+  int64_t _value;
+};
+
 class VM {
 public:
   VM(HostData* host_data);
@@ -69,6 +110,10 @@ public:
   Status set_backend(Backend* backend);
   Backend* backend() const { return _backend.get(); }
 
+  Status set_float_control_value(const string& name, float value);
+  StatusOr<float> get_float_control_value(const string& name);
+  Status delete_control_value(const string& name);
+
   Status process_block(BlockContext* ctxt);
 
   Buffer* get_buffer(const string& name);
@@ -83,6 +128,8 @@ private:
   uint32_t _program_version = 0;
   unique_ptr<Backend> _backend;
   map<uint64_t, unique_ptr<ActiveProcessor>> _processors;
+  mutex _control_values_mutex;
+  map<string, unique_ptr<ControlValue>> _control_values;
 };
 
 }  // namespace noisicaa

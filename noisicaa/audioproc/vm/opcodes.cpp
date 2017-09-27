@@ -140,12 +140,17 @@ Status run_FETCH_MESSAGES(BlockContext* ctxt, ProgramState* state, const vector<
   return Status::Ok();
 }
 
-Status run_FETCH_PARAMETER(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-    // def op_FETCH_PARAMETER(self, ctxt, state, *, parameter_idx, buf_idx):
+Status run_FETCH_CONTROL_VALUE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
+  // string name = args[0].string_value();
+  // int idx = args[1].int_value();
+  // Buffer* buf = state->program->buffers[idx].get();
+
+  //StatusOr<ControlValue> stor_cv = ...
+  // def op_FETCH_PARAMETER(self, ctxt, state, *, parameter_idx, buf_idx):
     //     #parameter_name = self.__parameters[parameter_idx]
     //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
     //     buf.clear()
-  return Status::Error("FETCH_PARAMETER not implemented yet.");
+  return Status::Error("FETCH_CONTROL_VALUE not implemented yet.");
 }
 
 Status run_NOISE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -264,7 +269,7 @@ struct OpSpec opspecs[NUM_OPCODES] = {
   { OpCode::OUTPUT, "OUTPUT", "bs", nullptr, run_OUTPUT },
   { OpCode::FETCH_BUFFER, "FETCH_BUFFER", "sb", nullptr, run_FETCH_BUFFER },
   { OpCode::FETCH_MESSAGES, "FETCH_MESSAGES", "sb", nullptr, run_FETCH_MESSAGES },
-  { OpCode::FETCH_PARAMETER, "FETCH_PARAMETER", "sb", nullptr, run_FETCH_PARAMETER },
+  { OpCode::FETCH_CONTROL_VALUE, "FETCH_CONTROL_VALUE", "sb", nullptr, run_FETCH_CONTROL_VALUE },
 
   // generators
   { OpCode::NOISE, "NOISE", "b", nullptr, run_NOISE },

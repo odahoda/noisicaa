@@ -16,7 +16,7 @@ cdef extern from "noisicaa/audioproc/vm/opcodes.h" namespace "noisicaa" nogil:
         OUTPUT
         FETCH_BUFFER
         FETCH_MESSAGES
-        FETCH_PARAMETER
+        FETCH_CONTROL_VALUE
         NOISE
         SINE
         MIDI_MONKEY,

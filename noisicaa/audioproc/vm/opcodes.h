@@ -31,7 +31,7 @@ enum OpCode {
   OUTPUT,
   FETCH_BUFFER,
   FETCH_MESSAGES,
-  FETCH_PARAMETER,
+  FETCH_CONTROL_VALUE,
 
   // generators
   NOISE,
