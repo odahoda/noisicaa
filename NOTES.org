@@ -1,49 +1,15 @@
 # -*- org-tags-column: -98 -*-
 
-* VM-based pipeline engine								      :FR:
-- lv2 features
-  - make atom buffer size a param of hostsystem
-  - some test plugins to validate features
-    - point LV2_PATH to just those, so test don't see all plugins on a host
-
-- something swallows the audio from kick drum track in complex demo playback
-- rename sprintf to something less ambiguous
-- ProcessorFluidSynth
-  - capture fluidsynth logs
-  - cache soundfonts in master instrument again
-  - sample precise scheduling of events once at the start of a block?
-- Put a lockfree queue between C++ logging and Python logging
-  - only need that in the performance thread...
-  - thread local LogSink?
-- capnp API is really awful. strongly consider rolling a custom format for FrameData
-  - are there any other places, where I care about zero-copy deserialization?
-- clean use of NodeDescription types
-  - which types are actually needed?
+* Control values									      :FR:
 - node parameters
   - parameters can be static or dynamic
     static -> value used at setup time
     dynamic -> value can be changed, processor must handle set_x_parameter
   - is there any use for parameters on non-ProcessorNodes?
-- Status::FromErrno()
-  - use that in backend_ipc
-- event support for lv2 nodes
 - control values:
   - replace prev uses of parameters for kRateControl buffer
   - collect CV changes in list as they come in from main thread
   - at beginning of block, take current list, apply CVs by writing values to buffers
-- Status::Error should carry filename:lineno info
-  - can do without macro?
-- always call cleaup() in destructor
-- engine_perftest should focus on other opcodes than CALL
-- use this pattern for C-only classes
-  https://github.com/cython/cython/wiki/FAQ#can-cython-create-objects-or-apply-operators-to-locally-created-objects-as-pure-c-code
-- player_integration_test with null backend
-  vm thread seems to saturate CPU, doesn't let main thread handle pipeline_status messages.
-  When turning pipeline down, queued messages cause lots of errors.
-  - make sure to flush messages out before shutting down
-- use protos for PipelineMutations instead of pickled objects.
-- better test coverage
-  - base class for node unittests
 - what about parameters?
   - handle as single float buffers
   - vm keeps map of parameter values
@@ -56,17 +22,62 @@
 - port parameters
   - volume, mute, bypass, dry_wet
   - bypass needs conditionals
+
+* Finish VM-based pipeline engine 							      :FR:
+- lv2 features
+  - make atom buffer size a param of hostsystem
+  - some test plugins to validate features
+    - point LV2_PATH to just those, so test don't see all plugins on a host
+  - move feature handling to noisicaa.lv2
+    - the node_db has access to the list of supported features, w/o duplicating code.
+- something swallows the audio from kick drum track in complex demo playback
+- ProcessorFluidSynth
+  - capture fluidsynth logs
+  - cache soundfonts in master instrument again
+  - sample precise scheduling of events once at the start of a block?
+- Put a lockfree queue between C++ logging and Python logging
+  - only need that in the performance thread...
+  - thread local LogSink?
+- capnp API is really awful. strongly consider rolling a custom format for FrameData
+  - are there any other places, where I care about zero-copy deserialization?
+- clean use of NodeDescription types
+  - which types are actually needed?
+- always call cleanup() in destructor
+- engine_perftest should focus on other opcodes than CALL
+- use this pattern for C-only classes
+  https://github.com/cython/cython/wiki/FAQ#can-cython-create-objects-or-apply-operators-to-locally-created-objects-as-pure-c-code
+- player_integration_test with null backend
+  vm thread seems to saturate CPU, doesn't let main thread handle pipeline_status messages.
+  When turning pipeline down, queued messages cause lots of errors.
+  - make sure to flush messages out before shutting down
+- use protos for PipelineMutations instead of pickled objects.
+- better test coverage
+  - base class for node unittests
 - buffer conversion methods?
   - different buffer types for events (native, atom, ...)
   - auto convert as needed
 
+* Status::FromErrno()									 :CLEANUP:
+  - use that in backend_ipc
+* Status::Error should carry filename:lineno info					 :CLEANUP:
+  - can do without macro?
+* Use https://abseil.io/blog/								      :FR:
+- absl::Mutex for rwlock.py
+- absl::Substitude for sprintf
+- absl::string_view for method args
+- absl::GetCurrentTimeNanos() for PerfStats
+* Use .dir-local.el 									      :FR:
+- https://www.gnu.org/software/emacs/manual/html_node/emacs/Directory-Variables.html
+- use spaces for indentation in C++, too
+- tweak C++ indentation
+- C-o C-t to run tests
 * Add copyright block to every source file						      :FR:
 - also (text) data files
 * Do SVG conversion at build time							      :FR:
 - the stuff in SvgSymbol.strip_dom()
 * ProcessorFluidSynth
 - sample precise scheduling of events once at the start of a block?
-* ProcessorCSound									      :KR:
+* ProcessorCSound									      :FR:
 - use block size for ksmps
 - allow any ksmps with block_size % ksmps == 0
 * Use CMAKE_BUILD_TYPE to set the right compiler flags					      :FR:
