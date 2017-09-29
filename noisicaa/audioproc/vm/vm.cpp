@@ -38,20 +38,6 @@ Status Program::setup(HostData* host_data, const Spec* s, uint32_t block_size) {
   return Status::Ok();
 }
 
-ControlValue::ControlValue(Type type)
-  : _type(type) {}
-
-ControlValue::~ControlValue() {}
-
-FloatControlValue::FloatControlValue(float value)
-  : ControlValue(Float),
-    _value(value) {}
-
-IntControlValue::IntControlValue(int64_t value)
-  : ControlValue(Int),
-    _value(value) {}
-
-
 VM::VM(HostData* host_data)
   : _logger(LoggerRegistry::get_logger("noisicaa.audioproc.vm.vm")),
     _host_data(host_data),
@@ -92,9 +78,57 @@ Status VM::add_processor(Processor* processor) {
   return Status::Ok();
 }
 
+Status VM::add_control_value(ControlValue* cv) {
+  unique_ptr<ControlValue> ptr(cv);
+  assert(_control_values.find(cv->name()) == _control_values.end());
+  _control_values.emplace(
+       cv->name(), unique_ptr<ActiveControlValue>(new ActiveControlValue(ptr.release())));
+  return Status::Ok();
+}
+
 Status VM::set_block_size(uint32_t block_size) {
   _block_size.store(block_size);
   return Status::Ok();
+}
+
+void VM::activate_program(Program* program) {
+  for (int i = 0 ; i < program->spec->num_processors() ; ++i) {
+    Processor* processor = program->spec->get_processor(i);
+    ActiveProcessor* active_processor = _processors[processor->id()].get();
+    assert(active_processor != nullptr);
+    ++active_processor->ref_count;
+  }
+
+  for (int i = 0 ; i < program->spec->num_control_values() ; ++i) {
+    ControlValue* cv = program->spec->get_control_value(i);
+    ActiveControlValue* active_cv = _control_values[cv->name()].get();
+    assert(active_cv != nullptr);
+    ++active_cv->ref_count;
+  }
+}
+
+void VM::deactivate_program(Program* program) {
+  for (int i = 0 ; i < program->spec->num_processors() ; ++i) {
+    Processor* processor = program->spec->get_processor(i);
+    const auto& it = _processors.find(processor->id());
+    assert(it != _processors.end());
+    ActiveProcessor* active_processor = it->second.get();
+    --active_processor->ref_count;
+    if (active_processor->ref_count == 0) {
+      _processors.erase(it);
+    }
+  }
+
+  for (int i = 0 ; i < program->spec->num_control_values() ; ++i) {
+    ControlValue* cv = program->spec->get_control_value(i);
+    const auto& it = _control_values.find(cv->name());
+    assert(it != _control_values.end());
+    ActiveControlValue* active_cv = it->second.get();
+    --active_cv->ref_count;
+    if (active_cv->ref_count == 0) {
+      _control_values.erase(it);
+    }
+  }
 }
 
 Status VM::set_spec(const Spec* spec) {
@@ -103,44 +137,19 @@ Status VM::set_spec(const Spec* spec) {
   Status status = program->setup(_host_data, spec, _block_size);
   if (status.is_error()) { return status; }
 
-  for (int i = 0 ; i < spec->num_processors() ; ++i) {
-    Processor* processor = spec->get_processor(i);
-    ActiveProcessor* active_processor = _processors[processor->id()].get();
-    assert(active_processor != nullptr);
-    ++active_processor->ref_count;
-  }
+  activate_program(program.get());
 
   // Discard any next program, which hasn't been picked up by the audio thread.
   Program* prev_next_program = _next_program.exchange(nullptr);
   if (prev_next_program != nullptr) {
-    for (int i = 0 ; i < prev_next_program->spec->num_processors() ; ++i) {
-      Processor* processor = prev_next_program->spec->get_processor(i);
-      const auto& it = _processors.find(processor->id());
-      assert(it != _processors.end());
-      ActiveProcessor* active_processor = it->second.get();
-      --active_processor->ref_count;
-      if (active_processor->ref_count == 0) {
-	_processors.erase(it);
-      }
-    }
-
+    deactivate_program(prev_next_program);
     delete prev_next_program;
   }
 
   // Discard program, which the audio thread doesn't use anymore.
   Program* old_program = _old_program.exchange(nullptr);
   if (old_program != nullptr) {
-    for (int i = 0 ; i < old_program->spec->num_processors() ; ++i) {
-      Processor* processor = old_program->spec->get_processor(i);
-      const auto& it = _processors.find(processor->id());
-      assert(it != _processors.end());
-      ActiveProcessor* active_processor = it->second.get();
-      --active_processor->ref_count;
-      if (active_processor->ref_count == 0) {
-	_processors.erase(it);
-      }
-    }
-
+    deactivate_program(old_program);
     delete old_program;
   }
 
@@ -178,51 +187,51 @@ Buffer* VM::get_buffer(const string& name) {
   return program->buffers[stor_idx.result()].get();
 }
 
-Status VM::set_float_control_value(const string& name, float value) {
-  lock_guard<mutex> lock(_control_values_mutex);
+// Status VM::set_float_control_value(const string& name, float value) {
+//   lock_guard<mutex> lock(_control_values_mutex);
 
-  const auto& it = _control_values.find(name);
-  if (it == _control_values.end()) {
-    _control_values.emplace(name, unique_ptr<ControlValue>(new FloatControlValue(value)));
-    return Status::Ok();
-  }
+//   const auto& it = _control_values.find(name);
+//   if (it == _control_values.end()) {
+//     _control_values.emplace(name, unique_ptr<ControlValue>(new FloatControlValue(value)));
+//     return Status::Ok();
+//   }
 
-  ControlValue* cv = it->second.get();
-  if (cv->type() != ControlValue::Float) {
-    return Status::Error("Control value '%s' is not of type Float.", name.c_str());
-  }
+//   ControlValue* cv = it->second.get();
+//   if (cv->type() != ControlValue::Float) {
+//     return Status::Error("Control value '%s' is not of type Float.", name.c_str());
+//   }
 
-  dynamic_cast<FloatControlValue*>(cv)->set_value(value);
-  return Status::Ok();
-}
+//   dynamic_cast<FloatControlValue*>(cv)->set_value(value);
+//   return Status::Ok();
+// }
 
-StatusOr<float> VM::get_float_control_value(const string& name) {
-  lock_guard<mutex> lock(_control_values_mutex);
+// StatusOr<float> VM::get_float_control_value(const string& name) {
+//   lock_guard<mutex> lock(_control_values_mutex);
 
-  const auto& it = _control_values.find(name);
-  if (it == _control_values.end()) {
-    return Status::Error("Control value '%s' not found.", name.c_str());
-  }
+//   const auto& it = _control_values.find(name);
+//   if (it == _control_values.end()) {
+//     return Status::Error("Control value '%s' not found.", name.c_str());
+//   }
 
-  ControlValue* cv = it->second.get();
-  if (cv->type() != ControlValue::Float) {
-    return Status::Error("Control value '%s' is not of type Float.", name.c_str());
-  }
+//   ControlValue* cv = it->second.get();
+//   if (cv->type() != ControlValue::Float) {
+//     return Status::Error("Control value '%s' is not of type Float.", name.c_str());
+//   }
 
-  return dynamic_cast<FloatControlValue*>(cv)->value();
-}
+//   return dynamic_cast<FloatControlValue*>(cv)->value();
+// }
 
-Status VM::delete_control_value(const string& name) {
-  lock_guard<mutex> lock(_control_values_mutex);
+// Status VM::delete_control_value(const string& name) {
+//   lock_guard<mutex> lock(_control_values_mutex);
 
-  const auto& it = _control_values.find(name);
-  if (it == _control_values.end()) {
-    return Status::Error("Control value '%s' not found.", name.c_str());
-  }
+//   const auto& it = _control_values.find(name);
+//   if (it == _control_values.end()) {
+//     return Status::Error("Control value '%s' not found.", name.c_str());
+//   }
 
-  _control_values.erase(it);
-  return Status::Ok();
-}
+//   _control_values.erase(it);
+//   return Status::Ok();
+// }
 
 Status VM::process_block(BlockContext* ctxt) {
   // If there is a next program, make it the current. The current program becomes

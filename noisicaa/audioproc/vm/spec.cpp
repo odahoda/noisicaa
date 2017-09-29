@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include "noisicaa/audioproc/vm/spec.h"
+#include "noisicaa/audioproc/vm/control_value.h"
 #include "noisicaa/audioproc/vm/processor.h"
 
 namespace noisicaa {
@@ -38,6 +39,13 @@ Status Spec::append_opcode(OpCode opcode, ...) {
       args.emplace_back(OpArg((int64_t)stor_value.result()));
       break;
     }
+    case 'c': {
+      ControlValue* cv = va_arg(values, ControlValue*);
+      StatusOr<int> stor_value = get_control_value_idx(cv);
+      if (stor_value.is_error()) { return stor_value; }
+      args.emplace_back(OpArg((int64_t)stor_value.result()));
+      break;
+    }
     case 'f': {
       float value = va_arg(values, double);
       args.emplace_back(OpArg(value));
@@ -71,6 +79,20 @@ StatusOr<int> Spec::get_buffer_idx(const string& name) const {
     return it->second;
   }
   return Status::Error("Invalid buffer name %s", name);
+}
+
+Status Spec::append_control_value(ControlValue* cv) {
+  _control_value_map[cv->name()] = _control_values.size();
+  _control_values.emplace_back(cv);
+  return Status::Ok();
+}
+
+StatusOr<int> Spec::get_control_value_idx(const ControlValue* cv) const {
+  auto it = _control_value_map.find(cv->name());
+  if (it != _control_value_map.end()) {
+    return it->second;
+  }
+  return Status::Error("Invalid buffer name %s", cv->name());
 }
 
 Status Spec::append_processor(Processor* processor) {

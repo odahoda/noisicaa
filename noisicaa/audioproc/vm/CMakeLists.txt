@@ -14,6 +14,7 @@ set(LIB_SRCS
   backend_null.cpp
   backend_portaudio.cpp
   buffers.cpp
+  control_value.cpp
   host_data.cpp
   host_system_lv2.cpp
   host_system_csound.cpp
@@ -75,6 +76,9 @@ target_link_libraries(${spec.so} PRIVATE noisicaa-audioproc-vm)
 
 add_cython_module(buffers CXX)
 target_link_libraries(${buffers.so} PRIVATE noisicaa-audioproc-vm)
+
+add_cython_module(control_value CXX)
+target_link_libraries(${control_value.so} PRIVATE noisicaa-audioproc-vm)
 
 add_cython_module(processor CXX)
 target_link_libraries(${processor.so} PRIVATE noisicaa-audioproc-vm)

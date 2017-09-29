@@ -141,16 +141,23 @@ Status run_FETCH_MESSAGES(BlockContext* ctxt, ProgramState* state, const vector<
 }
 
 Status run_FETCH_CONTROL_VALUE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-  // string name = args[0].string_value();
-  // int idx = args[1].int_value();
-  // Buffer* buf = state->program->buffers[idx].get();
+  int cv_idx = args[0].int_value();
+  int buf_idx = args[1].int_value();
+  ControlValue* cv = state->program->spec->get_control_value(cv_idx);
+  Buffer* buf = state->program->buffers[buf_idx].get();
 
-  //StatusOr<ControlValue> stor_cv = ...
-  // def op_FETCH_PARAMETER(self, ctxt, state, *, parameter_idx, buf_idx):
-    //     #parameter_name = self.__parameters[parameter_idx]
-    //     cdef buffers.Buffer buf = self.__buffers[buf_idx]
-    //     buf.clear()
-  return Status::Error("FETCH_CONTROL_VALUE not implemented yet.");
+  switch (cv->type()) {
+  case ControlValueType::FloatCV: {
+    FloatControlValue* fcv = (FloatControlValue*)cv;
+    float* data = (float*)buf->data();
+    *data = fcv->value();
+    return Status::Ok();
+  }
+  case ControlValueType::IntCV:
+    return Status::Error("IntControlValue not implemented yet.");
+  default:
+    return Status::Error("Invalid ControlValue type %d.", cv->type());
+  }
 }
 
 Status run_NOISE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -269,7 +276,7 @@ struct OpSpec opspecs[NUM_OPCODES] = {
   { OpCode::OUTPUT, "OUTPUT", "bs", nullptr, run_OUTPUT },
   { OpCode::FETCH_BUFFER, "FETCH_BUFFER", "sb", nullptr, run_FETCH_BUFFER },
   { OpCode::FETCH_MESSAGES, "FETCH_MESSAGES", "sb", nullptr, run_FETCH_MESSAGES },
-  { OpCode::FETCH_CONTROL_VALUE, "FETCH_CONTROL_VALUE", "sb", nullptr, run_FETCH_CONTROL_VALUE },
+  { OpCode::FETCH_CONTROL_VALUE, "FETCH_CONTROL_VALUE", "cb", nullptr, run_FETCH_CONTROL_VALUE },
 
   // generators
   { OpCode::NOISE, "NOISE", "b", nullptr, run_NOISE },

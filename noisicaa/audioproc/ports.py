@@ -12,8 +12,8 @@ UNSET = object()
 
 
 class Port(object):
-    def __init__(self, name):
-        self._name = name
+    def __init__(self, *, description):
+        self.__description = description
         self.owner = None
 
     def __str__(self):
@@ -23,8 +23,12 @@ class Port(object):
             self.name)
 
     @property
+    def description(self):
+        return self.__description
+
+    @property
     def name(self):
-        return self._name
+        return self.__description.name
 
     @property
     def pipeline(self):
@@ -32,7 +36,7 @@ class Port(object):
 
     @property
     def buf_name(self):
-        return '%s:%s' % (self.owner.id, self._name)
+        return '%s:%s' % (self.owner.id, self.__description.name)
 
     def get_buf_type(self):
         raise NotImplementedError(type(self).__name__)
@@ -42,8 +46,8 @@ class Port(object):
 
 
 class InputPort(Port):
-    def __init__(self, name):
-        super().__init__(name)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.inputs = []
 
     def connect(self, port):
@@ -60,8 +64,8 @@ class InputPort(Port):
 
 
 class OutputPort(Port):
-    def __init__(self, name, bypass_port=None):
-        super().__init__(name)
+    def __init__(self, *, bypass_port=None, **kwargs):
+        super().__init__(**kwargs)
         self._muted = False
         self._bypass = False
         self._bypass_port = bypass_port
@@ -106,8 +110,8 @@ class AudioInputPort(InputPort):
 
 
 class AudioOutputPort(OutputPort):
-    def __init__(self, name, drywet_port=None, **kwargs):
-        super().__init__(name, **kwargs)
+    def __init__(self, *, drywet_port=None, **kwargs):
+        super().__init__(**kwargs)
 
         self._volume = 100.0
         self._drywet = 0.0
@@ -181,8 +185,8 @@ class KRateControlOutputPort(OutputPort):
 
 
 class EventInputPort(InputPort):
-    def __init__(self, name, csound_instr='1'):
-        super().__init__(name)
+    def __init__(self, *, csound_instr='1', **kwargs):
+        super().__init__(**kwargs)
         self.csound_instr = csound_instr
 
     def check_port(self, port):

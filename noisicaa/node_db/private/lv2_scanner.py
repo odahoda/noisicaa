@@ -47,40 +47,37 @@ class LV2Scanner(scanner.Scanner):
                     else:
                         raise ValueError(port)
 
-                    port_desc = node_db.KRateControlPortDescription(
-                        name=str(port.get_symbol()),
-                        direction=direction)
-                    ports.append(port_desc)
-
                     # if port.has_property(ns.lv2.integer):
                     #     # TODO: this should be IntParameter
                     #     parameter_cls = node_db.FloatParameterDescription
                     # else:
                     #     parameter_cls = node_db.FloatParameterDescription
 
-                    # kwargs = {}
-                    # kwargs['name'] = str(port.get_symbol())
+                    kwargs = {}
                     # kwargs['display_name'] = str(port.get_name())
 
-                    # default, range_min, range_max = port.get_range()
-                    # if default is not None:
-                    #     if default.is_int():
-                    #         kwargs['default'] = int(default)
-                    #     else:
-                    #         kwargs['default'] = float(default)
-                    # if range_min is not None:
-                    #     if range_min.is_int():
-                    #         kwargs['min'] = int(range_min)
-                    #     else:
-                    #         kwargs['min'] = float(range_min)
-                    # if range_max is not None:
-                    #     if range_max.is_int():
-                    #         kwargs['max'] = int(range_max)
-                    #     else:
-                    #         kwargs['max'] = float(range_max)
+                    default, range_min, range_max = port.get_range()
+                    if default is not None:
+                        if default.is_int():
+                            kwargs['default'] = int(default)
+                        else:
+                            kwargs['default'] = float(default)
+                    if range_min is not None:
+                        if range_min.is_int():
+                            kwargs['min'] = int(range_min)
+                        else:
+                            kwargs['min'] = float(range_min)
+                    if range_max is not None:
+                        if range_max.is_int():
+                            kwargs['max'] = int(range_max)
+                        else:
+                            kwargs['max'] = float(range_max)
 
-                    # parameter_desc = parameter_cls(**kwargs)
-                    # parameters.append(parameter_desc)
+                    port_desc = node_db.KRateControlPortDescription(
+                        name=str(port.get_symbol()),
+                        direction=direction,
+                        **kwargs)
+                    ports.append(port_desc)
 
                 elif port.is_a(ns.atom.AtomPort) and port.is_a(ns.lv2.InputPort):
                     port_desc = node_db.EventPortDescription(

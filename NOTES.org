@@ -31,6 +31,7 @@
   - move feature handling to noisicaa.lv2
     - the node_db has access to the list of supported features, w/o duplicating code.
 - something swallows the audio from kick drum track in complex demo playback
+  - the csound reverb node
 - ProcessorFluidSynth
   - capture fluidsynth logs
   - cache soundfonts in master instrument again
@@ -61,7 +62,7 @@
   - use that in backend_ipc
 * Status::Error should carry filename:lineno info					 :CLEANUP:
   - can do without macro?
-* Use https://abseil.io/blog/								      :FR:
+* Use https://abseil.io/blog/								 :CLEANUP:
 - absl::Mutex for rwlock.py
 - absl::Substitude for sprintf
 - absl::string_view for method args
@@ -75,7 +76,7 @@
 - also (text) data files
 * Do SVG conversion at build time							      :FR:
 - the stuff in SvgSymbol.strip_dom()
-* ProcessorFluidSynth
+* ProcessorFluidSynth									      :FR:
 - sample precise scheduling of events once at the start of a block?
 * ProcessorCSound									      :FR:
 - use block size for ksmps

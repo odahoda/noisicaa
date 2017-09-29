@@ -3,6 +3,7 @@ from libcpp.memory cimport unique_ptr
 
 from noisicaa.core.status cimport *
 from .buffers cimport *
+from .control_value cimport *
 from .opcodes cimport *
 from .processor cimport *
 
@@ -18,6 +19,11 @@ cdef extern from "noisicaa/audioproc/vm/spec.h" namespace "noisicaa" nogil:
         int num_buffers() const
         const BufferType* get_buffer(int idx) const
         StatusOr[int] get_buffer_idx(const string& name) const
+
+        Status append_control_value(ControlValue* cv)
+        int num_control_values() const
+        ControlValue* get_control_value(int idx) const
+        StatusOr[int] get_control_value_idx(const ControlValue* cv) const
 
         Status append_processor(Processor* processor)
         int num_processors() const

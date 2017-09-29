@@ -34,6 +34,7 @@ class Node(object):
         self.inputs = {}
         self.outputs = {}
 
+        self.__control_values = {}
         self.__parameters = {}
 
         if self.init_ports_from_description:
@@ -77,7 +78,7 @@ class Node(object):
                     and port_desc.port_type == node_db.PortType.Events):
                 kwargs['csound_instr'] = port_desc.csound_instr
 
-            port = port_cls(port_desc.name, **kwargs)
+            port = port_cls(description=port_desc, **kwargs)
             port.owner = self
 
             self.ports.append(port)
@@ -135,6 +136,12 @@ class Node(object):
         """
         logger.info("%s: setup()", self.name)
 
+        for port in self.ports:
+            if isinstance(port, ports.KRateControlInputPort):
+                logger.info("Float control value '%s'", port.buf_name)
+                self.__control_values[port.buf_name] = vm.FloatControlValue(
+                    port.buf_name, port.description.default)
+
     def cleanup(self):
         """Clean up the node.
 
@@ -145,11 +152,21 @@ class Node(object):
     def get_processor(self):
         return None
 
+    @property
+    def control_values(self):
+        return [v for _, v in sorted(self.__control_values.items())]
+
     def add_to_spec(self, spec):
+        for cv in self.control_values:
+            spec.append_control_value(cv)
+
         for port in self.ports:
             spec.append_buffer(port.buf_name, port.get_buf_type())
 
-            if isinstance(port, ports.InputPort):
+            if port.buf_name in self.__control_values:
+                spec.append_opcode(
+                    'FETCH_CONTROL_VALUE', self.__control_values[port.buf_name], port.buf_name)
+            elif isinstance(port, ports.InputPort):
                 spec.append_opcode('CLEAR', port.buf_name)
                 for upstream_port in port.inputs:
                     spec.append_opcode('MIX', upstream_port.buf_name, port.buf_name)

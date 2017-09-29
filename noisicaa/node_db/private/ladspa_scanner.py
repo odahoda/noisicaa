@@ -80,9 +80,21 @@ class LadspaScanner(scanner.Scanner):
                             node_db.PortType.KRateControl: node_db.KRateControlPortDescription,
                         }[port_type]
 
+                        kwargs = {}
+
+                        if (port.type == ladspa.PortType.Control
+                            and port.direction == ladspa.PortDirection.Input):
+                            # Using a fixed sample rate is pretty ugly...
+                            kwargs['min'] = port.lower_bound(44100)
+                            kwargs['max'] = port.upper_bound(44100)
+                            default = port.default(44100)
+                            if default is not None:
+                                kwargs['default'] = default
+
                         port_desc = port_cls(
                             name=port.name,
-                            direction=direction)
+                            direction=direction,
+                            **kwargs)
                         ports.append(port_desc)
 
                     parameters.append(

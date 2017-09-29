@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include "noisicaa/core/logging.h"
 #include "noisicaa/core/status.h"
+#include "noisicaa/audioproc/vm/control_value.h"
 #include "noisicaa/audioproc/vm/spec.h"
 #include "noisicaa/audioproc/vm/processor.h"
 
@@ -55,44 +56,11 @@ struct ActiveProcessor {
   int ref_count;
 };
 
-class ControlValue {
-public:
-  enum Type {
-    Float,
-    Int,
-  };
+struct ActiveControlValue {
+  ActiveControlValue(ControlValue* cv) : control_value(cv), ref_count(0) {}
 
-  virtual ~ControlValue();
-
-  Type type() const { return _type; }
-
-protected:
-  ControlValue(Type type);
-
-private:
-  Type _type;
-};
-
-class FloatControlValue : public ControlValue {
-public:
-  FloatControlValue(float value);
-
-  float value() const { return _value; }
-  void set_value(float value) { _value = value; }
-
-private:
-  float _value;
-};
-
-class IntControlValue : public ControlValue {
-public:
-  IntControlValue(int64_t value);
-
-  int64_t value() const { return _value; }
-  void set_value(int64_t value) { _value = value; }
-
-private:
-  int64_t _value;
+  unique_ptr<ControlValue> control_value;
+  int ref_count;
 };
 
 class VM {
@@ -104,21 +72,25 @@ public:
   void cleanup();
 
   Status add_processor(Processor* processor);
+  Status add_control_value(ControlValue* cv);
 
   Status set_block_size(uint32_t block_size);
   Status set_spec(const Spec* spec);
   Status set_backend(Backend* backend);
   Backend* backend() const { return _backend.get(); }
 
-  Status set_float_control_value(const string& name, float value);
-  StatusOr<float> get_float_control_value(const string& name);
-  Status delete_control_value(const string& name);
+  // Status set_float_control_value(const string& name, float value);
+  // StatusOr<float> get_float_control_value(const string& name);
+  // Status delete_control_value(const string& name);
 
   Status process_block(BlockContext* ctxt);
 
   Buffer* get_buffer(const string& name);
 
 private:
+  void activate_program(Program* program);
+  void deactivate_program(Program* program);
+
   Logger* _logger;
   HostData* _host_data;
   atomic<uint32_t> _block_size;
@@ -128,8 +100,7 @@ private:
   uint32_t _program_version = 0;
   unique_ptr<Backend> _backend;
   map<uint64_t, unique_ptr<ActiveProcessor>> _processors;
-  mutex _control_values_mutex;
-  map<string, unique_ptr<ControlValue>> _control_values;
+  map<string, unique_ptr<ActiveControlValue>> _control_values;
 };
 
 }  // namespace noisicaa

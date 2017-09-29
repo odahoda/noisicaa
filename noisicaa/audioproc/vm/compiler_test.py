@@ -51,6 +51,9 @@ class CompilerTest(unittest.TestCase):
                 node_db.AudioPortDescription(
                     name='in:right',
                     direction=node_db.PortDirection.Input),
+                node_db.KRateControlPortDescription(
+                    name='gain',
+                    direction=node_db.PortDirection.Input),
                 node_db.AudioPortDescription(
                     name='out:left',
                     direction=node_db.PortDirection.Output),

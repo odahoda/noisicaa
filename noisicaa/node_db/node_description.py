@@ -87,8 +87,12 @@ class ARateControlPortDescription(PortDescription):
 
 
 class KRateControlPortDescription(PortDescription):
-    def __init__(self, **kwargs):
+    def __init__(self, default=0.0, min=None, max=None, **kwargs):
         super().__init__(port_type=PortType.KRateControl, **kwargs)
+
+        self.default = default
+        self.min = min
+        self.max = max
 
 
 class EventPortDescription(PortDescription):

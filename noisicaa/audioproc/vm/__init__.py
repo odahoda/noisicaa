@@ -16,6 +16,11 @@ from .buffers import (
     PyFloatAudioBlock as FloatAudioBlock,
     PyAtomData as AtomData,
 )
+from .control_value import (
+    PyControlValueType as ControlValueType,
+    PyFloatControlValue as FloatControlValue,
+    PyIntControlValue as IntControlValue,
+)
 from .host_data import (
     PyHostData as HostData,
 )

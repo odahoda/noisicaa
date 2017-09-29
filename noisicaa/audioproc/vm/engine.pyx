@@ -23,8 +23,10 @@ from .host_data cimport *
 from .spec cimport *
 from .block_context cimport *
 from .buffers cimport *
+from .control_value cimport *
 from .backend cimport *
 from .. import node
+from .. import ports
 from . import graph
 from . import compiler
 
@@ -207,6 +209,10 @@ cdef class PipelineVM(object):
             logger.info("adding processor")
             self.__vm.add_processor(processor.release())
             logger.info("done")
+
+        cdef PyControlValue cv
+        for cv in node.control_values:
+            self.__vm.add_control_value(cv.release());
 
     def set_parameter(self, name, value):
         self.__parameters[name] = value

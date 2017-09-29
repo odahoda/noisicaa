@@ -3,6 +3,7 @@ from libcpp.memory cimport unique_ptr
 
 from noisicaa.core.status cimport *
 from .buffers cimport *
+from .control_value cimport *
 from .opcodes cimport *
 from .processor cimport *
 
@@ -61,6 +62,9 @@ cdef class PySpec(object):
         assert(isinstance(name, bytes))
         check(self.__spec.append_buffer(name, buf_type.cpptype.release()))
 
+    def append_control_value(self, PyControlValue cv):
+        check(self.__spec.append_control_value(cv.ptr()))
+
     def append_opcode(self, opcode, *args):
         cdef StatusOr[int] stor_int
 
@@ -84,13 +88,13 @@ cdef class PySpec(object):
             elif spec == 'f':
                 if not isinstance(value, float):
                     raise TypeError(
-                        "OpCode %s, arg #%d: Excepted float, got %s" % (
+                        "OpCode %s, arg #%d: Expected float, got %s" % (
                             opcode, idx, type(value).__name__))
                 opargs.push_back(OpArg(<float>value))
             elif spec == 'i':
                 if not isinstance(value, int):
                     raise TypeError(
-                        "OpCode %s, arg #%d: Excepted int, got %s" % (
+                        "OpCode %s, arg #%d: Expected int, got %s" % (
                             opcode, idx, type(value).__name__))
                 opargs.push_back(OpArg(<int64_t>value))
             elif spec == 's':
@@ -98,15 +102,23 @@ cdef class PySpec(object):
                     value = value.encode('utf-8')
                 if not isinstance(value, bytes):
                     raise TypeError(
-                        "OpCode %s, arg #%d: Excepted str/bytes, got %s" % (
+                        "OpCode %s, arg #%d: Expected str/bytes, got %s" % (
                             opcode, idx, type(value).__name__))
                 opargs.push_back(OpArg(<string>value))
             elif spec == 'p':
                 if not isinstance(value, PyProcessor):
                     raise TypeError(
-                        "OpCode %s, arg #%d: Excepted PyProcessor, got %s" % (
+                        "OpCode %s, arg #%d: Expected PyProcessor, got %s" % (
                             opcode, idx, type(value).__name__))
                 stor_int = self.__spec.get_processor_idx((<PyProcessor>value).ptr())
+                check(stor_int)
+                opargs.push_back(OpArg(<int64_t>(stor_int.result())))
+            elif spec == 'c':
+                if not isinstance(value, PyControlValue):
+                    raise TypeError(
+                        "OpCode %s, arg #%d: Expected PyControlValue, got %s" % (
+                            opcode, idx, type(value).__name__))
+                stor_int = self.__spec.get_control_value_idx((<PyControlValue>value).ptr())
                 check(stor_int)
                 opargs.push_back(OpArg(<int64_t>(stor_int.result())))
             else:

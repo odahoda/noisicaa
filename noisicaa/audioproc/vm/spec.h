@@ -15,6 +15,7 @@ namespace noisicaa {
 using namespace std;
 
 class Processor;
+class ControlValue;
 class BufferType;
 
 struct Instruction {
@@ -42,6 +43,11 @@ public:
   const BufferType* get_buffer(int idx) const { return _buffers[idx].get(); }
   StatusOr<int> get_buffer_idx(const string& name) const;
 
+  Status append_control_value(ControlValue* cv);
+  int num_control_values() const { return _control_values.size(); }
+  ControlValue* get_control_value(int idx) const { return _control_values[idx]; }
+  StatusOr<int> get_control_value_idx(const ControlValue* cv) const;
+
   Status append_processor(Processor* processor);
   int num_processors() const { return _processors.size(); }
   Processor* get_processor(int idx) const { return _processors[idx]; }
@@ -53,6 +59,8 @@ private:
   map<uint64_t, int> _processor_map;
   vector<unique_ptr<const BufferType>> _buffers;
   map<string, int> _buffer_map;
+  vector<ControlValue*> _control_values;
+  map<string, int> _control_value_map;
 };
 
 }  // namespace noisicaa
