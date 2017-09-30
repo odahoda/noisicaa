@@ -172,6 +172,77 @@ class QTextEdit(QtWidgets.QTextEdit):
         self.__initial_text = None
 
 
+class ControlValuesConnector(object):
+    def __init__(self, node):
+        self.__node = node
+
+        self.__control_values = {}
+        for port in self.__node.description.ports:
+            if (port.direction == node_db.PortDirection.Input
+                and port.port_type == node_db.PortType.KRateControl):
+                self.__control_values[port.name] = port.default
+
+        self.__control_value_listeners = []
+        for control_value in self.__node.control_values:
+            self.__control_values[control_value.name] = control_value.value
+
+            self.__control_value_listeners.append(
+                control_value.listeners.add(
+                    'value', functools.partial(
+                        self.onControlValueChanged, control_value.name)))
+
+        self.__control_values_listener = self.__node.listeners.add(
+            'control_values', self.onControlValuesChanged)
+
+        self.listeners = core.CallbackRegistry()
+
+    def __getitem__(self, name):
+        return self.__control_values[name]
+
+    def cleanup(self):
+        for listener in self.__control_value_listeners:
+            listener.remove()
+        self.__control_value_listeners.clear()
+
+        if self.__control_values_listener is not None:
+            self.__control_values_listener.remove()
+            self.__control_values_listener = None
+
+    def onControlValuesChanged(self, action, index, control_value):
+        if action == 'insert':
+            self.listeners.call(
+                control_value.name,
+                self.__control_values[control_value.name], control_value.value)
+            self.__control_values[control_value.name] = control_value.value
+
+            self.__control_value_listeners.insert(
+                index,
+                control_value.listeners.add(
+                    'value', functools.partial(
+                        self.onControlValueChanged, control_value.name)))
+
+        elif action == 'delete':
+            for port in self.__node.description.ports:
+                if port.name == control_value.name:
+                    self.listeners.call(
+                        control_value.name,
+                        self.__control_values[control_value.name], port.default)
+                    self.__control_values[control.name] = port.default
+                    break
+
+            listener = self.__control_value_listeners.pop(index)
+            listener.remove()
+
+        else:
+            raise ValueError(action)
+
+    def onControlValueChanged(self, control_value_name, old_value, new_value):
+        self.listeners.call(
+            control_value_name,
+            self.__control_values[control_value_name], new_value)
+        self.__control_values[control_value_name] = new_value
+
+
 # TODO: This might be better it the model level.
 class ParameterValuesConnector(object):
     def __init__(self, node):
@@ -315,68 +386,82 @@ class NodePropertyDialog(
             node.listeners.add('name', self.onNameChanged))
 
         for port in self._node_item.node_description.ports:
-            if not (port.direction == node_db.PortDirection.Output
+            if (port.direction == node_db.PortDirection.Output
                 and port.port_type == node_db.PortType.Audio):
-                continue
+                port_property_values = dict(
+                    (p.name, p.value)
+                    for p in node.port_property_values
+                    if p.port_name == port.name)
 
-            port_property_values = dict(
-                (p.name, p.value)
-                for p in node.port_property_values
-                if p.port_name == port.name)
-
-            muted_widget = mute_button.MuteButton(self)
-            muted_widget.setChecked(
-                port_property_values.get('muted', False))
-            volume_widget = QtWidgets.QDoubleSpinBox(
-                self,
-                suffix='%',
-                minimum=0.0, maximum=1000.0, decimals=1,
-                singleStep=5, accelerated=True)
-            volume_widget.setEnabled(
-                not port_property_values.get('muted', False))
-            volume_widget.setValue(
-                port_property_values.get('volume', 100.0))
-
-            muted_widget.toggled.connect(functools.partial(
-                self.onPortMutedEdited, port, volume_widget))
-            volume_widget.valueChanged.connect(functools.partial(
-                self.onPortVolumeEdited, port))
-
-            row_layout = QtWidgets.QHBoxLayout()
-            row_layout.setSpacing(0)
-            row_layout.addWidget(muted_widget)
-            row_layout.addWidget(volume_widget, 1)
-            layout.addRow(
-                "Volume (port <i>%s</i>)" % port.name, row_layout)
-
-            # TODO: port can be bypassable without dry/wet
-            if port.drywet_port is not None:
-                bypass_widget = QtWidgets.QToolButton(
-                    self, checkable=True, autoRaise=True)
-                bypass_widget.setText('B')
-                bypass_widget.setChecked(
-                    port_property_values.get('bypass', False))
-                drywet_widget = QtWidgets.QSlider(
+                muted_widget = mute_button.MuteButton(self)
+                muted_widget.setChecked(
+                    port_property_values.get('muted', False))
+                volume_widget = QtWidgets.QDoubleSpinBox(
                     self,
-                    minimum=-100, maximum=100,
-                    orientation=Qt.Horizontal, tickInterval=20,
-                    tickPosition=QtWidgets.QSlider.TicksBothSides)
-                drywet_widget.setEnabled(
-                    not port_property_values.get('bypass', False))
-                drywet_widget.setValue(
-                    int(port_property_values.get('drywet', 0.0)))
+                    suffix='%',
+                    minimum=0.0, maximum=1000.0, decimals=1,
+                    singleStep=5, accelerated=True)
+                volume_widget.setEnabled(
+                    not port_property_values.get('muted', False))
+                volume_widget.setValue(
+                    port_property_values.get('volume', 100.0))
 
-                bypass_widget.toggled.connect(functools.partial(
-                    self.onPortBypassEdited, port, drywet_widget))
-                drywet_widget.valueChanged.connect(functools.partial(
-                    self.onPortDrywetEdited, port))
+                muted_widget.toggled.connect(functools.partial(
+                    self.onPortMutedEdited, port, volume_widget))
+                volume_widget.valueChanged.connect(functools.partial(
+                    self.onPortVolumeEdited, port))
 
                 row_layout = QtWidgets.QHBoxLayout()
                 row_layout.setSpacing(0)
-                row_layout.addWidget(bypass_widget)
-                row_layout.addWidget(drywet_widget, 1)
+                row_layout.addWidget(muted_widget)
+                row_layout.addWidget(volume_widget, 1)
                 layout.addRow(
-                    "Dry/wet (port <i>%s</i>)" % port.name, row_layout)
+                    "Volume (port <i>%s</i>)" % port.name, row_layout)
+
+                # TODO: port can be bypassable without dry/wet
+                if port.drywet_port is not None:
+                    bypass_widget = QtWidgets.QToolButton(
+                        self, checkable=True, autoRaise=True)
+                    bypass_widget.setText('B')
+                    bypass_widget.setChecked(
+                        port_property_values.get('bypass', False))
+                    drywet_widget = QtWidgets.QSlider(
+                        self,
+                        minimum=-100, maximum=100,
+                        orientation=Qt.Horizontal, tickInterval=20,
+                        tickPosition=QtWidgets.QSlider.TicksBothSides)
+                    drywet_widget.setEnabled(
+                        not port_property_values.get('bypass', False))
+                    drywet_widget.setValue(
+                        int(port_property_values.get('drywet', 0.0)))
+
+                    bypass_widget.toggled.connect(functools.partial(
+                        self.onPortBypassEdited, port, drywet_widget))
+                    drywet_widget.valueChanged.connect(functools.partial(
+                        self.onPortDrywetEdited, port))
+
+                    row_layout = QtWidgets.QHBoxLayout()
+                    row_layout.setSpacing(0)
+                    row_layout.addWidget(bypass_widget)
+                    row_layout.addWidget(drywet_widget, 1)
+                    layout.addRow(
+                        "Dry/wet (port <i>%s</i>)" % port.name, row_layout)
+
+        self.__control_values = ControlValuesConnector(node)
+        for port in self._node_item.node_description.ports:
+            if (port.direction == node_db.PortDirection.Input
+                and port.port_type == node_db.PortType.KRateControl):
+                widget = QtWidgets.QLineEdit(self)
+                widget.setText(str(self.__control_values[port.name]))
+                widget.setValidator(QtGui.QDoubleValidator())
+                widget.editingFinished.connect(functools.partial(
+                    self.onFloatControlValueEdited, widget, port))
+                layout.addRow(port.name, widget)
+
+                self.__listeners.append(
+                    self.__control_values.listeners.add(
+                        port.name, functools.partial(
+                            self.onFloatParameterChanged, widget, port)))
 
         self.__parameter_values = ParameterValuesConnector(node)
         for parameter in self._node_item.node_description.parameters:
@@ -496,6 +581,17 @@ class NodePropertyDialog(
 
     def onNameEdited(self):
         pass
+
+    def onFloatControlValueChanged(self, widget, port, old_value, new_value):
+        widget.setText(str(new_value))
+
+    def onFloatControlValueEdited(self, widget, port):
+        value, ok = widget.locale().toDouble(widget.text())
+        if ok and value != self.__control_values[port.name]:
+            self.send_command_async(
+                self._node_item.node.id, 'SetPipelineGraphControlValue',
+                port_name=port.name,
+                float_value=value)
 
     def onFloatParameterChanged(self, widget, parameter, old_value, new_value):
         widget.setText(parameter.to_string(new_value))
