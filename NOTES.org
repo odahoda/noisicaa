@@ -1,29 +1,12 @@
 # -*- org-tags-column: -98 -*-
 
 * Control values									      :FR:
-- node parameters
-  - parameters can be static or dynamic
-    static -> value used at setup time
-    dynamic -> value can be changed, processor must handle set_x_parameter
-  - is there any use for parameters on non-ProcessorNodes?
-- control values:
-  - replace prev uses of parameters for kRateControl buffer
-  - collect CV changes in list as they come in from main thread
-  - at beginning of block, take current list, apply CVs by writing values to buffers
-- what about parameters?
-  - handle as single float buffers
-  - vm keeps map of parameter values
-  - opcode FETCH_PARAMETER #buf, 'param_name'
-  - player installs listeners on pipeline graph, incl. parameter changes
-  - async node setup:
-    - track node state: SETUP, RUNNING, CRASHED
-    - schedule setup in worker thread
-    - VM skips node (perhaps with bypass), if not RUNNING
+- at beginning of block, take current list, apply CVs by writing values to buffers
+
+* Finish VM-based pipeline engine 							      :FR:
 - port parameters
   - volume, mute, bypass, dry_wet
   - bypass needs conditionals
-
-* Finish VM-based pipeline engine 							      :FR:
 - lv2 features
   - make atom buffer size a param of hostsystem
   - some test plugins to validate features

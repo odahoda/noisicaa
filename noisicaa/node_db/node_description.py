@@ -20,6 +20,12 @@ class NodeDescription(object):
                 return parameter
         raise KeyError("No parameter %r." % name)
 
+    def get_port(self, name):
+        for port in self.ports:
+            if port.name == name:
+                return port
+        raise KeyError("No port %r." % name)
+
     def __str__(self):
         s = []
         s.append("cls: %s" % type(self).__name__)

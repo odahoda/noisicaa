@@ -71,6 +71,30 @@ class SetPipelineGraphNodeParameter(commands.Command):
 
 commands.Command.register_command(SetPipelineGraphNodeParameter)
 
+
+class SetPipelineGraphControlValue(commands.Command):
+    port_name = core.Property(str)
+    float_value = core.Property(float, allow_none=True)
+
+    def __init__(self, port_name=None, float_value=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.port_name = port_name
+            self.float_value = float_value
+
+    def run(self, node):
+        assert isinstance(node, BasePipelineGraphNode)
+
+        port = node.description.get_port(self.port_name)
+        assert port.direction == node_db.PortDirection.Input
+        assert port.port_type == node_db.PortType.KRateControl
+        assert self.float_value is not None
+
+        node.set_control_value(port.name, self.float_value)
+
+commands.Command.register_command(SetPipelineGraphControlValue)
+
+
 class SetPipelineGraphPortParameter(commands.Command):
     port_name = core.Property(str)
     muted = core.Property(bool, allow_none=True)

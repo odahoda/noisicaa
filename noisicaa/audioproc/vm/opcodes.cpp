@@ -151,7 +151,6 @@ Status run_FETCH_CONTROL_VALUE(BlockContext* ctxt, ProgramState* state, const ve
     FloatControlValue* fcv = (FloatControlValue*)cv;
     float* data = (float*)buf->data();
     *data = fcv->value();
-    state->logger->info("Control value %s=%f", cv->name().c_str(), fcv->value());
     return Status::Ok();
   }
   case ControlValueType::IntCV:

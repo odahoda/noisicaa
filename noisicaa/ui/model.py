@@ -45,6 +45,7 @@ class SampleTrack(model.SampleTrack, project_client.ObjectProxy): pass
 class SheetPropertyMeasure(model.SheetPropertyMeasure, project_client.ObjectProxy): pass
 class SheetPropertyTrack(model.SheetPropertyTrack, project_client.ObjectProxy): pass
 class PipelineGraphNodeParameterValue(model.PipelineGraphNodeParameterValue, project_client.ObjectProxy): pass
+class PipelineGraphControlValue(model.PipelineGraphControlValue, project_client.ObjectProxy): pass
 class PipelineGraphPortPropertyValue(model.PipelineGraphPortPropertyValue, project_client.ObjectProxy): pass
 class PipelineGraphNode(model.PipelineGraphNode, project_client.ObjectProxy): pass
 class AudioOutPipelineGraphNode(model.AudioOutPipelineGraphNode, project_client.ObjectProxy): pass
@@ -100,6 +101,7 @@ cls_map = {
     'SheetPropertyMeasure': SheetPropertyMeasure,
     'SheetPropertyTrack': SheetPropertyTrack,
     'PipelineGraphNodeParameterValue': PipelineGraphNodeParameterValue,
+    'PipelineGraphControlValue': PipelineGraphControlValue,
     'PipelineGraphPortPropertyValue': PipelineGraphPortPropertyValue,
     'PipelineGraphNode': PipelineGraphNode,
     'AudioOutPipelineGraphNode': AudioOutPipelineGraphNode,
