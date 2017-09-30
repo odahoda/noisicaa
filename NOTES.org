@@ -13,8 +13,6 @@
     - point LV2_PATH to just those, so test don't see all plugins on a host
   - move feature handling to noisicaa.lv2
     - the node_db has access to the list of supported features, w/o duplicating code.
-- something swallows the audio from kick drum track in complex demo playback
-  - the csound reverb node
 - ProcessorFluidSynth
   - capture fluidsynth logs
   - cache soundfonts in master instrument again
