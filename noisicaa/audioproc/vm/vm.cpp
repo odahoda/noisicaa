@@ -187,23 +187,20 @@ Buffer* VM::get_buffer(const string& name) {
   return program->buffers[stor_idx.result()].get();
 }
 
-// Status VM::set_float_control_value(const string& name, float value) {
-//   lock_guard<mutex> lock(_control_values_mutex);
+Status VM::set_float_control_value(const string& name, float value) {
+  const auto& it = _control_values.find(name);
+  if (it == _control_values.end()) {
+    return Status::Error("Control value '%s' not found.", name.c_str());
+  }
 
-//   const auto& it = _control_values.find(name);
-//   if (it == _control_values.end()) {
-//     _control_values.emplace(name, unique_ptr<ControlValue>(new FloatControlValue(value)));
-//     return Status::Ok();
-//   }
+  ControlValue* cv = it->second->control_value.get();
+  if (cv->type() != ControlValueType::FloatCV) {
+    return Status::Error("Control value '%s' is not of type Float.", name.c_str());
+  }
 
-//   ControlValue* cv = it->second.get();
-//   if (cv->type() != ControlValue::Float) {
-//     return Status::Error("Control value '%s' is not of type Float.", name.c_str());
-//   }
-
-//   dynamic_cast<FloatControlValue*>(cv)->set_value(value);
-//   return Status::Ok();
-// }
+  dynamic_cast<FloatControlValue*>(cv)->set_value(value);
+  return Status::Ok();
+}
 
 // StatusOr<float> VM::get_float_control_value(const string& name) {
 //   lock_guard<mutex> lock(_control_values_mutex);

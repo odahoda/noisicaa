@@ -83,3 +83,14 @@ class SetNodeParameter(Mutation):
             self.node,
             ''.join(' %s=%r' % (k, v)
                     for k, v in sorted(self.kwargs.items())))
+
+
+class SetControlValue(Mutation):
+    def __init__(self, name, value):
+        super().__init__()
+        self.name = name
+        self.value = value
+
+    def __str__(self):
+        return '<SetControlValue name="%s" value=%s>' % (
+            self.name, self.value)

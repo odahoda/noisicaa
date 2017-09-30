@@ -286,6 +286,9 @@ class AudioProcProcessMixin(object):
             with self.__vm.writer_lock():
                 node.set_param(**mutation.kwargs)
 
+        elif isinstance(mutation, mutations.SetControlValue):
+            self.__vm.set_control_value(mutation.name, mutation.value)
+
         else:
             raise ValueError(type(mutation))
 

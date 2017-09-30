@@ -217,6 +217,13 @@ cdef class PipelineVM(object):
     def set_parameter(self, name, value):
         self.__parameters[name] = value
 
+    def set_control_value(self, name, value):
+        if isinstance(value, float):
+            check(self.__vm.set_float_control_value(name.encode('utf-8'), value))
+        else:
+            raise TypeError(
+                "Type %s not supported for control values." % type(value).__name__)
+
     def add_notification(self, node_id, notification):
         self.__notifications.append((node_id, notification))
 

@@ -142,6 +142,18 @@ class PipelineGraphNodeParameterValue(
 state.StateBase.register_class(PipelineGraphNodeParameterValue)
 
 
+class PipelineGraphControlValue(
+        model.PipelineGraphControlValue, state.StateBase):
+    def __init__(self, name=None, value=None, state=None, **kwargs):
+        super().__init__(state=state, **kwargs)
+
+        if state is None:
+            self.name = name
+            self.value = value
+
+state.StateBase.register_class(PipelineGraphControlValue)
+
+
 class PipelineGraphPortPropertyValue(
         model.PipelineGraphPortPropertyValue, state.StateBase):
     def __init__(
@@ -198,18 +210,23 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                 audioproc.SetNodeParameter(self.pipeline_node_id, **params))
 
         for port in self.description.ports:
-            if port.direction != node_db.PortDirection.Output:
-                continue
+            if (port.direction == node_db.PortDirection.Input
+                and port.port_type == node_db.PortType.KRateControl):
+                for cv in self.control_values:
+                    self.sheet.handle_pipeline_mutation(
+                        audioproc.SetControlValue(
+                            '%s:%s' % (self.pipeline_node_id, cv.name), cv.value))
 
-            port_property_values = dict(
-                (p.name, p.value) for p in self.port_property_values
-                if p.port_name == port.name)
+            elif port.direction == node_db.PortDirection.Output:
+                port_property_values = dict(
+                    (p.name, p.value) for p in self.port_property_values
+                    if p.port_name == port.name)
 
-            if port_property_values:
-                self.sheet.handle_pipeline_mutation(
-                    audioproc.SetPortProperty(
-                        self.pipeline_node_id, port.name,
-                        **port_property_values))
+                if port_property_values:
+                    self.sheet.handle_pipeline_mutation(
+                        audioproc.SetPortProperty(
+                            self.pipeline_node_id, port.name,
+                            **port_property_values))
 
     def remove_from_pipeline(self):
         raise NotImplementedError
@@ -253,6 +270,18 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                 self.pipeline_node_id, port_name,
                 muted=muted, volume=volume,
                 bypass=bypass, drywet=drywet))
+
+    def set_control_value(self, port_name, value):
+        for control_value in self.control_values:
+            if control_value.name == port_name:
+                control_value.value = value
+                break
+        else:
+            self.control_values.append(PipelineGraphControlValue(
+                name=port_name, value=value))
+
+        self.sheet.handle_pipeline_mutation(
+            audioproc.SetControlValue('%s:%s' % (self.pipeline_node_id, port_name), value))
 
 
 class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):

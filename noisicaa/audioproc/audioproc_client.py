@@ -80,6 +80,10 @@ class AudioProcClientMixin(object):
         return await self.pipeline_mutation(
             mutations.SetNodeParameter(node_id, **kwargs))
 
+    async def set_control_value(self, name, value):
+        return await self.pipeline_mutation(
+            mutations.SetControlValue(name, value))
+
     async def pipeline_mutation(self, mutation):
         return await self._stub.call(
             'PIPELINE_MUTATION', self._session_id, mutation)

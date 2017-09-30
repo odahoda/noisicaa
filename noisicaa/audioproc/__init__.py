@@ -8,6 +8,7 @@ from .mutations import (
     DisconnectPorts,
     SetPortProperty,
     SetNodeParameter,
+    SetControlValue,
 )
 from .vm import (
     Buffer,

@@ -206,6 +206,11 @@ class PipelineGraphNodeParameterValue(core.ObjectBase):
     value = core.Property((str, float, int))
 
 
+class PipelineGraphControlValue(core.ObjectBase):
+    port_name = core.Property(str)
+    value = core.Property(float)
+
+
 class PipelineGraphPortPropertyValue(core.ObjectBase):
     port_name = core.Property(str)
     name = core.Property(str)
@@ -216,6 +221,7 @@ class BasePipelineGraphNode(core.ObjectBase):
     name = core.Property(str)
     graph_pos = core.Property(misc.Pos2F)
     parameter_values = core.ObjectListProperty(PipelineGraphNodeParameterValue)
+    control_values = core.ObjectListProperty(PipelineGraphControlValue)
     port_property_values = core.ObjectListProperty(PipelineGraphPortPropertyValue)
 
     @property

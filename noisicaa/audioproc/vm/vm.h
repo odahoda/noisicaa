@@ -79,7 +79,7 @@ public:
   Status set_backend(Backend* backend);
   Backend* backend() const { return _backend.get(); }
 
-  // Status set_float_control_value(const string& name, float value);
+  Status set_float_control_value(const string& name, float value);
   // StatusOr<float> get_float_control_value(const string& name);
   // Status delete_control_value(const string& name);
 

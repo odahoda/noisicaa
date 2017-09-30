@@ -18,6 +18,7 @@ cdef extern from "noisicaa/audioproc/vm/vm.h" namespace "noisicaa" nogil:
         void cleanup()
         Status add_processor(Processor* processor)
         Status add_control_value(ControlValue* cv)
+        Status set_float_control_value(const string& name, float value)
         Status set_block_size(uint32_t block_size)
         Status set_spec(const Spec* spec)
         Status set_backend(Backend* backend)

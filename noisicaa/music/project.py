@@ -348,9 +348,9 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                 name='EQ',
                 node_uri=eq_node_uri)
             s.add_pipeline_graph_node(eq_node)
-            eq_node.set_parameter('Lo gain (dB)', -40.0)
-            eq_node.set_parameter('Mid gain (dB)', 0.0)
-            eq_node.set_parameter('Hi gain (dB)', 5.0)
+            eq_node.set_control_value('Lo gain (dB)', -40.0)
+            eq_node.set_control_value('Mid gain (dB)', 0.0)
+            eq_node.set_control_value('Hi gain (dB)', 5.0)
 
             filter_node_uri = 'builtin://custom_csound'
             filter_node = pipeline_graph.PipelineGraphNode(
@@ -437,8 +437,8 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                 name='Delay',
                 node_uri=delay_node_uri)
             s.add_pipeline_graph_node(delay_node)
-            delay_node.set_parameter('l_delay', 0.3)
-            delay_node.set_parameter('r_delay', 0.31)
+            delay_node.set_control_value('l_delay', 0.3)
+            delay_node.set_control_value('r_delay', 0.31)
 
             reverb_node_uri = 'builtin://csound/reverb'
             reverb_node = pipeline_graph.PipelineGraphNode(
