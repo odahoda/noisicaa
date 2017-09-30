@@ -518,10 +518,12 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     async def addInstrumentToPipeline(self, uri):
         assert self._pipeline_instrument_id is None
 
-        node_cls, node_args = instrument_db.parse_uri(uri)
+        node_uri, node_params = instrument_db.parse_uri(uri)
         self._pipeline_instrument_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
-            node_cls, id=self._pipeline_instrument_id, **node_args)
+            description=self.app.node_db.get_node_description(node_uri),
+            id=self._pipeline_instrument_id,
+            initial_parameters=node_params)
         await self.audioproc_client.connect_ports(
             self._pipeline_instrument_id, 'out:left',
             self._pipeline_mixer_id, 'in:left')
@@ -531,9 +533,9 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self._pipeline_event_source_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
-            'track_event_source',
+            description=node_db.EventSourceDescription,
             id=self._pipeline_event_source_id,
-            entity_id='instrument_library')
+            track_id='instrument_library')
         await self.audioproc_client.connect_ports(
             self._pipeline_event_source_id, 'out',
             self._pipeline_instrument_id, 'in')
@@ -616,11 +618,14 @@ properties: {properties}
 
     def onNoteOn(self, note, volume):
         if self._pipeline_event_source_id is not None:
-            # TODO: use messages instead
             # self.call_async(
-            #     self.audioproc_client.add_event(
-            #         'instrument_library',
-            #         audioproc.NoteOnEvent(-1, note, volume)))
+            #     self.project_client.player_send_message(
+            #         self.playerState().playerID(),
+            #         core.build_message(
+            #             {core.MessageKey.sheetId: self.sheet.id,
+            #              core.MessageKey.trackId: 'instrument_library'},
+            #             core.MessageType.atom,
+            #             lv2.AtomForge.build_midi_noteon(0, note, volume))))
             pass
 
     def onNoteOff(self, note):

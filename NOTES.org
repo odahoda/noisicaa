@@ -1,5 +1,7 @@
 # -*- org-tags-column: -98 -*-
 
+* Make playback from instrument library work again					     :BUG:
+- instrument library has no player, so where to send messages to?
 * Control values									      :FR:
 - at beginning of block, take current list, apply CVs by writing values to buffers
 
