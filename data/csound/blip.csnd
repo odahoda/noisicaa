@@ -7,8 +7,6 @@
   </port>
   <port name="out" type="audio" direction="output"/>
 </ports>
-<parameters>
-</parameters>
 <orchestra>
 0dbfs = 1.0
 ksmps = 32

@@ -4,15 +4,15 @@
 <ports>
   <port name="in" type="audio" direction="input"/>
   <port name="out" type="audio" direction="output"/>
-</ports>
-<parameters>
-  <parameter name="center" type="float" min="0" max="20000" default="2000">
+  <port name="center" type="kratecontrol" direction="input">
+    <float-control min="0" max="20000" default="2000"/>
     <display-name>Center frequency</display-name>
-  </parameter>
-  <parameter name="bandwidth" type="float" min="0" max="20000" default="200">
+  </port>
+  <port name="bandwidth" type="kratecontrol" direction="input">
+    <float-control min="0" max="20000" default="200"/>
     <display-name>Bandwidth</display-name>
-  </parameter>
-</parameters>
+  </port>
+</ports>
 <orchestra>
 0dbfs = 1.0
 ksmps = 32

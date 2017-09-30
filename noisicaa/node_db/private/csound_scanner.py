@@ -37,7 +37,8 @@ class CSoundScanner(scanner.Scanner):
                 for port_elem in root.find('ports').findall('port'):
                     port_type = {
                         'audio': node_db.PortType.Audio,
-                        'control': node_db.PortType.ARateControl,
+                        'kratecontrol': node_db.PortType.KRateControl,
+                        'aratecontrol': node_db.PortType.ARateControl,
                         'events': node_db.PortType.Events,
                     }[port_elem.get('type')]
 
@@ -59,10 +60,24 @@ class CSoundScanner(scanner.Scanner):
                             kwargs['bypass_port'] = bypass_elem.get('port')
 
                     if (direction == node_db.PortDirection.Input
-                            and port_type == node_db.PortType.Events):
+                        and port_type == node_db.PortType.Events):
                         csound_elem = port_elem.find('csound')
                         if csound_elem is not None:
                             kwargs['csound_instr'] = csound_elem.get('instr')
+
+                    if (direction == node_db.PortDirection.Input
+                        and port_type == node_db.PortType.KRateControl):
+                        float_control_elem = port_elem.find('float-control')
+                        if float_control_elem is not None:
+                            min = float_control_elem.get('min')
+                            if min is not None:
+                                kwargs['min'] = float(min)
+                            max = float_control_elem.get('max')
+                            if max is not None:
+                                kwargs['max'] = float(max)
+                            default = float_control_elem.get('default')
+                            if default is not None:
+                                kwargs['default'] = float(default)
 
                     port_cls = {
                         node_db.PortType.Audio: node_db.AudioPortDescription,
@@ -78,24 +93,25 @@ class CSoundScanner(scanner.Scanner):
                     ports.append(port_desc)
 
                 parameters = []
-                for parameter_elem in root.find('parameters').findall('parameter'):
-                    parameter_cls = {
-                        'float': node_db.FloatParameterDescription,
-                    }[parameter_elem.get('type')]
+                parameters_elem = root.find('parameters')
+                if parameters_elem is not None:
+                    for parameter_elem in parameters_elem.findall('parameter'):
+                        parameter_cls = {
+                            'float': node_db.FloatParameterDescription,
+                        }[parameter_elem.get('type')]
 
-                    kwargs = {}
-                    kwargs['name'] = parameter_elem.get('name')
-                    kwargs['display_name'] = ''.join(
-                        parameter_elem.find('display-name').itertext())
+                        kwargs = {}
+                        kwargs['name'] = parameter_elem.get('name')
+                        kwargs['display_name'] = ''.join(
+                            parameter_elem.find('display-name').itertext())
 
+                        if parameter_elem.get('type') == 'float':
+                            kwargs['min'] = float(parameter_elem.get('min'))
+                            kwargs['max'] = float(parameter_elem.get('max'))
+                            kwargs['default'] = float(parameter_elem.get('default'))
 
-                    if parameter_elem.get('type') == 'float':
-                        kwargs['min'] = float(parameter_elem.get('min'))
-                        kwargs['max'] = float(parameter_elem.get('max'))
-                        kwargs['default'] = float(parameter_elem.get('default'))
-
-                    parameter_desc = parameter_cls(**kwargs)
-                    parameters.append(parameter_desc)
+                        parameter_desc = parameter_cls(**kwargs)
+                        parameters.append(parameter_desc)
 
                 orchestra = ''.join(root.find('orchestra').itertext())
                 orchestra = orchestra.strip() + '\n'

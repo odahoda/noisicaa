@@ -4,12 +4,11 @@
 <ports>
   <port name="in" type="audio" direction="input"/>
   <port name="out" type="audio" direction="output"/>
-</ports>
-<parameters>
-  <parameter name="cutoff" type="float" min="0" max="20000" default="2000">
+  <port name="cutoff" type="kratecontrol" direction="input">
+    <float-control min="0" max="20000" default="2000"/>
     <display-name>Cutoff frequency</display-name>
-  </parameter>
-</parameters>
+  </port>
+</ports>
 <orchestra>
 0dbfs = 1.0
 ksmps = 32

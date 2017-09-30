@@ -333,11 +333,6 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
       }
     }
 
-        //     for parameter in self.description.parameters:
-        //         if parameter.param_type == node_db.ParameterType.Float:
-        //             self.__csnd.set_control_channel_value(
-        //                 parameter.name, self.get_param(parameter.name))
-
     int rc = csoundPerformKsmps(instance->csnd);
     if (rc < 0) {
       return Status::Error("Csound performance failed (code %d)", rc);

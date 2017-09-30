@@ -12,18 +12,19 @@
     <drywet port="in:right" default="0"/>
     <bypass port="in:right"/>
   </port>
-</ports>
-<parameters>
-  <parameter name="mix" type="float" min="0" max="1" default="1">
-    <display-name>Cutoff frequency</display-name>
-  </parameter>
-  <parameter name="feedback" type="float" min="0" max="1" default="0.7">
+  <port name="mix" type="kratecontrol" direction="input">
+    <float-control min="0" max="1" default="1"/>
+    <display-name>Mix</display-name>
+  </port>
+  <port name="feedback" type="kratecontrol" direction="input">
+    <float-control min="0" max="1" default="0.7"/>
     <display-name>Feedback level</display-name>
-  </parameter>
-  <parameter name="cutoff" type="float" min="0" max="20000" default="2000">
+  </port>
+  <port name="cutoff" type="kratecontrol" direction="input">
+    <float-control min="0" max="20000" default="2000"/>
     <display-name>Cutoff frequency</display-name>
-  </parameter>
-</parameters>
+  </port>
+</ports>
 <orchestra>
 0dbfs = 1.0
 ksmps = 32
@@ -41,7 +42,7 @@ gkCutoff   chnexport "cutoff", 1
 
 instr 1
     gaOutL, gaOutR reverbsc gaInL, gaInR, gkFeedback, gkCutoff
-    gaOutL = gaOutL + gkMix * gaInL
+    aOutL = gaOutL + gkMix * gaInL
     gaOutR = gaOutR + gkMix * gaInR
 endin
 </orchestra>
