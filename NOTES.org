@@ -1,11 +1,13 @@
 # -*- org-tags-column: -98 -*-
 
-* Make playback from instrument library work again					     :BUG:
-- instrument library has no player, so where to send messages to?
 * Control values									      :FR:
 - at beginning of block, take current list, apply CVs by writing values to buffers
 
 * Finish VM-based pipeline engine 							      :FR:
+- csound processors should always clear output buffers
+  - can't rely on csound doing it itself
+- reimplement set_backend_parameters
+- reimplement playing test sound from settings dialog
 - port parameters
   - volume, mute, bypass, dry_wet
   - bypass needs conditionals

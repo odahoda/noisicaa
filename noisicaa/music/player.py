@@ -323,7 +323,6 @@ class AudioStreamProxy(object):
                     except queue.Empty:
                         break
 
-                    logger.info(str(msg))
                     messages.append(msg)
 
                 if settings.state == 'playing':

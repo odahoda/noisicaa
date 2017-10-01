@@ -96,6 +96,9 @@ class AudioProcClientMixin(object):
         return await self._stub.call(
             'SET_BACKEND_PARAMETERS', self._session_id, parameters)
 
+    async def send_message(self, msg):
+        return await self._stub.call('SEND_MESSAGE', self._session_id, msg.to_bytes())
+
     async def play_file(self, path):
         return await self._stub.call(
             'PLAY_FILE', self._session_id, path)

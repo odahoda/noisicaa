@@ -3,7 +3,9 @@
 #ifndef _NOISICAA_AUDIOPROC_VM_BACKEND_H
 #define _NOISICAA_AUDIOPROC_VM_BACKEND_H
 
+#include <mutex>
 #include <string>
+#include <vector>
 #include "noisicaa/core/logging.h"
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/vm/buffers.h"
@@ -30,6 +32,8 @@ public:
   virtual Status setup(VM* vm);
   virtual void cleanup();
 
+  Status send_message(const string& msg);
+
   virtual Status begin_block(BlockContext* ctxt) = 0;
   virtual Status end_block(BlockContext* ctxt) = 0;
   virtual Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) = 0;
@@ -44,6 +48,9 @@ protected:
   BackendSettings _settings;
   VM* _vm = nullptr;
   bool _stopped = false;
+
+  mutex _msg_queue_mutex;
+  vector<string> _msg_queue;
 };
 
 }  // namespace noisicaa

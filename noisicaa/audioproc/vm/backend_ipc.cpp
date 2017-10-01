@@ -98,7 +98,7 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
 
   ctxt->messages.clear();
   for (const auto& msg : request.getMessages()) {
-    ctxt->messages.emplace_back(msg);
+    ctxt->messages.emplace_back(string((const char*)msg.begin(), msg.size()));
   }
 
   // TODO: Is there a way to reuse and reset an existing message builder, without

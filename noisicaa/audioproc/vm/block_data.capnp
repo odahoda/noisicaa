@@ -4,7 +4,6 @@ using Cxx = import "/capnp/c++.capnp";
 $Cxx.namespace("noisicaa::capnp");
 
 # Absolute imports don't work reliably with Python.
-using import "../../core/message.capnp".Message;
 using import "../../core/perf_stats.capnp".PerfStats;
 
 struct Buffer {
@@ -17,6 +16,6 @@ struct BlockData {
   samplePos @1 :UInt64;
 
   buffers @2 :List(Buffer);
-  messages @3 :List(Message);
+  messages @3 :List(Data);
   perfData @4 :PerfStats;
 }

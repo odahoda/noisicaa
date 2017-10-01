@@ -29,7 +29,7 @@ struct BlockContext {
   };
   map<string, Buffer> buffers;
 
-  vector<capnp::Message::Reader> messages;
+  vector<string> messages;
 };
 
 }  // namespace noisicaa

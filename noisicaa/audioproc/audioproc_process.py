@@ -103,6 +103,8 @@ class AudioProcProcessMixin(object):
         self.server.add_command_handler(
             'SET_BACKEND_PARAMETERS', self.handle_set_backend_parameters)
         self.server.add_command_handler(
+            'SEND_MESSAGE', self.handle_send_message)
+        self.server.add_command_handler(
             'PLAY_FILE', self.handle_play_file)
         self.server.add_command_handler(
             'PIPELINE_MUTATION', self.handle_pipeline_mutation)
@@ -299,6 +301,10 @@ class AudioProcProcessMixin(object):
     def handle_set_backend_parameters(self, session_id, parameters):
         self.get_session(session_id)
         self.__vm.set_backend_parameters(parameters)
+
+    def handle_send_message(self, session_id, msg):
+        self.get_session(session_id)
+        self.__vm.send_message(msg)
 
     def perf_data_callback(self, perf_data):
         self.event_loop.call_soon_threadsafe(

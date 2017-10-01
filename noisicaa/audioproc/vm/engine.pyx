@@ -167,6 +167,12 @@ cdef class PipelineVM(object):
             if self.__backend is not None:
                 self.__backend.set_parameters(**parameters)
 
+    def send_message(self, msg):
+        # TODO: race?
+        backend = self.__vm.backend()
+        if backend != NULL:
+            check(backend.send_message(msg))
+
     @property
     def nodes(self):
         return self.__graph.nodes
@@ -266,6 +272,7 @@ cdef class PipelineVM(object):
                 logger.info("Exiting VM mainloop.")
                 break
 
+            # TODO: race?
             backend = self.__vm.backend()
             if backend != NULL and backend.stopped():
                 logger.info("Backend stopped, exiting VM mainloop.")

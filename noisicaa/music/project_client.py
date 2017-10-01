@@ -280,7 +280,7 @@ class ProjectClientMixin(object):
 
     async def player_send_message(self, player_id, msg):
         return await self._stub.call(
-            'PLAYER_SEND_MESSAGE', self._session_id, player_id, msg)
+            'PLAYER_SEND_MESSAGE', self._session_id, player_id, msg.to_bytes())
 
     async def restart_player_pipeline(self, player_id):
         return await self._stub.call(

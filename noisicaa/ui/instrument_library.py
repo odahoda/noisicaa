@@ -19,6 +19,8 @@ from PyQt5 import QtWidgets
 from noisicaa import audioproc
 from noisicaa import instrument_db
 from noisicaa import node_db
+from noisicaa import core
+from noisicaa.bindings import lv2
 
 from .piano import PianoWidget
 from . import ui_base
@@ -618,21 +620,18 @@ properties: {properties}
 
     def onNoteOn(self, note, volume):
         if self._pipeline_event_source_id is not None:
-            # self.call_async(
-            #     self.project_client.player_send_message(
-            #         self.playerState().playerID(),
-            #         core.build_message(
-            #             {core.MessageKey.sheetId: self.sheet.id,
-            #              core.MessageKey.trackId: 'instrument_library'},
-            #             core.MessageType.atom,
-            #             lv2.AtomForge.build_midi_noteon(0, note, volume))))
-            pass
+            self.call_async(
+                self.audioproc_client.send_message(
+                    core.build_message(
+                        {core.MessageKey.trackId: 'instrument_library'},
+                        core.MessageType.atom,
+                        lv2.AtomForge.build_midi_noteon(0, note.midi_note, volume))))
 
     def onNoteOff(self, note):
         if self._pipeline_event_source_id is not None:
-            # TODO: use messages instead
-            # self.call_async(
-            #     self.audioproc_client.add_event(
-            #         'instrument_library',
-            #         audioproc.NoteOffEvent(-1, note)))
-            pass
+            self.call_async(
+                self.audioproc_client.send_message(
+                    core.build_message(
+                        {core.MessageKey.trackId: 'instrument_library'},
+                        core.MessageType.atom,
+                        lv2.AtomForge.build_midi_noteoff(0, note.midi_note))))

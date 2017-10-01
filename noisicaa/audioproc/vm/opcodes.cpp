@@ -104,7 +104,13 @@ Status run_FETCH_MESSAGES(BlockContext* ctxt, ProgramState* state, const vector<
 
   lv2_atom_forge_sequence_head(&forge, &frame, state->host_data->lv2->urid.atom_frame_time);
 
-  for (const auto& msg : ctxt->messages) {
+  for (const auto& msg_bytes : ctxt->messages) {
+    kj::ArrayPtr<::capnp::word> words(
+	(::capnp::word*)msg_bytes.c_str(),
+	msg_bytes.size() / sizeof(::capnp::word));
+    ::capnp::FlatArrayMessageReader reader(words);
+    capnp::Message::Reader msg(reader.getRoot<capnp::Message>());
+
     if (msg.getType() != capnp::Type::ATOM) {
       continue;
     }

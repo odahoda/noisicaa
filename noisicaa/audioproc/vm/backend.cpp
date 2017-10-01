@@ -1,3 +1,5 @@
+#include "capnp/serialize.h"
+#include "noisicaa/core/message.capnp.h"
 #include "noisicaa/audioproc/vm/backend.h"
 #include "noisicaa/audioproc/vm/backend_ipc.h"
 #include "noisicaa/audioproc/vm/backend_null.h"
@@ -32,6 +34,12 @@ Status Backend::setup(VM* vm) {
 }
 
 void Backend::cleanup() {
+}
+
+Status Backend::send_message(const string& msg_bytes) {
+  lock_guard<mutex> lock(_msg_queue_mutex);
+  _msg_queue.emplace_back(msg_bytes);
+  return Status::Ok();
 }
 
 }  // namespace noisicaa

@@ -101,6 +101,16 @@ Status PortAudioBackend::begin_block(BlockContext* ctxt) {
   for (int c = 0 ; c < 2 ; ++c) {
     memset(_samples[c], 0, _block_size * sizeof(float));
   }
+
+  {
+    lock_guard<mutex> lock(_msg_queue_mutex);
+    ctxt->messages.clear();
+    for (const auto& msg : _msg_queue) {
+      ctxt->messages.emplace_back(msg);
+    }
+    _msg_queue.clear();
+  }
+
   return Status::Ok();
 }
 
