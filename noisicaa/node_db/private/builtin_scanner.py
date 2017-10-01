@@ -142,6 +142,7 @@ SamplePlayerDescription = node_db.ProcessorDescription(
     parameters=[
         node_db.StringParameterDescription(
             name='sample_path',
+            hidden=True,
             display_name='Path'),
     ])
 

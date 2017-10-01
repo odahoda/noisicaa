@@ -330,6 +330,27 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 	} else {
 	  return Status::Error("Port %s has unsupported type %d", port.name().c_str(), port.type());
 	}
+      } else {
+	assert(port.direction() == PortDirection::Output);
+
+	if (port.type() == PortType::audio
+	    || port.type() == PortType::aRateControl) {
+	  MYFLT* channel_ptr = instance->channel_ptr[port_idx];
+	  int *lock = instance->channel_lock[port_idx];
+	  csoundSpinLock(lock);
+	  for (uint32_t i = 0 ; i < ksmps ; ++i) {
+	    *channel_ptr++ = 0.0;
+	  }
+	  csoundSpinUnLock(lock);
+	} else if (port.type() == PortType::kRateControl) {
+	  MYFLT* channel_ptr = instance->channel_ptr[port_idx];
+	  int *lock = instance->channel_lock[port_idx];
+	  csoundSpinLock(lock);
+	  *channel_ptr = 0.0;
+	  csoundSpinUnLock(lock);
+	} else {
+	  return Status::Error("Port %s has unsupported type %d", port.name().c_str(), port.type());
+	}
       }
     }
 

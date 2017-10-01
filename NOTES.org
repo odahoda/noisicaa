@@ -4,8 +4,7 @@
 - at beginning of block, take current list, apply CVs by writing values to buffers
 
 * Finish VM-based pipeline engine 							      :FR:
-- csound processors should always clear output buffers
-  - can't rely on csound doing it itself
+- csound processor skipping events?
 - reimplement set_backend_parameters
 - reimplement playing test sound from settings dialog
 - port parameters
