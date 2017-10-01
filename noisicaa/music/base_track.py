@@ -223,6 +223,7 @@ class EventSetBufferSource(BufferSource):
     def __init__(self, track):
         super().__init__(track)
         self.__event_set = event_set.EventSet()
+        self.__active_notes = set()
         self.__connector = self._create_connector(track, self.__event_set)
         self.__time_mapper = time_mapper.TimeMapper(track.sheet)
 
@@ -255,10 +256,25 @@ class EventSetBufferSource(BufferSource):
                         event.frames,
                         atom.type_urid, atom.data, atom.size)
 
+            # Send noteoff events for all currently active notes, which should not be active
+            # at the beginning of this range.
+            currently_active = set()
+            for event in sorted(self.__event_set.get_intervals_at(start_timepos)):
+                currently_active.add(event.pitch.midi_note)
+
+            for note in self.__active_notes - currently_active:
+                forge.write_midi_event(
+                    ctxt.offset,
+                    bytes([0b10000000, note, 0]),
+                    3)
+                self.__active_notes.discard(note)
+
+            # TODO: is it guaranteed that all generated events are in ascending time?
             for event in sorted(self.__event_set.get_intervals(start_timepos, end_timepos)):
                 if event.begin >= start_timepos:
                     sample_pos = self.__time_mapper.timepos2sample(event.begin)
                     assert ctxt.sample_pos <= sample_pos < ctxt.sample_pos + ctxt.length
+                    self.__active_notes.add(event.pitch.midi_note)
                     forge.write_midi_event(
                         sample_pos - ctxt.sample_pos + ctxt.offset,
                         bytes([0b10010000, event.pitch.midi_note, event.velocity]),
@@ -267,6 +283,7 @@ class EventSetBufferSource(BufferSource):
                 if event.end < end_timepos:
                     sample_pos = self.__time_mapper.timepos2sample(event.end)
                     assert ctxt.sample_pos <= sample_pos < ctxt.sample_pos + ctxt.length
+                    self.__active_notes.discard(event.pitch.midi_note)
                     forge.write_midi_event(
                         sample_pos - ctxt.sample_pos + ctxt.offset,
                         bytes([0b10000000, event.pitch.midi_note, 0]),

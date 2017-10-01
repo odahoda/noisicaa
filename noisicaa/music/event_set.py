@@ -44,6 +44,10 @@ class EventSet(object):
         for interval in self.__intervals[begin:end]:
             yield interval.data
 
+    def get_intervals_at(self, t):
+        for interval in self.__intervals[t]:
+            yield interval.data
+
     def add(self, event):
         interval = intervaltree.Interval(event.begin, event.end, event)
         self.__intervals.add(interval)

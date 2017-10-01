@@ -1,6 +1,8 @@
 # -*- org-tags-column: -98 -*-
 
-* noteoff at end of playback range is swallowed						     :BUG:
+* crash on shutdown, when csound wants to log after LogSink has been destructed		   :CRASH:
+- is HostData properly cleaned up?
+* turn off all notes when playback gets paused						      :FR:
 * Control values									      :FR:
 - at beginning of block, take current list, apply CVs by writing values to buffers
 
