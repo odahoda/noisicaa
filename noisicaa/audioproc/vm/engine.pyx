@@ -159,13 +159,12 @@ cdef class PipelineVM(object):
         check(backend)
         check(self.__vm.set_backend(backend.result()))
 
-    def set_backend_parameters(self, parameters):
-        logger.info(
-            "%s backend: set_parameters(%s)",
-            type(self.__backend).__name__, parameters)
-        with self.writer_lock():
-            if self.__backend is not None:
-                self.__backend.set_parameters(**parameters)
+    def set_backend_parameters(self, block_size=None):
+        # TODO: race?
+        backend = self.__vm.backend()
+        if backend != NULL:
+            if block_size != None:
+                check(backend.set_block_size(block_size))
 
     def send_message(self, msg):
         # TODO: race?

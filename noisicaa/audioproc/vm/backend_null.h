@@ -20,9 +20,14 @@ class NullBackend : public Backend {
   Status setup(VM* vm) override;
   void cleanup() override;
 
+  Status set_block_size(uint32_t block_size) override;
+
   Status begin_block(BlockContext* ctxt) override;
   Status end_block(BlockContext* ctxt) override;
   Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) override;
+
+private:
+  uint32_t _new_block_size;
 };
 
 }  // namespace noisicaa

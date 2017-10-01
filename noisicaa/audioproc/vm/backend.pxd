@@ -18,6 +18,7 @@ cdef extern from "noisicaa/audioproc/vm/backend.h" namespace "noisicaa" nogil:
         Status setup(VM* vm)
         void cleanup()
         Status send_message(const string& msg)
+        Status set_block_size(uint32_t block_size)
         Status begin_block(BlockContext* ctxt)
         Status end_block(BlockContext* ctxt)
         Status output(BlockContext* ctxt, const string& channel, BufferPtr samples)

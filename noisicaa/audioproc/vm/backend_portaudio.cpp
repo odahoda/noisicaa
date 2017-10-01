@@ -7,7 +7,7 @@ namespace noisicaa {
 PortAudioBackend::PortAudioBackend(const BackendSettings& settings)
   : Backend("noisicaa.audioproc.vm.backend.portaudio", settings),
     _initialized(false),
-    _block_size(settings.block_size),
+    _new_block_size(settings.block_size),
     _stream(nullptr),
     _samples{nullptr, nullptr} {
 }
@@ -18,8 +18,8 @@ Status PortAudioBackend::setup(VM* vm) {
   Status status = Backend::setup(vm);
   if (status.is_error()) { return status; }
 
-  if (_block_size == 0) {
-   return Status::Error("Invalid block_size %d", _block_size);
+  if (_settings.block_size == 0) {
+   return Status::Error("Invalid block_size %d", _settings.block_size);
   }
 
   PaError err;
@@ -46,7 +46,7 @@ Status PortAudioBackend::setup(VM* vm) {
       /* inputParameters */   NULL,
       /* outputParameters */  &output_params,
       /* sampleRate */        44100,
-      /* framesPerBuffer */   _block_size,
+      /* framesPerBuffer */   _settings.block_size,
       /* streamFlags */       paNoFlag,
       /* streamCallback */    nullptr,
       /* userdata */          nullptr);
@@ -60,10 +60,10 @@ Status PortAudioBackend::setup(VM* vm) {
   }
 
   for (int c = 0 ; c < 2 ; ++c) {
-    _samples[c] = new uint8_t[_block_size * sizeof(float)];
+    _samples[c] = new uint8_t[_settings.block_size * sizeof(float)];
   }
 
-  vm->set_block_size(_block_size);
+  vm->set_block_size(_settings.block_size);
 
   return Status::Ok();
 }
@@ -95,11 +95,34 @@ void PortAudioBackend::cleanup() {
   Backend::cleanup();
 }
 
+Status PortAudioBackend::set_block_size(uint32_t block_size) {
+  if (block_size == 0) {
+   return Status::Error("Invalid block_size %d", block_size);
+  }
+
+  _new_block_size = block_size;
+  return Status::Ok();
+}
+
 Status PortAudioBackend::begin_block(BlockContext* ctxt) {
   assert(ctxt->perf->current_span_id() == 0);
   ctxt->perf->start_span("frame");
+
+  if (_new_block_size != _settings.block_size) {
+    _settings.block_size = _new_block_size;
+
+    for (int c = 0 ; c < 2 ; ++c) {
+      if (_samples[c] != nullptr) {
+	delete _samples[c];
+      }
+      _samples[c] = new uint8_t[_settings.block_size * sizeof(float)];
+    }
+
+    _vm->set_block_size(_settings.block_size);
+  }
+
   for (int c = 0 ; c < 2 ; ++c) {
-    memset(_samples[c], 0, _block_size * sizeof(float));
+    memset(_samples[c], 0, _settings.block_size * sizeof(float));
   }
 
   {
@@ -118,7 +141,7 @@ Status PortAudioBackend::end_block(BlockContext* ctxt) {
   ctxt->perf->end_span();
   assert(ctxt->perf->current_span_id() == 0);
 
-  PaError err = Pa_WriteStream(_stream, _samples, _block_size);
+  PaError err = Pa_WriteStream(_stream, _samples, _settings.block_size);
   if (err == paOutputUnderflowed) {
     _logger->warning("Buffer underrun.");
   } else if (err != paNoError) {
@@ -129,9 +152,9 @@ Status PortAudioBackend::end_block(BlockContext* ctxt) {
 
 Status PortAudioBackend::output(BlockContext* ctxt, const string& channel, BufferPtr samples) {
   if (channel == "left") {
-    memmove(_samples[0], samples, _block_size * sizeof(float));
+    memmove(_samples[0], samples, _settings.block_size * sizeof(float));
   } else if (channel == "right") {
-    memmove(_samples[1], samples, _block_size * sizeof(float));
+    memmove(_samples[1], samples, _settings.block_size * sizeof(float));
   } else {
     return Status::Error("Invalid channel %s", channel.c_str());
   }

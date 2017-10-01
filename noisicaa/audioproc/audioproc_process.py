@@ -300,7 +300,7 @@ class AudioProcProcessMixin(object):
 
     def handle_set_backend_parameters(self, session_id, parameters):
         self.get_session(session_id)
-        self.__vm.set_backend_parameters(parameters)
+        self.__vm.set_backend_parameters(**parameters)
 
     def handle_send_message(self, session_id, msg):
         self.get_session(session_id)

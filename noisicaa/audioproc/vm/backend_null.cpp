@@ -6,7 +6,8 @@
 namespace noisicaa {
 
 NullBackend::NullBackend(const BackendSettings& settings)
-  : Backend("noisicaa.audioproc.vm.backend.null", settings) {}
+  : Backend("noisicaa.audioproc.vm.backend.null", settings),
+    _new_block_size(settings.block_size) {}
 NullBackend::~NullBackend() {}
 
 Status NullBackend::setup(VM* vm) {
@@ -25,9 +26,24 @@ void NullBackend::cleanup() {
   Backend::cleanup();
 }
 
+Status NullBackend::set_block_size(uint32_t block_size) {
+  if (block_size == 0) {
+   return Status::Error("Invalid block_size %d", block_size);
+  }
+
+  _new_block_size = block_size;
+  return Status::Ok();
+}
+
 Status NullBackend::begin_block(BlockContext* ctxt) {
   assert(ctxt->perf->current_span_id() == 0);
   ctxt->perf->start_span("frame");
+
+  if (_new_block_size != _settings.block_size) {
+    _settings.block_size = _new_block_size;
+    _vm->set_block_size(_settings.block_size);
+  }
+
   return Status::Ok();
 }
 

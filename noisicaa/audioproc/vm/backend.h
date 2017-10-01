@@ -33,6 +33,7 @@ public:
   virtual void cleanup();
 
   Status send_message(const string& msg);
+  virtual Status set_block_size(uint32_t block_size);
 
   virtual Status begin_block(BlockContext* ctxt) = 0;
   virtual Status end_block(BlockContext* ctxt) = 0;

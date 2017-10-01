@@ -42,4 +42,8 @@ Status Backend::send_message(const string& msg_bytes) {
   return Status::Ok();
 }
 
+Status Backend::set_block_size(uint32_t block_size) {
+  return Status::Error("Block size changes not supported.");
+}
+
 }  // namespace noisicaa

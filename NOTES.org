@@ -5,7 +5,7 @@
 - at beginning of block, take current list, apply CVs by writing values to buffers
 
 * Finish VM-based pipeline engine 							      :FR:
-- reimplement set_backend_parameters
+- changing backend has race condition
 - reimplement playing test sound from settings dialog
 - port parameters
   - volume, mute, bypass, dry_wet
