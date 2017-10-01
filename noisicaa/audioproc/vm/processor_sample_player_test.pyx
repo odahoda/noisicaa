@@ -40,6 +40,9 @@ class TestProcessorSamplePlayer(unittest.TestCase):
 
         check(processor.setup(spec.release()))
 
+        cdef PyBlockContext ctxt = PyBlockContext()
+        ctxt.block_size = 128
+
         cdef uint8_t inbuf[10240]
         cdef float outleftbuf[128]
         cdef float outrightbuf[128]
@@ -48,7 +51,15 @@ class TestProcessorSamplePlayer(unittest.TestCase):
         check(processor.connect_port(1, <BufferPtr>outleftbuf))
         check(processor.connect_port(2, <BufferPtr>outrightbuf))
 
+        # run once empty to give csound some chance to initialize the ftable
         cdef atom.AtomForge forge = atom.AtomForge(urid.static_mapper)
+        forge.set_buffer(inbuf, 10240)
+        with forge.sequence():
+            pass
+
+        check(processor.run(ctxt.get()))
+
+        forge = atom.AtomForge(urid.static_mapper)
         forge.set_buffer(inbuf, 10240)
         with forge.sequence():
             forge.write_midi_event(0, bytes([0x90, 60, 100]), 3)
@@ -57,9 +68,6 @@ class TestProcessorSamplePlayer(unittest.TestCase):
         for i in range(128):
             outleftbuf[i] = 0.0
             outrightbuf[i] = 0.0
-
-        cdef PyBlockContext ctxt = PyBlockContext()
-        ctxt.block_size = 128
 
         check(processor.run(ctxt.get()))
 
