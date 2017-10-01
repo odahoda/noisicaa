@@ -202,34 +202,6 @@ Status VM::set_float_control_value(const string& name, float value) {
   return Status::Ok();
 }
 
-// StatusOr<float> VM::get_float_control_value(const string& name) {
-//   lock_guard<mutex> lock(_control_values_mutex);
-
-//   const auto& it = _control_values.find(name);
-//   if (it == _control_values.end()) {
-//     return Status::Error("Control value '%s' not found.", name.c_str());
-//   }
-
-//   ControlValue* cv = it->second.get();
-//   if (cv->type() != ControlValue::Float) {
-//     return Status::Error("Control value '%s' is not of type Float.", name.c_str());
-//   }
-
-//   return dynamic_cast<FloatControlValue*>(cv)->value();
-// }
-
-// Status VM::delete_control_value(const string& name) {
-//   lock_guard<mutex> lock(_control_values_mutex);
-
-//   const auto& it = _control_values.find(name);
-//   if (it == _control_values.end()) {
-//     return Status::Error("Control value '%s' not found.", name.c_str());
-//   }
-
-//   _control_values.erase(it);
-//   return Status::Ok();
-// }
-
 Status VM::process_block(BlockContext* ctxt) {
   // If there is a next program, make it the current. The current program becomes
   // the old program, which will eventually be destroyed in the main thread.
