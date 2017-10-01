@@ -312,7 +312,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 		//_logger->info("i %f %f %f %f %f", p[0], p[1], p[2], p[3], p[4]);
 		int rc = csoundScoreEvent(instance->csnd, 'i', p, 5);
 		if (rc < 0) {
-		  return Status::Error("csoundReadScore failed (code %d).", rc);
+		  return Status::Error("csoundScoreEvent failed (code %d).", rc);
 		}
 	      } else if ((midi[0] & 0xf0) == 0x80) {
 		MYFLT p[3] = {
@@ -323,7 +323,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 		//_logger->info("i %f %f %f", p[0], p[1], p[2]);
 		int rc = csoundScoreEvent(instance->csnd, 'i', p, 3);
 		if (rc < 0) {
-		  return Status::Error("csoundReadScore failed (code %d).", rc);
+		  return Status::Error("csoundScoreEvent failed (code %d).", rc);
 		}
 	      } else {
 		_logger->warning("Ignoring unsupported midi event %d.", midi[0] & 0xf0);
