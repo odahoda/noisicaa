@@ -50,6 +50,7 @@ def main(argv):
     if args.gdb:
         with open('/tmp/noisicaa.gdbinit', 'w') as fp:
             fp.write(textwrap.dedent('''\
+                set print thread-events off
                 set $_exitcode = -1
                 run
                 if $_exitcode != -1
