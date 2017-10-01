@@ -302,20 +302,26 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 	    if (atom.type == _host_data->lv2->urid.midi_event) {
 	      uint8_t* midi = (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &atom);
 	      if ((midi[0] & 0xf0) == 0x90) {
-		// note on
-		char buf[80];
-		snprintf(
-		    buf, sizeof(buf),
-		    "i %d.%d 0 -1 %d %d", ep.instr, midi[1], midi[1], midi[2]);
-		int rc = csoundReadScore(instance->csnd, buf);
+		MYFLT p[5] = {
+		  /* p1: instr    */ (MYFLT)ep.instr + (MYFLT)midi[1] / 1000.0,
+		  /* p2: time     */ 0.0,
+		  /* p3: duration */ -1.0,
+		  /* p4: pitch    */ (MYFLT)midi[1],
+		  /* p5: velocity */ (MYFLT)midi[2],
+		};
+		//_logger->info("i %f %f %f %f %f", p[0], p[1], p[2], p[3], p[4]);
+		int rc = csoundScoreEvent(instance->csnd, 'i', p, 5);
 		if (rc < 0) {
 		  return Status::Error("csoundReadScore failed (code %d).", rc);
 		}
 	      } else if ((midi[0] & 0xf0) == 0x80) {
-		// note off
-		char buf[80];
-		snprintf(buf, sizeof(buf), "i -%d.%d 0 0 0", ep.instr, midi[1]);
-		int rc = csoundReadScore(instance->csnd, buf);
+		MYFLT p[3] = {
+		  /* p1: instr    */ -((MYFLT)ep.instr + (MYFLT)midi[1] / 1000.0),
+		  /* p2: time     */ 0.0,
+		  /* p3: duration */ 0.0,
+		};
+		//_logger->info("i %f %f %f", p[0], p[1], p[2]);
+		int rc = csoundScoreEvent(instance->csnd, 'i', p, 3);
 		if (rc < 0) {
 		  return Status::Error("csoundReadScore failed (code %d).", rc);
 		}

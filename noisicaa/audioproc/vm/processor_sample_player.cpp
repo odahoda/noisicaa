@@ -28,12 +28,12 @@ instr 1
   iChannels = ftchnls(1)
   if (iChannels == 1) then
     aOut loscil3 0.5 * db(iVolume), iFreq, 1, 261.626, 0
-    gaOutL = aOut
-    gaOutR = aOut
+    gaOutL = gaOutL + aOut
+    gaOutR = gaOutR + aOut
   elseif (iChannels == 2) then
     aOutL, aOutR loscil3 0.5 * db(iVolume), iFreq, 1, 220, 0
-    gaOutL = aOutL
-    gaOutR = aOutR
+    gaOutL = gaOutL + aOutL
+    gaOutR = gaOutR + aOutR
   endif
 endin
 )---";

@@ -1,10 +1,10 @@
 # -*- org-tags-column: -98 -*-
 
+* noteoff at end of playback range is swallowed						     :BUG:
 * Control values									      :FR:
 - at beginning of block, take current list, apply CVs by writing values to buffers
 
 * Finish VM-based pipeline engine 							      :FR:
-- csound processor skipping events?
 - reimplement set_backend_parameters
 - reimplement playing test sound from settings dialog
 - port parameters
