@@ -19,8 +19,8 @@ class VM;
 
 struct BackendSettings {
   string ipc_address;
-
   uint32_t block_size;
+  float time_scale;
 };
 
 class Backend {
@@ -42,6 +42,9 @@ public:
   void stop() { _stopped = true; }
   bool stopped() const { return _stopped; }
 
+  void release() { _released = true; }
+  bool released() const { return _released; }
+
 protected:
   Backend(const char* logger_name, const BackendSettings& settings);
 
@@ -49,6 +52,7 @@ protected:
   BackendSettings _settings;
   VM* _vm = nullptr;
   bool _stopped = false;
+  bool _released = false;
 
   mutex _msg_queue_mutex;
   vector<string> _msg_queue;

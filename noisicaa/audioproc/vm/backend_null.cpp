@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/audioproc/vm/backend_null.h"
 #include "noisicaa/audioproc/vm/block_context.h"
@@ -44,12 +45,23 @@ Status NullBackend::begin_block(BlockContext* ctxt) {
     _vm->set_block_size(_settings.block_size);
   }
 
+  _block_start = std::chrono::high_resolution_clock::now();
+
   return Status::Ok();
 }
 
 Status NullBackend::end_block(BlockContext* ctxt) {
   ctxt->perf->end_span();
   assert(ctxt->perf->current_span_id() == 0);
+
+  int64_t block_duration = (int64_t)(1e6 * (float)ctxt->block_size / 44100.0);
+  int64_t elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::high_resolution_clock::now() - _block_start).count();
+  int64_t delay = block_duration - elapsed;
+  if (delay > 0) {
+    usleep((useconds_t)(_settings.time_scale * delay));
+  }
+
   return Status::Ok();
 }
 

@@ -3,6 +3,7 @@
 #ifndef _NOISICAA_AUDIOPROC_VM_BACKEND_NULL_H
 #define _NOISICAA_AUDIOPROC_VM_BACKEND_NULL_H
 
+#include <chrono>
 #include <string.h>
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/vm/backend.h"
@@ -28,6 +29,7 @@ class NullBackend : public Backend {
 
 private:
   uint32_t _new_block_size;
+  chrono::time_point<std::chrono::high_resolution_clock> _block_start;
 };
 
 }  // namespace noisicaa

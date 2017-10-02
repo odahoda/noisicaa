@@ -40,6 +40,8 @@ class GraphError(Exception):
 cdef class PipelineVM(object):
     cdef unique_ptr[VM] __vm_ptr
     cdef VM* __vm
+    cdef unique_ptr[Backend] __backend_ptr
+    cdef Backend* __backend
 
     cdef readonly object listeners
     cdef PyHostData __host_data
@@ -55,6 +57,8 @@ cdef class PipelineVM(object):
     cdef object __parameters
     cdef object __notifications
     cdef readonly object notification_listener
+    cdef object __backend_ready
+    cdef object __backend_released
 
     def __init__(
             self, *,
@@ -67,6 +71,12 @@ cdef class PipelineVM(object):
         self.__block_size = block_size
         self.__shm = shm
         self.__profile_path = profile_path
+
+        self.__vm = NULL
+        self.__backend = NULL
+
+        self.__backend_ready = threading.Event()
+        self.__backend_released = threading.Event()
 
         self.__vm_thread = None
         self.__vm_started = None
@@ -104,11 +114,9 @@ cdef class PipelineVM(object):
         logger.info("VM up and running.")
 
     def cleanup(self):
-        if self.__vm != NULL:
-            backend = self.__vm.backend()
-            if backend != NULL:
-                logger.info("Stopping backend...")
-                backend.stop()
+        if self.__backend != NULL:
+            logger.info("Stopping backend...")
+            self.__backend.stop()
 
         if self.__vm_thread is not None:  # pragma: no branch
             logger.info("Shutting down VM thread...")
@@ -116,6 +124,11 @@ cdef class PipelineVM(object):
             self.__vm_thread.join()
             self.__vm_thread = None
             logger.info("VM thread stopped.")
+
+        if self.__backend != NULL:
+            self.__backend.cleanup()
+            self.__backend = NULL
+            self.__backend_ptr.reset()
 
         self.__vm_started = None
         self.__vm_exit = None
@@ -154,23 +167,35 @@ cdef class PipelineVM(object):
             name = name.encode('ascii')
         assert isinstance(name, bytes)
 
+        if self.__backend_ptr.get() != NULL:
+            self.__backend.release()
+            self.__backend_released.wait()
+            self.__backend_released.clear()
+
+            self.__backend.cleanup()
+            self.__backend_ptr.reset()
+            self.__backend = NULL
+
         cdef PyBackendSettings settings = PyBackendSettings(**parameters)
         cdef StatusOr[Backend*] backend = Backend.create(name, settings.get())
         check(backend)
-        check(self.__vm.set_backend(backend.result()))
+        cdef unique_ptr[Backend] backend_ptr
+        backend_ptr.reset(backend.result())
+
+        check(backend_ptr.get().setup(self.__vm))
+
+        self.__backend_ptr.reset(backend_ptr.release())
+        self.__backend = self.__backend_ptr.get()
+        self.__backend_ready.set()
 
     def set_backend_parameters(self, block_size=None):
-        # TODO: race?
-        backend = self.__vm.backend()
-        if backend != NULL:
+        if self.__backend != NULL:
             if block_size != None:
-                check(backend.set_block_size(block_size))
+                check(self.__backend.set_block_size(block_size))
 
     def send_message(self, msg):
-        # TODO: race?
-        backend = self.__vm.backend()
-        if backend != NULL:
-            check(backend.send_message(msg))
+        if self.__backend != NULL:
+            check(self.__backend.send_message(msg))
 
     @property
     def nodes(self):
@@ -260,7 +285,7 @@ cdef class PipelineVM(object):
             logger.info("VM finished.")
 
     def vm_loop(self):
-        cdef Backend* backend
+        cdef Backend* backend = NULL
 
         cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.sample_pos = 0
@@ -271,9 +296,20 @@ cdef class PipelineVM(object):
                 logger.info("Exiting VM mainloop.")
                 break
 
-            # TODO: race?
-            backend = self.__vm.backend()
-            if backend != NULL and backend.stopped():
+            if backend == NULL:
+                if self.__backend_ready.wait(0.1):
+                    self.__backend_ready.clear()
+                    assert self.__backend != NULL
+                    backend = self.__backend
+                else:
+                    continue
+
+            elif backend.released():
+                backend = NULL
+                self.__backend_released.set()
+                continue
+
+            if backend.stopped():
                 logger.info("Backend stopped, exiting VM mainloop.")
                 break
 
@@ -282,9 +318,9 @@ cdef class PipelineVM(object):
             ctxt.perf.reset()
 
             with nogil:
-                check(self.__vm.process_block(ctxt.get()))
+                check(self.__vm.process_block(backend, ctxt.get()))
 
             ctxt.sample_pos += ctxt.block_size
 
     def process_block(self, PyBlockContext ctxt):
-        check(self.__vm.process_block(ctxt.get()))
+        check(self.__vm.process_block(self.__backend, ctxt.get()))

@@ -159,23 +159,6 @@ Status VM::set_spec(const Spec* spec) {
   return Status::Ok();
 }
 
-Status VM::set_backend(Backend* backend) {
-  unique_ptr<Backend> be(backend);
-
-  // TODO: use same lockfree life cycle, as for the spec
-
-  Status status = be->setup(this);
-  if (status.is_error()) { return status; }
-
-  if (_backend.get() != nullptr) {
-    _backend->cleanup();
-    _backend.reset();
-  }
-
-  _backend.reset(be.release());
-  return Status::Ok();
-}
-
 Buffer* VM::get_buffer(const string& name) {
   Program* program = _current_program.load();
   if (program == nullptr) {
@@ -202,7 +185,7 @@ Status VM::set_float_control_value(const string& name, float value) {
   return Status::Ok();
 }
 
-Status VM::process_block(BlockContext* ctxt) {
+Status VM::process_block(Backend* backend, BlockContext* ctxt) {
   // If there is a next program, make it the current. The current program becomes
   // the old program, which will eventually be destroyed in the main thread.
   // It must not happen that a next program is available, before an old one has
@@ -217,12 +200,6 @@ Status VM::process_block(BlockContext* ctxt) {
 
   program = _current_program.load();
   if (program == nullptr) {
-    usleep(10000);
-    return Status::Ok();
-  }
-
-  Backend *backend = _backend.get();
-  if (backend == nullptr) {
     usleep(10000);
     return Status::Ok();
   }

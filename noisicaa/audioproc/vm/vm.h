@@ -76,12 +76,10 @@ public:
 
   Status set_block_size(uint32_t block_size);
   Status set_spec(const Spec* spec);
-  Status set_backend(Backend* backend);
-  Backend* backend() const { return _backend.get(); }
 
   Status set_float_control_value(const string& name, float value);
 
-  Status process_block(BlockContext* ctxt);
+  Status process_block(Backend* backend, BlockContext* ctxt);
 
   Buffer* get_buffer(const string& name);
 
@@ -96,7 +94,6 @@ private:
   atomic<Program*> _current_program;
   atomic<Program*> _old_program;
   uint32_t _program_version = 0;
-  unique_ptr<Backend> _backend;
   map<uint64_t, unique_ptr<ActiveProcessor>> _processors;
   map<string, unique_ptr<ActiveControlValue>> _control_values;
 };

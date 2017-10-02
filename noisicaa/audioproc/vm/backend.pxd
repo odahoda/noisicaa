@@ -10,6 +10,7 @@ cdef extern from "noisicaa/audioproc/vm/backend.h" namespace "noisicaa" nogil:
     struct BackendSettings:
         string ipc_address
         uint32_t block_size
+        float time_scale
 
     cppclass Backend:
         @staticmethod
@@ -25,6 +26,9 @@ cdef extern from "noisicaa/audioproc/vm/backend.h" namespace "noisicaa" nogil:
 
         void stop()
         bool stopped() const
+
+        void release()
+        bool released() const
 
 
 cdef class PyBackendSettings(object):

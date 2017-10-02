@@ -35,7 +35,10 @@ class TestVM(unittest.TestCase):
         cdef StatusOr[Backend*] stor_backend = Backend.create(
             constants.TEST_OPTS.PLAYBACK_BACKEND.encode('ascii'), backend_settings)
         check(stor_backend)
-        check(vm.set_backend(stor_backend.result()))
+        cdef unique_ptr[Backend] backend_ptr
+        backend_ptr.reset(stor_backend.result())
+        cdef Backend* backend = backend_ptr.get()
+        check(backend.setup(vm))
 
         cdef ProcessorSpec* fluidsynth_spec = new ProcessorSpec()
         fluidsynth_spec.add_port(b'in', PortType.atomData, PortDirection.Input)
@@ -80,10 +83,11 @@ class TestVM(unittest.TestCase):
         cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.sample_pos = 0
         for _ in range(100):
-            check(vm.process_block(ctxt.get()))
+            check(vm.process_block(backend, ctxt.get()))
             ctxt.sample_pos += ctxt.block_size
 
         vm.cleanup()
+        backend.cleanup()
 
     def test_foo(self):
         cdef PyHostData host_data = PyHostData()
@@ -98,7 +102,10 @@ class TestVM(unittest.TestCase):
         backend_settings.block_size = 256
         cdef StatusOr[Backend*] stor_backend = Backend.create(b"null", backend_settings)
         check(stor_backend)
-        check(vm.set_backend(stor_backend.result()))
+        cdef unique_ptr[Backend] backend_ptr
+        backend_ptr.reset(stor_backend.result())
+        cdef Backend* backend = backend_ptr.get()
+        check(backend.setup(vm))
 
         cdef PyBlockContext ctxt = PyBlockContext()
 
@@ -107,7 +114,7 @@ class TestVM(unittest.TestCase):
         spec.append_buffer(b'buf2', new FloatAudioBlock())
         spec.append_opcode(OpCode.MIX, b'buf1', b'buf2')
         check(vm.set_spec(spec))
-        check(vm.process_block(ctxt.get()))
+        check(vm.process_block(backend, ctxt.get()))
 
         cdef Buffer* buf = vm.get_buffer(b'buf1')
         self.assertEqual(buf.size(), 1024)
@@ -121,7 +128,7 @@ class TestVM(unittest.TestCase):
         data[0] = 4.0
         data[1] = 5.0
 
-        check(vm.process_block(ctxt.get()))
+        check(vm.process_block(backend, ctxt.get()))
 
         buf = vm.get_buffer(b'buf2')
         data = <float*>buf.data()
@@ -129,6 +136,7 @@ class TestVM(unittest.TestCase):
         self.assertEqual(data[1], 7.0)
 
         vm.cleanup()
+        backend.cleanup()
 
     def test_processor(self):
         cdef PyHostData host_data = PyHostData()
@@ -142,7 +150,10 @@ class TestVM(unittest.TestCase):
         backend_settings.block_size = 128
         cdef StatusOr[Backend*] stor_backend = Backend.create(b"null", backend_settings)
         check(stor_backend)
-        check(vm.set_backend(stor_backend.result()))
+        cdef unique_ptr[Backend] backend_ptr
+        backend_ptr.reset(stor_backend.result())
+        cdef Backend* backend = backend_ptr.get()
+        check(backend.setup(vm))
 
         cdef unique_ptr[ProcessorSpec] processor_spec
         processor_spec.reset(new ProcessorSpec())
@@ -174,7 +185,7 @@ class TestVM(unittest.TestCase):
         check(vm.set_spec(spec))
 
         cdef PyBlockContext ctxt = PyBlockContext()
-        check(vm.process_block(ctxt.get()))
+        check(vm.process_block(backend, ctxt.get()))
 
         cdef Buffer* buf = vm.get_buffer(b'gain')
         (<float*>buf.data())[0] = 0.5
@@ -186,7 +197,7 @@ class TestVM(unittest.TestCase):
         data[2] = 3.0
         data[3] = 4.0
 
-        check(vm.process_block(ctxt.get()))
+        check(vm.process_block(backend, ctxt.get()))
 
         buf = vm.get_buffer(b'out')
         data = <float*>buf.data()
@@ -196,6 +207,7 @@ class TestVM(unittest.TestCase):
         self.assertEqual(data[3], 2.0)
 
         vm.cleanup()
+        backend.cleanup()
 
     def test_block_size_changed(self):
         cdef PyHostData host_data = PyHostData()
@@ -209,7 +221,10 @@ class TestVM(unittest.TestCase):
         backend_settings.block_size = 128
         cdef StatusOr[Backend*] stor_backend = Backend.create(b"null", backend_settings)
         check(stor_backend)
-        check(vm.set_backend(stor_backend.result()))
+        cdef unique_ptr[Backend] backend_ptr
+        backend_ptr.reset(stor_backend.result())
+        cdef Backend* backend = backend_ptr.get()
+        check(backend.setup(vm))
 
         check(vm.set_block_size(1024))
 
@@ -218,7 +233,7 @@ class TestVM(unittest.TestCase):
         cdef Spec* spec = new Spec()
         spec.append_buffer(b'buf1', new FloatAudioBlock())
         check(vm.set_spec(spec))
-        check(vm.process_block(ctxt.get()))
+        check(vm.process_block(backend, ctxt.get()))
 
         cdef Buffer* buf = vm.get_buffer(b'buf1')
         self.assertEqual(buf.size(), 4096)
@@ -228,9 +243,10 @@ class TestVM(unittest.TestCase):
         buf = vm.get_buffer(b'buf1')
         self.assertEqual(buf.size(), 4096)
 
-        check(vm.process_block(ctxt.get()))
+        check(vm.process_block(backend, ctxt.get()))
 
         buf = vm.get_buffer(b'buf1')
         self.assertEqual(buf.size(), 1024)
 
         vm.cleanup()
+        backend.cleanup()
