@@ -2,16 +2,21 @@ from .host_data cimport *
 from .processor_spec cimport *
 
 cdef class PyProcessor(object):
-    def __init__(self, PyHostData host_data, name, PyProcessorSpec spec):
+    def __init__(self, node_id, PyHostData host_data, name, PyProcessorSpec spec):
         if isinstance(name, str):
             name = name.encode('ascii')
         assert isinstance(name, bytes)
+
+        if isinstance(node_id, str):
+            node_id = node_id.encode('utf-8')
+        assert isinstance(node_id, bytes)
+
         self.__name = name
 
         self.__spec = spec
 
         cdef StatusOr[Processor*] stor_processor = Processor.create(
-            host_data.ptr(), name)
+            node_id, host_data.ptr(), name)
         check(stor_processor)
         self.__processor_ptr.reset(stor_processor.result())
         self.__processor = self.__processor_ptr.get()

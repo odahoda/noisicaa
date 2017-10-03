@@ -2,8 +2,8 @@
 
 namespace noisicaa {
 
-ProcessorCSound::ProcessorCSound(HostData *host_data)
-  : ProcessorCSoundBase("noisicaa.audioproc.vm.processor.csound", host_data) {}
+ProcessorCSound::ProcessorCSound(const string& node_id, HostData *host_data)
+  : ProcessorCSoundBase(node_id, "noisicaa.audioproc.vm.processor.csound", host_data) {}
 
 Status ProcessorCSound::setup(const ProcessorSpec* spec) {
   Status status = ProcessorCSoundBase::setup(spec);

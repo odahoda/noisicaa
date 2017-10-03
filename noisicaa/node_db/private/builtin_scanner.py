@@ -146,6 +146,24 @@ SamplePlayerDescription = node_db.ProcessorDescription(
             display_name='Path'),
     ])
 
+SoundFileDescription = node_db.ProcessorDescription(
+    display_name='Sound Player',
+    processor_name='sound_file',
+    ports=[
+        node_db.AudioPortDescription(
+            name='out:left',
+            direction=node_db.PortDirection.Output),
+        node_db.AudioPortDescription(
+            name='out:right',
+            direction=node_db.PortDirection.Output),
+    ],
+    parameters=[
+        node_db.StringParameterDescription(
+            name='sound_file_path',
+            hidden=True,
+            display_name='Path'),
+    ])
+
 CustomCSoundDescription = node_db.ProcessorDescription(
     display_name='Custom CSound',
     processor_name='custom_csound',
@@ -202,3 +220,4 @@ class BuiltinScanner(scanner.Scanner):
         yield ('builtin://fluidsynth', FluidSynthDescription)
         yield ('builtin://sample_player', SamplePlayerDescription)
         yield ('builtin://custom_csound', CustomCSoundDescription)
+        yield ('builtin://sound_file', SoundFileDescription)

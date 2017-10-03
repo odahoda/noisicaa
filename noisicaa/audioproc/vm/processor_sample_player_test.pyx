@@ -10,6 +10,7 @@ from .buffers cimport *
 from .processor cimport *
 from .processor_spec cimport *
 from .host_data cimport *
+from .message_queue cimport *
 
 import unittest
 import sys
@@ -23,7 +24,7 @@ class TestProcessorSamplePlayer(unittest.TestCase):
         host_data.setup()
 
         cdef StatusOr[Processor*] stor_processor = Processor.create(
-            host_data.ptr(), b'sample_player')
+            b'test_node', host_data.ptr(), b'sample_player')
         check(stor_processor)
         cdef unique_ptr[Processor] processor_ptr
         processor_ptr.reset(stor_processor.result())

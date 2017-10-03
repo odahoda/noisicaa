@@ -2,8 +2,8 @@
 
 namespace noisicaa {
 
-ProcessorNull::ProcessorNull(HostData* host_data)
-  : Processor("noisicaa.audioproc.vm.processor.null", host_data) {}
+ProcessorNull::ProcessorNull(const string& node_id, HostData* host_data)
+  : Processor(node_id, "noisicaa.audioproc.vm.processor.null", host_data) {}
 ProcessorNull::~ProcessorNull() {}
 
 Status ProcessorNull::setup(const ProcessorSpec* spec) {

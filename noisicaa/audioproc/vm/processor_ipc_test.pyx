@@ -35,7 +35,8 @@ class TestProcessorIPC(unittest.TestCase):
                 tempfile.gettempdir(),
                 'test.%s.pipe' % uuid.uuid4().hex))
 
-        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'ipc')
+        cdef StatusOr[Processor*] stor_processor = Processor.create(
+            b'test_node', host_data.get(), b'ipc')
         check(stor_processor)
         cdef unique_ptr[Processor] processor_ptr
         processor_ptr.reset(stor_processor.result())

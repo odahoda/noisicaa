@@ -15,7 +15,7 @@ class ProcessorSpec;
 
 class ProcessorSamplePlayer : public ProcessorCSoundBase {
 public:
-  ProcessorSamplePlayer(HostData* host_data);
+  ProcessorSamplePlayer(const string& node_id, HostData* host_data);
 
   Status setup(const ProcessorSpec* spec) override;
   void cleanup() override;

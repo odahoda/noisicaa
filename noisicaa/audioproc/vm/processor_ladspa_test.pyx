@@ -19,7 +19,8 @@ class TestProcessorLadspa(unittest.TestCase):
         cdef unique_ptr[HostData] host_data
         host_data.reset(new HostData())
 
-        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.get(), b'ladspa')
+        cdef StatusOr[Processor*] stor_processor = Processor.create(
+            b'test_node', host_data.get(), b'ladspa')
         check(stor_processor)
         cdef unique_ptr[Processor] processor_ptr
         processor_ptr.reset(stor_processor.result())

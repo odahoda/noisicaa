@@ -20,7 +20,7 @@ class BlockContext;
 
 class ProcessorLadspa : public Processor {
 public:
-  ProcessorLadspa(HostData* host_data);
+  ProcessorLadspa(const string& node_id, HostData* host_data);
   ~ProcessorLadspa() override;
 
   Status setup(const ProcessorSpec* spec) override;

@@ -19,6 +19,7 @@ set(LIB_SRCS
   host_system_lv2.cpp
   host_system_csound.cpp
   misc.cpp
+  message_queue.cpp
   opcodes.cpp
   processor_spec.cpp
   processor.cpp
@@ -31,6 +32,7 @@ set(LIB_SRCS
   processor_ipc.cpp
   processor_fluidsynth.cpp
   processor_sample_player.cpp
+  processor_sound_file.cpp
   spec.cpp
   vm.cpp
 )
@@ -47,6 +49,7 @@ set(TEST_SRCS
   processor_ipc_test.pyx
   processor_fluidsynth_test.pyx
   processor_sample_player_test.pyx
+  processor_sound_file_test.pyx
   spec_test.pyx
   vm_test.pyx
 )
@@ -67,6 +70,8 @@ target_include_directories(noisicaa-audioproc-vm PRIVATE ${LIBCSOUND_INCLUDE_DIR
 target_link_libraries(noisicaa-audioproc-vm PRIVATE ${LIBCSOUND_LIBRARIES})
 target_include_directories(noisicaa-audioproc-vm PRIVATE ${LIBFLUIDSYNTH_INCLUDE_DIRS})
 target_link_libraries(noisicaa-audioproc-vm PRIVATE ${LIBFLUIDSYNTH_LIBRARIES})
+target_include_directories(noisicaa-audioproc-vm PRIVATE ${LIBSNDFILE_INCLUDE_DIRS})
+target_link_libraries(noisicaa-audioproc-vm PRIVATE ${LIBSNDFILE_LIBRARIES})
 
 add_cython_module(audio_stream CXX)
 target_link_libraries(${audio_stream.so} PRIVATE noisicaa-audioproc-vm)

@@ -127,9 +127,9 @@ Status PortAudioBackend::begin_block(BlockContext* ctxt) {
 
   {
     lock_guard<mutex> lock(_msg_queue_mutex);
-    ctxt->messages.clear();
+    ctxt->in_messages.clear();
     for (const auto& msg : _msg_queue) {
-      ctxt->messages.emplace_back(msg);
+      ctxt->in_messages.emplace_back(msg);
     }
     _msg_queue.clear();
   }

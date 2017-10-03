@@ -12,9 +12,11 @@ from .host_data cimport *
 cdef extern from "noisicaa/audioproc/vm/processor.h" namespace "noisicaa" nogil:
     cppclass Processor:
         @staticmethod
-        StatusOr[Processor*] create(HostData* host_data, const string& name)
+        StatusOr[Processor*] create(
+            const string& node_id, HostData* host_data, const string& name)
 
         uint64_t id() const
+        const string& node_id() const
 
         Status setup(const ProcessorSpec* spec)
         void cleanup()

@@ -30,8 +30,8 @@ string port_name_to_csound_label(const string &port_name) {
 
 namespace noisicaa {
 
-ProcessorCustomCSound::ProcessorCustomCSound(HostData *host_data)
-  : ProcessorCSoundBase("noisicaa.audioproc.vm.processor.custom_csound", host_data) {}
+ProcessorCustomCSound::ProcessorCustomCSound(const string& node_id, HostData *host_data)
+  : ProcessorCSoundBase(node_id, "noisicaa.audioproc.vm.processor.custom_csound", host_data) {}
 
 Status ProcessorCustomCSound::setup(const ProcessorSpec* spec) {
   Status status = ProcessorCSoundBase::setup(spec);

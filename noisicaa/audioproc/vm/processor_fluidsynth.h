@@ -21,7 +21,7 @@ class BlockContext;
 
 class ProcessorFluidSynth : public Processor {
 public:
-  ProcessorFluidSynth(HostData* host_data);
+  ProcessorFluidSynth(const string& node_id, HostData* host_data);
   ~ProcessorFluidSynth() override;
 
   Status setup(const ProcessorSpec* spec) override;

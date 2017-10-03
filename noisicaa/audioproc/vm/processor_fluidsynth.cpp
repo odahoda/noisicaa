@@ -4,8 +4,8 @@
 
 namespace noisicaa {
 
-ProcessorFluidSynth::ProcessorFluidSynth(HostData* host_data)
-  : Processor("noisicaa.audioproc.vm.processor.fluidsynth", host_data) {}
+ProcessorFluidSynth::ProcessorFluidSynth(const string& node_id, HostData* host_data)
+  : Processor(node_id, "noisicaa.audioproc.vm.processor.fluidsynth", host_data) {}
 
 ProcessorFluidSynth::~ProcessorFluidSynth() {}
 

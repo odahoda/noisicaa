@@ -3,8 +3,8 @@
 
 namespace noisicaa {
 
-ProcessorSamplePlayer::ProcessorSamplePlayer(HostData *host_data)
-  : ProcessorCSoundBase("noisicaa.audioproc.vm.processor.sample_player", host_data) {}
+ProcessorSamplePlayer::ProcessorSamplePlayer(const string& node_id, HostData *host_data)
+  : ProcessorCSoundBase(node_id, "noisicaa.audioproc.vm.processor.sample_player", host_data) {}
 
 Status ProcessorSamplePlayer::setup(const ProcessorSpec* spec) {
   Status status = ProcessorCSoundBase::setup(spec);

@@ -4,6 +4,7 @@ cdef class PyBlockContext(object):
     def __init__(self):
         self.__perf = PyPerfStats()
         self.__ctxt.perf.reset(self.__perf.release())
+        self.__ctxt.out_messages.reset(new MessageQueue())
 
     cdef BlockContext* get(self) nogil:
         return &self.__ctxt

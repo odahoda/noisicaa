@@ -15,7 +15,7 @@ class HostData;
 
 class ProcessorNull : public Processor {
 public:
-  ProcessorNull(HostData* host_data);
+  ProcessorNull(const string& node_id, HostData* host_data);
   ~ProcessorNull() override;
 
   Status setup(const ProcessorSpec* spec) override;

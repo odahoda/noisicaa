@@ -11,8 +11,8 @@
 
 namespace noisicaa {
 
-ProcessorIPC::ProcessorIPC(HostData* host_data)
-  : Processor("noisicaa.audioproc.vm.processor.ipc", host_data) {}
+ProcessorIPC::ProcessorIPC(const string& node_id, HostData* host_data)
+  : Processor(node_id, "noisicaa.audioproc.vm.processor.ipc", host_data) {}
 
 ProcessorIPC::~ProcessorIPC() {}
 

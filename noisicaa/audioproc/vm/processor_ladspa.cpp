@@ -5,8 +5,8 @@
 
 namespace noisicaa {
 
-ProcessorLadspa::ProcessorLadspa(HostData* host_data)
-  : Processor("noisicaa.audioproc.vm.processor.ladspa", host_data) {}
+ProcessorLadspa::ProcessorLadspa(const string& node_id, HostData* host_data)
+  : Processor(node_id, "noisicaa.audioproc.vm.processor.ladspa", host_data) {}
 
 ProcessorLadspa::~ProcessorLadspa() {}
 

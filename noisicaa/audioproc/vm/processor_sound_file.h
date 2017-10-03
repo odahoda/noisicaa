@@ -1,7 +1,7 @@
 // -*- mode: c++ -*-
 
-#ifndef _NOISICAA_AUDIOPROC_VM_PROCESSOR_IPC_H
-#define _NOISICAA_AUDIOPROC_VM_PROCESSOR_IPC_H
+#ifndef _NOISICAA_AUDIOPROC_VM_PROCESSOR_SOUND_FILE_H
+#define _NOISICAA_AUDIOPROC_VM_PROCESSOR_SOUND_FILE_H
 
 #include <string>
 #include <vector>
@@ -9,19 +9,18 @@
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/vm/buffers.h"
 #include "noisicaa/audioproc/vm/processor.h"
-#include "noisicaa/audioproc/vm/audio_stream.h"
 
 namespace noisicaa {
 
 using namespace std;
 
-class BlockContext;
 class HostData;
+class BlockContext;
 
-class ProcessorIPC : public Processor {
+class ProcessorSoundFile : public Processor {
 public:
-  ProcessorIPC(const string& node_id, HostData* host_data);
-  ~ProcessorIPC() override;
+  ProcessorSoundFile(const string& node_id, HostData* host_data);
+  ~ProcessorSoundFile() override;
 
   Status setup(const ProcessorSpec* spec) override;
   void cleanup() override;
@@ -30,8 +29,13 @@ public:
   Status run(BlockContext* ctxt) override;
 
 private:
-  BufferPtr _ports[2] = { nullptr, nullptr };
-  unique_ptr<AudioStreamClient> _stream;
+  unique_ptr<float> _left_samples;
+  unique_ptr<float> _right_samples;
+  bool _loop;
+  bool _playing;
+  uint32_t _pos;
+  uint32_t _num_samples;
+  BufferPtr _buf[2];
 };
 
 }  // namespace noisicaa

@@ -22,6 +22,7 @@ using namespace std;
 class Backend;
 class BlockContext;
 class HostData;
+class NotificationQueue;
 
 class Program {
 public:

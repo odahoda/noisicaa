@@ -20,7 +20,7 @@ class HostData;
 
 class ProcessorLV2 : public Processor {
 public:
-  ProcessorLV2(HostData* host_data);
+  ProcessorLV2(const string& node_id, HostData* host_data);
   ~ProcessorLV2() override;
 
   Status setup(const ProcessorSpec* spec) override;

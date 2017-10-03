@@ -10,36 +10,40 @@
 #include "noisicaa/audioproc/vm/processor_sample_player.h"
 #include "noisicaa/audioproc/vm/processor_ipc.h"
 #include "noisicaa/audioproc/vm/processor_fluidsynth.h"
+#include "noisicaa/audioproc/vm/processor_sound_file.h"
 
 namespace noisicaa {
 
-Processor::Processor(const char* logger_name, HostData* host_data)
+Processor::Processor(const string& node_id, const char* logger_name, HostData* host_data)
   : _logger(LoggerRegistry::get_logger(logger_name)),
     _host_data(host_data),
-    _id(Processor::new_id()) {
-}
+    _id(Processor::new_id()),
+    _node_id(node_id) {}
 
 Processor::~Processor() {
   cleanup();
 }
 
-StatusOr<Processor*> Processor::create(HostData* host_data, const string& name) {
+StatusOr<Processor*> Processor::create(
+    const string& node_id, HostData* host_data, const string& name) {
   if (name == "null") {
-    return new ProcessorNull(host_data);
+    return new ProcessorNull(node_id, host_data);
   } else if (name == "ladspa") {
-    return new ProcessorLadspa(host_data);
+    return new ProcessorLadspa(node_id, host_data);
   } else if (name == "lv2") {
-    return new ProcessorLV2(host_data);
+    return new ProcessorLV2(node_id, host_data);
   } else if (name == "csound") {
-    return new ProcessorCSound(host_data);
+    return new ProcessorCSound(node_id, host_data);
   } else if (name == "custom_csound") {
-    return new ProcessorCustomCSound(host_data);
+    return new ProcessorCustomCSound(node_id, host_data);
   } else if (name == "ipc") {
-    return new ProcessorIPC(host_data);
+    return new ProcessorIPC(node_id, host_data);
   } else if (name == "fluidsynth") {
-    return new ProcessorFluidSynth(host_data);
+    return new ProcessorFluidSynth(node_id, host_data);
   } else if (name == "sample_player") {
-    return new ProcessorSamplePlayer(host_data);
+    return new ProcessorSamplePlayer(node_id, host_data);
+  } else if (name == "sound_file") {
+    return new ProcessorSoundFile(node_id, host_data);
   }
 
   return Status::Error("Invalid processor name '%s'", name.c_str());

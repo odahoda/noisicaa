@@ -25,6 +25,7 @@ from .block_context cimport *
 from .buffers cimport *
 from .control_value cimport *
 from .backend cimport *
+from .message_queue cimport *
 from .. import node
 from .. import ports
 from . import graph
@@ -233,12 +234,9 @@ cdef class PipelineVM(object):
         # if self._shm_data is not None:
         #     self._shm_data[512] = 0
 
-        logger.info("setup complete")
         cdef PyProcessor processor = node.get_processor()
         if processor is not None:
-            logger.info("adding processor")
             self.__vm.add_processor(processor.release())
-            logger.info("done")
 
         cdef PyControlValue cv
         for cv in node.control_values:
@@ -286,6 +284,8 @@ cdef class PipelineVM(object):
 
     def vm_loop(self):
         cdef Backend* backend = NULL
+        cdef MessageQueue* out_messages
+        cdef Message* msg
 
         cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.sample_pos = 0
@@ -319,6 +319,18 @@ cdef class PipelineVM(object):
 
             with nogil:
                 check(self.__vm.process_block(backend, ctxt.get()))
+
+            out_messages = ctxt.get().out_messages.get()
+            msg = out_messages.first()
+            while not out_messages.is_end(msg):
+                if msg.type == MessageType.SOUND_FILE_COMPLETE:
+                    node_id = bytes((<SoundFileCompleteMessage*>msg).node_id).decode('utf-8')
+                    self.notification_listener.call(node_id, msg.type)
+
+                else:
+                    logger.info("out message %d", msg.type)
+                msg = out_messages.next(msg)
+            out_messages.clear()
 
             ctxt.sample_pos += ctxt.block_size
 

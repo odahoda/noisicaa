@@ -28,6 +28,7 @@ from .private.builtin_scanner import (
     FluidSynthDescription,
     SamplePlayerDescription,
     CustomCSoundDescription,
+    SoundFileDescription,
 )
 from .presets import (
     Preset,

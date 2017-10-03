@@ -15,8 +15,9 @@ ProcessorCSoundBase::Instance::~Instance() {
   }
 }
 
-ProcessorCSoundBase::ProcessorCSoundBase(const char* logger_name, HostData* host_data)
-  : Processor(logger_name, host_data),
+ProcessorCSoundBase::ProcessorCSoundBase(
+    const string& node_id, const char* logger_name, HostData* host_data)
+  : Processor(node_id, logger_name, host_data),
     _next_instance(nullptr),
     _current_instance(nullptr),
     _old_instance(nullptr) {}

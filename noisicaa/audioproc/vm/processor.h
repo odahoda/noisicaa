@@ -18,15 +18,18 @@ namespace noisicaa {
 using namespace std;
 
 class HostData;
+class NotificationQueue;
 
 class Processor {
 public:
-  Processor(const char* logger_name, HostData* host_data);
+  Processor(const string& node_id, const char* logger_name, HostData* host_data);
   virtual ~Processor();
 
-  static StatusOr<Processor*> create(HostData* host_data, const string& name);
+  static StatusOr<Processor*> create(
+      const string& node_id, HostData* host_data, const string& name);
 
   uint64_t id() const { return _id; }
+  const string& node_id() const { return _node_id; }
 
   StatusOr<string> get_string_parameter(const string& name);
   Status set_string_parameter(const string& name, const string& value);
@@ -47,6 +50,7 @@ protected:
   Logger* _logger;
   HostData* _host_data;
   uint64_t _id;
+  string _node_id;
   unique_ptr<const ProcessorSpec> _spec;
   map<string, string> _string_parameters;
   map<string, int64_t> _int_parameters;

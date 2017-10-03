@@ -30,7 +30,7 @@ cdef class TestProcessorLV2Impl(object):
         self.ctxt.block_size = 128
 
         cdef StatusOr[Processor*] stor_processor = Processor.create(
-            self.host_data.ptr(), b'lv2')
+            b'test_node', self.host_data.ptr(), b'lv2')
         self.processor_ptr.reset(stor_processor.result())
         self.processor = self.processor_ptr.get()
 

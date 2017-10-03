@@ -49,7 +49,7 @@ class TestVM(unittest.TestCase):
         fluidsynth_spec.add_parameter(new IntParameterSpec(b'preset', 0))
 
         cdef StatusOr[Processor*] stor_fluidsynth_proc = Processor.create(
-            host_data.ptr(), b'fluidsynth')
+            b'fluid', host_data.ptr(), b'fluidsynth')
         check(stor_fluidsynth_proc)
         cdef Processor* fluidsynth_proc = stor_fluidsynth_proc.result()
         check(fluidsynth_proc.setup(fluidsynth_spec))
@@ -163,7 +163,8 @@ class TestVM(unittest.TestCase):
         processor_spec.get().add_parameter(new StringParameterSpec(b'ladspa_library_path', b'/usr/lib/ladspa/amp.so'))
         processor_spec.get().add_parameter(new StringParameterSpec(b'ladspa_plugin_label', b'amp_mono'))
 
-        cdef StatusOr[Processor*] stor_processor = Processor.create(host_data.ptr(), b'ladspa')
+        cdef StatusOr[Processor*] stor_processor = Processor.create(
+            b'amp', host_data.ptr(), b'ladspa')
         check(stor_processor)
         cdef unique_ptr[Processor] processor_ptr
         processor_ptr.reset(stor_processor.result())

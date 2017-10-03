@@ -1,8 +1,6 @@
 #!/usr/bin/python3
 
-import itertools
 import logging
-import uuid
 
 from noisicaa import node_db
 
@@ -118,9 +116,6 @@ class Node(object):
     def get_param(self, parameter_name):
         return self.__parameters[parameter_name]['value']
 
-    def send_notification(self, notification):
-        self.pipeline.add_notification(self.id, notification)
-
     @property
     def parent_nodes(self):
         parents = []
@@ -191,6 +186,7 @@ class ProcessorNode(Node):
         spec.init(self.description)
 
         self.__processor = vm.Processor(
+            self.id,
             self._host_data,
             self.description.processor_name,
             spec)

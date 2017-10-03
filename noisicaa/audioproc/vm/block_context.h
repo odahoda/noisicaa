@@ -14,6 +14,7 @@
 namespace noisicaa {
 
 class PerfStats;
+class MessageQueue;
 
 using namespace std;
 
@@ -29,7 +30,10 @@ struct BlockContext {
   };
   map<string, Buffer> buffers;
 
-  vector<string> messages;
+  // TODO: Use MessageQueue
+  vector<string> in_messages;
+
+  unique_ptr<MessageQueue> out_messages;
 };
 
 }  // namespace noisicaa

@@ -8,8 +8,8 @@
 
 namespace noisicaa {
 
-ProcessorLV2::ProcessorLV2(HostData* host_data)
-  : Processor("noisicaa.audioproc.vm.processor.lv2", host_data) {}
+ProcessorLV2::ProcessorLV2(const string& node_id, HostData* host_data)
+  : Processor(node_id, "noisicaa.audioproc.vm.processor.lv2", host_data) {}
 
 ProcessorLV2::~ProcessorLV2() {}
 
