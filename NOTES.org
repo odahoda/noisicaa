@@ -1,5 +1,6 @@
 # -*- org-tags-column: -98 -*-
 
+* searching in instrument library is broken						   :CRASH:
 * crash on shutdown, when csound wants to log after LogSink has been destructed		   :CRASH:
 - is HostData properly cleaned up?
 * turn off all notes when playback gets paused						      :FR:
