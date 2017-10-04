@@ -18,6 +18,8 @@
 #
 # @end:license
 
+import os.path
+
 class Error(Exception):
     pass
 
@@ -29,9 +31,19 @@ class ConnectionClosed(Exception):
 cdef int check(const Status& status) nogil except -1:
     if status.is_connection_closed():
         with gil:
-            raise ConnectionClosed()
+            raise ConnectionClosed('[%s:%d] Connection closed' % (
+                os.path.relpath(
+                    os.path.abspath(bytes(status.file()).decode('utf-8')),
+                    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))),
+                status.line()))
+
     if status.is_error():
         with gil:
-            raise Error(status.message())
+            raise Error('[%s:%d] %s' % (
+                os.path.relpath(
+                    os.path.abspath(bytes(status.file()).decode('utf-8')),
+                    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))),
+                status.line(),
+                bytes(status.message()).decode('utf-8')))
     return 0
 

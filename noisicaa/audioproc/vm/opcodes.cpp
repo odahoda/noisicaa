@@ -182,9 +182,9 @@ Status run_FETCH_CONTROL_VALUE(BlockContext* ctxt, ProgramState* state, const ve
     return Status::Ok();
   }
   case ControlValueType::IntCV:
-    return Status::Error("IntControlValue not implemented yet.");
+    return ERROR_STATUS("IntControlValue not implemented yet.");
   default:
-    return Status::Error("Invalid ControlValue type %d.", cv->type());
+    return ERROR_STATUS("Invalid ControlValue type %d.", cv->type());
   }
 }
 
@@ -235,7 +235,7 @@ Status run_SINE(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& ar
     //         if p > 2 * math.pi:
     //             p -= 2 * math.pi
     //     state['p'] = p
-  return Status::Error("SINE not implemented yet.");
+  return ERROR_STATUS("SINE not implemented yet.");
 }
 
 Status init_CONNECT_PORT(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
@@ -274,7 +274,7 @@ Status run_LOG_ATOM(BlockContext* ctxt, ProgramState* state, const vector<OpArg>
 
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)buf->data();
   if (seq->atom.type != state->host_data->lv2->urid.atom_sequence) {
-    return Status::Error(
+    return ERROR_STATUS(
 	"Buffer %d: Excepted sequence (%d), got %d.",
 	idx, state->host_data->lv2->urid.atom_sequence, seq->atom.type);
   }

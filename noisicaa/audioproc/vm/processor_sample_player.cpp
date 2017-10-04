@@ -30,10 +30,10 @@ ProcessorSamplePlayer::ProcessorSamplePlayer(const string& node_id, HostData *ho
 
 Status ProcessorSamplePlayer::setup(const ProcessorSpec* spec) {
   Status status = ProcessorCSoundBase::setup(spec);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   StatusOr<string> stor_path = get_string_parameter("sample_path");
-  if (stor_path.is_error()) { return stor_path; }
+  RETURN_IF_ERROR(stor_path);
   string path = stor_path.result();
 
   // TODO:
@@ -74,7 +74,7 @@ endin
   score += "i 1 0 0.01 40 0\n";
 
   status = set_code(orchestra, score);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   return Status::Ok();
 }

@@ -23,6 +23,8 @@ from libcpp.string cimport string
 
 cdef extern from "noisicaa/core/status.h" namespace "noisicaa" nogil:
     cppclass Status:
+        const char* file() const
+        int line() const
         bool is_error() const
         bool is_connection_closed() const
         bool is_os_error() const

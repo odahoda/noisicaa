@@ -44,8 +44,6 @@
 
 * Status::FromErrno()									 :CLEANUP:
   - use that in backend_ipc
-* Status::Error should carry filename:lineno info					 :CLEANUP:
-  - can do without macro?
 * Use https://abseil.io/blog/								 :CLEANUP:
 - absl::Mutex for rwlock.py
 - absl::Substitude for sprintf

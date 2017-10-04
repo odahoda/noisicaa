@@ -41,7 +41,7 @@ Status set_blocking(int fd, int blocking) {
   int rc = ioctl(fd, FIONBIO, &arg);
   if (rc < 0) {
     // TODO: Status::ErrorFromErrno
-    return Status::Error("Failed ioctl on FD %d: %d", fd, rc);
+    return ERROR_STATUS("Failed ioctl on FD %d: %d", fd, rc);
   }
   return Status::Ok();
 }
@@ -71,7 +71,7 @@ void AudioStreamBase::close() {
 
 Status AudioStreamBase::pipe_read(char* data, size_t size) {
   if (_closed) {
-    return Status::ConnectionClosed();
+    return CONNECTION_CLOSED_STATUS();
   }
 
   while (size > 0) {
@@ -79,23 +79,23 @@ Status AudioStreamBase::pipe_read(char* data, size_t size) {
     int rc = poll(&fds, 1, 500);
     if (rc < 0) {
       // TODO: Status::ErrorFromErrno
-      return Status::Error("Failed to poll in pipe: %d", rc);
+      return ERROR_STATUS("Failed to poll in pipe: %d", rc);
     }
 
     if (_closed) {
-      return Status::ConnectionClosed();
+      return CONNECTION_CLOSED_STATUS();
     }
 
     if (fds.revents & POLLIN) {
       ssize_t bytes_read = read(_pipe_in, data, size);
       if (bytes_read < 0) {
 	// TODO: Status::ErrorFromErrno
-	return Status::Error("Failed to read from pipe.");
+	return ERROR_STATUS("Failed to read from pipe.");
       }
       data += bytes_read;
       size -= bytes_read;
     } else if (fds.revents & POLLHUP) {
-      return Status::ConnectionClosed();
+      return CONNECTION_CLOSED_STATUS();
     }
   }
 
@@ -104,7 +104,7 @@ Status AudioStreamBase::pipe_read(char* data, size_t size) {
 
 Status AudioStreamBase::pipe_write(const char* data, size_t size) {
   if (_closed) {
-    return Status::ConnectionClosed();
+    return CONNECTION_CLOSED_STATUS();
   }
 
   while (size > 0) {
@@ -112,23 +112,23 @@ Status AudioStreamBase::pipe_write(const char* data, size_t size) {
     int rc = poll(&fds, 1, 500);
     if (rc < 0) {
       // TODO: Status::ErrorFromErrno
-      return Status::Error("Failed to poll out pipe: %d", rc);
+      return ERROR_STATUS("Failed to poll out pipe: %d", rc);
     }
 
     if (_closed) {
-      return Status::ConnectionClosed();
+      return CONNECTION_CLOSED_STATUS();
     }
 
     if (fds.revents & POLLOUT) {
       ssize_t bytes_written = write(_pipe_out, data, size);
       if (bytes_written < 0) {
 	// TODO: Status::ErrorFromErrno
-	return Status::Error("Failed to write to pipe.");
+	return ERROR_STATUS("Failed to write to pipe.");
       }
       data += bytes_written;
       size -= bytes_written;
     } else if (fds.revents & POLLHUP) {
-      return Status::ConnectionClosed();
+      return CONNECTION_CLOSED_STATUS();
     }
   }
 
@@ -140,23 +140,23 @@ StatusOr<string> AudioStreamBase::receive_bytes() {
 
   uint32_t magic;
   status = pipe_read((char*)&magic, sizeof(magic));
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   if (magic == CLOSE) {
-    return Status::ConnectionClosed();
+    return CONNECTION_CLOSED_STATUS();
   } else if (magic == BLOCK_START) {
     uint32_t num_bytes;
     status = pipe_read((char*)&num_bytes, sizeof(num_bytes));
-    if (status.is_error()) { return status; }
+    RETURN_IF_ERROR(status);
 
     string payload;
     payload.resize(num_bytes);
     status = pipe_read((char*)payload.data(), num_bytes);
-    if (status.is_error()) { return status; }
+    RETURN_IF_ERROR(status);
 
     return payload;
   } else {
-    return Status::Error("Unexpected magic token %08x", magic);
+    return ERROR_STATUS("Unexpected magic token %08x", magic);
   }
 }
 
@@ -164,15 +164,15 @@ Status AudioStreamBase::send_bytes(const char* data, size_t size) {
   Status status;
 
   if (size > 1 << 30) {
-    return Status::Error("Block too large (%d bytes)", size);
+    return ERROR_STATUS("Block too large (%d bytes)", size);
   }
 
   uint32_t header[2] = { BLOCK_START, (uint32_t)size };
   status = pipe_write((const char*)header, sizeof(header));
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   status = pipe_write(data, size);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   return Status::Ok();
 }
@@ -191,27 +191,27 @@ Status AudioStreamServer::setup() {
 
   rc = mkfifo(address_in.c_str(), 0600);
   if (rc != 0) {
-    return Status::Error("Failed to create %s: %d", address_in.c_str(), rc);
+    return ERROR_STATUS("Failed to create %s: %d", address_in.c_str(), rc);
   }
 
   _pipe_in = open(address_in.c_str(), O_RDONLY | O_NONBLOCK);
   if (_pipe_in < 0) {
-    return Status::Error("Failed to open %s: %d", address_in.c_str(), _pipe_in);
+    return ERROR_STATUS("Failed to open %s: %d", address_in.c_str(), _pipe_in);
   }
   status = set_blocking(_pipe_in, true);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   rc = mkfifo(address_out.c_str(), 0600);
   if (rc != 0) {
-    return Status::Error("Failed to create %s: %d", address_out.c_str(), rc);
+    return ERROR_STATUS("Failed to create %s: %d", address_out.c_str(), rc);
   }
 
   _pipe_out = open(address_out.c_str(), O_RDWR | O_NONBLOCK);
   if (_pipe_out < 0) {
-    return Status::Error("Failed to open %s: %d", address_out.c_str(), _pipe_out);
+    return ERROR_STATUS("Failed to open %s: %d", address_out.c_str(), _pipe_out);
   }
   status = set_blocking(_pipe_out, true);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   _logger->info("Server ready.");
 
@@ -251,17 +251,17 @@ Status AudioStreamClient::setup() {
 
   _pipe_in = open(address_in.c_str(), O_RDONLY | O_NONBLOCK);
   if (_pipe_in < 0) {
-    return Status::Error("Failed to open %s: %d", address_in.c_str(), _pipe_in);
+    return ERROR_STATUS("Failed to open %s: %d", address_in.c_str(), _pipe_in);
   }
   status = set_blocking(_pipe_in, true);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   _pipe_out = open(address_out.c_str(), O_RDWR | O_NONBLOCK);
   if (_pipe_out < 0) {
-    return Status::Error("Failed to open %s: %d", address_out.c_str(), _pipe_out);
+    return ERROR_STATUS("Failed to open %s: %d", address_out.c_str(), _pipe_out);
   }
   status = set_blocking(_pipe_out, true);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   return AudioStreamBase::setup();
 }

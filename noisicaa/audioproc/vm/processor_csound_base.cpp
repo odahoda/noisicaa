@@ -101,36 +101,36 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
   unique_ptr<Instance> instance(new Instance());
   instance->csnd = csoundCreate(this);
   if (instance->csnd == nullptr) {
-    return Status::Error("Failed to create Csound instance.");
+    return ERROR_STATUS("Failed to create Csound instance.");
   }
 
   csoundSetMessageCallback(instance->csnd, ProcessorCSoundBase::_log_cb);
 
   int rc = csoundSetOption(instance->csnd, "-n");
   if (rc < 0) {
-    return Status::Error("Failed to set Csound options (code %d)", rc);
+    return ERROR_STATUS("Failed to set Csound options (code %d)", rc);
   }
 
   _logger->info("csound orchestra:\n%s", orchestra.c_str());
   rc = csoundCompileOrc(instance->csnd, orchestra.c_str());
   if (rc < 0) {
-    return Status::Error("Failed to compile Csound orchestra (code %d)", rc);
+    return ERROR_STATUS("Failed to compile Csound orchestra (code %d)", rc);
   }
 
   double zerodbfs = csoundGet0dBFS(instance->csnd);
   if (zerodbfs != 1.0) {
-    return Status::Error("Csound orchestra must set 0dbfs=1.0 (found %f)", zerodbfs);
+    return ERROR_STATUS("Csound orchestra must set 0dbfs=1.0 (found %f)", zerodbfs);
   }
 
   rc = csoundStart(instance->csnd);
   if (rc < 0) {
-    return Status::Error("Failed to start Csound (code %d)", rc);
+    return ERROR_STATUS("Failed to start Csound (code %d)", rc);
   }
 
   _logger->info("csound score:\n%s", score.c_str());
   rc = csoundReadScore(instance->csnd, score.c_str());
   if (rc < 0) {
-    return Status::Error("Failed to read Csound score (code %d)", rc);
+    return ERROR_STATUS("Failed to read Csound score (code %d)", rc);
   }
 
   instance->channel_ptr.resize(_spec->num_ports());
@@ -146,35 +146,35 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
     int type = csoundGetChannelPtr(
 	instance->csnd, &channel_ptr, port.name().c_str(), 0);
     if (type < 0) {
-      return Status::Error("Orchestra does not define the channel '%s'", port.name().c_str());
+      return ERROR_STATUS("Orchestra does not define the channel '%s'", port.name().c_str());
     }
 
     if (port.direction() == PortDirection::Output
 	&& !(type & CSOUND_OUTPUT_CHANNEL)) {
-      return Status::Error("Channel '%s' is not an output channel", port.name().c_str());
+      return ERROR_STATUS("Channel '%s' is not an output channel", port.name().c_str());
     }
 
     if (port.direction() == PortDirection::Input
 	&& !(type & CSOUND_INPUT_CHANNEL)) {
-      return Status::Error("Channel '%s' is not an input channel", port.name().c_str());
+      return ERROR_STATUS("Channel '%s' is not an input channel", port.name().c_str());
     }
 
     if (port.type() == PortType::audio	|| port.type() == PortType::aRateControl) {
       if ((type & CSOUND_CHANNEL_TYPE_MASK) != CSOUND_AUDIO_CHANNEL) {
-	return Status::Error("Channel '%s' is not an audio channel", port.name().c_str());
+	return ERROR_STATUS("Channel '%s' is not an audio channel", port.name().c_str());
       }
     } else if (port.type() == PortType::kRateControl) {
       if ((type & CSOUND_CHANNEL_TYPE_MASK) != CSOUND_CONTROL_CHANNEL) {
-	return Status::Error("Channel '%s' is not an control channel", port.name().c_str());
+	return ERROR_STATUS("Channel '%s' is not an control channel", port.name().c_str());
       }
     } else {
-      return Status::Error("Internal error, channel '%s' type %d", port.name().c_str(), port.type());
+      return ERROR_STATUS("Internal error, channel '%s' type %d", port.name().c_str(), port.type());
     }
 
     int rc = csoundGetChannelPtr(
 	instance->csnd, &channel_ptr, port.name().c_str(), type);
     if (rc < 0) {
-      return Status::Error("Failed to get channel pointer for port '%s'", port.name().c_str());
+      return ERROR_STATUS("Failed to get channel pointer for port '%s'", port.name().c_str());
     }
     assert(channel_ptr != nullptr);
 
@@ -191,7 +191,7 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
 
 Status ProcessorCSoundBase::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   memset(_log_buf, 0, sizeof(_log_buf));
   _buffers.resize(spec->num_ports());
@@ -222,7 +222,7 @@ void ProcessorCSoundBase::cleanup() {
 
 Status ProcessorCSoundBase::connect_port(uint32_t port_idx, BufferPtr buf) {
   if (port_idx >= _buffers.size()) {
-    return Status::Error("Invalid port index %d", port_idx);
+    return ERROR_STATUS("Invalid port index %d", port_idx);
   }
   _buffers[port_idx] = buf;
   return Status::Ok();
@@ -233,7 +233,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 
   for (uint32_t port_idx = 0 ; port_idx < _buffers.size() ; ++port_idx) {
     if (_buffers[port_idx] == nullptr) {
-      return Status::Error("Port %d not connected.", port_idx);
+      return ERROR_STATUS("Port %d not connected.", port_idx);
     }
   }
 
@@ -264,7 +264,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 	  float* buf = (float*)_buffers[port_idx];
 	  *buf = 0.0;
 	} else {
-	  return Status::Error("Port %d has unsupported type %d", port_idx, port.type());
+	  return ERROR_STATUS("Port %d has unsupported type %d", port_idx, port.type());
 	}
       }
     }
@@ -278,7 +278,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 	&& port.type() == PortType::atomData) {
       LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[port_idx];
       if (seq->atom.type != _host_data->lv2->urid.atom_sequence) {
-	return Status::Error(
+	return ERROR_STATUS(
 	    "Excepted sequence in port '%s', got %d.", port.name().c_str(), seq->atom.type);
       }
       LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
@@ -335,7 +335,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 		//_logger->info("i %f %f %f %f %f", p[0], p[1], p[2], p[3], p[4]);
 		int rc = csoundScoreEvent(instance->csnd, 'i', p, 5);
 		if (rc < 0) {
-		  return Status::Error("csoundScoreEvent failed (code %d).", rc);
+		  return ERROR_STATUS("csoundScoreEvent failed (code %d).", rc);
 		}
 	      } else if ((midi[0] & 0xf0) == 0x80) {
 		MYFLT p[3] = {
@@ -346,7 +346,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 		//_logger->info("i %f %f %f", p[0], p[1], p[2]);
 		int rc = csoundScoreEvent(instance->csnd, 'i', p, 3);
 		if (rc < 0) {
-		  return Status::Error("csoundScoreEvent failed (code %d).", rc);
+		  return ERROR_STATUS("csoundScoreEvent failed (code %d).", rc);
 		}
 	      } else {
 		_logger->warning("Ignoring unsupported midi event %d.", midi[0] & 0xf0);
@@ -357,7 +357,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 	    ep.event = lv2_atom_sequence_next(ep.event);
 	  }
 	} else {
-	  return Status::Error("Port %s has unsupported type %d", port.name().c_str(), port.type());
+	  return ERROR_STATUS("Port %s has unsupported type %d", port.name().c_str(), port.type());
 	}
       } else {
 	assert(port.direction() == PortDirection::Output);
@@ -378,14 +378,14 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 	  *channel_ptr = 0.0;
 	  csoundSpinUnLock(lock);
 	} else {
-	  return Status::Error("Port %s has unsupported type %d", port.name().c_str(), port.type());
+	  return ERROR_STATUS("Port %s has unsupported type %d", port.name().c_str(), port.type());
 	}
       }
     }
 
     int rc = csoundPerformKsmps(instance->csnd);
     if (rc < 0) {
-      return Status::Error("Csound performance failed (code %d)", rc);
+      return ERROR_STATUS("Csound performance failed (code %d)", rc);
     }
 
     // Copy channel data from Csound into output ports.
@@ -413,7 +413,7 @@ Status ProcessorCSoundBase::run(BlockContext* ctxt) {
 	  *buf = *channel_ptr;
 	  csoundSpinUnLock(lock);
 	} else {
-	  return Status::Error("Port %s has unsupported type %d", port.name().c_str(), port.type());
+	  return ERROR_STATUS("Port %s has unsupported type %d", port.name().c_str(), port.type());
 	}
       }
     }

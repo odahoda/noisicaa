@@ -37,10 +37,10 @@ Status HostData::setup() {
   Status status;
 
   status = lv2->setup();
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   status = csound->setup();
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   return Status::Ok();
 }

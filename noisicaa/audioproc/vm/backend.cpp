@@ -46,7 +46,7 @@ StatusOr<Backend*> Backend::create(const string& name, const BackendSettings& se
     return new NullBackend(settings);
   }
 
-  return Status::Error("Invalid backend name '%s'", name.c_str());
+  return ERROR_STATUS("Invalid backend name '%s'", name.c_str());
 }
 
 Status Backend::setup(VM* vm) {
@@ -65,7 +65,7 @@ Status Backend::send_message(const string& msg_bytes) {
 }
 
 Status Backend::set_block_size(uint32_t block_size) {
-  return Status::Error("Block size changes not supported.");
+  return ERROR_STATUS("Block size changes not supported.");
 }
 
 }  // namespace noisicaa

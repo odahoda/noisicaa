@@ -68,7 +68,7 @@ StatusOr<ParameterSpec*> ProcessorSpec::get_parameter(const string& name) const 
     return it->second.get();
   }
 
-  return Status::Error("Parameter '%s' not found.", name.c_str());
+  return ERROR_STATUS("Parameter '%s' not found.", name.c_str());
 }
 
 }  // namespace noisicaa

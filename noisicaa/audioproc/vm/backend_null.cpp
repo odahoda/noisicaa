@@ -35,10 +35,10 @@ NullBackend::~NullBackend() {}
 
 Status NullBackend::setup(VM* vm) {
   Status status = Backend::setup(vm);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   if (_settings.block_size == 0) {
-   return Status::Error("Invalid block_size %d", _settings.block_size);
+   return ERROR_STATUS("Invalid block_size %d", _settings.block_size);
   }
 
   vm->set_block_size(_settings.block_size);
@@ -51,7 +51,7 @@ void NullBackend::cleanup() {
 
 Status NullBackend::set_block_size(uint32_t block_size) {
   if (block_size == 0) {
-   return Status::Error("Invalid block_size %d", block_size);
+   return ERROR_STATUS("Invalid block_size %d", block_size);
   }
 
   _new_block_size = block_size;

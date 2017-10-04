@@ -56,19 +56,19 @@ IPCBackend::~IPCBackend() {}
 
 Status IPCBackend::setup(VM* vm) {
   Status status = Backend::setup(vm);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   if (_block_size == 0) {
-   return Status::Error("Invalid block_size %d", _block_size);
+   return ERROR_STATUS("Invalid block_size %d", _block_size);
   }
 
   if (_settings.ipc_address.size() == 0) {
-    return Status::Error("ipc_address not set.");
+    return ERROR_STATUS("ipc_address not set.");
   }
 
   _stream.reset(new AudioStreamServer(_settings.ipc_address));
   status = _stream->setup();
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   for (int c = 0 ; c < 2 ; ++c) {
     _samples[c].reset(new BufferData[_block_size * sizeof(float)]);
@@ -99,7 +99,7 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
     stop();
     return Status::Ok();
   }
-  if (stor_request_bytes.is_error()) { return stor_request_bytes; }
+  RETURN_IF_ERROR(stor_request_bytes);
 
   ctxt->perf->start_span("parse_request");
 
@@ -139,7 +139,7 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
       _samples[c].reset(new BufferData[_block_size * sizeof(float)]);
     }
     Status status = _vm->set_block_size(_block_size);
-    if (status.is_error()) { return status; }
+    RETURN_IF_ERROR(status);
   }
 
   for (int c = 0 ; c < 2 ; ++c) {
@@ -195,7 +195,7 @@ Status IPCBackend::end_block(BlockContext* ctxt) {
     const auto& bytes = words.asChars();
 
     Status status = _stream->send_bytes(bytes.begin(), bytes.size());
-    if (status.is_error()) { return status; }
+    RETURN_IF_ERROR(status);
   }
 
   return Status::Ok();
@@ -208,11 +208,11 @@ Status IPCBackend::output(BlockContext* ctxt, const string& channel, BufferPtr s
   } else if (channel == "right") {
     c = 1;
   } else {
-    return Status::Error("Invalid channel %s", channel.c_str());
+    return ERROR_STATUS("Invalid channel %s", channel.c_str());
   }
 
   if (_channel_written[c]) {
-    return Status::Error("Channel %s written multiple times.", channel.c_str());
+    return ERROR_STATUS("Channel %s written multiple times.", channel.c_str());
   }
   _channel_written[c] = true;
   memmove(_samples[c].get(), samples, _block_size * sizeof(float));

@@ -34,19 +34,19 @@ ProcessorLadspa::~ProcessorLadspa() {}
 
 Status ProcessorLadspa::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   StatusOr<string> stor_or_library_path = get_string_parameter("ladspa_library_path");
-  if (stor_or_library_path.is_error()) { return stor_or_library_path; }
+  RETURN_IF_ERROR(stor_or_library_path);
   string library_path = stor_or_library_path.result();
 
   StatusOr<string> stor_or_label = get_string_parameter("ladspa_plugin_label");
-  if (stor_or_label.is_error()) { return stor_or_label; }
+  RETURN_IF_ERROR(stor_or_label);
   string label = stor_or_label.result();
 
   _library = dlopen(library_path.c_str(), RTLD_NOW);
   if (_library == nullptr) {
-    return Status::Error("Failed to open LADSPA plugin: %s", dlerror());
+    return ERROR_STATUS("Failed to open LADSPA plugin: %s", dlerror());
   }
 
   LADSPA_Descriptor_Function lib_descriptor =
@@ -54,7 +54,7 @@ Status ProcessorLadspa::setup(const ProcessorSpec* spec) {
 
   char* error = dlerror();
   if (error != nullptr) {
-    return Status::Error("Failed to open LADSPA plugin: %s", error);
+    return ERROR_STATUS("Failed to open LADSPA plugin: %s", error);
   }
 
   int idx = 0;
@@ -71,12 +71,12 @@ Status ProcessorLadspa::setup(const ProcessorSpec* spec) {
   }
 
   if (_descriptor == nullptr) {
-    return Status::Error("No LADSPA plugin with label %s found.", label.c_str());
+    return ERROR_STATUS("No LADSPA plugin with label %s found.", label.c_str());
   }
 
   _instance = _descriptor->instantiate(_descriptor, 44100);
   if (_instance == nullptr) {
-    return Status::Error("Failed to instantiate LADSPA plugin.");
+    return ERROR_STATUS("Failed to instantiate LADSPA plugin.");
   }
 
   if (_descriptor->activate != nullptr) {

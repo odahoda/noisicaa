@@ -40,15 +40,15 @@ ProcessorIPC::~ProcessorIPC() {}
 
 Status ProcessorIPC::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   StatusOr<string> stor_or_address = get_string_parameter("ipc_address");
-  if (stor_or_address.is_error()) { return stor_or_address; }
+  RETURN_IF_ERROR(stor_or_address);
   string address = stor_or_address.result();
 
   _stream.reset(new AudioStreamClient(address));
   status = _stream->setup();
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   return Status::Ok();
 }
@@ -63,7 +63,7 @@ void ProcessorIPC::cleanup() {
 
 Status ProcessorIPC::connect_port(uint32_t port_idx, BufferPtr buf) {
   if (port_idx > 1) {
-    return Status::Error("Invalid port index %d", port_idx);
+    return ERROR_STATUS("Invalid port index %d", port_idx);
   }
   _ports[port_idx] = buf;
   return Status::Ok();
@@ -84,14 +84,14 @@ Status ProcessorIPC::run(BlockContext* ctxt) {
     const auto& bytes = words.asChars();
 
     Status status = _stream->send_bytes(bytes.begin(), bytes.size());
-    if (status.is_error()) { return status; }
+    RETURN_IF_ERROR(status);
   }
 
   string bytes;
   {
     PerfTracker tracker(ctxt->perf.get(), "receive_block");
     StatusOr<string> stor_bytes = _stream->receive_bytes();
-    if (stor_bytes.is_error()) { return stor_bytes; }
+    RETURN_IF_ERROR(stor_bytes);
     bytes = stor_bytes.result();
   }
   assert(bytes.size() % sizeof(::capnp::word) == 0);

@@ -43,37 +43,56 @@ public:
 
   Status()
     : _code(Code::ERROR),
+      _file("<undefined>"),
+      _line(-1),
       _message("Uninitialized status") {
   }
 
-  Status(Code code, const string& message)
+  Status(Code code, const char* file, int line, const string& message)
     : _code(code),
+      _file(file),
+      _line(line),
       _message(message) {
   }
 
   Status(const Status& s)
     : _code(s._code),
+      _file(s._file),
+      _line(s._line),
       _message(s._message) {
   }
 
   Code code() const { return _code; }
+  const char* file() const { return _file; }
+  int line() const { return _line; }
   bool is_error() const { return _code != Code::OK; }
   bool is_connection_closed() const { return _code == Code::CONNECTION_CLOSED; }
   bool is_os_error() const { return _code == Code::OS_ERROR; }
   string message() const { return _message; }
 
-  static Status Ok() { return Status(Code::OK, ""); }
-  static Status Error(const string& message) { return Status(Code::ERROR, message); }
-  static Status Error(const char* fmt, ...);
-  static Status ConnectionClosed() {
-    return Status(Code::CONNECTION_CLOSED, "Connection closed");
+  static Status Ok() { return Status(Code::OK, nullptr, 0, ""); }
+  static Status Error(const char* file, int line, const string& message) {
+    return Status(Code::ERROR, file, line, message);
   }
-  static Status OSError(const string& message) { return Status(Code::OS_ERROR, message); }
+  static Status Error(const char* file, int line, const char* fmt, ...);
+  static Status ConnectionClosed(const char* file, int line) {
+    return Status(Code::CONNECTION_CLOSED, file, line, "Connection closed");
+  }
+  static Status OSError(const char* file, int line, const string& message) {
+    return Status(Code::OS_ERROR, file, line, message); }
 
 private:
   Code _code;
+  const char* _file;
+  int _line;
   string _message;
 };
+
+#define ERROR_STATUS(...) Status::Error(__FILE__, __LINE__, __VA_ARGS__)
+#define CONNECTION_CLOSED_STATUS() Status::ConnectionClosed(__FILE__, __LINE__)
+#define OSERROR_STATUS(MSG) Status::OsError(__FILE__, __LINE__, MSG)
+
+#define RETURN_IF_ERROR(STATUS) do { if (STATUS.is_error()) { return STATUS; } } while (false)
 
 template<class T> class StatusOr : public Status {
 public:
@@ -90,7 +109,7 @@ public:
       _result() {}
 
   StatusOr(T result)
-    : Status(Code::OK, ""),
+    : Status(Code::OK, nullptr, 0, ""),
       _result(result) {}
 
   T result() const { assert(!is_error()); return _result; }

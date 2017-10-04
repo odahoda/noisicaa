@@ -25,14 +25,14 @@
 
 namespace noisicaa {
 
-Status Status::Error(const char* fmt, ...) {
+Status Status::Error(const char* file, int line, const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
 
   char msg[10240];
   vsnprintf(msg, sizeof(msg), fmt, args);
 
-  return Error(string(msg));
+  return Error(file, line, string(msg));
 }
 
 }  // namespace noisicaa

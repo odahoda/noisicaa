@@ -38,17 +38,17 @@ PortAudioBackend::~PortAudioBackend() {}
 
 Status PortAudioBackend::setup(VM* vm) {
   Status status = Backend::setup(vm);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   if (_settings.block_size == 0) {
-   return Status::Error("Invalid block_size %d", _settings.block_size);
+   return ERROR_STATUS("Invalid block_size %d", _settings.block_size);
   }
 
   PaError err;
 
   err = Pa_Initialize();
   if (err != paNoError) {
-    return Status::Error("Failed to initialize portaudio: %s", Pa_GetErrorText(err));
+    return ERROR_STATUS("Failed to initialize portaudio: %s", Pa_GetErrorText(err));
   }
   _initialized = true;
 
@@ -73,12 +73,12 @@ Status PortAudioBackend::setup(VM* vm) {
       /* streamCallback */    nullptr,
       /* userdata */          nullptr);
   if (err != paNoError) {
-    return Status::Error("Failed to open portaudio stream: %s", Pa_GetErrorText(err));
+    return ERROR_STATUS("Failed to open portaudio stream: %s", Pa_GetErrorText(err));
   }
 
   err = Pa_StartStream(_stream);
   if (err != paNoError) {
-    return Status::Error("Failed to start portaudio stream: %s", Pa_GetErrorText(err));
+    return ERROR_STATUS("Failed to start portaudio stream: %s", Pa_GetErrorText(err));
   }
 
   for (int c = 0 ; c < 2 ; ++c) {
@@ -119,7 +119,7 @@ void PortAudioBackend::cleanup() {
 
 Status PortAudioBackend::set_block_size(uint32_t block_size) {
   if (block_size == 0) {
-   return Status::Error("Invalid block_size %d", block_size);
+   return ERROR_STATUS("Invalid block_size %d", block_size);
   }
 
   _new_block_size = block_size;
@@ -167,7 +167,7 @@ Status PortAudioBackend::end_block(BlockContext* ctxt) {
   if (err == paOutputUnderflowed) {
     _logger->warning("Buffer underrun.");
   } else if (err != paNoError) {
-    return Status::Error("Failed to write to portaudio stream: %s", Pa_GetErrorText(err));
+    return ERROR_STATUS("Failed to write to portaudio stream: %s", Pa_GetErrorText(err));
   }
   return Status::Ok();
 }
@@ -178,7 +178,7 @@ Status PortAudioBackend::output(BlockContext* ctxt, const string& channel, Buffe
   } else if (channel == "right") {
     memmove(_samples[1], samples, _settings.block_size * sizeof(float));
   } else {
-    return Status::Error("Invalid channel %s", channel.c_str());
+    return ERROR_STATUS("Invalid channel %s", channel.c_str());
   }
   return Status::Ok();
 }

@@ -37,10 +37,10 @@ ProcessorLV2::~ProcessorLV2() {}
 
 Status ProcessorLV2::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   StatusOr<string> stor_uri = get_string_parameter("lv2_uri");
-  if (stor_uri.is_error()) { return stor_uri; }
+  RETURN_IF_ERROR(stor_uri);
   string uri = stor_uri.result();
 
   LilvWorld *world = _host_data->lv2->lilv_world;
@@ -52,12 +52,12 @@ Status ProcessorLV2::setup(const ProcessorSpec* spec) {
   _plugin = lilv_plugins_get_by_uri(all_plugins, uri_node);
   lilv_free(uri_node);
   if (_plugin == nullptr) {
-    return Status::Error("Plugin '%s' not found.", uri.c_str());
+    return ERROR_STATUS("Plugin '%s' not found.", uri.c_str());
   }
 
   LilvNodes* supported_features = lilv_plugin_get_supported_features(_plugin);
   if (supported_features == nullptr) {
-    return Status::Error("Failed to get supported features.");
+    return ERROR_STATUS("Failed to get supported features.");
   }
 
   vector<string> feature_uris;
@@ -84,7 +84,7 @@ Status ProcessorLV2::setup(const ProcessorSpec* spec) {
 
   _instance = lilv_plugin_instantiate(_plugin, 44100.0, _features);
   if (_instance == nullptr) {
-    return Status::Error("Failed to instantiate '%s'.", uri.c_str());
+    return ERROR_STATUS("Failed to instantiate '%s'.", uri.c_str());
   }
 
   lilv_instance_activate(_instance);

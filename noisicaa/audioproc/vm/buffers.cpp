@@ -103,13 +103,13 @@ Status AtomData::clear_buffer(HostData* host_data, uint32_t block_size, BufferPt
 Status AtomData::mix_buffers(HostData* host_data, uint32_t block_size, const BufferPtr buf1, BufferPtr buf2) const {
   LV2_Atom_Sequence* seq1 = (LV2_Atom_Sequence*)buf1;
   if (seq1->atom.type != host_data->lv2->urid.atom_sequence) {
-    return Status::Error("Excepted sequence, got %d.", seq1->atom.type);
+    return ERROR_STATUS("Excepted sequence, got %d.", seq1->atom.type);
   }
   LV2_Atom_Event* event1 = lv2_atom_sequence_begin(&seq1->body);
 
   LV2_Atom_Sequence* seq2 = (LV2_Atom_Sequence*)buf2;
   if (seq1->atom.type != host_data->lv2->urid.atom_sequence) {
-    return Status::Error("Excepted sequence, got %d.", seq2->atom.type);
+    return ERROR_STATUS("Excepted sequence, got %d.", seq2->atom.type);
   }
   LV2_Atom_Event* event2 = lv2_atom_sequence_begin(&seq2->body);
 
@@ -158,7 +158,7 @@ Status AtomData::mix_buffers(HostData* host_data, uint32_t block_size, const Buf
 }
 
 Status AtomData::mul_buffer(HostData* host_data, uint32_t block_size, BufferPtr buf, float factor) const {
-  return Status::Error("Operation not supported for AtomData");
+  return ERROR_STATUS("Operation not supported for AtomData");
 }
 
 Buffer::Buffer(HostData* host_data, const BufferType* type)
@@ -180,11 +180,11 @@ Status Buffer::allocate(uint32_t block_size) {
 
     unique_ptr<uint8_t> data(new uint8_t[size]);
     if (data.get() == nullptr) {
-      return Status::Error("Failed to allocate %d bytes.", size);
+      return ERROR_STATUS("Failed to allocate %d bytes.", size);
     }
 
     Status status = _type->clear_buffer(_host_data, block_size, data.get());
-    if (status.is_error()) { return status; }
+    RETURN_IF_ERROR(status);
 
     _block_size = block_size;
     _size = size;

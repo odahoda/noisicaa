@@ -39,7 +39,7 @@ Status LV2SubSystem::setup() {
 
   lilv_world = lilv_world_new();
   if (lilv_world == nullptr) {
-    return Status::Error("Failed to create lilv world.");
+    return ERROR_STATUS("Failed to create lilv world.");
   }
 
   lilv_world_load_all(lilv_world);

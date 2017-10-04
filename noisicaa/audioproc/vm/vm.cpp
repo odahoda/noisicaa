@@ -53,7 +53,7 @@ Status Program::setup(HostData* host_data, const Spec* s, uint32_t block_size) {
   for (int i = 0 ; i < spec->num_buffers() ; ++i) {
     unique_ptr<Buffer> buf(new Buffer(host_data, spec->get_buffer(i)));
     Status status = buf->allocate(block_size);
-    if (status.is_error()) { return status; }
+    RETURN_IF_ERROR(status);
     buffers.emplace_back(buf.release());
   }
 
@@ -157,7 +157,7 @@ Status VM::set_spec(const Spec* spec) {
   unique_ptr<Program> program(new Program(_logger, _program_version++));
 
   Status status = program->setup(_host_data, spec, _block_size);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   _logger->info("Activate next program v%d", program->version);
   activate_program(program.get());
@@ -198,12 +198,12 @@ Buffer* VM::get_buffer(const string& name) {
 Status VM::set_float_control_value(const string& name, float value) {
   const auto& it = _control_values.find(name);
   if (it == _control_values.end()) {
-    return Status::Error("Control value '%s' not found.", name.c_str());
+    return ERROR_STATUS("Control value '%s' not found.", name.c_str());
   }
 
   ControlValue* cv = it->second->control_value.get();
   if (cv->type() != ControlValueType::FloatCV) {
-    return Status::Error("Control value '%s' is not of type Float.", name.c_str());
+    return ERROR_STATUS("Control value '%s' is not of type Float.", name.c_str());
   }
 
   dynamic_cast<FloatControlValue*>(cv)->set_value(value);
@@ -235,7 +235,7 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
   }
 
   Status status = backend->begin_block(ctxt);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
   auto end_block = scopeGuard([&]() {
       Status status = backend->end_block(ctxt);
       if (status.is_error()) {
@@ -268,7 +268,7 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
 
   ctxt->block_size = program->block_size;
   if (ctxt->block_size == 0) {
-    return Status::Error("Invalid block_size 0");
+    return ERROR_STATUS("Invalid block_size 0");
   }
   _logger->debug("Process block [%d,%d]", ctxt->sample_pos, ctxt->block_size);
 
@@ -285,14 +285,14 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
     OpSpec opspec = opspecs[opcode];
     if (run_init && opspec.init != nullptr) {
       Status status = opspec.init(ctxt, &state, spec->get_opargs(p));
-      if (status.is_error()) { return status; }
+      RETURN_IF_ERROR(status);
     }
     if (opspec.run != nullptr) {
       char perf_label[PerfStats::NAME_LENGTH];
       snprintf(perf_label, PerfStats::NAME_LENGTH, "opcode(%s)", opspec.name);
       PerfTracker tracker(ctxt->perf.get(), perf_label);
       Status status = opspec.run(ctxt, &state, spec->get_opargs(p));
-      if (status.is_error()) { return status; }
+      RETURN_IF_ERROR(status);
     }
   }
 
@@ -302,7 +302,7 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
 
   end_block.dismiss();
   status = backend->end_block(ctxt);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   return Status::Ok();
 }

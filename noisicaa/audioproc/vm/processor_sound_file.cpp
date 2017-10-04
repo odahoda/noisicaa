@@ -41,17 +41,17 @@ ProcessorSoundFile::~ProcessorSoundFile() {}
 
 Status ProcessorSoundFile::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   StatusOr<string> stor_or_path = get_string_parameter("sound_file_path");
-  if (stor_or_path.is_error()) { return stor_or_path; }
+  RETURN_IF_ERROR(stor_or_path);
   string path = stor_or_path.result();
 
   SF_INFO sfinfo;
   sfinfo.format = 0;
   SNDFILE* fp = sf_open(path.c_str(), SFM_READ, &sfinfo);
   if (fp == nullptr) {
-    return Status::Error("Failed to open file %s: %s", path.c_str(), sf_strerror(nullptr));
+    return ERROR_STATUS("Failed to open file %s: %s", path.c_str(), sf_strerror(nullptr));
   }
 
   auto close_fp = scopeGuard([fp]() { sf_close(fp); });
@@ -77,7 +77,7 @@ Status ProcessorSoundFile::setup(const ProcessorSpec* spec) {
       av_get_default_channel_layout(sfinfo.channels), AV_SAMPLE_FMT_FLT, sfinfo.samplerate,
       0, nullptr);
   if (ctxt == nullptr) {
-    return Status::Error("Failed to allocate swr context.");
+    return ERROR_STATUS("Failed to allocate swr context.");
   }
 
   auto free_ctxt = scopeGuard([&ctxt]() { swr_free(&ctxt); });
@@ -85,7 +85,7 @@ Status ProcessorSoundFile::setup(const ProcessorSpec* spec) {
   int rc = swr_init(ctxt);
   if (rc) {
     char buf[AV_ERROR_MAX_STRING_SIZE];
-    return Status::Error(
+    return ERROR_STATUS(
 	"Failed to init swr context: %s", av_make_error_string(buf, sizeof(buf), rc));
   }
 
@@ -95,7 +95,7 @@ Status ProcessorSoundFile::setup(const ProcessorSpec* spec) {
   while (in_pos < sfinfo.frames) {
     sf_count_t frames_read = sf_readf_float(fp, frames.get(), 1024);
     if (frames_read == 0) {
-      return Status::Error("Failed to read all frames (%d != %d)", in_pos, sfinfo.frames);
+      return ERROR_STATUS("Failed to read all frames (%d != %d)", in_pos, sfinfo.frames);
     }
 
     const uint8_t* in_planes[1] = {
@@ -111,7 +111,7 @@ Status ProcessorSoundFile::setup(const ProcessorSpec* spec) {
 	in_planes, frames_read);
     if (rc < 0) {
       char buf[AV_ERROR_MAX_STRING_SIZE];
-      return Status::Error(
+      return ERROR_STATUS(
 	  "Failed to convert samples: %s", av_make_error_string(buf, sizeof(buf), samples_written));
     }
 
@@ -130,7 +130,7 @@ Status ProcessorSoundFile::setup(const ProcessorSpec* spec) {
       nullptr, 0);
   if (rc < 0) {
     char buf[AV_ERROR_MAX_STRING_SIZE];
-    return Status::Error(
+    return ERROR_STATUS(
 	"Failed to convert samples: %s", av_make_error_string(buf, sizeof(buf), samples_written));
   }
 
@@ -151,7 +151,7 @@ void ProcessorSoundFile::cleanup() {
 
 Status ProcessorSoundFile::connect_port(uint32_t port_idx, BufferPtr buf) {
   if (port_idx > 1) {
-    return Status::Error("Invalid port index %d", port_idx);
+    return ERROR_STATUS("Invalid port index %d", port_idx);
   }
 
   _buf[port_idx] = buf;

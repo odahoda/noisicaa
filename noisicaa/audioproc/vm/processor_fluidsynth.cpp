@@ -33,18 +33,18 @@ ProcessorFluidSynth::~ProcessorFluidSynth() {}
 
 Status ProcessorFluidSynth::setup(const ProcessorSpec* spec) {
   Status status = Processor::setup(spec);
-  if (status.is_error()) { return status; }
+  RETURN_IF_ERROR(status);
 
   StatusOr<string> stor_soundfont_path = get_string_parameter("soundfont_path");
-  if (stor_soundfont_path.is_error()) { return stor_soundfont_path; }
+  RETURN_IF_ERROR(stor_soundfont_path);
   string soundfont_path = stor_soundfont_path.result();
 
   StatusOr<int64_t> stor_bank = get_int_parameter("bank");
-  if (stor_bank.is_error()) { return stor_bank; }
+  RETURN_IF_ERROR(stor_bank);
   int64_t bank = stor_bank.result();
 
   StatusOr<int64_t> stor_preset = get_int_parameter("preset");
-  if (stor_preset.is_error()) { return stor_preset; }
+  RETURN_IF_ERROR(stor_preset);
   int64_t preset = stor_preset.result();
 
   _logger->info("Setting up fluidsynth processor for %s, bank=%d, preset=%d",
@@ -52,31 +52,31 @@ Status ProcessorFluidSynth::setup(const ProcessorSpec* spec) {
 
   _settings = new_fluid_settings();
   if (_settings == nullptr) {
-    return Status::Error("Failed to create fluid settings object.");
+    return ERROR_STATUS("Failed to create fluid settings object.");
   }
 
   int rc = fluid_settings_setnum(_settings, "synth.gain", 0.5);
   if (rc == FLUID_FAILED) {
     // TODO: error message?
-    return Status::Error("Failed to set synth.gain setting.");
+    return ERROR_STATUS("Failed to set synth.gain setting.");
   }
 
   // TODO: get from pipeline
   rc = fluid_settings_setnum(_settings, "synth.sample-rate", 44100);
   if (rc == FLUID_FAILED) {
     // TODO: error message?
-    return Status::Error("Failed to set synth.sample-rate setting.");
+    return ERROR_STATUS("Failed to set synth.sample-rate setting.");
   }
 
   _synth = new_fluid_synth(_settings);
   if (_synth == nullptr) {
-    return Status::Error("Failed to create fluid synth object.");
+    return ERROR_STATUS("Failed to create fluid synth object.");
   }
 
   int sfid = fluid_synth_sfload(_synth, soundfont_path.c_str(), true);
   if (sfid == FLUID_FAILED) {
     // TODO: error message?
-    return Status::Error("Failed to load soundfont.");
+    return ERROR_STATUS("Failed to load soundfont.");
   }
 
   // try:
@@ -98,13 +98,13 @@ Status ProcessorFluidSynth::setup(const ProcessorSpec* spec) {
   rc = fluid_synth_system_reset(_synth);
   if (rc == FLUID_FAILED) {
     // TODO: error message?
-    return Status::Error("System reset failed.");
+    return ERROR_STATUS("System reset failed.");
   }
 
   rc = fluid_synth_program_select(_synth, 0, sfid, bank, preset);
   if (rc == FLUID_FAILED) {
     // TODO: error message?
-    return Status::Error("Program select failed.");
+    return ERROR_STATUS("Program select failed.");
   }
 
   return Status::Ok();
@@ -143,7 +143,7 @@ Status ProcessorFluidSynth::run(BlockContext* ctxt) {
 
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
   if (seq->atom.type != _host_data->lv2->urid.atom_sequence) {
-    return Status::Error("Excepted sequence in port 'in', got %d.", seq->atom.type);
+    return ERROR_STATUS("Excepted sequence in port 'in', got %d.", seq->atom.type);
   }
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
 
@@ -156,7 +156,7 @@ Status ProcessorFluidSynth::run(BlockContext* ctxt) {
 
       if (event->time.frames != -1) {
 	if (event->time.frames < 0 || event->time.frames >= ctxt->block_size) {
-	  return Status::Error(
+	  return ERROR_STATUS(
 	       "Event timestamp %d out of bounds [0,%d]", event->time.frames, ctxt->block_size);
 	}
 
@@ -172,7 +172,7 @@ Status ProcessorFluidSynth::run(BlockContext* ctxt) {
 	int rc = fluid_synth_nwrite_float(_synth, num_samples, lmap, rmap, nullptr, nullptr);
 	if (rc == FLUID_FAILED) {
 	  // TODO: error message
-	  return Status::Error("Failed to render samples");
+	  return ERROR_STATUS("Failed to render samples");
 	}
 
 	segment_start = esample_pos;
@@ -208,7 +208,7 @@ Status ProcessorFluidSynth::run(BlockContext* ctxt) {
     int rc = fluid_synth_nwrite_float(_synth, num_samples, lmap, rmap, nullptr, nullptr);
     if (rc == FLUID_FAILED) {
       // TODO: error message
-      return Status::Error("Failed to render samples");
+      return ERROR_STATUS("Failed to render samples");
     }
   }
 

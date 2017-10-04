@@ -50,21 +50,21 @@ Status Spec::append_opcode(OpCode opcode, ...) {
     case 'b': {
       const char* buf_name = va_arg(values, char*);
       StatusOr<int> stor_value = get_buffer_idx(buf_name);
-      if (stor_value.is_error()) { return stor_value; }
+      RETURN_IF_ERROR(stor_value);
       args.emplace_back(OpArg((int64_t)stor_value.result()));
       break;
     }
     case 'p': {
       Processor* processor = va_arg(values, Processor*);
       StatusOr<int> stor_value = get_processor_idx(processor);
-      if (stor_value.is_error()) { return stor_value; }
+      RETURN_IF_ERROR(stor_value);
       args.emplace_back(OpArg((int64_t)stor_value.result()));
       break;
     }
     case 'c': {
       ControlValue* cv = va_arg(values, ControlValue*);
       StatusOr<int> stor_value = get_control_value_idx(cv);
-      if (stor_value.is_error()) { return stor_value; }
+      RETURN_IF_ERROR(stor_value);
       args.emplace_back(OpArg((int64_t)stor_value.result()));
       break;
     }
@@ -100,7 +100,7 @@ StatusOr<int> Spec::get_buffer_idx(const string& name) const {
   if (it != _buffer_map.end()) {
     return it->second;
   }
-  return Status::Error("Invalid buffer name %s", name);
+  return ERROR_STATUS("Invalid buffer name %s", name);
 }
 
 Status Spec::append_control_value(ControlValue* cv) {
@@ -114,7 +114,7 @@ StatusOr<int> Spec::get_control_value_idx(const ControlValue* cv) const {
   if (it != _control_value_map.end()) {
     return it->second;
   }
-  return Status::Error("Invalid buffer name %s", cv->name());
+  return ERROR_STATUS("Invalid buffer name %s", cv->name());
 }
 
 Status Spec::append_processor(Processor* processor) {
@@ -128,7 +128,7 @@ StatusOr<int> Spec::get_processor_idx(const Processor* processor) {
   if (it != _processor_map.end()) {
     return it->second;
   }
-  return Status::Error("Invalid processor %016llx", processor->id());
+  return ERROR_STATUS("Invalid processor %016llx", processor->id());
 }
 
 }  // namespace noisicaa
