@@ -1,3 +1,5 @@
+# @custom_license
+#
 # Based on QLed by Rob Kent.
 # Original URL: https://code.google.com/p/gulon-soft/downloads/detail?name=QLed-1.2.tar.gz
 # Original License: MIT License

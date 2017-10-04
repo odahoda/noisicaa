@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+# @custom_license
+#
 # Cloned from proposed RWLock in stdlib's threading module.
 # http://bugs.python.org/issue8800
 

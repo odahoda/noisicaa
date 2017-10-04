@@ -57,8 +57,6 @@
 - use spaces for indentation in C++, too
 - tweak C++ indentation
 - C-o C-t to run tests
-* Add copyright block to every source file						      :FR:
-- also (text) data files
 * Do SVG conversion at build time							      :FR:
 - the stuff in SvgSymbol.strip_dom()
 * ProcessorFluidSynth									      :FR:

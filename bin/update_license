@@ -1,0 +1,193 @@
+#!/usr/bin/env python
+# -*- mode: python -*-
+
+# @begin:license
+#
+# Copyright (c) 2015-2017, Benjamin Niemann <pink@odahoda.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# @end:license
+
+import datetime
+import fnmatch
+import os
+import os.path
+import subprocess
+import sys
+import textwrap
+
+DEFAULT_TYPEMAP = {
+    '*.py': 'text/x-python',
+    '*.pyx': 'text/x-python',
+    '*.pxd': 'text/x-python',
+    '*.cpp': 'text/x-c++',
+    '*.h': 'text/x-c++',
+    '*.sh': 'text/x-shellscript',
+    '*.capnp': 'text/x-capnp',
+    'CMakeLists.txt': 'text/x-cmake',
+}
+
+TYPE_PROPS = {
+    'text/x-python': (None, None, '# ', '#'),
+    'text/x-shellscript': (None, None, '# ', '#'),
+    'text/x-cmake': (None, None, '# ', '#'),
+    'text/x-c++': ('/*', ' */', ' * ', '//'),
+    'text/x-capnp': (None, None, '# ', None),
+    'application/xml': ('<!--', '-->', '  ', '<?'),
+}
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+DIRS = [
+    ('setup.py', '*', DEFAULT_TYPEMAP),
+    ('CMakeLists.txt', '*', DEFAULT_TYPEMAP),
+    ('bin', '*', DEFAULT_TYPEMAP),
+    ('noisicaa', '*', DEFAULT_TYPEMAP),
+    ('noisidev', '*', DEFAULT_TYPEMAP),
+    ('3rdparty', 'setup.py', DEFAULT_TYPEMAP),
+    ('data/csound', '*.csnd', {'*': 'application/xml'}),
+    ('data/presets', '*.preset', {'*': 'application/xml'}),
+]
+
+SKIP_DIRS = [
+    '__pycache__',
+    'testdata',
+]
+
+SKIP_FILES = [
+    '*.pyc',
+    '*~',
+    'pylintrc',
+]
+
+LICENSE = textwrap.dedent("""\
+
+Copyright (c) 2015-{year}, Benjamin Niemann <pink@odahoda.de>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+""").format(
+    year=datetime.date.today().year,
+)
+
+def rewrite_file(path, typemap):
+    for type_glob, file_type in typemap.items():
+        if fnmatch.fnmatch(os.path.basename(path), type_glob):
+            break
+    else:
+        file_type = subprocess.check_output(['/usr/bin/file', '--brief', '--mime-type', path]).decode('ascii').strip()
+
+    try:
+        block_start, block_end, line_prefix, header_prefix = TYPE_PROPS[file_type]
+    except KeyError:
+        raise ValueError("Unsupported file type %s for %s" % (file_type, path))
+
+    with open(path, 'r', encoding='utf-8') as fp:
+        orig_contents = fp.read()
+
+    contents = orig_contents
+
+    new_lines = []
+    in_license = False
+    license_found = False
+    for line in contents.splitlines():
+        if line == line_prefix + '@custom_license':
+            return
+
+        if line == line_prefix + '@begin:license':
+            in_license = True
+            license_found = True
+            new_lines.append(line)
+            for lline in LICENSE.splitlines():
+                new_lines.append((line_prefix + lline).rstrip())
+
+        elif line == line_prefix + '@end:license':
+            in_license = False
+            new_lines.append(line)
+
+        elif not in_license:
+            new_lines.append(line)
+
+    if not license_found:
+        new_lines = []
+        in_header = True
+        skip_blanks = False
+        for line in contents.splitlines():
+            if in_header and (not header_prefix or not line.startswith(header_prefix)):
+                in_header = False
+                if len(new_lines) > 0:
+                    new_lines.append('')
+                if block_start:
+                    new_lines.append(block_start)
+                new_lines.append(line_prefix + '@begin:license')
+                for lline in LICENSE.splitlines():
+                    new_lines.append((line_prefix + lline).rstrip())
+                new_lines.append(line_prefix + '@end:license')
+                if block_end:
+                    new_lines.append(block_end)
+                new_lines.append('')
+                skip_blanks = True
+
+            if not skip_blanks or line != '':
+                skip_blanks = False
+                new_lines.append(line)
+
+    contents = '\n'.join(new_lines) + '\n'
+    if contents != orig_contents:
+        with open(path, 'w', encoding='utf-8') as fp:
+            fp.write(contents)
+
+        print("Updated %s" % path)
+
+
+def main(argv):
+    for root_name, file_glob, typemap in DIRS:
+        root_path = os.path.join(ROOT, root_name)
+        if os.path.isfile(root_path):
+            rewrite_file(root_path, typemap)
+
+        else:
+            for dir_path, dirs, files in os.walk(root_path):
+                for idx, dir_name in reversed(list(enumerate(dirs))):
+                    if any(fnmatch.fnmatch(dir_name, skip_dir) for skip_dir in SKIP_DIRS):
+                        del dirs[idx]
+
+                dirs.sort()
+
+                for file_name in sorted(files):
+                    if any(fnmatch.fnmatch(file_name, skip_file) for skip_file in SKIP_FILES):
+                        continue
+
+                    if not fnmatch.fnmatch(file_name, file_glob):
+                        continue
+
+                    rewrite_file(os.path.join(dir_path, file_name), typemap)
+
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
