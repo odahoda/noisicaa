@@ -72,6 +72,10 @@ target_include_directories(noisicaa-audioproc-vm PRIVATE ${LIBFLUIDSYNTH_INCLUDE
 target_link_libraries(noisicaa-audioproc-vm PRIVATE ${LIBFLUIDSYNTH_LIBRARIES})
 target_include_directories(noisicaa-audioproc-vm PRIVATE ${LIBSNDFILE_INCLUDE_DIRS})
 target_link_libraries(noisicaa-audioproc-vm PRIVATE ${LIBSNDFILE_LIBRARIES})
+target_include_directories(noisicaa-audioproc-vm PRIVATE ${LIBAVUTIL_INCLUDE_DIRS})
+target_link_libraries(noisicaa-audioproc-vm PRIVATE ${LIBAVUTIL_LIBRARIES})
+target_include_directories(noisicaa-audioproc-vm PRIVATE ${LIBSWRESAMPLE_INCLUDE_DIRS})
+target_link_libraries(noisicaa-audioproc-vm PRIVATE ${LIBSWRESAMPLE_LIBRARIES})
 
 add_cython_module(audio_stream CXX)
 target_link_libraries(${audio_stream.so} PRIVATE noisicaa-audioproc-vm)

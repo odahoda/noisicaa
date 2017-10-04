@@ -1,6 +1,10 @@
 #include <dlfcn.h>
 #include <stdint.h>
-#include <sndfile.h>
+#include "sndfile.h"
+extern "C" {
+#include "libswresample/swresample.h"
+#include "libavutil/channel_layout.h"
+}
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/audioproc/vm/message_queue.h"
 #include "noisicaa/audioproc/vm/misc.h"
@@ -38,34 +42,80 @@ Status ProcessorSoundFile::setup(const ProcessorSpec* spec) {
   _logger->info("sections: %d", sfinfo.sections);
   _logger->info("seekable: %d", sfinfo.seekable);
 
-  // TODO: resample to VM's sample rate
-
-  _left_samples.reset(new float[sfinfo.frames]);
-  _right_samples.reset(new float[sfinfo.frames]);
   _loop = false;
   _playing = true;
   _pos = 0;
-  _num_samples = sfinfo.frames;
+  _num_samples = av_rescale_rnd(sfinfo.frames, 44100, sfinfo.samplerate, AV_ROUND_UP);
+  _left_samples.reset(new float[_num_samples]);
+  _right_samples.reset(new float[_num_samples]);
+
+  SwrContext* ctxt = swr_alloc_set_opts(
+      nullptr,
+      AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_FLTP, 44100,
+      av_get_default_channel_layout(sfinfo.channels), AV_SAMPLE_FMT_FLT, sfinfo.samplerate,
+      0, nullptr);
+  if (ctxt == nullptr) {
+    return Status::Error("Failed to allocate swr context.");
+  }
+
+  auto free_ctxt = scopeGuard([&ctxt]() { swr_free(&ctxt); });
+
+  int rc = swr_init(ctxt);
+  if (rc) {
+    char buf[AV_ERROR_MAX_STRING_SIZE];
+    return Status::Error(
+	"Failed to init swr context: %s", av_make_error_string(buf, sizeof(buf), rc));
+  }
 
   unique_ptr<float> frames(new float[1024 * sfinfo.channels]);
-  sf_count_t pos = 0;
-  while (pos < sfinfo.frames) {
+  sf_count_t in_pos = 0;
+  uint32_t out_pos = 0;
+  while (in_pos < sfinfo.frames) {
     sf_count_t frames_read = sf_readf_float(fp, frames.get(), 1024);
     if (frames_read == 0) {
-      return Status::Error("Failed to read all frames (%d != %d)", pos, sfinfo.frames);
+      return Status::Error("Failed to read all frames (%d != %d)", in_pos, sfinfo.frames);
     }
 
-    float* lptr = _left_samples.get() + pos;
-    float* rptr = _right_samples.get() + pos;
-    float* in = frames.get();
-    for (sf_count_t i = 0 ; i < frames_read ; ++i) {
-      *lptr++ = *in;
-      *rptr++ = *in;
-      in += sfinfo.channels;
+    const uint8_t* in_planes[1] = {
+      (const uint8_t*)frames.get()
+    };
+    uint8_t* out_planes[2] = {
+      (uint8_t*)(_left_samples.get() + out_pos),
+      (uint8_t*)(_right_samples.get() + out_pos)
+    };
+    int samples_written = swr_convert(
+	ctxt,
+	out_planes, _num_samples - out_pos,
+	in_planes, frames_read);
+    if (rc < 0) {
+      char buf[AV_ERROR_MAX_STRING_SIZE];
+      return Status::Error(
+	  "Failed to convert samples: %s", av_make_error_string(buf, sizeof(buf), samples_written));
     }
 
-    pos += frames_read;
+    in_pos += frames_read;
+    out_pos += samples_written;
   }
+
+  // Flush out any samples that swr_convert might have buffered.
+  uint8_t* out_planes[2] = {
+    (uint8_t*)(_left_samples.get() + out_pos),
+    (uint8_t*)(_right_samples.get() + out_pos)
+  };
+  int samples_written = swr_convert(
+      ctxt,
+      out_planes, _num_samples - out_pos,
+      nullptr, 0);
+  if (rc < 0) {
+    char buf[AV_ERROR_MAX_STRING_SIZE];
+    return Status::Error(
+	"Failed to convert samples: %s", av_make_error_string(buf, sizeof(buf), samples_written));
+  }
+
+  out_pos += samples_written;
+
+  // In case we have written less than we anticipated.
+  _num_samples = out_pos;
 
   return Status::Ok();
 }

@@ -18,6 +18,8 @@ pkg_check_modules(LIBSRATOM REQUIRED sratom-0)
 pkg_check_modules(LIBLILV REQUIRED lilv-0)
 pkg_check_modules(LIBSNDFILE REQUIRED sndfile)
 pkg_check_modules(LIBFLUIDSYNTH REQUIRED fluidsynth)
+pkg_check_modules(LIBAVUTIL REQUIRED libavutil)
+pkg_check_modules(LIBSWRESAMPLE REQUIRED libswresample)
 
 set(LIBCSOUND_INCLUDE_DIRS)
 set(LIBCSOUND_LIBRARIES csound64)
