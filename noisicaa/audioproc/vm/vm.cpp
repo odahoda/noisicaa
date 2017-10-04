@@ -159,11 +159,13 @@ Status VM::set_spec(const Spec* spec) {
   Status status = program->setup(_host_data, spec, _block_size);
   if (status.is_error()) { return status; }
 
+  _logger->info("Activate next program v%d", program->version);
   activate_program(program.get());
 
   // Discard any next program, which hasn't been picked up by the audio thread.
   Program* prev_next_program = _next_program.exchange(nullptr);
   if (prev_next_program != nullptr) {
+    _logger->info("Deactivate unused program v%d", prev_next_program->version);
     deactivate_program(prev_next_program);
     delete prev_next_program;
   }
@@ -171,6 +173,7 @@ Status VM::set_spec(const Spec* spec) {
   // Discard program, which the audio thread doesn't use anymore.
   Program* old_program = _old_program.exchange(nullptr);
   if (old_program != nullptr) {
+    _logger->info("Deactivate old program v%d", old_program->version);
     deactivate_program(old_program);
     delete old_program;
   }
@@ -212,15 +215,20 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
   // the old program, which will eventually be destroyed in the main thread.
   // It must not happen that a next program is available, before an old one has
   // been disposed of.
-  Program* program = _next_program.exchange(nullptr);
-  if (program != nullptr) {
-    _logger->info("Activate program v%d", program->version);
-    Program* old_program = _current_program.exchange(program);
-    old_program = _old_program.exchange(old_program);
-    assert(old_program == nullptr);
+  if (_old_program.load() == nullptr) {
+    Program* program = _next_program.exchange(nullptr);
+    if (program != nullptr) {
+      _logger->info("Use program v%d", program->version);
+      Program* old_program = _current_program.exchange(program);
+      if (old_program) {
+	_logger->info("Unuse program v%d", old_program->version);
+	old_program = _old_program.exchange(old_program);
+	assert(old_program == nullptr);
+      }
+    }
   }
 
-  program = _current_program.load();
+  Program* program = _current_program.load();
   if (program == nullptr) {
     usleep(10000);
     return Status::Ok();
