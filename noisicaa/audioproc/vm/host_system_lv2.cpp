@@ -73,9 +73,9 @@ Status LV2SubSystem::setup() {
 
   _features.emplace_back(
       Feature {
-	LV2_URID__map,
-	bind(&LV2SubSystem::create_map_feature, this, placeholders::_1),
-	nullptr
+        LV2_URID__map,
+        bind(&LV2SubSystem::create_map_feature, this, placeholders::_1),
+        nullptr
       });
   _features.emplace_back(
       Feature {
@@ -92,14 +92,14 @@ Status LV2SubSystem::setup() {
   _features.emplace_back(
       Feature {
         LV2_BUF_SIZE__boundedBlockLength,
-	nullptr,
+        nullptr,
         nullptr
       });
   _features.emplace_back(
       Feature {
-	LV2_BUF_SIZE__powerOf2BlockLength,
-	nullptr,
-	nullptr
+        LV2_BUF_SIZE__powerOf2BlockLength,
+        nullptr,
+        nullptr
       });
   // _features[LV2_WORKER__schedule] = nullptr;
 
@@ -137,9 +137,9 @@ LV2_Feature* LV2SubSystem::create_feature(const string& uri) {
       LV2_Feature* feature = new LV2_Feature;
       feature->URI = f.uri.c_str();
       if (f.create_func != nullptr) {
-	f.create_func(feature);
+        f.create_func(feature);
       } else {
-	feature->data = nullptr;
+        feature->data = nullptr;
       }
       return feature;
     }
@@ -153,7 +153,7 @@ void LV2SubSystem::delete_feature(LV2_Feature* feature) {
   for (const auto& f : _features) {
     if (f.uri == uri) {
       if (f.delete_func != nullptr) {
-	f.delete_func(feature);
+        f.delete_func(feature);
       }
       delete feature;
       return;

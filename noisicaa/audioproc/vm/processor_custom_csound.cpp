@@ -73,31 +73,31 @@ Status ProcessorCustomCSound::setup(const ProcessorSpec* spec) {
     const auto& port_spec = _spec->get_port(i);
 
     if (port_spec.type() == PortType::audio
-	&& port_spec.direction() == PortDirection::Input) {
+        && port_spec.direction() == PortDirection::Input) {
       orchestra_preamble += sprintf(
-	  "ga%s chnexport \"%s\", 1\n",
-	  port_name_to_csound_label(port_spec.name()).c_str(),
-	  port_spec.name().c_str());
+          "ga%s chnexport \"%s\", 1\n",
+          port_name_to_csound_label(port_spec.name()).c_str(),
+          port_spec.name().c_str());
     } else if (port_spec.type() == PortType::audio
-	       && port_spec.direction() == PortDirection::Output) {
+               && port_spec.direction() == PortDirection::Output) {
       orchestra_preamble += sprintf(
-	  "ga%s chnexport \"%s\", 2\n",
-	  port_name_to_csound_label(port_spec.name()).c_str(),
-	  port_spec.name().c_str());
+          "ga%s chnexport \"%s\", 2\n",
+          port_name_to_csound_label(port_spec.name()).c_str(),
+          port_spec.name().c_str());
     } else if (port_spec.type() == PortType::aRateControl
-	       && port_spec.direction() == PortDirection::Input) {
+               && port_spec.direction() == PortDirection::Input) {
       orchestra_preamble += sprintf(
-	  "ga%s chnexport \"%s\", 1\n",
-	  port_name_to_csound_label(port_spec.name()).c_str(),
-	  port_spec.name().c_str());
+          "ga%s chnexport \"%s\", 1\n",
+          port_name_to_csound_label(port_spec.name()).c_str(),
+          port_spec.name().c_str());
     } else if (port_spec.type() == PortType::aRateControl
-	       && port_spec.direction() == PortDirection::Output) {
+               && port_spec.direction() == PortDirection::Output) {
       orchestra_preamble += sprintf(
-	  "ga%s chnexport \"%s\", 2\n",
-	  port_name_to_csound_label(port_spec.name()).c_str(),
-	  port_spec.name().c_str());
+          "ga%s chnexport \"%s\", 2\n",
+          port_name_to_csound_label(port_spec.name()).c_str(),
+          port_spec.name().c_str());
     } else if (port_spec.type() == PortType::atomData
-	       && port_spec.direction() == PortDirection::Input) {
+               && port_spec.direction() == PortDirection::Input) {
     } else {
       return ERROR_STATUS("Port %s not supported", port_spec.name().c_str());
     }

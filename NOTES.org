@@ -49,11 +49,6 @@
 - absl::Substitude for sprintf
 - absl::string_view for method args
 - absl::GetCurrentTimeNanos() for PerfStats
-* Use .dir-local.el 									      :FR:
-- https://www.gnu.org/software/emacs/manual/html_node/emacs/Directory-Variables.html
-- use spaces for indentation in C++, too
-- tweak C++ indentation
-- C-o C-t to run tests
 * Do SVG conversion at build time							      :FR:
 - the stuff in SvgSymbol.strip_dom()
 * ProcessorFluidSynth									      :FR:

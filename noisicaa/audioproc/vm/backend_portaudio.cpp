@@ -135,7 +135,7 @@ Status PortAudioBackend::begin_block(BlockContext* ctxt) {
 
     for (int c = 0 ; c < 2 ; ++c) {
       if (_samples[c] != nullptr) {
-	delete _samples[c];
+        delete _samples[c];
       }
       _samples[c] = new uint8_t[_settings.block_size * sizeof(float)];
     }

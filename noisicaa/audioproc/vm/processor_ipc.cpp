@@ -106,12 +106,12 @@ Status ProcessorIPC::run(BlockContext* ctxt) {
 
   for (const auto& span : response.getPerfData().getSpans()) {
     ctxt->perf->append_span(
-	PerfStats::Span{
-	  span.getId(),
-	  span.getName().cStr(),
-	  span.getParentId() != 0 ? span.getParentId() : ctxt->perf->current_span_id(),
-	  span.getStartTimeNSec(),
-	  span.getEndTimeNSec()});
+        PerfStats::Span{
+          span.getId(),
+          span.getName().cStr(),
+          span.getParentId() != 0 ? span.getParentId() : ctxt->perf->current_span_id(),
+          span.getStartTimeNSec(),
+          span.getEndTimeNSec()});
   }
 
   bool ports_written[2] = { false, false };

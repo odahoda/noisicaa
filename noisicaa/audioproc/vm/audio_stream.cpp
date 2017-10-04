@@ -89,8 +89,8 @@ Status AudioStreamBase::pipe_read(char* data, size_t size) {
     if (fds.revents & POLLIN) {
       ssize_t bytes_read = read(_pipe_in, data, size);
       if (bytes_read < 0) {
-	// TODO: Status::ErrorFromErrno
-	return ERROR_STATUS("Failed to read from pipe.");
+        // TODO: Status::ErrorFromErrno
+        return ERROR_STATUS("Failed to read from pipe.");
       }
       data += bytes_read;
       size -= bytes_read;
@@ -122,8 +122,8 @@ Status AudioStreamBase::pipe_write(const char* data, size_t size) {
     if (fds.revents & POLLOUT) {
       ssize_t bytes_written = write(_pipe_out, data, size);
       if (bytes_written < 0) {
-	// TODO: Status::ErrorFromErrno
-	return ERROR_STATUS("Failed to write to pipe.");
+        // TODO: Status::ErrorFromErrno
+        return ERROR_STATUS("Failed to write to pipe.");
       }
       data += bytes_written;
       size -= bytes_written;

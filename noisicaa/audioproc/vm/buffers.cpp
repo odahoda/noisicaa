@@ -124,7 +124,7 @@ Status AtomData::mix_buffers(HostData* host_data, uint32_t block_size, const Buf
   lv2_atom_forge_sequence_head(&forge, &frame, host_data->lv2->urid.atom_frame_time);
 
   while (!lv2_atom_sequence_is_end(&seq1->body, seq1->atom.size, event1)
-	 && !lv2_atom_sequence_is_end(&seq2->body, seq2->atom.size, event2)) {
+         && !lv2_atom_sequence_is_end(&seq2->body, seq2->atom.size, event2)) {
     LV2_Atom_Event* event;
     if (event1->time.frames <= event2->time.frames) {
       event = event1;

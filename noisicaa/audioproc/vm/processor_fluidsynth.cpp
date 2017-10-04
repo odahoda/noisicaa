@@ -155,44 +155,44 @@ Status ProcessorFluidSynth::run(BlockContext* ctxt) {
       uint32_t esample_pos;
 
       if (event->time.frames != -1) {
-	if (event->time.frames < 0 || event->time.frames >= ctxt->block_size) {
-	  return ERROR_STATUS(
-	       "Event timestamp %d out of bounds [0,%d]", event->time.frames, ctxt->block_size);
-	}
+        if (event->time.frames < 0 || event->time.frames >= ctxt->block_size) {
+          return ERROR_STATUS(
+               "Event timestamp %d out of bounds [0,%d]", event->time.frames, ctxt->block_size);
+        }
 
-	esample_pos = event->time.frames;
+        esample_pos = event->time.frames;
       } else {
-	esample_pos = 0;
+        esample_pos = 0;
       }
 
       if (esample_pos > segment_start) {
-	uint32_t num_samples = esample_pos - segment_start;
-	float *lmap[1] = { out_left };
-	float *rmap[1] = { out_right };
-	int rc = fluid_synth_nwrite_float(_synth, num_samples, lmap, rmap, nullptr, nullptr);
-	if (rc == FLUID_FAILED) {
-	  // TODO: error message
-	  return ERROR_STATUS("Failed to render samples");
-	}
+        uint32_t num_samples = esample_pos - segment_start;
+        float *lmap[1] = { out_left };
+        float *rmap[1] = { out_right };
+        int rc = fluid_synth_nwrite_float(_synth, num_samples, lmap, rmap, nullptr, nullptr);
+        if (rc == FLUID_FAILED) {
+          // TODO: error message
+          return ERROR_STATUS("Failed to render samples");
+        }
 
-	segment_start = esample_pos;
-	out_left += num_samples;
-	out_right += num_samples;
+        segment_start = esample_pos;
+        out_left += num_samples;
+        out_right += num_samples;
       }
 
       uint8_t* midi = (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &event->body);
       if ((midi[0] & 0xf0) == 0x90) {
-	int rc = fluid_synth_noteon(_synth, 0, midi[1], midi[2]);
-	if (rc == FLUID_FAILED) {
-	  _logger->warning("noteon failed.");
-	}
+        int rc = fluid_synth_noteon(_synth, 0, midi[1], midi[2]);
+        if (rc == FLUID_FAILED) {
+          _logger->warning("noteon failed.");
+        }
       } else if ((midi[0] & 0xf0) == 0x80) {
-	int rc = fluid_synth_noteoff(_synth, 0, midi[1]);
-	if (rc == FLUID_FAILED) {
-	  _logger->warning("noteoff failed.");
-	}
+        int rc = fluid_synth_noteoff(_synth, 0, midi[1]);
+        if (rc == FLUID_FAILED) {
+          _logger->warning("noteoff failed.");
+        }
       } else {
-	_logger->warning("Ignoring unsupported midi event %d.", midi[0] & 0xf0);
+        _logger->warning("Ignoring unsupported midi event %d.", midi[0] & 0xf0);
       }
     } else {
       _logger->warning("Ignoring event %d in sequence.", event->body.type);

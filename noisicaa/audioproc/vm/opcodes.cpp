@@ -128,8 +128,8 @@ Status run_FETCH_MESSAGES(BlockContext* ctxt, ProgramState* state, const vector<
 
   for (const auto& msg_bytes : ctxt->in_messages) {
     kj::ArrayPtr<::capnp::word> words(
-	(::capnp::word*)msg_bytes.c_str(),
-	msg_bytes.size() / sizeof(::capnp::word));
+        (::capnp::word*)msg_bytes.c_str(),
+        msg_bytes.size() / sizeof(::capnp::word));
     ::capnp::FlatArrayMessageReader reader(words);
     capnp::Message::Reader msg(reader.getRoot<capnp::Message>());
 
@@ -142,14 +142,14 @@ Status run_FETCH_MESSAGES(BlockContext* ctxt, ProgramState* state, const vector<
     for (const auto& label_a : labelset.getLabels()) {
       matched = false;
       for (const auto& label_b : msg.getLabelset().getLabels()) {
-	if (label_b.getKey() == label_a.getKey() && label_b.getValue() == label_a.getValue()) {
-	  matched = true;
-	  break;
-	}
+        if (label_b.getKey() == label_a.getKey() && label_b.getValue() == label_a.getValue()) {
+          matched = true;
+          break;
+        }
       }
 
       if (!matched) {
-	break;
+        break;
       }
     }
 
@@ -275,8 +275,8 @@ Status run_LOG_ATOM(BlockContext* ctxt, ProgramState* state, const vector<OpArg>
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)buf->data();
   if (seq->atom.type != state->host_data->lv2->urid.atom_sequence) {
     return ERROR_STATUS(
-	"Buffer %d: Excepted sequence (%d), got %d.",
-	idx, state->host_data->lv2->urid.atom_sequence, seq->atom.type);
+        "Buffer %d: Excepted sequence (%d), got %d.",
+        idx, state->host_data->lv2->urid.atom_sequence, seq->atom.type);
   }
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
 

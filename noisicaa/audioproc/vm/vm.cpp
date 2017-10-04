@@ -221,9 +221,9 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
       _logger->info("Use program v%d", program->version);
       Program* old_program = _current_program.exchange(program);
       if (old_program) {
-	_logger->info("Unuse program v%d", old_program->version);
-	old_program = _old_program.exchange(old_program);
-	assert(old_program == nullptr);
+        _logger->info("Unuse program v%d", old_program->version);
+        old_program = _old_program.exchange(old_program);
+        assert(old_program == nullptr);
       }
     }
   }
@@ -239,7 +239,7 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
   auto end_block = scopeGuard([&]() {
       Status status = backend->end_block(ctxt);
       if (status.is_error()) {
-	_logger->error("Ignore error in Backend::end_block(): %s", status.message().c_str());
+        _logger->error("Ignore error in Backend::end_block(): %s", status.message().c_str());
       }
     });
 

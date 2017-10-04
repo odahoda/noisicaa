@@ -86,7 +86,7 @@ Status ProcessorSoundFile::setup(const ProcessorSpec* spec) {
   if (rc) {
     char buf[AV_ERROR_MAX_STRING_SIZE];
     return ERROR_STATUS(
-	"Failed to init swr context: %s", av_make_error_string(buf, sizeof(buf), rc));
+        "Failed to init swr context: %s", av_make_error_string(buf, sizeof(buf), rc));
   }
 
   unique_ptr<float> frames(new float[1024 * sfinfo.channels]);
@@ -106,13 +106,13 @@ Status ProcessorSoundFile::setup(const ProcessorSpec* spec) {
       (uint8_t*)(_right_samples.get() + out_pos)
     };
     int samples_written = swr_convert(
-	ctxt,
-	out_planes, _num_samples - out_pos,
-	in_planes, frames_read);
+        ctxt,
+        out_planes, _num_samples - out_pos,
+        in_planes, frames_read);
     if (rc < 0) {
       char buf[AV_ERROR_MAX_STRING_SIZE];
       return ERROR_STATUS(
-	  "Failed to convert samples: %s", av_make_error_string(buf, sizeof(buf), samples_written));
+          "Failed to convert samples: %s", av_make_error_string(buf, sizeof(buf), samples_written));
     }
 
     in_pos += frames_read;
@@ -131,7 +131,7 @@ Status ProcessorSoundFile::setup(const ProcessorSpec* spec) {
   if (rc < 0) {
     char buf[AV_ERROR_MAX_STRING_SIZE];
     return ERROR_STATUS(
-	"Failed to convert samples: %s", av_make_error_string(buf, sizeof(buf), samples_written));
+        "Failed to convert samples: %s", av_make_error_string(buf, sizeof(buf), samples_written));
   }
 
   out_pos += samples_written;
@@ -168,18 +168,18 @@ Status ProcessorSoundFile::run(BlockContext* ctxt) {
   for (uint32_t i = 0 ; i < ctxt->block_size ; ++i) {
     if (_pos >= _num_samples) {
       if (_loop) {
-	_pos = 0;
+        _pos = 0;
       } else {
-	if (_playing) {
-	  _playing = false;
+        if (_playing) {
+          _playing = false;
 
-	  SoundFileCompleteMessage msg(node_id());
-	  ctxt->out_messages->push(&msg);
-	}
+          SoundFileCompleteMessage msg(node_id());
+          ctxt->out_messages->push(&msg);
+        }
 
-	*l_out++ = 0.0;
-	*r_out++ = 0.0;
-	continue;
+        *l_out++ = 0.0;
+        *r_out++ = 0.0;
+        continue;
       }
     }
 

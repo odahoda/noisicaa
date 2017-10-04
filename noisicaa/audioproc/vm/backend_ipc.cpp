@@ -34,8 +34,8 @@ public:
   IPCRequest(const string& request_bytes)
     : _request_bytes(request_bytes),
       _words(
-	  (::capnp::word*)_request_bytes.c_str(),
-	  _request_bytes.size() / sizeof(::capnp::word)),
+          (::capnp::word*)_request_bytes.c_str(),
+          _request_bytes.size() / sizeof(::capnp::word)),
       _reader(_words) {}
 
   capnp::BlockData::Reader reader() {
@@ -115,7 +115,7 @@ Status IPCBackend::begin_block(BlockContext* ctxt) {
     ::capnp::Data::Reader data = block.getData();
     ctxt->buffers.emplace(
         string(block.getId().cStr()),
-	BlockContext::Buffer{data.size(), (const BufferPtr)data.begin()});
+        BlockContext::Buffer{data.size(), (const BufferPtr)data.begin()});
   }
 
   ctxt->in_messages.clear();
