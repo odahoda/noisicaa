@@ -68,7 +68,7 @@ Status PortAudioBackend::setup(VM* vm) {
       /* inputParameters */   NULL,
       /* outputParameters */  &output_params,
       /* sampleRate */        44100,
-      /* framesPerBuffer */   _settings.block_size,
+      /* framesPerBuffer */   paFramesPerBufferUnspecified,
       /* streamFlags */       paNoFlag,
       /* streamCallback */    nullptr,
       /* userdata */          nullptr);
