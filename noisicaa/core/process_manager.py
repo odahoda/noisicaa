@@ -282,9 +282,13 @@ class ChildCollector(object):
             poller = select.poll()
             for pid, connection in self.__connections.items():
                 t0 = time.perf_counter()
-                connection.write(b'COLLECT_STATS')
-                pending[connection.fd_in] = (t0, pid, connection)
-                poller.register(connection.fd_in)
+                try:
+                    connection.write(b'COLLECT_STATS')
+                except OSError as exc:
+                    logger.warning("Failed to collect stats from PID=%d", pid)
+                else:
+                    pending[connection.fd_in] = (t0, pid, connection)
+                    poller.register(connection.fd_in)
 
             while pending:
                 for fd, evt in poller.poll():
@@ -302,6 +306,7 @@ class ChildCollector(object):
                         del pending[fd]
 
                     elif evt & select.POLLHUP:
+                        logger.warning("Failed to collect stats from PID=%d", pid)
                         poller.unregister(fd)
                         del pending[fd]
 

@@ -2,8 +2,6 @@
 
 * Make sample rate configurable                                                               :FR:
 - all processors need to cleanup/setup on changes
-* Exception on shutdown                                                                      :BUG:
-- COLLECT_STATS in ProcessManager fails with unhandled ConnectionClosed
 * setup.py should build using cmake                                                           :FR:
 * crash on shutdown, when csound wants to log after LogSink has been destructed		   :CRASH:
 - is HostData properly cleaned up?
