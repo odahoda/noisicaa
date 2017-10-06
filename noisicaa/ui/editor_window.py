@@ -127,7 +127,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         while self._project_tabs.count() > 0:
             view = self._project_tabs.widget(0)
-            view.close()
+            await view.cleanup()
             self._project_tabs.removeTab(0)
         self._settings_dialog.close()
         self.close()
@@ -443,15 +443,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         logger.info("CloseEvent received")
-
-        for idx in range(self._project_tabs.count()):
-            view = self._project_tabs.widget(idx)
-            closed = view.close()
-            if not closed:
-                event.ignore()
-                return
-            self._project_tabs.removeTab(idx)
-
         event.accept()
         self.app.quit()
 

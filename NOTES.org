@@ -218,30 +218,6 @@ Traceback (most recent call last):
     raise NotListMemberError(self.id)
 noisicaa.core.model_base.NotListMemberError: 32e1b62e20524d16a584c65311960356
 
-* Exception on shutdown									   :CRASH:
-Traceback (most recent call last):
-  File "/storage/users/pink/projects/noisicaä/noisicaa/core/process_manager.py", line 236, in start_process
-    rc = impl.main(ready_callback)
-  File "/storage/users/pink/projects/noisicaä/noisicaa/core/process_manager.py", line 386, in main
-    self.main_async(ready_callback, *args, **kwargs))
-  File "/usr/lib/python3.5/asyncio/base_events.py", line 387, in run_until_complete
-    return future.result()
-  File "/usr/lib/python3.5/asyncio/futures.py", line 274, in result
-    raise self._exception
-  File "/usr/lib/python3.5/asyncio/tasks.py", line 239, in _step
-    result = coro.send(None)
-  File "/storage/users/pink/projects/noisicaä/noisicaa/core/process_manager.py", line 409, in main_async
-    await self.cleanup()
-  File "/storage/users/pink/projects/noisicaä/noisicaa/music/project_process.py", line 225, in cleanup
-    await self.node_db.cleanup()
-  File "/storage/users/pink/projects/noisicaä/noisicaa/node_db/client.py", line 34, in cleanup
-    await self.disconnect()
-  File "/storage/users/pink/projects/noisicaä/noisicaa/node_db/client.py", line 46, in disconnect
-    await self._stub.call('END_SESSION', self._session_id)
-  File "/storage/users/pink/projects/noisicaä/noisicaa/core/ipc.py", line 357, in call
-    raise ConnectionClosed
-noisicaa.core.ipc.ConnectionClosed
-
 * when changing scale_x, keep view centered on current position				      :FR:
 * clarify time handling									 :CLEANUP:
 - musical time

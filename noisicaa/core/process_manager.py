@@ -464,6 +464,11 @@ class ProcessManager(object):
 
                 rc = impl.main(child_connection)
 
+                for thread in threading.enumerate():
+                    if thread.ident == threading.get_ident():
+                        continue
+                    logger.warning("Left over thread %s (%d)", thread.name, thread.ident)
+
             except SystemExit as exc:
                 rc = exc.code
             except:  # pylint: disable=bare-except
@@ -658,8 +663,12 @@ class ProcessImpl(object):
             return self.event_loop.run_until_complete(
                 self.main_async(child_connection, *args, **kwargs))
         finally:
+            logger.info("Closing event loop...")
             self.event_loop.stop()
+            self.event_loop.run_until_complete(
+                asyncio.gather(*asyncio.Task.all_tasks(self.event_loop)))
             self.event_loop.close()
+            logger.info("Event loop closed.")
 
     async def main_async(self, child_connection, *args, **kwargs):
         self.manager = ManagerStub(self.event_loop, self.manager_address)
@@ -686,8 +695,10 @@ class ProcessImpl(object):
                         raise
 
                     finally:
+                        logger.info("Closing child connection...")
                         child_connection_handler.cleanup()
                         child_connection.close()
+                        logger.info("Child connection closed.")
 
                 finally:
                     await self.cleanup()

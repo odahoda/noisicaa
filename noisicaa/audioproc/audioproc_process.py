@@ -160,7 +160,10 @@ class AudioProcProcessMixin(object):
         self.sessions = {}
 
     async def cleanup(self):
+        logger.info("Cleaning up AudioProcProcess %s...", self.name)
+
         for session in self.sessions.values():
+            logger.info("Cleaning up session %s...", session.id)
             session.cleanup()
         self.sessions.clear()
 
@@ -169,10 +172,12 @@ class AudioProcProcessMixin(object):
             self.shm = None
 
         if self.__vm is not None:
+            logger.info("Cleaning up VM...")
             self.__vm.cleanup()
             self.__vm = None
 
         if self.__host_data is not None:
+            logger.info("Cleaning up HostData...")
             self.__host_data.cleanup()
             self.__host_data = None
 
