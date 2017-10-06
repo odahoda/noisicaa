@@ -524,14 +524,6 @@ class Player(object):
     async def cleanup(self):
         logger.info("Cleaning up player instance %s..", self.id)
 
-        for listener in self.group_listeners.values():
-            listener.remove()
-        self.group_listeners.clear()
-
-        for buffer_source in self.track_buffer_sources.values():
-            buffer_source.close()
-        self.track_buffer_sources.clear()
-
         if self.mutation_listener is not None:
             self.mutation_listener.remove()
             self.mutation_listener = None
@@ -562,6 +554,14 @@ class Player(object):
             logger.info("Stopping audio stream proxy...")
             self.proxy.cleanup()
             self.proxy = None
+
+        for listener in self.group_listeners.values():
+            listener.remove()
+        self.group_listeners.clear()
+
+        for buffer_source in self.track_buffer_sources.values():
+            buffer_source.close()
+        self.track_buffer_sources.clear()
 
         logger.info("Cleaning up player server...")
         await self.server.cleanup()

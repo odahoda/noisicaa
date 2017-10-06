@@ -177,6 +177,10 @@ class BaseEditorApp(QtWidgets.QApplication):
     async def cleanup(self):
         logger.info("Cleaning up.")
 
+        if self.project_registry is not None:
+            await self.project_registry.close_all()
+            self.project_registry = None
+
         if self.audioproc_client is not None:
             await self.audioproc_client.disconnect(shutdown=True)
             await self.audioproc_client.cleanup()
@@ -199,10 +203,6 @@ class BaseEditorApp(QtWidgets.QApplication):
         if self.sequencer is not None:
             self.sequencer.close()
             self.sequencer = None
-
-        if self.project_registry is not None:
-            await self.project_registry.close_all()
-            self.project_registry = None
 
     def quit(self, exit_code=0):
         self.process.quit(exit_code)

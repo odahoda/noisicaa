@@ -37,7 +37,10 @@ from . import stats
 logger = logging.getLogger(__name__)
 
 
-class RemoteException(Exception): pass
+class RemoteException(Exception):
+    def __init__(self, server_address, tb):
+        super().__init__("From server %s:\n%s" % (server_address, tb))
+
 class Error(Exception): pass
 class InvalidResponseError(Error): pass
 class ConnectionClosed(Error): pass
@@ -259,7 +262,7 @@ class ClientProtocol(asyncio.Protocol):
 
     def connection_lost(self, exc):
         self.closed_event.set()
-        logger.info("Client connection lost.")
+        logger.info("Client connection to %s lost.", self.stub.server_address)
         self.response_queue.put_nowait(self.stub.CLOSE_SENTINEL)
 
     def data_received(self, data):
@@ -322,6 +325,10 @@ class Stub(object):
         self._command_queue = None
         self._command_loop_cancelled = None
         self._command_loop_task = None
+
+    @property
+    def server_address(self):
+        return self._server_address
 
     @property
     def connected(self):
@@ -413,7 +420,7 @@ class Stub(object):
         elif response.startswith(b'OK:'):
             return self.deserialize(response[3:])
         elif response.startswith(b'EXC:'):
-            raise RemoteException(response[4:].decode('utf-8'))
+            raise RemoteException(self._server_address, response[4:].decode('utf-8'))
         else:
             raise InvalidResponseError(response)
 

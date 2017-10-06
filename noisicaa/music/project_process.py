@@ -83,6 +83,12 @@ class Session(object):
         listener.remove()
         del self._players[player.id]
 
+    async def clear_players(self):
+        for player_id, (listener, player) in self._players.items():
+            await player.cleanup()
+            listener.remove()
+        self._players.clear()
+
     def handle_pipeline_status(self, status):
         if 'node_state' in status:
             node_id, state = status['node_state']
@@ -373,14 +379,16 @@ class ProjectProcessMixin(object):
         await session.init_session_data(self.project.data_dir)
         return self.project.id
 
-    def handle_close(self):
+    async def handle_close(self):
         assert self.project is not None
 
         tasks = []
         for session in self.sessions.values():
             tasks.append(self.event_loop.create_task(
                 session.callback_stub.call('PROJECT_CLOSED')))
-        asyncio.wait(tasks, loop=self.event_loop)
+            tasks.append(self.event_loop.create_task(
+                session.clear_players()))
+        await asyncio.wait(tasks, loop=self.event_loop)
 
         self.project.close()
         self.project = None
