@@ -20,7 +20,10 @@
 #
 # @end:license
 
-class NodeDBProcessBase(object):
+from noisicaa import core
+
+
+class NodeDBProcessBase(core.ProcessBase):
     async def setup(self):
         await super().setup()
 

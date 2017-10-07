@@ -57,24 +57,6 @@ from . import project_client
 logger = logging.getLogger(__name__)
 
 
-class TestAudioProcProcessImpl(object):
-    def __init__(self, event_loop, name):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, name)
-
-    async def setup(self):
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
-
-
-class TestAudioProcProcess(
-        audioproc_process.AudioProcProcessMixin, TestAudioProcProcessImpl):
-    pass
-
-
 class TestAudioProcClientImpl(object):
     def __init__(self, event_loop, name):
         super().__init__()
@@ -137,7 +119,8 @@ class PlayerTest(asynctest.TestCase):
         self.callback_server = CallbackServer(self.loop)
         await self.callback_server.setup()
 
-        self.audioproc_server_main = TestAudioProcProcess(self.loop, 'main_process')
+        self.audioproc_server_main = audioproc_process.AudioProcProcess(
+            name='main_process', event_loop=self.loop, manager=None)
         await self.audioproc_server_main.setup()
         self.audioproc_server_main_task = self.loop.create_task(
             self.audioproc_server_main.run())
@@ -151,8 +134,8 @@ class PlayerTest(asynctest.TestCase):
         profile_path = None
         if constants.TEST_OPTS.ENABLE_PROFILER:
             profile_path = os.path.join(tempfile.gettempdir(), self.id() + '.prof')
-        self.audioproc_server_player = TestAudioProcProcess(
-            self.loop, 'player_process',
+        self.audioproc_server_player = audioproc_process.AudioProcProcess(
+            name='player_process', event_loop=self.loop, manager=None,
             profile_path=profile_path)
         await self.audioproc_server_player.setup()
         self.audioproc_server_player_task = self.loop.create_task(

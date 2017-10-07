@@ -51,26 +51,10 @@ class TestClient(client.NodeDBClientMixin, TestClientImpl):
     pass
 
 
-class TestProcessImpl(object):
-    def __init__(self, event_loop):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'audioproc')
-
-    async def setup(self):
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
-
-
-class TestProcess(process.NodeDBProcessMixin, TestProcessImpl):
-    pass
-
-
 class NodeDBClientTest(asynctest.TestCase):
     async def setUp(self):
-        self.process = TestProcess(self.loop)
+        self.process = process.NodeDBProcess(
+            name='node_db', event_loop=self.loop, manager=None)
         await self.process.setup()
         self.process_task = self.loop.create_task(
             self.process.run())

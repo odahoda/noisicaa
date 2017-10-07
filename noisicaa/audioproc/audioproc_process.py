@@ -99,9 +99,9 @@ class Session(object):
             self.publish_mutation(self.pending_mutations.pop(0))
 
 
-class AudioProcProcessMixin(object):
-    def __init__(self, *args, shm=None, profile_path=None, **kwargs):
-        super().__init__(*args, **kwargs)
+class AudioProcProcess(core.ProcessBase):
+    def __init__(self, *, shm=None, profile_path=None, **kwargs):
+        super().__init__(**kwargs)
         self.shm_name = shm
         self.profile_path = profile_path
         self.shm = None
@@ -382,5 +382,5 @@ class AudioProcProcessMixin(object):
         self.__vm.dump()
 
 
-class AudioProcProcess(AudioProcProcessMixin, core.ProcessImpl):
+class AudioProcSubprocess(core.SubprocessMixin, AudioProcProcess):
     pass

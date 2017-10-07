@@ -244,9 +244,11 @@ class ChildCollector(object):
         self.__stop = threading.Event()
         self.__thread = threading.Thread(target=self.__main)
         self.__thread.start()
+        logger.info("Started ChildCollector thread 0x%08x", self.__thread.ident)
 
     def cleanup(self):
         if self.__thread is not None:
+            logger.info("Stopping ChildCollector thread 0x%08x", self.__thread.ident)
             self.__stop.set()
             self.__thread.join()
             self.__thread = None
@@ -331,15 +333,19 @@ class ChildCollector(object):
 
 
 class ProcessManager(object):
-    def __init__(self, event_loop):
+    def __init__(self, event_loop, collect_stats=True):
         self._event_loop = event_loop
         self._processes = {}
         self._sigchld_received = asyncio.Event()
 
         self._server = ipc.Server(event_loop, 'manager')
-        self._stats_collector = stats.Collector()
-        self._child_collector = ChildCollector(
-            self._stats_collector)
+
+        if collect_stats:
+            self._stats_collector = stats.Collector()
+            self._child_collector = ChildCollector(self._stats_collector)
+        else:
+            self._stats_collector = None
+            self._child_collector = None
 
     @property
     def server(self):
@@ -356,10 +362,13 @@ class ProcessManager(object):
             'STATS_FETCH', self.handle_stats_fetch)
 
         await self._server.setup()
-        self._child_collector.setup()
+
+        if self._child_collector is not None:
+            self._child_collector.setup()
 
     async def cleanup(self):
-        self._child_collector.cleanup()
+        if self._child_collector is not None:
+            self._child_collector.cleanup()
 
         await self.terminate_all_children()
         await self._server.cleanup()
@@ -420,8 +429,8 @@ class ProcessManager(object):
                 for sig in signal.Signals:
                     self._event_loop.remove_signal_handler(sig)
 
-                # Clear all stats inherited from the manager process.
-                stats.registry.clear()
+                # Create a new stats registry for this process.
+                stats.registry = stats.Registry()
 
                 # Close the "other ends" of the pipes.
                 os.close(request_out)
@@ -494,7 +503,7 @@ class ProcessManager(object):
             proc.pid = pid
             proc.create_loggers()
 
-            proc.logger.info("Created new subprocess.")
+            proc.logger.info("Created new subprocess '%s' (%s).", name, cls)
 
             await proc.setup_std_handlers(
                 self._event_loop, stdout_in, stderr_in, logger_in)
@@ -505,7 +514,10 @@ class ProcessManager(object):
 
             stub_address = await child_connection.read_async(self._event_loop)
 
-            self._child_collector.add_child(pid, child_connection)
+            if self._child_collector is not None:
+                self._child_collector.add_child(pid, child_connection)
+            else:
+                child_connection.close()
 
             proc.address = stub_address.decode('utf-8')
             logger.info(
@@ -575,13 +587,18 @@ class ProcessManager(object):
             dead_children.add(pid)
 
         for pid in dead_children:
-            self._child_collector.remove_child(pid)
+            if self._child_collector is not None:
+                self._child_collector.remove_child(pid)
             del self._processes[pid]
 
     def handle_stats_list(self):
+        if self._stats_collector is None:
+            return RuntimeError("Stats collection not enabled.")
         return self._stats_collector.list_stats()
 
     def handle_stats_fetch(self, expressions):
+        if self._stats_collector is None:
+            return RuntimeError("Stats collection not enabled.")
         return self._stats_collector.fetch_stats(expressions)
 
 
@@ -596,10 +613,11 @@ class ChildConnectionHandler(object):
         self.__stop = eventfd.EventFD()
         self.__thread = threading.Thread(target=self.__main)
         self.__thread.start()
+        logger.info("Started ChildConnectionHandler thread 0x%08x", self.__thread.ident)
 
     def cleanup(self):
         if self.__thread is not None:
-            logger.info("Stopping ChildConnectionHandler...")
+            logger.info("Stopping ChildConnectionHandler thread 0x%08x...", self.__thread.ident)
             self.__stop.set()
             self.__thread.join()
             self.__thread = None
@@ -633,15 +651,31 @@ class ChildConnectionHandler(object):
         logger.info("ChildConnectionHandler stopped.")
 
 
-class ProcessImpl(object):
-    def __init__(self, name, manager_address):
+class ProcessBase(object):
+    def __init__(self, *, name, manager, event_loop):
         self.name = name
-        self.manager_address = manager_address
-        self.event_loop = None
-        self.pid = os.getpid()
-
-        self.manager = None
+        self.manager = manager
+        self.event_loop = event_loop
         self.server = None
+
+    async def setup(self):
+        self.server = ipc.Server(self.event_loop, self.name)
+        await self.server.setup()
+
+    async def cleanup(self):
+        await self.server.cleanup()
+        self.server = None
+
+    async def run(self):
+        raise NotImplementedError(type(self).__name__)
+
+
+class SubprocessMixin(object):
+    def __init__(self, *, manager_address, **kwargs):
+        super().__init__(manager=None, event_loop=None, **kwargs)
+
+        self.manager_address = manager_address
+        self.pid = os.getpid()
 
     def create_event_loop(self):
         return asyncio.new_event_loop()
@@ -664,53 +698,42 @@ class ProcessImpl(object):
                 self.main_async(child_connection, *args, **kwargs))
         finally:
             logger.info("Closing event loop...")
-            self.event_loop.stop()
             self.event_loop.run_until_complete(
                 asyncio.gather(*asyncio.Task.all_tasks(self.event_loop)))
+            self.event_loop.stop()
             self.event_loop.close()
             logger.info("Event loop closed.")
 
     async def main_async(self, child_connection, *args, **kwargs):
         self.manager = ManagerStub(self.event_loop, self.manager_address)
         async with self.manager:
-            self.server = ipc.Server(self.event_loop, self.name)
-            async with self.server:
+            try:
+                logger.info("Setting up process.")
+                await self.setup()
+
+                stub_address = self.server.address.encode('utf-8')
+                child_connection.write(stub_address)
+
+                child_connection_handler = ChildConnectionHandler(child_connection)
+                child_connection_handler.setup()
                 try:
-                    logger.info("Setting up process.")
-                    await self.setup()
+                    logger.info("Entering run method.")
+                    return await self.run(*args, **kwargs)
 
-                    stub_address = self.server.address.encode('utf-8')
-                    child_connection.write(stub_address)
-
-                    child_connection_handler = ChildConnectionHandler(child_connection)
-                    child_connection_handler.setup()
-                    try:
-                        logger.info("Entering run method.")
-                        return await self.run(*args, **kwargs)
-
-                    except Exception as exc:
-                        logger.error(
-                            "Unhandled exception in process %s:\n%s",
-                            self.name, traceback.format_exc())
-                        raise
-
-                    finally:
-                        logger.info("Closing child connection...")
-                        child_connection_handler.cleanup()
-                        child_connection.close()
-                        logger.info("Child connection closed.")
+                except Exception as exc:
+                    logger.error(
+                        "Unhandled exception in process %s:\n%s",
+                        self.name, traceback.format_exc())
+                    raise
 
                 finally:
-                    await self.cleanup()
+                    logger.info("Closing child connection...")
+                    child_connection_handler.cleanup()
+                    child_connection.close()
+                    logger.info("Child connection closed.")
 
-    async def setup(self):
-        pass
-
-    async def cleanup(self):
-        pass
-
-    async def run(self):
-        raise NotImplementedError("Subclass must override run")
+            finally:
+                await self.cleanup()
 
 
 class SetPIDHandler(logging.Handler):

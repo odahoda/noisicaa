@@ -100,13 +100,17 @@ def main(argv):
         print(' '.join(subargv))
         os.execv(subargv[0], subargv)
 
-    logging.basicConfig()
-    logging.getLogger().setLevel({
-        'debug': logging.DEBUG,
-        'info': logging.INFO,
-        'warning': logging.WARNING,
-        'error': logging.ERROR,
-        'critical': logging.CRITICAL,
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        root_logger.removeHandler(handler)
+    logging.basicConfig(
+        format='%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s',
+        level={
+            'debug': logging.DEBUG,
+            'info': logging.INFO,
+            'warning': logging.WARNING,
+            'error': logging.ERROR,
+            'critical': logging.CRITICAL,
         }[args.log_level])
 
     if args.rebuild:

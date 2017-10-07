@@ -54,9 +54,9 @@ class Session(object):
         await self.callback_stub.call('NODEDB_MUTATION', mutation)
 
 
-class NodeDBProcessMixin(process_base.NodeDBProcessBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class NodeDBProcess(process_base.NodeDBProcessBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.sessions = {}
         self.db = db.NodeDB()
 
@@ -117,5 +117,5 @@ class NodeDBProcessMixin(process_base.NodeDBProcessBase):
         return self.db.start_scan()
 
 
-class NodeDBProcess(NodeDBProcessMixin, core.ProcessImpl):
+class NodeDBSubprocess(core.SubprocessMixin, NodeDBProcess):
     pass

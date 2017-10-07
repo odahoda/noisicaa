@@ -186,9 +186,9 @@ class NodeDBClient(node_db.NodeDBClientMixin, NodeDBClientImpl):
     pass
 
 
-class ProjectProcessMixin(object):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class ProjectProcess(core.ProcessBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self._shutting_down = None
 
@@ -488,5 +488,5 @@ class ProjectProcessMixin(object):
         session.set_values(data, from_client=True)
 
 
-class ProjectProcess(ProjectProcessMixin, core.ProcessImpl):
+class ProjectSubprocess(core.SubprocessMixin, ProjectProcess):
     pass

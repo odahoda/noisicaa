@@ -68,30 +68,13 @@ class AudioProcClient(
         self.window.handle_pipeline_status(status)
 
 
-class AudioProcProcessImpl(object):
-    def __init__(self, event_loop):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'process')
-
-    async def setup(self):
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
-
-
-class AudioProcProcess(
-        audioproc_process.AudioProcProcessMixin, AudioProcProcessImpl):
-    pass
-
-
 class AudioPlaygroundApp(QtWidgets.QApplication):
     def __init__(self):
         super().__init__(['noisipg'])
 
     async def main(self, event_loop):
-        audioproc = AudioProcProcess(event_loop)
+        audioproc = audioproc_process.AudioProcProcess(
+            name='audioproc', event_loop=event_loop, manager=None)
         await audioproc.setup()
         try:
             window = AudioPlaygroundWindow(event_loop)

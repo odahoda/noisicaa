@@ -20,7 +20,10 @@
 #
 # @end:license
 
-class InstrumentDBProcessBase(object):
+from noisicaa import core
+
+
+class InstrumentDBProcessBase(core.ProcessBase):
     async def setup(self):
         await super().setup()
 

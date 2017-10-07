@@ -80,9 +80,9 @@ class Session(object):
         self.pending_mutations.clear()
 
 
-class InstrumentDBProcessMixin(process_base.InstrumentDBProcessBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class InstrumentDBProcess(process_base.InstrumentDBProcessBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.sessions = {}
         self.db = None
         self.search_paths = [
@@ -168,5 +168,5 @@ class InstrumentDBProcessMixin(process_base.InstrumentDBProcessBase):
         return self.db.start_scan(self.search_paths, True)
 
 
-class InstrumentDBProcess(InstrumentDBProcessMixin, core.ProcessImpl):
+class InstrumentDBSubprocess(core.SubprocessMixin, InstrumentDBProcess):
     pass

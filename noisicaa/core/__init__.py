@@ -33,7 +33,9 @@ from .model_base import (
     DeferredReference,
 )
 from .process_manager import (
-    ProcessManager, ProcessImpl
+    ProcessManager,
+    ProcessBase,
+    SubprocessMixin,
 )
 from .callbacks import (
     CallbackRegistry,

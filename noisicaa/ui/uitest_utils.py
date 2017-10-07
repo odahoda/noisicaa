@@ -30,6 +30,7 @@ import asynctest
 from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
 
+from noisicaa import core
 from noisicaa import instrument_db
 from noisicaa import node_db
 from noisicaa.core import ipc
@@ -139,20 +140,7 @@ class AsyncSetupBase():
         pass
 
 
-class TestNodeDBProcess(node_db.NodeDBProcessBase, AsyncSetupBase):
-    def __init__(self, event_loop):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'node_db')
-
-    async def setup(self):
-        await super().setup()
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
-        await super().cleanup()
-
+class TestNodeDBProcess(node_db.NodeDBProcessBase):
     def handle_start_session(self, client_address, flags):
         return '123'
 
@@ -163,20 +151,7 @@ class TestNodeDBProcess(node_db.NodeDBProcessBase, AsyncSetupBase):
         pass
 
 
-class TestInstrumentDBProcess(instrument_db.InstrumentDBProcessBase, AsyncSetupBase):
-    def __init__(self, event_loop):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'instrument_db')
-
-    async def setup(self):
-        await super().setup()
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
-        await super().cleanup()
-
+class TestInstrumentDBProcess(instrument_db.InstrumentDBProcessBase):
     def handle_start_session(self, client_address, flags):
         return '123'
 
@@ -187,18 +162,10 @@ class TestInstrumentDBProcess(instrument_db.InstrumentDBProcessBase, AsyncSetupB
         pass
 
 
-class MockProcess(object):
-    def __init__(self, event_loop, manager):
-        self.event_loop = event_loop
-        self.manager = manager
+class MockProcess(core.ProcessBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.project = None
-        self.server = ipc.Server(self.event_loop, 'ui')
-
-    async def setup(self):
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
 
 
 class MockApp(BaseEditorApp):
@@ -221,10 +188,12 @@ class UITest(asynctest.TestCase):
     app = None
 
     async def setUp(self):
-        self.node_db_process = TestNodeDBProcess(self.loop)
+        self.node_db_process = TestNodeDBProcess(
+            name='node_db', event_loop=self.loop, manager=None)
         await self.node_db_process.setup()
 
-        self.instrument_db_process = TestInstrumentDBProcess(self.loop)
+        self.instrument_db_process = TestInstrumentDBProcess(
+            name='instrument_db', event_loop=self.loop, manager=None)
         await self.instrument_db_process.setup()
 
         self.manager = mock.Mock()
@@ -238,7 +207,8 @@ class UITest(asynctest.TestCase):
 
         self.manager.call.side_effect = mock_call
 
-        self.process = MockProcess(self.loop, self.manager)
+        self.process = MockProcess(
+            name='ui', event_loop=self.loop, manager=self.manager)
         await self.process.setup()
 
         if UITest.app is None:

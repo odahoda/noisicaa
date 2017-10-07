@@ -99,7 +99,7 @@ class Editor(object):
         while True:
             next_retry = time.time() + 5
             proc = await self.manager.start_process(
-                'ui', 'noisicaa.ui.ui_process.UIProcess',
+                'ui', 'noisicaa.ui.ui_process.UISubprocess',
                 runtime_settings=self.runtime_settings,
                 paths=self.paths)
             await proc.wait()
@@ -141,7 +141,7 @@ class Editor(object):
         # TODO: keep map of uri->proc, only create processes for new
         # URIs.
         proc = await self.manager.start_process(
-            'project', 'noisicaa.music.project_process.ProjectProcess')
+            'project', 'noisicaa.music.project_process.ProjectSubprocess')
         return proc.address
 
     async def handle_create_audioproc_process(self, name, **kwargs):
@@ -149,7 +149,7 @@ class Editor(object):
         # names.
         proc = await self.manager.start_process(
             'audioproc<%s>' % name,
-            'noisicaa.audioproc.audioproc_process.AudioProcProcess',
+            'noisicaa.audioproc.audioproc_process.AudioProcSubprocess',
             **kwargs)
         return proc.address
 
@@ -158,7 +158,7 @@ class Editor(object):
             if self.node_db_process is None:
                 self.node_db_process = await self.manager.start_process(
                     'node_db',
-                    'noisicaa.node_db.process.NodeDBProcess')
+                    'noisicaa.node_db.process.NodeDBSubprocess')
 
         return self.node_db_process.address
 
@@ -167,7 +167,7 @@ class Editor(object):
             if self.instrument_db_process is None:
                 self.instrument_db_process = await self.manager.start_process(
                     'instrument_db',
-                    'noisicaa.instrument_db.process.InstrumentDBProcess')
+                    'noisicaa.instrument_db.process.InstrumentDBSubprocess')
 
         return self.instrument_db_process.address
 

@@ -52,24 +52,6 @@ class TestClient(audioproc_client.AudioProcClientMixin, TestClientImpl):
     pass
 
 
-class TestAudioProcProcessImpl(object):
-    def __init__(self, event_loop):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'audioproc')
-
-    async def setup(self):
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
-
-
-class TestAudioProcProcess(
-        audioproc_process.AudioProcProcessMixin, TestAudioProcProcessImpl):
-    pass
-
-
 class ProxyTest(asynctest.TestCase):
     async def setUp(self):
         self.passthru_description = node_db.ProcessorDescription(
@@ -89,7 +71,8 @@ class ProxyTest(asynctest.TestCase):
                     direction=node_db.PortDirection.Output),
             ])
 
-        self.audioproc_process = TestAudioProcProcess(self.loop)
+        self.audioproc_process = audioproc_process.AudioProcProcess(
+            name='audioproc', event_loop=self.loop, manager=None)
         await self.audioproc_process.setup()
         self.audioproc_task = self.loop.create_task(
             self.audioproc_process.run())

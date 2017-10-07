@@ -34,8 +34,8 @@ from . import editor_app
 logger = logging.getLogger(__name__)
 
 
-class UIProcessMixin(object):
-    def __init__(self, runtime_settings, paths, **kwargs):
+class UISubprocess(core.SubprocessMixin, core.ProcessBase):
+    def __init__(self, *, runtime_settings, paths, **kwargs):
         super().__init__(**kwargs)
 
         self.app = self.create_app(self, runtime_settings, paths)
@@ -69,7 +69,3 @@ class UIProcessMixin(object):
     def handle_signal(self, sig):
         logger.info("%s received.", sig.name)
         self.quit(0)
-
-
-class UIProcess(UIProcessMixin, core.ProcessImpl):
-    pass
