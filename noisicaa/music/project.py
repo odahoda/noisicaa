@@ -340,9 +340,6 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
 
             track1_mixer = track1.mixer_node
 
-            track1_mixer.set_port_parameters('out:left', volume=0.2)
-            track1_mixer.set_port_parameters('out:right', volume=0.2)
-
             for connection in s.pipeline_graph_connections:
                 if (connection.source_node.id == track1_mixer.id
                     and connection.source_port == 'out:left'):

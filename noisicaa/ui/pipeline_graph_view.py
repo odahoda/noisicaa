@@ -413,31 +413,6 @@ class NodePropertyDialog(
                     for p in node.port_property_values
                     if p.port_name == port.name)
 
-                muted_widget = mute_button.MuteButton(self)
-                muted_widget.setChecked(
-                    port_property_values.get('muted', False))
-                volume_widget = QtWidgets.QDoubleSpinBox(
-                    self,
-                    suffix='%',
-                    minimum=0.0, maximum=1000.0, decimals=1,
-                    singleStep=5, accelerated=True)
-                volume_widget.setEnabled(
-                    not port_property_values.get('muted', False))
-                volume_widget.setValue(
-                    port_property_values.get('volume', 100.0))
-
-                muted_widget.toggled.connect(functools.partial(
-                    self.onPortMutedEdited, port, volume_widget))
-                volume_widget.valueChanged.connect(functools.partial(
-                    self.onPortVolumeEdited, port))
-
-                row_layout = QtWidgets.QHBoxLayout()
-                row_layout.setSpacing(0)
-                row_layout.addWidget(muted_widget)
-                row_layout.addWidget(volume_widget, 1)
-                layout.addRow(
-                    "Volume (port <i>%s</i>)" % port.name, row_layout)
-
                 # TODO: port can be bypassable without dry/wet
                 if port.drywet_port is not None:
                     bypass_widget = QtWidgets.QToolButton(
@@ -635,21 +610,8 @@ class NodePropertyDialog(
                 parameter_name=parameter.name,
                 str_value=value)
 
-    def onPortMutedEdited(self, port, volume_widget, value):
-        volume_widget.setEnabled(not value)
-        self.send_command_async(
-            self._node_item.node.id, 'SetPipelineGraphPortParameter',
-            port_name=port.name,
-            muted=value)
-
-    def onPortVolumeEdited(self, port, value):
-        self.send_command_async(
-            self._node_item.node.id, 'SetPipelineGraphPortParameter',
-            port_name=port.name,
-            volume=value)
-
-    def onPortBypassEdited(self, port, volume_widget, value):
-        volume_widget.setEnabled(not value)
+    def onPortBypassEdited(self, port, drywet_widget, value):
+        drywet_widget.setEnabled(not value)
         self.send_command_async(
             self._node_item.node.id, 'SetPipelineGraphPortParameter',
             port_name=port.name,

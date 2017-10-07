@@ -117,21 +117,16 @@ commands.Command.register_command(SetPipelineGraphControlValue)
 
 class SetPipelineGraphPortParameter(commands.Command):
     port_name = core.Property(str)
-    muted = core.Property(bool, allow_none=True)
-    volume = core.Property(float, allow_none=True)
     bypass = core.Property(bool, allow_none=True)
     drywet = core.Property(float, allow_none=True)
 
     def __init__(
             self, port_name=None,
-            muted=None, volume=None,
             bypass=None, drywet=None,
             state=None):
         super().__init__(state=state)
         if state is None:
             self.port_name = port_name
-            self.muted = muted
-            self.volume = volume
             self.bypass = bypass
             self.drywet = drywet
 
@@ -140,7 +135,6 @@ class SetPipelineGraphPortParameter(commands.Command):
 
         node.set_port_parameters(
             self.port_name,
-            muted=self.muted, volume=self.volume,
             bypass=self.bypass, drywet=self.drywet)
 
 commands.Command.register_command(SetPipelineGraphPortParameter)
@@ -292,9 +286,8 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
             audioproc.SetNodeParameter(
                 self.pipeline_node_id, **parameters))
 
-    def set_port_parameters(self, port_name, muted=None, volume=None, bypass=None, drywet=None):
+    def set_port_parameters(self, port_name, bypass=None, drywet=None):
         for prop_name, value in (
-                ('muted', muted), ('volume', volume),
                 ('bypass', bypass), ('drywet', drywet)):
             if value is None:
                 continue
@@ -312,7 +305,6 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
         self.sheet.handle_pipeline_mutation(
             audioproc.SetPortProperty(
                 self.pipeline_node_id, port_name,
-                muted=muted, volume=volume,
                 bypass=bypass, drywet=drywet))
 
     def set_control_value(self, port_name, value):
@@ -444,14 +436,6 @@ class TrackMixerPipelineGraphNode(
                 description=self.description,
                 id=self.pipeline_node_id,
                 name=self.name))
-        self.sheet.handle_pipeline_mutation(
-            audioproc.SetPortProperty(
-                self.pipeline_node_id, 'out:left',
-                muted=self.track.muted, volume=self.track.volume))
-        self.sheet.handle_pipeline_mutation(
-            audioproc.SetPortProperty(
-                self.pipeline_node_id, 'out:right',
-                muted=self.track.muted, volume=self.track.volume))
 
         self.set_initial_parameters()
 

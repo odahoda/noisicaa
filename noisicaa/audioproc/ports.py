@@ -86,17 +86,8 @@ class InputPort(Port):
 class OutputPort(Port):
     def __init__(self, *, bypass_port=None, **kwargs):
         super().__init__(**kwargs)
-        self._muted = False
         self._bypass = False
         self._bypass_port = bypass_port
-
-    @property
-    def muted(self):
-        return self._muted
-
-    @muted.setter
-    def muted(self, value):
-        self._muted = bool(value)
 
     @property
     def bypass_port(self):
@@ -111,10 +102,8 @@ class OutputPort(Port):
         assert self._bypass_port is not None
         self._bypass = bool(value)
 
-    def set_prop(self, muted=None, bypass=None, **kwargs):
+    def set_prop(self, bypass=None, **kwargs):
         super().set_prop(**kwargs)
-        if muted is not None:
-            self.muted = muted
         if bypass is not None:
             self.bypass = bypass
 
@@ -133,20 +122,8 @@ class AudioOutputPort(OutputPort):
     def __init__(self, *, drywet_port=None, **kwargs):
         super().__init__(**kwargs)
 
-        self._volume = 100.0
         self._drywet = 0.0
         self._drywet_port = drywet_port
-
-    @property
-    def volume(self):
-        return self._volume
-
-    @volume.setter
-    def volume(self, value):
-        value = float(value)
-        if value < 0.0:
-            raise ValueError("Invalid volume.")
-        self._volume = float(value)
 
     @property
     def drywet_port(self):
@@ -163,10 +140,8 @@ class AudioOutputPort(OutputPort):
             raise ValueError("Invalid dry/wet value.")
         self._drywet = float(value)
 
-    def set_prop(self, volume=None, drywet=None, **kwargs):
+    def set_prop(self, drywet=None, **kwargs):
         super().set_prop(**kwargs)
-        if volume is not None:
-            self.volume = volume
         if drywet is not None:
             self.drywet = drywet
 

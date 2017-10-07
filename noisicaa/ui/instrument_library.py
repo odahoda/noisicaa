@@ -638,14 +638,14 @@ properties: {properties}
     def keyReleaseEvent(self, event):
         self.piano.keyReleaseEvent(event)
 
-    def onNoteOn(self, note, volume):
+    def onNoteOn(self, note, velocity):
         if self._pipeline_event_source_id is not None:
             self.call_async(
                 self.audioproc_client.send_message(
                     core.build_message(
                         {core.MessageKey.trackId: 'instrument_library'},
                         core.MessageType.atom,
-                        lv2.AtomForge.build_midi_noteon(0, note.midi_note, volume))))
+                        lv2.AtomForge.build_midi_noteon(0, note.midi_note, velocity))))
 
     def onNoteOff(self, note):
         if self._pipeline_event_source_id is not None:

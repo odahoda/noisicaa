@@ -53,6 +53,7 @@ set(LIB_SRCS
   processor_fluidsynth.cpp
   processor_sample_player.cpp
   processor_sound_file.cpp
+  processor_track_mixer.cpp
   spec.cpp
   vm.cpp
 )
@@ -70,6 +71,7 @@ set(TEST_SRCS
   processor_fluidsynth_test.pyx
   processor_sample_player_test.pyx
   processor_sound_file_test.pyx
+  processor_track_mixer_test.pyx
   spec_test.pyx
   vm_test.pyx
 )

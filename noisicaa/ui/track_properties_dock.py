@@ -57,26 +57,47 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
         self._listeners.append(
             self._track.listeners.add('muted', self.onMutedChanged))
 
-        self._volume = QtWidgets.QDoubleSpinBox(
+        self._gain = QtWidgets.QDoubleSpinBox(
             self,
-            suffix='%',
-            minimum=0.0, maximum=1000.0, decimals=1,
-            singleStep=5, accelerated=True)
-        self._volume.valueChanged.connect(self.onVolumeEdited)
-        self._volume.setVisible(True)
-        self._volume.setValue(self._track.volume)
-        self._volume.setEnabled(not self._track.muted)
+            suffix='dB',
+            minimum=-80.0, maximum=20.0, decimals=1,
+            singleStep=0.1, accelerated=True)
+        self._gain.valueChanged.connect(self.onGainEdited)
+        self._gain.setVisible(True)
+        self._gain.setValue(self._track.gain)
+        self._gain.setEnabled(not self._track.muted)
         self._listeners.append(
-            self._track.listeners.add('volume', self.onVolumeChanged))
+            self._track.listeners.add('gain', self.onGainChanged))
 
         self._form_layout = QtWidgets.QFormLayout(spacing=1)
         self._form_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         self._form_layout.addRow("Name", self._name)
 
-        volume_layout = QtWidgets.QHBoxLayout()
-        volume_layout.addWidget(self._muted)
-        volume_layout.addWidget(self._volume, 1)
-        self._form_layout.addRow("Volume", volume_layout)
+        gain_layout = QtWidgets.QHBoxLayout()
+        gain_layout.addWidget(self._muted)
+        gain_layout.addWidget(self._gain, 1)
+        self._form_layout.addRow("Gain", gain_layout)
+
+        self._pan = QtWidgets.QDoubleSpinBox(
+            self,
+            minimum=-1.0, maximum=1.0, decimals=2,
+            singleStep=0.1, accelerated=True)
+        self._pan.valueChanged.connect(self.onPanEdited)
+        self._pan.setVisible(True)
+        self._pan.setValue(self._track.pan)
+        self._listeners.append(
+            self._track.listeners.add('pan', self.onPanChanged))
+
+        self._form_layout = QtWidgets.QFormLayout(spacing=1)
+        self._form_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+        self._form_layout.addRow("Name", self._name)
+
+        gain_layout = QtWidgets.QHBoxLayout()
+        gain_layout.addWidget(self._muted)
+        gain_layout.addWidget(self._gain, 1)
+        self._form_layout.addRow("Gain", gain_layout)
+
+        self._form_layout.addRow("Pan", self._pan)
 
         self.setLayout(self._form_layout)
 
@@ -93,22 +114,30 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
             self.send_command_async(
                 self._track.id, 'UpdateTrackProperties', name=name)
 
-    def onVolumeChanged(self, old_volume, new_volume):
-        self._volume.setValue(new_volume)
+    def onGainChanged(self, old_gain, new_gain):
+        self._gain.setValue(new_gain)
 
-    def onVolumeEdited(self, volume):
-        if volume != self._track.volume:
+    def onGainEdited(self, gain):
+        if gain != self._track.gain:
             self.send_command_async(
-                self._track.id, 'UpdateTrackProperties', volume=volume)
+                self._track.id, 'UpdateTrackProperties', gain=gain)
 
     def onMutedChanged(self, old_value, new_value):
         self._muted.setChecked(new_value)
-        self._volume.setEnabled(not new_value)
+        self._gain.setEnabled(not new_value)
 
     def onMutedEdited(self, muted):
         if muted != self._track.muted:
             self.send_command_async(
                 self._track.id, 'UpdateTrackProperties', muted=muted)
+
+    def onPanChanged(self, old_value, new_value):
+        self._pan.setValue(new_value)
+
+    def onPanEdited(self, value):
+        if value != self._track.pan:
+            self.send_command_async(
+                self._track.id, 'UpdateTrackProperties', pan=value)
 
 
 class TrackGroupProperties(TrackProperties):

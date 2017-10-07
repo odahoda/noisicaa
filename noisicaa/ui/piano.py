@@ -70,7 +70,7 @@ class PianoKey(QGraphicsRectItem):
     def press(self):
         self.setBrush(QBrush(QColor(0, 120, 255)))
         self._piano.noteOn.emit(
-            music.Pitch(self._name), self._piano.volume.value())
+            music.Pitch(self._name), self._piano.velocity.value())
 
     def release(self):
         if self._type == self.WHITE:
@@ -263,13 +263,13 @@ class PianoWidget(QWidget):
         #tb.setIcon(QIcon.fromTheme('multimedia-volume-control'))
         #toolbar.addWidget(tb)
 
-        self.volume = QSlider(Qt.Horizontal, self)
-        self.volume.setMinimumWidth(200)
-        self.volume.setMinimum(0)
-        self.volume.setMaximum(127)
-        self.volume.setValue(127)
-        self.volume.setTickPosition(QSlider.TicksBothSides)
-        toolbar.addWidget(self.volume)
+        self.velocity = QSlider(Qt.Horizontal, self)
+        self.velocity.setMinimumWidth(200)
+        self.velocity.setMinimum(0)
+        self.velocity.setMaximum(127)
+        self.velocity.setValue(127)
+        self.velocity.setTickPosition(QSlider.TicksBothSides)
+        toolbar.addWidget(self.velocity)
 
         toolbar.addStretch(1)
 

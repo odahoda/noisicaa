@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 TrackMixerDescription = node_db.ProcessorDescription(
     display_name='Mixer',
-    processor_name='custom_csound',  # TODO: 'track_mixer'
+    processor_name='track_mixer',
     ports=[
         node_db.AudioPortDescription(
             name='in:left',
@@ -47,21 +47,15 @@ TrackMixerDescription = node_db.ProcessorDescription(
         node_db.AudioPortDescription(
             name='out:right',
             direction=node_db.PortDirection.Output),
-    ],
-    parameters=[
-        node_db.StringParameterDescription(
-            name='csound_orchestra',
-            hidden=True,
-            default=textwrap.dedent("""\
-                instr 2
-                    gaOutLeft = gaInLeft
-                    gaOutRight = gaInRight
-                endin
-            """)),
-        node_db.StringParameterDescription(
-            name='csound_score',
-            hidden=True,
-            default='i2 0 -1'),
+        node_db.KRateControlPortDescription(
+            name='gain',
+            direction=node_db.PortDirection.Input),
+        node_db.KRateControlPortDescription(
+            name='muted',
+            direction=node_db.PortDirection.Input),
+        node_db.KRateControlPortDescription(
+            name='pan',
+            direction=node_db.PortDirection.Input),
     ])
 
 IPCDescription = node_db.ProcessorDescription(

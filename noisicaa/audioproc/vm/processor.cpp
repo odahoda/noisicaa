@@ -33,6 +33,7 @@
 #include "noisicaa/audioproc/vm/processor_ipc.h"
 #include "noisicaa/audioproc/vm/processor_fluidsynth.h"
 #include "noisicaa/audioproc/vm/processor_sound_file.h"
+#include "noisicaa/audioproc/vm/processor_track_mixer.h"
 
 namespace noisicaa {
 
@@ -66,6 +67,8 @@ StatusOr<Processor*> Processor::create(
     return new ProcessorSamplePlayer(node_id, host_data);
   } else if (name == "sound_file") {
     return new ProcessorSoundFile(node_id, host_data);
+  } else if (name == "track_mixer") {
+    return new ProcessorTrackMixer(node_id, host_data);
   }
 
   return ERROR_STATUS("Invalid processor name '%s'", name.c_str());

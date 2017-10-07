@@ -38,7 +38,8 @@ class Track(core.ObjectBase):
 
     visible = core.Property(bool, default=True)
     muted = core.Property(bool, default=False)
-    volume = core.Property(float, default=100.0)
+    gain = core.Property(float, default=0.0)
+    pan = core.Property(float, default=0.0)
 
     mixer_id = core.Property(str, allow_none=True)
 

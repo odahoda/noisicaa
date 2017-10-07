@@ -103,20 +103,22 @@ class UpdateTrackProperties(commands.Command):
     name = core.Property(str, allow_none=True)
     visible = core.Property(bool, allow_none=True)
     muted = core.Property(bool, allow_none=True)
-    volume = core.Property(float, allow_none=True)
+    gain = core.Property(float, allow_none=True)
+    pan = core.Property(float, allow_none=True)
 
     # TODO: this only applies to ScoreTrack... use separate command for
     #   class specific properties?
     transpose_octaves = core.Property(int, allow_none=True)
 
-    def __init__(self, name=None, visible=None, muted=None, volume=None,
+    def __init__(self, name=None, visible=None, muted=None, gain=None, pan=None,
                  transpose_octaves=None, state=None):
         super().__init__(state=state)
         if state is None:
             self.name = name
             self.visible = visible
             self.muted = muted
-            self.volume = volume
+            self.gain = gain
+            self.pan = pan
             self.transpose_octaves = transpose_octaves
 
     def run(self, track):
@@ -130,15 +132,15 @@ class UpdateTrackProperties(commands.Command):
 
         if self.muted is not None:
             track.muted = self.muted
-            track.sheet.handle_pipeline_mutation(
-                mutations.SetPortProperty(
-                    track.mixer_name, 'out', muted=track.muted))
+            track.mixer_node.set_control_value('muted', float(self.muted))
 
-        if self.volume is not None:
-            track.volume = self.volume
-            track.sheet.handle_pipeline_mutation(
-                mutations.SetPortProperty(
-                    track.mixer_name, 'out', volume=track.volume))
+        if self.gain is not None:
+            track.gain = self.gain
+            track.mixer_node.set_control_value('gain', self.gain)
+
+        if self.pan is not None:
+            track.pan = self.pan
+            track.mixer_node.set_control_value('pan', self.pan)
 
         if self.transpose_octaves is not None:
             track.transpose_octaves = self.transpose_octaves
