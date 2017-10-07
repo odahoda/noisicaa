@@ -71,13 +71,30 @@ def main(argv):
         with open('/tmp/noisicaa.gdbinit', 'w') as fp:
             fp.write(textwrap.dedent('''\
                 set print thread-events off
+                set confirm off
+
+                python
+                import gdb
+                import sys
+                import os
+                sys.path.insert(0, "{site_packages}")
+                def setup_python(event):
+                    from Cython.Debugger import libpython
+                gdb.events.new_objfile.connect(setup_python)
+                end
+
                 set $_exitcode = -1
                 run
                 if $_exitcode != -1
                   quit
                 end
                 bt
-                '''))
+                '''.format(
+                    site_packages=os.path.join(
+                        os.getenv('VIRTUAL_ENV'),
+                        'lib',
+                        'python%d.%d' % (sys.version_info[0], sys.version_info[1]),
+                        'site-packages'))))
 
         subargv = [
             '/usr/bin/gdb',
