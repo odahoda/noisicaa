@@ -50,6 +50,28 @@ include_directories(${CMAKE_BINARY_DIR})
 include_directories($ENV{VIRTUAL_ENV}/include)
 link_directories($ENV{VIRTUAL_ENV}/lib)
 
+macro(install_files target)
+  foreach(src ${ARGN})
+    add_custom_command(
+      OUTPUT ${src}
+      COMMAND ln -sf ${CMAKE_CURRENT_LIST_DIR}/${src} ${src}
+      DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
+      )
+  endforeach(src)
+  add_custom_target(${target} ALL DEPENDS ${ARGN})
+endmacro(install_files)
+
+macro(install_svg target)
+  foreach(src ${ARGN})
+    add_custom_command(
+      OUTPUT ${src}
+      COMMAND PYTHONPATH=${CMAKE_SOURCE_DIR} python -m noisidev.process_svg -o ${src} ${CMAKE_CURRENT_LIST_DIR}/${src}
+      DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
+      )
+  endforeach(src)
+  add_custom_target(${target} ALL DEPENDS ${ARGN})
+endmacro(install_svg)
+
 macro(add_python_package)
   foreach(src __init__.py ${ARGN})
     add_custom_command(
@@ -93,5 +115,4 @@ endmacro(add_cpp_capnp)
 
 add_subdirectory(noisicaa)
 add_subdirectory(noisidev)
-
-file(COPY data DESTINATION .)
+add_subdirectory(data)

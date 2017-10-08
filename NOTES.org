@@ -1,5 +1,19 @@
 # -*- org-tags-column: -98 -*-
 
+* Track properties should directly modify mixer control values                           :CLEANUP:
+- drop track mixer properties muted, gain, pan
+- route mutations back to Track instance, so UI can install listeners without knowing about
+  mixer node.
+
+* Track VU Meter                                                                              :FR:
+- track_mixer has krate output ports (left & right)
+- route control values back to UI
+- simple rms, or something better?
+
+* Turn VM loop inside out                                                                :CLEANUP:
+- backend owns the loop
+- can either spawn a thread to run the loop, or execute the VM from a callback
+
 * Make sample rate configurable                                                               :FR:
 - all processors need to cleanup/setup on changes
 * setup.py should build using cmake                                                           :FR:
@@ -52,8 +66,6 @@
 - absl::Substitude for sprintf
 - absl::string_view for method args
 - absl::GetCurrentTimeNanos() for PerfStats
-* Do SVG conversion at build time							      :FR:
-- the stuff in SvgSymbol.strip_dom()
 * ProcessorFluidSynth									      :FR:
 - sample precise scheduling of events once at the start of a block?
 * ProcessorCSound									      :FR:
