@@ -20,9 +20,12 @@
 #
 # @end:license
 
-LIBDIR=$(readlink -f "$(dirname "$0")/../build")
+set -e
 
-(cd $LIBDIR && make) || exit 1
+ROOTDIR=$(readlink -f "$(dirname "$0")/..")
+LIBDIR="${ROOTDIR}/build"
+
+(cd $ROOTDIR && python3 setup.py build)
 
 export PYTHONPATH="$LIBDIR:$PYTHONPATH"
 export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib

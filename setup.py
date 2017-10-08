@@ -18,56 +18,58 @@
 #
 # @end:license
 
-import imp
 import os
 import os.path
 import sys
+from distutils import spawn
 from distutils.core import setup
-from distutils.extension import Extension
-from Cython.Build import cythonize
-
-def path2mod(path):
-    mod = []
-    while path:
-        path, tail = os.path.split(path)
-        mod.insert(0, tail)
-    return '.'.join(mod)
+import distutils.command.build as _build
+import distutils.command.install as _install
 
 
-extensions = []
-packages = []
-for root, dirs, files in os.walk(
-        os.path.join(os.path.dirname(__file__), 'noisicaa')):
-    if os.path.exists(os.path.join(root, '__init__.py')):
-        packages.append(path2mod(root))
+class build(_build.build):
+    def run(self):
+        if sys.version_info[0:2] < (3, 5):
+            print("noisicaä required Python 3.5 or higher.")
+            sys.exit(1)
 
-    for path in files:
-        path = os.path.join(root, path)
-        if path.endswith('.pyx'):
-            modname = path2mod(path[:-4])
+        cmake_path = spawn.find_executable('cmake')
+        if cmake_path is None:
+            print("cmake is required to build noisicaä.")
+            print("Please install cmake version >= 3.5 and re-run setup.")
+            sys.exit(1)
 
-            ext = None
-            if os.path.exists(path + 'bld'):
-                bldmod = imp.load_source(
-                    "XXXX", path + 'bld', open(path + 'bld'))
-                make_ext = getattr(bldmod, 'make_ext', None)
-                if make_ext:
-                    ext = make_ext(modname, path)
-                    assert ext
+        make_path = spawn.find_executable('make')
+        if make_path is None:
+            print("make is required to build noisicaä.")
+            print("Please install make version >= 4.0 and re-run setup.")
+            sys.exit(1)
 
-            if ext is None:
-                ext = Extension(modname, [path])
-            extensions.append(ext)
+        if not os.path.isdir(self.build_base):
+            os.makedirs(self.build_base)
 
-    for ignored in ['.svn', '__pycache__', 'testdata']:
-        if ignored in dirs:
-            dirs.remove(ignored)
+        old_cwd = os.getcwd()
+        os.chdir(self.build_base)
+        try:
+            if not os.path.isfile('CMakeCache.txt'):
+                spawn.spawn([cmake_path, '-G', 'Unix Makefiles', old_cwd])
+            spawn.spawn([make_path, '-j%d' % len(os.sched_getaffinity(0))])
+        finally:
+            os.chdir(old_cwd)
+
+
+class install(_install.install):
+    def run(self):
+        print("Installing not yet supported.")
+        sys.exit(1)
+
 
 setup(
     name = 'noisicaä',
     version = '0.1',
     author = 'Ben Niemann',
     author_email = 'pink@odahoda.de',
+    url = 'https://github.com/odahoda/noisicaa',
     # license = 'TODO',
     classifiers = [
         'Development Status :: 2 - Pre-Alpha',
@@ -82,6 +84,8 @@ setup(
         'Topic :: Artistic Software',
         'Topic :: Multimedia :: Sound/Audio :: Editors',
     ],
-    packages = packages,
-    ext_modules = cythonize(extensions),
+    cmdclass = {
+        'install': install,
+        'build': build
+    },
 )

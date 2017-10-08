@@ -34,7 +34,8 @@ import unittest
 
 import coverage
 
-LIBDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'build'))
+ROOTDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+LIBDIR = os.path.join(ROOTDIR, 'build')
 sys.path.insert(0, LIBDIR)
 
 os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
@@ -131,7 +132,7 @@ def main(argv):
         }[args.log_level])
 
     if args.rebuild:
-        subprocess.run(['make', '-j4'], cwd=LIBDIR, check=True)
+        subprocess.run([sys.executable, 'setup.py', 'build'], cwd=ROOTDIR, check=True)
 
     from noisicaa import constants
     constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
