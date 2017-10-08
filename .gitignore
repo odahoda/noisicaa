@@ -2,5 +2,3 @@ __pycache__/
 build/
 ENV/
 *~
-data/symbols/*.stripped.svg
-noisicaa/**/*.c
