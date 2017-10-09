@@ -1,0 +1,46 @@
+
+# lilv
+libserd-dev
+libsord-dev
+libsratom-dev
+lv2-examples
+mda-lv2
+
+# ladspa
+ladspa-sdk
+swh-plugins
+
+# csound
+libsndfile1-dev
+libsamplerate0-dev
+libboost-dev
+flex
+bison
+cmake
+
+# capnp
+capnproto
+libcapnp-0.5.3
+libcapnp-dev
+
+# QT
+python3-pyqt5
+python3-pyqt5.qtsvg
+
+# other...
+python3.5-dev
+libxml2-dev
+libxslt1-dev
+portaudio19-dev
+libavutil-dev
+libavutil-ffmpeg54
+libswresample-dev
+libswresample-ffmpeg1
+libfluidsynth1
+libfluidsynth-dev
+inkscape
+timgm6mb-soundfont
+fluid-soundfont-gs
+fluid-soundfont-gm
+flac
+zlib1g-dev
