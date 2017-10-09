@@ -44,3 +44,4 @@ fluid-soundfont-gs
 fluid-soundfont-gm
 flac
 zlib1g-dev
+gdb
