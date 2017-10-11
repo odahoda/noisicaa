@@ -28,6 +28,7 @@ from unittest import mock
 
 import asynctest
 from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
 from PyQt5 import QtGui
 
 from noisicaa import core
@@ -168,10 +169,11 @@ class MockProcess(core.ProcessBase):
         self.project = None
 
 
-class MockApp(BaseEditorApp):
+class MockApp(BaseEditorApp, QtCore.QCoreApplication):
     def __init__(self):
-        super().__init__(None, RuntimeSettings(), MockSettings())
-        self.process = None
+        QtCore.QCoreApplication.__init__(self, ['noisicaä-test'])
+        BaseEditorApp.__init__(
+            self, process=None, runtime_settings=RuntimeSettings(), settings=MockSettings())
 
     def createSequencer(self):
         return MockSequencer()

@@ -40,6 +40,10 @@ sys.path.insert(0, LIBDIR)
 
 os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
 
+# Ensure all tests work without X.
+os.environ.pop('DISPLAY', None)
+
+
 def bool_arg(value):
     if isinstance(value, bool):
         return value

@@ -117,10 +117,8 @@ class InstrumentDBClient(instrument_db.InstrumentDBClientMixin, InstrumentDBClie
     pass
 
 
-class BaseEditorApp(QtWidgets.QApplication):
-    def __init__(self, process, runtime_settings, settings=None):
-        super().__init__(['noisicaä'])
-
+class BaseEditorApp(object):
+    def __init__(self, *, process, runtime_settings, settings=None):
         self.process = process
 
         self.runtime_settings = runtime_settings
@@ -131,10 +129,6 @@ class BaseEditorApp(QtWidgets.QApplication):
                 settings.clear()
         self.settings = settings
         self.dumpSettings()
-
-        self.setQuitOnLastWindowClosed(False)
-
-        self.default_style = None
 
         self.project_registry = None
         self.sequencer = None
@@ -147,13 +141,6 @@ class BaseEditorApp(QtWidgets.QApplication):
         self.__clipboard = None
 
     async def setup(self):
-        self.default_style = self.style().objectName()
-
-        style_name = self.settings.value('appearance/qtStyle', '')
-        if style_name:
-            style = QtWidgets.QStyleFactory.create(style_name)
-            self.setStyle(style)
-
         await self.createNodeDB()
         await self.createInstrumentDB()
 
@@ -291,9 +278,10 @@ class BaseEditorApp(QtWidgets.QApplication):
         return self.__clipboard
 
 
-class EditorApp(BaseEditorApp):
-    def __init__(self, process, runtime_settings, paths, settings=None):
-        super().__init__(process, runtime_settings, settings)
+class EditorApp(BaseEditorApp, QtWidgets.QApplication):
+    def __init__(self, *, paths, **kwargs):
+        QtWidgets.QApplication.__init__(self, ['noisicaä'])
+        BaseEditorApp.__init__(self, **kwargs)
 
         self.paths = paths
 
@@ -302,6 +290,9 @@ class EditorApp(BaseEditorApp):
         self.pipeline_perf_monitor = None
         self.pipeline_graph_monitor = None
         self.stat_monitor = None
+        self.default_style = None
+
+        self.setQuitOnLastWindowClosed(False)
 
     async def setup(self):
         logger.info("Installing custom excepthook.")
@@ -309,6 +300,13 @@ class EditorApp(BaseEditorApp):
         sys.excepthook = ExceptHook(self)
 
         await super().setup()
+
+        self.default_style = self.style().objectName()
+
+        style_name = self.settings.value('appearance/qtStyle', '')
+        if style_name:
+            style = QtWidgets.QStyleFactory.create(style_name)
+            self.setStyle(style)
 
         logger.info("Creating PipelinePerfMonitor.")
         self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self)

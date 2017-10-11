@@ -38,10 +38,13 @@ class UISubprocess(core.SubprocessMixin, core.ProcessBase):
     def __init__(self, *, runtime_settings, paths, **kwargs):
         super().__init__(**kwargs)
 
-        self.app = self.create_app(self, runtime_settings, paths)
+        self.app = self.create_app(
+            process=self,
+            runtime_settings=runtime_settings,
+            paths=paths)
 
-    def create_app(self, *args, **kwargs):
-        return editor_app.EditorApp(*args, **kwargs)
+    def create_app(self, **kwargs):
+        return editor_app.EditorApp(**kwargs)
 
     def create_event_loop(self):
         return quamash.QEventLoop(self.app)
