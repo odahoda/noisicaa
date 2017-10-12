@@ -1,4 +1,6 @@
 __pycache__/
-build/
-ENV/
+/build
+/3rdparty/*/build
+/vmtests
+/ENV
 *~
