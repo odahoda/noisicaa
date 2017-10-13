@@ -1,5 +1,12 @@
 # -*- org-tags-column: -98 -*-
 
+* Common testdata directory with some audio files                                        :CLEANUP:
+- possibly also lv2, ladspa, ... plugins (built from source)?
+- replace all uses of system files in tests.
+* Full app run in vmtest                                                                      :FR:
+- ssh connection to VM needs X forwarding
+- bin/noisicaä --play-and-exit --demo="demo name"
+
 * Track properties should directly modify mixer control values                           :CLEANUP:
 - drop track mixer properties muted, gain, pan
 - route mutations back to Track instance, so UI can install listeners without knowing about

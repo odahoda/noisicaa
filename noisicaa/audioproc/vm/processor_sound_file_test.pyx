@@ -21,9 +21,12 @@
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
-import unittest
+import os
+import os.path
 import sys
+import unittest
 
+from noisicaa import constants
 from noisicaa.core.status cimport *
 from .block_context cimport *
 from .buffers cimport *
@@ -50,7 +53,9 @@ class TestProcessorSoundFile(unittest.TestCase):
         spec.reset(new ProcessorSpec())
         spec.get().add_port(b'out:left', PortType.audio, PortDirection.Output)
         spec.get().add_port(b'out:right', PortType.audio, PortDirection.Output)
-        spec.get().add_parameter(new StringParameterSpec(b'sound_file_path', b'/usr/share/sounds/purple/send.wav'))
+        spec.get().add_parameter(new StringParameterSpec(
+            b'sound_file_path',
+            os.fsencode(os.path.join(constants.ROOT, '..', 'testdata', 'snare.wav'))))
 
         check(processor.setup(spec.release()))
 

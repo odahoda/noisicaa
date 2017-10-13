@@ -22,6 +22,12 @@ from libc.stdint cimport uint8_t
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
+import os
+import os.path
+import sys
+import unittest
+
+from noisicaa import constants
 from noisicaa.bindings.lv2 cimport atom
 from noisicaa.bindings.lv2 import urid
 from noisicaa.core.status cimport *
@@ -31,9 +37,6 @@ from .processor cimport *
 from .processor_spec cimport *
 from .host_data cimport *
 from .message_queue cimport *
-
-import unittest
-import sys
 
 
 class TestProcessorSamplePlayer(unittest.TestCase):
@@ -57,7 +60,8 @@ class TestProcessorSamplePlayer(unittest.TestCase):
         spec.get().add_port(b'out:left', PortType.audio, PortDirection.Output)
         spec.get().add_port(b'out:right', PortType.audio, PortDirection.Output)
         spec.get().add_parameter(new StringParameterSpec(
-            b'sample_path', b'/usr/share/sounds/purple/send.wav'))
+            b'sample_path',
+            os.fsencode(os.path.join(constants.ROOT, '..', 'testdata', 'snare.wav'))))
 
         check(processor.setup(spec.release()))
 
