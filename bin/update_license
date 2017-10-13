@@ -37,6 +37,7 @@ DEFAULT_TYPEMAP = {
     '*.h': 'text/x-c++',
     '*.sh': 'text/x-shellscript',
     '*.capnp': 'text/x-capnp',
+    '*.csnd': 'text/x-csound',
     'CMakeLists.txt': 'text/x-cmake',
 }
 
@@ -46,6 +47,7 @@ TYPE_PROPS = {
     'text/x-cmake': (None, None, '# ', '#'),
     'text/x-c++': ('/*', ' */', ' * ', '//'),
     'text/x-capnp': (None, None, '# ', None),
+    'text/x-csound': ('<CsLicense>', '</CsLicense>', '', '<CsoundSynthesizer>'),
     'application/xml': ('<!--', '-->', '  ', '<?'),
 }
 
@@ -59,6 +61,7 @@ DIRS = [
     ('3rdparty', 'setup.py', DEFAULT_TYPEMAP),
     ('data/csound', '*.csnd', {'*': 'application/xml'}),
     ('data/presets', '*.preset', {'*': 'application/xml'}),
+    ('testdata', '*', DEFAULT_TYPEMAP),
 ]
 
 SKIP_DIRS = [

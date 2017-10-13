@@ -21,7 +21,7 @@
 macro(render_wav src dest)
   add_custom_command(
     OUTPUT ${dest}
-    COMMAND csound -o${dest} ${CMAKE_CURRENT_LIST_DIR}/${src}
+    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib csound -o${dest} ${CMAKE_CURRENT_LIST_DIR}/${src}
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
   )
 endmacro(render_wav)
