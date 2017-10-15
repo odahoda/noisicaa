@@ -8,7 +8,6 @@
 - Remove dependencies on *-soundfont-* packages.
 
 * Full app run in vmtest                                                                      :FR:
-- ssh connection to VM needs X forwarding
 - bin/noisicaä --play-and-exit --demo="demo name"
 
 * Track properties should directly modify mixer control values                           :CLEANUP:

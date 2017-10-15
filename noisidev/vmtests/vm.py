@@ -287,7 +287,7 @@ class VM(object):
                 except TimeoutError:
                     self.vboxmanage('controlvm', self.name, 'poweroff')
 
-    def do_test(self):
+    def do_test(self, settings):
         raise NotImplementedError
 
 

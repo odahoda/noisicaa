@@ -22,11 +22,13 @@
 
 import os
 import os.path
+import select
 import shutil
 import subprocess
 import sys
 
 import paramiko
+import Xlib.support.connect as xlib_connect
 
 from . import vm
 
@@ -144,6 +146,10 @@ if [ ! -f /post-install-done ]; then
   echo >/etc/sudoers.d/testuser "testuser ALL=(ALL) NOPASSWD:ALL"
   apt-get -q -y install virtualbox-guest-utils
 
+  # Kill some packages that we don't want (can we inhibit installing them
+  # in the first place?).
+  apt-get -q -y remove unattended-upgrades ubuntu-release-upgrader-core
+
   # Do not start the guest utils as part of normal system init,
   # because there seems to be a race with the network config.
   update-rc.d virtualbox-guest-utils remove
@@ -157,8 +163,10 @@ fi
 
 WRAP_SCRIPT = r'''#!/bin/bash
 
+set -e
 set -x
-sudo apt-get -q -y install git python3.5 python3.5-venv python3-setuptools xterm >&2
+
+sudo apt-get -q -y install git python3.5 python3.5-venv xterm >&2
 
 echo -n >test.log
 xterm -e tail -f test.log &
@@ -192,10 +200,72 @@ pyvenv-3.5 ENV
 . ENV/bin/activate
 
 sudo apt-get -q -y install $(cat requirements.ubuntu.pkgs | grep -vE '^\s*#' | grep -vE '^\s*$')
+pip install --upgrade pip
 pip install -r requirements.txt
 python3 setup.py build
 bin/runtests --gdb=false
 '''
+
+
+def run_command(client, command):
+    stdout = []
+    stderr = []
+
+    def x11_handler(channel, src):
+        x11_fileno = channel.fileno()
+        local_x11_channel = xlib_connect.get_socket(*local_x11_display[:3])
+        local_x11_fileno = local_x11_channel.fileno()
+
+        # Register both x11 and local_x11 channels
+        channels[x11_fileno] = channel, local_x11_channel
+        channels[local_x11_fileno] = local_x11_channel, channel
+
+        poller.register(x11_fileno, select.POLLIN)
+        poller.register(local_x11_fileno, select.POLLIN)
+
+        transport._queue_incoming_channel(channel)
+
+    def flush_out(channel):
+        while channel.recv_ready():
+            stdout.append(channel.recv(4096))
+        while channel.recv_stderr_ready():
+            stderr.append(channel.recv_stderr(4096))
+
+    transport = client.get_transport()
+    session = transport.open_session()
+
+    local_x11_display = xlib_connect.get_display(os.environ['DISPLAY'])
+
+    channels = {}
+    poller = select.poll()
+    session_fileno = session.fileno()
+    poller.register(session_fileno)
+
+    session.request_x11(handler=x11_handler)
+    session.exec_command(command)
+    transport.accept(10)
+
+    # event loop
+    while not session.exit_status_ready():
+        poll = poller.poll()
+        if not poll: # this should not happen, as we don't have a timeout.
+            break
+        for fd, event in poll:
+            if fd == session_fileno:
+                flush_out(session)
+            # data either on local/remote x11 channels/sockets
+            if fd in channels.keys():
+                sender, receiver = channels[fd]
+                try:
+                    receiver.sendall(sender.recv(4096))
+                except:
+                    sender.close()
+                    receiver.close()
+                    channels.pop(fd)
+
+    flush_out(session)
+    return session.recv_exit_status(), b''.join(stdout), b''.join(stderr)
+
 
 class Ubuntu_16_04(vm.VM):
     def __init__(self):
@@ -407,15 +477,28 @@ label unattended
 
         print("%s: Running test..." % self.name)
 
-        _, stdout, _ = client.exec_command('./wrap.sh')
-        out = stdout.read().strip()
-        if out == b'SUCCESS':
+        rc, stdout, stderr = run_command(client, './wrap.sh')
+        if rc != 0:
+            sys.stdout.buffer.write(stderr)
+            sys.stdout.buffer.flush()
+            print('  ERROR')
+            return False
+
+        stdout = stdout.strip()
+        if stdout == b'SUCCESS':
             print('  OK')
             return True
-        else:
+        elif stdout == b'FAILED':
             print('  FAILED')
             with client.open_sftp() as sftp:
                 with sftp.open('test.log', 'rb') as fp:
                     log = fp.read()
             sys.stdout.buffer.write(log)
+            return False
+        else:
+            print('STDOUT:')
+            sys.stdout.buffer.write(stdout)
+            sys.stdout.buffer.flush()
+            print()
+            print('  ERROR')
             return False
