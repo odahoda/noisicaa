@@ -1,5 +1,27 @@
 # -*- org-tags-column: -98 -*-
 
+* Use state pattern to handle tools                                                      :CLEANUP:
+* cut, copy, paste									      :FR:
+- Use QClipboard
+- select multiple items
+  - ranges or sparse sets
+- measures across different tracks
+- different selection types
+  - mutually exclusive
+    - when a different type is selected, clear selection
+  - measures
+  - tracks
+  - notes
+
+* copy/link via drag'n'drop								      :FR:
+* Linked measures									      :FR:
+Dereference: clone the pointed to measure and replace link with that copy.
+If a group of linked measures is selected, only make one copy and link the
+rest. E.g. A B A' B' [A' B' A' B'] -> A B A' B' C D C' D', where C=copy(A),
+D=copy(B).
+Explicit dereference all to create standalone clone for every selected
+measure.
+
 * Common testdata directory with some audio files                                        :CLEANUP:
 - possibly also lv2, ladspa, ... plugins (built from source)?
 - replace all uses of system files in tests.
@@ -585,14 +607,6 @@ Popup menu provides palette of color, separate list of already used colors
 (to make it easier to answer the question, which shade of green I used
 before).
 
-* Linked measures									      :FR:
-Dereference: clone the pointed to measure and replace link with that copy.
-If a group of linked measures is selected, only make one copy and link the
-rest. E.g. A B A' B' [A' B' A' B'] -> A B A' B' C D C' D', where C=copy(A),
-D=copy(B).
-Explicit dereference all to create standalone clone for every selected
-measure.
-
 * PipelineGraphView: drop onto existing node to replace it.				      :FR:
 Retain properties of the same name from replaced node.
 Deny drop, if node is not compatible with existing node.
@@ -641,19 +655,6 @@ Do crazy stuff in csound.
 - rerender track
 - unfreeze track
 
-* cut, copy, paste									      :FR:
-- Use QClipboard
-- select multiple items
-  - ranges or sparse sets
-- measures across different tracks
-- different selection types
-  - mutually exclusive
-    - when a different type is selected, clear selection
-  - measures
-  - tracks
-  - notes
-
-* copy/link via drag'n'drop								      :FR:
 * notes on the grid									      :FR:
 Alternate editing mode for ScoreMeasures.
 Insert notes at absolute time positions, recompute duration of preceding note.
@@ -824,7 +825,6 @@ Assorted TODOs
       * encode path
    * global vs. per command flags
    * move command handlers to submodules
-* CLEANUP: Use state pattern to handle tools
 * UI: show on cursor when an operation is not allowed
 * UI: press ‘h’ to highlight all locations where the current tool is applicable
 * ties/slurs:
