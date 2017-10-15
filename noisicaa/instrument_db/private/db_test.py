@@ -21,13 +21,18 @@
 # @end:license
 
 import asyncio
+import logging
+import os.path
 import threading
 import time
 import unittest
 
 import asynctest
 
+from noisicaa import constants
 from . import db
+
+logger = logging.getLogger(__name__)
 
 
 class NodeDBTest(asynctest.TestCase):
@@ -36,14 +41,14 @@ class NodeDBTest(asynctest.TestCase):
         def state_listener(state, *args):
             if state == 'complete':
                 complete.set()
-            print(state, args)
+            logger.info("state=%s args=%s", state, args)
 
         instdb = db.InstrumentDB(self.loop, '/tmp')
         instdb.listeners.add('scan-state', state_listener)
         try:
             instdb.setup()
 
-            instdb.start_scan(['/usr/share/sounds/sf2/'], False)
+            instdb.start_scan([os.path.join(constants.ROOT, '..', 'testdata')], False)
             self.assertTrue(await complete.wait())
 
         finally:

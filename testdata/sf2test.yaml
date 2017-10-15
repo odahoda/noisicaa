@@ -18,27 +18,15 @@
 #
 # @end:license
 
-macro(render_wav src dest)
-  add_custom_command(
-    OUTPUT ${dest}
-    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib csound -o${dest} ${CMAKE_CURRENT_LIST_DIR}/${src}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
-  )
-endmacro(render_wav)
+name: sf2test
+sound-engine: EMU8000
 
-macro(mksf2 src dest)
-  add_custom_command(
-    OUTPUT ${dest}
-    COMMAND PYTHONPATH=${CMAKE_SOURCE_DIR} python -m noisidev.mksf2 --search_paths=. --output=${dest} ${CMAKE_CURRENT_LIST_DIR}/${src}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
-  )
-endmacro(mksf2)
+instruments:
+- name: 'kick'
+  file: 'kick.wav'
 
+- name: 'snare'
+  file: 'snare.wav'
 
-render_wav(kick.csnd kick.wav)
-render_wav(hihat.csnd hihat.wav)
-render_wav(snare.csnd snare.wav)
-
-mksf2(sf2test.yaml sf2test.sf2)
-
-add_custom_target(testdata ALL DEPENDS kick.wav hihat.wav snare.wav sf2test.sf2)
+- name: 'hihat'
+  file: 'hihat.wav'

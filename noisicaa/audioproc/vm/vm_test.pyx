@@ -21,8 +21,10 @@
 from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 
-import unittest
+import os
+import os.path
 import sys
+import unittest
 
 from noisicaa import constants
 from noisicaa.core.status cimport *
@@ -64,7 +66,9 @@ class TestVM(unittest.TestCase):
         fluidsynth_spec.add_port(b'in', PortType.atomData, PortDirection.Input)
         fluidsynth_spec.add_port(b'out:left', PortType.audio, PortDirection.Output)
         fluidsynth_spec.add_port(b'out:right', PortType.audio, PortDirection.Output)
-        fluidsynth_spec.add_parameter(new StringParameterSpec(b'soundfont_path', b'/usr/share/sounds/sf2/TimGM6mb.sf2'))
+        fluidsynth_spec.add_parameter(new StringParameterSpec(
+            b'soundfont_path',
+            os.fsencode(os.path.join(constants.ROOT, '..', 'testdata', 'sf2test.sf2'))))
         fluidsynth_spec.add_parameter(new IntParameterSpec(b'bank', 0))
         fluidsynth_spec.add_parameter(new IntParameterSpec(b'preset', 0))
 

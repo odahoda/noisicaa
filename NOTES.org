@@ -3,6 +3,10 @@
 * Common testdata directory with some audio files                                        :CLEANUP:
 - possibly also lv2, ladspa, ... plugins (built from source)?
 - replace all uses of system files in tests.
+* Some builtin instruments                                                                    :FR:
+- Have set of reasonably sounding instruments builtin.
+- Remove dependencies on *-soundfont-* packages.
+
 * Full app run in vmtest                                                                      :FR:
 - ssh connection to VM needs X forwarding
 - bin/noisicaä --play-and-exit --demo="demo name"

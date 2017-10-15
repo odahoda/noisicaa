@@ -22,9 +22,12 @@ from libc.stdint cimport uint8_t
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
-import unittest
+import os
+import os.path
 import sys
+import unittest
 
+from noisicaa import constants
 from noisicaa.core.status cimport *
 from noisicaa.bindings.lv2 cimport atom
 from noisicaa.bindings.lv2 import urid
@@ -54,7 +57,9 @@ class TestProcessorFluidSynth(unittest.TestCase):
         spec.get().add_port(b'in', PortType.atomData, PortDirection.Input)
         spec.get().add_port(b'out:left', PortType.audio, PortDirection.Output)
         spec.get().add_port(b'out:right', PortType.audio, PortDirection.Output)
-        spec.get().add_parameter(new StringParameterSpec(b'soundfont_path', b'/usr/share/sounds/sf2/TimGM6mb.sf2'))
+        spec.get().add_parameter(new StringParameterSpec(
+            b'soundfont_path',
+            os.fsencode(os.path.join(constants.ROOT, '..', 'testdata', 'sf2test.sf2'))))
         spec.get().add_parameter(new IntParameterSpec(b'bank', 0))
         spec.get().add_parameter(new IntParameterSpec(b'preset', 0))
 
