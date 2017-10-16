@@ -199,7 +199,7 @@ cd noisicaa/
 pyvenv-3.5 ENV
 . ENV/bin/activate
 
-sudo apt-get -q -y install $(cat requirements.ubuntu.pkgs | grep -vE '^\s*#' | grep -vE '^\s*$')
+sudo apt-get -q -y install $(./requirements.ubuntu.pkgs)
 pip install --upgrade pip
 pip install -r requirements.txt
 python3 setup.py build
