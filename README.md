@@ -26,7 +26,7 @@ Requirements
 
 This project is currenly only designed to run on Linux desktops. No effort has
 yet been made to make it run on anything else than the latest Ubuntu release
-(15.10 at the time of writing).
+(16.04 at the time of writing).
 
 Getting Started
 ---------------
@@ -38,20 +38,22 @@ First grab the latest source code:
 
     git clone https://github.com/odahoda/noisicaa.git
     cd noisicaa
+Then install the deb packages that are needed to build and run it:
 
+    sudo apt-get install $(./requirements.ubuntu.pkgs)
 For the first time setup, create a new virtualenv:
 
-    pyvenv-3.4 ENV
+    pyvenv-3.5 ENV
     . ENV/bin/activate
-And populate it with a bunch of packages that noisicaä uses:
+And populate it with a bunch of python packages that noisicaä uses:
 
-    bin/setup_env.sh
-It will probably fail and ask you to install some additional packages. Try
-again, until it is happy and starts compiling stuff.
+    pip install -r requirements.txt
+Now you should be ready to build it:
 
+    python3 setup.py build
 And finally run
 
-    bin/noisicaä --dev-mode
+    bin/noisicaä
 
 Everytime you open a new `bash` to work with it, you have to activate the
 virtual environment using
