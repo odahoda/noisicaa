@@ -34,6 +34,181 @@ from . import base_track_item
 logger = logging.getLogger(__name__)
 
 
+class EditControlPointsTool(tools.ToolBase):
+    def __init__(self, **kwargs):
+        super().__init__(
+            type=tools.ToolType.EDIT_CONTROL_POINTS,
+            group=tools.ToolGroup.EDIT,
+            **kwargs)
+
+        self.__moving_point = None
+        self.__moving_point_original_pos = None
+        self.__moving_point_offset = None
+        self.__move_mode = 'any'
+        self.__move_range = None
+
+    def iconName(self):
+        return 'edit-control-points'
+
+    def mousePressEvent(self, target, evt):
+        assert isinstance(target, ControlTrackEditorItemImpl), type(target).__name__
+
+        target.updateHighlightedPoint()
+
+        if (evt.button() == Qt.LeftButton
+                and evt.modifiers() == Qt.NoModifier
+                and target.highlightedPoint() is not None):
+            self.__moving_point = target.highlightedPoint()
+            self.__moving_point_original_pos = self.__moving_point.pos()
+            self.__moving_point_offset = evt.pos() - self.__moving_point.pos()
+            self.__move_mode = 'any'
+
+            point_index = self.__moving_point.index
+
+            if point_index > 0:
+                range_left = target.points[point_index - 1].pos().x() + 1
+            else:
+                range_left = 10
+
+            if point_index < len(target.points) - 1:
+                range_right = target.points[point_index + 1].pos().x() - 1
+            else:
+                range_right = target.width() - 11
+
+            self.__move_range = (range_left, range_right)
+
+            evt.accept()
+            return
+
+        if (evt.button() == Qt.LeftButton
+                and evt.modifiers() == Qt.ShiftModifier
+                and target.highlightedPoint() is not None):
+            self.send_command_async(
+                target.track.id,
+                'RemoveControlPoint',
+                point_id=target.highlightedPoint().point_id)
+
+            evt.accept()
+            return
+
+        if evt.button() == Qt.RightButton and self.__moving_point is not None:
+            target.setPointPos(self.__moving_point, self.__moving_point_original_pos)
+            self.__moving_point = None
+            evt.accept()
+            return
+
+        super().mousePressEvent(target, evt)
+
+    def mouseMoveEvent(self, target, evt):
+        assert isinstance(target, ControlTrackEditorItemImpl), type(target).__name__
+
+        if self.__moving_point is not None:
+            new_pos = evt.pos() - self.__moving_point_offset
+
+            if evt.modifiers() == Qt.ControlModifier:
+                delta = new_pos - self.__moving_point_original_pos
+                if self.__move_mode == 'any' and delta.manhattanLength() > 5:
+                    if abs(delta.x()) > abs(delta.y()):
+                        self.__move_mode = 'horizontal'
+                    else:
+                        self.__move_mode = 'vertical'
+            else:
+                self.__move_mode = 'any'
+
+            if self.__move_mode == 'horizontal':
+                new_pos.setY(self.__moving_point_original_pos.y())
+            elif self.__move_mode == 'vertical':
+                new_pos.setX(self.__moving_point_original_pos.x())
+
+            range_left, range_right = self.__move_range
+            if new_pos.x() < range_left:
+                new_pos.setX(range_left)
+            elif new_pos.x() > range_right:
+                new_pos.setX(range_right)
+
+            if new_pos.y() < 0:
+                new_pos.setY(0)
+            elif new_pos.y() > target.height() - 1:
+                new_pos.setY(target.height() - 1)
+
+            target.setPointPos(self.__moving_point, new_pos)
+
+            evt.accept()
+            return
+
+        target.updateHighlightedPoint()
+
+        super().mouseMoveEvent(target, evt)
+
+    def mouseReleaseEvent(self, target, evt):
+        assert isinstance(target, ControlTrackEditorItemImpl), type(target).__name__
+
+        if evt.button() == Qt.LeftButton and self.__moving_point is not None:
+            pos = self.__moving_point.pos()
+            self.__moving_point = None
+
+            if self.__move_mode != 'vertical':
+                new_timepos = target.xToTimepos(pos.x())
+            else:
+                new_timepos = None
+
+            if self.__move_mode != 'horizontal':
+                new_value = target.yToValue(pos.y())
+            else:
+                new_value = None
+
+            self.send_command_async(
+                target.track.id,
+                'MoveControlPoint',
+                point_id=target.highlightedPoint().point_id,
+                timepos=new_timepos,
+                value=new_value)
+
+            evt.accept()
+            return
+
+        super().mouseReleaseEvent(target, evt)
+
+    def mouseDoubleClickEvent(self, target, evt):
+        assert isinstance(target, ControlTrackEditorItemImpl), type(target).__name__
+
+        if (evt.button() == Qt.LeftButton
+                and evt.modifiers() == Qt.NoModifier):
+            # If the first half of the double click initiated a move,
+            # cancel that move now.
+            if self.__moving_point is not None:
+                target.setPointPos(self.__moving_point, self.__moving_point_original_pos)
+                self.__moving_point = None
+
+            timepos = target.xToTimepos(evt.pos().x())
+            for point in target.track.points:
+                if point.timepos == timepos:
+                    self.send_command_async(
+                        target.track.id,
+                        'MoveControlPoint',
+                        point_id=point.id,
+                        value=target.yToValue(evt.pos().y()))
+                    break
+            else:
+                self.send_command_async(
+                    target.track.id,
+                    'AddControlPoint',
+                    timepos=target.xToTimepos(evt.pos().x()),
+                    value=target.yToValue(evt.pos().y()))
+
+            evt.accept()
+            return
+
+        super().mouseDoubleClickEvent(target, evt)
+
+
+class ControlTrackToolBox(tools.ToolBox):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.addTool(EditControlPointsTool(**self.context))
+
+
 class ControlPoint(object):
     def __init__(self, track_item=None, point=None):
         self.__track_item = track_item
@@ -90,22 +265,19 @@ class ControlPoint(object):
 
 
 class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
+    toolBoxClass = ControlTrackToolBox
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self.__mouse_pos = None
         self.__highlighted_point = None
-        self.__moving_point = None
-        self.__moving_point_original_pos = None
-        self.__moving_point_offset = None
-        self.__move_mode = 'any'
-        self.__move_range = None
 
         self.__listeners = []
-        self.__points = []
+        self.points = []
 
         for point in self.track.points:
-            self.addPoint(len(self.__points), point)
+            self.addPoint(len(self.points), point)
 
         self.__listeners.append(self.track.listeners.add(
             'points', self.onPointsChanged))
@@ -113,18 +285,10 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
         self.updateSize()
 
     def close(self):
-        for points in self.__points:
+        for points in self.points:
             points.close()
-        self.__points.clear()
+        self.points.clear()
         super().close()
-
-    def supportedTools(self):
-        return {
-            tools.Tool.POINTER,
-        }
-
-    def defaultTool(self):
-        return tools.Tool.POINTER
 
     def updateSize(self):
         width = 20
@@ -138,6 +302,9 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
             self.__highlighted_point = cpoint
             self.rectChanged.emit(self.sheetRect())
 
+    def highlightedPoint(self):
+        return self.__highlighted_point
+
     def updateHighlightedPoint(self):
         if self.__mouse_pos is None:
             self.setHighlightedPoint(None)
@@ -145,7 +312,7 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
         closest_cpoint = None
         closest_dist = None
-        for cpoint in self.__points:
+        for cpoint in self.points:
             dist = ((cpoint.pos().x() - self.__mouse_pos.x()) ** 2
                     + (cpoint.pos().y() - self.__mouse_pos.y()) ** 2)
             if dist < 20**2 and (closest_dist is None or dist < closest_dist):
@@ -160,11 +327,11 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
     def addPoint(self, insert_index, point):
         cpoint = ControlPoint(track_item=self, point=point)
-        self.__points.insert(insert_index, cpoint)
+        self.points.insert(insert_index, cpoint)
         self.rectChanged.emit(self.sheetRect())
 
     def removePoint(self, remove_index, point):
-        cpoint = self.__points.pop(remove_index)
+        cpoint = self.points.pop(remove_index)
         cpoint.close()
         self.rectChanged.emit(self.sheetRect())
 
@@ -227,150 +394,18 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
     def mousePressEvent(self, evt):
         self.__mouse_pos = evt.pos()
-        self.updateHighlightedPoint()
-
-        if (evt.button() == Qt.LeftButton
-                and evt.modifiers() == Qt.NoModifier
-                and self.__highlighted_point is not None):
-            self.__moving_point = self.__highlighted_point
-            self.__moving_point_original_pos = self.__moving_point.pos()
-            self.__moving_point_offset = evt.pos() - self.__moving_point.pos()
-            self.__move_mode = 'any'
-
-            point_index = self.__moving_point.index
-
-            if point_index > 0:
-                range_left = self.__points[point_index - 1].pos().x() + 1
-            else:
-                range_left = 10
-
-            if point_index < len(self.__points) - 1:
-                range_right = self.__points[point_index + 1].pos().x() - 1
-            else:
-                range_right = self.width() - 11
-
-            self.__move_range = (range_left, range_right)
-
-            evt.accept()
-            return
-
-        if (evt.button() == Qt.LeftButton
-                and evt.modifiers() == Qt.ShiftModifier
-                and self.__highlighted_point is not None):
-            self.send_command_async(
-                self.track.id,
-                'RemoveControlPoint',
-                point_id=self.__highlighted_point.point_id)
-
-            evt.accept()
-            return
-
-        if evt.button() == Qt.RightButton and self.__moving_point is not None:
-            self.setPointPos(self.__moving_point, self.__moving_point_original_pos)
-            self.__moving_point = None
-            evt.accept()
-            return
-
         super().mousePressEvent(evt)
 
     def mouseMoveEvent(self, evt):
         self.__mouse_pos = evt.pos()
-
-        if self.__moving_point is not None:
-            new_pos = evt.pos() - self.__moving_point_offset
-
-            if evt.modifiers() == Qt.ControlModifier:
-                delta = new_pos - self.__moving_point_original_pos
-                if self.__move_mode == 'any' and delta.manhattanLength() > 5:
-                    if abs(delta.x()) > abs(delta.y()):
-                        self.__move_mode = 'horizontal'
-                    else:
-                        self.__move_mode = 'vertical'
-            else:
-                self.__move_mode = 'any'
-
-            if self.__move_mode == 'horizontal':
-                new_pos.setY(self.__moving_point_original_pos.y())
-            elif self.__move_mode == 'vertical':
-                new_pos.setX(self.__moving_point_original_pos.x())
-
-            range_left, range_right = self.__move_range
-            if new_pos.x() < range_left:
-                new_pos.setX(range_left)
-            elif new_pos.x() > range_right:
-                new_pos.setX(range_right)
-
-            if new_pos.y() < 0:
-                new_pos.setY(0)
-            elif new_pos.y() > self.height() - 1:
-                new_pos.setY(self.height() - 1)
-
-            self.setPointPos(self.__moving_point, new_pos)
-
-            evt.accept()
-            return
-
-        self.updateHighlightedPoint()
-
         super().mouseMoveEvent(evt)
 
     def mouseReleaseEvent(self, evt):
         self.__mouse_pos = evt.pos()
-        if evt.button() == Qt.LeftButton and self.__moving_point is not None:
-            pos = self.__moving_point.pos()
-            self.__moving_point = None
-
-            if self.__move_mode != 'vertical':
-                new_timepos = self.xToTimepos(pos.x())
-            else:
-                new_timepos = None
-
-            if self.__move_mode != 'horizontal':
-                new_value = self.yToValue(pos.y())
-            else:
-                new_value = None
-
-            self.send_command_async(
-                self.track.id,
-                'MoveControlPoint',
-                point_id=self.__highlighted_point.point_id,
-                timepos=new_timepos,
-                value=new_value)
-
-            evt.accept()
-            return
-
         super().mouseReleaseEvent(evt)
 
     def mouseDoubleClickEvent(self, evt):
         self.__mouse_pos = evt.pos()
-        if (evt.button() == Qt.LeftButton
-                and evt.modifiers() == Qt.NoModifier):
-            # If the first half of the double click initiated a move,
-            # cancel that move now.
-            if self.__moving_point is not None:
-                self.setPointPos(self.__moving_point, self.__moving_point_original_pos)
-                self.__moving_point = None
-
-            timepos = self.xToTimepos(evt.pos().x())
-            for point in self.track.points:
-                if point.timepos == timepos:
-                    self.send_command_async(
-                        self.track.id,
-                        'MoveControlPoint',
-                        point_id=point.id,
-                        value=self.yToValue(evt.pos().y()))
-                    break
-            else:
-                self.send_command_async(
-                    self.track.id,
-                    'AddControlPoint',
-                    timepos=self.xToTimepos(evt.pos().x()),
-                    value=self.yToValue(evt.pos().y()))
-
-            evt.accept()
-            return
-
         super().mouseDoubleClickEvent(evt)
 
     def paint(self, painter, paintRect):
@@ -397,7 +432,7 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
         painter.fillRect(x - 2, 0, 2, self.height(), QtGui.QColor(160, 160, 160))
 
-        points = self.__points[:]
+        points = self.points[:]
 
         px, py = None, None
         for cpoint in points:

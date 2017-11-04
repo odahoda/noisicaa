@@ -35,6 +35,71 @@ from . import base_track_item
 logger = logging.getLogger(__name__)
 
 
+class EditBeatsTool(base_track_item.MeasuredToolBase):
+    def __init__(self, **kwargs):
+        super().__init__(
+            type=tools.ToolType.EDIT_BEATS,
+            group=tools.ToolGroup.EDIT,
+            **kwargs)
+
+    def iconName(self):
+        return 'edit-beats'
+
+    def mouseMoveEvent(self, target, evt):
+        target.setGhostTimepos(target.xToTimepos(evt.pos().x()))
+        super().mouseMoveEvent(target, evt)
+
+    def mousePressEvent(self, target, evt):
+        assert isinstance(target, BeatMeasureEditorItemImpl), type(target).__name__
+
+        if (evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier):
+            click_timepos = target.xToTimepos(evt.pos().x())
+
+            for beat in target.measure.beats:
+                if beat.timepos == click_timepos:
+                    self.send_command_async(
+                        target.measure.id, 'RemoveBeat', beat_id=beat.id)
+                    evt.accept()
+                    return
+
+            self.send_command_async(
+                target.measure.id, 'AddBeat', timepos=click_timepos)
+            target.track_item.playNoteOn(target.track.pitch)
+            evt.accept()
+            return
+
+        return super().mousePressEvent(target, evt)
+
+    def wheelEvent(self, target, evt):
+        assert isinstance(target, BeatMeasureEditorItemImpl), type(target).__name__
+
+        if evt.modifiers() in (Qt.NoModifier, Qt.ShiftModifier):
+            if evt.modifiers() == Qt.ShiftModifier:
+                vel_delta = (1 if evt.angleDelta().y() > 0 else -1)
+            else:
+                vel_delta = (10 if evt.angleDelta().y() > 0 else -10)
+
+            click_timepos = target.xToTimepos(evt.pos().x())
+
+            for beat in target.measure.beats:
+                if beat.timepos == click_timepos:
+                    self.send_command_async(
+                        beat.id, 'SetBeatVelocity',
+                        velocity=max(0, min(127, beat.velocity + vel_delta)))
+                    evt.accept()
+                    return
+
+        return super().wheelEvent(target, evt)
+
+
+class BeatToolBox(tools.ToolBox):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.addTool(base_track_item.ArrangeMeasuresTool(**self.context))
+        self.addTool(EditBeatsTool(**self.context))
+
+
 class BeatMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
     FOREGROUND = 'fg'
     BACKGROUND = 'bg'
@@ -51,6 +116,11 @@ class BeatMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
         super().__init__(**kwargs)
 
         self.__ghost_timepos = None
+
+    def xToTimepos(self, x):
+        return music.Duration(
+            int(8 * self.measure.time_signature.upper * x / self.width()),
+            8 * self.measure.time_signature.upper)
 
     def addMeasureListeners(self):
         self.measure_listeners.append(self.measure.listeners.add(
@@ -148,59 +218,6 @@ class BeatMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
         self.setGhostTimepos(None)
         super().leaveEvent(evt)
 
-    def mouseMoveEvent(self, evt):
-        self.setGhostTimepos(music.Duration(
-            int(8 * self.measure.time_signature.upper
-                * evt.pos().x() / self.width()),
-            8 * self.measure.time_signature.upper))
-        super().mouseMoveEvent(evt)
-
-    def mousePressEvent(self, evt):
-        if (evt.button() == Qt.LeftButton
-                and evt.modifiers() == Qt.NoModifier):
-            click_timepos = music.Duration(
-                int(8 * self.measure.time_signature.upper
-                    * evt.pos().x() / self.width()),
-                8 * self.measure.time_signature.upper)
-
-            for beat in self.measure.beats:
-                if beat.timepos == click_timepos:
-                    self.send_command_async(
-                        self.measure.id, 'RemoveBeat', beat_id=beat.id)
-                    evt.accept()
-                    return
-
-            self.send_command_async(
-                self.measure.id, 'AddBeat', timepos=click_timepos)
-            self.track_item.playNoteOn(self.track.pitch)
-            evt.accept()
-            return
-
-        return super().mousePressEvent(evt)
-
-    def wheelEvent(self, evt):
-        if self.measure is not None:
-            if evt.modifiers() in (Qt.NoModifier, Qt.ShiftModifier):
-                if evt.modifiers() == Qt.ShiftModifier:
-                    vel_delta = (1 if evt.angleDelta().y() > 0 else -1)
-                else:
-                    vel_delta = (10 if evt.angleDelta().y() > 0 else -10)
-
-                click_timepos = music.Duration(
-                    int(8 * self.measure.time_signature.upper
-                        * evt.pos().x() / self.width()),
-                    8 * self.measure.time_signature.upper)
-
-                for beat in self.measure.beats:
-                    if beat.timepos == click_timepos:
-                        self.send_command_async(
-                            beat.id, 'SetBeatVelocity',
-                            velocity=max(0, min(127, beat.velocity + vel_delta)))
-                        evt.accept()
-                        return
-
-        return super().wheelEvent(evt)
-
 
 class BeatMeasureEditorItem(ui_base.ProjectMixin, BeatMeasureEditorItemImpl):
     pass
@@ -209,19 +226,13 @@ class BeatMeasureEditorItem(ui_base.ProjectMixin, BeatMeasureEditorItemImpl):
 class BeatTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
     measure_item_cls = BeatMeasureEditorItem
 
+    toolBoxClass = BeatToolBox
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__play_last_pitch = None
 
         self.setHeight(60)
-
-    def supportedTools(self):
-        return {
-            tools.Tool.POINTER,
-        }
-
-    def defaultTool(self):
-        return tools.Tool.POINTER
 
     def playNoteOn(self, pitch):
         self.playNoteOff()

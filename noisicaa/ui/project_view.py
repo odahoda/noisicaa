@@ -42,8 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProjectViewImpl(QtWidgets.QMainWindow):
-    currentToolChanged = QtCore.pyqtSignal(tools.Tool)
-    supportedToolsChanged = QtCore.pyqtSignal(set)
+    currentToolBoxChanged = QtCore.pyqtSignal(tools.ToolBox)
     playbackStateChanged = QtCore.pyqtSignal(str)
     playbackLoopChanged = QtCore.pyqtSignal(bool)
     currentSheetChanged = QtCore.pyqtSignal(object)
@@ -99,9 +98,7 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
 
         self._tools_dock = tool_dock.ToolsDockWidget(parent=self, **self.context)
         self._docks.append(self._tools_dock)
-        self.currentToolChanged.connect(self._tools_dock.setCurrentTool)
-        self.supportedToolsChanged.connect(self._tools_dock.setSupportedTools)
-        self._tools_dock.toolChanged.connect(self.setCurrentTool)
+        self.currentToolBoxChanged.connect(self._tools_dock.setCurrentToolBox)
 
         self._sheet_properties_dock = sheet_properties_dock.SheetPropertiesDockWidget(
             parent=self, **self.context)
@@ -143,15 +140,6 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         for idx in range(self._sheets_widget.count()):
             yield self._sheets_widget.widget(idx)
 
-    def currentTool(self):
-        if self.currentSheetView() is not None:
-            return self.currentSheetView().currentTool()
-        return None
-
-    def setCurrentTool(self, tool):
-        if self.currentSheetView() is not None:
-            self.currentSheetView().setCurrentTool(tool)
-
     def playbackState(self):
         if self._current_sheet_view is not None:
             return self._current_sheet_view.playbackState()
@@ -170,23 +158,16 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
             return
 
         if self._current_sheet_view is not None:
-            self._current_sheet_view.currentToolChanged.disconnect(
-                self.currentToolChanged)
-            self._current_sheet_view.supportedToolsChanged.disconnect(
-                self.supportedToolsChanged)
+            self._current_sheet_view.currentToolBoxChanged.disconnect(
+                self.currentToolBoxChanged)
             self._current_sheet_view.playbackStateChanged.disconnect(
                 self.playbackStateChanged)
             self._current_sheet_view.playbackLoopChanged.disconnect(
                 self.playbackLoopChanged)
 
         if sheet_view is not None:
-            sheet_view.currentToolChanged.connect(
-                self.currentToolChanged)
-            self.currentToolChanged.emit(sheet_view.currentTool())
-
-            sheet_view.supportedToolsChanged.connect(
-                self.supportedToolsChanged)
-            self.supportedToolsChanged.emit(sheet_view.supportedTools())
+            sheet_view.currentToolBoxChanged.connect(self.currentToolBoxChanged)
+            self.currentToolBoxChanged.emit(sheet_view.currentToolBox())
 
             sheet_view.playbackStateChanged.connect(
                 self.playbackStateChanged)

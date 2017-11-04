@@ -36,6 +36,96 @@ from . import base_track_item
 logger = logging.getLogger(__name__)
 
 
+class EditSamplesTool(tools.ToolBase):
+    def __init__(self, **kwargs):
+        super().__init__(
+            type=tools.ToolType.EDIT_SAMPLES,
+            group=tools.ToolGroup.EDIT,
+            **kwargs)
+
+        self.__moving_sample = None
+        self.__moving_sample_original_pos = None
+        self.__moving_sample_offset = None
+
+    def iconName(self):
+        return 'edit-samples'
+
+    def mousePressEvent(self, target, evt):
+        assert isinstance(target, SampleTrackEditorItemImpl), type(target).__name__
+
+        if (evt.button() == Qt.LeftButton
+                and evt.modifiers() == Qt.NoModifier
+                and target.highlightedSample() is not None):
+            self.__moving_sample = target.highlightedSample()
+            self.__moving_sample_original_pos = self.__moving_sample.pos()
+            self.__moving_sample_offset = evt.pos() - self.__moving_sample.pos()
+
+            evt.accept()
+            return
+
+        if (evt.button() == Qt.LeftButton
+                and evt.modifiers() == Qt.ShiftModifier
+                and target.highlightedSample() is not None):
+            self.send_command_async(
+                target.track.id,
+                'RemoveSample',
+                sample_id=target.highlightedSample().sample_id)
+
+            evt.accept()
+            return
+
+        if evt.button() == Qt.RightButton and self.__moving_sample is not None:
+            target.setSamplePos(self.__moving_sample, self.__moving_sample_original_pos)
+            self.__moving_sample = None
+            evt.accept()
+            return
+
+        super().mousePressEvent(target, evt)
+
+    def mouseMoveEvent(self, target, evt):
+        if self.__moving_sample is not None:
+            new_pos = QtCore.QPoint(
+                evt.pos().x() - self.__moving_sample_offset.x(),
+                self.__moving_sample_original_pos.y())
+
+            if new_pos.x() < 10:
+                new_pos.setX(10)
+            elif new_pos.x() > target.width() - 10 - self.__moving_sample.width():
+                new_pos.setX(target.width() - 10 - self.__moving_sample.width())
+
+            target.setSamplePos(self.__moving_sample, new_pos)
+
+            evt.accept()
+            return
+
+        target.updateHighlightedSample()
+
+        super().mouseMoveEvent(target, evt)
+
+    def mouseReleaseEvent(self, target, evt):
+        if evt.button() == Qt.LeftButton and self.__moving_sample is not None:
+            pos = self.__moving_sample.pos()
+            self.__moving_sample = None
+
+            self.send_command_async(
+                target.track.id,
+                'MoveSample',
+                sample_id=target.highlightedSample().sample_id,
+                timepos=target.xToTimepos(pos.x()))
+
+            evt.accept()
+            return
+
+        super().mouseReleaseEvent(target, evt)
+
+
+class SampleTrackToolBox(tools.ToolBox):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.addTool(EditSamplesTool(**self.context))
+
+
 class SampleItem(object):
     def __init__(self, track_item=None, sample=None):
         self.__track_item = track_item
@@ -185,6 +275,8 @@ class SampleItem(object):
 
 
 class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
+    toolBoxClass = SampleTrackToolBox
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -194,9 +286,6 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
         self.__playback_timepos = None
         self.__highlighted_sample = None
         self.__mouse_pos = None
-        self.__moving_sample = None
-        self.__moving_sample_original_pos = None
-        self.__moving_sample_offset = None
 
         for sample in self.track.samples:
             self.addSample(len(self.__samples), sample)
@@ -216,14 +305,6 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
         self.__listeners.clear()
 
         super().close()
-
-    def supportedTools(self):
-        return {
-            tools.Tool.POINTER,
-        }
-
-    def defaultTool(self):
-        return tools.Tool.POINTER
 
     def updateSize(self):
         width = 20
@@ -299,7 +380,6 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
             self.rectChanged.emit(
                 QtCore.QRect(self.sheetLeft() + x, self.sheetTop(), 2, self.height()))
 
-
     def setHighlightedSample(self, sample):
         if sample is self.__highlighted_sample:
             return
@@ -311,6 +391,9 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
         if sample is not None:
             sample.setHighlighted(True)
             self.__highlighted_sample = sample
+
+    def highlightedSample(self):
+        return self.__highlighted_sample
 
     def updateHighlightedSample(self):
         if self.__mouse_pos is None:
@@ -380,74 +463,14 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
     def mousePressEvent(self, evt):
         self.__mouse_pos = evt.pos()
-
-        if (evt.button() == Qt.LeftButton
-                and evt.modifiers() == Qt.NoModifier
-                and self.__highlighted_sample is not None):
-            self.__moving_sample = self.__highlighted_sample
-            self.__moving_sample_original_pos = self.__moving_sample.pos()
-            self.__moving_sample_offset = evt.pos() - self.__moving_sample.pos()
-
-            evt.accept()
-            return
-
-        if (evt.button() == Qt.LeftButton
-                and evt.modifiers() == Qt.ShiftModifier
-                and self.__highlighted_sample is not None):
-            self.send_command_async(
-                self.track.id,
-                'RemoveSample',
-                sample_id=self.__highlighted_sample.sample_id)
-
-            evt.accept()
-            return
-
-        if evt.button() == Qt.RightButton and self.__moving_sample is not None:
-            self.setSamplePos(self.__moving_sample, self.__moving_sample_original_pos)
-            self.__moving_sample = None
-            evt.accept()
-            return
-
         super().mousePressEvent(evt)
 
     def mouseMoveEvent(self, evt):
         self.__mouse_pos = evt.pos()
-
-        if self.__moving_sample is not None:
-            new_pos = QtCore.QPoint(
-                evt.pos().x() - self.__moving_sample_offset.x(),
-                self.__moving_sample_original_pos.y())
-
-            if new_pos.x() < 10:
-                new_pos.setX(10)
-            elif new_pos.x() > self.width() - 10 - self.__moving_sample.width():
-                new_pos.setX(self.width() - 10 - self.__moving_sample.width())
-
-            self.setSamplePos(self.__moving_sample, new_pos)
-
-            evt.accept()
-            return
-
-        self.updateHighlightedSample()
-
         super().mouseMoveEvent(evt)
 
     def mouseReleaseEvent(self, evt):
         self.__mouse_pos = evt.pos()
-
-        if evt.button() == Qt.LeftButton and self.__moving_sample is not None:
-            pos = self.__moving_sample.pos()
-            self.__moving_sample = None
-
-            self.send_command_async(
-                self.track.id,
-                'MoveSample',
-                sample_id=self.__highlighted_sample.sample_id,
-                timepos=self.xToTimepos(pos.x()))
-
-            evt.accept()
-            return
-
         super().mouseReleaseEvent(evt)
 
     def purgePaintCaches(self):

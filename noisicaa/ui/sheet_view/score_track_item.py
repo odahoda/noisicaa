@@ -26,6 +26,7 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
+from PyQt5 import QtSvg
 
 from noisicaa import core
 from noisicaa import audioproc
@@ -37,6 +38,462 @@ from noisicaa.ui import tools
 from . import base_track_item
 
 logger = logging.getLogger(__name__)
+
+
+class ScoreToolBase(base_track_item.MeasuredToolBase):
+    def __init__(self, *, icon_name, hotspot, **kwargs):
+        super().__init__(**kwargs)
+
+        self.__icon_name = icon_name
+
+        pixmap = QtGui.QPixmap(64, 64)
+        pixmap.fill(Qt.transparent)
+        painter = QtGui.QPainter(pixmap)
+        renderer = QtSvg.QSvgRenderer(self.iconPath())
+        renderer.render(painter, QtCore.QRectF(0, 0, 64, 64))
+        painter.end()
+        self.__cursor = QtGui.QCursor(pixmap, *hotspot)
+
+    def iconName(self):
+        return self.__icon_name
+
+    def cursor(self):
+        return self.__cursor
+
+    def _updateGhost(self, target, pos):
+        target.setGhost(None)
+
+    def mouseMoveEvent(self, target, evt):
+        assert isinstance(target, ScoreMeasureEditorItemImpl), type(target).__name__
+
+        self._updateGhost(target, evt.pos())
+
+        ymid = target.height() // 2
+        stave_line = int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line
+
+        idx, overwrite, insert_x = target.getEditArea(evt.pos().x())
+        if idx < 0:
+            self.window.setInfoMessage('')
+        else:
+            pitch = music.Pitch.name_from_stave_line(
+                stave_line, target.measure.key_signature)
+            self.window.setInfoMessage(pitch)
+
+        super().mouseMoveEvent(target, evt)
+
+
+class InsertNoteTool(ScoreToolBase):
+    def __init__(self, *, type, **kwargs):
+        super().__init__(
+            type=type,
+            group=tools.ToolGroup.EDIT,
+            icon_name={
+                tools.ToolType.NOTE_WHOLE: 'note-whole',
+                tools.ToolType.NOTE_HALF: 'note-half',
+                tools.ToolType.NOTE_QUARTER: 'note-quarter',
+                tools.ToolType.NOTE_8TH: 'note-8th',
+                tools.ToolType.NOTE_16TH: 'note-16th',
+                tools.ToolType.NOTE_32TH: 'note-32th',
+                tools.ToolType.REST_WHOLE: 'rest-whole',
+                tools.ToolType.REST_HALF: 'rest-half',
+                tools.ToolType.REST_QUARTER: 'rest-quarter',
+                tools.ToolType.REST_8TH: 'rest-8th',
+                tools.ToolType.REST_16TH: 'rest-16th',
+                tools.ToolType.REST_32TH: 'rest-32th',
+            }[type],
+            hotspot={
+                tools.ToolType.NOTE_WHOLE:   (32, 52),
+                tools.ToolType.NOTE_HALF:    (32, 52),
+                tools.ToolType.NOTE_QUARTER: (32, 52),
+                tools.ToolType.NOTE_8TH:     (32, 52),
+                tools.ToolType.NOTE_16TH:    (32, 52),
+                tools.ToolType.NOTE_32TH:    (32, 52),
+                tools.ToolType.REST_WHOLE:   (32, 32),
+                tools.ToolType.REST_HALF:    (32, 32),
+                tools.ToolType.REST_QUARTER: (32, 32),
+                tools.ToolType.REST_8TH:     (32, 32),
+                tools.ToolType.REST_16TH:    (32, 32),
+                tools.ToolType.REST_32TH:    (32, 32),
+            }[type],
+            **kwargs)
+
+    def _updateGhost(self, target, pos):
+        if pos is None:
+            target.setGhost(None)
+            return
+
+        ymid = target.height() // 2
+        stave_line = int(ymid + 5 - pos.y()) // 10 + target.measure.clef.center_pitch.stave_line
+
+        idx, overwrite, insert_x = target.getEditArea(pos.x())
+        if idx < 0:
+            target.setGhost(None)
+            return
+
+        target.setGhost(
+            QtCore.QPoint(
+                insert_x,
+                ymid - 10 * (stave_line - target.measure.clef.center_pitch.stave_line)))
+
+    def mousePressEvent(self, target, evt):
+        ymid = target.height() // 2
+        stave_line = int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line
+
+        if (evt.button() == Qt.LeftButton
+            and (evt.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier):
+            if self.type.is_note:
+                pitch = music.Pitch.name_from_stave_line(
+                    stave_line, target.measure.key_signature)
+            else:
+                pitch = 'r'
+
+            duration = target.durationForTool(self.type)
+
+            idx, overwrite, insert_x = target.getEditArea(evt.pos().x())
+            if idx >= 0:
+                cmd = None
+                if evt.modifiers() == Qt.ShiftModifier:
+                    if overwrite:
+                        if len(target.measure.notes[idx].pitches) > 1:
+                            for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
+                                if p.stave_line == stave_line:
+                                    cmd = ('RemovePitch', dict(idx=idx, pitch_idx=pitch_idx))
+                                    break
+                        else:
+                            cmd = ('DeleteNote', dict(idx=idx))
+                else:
+                    if overwrite:
+                        for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
+                            if p.stave_line == stave_line:
+                                break
+                        else:
+                            cmd = ('AddPitch', dict(idx=idx, pitch=pitch))
+                            target.track_item.playNoteOn(music.Pitch(pitch))
+                    else:
+                        cmd = ('InsertNote', dict(
+                            idx=idx, pitch=pitch, duration=duration))
+                        target.track_item.playNoteOn(music.Pitch(pitch))
+
+                if cmd is not None:
+                    self.send_command_async(
+                        target.measure.id, cmd[0], **cmd[1])
+                    evt.accept()
+                    return
+
+        return super().mousePressEvent(target, evt)
+
+    def mouseReleaseEvent(self, target, evt):
+        target.track_item.playNoteOff()
+        return super().mouseReleaseEvent(target, evt)
+
+
+class ModifyNoteTool(ScoreToolBase):
+    def __init__(self, *, type, **kwargs):
+        super().__init__(
+            type=type,
+            group=tools.ToolGroup.EDIT,
+            icon_name={
+                tools.ToolType.ACCIDENTAL_NATURAL: 'accidental-natural',
+                tools.ToolType.ACCIDENTAL_SHARP: 'accidental-sharp',
+                tools.ToolType.ACCIDENTAL_FLAT: 'accidental-flat',
+                tools.ToolType.ACCIDENTAL_DOUBLE_SHARP: 'accidental-double-sharp',
+                tools.ToolType.ACCIDENTAL_DOUBLE_FLAT: 'accidental-double-flat',
+                tools.ToolType.DURATION_DOT: 'duration-dot',
+                tools.ToolType.DURATION_TRIPLET: 'duration-triplet',
+                tools.ToolType.DURATION_QUINTUPLET: 'duration-quintuplet',
+            }[type],
+            hotspot={
+                tools.ToolType.ACCIDENTAL_NATURAL:      (32, 32),
+                tools.ToolType.ACCIDENTAL_SHARP:        (32, 32),
+                tools.ToolType.ACCIDENTAL_FLAT:         (32, 39),
+                tools.ToolType.ACCIDENTAL_DOUBLE_SHARP: (32, 32),
+                tools.ToolType.ACCIDENTAL_DOUBLE_FLAT:  (32, 32),
+                tools.ToolType.DURATION_DOT:        (32, 52),
+                tools.ToolType.DURATION_TRIPLET:    (32, 32),
+                tools.ToolType.DURATION_QUINTUPLET: (32, 32),
+            }[type],
+            **kwargs)
+
+    def _updateGhost(self, target, pos):
+        if pos is None:
+            target.setGhost(None)
+            return
+
+        ymid = target.height() // 2
+        stave_line = int(ymid + 5 - pos.y()) // 10 + target.measure.clef.center_pitch.stave_line
+
+        idx, overwrite, insert_x = target.getEditArea(pos.x())
+        if idx < 0:
+            target.setGhost(None)
+            return
+
+        target.setGhost(
+            QtCore.QPoint(
+                insert_x - 12,
+                ymid - 10 * (stave_line - target.measure.clef.center_pitch.stave_line)))
+
+    def mousePressEvent(self, target, evt):
+        ymid = target.height() // 2
+        stave_line = int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line
+
+        if (evt.button() == Qt.LeftButton
+            and evt.modifiers() == Qt.NoModifier
+            and self.type.is_accidental):
+            idx, overwrite, insert_x = target.getEditArea(evt.pos().x())
+            if idx >= 0 and overwrite:
+                accidental = {
+                    tools.ToolType.ACCIDENTAL_NATURAL: '',
+                    tools.ToolType.ACCIDENTAL_FLAT: 'b',
+                    tools.ToolType.ACCIDENTAL_SHARP: '#',
+                    tools.ToolType.ACCIDENTAL_DOUBLE_FLAT: 'bb',
+                    tools.ToolType.ACCIDENTAL_DOUBLE_SHARP: '##',
+                }[self.type]
+                for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
+                    if accidental in p.valid_accidentals:
+                        if p.stave_line == stave_line:
+                            self.send_command_async(
+                                target.measure.id, 'SetAccidental',
+                                idx=idx, accidental=accidental,
+                                pitch_idx=pitch_idx)
+                            evt.accept()
+                            return
+
+
+        if (evt.button() == Qt.LeftButton
+            and (evt.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier
+            and self.type.is_duration):
+            idx, overwrite, insert_x = target.getEditArea(evt.pos().x())
+            if idx >= 0 and overwrite:
+                note = target.measure.notes[idx]
+                cmd = None
+                if self.type == tools.ToolType.DURATION_DOT:
+                    if evt.modifiers() & Qt.ShiftModifier:
+                        if note.dots > 0:
+                            cmd = ('ChangeNote', dict(idx=idx, dots=note.dots - 1))
+                    else:
+                        if note.dots < note.max_allowed_dots:
+                            cmd = ('ChangeNote', dict(idx=idx, dots=note.dots + 1))
+
+                elif self.type == tools.ToolType.DURATION_TRIPLET:
+                    if evt.modifiers() & Qt.ShiftModifier:
+                        if note.tuplet != 0:
+                            cmd = ('ChangeNote', dict(idx=idx, tuplet=0))
+                    else:
+                        if note.tuplet != 3:
+                            cmd = ('ChangeNote', dict(idx=idx, tuplet=3))
+
+                elif self.type == tools.ToolType.DURATION_QUINTUPLET:
+                    if evt.modifiers() & Qt.ShiftModifier:
+                        if note.tuplet != 0:
+                            cmd = ('ChangeNote', dict(idx=idx, tuplet=0))
+                    else:
+                        if note.tuplet != 5:
+                            cmd = ('ChangeNote', dict(idx=idx, tuplet=5))
+
+                if cmd is not None:
+                    self.send_command_async(
+                        target.measure.id, cmd[0], **cmd[1])
+                    evt.accept()
+                    return
+
+        return super().mousePressEvent(target, evt)
+
+
+class ScoreToolBox(tools.ToolBox):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.addTool(base_track_item.ArrangeMeasuresTool(**self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_WHOLE, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_HALF, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_QUARTER, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_8TH, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_16TH, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_32TH, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_WHOLE, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_HALF, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_QUARTER, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_8TH, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_16TH, **self.context))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_32TH, **self.context))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_NATURAL, **self.context))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_SHARP, **self.context))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_FLAT, **self.context))
+        #self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_DOUBLE_SHARP, **self.context))
+        #self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_DOUBLE_FLAT, **self.context))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_DOT, **self.context))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_TRIPLET, **self.context))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_QUINTUPLET, **self.context))
+
+    def keyPressEvent(self, target, evt):
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_Period):
+            self.setCurrentToolType(tools.ToolType.DURATION_DOT)
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_F):
+            self.setCurrentToolType(tools.ToolType.ACCIDENTAL_FLAT)
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_S):
+            self.setCurrentToolType(tools.ToolType.ACCIDENTAL_SHARP)
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_N):
+            self.setCurrentToolType(tools.ToolType.ACCIDENTAL_NATURAL)
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_R):
+            self.setCurrentToolType({
+                tools.ToolType.NOTE_WHOLE: tools.ToolType.REST_WHOLE,
+                tools.ToolType.NOTE_HALF: tools.ToolType.REST_HALF,
+                tools.ToolType.NOTE_QUARTER: tools.ToolType.REST_QUARTER,
+                tools.ToolType.NOTE_8TH: tools.ToolType.REST_8TH,
+                tools.ToolType.NOTE_16TH: tools.ToolType.REST_16TH,
+                tools.ToolType.NOTE_32TH: tools.ToolType.REST_32TH,
+                tools.ToolType.REST_WHOLE: tools.ToolType.NOTE_WHOLE,
+                tools.ToolType.REST_HALF: tools.ToolType.NOTE_HALF,
+                tools.ToolType.REST_QUARTER: tools.ToolType.NOTE_QUARTER,
+                tools.ToolType.REST_8TH: tools.ToolType.NOTE_8TH,
+                tools.ToolType.REST_16TH: tools.ToolType.NOTE_16TH,
+                tools.ToolType.REST_32TH: tools.ToolType.NOTE_32TH,
+            }.get(self.currentToolType(), tools.ToolType.REST_QUARTER))
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_1):
+            self.setCurrentToolType(
+                tools.ToolType.NOTE_WHOLE
+                if not self.currentToolType().is_rest
+                else tools.ToolType.REST_WHOLE)
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_2):
+            self.setCurrentToolType(
+                tools.ToolType.NOTE_HALF
+                if not self.currentToolType().is_rest
+                else tools.ToolType.REST_HALF)
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_3):
+            self.setCurrentToolType(
+                tools.ToolType.NOTE_QUARTER
+                if not self.currentToolType().is_rest
+                else tools.ToolType.REST_QUARTER)
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_4):
+            self.setCurrentToolType(
+                tools.ToolType.NOTE_8TH if
+                not self.currentToolType().is_rest
+                else tools.ToolType.REST_8TH)
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_5):
+            self.setCurrentToolType(
+                tools.ToolType.NOTE_16TH
+                if not self.currentToolType().is_rest
+                else tools.ToolType.REST_16TH)
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_6):
+            self.setCurrentToolType(
+                tools.ToolType.NOTE_32TH
+                if not self.currentToolType().is_rest
+                else tools.ToolType.REST_32TH)
+
+            evt.accept()
+            return
+
+        return super().keyPressEvent(target, evt)
+
+    def keyReleaseEvent(self, target, evt):
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_Period):
+            self.setPreviousTool()
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_F):
+            self.setPreviousTool()
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_S):
+            self.setPreviousTool()
+            evt.accept()
+            return
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.NoModifier
+                and evt.key() == Qt.Key_N):
+            self.setPreviousTool()
+            evt.accept()
+            return
+
+        return super().keyReleaseEvent(target, evt)
+
+    # def keyPressEvent(self, evt):
+    #     if (evt.modifiers() == Qt.ControlModifier | Qt.ShiftModifier
+    #             and evt.key() == Qt.Key_Up):
+    #         self._transpose_octave_up_action.trigger()
+    #         evt.accept()
+    #         return
+
+    #     if (evt.modifiers() == Qt.ControlModifier
+    #             and evt.key() == Qt.Key_Up):
+    #         self._transpose_halfnote_up_action.trigger()
+    #         evt.accept()
+    #         return
+
+    #     if (evt.modifiers() == Qt.ControlModifier
+    #             and evt.key() == Qt.Key_Down):
+    #         self._transpose_halfnote_down_action.trigger()
+    #         evt.accept()
+    #         return
+
+    #     if (evt.modifiers() == Qt.ControlModifier | Qt.ShiftModifier
+    #             and evt.key() == Qt.Key_Down):
+    #         self._transpose_octave_down_action.trigger()
+    #         evt.accept()
+    #         return
+
+    #     super().keyPressEvent(evt)
 
 
 class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
@@ -366,7 +823,7 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
 
         ymid = self.height() // 2
 
-        tool = self.track_item.currentTool()
+        tool = self.track_item.currentToolType()
         pos = self.__ghost_pos
         painter.setOpacity(0.4)
 
@@ -411,11 +868,11 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
 
         elif tool.is_accidental:
             accidental = {
-                tools.Tool.ACCIDENTAL_NATURAL: '',
-                tools.Tool.ACCIDENTAL_FLAT: 'b',
-                tools.Tool.ACCIDENTAL_SHARP: '#',
-                tools.Tool.ACCIDENTAL_DOUBLE_FLAT: 'bb',
-                tools.Tool.ACCIDENTAL_DOUBLE_SHARP: '##',
+                tools.ToolType.ACCIDENTAL_NATURAL: '',
+                tools.ToolType.ACCIDENTAL_FLAT: 'b',
+                tools.ToolType.ACCIDENTAL_SHARP: '#',
+                tools.ToolType.ACCIDENTAL_DOUBLE_FLAT: 'bb',
+                tools.ToolType.ACCIDENTAL_DOUBLE_SHARP: '##',
             }[tool]
             sym = self._accidental_map[accidental]
             svg_symbol.paintSymbol(painter, sym, pos)
@@ -423,7 +880,7 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
         else:
             painter.setPen(Qt.NoPen)
             painter.setBrush(Qt.black)
-            painter.drawEllipse(pos.x() - 15, pos.y() - 15, 31, 31, Qt.black)
+            painter.drawEllipse(pos.x() - 15, pos.y() - 15, 31, 31)
 
     def paintPlaybackPos(self, painter):
         assert self._note_area is not None
@@ -526,19 +983,19 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
         return -1, False, 0
 
     _tool_duration_map = {
-        tools.Tool.NOTE_WHOLE:   music.Duration(1, 1),
-        tools.Tool.NOTE_HALF:    music.Duration(1, 2),
-        tools.Tool.NOTE_QUARTER: music.Duration(1, 4),
-        tools.Tool.NOTE_8TH:     music.Duration(1, 8),
-        tools.Tool.NOTE_16TH:    music.Duration(1, 16),
-        tools.Tool.NOTE_32TH:    music.Duration(1, 32),
+        tools.ToolType.NOTE_WHOLE:   music.Duration(1, 1),
+        tools.ToolType.NOTE_HALF:    music.Duration(1, 2),
+        tools.ToolType.NOTE_QUARTER: music.Duration(1, 4),
+        tools.ToolType.NOTE_8TH:     music.Duration(1, 8),
+        tools.ToolType.NOTE_16TH:    music.Duration(1, 16),
+        tools.ToolType.NOTE_32TH:    music.Duration(1, 32),
 
-        tools.Tool.REST_WHOLE:   music.Duration(1, 1),
-        tools.Tool.REST_HALF:    music.Duration(1, 2),
-        tools.Tool.REST_QUARTER: music.Duration(1, 4),
-        tools.Tool.REST_8TH:     music.Duration(1, 8),
-        tools.Tool.REST_16TH:    music.Duration(1, 16),
-        tools.Tool.REST_32TH:    music.Duration(1, 32),
+        tools.ToolType.REST_WHOLE:   music.Duration(1, 1),
+        tools.ToolType.REST_HALF:    music.Duration(1, 2),
+        tools.ToolType.REST_QUARTER: music.Duration(1, 4),
+        tools.ToolType.REST_8TH:     music.Duration(1, 8),
+        tools.ToolType.REST_16TH:    music.Duration(1, 16),
+        tools.ToolType.REST_32TH:    music.Duration(1, 32),
     }
 
     def durationForTool(self, tool):
@@ -565,7 +1022,7 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
             self.setGhost(None)
             return
 
-        tool = self.track_item.currentTool()
+        tool = self.track_item.currentToolType()
         if tool.is_note or tool.is_rest:
             self.setGhost(
                 QtCore.QPoint(
@@ -586,163 +1043,10 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
         self.setGhost(None)
         super().leaveEvent(evt)
 
-    def keyPressEvent(self, evt):
-        if (evt.modifiers() == Qt.ControlModifier | Qt.ShiftModifier
-                and evt.key() == Qt.Key_Up):
-            self._transpose_octave_up_action.trigger()
-            evt.accept()
-            return
-
-        if (evt.modifiers() == Qt.ControlModifier
-                and evt.key() == Qt.Key_Up):
-            self._transpose_halfnote_up_action.trigger()
-            evt.accept()
-            return
-
-        if (evt.modifiers() == Qt.ControlModifier
-                and evt.key() == Qt.Key_Down):
-            self._transpose_halfnote_down_action.trigger()
-            evt.accept()
-            return
-
-        if (evt.modifiers() == Qt.ControlModifier | Qt.ShiftModifier
-                and evt.key() == Qt.Key_Down):
-            self._transpose_octave_down_action.trigger()
-            evt.accept()
-            return
-
-        super().keyPressEvent(evt)
-
     def mouseMoveEvent(self, evt):
         self.__mouse_pos = evt.pos()
-
-        self.updateGhost(evt.pos())
-
-        ymid = self.height() // 2
-        stave_line = int(ymid + 5 - evt.pos().y()) // 10 + self.measure.clef.center_pitch.stave_line
-
-        idx, overwrite, insert_x = self.getEditArea(evt.pos().x())
-        if idx < 0:
-            self.window.setInfoMessage('')
-        else:
-            pitch = music.Pitch.name_from_stave_line(
-                stave_line, self.measure.key_signature)
-            self.window.setInfoMessage(pitch)
-
+        self.updateGhost(self.__mouse_pos)
         super().mouseMoveEvent(evt)
-
-    def mousePressEvent(self, event):
-        ymid = self.height() // 2
-        stave_line = int(ymid + 5 - event.pos().y()) // 10 + self.measure.clef.center_pitch.stave_line
-
-        tool = self.track_item.currentTool()
-        if (event.button() == Qt.LeftButton
-            and (event.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier
-            and (tool.is_note or tool.is_rest)):
-            if tool.is_note:
-                pitch = music.Pitch.name_from_stave_line(
-                    stave_line, self.measure.key_signature)
-            else:
-                pitch = 'r'
-
-            duration = self.durationForTool(tool)
-
-            idx, overwrite, insert_x = self.getEditArea(event.pos().x())
-            if idx >= 0:
-                cmd = None
-                if event.modifiers() == Qt.ShiftModifier:
-                    if overwrite:
-                        if len(self.measure.notes[idx].pitches) > 1:
-                            for pitch_idx, p in enumerate(self.measure.notes[idx].pitches):
-                                if p.stave_line == stave_line:
-                                    cmd = ('RemovePitch', dict(idx=idx, pitch_idx=pitch_idx))
-                                    break
-                        else:
-                            cmd = ('DeleteNote', dict(idx=idx))
-                else:
-                    if overwrite:
-                        for pitch_idx, p in enumerate(self.measure.notes[idx].pitches):
-                            if p.stave_line == stave_line:
-                                break
-                        else:
-                            cmd = ('AddPitch', dict(idx=idx, pitch=pitch))
-                            self.track_item.playNoteOn(music.Pitch(pitch))
-                    else:
-                        cmd = ('InsertNote', dict(
-                            idx=idx, pitch=pitch, duration=duration))
-                        self.track_item.playNoteOn(music.Pitch(pitch))
-
-                if cmd is not None:
-                    self.send_command_async(
-                        self.measure.id, cmd[0], **cmd[1])
-                    event.accept()
-                    return
-
-        if (event.button() == Qt.LeftButton
-            and event.modifiers() == Qt.NoModifier
-            and tool.is_accidental):
-            idx, overwrite, insert_x = self.getEditArea(event.pos().x())
-            if idx >= 0 and overwrite:
-                accidental = {
-                    tools.Tool.ACCIDENTAL_NATURAL: '',
-                    tools.Tool.ACCIDENTAL_FLAT: 'b',
-                    tools.Tool.ACCIDENTAL_SHARP: '#',
-                    tools.Tool.ACCIDENTAL_DOUBLE_FLAT: 'bb',
-                    tools.Tool.ACCIDENTAL_DOUBLE_SHARP: '##',
-                }[tool]
-                for pitch_idx, p in enumerate(self.measure.notes[idx].pitches):
-                    if accidental in p.valid_accidentals:
-                        if p.stave_line == stave_line:
-                            self.send_command_async(
-                                self.measure.id, 'SetAccidental',
-                                idx=idx, accidental=accidental,
-                                pitch_idx=pitch_idx)
-                            event.accept()
-                            return
-
-
-        if (event.button() == Qt.LeftButton
-            and (event.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier
-            and tool.is_duration):
-            idx, overwrite, insert_x = self.getEditArea(event.pos().x())
-            if idx >= 0 and overwrite:
-                note = self.measure.notes[idx]
-                cmd = None
-                if tool == tools.Tool.DURATION_DOT:
-                    if event.modifiers() & Qt.ShiftModifier:
-                        if note.dots > 0:
-                            cmd = ('ChangeNote', dict(idx=idx, dots=note.dots - 1))
-                    else:
-                        if note.dots < note.max_allowed_dots:
-                            cmd = ('ChangeNote', dict(idx=idx, dots=note.dots + 1))
-
-                elif tool == tools.Tool.DURATION_TRIPLET:
-                    if event.modifiers() & Qt.ShiftModifier:
-                        if note.tuplet != 0:
-                            cmd = ('ChangeNote', dict(idx=idx, tuplet=0))
-                    else:
-                        if note.tuplet != 3:
-                            cmd = ('ChangeNote', dict(idx=idx, tuplet=3))
-
-                elif tool == tools.Tool.DURATION_QUINTUPLET:
-                    if event.modifiers() & Qt.ShiftModifier:
-                        if note.tuplet != 0:
-                            cmd = ('ChangeNote', dict(idx=idx, tuplet=0))
-                    else:
-                        if note.tuplet != 5:
-                            cmd = ('ChangeNote', dict(idx=idx, tuplet=5))
-
-                if cmd is not None:
-                    self.send_command_async(
-                        self.measure.id, cmd[0], **cmd[1])
-                    event.accept()
-                    return
-
-        return super().mousePressEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        logger.info(str(event))
-        self.track_item.playNoteOff()
 
 
 class ScoreMeasureEditorItem(ui_base.ProjectMixin, ScoreMeasureEditorItemImpl):
@@ -752,38 +1056,13 @@ class ScoreMeasureEditorItem(ui_base.ProjectMixin, ScoreMeasureEditorItemImpl):
 class ScoreTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
     measure_item_cls = ScoreMeasureEditorItem
 
+    toolBoxClass = ScoreToolBox
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.__play_last_pitch = None
 
         self.setHeight(240)
-
-    def supportedTools(self):
-        return {
-            tools.Tool.NOTE_WHOLE,
-            tools.Tool.NOTE_HALF,
-            tools.Tool.NOTE_QUARTER,
-            tools.Tool.NOTE_8TH,
-            tools.Tool.NOTE_16TH,
-            tools.Tool.NOTE_32TH,
-            tools.Tool.REST_WHOLE,
-            tools.Tool.REST_HALF,
-            tools.Tool.REST_QUARTER,
-            tools.Tool.REST_8TH,
-            tools.Tool.REST_16TH,
-            tools.Tool.REST_32TH,
-            tools.Tool.ACCIDENTAL_NATURAL,
-            tools.Tool.ACCIDENTAL_FLAT,
-            tools.Tool.ACCIDENTAL_SHARP,
-            tools.Tool.ACCIDENTAL_DOUBLE_FLAT,
-            tools.Tool.ACCIDENTAL_DOUBLE_SHARP,
-            tools.Tool.DURATION_DOT,
-            tools.Tool.DURATION_TRIPLET,
-            tools.Tool.DURATION_QUINTUPLET,
-            }
-
-    def defaultTool(self):
-        return tools.Tool.NOTE_QUARTER
 
     def playNoteOn(self, pitch):
         self.playNoteOff()
@@ -814,149 +1093,6 @@ class ScoreTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
                                 0, self.__play_last_pitch.midi_note))))
 
             self.__play_last_pitch = None
-
-    def keyPressEvent(self, evt):
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_Period):
-            self.setCurrentTool(tools.Tool.DURATION_DOT)
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_F):
-            self.setCurrentTool(tools.Tool.ACCIDENTAL_FLAT)
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_S):
-            self.setCurrentTool(tools.Tool.ACCIDENTAL_SHARP)
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_N):
-            self.setCurrentTool(tools.Tool.ACCIDENTAL_NATURAL)
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_R):
-            self.setCurrentTool({
-                tools.Tool.NOTE_WHOLE: tools.Tool.REST_WHOLE,
-                tools.Tool.NOTE_HALF: tools.Tool.REST_HALF,
-                tools.Tool.NOTE_QUARTER: tools.Tool.REST_QUARTER,
-                tools.Tool.NOTE_8TH: tools.Tool.REST_8TH,
-                tools.Tool.NOTE_16TH: tools.Tool.REST_16TH,
-                tools.Tool.NOTE_32TH: tools.Tool.REST_32TH,
-                tools.Tool.REST_WHOLE: tools.Tool.NOTE_WHOLE,
-                tools.Tool.REST_HALF: tools.Tool.NOTE_HALF,
-                tools.Tool.REST_QUARTER: tools.Tool.NOTE_QUARTER,
-                tools.Tool.REST_8TH: tools.Tool.NOTE_8TH,
-                tools.Tool.REST_16TH: tools.Tool.NOTE_16TH,
-                tools.Tool.REST_32TH: tools.Tool.NOTE_32TH,
-            }.get(self.currentTool(), tools.Tool.REST_QUARTER))
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_1):
-            self.setCurrentTool(
-                tools.Tool.NOTE_WHOLE
-                if not self.currentTool().is_rest
-                else tools.Tool.REST_WHOLE)
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_2):
-            self.setCurrentTool(
-                tools.Tool.NOTE_HALF
-                if not self.currentTool().is_rest
-                else tools.Tool.REST_HALF)
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_3):
-            self.setCurrentTool(
-                tools.Tool.NOTE_QUARTER
-                if not self.currentTool().is_rest
-                else tools.Tool.REST_QUARTER)
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_4):
-            self.setCurrentTool(
-                tools.Tool.NOTE_8TH if
-                not self.currentTool().is_rest
-                else tools.Tool.REST_8TH)
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_5):
-            self.setCurrentTool(
-                tools.Tool.NOTE_16TH
-                if not self.currentTool().is_rest
-                else tools.Tool.REST_16TH)
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_6):
-            self.setCurrentTool(
-                tools.Tool.NOTE_32TH
-                if not self.currentTool().is_rest
-                else tools.Tool.REST_32TH)
-
-            evt.accept()
-            return
-
-        return super().keyPressEvent(evt)
-
-    def keyReleaseEvent(self, evt):
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_Period):
-            self.setPreviousTool()
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_F):
-            self.setPreviousTool()
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_S):
-            self.setPreviousTool()
-            evt.accept()
-            return
-
-        if (not evt.isAutoRepeat()
-                and evt.modifiers() == Qt.NoModifier
-                and evt.key() == Qt.Key_N):
-            self.setPreviousTool()
-            evt.accept()
-            return
-
-        return super().keyReleaseEvent(evt)
 
 
 class ScoreTrackEditorItem(ui_base.ProjectMixin, ScoreTrackEditorItemImpl):

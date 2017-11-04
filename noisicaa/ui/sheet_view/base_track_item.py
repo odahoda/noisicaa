@@ -168,47 +168,63 @@ class BaseTrackItem(QtCore.QObject):
 
 
 class BaseTrackEditorItem(BaseTrackItem):
-    currentToolChanged = QtCore.pyqtSignal(tools.Tool)
+    currentToolChanged = QtCore.pyqtSignal(tools.ToolType)
 
-    def __init__(self, *, player_state, **kwargs):
+    toolBoxClass = None
+
+    def __init__(self, *, player_state, sheet_view, **kwargs):
         super().__init__(**kwargs)
 
         self.__player_state = player_state
-        self.__current_tool = self.defaultTool()
-        self.__previous_tool = None
+        self.__sheet_view = sheet_view
+
+    def toolBox(self):
+        tool_box = self.__sheet_view.currentToolBox()
+        assert isinstance(tool_box, self.toolBoxClass)
+        return tool_box
+
+    def currentTool(self):
+        return self.toolBox().currentTool()
+
+    def currentToolType(self):
+        return self.toolBox().currentToolType()
+
+    def toolBoxMatches(self):
+        return isinstance(self.__sheet_view.currentToolBox(), self.toolBoxClass)
 
     def playerState(self):
         return self.__player_state
 
-    def supportedTools(self):
-        raise NotImplementedError
-
-    def defaultTool(self):
-        raise NotImplementedError
-
-    def currentTool(self):
-        return self.__current_tool
-
-    def setCurrentTool(self, tool):
-        if not isinstance(tool, tools.Tool):
-            raise TypeError("Expected Tool, got %s" % type(tool).__name__)
-        if tool not in self.supportedTools():
-            raise ValueError("Expected %s, got %s" % (self.supportedTools(), tool))
-
-        if tool != self.__current_tool:
-            self.__previous_tool = self.__current_tool
-            self.__current_tool = tool
-            self.currentToolChanged.emit(self.__current_tool)
-
-    def setPreviousTool(self):
-        if self.__previous_tool is not None:
-            if self.__previous_tool != self.__current_tool:
-                self.__current_tool = self.__previous_tool
-                self.currentToolChanged.emit(self.__current_tool)
-            self.__previous_tool = None
-
     def setPlaybackPos(self, timepos):
         pass
+
+    def mouseMoveEvent(self, evt):
+        if self.toolBoxMatches():
+            return self.toolBox().mouseMoveEvent(self, evt)
+
+    def mousePressEvent(self, evt):
+        if self.toolBoxMatches():
+            return self.toolBox().mousePressEvent(self, evt)
+
+    def mouseReleaseEvent(self, evt):
+        if self.toolBoxMatches():
+            return self.toolBox().mouseReleaseEvent(self, evt)
+
+    def mouseDoubleClickEvent(self, evt):
+        if self.toolBoxMatches():
+            return self.toolBox().mouseDoubleClickEvent(self, evt)
+
+    def wheelEvent(self, evt):
+        if self.toolBoxMatches():
+            return self.toolBox().wheelEvent(self, evt)
+
+    def keyPressEvent(self, evt):
+        if self.toolBoxMatches():
+            return self.toolBox().keyPressEvent(self, evt)
+
+    def keyReleaseEvent(self, evt):
+        if self.toolBoxMatches():
+            return self.toolBox().keyReleaseEvent(self, evt)
 
 
 class BaseMeasureEditorItem(selection_set.Selectable, QtCore.QObject):
@@ -275,24 +291,6 @@ class BaseMeasureEditorItem(selection_set.Selectable, QtCore.QObject):
         pass
 
     def leaveEvent(self, evt):
-        pass
-
-    def mousePressEvent(self, evt):
-        pass
-
-    def mouseReleaseEvent(self, evt):
-        pass
-
-    def mouseMoveEvent(self, evt):
-        pass
-
-    def wheelEvent(self, evt):
-        pass
-
-    def keyPressEvent(self, evt):
-        pass
-
-    def keyReleaseEvent(self, evt):
         pass
 
 
@@ -459,17 +457,6 @@ class MeasureEditorItem(BaseMeasureEditorItem):
             else:
                 painter.drawPixmap(0, 0, self.__paint_caches[layer])
 
-    def mousePressEvent(self, evt):
-        if evt.modifiers() == Qt.ControlModifier:
-            if self.selected():
-                self.selection_set.remove(self)
-            else:
-                self.selection_set.add(self)
-            evt.accept()
-            return
-
-        super().mousePressEvent(evt)
-
 
 class Appendix(ui_base.ProjectMixin, BaseMeasureEditorItem):
     def __init__(self, **kwargs):
@@ -511,19 +498,160 @@ class Appendix(ui_base.ProjectMixin, BaseMeasureEditorItem):
         self.setHover(False)
         super().leaveEvent(evt)
 
-    def mouseMoveEvent(self, evt):
-        self.setHover(self.clickRect().contains(evt.pos()))
-        super().mouseMoveEvent(evt)
 
-    def mousePressEvent(self, evt):
-        if self.clickRect().contains(evt.pos()):
-            self.send_command_async(
-                self.sheet.id,
-                'InsertMeasure', tracks=[], pos=-1)
-            evt.accept()
-            return
+class MeasuredToolBase(tools.ToolBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-        super().mousePressEvent(evt)
+        self.__mouse_grabber = None
+        self.__mouse_pos = None
+
+    def _measureItemUnderMouse(self, target):
+        if self.__mouse_pos is None:
+            return None
+        return target.measureItemAt(self.__mouse_pos)
+
+    def __makeMouseEvent(self, measure_item, evt):
+        return QtGui.QMouseEvent(
+            evt.type(),
+            evt.localPos() - measure_item.topLeft(),
+            evt.windowPos(),
+            evt.screenPos(),
+            evt.button(),
+            evt.buttons(),
+            evt.modifiers())
+
+    def _mousePressEvent(self, target, evt):
+        assert isinstance(target, MeasuredTrackEditorItem), type(target).__name__
+
+        self.__mouse_pos = evt.pos()
+
+        measure_item = target.measureItemAt(evt.pos())
+        if isinstance(measure_item, MeasureEditorItem):
+            measure_evt = self.__makeMouseEvent(measure_item, evt)
+            self.mousePressEvent(measure_item, measure_evt)
+            if measure_evt.isAccepted():
+                self.__mouse_grabber = measure_item
+            evt.setAccepted(measure_evt.isAccepted())
+
+        elif isinstance(measure_item, Appendix):
+            if measure_item.clickRect().contains(evt.pos() - measure_item.topLeft()):
+                self.send_command_async(
+                    target.sheet.id,
+                    'InsertMeasure', tracks=[], pos=-1)
+                evt.accept()
+                return
+
+    def _mouseReleaseEvent(self, target, evt):
+        assert isinstance(target, MeasuredTrackEditorItem), type(target).__name__
+
+        self.__mouse_pos = evt.pos()
+
+        if isinstance(self.__mouse_grabber, MeasureEditorItem):
+            measure_evt = self.__makeMouseEvent(self.__mouse_grabber, evt)
+            self.mouseReleaseEvent(self.__mouse_grabber, measure_evt)
+            self.__mouse_grabber = None
+            evt.setAccepted(measure_evt.isAccepted())
+            target.setHoverMeasureItem(target.measureItemAt(evt.pos()), evt)
+
+    def _mouseMoveEvent(self, target, evt):
+        assert isinstance(target, MeasuredTrackEditorItem), type(target).__name__
+
+        self.__mouse_pos = evt.pos()
+
+        if self.__mouse_grabber is not None:
+            measure_item = self.__mouse_grabber
+        else:
+            measure_item = target.measureItemAt(evt.pos())
+            target.setHoverMeasureItem(measure_item, evt)
+
+        if isinstance(measure_item, MeasureEditorItem):
+            measure_evt = self.__makeMouseEvent(measure_item, evt)
+            self.mouseMoveEvent(measure_item, measure_evt)
+            evt.setAccepted(measure_evt.isAccepted())
+
+        elif isinstance(measure_item, Appendix):
+            measure_item.setHover(
+                measure_item.clickRect().contains(evt.pos() - measure_item.topLeft()))
+
+    def _mouseDoubleClickEvent(self, target, evt):
+        assert isinstance(target, MeasuredTrackEditorItem), type(target).__name__
+
+        self.__mouse_pos = evt.pos()
+
+        measure_item = target.measureItemAt(evt.pos())
+        if isinstance(measure_item, MeasureEditorItem):
+            measure_evt = self.__makeMouseEvent(measure_item, evt)
+            self.mouseDoubleClickEvent(measure_item, measure_evt)
+            evt.setAccepted(measure_evt.isAccepted())
+
+    def _wheelEvent(self, target, evt):
+        assert isinstance(target, MeasuredTrackEditorItem), type(target).__name__
+
+        self.__mouse_pos = evt.pos()
+
+        measure_item = target.measureItemAt(evt.pos())
+        if isinstance(measure_item, MeasureEditorItem):
+            measure_evt = QtGui.QWheelEvent(
+                evt.pos() - measure_item.topLeft(),
+                evt.globalPos(),
+                evt.pixelDelta(),
+                evt.angleDelta(),
+                0,
+                Qt.Horizontal,
+                evt.buttons(),
+                evt.modifiers(),
+                evt.phase(),
+                evt.source())
+            self.wheelEvent(measure_item, measure_evt)
+            evt.setAccepted(measure_evt.isAccepted())
+
+    def __makeKeyEvent(self, measure_item, evt):
+        return QtGui.QKeyEvent(
+            evt.type(),
+            evt.key(),
+            evt.modifiers(),
+            evt.nativeScanCode(),
+            evt.nativeVirtualKey(),
+            evt.nativeModifiers(),
+            evt.text(),
+            evt.isAutoRepeat(),
+            evt.count())
+
+    def _keyPressEvent(self, target, evt):
+        measure_item = self._measureItemUnderMouse(target)
+        if isinstance(measure_item, MeasureEditorItem):
+            measure_evt = self.__makeKeyEvent(measure_item, evt)
+            self.keyPressEvent(measure_item, measure_evt)
+            evt.setAccepted(measure_evt.isAccepted())
+
+    def _keyReleaseEvent(self, target, evt):
+        measure_item = self._measureItemUnderMouse(target)
+        if isinstance(measure_item, MeasureEditorItem):
+            measure_evt = self.__makeKeyEvent(measure_item, evt)
+            self.keyReleaseEvent(measure_item, measure_evt)
+            evt.setAccepted(measure_evt.isAccepted())
+
+
+class ArrangeMeasuresTool(MeasuredToolBase):
+    def __init__(self, **kwargs):
+        super().__init__(
+            type=tools.ToolType.ARRANGE_MEASURES,
+            group=tools.ToolGroup.ARRANGE,
+            **kwargs)
+
+    def iconName(self):
+        return 'pointer'
+
+    def mousePressEvent(self, target, evt):
+        assert isinstance(target, MeasureEditorItem), type(target).__name__
+        track_item = target.track_item
+
+        if target.selected():
+            track_item.selection_set.remove(target)
+        else:
+            track_item.selection_set.add(target)
+        evt.accept()
 
 
 class MeasuredTrackEditorItem(BaseTrackEditorItem):
@@ -534,9 +662,7 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
 
         self.__closing = False
         self.__listeners = []
-        self.__mouse_grabber = None
         self.__measure_item_at_playback_pos = None
-        self.__mouse_pos = None
         self.__hover_measure_item = None
 
         self.__measure_items = []
@@ -633,11 +759,6 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
 
         return None
 
-    def measureItemUnderMouse(self):
-        if self.__mouse_pos is None:
-            return None
-        return self.measureItemAt(self.__mouse_pos)
-
     def buildContextMenu(self, menu, pos):
         super().buildContextMenu(menu, pos)
 
@@ -681,131 +802,6 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
 
     def leaveEvent(self, evt):
         self.setHoverMeasureItem(None, evt)
-
-    def mousePressEvent(self, evt):
-        self.__mouse_pos = evt.pos()
-
-        measure_item = self.measureItemAt(evt.pos())
-        if measure_item is not None:
-            measure_evt = QtGui.QMouseEvent(
-                evt.type(),
-                evt.localPos() - measure_item.topLeft(),
-                evt.windowPos(),
-                evt.screenPos(),
-                evt.button(),
-                evt.buttons(),
-                evt.modifiers())
-            measure_item.mousePressEvent(measure_evt)
-            if measure_evt.isAccepted():
-                self.__mouse_grabber = measure_item
-            evt.setAccepted(measure_evt.isAccepted())
-            return
-
-        return super().mousePressEvent(evt)
-
-    def mouseMoveEvent(self, evt):
-        self.__mouse_pos = evt.pos()
-
-        if self.__mouse_grabber is not None:
-            measure_item = self.__mouse_grabber
-        else:
-            measure_item = self.measureItemAt(evt.pos())
-            self.setHoverMeasureItem(measure_item, evt)
-
-        if measure_item is not None:
-            measure_evt = QtGui.QMouseEvent(
-                evt.type(),
-                evt.localPos() - measure_item.topLeft(),
-                evt.windowPos(),
-                evt.screenPos(),
-                evt.button(),
-                evt.buttons(),
-                evt.modifiers())
-            measure_item.mouseMoveEvent(measure_evt)
-            evt.setAccepted(measure_evt.isAccepted())
-            return
-
-        return super().mouseMoveEvent(evt)
-
-    def mouseReleaseEvent(self, evt):
-        self.__mouse_pos = evt.pos()
-
-        if self.__mouse_grabber is not None:
-            measure_evt = QtGui.QMouseEvent(
-                evt.type(),
-                evt.localPos() - self.__mouse_grabber.topLeft(),
-                evt.windowPos(),
-                evt.screenPos(),
-                evt.button(),
-                evt.buttons(),
-                evt.modifiers())
-            self.__mouse_grabber.mouseReleaseEvent(measure_evt)
-            self.__mouse_grabber = None
-            evt.setAccepted(measure_evt.isAccepted())
-            self.setHoverMeasureItem(self.measureItemAt(evt.pos()), evt)
-            return
-
-        return super().mouseReleaseEvent(evt)
-
-    def wheelEvent(self, evt):
-        self.__mouse_pos = evt.pos()
-
-        measure_item = self.measureItemAt(evt.pos())
-        if measure_item is not None:
-            measure_evt = QtGui.QWheelEvent(
-                evt.pos() - measure_item.topLeft(),
-                evt.globalPos(),
-                evt.pixelDelta(),
-                evt.angleDelta(),
-                0,
-                Qt.Horizontal,
-                evt.buttons(),
-                evt.modifiers(),
-                evt.phase(),
-                evt.source())
-            measure_item.wheelEvent(measure_evt)
-            evt.accept()
-            return
-
-        return super().wheelEvent(evt)
-
-    def keyPressEvent(self, evt):
-        measure_item = self.measureItemUnderMouse()
-        if measure_item is not None:
-            measure_evt = QtGui.QKeyEvent(
-                evt.type(),
-                evt.key(),
-                evt.modifiers(),
-                evt.nativeScanCode(),
-                evt.nativeVirtualKey(),
-                evt.nativeModifiers(),
-                evt.text(),
-                evt.isAutoRepeat(),
-                evt.count())
-            measure_item.keyPressEvent(measure_evt)
-            evt.accept()
-            return
-
-        return super().keyPressEvent(evt)
-
-    def keyReleaseEvent(self, evt):
-        measure_item = self.measureItemUnderMouse()
-        if measure_item is not None:
-            measure_evt = QtGui.QKeyEvent(
-                evt.type(),
-                evt.key(),
-                evt.modifiers(),
-                evt.nativeScanCode(),
-                evt.nativeVirtualKey(),
-                evt.nativeModifiers(),
-                evt.text(),
-                evt.isAutoRepeat(),
-                evt.count())
-            measure_item.keyReleaseEvent(measure_evt)
-            evt.accept()
-            return
-
-        return super().keyReleaseEvent(evt)
 
     def purgePaintCaches(self):
         super().purgePaintCaches()

@@ -266,8 +266,7 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
 
     scaleXChanged = QtCore.pyqtSignal(Fraction)
 
-    currentToolChanged = QtCore.pyqtSignal(tools.Tool)
-    supportedToolsChanged = QtCore.pyqtSignal(set)
+    currentToolBoxChanged = QtCore.pyqtSignal(tools.ToolBox)
 
     track_cls_map = {
         'ScoreTrack': score_track_item.ScoreTrackEditorItem,
@@ -280,6 +279,7 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
         self.__sheet = sheet
         self.__player_state = player_state
 
+        self.__current_tool_box = None
         self.__current_tool = None
         self.__mouse_grabber = None
         self.__current_track_item = None
@@ -310,8 +310,7 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
                 self.__onCurrentTrackChanged(track_item.track)
 
         self.updateTracks()
-        self.currentTrackChanged.connect(
-            self.__onCurrentTrackChanged)
+        self.currentTrackChanged.connect(self.__onCurrentTrackChanged)
 
         self.__player_state.playbackSamplePosChanged.connect(
             lambda sample_pos: self.setPlaybackPos(sample_pos, 1))
@@ -319,7 +318,10 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
     def createTrack(self, track):
         track_item_cls = self.track_cls_map[type(track).__name__]
         track_item = track_item_cls(
-            **self.context, track=track, player_state=self.__player_state)
+            **self.context,
+            track=track,
+            player_state=self.__player_state,
+            sheet_view=self)
         track_item.rectChanged.connect(
             lambda rect: self.update(rect.translated(-self.offset())))
         track_item.sizeChanged.connect(
@@ -348,27 +350,58 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
         self.update()
 
     def __onCurrentTrackChanged(self, track):
-        if self.__current_track_item is not None:
-            self.__current_track_item.currentToolChanged.connect(self.setCurrentTool)
-
         if track is not None:
             track_item = self.track(track.id)
             self.__current_track_item = track_item
 
-            self.supportedToolsChanged.emit(track_item.supportedTools())
-            if self.currentTool() in track_item.supportedTools():
-                track_item.setCurrentTool(self.currentTool())
-            else:
-                self.setCurrentTool(track_item.currentTool())
-
-            track_item.currentToolChanged.connect(self.setCurrentTool)
-
-            self.setCursor(self.currentTool().cursor())
+            self.setCurrentToolBoxClass(track_item.toolBoxClass)
 
         else:
             self.__current_track_item = None
-            self.supportedToolsChanged.emit({tools.Tool.POINTER})
-            self.setCurrentTool(tools.Tool.POINTER)
+            self.setCurrentToolBoxClass(None)
+
+    def currentToolBox(self):
+        return self.__current_tool_box
+
+    def setCurrentToolBoxClass(self, cls):
+        if type(self.__current_tool_box) is cls:
+            return
+        logger.debug("Switching to tool box class %s", cls)
+
+        if self.__current_tool_box is not None:
+            self.__current_tool_box.currentToolChanged.disconnect(self.__onCurrentToolChanged)
+            self.__onCurrentToolChanged(None)
+            self.__current_tool_box = None
+
+        if cls is not None:
+            self.__current_tool_box = cls(**self.context)
+            self.__onCurrentToolChanged(self.__current_tool_box.currentTool())
+            self.__current_tool_box.currentToolChanged.connect(self.__onCurrentToolChanged)
+
+        self.currentToolBoxChanged.emit(self.__current_tool_box)
+
+    def __onCurrentToolChanged(self, tool):
+        if tool is self.__current_tool:
+            return
+
+        logger.debug("Current tool: %s", tool)
+
+        if self.__current_tool is not None:
+            self.__current_tool.cursorChanged.disconnect(self.__onToolCursorChanged)
+            self.__onToolCursorChanged(None)
+            self.__current_tool = None
+
+        if tool is not None:
+            self.__current_tool = tool
+            self.__onToolCursorChanged(self.__current_tool.cursor())
+            self.__current_tool.cursorChanged.connect(self.__onToolCursorChanged)
+
+    def __onToolCursorChanged(self, cursor):
+        logger.debug("Cursor changed: %s", cursor)
+        if cursor is not None:
+            self.setCursor(cursor)
+        else:
+            self.setCursor(QtGui.QCursor(Qt.ArrowCursor))
 
     def maximumXOffset(self):
         return max(0, self.__content_width - self.width())
@@ -423,30 +456,6 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
         self.__scale_x = scale_x
         self.updateTracks()
         self.scaleXChanged.emit(self.__scale_x)
-
-    def currentTool(self):
-        return self.__current_tool
-
-    def setCurrentTool(self, tool):
-        assert isinstance(tool, tools.Tool), tool
-        if tool != self.__current_tool:
-            self.__current_tool = tool
-            logger.info("Current tool: %s", tool)
-
-            current_track = self.currentTrack()
-            if current_track is not None:
-                current_track_item = self.track(current_track.id)
-                current_track_item.setCurrentTool(tool)
-                self.setCursor(tool.cursor())
-
-            self.currentToolChanged.emit(tool)
-
-    def supportedTools(self):
-        for track_item in self.tracks():
-            if track_item.isCurrent():
-                return track_item.supportedTools()
-
-        return {tools.Tool.POINTER}
 
     def setPlaybackPos(self, sample_pos, num_samples):
         if not (0 <= sample_pos < self.__time_mapper.total_duration_samples):
@@ -538,11 +547,6 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
             track_item.mouseMoveEvent(track_evt)
             evt.setAccepted(track_evt.isAccepted())
             return
-
-        if track_item is not None and self.currentTool() in track_item.supportedTools():
-            self.setCursor(self.currentTool().cursor())
-        else:
-            self.setCursor(Qt.ArrowCursor)
 
     def mousePressEvent(self, evt):
         track_item = self.trackItemAt(evt.pos())
@@ -1105,8 +1109,7 @@ class Frame(QtWidgets.QFrame):
 
 
 class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
-    currentToolChanged = QtCore.pyqtSignal(tools.Tool)
-    supportedToolsChanged = QtCore.pyqtSignal(set)
+    currentToolBoxChanged = QtCore.pyqtSignal(tools.ToolBox)
     playbackStateChanged = QtCore.pyqtSignal(str)
     playbackLoopChanged = QtCore.pyqtSignal(bool)
 
@@ -1125,8 +1128,7 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
             parent=sheet_editor_frame, **self.context)
         sheet_editor_frame.setWidget(self.__sheet_editor)
 
-        self.__sheet_editor.currentToolChanged.connect(self.currentToolChanged)
-        self.__sheet_editor.supportedToolsChanged.connect(self.supportedToolsChanged)
+        self.__sheet_editor.currentToolBoxChanged.connect(self.currentToolBoxChanged)
 
         time_line_frame = Frame(parent=self)
         self.__time_line = TimeLine(
@@ -1254,14 +1256,8 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
     def sheet(self):
         return self.__sheet
 
-    def currentTool(self):
-        return self.__sheet_editor.currentTool()
-
-    def setCurrentTool(self, tool):
-        self.__sheet_editor.setCurrentTool(tool)
-
-    def supportedTools(self):
-        return self.__sheet_editor.supportedTools()
+    def currentToolBox(self):
+        return self.__sheet_editor.currentToolBox()
 
     def playbackState(self):
         return self.__player_state.state()

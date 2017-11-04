@@ -99,7 +99,7 @@ class FlowLayout(QtWidgets.QLayout):
 
         for item in self.itemList:
             wid = item.widget()
-            if not wid.isVisible():
+            if not wid.isVisibleTo(self.parentWidget()):
                 continue
 
             spaceX = self.spacing() # + wid.style().layoutSpacing(QSizePolicy.PushButton, QSizePolicy.PushButton, Qt.Horizontal)
@@ -112,8 +112,7 @@ class FlowLayout(QtWidgets.QLayout):
                 lineHeight = 0
 
             if not testOnly:
-                item.setGeometry(
-                    QtCore.QRect(QtCore.QPoint(x, y), item.sizeHint()))
+                item.setGeometry(QtCore.QRect(QtCore.QPoint(x, y), item.sizeHint()))
 
             x = nextX
             lineHeight = max(lineHeight, item.sizeHint().height())

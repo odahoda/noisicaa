@@ -28,16 +28,23 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
-from PyQt5 import QtSvg
 
 from noisicaa import constants
 from noisicaa import utils
+from . import ui_base
 
 
 logger = logging.getLogger(__name__)
 
 
-class Tool(enum.IntEnum):
+class ToolGroup(enum.IntEnum):
+    # pylint: disable=bad-whitespace
+
+    ARRANGE = 1
+    EDIT    = 2
+
+
+class ToolType(enum.IntEnum):
     # pylint: disable=bad-whitespace
 
     NOTE_WHOLE   = 100
@@ -64,87 +71,174 @@ class Tool(enum.IntEnum):
     DURATION_TRIPLET    = 401
     DURATION_QUINTUPLET = 402
 
-    POINTER = 500
+    ARRANGE_MEASURES = 500
+    EDIT_BEATS = 501
+    EDIT_CONTROL_POINTS = 502
+    EDIT_SAMPLES = 503
 
     @property
     def is_note(self):
-        return Tool.NOTE_WHOLE <= self <= Tool.NOTE_32TH
+        return ToolType.NOTE_WHOLE <= self <= ToolType.NOTE_32TH
 
     @property
     def is_rest(self):
-        return Tool.REST_WHOLE <= self <= Tool.REST_32TH
+        return ToolType.REST_WHOLE <= self <= ToolType.REST_32TH
 
     @property
     def is_accidental(self):
-        return Tool.ACCIDENTAL_NATURAL <= self <= Tool.ACCIDENTAL_DOUBLE_SHARP
+        return ToolType.ACCIDENTAL_NATURAL <= self <= ToolType.ACCIDENTAL_DOUBLE_SHARP
 
     @property
     def is_duration(self):
-        return Tool.DURATION_DOT <= self <= Tool.DURATION_QUINTUPLET
+        return ToolType.DURATION_DOT <= self <= ToolType.DURATION_QUINTUPLET
 
-    @property
-    def icon_name(self):
-        return {
-            Tool.POINTER: 'pointer',
-            Tool.NOTE_WHOLE: 'note-whole',
-            Tool.NOTE_HALF: 'note-half',
-            Tool.NOTE_QUARTER: 'note-quarter',
-            Tool.NOTE_8TH: 'note-8th',
-            Tool.NOTE_16TH: 'note-16th',
-            Tool.NOTE_32TH: 'note-32th',
-            Tool.REST_WHOLE: 'rest-whole',
-            Tool.REST_HALF: 'rest-half',
-            Tool.REST_QUARTER: 'rest-quarter',
-            Tool.REST_8TH: 'rest-8th',
-            Tool.REST_16TH: 'rest-16th',
-            Tool.REST_32TH: 'rest-32th',
-            Tool.ACCIDENTAL_NATURAL: 'accidental-natural',
-            Tool.ACCIDENTAL_SHARP: 'accidental-sharp',
-            Tool.ACCIDENTAL_FLAT: 'accidental-flat',
-            Tool.ACCIDENTAL_DOUBLE_SHARP: 'accidental-double-sharp',
-            Tool.ACCIDENTAL_DOUBLE_FLAT: 'accidental-double-flat',
-            Tool.DURATION_DOT: 'duration-dot',
-            Tool.DURATION_TRIPLET: 'duration-triplet',
-            Tool.DURATION_QUINTUPLET: 'duration-quintuplet',
-            }[self]
 
-    @property
-    def icon_path(self):
-        return os.path.join(constants.DATA_DIR, 'icons', '%s.svg' % self.icon_name)
+class ToolBase(ui_base.ProjectMixin, QtCore.QObject):
+    cursorChanged = QtCore.pyqtSignal(QtGui.QCursor)
 
-    @utils.memoize
+    def __init__(self, *, type, group, **kwargs):
+        super().__init__(**kwargs)
+        self.type = type
+        self.group = group
+
+    def iconName(self):
+        raise NotImplementedError
+
+    def iconPath(self):
+        return os.path.join(constants.DATA_DIR, 'icons', '%s.svg' % self.iconName())
+
     def cursor(self):
-        if self == Tool.POINTER:
-            return QtGui.QCursor(Qt.ArrowCursor)
+        return QtGui.QCursor(Qt.ArrowCursor)
 
-        pixmap = QtGui.QPixmap(64, 64)
-        pixmap.fill(Qt.transparent)
-        painter = QtGui.QPainter(pixmap)
-        renderer = QtSvg.QSvgRenderer(self.icon_path)
-        renderer.render(painter, QtCore.QRectF(0, 0, 64, 64))
-        painter.end()
+    def _mouseMoveEvent(self, target, evt):
+        self.mouseMoveEvent(target, evt)
 
-        hotspot = {
-            Tool.NOTE_WHOLE:   (32, 52),
-            Tool.NOTE_HALF:    (32, 52),
-            Tool.NOTE_QUARTER: (32, 52),
-            Tool.NOTE_8TH:     (32, 52),
-            Tool.NOTE_16TH:    (32, 52),
-            Tool.NOTE_32TH:    (32, 52),
-            Tool.REST_WHOLE:   (32, 32),
-            Tool.REST_HALF:    (32, 32),
-            Tool.REST_QUARTER: (32, 32),
-            Tool.REST_8TH:     (32, 32),
-            Tool.REST_16TH:    (32, 32),
-            Tool.REST_32TH:    (32, 32),
-            Tool.ACCIDENTAL_NATURAL:      (32, 32),
-            Tool.ACCIDENTAL_SHARP:        (32, 32),
-            Tool.ACCIDENTAL_FLAT:         (32, 39),
-            Tool.ACCIDENTAL_DOUBLE_SHARP: (32, 32),
-            Tool.ACCIDENTAL_DOUBLE_FLAT:  (32, 32),
-            Tool.DURATION_DOT:        (32, 52),
-            Tool.DURATION_TRIPLET:    (32, 32),
-            Tool.DURATION_QUINTUPLET: (32, 32),
-            }[self]
+    def mouseMoveEvent(self, target, evt):
+        pass
 
-        return QtGui.QCursor(pixmap, *hotspot)
+    def _mousePressEvent(self, target, evt):
+        self.mousePressEvent(target, evt)
+
+    def mousePressEvent(self, target, evt):
+        pass
+
+    def _mouseReleaseEvent(self, target, evt):
+        self.mouseReleaseEvent(target, evt)
+
+    def mouseReleaseEvent(self, target, evt):
+        pass
+
+    def _mouseDoubleClickEvent(self, target, evt):
+        self.mouseDoubleClickEvent(target, evt)
+
+    def mouseDoubleClickEvent(self, target, evt):
+        self.mousePressEvent(target, evt)
+
+    def _wheelEvent(self, target, evt):
+        self.wheelEvent(target, evt)
+
+    def wheelEvent(self, target, evt):
+        pass
+
+    def _keyPressEvent(self, target, evt):
+        self.keyPressEvent(target, evt)
+
+    def keyPressEvent(self, target, evt):
+        pass
+
+    def _keyReleaseEvent(self, target, evt):
+        self.keyReleaseEvent(target, evt)
+
+    def keyReleaseEvent(self, target, evt):
+        pass
+
+
+class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
+    toolTypeChanged = QtCore.pyqtSignal(ToolType)
+    currentToolChanged = QtCore.pyqtSignal(ToolBase)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.__tools = []
+        self.__groups = []
+        self.__tool_map = {}
+        self.__current_tool_in_group = {}
+        self.__current_tool = None
+        self.__previous_tool = None
+
+    def tools(self):
+        return iter(self.__tools)
+
+    def addTool(self, tool):
+        assert tool.type not in self.__tool_map
+
+        self.__tools.append(tool)
+        if tool.group not in self.__groups:
+            self.__groups.append(tool.group)
+        self.__tool_map[tool.type] = tool
+        if self.__current_tool is None:
+            self.__current_tool = tool
+        if tool.group not in self.__current_tool_in_group:
+            self.__current_tool_in_group[tool.group] = tool.type
+
+    def currentTool(self):
+        return self.__current_tool
+
+    def currentToolType(self):
+        return self.__current_tool.type
+
+    def setCurrentToolType(self, type):
+        if type != self.__current_tool.type:
+            self.__previous_tool = self.__current_tool
+            self.__current_tool = self.__tool_map[type]
+            self.__current_tool_in_group[self.__current_tool.group] = type
+            self.toolTypeChanged.emit(self.__current_tool.type)
+            self.currentToolChanged.emit(self.__current_tool)
+
+    def setPreviousTool(self):
+        if self.__previous_tool is not None:
+            if self.__previous_tool is not self.__current_tool:
+                self.__current_tool = self.__previous_tool
+                self.toolTypeChanged.emit(self.__current_tool.type)
+            self.__previous_tool = None
+
+    def mouseMoveEvent(self, target, evt):
+        assert self.__current_tool is not None
+        return self.__current_tool._mouseMoveEvent(target, evt)
+
+    def mousePressEvent(self, target, evt):
+        assert self.__current_tool is not None
+        return self.__current_tool._mousePressEvent(target, evt)
+
+    def mouseReleaseEvent(self, target, evt):
+        assert self.__current_tool is not None
+        return self.__current_tool._mouseReleaseEvent(target, evt)
+
+    def mouseDoubleClickEvent(self, target, evt):
+        assert self.__current_tool is not None
+        return self.__current_tool._mouseDoubleClickEvent(target, evt)
+
+    def wheelEvent(self, target, evt):
+        assert self.__current_tool is not None
+        return self.__current_tool._wheelEvent(target, evt)
+
+    def keyPressEvent(self, target, evt):
+        assert self.__current_tool is not None
+
+        if (not evt.isAutoRepeat()
+                and evt.modifiers() == Qt.KeypadModifier
+                and evt.key() == Qt.Key_Plus):
+            group_idx = self.__groups.index(self.__current_tool.group)
+            group_idx = (group_idx + 1) % len(self.__groups)
+            group = self.__groups[group_idx]
+            tool = self.__current_tool_in_group[group]
+            self.setCurrentToolType(tool)
+            evt.accept()
+            return
+
+        return self.__current_tool._keyPressEvent(target, evt)
+
+    def keyReleaseEvent(self, target, evt):
+        assert self.__current_tool is not None
+        return self.__current_tool._keyReleaseEvent(target, evt)

@@ -1,26 +1,72 @@
 # -*- org-tags-column: -98 -*-
 
-* Use state pattern to handle tools                                                      :CLEANUP:
-* cut, copy, paste									      :FR:
-- Use QClipboard
-- select multiple items
-  - ranges or sparse sets
-- measures across different tracks
-- different selection types
-  - mutually exclusive
-    - when a different type is selected, clear selection
-  - measures
-  - tracks
-  - notes
+* Redesign tool handling                                                                 :CLEANUP:
+- Primary tool types:
+  - select
+    - call it "arrange"?
+    - select measures
+    - select tracks?
+      - or rather have that in the tracks dock?
+    - cut, copy, paste, link
+    - drag'n'drop move, copy, link
+    - fill time range with repeating pattern
+    - select elements (notes, beats, control points, ...)? within time range?
+      - or rather have that under editing
+      - it's track specific
+  - edit
+    - track specific editing
+- Remember selected tool in session
+- cut, copy, paste                                                                           :FR:
+  - Use QClipboard
+  - select multiple items
+    - ranges or sparse sets
+  - measures across different tracks
+  - different selection types
+    - mutually exclusive
+      - when a different type is selected, clear selection
+    - measures
+    - tracks
+    - notes
+- Linked measures                                                                             :FR:
+  Dereference: clone the pointed to measure and replace link with that copy.
+  If a group of linked measures is selected, only make one copy and link the
+  rest. E.g. A B A' B' [A' B' A' B'] -> A B A' B' C D C' D', where C=copy(A),
+  D=copy(B).
+  Explicit dereference all to create standalone clone for every selected
+  measure.
+* Reopen portaudio stream on block size changes                                              :BUG:
+and pass in the block_size
+Always opening it with smallest block size didn't work after all, causing constant underruns.
 
-* copy/link via drag'n'drop								      :FR:
-* Linked measures									      :FR:
-Dereference: clone the pointed to measure and replace link with that copy.
-If a group of linked measures is selected, only make one copy and link the
-rest. E.g. A B A' B' [A' B' A' B'] -> A B A' B' C D C' D', where C=copy(A),
-D=copy(B).
-Explicit dereference all to create standalone clone for every selected
-measure.
+* Rendering of edit actions                                                                   :FR:
+- separate modelstate object with generator interface for model state
+  - produces PaintAction objects
+    - attrs: id, state, bbox
+- renderer takes modelstate object to paint
+- activity object proxies modelstate and modifies it to reflect an in-progress edit action
+  - e.g. change position of a moved note, etc.
+  - avoid deep copy of modelstate
+- tool creates/deletes/modifies activity object
+- limit updates to changes bbox? how?
+  - keep map of (id, state) -> bbox
+  - compare set of keys with current PaintActions, any addition/removal is added to the
+    current dirty rect.
+  - then only execute PaintActions that intersect with dirty rect.
+  - needs two passes over list of PaintActions
+* Continuous score/beat tracks?                                                          :CLEANUP:
+- don't split track into measure objects
+- pros
+  - simplifies actions/rendering across measure boundaries (moving notes, ties, ...)
+- cons
+  - how to do linked measures?
+  - have arbitrary length regions?
+  - just as complicated as measure objects?
+- compromise:
+  - keep measure objects in the model
+  - don't create MeasureItems at the UI level, move all logic into TrackItem
+
+* Settings window is sticky                                                                  :BUG:
+Keeps getting reopened on startup.
 
 * Common testdata directory with some audio files                                        :CLEANUP:
 - possibly also lv2, ladspa, ... plugins (built from source)?
@@ -581,7 +627,6 @@ Only active at high zoom levels.
 * SIGSEGV when editing PipelineGraphView						   :CRASH:
 Possibly caused by the use of QGraphicsEffect for dropshadows?
 
-* GIL free audio pipeline								      :FR:
 * Render audio to file									      :FR:
 * NodeDB: start_scan									      :FR:
 How to report scan progress back?
@@ -774,6 +819,16 @@ instead over overriding handle_pipeline_*, client code should register a callbac
 - edit strokes
 
 * Move the various cython bindings to noisicaa.bindings					 :CLEANUP:
+
+* == Post alpha work ============================================================================
+** Build binary .deb                                                                          :FR:
+- Use https://github.com/spotify/dh-virtualenv?
+- Needs working "setup.py install"
+- Separate runtime and build dependencies
+- vmtest for binary installation with full app run
+- host packages on https://help.launchpad.net/Packaging/PPA
+
+
 
 * == unsorted nodes from gdoc =================================================
 

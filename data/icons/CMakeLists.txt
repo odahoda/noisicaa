@@ -28,6 +28,9 @@ install_files(
   duration-dot.svg
   duration-quintuplet.svg
   duration-triplet.svg
+  edit-beats.svg
+  edit-control-points.svg
+  edit-samples.svg
   note-16th.svg
   note-32th.svg
   note-8th.svg
