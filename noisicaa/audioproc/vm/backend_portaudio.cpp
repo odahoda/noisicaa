@@ -37,20 +37,41 @@ PortAudioBackend::PortAudioBackend(const BackendSettings& settings)
 PortAudioBackend::~PortAudioBackend() {}
 
 Status PortAudioBackend::setup(VM* vm) {
-  Status status = Backend::setup(vm);
-  RETURN_IF_ERROR(status);
+  RETURN_IF_ERROR(Backend::setup(vm));
 
   if (_settings.block_size == 0) {
    return ERROR_STATUS("Invalid block_size %d", _settings.block_size);
   }
 
-  PaError err;
-
-  err = Pa_Initialize();
+  PaError err = Pa_Initialize();
   if (err != paNoError) {
     return ERROR_STATUS("Failed to initialize portaudio: %s", Pa_GetErrorText(err));
   }
   _initialized = true;
+
+  RETURN_IF_ERROR(setup_stream());
+
+  vm->set_block_size(_settings.block_size);
+
+  return Status::Ok();
+}
+
+void PortAudioBackend::cleanup() {
+  cleanup_stream();
+
+  if (_initialized) {
+    PaError err = Pa_Terminate();
+    if (err != paNoError) {
+      _logger->error("Failed to terminate portaudio: %s", Pa_GetErrorText(err));
+    }
+    _initialized = false;
+  }
+
+  Backend::cleanup();
+}
+
+Status PortAudioBackend::setup_stream() {
+  assert(_stream == nullptr);
 
   PaDeviceIndex device_index = Pa_GetDefaultOutputDevice();
   const PaDeviceInfo* device_info = Pa_GetDeviceInfo(device_index);
@@ -63,12 +84,14 @@ Status PortAudioBackend::setup(VM* vm) {
   output_params.suggestedLatency = device_info->defaultLowOutputLatency;
   output_params.hostApiSpecificStreamInfo = nullptr;
 
+  PaError err;
+
   err = Pa_OpenStream(
       /* stream */            &_stream,
       /* inputParameters */   NULL,
       /* outputParameters */  &output_params,
       /* sampleRate */        44100,
-      /* framesPerBuffer */   paFramesPerBufferUnspecified,
+      /* framesPerBuffer */   _settings.block_size,
       /* streamFlags */       paNoFlag,
       /* streamCallback */    nullptr,
       /* userdata */          nullptr);
@@ -82,15 +105,14 @@ Status PortAudioBackend::setup(VM* vm) {
   }
 
   for (int c = 0 ; c < 2 ; ++c) {
+    assert(_samples[c] == nullptr);
     _samples[c] = new uint8_t[_settings.block_size * sizeof(float)];
   }
-
-  vm->set_block_size(_settings.block_size);
 
   return Status::Ok();
 }
 
-void PortAudioBackend::cleanup() {
+void PortAudioBackend::cleanup_stream() {
   for (int c = 0 ; c < 2 ; ++c) {
     if (_samples[c] != nullptr) {
       delete _samples[c];
@@ -105,16 +127,6 @@ void PortAudioBackend::cleanup() {
     }
     _stream = nullptr;
   }
-
-  if (_initialized) {
-    PaError err = Pa_Terminate();
-    if (err != paNoError) {
-      _logger->error("Failed to terminate portaudio: %s", Pa_GetErrorText(err));
-    }
-    _initialized = false;
-  }
-
-  Backend::cleanup();
 }
 
 Status PortAudioBackend::set_block_size(uint32_t block_size) {
@@ -133,12 +145,8 @@ Status PortAudioBackend::begin_block(BlockContext* ctxt) {
   if (_new_block_size != _settings.block_size) {
     _settings.block_size = _new_block_size;
 
-    for (int c = 0 ; c < 2 ; ++c) {
-      if (_samples[c] != nullptr) {
-        delete _samples[c];
-      }
-      _samples[c] = new uint8_t[_settings.block_size * sizeof(float)];
-    }
+    cleanup_stream();
+    RETURN_IF_ERROR(setup_stream());
 
     _vm->set_block_size(_settings.block_size);
   }

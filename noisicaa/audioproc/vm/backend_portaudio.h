@@ -50,6 +50,9 @@ public:
   Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) override;
 
  private:
+  Status setup_stream();
+  void cleanup_stream();
+
   bool _initialized;
   uint32_t _new_block_size;
   PaStream* _stream;

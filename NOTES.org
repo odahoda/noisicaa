@@ -34,10 +34,6 @@
   D=copy(B).
   Explicit dereference all to create standalone clone for every selected
   measure.
-* Reopen portaudio stream on block size changes                                              :BUG:
-and pass in the block_size
-Always opening it with smallest block size didn't work after all, causing constant underruns.
-
 * Rendering of edit actions                                                                   :FR:
 - separate modelstate object with generator interface for model state
   - produces PaintAction objects
