@@ -1,32 +1,22 @@
 # -*- org-tags-column: -98 -*-
 
-* Redesign tool handling                                                                 :CLEANUP:
-- Primary tool types:
-  - select
-    - call it "arrange"?
-    - select measures
-    - select tracks?
-      - or rather have that in the tracks dock?
-    - cut, copy, paste, link
-    - drag'n'drop move, copy, link
-    - fill time range with repeating pattern
-    - select elements (notes, beats, control points, ...)? within time range?
-      - or rather have that under editing
-      - it's track specific
-  - edit
-    - track specific editing
-- Remember selected tool in session
-- cut, copy, paste                                                                           :FR:
-  - Use QClipboard
-  - select multiple items
-    - ranges or sparse sets
-  - measures across different tracks
-  - different selection types
-    - mutually exclusive
-      - when a different type is selected, clear selection
-    - measures
-    - tracks
-    - notes
+* Improve ArrangeMeasuresTool                                                                 :FR:
+- Use QClipboard
+  - does it make sense?
+    - only for copy/pasting between projects
+  - also for selection? support middle-click insert?
+- select multiple measures
+  - only continuous ranges for now
+  - click and drag
+  - click first and shift click end
+- cut: either remove or clear selection
+- paste: either insert or overwrite
+- drag'n'drop move, copy, link
+- fill time range with repeating pattern
+- allow selection spanning different tracks
+  - what about control/sample tracks?
+    - just skip for now
+    - first implement selecting measures for those track types
 - Linked measures                                                                             :FR:
   Dereference: clone the pointed to measure and replace link with that copy.
   If a group of linked measures is selected, only make one copy and link the
@@ -34,6 +24,7 @@
   D=copy(B).
   Explicit dereference all to create standalone clone for every selected
   measure.
+* Remember selected tool in session                                                           :FR:
 * Rendering of edit actions                                                                   :FR:
 - separate modelstate object with generator interface for model state
   - produces PaintAction objects
@@ -60,6 +51,17 @@
 - compromise:
   - keep measure objects in the model
   - don't create MeasureItems at the UI level, move all logic into TrackItem
+- handle all track type like that?
+  - allow measure-wise copy&paste of control/sample tracks
+  - select, cut, copy, paste arbitrary regions
+    - automatically insert control points/split samples at selection boundary
+  - selecting measures is just a special case of this
+* Remove the sheet layer                                                                 :CLEANUP:
+- multiple sheets per project are of little use and just complicate the code.
+- make tracks etc. direct children of the project object.
+- simplify UI code, merge SheetView logic into ProjectView.
+- instead think about ways to have different regions in time within the project, e.g. for
+  experiments, etc.
 
 * Settings window is sticky                                                                  :BUG:
 Keeps getting reopened on startup.
@@ -90,7 +92,7 @@ Keeps getting reopened on startup.
 
 * Make sample rate configurable                                                               :FR:
 - all processors need to cleanup/setup on changes
-* crash on shutdown, when csound wants to log after LogSink has been destructed		   :CRASH:
+* crash on shutdown, when csound wants to log after LogSink has been destroyed             :CRASH:
 - is HostData properly cleaned up?
 * turn off all notes when playback gets paused						      :FR:
 * Control values									      :FR:
