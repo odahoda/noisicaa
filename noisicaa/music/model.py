@@ -387,7 +387,10 @@ class Sheet(core.ObjectBase):
         return self.bpm
 
     def get_time_signature(self, measure_idx):
-        return self.property_track.measure_list[measure_idx].measure.time_signature
+        # TODO: this is called with an incorrect measure_idx (index of the measure within the
+        #   measure_heap), so always use the time signature from the first measure, which
+        #   is also wrong, but at least doesn't crash.
+        return self.property_track.measure_list[0].measure.time_signature
 
 
 class Metadata(core.ObjectBase):
