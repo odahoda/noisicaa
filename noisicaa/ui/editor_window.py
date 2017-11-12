@@ -198,6 +198,11 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             statusTip="Redo most recently undone action",
             triggered=self.onRedo)
 
+        self._clear_selection_action = QtWidgets.QAction(
+            "Clear", self,
+            statusTip="Clear the selected items",
+            triggered=self.onClearSelection)
+
         self._copy_action = QtWidgets.QAction(
             "Copy", self,
             shortcut=QtGui.QKeySequence.Copy,
@@ -206,10 +211,15 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self._paste_as_link_action = QtWidgets.QAction(
             "Paste as link", self,
-            shortcut=QtGui.QKeySequence.Paste,
             statusTip=("Paste items from clipboard to current location as"
                        " linked items"),
             triggered=self.onPasteAsLink)
+
+        self._paste_action = QtWidgets.QAction(
+            "Paste", self,
+            shortcut=QtGui.QKeySequence.Paste,
+            statusTip=("Paste items from clipboard to current location"),
+            triggered=self.onPaste)
 
         self._restart_action = QtWidgets.QAction(
             "Restart", self,
@@ -342,7 +352,9 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._edit_menu.addAction(self._undo_action)
         self._edit_menu.addAction(self._redo_action)
         self._project_menu.addSeparator()
+        self._edit_menu.addAction(self._clear_selection_action)
         self._edit_menu.addAction(self._copy_action)
+        self._edit_menu.addAction(self._paste_action)
         self._edit_menu.addAction(self._paste_as_link_action)
 
         self._view_menu = menu_bar.addMenu("View")
@@ -604,13 +616,21 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         project_view = self.getCurrentProjectView()
         self.call_async(project_view.project_client.redo())
 
+    def onClearSelection(self):
+        view = self._project_tabs.currentWidget()
+        view.onClearSelection()
+
     def onCopy(self):
         view = self._project_tabs.currentWidget()
         view.onCopy()
 
+    def onPaste(self):
+        view = self._project_tabs.currentWidget()
+        view.onPaste(mode='overwrite')
+
     def onPasteAsLink(self):
         view = self._project_tabs.currentWidget()
-        view.onPasteAsLink()
+        view.onPaste(mode='link')
 
     def onPlaybackStateChanged(self, state):
         if state == 'playing':

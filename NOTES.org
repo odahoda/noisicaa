@@ -1,18 +1,35 @@
 # -*- org-tags-column: -98 -*-
 
+* Rework how time signatures are managed                                                     :BUG:
+- Currently duration is a property of Measure. It uses the time signature of the measure in the
+  sheet property track at the same index.
+  - it references the property measure with its index within the measure_heap, which is basically
+    a random number. Can cause crashes when pasting a sequence of measures.
+  - the same measure could be used at different positions with different time signatures.
+- time signature is not shared across tracks.
+  - each track can have a different time signature and change it at arbitrary positions.
+  - measures do not align vertically.
+- how to deal with selecting a block of measures across tracks, if the measures don't line up
+  vertically?
+- the TimeLine should show marks for the current track.
+- simplify how to set time signature across multiple tracks.
+  - should be the default, with some extra step to have a different time signature on certain
+    tracks.
+* Set track length                                                                            :FR:
+- set number of measures for the selected track, extend track with empty measures as needed
+- dialog has list of tracks, select which tracks to affect
+
 * Improve ArrangeMeasuresTool                                                                 :FR:
+- remove selection when switching away from tool
 - Use QClipboard
   - does it make sense?
     - only for copy/pasting between projects
   - also for selection? support middle-click insert?
 - select multiple measures
-  - only continuous ranges for now
-  - click and drag
   - click first and shift click end
 - cut: either remove or clear selection
 - paste: either insert or overwrite
 - drag'n'drop move, copy, link
-- fill time range with repeating pattern
 - allow selection spanning different tracks
   - what about control/sample tracks?
     - just skip for now
@@ -25,6 +42,8 @@
   Explicit dereference all to create standalone clone for every selected
   measure.
 * Remember selected tool in session                                                           :FR:
+* Highlight all linked measures                                                               :FR:
+When hovering over a measure, highlight this and all other measures referencing the same object.
 * Rendering of edit actions                                                                   :FR:
 - separate modelstate object with generator interface for model state
   - produces PaintAction objects
@@ -62,6 +81,12 @@
 - simplify UI code, merge SheetView logic into ProjectView.
 - instead think about ways to have different regions in time within the project, e.g. for
   experiments, etc.
+  - tracks can be discontinuous, i.e. measures don't need to line up
+  - each measure tracks its position in time
+  - set regions in the time line.
+  - inserting measures only shifts measures to the right within the current region
+    - if the end goes past the region, extend the region and move all following regions (across
+      all tracks) to the right to make room.
 
 * Settings window is sticky                                                                  :BUG:
 Keeps getting reopened on startup.

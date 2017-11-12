@@ -50,9 +50,6 @@ class SelectionSet(object):
 
         logger.info("Adding to selection: %s", obj)
 
-        # TODO: Allow multiple selection.
-        self.clear()
-
         assert obj.selection_class is not None
 
         self.__selection_set.add(obj)

@@ -258,6 +258,10 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
         view = self.currentSheetView()
         view.onRender()
 
+    def onClearSelection(self):
+        view = self.currentSheetView()
+        view.onClearSelection()
+
     def onCopy(self):
         if self.selection_set.empty():
             return
@@ -266,15 +270,15 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
 
     async def onCopyAsync(self):
         data = []
-        for obj in self.selection_set:
-            data.append(await obj.getCopy())
+        for item in sorted(self.selection_set, key=lambda item: item.measure_reference.index):
+            data.append(await item.getCopy())
 
         self.app.setClipboardContent(
             {'type': 'measures', 'data': data})
 
-    def onPasteAsLink(self):
+    def onPaste(self, *, mode):
         view = self.currentSheetView()
-        view.onPasteAsLink()
+        view.onPaste(mode=mode)
 
 
 class ProjectView(ui_base.ProjectMixin, ProjectViewImpl):

@@ -97,13 +97,6 @@ from noisicaa import core
 #         with self.assertRaises(TypeError):
 #             l[0] = "str"
 
-#     def testDict(self):
-#         p = state.DictProperty()
-#         p.name = 'a'
-#         self.assertEqual(p.__get__(self.obj, self.obj.__class__), {})
-#         d = p.__get__(self.obj, self.obj.__class__)
-#         d['foo'] = 1
-#         self.assertEqual(p.__get__(self.obj, self.obj.__class__), {'foo': 1})
 
 class TestStateBase(state.StateBase):
     cls_map = {}
@@ -113,23 +106,23 @@ class StateTest(unittest.TestCase):
     def tearDown(self):
         TestStateBase.clear_class_registry()
 
-    def validateNode(self, root, parent, node):
+    def _validate_node(self, root, parent, node):
         self.assertIs(node.parent, parent)
         self.assertIs(node.root, root)
 
         for c in node.list_children():
-            self.validateNode(root, node, c)
+            self._validate_node(root, node, c)
 
-    def validateTree(self, root):
-        self.validateNode(root, None, root)
+    def _validate_tree(self, root):
+        self._validate_node(root, None, root)
 
-    def testListChildrenLeaf(self):
+    def test_list_children_leaf(self):
         class Leaf(state.RootMixin, TestStateBase):
             pass
         a = Leaf()
         self.assertEqual(list(a.list_children()), [])
 
-    def testListChildrenObjectProperty(self):
+    def test_list_children_object_property(self):
         class Leaf(TestStateBase):
             pass
         class Root(state.RootMixin, TestStateBase):
@@ -138,7 +131,7 @@ class StateTest(unittest.TestCase):
         b = Root()
         b.child = a
 
-    def testListChildrenObjectListProperty(self):
+    def test_list_children_object_list_property(self):
         class Leaf(state.StateBase):
             pass
         class Root(state.RootMixin, TestStateBase):
@@ -150,7 +143,7 @@ class StateTest(unittest.TestCase):
         c.children.append(b)
         self.assertEqual(list(c.list_children()), [a, b])
 
-    def testSerialize(self):
+    def test_serialize(self):
         class Root(state.RootMixin, TestStateBase):
             name = core.Property(str, default='')
             a1 = core.Property(int, default=2)
@@ -158,7 +151,7 @@ class StateTest(unittest.TestCase):
         a = Root()
         a.id = 'id1'
         a.name = 'foo'
-        self.validateTree(a)
+        self._validate_tree(a)
         self.assertEqual(
             a.serialize(),
             {'__class__': 'Root',
@@ -166,17 +159,17 @@ class StateTest(unittest.TestCase):
              'name': 'foo',
              'a1': 2})
 
-    def testDeserialize(self):
+    def test_deserialize(self):
         class Root(state.RootMixin, TestStateBase):
             name = core.Property(str, default='')
             a1 = core.Property(int, default=2)
 
         a = Root(state={'name': 'foo'})
-        self.validateTree(a)
+        self._validate_tree(a)
         self.assertEqual(a.name, 'foo')
         self.assertEqual(a.a1, 2)
 
-    def testAttr(self):
+    def test_attr(self):
         class Root(state.RootMixin, TestStateBase):
             name = core.Property(str, default='')
             a1 = core.Property(int, default=2)
@@ -185,16 +178,16 @@ class StateTest(unittest.TestCase):
         a.id = 'id1'
         a.name = 'a'
         a.a1 = 4
-        self.validateTree(a)
+        self._validate_tree(a)
 
         serialized = json.loads(json.dumps(a.serialize()))
         b = Root(state=serialized)
-        self.validateTree(b)
+        self._validate_tree(b)
         self.assertEqual(b.id, 'id1')
         self.assertEqual(b.name, 'a')
         self.assertEqual(b.a1, 4)
 
-    def testChildObject(self):
+    def test_child_object(self):
         class Leaf(TestStateBase):
             name = core.Property(str, default='')
             a1 = core.Property(int, default=2)
@@ -210,7 +203,7 @@ class StateTest(unittest.TestCase):
         b = Root()
         b.id = 'id2'
         b.child = a
-        self.validateTree(b)
+        self._validate_tree(b)
         self.assertEqual(
             b.serialize(),
             {'__class__': 'Root',
@@ -222,19 +215,19 @@ class StateTest(unittest.TestCase):
 
         serialized = json.loads(json.dumps(b.serialize()))
         c = Root(state=serialized)
-        self.validateTree(c)
+        self._validate_tree(c)
         self.assertEqual(c.id, 'id2')
         self.assertIsInstance(c.child, Leaf)
         self.assertEqual(c.child.id, 'id1')
         self.assertEqual(c.child.name, 'a')
         self.assertEqual(c.child.a1, 4)
 
-    # def testInherit(self):
+    # def test_inherit(self):
     #     a = LeafNodeSub1()
     #     a.id = 'id1'
     #     a.name = 'foo'
     #     a.a2 = 13
-    #     self.validateTree(a)
+    #     self._validate_tree(a)
     #     self.assertEqual(
     #         a.serialize(),
     #         {'__class__': 'LeafNodeSub1',
@@ -245,12 +238,12 @@ class StateTest(unittest.TestCase):
 
     #     state = json.loads(json.dumps(a.serialize()))
     #     b = LeafNodeSub1(state=state)
-    #     self.validateTree(b)
+    #     self._validate_tree(b)
     #     self.assertEqual(b.name, 'foo')
     #     self.assertEqual(b.a1, 2)
     #     self.assertEqual(b.a2, 13)
 
-    # def testChildObjectSubclass(self):
+    # def test_child_object_subclass(self):
     #     a = LeafNodeSub2()
     #     a.id = 'id1'
     #     a.name = 'a'
@@ -258,7 +251,7 @@ class StateTest(unittest.TestCase):
     #     b = NodeWithSubclassChild()
     #     b.id = 'id2'
     #     b.child = a
-    #     self.validateTree(b)
+    #     self._validate_tree(b)
     #     self.assertEqual(
     #         b.serialize(),
     #         {'__class__': 'NodeWithSubclassChild',
@@ -271,7 +264,7 @@ class StateTest(unittest.TestCase):
 
     #     state = json.loads(json.dumps(b.serialize()))
     #     c = NodeWithSubclassChild(state=state)
-    #     self.validateTree(c)
+    #     self._validate_tree(c)
     #     self.assertEqual(c.id, 'id2')
     #     self.assertIsInstance(c.child, LeafNodeSub2)
     #     self.assertEqual(c.child.id, 'id1')
@@ -279,7 +272,7 @@ class StateTest(unittest.TestCase):
     #     self.assertEqual(c.child.a1, 2)
     #     self.assertEqual(c.child.a3, 17)
 
-    # def testChildObjectList(self):
+    # def test_child_object_list(self):
     #     a = LeafNode()
     #     a.id = 'id1'
     #     a.name = 'a'
@@ -292,7 +285,7 @@ class StateTest(unittest.TestCase):
     #     c.id = 'id3'
     #     c.children.append(a)
     #     c.children.append(b)
-    #     self.validateTree(c)
+    #     self._validate_tree(c)
     #     self.assertEqual(
     #         c.serialize(),
     #         {'__class__': 'NodeWithChildren',
@@ -308,7 +301,7 @@ class StateTest(unittest.TestCase):
 
     #     state = json.loads(json.dumps(c.serialize()))
     #     d = NodeWithChildren(state=state)
-    #     self.validateTree(d)
+    #     self._validate_tree(d)
     #     self.assertEqual(d.id, 'id3')
     #     self.assertIsInstance(d.children[0], LeafNode)
     #     self.assertEqual(d.children[0].id, 'id1')
@@ -319,7 +312,7 @@ class StateTest(unittest.TestCase):
     #     self.assertEqual(d.children[1].name, 'b')
     #     self.assertEqual(d.children[1].a1, 5)
 
-    def testObjectReference(self):
+    def test_object_reference(self):
         class Leaf(TestStateBase):
             name = core.Property(str)
         TestStateBase.register_class(Leaf)
@@ -342,7 +335,7 @@ class StateTest(unittest.TestCase):
         c.id = 'id3'
         c.children.append(a)
         c.children.append(b)
-        self.validateTree(c)
+        self._validate_tree(c)
         self.assertEqual(
             c.serialize(),
             {'__class__': 'Root',
@@ -358,7 +351,7 @@ class StateTest(unittest.TestCase):
         serialized = json.loads(json.dumps(c.serialize()))
         d = Root(state=serialized)
         d.init_references()
-        self.validateTree(d)
+        self._validate_tree(d)
         self.assertEqual(d.id, 'id3')
         self.assertIsInstance(d.children[0], Leaf)
         self.assertEqual(d.children[0].id, 'id1')
@@ -375,7 +368,7 @@ class StateTest(unittest.TestCase):
         d.children.append(e)
         self.assertIs(d.children[1].other, d.children[0])
 
-    # def testChangeListener(self):
+    # def test_change_listener(self):
     #     a = LeafNode()
     #     a.id = 'id1'
     #     a.name = 'a'
@@ -390,7 +383,7 @@ class StateTest(unittest.TestCase):
     #     a.name = 'c'
     #     self.assertEqual(changes, [('a', 'b'), ('b', 'c')])
 
-    # def testChangeListenerList(self):
+    # def test_change_listener_list(self):
     #     a = NodeWithChildren()
 
     #     n1 = LeafNode()
@@ -423,7 +416,7 @@ class StateTest(unittest.TestCase):
     #          ('clear', ()),
     #         ])
 
-    # def testObjectListIndex(self):
+    # def test_object_list_index(self):
     #     a = LeafNode()
     #     with self.assertRaises(ObjectNotAttachedError):
     #         a.index
@@ -446,7 +439,7 @@ class StateTest(unittest.TestCase):
     #     self.assertEqual(a.index, 0)
     #     self.assertEqual(b.index, 1)
 
-    # def testObjectListSiblings(self):
+    # def test_object_list_siblings(self):
     #     l = NodeWithChildren()
     #     l.children.append(LeafNode())
     #     l.children.append(LeafNode())
@@ -469,6 +462,118 @@ class StateTest(unittest.TestCase):
     #         l.children[0].prev_sibling
     #     self.assertIs(l.children[1].prev_sibling, l.children[0])
     #     self.assertIs(l.children[2].prev_sibling, l.children[1])
+
+    def test_clone(self):
+        class Child(state.StateBase):
+            name = core.Property(str)
+
+            def __init__(self, *, name=None, state=None):
+                super().__init__(state=state)
+                if state is None:
+                    self.name = name
+
+        class Object(state.RootMixin, state.StateBase):
+            name = core.Property(str)
+            lst = core.ListProperty(int)
+            child = core.ObjectProperty(Child)
+            none = core.ObjectProperty(Child)
+            children = core.ObjectListProperty(Child)
+            ref = core.ObjectReferenceProperty(Child)
+
+            def __init__(self, *,
+                         name=None, lst=None, child=None, children=None, ref=None, state=None):
+                super().__init__(state=state)
+                if state is None:
+                    self.name = name
+                    self.lst.extend(lst)
+                    self.child = child
+                    self.none = None
+                    self.children.extend(children)
+                    self.ref = ref
+
+        r2 = Child(name='r2')
+        o2 = Object(
+            name='bar',
+            lst=[4, 5, 6],
+            child=Child(name='c2'),
+            children=[Child(name='cl3'), Child(name='cl4')],
+            ref=r2,
+        )
+
+        o1 = o2.clone()
+
+        self.assertNotEqual(o1.id, o2.id)
+        self.assertEqual(o1.name, 'bar')
+        self.assertEqual(o1.lst, [4, 5, 6])
+        self.assertEqual(o1.child.name, 'c2')
+        self.assertNotEqual(o1.child.id, o2.child.id)
+        self.assertEqual(o1.children[0].name, 'cl3')
+        self.assertNotEqual(o1.children[0].id, o2.children[0].id)
+        self.assertEqual(o1.children[1].name, 'cl4')
+        self.assertNotEqual(o1.children[1].id, o2.children[1].id)
+        self.assertEqual(o1.ref.name, 'r2')
+        self.assertEqual(o1.ref.id, r2.id)
+
+    def test_copy_from(self):
+        class Child(state.StateBase):
+            name = core.Property(str)
+
+            def __init__(self, *, name=None, state=None):
+                super().__init__(state=state)
+                if state is None:
+                    self.name = name
+
+        class Object(state.RootMixin, state.StateBase):
+            name = core.Property(str)
+            lst = core.ListProperty(int)
+            child = core.ObjectProperty(Child)
+            none = core.ObjectProperty(Child)
+            children = core.ObjectListProperty(Child)
+            ref = core.ObjectReferenceProperty(Child)
+
+            def __init__(self, *,
+                         name=None, lst=None, child=None, children=None, ref=None, state=None):
+                super().__init__(state=state)
+                if state is None:
+                    self.name = name
+                    self.lst.extend(lst)
+                    self.child = child
+                    self.none = None
+                    self.children.extend(children)
+                    self.ref = ref
+
+        r1 = Child(name='r1')
+        o1 = Object(
+            name='foo',
+            lst=[1, 2, 3],
+            child=Child(name='c1'),
+            children=[Child(name='cl1'), Child(name='cl2')],
+            ref=r1,
+        )
+
+        r2 = Child(name='r2')
+        o2 = Object(
+            name='bar',
+            lst=[4, 5, 6],
+            child=Child(name='c2'),
+            children=[Child(name='cl3'), Child(name='cl4')],
+            ref=r2,
+        )
+
+        id1 = o1.id
+        o1.copy_from(o2)
+
+        self.assertEqual(o1.id, id1)
+        self.assertEqual(o1.name, 'bar')
+        self.assertEqual(o1.lst, [4, 5, 6])
+        self.assertEqual(o1.child.name, 'c2')
+        self.assertNotEqual(o1.child.id, o2.child.id)
+        self.assertEqual(o1.children[0].name, 'cl3')
+        self.assertNotEqual(o1.children[0].id, o2.children[0].id)
+        self.assertEqual(o1.children[1].name, 'cl4')
+        self.assertNotEqual(o1.children[1].id, o2.children[1].id)
+        self.assertEqual(o1.ref.name, 'r2')
+        self.assertEqual(o1.ref.id, r2.id)
 
 
 if __name__ == '__main__':

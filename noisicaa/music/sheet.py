@@ -193,14 +193,48 @@ class RemoveMeasure(commands.Command):
 commands.Command.register_command(RemoveMeasure)
 
 
-class PasteMeasuresAsLink(commands.Command):
-    src_ids = core.ListProperty(str)
-    target_ids = core.ListProperty(str)
+class ClearMeasures(commands.Command):
+    measure_ids = core.ListProperty(str)
 
-    def __init__(self, src_ids=None, target_ids=None, state=None):
+    def __init__(self, measure_ids=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.src_ids.extend(src_ids)
+            self.measure_ids.extend(measure_ids)
+
+    def run(self, sheet):
+        assert isinstance(sheet, Sheet)
+
+        root = sheet.root
+
+        measure_references = [
+            root.get_object(obj_id) for obj_id in self.measure_ids]
+        assert all(
+            isinstance(obj, base_track.MeasureReference) for obj in measure_references)
+
+        affected_track_ids = set(obj.track.id for obj in measure_references)
+
+        for mref in measure_references:
+            track = mref.track
+            measure = track.create_empty_measure(mref.measure)
+            track.measure_heap.append(measure)
+            mref.measure_id = measure.id
+
+        for track_id in affected_track_ids:
+            root.get_object(track_id).garbage_collect_measures()
+
+commands.Command.register_command(ClearMeasures)
+
+
+class PasteMeasures(commands.Command):
+    mode = core.Property(str)
+    src_objs = core.ListProperty(bytes)
+    target_ids = core.ListProperty(str)
+
+    def __init__(self, mode=None, src_objs=None, target_ids=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.mode = mode
+            self.src_objs.extend(src_objs)
             self.target_ids.extend(target_ids)
 
     def run(self, sheet):
@@ -208,7 +242,7 @@ class PasteMeasuresAsLink(commands.Command):
 
         root = sheet.root
 
-        src_measures = [root.get_object(obj_id) for obj_id in self.src_ids]
+        src_measures = [root.deserialize_object(obj) for obj in self.src_objs]
         assert all(isinstance(obj, base_track.Measure) for obj in src_measures)
 
         target_measures = [
@@ -216,18 +250,32 @@ class PasteMeasuresAsLink(commands.Command):
         assert all(
             isinstance(obj, base_track.MeasureReference) for obj in target_measures)
 
-        affected_track_ids = set(
-            obj.track.id for obj in src_measures + target_measures)
+        affected_track_ids = set(obj.track.id for obj in target_measures)
         assert len(affected_track_ids) == 1
 
-        for target, src in zip(
-                target_measures, itertools.cycle(src_measures)):
-            target.measure_id = src.id
+        if self.mode == 'link':
+            for target, src in zip(target_measures, itertools.cycle(src_measures)):
+                assert(any(src.id == m.id for m in target.track.measure_heap))
+                target.measure_id = src.id
+
+        elif self.mode == 'overwrite':
+            measure_map = {}
+            for target, src in zip(target_measures, itertools.cycle(src_measures)):
+                try:
+                    measure = measure_map[src.id]
+                except KeyError:
+                    measure = measure_map[src.id] = src.clone()
+                    target.track.measure_heap.append(measure)
+
+                target.measure_id = measure.id
+
+        else:
+            raise ValueError(mode)
 
         for track_id in affected_track_ids:
             root.get_object(track_id).garbage_collect_measures()
 
-commands.Command.register_command(PasteMeasuresAsLink)
+commands.Command.register_command(PasteMeasures)
 
 
 class AddPipelineGraphNode(commands.Command):

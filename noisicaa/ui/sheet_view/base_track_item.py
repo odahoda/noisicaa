@@ -21,6 +21,7 @@
 # @end:license
 
 from fractions import Fraction
+import itertools
 import logging
 import enum
 import time
@@ -633,25 +634,75 @@ class MeasuredToolBase(tools.ToolBase):
             evt.setAccepted(measure_evt.isAccepted())
 
 
-class ArrangeMeasuresTool(MeasuredToolBase):
+class ArrangeMeasuresTool(tools.ToolBase):
     def __init__(self, **kwargs):
         super().__init__(
             type=tools.ToolType.ARRANGE_MEASURES,
             group=tools.ToolGroup.ARRANGE,
             **kwargs)
 
+        self.__selection_first = None
+        self.__selection_last = None
+
     def iconName(self):
         return 'pointer'
 
     def mousePressEvent(self, target, evt):
-        assert isinstance(target, MeasureEditorItem), type(target).__name__
-        track_item = target.track_item
+        assert isinstance(target, MeasuredTrackEditorItem), type(target).__name__
 
-        if target.selected():
-            track_item.selection_set.remove(target)
-        else:
-            track_item.selection_set.add(target)
-        evt.accept()
+        if (evt.button() == Qt.LeftButton
+            and evt.modifiers() == Qt.NoModifier):
+            measure_item = target.measureItemAt(evt.pos())
+
+            if isinstance(measure_item, MeasureEditorItem):
+                self.selection_set.clear()
+
+                self.selection_set.add(measure_item)
+                self.__selection_first = measure_item
+                self.__selection_last = None
+                evt.accept()
+                return
+
+        # TODO: handle click on appendix
+        super().mousePressEvent(target, evt)
+
+    def mouseReleaseEvent(self, target, evt):
+        assert isinstance(target, MeasuredTrackEditorItem), type(target).__name__
+
+        if evt.button() == Qt.LeftButton:
+            measure_item = target.measureItemAt(evt.pos())
+
+            self.__selection_first = None
+            self.__selection_last = None
+            evt.accept()
+            return
+
+        super().mouseReleaseEvent(target, evt)
+
+    def mouseMoveEvent(self, target, evt):
+        assert isinstance(target, MeasuredTrackEditorItem), type(target).__name__
+        measure_item = target.measureItemAt(evt.pos())
+
+        if self.__selection_first is not None and isinstance(measure_item, MeasureEditorItem):
+            start_idx = self.__selection_first.measure_reference.index
+            last_idx = measure_item.measure_reference.index
+
+            if start_idx > last_idx:
+                start_idx, last_idx = last_idx, start_idx
+
+            for mitem in itertools.islice(
+                    target.measure_items(), start_idx, last_idx + 1):
+                if not mitem.selected():
+                    self.selection_set.add(mitem)
+
+            for mitem in list(self.selection_set):
+                if (not (start_idx <= mitem.measure_reference.index <= last_idx)
+                    and mitem.selected()):
+                    self.selection_set.remove(mitem)
+
+            self.__selection_last = measure_item
+
+            evt.accept()
 
 
 class MeasuredTrackEditorItem(BaseTrackEditorItem):

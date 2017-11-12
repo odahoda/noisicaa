@@ -433,7 +433,7 @@ class ProjectProcess(core.ProcessBase):
         assert self.project is not None
 
         obj = self.project.get_object(obj_id)
-        return obj.serialize()
+        return self.project.serialize_object(obj)
 
     async def handle_create_player(
         self, session_id, client_address, sheet_id):

@@ -21,7 +21,7 @@
 from .model_base import (
     ObjectBase,
 
-    Property, ListProperty, DictProperty,
+    Property, ListProperty,
     ObjectPropertyBase,
     ObjectProperty, ObjectListProperty, ObjectReferenceProperty,
 

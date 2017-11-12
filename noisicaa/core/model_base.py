@@ -193,19 +193,6 @@ class ListProperty(PropertyBase):
         raise RuntimeError("ListProperty cannot be assigned.")
 
 
-class DictProperty(PropertyBase):
-    def __get__(self, instance, owner):
-        value = super().__get__(instance, owner)
-        if value is None:
-            value = {}
-            super().__set__(instance, value)
-        return value
-
-    def __set__(self, instance, value):
-        raise RuntimeError("DictProperty cannot be assigned.")
-
-
-
 class ObjectPropertyBase(PropertyBase):
     def __init__(self, cls):
         super().__init__()
@@ -281,6 +268,10 @@ class ObjectList(object):
     def clear(self):
         while len(self._objs) > 0:
             self.__delitem__(0)
+
+    def extend(self, value):
+        for v in value:
+            self.append(v)
 
 
 class ObjectListProperty(ObjectPropertyBase):

@@ -37,7 +37,6 @@ from noisicaa.music import model
 from noisicaa.music import time_mapper
 from noisicaa.ui import tools
 from noisicaa.ui import ui_base
-from noisicaa.ui import selection_set
 from . import base_track_item
 from . import score_track_item
 from . import beat_track_item
@@ -295,8 +294,6 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
 
         self.__time_mapper = music.TimeMapper(self.__sheet)
 
-        self.__selection_set = selection_set.SelectionSet()
-
         super().__init__(sheet, **kwargs)
 
         self.setAttribute(Qt.WA_OpaquePaintEvent)
@@ -465,15 +462,30 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
         for track_item in self.tracks():
             track_item.setPlaybackPos(timepos)
 
-    def onPasteAsLink(self):
+    def onClearSelection(self):
+        if self.selection_set.empty():
+            return
+
+        self.send_command_async(
+            self.__sheet.id, 'ClearMeasures',
+            measure_ids=[
+                mref.id for mref in sorted(
+                    (measure_item.measure_reference
+                     for measure_item in self.selection_set),
+                    key=lambda mref: mref.index)])
+
+    def onPaste(self, *, mode):
+        assert mode in ('overwrite', 'link')
+
         if self.selection_set.empty():
             return
 
         clipboard = self.app.clipboardContent()
         if clipboard['type'] == 'measures':
             self.send_command_async(
-                self.__sheet.id, 'PasteMeasuresAsLink',
-                src_ids=[copy['id'] for copy in clipboard['data']],
+                self.__sheet.id, 'PasteMeasures',
+                mode=mode,
+                src_objs=[copy['data'] for copy in clipboard['data']],
                 target_ids=[
                     mref.id for mref in sorted(
                         (measure_item.measure_reference
@@ -1397,8 +1409,11 @@ class SheetViewImpl(AsyncSetupBase, QtWidgets.QWidget):
             await self.project_client.undo()
             await self.project_client.restart_player_pipeline(self.__player_id)
 
-    def onPasteAsLink(self):
-        self.__sheet_editor.onPasteAsLink()
+    def onClearSelection(self):
+        self.__sheet_editor.onClearSelection()
+
+    def onPaste(self, *, mode):
+        self.__sheet_editor.onPaste(mode=mode)
 
 
 class SheetView(ui_base.ProjectMixin, SheetViewImpl):

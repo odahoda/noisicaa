@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import copy
 import logging
 import traceback
 import uuid
@@ -97,8 +98,6 @@ class StateBase(model_base.ObjectBase):
                 state = getattr(self, prop.name, prop.default)
             elif isinstance(prop, model_base.ListProperty):
                 state = list(getattr(self, prop.name, []))
-            elif isinstance(prop, model_base.DictProperty):
-                state = dict(getattr(self, prop.name, {}))
             elif isinstance(prop, model_base.ObjectProperty):
                 obj = getattr(self, prop.name, None)
                 if obj is not None:
@@ -134,10 +133,6 @@ class StateBase(model_base.ObjectBase):
                 lst = getattr(self, prop.name)
                 lst.clear()
                 lst.extend(value)
-            elif isinstance(prop, model_base.DictProperty):
-                dct = getattr(self, prop.name)
-                dct.clear()
-                dct.update(value)
             elif isinstance(prop, model_base.ObjectProperty):
                 if value is not None:
                     cls_name = value['__class__']
@@ -162,6 +157,47 @@ class StateBase(model_base.ObjectBase):
                     setattr(self, prop.name, None)
             else:
                 raise TypeError("Unknown property type %s" % type(prop))
+
+    def clone(self):
+        cls = type(self)
+        obj = cls(state={'id': uuid.uuid4().hex})
+        obj.copy_from(self)
+        return obj
+
+    def copy_from(self, src):
+        assert isinstance(src, type(self))
+
+        for prop in src.list_properties():
+            if prop.name == 'id':
+                continue
+
+            if isinstance(prop, model_base.Property):
+                value = prop.__get__(src, src.__class__)
+                prop.__set__(self, value)
+
+            elif isinstance(prop, model_base.ListProperty):
+                lst = prop.__get__(self, self.__class__)
+                lst.clear()
+                for value in prop.__get__(src, src.__class__):
+                    lst.append(copy.deepcopy(value))
+
+            elif isinstance(prop, model_base.ObjectProperty):
+                obj = prop.__get__(src, src.__class__)
+                if obj is not None:
+                    prop.__set__(self, obj.clone())
+                else:
+                    prop.__set__(self, None)
+
+            elif isinstance(prop, model_base.ObjectListProperty):
+                lst = prop.__get__(self, self.__class__)
+                lst.clear()
+                for obj in prop.__get__(src, src.__class__):
+                    lst.append(obj.clone())
+
+            else:
+                assert isinstance(prop, model_base.ObjectReferenceProperty)
+                obj = prop.__get__(src, src.__class__)
+                prop.__set__(self, obj)
 
 
 class RootMixin(object):

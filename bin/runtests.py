@@ -158,11 +158,13 @@ def main(argv):
         cov.start()
 
     for dirpath, dirnames, filenames in os.walk(os.path.join(LIBDIR, 'noisicaa')):
-        if '__pycache__' in dirnames:
-            dirnames.remove('__pycache__')
+        for ignore_dir in ('__pycache__', 'testdata'):
+            if ignore_dir in dirnames:
+                dirnames.remove(ignore_dir)
 
         for filename in filenames:
-            if not (fnmatch.fnmatch(filename, '*.py') or fnmatch.fnmatch(filename, '*.so')):
+            if (not (fnmatch.fnmatch(filename, '*.py') or fnmatch.fnmatch(filename, '*.so'))
+                or fnmatch.fnmatch(filename, 'lib*.so')):
                 continue
 
             filename = os.path.splitext(filename)[0]

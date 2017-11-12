@@ -613,11 +613,7 @@ class Project(BaseProject):
             raise storage.CorruptedProjectError(
                 "Unexpected content type %s" % message.get_content_type())
 
-        serialized_checkpoint = message.get_payload()
-
-        checkpoint = json.loads(serialized_checkpoint, cls=JSONDecoder)
-
-        self.deserialize(checkpoint)
+        self.deserialize_object_into(message.get_payload(), self)
         self.init_references()
 
         def validate_node(root, parent, node):
@@ -640,21 +636,35 @@ class Project(BaseProject):
         message['Version'] = str(self.VERSION)
         message['Content-Type'] = 'application/json; charset=utf-8'
 
-        checkpoint = json.dumps(
-            self.serialize(),
-            ensure_ascii=False, indent='  ', sort_keys=True,
-            cls=JSONEncoder)
-        serialized_checkpoint = checkpoint.encode('utf-8')
-        message.set_payload(serialized_checkpoint)
+        message.set_payload(self.serialize_object(self))
 
         checkpoint_data = message.as_bytes()
         self.storage.add_checkpoint(checkpoint_data)
 
+    def serialize_object(self, obj):
+        state = obj.serialize()
+        dump = json.dumps(state, ensure_ascii=False, indent='  ', sort_keys=True, cls=JSONEncoder)
+        return dump.encode('utf-8')
+
+    def deserialize_object_into(self, data, target):
+        if isinstance(data, bytes):
+            data = data.decode('utf-8')
+        state = json.loads(data, cls=JSONDecoder)
+        target.deserialize(state)
+
+    def deserialize_object(self, data):
+        if isinstance(data, bytes):
+            data = data.decode('utf-8')
+        state = json.loads(data, cls=JSONDecoder)
+        cls_name = state['__class__']
+        cls = self.cls_map[cls_name]
+        obj = cls(state=state)
+        return obj
+
     def serialize_command(self, cmd, target_id, now):
-        serialized = json.dumps(
-            cmd.serialize(),
-            ensure_ascii=False, indent='  ', sort_keys=True,
-            cls=JSONEncoder)
+        state = cmd.serialize()
+        dump = json.dumps(state, ensure_ascii=False, indent='  ', sort_keys=True, cls=JSONEncoder)
+        serialized = dump.encode('utf-8')
 
         policy = email.policy.compat32.clone(
             linesep='\n',
@@ -667,7 +677,7 @@ class Project(BaseProject):
         message['Target'] = target_id
         message['Time'] = time.ctime(now)
         message['Timestamp'] = '%d' % now
-        message.set_payload(serialized.encode('utf-8'))
+        message.set_payload(serialized)
 
         return message.as_bytes()
 
