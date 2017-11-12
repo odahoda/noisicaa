@@ -42,8 +42,6 @@
   Explicit dereference all to create standalone clone for every selected
   measure.
 * Remember selected tool in session                                                           :FR:
-* Highlight all linked measures                                                               :FR:
-When hovering over a measure, highlight this and all other measures referencing the same object.
 * Rendering of edit actions                                                                   :FR:
 - separate modelstate object with generator interface for model state
   - produces PaintAction objects

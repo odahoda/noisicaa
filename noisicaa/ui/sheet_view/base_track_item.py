@@ -313,11 +313,14 @@ class MeasureEditorItem(BaseMeasureEditorItem):
         self.__playback_timepos = None
 
         self.__selected = False
+        self.__hovered = False
 
         self.measure_listeners = []
 
         if self.__measure is not None:
             self.addMeasureListeners()
+
+        self.track_item.hoveredMeasureChanged.connect(self.__onHoveredMeasureChanged)
 
     def close(self):
         if self.selected():
@@ -326,6 +329,8 @@ class MeasureEditorItem(BaseMeasureEditorItem):
         for listener in self.measure_listeners:
             listener.remove()
         self.measure_listeners.clear()
+
+        self.track_item.hoveredMeasureChanged.disconnect(self.__onHoveredMeasureChanged)
 
         super().close()
 
@@ -407,6 +412,12 @@ class MeasureEditorItem(BaseMeasureEditorItem):
     def selected(self):
         return self.__selected
 
+    def __onHoveredMeasureChanged(self, measure_id):
+        hovered = (measure_id == self.measure_reference.measure.id)
+        if hovered != self.__hovered:
+            self.__hovered = hovered
+            self.rectChanged.emit(self.sheetRect())
+
     async def getCopy(self):
         return {
             'class': type(self.__measure).__name__,
@@ -448,8 +459,10 @@ class MeasureEditorItem(BaseMeasureEditorItem):
 
         self.__cached_size = self.size()
 
-        if self.selected():
+        if self.__selected:
             painter.fillRect(paintRect, QtGui.QColor(255, 200, 200))
+        elif self.__hovered:
+            painter.fillRect(paintRect, QtGui.QColor(220, 220, 255))
 
         for layer in self.layers:
             if layer == self.PLAYBACK_POS:
@@ -682,6 +695,7 @@ class ArrangeMeasuresTool(tools.ToolBase):
     def mouseMoveEvent(self, target, evt):
         assert isinstance(target, MeasuredTrackEditorItem), type(target).__name__
         measure_item = target.measureItemAt(evt.pos())
+        target.setHoverMeasureItem(measure_item, evt)
 
         if self.__selection_first is not None and isinstance(measure_item, MeasureEditorItem):
             start_idx = self.__selection_first.measure_reference.index
@@ -703,9 +717,14 @@ class ArrangeMeasuresTool(tools.ToolBase):
             self.__selection_last = measure_item
 
             evt.accept()
+            return
+
+        super().mouseMoveEvent(target, evt)
 
 
 class MeasuredTrackEditorItem(BaseTrackEditorItem):
+    hoveredMeasureChanged = QtCore.pyqtSignal(str)
+
     measure_item_cls = None
 
     def __init__(self, **kwargs):
@@ -847,6 +866,10 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
             measure_item.enterEvent(measure_evt)
 
         self.__hover_measure_item = measure_item
+        self.hoveredMeasureChanged.emit(
+            measure_item.measure_reference.measure_id
+            if self.isCurrent() and isinstance(measure_item, MeasureEditorItem)
+            else '')
 
     def enterEvent(self, evt):
         self.setHoverMeasureItem(self.measureItemAt(evt.pos()), evt)
