@@ -21,6 +21,7 @@
 # @end:license
 
 import asyncio
+from fractions import Fraction
 import getpass
 import logging
 import socket
@@ -326,7 +327,7 @@ class ProjectClientMixin(object):
         assert isinstance(data, dict), data
         for key, value in data.items():
             assert isinstance(key, str), key
-            assert isinstance(value, (str, bytes, bool, int, float)), value
+            assert isinstance(value, (str, bytes, bool, int, float, Fraction)), value
 
         self._session_data.update(data)
         self.event_loop.create_task(

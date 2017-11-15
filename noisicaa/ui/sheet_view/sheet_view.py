@@ -278,6 +278,9 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
         self.__sheet = sheet
         self.__player_state = player_state
 
+        self.__session_prefix = 'sheet_editor:%s:' % sheet.id
+        self.__session_data_last_update = {}
+
         self.__current_tool_box = None
         self.__current_tool = None
         self.__mouse_grabber = None
@@ -311,6 +314,26 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
 
         self.__player_state.playbackSamplePosChanged.connect(
             lambda sample_pos: self.setPlaybackPos(sample_pos, 1))
+
+        self.setScaleX(self.__get_session_value('scale_x', self.__scale_x))
+        # TODO: Somehow the y_offset is not respected...
+        self.setOffset(
+            self.__get_session_value('x_offset', self.__x_offset),
+            self.__get_session_value('y_offset', self.__y_offset))
+
+    def __get_session_value(self, key, default):
+        return super().get_session_value(self.__session_prefix + key, default)
+
+    def __set_session_value(self, key, value):
+        super().set_session_value(self.__session_prefix + key, value)
+
+    def __lazy_set_session_value(self, key, value):
+        # TODO: value should be stored to session 5sec after most recent change. I.e. need
+        #   some timer...
+        last_time = self.__session_data_last_update.get(key, 0)
+        if time.time() - last_time > 5:
+            self.__set_session_value(key, value)
+            self.__session_data_last_update[key] = time.time()
 
     def createTrack(self, track):
         track_item_cls = self.track_cls_map[type(track).__name__]
@@ -434,11 +457,13 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
         dx = self.__x_offset - xoffset
         if dx != 0:
             self.__x_offset = xoffset
+            self.__lazy_set_session_value('x_offset', xoffset)
             self.xOffsetChanged.emit(self.__x_offset)
 
         dy = self.__y_offset - yoffset
         if dy != 0:
             self.__y_offset = yoffset
+            self.__lazy_set_session_value('y_offset', yoffset)
             self.yOffsetChanged.emit(self.__y_offset)
 
         self.scroll(dx, dy)
@@ -451,6 +476,7 @@ class SheetEditor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidget
             return
 
         self.__scale_x = scale_x
+        self.__lazy_set_session_value('scale_x', scale_x)
         self.updateTracks()
         self.scaleXChanged.emit(self.__scale_x)
 

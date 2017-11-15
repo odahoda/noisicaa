@@ -86,9 +86,6 @@
     - if the end goes past the region, extend the region and move all following regions (across
       all tracks) to the right to make room.
 
-* Settings window is sticky                                                                  :BUG:
-Keeps getting reopened on startup.
-
 * Common testdata directory with some audio files                                        :CLEANUP:
 - possibly also lv2, ladspa, ... plugins (built from source)?
 - replace all uses of system files in tests.

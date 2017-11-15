@@ -341,17 +341,9 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
                 project = await self.project_registry.open_project(path)
                 await self.addProject(project)
 
-        self.aboutToQuit.connect(self.shutDown)
-
-    def shutDown(self):
-        logger.info("Shutting down.")
-
-        if self.win is not None:
-            self.win.storeState()
-            self.settings.sync()
-            self.dumpSettings()
-
     async def cleanup(self):
+        logger.info("Cleanup app...")
+
         if self.stat_monitor is not None:
             self.stat_monitor.storeState()
             self.stat_monitor = None
@@ -365,8 +357,12 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
             self.pipeline_graph_monitor = None
 
         if self.win is not None:
+            self.win.storeState()
             await self.win.cleanup()
             self.win = None
+
+        self.settings.sync()
+        self.dumpSettings()
 
         await super().cleanup()
 
