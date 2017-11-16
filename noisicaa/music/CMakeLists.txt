@@ -47,9 +47,7 @@ add_python_package(
   sample_track.py
   score_track.py
   score_track_test.py
-  sheet_property_track.py
-  sheet.py
-  sheet_test.py
+  property_track.py
   state.py
   state_test.py
   time_mapper.py

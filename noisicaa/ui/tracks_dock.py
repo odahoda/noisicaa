@@ -56,12 +56,10 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
 
     COLUMNS = 2
 
-    def __init__(self, sheet=None, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._sheet = sheet
-
-        self._root_item = self._buildItem(self._sheet.master_group, None)
+        self._root_item = self._buildItem(self.project.master_group, None)
 
         self._score_icon = QtGui.QIcon(
                 os.path.join(DATA_DIR, 'icons', 'track-type-score.svg'))
@@ -268,7 +266,7 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
         assert isinstance(parent_group, model.TrackGroup)
 
         list_index =  await self.project_client.send_command(
-            self._sheet.id, 'AddTrack',
+            self.project.id, 'AddTrack',
             parent_group_id=parent_group.id,
             insert_index=insert_index,
             track_type=track_type)
@@ -278,7 +276,7 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
     async def removeTrack(self, index):
         track = index.internalPointer().track
         return await self.project_client.send_command(
-            self._sheet.id, 'RemoveTrack', track_id=track.id)
+            self.project.id, 'RemoveTrack', track_id=track.id)
 
 
 class TracksModel(ui_base.ProjectMixin, TracksModelImpl):
@@ -402,11 +400,6 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
             initial_visible=True,
             **kwargs)
 
-        self._model = None
-        self._tracks_list = TrackList(self)
-        self._tracks_list.currentIndexChanged.connect(
-            self.onCurrentChanged)
-
         self._add_score_track_action = QtWidgets.QAction(
             QtGui.QIcon(
                 os.path.join(DATA_DIR, 'icons', 'track-type-score.svg')),
@@ -450,30 +443,41 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         self._remove_button = QtWidgets.QToolButton(
             icon=QtGui.QIcon.fromTheme('list-remove'),
             iconSize=QtCore.QSize(16, 16),
-            autoRaise=True)
+            autoRaise=True,
+            enabled=False)
         self._remove_button.clicked.connect(self.onRemoveClicked)
 
         self._move_up_button = QtWidgets.QToolButton(
             icon=QtGui.QIcon.fromTheme('go-up'),
             iconSize=QtCore.QSize(16, 16),
-            autoRaise=True)
+            autoRaise=True,
+            enabled=False)
         self._move_up_button.clicked.connect(self.onMoveUpClicked)
         self._move_down_button = QtWidgets.QToolButton(
             icon=QtGui.QIcon.fromTheme('go-down'),
             iconSize=QtCore.QSize(16, 16),
-            autoRaise=True)
+            autoRaise=True,
+            enabled=False)
         self._move_down_button.clicked.connect(self.onMoveDownClicked)
 
         self._move_left_button = QtWidgets.QToolButton(
             icon=QtGui.QIcon.fromTheme('go-previous'),
             iconSize=QtCore.QSize(16, 16),
-            autoRaise=True)
+            autoRaise=True,
+            enabled=False)
         self._move_left_button.clicked.connect(self.onMoveLeftClicked)
         self._move_right_button = QtWidgets.QToolButton(
             icon=QtGui.QIcon.fromTheme('go-next'),
             iconSize=QtCore.QSize(16, 16),
-            autoRaise=True)
+            autoRaise=True,
+            enabled=False)
         self._move_right_button.clicked.connect(self.onMoveRightClicked)
+
+        self._tracks_list = TrackList(self)
+        self._tracks_list.currentIndexChanged.connect(self.onCurrentChanged)
+
+        self._model = TracksModel(**self.context)
+        self._tracks_list.setModel(self._model)
 
         buttons_layout = QtWidgets.QHBoxLayout(spacing=1)
         buttons_layout.addWidget(self._add_button)
@@ -493,24 +497,6 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         main_area.setLayout(main_layout)
         self.setWidget(main_area)
 
-    def setCurrentSheet(self, sheet):
-        if self._model is not None:
-            self._model.close()
-            self._model = None
-            self._tracks_list.setModel(None)
-
-        if sheet is not None:
-            self._model = TracksModel(sheet=sheet, **self.context)
-            self._tracks_list.setModel(self._model)
-            # TODO: select current track of sheet
-            self.onCurrentChanged(None)
-            self._add_button.setEnabled(True)
-        else:
-            self._add_button.setEnabled(False)
-            self._remove_button.setEnabled(False)
-            self._move_up_button.setEnabled(False)
-            self._move_down_button.setEnabled(False)
-
     def onCurrentChanged(self, index, previous=None):
         if index is not None and index.isValid():
             track = self._model.track(index)
@@ -529,12 +515,11 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
             self._remove_button.setEnabled(False)
             self._move_up_button.setEnabled(False)
             self._move_down_button.setEnabled(False)
+            self._move_left_button.setEnabled(False)
+            self._move_right_button.setEnabled(False)
             self.currentTrackChanged.emit(None)
 
     def onAddClicked(self, track_type):
-        if self._model is None:
-            return
-
         self.call_async(
             self._model.addTrack(
                 track_type=track_type,
@@ -545,16 +530,10 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         self._tracks_list.setCurrentIndex(added_index)
 
     def onRemoveClicked(self):
-        if self._model is None:
-            return
-
         index = self._tracks_list.currentIndex()
         self.call_async(self._model.removeTrack(index))
 
     def onMoveUpClicked(self):
-        if self._model is None:
-            return
-
         index = self._tracks_list.currentIndex()
         assert index.isValid()
         track = self._model.track(index)
@@ -569,9 +548,6 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         self._tracks_list.setCurrentIndex(QtCore.QModelIndex())
 
     def onMoveDownClicked(self):
-        if self._model is None:
-            return
-
         index = self._tracks_list.currentIndex()
         assert index.isValid()
         track = self._model.track(index)
@@ -586,9 +562,6 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         self._tracks_list.setCurrentIndex(QtCore.QModelIndex())
 
     def onMoveLeftClicked(self):
-        if self._model is None:
-            return
-
         index = self._tracks_list.currentIndex()
         assert index.isValid()
         track = self._model.track(index)
@@ -604,9 +577,6 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         self._tracks_list.setCurrentIndex(QtCore.QModelIndex())
 
     def onMoveRightClicked(self):
-        if self._model is None:
-            return
-
         index = self._tracks_list.currentIndex()
         assert index.isValid()
         track = self._model.track(index)

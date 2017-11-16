@@ -38,7 +38,6 @@ from noisicaa.core import ipc
 from noisicaa.ui import model
 
 from . import project
-from . import sheet
 from . import player
 
 logger = logging.getLogger(__name__)
@@ -68,6 +67,9 @@ class MockAudioProcClient(object):
 
     async def disconnect(self, shutdown=False):
         logger.info("Disconnect audioproc client (shutdown=%s).", shutdown)
+
+    async def pipeline_mutation(self, mutation):
+        pass
 
     async def set_backend(self, backend, **settings):
         logger.info("Set to audioproc backend to %s.", backend)
@@ -105,8 +107,6 @@ class MockAudioProcClient(object):
 class PlayerTest(asynctest.TestCase):
     async def setUp(self):
         self.project = project.BaseProject()
-        self.sheet = sheet.Sheet(name='Test')
-        self.project.sheets.append(self.sheet)
 
         self.player_status_calls = asyncio.Queue()
         self.callback_server = ipc.Server(self.loop, 'callback')
@@ -168,7 +168,7 @@ class PlayerTest(asynctest.TestCase):
             client.cleanup()
 
     async def test_audio_stream_fails(self):
-        p = player.Player(self.sheet, self.callback_server.address, self.mock_manager, self.loop)
+        p = player.Player(self.project, self.callback_server.address, self.mock_manager, self.loop)
         try:
             with mock.patch('noisicaa.music.player.AudioProcClient', MockAudioProcClient):
                 await p.setup()

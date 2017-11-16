@@ -175,13 +175,13 @@ class SampleItem(object):
     def onTimeposChanged(self, old_timepos, new_timepos):
         self.__pos = QtCore.QPoint(
             self.__track_item.timeposToX(new_timepos), 0)
-        self.__track_item.rectChanged.emit(self.__track_item.sheetRect())
+        self.__track_item.rectChanged.emit(self.__track_item.viewRect())
 
     def setHighlighted(self, highlighted):
         if highlighted != self.__highlighted:
             self.__highlighted = highlighted
             self.__track_item.rectChanged.emit(
-                self.rect().translated(self.__track_item.sheetTopLeft()))
+                self.rect().translated(self.__track_item.viewTopLeft()))
 
     def renderSample(self, render_result):
         status, *args = render_result
@@ -200,7 +200,7 @@ class SampleItem(object):
             self.__width = len(samples)
 
         self.__render_result = render_result
-        self.__track_item.rectChanged.emit(self.__track_item.sheetRect())
+        self.__track_item.rectChanged.emit(self.__track_item.viewRect())
 
     def purgePaintCaches(self):
         self.__render_result = ('init', )
@@ -308,14 +308,14 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
     def updateSize(self):
         width = 20
-        for mref in self.sheet.property_track.measure_list:
+        for mref in self.project.property_track.measure_list:
             measure = mref.measure
             width += int(self.scaleX() * measure.duration)
         self.setSize(QtCore.QSize(width, 120))
 
     def timeposToX(self, timepos):
         x = 10
-        for mref in self.sheet.property_track.measure_list:
+        for mref in self.project.property_track.measure_list:
             measure = mref.measure
             width = int(self.scaleX() * measure.duration)
 
@@ -333,7 +333,7 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
         if x <= 0:
             return timepos
 
-        for mref in self.sheet.property_track.measure_list:
+        for mref in self.project.property_track.measure_list:
             measure = mref.measure
             width = int(self.scaleX() * measure.duration)
 
@@ -360,25 +360,25 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
     def addSample(self, insert_index, sample):
         item = SampleItem(track_item=self, sample=sample)
         self.__samples.insert(insert_index, item)
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def removeSample(self, remove_index, sample):
         item = self.__samples.pop(remove_index)
         item.close()
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def setPlaybackPos(self, timepos):
         if self.__playback_timepos is not None:
             x = self.timeposToX(self.__playback_timepos)
             self.rectChanged.emit(
-                QtCore.QRect(self.sheetLeft() + x, self.sheetTop(), 2, self.height()))
+                QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
 
         self.__playback_timepos = timepos
 
         if self.__playback_timepos is not None:
             x = self.timeposToX(self.__playback_timepos)
             self.rectChanged.emit(
-                QtCore.QRect(self.sheetLeft() + x, self.sheetTop(), 2, self.height()))
+                QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
 
     def setHighlightedSample(self, sample):
         if sample is self.__highlighted_sample:
@@ -418,7 +418,7 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
     def setSamplePos(self, sample, pos):
         sample.setPos(pos)
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def contextMenuEvent(self, event):
         menu = QtWidgets.QMenu()
@@ -488,7 +488,7 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
         x = 10
         timepos = music.Duration()
-        for mref in self.sheet.property_track.measure_list:
+        for mref in self.project.property_track.measure_list:
             measure = mref.measure
             width = int(self.scaleX() * measure.duration)
 

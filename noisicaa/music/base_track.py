@@ -88,7 +88,7 @@ class ReparentTrack(commands.Command):
         assert not track.is_master_group
 
         new_parent = track.root.get_object(self.new_parent)
-        assert new_parent.is_child_of(track.sheet)
+        assert new_parent.is_child_of(track.project)
         assert isinstance(new_parent, model.TrackGroup)
 
         assert 0 <= self.index <= len(new_parent.tracks)
@@ -194,19 +194,19 @@ class Track(model.Track, state.StateBase):
                 parent_mixer_node.graph_pos
                 + self.relative_position_to_parent_mixer),
             track=self)
-        self.sheet.add_pipeline_graph_node(mixer_node)
+        self.project.add_pipeline_graph_node(mixer_node)
         self.mixer_id = mixer_node.id
 
         conn = pipeline_graph.PipelineGraphConnection(
             mixer_node, 'out:left', parent_mixer_node, 'in:left')
-        self.sheet.add_pipeline_graph_connection(conn)
+        self.project.add_pipeline_graph_connection(conn)
 
         conn = pipeline_graph.PipelineGraphConnection(
             mixer_node, 'out:right', parent_mixer_node, 'in:right')
-        self.sheet.add_pipeline_graph_connection(conn)
+        self.project.add_pipeline_graph_connection(conn)
 
     def remove_pipeline_nodes(self):
-        self.sheet.remove_pipeline_graph_node(self.mixer_node)
+        self.project.remove_pipeline_graph_node(self.mixer_node)
         self.mixer_id = None
 
 
@@ -232,7 +232,7 @@ state.StateBase.register_class(MeasureReference)
 class BufferSource(object):
     def __init__(self, track):
         self._track = track
-        self._sheet = track.sheet
+        self._project = track.project
 
     def close(self):
         pass
@@ -247,7 +247,7 @@ class EventSetBufferSource(BufferSource):
         self.__event_set = event_set.EventSet()
         self.__active_notes = set()
         self.__connector = self._create_connector(track, self.__event_set)
-        self.__time_mapper = time_mapper.TimeMapper(track.sheet)
+        self.__time_mapper = time_mapper.TimeMapper(track.project)
 
     def _create_connector(self, track, event_set):
         raise NotImplementedError

@@ -1,5 +1,3 @@
-#/usr/bin/python3
-
 # @begin:license
 #
 # Copyright (c) 2015-2017, Benjamin Niemann <pink@odahoda.de>
@@ -20,25 +18,7 @@
 #
 # @end:license
 
-import unittest
-
-from noisicaa.music import project
-from noisicaa.music import sheet
-from . import uitest_utils
-from . import render_sheet_dialog
-
-
-# class RenderSheetDialogTest(uitest_utils.UITest):
-#     async def setUp(self):
-#         await super().setUp()
-#         self.project = project.BaseProject()
-#         self.project.sheets.append(sheet.Sheet(name='Sheet 1'))
-#         self.sheet = self.project.sheets[0]
-
-#     async def test_init(self):
-#         dialog = render_sheet_dialog.RenderSheetDialog(None, self.app, self.sheet)
-#         self.assertTrue(dialog.close())
-
-
-if __name__ == '__main__':
-    unittest.main()
+from .beat_track_item import BeatTrackEditorItem
+from .control_track_item import ControlTrackEditorItem
+from .score_track_item import ScoreTrackEditorItem
+from .sample_track_item import SampleTrackEditorItem

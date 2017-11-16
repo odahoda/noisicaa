@@ -35,16 +35,16 @@ add_python_package(
   pipeline_graph_monitor.py
   pipeline_graph_view.py
   pipeline_perf_monitor.py
+  project_properties_dock.py
   project_registry.py
   project_view.py
   project_view_test.py
   qled.py
-  render_sheet_dialog.py
-  render_sheet_dialog_test.py
+  render_project_dialog.py
+  render_project_dialog_test.py
   selection_set.py
   session_helpers.py
   settings.py
-  sheet_properties_dock.py
   stat_monitor.py
   svg_symbol_filetest.py
   svg_symbol.py
@@ -61,4 +61,4 @@ add_python_package(
 
 file(COPY testdata DESTINATION .)
 
-add_subdirectory(sheet_view)
+add_subdirectory(track_items)

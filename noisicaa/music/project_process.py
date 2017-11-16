@@ -37,7 +37,6 @@ from noisicaa import audioproc
 from noisicaa import node_db
 
 from . import project
-from . import sheet
 from . import mutations
 from . import commands
 from . import player
@@ -342,9 +341,7 @@ class ProjectProcess(core.ProcessBase):
 
     def _create_blank_project(self, project_cls):
         project = project_cls(node_db=self.node_db)
-        s = sheet.Sheet(name='Sheet 1')
-        project.add_sheet(s)
-        s.add_track(s.master_group, 0, score_track.ScoreTrack(name="Track 1"))
+        project.add_track(project.master_group, 0, score_track.ScoreTrack(name="Track 1"))
         return project
 
     async def handle_create(self, session_id, path):
@@ -435,15 +432,11 @@ class ProjectProcess(core.ProcessBase):
         obj = self.project.get_object(obj_id)
         return self.project.serialize_object(obj)
 
-    async def handle_create_player(
-        self, session_id, client_address, sheet_id):
+    async def handle_create_player(self, session_id, client_address):
         session = self.get_session(session_id)
         assert self.project is not None
 
-        sheet = self.project.get_object(sheet_id)
-
-        p = player.Player(
-            sheet, client_address, self.manager, self.event_loop)
+        p = player.Player(self.project, client_address, self.manager, self.event_loop)
         await p.setup()
 
         session.add_player(p)

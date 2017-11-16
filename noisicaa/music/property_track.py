@@ -45,14 +45,14 @@ class SetTimeSignature(commands.Command):
             self.lower = lower
 
     def run(self, measure):
-        assert isinstance(measure, SheetPropertyMeasure)
+        assert isinstance(measure, PropertyMeasure)
 
         measure.time_signature = TimeSignature(self.upper, self.lower)
 
 commands.Command.register_command(SetTimeSignature)
 
 
-class SheetPropertyMeasure(model.SheetPropertyMeasure, base_track.Measure):
+class PropertyMeasure(model.PropertyMeasure, base_track.Measure):
     def __init__(self, state=None):
         super().__init__(state)
         if state is None:
@@ -62,11 +62,11 @@ class SheetPropertyMeasure(model.SheetPropertyMeasure, base_track.Measure):
     def empty(self):
         return True
 
-state.StateBase.register_class(SheetPropertyMeasure)
+state.StateBase.register_class(PropertyMeasure)
 
 
-class SheetPropertyTrack(model.SheetPropertyTrack, base_track.MeasuredTrack):
-    measure_cls = SheetPropertyMeasure
+class PropertyTrack(model.PropertyTrack, base_track.MeasuredTrack):
+    measure_cls = PropertyMeasure
 
     def __init__(self, name=None, num_measures=1, state=None):
         super().__init__(name=name, state=state)
@@ -83,4 +83,4 @@ class SheetPropertyTrack(model.SheetPropertyTrack, base_track.MeasuredTrack):
 
         return measure
 
-state.StateBase.register_class(SheetPropertyTrack)
+state.StateBase.register_class(PropertyTrack)

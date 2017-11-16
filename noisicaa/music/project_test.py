@@ -33,7 +33,8 @@ from noisicaa.node_db.private import db as node_db
 from noisicaa.core import fileutil
 from noisicaa.core import storage
 from . import project
-from . import sheet
+from . import score_track
+from . import track_group
 
 
 def store_retrieve(obj):
@@ -70,88 +71,14 @@ class BaseProjectTest(asynctest.TestCase):
 
     def test_deserialize(self):
         p = project.BaseProject(node_db=self.node_db)
-        p.sheets.append(sheet.Sheet(name='Sheet 1'))
+        p.master_group.tracks.append(score_track.ScoreTrack(name='Track 1'))
         state = store_retrieve(p.serialize())
         p2 = project.Project(state=state)
-        self.assertEqual(len(p2.sheets), 1)
+        self.assertEqual(len(p2.master_group.tracks), 1)
 
     def test_demo(self):
         p = project.BaseProject.make_demo(node_db=self.node_db)
         #pprint.pprint(p.serialize())
-
-
-class AddSheetTest(unittest.TestCase):
-    def test_ok(self):
-        p = project.BaseProject()
-        cmd = project.AddSheet(name='Sheet 1')
-        p.dispatch_command(p.id, cmd)
-        self.assertEqual(len(p.sheets), 1)
-        self.assertEqual(p.sheets[0].name, 'Sheet 1')
-
-    def test_duplicate_name(self):
-        p = project.BaseProject()
-        p.sheets.append(sheet.Sheet(name='Sheet 1'))
-        cmd = project.AddSheet(name='Sheet 1')
-        with self.assertRaises(ValueError):
-            p.dispatch_command(p.id, cmd)
-
-
-class DeleteSheetTest(unittest.TestCase):
-    def test_ok(self):
-        p = project.BaseProject()
-        p.sheets.append(sheet.Sheet(name='Sheet 1'))
-        p.sheets.append(sheet.Sheet(name='Sheet 2'))
-        cmd = project.DeleteSheet(name='Sheet 1')
-        p.dispatch_command(p.id, cmd)
-        self.assertEqual(len(p.sheets), 1)
-        self.assertEqual(p.sheets[0].name, 'Sheet 2')
-
-    def test_last_sheet(self):
-        p = project.BaseProject()
-        p.sheets.append(sheet.Sheet(name='Sheet 1'))
-        p.sheets.append(sheet.Sheet(name='Sheet 2'))
-        cmd = project.SetCurrentSheet(name='Sheet 2')
-        p.dispatch_command(p.id, cmd)
-        cmd = project.DeleteSheet(name='Sheet 2')
-        p.dispatch_command(p.id, cmd)
-        self.assertEqual(len(p.sheets), 1)
-        self.assertEqual(p.sheets[0].name, 'Sheet 1')
-        self.assertEqual(p.current_sheet, 0)
-
-
-class RenameSheetTest(unittest.TestCase):
-    def test_ok(self):
-        p = project.BaseProject()
-        p.sheets.append(sheet.Sheet(name='Sheet 1'))
-        cmd = project.RenameSheet(name='Sheet 1', new_name='Foo')
-        p.dispatch_command(p.id, cmd)
-        self.assertEqual(p.sheets[0].name, 'Foo')
-
-    def test_unchanged(self):
-        p = project.BaseProject()
-        p.sheets.append(sheet.Sheet(name='Sheet 1'))
-        cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 1')
-        p.dispatch_command(p.id, cmd)
-        self.assertEqual(p.sheets[0].name, 'Sheet 1')
-
-    def test_duplicate_name(self):
-        p = project.BaseProject()
-        p.sheets.append(sheet.Sheet(name='Sheet 1'))
-        cmd = project.AddSheet(name='Sheet 2')
-        p.dispatch_command(p.id, cmd)
-        cmd = project.RenameSheet(name='Sheet 1', new_name='Sheet 2')
-        with self.assertRaises(ValueError):
-            p.dispatch_command(p.id, cmd)
-
-
-class SetCurrentSheetTest(unittest.TestCase):
-    def test_ok(self):
-        p = project.BaseProject()
-        p.add_sheet(sheet.Sheet(name='Sheet 1'))
-        p.add_sheet(sheet.Sheet(name='Sheet 2'))
-        cmd = project.SetCurrentSheet(name='Sheet 2')
-        p.dispatch_command(p.id, cmd)
-        self.assertEqual(p.current_sheet, 1)
 
 
 class ProjectTest(asynctest.TestCase):
@@ -191,20 +118,17 @@ class ProjectTest(asynctest.TestCase):
         p = project.Project(node_db=self.node_db)
         p.create('/foo.noise')
         try:
-            p.dispatch_command(p.id, project.AddSheet())
-            sheet_id = p.sheets[-1].id
-            p.dispatch_command(sheet_id, sheet.AddTrack(
+            p.dispatch_command(p.id, project.AddTrack(
                 track_type='score',
-                parent_group_id=p.sheets[-1].master_group.id))
-            track_id = p.sheets[-1].master_group.tracks[-1].id
+                parent_group_id=p.master_group.id))
+            track_id = p.master_group.tracks[-1].id
         finally:
             p.close()
 
         p = project.Project(node_db=self.node_db)
         p.open('/foo.noise')
         try:
-            self.assertEqual(p.sheets[-1].id, sheet_id)
-            self.assertEqual(p.sheets[-1].master_group.tracks[-1].id, track_id)
+            self.assertEqual(p.master_group.tracks[-1].id, track_id)
         finally:
             p.close()
 
@@ -220,5 +144,73 @@ class ProjectTest(asynctest.TestCase):
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
 
 
-if __name__ == '__main__':
-    unittest.main()
+class CommandTest(asynctest.TestCase):
+    async def setUp(self):
+        self.node_db = NodeDB()
+        await self.node_db.setup()
+
+        self.project = project.BaseProject(node_db=self.node_db)
+
+    async def tearDown(self):
+        await self.node_db.cleanup()
+
+
+class AddTrackTest(CommandTest):
+    def test_ok(self):
+        cmd = project.AddTrack(
+            track_type='score',
+            parent_group_id=self.project.master_group.id)
+        self.project.dispatch_command(self.project.id, cmd)
+        self.assertEqual(len(self.project.master_group.tracks), 1)
+
+
+    def test_nested_group(self):
+        cmd = project.AddTrack(
+            track_type='group',
+            parent_group_id=self.project.master_group.id)
+        self.project.dispatch_command(self.project.id, cmd)
+
+        self.assertIsInstance(
+            self.project.master_group.tracks[0], track_group.TrackGroup)
+
+        cmd = project.AddTrack(
+            track_type='score',
+            parent_group_id=self.project.master_group.tracks[0].id)
+        self.project.dispatch_command(self.project.id, cmd)
+
+        self.assertEqual(len(self.project.master_group.tracks), 1)
+        self.assertEqual(len(self.project.master_group.tracks[0].tracks), 1)
+
+
+class DeleteTrackTest(CommandTest):
+    def test_ok(self):
+        self.project.add_track(
+            self.project.master_group, 0,
+            score_track.ScoreTrack(name='Test'))
+
+        cmd = project.RemoveTrack(
+            track_id=self.project.master_group.tracks[0].id)
+        self.project.dispatch_command(self.project.id, cmd)
+        self.assertEqual(len(self.project.master_group.tracks), 0)
+
+    def test_track_with_instrument(self):
+        self.project.add_track(
+            self.project.master_group, 0,
+            score_track.ScoreTrack(name='Test'))
+        self.project.master_group.tracks[0].instrument = 'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0'
+
+        cmd = project.RemoveTrack(
+            track_id=self.project.master_group.tracks[0].id)
+        self.project.dispatch_command(self.project.id, cmd)
+        self.assertEqual(len(self.project.master_group.tracks), 0)
+
+    def test_delete_nested_track(self):
+        grp = track_group.TrackGroup(name='TestGroup')
+        self.project.add_track(self.project.master_group, 0, grp)
+
+        track = score_track.ScoreTrack(name='Test')
+        self.project.add_track(grp, 0, track)
+
+        cmd = project.RemoveTrack(track_id=track.id)
+        self.project.dispatch_command(self.project.id, cmd)
+        self.assertEqual(len(grp.tracks), 0)

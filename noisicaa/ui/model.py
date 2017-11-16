@@ -62,8 +62,8 @@ class ControlPoint(model.ControlPoint, project_client.ObjectProxy): pass
 class ControlTrack(model.ControlTrack, project_client.ObjectProxy): pass
 class SampleRef(model.SampleRef, project_client.ObjectProxy): pass
 class SampleTrack(model.SampleTrack, project_client.ObjectProxy): pass
-class SheetPropertyMeasure(model.SheetPropertyMeasure, project_client.ObjectProxy): pass
-class SheetPropertyTrack(model.SheetPropertyTrack, project_client.ObjectProxy): pass
+class PropertyMeasure(model.PropertyMeasure, project_client.ObjectProxy): pass
+class PropertyTrack(model.PropertyTrack, project_client.ObjectProxy): pass
 class PipelineGraphNodeParameterValue(model.PipelineGraphNodeParameterValue, project_client.ObjectProxy): pass
 class PipelineGraphControlValue(model.PipelineGraphControlValue, project_client.ObjectProxy): pass
 class PipelineGraphPortPropertyValue(model.PipelineGraphPortPropertyValue, project_client.ObjectProxy): pass
@@ -76,7 +76,6 @@ class EventSourcePipelineGraphNode(model.EventSourcePipelineGraphNode, project_c
 class InstrumentPipelineGraphNode(model.InstrumentPipelineGraphNode, project_client.ObjectProxy): pass
 class PipelineGraphConnection(model.PipelineGraphConnection, project_client.ObjectProxy): pass
 class Sample(model.Sample, project_client.ObjectProxy): pass
-class Sheet(model.Sheet, project_client.ObjectProxy): pass
 class Metadata(model.Metadata, project_client.ObjectProxy): pass
 class Project(model.Project, project_client.ObjectProxy):
     def __init__(self, *args, **kwargs):
@@ -118,8 +117,8 @@ cls_map = {
     'ControlTrack': ControlTrack,
     'SampleRef': SampleRef,
     'SampleTrack': SampleTrack,
-    'SheetPropertyMeasure': SheetPropertyMeasure,
-    'SheetPropertyTrack': SheetPropertyTrack,
+    'PropertyMeasure': PropertyMeasure,
+    'PropertyTrack': PropertyTrack,
     'PipelineGraphNodeParameterValue': PipelineGraphNodeParameterValue,
     'PipelineGraphControlValue': PipelineGraphControlValue,
     'PipelineGraphPortPropertyValue': PipelineGraphPortPropertyValue,
@@ -132,7 +131,6 @@ cls_map = {
     'InstrumentPipelineGraphNode': InstrumentPipelineGraphNode,
     'PipelineGraphConnection': PipelineGraphConnection,
     'Sample': Sample,
-    'Sheet': Sheet,
     'Metadata': Metadata,
     'Project': Project,
 }

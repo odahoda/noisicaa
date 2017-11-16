@@ -240,8 +240,7 @@ class BeatTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
         # TODO: use messages instead
         # self.call_async(
         #     self.audioproc_client.add_event(
-        #         'sheet:%s/track:%s' % (
-        #             self.sheet.id, self.track.id),
+        #         'track:%s' % self.track.id,
         #         audioproc.NoteOnEvent(-1, pitch)))
 
         self.__play_last_pitch = pitch
@@ -251,8 +250,7 @@ class BeatTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
             # TODO: use messages instead
             # self.call_async(
             #     self.audioproc_client.add_event(
-            #         'sheet:%s/track:%s' % (
-            #             self.sheet.id, self.track.id),
+            #         'track:%s' % self.track.id,
             #         audioproc.NoteOffEvent(-1, self.__play_last_pitch)))
             self.__play_last_pitch = None
 

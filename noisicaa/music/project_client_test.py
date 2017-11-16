@@ -102,7 +102,7 @@ class ProxyTest(asynctest.TestCase):
     async def test_basic(self):
         await self.client.create_inmemory()
         project = self.client.project
-        self.assertTrue(hasattr(project, 'current_sheet'))
+        self.assertTrue(hasattr(project, 'metadata'))
 
     @unittest.skip("TODO: Requires a properly setup node_db")
     async def test_create_close_open(self):
@@ -117,13 +117,13 @@ class ProxyTest(asynctest.TestCase):
     @unittest.skip("TODO: Requires a properly setup node_db")
     async def test_call_command(self):
         await self.client.create_inmemory()
-        sheet = self.client.project.sheets[0]
-        num_tracks = len(sheet.master_group.tracks)
+        project = self.client.project
+        num_tracks = len(project.master_group.tracks)
         await self.client.send_command(
-            sheet.id, 'AddTrack',
+            project.id, 'AddTrack',
             track_type='score',
-            parent_group_id=sheet.master_group.id)
-        self.assertEqual(len(sheet.master_group.tracks), num_tracks + 1)
+            parent_group_id=project.master_group.id)
+        self.assertEqual(len(project.master_group.tracks), num_tracks + 1)
 
 
 if __name__ == '__main__':

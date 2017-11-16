@@ -143,7 +143,7 @@ class ControlBufferSource(base_track.BufferSource):
     def __init__(self, track):
         super().__init__(track)
 
-        self.time_mapper = time_mapper.TimeMapper(self._sheet)
+        self.time_mapper = time_mapper.TimeMapper(self._project)
 
     def get_buffers(self, ctxt):
         output = numpy.zeros(shape=ctxt.block_size, dtype=numpy.float32)
@@ -213,7 +213,7 @@ class ControlTrack(model.ControlTrack, base_track.Track):
 
     @property
     def control_source_node(self):
-        for node in self.sheet.pipeline_graph_nodes:
+        for node in self.project.pipeline_graph_nodes:
             if (isinstance(node, pipeline_graph.ControlSourcePipelineGraphNode)
                     and node.track is self):
                 return node
@@ -225,10 +225,10 @@ class ControlTrack(model.ControlTrack, base_track.Track):
             name="Control Value",
             graph_pos=self.parent_mixer_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
-        self.sheet.add_pipeline_graph_node(control_source_node)
+        self.project.add_pipeline_graph_node(control_source_node)
 
     def remove_pipeline_nodes(self):
-        self.sheet.remove_pipeline_graph_node(self.control_source_node)
+        self.project.remove_pipeline_graph_node(self.control_source_node)
 
 
 state.StateBase.register_class(ControlTrack)

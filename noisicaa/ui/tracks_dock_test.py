@@ -39,14 +39,11 @@ class TracksModelTest(uitest_utils.UITest):
     async def setUp(self):
         await super().setUp()
 
-        self.sheet = model.Sheet('sheet')
-        self.sheet.property_track = model.SheetPropertyTrack('props')
-        self.sheet.master_group = model.MasterTrackGroup('master')
-        self.sheet.master_group.name = 'master'
-        self.project.sheets.append(self.sheet)
+        self.project.master_group = model.MasterTrackGroup('master')
+        self.project.master_group.name = 'master'
 
     async def test_start_empty(self):
-        tracks_model = TestTracksModel(**self.context, sheet=self.sheet)
+        tracks_model = TestTracksModel(**self.context)
         try:
             root_index = QtCore.QModelIndex()
             self.assertEqual(tracks_model.rowCount(root_index), 1)
@@ -62,7 +59,7 @@ class TracksModelTest(uitest_utils.UITest):
 
             track1 = model.ScoreTrack('track1')
             track1.name = 'track1'
-            self.sheet.master_group.tracks.append(track1)
+            self.project.master_group.tracks.append(track1)
             self.assertEqual(tracks_model.rowCount(master_index), 1)
 
             track1_index = tracks_model.index(0, parent=master_index)
@@ -74,7 +71,7 @@ class TracksModelTest(uitest_utils.UITest):
 
             grp1 = model.TrackGroup('grp1')
             grp1.name = 'grp1'
-            self.sheet.master_group.tracks.append(grp1)
+            self.project.master_group.tracks.append(grp1)
             self.assertEqual(tracks_model.rowCount(master_index), 2)
 
             grp1_index = tracks_model.index(1, parent=master_index)
@@ -116,10 +113,10 @@ class TracksModelTest(uitest_utils.UITest):
     async def test_start_filled(self):
         track1 = model.ScoreTrack('track1')
         track1.name = 'track1'
-        self.sheet.master_group.tracks.append(track1)
+        self.project.master_group.tracks.append(track1)
         grp1 = model.TrackGroup('grp1')
         grp1.name = 'grp1'
-        self.sheet.master_group.tracks.append(grp1)
+        self.project.master_group.tracks.append(grp1)
         track2 = model.ScoreTrack('track2')
         track2.name = 'track2'
         grp1.tracks.append(track2)
@@ -127,7 +124,7 @@ class TracksModelTest(uitest_utils.UITest):
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
-        tracks_model = TestTracksModel(**self.context, sheet=self.sheet)
+        tracks_model = TestTracksModel(**self.context)
         try:
             root_index = QtCore.QModelIndex()
             self.assertEqual(tracks_model.rowCount(root_index), 1)
@@ -174,10 +171,10 @@ class TracksModelTest(uitest_utils.UITest):
     async def test_delete_track(self):
         track1 = model.ScoreTrack('track1')
         track1.name = 'track1'
-        self.sheet.master_group.tracks.append(track1)
+        self.project.master_group.tracks.append(track1)
         grp1 = model.TrackGroup('grp1')
         grp1.name = 'grp1'
-        self.sheet.master_group.tracks.append(grp1)
+        self.project.master_group.tracks.append(grp1)
         track2 = model.ScoreTrack('track2')
         track2.name = 'track2'
         grp1.tracks.append(track2)
@@ -185,7 +182,7 @@ class TracksModelTest(uitest_utils.UITest):
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
-        tracks_model = TestTracksModel(**self.context, sheet=self.sheet)
+        tracks_model = TestTracksModel(**self.context)
         try:
             master_index = tracks_model.index(0)
             grp1_index = tracks_model.index(1, parent=master_index)
@@ -204,10 +201,10 @@ class TracksModelTest(uitest_utils.UITest):
     async def test_track_property_changed(self):
         track1 = model.ScoreTrack('track1')
         track1.name = 'track1'
-        self.sheet.master_group.tracks.append(track1)
+        self.project.master_group.tracks.append(track1)
         grp1 = model.TrackGroup('grp1')
         grp1.name = 'grp1'
-        self.sheet.master_group.tracks.append(grp1)
+        self.project.master_group.tracks.append(grp1)
         track2 = model.ScoreTrack('track2')
         track2.name = 'track2'
         grp1.tracks.append(track2)
@@ -215,7 +212,7 @@ class TracksModelTest(uitest_utils.UITest):
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
-        tracks_model = TestTracksModel(**self.context, sheet=self.sheet)
+        tracks_model = TestTracksModel(**self.context)
         try:
             master_index = tracks_model.index(0)
             grp1_index = tracks_model.index(1, parent=master_index)

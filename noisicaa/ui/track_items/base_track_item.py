@@ -48,7 +48,7 @@ class BaseTrackItem(QtCore.QObject):
 
         self.__track = track
         self.__scale_x = Fraction(500, 1)
-        self.__sheet_top_left = QtCore.QPoint()
+        self.__view_top_left = QtCore.QPoint()
         self.__is_current = False
 
         self.__size = QtCore.QSize()
@@ -60,10 +60,6 @@ class BaseTrackItem(QtCore.QObject):
     def track(self):
         return self.__track
 
-    @property
-    def sheet(self):
-        return self.track.sheet
-
     def scaleX(self):
         return self.__scale_x
 
@@ -71,7 +67,7 @@ class BaseTrackItem(QtCore.QObject):
         self.__scale_x = scale_x
         self.updateSize()
         self.purgePaintCaches()
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def width(self):
         return self.__size.width()
@@ -96,20 +92,20 @@ class BaseTrackItem(QtCore.QObject):
     def updateSize(self):
         pass
 
-    def sheetTopLeft(self):
-        return self.__sheet_top_left
+    def viewTopLeft(self):
+        return self.__view_top_left
 
-    def sheetLeft(self):
-        return self.__sheet_top_left.x()
+    def viewLeft(self):
+        return self.__view_top_left.x()
 
-    def sheetTop(self):
-        return self.__sheet_top_left.y()
+    def viewTop(self):
+        return self.__view_top_left.y()
 
-    def setSheetTopLeft(self, top_left):
-        self.__sheet_top_left = QtCore.QPoint(top_left)
+    def setViewTopLeft(self, top_left):
+        self.__view_top_left = QtCore.QPoint(top_left)
 
-    def sheetRect(self):
-        return QtCore.QRect(self.__sheet_top_left, self.size())
+    def viewRect(self):
+        return QtCore.QRect(self.__view_top_left, self.size())
 
     def isCurrent(self):
         return self.__is_current
@@ -123,13 +119,13 @@ class BaseTrackItem(QtCore.QObject):
 
     def onRemoveTrack(self):
         self.send_command_async(
-            self.sheet.id, 'RemoveTrack',
+            self.project.id, 'RemoveTrack',
             track_id=self.track.id)
 
     def setIsCurrent(self, is_current):
         if is_current != self.__is_current:
             self.__is_current = is_current
-            self.rectChanged.emit(self.sheetRect())
+            self.rectChanged.emit(self.viewRect())
 
     def purgePaintCaches(self):
         pass
@@ -173,14 +169,14 @@ class BaseTrackEditorItem(BaseTrackItem):
 
     toolBoxClass = None
 
-    def __init__(self, *, player_state, sheet_view, **kwargs):
+    def __init__(self, *, player_state, editor, **kwargs):
         super().__init__(**kwargs)
 
         self.__player_state = player_state
-        self.__sheet_view = sheet_view
+        self.__editor = editor
 
     def toolBox(self):
-        tool_box = self.__sheet_view.currentToolBox()
+        tool_box = self.__editor.currentToolBox()
         assert isinstance(tool_box, self.toolBoxClass)
         return tool_box
 
@@ -191,7 +187,7 @@ class BaseTrackEditorItem(BaseTrackItem):
         return self.toolBox().currentToolType()
 
     def toolBoxMatches(self):
-        return isinstance(self.__sheet_view.currentToolBox(), self.toolBoxClass)
+        return isinstance(self.__editor.currentToolBox(), self.toolBoxClass)
 
     def playerState(self):
         return self.__player_state
@@ -250,10 +246,6 @@ class BaseMeasureEditorItem(selection_set.Selectable, QtCore.QObject):
     def track(self):
         return self.__track_item.track
 
-    @property
-    def sheet(self):
-        return self.track.sheet
-
     def topLeft(self):
         return self.__top_left
 
@@ -275,9 +267,9 @@ class BaseMeasureEditorItem(selection_set.Selectable, QtCore.QObject):
     def rect(self):
         return QtCore.QRect(0, 0, self.width(), self.height())
 
-    def sheetRect(self):
+    def viewRect(self):
         return QtCore.QRect(
-            self.track_item.sheetTopLeft() + self.topLeft(), self.size())
+            self.track_item.viewTopLeft() + self.topLeft(), self.size())
 
     def buildContextMenu(self, menu, pos):
         pass
@@ -364,7 +356,7 @@ class MeasureEditorItem(BaseMeasureEditorItem):
         self.__measure = self.__measure_reference.measure
         self.addMeasureListeners()
 
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def buildContextMenu(self, menu, pos):
         super().buildContextMenu(menu, pos)
@@ -383,13 +375,13 @@ class MeasureEditorItem(BaseMeasureEditorItem):
 
     def onInsertMeasure(self):
         self.send_command_async(
-            self.sheet.id, 'InsertMeasure',
+            self.project.id, 'InsertMeasure',
             tracks=[self.track.id],
             pos=self.measure_reference.index)
 
     def onRemoveMeasure(self):
         self.send_command_async(
-            self.sheet.id, 'RemoveMeasure',
+            self.project.id, 'RemoveMeasure',
             tracks=[self.track.index],
             pos=self.measure_reference.index)
 
@@ -398,16 +390,16 @@ class MeasureEditorItem(BaseMeasureEditorItem):
 
     def clearPlaybackPos(self):
         self.__playback_timepos = None
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def setPlaybackPos(self, timepos):
         self.__playback_timepos = timepos
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def setSelected(self, selected):
         if selected != self.__selected:
             self.__selected = selected
-            self.rectChanged.emit(self.sheetRect())
+            self.rectChanged.emit(self.viewRect())
 
     def selected(self):
         return self.__selected
@@ -416,7 +408,7 @@ class MeasureEditorItem(BaseMeasureEditorItem):
         hovered = (measure_id == self.measure_reference.measure.id)
         if hovered != self.__hovered:
             self.__hovered = hovered
-            self.rectChanged.emit(self.sheetRect())
+            self.rectChanged.emit(self.viewRect())
 
     async def getCopy(self):
         return {
@@ -431,7 +423,7 @@ class MeasureEditorItem(BaseMeasureEditorItem):
     def invalidatePaintCache(self, *layers):
         for layer in layers:
             self.__paint_caches.pop(layer, None)
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def paintPlaybackPos(self, painter):
         raise NotImplementedError
@@ -481,7 +473,7 @@ class Appendix(ui_base.ProjectMixin, BaseMeasureEditorItem):
     def setHover(self, hover):
         if hover != self.__hover:
             self.__hover = hover
-            self.rectChanged.emit(self.sheetRect())
+            self.rectChanged.emit(self.viewRect())
 
     def clickRect(self):
         ymid = self.height() // 2
@@ -551,7 +543,7 @@ class MeasuredToolBase(tools.ToolBase):
         elif isinstance(measure_item, Appendix):
             if measure_item.clickRect().contains(evt.pos() - measure_item.topLeft()):
                 self.send_command_async(
-                    target.sheet.id,
+                    target.project.id,
                     'InsertMeasure', tracks=[], pos=-1)
                 evt.accept()
                 return
@@ -781,14 +773,14 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
         measure_item.rectChanged.connect(self.rectChanged)
         self.__measure_items.insert(idx, measure_item)
         self.updateMeasures()
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def removeMeasure(self, idx):
         measure_item = self.__measure_items.pop(idx)
         measure_item.close()
         measure_item.rectChanged.disconnect(self.rectChanged)
         self.updateMeasures()
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def updateMeasures(self):
         if self.__closing:
@@ -839,13 +831,13 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
 
     def onInsertMeasure(self):
         self.send_command_async(
-            self.sheet.id, 'InsertMeasure',
+            self.project.id, 'InsertMeasure',
             tracks=[self.track.id],
             pos=self.measure_reference.index)
 
     def onRemoveMeasure(self):
         self.send_command_async(
-            self.sheet.id, 'RemoveMeasure',
+            self.project.id, 'RemoveMeasure',
             tracks=[self.track.index],
             pos=self.measure_reference.index)
 

@@ -1072,8 +1072,7 @@ class ScoreTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
                 self.project_client.player_send_message(
                     self.playerState().playerID(),
                     core.build_message(
-                        {core.MessageKey.sheetId: self.sheet.id,
-                         core.MessageKey.trackId: self.track.id},
+                        {core.MessageKey.trackId: self.track.id},
                         core.MessageType.atom,
                         lv2.AtomForge.build_midi_noteon(0, pitch.midi_note, 127))))
 
@@ -1086,8 +1085,7 @@ class ScoreTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
                     self.project_client.player_send_message(
                         self.playerState().playerID(),
                         core.build_message(
-                            {core.MessageKey.sheetId: self.sheet.id,
-                             core.MessageKey.trackId: self.track.id},
+                            {core.MessageKey.trackId: self.track.id},
                             core.MessageType.atom,
                             lv2.AtomForge.build_midi_noteoff(
                                 0, self.__play_last_pitch.midi_note))))

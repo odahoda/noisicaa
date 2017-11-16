@@ -61,13 +61,13 @@ class EventSetConnectorTest(asynctest.TestCase):
 
     def test_foo(self):
         pr = project.BaseProject.make_demo(node_db=self.node_db)
-        tr = pr.sheets[0].master_group.tracks[0]
+        tr = pr.master_group.tracks[0]
         es = event_set.EventSet()
         connector = score_track.EventSetConnector(tr, es)
         try:
             print('\n'.join(str(e) for e in sorted(es.get_intervals(0, 1000))))
             print()
-            pr.sheets[0].property_track.insert_measure(1)
+            pr.property_track.insert_measure(1)
             tr.insert_measure(1)
             print('\n'.join(str(e) for e in sorted(es.get_intervals(0, 1000))))
             print()
@@ -88,7 +88,7 @@ class ScoreBufferSourceTest(asynctest.TestCase):
 
     async def test_foo(self):
         pr = project.BaseProject.make_demo(node_db=self.node_db)
-        tr = pr.sheets[0].master_group.tracks[0]
+        tr = pr.master_group.tracks[0]
         src = score_track.ScoreBufferSource(tr)
 
         buffers = {}

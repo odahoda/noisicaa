@@ -231,7 +231,6 @@ class BaseEditorApp(object):
     def onShowEditAreasChanged(self):
         self.settings.setValue(
             'dev/show_edit_areas', int(self.show_edit_areas_action.isChecked()))
-        self.win.updateView()
 
     @property
     def showEditAreas(self):

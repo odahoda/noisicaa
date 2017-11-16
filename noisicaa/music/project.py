@@ -24,6 +24,7 @@ import base64
 import email.parser
 import email.policy
 import email.message
+import itertools
 import logging
 import os.path
 import time
@@ -38,129 +39,340 @@ from .clef import Clef
 from .key_signature import KeySignature
 from .time_signature import TimeSignature
 from .time import Duration
+from . import base_track
 from . import beat_track
-from . import score_track
-from . import sample_track
-from . import control_track
-from . import pipeline_graph
-from . import model
-from . import state
 from . import commands
-from . import sheet
+from . import control_track
 from . import misc
+from . import model
+from . import mutations
+from . import pipeline_graph
+from . import property_track
+from . import sample_track
+from . import score_track
+from . import state
+from . import track_group
 
 logger = logging.getLogger(__name__)
 
 
-class AddSheet(commands.Command):
-    name = core.Property(str, allow_none=True)
+class UpdateProjectProperties(commands.Command):
+    bpm = core.Property(int, allow_none=True)
 
-    def __init__(self, name=None, state=None):
+    def __init__(self, bpm=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.name = name
+            self.bpm = bpm
 
     def run(self, project):
         assert isinstance(project, BaseProject)
 
-        if self.name is not None:
-            name = self.name
+        if self.bpm is not None:
+            project.bpm = self.bpm
+
+commands.Command.register_command(UpdateProjectProperties)
+
+
+class AddTrack(commands.Command):
+    track_type = core.Property(str)
+    parent_group_id = core.Property(str)
+    insert_index = core.Property(int)
+
+    def __init__(self, track_type=None, parent_group_id=None, insert_index=-1, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.track_type = track_type
+            self.parent_group_id = parent_group_id
+            self.insert_index = insert_index
+
+    def run(self, project):
+        assert isinstance(project, BaseProject)
+
+        parent_group = project.get_object(self.parent_group_id)
+        assert parent_group.is_child_of(project)
+        assert isinstance(parent_group, track_group.TrackGroup)
+
+        if self.insert_index == -1:
+            insert_index = len(parent_group.tracks)
         else:
-            idx = 1
-            while True:
-                name = 'Sheet %d' % idx
-                if name not in [sheet.name for sheet in project.sheets]:
-                    break
-                idx += 1
+            insert_index = self.insert_index
+            assert 0 <= insert_index <= len(parent_group.tracks)
 
-        if name in [s.name for s in project.sheets]:
-            raise ValueError("Sheet %s already exists" % name)
-        s = sheet.Sheet(name)
-        project.add_sheet(s)
+        track_name = "Track %d" % (len(parent_group.tracks) + 1)
+        track_cls_map = {
+            'score': score_track.ScoreTrack,
+            'beat': beat_track.BeatTrack,
+            'control': control_track.ControlTrack,
+            'sample': sample_track.SampleTrack,
+            'group': track_group.TrackGroup,
+        }
+        track_cls = track_cls_map[self.track_type]
 
-commands.Command.register_command(AddSheet)
+        kwargs = {}
+        if issubclass(track_cls, model.MeasuredTrack):
+            num_measures = 1
+            for track in parent_group.walk_tracks():
+                if isinstance(track, model.MeasuredTrack):
+                    num_measures = max(num_measures, len(track.measure_list))
+            kwargs['num_measures'] = num_measures
+
+        track = track_cls(name=track_name, **kwargs)
+
+        project.add_track(parent_group, insert_index, track)
+
+        return insert_index
+
+commands.Command.register_command(AddTrack)
 
 
-class ClearSheet(commands.Command):
-    name = core.Property(str)
+class RemoveTrack(commands.Command):
+    track_id = core.Property(str)
 
-    def __init__(self, name=None, state=None):
+    def __init__(self, track_id=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.name = name
+            self.track_id = track_id
 
     def run(self, project):
         assert isinstance(project, BaseProject)
 
-        project.get_sheet(self.name).clear()
+        track = project.get_object(self.track_id)
+        assert track.is_child_of(project)
+        parent_group = track.parent
 
-commands.Command.register_command(ClearSheet)
+        project.remove_track(parent_group, track)
+
+commands.Command.register_command(RemoveTrack)
 
 
-class DeleteSheet(commands.Command):
-    name = core.Property(str)
+class InsertMeasure(commands.Command):
+    tracks = core.ListProperty(str)
+    pos = core.Property(int)
 
-    def __init__(self, name=None, state=None):
+    def __init__(self, tracks=None, pos=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.name = name
+            self.tracks.extend(tracks)
+            self.pos = pos
 
     def run(self, project):
         assert isinstance(project, BaseProject)
 
-        assert len(project.sheets) > 1
-        for idx, sheet in enumerate(project.sheets):
-            if sheet.name == self.name:
-                sheet.remove_from_pipeline()
-                del project.sheets[idx]
-                project.current_sheet = min(
-                    project.current_sheet, len(project.sheets) - 1)
-                return
+        if not self.tracks:
+            project.property_track.insert_measure(self.pos)
+        else:
+            project.property_track.append_measure()
 
-        raise ValueError("No sheet %r" % self.name)
+        for track in project.master_group.walk_tracks():
+            if not isinstance(track, model.MeasuredTrack):
+                continue
 
-commands.Command.register_command(DeleteSheet)
+            if not self.tracks or track.id in self.tracks:
+                track.insert_measure(self.pos)
+            else:
+                track.append_measure()
+
+commands.Command.register_command(InsertMeasure)
 
 
-class RenameSheet(commands.Command):
-    name = core.Property(str)
-    new_name = core.Property(str)
+class RemoveMeasure(commands.Command):
+    tracks = core.ListProperty(int)
+    pos = core.Property(int)
 
-    def __init__(self, name=None, new_name=None, state=None):
+    def __init__(self, tracks=None, pos=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.name = name
-            self.new_name = new_name
+            self.tracks.extend(tracks)
+            self.pos = pos
 
     def run(self, project):
         assert isinstance(project, BaseProject)
 
-        if self.name == self.new_name:
-            return
+        if not self.tracks:
+            project.property_track.remove_measure(self.pos)
 
-        if self.new_name in [s.name for s in project.sheets]:
-            raise ValueError("Sheet %s already exists" % self.new_name)
+        for idx, track in enumerate(project.master_group.tracks):
+            if not self.tracks or idx in self.tracks:
+                track.remove_measure(self.pos)
+                if self.tracks:
+                    track.append_measure()
 
-        sheet = project.get_sheet(self.name)
-        sheet.name = self.new_name
-
-commands.Command.register_command(RenameSheet)
+commands.Command.register_command(RemoveMeasure)
 
 
-class SetCurrentSheet(commands.Command):
-    name = core.Property(str)
+class ClearMeasures(commands.Command):
+    measure_ids = core.ListProperty(str)
 
-    def __init__(self, name=None, state=None):
+    def __init__(self, measure_ids=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.name = name
+            self.measure_ids.extend(measure_ids)
 
     def run(self, project):
         assert isinstance(project, BaseProject)
 
-        project.current_sheet = project.get_sheet_index(self.name)
+        measure_references = [project.get_object(obj_id) for obj_id in self.measure_ids]
+        assert all(isinstance(obj, base_track.MeasureReference) for obj in measure_references)
 
-commands.Command.register_command(SetCurrentSheet)
+        affected_track_ids = set(obj.track.id for obj in measure_references)
+
+        for mref in measure_references:
+            track = mref.track
+            measure = track.create_empty_measure(mref.measure)
+            track.measure_heap.append(measure)
+            mref.measure_id = measure.id
+
+        for track_id in affected_track_ids:
+            project.get_object(track_id).garbage_collect_measures()
+
+commands.Command.register_command(ClearMeasures)
+
+
+class PasteMeasures(commands.Command):
+    mode = core.Property(str)
+    src_objs = core.ListProperty(bytes)
+    target_ids = core.ListProperty(str)
+
+    def __init__(self, mode=None, src_objs=None, target_ids=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.mode = mode
+            self.src_objs.extend(src_objs)
+            self.target_ids.extend(target_ids)
+
+    def run(self, project):
+        assert isinstance(project, BaseProject)
+
+        src_measures = [project.deserialize_object(obj) for obj in self.src_objs]
+        assert all(isinstance(obj, base_track.Measure) for obj in src_measures)
+
+        target_measures = [project.get_object(obj_id) for obj_id in self.target_ids]
+        assert all(isinstance(obj, base_track.MeasureReference) for obj in target_measures)
+
+        affected_track_ids = set(obj.track.id for obj in target_measures)
+        assert len(affected_track_ids) == 1
+
+        if self.mode == 'link':
+            for target, src in zip(target_measures, itertools.cycle(src_measures)):
+                assert(any(src.id == m.id for m in target.track.measure_heap))
+                target.measure_id = src.id
+
+        elif self.mode == 'overwrite':
+            measure_map = {}
+            for target, src in zip(target_measures, itertools.cycle(src_measures)):
+                try:
+                    measure = measure_map[src.id]
+                except KeyError:
+                    measure = measure_map[src.id] = src.clone()
+                    target.track.measure_heap.append(measure)
+
+                target.measure_id = measure.id
+
+        else:
+            raise ValueError(mode)
+
+        for track_id in affected_track_ids:
+            project.get_object(track_id).garbage_collect_measures()
+
+commands.Command.register_command(PasteMeasures)
+
+
+class AddPipelineGraphNode(commands.Command):
+    uri = core.Property(str)
+    graph_pos = core.Property(misc.Pos2F)
+
+    def __init__(self, uri=None, graph_pos=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.uri = uri
+            self.graph_pos = graph_pos
+
+    def run(self, project):
+        assert isinstance(project, BaseProject)
+
+        node_desc = project.project.get_node_description(self.uri)
+
+        node = pipeline_graph.PipelineGraphNode(
+            name=node_desc.display_name,
+            node_uri=self.uri,
+            graph_pos=self.graph_pos)
+        project.add_pipeline_graph_node(node)
+        return node.id
+
+commands.Command.register_command(AddPipelineGraphNode)
+
+
+class RemovePipelineGraphNode(commands.Command):
+    node_id = core.Property(str)
+
+    def __init__(self, node_id=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.node_id = node_id
+
+    def run(self, project):
+        assert isinstance(project, BaseProject)
+
+        node = project.get_object(self.node_id)
+        assert node.is_child_of(project)
+
+        project.remove_pipeline_graph_node(node)
+
+commands.Command.register_command(RemovePipelineGraphNode)
+
+
+class AddPipelineGraphConnection(commands.Command):
+    source_node_id = core.Property(str)
+    source_port_name = core.Property(str)
+    dest_node_id = core.Property(str)
+    dest_port_name = core.Property(str)
+
+    def __init__(
+            self,
+            source_node_id=None, source_port_name=None,
+            dest_node_id=None, dest_port_name=None,
+            state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.source_node_id = source_node_id
+            self.source_port_name = source_port_name
+            self.dest_node_id = dest_node_id
+            self.dest_port_name = dest_port_name
+
+    def run(self, project):
+        assert isinstance(project, BaseProject)
+
+        source_node = project.get_object(self.source_node_id)
+        assert source_node.is_child_of(project)
+        dest_node = project.get_object(self.dest_node_id)
+        assert dest_node.is_child_of(project)
+
+        connection = pipeline_graph.PipelineGraphConnection(
+            source_node=source_node, source_port=self.source_port_name,
+            dest_node=dest_node, dest_port=self.dest_port_name)
+        project.add_pipeline_graph_connection(connection)
+        return connection.id
+
+commands.Command.register_command(AddPipelineGraphConnection)
+
+
+class RemovePipelineGraphConnection(commands.Command):
+    connection_id = core.Property(str)
+
+    def __init__(self, connection_id=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.connection_id = connection_id
+
+    def run(self, project):
+        assert isinstance(project, BaseProject)
+
+        connection = project.get_object(self.connection_id)
+        assert connection.is_child_of(project)
+
+        project.remove_pipeline_graph_connection(connection)
+
+commands.Command.register_command(RemovePipelineGraphConnection)
 
 
 class Metadata(model.Metadata, state.StateBase):
@@ -222,13 +434,19 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
     SERIALIZED_CLASS_NAME = 'Project'
 
     def __init__(self, *, node_db=None, state=None):
+        self.node_db = node_db
         self.listeners = core.CallbackRegistry()
 
         super().__init__(state)
         if state is None:
             self.metadata = Metadata()
+            self.master_group = track_group.MasterTrackGroup(name="Master")
+            self.property_track = property_track.PropertyTrack(name="Time")
 
-        self.node_db = node_db
+            audio_out_node = pipeline_graph.AudioOutPipelineGraphNode(
+                name="Audio Out", graph_pos=misc.Pos2F(200, 0))
+            self.add_pipeline_graph_node(audio_out_node)
+            self.master_group.add_pipeline_nodes()
 
     def get_node_description(self, uri):
         return self.node_db.get_node_description(uri)
@@ -241,34 +459,118 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             cmd, obj_id, len(cmd.log.ops))
         return result
 
-    def add_sheet(self, sheet):
-        self.sheets.append(sheet)
-        sheet.add_pipeline_nodes()
+    def equalize_tracks(self, remove_trailing_empty_measures=0):
+        if len(self.master_group.tracks) < 1:
+            return
+
+        while remove_trailing_empty_measures > 0:
+            max_length = max(
+                len(track.measure_list) for track in self.all_tracks)
+            if max_length < 2:
+                break
+
+            can_remove = True
+            for track in self.all_tracks:
+                if len(track.measure_list) < max_length:
+                    continue
+                if not track.measure_list[max_length - 1].measure.empty:
+                    can_remove = False
+            if not can_remove:
+                break
+
+            for track in self.all_tracks:
+                if len(track.measure_list) < max_length:
+                    continue
+                track.remove_measure(max_length - 1)
+
+            remove_trailing_empty_measures -= 1
+
+        max_length = max(len(track.measure_list) for track in self.all_tracks)
+
+        for track in self.all_tracks:
+            while len(track.measure_list) < max_length:
+                track.append_measure()
+
+    def add_track(self, parent_group, insert_index, track):
+        parent_group.tracks.insert(insert_index, track)
+        track.add_pipeline_nodes()
+
+    def remove_track(self, parent_group, track):
+        track.remove_pipeline_nodes()
+        del parent_group.tracks[track.index]
+
+    def handle_pipeline_mutation(self, mutation):
+        self.listeners.call('pipeline_mutations', mutation)
+
+    @property
+    def audio_out_node(self):
+        for node in self.pipeline_graph_nodes:
+            if isinstance(node, pipeline_graph.AudioOutPipelineGraphNode):
+                return node
+
+        raise ValueError("No audio out node found.")
+
+    def add_pipeline_graph_node(self, node):
+        self.pipeline_graph_nodes.append(node)
+        node.add_to_pipeline()
+
+    def remove_pipeline_graph_node(self, node):
+        delete_connections = set()
+        for cidx, connection in enumerate(
+                self.pipeline_graph_connections):
+            if connection.source_node is node:
+                delete_connections.add(cidx)
+            if connection.dest_node is node:
+                delete_connections.add(cidx)
+        for cidx in sorted(delete_connections, reverse=True):
+            self.remove_pipeline_graph_connection(
+                self.pipeline_graph_connections[cidx])
+
+        node.remove_from_pipeline()
+        del self.pipeline_graph_nodes[node.index]
+
+    def add_pipeline_graph_connection(self, connection):
+        self.pipeline_graph_connections.append(connection)
+        connection.add_to_pipeline()
+
+    def remove_pipeline_graph_connection(self, connection):
+        connection.remove_from_pipeline()
+        del self.pipeline_graph_connections[connection.index]
+
+    def add_to_pipeline(self):
+        for node in self.pipeline_graph_nodes:
+            node.add_to_pipeline()
+        for connection in self.pipeline_graph_connections:
+            connection.add_to_pipeline()
+
+    def remove_from_pipeline(self):
+        for connection in self.pipeline_graph_connections:
+            connection.remove_from_pipeline()
+        for node in self.pipeline_graph_nodes:
+            node.remove_from_pipeline()
 
     @classmethod
     def make_demo(cls, demo='basic', **kwargs):
         project = cls(**kwargs)
-        s = sheet.Sheet(name="Demo Sheet")
-        s.bpm = 140
-        project.add_sheet(s)
+        project.bpm = 140
 
-        sheet_mixer = s.master_group.mixer_node
+        master_mixer = project.master_group.mixer_node
 
         if demo == 'basic':
-            while len(s.property_track.measure_list) < 5:
-                s.property_track.append_measure()
+            while len(project.property_track.measure_list) < 5:
+                project.property_track.append_measure()
 
             track1 = score_track.ScoreTrack(
                 name="Track 1",
                 instrument='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=73',
                 num_measures=5)
-            s.add_track(s.master_group, 0, track1)
+            project.add_track(project.master_group, 0, track1)
 
             track2 = score_track.ScoreTrack(
                 name="Track 2",
                 instrument='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0',
                 num_measures=5)
-            s.add_track(s.master_group, 1, track2)
+            project.add_track(project.master_group, 1, track2)
 
             track1.measure_list[0].measure.notes.append(
                 score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
@@ -329,33 +631,33 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                      base_duration=Duration(1, 1)))
 
         elif demo == 'complex':
-            while len(s.property_track.measure_list) < 4:
-                s.property_track.append_measure()
+            while len(project.property_track.measure_list) < 4:
+                project.property_track.append_measure()
 
             track1 = score_track.ScoreTrack(
                 name="Track 1",
                 instrument='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0',
                 num_measures=4)
-            s.add_track(s.master_group, 0, track1)
+            project.add_track(project.master_group, 0, track1)
 
             track1_mixer = track1.mixer_node
 
-            for connection in s.pipeline_graph_connections:
+            for connection in project.pipeline_graph_connections:
                 if (connection.source_node.id == track1_mixer.id
                     and connection.source_port == 'out:left'):
-                    assert connection.dest_node.id == sheet_mixer.id
+                    assert connection.dest_node.id == master_mixer.id
                     assert connection.dest_port == 'in:left'
-                    s.remove_pipeline_graph_connection(connection)
+                    project.remove_pipeline_graph_connection(connection)
                     break
             else:
                 raise AssertionError("Connection not found.")
 
-            for connection in s.pipeline_graph_connections:
+            for connection in project.pipeline_graph_connections:
                 if (connection.source_node.id == track1_mixer.id
                     and connection.source_port == 'out:right'):
-                    assert connection.dest_node.id == sheet_mixer.id
+                    assert connection.dest_node.id == master_mixer.id
                     assert connection.dest_port == 'in:right'
-                    s.remove_pipeline_graph_connection(connection)
+                    project.remove_pipeline_graph_connection(connection)
                     break
             else:
                 raise AssertionError("Connection not found.")
@@ -364,7 +666,7 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             eq_node = pipeline_graph.PipelineGraphNode(
                 name='EQ',
                 node_uri=eq_node_uri)
-            s.add_pipeline_graph_node(eq_node)
+            project.add_pipeline_graph_node(eq_node)
             eq_node.set_control_value('Lo gain (dB)', -40.0)
             eq_node.set_control_value('Mid gain (dB)', 0.0)
             eq_node.set_control_value('Hi gain (dB)', 5.0)
@@ -373,7 +675,7 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             filter_node = pipeline_graph.PipelineGraphNode(
                 name='Filter',
                 node_uri=filter_node_uri)
-            s.add_pipeline_graph_node(filter_node)
+            project.add_pipeline_graph_node(filter_node)
             filter_node.set_parameter(
                 'orchestra',
                 textwrap.dedent('''\
@@ -384,32 +686,32 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                     endin
                 '''))
 
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=track1_mixer, source_port='out:left',
                     dest_node=eq_node, dest_port='Input L'))
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=track1_mixer, source_port='out:right',
                     dest_node=eq_node, dest_port='Input R'))
 
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=eq_node, source_port='Output L',
                     dest_node=filter_node, dest_port='in:left'))
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=eq_node, source_port='Output R',
                     dest_node=filter_node, dest_port='in:right'))
 
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=filter_node, source_port='out:left',
-                    dest_node=sheet_mixer, dest_port='in:left'))
-            s.add_pipeline_graph_connection(
+                    dest_node=master_mixer, dest_port='in:left'))
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=filter_node, source_port='out:right',
-                    dest_node=sheet_mixer, dest_port='in:right'))
+                    dest_node=master_mixer, dest_port='in:right'))
 
             for i in range(4):
                 track1.measure_list[i].measure.notes.append(
@@ -425,26 +727,26 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                     os.path.dirname(__file__), 'testdata', 'kick-gettinglaid.wav')),
                 num_measures=4)
             track2.pitch = Pitch('C4')
-            s.add_track(s.master_group, 1, track2)
+            project.add_track(project.master_group, 1, track2)
 
             track2_mixer = track2.mixer_node
 
-            for connection in s.pipeline_graph_connections:
+            for connection in project.pipeline_graph_connections:
                 if (connection.source_node.id == track2_mixer.id
                     and connection.source_port == 'out:left'):
-                    assert connection.dest_node.id == sheet_mixer.id
+                    assert connection.dest_node.id == master_mixer.id
                     assert connection.dest_port == 'in:left'
-                    s.remove_pipeline_graph_connection(connection)
+                    project.remove_pipeline_graph_connection(connection)
                     break
             else:
                 raise AssertionError("Connection not found.")
 
-            for connection in s.pipeline_graph_connections:
+            for connection in project.pipeline_graph_connections:
                 if (connection.source_node.id == track2_mixer.id
                     and connection.source_port == 'out:right'):
-                    assert connection.dest_node.id == sheet_mixer.id
+                    assert connection.dest_node.id == master_mixer.id
                     assert connection.dest_port == 'in:right'
-                    s.remove_pipeline_graph_connection(connection)
+                    project.remove_pipeline_graph_connection(connection)
                     break
             else:
                 raise AssertionError("Connection not found.")
@@ -453,7 +755,7 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             delay_node = pipeline_graph.PipelineGraphNode(
                 name='Delay',
                 node_uri=delay_node_uri)
-            s.add_pipeline_graph_node(delay_node)
+            project.add_pipeline_graph_node(delay_node)
             delay_node.set_control_value('l_delay', 0.3)
             delay_node.set_control_value('r_delay', 0.31)
 
@@ -461,34 +763,34 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             reverb_node = pipeline_graph.PipelineGraphNode(
                 name='Reverb',
                 node_uri=reverb_node_uri)
-            s.add_pipeline_graph_node(reverb_node)
+            project.add_pipeline_graph_node(reverb_node)
 
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=track2_mixer, source_port='out:left',
                     dest_node=delay_node, dest_port='left_in'))
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=track2_mixer, source_port='out:right',
                     dest_node=delay_node, dest_port='right_in'))
 
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=delay_node, source_port='left_out',
                     dest_node=reverb_node, dest_port='in:left'))
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=delay_node, source_port='right_out',
                     dest_node=reverb_node, dest_port='in:right'))
 
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=reverb_node, source_port='out:left',
-                    dest_node=sheet_mixer, dest_port='in:left'))
-            s.add_pipeline_graph_connection(
+                    dest_node=master_mixer, dest_port='in:left'))
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=reverb_node, source_port='out:right',
-                    dest_node=sheet_mixer, dest_port='in:right'))
+                    dest_node=master_mixer, dest_port='in:right'))
 
             for i in range(4):
                 track2.measure_list[i].measure.beats.append(
@@ -502,12 +804,12 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
 
             track3 = sample_track.SampleTrack(
                 name="Track 3")
-            s.add_track(s.master_group, 2, track3)
+            project.add_track(project.master_group, 2, track3)
 
             smpl = sample_track.Sample(
                 path=os.path.abspath(os.path.join(
                     os.path.dirname(__file__), 'testdata', 'future-thunder1.wav')))
-            s.samples.append(smpl)
+            project.sampleproject.append(smpl)
 
             track3.samples.append(
                 sample_track.SampleRef(timepos=Duration(2, 4), sample_id=smpl.id))
@@ -516,7 +818,7 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
 
             track4 = control_track.ControlTrack(
                 name="Track 4")
-            s.add_track(s.master_group, 3, track4)
+            project.add_track(project.master_group, 3, track4)
 
             track4.points.append(
                 control_track.ControlPoint(timepos=Duration(0, 4), value=1.0))
@@ -525,7 +827,7 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             track4.points.append(
                 control_track.ControlPoint(timepos=Duration(8, 4), value=1.0))
 
-            s.add_pipeline_graph_connection(
+            project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
                     source_node=track4.control_source_node, source_port='out',
                     dest_node=filter_node, dest_port='ctrl'))

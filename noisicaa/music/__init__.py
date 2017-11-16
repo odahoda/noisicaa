@@ -39,8 +39,8 @@ from .score_track import (
     ScoreMeasure, ScoreTrack,
     Note,
 )
-from .sheet_property_track import (
-    SheetPropertyMeasure, SheetPropertyTrack,
+from .property_track import (
+    PropertyMeasure, PropertyTrack,
 )
 from .time_mapper import (
     TimeMapper, TimeOutOfRange

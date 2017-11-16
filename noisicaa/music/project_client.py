@@ -282,10 +282,10 @@ class ProjectClientMixin(object):
         assert self.project is not None
         return await self._stub.call('SERIALIZE', self._session_id, obj_id)
 
-    async def create_player(self, sheet_id):
+    async def create_player(self):
         return await self._stub.call(
             'CREATE_PLAYER', self._session_id,
-            self.server.address, sheet_id)
+            self.server.address)
 
     async def get_player_audioproc_address(self, player_id):
         return await self._stub.call(

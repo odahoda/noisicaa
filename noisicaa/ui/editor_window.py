@@ -66,7 +66,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     # Could not figure out how to define a signal that takes either an instance
     # of a specific class or None.
     currentProjectChanged = QtCore.pyqtSignal(object)
-    currentSheetChanged = QtCore.pyqtSignal(object)
     currentTrackChanged = QtCore.pyqtSignal(object)
     playbackStateChanged = QtCore.pyqtSignal(str)
     playbackLoopChanged = QtCore.pyqtSignal(bool)
@@ -170,7 +169,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self._render_action = QtWidgets.QAction(
             "Render", self,
-            statusTip="Render sheet into an audio file.",
+            statusTip="Render project into an audio file.",
             triggered=self.onRender)
 
         self._save_project_action = QtWidgets.QAction(
@@ -417,11 +416,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def setInfoMessage(self, msg):
         self.statusbar.showMessage(msg)
 
-    def updateView(self):
-        for idx in range(self._project_tabs.count()):
-            project_view = self._project_tabs.widget(idx)
-            project_view.updateView()
-
     def about(self):
         QtWidgets.QMessageBox.about(
             self, "About noisicaä",
@@ -463,16 +457,12 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             return
 
         if self._current_project_view is not None:
-            self._current_project_view.currentSheetChanged.disconnect(
-                self.currentSheetChanged)
             self._current_project_view.playbackStateChanged.disconnect(
                 self.playbackStateChanged)
             self._current_project_view.playbackLoopChanged.disconnect(
                 self.playbackLoopChanged)
 
         if project_view is not None:
-            project_view.currentSheetChanged.connect(
-                self.currentSheetChanged)
             project_view.playbackStateChanged.connect(
                 self.playbackStateChanged)
             self.playbackStateChanged.emit(project_view.playbackState())
@@ -484,10 +474,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         if project_view is not None:
             self.currentProjectChanged.emit(project_view.project)
-            self.currentSheetChanged.emit(project_view.currentSheetView().sheet)
         else:
             self.currentProjectChanged.emit(None)
-            self.currentSheetChanged.emit(None)
 
     async def addProjectView(self, project_connection):
         view = ProjectView(

@@ -31,18 +31,18 @@ from PyQt5 import QtWidgets
 logger = logging.getLogger(__name__)
 
 
-class RenderSheetDialog(QtWidgets.QDialog):
-    def __init__(self, parent, app, sheet):
+class RenderProjectDialog(QtWidgets.QDialog):
+    def __init__(self, parent, app, project):
         super().__init__(parent)
 
         self._app = app
-        self._sheet = sheet
+        self._project = project
 
         self._file_name_suffix = '.flac'
 
         self._renderer = None
 
-        self.setWindowTitle("noisicaä - Render Sheet")
+        self.setWindowTitle("noisicaä - Render Project")
 
         self.top_area = QtWidgets.QWidget(self)
 
@@ -139,7 +139,7 @@ class RenderSheetDialog(QtWidgets.QDialog):
         self.abort_button.setVisible(True)
 
         self._renderer = Renderer(
-            self._sheet,
+            self._project,
             os.path.join(self.output_directory.text(), self.file_name.text()),
             self.file_format.currentData())
         self._renderer.progress.connect(self.progress.setValue)
@@ -198,10 +198,10 @@ class Renderer(QtCore.QObject):
     SUCCESS = 'success'
     FAILED = 'failed'
 
-    def __init__(self, sheet, path, file_format):
+    def __init__(self, project, path, file_format):
         super().__init__()
 
-        self.sheet = sheet
+        self.project = project
         self.path = path
         self.file_format = file_format
 
@@ -228,13 +228,13 @@ class Renderer(QtCore.QObject):
 
     def _render(self):
         try:
-            total_samples = self.sheet.property_track.get_num_samples(44100)
+            total_samples = self.project.property_track.get_num_samples(44100)
 
             raise NotImplementedError
 
             # sink = EncoderSink(self.file_format, self.path)
             # pipeline.set_sink(sink)
-            # sink.inputs['in'].connect(sheet_mixer.outputs['out'])
+            # sink.inputs['in'].connect(project_mixer.outputs['out'])
             # sink.setup()
             # sink.start()
             # try:
@@ -267,7 +267,7 @@ class Renderer(QtCore.QObject):
             self._status = self.SUCCESS
 
         except Exception as exc:
-            logger.exception("Sheet renderer failed with an exception:")
+            logger.exception("Project renderer failed with an exception:")
             self._status = self.FAILED
             self._reason = str(exc)
 

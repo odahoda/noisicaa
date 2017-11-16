@@ -277,7 +277,7 @@ class AudioStreamProxy(object):
         settings = project_client.PlayerSettings()
         settings.state = 'stopped'
         settings.sample_pos = 0
-        tmap = time_mapper.TimeMapper(self._player.sheet)
+        tmap = time_mapper.TimeMapper(self._player.project)
 
         logger.info("Player proxy started.")
         try:
@@ -447,8 +447,8 @@ class AudioStreamProxy(object):
 
 
 class Player(object):
-    def __init__(self, sheet, callback_address, manager, event_loop):
-        self.sheet = sheet
+    def __init__(self, project, callback_address, manager, event_loop):
+        self.project = project
         self.manager = manager
         self.callback_address = callback_address
         self.event_loop = event_loop
@@ -499,7 +499,7 @@ class Player(object):
         self.proxy = AudioStreamProxy(self)
         self.proxy.setup()
 
-        self.mutation_listener = self.sheet.listeners.add(
+        self.mutation_listener = self.project.listeners.add(
             'pipeline_mutations', self.handle_pipeline_mutation)
 
         self.audioproc_shm = posix_ipc.SharedMemory(
@@ -517,7 +517,7 @@ class Player(object):
         # TODO: with timeout
         await self.audioproc_ready.wait()
 
-        self.add_track(self.sheet.master_group)
+        self.add_track(self.project.master_group)
 
         logger.info("Player instance %s setup complete.", self.id)
 
@@ -603,7 +603,7 @@ class Player(object):
 
     async def audioproc_started(self):
         self.pending_pipeline_mutations = []
-        self.sheet.add_to_pipeline()
+        self.project.add_to_pipeline()
         pipeline_mutations = self.pending_pipeline_mutations[:]
         self.pending_pipeline_mutations = None
 

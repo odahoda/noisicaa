@@ -950,13 +950,11 @@ class PipelineGraphScene(ui_base.ProjectMixin, PipelineGraphSceneImpl):
 class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
     nodeSelected = QtCore.pyqtSignal(object)
 
-    def __init__(self, sheet, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self._scene = PipelineGraphScene(view=self, **self.context)
         self.setScene(self._scene)
-
-        self._sheet = sheet
 
         self._drag_connection = None
         self._drag_src_port = None
@@ -966,17 +964,17 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
 
         self._nodes = []
         self._node_map = {}
-        for node in self._sheet.pipeline_graph_nodes:
+        for node in self.project.pipeline_graph_nodes:
             item = NodeItem(node=node, view=self, **self.context)
             self._scene.addItem(item)
             self._nodes.append(item)
             self._node_map[node.id] = item
 
-        self._pipeline_graph_nodes_listener = self._sheet.listeners.add(
+        self._pipeline_graph_nodes_listener = self.project.listeners.add(
             'pipeline_graph_nodes', self.onPipelineGraphNodesChange)
 
         self._connections = []
-        for connection in self._sheet.pipeline_graph_connections:
+        for connection in self.project.pipeline_graph_connections:
             item = ConnectionItem(
                 connection=connection, view=self, **self.context)
             self._scene.addItem(item)
@@ -984,7 +982,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
             self._node_map[connection.source_node.id].connections.add(item)
             self._node_map[connection.dest_node.id].connections.add(item)
 
-        self._pipeline_graph_connections_listener = self._sheet.listeners.add(
+        self._pipeline_graph_connections_listener = self.project.listeners.add(
             'pipeline_graph_connections',
             self.onPipelineGraphConnectionsChange)
 
@@ -1051,7 +1049,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
             and evt.button() == Qt.LeftButton
             and evt.modifiers() == Qt.ShiftModifier):
             self.send_command_async(
-                self._sheet.id, 'RemovePipelineGraphConnection',
+                self.project.id, 'RemovePipelineGraphConnection',
                 connection_id=self._highlight_item.connection.id)
             evt.accept()
             return
@@ -1145,7 +1143,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
                 assert self._drag_dest_port.port_desc.direction == node_db.PortDirection.Input
 
                 self.send_command_async(
-                    self._sheet.id, 'AddPipelineGraphConnection',
+                    self.project.id, 'AddPipelineGraphConnection',
                     source_node_id=self._drag_src_port.node_id,
                     source_port_name=self._drag_src_port.port_desc.name,
                     dest_node_id=self._drag_dest_port.node_id,
@@ -1179,7 +1177,7 @@ class PipelineGraphGraphicsViewImpl(QtWidgets.QGraphicsView):
 
             drop_pos = self.mapToScene(evt.pos())
             self.send_command_async(
-                self._sheet.id, 'AddPipelineGraphNode',
+                self.project.id, 'AddPipelineGraphNode',
                 uri=node_uri,
                 graph_pos=music.Pos2F(drop_pos.x(), drop_pos.y()))
 
@@ -1260,21 +1258,15 @@ class PipelineGraphViewImpl(QtWidgets.QWidget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._graph_view = PipelineGraphGraphicsView(
-            sheet=self.sheet, **self.context)
+        self._graph_view = PipelineGraphGraphicsView(**self.context)
 
-        self._node_list_dock = NodeListDock(
-            parent=self.window, **self.common_context)
+        self._node_list_dock = NodeListDock(parent=self.window, **self.common_context)
         self._node_list_dock.hide()
 
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         layout.addWidget(self._graph_view)
         self.setLayout(layout)
-
-    @property
-    def sheet(self):
-        return self.project.sheets[0]
 
     def showEvent(self, evt):
         self._node_list_dock.show()

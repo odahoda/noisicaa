@@ -50,7 +50,6 @@ from noisicaa.node_db.private import db as node_db
 from noisidev import perf_stats
 
 from . import project
-from . import sheet
 from . import player
 from . import project_client
 
@@ -114,7 +113,6 @@ class PlayerTest(asynctest.TestCase):
         await self.node_db.setup()
 
         self.project = project.BaseProject.make_demo(demo='complex', node_db=self.node_db)
-        self.sheet = self.project.sheets[0]
 
         self.callback_server = CallbackServer(self.loop)
         await self.callback_server.setup()
@@ -200,7 +198,7 @@ class PlayerTest(asynctest.TestCase):
     @unittest.skip("TODO: async status updates are flaky")
     async def test_playback_demo(self):
         logger.info("Yo!")
-        p = player.Player(self.sheet, self.callback_server.address, self.mock_manager, self.loop)
+        p = player.Player(self.project, self.callback_server.address, self.mock_manager, self.loop)
         try:
             logger.info("Setup player...")
             await p.setup()
@@ -254,7 +252,7 @@ class PlayerTest(asynctest.TestCase):
 
     @unittest.skip("TODO: async status updates are flaky")
     async def test_send_message(self):
-        p = player.Player(self.sheet, self.callback_server.address, self.mock_manager, self.loop)
+        p = player.Player(self.project, self.callback_server.address, self.mock_manager, self.loop)
         try:
             await p.setup()
 
@@ -280,7 +278,7 @@ class PlayerTest(asynctest.TestCase):
 
                 logger.info("Send messsage...")
                 p.send_message(core.build_message(
-                    {core.MessageKey.trackId: self.sheet.master_group.tracks[0].id},
+                    {core.MessageKey.trackId: self.project.master_group.tracks[0].id},
                     core.MessageType.atom,
                     lv2.AtomForge.build_midi_noteon(0, 65, 127)).to_bytes())
 

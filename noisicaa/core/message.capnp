@@ -24,8 +24,7 @@ using Cxx = import "/capnp/c++.capnp";
 $Cxx.namespace("noisicaa::capnp");
 
 enum Key {
-  sheetId @0;
-  trackId @1;
+  trackId @0;
 }
 
 struct Label {

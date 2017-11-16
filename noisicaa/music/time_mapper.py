@@ -33,14 +33,14 @@ class TimeOutOfRange(Exception):
 
 
 class TimeMapper(object):
-    def __init__(self, sheet, sample_rate=44100):
-        self.sheet = sheet
+    def __init__(self, project, sample_rate=44100):
+        self.project = project
         self.sample_rate = sample_rate
 
     def _durations(self):
-        for mref in self.sheet.property_track.measure_list:
+        for mref in self.project.property_track.measure_list:
             measure = mref.measure
-            beats_per_sec = Fraction(self.sheet.bpm, 60)
+            beats_per_sec = Fraction(self.project.bpm, 60)
             timesig = measure.time_signature
 
             duration_ticks = int(
@@ -148,7 +148,7 @@ class TimeMapper(object):
             tick += duration_ticks
 
         if tick_pos == tick:
-            return (len(self.sheet.property_track.measure_list), 0)
+            return (len(self.project.property_track.measure_list), 0)
 
         raise TimeOutOfRange(
             'Tick %d not in valid range [0,%d]' % (tick_pos, tick))

@@ -24,6 +24,4 @@ add_python_package(
   control_track_item.py
   sample_track_item.py
   score_track_item.py
-  sheet_view.py
-  sheet_view_test.py
 )

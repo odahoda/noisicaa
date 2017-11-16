@@ -65,7 +65,7 @@ class MasterTrackGroup(model.MasterTrackGroup, TrackGroup):
 
     @property
     def parent_mixer_node(self):
-        return self.sheet.audio_out_node
+        return self.project.audio_out_node
 
     @property
     def relative_position_to_parent_mixer(self):

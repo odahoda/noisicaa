@@ -33,7 +33,13 @@ from . import time_signature
 from . import misc
 
 
-class Track(core.ObjectBase):
+class ProjectChild(core.ObjectBase):
+    @property
+    def project(self):
+        return self.root
+
+
+class Track(ProjectChild):
     name = core.Property(str)
 
     visible = core.Property(bool, default=True)
@@ -44,14 +50,6 @@ class Track(core.ObjectBase):
     mixer_id = core.Property(str, allow_none=True)
 
     @property
-    def project(self):
-        return self.sheet.project
-
-    @property
-    def sheet(self):
-        return self.parent.sheet
-
-    @property
     def is_master_group(self):
         return False
 
@@ -60,22 +58,18 @@ class Track(core.ObjectBase):
             yield self
 
 
-class Measure(core.ObjectBase):
+class Measure(ProjectChild):
     @property
     def track(self):
         return self.parent
 
     @property
-    def sheet(self):
-        return self.track.sheet
-
-    @property
     def duration(self):
-        time_signature = self.sheet.get_time_signature(self.index)
+        time_signature = self.project.get_time_signature(self.index)
         return time.Duration(time_signature.upper, time_signature.lower)
 
 
-class MeasureReference(core.ObjectBase):
+class MeasureReference(ProjectChild):
     measure_id = core.Property(str)
 
     @property
@@ -86,17 +80,13 @@ class MeasureReference(core.ObjectBase):
     def track(self):
         return self.parent
 
-    @property
-    def sheet(self):
-        return self.track.sheet
-
 
 class MeasuredTrack(Track):
     measure_list = core.ObjectListProperty(cls=MeasureReference)
     measure_heap = core.ObjectListProperty(cls=Measure)
 
 
-class Note(core.ObjectBase):
+class Note(ProjectChild):
     pitches = core.ListProperty(pitch.Pitch)
     base_duration = core.Property(time.Duration, default=time.Duration(1, 4))
     dots = core.Property(int, default=0)
@@ -158,7 +148,7 @@ class ScoreMeasure(Measure):
 
     @property
     def time_signature(self):
-        return self.sheet.get_time_signature(self.index)
+        return self.project.get_time_signature(self.index)
 
 
 class ScoreTrack(MeasuredTrack):
@@ -169,7 +159,7 @@ class ScoreTrack(MeasuredTrack):
     event_source_id = core.Property(str, allow_none=True)
 
 
-class Beat(core.ObjectBase):
+class Beat(ProjectChild):
     timepos = core.Property(time.Duration)
     velocity = core.Property(int)
 
@@ -183,7 +173,7 @@ class BeatMeasure(Measure):
 
     @property
     def time_signature(self):
-        return self.sheet.get_time_signature(self.index)
+        return self.project.get_time_signature(self.index)
 
 
 class BeatTrack(MeasuredTrack):
@@ -193,17 +183,18 @@ class BeatTrack(MeasuredTrack):
     instrument_id = core.Property(str, allow_none=True)
     event_source_id = core.Property(str, allow_none=True)
 
-class SheetPropertyMeasure(Measure):
+
+class PropertyMeasure(Measure):
     time_signature = core.Property(
         time_signature.TimeSignature,
         default=time_signature.TimeSignature(4, 4))
 
 
-class SheetPropertyTrack(MeasuredTrack):
+class PropertyTrack(MeasuredTrack):
     pass
 
 
-class ControlPoint(core.ObjectBase):
+class ControlPoint(ProjectChild):
     timepos = core.Property(time.Duration)
     value = core.Property(float)
 
@@ -212,7 +203,7 @@ class ControlTrack(Track):
     points = core.ObjectListProperty(ControlPoint)
 
 
-class SampleRef(core.ObjectBase):
+class SampleRef(ProjectChild):
     timepos = core.Property(time.Duration)
     sample_id = core.Property(str)
 
@@ -222,36 +213,28 @@ class SampleTrack(Track):
     audio_source_id = core.Property(str, allow_none=True)
 
 
-class PipelineGraphNodeParameterValue(core.ObjectBase):
+class PipelineGraphNodeParameterValue(ProjectChild):
     name = core.Property(str)
     value = core.Property((str, float, int))
 
 
-class PipelineGraphControlValue(core.ObjectBase):
+class PipelineGraphControlValue(ProjectChild):
     name = core.Property(str)
     value = core.Property(float)
 
 
-class PipelineGraphPortPropertyValue(core.ObjectBase):
+class PipelineGraphPortPropertyValue(ProjectChild):
     port_name = core.Property(str)
     name = core.Property(str)
     value = core.Property((str, float, int, bool))
 
 
-class BasePipelineGraphNode(core.ObjectBase):
+class BasePipelineGraphNode(ProjectChild):
     name = core.Property(str)
     graph_pos = core.Property(misc.Pos2F)
     parameter_values = core.ObjectListProperty(PipelineGraphNodeParameterValue)
     control_values = core.ObjectListProperty(PipelineGraphControlValue)
     port_property_values = core.ObjectListProperty(PipelineGraphPortPropertyValue)
-
-    @property
-    def sheet(self):
-        return self.parent
-
-    @property
-    def project(self):
-        return self.sheet.project
 
     @property
     def removable(self):
@@ -285,7 +268,15 @@ class AudioOutPipelineGraphNode(BasePipelineGraphNode):
 
 
 class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
-    track = core.ObjectReferenceProperty()
+    track_id = core.Property(str)
+
+    @property
+    def track(self):
+        return self.root.get_object(self.track_id)
+
+    @track.setter
+    def track(self, obj):
+        self.track_id = obj.id
 
     @property
     def removable(self):
@@ -297,7 +288,15 @@ class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
 
 
 class EventSourcePipelineGraphNode(BasePipelineGraphNode):
-    track = core.ObjectReferenceProperty()
+    track_id = core.Property(str)
+
+    @property
+    def track(self):
+        return self.root.get_object(self.track_id)
+
+    @track.setter
+    def track(self, obj):
+        self.track_id = obj.id
 
     @property
     def removable(self):
@@ -309,7 +308,15 @@ class EventSourcePipelineGraphNode(BasePipelineGraphNode):
 
 
 class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
-    track = core.ObjectReferenceProperty()
+    track_id = core.Property(str)
+
+    @property
+    def track(self):
+        return self.root.get_object(self.track_id)
+
+    @track.setter
+    def track(self, obj):
+        self.track_id = obj.id
 
     @property
     def removable(self):
@@ -321,7 +328,15 @@ class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
 
 
 class AudioSourcePipelineGraphNode(BasePipelineGraphNode):
-    track = core.ObjectReferenceProperty()
+    track_id = core.Property(str)
+
+    @property
+    def track(self):
+        return self.root.get_object(self.track_id)
+
+    @track.setter
+    def track(self, obj):
+        self.track_id = obj.id
 
     @property
     def removable(self):
@@ -333,7 +348,15 @@ class AudioSourcePipelineGraphNode(BasePipelineGraphNode):
 
 
 class InstrumentPipelineGraphNode(BasePipelineGraphNode):
-    track = core.ObjectReferenceProperty()
+    track_id = core.Property(str)
+
+    @property
+    def track(self):
+        return self.root.get_object(self.track_id)
+
+    @track.setter
+    def track(self, obj):
+        self.track_id = obj.id
 
     @property
     def removable(self):
@@ -345,38 +368,48 @@ class InstrumentPipelineGraphNode(BasePipelineGraphNode):
         return self.project.get_node_description(node_uri)
 
 
-class PipelineGraphConnection(core.ObjectBase):
-    source_node = core.ObjectReferenceProperty()
+class PipelineGraphConnection(ProjectChild):
+    source_node_id = core.Property(str)
     source_port = core.Property(str)
-    dest_node = core.ObjectReferenceProperty()
+    dest_node_id = core.Property(str)
     dest_port = core.Property(str)
 
+    @property
+    def source_node(self):
+        return self.root.get_object(self.source_node_id)
 
-class Sample(core.ObjectBase):
+    @source_node.setter
+    def source_node(self, obj):
+        self.source_node_id = obj.id
+
+    @property
+    def dest_node(self):
+        return self.root.get_object(self.dest_node_id)
+
+    @dest_node.setter
+    def dest_node(self, obj):
+        self.dest_node_id = obj.id
+
+
+class Sample(ProjectChild):
     path = core.Property(str)
 
-    @property
-    def sheet(self):
-        return self.parent
+
+class Metadata(ProjectChild):
+    author = core.Property(str, allow_none=True)
+    license = core.Property(str, allow_none=True)
+    copyright = core.Property(str, allow_none=True)
+    created = core.Property(int, allow_none=True)
 
 
-class Sheet(core.ObjectBase):
-    name = core.Property(str, default="Sheet")
+class Project(core.ObjectBase):
+    metadata = core.ObjectProperty(cls=Metadata)
     master_group = core.ObjectProperty(TrackGroup)
-    property_track = core.ObjectProperty(SheetPropertyTrack)
+    property_track = core.ObjectProperty(PropertyTrack)
     pipeline_graph_nodes = core.ObjectListProperty(PipelineGraphNode)
-    pipeline_graph_connections = core.ObjectListProperty(
-        PipelineGraphConnection)
+    pipeline_graph_connections = core.ObjectListProperty(PipelineGraphConnection)
     samples = core.ObjectListProperty(Sample)
     bpm = core.Property(int, default=120)
-
-    @property
-    def sheet(self):
-        return self
-
-    @property
-    def project(self):
-        return self.parent
 
     @property
     def all_tracks(self):
@@ -392,33 +425,6 @@ class Sheet(core.ObjectBase):
         #   is also wrong, but at least doesn't crash.
         return self.property_track.measure_list[0].measure.time_signature
 
-
-class Metadata(core.ObjectBase):
-    author = core.Property(str, allow_none=True)
-    license = core.Property(str, allow_none=True)
-    copyright = core.Property(str, allow_none=True)
-    created = core.Property(int, allow_none=True)
-
-
-class Project(core.ObjectBase):
-    sheets = core.ObjectListProperty(cls=Sheet)
-    current_sheet = core.Property(int, default=0)
-    metadata = core.ObjectProperty(cls=Metadata)
-
-    def get_current_sheet(self):
-        return self.sheets[self.current_sheet]
-
-    def get_sheet(self, name):
-        for sheet in self.sheets:
-            if sheet.name == name:
-                return sheet
-        raise ValueError("No sheet %r" % name)
-
-    def get_sheet_index(self, name):
-        for idx, sheet in enumerate(self.sheets):
-            if sheet.name == name:
-                return idx
-        raise ValueError("No sheet %r" % name)
 
     def get_node_description(self, uri):
         raise NotImplementedError

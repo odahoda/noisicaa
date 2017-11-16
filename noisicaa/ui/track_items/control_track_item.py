@@ -232,13 +232,13 @@ class ControlPoint(object):
         self.__pos = QtCore.QPoint(
             self.__track_item.timeposToX(new_timepos),
             self.__pos.y())
-        self.__track_item.rectChanged.emit(self.__track_item.sheetRect())
+        self.__track_item.rectChanged.emit(self.__track_item.viewRect())
 
     def onValueChanged(self, old_value, new_value):
         self.__pos = QtCore.QPoint(
             self.__pos.x(),
             self.__track_item.valueToY(new_value))
-        self.__track_item.rectChanged.emit(self.__track_item.sheetRect())
+        self.__track_item.rectChanged.emit(self.__track_item.viewRect())
 
     @property
     def index(self):
@@ -292,7 +292,7 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
     def updateSize(self):
         width = 20
-        for mref in self.sheet.property_track.measure_list:
+        for mref in self.project.property_track.measure_list:
             measure = mref.measure
             width += int(self.scaleX() * measure.duration)
         self.setSize(QtCore.QSize(width, 120))
@@ -300,7 +300,7 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
     def setHighlightedPoint(self, cpoint):
         if cpoint is not self.__highlighted_point:
             self.__highlighted_point = cpoint
-            self.rectChanged.emit(self.sheetRect())
+            self.rectChanged.emit(self.viewRect())
 
     def highlightedPoint(self):
         return self.__highlighted_point
@@ -323,17 +323,17 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
     def setPointPos(self, cpoint, pos):
         cpoint.setPos(pos)
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def addPoint(self, insert_index, point):
         cpoint = ControlPoint(track_item=self, point=point)
         self.points.insert(insert_index, cpoint)
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def removePoint(self, remove_index, point):
         cpoint = self.points.pop(remove_index)
         cpoint.close()
-        self.rectChanged.emit(self.sheetRect())
+        self.rectChanged.emit(self.viewRect())
 
     def onPointsChanged(self, action, *args):
         if action == 'insert':
@@ -357,7 +357,7 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
     def timeposToX(self, timepos):
         x = 10
-        for mref in self.sheet.property_track.measure_list:
+        for mref in self.project.property_track.measure_list:
             measure = mref.measure
             width = int(self.scaleX() * measure.duration)
 
@@ -375,7 +375,7 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
         if x <= 0:
             return timepos
 
-        for mref in self.sheet.property_track.measure_list:
+        for mref in self.project.property_track.measure_list:
             measure = mref.measure
             width = int(self.scaleX() * measure.duration)
 
@@ -413,7 +413,7 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
 
         x = 10
         timepos = music.Duration()
-        for mref in self.sheet.property_track.measure_list:
+        for mref in self.project.property_track.measure_list:
             measure = mref.measure
             width = int(self.scaleX() * measure.duration)
 

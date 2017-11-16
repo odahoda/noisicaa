@@ -420,13 +420,13 @@ class ScoreTrack(model.ScoreTrack, base_track.MeasuredTrack):
             name="Track Instrument",
             graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
-        self.sheet.add_pipeline_graph_node(instrument_node)
+        self.project.add_pipeline_graph_node(instrument_node)
         self.instrument_id = instrument_node.id
 
-        self.sheet.add_pipeline_graph_connection(
+        self.project.add_pipeline_graph_connection(
             pipeline_graph.PipelineGraphConnection(
                 instrument_node, 'out:left', self.mixer_node, 'in:left'))
-        self.sheet.add_pipeline_graph_connection(
+        self.project.add_pipeline_graph_connection(
             pipeline_graph.PipelineGraphConnection(
                 instrument_node, 'out:right', self.mixer_node, 'in:right'))
 
@@ -434,17 +434,17 @@ class ScoreTrack(model.ScoreTrack, base_track.MeasuredTrack):
             name="Track Events",
             graph_pos=instrument_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
-        self.sheet.add_pipeline_graph_node(event_source_node)
+        self.project.add_pipeline_graph_node(event_source_node)
         self.event_source_id = event_source_node.id
 
-        self.sheet.add_pipeline_graph_connection(
+        self.project.add_pipeline_graph_connection(
             pipeline_graph.PipelineGraphConnection(
                 event_source_node, 'out', instrument_node, 'in'))
 
     def remove_pipeline_nodes(self):
-        self.sheet.remove_pipeline_graph_node(self.event_source_node)
+        self.project.remove_pipeline_graph_node(self.event_source_node)
         self.event_source_id = None
-        self.sheet.remove_pipeline_graph_node(self.instrument_node)
+        self.project.remove_pipeline_graph_node(self.instrument_node)
         self.instrument_id = None
         super().remove_pipeline_nodes()
 

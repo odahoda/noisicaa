@@ -55,10 +55,10 @@ class AddSample(commands.Command):
     def run(self, track):
         assert isinstance(track, SampleTrack)
 
-        sheet = track.sheet
+        project = track.project
 
         smpl = Sample(path=self.path)
-        sheet.samples.append(smpl)
+        project.samples.append(smpl)
 
         smpl_ref = SampleRef(timepos=self.timepos, sample_id=smpl.id)
         track.samples.append(smpl_ref)
@@ -129,7 +129,7 @@ class RenderSample(commands.Command):
 
         samples = sample.samples[...,0]
 
-        tmap = time_mapper.TimeMapper(sample.sheet)
+        tmap = time_mapper.TimeMapper(sample.project)
 
         begin_timepos = sample_ref.timepos
         begin_samplepos = tmap.timepos2sample(begin_timepos)
@@ -189,7 +189,7 @@ class SampleBufferSource(base_track.BufferSource):
     def __init__(self, track):
         super().__init__(track)
 
-        self.time_mapper = time_mapper.TimeMapper(self._sheet)
+        self.time_mapper = time_mapper.TimeMapper(self._project)
 
     def get_buffers(self, ctxt):
         output = numpy.zeros(shape=(ctxt.block_size, 2), dtype=numpy.float32)
@@ -283,18 +283,18 @@ class SampleTrack(model.SampleTrack, base_track.Track):
             name="Audio Source",
             graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
-        self.sheet.add_pipeline_graph_node(audio_source_node)
+        self.project.add_pipeline_graph_node(audio_source_node)
         self.audio_source_id = audio_source_node.id
 
-        self.sheet.add_pipeline_graph_connection(
+        self.project.add_pipeline_graph_connection(
             pipeline_graph.PipelineGraphConnection(
                 audio_source_node, 'out:left', mixer_node, 'in:left'))
-        self.sheet.add_pipeline_graph_connection(
+        self.project.add_pipeline_graph_connection(
             pipeline_graph.PipelineGraphConnection(
                 audio_source_node, 'out:right', mixer_node, 'in:right'))
 
     def remove_pipeline_nodes(self):
-        self.sheet.remove_pipeline_graph_node(self.audio_source_node)
+        self.project.remove_pipeline_graph_node(self.audio_source_node)
         self.audio_source_id = None
         super().remove_pipeline_nodes()
 

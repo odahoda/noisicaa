@@ -216,14 +216,6 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
             self.graph_pos = graph_pos
 
     @property
-    def sheet(self):
-        return self.parent
-
-    @property
-    def project(self):
-        return self.sheet.project
-
-    @property
     def pipeline_node_id(self):
         raise NotImplementedError
 
@@ -244,14 +236,14 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                     parameter.name, parameter.default)
 
         if params:
-            self.sheet.handle_pipeline_mutation(
+            self.project.handle_pipeline_mutation(
                 audioproc.SetNodeParameter(self.pipeline_node_id, **params))
 
         for port in self.description.ports:
             if (port.direction == node_db.PortDirection.Input
                 and port.port_type == node_db.PortType.KRateControl):
                 for cv in self.control_values:
-                    self.sheet.handle_pipeline_mutation(
+                    self.project.handle_pipeline_mutation(
                         audioproc.SetControlValue(
                             '%s:%s' % (self.pipeline_node_id, cv.name), cv.value))
 
@@ -261,7 +253,7 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                     if p.port_name == port.name)
 
                 if port_property_values:
-                    self.sheet.handle_pipeline_mutation(
+                    self.project.handle_pipeline_mutation(
                         audioproc.SetPortProperty(
                             self.pipeline_node_id, port.name,
                             **port_property_values))
@@ -282,7 +274,7 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                 self.parameter_values.append(PipelineGraphNodeParameterValue(
                     name=name, value=value))
 
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.SetNodeParameter(
                 self.pipeline_node_id, **parameters))
 
@@ -302,7 +294,7 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                     PipelineGraphPortPropertyValue(
                         port_name=port_name, name=prop_name, value=value))
 
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.SetPortProperty(
                 self.pipeline_node_id, port_name,
                 bypass=bypass, drywet=drywet))
@@ -316,7 +308,7 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
             self.control_values.append(PipelineGraphControlValue(
                 name=port_name, value=value))
 
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.SetControlValue('%s:%s' % (self.pipeline_node_id, port_name), value))
 
 
@@ -383,7 +375,7 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
         return self.id
 
     def add_to_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.AddNode(
                 description=self.description,
                 id=self.pipeline_node_id,
@@ -392,7 +384,7 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
         self.set_initial_parameters()
 
     def remove_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.RemoveNode(self.pipeline_node_id))
 
 state.StateBase.register_class(PipelineGraphNode)
@@ -431,7 +423,7 @@ class TrackMixerPipelineGraphNode(
         return self.track.mixer_name
 
     def add_to_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.AddNode(
                 description=self.description,
                 id=self.pipeline_node_id,
@@ -440,7 +432,7 @@ class TrackMixerPipelineGraphNode(
         self.set_initial_parameters()
 
     def remove_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.RemoveNode(self.pipeline_node_id))
 
 state.StateBase.register_class(TrackMixerPipelineGraphNode)
@@ -459,7 +451,7 @@ class ControlSourcePipelineGraphNode(
         return self.track.control_source_name
 
     def add_to_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.AddNode(
                 description=self.description,
                 id=self.pipeline_node_id,
@@ -469,7 +461,7 @@ class ControlSourcePipelineGraphNode(
         self.set_initial_parameters()
 
     def remove_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.RemoveNode(self.pipeline_node_id))
 
 state.StateBase.register_class(ControlSourcePipelineGraphNode)
@@ -488,7 +480,7 @@ class AudioSourcePipelineGraphNode(
         return self.track.audio_source_name
 
     def add_to_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.AddNode(
                 description=self.description,
                 id=self.pipeline_node_id,
@@ -498,7 +490,7 @@ class AudioSourcePipelineGraphNode(
         self.set_initial_parameters()
 
     def remove_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.RemoveNode(self.pipeline_node_id))
 
 state.StateBase.register_class(AudioSourcePipelineGraphNode)
@@ -517,7 +509,7 @@ class EventSourcePipelineGraphNode(
         return self.track.event_source_name
 
     def add_to_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.AddNode(
                 description=self.description,
                 id=self.pipeline_node_id,
@@ -527,7 +519,7 @@ class EventSourcePipelineGraphNode(
         self.set_initial_parameters()
 
     def remove_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.RemoveNode(self.pipeline_node_id))
 
 state.StateBase.register_class(EventSourcePipelineGraphNode)
@@ -547,7 +539,7 @@ class InstrumentPipelineGraphNode(
 
     def update_pipeline(self):
         connections = []
-        for connection in self.sheet.pipeline_graph_connections:
+        for connection in self.project.pipeline_graph_connections:
             if connection.source_node is self or connection.dest_node is self:
                 connections.append(connection)
 
@@ -560,7 +552,7 @@ class InstrumentPipelineGraphNode(
 
     def add_to_pipeline(self):
         node_uri, node_params = instrument_db.parse_uri(self.track.instrument)
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.AddNode(
                 description=self.project.get_node_description(node_uri),
                 id=self.pipeline_node_id,
@@ -570,7 +562,7 @@ class InstrumentPipelineGraphNode(
         self.set_initial_parameters()
 
     def remove_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.RemoveNode(self.pipeline_node_id))
 
 state.StateBase.register_class(InstrumentPipelineGraphNode)
@@ -587,22 +579,14 @@ class PipelineGraphConnection(
             self.dest_node = dest_node
             self.dest_port = dest_port
 
-    @property
-    def sheet(self):
-        return self.parent
-
-    @property
-    def project(self):
-        return self.sheet.project
-
     def add_to_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.ConnectPorts(
                 self.source_node.pipeline_node_id, self.source_port,
                 self.dest_node.pipeline_node_id, self.dest_port))
 
     def remove_from_pipeline(self):
-        self.sheet.handle_pipeline_mutation(
+        self.project.handle_pipeline_mutation(
             audioproc.DisconnectPorts(
                 self.source_node.pipeline_node_id, self.source_port,
                 self.dest_node.pipeline_node_id, self.dest_port))

@@ -160,12 +160,11 @@ class PipelineGraphMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.resize(600, 300)
 
         self.__windows = []
-        self.__current_sheet_view = None
+        self.__current_project_view = None
         self.__audioproc_client = None
 
-        self.sheet_selector = QtWidgets.QComboBox()
-        self.sheet_selector.currentIndexChanged.connect(
-            self.onSheetChanged)
+        self.project_selector = QtWidgets.QComboBox()
+        self.project_selector.currentIndexChanged.connect(self.onProjectChanged)
 
         self.zoomInAction = QtWidgets.QAction(
             QtGui.QIcon.fromTheme('zoom-in'),
@@ -177,7 +176,7 @@ class PipelineGraphMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
             self, triggered=self.onZoomOut)
 
         self.toolbar = QtWidgets.QToolBar()
-        self.toolbar.addWidget(self.sheet_selector)
+        self.toolbar.addWidget(self.project_selector)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.zoomInAction)
         self.toolbar.addAction(self.zoomOutAction)
@@ -222,44 +221,39 @@ class PipelineGraphMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         pass
 
     def onProjectListChanged(self):
-        self.sheet_selector.clear()
+        self.project_selector.clear()
 
         for win in self.__windows:
             for project_view in win.listProjectViews():
-                for sheet_view in project_view.sheetViews:
-                    self.sheet_selector.addItem(
-                        '%s: %s' % (
-                            project_view.project_connection.name,
-                            sheet_view.sheet.name),
-                        sheet_view)
-                    if sheet_view is self.__current_sheet_view:
-                        self.sheet_selector.setCurrentIndex(
-                            self.sheet_selector.count())
+                self.project_selector.addItem(
+                    project_view.project_connection.name,
+                    project_view)
+                if project_view is self.__current_project_view:
+                    self.project_selector.setCurrentIndex(self.project_selector.count())
 
-    def onSheetChanged(self, index):
-        sheet_view = self.sheet_selector.itemData(index)
-        if sheet_view is self.__current_sheet_view:
+    def onProjectChanged(self, index):
+        project_view = self.project_selector.itemData(index)
+        if project_view is self.__current_project_view:
             return
 
-        self.call_async(self.changeSheet(sheet_view))
+        self.call_async(self.changeProject(project_view))
 
-    async def changeSheet(self, sheet_view):
-        if self.__current_sheet_view is not None:
+    async def changeProject(self, project_view):
+        if self.__current_project_view is not None:
             self.scene.clear()
-            self.__current_sheet_view = None
+            self.__current_project_view = None
 
         if self.__audioproc_client is not None:
             await self.__audioproc_client.disconnect(shutdown=False)
             await self.__audioproc_client.cleanup()
             self.__audioproc_client = None
 
-        if sheet_view is not None:
+        if project_view is not None:
             self.__audioproc_client = AudioProcClient(self)
             await self.__audioproc_client.setup()
-            await self.__audioproc_client.connect(
-                sheet_view.player_audioproc_address)
+            await self.__audioproc_client.connect(project_view.player_audioproc_address)
 
-            self.__current_sheet_view = sheet_view
+            self.__current_project_view = project_view
 
     def addWindow(self, win):
         self.__windows.append(win)
