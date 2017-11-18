@@ -15,10 +15,7 @@
 - simplify how to set time signature across multiple tracks.
   - should be the default, with some extra step to have a different time signature on certain
     tracks.
-* Set track length                                                                            :FR:
-- set number of measures for the selected track, extend track with empty measures as needed
-- dialog has list of tracks, select which tracks to affect
-
+- Set # measures dialog has list of tracks, select which tracks to affect
 * Improve ArrangeMeasuresTool                                                                 :FR:
 - remove selection when switching away from tool
 - Use QClipboard

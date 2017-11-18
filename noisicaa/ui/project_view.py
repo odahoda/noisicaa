@@ -1477,6 +1477,19 @@ class ProjectViewImpl(QtWidgets.QMainWindow):
     def onPaste(self, *, mode):
         self.__editor.onPaste(mode=mode)
 
+    def onSetNumMeasures(self):
+        dialog = QtWidgets.QInputDialog(self)
+        dialog.setInputMode(QtWidgets.QInputDialog.IntInput)
+        dialog.setIntRange(1, 1000)
+        dialog.setIntValue(len(self.project.property_track.measure_list))
+        dialog.setLabelText("Number of measures:")
+        dialog.setWindowTitle("noisicaa - Set # measures")
+        dialog.accepted.connect(lambda: self.send_command_async(
+            self.project.id, 'SetNumMeasures',
+            num_measures=dialog.intValue()))
+        dialog.show()
+
+
 
 class ProjectView(ui_base.ProjectMixin, ProjectViewImpl):
     pass

@@ -200,6 +200,30 @@ class RemoveMeasure(commands.Command):
 commands.Command.register_command(RemoveMeasure)
 
 
+class SetNumMeasures(commands.Command):
+    num_measures = core.Property(int)
+
+    def __init__(self, num_measures=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.num_measures = num_measures
+
+    def run(self, project):
+        assert isinstance(project, BaseProject)
+
+        for track in project.all_tracks:
+            if not isinstance(track, model.MeasuredTrack):
+                continue
+
+            while len(track.measure_list) < self.num_measures:
+                track.append_measure()
+
+            while len(track.measure_list) > self.num_measures:
+                track.remove_measure(len(track.measure_list) - 1)
+
+commands.Command.register_command(SetNumMeasures)
+
+
 class ClearMeasures(commands.Command):
     measure_ids = core.ListProperty(str)
 

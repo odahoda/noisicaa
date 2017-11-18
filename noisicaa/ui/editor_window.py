@@ -217,8 +217,13 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._paste_action = QtWidgets.QAction(
             "Paste", self,
             shortcut=QtGui.QKeySequence.Paste,
-            statusTip=("Paste items from clipboard to current location"),
+            statusTip="Paste items from clipboard to current location",
             triggered=self.onPaste)
+
+        self._set_num_measures_action = QtWidgets.QAction(
+            "Set # measures", self,
+            statusTip="Set the number of measures in the project",
+            triggered=self.onSetNumMeasures)
 
         self._restart_action = QtWidgets.QAction(
             "Restart", self,
@@ -355,6 +360,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._edit_menu.addAction(self._copy_action)
         self._edit_menu.addAction(self._paste_action)
         self._edit_menu.addAction(self._paste_as_link_action)
+        self._project_menu.addSeparator()
+        self._edit_menu.addAction(self._set_num_measures_action)
 
         self._view_menu = menu_bar.addMenu("View")
 
@@ -619,6 +626,10 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def onPasteAsLink(self):
         view = self._project_tabs.currentWidget()
         view.onPaste(mode='link')
+
+    def onSetNumMeasures(self):
+        view = self._project_tabs.currentWidget()
+        view.onSetNumMeasures()
 
     def onPlaybackStateChanged(self, state):
         if state == 'playing':
