@@ -76,7 +76,7 @@ macro(add_python_package)
   foreach(src __init__.py ${ARGN})
     add_custom_command(
       OUTPUT ${src}
-      COMMAND ln -sf ${CMAKE_CURRENT_LIST_DIR}/${src} ${src}
+      COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/${src} ${src}
       DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
       )
   endforeach(src)
@@ -97,7 +97,7 @@ endmacro(add_cython_module)
 macro(add_py_capnp src)
   add_custom_command(
     OUTPUT ${src}
-    COMMAND ln -sf ${CMAKE_CURRENT_LIST_DIR}/${src} ${src}
+    COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/${src} ${src}
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
     )
   file(RELATIVE_PATH pkg_path ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
