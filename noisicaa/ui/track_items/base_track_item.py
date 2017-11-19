@@ -246,6 +246,17 @@ class BaseMeasureEditorItem(selection_set.Selectable, QtCore.QObject):
     def track(self):
         return self.__track_item.track
 
+    @property
+    def index(self):
+        for idx, mitem in enumerate(self.__track_item.measure_items()):
+            if mitem is self:
+                return idx
+        raise ValueError
+
+    @property
+    def next_sibling(self):
+        return self.__track_item.measure_items()[self.index + 1]
+
     def topLeft(self):
         return self.__top_left
 

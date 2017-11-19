@@ -556,9 +556,8 @@ When reparenting a track, also reparent its mixer node.
 Last sign of life:
   INFO    :18195:7f91c16bc700:ui.editor_app: Shutting down.
 
-* ScoreMeasure: only show clef, time- and key-signature when changed			      :FR:
-- if is_first or if different from prev_sibling
-- how is a keysignature change rendered that removes accidentals? e.g. to c-major
+* ScoreMeasure: correctly render key signature changes                                       :BUG:
+Must render naturals for all accidentals that we active in previous measure.
 
 * More precise playback timepos reporting						      :FR:
 Currently the UI is behind a bit because of buffering in the pyaudio backend.

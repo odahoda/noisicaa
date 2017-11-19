@@ -532,11 +532,17 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
             'notes-changed',
             lambda *args: self.invalidatePaintCache(self.FOREGROUND)))
         self.measure_listeners.append(self.measure.listeners.add(
-            'clef',
-            lambda *args: self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)))
+            'clef', self.onClefChanged))
         self.measure_listeners.append(self.measure.listeners.add(
-            'key_signature',
-            lambda *args: self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)))
+            'key_signature', self.onKeySignatureChanged))
+
+    def onClefChanged(self, old_value, new_value):
+        self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
+        self.next_sibling.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
+
+    def onKeySignatureChanged(self, old_value, new_value):
+        self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
+        self.next_sibling.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
 
     def paintLayer(self, layer, painter):
         if layer == self.BACKGROUND:
@@ -564,7 +570,11 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
         base_octave = self.measure.clef.base_octave
         x = 0
 
-        if self.width() - x > 200:
+        paint_clef = (
+            self.measure_reference.is_first
+            or self.measure.clef != self.measure_reference.prev_sibling.measure.clef)
+
+        if paint_clef and self.width() - x > 200:
             svg_symbol.paintSymbol(
                 painter,
                 'clef-%s' % self.measure.clef.symbol,
@@ -590,12 +600,12 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
             'Bb': 'B%d' % base_octave,
         }
 
-        active_accidentals = {}
-        for acc in self.measure.key_signature.accidentals:
-            value = acc_map[acc]
-            active_accidentals[value[:1]] = acc[1:]
+        paint_key_signature = (
+            self.measure_reference.is_first
+            or (self.measure.key_signature
+                != self.measure_reference.prev_sibling.measure.key_signature))
 
-        if self.width() - x > 200:
+        if paint_key_signature and self.width() - x > 200:
             for acc in self.measure.key_signature.accidentals:
                 value = acc_map[acc]
                 stave_line = music.Pitch(value).stave_line - base_stave_line
@@ -612,7 +622,12 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
             if self.measure.key_signature.accidentals:
                 x += 10
 
-        if self.width() - x > 200:
+        paint_time_signature = (
+            self.measure_reference.is_first
+            or (self.measure.time_signature
+                != self.measure_reference.prev_sibling.measure.time_signature))
+
+        if paint_time_signature and self.width() - x > 200:
             font = QtGui.QFont('FreeSerif', 30, QtGui.QFont.Black)
             font.setStretch(120)
             painter.setFont(font)
