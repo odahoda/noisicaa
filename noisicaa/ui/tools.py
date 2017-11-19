@@ -201,6 +201,7 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
             if self.__previous_tool is not self.__current_tool:
                 self.__current_tool = self.__previous_tool
                 self.toolTypeChanged.emit(self.__current_tool.type)
+                self.currentToolChanged.emit(self.__current_tool)
             self.__previous_tool = None
 
     def mouseMoveEvent(self, target, evt):
