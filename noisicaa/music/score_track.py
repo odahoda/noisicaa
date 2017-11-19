@@ -184,33 +184,45 @@ commands.Command.register_command(RemovePitch)
 
 
 class SetClef(commands.Command):
+    measure_ids = core.ListProperty(str)
     clef = core.Property(str)
 
-    def __init__(self, clef=None, state=None):
+    def __init__(self, measure_ids=None, clef=None, state=None):
         super().__init__(state=state)
         if state is None:
+            self.measure_ids.extend(measure_ids)
             self.clef = clef
 
-    def run(self, measure):
-        assert isinstance(measure, ScoreMeasure)
+    def run(self, track):
+        assert isinstance(track, ScoreTrack)
+        project = track.project
 
-        measure.clef = Clef(self.clef)
+        for measure_id in self.measure_ids:
+            measure = project.get_object(measure_id)
+            assert measure.is_child_of(track)
+            measure.clef = Clef(self.clef)
 
 commands.Command.register_command(SetClef)
 
 
 class SetKeySignature(commands.Command):
+    measure_ids = core.ListProperty(str)
     key_signature = core.Property(str)
 
-    def __init__(self, key_signature=None, state=None):
+    def __init__(self, measure_ids=None, key_signature=None, state=None):
         super().__init__(state=state)
         if state is None:
+            self.measure_ids.extend(measure_ids)
             self.key_signature = key_signature
 
-    def run(self, measure):
-        assert isinstance(measure, ScoreMeasure)
+    def run(self, track):
+        assert isinstance(track, ScoreTrack)
+        project = track.project
 
-        measure.key_signature = KeySignature(self.key_signature)
+        for measure_id in self.measure_ids:
+            measure = project.get_object(measure_id)
+            assert measure.is_child_of(track)
+            measure.key_signature = KeySignature(self.key_signature)
 
 commands.Command.register_command(SetKeySignature)
 

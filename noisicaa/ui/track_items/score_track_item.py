@@ -516,27 +516,6 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
         self.__mouse_pos = None
         self.__ghost_pos = None
 
-        self._transpose_octave_up_action = QtWidgets.QAction(
-            "Octave up", self,
-            shortcut='Ctrl+Shift+Up',
-            shortcutContext=Qt.WidgetWithChildrenShortcut,
-            triggered=lambda _: self.onTranspose(12))
-        self._transpose_halfnote_up_action = QtWidgets.QAction(
-            "Half-note up", self,
-            shortcut='Ctrl+Up',
-            shortcutContext=Qt.WidgetWithChildrenShortcut,
-            triggered=lambda _: self.onTranspose(1))
-        self._transpose_halfnote_down_action = QtWidgets.QAction(
-            "Half-note down", self,
-            shortcut='Ctrl+Down',
-            shortcutContext=Qt.WidgetWithChildrenShortcut,
-            triggered=lambda _: self.onTranspose(-1))
-        self._transpose_octave_down_action = QtWidgets.QAction(
-            "Octave down", self,
-            shortcut='Ctrl+Shift+Down',
-            shortcutContext=Qt.WidgetWithChildrenShortcut,
-            triggered=lambda _: self.onTranspose(-12))
-
         self.track_item.currentToolChanged.connect(
             lambda _: self.updateGhost(self.__mouse_pos))
 
@@ -892,90 +871,6 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
             / self.measure.duration)
         painter.fillRect(pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
 
-    def buildContextMenu(self, menu, pos):
-        super().buildContextMenu(menu, pos)
-
-        clef_menu = menu.addMenu("Set clef")
-        for clef in music.Clef:
-            clef_menu.addAction(QtWidgets.QAction(
-                clef.value, menu,
-                triggered=lambda _, clef=clef: self.onSetClef(clef)))
-
-        key_signature_menu = menu.addMenu("Set key signature")
-        key_signatures = [
-            'C major',
-            'A minor',
-            'G major',
-            'E minor',
-            'D major',
-            'B minor',
-            'A major',
-            'F# minor',
-            'E major',
-            'C# minor',
-            'B major',
-            'G# minor',
-            'F# major',
-            'D# minor',
-            'C# major',
-            'A# minor',
-            'F major',
-            'D minor',
-            'Bb major',
-            'G minor',
-            'Eb major',
-            'C minor',
-            'Ab major',
-            'F minor',
-            'Db major',
-            'Bb minor',
-            'Gb major',
-            'Eb minor',
-            'Cb major',
-            'Ab minor',
-        ]
-        for key_signature in key_signatures:
-            key_signature_menu.addAction(QtWidgets.QAction(
-                key_signature, menu,
-                triggered=lambda _, sig=key_signature: self.onSetKeySignature(sig)))
-
-        time_signature_menu = menu.addMenu("Set time signature")
-        time_signatures = [
-            (4, 4),
-            (3, 4),
-        ]
-        for upper, lower in time_signatures:
-            time_signature_menu.addAction(QtWidgets.QAction(
-                "%d/%d" % (upper, lower), menu,
-                triggered=lambda _, upper=upper, lower=lower: self.onSetTimeSignature(upper, lower)))
-
-        transpose_menu = menu.addMenu("Transpose")
-        transpose_menu.addAction(self._transpose_octave_up_action)
-        transpose_menu.addAction(self._transpose_halfnote_up_action)
-        transpose_menu.addAction(self._transpose_halfnote_down_action)
-        transpose_menu.addAction(self._transpose_octave_down_action)
-
-    def onSetClef(self, clef):
-        self.send_command_async(
-            self.measure.id, 'SetClef', clef=clef.value)
-
-    def onSetKeySignature(self, key_signature):
-        self.send_command_async(
-            self.measure.id, 'SetKeySignature',
-            key_signature=key_signature)
-
-    def onSetTimeSignature(self, upper, lower):
-        self.send_command_async(
-            self.property_track.measure_list[self.measure_reference.index].measure.id,
-            'SetTimeSignature', upper=upper, lower=lower)
-        self.recomputeLayout()
-
-    def onTranspose(self, half_notes):
-        self.send_command_async(
-            self.track.id, 'TransposeNotes',
-            note_ids=[note.id for note in self.measure.notes],
-            half_notes=half_notes)
-
     def getEditArea(self, x):
         for x1, x2, idx, overwrite in self._edit_areas:
             if x1 < x <= x2:
@@ -1063,6 +958,135 @@ class ScoreTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
         self.__play_last_pitch = None
 
         self.setHeight(240)
+
+    def buildContextMenu(self, menu, pos):
+        super().buildContextMenu(menu, pos)
+
+        affected_measure_items = []
+        if not self.selection_set.empty():
+            affected_measure_items.extend(self.selection_set)
+        else:
+            mitem = self.measureItemAt(pos)
+            if isinstance(mitem, ScoreMeasureEditorItemImpl):
+                affected_measure_items.append(mitem)
+
+        enable_measure_actions = bool(affected_measure_items)
+
+        clef_menu = menu.addMenu("Set clef")
+        for clef in music.Clef:
+            clef_menu.addAction(QtWidgets.QAction(
+                clef.value, menu,
+                enabled=enable_measure_actions,
+                triggered=lambda _, clef=clef: self.onSetClef(affected_measure_items, clef)))
+
+        key_signature_menu = menu.addMenu("Set key signature")
+        key_signatures = [
+            'C major',
+            'A minor',
+            'G major',
+            'E minor',
+            'D major',
+            'B minor',
+            'A major',
+            'F# minor',
+            'E major',
+            'C# minor',
+            'B major',
+            'G# minor',
+            'F# major',
+            'D# minor',
+            'C# major',
+            'A# minor',
+            'F major',
+            'D minor',
+            'Bb major',
+            'G minor',
+            'Eb major',
+            'C minor',
+            'Ab major',
+            'F minor',
+            'Db major',
+            'Bb minor',
+            'Gb major',
+            'Eb minor',
+            'Cb major',
+            'Ab minor',
+        ]
+        for key_signature in key_signatures:
+            key_signature_menu.addAction(QtWidgets.QAction(
+                key_signature, menu,
+                enabled=enable_measure_actions,
+                triggered=lambda _, sig=key_signature: (
+                    self.onSetKeySignature(affected_measure_items, sig))))
+
+        time_signature_menu = menu.addMenu("Set time signature")
+        time_signatures = [
+            (4, 4),
+            (3, 4),
+        ]
+        for upper, lower in time_signatures:
+            time_signature_menu.addAction(QtWidgets.QAction(
+                "%d/%d" % (upper, lower), menu,
+                enabled=enable_measure_actions,
+                triggered=lambda _, upper=upper, lower=lower: (
+                    self.onSetTimeSignature(affected_measure_items, upper, lower))))
+
+        transpose_menu = menu.addMenu("Transpose")
+        transpose_menu.addAction(QtWidgets.QAction(
+            "Octave up", self,
+            enabled=enable_measure_actions,
+            shortcut='Ctrl+Shift+Up',
+            shortcutContext=Qt.WidgetWithChildrenShortcut,
+            triggered=lambda _: self.onTranspose(affected_measure_items, 12)))
+        transpose_menu.addAction(QtWidgets.QAction(
+            "Half-note up", self,
+            enabled=enable_measure_actions,
+            shortcut='Ctrl+Up',
+            shortcutContext=Qt.WidgetWithChildrenShortcut,
+            triggered=lambda _: self.onTranspose(affected_measure_items, 1)))
+        transpose_menu.addAction(QtWidgets.QAction(
+            "Half-note down", self,
+            enabled=enable_measure_actions,
+            shortcut='Ctrl+Down',
+            shortcutContext=Qt.WidgetWithChildrenShortcut,
+            triggered=lambda _: self.onTranspose(affected_measure_items, -1)))
+        transpose_menu.addAction(QtWidgets.QAction(
+            "Octave down", self,
+            enabled=enable_measure_actions,
+            shortcut='Ctrl+Shift+Down',
+            shortcutContext=Qt.WidgetWithChildrenShortcut,
+            triggered=lambda _: self.onTranspose(affected_measure_items, -12)))
+
+    def onSetClef(self, affected_measure_items, clef):
+        self.send_command_async(
+            self.track.id, 'SetClef',
+            measure_ids=[mitem.measure.id for mitem in affected_measure_items],
+            clef=clef.value)
+
+    def onSetKeySignature(self, affected_measure_items, key_signature):
+        self.send_command_async(
+            self.track.id, 'SetKeySignature',
+            measure_ids=[mitem.measure.id for mitem in affected_measure_items],
+            key_signature=key_signature)
+
+    def onSetTimeSignature(self, affected_measure_items, upper, lower):
+        self.send_command_async(
+            self.track.id, 'SetTimeSignature',
+            measure_ids=[
+                self.property_track.measure_list[mitem.measure_reference.index].measure.id
+                for mitem in affected_measure_items],
+            upper=upper, lower=lower)
+
+    def onTranspose(self, affected_measure_items, half_notes):
+        note_ids = set()
+        for mitem in affected_measure_items:
+            for note in mitem.measure.notes:
+                note_ids.add(note.id)
+
+        self.send_command_async(
+            self.track.id, 'TransposeNotes',
+            note_ids=list(note_ids),
+            half_notes=half_notes)
 
     def playNoteOn(self, pitch):
         self.playNoteOff()

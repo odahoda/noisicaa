@@ -38,6 +38,10 @@
   D=copy(B).
   Explicit dereference all to create standalone clone for every selected
   measure.
+* Edit notes tool                                                                             :FR:
+- move notes up/down
+- change duration
+
 * Remember selected tool in session                                                           :FR:
 * Rendering of edit actions                                                                   :FR:
 - separate modelstate object with generator interface for model state
