@@ -151,7 +151,7 @@ def main(argv):
 
     if args.coverage:
         cov = coverage.Coverage(
-            source=['noisicaa'],
+            source=['build/noisicaa'],
             omit='*_*test.py',
             config_file=False)
         cov.set_option("run:branch", True)
