@@ -50,7 +50,7 @@ class TracksModelItem(object):
             yield from child.walk()
 
 
-class TracksModelImpl(QtCore.QAbstractItemModel):
+class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractItemModel):
     VisibleRole = Qt.UserRole
     MuteRole = Qt.UserRole + 1
 
@@ -279,10 +279,6 @@ class TracksModelImpl(QtCore.QAbstractItemModel):
             self.project.id, 'RemoveTrack', track_id=track.id)
 
 
-class TracksModel(ui_base.ProjectMixin, TracksModelImpl):
-    pass
-
-
 class TrackItemDelegate(QtWidgets.QStyledItemDelegate):
     def __init__(self, parent = None):
         super().__init__(parent)
@@ -476,7 +472,7 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         self._tracks_list = TrackList(self)
         self._tracks_list.currentIndexChanged.connect(self.onCurrentChanged)
 
-        self._model = TracksModel(**self.context)
+        self._model = TracksModel(**self.context_args)
         self._tracks_list.setModel(self._model)
 
         buttons_layout = QtWidgets.QHBoxLayout(spacing=1)

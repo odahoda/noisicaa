@@ -50,7 +50,7 @@ class EditBeatsTool(base_track_item.MeasuredToolBase):
         super().mouseMoveEvent(target, evt)
 
     def mousePressEvent(self, target, evt):
-        assert isinstance(target, BeatMeasureEditorItemImpl), type(target).__name__
+        assert isinstance(target, BeatMeasureEditorItem), type(target).__name__
 
         if (evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier):
             click_timepos = target.xToTimepos(evt.pos().x())
@@ -71,7 +71,7 @@ class EditBeatsTool(base_track_item.MeasuredToolBase):
         return super().mousePressEvent(target, evt)
 
     def wheelEvent(self, target, evt):
-        assert isinstance(target, BeatMeasureEditorItemImpl), type(target).__name__
+        assert isinstance(target, BeatMeasureEditorItem), type(target).__name__
 
         if evt.modifiers() in (Qt.NoModifier, Qt.ShiftModifier):
             if evt.modifiers() == Qt.ShiftModifier:
@@ -96,11 +96,11 @@ class BeatToolBox(tools.ToolBox):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.addTool(base_track_item.ArrangeMeasuresTool(**self.context))
-        self.addTool(EditBeatsTool(**self.context))
+        self.addTool(base_track_item.ArrangeMeasuresTool(**self.context_args))
+        self.addTool(EditBeatsTool(**self.context_args))
 
 
-class BeatMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
+class BeatMeasureEditorItem(ui_base.ProjectMixin, base_track_item.MeasureEditorItem):
     FOREGROUND = 'fg'
     BACKGROUND = 'bg'
     GHOST = 'ghost'
@@ -219,11 +219,7 @@ class BeatMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
         super().leaveEvent(evt)
 
 
-class BeatMeasureEditorItem(ui_base.ProjectMixin, BeatMeasureEditorItemImpl):
-    pass
-
-
-class BeatTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
+class BeatTrackEditorItem(ui_base.ProjectMixin, base_track_item.MeasuredTrackEditorItem):
     measure_item_cls = BeatMeasureEditorItem
 
     toolBoxClass = BeatToolBox
@@ -253,7 +249,3 @@ class BeatTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
             #         'track:%s' % self.track.id,
             #         audioproc.NoteOffEvent(-1, self.__play_last_pitch)))
             self.__play_last_pitch = None
-
-
-class BeatTrackEditorItem(ui_base.ProjectMixin, BeatTrackEditorItemImpl):
-    pass

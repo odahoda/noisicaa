@@ -27,24 +27,10 @@ import traceback
 
 logger = logging.getLogger(__name__)
 
-UNSET = object()
 
-class CommonMixin(object):
-    def __init__(self, *, app=None, **kwargs):
-        assert app is not None
+class CommonContext(object):
+    def __init__(self, *, app):
         self.__app = app
-        super().__init__(**kwargs)
-
-    def _get_context(self):
-        return {'app': self.__app}
-
-    @property
-    def context(self):
-        return self._get_context()
-
-    @property
-    def common_context(self):
-        return CommonMixin._get_context(self)
 
     @property
     def app(self):
@@ -81,21 +67,40 @@ class CommonMixin(object):
             callback(task.result())
 
 
-class ProjectMixin(CommonMixin):
-    def __init__(
-            self, *, project_connection=None, selection_set=None,
-            **kwargs):
-        assert project_connection is not None
-        self.__project_connection = project_connection
-        assert selection_set is not None
-        self.__selection_set = selection_set
+class CommonMixin(object):
+    def __init__(self, *, context, **kwargs):
+        self._context = context
         super().__init__(**kwargs)
 
-    def _get_context(self):
-        context = super()._get_context()
-        context['project_connection'] = self.__project_connection
-        context['selection_set'] = self.__selection_set
-        return context
+    @property
+    def context_args(self):
+        return {'context': self._context}
+
+    @property
+    def app(self):
+        return self._context.app
+
+    @property
+    def window(self):
+        return self._context.window
+
+    @property
+    def audioproc_client(self):
+        return self._context.audioproc_client
+
+    @property
+    def event_loop(self):
+        return self._context.event_loop
+
+    def call_async(self, coroutine, callback=None):
+        self._context.call_async(coroutine, callback)
+
+
+class ProjectContext(CommonContext):
+    def __init__(self, *, project_connection, selection_set, **kwargs):
+        super().__init__(**kwargs)
+        self.__project_connection = project_connection
+        self.__selection_set = selection_set
 
     @property
     def selection_set(self):
@@ -129,3 +134,36 @@ class ProjectMixin(CommonMixin):
 
     def add_session_listener(self, key, listener):
         return self.project_client.listeners.add('session_data:' + key, listener)
+
+
+class ProjectMixin(CommonMixin):
+    @property
+    def selection_set(self):
+        return self._context.selection_set
+
+    @property
+    def project_connection(self):
+        return self._context.project_connection
+
+    @property
+    def project(self):
+        return self._context.project
+
+    @property
+    def project_client(self):
+        return self._context.project_client
+
+    def send_command_async(self, target_id, cmd, callback=None, **kwargs):
+        self._context.send_command_async(target_id, cmd, callback, **kwargs)
+
+    def set_session_value(self, key, value):
+        self._context.set_session_value(key, value)
+
+    def set_session_values(self, data):
+        self._context.set_session_values(data)
+
+    def get_session_value(self, key, default):
+        return self._context.get_session_value(key, default)
+
+    def add_session_listener(self, key, listener):
+        return self._context.add_session_listener(key, listener)

@@ -132,7 +132,7 @@ class Instrument(Item):
         return self.description.display_name
 
 
-class LibraryModelImpl(QtCore.QAbstractItemModel):
+class LibraryModel(ui_base.CommonMixin, QtCore.QAbstractItemModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -313,10 +313,6 @@ class LibraryModelImpl(QtCore.QAbstractItemModel):
         return None
 
 
-class LibraryModel(ui_base.CommonMixin, LibraryModelImpl):
-    pass
-
-
 class FilterModel(QtCore.QSortFilterProxyModel):
     def __init__(self, source, **kwargs):
         super().__init__(**kwargs)
@@ -425,7 +421,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.instruments_search.addAction(action, QtWidgets.QLineEdit.TrailingPosition)
         self.instruments_search.textChanged.connect(self.onInstrumentSearchChanged)
 
-        self.__model = LibraryModel(**self.context)
+        self.__model = LibraryModel(**self.context_args)
         self.__model_filter = FilterModel(self.__model)
         self.__view = LibraryView(self)
         self.__view.setModel(self.__model_filter)

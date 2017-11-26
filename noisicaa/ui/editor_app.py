@@ -41,6 +41,7 @@ from . import project_registry
 from . import pipeline_perf_monitor
 from . import pipeline_graph_monitor
 from . import stat_monitor
+from . import ui_base
 
 logger = logging.getLogger('ui.editor_app')
 
@@ -119,6 +120,8 @@ class InstrumentDBClient(instrument_db.InstrumentDBClientMixin, InstrumentDBClie
 
 class BaseEditorApp(object):
     def __init__(self, *, process, runtime_settings, settings=None):
+        self.__context = ui_base.CommonContext(app=self)
+
         self.process = process
 
         self.runtime_settings = runtime_settings
@@ -139,6 +142,10 @@ class BaseEditorApp(object):
         self.instrument_db = None
 
         self.__clipboard = None
+
+    @property
+    def context_args(self):
+        return {'context': self.__context}
 
     async def setup(self):
         await self.createNodeDB()
@@ -308,16 +315,16 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
             self.setStyle(style)
 
         logger.info("Creating PipelinePerfMonitor.")
-        self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(self)
+        self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(**self.context_args)
 
         # logger.info("Creating PipelineGraphMonitor.")
-        # self.pipeline_graph_monitor = pipeline_graph_monitor.PipelineGraphMonitor(self)
+        # self.pipeline_graph_monitor = pipeline_graph_monitor.PipelineGraphMonitor(**self.context_args)
 
         logger.info("Creating StatMonitor.")
-        self.stat_monitor = stat_monitor.StatMonitor(self)
+        self.stat_monitor = stat_monitor.StatMonitor(**self.context_args)
 
         logger.info("Creating EditorWindow.")
-        self.win = EditorWindow(self)
+        self.win = EditorWindow(**self.context_args)
         await self.win.setup()
         self.win.show()
 

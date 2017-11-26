@@ -40,19 +40,9 @@ from .editor_app import BaseEditorApp
 from . import model
 
 
-UNSET = object()
-
-class TestMixin(object):
-    def __init__(
-            self, __no_positional_args=UNSET, testcase=None, **kwargs):
-        assert __no_positional_args is UNSET
-        assert testcase is not None
+class TestContext(object):
+    def __init__(self, *, testcase):
         self.__testcase = testcase
-        super().__init__(**kwargs)
-
-    @property
-    def context(self):
-        return {'testcase': self.__testcase}
 
     @property
     def app(self):
@@ -224,7 +214,8 @@ class UITest(asynctest.TestCase):
         self.project = model.Project('project')
         self.project_client = None
 
-        self.context = {'testcase': self}
+        self.context = TestContext(testcase=self)
+        self.context_args = {'context': self.context}
         self.commands = []
 
     async def tearDown(self):

@@ -742,7 +742,7 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
         for idx, mref in enumerate(self.track.measure_list):
             self.addMeasure(idx, mref)
 
-        appendix_item = Appendix(track_item=self, **self.context)
+        appendix_item = Appendix(track_item=self, **self.context_args)
         appendix_item.rectChanged.connect(self.rectChanged)
         self.__measure_items.append(appendix_item)
 
@@ -780,7 +780,7 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
 
     def addMeasure(self, idx, mref):
         measure_item = self.measure_item_cls(  # pylint: disable=not-callable
-            track_item=self, measure_reference=mref, **self.context)
+            track_item=self, measure_reference=mref, **self.context_args)
         measure_item.rectChanged.connect(self.rectChanged)
         self.__measure_items.insert(idx, measure_item)
         self.updateMeasures()

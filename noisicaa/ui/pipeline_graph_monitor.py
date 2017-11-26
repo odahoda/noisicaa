@@ -38,7 +38,7 @@ from . import ui_base
 logger = logging.getLogger(__name__)
 
 
-class AudioProcClientImpl(object):
+class AudioProcClient(audioproc.AudioProcClientMixin):
     def __init__(self, monitor):
         super().__init__()
         self.event_loop = monitor.event_loop
@@ -51,8 +51,6 @@ class AudioProcClientImpl(object):
     async def cleanup(self):
         await self.server.cleanup()
 
-class AudioProcClient(
-        audioproc.AudioProcClientMixin, AudioProcClientImpl):
     def handle_pipeline_mutation(self, mutation):
         self.monitor.onPipelineMutation(mutation)
 
