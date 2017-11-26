@@ -1,5 +1,27 @@
 # -*- org-tags-column: -98 -*-
 
+* Rework time handling                                                                   :CLEANUP:
+- class MusicalTime
+  - rational<int64_t, int64_t>
+- BlockContext in VM has time_map
+  - MusicalTime time_map[block_size]
+  - filled with musical time at each sample position
+    - or lower resolution and interpolate with constant BPM
+  - filled by player, taking loops, etc. into account
+  - time_map[n+1] = time_map[n] + bpm(time_map[n]) / 4 / 60 / sample_rate
+
+
+- musical time
+  - base unit full note (4 beats)
+- wall time
+  - base unit 1sec
+  - tracked as fraction, e.g. (sample_pos/sample_rate)
+- UI renders musical time, i.e. 100 horizontal pixels always map to a fixed musical time interval
+- wall time = musical time / (bpm / 4 / 60)
+- get rid of ticks
+- work out how changing bpm works
+- single TimeMapper per sheet
+
 * Rework how time signatures are managed                                                     :BUG:
 - Currently duration is a property of Measure. It uses the time signature of the measure in the
   property track at the same index.
@@ -326,18 +348,6 @@ Traceback (most recent call last):
 noisicaa.core.model_base.NotListMemberError: 32e1b62e20524d16a584c65311960356
 
 * when changing scale_x, keep view centered on current position				      :FR:
-* clarify time handling									 :CLEANUP:
-- musical time
-  - base unit full note (4 beats)
-- wall time
-  - base unit 1sec
-  - tracked as fraction, e.g. (sample_pos/sample_rate)
-- UI renders musical time, i.e. 100 horizontal pixels always map to a fixed musical time interval
-- wall time = musical time / (bpm / 4 / 60)
-- get rid of ticks
-- work out how changing bpm works
-- single TimeMapper per sheet
-
 * use libsndfile									      :FR:
 - instead of custom WAVE parsing
 
@@ -625,9 +635,6 @@ store node uri
     - or just handle simple attribute changes, overwriting the target value
   - if returns False, push latest_cmd to log (flushing prev_cmd to disk)
 
-* per measure time signature								      :FR:
-Tracks can have different time signatures, measures do not have to align
-vertically.
 * ScoreTrack: tweak noteon position, duration						      :FR:
 - control properties of track
 - offset for noteon events
@@ -957,7 +964,6 @@ Assorted TODOs
    * measureitem.recomputelayout tells sheet about changes
    * sheet decides which measures need relayouting
    * just update measure positions
-* UI: only show clef, time-, key signature when different from previous measure
 * UI: cursor graphics item position should be updated when the view is scrolled.
 * UI: better scrolling when following the playback position
    * either smooth scrolling, or jump one measure at a time.

@@ -38,6 +38,7 @@ from noisicaa.core import ipc
 from noisicaa.runtime_settings import RuntimeSettings
 from .editor_app import BaseEditorApp
 from . import model
+from . import selection_set
 
 
 class TestContext(object):
@@ -68,6 +69,10 @@ class TestContext(object):
     def project_client(self):
         return self.__testcase.project_client
 
+    @property
+    def selection_set(self):
+        return self.__testcase.selection_set
+
     def call_async(self, coroutine, callback=None):
         task = self.event_loop.create_task(coroutine)
         task.add_done_callback(
@@ -79,8 +84,22 @@ class TestContext(object):
         if callback is not None:
             callback(task.result())
 
-    def send_command_async(self, target_id, cmd, **kwargs):
+    def send_command_async(self, target_id, cmd, callback, **kwargs):
         self.__testcase.commands.append((target_id, cmd, kwargs))
+        if callback is not None:
+            callback()
+
+    def set_session_value(self, key, value):
+        self.__testcase.session_data[key] = value
+
+    def set_session_values(self, data):
+        self.__testcase.session_data.update(data)
+
+    def get_session_value(self, key, default):
+        return self.__testcase.session_data.get(key, default)
+
+    def add_session_listener(self, key, listener):
+        raise NotImplementedError
 
 
 class MockSettings(object):
@@ -211,8 +230,15 @@ class UITest(asynctest.TestCase):
         self.window = None
         self.project_connection = Bunch()
         self.project_connection.name = 'test project'
-        self.project = model.Project('project')
         self.project_client = None
+        self.selection_set = selection_set.SelectionSet()
+
+        self.project = model.Project('project')
+        self.obj_map = {}
+        self.project.init(None, self.obj_map)
+        self.project.property_track = model.PropertyTrack('prop-track')
+
+        self.session_data = {}
 
         self.context = TestContext(testcase=self)
         self.context_args = {'context': self.context}

@@ -264,7 +264,7 @@ class ControlPoint(object):
             self.__pos = pos
 
 
-class ControlTrackEditorItem(ui_base.ProjectMixin, base_track_item.BaseTrackEditorItem):
+class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
     toolBoxClass = ControlTrackToolBox
 
     def __init__(self, **kwargs):

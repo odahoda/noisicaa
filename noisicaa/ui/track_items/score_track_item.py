@@ -496,7 +496,7 @@ class ScoreToolBox(tools.ToolBox):
     #     super().keyPressEvent(evt)
 
 
-class ScoreMeasureEditorItem(ui_base.ProjectMixin, base_track_item.MeasureEditorItem):
+class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
     FOREGROUND = 'fg'
     BACKGROUND = 'bg'
     GHOST = 'ghost'
@@ -959,7 +959,7 @@ class ScoreMeasureEditorItem(ui_base.ProjectMixin, base_track_item.MeasureEditor
         super().mouseMoveEvent(evt)
 
 
-class ScoreTrackEditorItem(ui_base.ProjectMixin, base_track_item.MeasuredTrackEditorItem):
+class ScoreTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
     measure_item_cls = ScoreMeasureEditorItem
 
     toolBoxClass = ScoreToolBox

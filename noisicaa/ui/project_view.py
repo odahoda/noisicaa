@@ -76,10 +76,10 @@ class PlayerState(ui_base.ProjectMixin, QtCore.QObject):
         self.__player_id = None
 
     def __get_session_value(self, key, default):
-        return super().get_session_value(self.__session_prefix + key, default)
+        return self.get_session_value(self.__session_prefix + key, default)
 
     def __set_session_value(self, key, value):
-        super().set_session_value(self.__session_prefix + key, value)
+        self.set_session_value(self.__session_prefix + key, value)
 
     def playerID(self):
         return self.__player_id
@@ -327,10 +327,10 @@ class Editor(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidgets.QWi
             self.__get_session_value('y_offset', self.__y_offset))
 
     def __get_session_value(self, key, default):
-        return super().get_session_value(self.__session_prefix + key, default)
+        return self.get_session_value(self.__session_prefix + key, default)
 
     def __set_session_value(self, key, value):
-        super().set_session_value(self.__session_prefix + key, value)
+        self.set_session_value(self.__session_prefix + key, value)
 
     def __lazy_set_session_value(self, key, value):
         # TODO: value should be stored to session 5sec after most recent change. I.e. need
@@ -1045,7 +1045,7 @@ class TimeLine(ui_base.ProjectMixin, QtWidgets.QWidget):
         painter.end()
 
 
-class TrackListItem(ui_base.ProjectMixin, base_track_item.BaseTrackItem):
+class TrackListItem(base_track_item.BaseTrackItem):
     def height(self):
         return {
             'ScoreTrack': 240,

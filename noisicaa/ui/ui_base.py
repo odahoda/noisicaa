@@ -118,7 +118,7 @@ class ProjectContext(CommonContext):
     def project_client(self):
         return self.__project_connection.client
 
-    def send_command_async(self, target_id, cmd, callback=None, **kwargs):
+    def send_command_async(self, target_id, cmd, callback, **kwargs):
         self.call_async(
             self.project_client.send_command(target_id, cmd, **kwargs),
             callback=callback)

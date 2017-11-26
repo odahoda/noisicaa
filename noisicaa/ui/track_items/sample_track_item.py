@@ -274,7 +274,7 @@ class SampleItem(object):
                 painter.drawLine(x, ycenter - h // 2, x, ycenter + h // 2)
 
 
-class SampleTrackEditorItem(ui_base.ProjectMixin, base_track_item.BaseTrackEditorItem):
+class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
     toolBoxClass = SampleTrackToolBox
 
     def __init__(self, **kwargs):

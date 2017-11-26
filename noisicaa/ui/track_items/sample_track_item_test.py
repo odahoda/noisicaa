@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2017, Benjamin Niemann <pink@odahoda.de>
@@ -18,16 +20,27 @@
 #
 # @end:license
 
-add_python_package(
-  track_item_tests.py
-  base_track_item.py
-  base_track_item_test.py
-  beat_track_item.py
-  beat_track_item_test.py
-  control_track_item.py
-  control_track_item_test.py
-  sample_track_item.py
-  sample_track_item_test.py
-  score_track_item.py
-  score_track_item_test.py
-)
+import unittest
+
+from noisicaa.ui import uitest_utils
+from noisicaa.ui import model
+from noisicaa.ui import tools
+from . import sample_track_item
+from . import track_item_tests
+
+
+class SampleTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
+    async def setUp(self):
+        await super().setUp()
+
+        self.project.master_group.tracks.append(model.SampleTrack('track-1'))
+
+        self.tool_box = sample_track_item.SampleTrackToolBox(**self.context_args)
+
+    def _createTrackItem(self, **kwargs):
+        return sample_track_item.SampleTrackEditorItem(
+            track=self.project.master_group.tracks[0],
+            player_state=self.player_state,
+            editor=self.editor,
+            **self.context_args,
+            **kwargs)

@@ -23,7 +23,6 @@
 from fractions import Fraction
 import itertools
 import logging
-import enum
 import time
 
 from PyQt5.QtCore import Qt
@@ -39,7 +38,7 @@ from noisicaa.ui import selection_set
 logger = logging.getLogger(__name__)
 
 
-class BaseTrackItem(QtCore.QObject):
+class BaseTrackItem(ui_base.ProjectMixin, QtCore.QObject):
     rectChanged = QtCore.pyqtSignal(QtCore.QRect)
     sizeChanged = QtCore.pyqtSignal(QtCore.QSize)
 
@@ -137,31 +136,31 @@ class BaseTrackItem(QtCore.QObject):
             painter.fillRect(paintRect, Qt.white)
 
     def enterEvent(self, evt):
-        pass
+        pass  # pragma: no coverage
 
     def leaveEvent(self, evt):
-        pass
+        pass  # pragma: no coverage
 
     def mousePressEvent(self, evt):
-        pass
+        pass  # pragma: no coverage
 
     def mouseReleaseEvent(self, evt):
-        pass
+        pass  # pragma: no coverage
 
     def mouseDoubleClickEvent(self, evt):
-        pass
+        pass  # pragma: no coverage
 
     def mouseMoveEvent(self, evt):
-        pass
+        pass  # pragma: no coverage
 
     def wheelEvent(self, evt):
-        pass
+        pass  # pragma: no coverage
 
     def keyPressEvent(self, evt):
-        pass
+        pass  # pragma: no coverage
 
     def keyReleaseEvent(self, evt):
-        pass
+        pass  # pragma: no coverage
 
 
 class BaseTrackEditorItem(BaseTrackItem):
@@ -224,7 +223,7 @@ class BaseTrackEditorItem(BaseTrackItem):
             return self.toolBox().keyReleaseEvent(self, evt)
 
 
-class BaseMeasureEditorItem(selection_set.Selectable, QtCore.QObject):
+class BaseMeasureEditorItem(ui_base.ProjectMixin, selection_set.Selectable, QtCore.QObject):
     selection_class = 'measure'
 
     rectChanged = QtCore.pyqtSignal(QtCore.QRect)
@@ -475,7 +474,7 @@ class MeasureEditorItem(BaseMeasureEditorItem):
                 painter.drawPixmap(0, 0, self.__paint_caches[layer])
 
 
-class Appendix(ui_base.ProjectMixin, BaseMeasureEditorItem):
+class Appendix(BaseMeasureEditorItem):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -666,8 +665,7 @@ class ArrangeMeasuresTool(tools.ToolBase):
     def mousePressEvent(self, target, evt):
         assert isinstance(target, MeasuredTrackEditorItem), type(target).__name__
 
-        if (evt.button() == Qt.LeftButton
-            and evt.modifiers() == Qt.NoModifier):
+        if evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier:
             measure_item = target.measureItemAt(evt.pos())
 
             if isinstance(measure_item, MeasureEditorItem):
@@ -713,8 +711,7 @@ class ArrangeMeasuresTool(tools.ToolBase):
                     self.selection_set.add(mitem)
 
             for mitem in list(self.selection_set):
-                if (not (start_idx <= mitem.measure_reference.index <= last_idx)
-                    and mitem.selected()):
+                if not (start_idx <= mitem.measure_reference.index <= last_idx) and mitem.selected():
                     self.selection_set.remove(mitem)
 
             self.__selection_last = measure_item

@@ -100,7 +100,7 @@ class BeatToolBox(tools.ToolBox):
         self.addTool(EditBeatsTool(**self.context_args))
 
 
-class BeatMeasureEditorItem(ui_base.ProjectMixin, base_track_item.MeasureEditorItem):
+class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
     FOREGROUND = 'fg'
     BACKGROUND = 'bg'
     GHOST = 'ghost'
@@ -219,7 +219,7 @@ class BeatMeasureEditorItem(ui_base.ProjectMixin, base_track_item.MeasureEditorI
         super().leaveEvent(evt)
 
 
-class BeatTrackEditorItem(ui_base.ProjectMixin, base_track_item.MeasuredTrackEditorItem):
+class BeatTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
     measure_item_cls = BeatMeasureEditorItem
 
     toolBoxClass = BeatToolBox
