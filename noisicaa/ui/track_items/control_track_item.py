@@ -51,7 +51,7 @@ class EditControlPointsTool(tools.ToolBase):
         return 'edit-control-points'
 
     def mousePressEvent(self, target, evt):
-        assert isinstance(target, ControlTrackEditorItemImpl), type(target).__name__
+        assert isinstance(target, ControlTrackEditorItem), type(target).__name__
 
         target.updateHighlightedPoint()
 
@@ -100,7 +100,7 @@ class EditControlPointsTool(tools.ToolBase):
         super().mousePressEvent(target, evt)
 
     def mouseMoveEvent(self, target, evt):
-        assert isinstance(target, ControlTrackEditorItemImpl), type(target).__name__
+        assert isinstance(target, ControlTrackEditorItem), type(target).__name__
 
         if self.__moving_point is not None:
             new_pos = evt.pos() - self.__moving_point_offset
@@ -141,7 +141,7 @@ class EditControlPointsTool(tools.ToolBase):
         super().mouseMoveEvent(target, evt)
 
     def mouseReleaseEvent(self, target, evt):
-        assert isinstance(target, ControlTrackEditorItemImpl), type(target).__name__
+        assert isinstance(target, ControlTrackEditorItem), type(target).__name__
 
         if evt.button() == Qt.LeftButton and self.__moving_point is not None:
             pos = self.__moving_point.pos()
@@ -170,7 +170,7 @@ class EditControlPointsTool(tools.ToolBase):
         super().mouseReleaseEvent(target, evt)
 
     def mouseDoubleClickEvent(self, target, evt):
-        assert isinstance(target, ControlTrackEditorItemImpl), type(target).__name__
+        assert isinstance(target, ControlTrackEditorItem), type(target).__name__
 
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier):
@@ -206,7 +206,7 @@ class ControlTrackToolBox(tools.ToolBox):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.addTool(EditControlPointsTool(**self.context))
+        self.addTool(EditControlPointsTool(**self.context_args))
 
 
 class ControlPoint(object):
@@ -264,7 +264,7 @@ class ControlPoint(object):
             self.__pos = pos
 
 
-class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
+class ControlTrackEditorItem(ui_base.ProjectMixin, base_track_item.BaseTrackEditorItem):
     toolBoxClass = ControlTrackToolBox
 
     def __init__(self, **kwargs):
@@ -462,7 +462,3 @@ class ControlTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
                 painter.drawLine(x + 3, y - 3, x + 3, y + 3)
                 painter.drawLine(x + 3, y + 3, x - 3, y + 3)
                 painter.drawLine(x - 3, y + 3, x - 3, y - 3)
-
-
-class ControlTrackEditorItem(ui_base.ProjectMixin, ControlTrackEditorItemImpl):
-    pass

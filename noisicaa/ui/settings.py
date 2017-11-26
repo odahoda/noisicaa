@@ -34,8 +34,8 @@ from ..constants import DATA_DIR
 from . import ui_base
 
 class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
-    def __init__(self, app, parent):
-        super().__init__(app=app, parent=parent)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.setWindowTitle("noisicaä - Settings")
         self.resize(600, 300)
@@ -43,7 +43,7 @@ class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.tabs = QtWidgets.QTabWidget(self)
 
         for cls in (AppearancePage, AudioPage):
-            page = cls(self.app)
+            page = cls(**self.context_args)
             self.tabs.addTab(page, page.getIcon(), page.title)
 
         close = QtWidgets.QPushButton("Close")
@@ -78,8 +78,8 @@ class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
 
 class Page(ui_base.CommonMixin, QtWidgets.QWidget):
-    def __init__(self, app):
-        super().__init__(app=app)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         layout = QtWidgets.QVBoxLayout()
 
@@ -90,11 +90,11 @@ class Page(ui_base.CommonMixin, QtWidgets.QWidget):
 
 
 class AppearancePage(Page):
-    def __init__(self, app):
+    def __init__(self, **kwargs):
         self.title = "Appearance"
         self._qt_styles = sorted(QtWidgets.QStyleFactory.keys())
 
-        super().__init__(app)
+        super().__init__(**kwargs)
 
     def getIcon(self):
         path = os.path.join(DATA_DIR, 'icons', 'settings_appearance.png')
@@ -145,10 +145,10 @@ class QBlockSizeSpinBox(QtWidgets.QSpinBox):
 
 
 class AudioPage(Page):
-    def __init__(self, app):
+    def __init__(self, **kwargs):
         self.title = "Audio"
         self._backends = ['portaudio', 'null']
-        super().__init__(app)
+        super().__init__(**kwargs)
 
     def getIcon(self):
         path = os.path.join(DATA_DIR, 'icons', 'settings_audio.png')

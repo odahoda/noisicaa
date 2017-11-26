@@ -31,10 +31,6 @@ from . import model
 from . import tracks_dock
 
 
-class TestTracksModel(uitest_utils.TestMixin, tracks_dock.TracksModelImpl):
-    pass
-
-
 class TracksModelTest(uitest_utils.UITest):
     async def setUp(self):
         await super().setUp()
@@ -43,7 +39,7 @@ class TracksModelTest(uitest_utils.UITest):
         self.project.master_group.name = 'master'
 
     async def test_start_empty(self):
-        tracks_model = TestTracksModel(**self.context)
+        tracks_model = tracks_dock.TracksModel(**self.context_args)
         try:
             root_index = QtCore.QModelIndex()
             self.assertEqual(tracks_model.rowCount(root_index), 1)
@@ -124,7 +120,7 @@ class TracksModelTest(uitest_utils.UITest):
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
-        tracks_model = TestTracksModel(**self.context)
+        tracks_model = tracks_dock.TracksModel(**self.context_args)
         try:
             root_index = QtCore.QModelIndex()
             self.assertEqual(tracks_model.rowCount(root_index), 1)
@@ -182,7 +178,7 @@ class TracksModelTest(uitest_utils.UITest):
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
-        tracks_model = TestTracksModel(**self.context)
+        tracks_model = tracks_dock.TracksModel(**self.context_args)
         try:
             master_index = tracks_model.index(0)
             grp1_index = tracks_model.index(1, parent=master_index)
@@ -212,7 +208,7 @@ class TracksModelTest(uitest_utils.UITest):
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
-        tracks_model = TestTracksModel(**self.context)
+        tracks_model = tracks_dock.TracksModel(**self.context_args)
         try:
             master_index = tracks_model.index(0)
             grp1_index = tracks_model.index(1, parent=master_index)
@@ -243,7 +239,7 @@ class TracksModelTest(uitest_utils.UITest):
             self.assertEqual(roles, [])
             self.assertFalse(
                 tracks_model.data(
-                    track3_index, TestTracksModel.VisibleRole))
+                    track3_index, tracks_dock.TracksModel.VisibleRole))
 
             listener.reset_mock()
             track3.muted = True
@@ -256,7 +252,7 @@ class TracksModelTest(uitest_utils.UITest):
             self.assertEqual(roles, [])
             self.assertTrue(
                 tracks_model.data(
-                    track3_index, TestTracksModel.MuteRole))
+                    track3_index, tracks_dock.TracksModel.MuteRole))
 
         finally:
             tracks_model.close()

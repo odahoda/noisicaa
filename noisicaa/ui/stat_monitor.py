@@ -150,8 +150,8 @@ class QTextEdit(QtWidgets.QTextEdit):
 class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
     visibilityChanged = QtCore.pyqtSignal(bool)
 
-    def __init__(self, app):
-        super().__init__(app=app)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.__update_timer = QtCore.QTimer(self)
         self.__update_timer.setInterval(1000)

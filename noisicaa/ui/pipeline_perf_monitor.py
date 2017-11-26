@@ -34,8 +34,8 @@ from . import ui_base
 class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
     visibilityChanged = QtCore.pyqtSignal(bool)
 
-    def __init__(self, app):
-        super().__init__(app=app)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self.history = []
         self.realtime = True

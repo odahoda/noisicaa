@@ -205,7 +205,7 @@ class ScoreTrackProperties(TrackProperties):
 
     async def onSelectInstrumentAsync(self):
         dialog = instrument_library.InstrumentLibraryDialog(
-            **self.common_context, selectButton=True, parent=self)
+            **self.context_args, selectButton=True, parent=self)
         dialog.setWindowTitle(
             "Select instrument for track '%s'" % self._track.name)
         dialog.setModal(True)
@@ -286,7 +286,7 @@ class BeatTrackProperties(TrackProperties):
 
     async def onSelectInstrumentAsync(self):
         dialog = instrument_library.InstrumentLibraryDialog(
-            **self.common_context, selectButton=True, parent=self)
+            **self.context_args, selectButton=True, parent=self)
         dialog.setWindowTitle(
             "Select instrument for track '%s'" % self._track.name)
         dialog.setModal(True)
@@ -348,23 +348,23 @@ class TrackPropertiesDockWidget(ui_base.ProjectMixin, DockWidget):
 
         elif isinstance(self._track, model.TrackGroup):
             self.setWidget(TrackGroupProperties(
-                track=self._track, **self.context))
+                track=self._track, **self.context_args))
 
         elif isinstance(self._track, model.ScoreTrack):
             self.setWidget(ScoreTrackProperties(
-                track=self._track, **self.context))
+                track=self._track, **self.context_args))
 
         elif isinstance(self._track, model.BeatTrack):
             self.setWidget(BeatTrackProperties(
-                track=self._track, **self.context))
+                track=self._track, **self.context_args))
 
         elif isinstance(self._track, model.ControlTrack):
             self.setWidget(ControlTrackProperties(
-                track=self._track, **self.context))
+                track=self._track, **self.context_args))
 
         elif isinstance(self._track, model.SampleTrack):
             self.setWidget(SampleTrackProperties(
-                track=self._track, **self.context))
+                track=self._track, **self.context_args))
 
         else:
             raise ValueError(type(self._track))

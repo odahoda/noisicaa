@@ -64,7 +64,7 @@ class ScoreToolBase(base_track_item.MeasuredToolBase):
         target.setGhost(None)
 
     def mouseMoveEvent(self, target, evt):
-        assert isinstance(target, ScoreMeasureEditorItemImpl), type(target).__name__
+        assert isinstance(target, ScoreMeasureEditorItem), type(target).__name__
 
         self._updateGhost(target, evt.pos())
 
@@ -303,27 +303,27 @@ class ScoreToolBox(tools.ToolBox):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.addTool(base_track_item.ArrangeMeasuresTool(**self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_WHOLE, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_HALF, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_QUARTER, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_8TH, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_16TH, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_32TH, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_WHOLE, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_HALF, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_QUARTER, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_8TH, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_16TH, **self.context))
-        self.addTool(InsertNoteTool(type=tools.ToolType.REST_32TH, **self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_NATURAL, **self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_SHARP, **self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_FLAT, **self.context))
-        #self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_DOUBLE_SHARP, **self.context))
-        #self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_DOUBLE_FLAT, **self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_DOT, **self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_TRIPLET, **self.context))
-        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_QUINTUPLET, **self.context))
+        self.addTool(base_track_item.ArrangeMeasuresTool(**self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_WHOLE, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_HALF, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_QUARTER, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_8TH, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_16TH, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.NOTE_32TH, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_WHOLE, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_HALF, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_QUARTER, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_8TH, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_16TH, **self.context_args))
+        self.addTool(InsertNoteTool(type=tools.ToolType.REST_32TH, **self.context_args))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_NATURAL, **self.context_args))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_SHARP, **self.context_args))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_FLAT, **self.context_args))
+        #self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_DOUBLE_SHARP, **self.context_args))
+        #self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_DOUBLE_FLAT, **self.context_args))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_DOT, **self.context_args))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_TRIPLET, **self.context_args))
+        self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_QUINTUPLET, **self.context_args))
 
     def keyPressEvent(self, target, evt):
         if (not evt.isAutoRepeat()
@@ -496,7 +496,7 @@ class ScoreToolBox(tools.ToolBox):
     #     super().keyPressEvent(evt)
 
 
-class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
+class ScoreMeasureEditorItem(ui_base.ProjectMixin, base_track_item.MeasureEditorItem):
     FOREGROUND = 'fg'
     BACKGROUND = 'bg'
     GHOST = 'ghost'
@@ -959,11 +959,7 @@ class ScoreMeasureEditorItemImpl(base_track_item.MeasureEditorItem):
         super().mouseMoveEvent(evt)
 
 
-class ScoreMeasureEditorItem(ui_base.ProjectMixin, ScoreMeasureEditorItemImpl):
-    pass
-
-
-class ScoreTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
+class ScoreTrackEditorItem(ui_base.ProjectMixin, base_track_item.MeasuredTrackEditorItem):
     measure_item_cls = ScoreMeasureEditorItem
 
     toolBoxClass = ScoreToolBox
@@ -982,7 +978,7 @@ class ScoreTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
             affected_measure_items.extend(self.selection_set)
         else:
             mitem = self.measureItemAt(pos)
-            if isinstance(mitem, ScoreMeasureEditorItemImpl):
+            if isinstance(mitem, ScoreMeasureEditorItem):
                 affected_measure_items.append(mitem)
 
         enable_measure_actions = bool(affected_measure_items)
@@ -1130,7 +1126,3 @@ class ScoreTrackEditorItemImpl(base_track_item.MeasuredTrackEditorItem):
                                 0, self.__play_last_pitch.midi_note))))
 
             self.__play_last_pitch = None
-
-
-class ScoreTrackEditorItem(ui_base.ProjectMixin, ScoreTrackEditorItemImpl):
-    pass

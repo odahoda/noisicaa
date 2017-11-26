@@ -51,7 +51,7 @@ class EditSamplesTool(tools.ToolBase):
         return 'edit-samples'
 
     def mousePressEvent(self, target, evt):
-        assert isinstance(target, SampleTrackEditorItemImpl), type(target).__name__
+        assert isinstance(target, SampleTrackEditorItem), type(target).__name__
 
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.NoModifier
@@ -123,7 +123,7 @@ class SampleTrackToolBox(tools.ToolBox):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.addTool(EditSamplesTool(**self.context))
+        self.addTool(EditSamplesTool(**self.context_args))
 
 
 class SampleItem(object):
@@ -274,7 +274,7 @@ class SampleItem(object):
                 painter.drawLine(x, ycenter - h // 2, x, ycenter + h // 2)
 
 
-class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
+class SampleTrackEditorItem(ui_base.ProjectMixin, base_track_item.BaseTrackEditorItem):
     toolBoxClass = SampleTrackToolBox
 
     def __init__(self, **kwargs):
@@ -521,7 +521,3 @@ class SampleTrackEditorItemImpl(base_track_item.BaseTrackEditorItem):
         if self.__playback_timepos is not None:
             pos = self.timeposToX(self.__playback_timepos)
             painter.fillRect(pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
-
-
-class SampleTrackEditorItem(ui_base.ProjectMixin, SampleTrackEditorItemImpl):
-    pass

@@ -35,12 +35,9 @@ from . import track_items
 
 
 
-class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
-    pass
-
 # class InitTest(uitest_utils.UITest):
 #     async def test_init(self):
-#         view = ProjectView(**self.context)
+#         view = ProjectView(**self.context_args)
 #         await view.setup()
 #         self.assertIsNone(view.currentSheetView())
 #
@@ -51,7 +48,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 #         self.project.sheets.append(model.Sheet('sheet2'))
 #         self.project.sheets[1].property_track = model.SheetPropertyTrack('prop2')
 #         self.project.sheets[1].master_group = model.TrackGroup('master')
-#         view = ProjectView(**self.context)
+#         view = ProjectView(**self.context_args)
 #         await view.setup()
 #         self.assertIsInstance(view.currentSheetView(), SheetView)
 #         self.assertEqual(view.currentSheetView().sheet.id, 'sheet1')
@@ -66,7 +63,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 #     pass
 
 #     # async def test_add_sheet(self):
-#     #     view = ProjectView(**self.context)
+#     #     view = ProjectView(**self.context_args)
 #     #     await view.setup()
 #     #     self.assertEqual(len(list(view.sheetViews)), 0)
 
@@ -80,7 +77,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 #     #     sheet.property_track = model.SheetPropertyTrack('prop1')
 #     #     self.project.sheets.append(sheet)
 
-#     #     view = ProjectView(**self.context)
+#     #     view = ProjectView(**self.context_args)
 #     #     await view.setup()
 #     #     self.assertEqual(len(list(view.sheetViews)), 1)
 
@@ -92,7 +89,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 #     #     sheet.property_track = model.SheetPropertyTrack('prop1')
 #     #     self.project.sheets.append(sheet)
 
-#     #     view = ProjectView(**self.context)
+#     #     view = ProjectView(**self.context_args)
 #     #     await view.setup()
 #     #     self.assertEqual(len(list(view.sheetViews)), 1)
 
@@ -108,7 +105,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 #         sheet.master_group = model.TrackGroup('master')
 #         self.project.sheets.append(sheet)
 
-#         view = ProjectView(**self.context)
+#         view = ProjectView(**self.context_args)
 #         await view.setup()
 #         view.onAddSheet()
 #         self.assertEqual(
@@ -127,7 +124,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 #         sheet.master_group = model.TrackGroup('master')
 #         self.project.sheets.append(sheet)
 
-#         view = ProjectView(**self.context)
+#         view = ProjectView(**self.context_args)
 #         await view.setup()
 #         view.onDeleteSheet()
 #         self.assertEqual(
@@ -164,36 +161,6 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 #     #     self.assertEqual(view.currentTool(), Tool.NOTE_HALF)
 
 
-# class ScoreMeasureItem(
-#         uitest_utils.TestMixin, score_track_item.ScoreMeasureItemImpl):
-#     pass
-
-# class ScoreTrackItem(
-#         uitest_utils.TestMixin, score_track_item.ScoreTrackItemImpl):
-#     measure_item_cls = ScoreMeasureItem
-
-# class SheetPropertyMeasureItem(
-#         uitest_utils.TestMixin,
-#         sheet_property_track_item.SheetPropertyMeasureItemImpl):
-#     pass
-
-# class SheetPropertyTrackItem(
-#         uitest_utils.TestMixin,
-#         sheet_property_track_item.SheetPropertyTrackItemImpl):
-#     measure_item_cls = SheetPropertyMeasureItem
-
-# class SheetView(uitest_utils.TestMixin, sheet_view.SheetViewImpl):
-#     track_cls_map = {
-#         'SheetPropertyTrack': SheetPropertyTrackItem,
-#         'ScoreTrack': ScoreTrackItem,
-#     }
-
-#     async def setup(self):
-#         pass
-
-#     async def cleanup(self):
-#         pass
-
 
 # class SheetViewTest(uitest_utils.UITest):
 #     async def setUp(self):
@@ -210,7 +177,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 #     async def test_init(self):
 #         track = model.ScoreTrack('track1')
 #         self.sheet.master_group.tracks.append(track)
-#         view = SheetView(**self.context, sheet=self.sheet)
+#         view = SheetView(**self.context_args, sheet=self.sheet)
 #         await view.setup()
 #         self.assertEqual(
 #             [ti.track.id for ti in view.trackItems],
@@ -219,7 +186,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 
 # class SheetViewModelChangesTest(SheetViewTest):
 #     async def test_tracks(self):
-#         view = SheetView(**self.context, sheet=self.sheet)
+#         view = SheetView(**self.context_args, sheet=self.sheet)
 #         await view.setup()
 
 #         track = model.ScoreTrack('track1')
@@ -244,7 +211,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 #     async def test_track_visibility(self):
 #         track = model.ScoreTrack('track1')
 #         self.sheet.master_group.tracks.append(track)
-#         view = SheetView(**self.context, sheet=self.sheet)
+#         view = SheetView(**self.context_args, sheet=self.sheet)
 #         await view.setup()
 #         view.updateSheet = mock.MagicMock()
 #         self.assertEqual(view.updateSheet.call_count, 0)
@@ -254,7 +221,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 
 # class SheetViewCommandsTest(SheetViewTest):
 #     async def test_onAddTrack(self):
-#         view = SheetView(**self.context, sheet=self.sheet)
+#         view = SheetView(**self.context_args, sheet=self.sheet)
 #         await view.setup()
 #         view.onAddTrack('score')
 #         self.assertEqual(
@@ -264,7 +231,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 
 # class SheetViewEventsTest(SheetViewTest):
 #     async def test_keyEvent(self):
-#         view = SheetView(**self.context, sheet=self.sheet)
+#         view = SheetView(**self.context_args, sheet=self.sheet)
 #         await view.setup()
 
 #         # Number keys select notes, if the current tool is a note.
@@ -343,7 +310,7 @@ class ProjectView(uitest_utils.TestMixin, project_view.ProjectViewImpl):
 # class SheetViewToolTest(SheetViewTest):
 #     # This one just aims for coverage. TODO: also verify effects.
 #     async def test_setCurrentTool(self):
-#         view = SheetView(**self.context, sheet=self.sheet)
+#         view = SheetView(**self.context_args, sheet=self.sheet)
 #         await view.setup()
 
 #         for tool in tool_dock.Tool:

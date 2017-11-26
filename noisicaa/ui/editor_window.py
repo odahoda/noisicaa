@@ -49,15 +49,15 @@ logger = logging.getLogger(__name__)
 
 
 class CommandShellDockWidget(DockWidget):
-    def __init__(self, app, parent):
+    def __init__(self, *, parent, **kwargs):
         super().__init__(
-            app=app,
             parent=parent,
             identifier='command_shell',
             title="Command Shell",
             allowed_areas=Qt.AllDockWidgetAreas,
             initial_area=Qt.BottomDockWidgetArea,
-            initial_visible=False)
+            initial_visible=False,
+            **kwargs)
         command_shell = CommandShell(parent=self)
         self.setWidget(command_shell)
 
@@ -71,14 +71,14 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     playbackLoopChanged = QtCore.pyqtSignal(bool)
     projectListChanged = QtCore.pyqtSignal()
 
-    def __init__(self, app):
-        super().__init__(app=app)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
         self._docks = []
-        self._settings_dialog = SettingsDialog(self.app, self)
+        self._settings_dialog = SettingsDialog(parent=self, **self.context_args)
 
         self._instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
-            **self.context, parent=self)
+            **self.context_args, parent=self)
 
         self._current_project_view = None
 
@@ -411,7 +411,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.setStatusBar(self.statusbar)
 
     def createDockWidgets(self):
-        self._docks.append(CommandShellDockWidget(self.app, self))
+        self._docks.append(CommandShellDockWidget(parent=self, **self.context_args))
 
     def storeState(self):
         logger.info("Saving current EditorWindow geometry.")
@@ -485,10 +485,11 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             self.currentProjectChanged.emit(None)
 
     async def addProjectView(self, project_connection):
-        view = ProjectView(
+        context = ui_base.ProjectContext(
             selection_set=selection_set.SelectionSet(),
             project_connection=project_connection,
-            **self.context)
+            app=self.app)
+        view = ProjectView(context=context)
         await view.setup()
 
         idx = self._project_tabs.addTab(view, project_connection.name)
