@@ -313,7 +313,7 @@ class AddPipelineGraphNode(commands.Command):
     def run(self, project):
         assert isinstance(project, BaseProject)
 
-        node_desc = project.project.get_node_description(self.uri)
+        node_desc = project.get_node_description(self.uri)
 
         node = pipeline_graph.PipelineGraphNode(
             name=node_desc.display_name,
