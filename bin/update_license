@@ -3,7 +3,7 @@
 
 # @begin:license
 #
-# Copyright (c) 2015-2017, Benjamin Niemann <pink@odahoda.de>
+# Copyright (c) 2015-2018, Benjamin Niemann <pink@odahoda.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,7 +37,9 @@ DEFAULT_TYPEMAP = {
     '*.h': 'text/x-c++',
     '*.sh': 'text/x-shellscript',
     '*.capnp': 'text/x-capnp',
+    '*.proto': 'text/x-protobuf',
     '*.csnd': 'text/x-csound',
+    '*.yaml': 'text/x-yaml',
     'CMakeLists.txt': 'text/x-cmake',
 }
 
@@ -46,8 +48,10 @@ TYPE_PROPS = {
     'text/x-shellscript': (None, None, '# ', '#'),
     'text/x-cmake': (None, None, '# ', '#'),
     'text/x-c++': ('/*', ' */', ' * ', '//'),
+    'text/x-protobuf': ('/*', ' */', ' * ', None),
     'text/x-capnp': (None, None, '# ', None),
     'text/x-csound': ('<CsLicense>', '</CsLicense>', '', '<CsoundSynthesizer>'),
+    'text/x-yaml': (None, None, '# ', None),
     'application/xml': ('<!--', '-->', '  ', '<?'),
 }
 
