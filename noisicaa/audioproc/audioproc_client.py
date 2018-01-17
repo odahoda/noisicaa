@@ -42,12 +42,14 @@ class AudioProcClientMixin(object):
         self.server.add_command_handler(
             'PIPELINE_MUTATION', self.handle_pipeline_mutation)
         self.server.add_command_handler(
-            'PIPELINE_STATUS', self.handle_pipeline_status,
-            log_level=-1)
+            'PLAYER_STATE', self.handle_player_state, log_level=-1)
+        self.server.add_command_handler(
+            'PIPELINE_STATUS', self.handle_pipeline_status, log_level=-1)
 
     async def cleanup(self):
         await self.disconnect()
         self.server.remove_command_handler('PIPELINE_MUTATION')
+        self.server.remove_command_handler('PLAYER_STATE')
         self.server.remove_command_handler('PIPELINE_STATUS')
         await super().cleanup()
 
@@ -108,6 +110,10 @@ class AudioProcClientMixin(object):
         return await self._stub.call(
             'PIPELINE_MUTATION', self._session_id, mutation)
 
+    async def send_node_message(self, node_id, msg):
+        return await self._stub.call(
+            'SEND_NODE_MESSAGE', self._session_id, node_id, msg)
+
     async def set_backend(self, name, **parameters):
         return await self._stub.call(
             'SET_BACKEND', self._session_id, name, parameters)
@@ -115,6 +121,10 @@ class AudioProcClientMixin(object):
     async def set_backend_parameters(self, **parameters):
         return await self._stub.call(
             'SET_BACKEND_PARAMETERS', self._session_id, parameters)
+
+    async def update_player_state(self, state):
+        return await self._stub.call(
+            'UPDATE_PLAYER_STATE', self._session_id, state)
 
     async def send_message(self, msg):
         return await self._stub.call('SEND_MESSAGE', self._session_id, msg.to_bytes())
@@ -126,8 +136,15 @@ class AudioProcClientMixin(object):
     async def dump(self):
         return await self._stub.call('DUMP', self._session_id)
 
+    async def update_project_properties(self, **kwargs):
+        return await self._stub.call(
+            'UPDATE_PROJECT_PROPERTIES', self._session_id, kwargs)
+
     def handle_pipeline_mutation(self, mutation):
         logger.info("Mutation received: %s" % mutation)
 
     def handle_pipeline_status(self, status):
         self.listeners.call('pipeline_status', status)
+
+    def handle_player_state(self, state):
+        self.listeners.call('player_state', state)

@@ -247,7 +247,7 @@ class ControlValuesConnector(object):
                     self.listeners.call(
                         control_value.name,
                         self.__control_values[control_value.name], port.default)
-                    self.__control_values[control.name] = port.default
+                    self.__control_values[control_value.name] = port.default
                     break
 
             listener = self.__control_value_listeners.pop(index)

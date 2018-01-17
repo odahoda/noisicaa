@@ -29,6 +29,7 @@
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/vm/host_system_lv2.h"
 #include "noisicaa/audioproc/vm/host_system_csound.h"
+#include "noisicaa/audioproc/vm/host_system_audio_file.h"
 
 namespace noisicaa {
 
@@ -42,6 +43,7 @@ public:
 
   unique_ptr<LV2SubSystem> lv2;
   unique_ptr<CSoundSubSystem> csound;
+  unique_ptr<AudioFileSubSystem> audio_file;
 };
 
 }  // namespace noisicaa

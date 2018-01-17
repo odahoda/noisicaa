@@ -22,6 +22,7 @@
 
 from fractions import Fraction
 import logging
+import random
 
 import numpy
 
@@ -29,27 +30,24 @@ from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.bindings import sndfile
 
-from .time import Duration
 from . import model
 from . import state
 from . import commands
-from . import mutations
 from . import base_track
 from . import pipeline_graph
 from . import misc
-from . import time_mapper
 
 logger = logging.getLogger(__name__)
 
 
 class AddSample(commands.Command):
-    timepos = core.Property(Duration)
+    time = core.Property(audioproc.MusicalTime)
     path = core.Property(str)
 
-    def __init__(self, timepos=None, path=None, state=None):
+    def __init__(self, time=None, path=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.timepos = timepos
+            self.time = time
             self.path = path
 
     def run(self, track):
@@ -60,7 +58,7 @@ class AddSample(commands.Command):
         smpl = Sample(path=self.path)
         project.samples.append(smpl)
 
-        smpl_ref = SampleRef(timepos=self.timepos, sample_id=smpl.id)
+        smpl_ref = SampleRef(time=self.time, sample_id=smpl.id)
         track.samples.append(smpl_ref)
 
 commands.Command.register_command(AddSample)
@@ -88,13 +86,13 @@ commands.Command.register_command(RemoveSample)
 
 class MoveSample(commands.Command):
     sample_id = core.Property(str)
-    timepos = core.Property(Duration)
+    time = core.Property(audioproc.MusicalTime)
 
-    def __init__(self, sample_id=None, timepos=None, state=None):
+    def __init__(self, sample_id=None, time=None, state=None):
         super().__init__(state=state)
         if state is None:
             self.sample_id = sample_id
-            self.timepos = timepos
+            self.time = time
 
     def run(self, track):
         assert isinstance(track, SampleTrack)
@@ -103,7 +101,7 @@ class MoveSample(commands.Command):
         smpl_ref = root.get_object(self.sample_id)
         assert smpl_ref.is_child_of(track)
 
-        smpl_ref.timepos = self.timepos
+        smpl_ref.time = self.time
 
 commands.Command.register_command(MoveSample)
 
@@ -129,15 +127,20 @@ class RenderSample(commands.Command):
 
         samples = sample.samples[...,0]
 
-        tmap = time_mapper.TimeMapper(sample.project)
+        tmap = audioproc.TimeMapper()
+        try:
+            tmap.setup(sample.project)
 
-        begin_timepos = sample_ref.timepos
-        begin_samplepos = tmap.timepos2sample(begin_timepos)
-        num_samples = min(tmap.total_duration_samples - begin_samplepos, len(samples))
-        end_samplepos = begin_samplepos + num_samples
-        end_timepos = tmap.sample2timepos(end_samplepos)
+            begin_time = sample_ref.time
+            begin_samplepos = tmap.musical_to_sample_time(begin_time)
+            num_samples = min(tmap.num_samples - begin_samplepos, len(samples))
+            end_samplepos = begin_samplepos + num_samples
+            end_time = tmap.sample_to_musical_time(end_samplepos)
 
-        width = int(self.scale_x * (end_timepos - begin_timepos))
+        finally:
+            tmap.cleanup()
+
+        width = int(self.scale_x * (end_time - begin_time).fraction)
 
         if width < num_samples / 10:
             rms = []
@@ -175,127 +178,134 @@ state.StateBase.register_class(Sample)
 
 
 class SampleRef(model.SampleRef, state.StateBase):
-    def __init__(self, timepos=None, sample_id=None, state=None, **kwargs):
+    def __init__(self, time=None, sample_id=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
         if state is None:
-            self.timepos = timepos
+            self.time = time
             self.sample_id = sample_id
 
 state.StateBase.register_class(SampleRef)
 
 
-class SampleBufferSource(base_track.BufferSource):
-    def __init__(self, track):
-        super().__init__(track)
+class SampleTrackConnector(base_track.TrackConnector):
+    def __init__(self, track, node_id, player):
+        super().__init__(track, player)
 
-        self.time_mapper = time_mapper.TimeMapper(self._project)
+        self.__node_id = node_id
+        self.__listeners = {}
+        self.__sample_ids = {}
 
-    def get_buffers(self, ctxt):
-        output = numpy.zeros(shape=(ctxt.block_size, 2), dtype=numpy.float32)
-
-        buffer_left_id = 'track:%s:left' % self._track.id
-        try:
-            buffer_left = ctxt.buffers[buffer_left_id]
-        except KeyError:
-            pass
-        else:
-            # Copy events from existing buffer.
-            output[:ctxt.offset,0] = numpy.frombuffer(
-                buffer_left.data, count=ctxt.offset, dtype=numpy.float32)
-
-        buffer_right_id = 'track:%s:right' % self._track.id
-        try:
-            buffer_right = ctxt.buffers[buffer_right_id]
-        except KeyError:
-            pass
-        else:
-            # Copy events from existing buffer.
-            output[:ctxt.offset,1] = numpy.frombuffer(
-                buffer_right.data, count=ctxt.offset, dtype=numpy.float32)
-
-        f1 = ctxt.sample_pos
-        f2 = ctxt.sample_pos + ctxt.length
+        self.__listeners['samples'] = self._track.listeners.add(
+            'samples', self.__samples_list_changed)
 
         for sample_ref in self._track.samples:
-            s1 = self.time_mapper.timepos2sample(sample_ref.timepos)
-            if s1 >= f2:
-                continue
+            self.__add_sample(sample_ref)
 
-            sample = self._track.root.get_object(sample_ref.sample_id)
-            samples = sample.samples
-            assert len(samples.shape) == 2, samples.shape
-            assert samples.shape[1] in (1, 2), samples.shape
+    def close(self):
+        for listener in self.__listeners.values():
+            listener.remove()
+        self.__listeners.clear()
 
-            s2 = s1 + samples.shape[0]
-            if s2 <= f1:
-                continue
+        super().close()
 
-            if f1 >= s1:
-                src = f1 - s1
-                dest = ctxt.offset
-                length = min(ctxt.length, s2 - f1)
-            else:
-                src = 0
-                dest = s1 - f1 + ctxt.offset
-                length = min(s2, f2) - s1
+    def __samples_list_changed(self, change):
+        if isinstance(change, core.PropertyListInsert):
+            self.__add_sample(change.new_value)
 
-            for ch in range(2):
-                output[dest:dest+length,ch] = samples[src:src+length,ch % samples.shape[1]]
+        elif isinstance(change, core.PropertyListDelete):
+            self.__remove_sample(change.old_value)
 
-        samples_left = output[:,0].tobytes()
-        buffer_left = audioproc.Buffer.new_message()
-        buffer_left.id = buffer_left_id
-        buffer_left.data = bytes(samples_left)
-        ctxt.buffers[buffer_left_id] = buffer_left
+        else:  # pragma: no coverage
+            raise TypeError(
+                "Unsupported change type %s" % type(change))
 
-        samples_right = output[:,1].tobytes()
-        buffer_right = audioproc.Buffer.new_message()
-        buffer_right.id = buffer_right_id
-        buffer_right.data = bytes(samples_right)
-        ctxt.buffers[buffer_right_id] = buffer_right
+    def __add_sample(self, sample_ref):
+        sample_id = self.__sample_ids[sample_ref.id] = random.getrandbits(64)
+
+        self._player.send_node_message(
+            self.__node_id,
+            audioproc.ProcessorMessage(
+                sample_script_add_sample=audioproc.ProcessorMessage.SampleScriptAddSample(
+                    id=sample_id,
+                    time=sample_ref.time.to_proto(),
+                    sample_path=sample_ref.sample.path)))
+
+        self.__listeners['cp:%s:time' % sample_ref.id] = sample_ref.listeners.add(
+            'time', lambda _: self.__sample_changed(sample_ref))
+
+        self.__listeners['cp:%s:sample_id' % sample_ref.id] = sample_ref.listeners.add(
+            'sample_id', lambda _: self.__sample_changed(sample_ref))
+
+    def __remove_sample(self, sample_ref):
+        sample_id = self.__sample_ids[sample_ref.id]
+
+        self._player.send_node_message(
+            self.__node_id,
+            audioproc.ProcessorMessage(
+                sample_script_remove_sample=audioproc.ProcessorMessage.SampleScriptRemoveSample(
+                    id=sample_id)))
+
+        self.__listeners.pop('cp:%s:time' % sample_ref.id).remove()
+        self.__listeners.pop('cp:%s:sample_id' % sample_ref.id).remove()
+
+    def __sample_changed(self, sample_ref):
+        sample_id = self.__sample_ids[sample_ref.id]
+
+        self._player.send_node_message(
+            self.__node_id,
+            audioproc.ProcessorMessage(
+                sample_script_remove_sample=audioproc.ProcessorMessage.SampleScriptRemoveSample(
+                    id=sample_id)))
+        self._player.send_node_message(
+            self.__node_id,
+            audioproc.ProcessorMessage(
+                sample_script_add_sample=audioproc.ProcessorMessage.SampleScriptAddSample(
+                    id=sample_id,
+                    time=sample_ref.time.to_proto(),
+                    sample_path=sample_ref.sample.path)))
 
 
 class SampleTrack(model.SampleTrack, base_track.Track):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
-    def create_buffer_source(self):
-        return SampleBufferSource(self)
+    def create_player_connector(self, player):
+        return SampleTrackConnector(self, self.sample_script_name, player)
 
     @property
-    def audio_source_name(self):
-        return '%s-control' % self.id
+    def sample_script_name(self):
+        return '%s-samplescript' % self.id
 
     @property
-    def audio_source_node(self):
-        if self.audio_source_id is None:
-            raise ValueError("No audio source node found.")
+    def sample_script_node(self):
+        if self.sample_script_id is None:
+            raise ValueError("No samplescript node found.")
 
-        return self.root.get_object(self.audio_source_id)
+        return self.root.get_object(self.sample_script_id)
 
     def add_pipeline_nodes(self):
         super().add_pipeline_nodes()
 
         mixer_node = self.mixer_node
 
-        audio_source_node = pipeline_graph.AudioSourcePipelineGraphNode(
-            name="Audio Source",
+        sample_script_node = pipeline_graph.SampleScriptPipelineGraphNode(
+            name="Sample Script",
             graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
-        self.project.add_pipeline_graph_node(audio_source_node)
-        self.audio_source_id = audio_source_node.id
+        self.project.add_pipeline_graph_node(sample_script_node)
+        self.sample_script_id = sample_script_node.id
 
         self.project.add_pipeline_graph_connection(
             pipeline_graph.PipelineGraphConnection(
-                audio_source_node, 'out:left', mixer_node, 'in:left'))
+                sample_script_node, 'out:left', mixer_node, 'in:left'))
         self.project.add_pipeline_graph_connection(
             pipeline_graph.PipelineGraphConnection(
-                audio_source_node, 'out:right', mixer_node, 'in:right'))
+                sample_script_node, 'out:right', mixer_node, 'in:right'))
 
     def remove_pipeline_nodes(self):
-        self.project.remove_pipeline_graph_node(self.audio_source_node)
-        self.audio_source_id = None
+        self.project.remove_pipeline_graph_node(self.sample_script_node)
+        self.sample_script_id = None
         super().remove_pipeline_nodes()
 
 

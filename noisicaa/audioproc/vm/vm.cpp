@@ -33,6 +33,8 @@
 #include "noisicaa/audioproc/vm/block_context.h"
 #include "noisicaa/audioproc/vm/backend.h"
 #include "noisicaa/audioproc/vm/processor.h"
+#include "noisicaa/audioproc/vm/player.h"
+#include "noisicaa/audioproc/vm/time_mapper.h"
 
 namespace noisicaa {
 
@@ -57,12 +59,17 @@ Status Program::setup(HostData* host_data, const Spec* s, uint32_t block_size) {
     buffers.emplace_back(buf.release());
   }
 
+  time_mapper.reset(new TimeMapper());
+  time_mapper->set_bpm(spec->bpm());
+  time_mapper->set_duration(spec->duration());
+
   return Status::Ok();
 }
 
-VM::VM(HostData* host_data)
+VM::VM(HostData* host_data, Player* player)
   : _logger(LoggerRegistry::get_logger("noisicaa.audioproc.vm.vm")),
     _host_data(host_data),
+    _player(player),
     _block_size(256),
     _next_program(nullptr),
     _current_program(nullptr),
@@ -210,6 +217,12 @@ Status VM::set_float_control_value(const string& name, float value) {
   return Status::Ok();
 }
 
+Status VM::send_processor_message(uint64_t processor_id, const string& msg_serialized) {
+  ActiveProcessor* active_processor = _processors[processor_id].get();
+  assert(active_processor != nullptr);
+  return active_processor->processor->handle_message(msg_serialized);
+}
+
 Status VM::process_block(Backend* backend, BlockContext* ctxt) {
   // If there is a next program, make it the current. The current program becomes
   // the old program, which will eventually be destroyed in the main thread.
@@ -271,6 +284,19 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
     return ERROR_STATUS("Invalid block_size 0");
   }
   _logger->debug("Process block [%d,%d]", ctxt->sample_pos, ctxt->block_size);
+
+  if (_player != nullptr) {
+    PerfTracker tracker(ctxt->perf.get(), "fill_time_map");
+
+    _player->fill_time_map(program->time_mapper.get(), ctxt);
+  } else {
+    PerfTracker tracker(ctxt->perf.get(), "clear_time_map");
+
+    for (auto& it : ctxt->time_map) {
+      it = SampleTime{ MusicalTime(-1, 1), MusicalTime(0, 1) };
+    }
+    ctxt->time_map.resize(ctxt->block_size, SampleTime{ MusicalTime(-1, 1), MusicalTime(0, 1) });
+  }
 
   const Spec* spec = program->spec.get();
   ProgramState state = { _logger, _host_data, program, backend, 0, false };

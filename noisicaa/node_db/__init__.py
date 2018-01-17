@@ -41,9 +41,10 @@ from .node_description import (
 from .private.builtin_scanner import (
     TrackMixerDescription,
     IPCDescription,
-    AudioSourceDescription,
+    SampleScriptDescription,
     EventSourceDescription,
-    ControlSourceDescription,
+    CVGeneratorDescription,
+    PianoRollDescription,
     SinkDescription,
     FluidSynthDescription,
     SamplePlayerDescription,

@@ -250,7 +250,7 @@ Status init_CONNECT_PORT(BlockContext* ctxt, ProgramState* state, const vector<O
 Status run_CALL(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
   int processor_idx = args[0].int_value();
   Processor* processor = state->program->spec->get_processor(processor_idx);
-  return processor->run(ctxt);
+  return processor->run(ctxt, state->program->time_mapper.get());
 }
 
 Status run_LOG_RMS(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {

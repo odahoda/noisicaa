@@ -61,7 +61,7 @@ class CommonContext(object):
             self.__app.crashWithMessage(
                 "Exception in callback",
                 buf.getvalue())
-            raise exc
+            raise task.exception()
 
         if callback is not None:
             callback(task.result())
@@ -148,6 +148,10 @@ class ProjectMixin(CommonMixin):
     @property
     def project(self):
         return self._context.project
+
+    @property
+    def time_mapper(self):
+        return self._context.project.time_mapper
 
     @property
     def project_client(self):

@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import fractions
 import functools
 import logging
 
@@ -28,6 +29,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import tools
@@ -111,7 +113,7 @@ class EditSamplesTool(tools.ToolBase):
                 target.track.id,
                 'MoveSample',
                 sample_id=target.highlightedSample().sample_id,
-                timepos=target.xToTimepos(pos.x()))
+                time=target.xToTime(pos.x()))
 
             evt.accept()
             return
@@ -135,11 +137,11 @@ class SampleItem(object):
         self.__highlighted = False
 
         self.__pos = QtCore.QPoint(
-            self.__track_item.timeposToX(self.__sample.timepos), 0)
+            self.__track_item.timeToX(self.__sample.time), 0)
         self.__width = 50
 
         self.__listeners = [
-            self.__sample.listeners.add('timepos', self.onTimeposChanged),
+            self.__sample.listeners.add('time', self.onTimeChanged),
         ]
 
     def close(self):
@@ -172,9 +174,9 @@ class SampleItem(object):
     def rect(self):
         return QtCore.QRect(self.pos(), self.size())
 
-    def onTimeposChanged(self, old_timepos, new_timepos):
+    def onTimeChanged(self, old_time, new_time):
         self.__pos = QtCore.QPoint(
-            self.__track_item.timeposToX(new_timepos), 0)
+            self.__track_item.timeToX(new_time), 0)
         self.__track_item.rectChanged.emit(self.__track_item.viewRect())
 
     def setHighlighted(self, highlighted):
@@ -205,7 +207,7 @@ class SampleItem(object):
     def purgePaintCaches(self):
         self.__render_result = ('init', )
         self.__pos = QtCore.QPoint(
-            self.__track_item.timeposToX(self.__sample.timepos), 0)
+            self.__track_item.timeToX(self.__sample.time), 0)
         self.__width = 50
 
     def paint(self, painter, paint_rect):
@@ -283,7 +285,7 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
         self.__samples = []
         self.__listeners = []
 
-        self.__playback_timepos = None
+        self.__playback_time = None
         self.__highlighted_sample = None
         self.__mouse_pos = None
 
@@ -310,40 +312,40 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
         width = 20
         for mref in self.project.property_track.measure_list:
             measure = mref.measure
-            width += int(self.scaleX() * measure.duration)
+            width += int(self.scaleX() * measure.duration.fraction)
         self.setSize(QtCore.QSize(width, 120))
 
-    def timeposToX(self, timepos):
+    def timeToX(self, time):
         x = 10
         for mref in self.project.property_track.measure_list:
             measure = mref.measure
-            width = int(self.scaleX() * measure.duration)
+            width = int(self.scaleX() * measure.duration.fraction)
 
-            if timepos <= measure.duration:
-                return x + int(width * timepos / measure.duration)
+            if time - measure.duration <= audioproc.MusicalTime(0, 1):
+                return x + int(width * (time / measure.duration).fraction)
 
             x += width
-            timepos -= measure.duration
+            time -= measure.duration
 
         return x
 
-    def xToTimepos(self, x):
+    def xToTime(self, x):
         x -= 10
-        timepos = music.Duration(0, 1)
+        time = audioproc.MusicalTime(0, 1)
         if x <= 0:
-            return timepos
+            return time
 
         for mref in self.project.property_track.measure_list:
             measure = mref.measure
-            width = int(self.scaleX() * measure.duration)
+            width = int(self.scaleX() * measure.duration.fraction)
 
             if x <= width:
-                return music.Duration(timepos + measure.duration * music.Duration(int(x), width))
+                return time + measure.duration * fractions.Fraction(int(x), width)
 
-            timepos += measure.duration
+            time += measure.duration
             x -= width
 
-        return music.Duration(timepos)
+        return time
 
     def onSamplesChanged(self, action, *args):
         if action == 'insert':
@@ -367,16 +369,16 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
         item.close()
         self.rectChanged.emit(self.viewRect())
 
-    def setPlaybackPos(self, timepos):
-        if self.__playback_timepos is not None:
-            x = self.timeposToX(self.__playback_timepos)
+    def setPlaybackPos(self, time):
+        if self.__playback_time is not None:
+            x = self.timeToX(self.__playback_time)
             self.rectChanged.emit(
                 QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
 
-        self.__playback_timepos = timepos
+        self.__playback_time = time
 
-        if self.__playback_timepos is not None:
-            x = self.timeposToX(self.__playback_timepos)
+        if self.__playback_time is not None:
+            x = self.timeToX(self.__playback_time)
             self.rectChanged.emit(
                 QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
 
@@ -431,15 +433,15 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
     def buildContextMenu(self, menu, pos):
         super().buildContextMenu(menu, pos)
 
-        timepos = self.xToTimepos(pos.x())
+        time = self.xToTime(pos.x())
 
         add_sample_action = QtWidgets.QAction(
             "Add sample...", menu,
             statusTip="Add a sample to the track.",
-            triggered=functools.partial(self.onAddSample, timepos))
+            triggered=functools.partial(self.onAddSample, time))
         menu.addAction(add_sample_action)
 
-    def onAddSample(self, timepos):
+    def onAddSample(self, time):
         path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
             parent=self.window,
             caption="Add Sample to track \"%s\"" % self.track.name,
@@ -454,7 +456,7 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
 
         self.send_command_async(
             self.track.id, 'AddSample',
-            timepos=timepos, path=path)
+            time=time, path=path)
 
     def leaveEvent(self, evt):
         self.__mouse_pos = None
@@ -487,10 +489,9 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
             self.width() - 11, self.height() // 2)
 
         x = 10
-        timepos = music.Duration()
         for mref in self.project.property_track.measure_list:
             measure = mref.measure
-            width = int(self.scaleX() * measure.duration)
+            width = int(self.scaleX() * measure.duration.fraction)
 
             if x + width > paint_rect.x() and x < paint_rect.x() + paint_rect.width():
                 if mref.is_first:
@@ -503,7 +504,6 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
                     painter.fillRect(x + pos, 0, 1, self.height(), QtGui.QColor(200, 200, 200))
 
             x += width
-            timepos += measure.duration
 
         painter.fillRect(x - 2, 0, 2, self.height(), QtGui.QColor(160, 160, 160))
 
@@ -518,6 +518,6 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
                 finally:
                     painter.restore()
 
-        if self.__playback_timepos is not None:
-            pos = self.timeposToX(self.__playback_timepos)
+        if self.__playback_time is not None:
+            pos = self.timeToX(self.__playback_time)
             painter.fillRect(pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))

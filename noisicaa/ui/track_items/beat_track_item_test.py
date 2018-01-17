@@ -33,20 +33,20 @@ class BeatTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_
     async def setUp(self):
         await super().setUp()
 
-        self.project.master_group.tracks.append(model.BeatTrack('track-1'))
+        self.project.master_group.tracks.append(model.BeatTrack(obj_id='track-1'))
 
-        m = model.PropertyMeasure('msr-0.1')
+        m = model.PropertyMeasure(obj_id='msr-0.1')
         self.obj_map[m.id] = m
         self.project.property_track.measure_heap.append(m)
-        mref = model.MeasureReference('msr-ref-0.1')
+        mref = model.MeasureReference(obj_id='msr-ref-0.1')
         self.obj_map[mref.id] = mref
         mref.measure_id = m.id
         self.project.property_track.measure_list.append(mref)
 
-        m = model.BeatMeasure('msr-1.1')
+        m = model.BeatMeasure(obj_id='msr-1.1')
         self.obj_map[m.id] = m
         self.project.master_group.tracks[0].measure_heap.append(m)
-        mref = model.MeasureReference('msr-ref-1.1')
+        mref = model.MeasureReference(obj_id='msr-ref-1.1')
         self.obj_map[mref.id] = mref
         mref.measure_id = m.id
         self.project.master_group.tracks[0].measure_list.append(mref)

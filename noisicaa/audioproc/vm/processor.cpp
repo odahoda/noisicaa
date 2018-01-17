@@ -24,6 +24,7 @@
 #include <time.h>
 
 #include "noisicaa/audioproc/vm/processor.h"
+#include "noisicaa/audioproc/vm/processor_message.pb.h"
 #include "noisicaa/audioproc/vm/processor_null.h"
 #include "noisicaa/audioproc/vm/processor_ladspa.h"
 #include "noisicaa/audioproc/vm/processor_lv2.h"
@@ -34,6 +35,9 @@
 #include "noisicaa/audioproc/vm/processor_fluidsynth.h"
 #include "noisicaa/audioproc/vm/processor_sound_file.h"
 #include "noisicaa/audioproc/vm/processor_track_mixer.h"
+#include "noisicaa/audioproc/vm/processor_pianoroll.h"
+#include "noisicaa/audioproc/vm/processor_cvgenerator.h"
+#include "noisicaa/audioproc/vm/processor_sample_script.h"
 
 namespace noisicaa {
 
@@ -69,6 +73,12 @@ StatusOr<Processor*> Processor::create(
     return new ProcessorSoundFile(node_id, host_data);
   } else if (name == "track_mixer") {
     return new ProcessorTrackMixer(node_id, host_data);
+  } else if (name == "pianoroll") {
+    return new ProcessorPianoRoll(node_id, host_data);
+  } else if (name == "cvgenerator") {
+    return new ProcessorCVGenerator(node_id, host_data);
+  } else if (name == "sample_script") {
+    return new ProcessorSampleScript(node_id, host_data);
   }
 
   return ERROR_STATUS("Invalid processor name '%s'", name.c_str());
@@ -175,6 +185,17 @@ Status Processor::set_float_parameter(const string& name, float value) {
 
   _int_parameters[name] = value;
   return Status::Ok();
+}
+
+Status Processor::handle_message(const string& msg_serialized) {
+  unique_ptr<pb::ProcessorMessage> msg(new pb::ProcessorMessage());
+  assert(msg->ParseFromString(msg_serialized));
+  return handle_message_internal(msg.release());
+}
+
+Status Processor::handle_message_internal(pb::ProcessorMessage* msg) {
+  unique_ptr<pb::ProcessorMessage> msg_ptr(msg);
+  return ERROR_STATUS("Processor %llx: Unhandled message.", id());
 }
 
 Status Processor::setup(const ProcessorSpec* spec) {

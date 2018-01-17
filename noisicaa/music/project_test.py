@@ -22,8 +22,6 @@
 
 import builtins
 import json
-import pprint
-import unittest
 
 import asynctest
 from mox3 import stubout
@@ -71,7 +69,7 @@ class BaseProjectTest(asynctest.TestCase):
 
     def test_deserialize(self):
         p = project.BaseProject(node_db=self.node_db)
-        p.master_group.tracks.append(score_track.ScoreTrack(name='Track 1'))
+        p.master_group.tracks.append(track_group.TrackGroup(name='Sub Group'))
         state = store_retrieve(p.serialize())
         p2 = project.Project(state=state)
         self.assertEqual(len(p2.master_group.tracks), 1)

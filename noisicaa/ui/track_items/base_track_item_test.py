@@ -53,7 +53,7 @@ class BaseTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_
     async def setUp(self):
         await super().setUp()
 
-        self.project.master_group.tracks.append(model.ScoreTrack('track-1'))
+        self.project.master_group.tracks.append(model.ScoreTrack(obj_id='track-1'))
         self.tool_box = TestToolBox(**self.context_args)
 
     def _createTrackItem(self, **kwargs):
@@ -73,7 +73,7 @@ class MeasuredTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uit
     async def setUp(self):
         await super().setUp()
 
-        self.project.master_group.tracks.append(model.ScoreTrack('track-1'))
+        self.project.master_group.tracks.append(model.ScoreTrack(obj_id='track-1'))
         self.tool_box = TestToolBox(**self.context_args)
 
     def _createTrackItem(self, **kwargs):

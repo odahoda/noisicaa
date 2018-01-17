@@ -18,6 +18,9 @@
 #
 # @end:license
 
+from . cimport musical_time
+
+
 cdef class PyBlockContext(object):
     def __init__(self):
         self.__perf = PyPerfStats()
@@ -42,6 +45,15 @@ cdef class PyBlockContext(object):
     @sample_pos.setter
     def sample_pos(self, value):
         self.__ctxt.sample_pos = <uint32_t>value
+
+    def clear_time_map(self):
+        self.__ctxt.time_map.clear()
+
+    def append_sample_time(self, PyMusicalTime start_time, PyMusicalTime end_time):
+        cdef SampleTime stime
+        stime.start_time = start_time.get()
+        stime.end_time = end_time.get()
+        self.__ctxt.time_map.push_back(stime)
 
     @property
     def perf(self):

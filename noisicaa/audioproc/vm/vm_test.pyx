@@ -47,7 +47,7 @@ class TestVM(unittest.TestCase):
         host_data.setup()
 
         cdef unique_ptr[VM] vmptr
-        vmptr.reset(new VM(host_data.ptr()))
+        vmptr.reset(new VM(host_data.ptr(), NULL))
         cdef VM* vm = vmptr.get()
 
         check(vm.setup())
@@ -118,7 +118,7 @@ class TestVM(unittest.TestCase):
         host_data.setup()
 
         cdef unique_ptr[VM] vmptr
-        vmptr.reset(new VM(host_data.ptr()))
+        vmptr.reset(new VM(host_data.ptr(), NULL))
         cdef VM* vm = vmptr.get()
         check(vm.setup())
 
@@ -166,7 +166,7 @@ class TestVM(unittest.TestCase):
         cdef PyHostData host_data = PyHostData()
 
         cdef unique_ptr[VM] vmptr
-        vmptr.reset(new VM(host_data.ptr()))
+        vmptr.reset(new VM(host_data.ptr(), NULL))
         cdef VM* vm = vmptr.get()
         check(vm.setup())
 
@@ -238,7 +238,7 @@ class TestVM(unittest.TestCase):
         cdef PyHostData host_data = PyHostData()
 
         cdef unique_ptr[VM] vmptr
-        vmptr.reset(new VM(host_data.ptr()))
+        vmptr.reset(new VM(host_data.ptr(), NULL))
         cdef VM* vm = vmptr.get()
         check(vm.setup())
 

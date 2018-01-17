@@ -1,26 +1,84 @@
 # -*- org-tags-column: -98 -*-
 
-* Rework time handling                                                                   :CLEANUP:
-- class MusicalTime
-  - rational<int64_t, int64_t>
-- BlockContext in VM has time_map
-  - MusicalTime time_map[block_size]
-  - filled with musical time at each sample position
-    - or lower resolution and interpolate with constant BPM
-  - filled by player, taking loops, etc. into account
-  - time_map[n+1] = time_map[n] + bpm(time_map[n]) / 4 / 60 / sample_rate
+* Make playing notes on insert when editing work again                                       :BUG:
+Reimplement Player.send_message() again, now without the proxy, forwarding the message directly
+to the backend.
 
+* TrackConnector: messages in __init__ should be synchronous (and ideally batched)       :CLEANUP:
+- is there a straight forward way to do this? or go all the way and:
+  - Pass around a CommandContext reference, which collects async tasks. At the end of its
+    lifetime, it waits for all pending tasks to complete (i.e. it can only be created/destroyed
+    in a coroutine).
+  - IPC server creates the main context for each command
+  - Subcontexts for specific sections where async tasks should complete before leaving the
+    section.
+  - Could also be used to collect actions that should be sent out in a batch at the end
+    (e.g. project mutations).
 
-- musical time
-  - base unit full note (4 beats)
-- wall time
-  - base unit 1sec
-  - tracked as fraction, e.g. (sample_pos/sample_rate)
-- UI renders musical time, i.e. 100 horizontal pixels always map to a fixed musical time interval
-- wall time = musical time / (bpm / 4 / 60)
-- get rid of ticks
-- work out how changing bpm works
-- single TimeMapper per sheet
+* ControlTrack doesn't show current playback position.                                       :BUG:
+* Cascading failures in unittests                                                        :CLEANUP:
+When some test fails, following unrelated tests also fail, because some IPC server was not
+cleaned up properly by the failing test.
+
+* exception when deleting track                                                            :CRASH:
+        Traceback (most recent call last):
+          File "/home/pink/noisicaa/build/noisicaa/music/project_process.py", line 108, in publish_mutations
+            await self.callback_stub.call('PROJECT_MUTATIONS', mutations)
+          File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 423, in call
+            raise RemoteException(self._server_address, response[4:].decode('utf-8'))
+        noisicaa.core.ipc.RemoteException: From server /tmp/client.4f349b939eef425eb0fd2cd423435959.sock:
+        Traceback (most recent call last):
+          File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 244, in handle_command
+            result = handler(*args, **kwargs)
+          File "/home/pink/noisicaa/build/noisicaa/ui/project_registry.py", line 43, in handle_project_mutations
+            return super().handle_project_mutations(mutations)
+          File "/home/pink/noisicaa/build/noisicaa/music/project_client.py", line 182, in handle_project_mutations
+            self.handle_project_mutation(mutation)
+          File "/home/pink/noisicaa/build/noisicaa/music/project_client.py", line 224, in handle_project_mutation
+            del lst[mutation.index]
+          File "/home/pink/noisicaa/build/noisicaa/core/model_base.py", line 252, in __delitem__
+            PropertyListDelete(self._prop.name, idx, old_child))
+          File "/home/pink/noisicaa/build/noisicaa/music/project_client.py", line 58, in property_changed
+            change.index, change.old_value)
+          File "/home/pink/noisicaa/build/noisicaa/core/callbacks.py", line 133, in call
+            listener.callback(*args, **kwargs)
+          File "/home/pink/noisicaa/build/noisicaa/ui/pipeline_graph_view.py", line 1022, in onPipelineGraphConnectionsChange
+            self._node_map[connection.source_node.id].connections.remove(item)
+          File "/home/pink/noisicaa/build/noisicaa/music/model.py", line 384, in source_node
+            return self.root.get_object(self.source_node_id)
+          File "/home/pink/noisicaa/build/noisicaa/core/model_base.py", line 374, in root
+            raise ObjectNotAttachedError(self)
+        noisicaa.core.model_base.ObjectNotAttachedError: <PipelineGraphConnection id=9216c4b99b2644fa8ee42d062f2ea295>
+
+* ControlTrack doesn't scale properly                                                        :BUG:
+Position of each ControlPoint needs to be recomputed when scaleX changes.
+
+* Base class for processor_*_test.pyx                                                    :CLEANUP:
+- setUp()/tearDown() to handle all the boilerplate (HostData, TimeMapper, ...).
+
+* Split libnoisicaa-audioproc-vm into two                                                :CLEANUP:
+- noisicaa/audioproc/core/ for musical_time, time_mapper, ..
+  - all the stuff that is imported from outside of audioproc
+- noisicaa/audioproc/vm/ should be private to audioproc
+
+* Switch UI to use PropertyChange instances for listeners                                :CLEANUP:
+- make it more like music
+- fix ObjectProxy.property_changed
+  - this method still needed for other reasons, or can the listener be called directly?
+- remove duplicate code related to duration tracking from ui/model.py, base_track.py,
+  track_group.py and move it to music/model.py.
+
+* Handle crashes of audio process gracefully again.                                           :FR:
+- audio process refuses to restart, because fifo file already exists.
+  unlink before opening?
+- project process sends audioproc address when audio process starts up.
+- IPC node and UI must gracefully handle dead connection to audio process and wait for new
+  address when it gets restarted by the project
+  - should they notify the project, or will it always notice on its own, when the audio
+    process is dead?
+  - can this logic be hidden in the ProjectClient?
+- music.Player notifies client (UI) of audio proc address, after process was started
+- music.Player keeps track of current PlayerState, and re-applies it, if backend restarts
 
 * Rework how time signatures are managed                                                     :BUG:
 - Currently duration is a property of Measure. It uses the time signature of the measure in the
@@ -38,6 +96,31 @@
   - should be the default, with some extra step to have a different time signature on certain
     tracks.
 - Set # measures dialog has list of tracks, select which tracks to affect
+* Cleanup message passing                                                                :CLEANUP:
+- which types of messages exist
+  - UI to project (player commands, ...)
+  - UI to audioproc processor (note on/off events to the track's 'source' node)
+  - project to UI (player state changes, playback pos updates, ...)
+  - project to audioproc VM (player commands, ...)
+  - project to audioproc processors (sync model changes, ...)
+    - AudioProcClient.send_node_message()
+  - audioproc VM to (player state changes, playback pos updates, ...)
+  - audioproc processors to project (notifications, ...)
+- unify the different ways.
+
+* Use __builtin_expect() to optimize conditions in vm                                    :CLEANUP:
+E.g. use unlikely() when checking for error conditions.
+Is there some cross-compiler/-platform header to provide this functionality?
+
+* Evaluate performance of exceptions vs. Status returns                                  :CLEANUP:
+- build test case
+- compare
+  - Status with -fno-exceptions
+  - Status without -fno-exceptions
+  - Exceptions
+  - Case without exception raised/error status
+  - Case with exception raised/error status
+
 * Improve ArrangeMeasuresTool                                                                 :FR:
 - remove selection when switching away from tool
 - Use QClipboard
@@ -64,6 +147,7 @@
 - move notes up/down
 - change duration
 
+* ProcessorCSoundBase must handle csound_{orchestra,score} parameter changes at runtime      :BUG:
 * Remember selected tool in session                                                           :FR:
 * Rendering of edit actions                                                                   :FR:
 - separate modelstate object with generator interface for model state
@@ -128,7 +212,7 @@
 * Control values									      :FR:
 - at beginning of block, take current list, apply CVs by writing values to buffers
 
-* Section on the timeline                                                                     :FR:
+* Sections on the timeline                                                                    :FR:
 - have different regions in time within the project, e.g. for experiments, etc.
   - tracks can be discontinuous, i.e. measures don't need to line up
   - each measure tracks its position in time
@@ -185,7 +269,18 @@
 * ProcessorCSound									      :FR:
 - use block size for ksmps
 - allow any ksmps with block_size % ksmps == 0
-* Use CMAKE_BUILD_TYPE to set the right compiler flags					      :FR:
+* Improve CMakeLists.txt                                                                 :CLEANUP:
+- Use CMAKE_BUILD_TYPE to set the right compiler flags
+- .pyx should depend on cimported .pxd files
+- don't make every file a separate target
+  - does that make the build faster (if just a few files changed)?
+  - single target for each python package
+  - target depends on .py, .so, etc. files, plus rules to generate from src
+    - have macros:
+      python_module(foo) -> foo.py
+      cython_module(foo) -> foo.so
+      etc. for pb, capnp, ...
+
 * Reduce duplication in noisicaa/music/*_test.py					 :CLEANUP:
 - create TestProject class
   - has dummy node_db (with builtin stuff and selected other stuff)
@@ -196,24 +291,10 @@
 * Improve noisicaa.core.stats_test							 :CLEANUP:
 The module's code changed a lot, but the unittest wasn't updated.
 
-* Move pianoroll into VM								      :FR:
-- player collects mutations from track
-- sends batch of mutations along with FrameData
-- pianoroll node in VM applies mutations on frame start, generates events into output buffer
-- player doesn't generate track buffer anymore
-- no need to share lock between player thread and project process (except for list of mutations,
-  which could be lock-free queue?)
-- currently BufferSource operates with musical time. port TimeMapper to c++ or build event set
-  using sample times? latter would need full regen whenever BPM changes...
-- similar approach for control and sample tracks (have structure optimized for playback in VM,
-  keep in sync with project state via mutations).
-
 * Loop start/end move around when BPM is changed					     :BUG:
 because they're tracked in sample time, not music time
 can also cause crashes on BPM changes, if loop marker go out of range
 
-* TimeLine xoffset incorrect when playback pos gets near the end 			     :BUG:
-- need to compute proper content size to know what the max x position is.
 * ProjectDebugger: list command log 							      :FR:
 * ProjectDebugger: create new snapshot 							      :FR:
 * ProjectDebugger: purge command log 							      :FR:
@@ -1107,9 +1188,6 @@ Assorted TODOs
 * load/save project
 * remember opened projects
 * recent projects menu
-* track project is modified status
-* display in tab title
-* autosave
 * bookmarks
 * project properties
 * composer, copyright, etc.

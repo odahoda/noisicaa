@@ -114,7 +114,7 @@ Status ProcessorLadspa::connect_port(uint32_t port_idx, BufferPtr buf) {
   return Status::Ok();
 }
 
-Status ProcessorLadspa::run(BlockContext* ctxt) {
+Status ProcessorLadspa::run(BlockContext* ctxt, TimeMapper* time_mapper) {
   PerfTracker tracker(ctxt->perf.get(), "ladspa");
 
   _descriptor->run(_instance, ctxt->block_size);

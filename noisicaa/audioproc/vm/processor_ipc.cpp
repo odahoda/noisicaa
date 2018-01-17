@@ -69,7 +69,7 @@ Status ProcessorIPC::connect_port(uint32_t port_idx, BufferPtr buf) {
   return Status::Ok();
 }
 
-Status ProcessorIPC::run(BlockContext* ctxt) {
+Status ProcessorIPC::run(BlockContext* ctxt, TimeMapper* time_mapper) {
   PerfTracker tracker(ctxt->perf.get(), "ipc");
 
   ::capnp::MallocMessageBuilder message_builder;

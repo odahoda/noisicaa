@@ -38,7 +38,7 @@ class TestPortAudioBackend(unittest.TestCase):
         host_data.reset(new HostData())
 
         cdef unique_ptr[VM] vm
-        vm.reset(new VM(host_data.get()))
+        vm.reset(new VM(host_data.get(), NULL))
 
         cdef BackendSettings backend_settings
 

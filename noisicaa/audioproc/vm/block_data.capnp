@@ -38,4 +38,5 @@ struct BlockData {
   buffers @2 :List(Buffer);
   messages @3 :List(Data);
   perfData @4 :PerfStats;
+  timeMap @5 :Data;
 }

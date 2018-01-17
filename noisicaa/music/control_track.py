@@ -21,49 +21,45 @@
 # @end:license
 
 import logging
-
-import numpy
+import random
 
 from noisicaa import core
 from noisicaa import audioproc
 
-from .time import Duration
 from . import model
 from . import state
 from . import commands
-from . import mutations
 from . import base_track
 from . import pipeline_graph
 from . import misc
-from . import time_mapper
 
 logger = logging.getLogger(__name__)
 
 
 class AddControlPoint(commands.Command):
-    timepos = core.Property(Duration)
+    time = core.Property(audioproc.MusicalTime)
     value = core.Property(float)
 
-    def __init__(self, timepos=None, value=None, state=None):
+    def __init__(self, time=None, value=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.timepos = timepos
+            self.time = time
             self.value = value
 
     def run(self, track):
         assert isinstance(track, ControlTrack)
 
         for insert_index, point in enumerate(track.points):
-            if point.timepos == self.timepos:
+            if point.time == self.time:
                 raise ValueError("Duplicate control point")
-            if point.timepos > self.timepos:
+            if point.time > self.time:
                 break
         else:
             insert_index = len(track.points)
 
         track.points.insert(
             insert_index,
-            ControlPoint(timepos=self.timepos, value=self.value))
+            ControlPoint(time=self.time, value=self.value))
 
 commands.Command.register_command(AddControlPoint)
 
@@ -90,14 +86,14 @@ commands.Command.register_command(RemoveControlPoint)
 
 class MoveControlPoint(commands.Command):
     point_id = core.Property(str)
-    timepos = core.Property(Duration, allow_none=True)
+    time = core.Property(audioproc.MusicalTime, allow_none=True)
     value = core.Property(float, allow_none=True)
 
-    def __init__(self, point_id=None, timepos=None, value=None, state=None):
+    def __init__(self, point_id=None, time=None, value=None, state=None):
         super().__init__(state=state)
         if state is None:
             self.point_id = point_id
-            self.timepos = timepos
+            self.time = time
             self.value = value
 
     def run(self, track):
@@ -107,19 +103,19 @@ class MoveControlPoint(commands.Command):
         point = root.get_object(self.point_id)
         assert point.is_child_of(track)
 
-        if self.timepos is not None:
+        if self.time is not None:
             if not point.is_first:
-                if self.timepos <= point.prev_sibling.timepos:
+                if self.time <= point.prev_sibling.time:
                     raise ValueError("Control point out of order.")
             else:
-                if self.timepos < Duration(0, 4):
+                if self.time < audioproc.MusicalTime(0, 4):
                     raise ValueError("Control point out of order.")
 
             if not point.is_last:
-                if self.timepos >= point.next_sibling.timepos:
+                if self.time >= point.next_sibling.time:
                     raise ValueError("Control point out of order.")
 
-            point.timepos = self.timepos
+            point.time = self.time
 
         if self.value is not None:
             # TODO: check that value is in valid range.
@@ -129,75 +125,100 @@ commands.Command.register_command(MoveControlPoint)
 
 
 class ControlPoint(model.ControlPoint, state.StateBase):
-    def __init__(self, timepos=None, value=None, state=None, **kwargs):
+    def __init__(self, time=None, value=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
         if state is None:
-            self.timepos = timepos
+            self.time = time
             self.value = value
 
 state.StateBase.register_class(ControlPoint)
 
 
-class ControlBufferSource(base_track.BufferSource):
-    def __init__(self, track):
-        super().__init__(track)
+class ControlTrackConnector(base_track.TrackConnector):
+    def __init__(self, track, node_id, player):
+        super().__init__(track, player)
 
-        self.time_mapper = time_mapper.TimeMapper(self._project)
+        self.__node_id = node_id
+        self.__listeners = {}
+        self.__point_ids = {}
 
-    def get_buffers(self, ctxt):
-        output = numpy.zeros(shape=ctxt.block_size, dtype=numpy.float32)
+        self.__listeners['points'] = self._track.listeners.add(
+            'points', self.__points_list_changed)
 
-        buffer_id = 'track:%s' % self._track.id
-        try:
-            buf = ctxt.buffers[buffer_id]
-        except KeyError:
-            pass
-        else:
-            # Copy prepend existing buffer.
-            output[:ctxt.offset] = numpy.frombuffer(
-                buf.data, count=ctxt.offset, dtype=numpy.float32)
+        for point in self._track.points:
+            self.__add_point(point)
 
-        if len(self._track.points) > 0:
-            timepos = self.time_mapper.sample2timepos(ctxt.sample_pos)
-            for point in self._track.points:
-                if timepos <= point.timepos:
-                    if point.is_first:
-                        output[ctxt.offset:ctxt.offset+ctxt.length] = numpy.full(
-                            ctxt.length, point.value, dtype=numpy.float32)
-                    else:
-                        prev = point.prev_sibling
+    def close(self):
+        for listener in self.__listeners.values():
+            listener.remove()
+        self.__listeners.clear()
 
-                        # TODO: don't use a constant value per frame,
-                        # compute control value at a-rate.
-                        value = (
-                            prev.value
-                            + (timepos - prev.timepos)
-                            * (point.value - prev.value)
-                            / (point.timepos - prev.timepos))
-                        output[ctxt.offset:ctxt.offset+ctxt.length] = numpy.full(
-                            ctxt.length, value, dtype=numpy.float32)
-                    break
-            else:
-                output[ctxt.offset:ctxt.offset+ctxt.length] = numpy.full(
-                    ctxt.length, self._track.points[-1].value, dtype=numpy.float32)
+        super().close()
+
+    def __points_list_changed(self, change):
+        if isinstance(change, core.PropertyListInsert):
+            self.__add_point(change.new_value)
+
+        elif isinstance(change, core.PropertyListDelete):
+            self.__remove_point(change.old_value)
 
         else:
-            output[frame_sample_pos:] = numpy.zeros(duration, dtype=numpy.float32)
+            raise TypeError(
+                "Unsupported change type %s" % type(change))
 
-        data = output.tobytes()
-        buf = audioproc.Buffer.new_message()
-        buf.id = buffer_id
-        buf.data = bytes(data)
-        ctxt.buffers[buffer_id] = buf
+    def __add_point(self, point):
+        point_id = self.__point_ids[point.id] = random.getrandbits(64)
+
+        self._player.send_node_message(
+            self.__node_id,
+            audioproc.ProcessorMessage(
+                cvgenerator_add_control_point=audioproc.ProcessorMessage.CVGeneratorAddControlPoint(
+                    id=point_id,
+                    time=point.time.to_proto(),
+                    value=point.value)))
+
+        self.__listeners['cp:%s:time' % point.id] = point.listeners.add(
+            'time', lambda _: self.__point_changed(point))
+
+        self.__listeners['cp:%s:value' % point.id] = point.listeners.add(
+            'value', lambda _: self.__point_changed(point))
+
+    def __remove_point(self, point):
+        point_id = self.__point_ids[point.id]
+
+        self._player.send_node_message(
+            self.__node_id,
+            audioproc.ProcessorMessage(
+                cvgenerator_remove_control_point=(
+                    audioproc.ProcessorMessage.CVGeneratorRemoveControlPoint(id=point_id))))
+
+        self.__listeners.pop('cp:%s:time' % point.id).remove()
+        self.__listeners.pop('cp:%s:value' % point.id).remove()
+
+    def __point_changed(self, point):
+        point_id = self.__point_ids[point.id]
+
+        self._player.send_node_message(
+            self.__node_id,
+            audioproc.ProcessorMessage(
+                cvgenerator_remove_control_point=(
+                    audioproc.ProcessorMessage.CVGeneratorRemoveControlPoint(id=point_id))))
+        self._player.send_node_message(
+            self.__node_id,
+            audioproc.ProcessorMessage(
+                cvgenerator_add_control_point=audioproc.ProcessorMessage.CVGeneratorAddControlPoint(
+                    id=point_id,
+                    time=point.time.to_proto(),
+                    value=point.value)))
 
 
 class ControlTrack(model.ControlTrack, base_track.Track):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
-    def create_buffer_source(self):
-        return ControlBufferSource(self)
+    def create_player_connector(self, player):
+        return ControlTrackConnector(self, self.generator_name, player)
 
     @property
     def mixer_name(self):
@@ -208,27 +229,26 @@ class ControlTrack(model.ControlTrack, base_track.Track):
         return self.parent_mixer_node
 
     @property
-    def control_source_name(self):
-        return '%s-control' % self.id
+    def generator_name(self):
+        return '%s-generator' % self.id
 
     @property
-    def control_source_node(self):
-        for node in self.project.pipeline_graph_nodes:
-            if (isinstance(node, pipeline_graph.ControlSourcePipelineGraphNode)
-                    and node.track is self):
-                return node
-
-        raise ValueError("No control source node found.")
+    def generator_node(self):
+        if self.generator_id is None:
+            raise ValueError("No generator node found.")
+        return self.root.get_object(self.generator_id)
 
     def add_pipeline_nodes(self):
-        control_source_node = pipeline_graph.ControlSourcePipelineGraphNode(
+        generator_node = pipeline_graph.CVGeneratorPipelineGraphNode(
             name="Control Value",
             graph_pos=self.parent_mixer_node.graph_pos - misc.Pos2F(200, 0),
             track=self)
-        self.project.add_pipeline_graph_node(control_source_node)
+        self.project.add_pipeline_graph_node(generator_node)
+        self.generator_id = generator_node.id
 
     def remove_pipeline_nodes(self):
-        self.project.remove_pipeline_graph_node(self.control_source_node)
+        self.project.remove_pipeline_graph_node(self.generator_node)
+        self.generator_id = None
 
 
 state.StateBase.register_class(ControlTrack)

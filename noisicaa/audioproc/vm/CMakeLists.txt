@@ -35,13 +35,19 @@ set(LIB_SRCS
   backend_portaudio.cpp
   buffers.cpp
   control_value.cpp
+  double_buffered_state_manager.cpp
   host_data.cpp
   host_system_lv2.cpp
   host_system_csound.cpp
+  host_system_audio_file.cpp
   misc.cpp
   message_queue.cpp
+  musical_time.cpp
+  musical_time.pb.cc
   opcodes.cpp
+  player.cpp
   processor_spec.cpp
+  processor_message.pb.cc
   processor.cpp
   processor_null.cpp
   processor_ladspa.cpp
@@ -54,15 +60,22 @@ set(LIB_SRCS
   processor_sample_player.cpp
   processor_sound_file.cpp
   processor_track_mixer.cpp
+  processor_pianoroll.cpp
+  processor_cvgenerator.cpp
+  processor_sample_script.cpp
   spec.cpp
+  time_mapper.cpp
   vm.cpp
+  vm.pb.cc
 )
 
 set(TEST_SRCS
   backend_test.pyx
   backend_ipc_test.pyx
   buffers_test.pyx
+  musical_time_test.pyx
   opcodes_test.pyx
+  player_test.pyx
   processor_test.pyx
   processor_ladspa_test.pyx
   processor_lv2_test.pyx
@@ -72,12 +85,22 @@ set(TEST_SRCS
   processor_sample_player_test.pyx
   processor_sound_file_test.pyx
   processor_track_mixer_test.pyx
+  processor_pianoroll_test.pyx
+  processor_cvgenerator_test.pyx
+  processor_sample_script_test.pyx
   spec_test.pyx
+  time_mapper_test.pyx
   vm_test.pyx
 )
 
 add_cpp_capnp(block_data.capnp)
 add_py_capnp(block_data.capnp)
+cpp_proto(musical_time.proto)
+py_proto(musical_time.proto)
+cpp_proto(vm.proto)
+py_proto(vm.proto)
+cpp_proto(processor_message.proto)
+py_proto(processor_message.proto)
 
 add_library(noisicaa-audioproc-vm SHARED ${LIB_SRCS} block_data.capnp.c++)
 target_compile_options(noisicaa-audioproc-vm PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
@@ -98,6 +121,8 @@ target_include_directories(noisicaa-audioproc-vm PRIVATE ${LIBAVUTIL_INCLUDE_DIR
 target_link_libraries(noisicaa-audioproc-vm PRIVATE ${LIBAVUTIL_LIBRARIES})
 target_include_directories(noisicaa-audioproc-vm PRIVATE ${LIBSWRESAMPLE_INCLUDE_DIRS})
 target_link_libraries(noisicaa-audioproc-vm PRIVATE ${LIBSWRESAMPLE_LIBRARIES})
+target_include_directories(noisicaa-audioproc-vm PRIVATE ${LIBPROTOBUF_INCLUDE_DIRS})
+target_link_libraries(noisicaa-audioproc-vm PRIVATE ${LIBPROTOBUF_LIBRARIES})
 
 add_cython_module(audio_stream CXX)
 target_link_libraries(${audio_stream.so} PRIVATE noisicaa-audioproc-vm)
@@ -125,6 +150,12 @@ target_link_libraries(${block_context.so} PRIVATE noisicaa-audioproc-vm)
 
 add_cython_module(backend CXX)
 target_link_libraries(${backend.so} PRIVATE noisicaa-audioproc-vm)
+
+add_cython_module(musical_time CXX)
+target_link_libraries(${musical_time.so} PRIVATE noisicaa-audioproc-vm)
+
+add_cython_module(time_mapper CXX)
+target_link_libraries(${time_mapper.so} PRIVATE noisicaa-audioproc-vm)
 
 add_cython_module(engine CXX)
 target_link_libraries(${engine.so} PRIVATE noisicaa-audioproc-vm)

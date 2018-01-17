@@ -26,6 +26,7 @@ import os.path
 import logging
 import pickle
 import queue
+import sys
 import threading
 import time
 

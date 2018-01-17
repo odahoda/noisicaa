@@ -40,11 +40,12 @@ pkg_check_modules(LIBSNDFILE REQUIRED sndfile)
 pkg_check_modules(LIBFLUIDSYNTH REQUIRED fluidsynth)
 pkg_check_modules(LIBAVUTIL REQUIRED libavutil)
 pkg_check_modules(LIBSWRESAMPLE REQUIRED libswresample)
+pkg_check_modules(LIBPROTOBUF REQUIRED protobuf)
 
 set(LIBCSOUND_INCLUDE_DIRS)
 set(LIBCSOUND_LIBRARIES csound64)
 
-add_compile_options(-g -std=c++11)
+add_compile_options(-O2 -g -std=c++11)
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_BINARY_DIR})
 include_directories($ENV{VIRTUAL_ENV}/include)
@@ -112,6 +113,27 @@ macro(add_cpp_capnp src)
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
   )
 endmacro(add_cpp_capnp)
+
+macro(py_proto src)
+  string(REGEX REPLACE "\\.proto$" "" base ${src})
+  add_custom_command(
+    OUTPUT ${base}_pb2.py
+    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib protoc --python_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
+  )
+  file(RELATIVE_PATH pkg_path ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
+  string(REGEX REPLACE "/" "." pkg_target ${pkg_path})
+  add_custom_target(${pkg_target}.${src} ALL DEPENDS ${base}_pb2.py)
+endmacro(py_proto)
+
+macro(cpp_proto src)
+  string(REGEX REPLACE "\\.proto$" "" base ${src})
+  add_custom_command(
+    OUTPUT ${base}.pb.cc ${base}.pb.h
+    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib protoc --cpp_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
+  )
+endmacro(cpp_proto)
 
 add_subdirectory(noisicaa)
 add_subdirectory(noisidev)

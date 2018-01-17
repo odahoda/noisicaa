@@ -20,12 +20,14 @@
 #
 # @end:license
 
+import fractions
 import logging
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 
+from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import tools
@@ -148,9 +150,9 @@ class EditControlPointsTool(tools.ToolBase):
             self.__moving_point = None
 
             if self.__move_mode != 'vertical':
-                new_timepos = target.xToTimepos(pos.x())
+                new_time = target.xToTime(pos.x())
             else:
-                new_timepos = None
+                new_time = None
 
             if self.__move_mode != 'horizontal':
                 new_value = target.yToValue(pos.y())
@@ -161,7 +163,7 @@ class EditControlPointsTool(tools.ToolBase):
                 target.track.id,
                 'MoveControlPoint',
                 point_id=target.highlightedPoint().point_id,
-                timepos=new_timepos,
+                time=new_time,
                 value=new_value)
 
             evt.accept()
@@ -180,9 +182,9 @@ class EditControlPointsTool(tools.ToolBase):
                 target.setPointPos(self.__moving_point, self.__moving_point_original_pos)
                 self.__moving_point = None
 
-            timepos = target.xToTimepos(evt.pos().x())
+            time = target.xToTime(evt.pos().x())
             for point in target.track.points:
-                if point.timepos == timepos:
+                if point.time == time:
                     self.send_command_async(
                         target.track.id,
                         'MoveControlPoint',
@@ -193,7 +195,7 @@ class EditControlPointsTool(tools.ToolBase):
                 self.send_command_async(
                     target.track.id,
                     'AddControlPoint',
-                    timepos=target.xToTimepos(evt.pos().x()),
+                    time=target.xToTime(evt.pos().x()),
                     value=target.yToValue(evt.pos().y()))
 
             evt.accept()
@@ -215,11 +217,11 @@ class ControlPoint(object):
         self.__point = point
 
         self.__pos = QtCore.QPoint(
-            self.__track_item.timeposToX(self.__point.timepos),
+            self.__track_item.timeToX(self.__point.time),
             self.__track_item.valueToY(self.__point.value))
 
         self.__listeners = [
-            self.__point.listeners.add('timepos', self.onTimeposChanged),
+            self.__point.listeners.add('time', self.onTimeChanged),
             self.__point.listeners.add('value', self.onValueChanged),
         ]
 
@@ -228,9 +230,9 @@ class ControlPoint(object):
             listener.remove()
         self.__listeners.clear()
 
-    def onTimeposChanged(self, old_timepos, new_timepos):
+    def onTimeChanged(self, old_time, new_time):
         self.__pos = QtCore.QPoint(
-            self.__track_item.timeposToX(new_timepos),
+            self.__track_item.timeToX(new_time),
             self.__pos.y())
         self.__track_item.rectChanged.emit(self.__track_item.viewRect())
 
@@ -249,8 +251,8 @@ class ControlPoint(object):
         return self.__point.id
 
     @property
-    def timepos(self):
-        return self.__point.timepos
+    def time(self):
+        return self.__point.time
 
     def pos(self):
         return self.__pos
@@ -258,7 +260,7 @@ class ControlPoint(object):
     def setPos(self, pos):
         if pos is None:
             self.__pos = QtCore.QPoint(
-                self.__track_item.timeposToX(self.__point.timepos),
+                self.__track_item.timeToX(self.__point.time),
                 self.__track_item.valueToY(self.__point.value))
         else:
             self.__pos = pos
@@ -294,7 +296,7 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
         width = 20
         for mref in self.project.property_track.measure_list:
             measure = mref.measure
-            width += int(self.scaleX() * measure.duration)
+            width += int(self.scaleX() * measure.duration.fraction)
         self.setSize(QtCore.QSize(width, 120))
 
     def setHighlightedPoint(self, cpoint):
@@ -355,37 +357,38 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
     def yToValue(self, y):
         return float(self.height() - y) / self.height()
 
-    def timeposToX(self, timepos):
+    def timeToX(self, time):
         x = 10
         for mref in self.project.property_track.measure_list:
             measure = mref.measure
-            width = int(self.scaleX() * measure.duration)
+            width = int(self.scaleX() * measure.duration.fraction)
 
-            if timepos <= measure.duration:
-                return x + int(width * timepos / measure.duration)
+            if time - measure.duration <= audioproc.MusicalTime(0, 1):
+                return x + int(width * (time / measure.duration).fraction)
 
             x += width
-            timepos -= measure.duration
+            time -= measure.duration
 
         return x
 
-    def xToTimepos(self, x):
+    def xToTime(self, x):
         x -= 10
-        timepos = music.Duration(0, 1)
+        time = audioproc.MusicalTime(0, 1)
         if x <= 0:
-            return timepos
+            return time
 
         for mref in self.project.property_track.measure_list:
             measure = mref.measure
-            width = int(self.scaleX() * measure.duration)
+            width = int(self.scaleX() * measure.duration.fraction)
 
             if x <= width:
-                return music.Duration(timepos + measure.duration * music.Duration(int(x), width))
+                return audioproc.MusicalTime(
+                    time + measure.duration * fractions.Fraction(int(x), width))
 
-            timepos += measure.duration
+            time += measure.duration
             x -= width
 
-        return music.Duration(timepos)
+        return time
 
     def leaveEvent(self, evt):
         self.__mouse_pos = None
@@ -412,10 +415,9 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
         super().paint(painter, paintRect)
 
         x = 10
-        timepos = music.Duration()
         for mref in self.project.property_track.measure_list:
             measure = mref.measure
-            width = int(self.scaleX() * measure.duration)
+            width = int(self.scaleX() * measure.duration.fraction)
 
             if x + width > paintRect.x() and x < paintRect.x() + paintRect.width():
                 if mref.is_first:
@@ -428,7 +430,6 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
                     painter.fillRect(x + pos, 0, 1, self.height(), QtGui.QColor(200, 200, 200))
 
             x += width
-            timepos += measure.duration
 
         painter.fillRect(x - 2, 0, 2, self.height(), QtGui.QColor(160, 160, 160))
 

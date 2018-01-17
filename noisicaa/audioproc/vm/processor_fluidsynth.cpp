@@ -138,7 +138,7 @@ Status ProcessorFluidSynth::connect_port(uint32_t port_idx, BufferPtr buf) {
   return Status::Ok();
 }
 
-Status ProcessorFluidSynth::run(BlockContext* ctxt) {
+Status ProcessorFluidSynth::run(BlockContext* ctxt, TimeMapper* time_mapper) {
   PerfTracker tracker(ctxt->perf.get(), "fluidsynth");
 
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];

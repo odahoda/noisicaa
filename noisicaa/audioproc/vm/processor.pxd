@@ -18,7 +18,7 @@
 #
 # @end:license
 
-from libc.stdint cimport uint32_t, uint64_t
+from libc.stdint cimport uint8_t, uint32_t, uint64_t
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
@@ -27,6 +27,8 @@ from .buffers cimport *
 from .block_context cimport *
 from .processor_spec cimport *
 from .host_data cimport *
+from .musical_time cimport *
+from .time_mapper cimport TimeMapper
 
 
 cdef extern from "noisicaa/audioproc/vm/processor.h" namespace "noisicaa" nogil:
@@ -50,8 +52,10 @@ cdef extern from "noisicaa/audioproc/vm/processor.h" namespace "noisicaa" nogil:
         StatusOr[float] get_float_parameter(const string& name)
         Status set_float_parameter(const string& name, float value)
 
+        Status handle_message(const string& msg)
+
         Status connect_port(uint32_t port_idx, BufferPtr buf)
-        Status run(BlockContext* ctxt)
+        Status run(BlockContext* ctxt, TimeMapper* time_mapper)
 
 
 cdef class PyProcessor(object):

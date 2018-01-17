@@ -22,21 +22,13 @@
 
 import asyncio
 import contextlib
-import csv
-import datetime
 import logging
 import os.path
-import pprint
 import tempfile
-import threading
-import time
 import unittest
 from unittest import mock
-import uuid
 
 import asynctest
-import numpy
-import cpuinfo
 
 from noisicaa import constants
 from noisicaa import core
@@ -45,13 +37,11 @@ from noisicaa.audioproc import audioproc_process
 from noisicaa.audioproc import audioproc_client
 from noisicaa.bindings import lv2
 from noisicaa.core import ipc
-from noisicaa.ui import model
 from noisicaa.node_db.private import db as node_db
 from noisidev import perf_stats
 
 from . import project
 from . import player
-from . import project_client
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +64,8 @@ class TestAudioProcClient(
     pass
 
 
+UNSET = object()
+
 class CallbackServer(ipc.Server):
     def __init__(self, event_loop):
         super().__init__(event_loop, 'callback')
@@ -86,11 +78,21 @@ class CallbackServer(ipc.Server):
     async def handle_player_update(self, player_id, kwargs):
         self.player_status_calls.put_nowait(kwargs)
 
-    async def wait_for(self, name):
+    async def wait_for(self, name, value=UNSET):
         while True:
             status = await self.player_status_calls.get()
             if name in status:
-                return status[name]
+                if value is UNSET or status[name] == value:
+                    return status[name]
+
+    async def wait_for_player_state(self, name, value=UNSET):
+        while True:
+            status = await self.player_status_calls.get()
+            if 'player_state' in status:
+                state = status['player_state']
+                if state.HasField(name):
+                    if value is UNSET or getattr(state, name) == value:
+                        return getattr(state, name)
 
 
 class NodeDB(object):
@@ -134,7 +136,7 @@ class PlayerTest(asynctest.TestCase):
             profile_path = os.path.join(tempfile.gettempdir(), self.id() + '.prof')
         self.audioproc_server_player = audioproc_process.AudioProcProcess(
             name='player_process', event_loop=self.loop, manager=None,
-            profile_path=profile_path)
+            profile_path=profile_path, enable_player=True)
         await self.audioproc_server_player.setup()
         self.audioproc_server_player_task = self.loop.create_task(
             self.audioproc_server_player.run())
@@ -144,6 +146,7 @@ class PlayerTest(asynctest.TestCase):
             assert cmd == 'CREATE_AUDIOPROC_PROCESS'
             name, = args
             assert name == 'player'
+            assert kwargs.get('enable_player', False)
             return self.audioproc_server_player.server.address
         self.mock_manager.call.side_effect = mock_call
 
@@ -197,7 +200,6 @@ class PlayerTest(asynctest.TestCase):
 
     @unittest.skip("TODO: async status updates are flaky")
     async def test_playback_demo(self):
-        logger.info("Yo!")
         p = player.Player(self.project, self.callback_server.address, self.mock_manager, self.loop)
         try:
             logger.info("Setup player...")
@@ -207,7 +209,7 @@ class PlayerTest(asynctest.TestCase):
             await self.audioproc_client_main.add_node(
                 description=self.node_db.get_node_description('builtin://ipc'),
                 id='player',
-                initial_parameters=dict(ipc_address=p.proxy_address))
+                initial_parameters=dict(ipc_address=p.audiostream_address))
             await self.audioproc_client_main.connect_ports(
                 'player', 'out:left', 'sink', 'in:left')
             await self.audioproc_client_main.connect_ports(
@@ -223,17 +225,13 @@ class PlayerTest(asynctest.TestCase):
 
                 with self.track_frame_stats('playback_demo'):
                     logger.info("Start playback...")
-                    await p.update_settings(project_client.PlayerSettings(state='playing'))
+                    await p.update_state(audioproc.PlayerState(playing=True))
 
-                    self.assertEqual(
-                        await self.callback_server.wait_for('player_state'),
-                        'playing')
+                    await self.callback_server.wait_for_player_state('playing', True)
 
                     logger.info("Waiting for end...")
 
-                    self.assertEqual(
-                        await self.callback_server.wait_for('player_state'),
-                        'stopped')
+                    await self.callback_server.wait_for_player_state('playing', False)
                     logger.info("Playback finished.")
 
             finally:
@@ -259,7 +257,7 @@ class PlayerTest(asynctest.TestCase):
             await self.audioproc_client_main.add_node(
                 description=self.node_db.get_node_description('builtin://ipc'),
                 id='player',
-                initial_parameters=dict(ipc_address=p.proxy_address))
+                initial_parameters=dict(ipc_address=p.audiostream_address))
             await self.audioproc_client_main.connect_ports(
                 'player', 'out:left', 'sink', 'in:left')
             await self.audioproc_client_main.connect_ports(

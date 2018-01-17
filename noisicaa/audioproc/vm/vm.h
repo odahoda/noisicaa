@@ -45,6 +45,8 @@ class Backend;
 class BlockContext;
 class HostData;
 class NotificationQueue;
+class Player;
+class TimeMapper;
 
 class Program {
 public:
@@ -58,6 +60,7 @@ public:
   unique_ptr<const Spec> spec;
   uint32_t block_size;
   vector<unique_ptr<Buffer>> buffers;
+  unique_ptr<TimeMapper> time_mapper;
 
 private:
   Logger* _logger;
@@ -88,7 +91,7 @@ struct ActiveControlValue {
 
 class VM {
 public:
-  VM(HostData* host_data);
+  VM(HostData* host_data, Player* player);
   ~VM();
 
   Status setup();
@@ -102,6 +105,8 @@ public:
 
   Status set_float_control_value(const string& name, float value);
 
+  Status send_processor_message(uint64_t processor_id, const string& msg_serialized);
+
   Status process_block(Backend* backend, BlockContext* ctxt);
 
   Buffer* get_buffer(const string& name);
@@ -110,8 +115,9 @@ private:
   void activate_program(Program* program);
   void deactivate_program(Program* program);
 
-  Logger* _logger;
-  HostData* _host_data;
+  Logger* _logger = nullptr;
+  HostData* _host_data = nullptr;
+  Player* _player = nullptr;
   atomic<uint32_t> _block_size;
   atomic<Program*> _next_program;
   atomic<Program*> _current_program;

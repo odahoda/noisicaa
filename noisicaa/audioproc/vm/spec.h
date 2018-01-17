@@ -30,6 +30,7 @@
 #include <vector>
 #include <stdint.h>
 #include "noisicaa/core/status.h"
+#include "noisicaa/audioproc/vm/musical_time.h"
 #include "noisicaa/audioproc/vm/opcodes.h"
 
 namespace noisicaa {
@@ -52,6 +53,12 @@ public:
 
   Spec(const Spec&) = delete;
   Spec operator=(const Spec&) = delete;
+
+  void set_bpm(uint32_t bpm) { _bpm = bpm; }
+  uint32_t bpm() const { return _bpm; }
+
+  void set_duration(MusicalDuration duration) { _duration = duration; }
+  MusicalDuration duration() const { return _duration; }
 
   Status append_opcode(OpCode opcode, ...);
   Status append_opcode_args(OpCode opcode, const vector<OpArg>& args);
@@ -76,6 +83,8 @@ public:
   StatusOr<int> get_processor_idx(const Processor* processor);
 
 private:
+  uint32_t _bpm = 120;
+  MusicalDuration _duration = MusicalDuration(2, 1);
   vector<Instruction> _opcodes;
   vector<Processor*> _processors;
   map<uint64_t, int> _processor_map;

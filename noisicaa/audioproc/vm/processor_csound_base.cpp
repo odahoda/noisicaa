@@ -53,7 +53,7 @@ void ProcessorCSoundBase::_log_cb(CSOUND* csnd, int attr, const char* fmt, va_li
 }
 
 void ProcessorCSoundBase::_log_cb(int attr, const char* fmt, va_list args) {
-  LogLevel level;
+  LogLevel level = LogLevel::INFO;
   switch (attr & CSOUNDMSG_TYPE_MASK) {
   case CSOUNDMSG_ORCH:
   case CSOUNDMSG_REALTIME:
@@ -228,7 +228,7 @@ Status ProcessorCSoundBase::connect_port(uint32_t port_idx, BufferPtr buf) {
   return Status::Ok();
 }
 
-Status ProcessorCSoundBase::run(BlockContext* ctxt) {
+Status ProcessorCSoundBase::run(BlockContext* ctxt, TimeMapper* time_mapper) {
   PerfTracker tracker(ctxt->perf.get(), "csound");
 
   for (uint32_t port_idx = 0 ; port_idx < _buffers.size() ; ++port_idx) {

@@ -30,6 +30,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.ui import tools
 from noisicaa.ui import ui_base
@@ -191,7 +192,7 @@ class BaseTrackEditorItem(BaseTrackItem):
     def playerState(self):
         return self.__player_state
 
-    def setPlaybackPos(self, timepos):
+    def setPlaybackPos(self, time):
         pass
 
     def mouseMoveEvent(self, evt):
@@ -232,6 +233,7 @@ class BaseMeasureEditorItem(ui_base.ProjectMixin, selection_set.Selectable, QtCo
         super().__init__(**kwargs)
 
         self.__top_left = QtCore.QPoint()
+        self.__playback_time = None
         self.__track_item = track_item
 
     def close(self):
@@ -244,6 +246,10 @@ class BaseMeasureEditorItem(ui_base.ProjectMixin, selection_set.Selectable, QtCo
     @property
     def track(self):
         return self.__track_item.track
+
+    @property
+    def duration(self):
+        raise NotImplementedError
 
     @property
     def index(self):
@@ -281,6 +287,17 @@ class BaseMeasureEditorItem(ui_base.ProjectMixin, selection_set.Selectable, QtCo
         return QtCore.QRect(
             self.track_item.viewTopLeft() + self.topLeft(), self.size())
 
+    def playbackPos(self):
+        return self.__playback_time
+
+    def clearPlaybackPos(self):
+        self.__playback_time = None
+        self.rectChanged.emit(self.viewRect())
+
+    def setPlaybackPos(self, time):
+        self.__playback_time = time
+        self.rectChanged.emit(self.viewRect())
+
     def buildContextMenu(self, menu, pos):
         pass
 
@@ -312,8 +329,6 @@ class MeasureEditorItem(BaseMeasureEditorItem):
         self.__measure_listener = self.__measure_reference.listeners.add(
             'measure_id', self.__measureChanged)
 
-        self.__playback_timepos = None
-
         self.__selected = False
         self.__hovered = False
 
@@ -337,6 +352,10 @@ class MeasureEditorItem(BaseMeasureEditorItem):
         super().close()
 
     @property
+    def duration(self):
+        return self.__measure.duration
+
+    @property
     def measure_reference(self):
         return self.__measure_reference
 
@@ -351,7 +370,7 @@ class MeasureEditorItem(BaseMeasureEditorItem):
             and self.__measure_reference.index == 0)
 
     def width(self):
-        return int(self.scaleX() * self.measure.duration)
+        return int(self.scaleX() * self.measure.duration.fraction)
 
     def addMeasureListeners(self):
         raise NotImplementedError
@@ -394,17 +413,6 @@ class MeasureEditorItem(BaseMeasureEditorItem):
             self.project.id, 'RemoveMeasure',
             tracks=[self.track.index],
             pos=self.measure_reference.index)
-
-    def playbackPos(self):
-        return self.__playback_timepos
-
-    def clearPlaybackPos(self):
-        self.__playback_timepos = None
-        self.rectChanged.emit(self.viewRect())
-
-    def setPlaybackPos(self, timepos):
-        self.__playback_timepos = timepos
-        self.rectChanged.emit(self.viewRect())
 
     def setSelected(self, selected):
         if selected != self.__selected:
@@ -480,6 +488,10 @@ class Appendix(BaseMeasureEditorItem):
 
         self.__hover = False
 
+    @property
+    def duration(self):
+        return audioproc.MusicalDuration(1, 1)
+
     def setHover(self, hover):
         if hover != self.__hover:
             self.__hover = hover
@@ -509,6 +521,10 @@ class Appendix(BaseMeasureEditorItem):
             painter.drawLine(x2, y1, x2, y2)
             painter.drawLine(x2, y2, x1, y2)
             painter.drawLine(x1, y2, x1, y1)
+
+        if self.playbackPos() is not None:
+            pos = int(self.width() * (self.playbackPos() / self.duration).fraction)
+            painter.fillRect(pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
 
     def leaveEvent(self, evt):
         self.setHover(False)
@@ -805,19 +821,18 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
         super().setScaleX(scale_x)
         self.updateMeasures()
 
-    def setPlaybackPos(self, timepos):
+    def setPlaybackPos(self, time):
         if self.__measure_item_at_playback_pos is not None:
             self.__measure_item_at_playback_pos.clearPlaybackPos()
             self.__measure_item_at_playback_pos = None
 
-        measure_timepos = music.Duration()
+        measure_time = audioproc.MusicalTime()
         for measure_item in self.measure_items():
-            measure = measure_item.measure
-            if measure_timepos <= timepos < measure_timepos + measure.duration:
-                measure_item.setPlaybackPos(timepos - measure_timepos)
+            if measure_time <= time < measure_time + measure_item.duration:
+                measure_item.setPlaybackPos(time - measure_time)
                 self.__measure_item_at_playback_pos = measure_item
                 break
-            measure_timepos += measure.duration
+            measure_time += measure_item.duration
 
     def measureItemAt(self, pos):
         p = QtCore.QPoint(10, 0)

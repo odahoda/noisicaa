@@ -24,18 +24,14 @@ import functools
 import logging
 
 from noisicaa import core
+from noisicaa import audioproc
 
-from .time import Duration
 from .pitch import Pitch
 from . import model
 from . import state
 from . import commands
-from . import mutations
 from . import pipeline_graph
 from . import misc
-from . import time_mapper
-from . import event_set
-from . import time
 from . import base_track
 
 logger = logging.getLogger(__name__)
@@ -91,18 +87,18 @@ commands.Command.register_command(SetBeatVelocity)
 
 
 class AddBeat(commands.Command):
-    timepos = core.Property(Duration)
+    time = core.Property(audioproc.MusicalDuration)
 
-    def __init__(self, timepos=None, state=None):
+    def __init__(self, time=None, state=None):
         super().__init__(state=state)
         if state is None:
-            self.timepos = timepos
+            self.time = time
 
     def run(self, measure):
         assert isinstance(measure, BeatMeasure)
 
-        beat = Beat(timepos=self.timepos, velocity=100)
-        assert 0 <= beat.timepos < measure.duration
+        beat = Beat(time=self.time, velocity=100)
+        assert audioproc.MusicalDuration(0, 1) <= beat.time < measure.duration
         measure.beats.append(beat)
 
 commands.Command.register_command(AddBeat)
@@ -129,11 +125,11 @@ commands.Command.register_command(RemoveBeat)
 
 class Beat(model.Beat, state.StateBase):
     def __init__(self,
-                 timepos=None, velocity=None,
+                 time=None, velocity=None,
                  state=None):
         super().__init__(state=state)
         if state is None:
-            self.timepos = timepos
+            self.time = time
             self.velocity = velocity
 
     def property_changed(self, changes):
@@ -157,12 +153,7 @@ class BeatMeasure(model.BeatMeasure, base_track.Measure):
 state.StateBase.register_class(BeatMeasure)
 
 
-class BeatBufferSource(base_track.EventSetBufferSource):
-    def _create_connector(self, track, event_set):
-        return EventSetConnector(track, event_set)
-
-
-class EventSetConnector(base_track.MeasuredEventSetConnector):
+class BeatTrackConnector(base_track.MeasuredTrackConnector):
     def _add_track_listeners(self):
         self._listeners['pitch'] = self._track.listeners.add(
             'pitch', self.__pitch_changed)
@@ -175,10 +166,11 @@ class EventSetConnector(base_track.MeasuredEventSetConnector):
     def _remove_measure_listeners(self, mref):
         self._listeners.pop('measure:%s:beats' % mref.id).remove()
 
-    def _create_events(self, timepos, measure):
+    def _create_events(self, time, measure):
         for beat in measure.beats:
-            event = event_set.NoteEvent(
-                beat.timepos + timepos, beat.timepos + timepos + time.Duration(1, 4),
+            beat_time = time + beat.time
+            event = base_track.PianoRollInterval(
+                beat_time, beat_time + audioproc.MusicalDuration(1, 4),
                 self._track.pitch, 127)
             yield event
 
@@ -211,8 +203,8 @@ class BeatTrack(model.BeatTrack, base_track.MeasuredTrack):
             for _ in range(num_measures):
                 self.append_measure()
 
-    def create_buffer_source(self):
-        return BeatBufferSource(self)
+    def create_player_connector(self, player):
+        return BeatTrackConnector(self, self.event_source_name, player)
 
     @property
     def event_source_name(self):
@@ -254,7 +246,7 @@ class BeatTrack(model.BeatTrack, base_track.MeasuredTrack):
             pipeline_graph.PipelineGraphConnection(
                 instrument_node, 'out:right', self.mixer_node, 'in:right'))
 
-        event_source_node = pipeline_graph.EventSourcePipelineGraphNode(
+        event_source_node = pipeline_graph.PianoRollPipelineGraphNode(
             name="Track Events",
             graph_pos=instrument_node.graph_pos - misc.Pos2F(200, 0),
             track=self)

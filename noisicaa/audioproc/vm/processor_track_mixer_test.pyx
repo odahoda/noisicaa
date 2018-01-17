@@ -89,12 +89,12 @@ class TestProcessorTrackMixer(unittest.TestCase):
         muted = 0.0
         pan = 0.0
 
-        check(processor.run(ctxt.get()))
+        check(processor.run(ctxt.get(), NULL))  # TODO: pass time_mapper
         self.assertTrue(any(v != 0.0 for v in outleftbuf))
         self.assertTrue(any(v != 0.0 for v in outrightbuf))
 
         muted = 1.0
-        check(processor.run(ctxt.get()))
+        check(processor.run(ctxt.get(), NULL))  # TODO: pass time_mapper
         self.assertTrue(any(v == 0.0 for v in outleftbuf))
         self.assertTrue(any(v == 0.0 for v in outrightbuf))
 

@@ -18,8 +18,13 @@
 #
 # @end:license
 
+cimport cython
+
+import os
+
 from .host_data cimport *
 from .processor_spec cimport *
+
 
 cdef class PyProcessor(object):
     def __init__(self, node_id, PyHostData host_data, name, PyProcessorSpec spec):

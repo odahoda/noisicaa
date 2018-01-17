@@ -20,14 +20,21 @@
 
 from libc.stdint cimport uint32_t
 from libcpp.memory cimport unique_ptr
+from libcpp.vector cimport vector
 
 from noisicaa.core.perf_stats cimport *
+from .musical_time cimport *
 from .message_queue cimport *
 
 cdef extern from "noisicaa/audioproc/vm/block_context.h" namespace "noisicaa" nogil:
+    struct SampleTime:
+        MusicalTime start_time
+        MusicalTime end_time
+
     struct BlockContext:
         uint32_t block_size
         uint32_t sample_pos
+        vector[SampleTime] time_map
         unique_ptr[PerfStats] perf
         unique_ptr[MessageQueue] out_messages
 

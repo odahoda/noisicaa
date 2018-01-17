@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+package noisicaa.pb;
+
+message MusicalTime {
+  optional int64 numerator = 1 [default=0];
+  optional int64 denominator = 2 [default=1];
+}
+
+message MusicalDuration {
+  optional int64 numerator = 1 [default=0];
+  optional int64 denominator = 2 [default=1];
+}

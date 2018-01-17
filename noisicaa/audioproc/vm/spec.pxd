@@ -18,6 +18,7 @@
 #
 # @end:license
 
+from libc.stdint cimport uint32_t
 from libcpp.vector cimport vector
 from libcpp.memory cimport unique_ptr
 
@@ -26,9 +27,17 @@ from .buffers cimport *
 from .control_value cimport *
 from .opcodes cimport *
 from .processor cimport *
+from .musical_time cimport MusicalDuration
+
 
 cdef extern from "noisicaa/audioproc/vm/spec.h" namespace "noisicaa" nogil:
     cppclass Spec:
+        void set_bpm(uint32_t bpm)
+        uint32_t bpm() const
+
+        void set_duration(MusicalDuration duration)
+        MusicalDuration duration() const
+
         Status append_opcode(OpCode opcode, ...)
         Status append_opcode_args(OpCode opcode, const vector[OpArg]& args)
         int num_ops() const

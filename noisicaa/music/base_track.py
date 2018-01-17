@@ -21,20 +21,16 @@
 # @end:license
 
 import logging
+import random
 
-from noisicaa.bindings import lv2
-from noisicaa import audioproc
 from noisicaa import core
+from noisicaa import audioproc
 
 from . import model
 from . import state
 from . import commands
-from . import mutations
 from . import pipeline_graph
 from . import misc
-from . import time
-from . import event_set
-from . import time_mapper
 
 logger = logging.getLogger(__name__)
 
@@ -148,12 +144,24 @@ class UpdateTrackProperties(commands.Command):
 commands.Command.register_command(UpdateTrackProperties)
 
 
+class TrackConnector(object):
+    def __init__(self, track, player):
+        self._track = track
+        self._player = player
+
+    def close(self):
+        pass
+
+
 class Track(model.Track, state.StateBase):
     def __init__(self, name=None, state=None):
         super().__init__(state)
 
         if state is None:
             self.name = name
+
+    def create_player_connector(self, player):
+        raise NotImplementedError
 
     @property
     def parent_mixer_name(self):
@@ -229,107 +237,47 @@ class MeasureReference(model.MeasureReference, state.StateBase):
 state.StateBase.register_class(MeasureReference)
 
 
-class BufferSource(object):
-    def __init__(self, track):
-        self._track = track
-        self._project = track.project
+class PianoRollInterval(object):
+    def __init__(self, begin, end, pitch, velocity):
+        self.id = random.getrandbits(64)
+        self.begin = begin
+        self.end = end
+        self.pitch = pitch
+        self.velocity = velocity
 
-    def close(self):
-        pass
+    def __str__(self):
+        return '<PianoRollInterval id=%016x begin=%s end=%s pitch=%s velocity=%s>' % (
+            self.id, self.begin, self.end, self.pitch, self.velocity)
+    __repr__ = __str__
 
-    def get_buffers(self, ctxt):
-        raise NotImplementedError
+    def create_add_message(self):
+        return audioproc.ProcessorMessage(
+            pianoroll_add_interval=audioproc.ProcessorMessage.PianoRollAddInterval(
+                id=self.id,
+                start_time=self.begin.to_proto(),
+                end_time=self.end.to_proto(),
+                pitch=self.pitch.midi_note,
+                velocity=self.velocity))
 
-
-class EventSetBufferSource(BufferSource):
-    def __init__(self, track):
-        super().__init__(track)
-        self.__event_set = event_set.EventSet()
-        self.__active_notes = set()
-        self.__connector = self._create_connector(track, self.__event_set)
-        self.__time_mapper = time_mapper.TimeMapper(track.project)
-
-    def _create_connector(self, track, event_set):
-        raise NotImplementedError
-
-    def close(self):
-        self.__connector.close()
-        super().close()
-
-    def get_buffers(self, ctxt):
-        start_timepos = self.__time_mapper.sample2timepos(ctxt.sample_pos)
-        end_timepos = self.__time_mapper.sample2timepos(ctxt.sample_pos + ctxt.length)
-        buffer_id = 'track:%s' % self._track.id
-
-        data = bytearray(10240)
-        forge = lv2.AtomForge(lv2.static_mapper)
-        forge.set_buffer(data, len(data))
-
-        with forge.sequence():
-            try:
-                buf = ctxt.buffers[buffer_id]
-            except KeyError:
-                pass
-            else:
-                # Copy events from existing buffer.
-                for event in lv2.wrap_atom(lv2.static_mapper, buf.data).events:
-                    atom = event.atom
-                    forge.write_atom_event(
-                        event.frames,
-                        atom.type_urid, atom.data, atom.size)
-
-            # Send noteoff events for all currently active notes, which should not be active
-            # at the beginning of this range.
-            currently_active = set()
-            for event in sorted(self.__event_set.get_intervals_at(start_timepos)):
-                currently_active.add(event.pitch.midi_note)
-
-            for note in self.__active_notes - currently_active:
-                forge.write_midi_event(
-                    ctxt.offset,
-                    bytes([0b10000000, note, 0]),
-                    3)
-                self.__active_notes.discard(note)
-
-            # TODO: is it guaranteed that all generated events are in ascending time?
-            for event in sorted(self.__event_set.get_intervals(start_timepos, end_timepos)):
-                if event.begin >= start_timepos:
-                    sample_pos = self.__time_mapper.timepos2sample(event.begin)
-                    assert ctxt.sample_pos <= sample_pos < ctxt.sample_pos + ctxt.length
-                    self.__active_notes.add(event.pitch.midi_note)
-                    forge.write_midi_event(
-                        sample_pos - ctxt.sample_pos + ctxt.offset,
-                        bytes([0b10010000, event.pitch.midi_note, event.velocity]),
-                        3)
-
-                if event.end < end_timepos:
-                    sample_pos = self.__time_mapper.timepos2sample(event.end)
-                    assert ctxt.sample_pos <= sample_pos < ctxt.sample_pos + ctxt.length
-                    self.__active_notes.discard(event.pitch.midi_note)
-                    forge.write_midi_event(
-                        sample_pos - ctxt.sample_pos + ctxt.offset,
-                        bytes([0b10000000, event.pitch.midi_note, 0]),
-                        3)
-
-        buf = audioproc.Buffer.new_message()
-        buf.id = buffer_id
-        buf.data = bytes(data)
-
-        ctxt.buffers[buffer_id] = buf
+    def create_remove_message(self):
+        return audioproc.ProcessorMessage(
+            pianoroll_remove_interval=audioproc.ProcessorMessage.PianoRollRemoveInterval(
+                id=self.id))
 
 
-class MeasuredEventSetConnector(object):
-    def __init__(self, track, event_set):
-        self._track = track
+class MeasuredTrackConnector(TrackConnector):
+    def __init__(self, track, node_id, player):
+        super().__init__(track, player)
+
         self._listeners = {}
 
-        self.__event_set = event_set
+        self.__node_id = node_id
         self.__measure_events = {}
 
-        timepos = time.Duration()
+        time = audioproc.MusicalTime()
         for mref in self._track.measure_list:
-            self.__add_measure(timepos, mref)
-            timepos += mref.measure.duration
+            self.__add_measure(time, mref)
+            time += mref.measure.duration
 
         self._listeners['measure_list'] = self._track.listeners.add(
             'measure_list', self.__measure_list_changed)
@@ -340,6 +288,14 @@ class MeasuredEventSetConnector(object):
             listener.remove()
         self._listeners.clear()
 
+        super().close()
+
+    def __add_event(self, event):
+        self._player.send_node_message(self.__node_id, event.create_add_message())
+
+    def __remove_event(self, event):
+        self._player.send_node_message(self.__node_id, event.create_remove_message())
+
     def _add_track_listeners(self):
         pass
 
@@ -349,41 +305,41 @@ class MeasuredEventSetConnector(object):
     def _remove_measure_listeners(self, mref):
         pass
 
-    def _create_events(self, timepos, measure):
+    def _create_events(self, time, measure):
         raise NotImplementedError
 
-    def _update_measure(self, timepos, mref):
+    def _update_measure(self, time, mref):
         assert isinstance(mref, MeasureReference)
         events = self.__measure_events[mref.id]
         for event in events:
-            self.__event_set.remove(event)
+            self.__remove_event(event)
         events.clear()
-        for event in self._create_events(timepos, mref.measure):
-            self.__event_set.add(event)
+        for event in self._create_events(time, mref.measure):
+            self.__add_event(event)
             events.append(event)
 
     def _update_measure_range(self, begin, end):
-        timepos = time.Duration()
+        time = audioproc.MusicalTime()
         for mref in self._track.measure_list:
             if mref.index >= end:
                 break
 
             if mref.index >= begin:
-                self._update_measure(timepos, mref)
+                self._update_measure(time, mref)
 
-            timepos += mref.measure.duration
+            time += mref.measure.duration
 
     def __measure_list_changed(self, change):
         if isinstance(change, core.PropertyListInsert):
-            timepos = time.Duration()
+            time = audioproc.MusicalTime()
             for mref in self._track.measure_list:
                 if mref.index == change.new_value.index:
                     assert mref is change.new_value
-                    self.__add_measure(timepos, mref)
+                    self.__add_measure(time, mref)
                 elif mref.index > change.new_value.index:
-                    self._update_measure(timepos, mref)
+                    self._update_measure(time, mref)
 
-                timepos += mref.measure.duration
+                time += mref.measure.duration
 
         elif isinstance(change, core.PropertyListDelete):
             mref = change.old_value
@@ -392,13 +348,13 @@ class MeasuredEventSetConnector(object):
             raise TypeError(
                 "Unsupported change type %s" % type(change))
 
-    def __add_measure(self, timepos, mref):
+    def __add_measure(self, time, mref):
         assert isinstance(mref, MeasureReference)
         assert mref.id not in self.__measure_events
 
         events = self.__measure_events[mref.id] = []
-        for event in self._create_events(timepos, mref.measure):
-            self.__event_set.add(event)
+        for event in self._create_events(time, mref.measure):
+            self.__add_event(event)
             events.append(event)
 
         self._listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
@@ -412,7 +368,7 @@ class MeasuredEventSetConnector(object):
         self._listeners.pop('measure:%s:ref' % mref.id).remove()
 
         for event in self.__measure_events.pop(mref.id):
-            self.__event_set.remove(event)
+            self.__remove_event(event)
 
     def __measure_id_changed(self, mref):
         self._remove_measure_listeners(mref)
@@ -433,6 +389,33 @@ class MeasuredTrack(model.MeasuredTrack, Track):
 
         if state is None:
             pass
+
+        self.__listeners = {}
+
+        for mref in self.measure_list:
+            self.__add_measure(mref)
+
+        self.listeners.add('measure_list', self.__measure_list_changed)
+
+    def __measure_list_changed(self, change):
+        if isinstance(change, core.PropertyListInsert):
+            self.__add_measure(change.new_value)
+        elif isinstance(change, core.PropertyListDelete):
+            self.__remove_measure(change.old_value)
+        else:
+            raise TypeError("Unsupported change type %s" % type(change))
+
+    def __add_measure(self, mref):
+        self.__listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
+            'measure_id', lambda *_: self.__measure_id_changed(mref))
+        self.listeners.call('duration_changed')
+
+    def __remove_measure(self, mref):
+        self.__listeners.pop('measure:%s:ref' % mref.id).remove()
+        self.listeners.call('duration_changed')
+
+    def __measure_id_changed(self, mref):
+        self.listeners.call('duration_changed')
 
     def append_measure(self):
         self.insert_measure(-1)

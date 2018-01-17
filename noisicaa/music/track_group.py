@@ -26,8 +26,6 @@ from noisicaa import core
 
 from . import model
 from . import state
-from . import commands
-from . import mutations
 from . import base_track
 from . import misc
 
@@ -37,6 +35,28 @@ logger = logging.getLogger(__name__)
 class TrackGroup(model.TrackGroup, base_track.Track):
     def __init__(self, state=None, num_measures=None, **kwargs):
         super().__init__(state=state, **kwargs)
+
+        self.__listeners = {}
+        for track in self.tracks:
+            self.__add_track(track)
+        self.listeners.add('tracks', self.__tracks_changed)
+
+    def __tracks_changed(self, change):
+        if isinstance(change, core.PropertyListInsert):
+            self.__add_track(change.new_value)
+        elif isinstance(change, core.PropertyListDelete):
+            self.__remove_track(change.old_value)
+        else:
+            raise TypeError("Unsupported change type %s" % type(change))
+
+    def __add_track(self, track):
+        self.__listeners['%s:duration_changed' % track.id] = track.listeners.add(
+            'duration_changed', lambda: self.listeners.call('duration_changed'))
+        self.listeners.call('duration_changed')
+
+    def __remove_track(self, track):
+        self.__listeners.pop('%s:duration_changed' % track.id).remove()
+        self.listeners.call('duration_changed')
 
     @property
     def default_mixer_name(self):

@@ -27,25 +27,22 @@ namespace noisicaa {
 
 HostData::HostData()
   : lv2(new LV2SubSystem()),
-    csound(new CSoundSubSystem()){}
+    csound(new CSoundSubSystem()),
+    audio_file(new AudioFileSubSystem()) {}
 
 HostData::~HostData() {
   cleanup();
 }
 
 Status HostData::setup() {
-  Status status;
-
-  status = lv2->setup();
-  RETURN_IF_ERROR(status);
-
-  status = csound->setup();
-  RETURN_IF_ERROR(status);
-
+  RETURN_IF_ERROR(lv2->setup());
+  RETURN_IF_ERROR(csound->setup());
+  RETURN_IF_ERROR(audio_file->setup());
   return Status::Ok();
 }
 
 void HostData::cleanup() {
+  audio_file->cleanup();
   csound->cleanup();
   lv2->cleanup();
 }

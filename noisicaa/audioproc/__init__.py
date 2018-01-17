@@ -38,4 +38,9 @@ from .vm import (
     AtomData,
     HostData,
     BlockContext,
+    MusicalDuration,
+    MusicalTime,
+    ProcessorMessage,
+    PlayerState,
+    TimeMapper,
 )

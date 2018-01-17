@@ -32,6 +32,7 @@
 #include <stdint.h>
 #include "noisicaa/core/message.capnp.h"
 #include "noisicaa/audioproc/vm/buffers.h"
+#include "noisicaa/audioproc/vm/musical_time.h"
 
 namespace noisicaa {
 
@@ -40,11 +41,18 @@ class MessageQueue;
 
 using namespace std;
 
+struct SampleTime {
+  MusicalTime start_time;
+  MusicalTime end_time;
+};
+
 struct BlockContext {
   uint32_t block_size = 0;
   uint32_t sample_pos = 0;
 
   unique_ptr<PerfStats> perf;
+
+  vector<SampleTime> time_map;
 
   struct Buffer {
     size_t size;

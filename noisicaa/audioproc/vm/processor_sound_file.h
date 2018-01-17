@@ -38,6 +38,7 @@ using namespace std;
 
 class HostData;
 class BlockContext;
+class AudioFile;
 
 class ProcessorSoundFile : public Processor {
 public:
@@ -48,15 +49,13 @@ public:
   void cleanup() override;
 
   Status connect_port(uint32_t port_idx, BufferPtr buf) override;
-  Status run(BlockContext* ctxt) override;
+  Status run(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 private:
-  unique_ptr<float> _left_samples;
-  unique_ptr<float> _right_samples;
+  AudioFile* _audio_file;
   bool _loop;
   bool _playing;
   uint32_t _pos;
-  uint32_t _num_samples;
   BufferPtr _buf[2];
 };
 

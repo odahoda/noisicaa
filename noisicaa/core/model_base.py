@@ -214,13 +214,13 @@ class ObjectProperty(ObjectPropertyBase):
             current.detach()
             current.clear_parent_container()
 
-        super().__set__(instance, value)
-
         if value is not None:
             value.attach(instance)
             value.set_parent_container(self)
             if instance.attached_to_root:
                 instance.root.add_object(value)
+
+        super().__set__(instance, value)
 
 
 class ObjectList(object):

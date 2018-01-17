@@ -274,9 +274,10 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                 self.parameter_values.append(PipelineGraphNodeParameterValue(
                     name=name, value=value))
 
-        self.project.handle_pipeline_mutation(
-            audioproc.SetNodeParameter(
-                self.pipeline_node_id, **parameters))
+        if self.attached_to_root:
+            self.project.handle_pipeline_mutation(
+                audioproc.SetNodeParameter(
+                    self.pipeline_node_id, **parameters))
 
     def set_port_parameters(self, port_name, bypass=None, drywet=None):
         for prop_name, value in (
@@ -294,10 +295,11 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                     PipelineGraphPortPropertyValue(
                         port_name=port_name, name=prop_name, value=value))
 
-        self.project.handle_pipeline_mutation(
-            audioproc.SetPortProperty(
-                self.pipeline_node_id, port_name,
-                bypass=bypass, drywet=drywet))
+        if self.attached_to_root:
+            self.project.handle_pipeline_mutation(
+                audioproc.SetPortProperty(
+                    self.pipeline_node_id, port_name,
+                    bypass=bypass, drywet=drywet))
 
     def set_control_value(self, port_name, value):
         for control_value in self.control_values:
@@ -308,8 +310,9 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
             self.control_values.append(PipelineGraphControlValue(
                 name=port_name, value=value))
 
-        self.project.handle_pipeline_mutation(
-            audioproc.SetControlValue('%s:%s' % (self.pipeline_node_id, port_name), value))
+        if self.attached_to_root:
+            self.project.handle_pipeline_mutation(
+                audioproc.SetControlValue('%s:%s' % (self.pipeline_node_id, port_name), value))
 
 
 class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
@@ -379,7 +382,9 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
             audioproc.AddNode(
                 description=self.description,
                 id=self.pipeline_node_id,
-                name=self.name))
+                name=self.name,
+                initial_parameters=dict(
+                    (p.name, p.value) for p in self.parameter_values)))
 
         self.set_initial_parameters()
 
@@ -438,8 +443,7 @@ class TrackMixerPipelineGraphNode(
 state.StateBase.register_class(TrackMixerPipelineGraphNode)
 
 
-class ControlSourcePipelineGraphNode(
-        model.ControlSourcePipelineGraphNode, BasePipelineGraphNode):
+class CVGeneratorPipelineGraphNode(model.CVGeneratorPipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, track=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
@@ -448,15 +452,14 @@ class ControlSourcePipelineGraphNode(
 
     @property
     def pipeline_node_id(self):
-        return self.track.control_source_name
+        return self.track.generator_name
 
     def add_to_pipeline(self):
         self.project.handle_pipeline_mutation(
             audioproc.AddNode(
                 description=self.description,
                 id=self.pipeline_node_id,
-                name=self.name,
-                track_id=self.track.id))
+                name=self.name))
 
         self.set_initial_parameters()
 
@@ -464,11 +467,10 @@ class ControlSourcePipelineGraphNode(
         self.project.handle_pipeline_mutation(
             audioproc.RemoveNode(self.pipeline_node_id))
 
-state.StateBase.register_class(ControlSourcePipelineGraphNode)
+state.StateBase.register_class(CVGeneratorPipelineGraphNode)
 
 
-class AudioSourcePipelineGraphNode(
-        model.AudioSourcePipelineGraphNode, BasePipelineGraphNode):
+class SampleScriptPipelineGraphNode(model.SampleScriptPipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, track=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
@@ -477,15 +479,14 @@ class AudioSourcePipelineGraphNode(
 
     @property
     def pipeline_node_id(self):
-        return self.track.audio_source_name
+        return self.track.sample_script_name
 
     def add_to_pipeline(self):
         self.project.handle_pipeline_mutation(
             audioproc.AddNode(
                 description=self.description,
                 id=self.pipeline_node_id,
-                name=self.name,
-                track_id=self.track.id))
+                name=self.name))
 
         self.set_initial_parameters()
 
@@ -493,11 +494,10 @@ class AudioSourcePipelineGraphNode(
         self.project.handle_pipeline_mutation(
             audioproc.RemoveNode(self.pipeline_node_id))
 
-state.StateBase.register_class(AudioSourcePipelineGraphNode)
+state.StateBase.register_class(SampleScriptPipelineGraphNode)
 
 
-class EventSourcePipelineGraphNode(
-        model.EventSourcePipelineGraphNode, BasePipelineGraphNode):
+class PianoRollPipelineGraphNode(model.PianoRollPipelineGraphNode, BasePipelineGraphNode):
     def __init__(self, track=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
@@ -513,8 +513,7 @@ class EventSourcePipelineGraphNode(
             audioproc.AddNode(
                 description=self.description,
                 id=self.pipeline_node_id,
-                name=self.name,
-                track_id=self.track.id))
+                name=self.name))
 
         self.set_initial_parameters()
 
@@ -522,7 +521,7 @@ class EventSourcePipelineGraphNode(
         self.project.handle_pipeline_mutation(
             audioproc.RemoveNode(self.pipeline_node_id))
 
-state.StateBase.register_class(EventSourcePipelineGraphNode)
+state.StateBase.register_class(PianoRollPipelineGraphNode)
 
 
 class InstrumentPipelineGraphNode(

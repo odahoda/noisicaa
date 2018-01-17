@@ -21,12 +21,9 @@
 # @end:license
 
 import asyncio
-import functools
 import logging
 import os.path
 import pprint
-import threading
-import time
 import traceback
 import uuid
 import pickle
@@ -223,7 +220,7 @@ class ProjectProcess(core.ProcessBase):
             'GET_PLAYER_AUDIOPROC_ADDRESS',
             self.handle_get_player_audioproc_address)
         self.server.add_command_handler(
-            'PLAYER_UPDATE_SETTINGS', self.handle_player_update_settings)
+            'UPDATE_PLAYER_STATE', self.handle_update_player_state)
         self.server.add_command_handler(
             'PLAYER_SEND_MESSAGE', self.handle_player_send_message)
         self.server.add_command_handler(
@@ -441,7 +438,7 @@ class ProjectProcess(core.ProcessBase):
 
         session.add_player(p)
 
-        return p.id, p.proxy_address
+        return p.id, p.audiostream_address
 
     async def handle_get_player_audioproc_address(
         self, session_id, player_id):
@@ -455,10 +452,10 @@ class ProjectProcess(core.ProcessBase):
         await p.cleanup()
         session.remove_player(p)
 
-    async def handle_player_update_settings(self, session_id, player_id, settings):
+    async def handle_update_player_state(self, session_id, player_id, state):
         session = self.get_session(session_id)
         p = session.get_player(player_id)
-        await p.update_settings(settings)
+        await p.update_state(state)
 
     async def handle_player_send_message(self, session_id, player_id, msg):
         session = self.get_session(session_id)

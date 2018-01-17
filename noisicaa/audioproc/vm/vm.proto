@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+import "noisicaa/audioproc/vm/musical_time.proto";
+
+package noisicaa.pb;
+
+message PlayerState {
+  optional bool playing = 1;
+  optional MusicalTime current_time = 2;
+  optional bool loop_enabled = 3;
+  optional MusicalTime loop_start_time = 4;
+  optional MusicalTime loop_end_time = 5;
+}

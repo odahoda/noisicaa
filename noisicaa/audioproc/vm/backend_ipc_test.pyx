@@ -49,7 +49,7 @@ class TestIPCBackend(unittest.TestCase):
         host_data.reset(new HostData())
 
         cdef unique_ptr[VM] vm
-        vm.reset(new VM(host_data.get()))
+        vm.reset(new VM(host_data.get(), NULL))
 
         cdef PyBackendSettings backend_settings = PyBackendSettings(
             ipc_address=os.path.join(

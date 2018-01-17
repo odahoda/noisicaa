@@ -118,7 +118,7 @@ Status ProcessorLV2::connect_port(uint32_t port_idx, BufferPtr buf) {
   return Status::Ok();
 }
 
-Status ProcessorLV2::run(BlockContext* ctxt) {
+Status ProcessorLV2::run(BlockContext* ctxt, TimeMapper* time_mapper) {
   PerfTracker tracker(ctxt->perf.get(), "lv2");
   lilv_instance_run(_instance, ctxt->block_size);
   return Status::Ok();

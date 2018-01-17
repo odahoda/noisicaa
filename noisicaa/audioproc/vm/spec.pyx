@@ -26,6 +26,7 @@ from .buffers cimport *
 from .control_value cimport *
 from .opcodes cimport *
 from .processor cimport *
+from .musical_time import PyMusicalDuration
 
 opcode_map = {
     'NOOP':                OpCode.NOOP,
@@ -75,6 +76,22 @@ cdef class PySpec(object):
         #     out += '% 3d %s\n' % (idx, opcode)
 
         return out
+
+    @property
+    def bpm(self):
+        return int(self.__spec.bpm())
+
+    @bpm.setter
+    def bpm(self, value):
+        self.__spec.set_bpm(value)
+
+    @property
+    def duration(self):
+        return PyMusicalDuration.create(self.__spec.duration())
+
+    @duration.setter
+    def duration(self, PyMusicalDuration value):
+        self.__spec.set_duration(value.get())
 
     def append_buffer(self, name, PyBufferType buf_type):
         if isinstance(name, str):

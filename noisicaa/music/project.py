@@ -33,19 +33,18 @@ import textwrap
 
 from noisicaa import core
 from noisicaa.core import storage
+from noisicaa import audioproc
 
 from .pitch import Pitch
 from .clef import Clef
 from .key_signature import KeySignature
 from .time_signature import TimeSignature
-from .time import Duration
 from . import base_track
 from . import beat_track
 from . import commands
 from . import control_track
 from . import misc
 from . import model
-from . import mutations
 from . import pipeline_graph
 from . import property_track
 from . import sample_track
@@ -293,7 +292,7 @@ class PasteMeasures(commands.Command):
                 target.measure_id = measure.id
 
         else:
-            raise ValueError(mode)
+            raise ValueError(self.mode)
 
         for track_id in affected_track_ids:
             project.get_object(track_id).garbage_collect_measures()
@@ -410,8 +409,11 @@ class JSONEncoder(json.JSONEncoder):
         if isinstance(obj, bytes):
             return {'__type__': 'bytes',
                     'value': base64.b85encode(obj).decode('ascii')}
-        if isinstance(obj, Duration):
-            return {'__type__': 'Duration',
+        if isinstance(obj, audioproc.MusicalDuration):
+            return {'__type__': 'MusicalDuration',
+                    'value': [obj.numerator, obj.denominator]}
+        if isinstance(obj, audioproc.MusicalTime):
+            return {'__type__': 'MusicalTime',
                     'value': [obj.numerator, obj.denominator]}
         if isinstance(obj, Pitch):
             return {'__type__': 'Pitch',
@@ -439,8 +441,10 @@ class JSONDecoder(json.JSONDecoder):
         objtype = obj.get('__type__', None)
         if objtype == 'bytes':
             return base64.b85decode(obj['value'])
-        if objtype == 'Duration':
-            return Duration(*obj['value'])
+        if objtype == 'MusicalDuration':
+            return audioproc.MusicalDuration(*obj['value'])
+        if objtype == 'MusicalTime':
+            return audioproc.MusicalTime(*obj['value'])
         if objtype == 'Pitch':
             return Pitch(*obj['value'])
         if objtype == 'Clef':
@@ -459,7 +463,6 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
 
     def __init__(self, *, node_db=None, state=None):
         self.node_db = node_db
-        self.listeners = core.CallbackRegistry()
 
         super().__init__(state)
         if state is None:
@@ -471,6 +474,21 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                 name="Audio Out", graph_pos=misc.Pos2F(200, 0))
             self.add_pipeline_graph_node(audio_out_node)
             self.master_group.add_pipeline_nodes()
+
+        self._duration = self.master_group.duration
+        self.master_group.listeners.add('duration_changed', self._on_duration_changed)
+
+    @property
+    def duration(self):
+        return self._duration
+
+    def _on_duration_changed(self):
+        old_duration = self._duration
+        new_duration = self.master_group.duration
+        if new_duration != self._duration:
+            self._duration = new_duration
+            self.listeners.call(
+                'duration', core.PropertyValueChange('duration', old_duration, new_duration))
 
     def get_node_description(self, uri):
         return self.node_db.get_node_description(uri)
@@ -597,62 +615,62 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             project.add_track(project.master_group, 1, track2)
 
             track1.measure_list[0].measure.notes.append(
-                score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('C5')], base_duration=audioproc.MusicalDuration(1, 4)))
             track1.measure_list[0].measure.notes.append(
-                score_track.Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('D5')], base_duration=audioproc.MusicalDuration(1, 4)))
             track1.measure_list[0].measure.notes.append(
-                score_track.Note(pitches=[Pitch('E5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('E5')], base_duration=audioproc.MusicalDuration(1, 4)))
             track1.measure_list[0].measure.notes.append(
-                score_track.Note(pitches=[Pitch('F5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('F5')], base_duration=audioproc.MusicalDuration(1, 4)))
 
             track1.measure_list[1].measure.notes.append(
-                score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 2)))
+                score_track.Note(pitches=[Pitch('C5')], base_duration=audioproc.MusicalDuration(1, 2)))
             track1.measure_list[1].measure.notes.append(
-                score_track.Note(pitches=[Pitch('F5')], base_duration=Duration(1, 8)))
+                score_track.Note(pitches=[Pitch('F5')], base_duration=audioproc.MusicalDuration(1, 8)))
             track1.measure_list[1].measure.notes.append(
-                score_track.Note(pitches=[Pitch('E5')], base_duration=Duration(1, 8)))
+                score_track.Note(pitches=[Pitch('E5')], base_duration=audioproc.MusicalDuration(1, 8)))
             track1.measure_list[1].measure.notes.append(
-                score_track.Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('D5')], base_duration=audioproc.MusicalDuration(1, 4)))
 
             track1.measure_list[2].measure.notes.append(
-                score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('C5')], base_duration=audioproc.MusicalDuration(1, 4)))
             track1.measure_list[2].measure.notes.append(
-                score_track.Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('D5')], base_duration=audioproc.MusicalDuration(1, 4)))
             track1.measure_list[2].measure.notes.append(
-                score_track.Note(pitches=[Pitch('E5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('E5')], base_duration=audioproc.MusicalDuration(1, 4)))
             track1.measure_list[2].measure.notes.append(
-                score_track.Note(pitches=[Pitch('F5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('F5')], base_duration=audioproc.MusicalDuration(1, 4)))
 
             track1.measure_list[3].measure.notes.append(
-                score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 2)))
+                score_track.Note(pitches=[Pitch('C5')], base_duration=audioproc.MusicalDuration(1, 2)))
             track1.measure_list[3].measure.notes.append(
-                score_track.Note(pitches=[Pitch('F5')], base_duration=Duration(1, 8)))
+                score_track.Note(pitches=[Pitch('F5')], base_duration=audioproc.MusicalDuration(1, 8)))
             track1.measure_list[3].measure.notes.append(
-                score_track.Note(pitches=[Pitch('E5')], base_duration=Duration(1, 8)))
+                score_track.Note(pitches=[Pitch('E5')], base_duration=audioproc.MusicalDuration(1, 8)))
             track1.measure_list[3].measure.notes.append(
-                score_track.Note(pitches=[Pitch('D5')], base_duration=Duration(1, 4)))
+                score_track.Note(pitches=[Pitch('D5')], base_duration=audioproc.MusicalDuration(1, 4)))
 
             track1.measure_list[4].measure.notes.append(
-                score_track.Note(pitches=[Pitch('C5')], base_duration=Duration(1, 1)))
+                score_track.Note(pitches=[Pitch('C5')], base_duration=audioproc.MusicalDuration(1, 1)))
 
 
             track2.measure_list[0].measure.notes.append(
                 score_track.Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
-                     base_duration=Duration(1, 1)))
+                     base_duration=audioproc.MusicalDuration(1, 1)))
             track2.measure_list[1].measure.notes.append(
                 score_track.Note(pitches=[Pitch('F3'), Pitch('A4'), Pitch('C4')],
-                     base_duration=Duration(1, 1)))
+                     base_duration=audioproc.MusicalDuration(1, 1)))
 
             track2.measure_list[2].measure.notes.append(
                 score_track.Note(pitches=[Pitch('A3'), Pitch('C4'), Pitch('E4')],
-                     base_duration=Duration(1, 1)))
+                     base_duration=audioproc.MusicalDuration(1, 1)))
             track2.measure_list[3].measure.notes.append(
                 score_track.Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
-                     base_duration=Duration(1, 1)))
+                     base_duration=audioproc.MusicalDuration(1, 1)))
 
             track2.measure_list[4].measure.notes.append(
                 score_track.Note(pitches=[Pitch('C4'), Pitch('E3'), Pitch('G3')],
-                     base_duration=Duration(1, 1)))
+                     base_duration=audioproc.MusicalDuration(1, 1)))
 
         elif demo == 'complex':
             while len(project.property_track.measure_list) < 4:
@@ -699,9 +717,8 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             filter_node = pipeline_graph.PipelineGraphNode(
                 name='Filter',
                 node_uri=filter_node_uri)
-            project.add_pipeline_graph_node(filter_node)
             filter_node.set_parameter(
-                'orchestra',
+                'csound_orchestra',
                 textwrap.dedent('''\
                     instr 2
                         printk(0.5, k(gaCtrl))
@@ -709,6 +726,7 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
                         gaOutRight = butterlp(gaInRight, 200 + 2000 * gaCtrl)
                     endin
                 '''))
+            project.add_pipeline_graph_node(filter_node)
 
             project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
@@ -739,11 +757,11 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
 
             for i in range(4):
                 track1.measure_list[i].measure.notes.append(
-                    score_track.Note(pitches=[Pitch('C4')], base_duration=Duration(1, 4)))
+                    score_track.Note(pitches=[Pitch('C4')], base_duration=audioproc.MusicalDuration(1, 4)))
                 track1.measure_list[i].measure.notes.append(
-                    score_track.Note(pitches=[Pitch('E4')], base_duration=Duration(1, 4)))
+                    score_track.Note(pitches=[Pitch('E4')], base_duration=audioproc.MusicalDuration(1, 4)))
                 track1.measure_list[i].measure.notes.append(
-                    score_track.Note(pitches=[Pitch('G4')], base_duration=Duration(1, 2)))
+                    score_track.Note(pitches=[Pitch('G4')], base_duration=audioproc.MusicalDuration(1, 2)))
 
             track2 = beat_track.BeatTrack(
                 name="Track 2",
@@ -818,13 +836,13 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
 
             for i in range(4):
                 track2.measure_list[i].measure.beats.append(
-                    beat_track.Beat(timepos=Duration(0, 4), velocity=100))
+                    beat_track.Beat(time=audioproc.MusicalDuration(0, 4), velocity=100))
                 track2.measure_list[i].measure.beats.append(
-                    beat_track.Beat(timepos=Duration(1, 4), velocity=80))
+                    beat_track.Beat(time=audioproc.MusicalDuration(1, 4), velocity=80))
                 track2.measure_list[i].measure.beats.append(
-                    beat_track.Beat(timepos=Duration(2, 4), velocity=60))
+                    beat_track.Beat(time=audioproc.MusicalDuration(2, 4), velocity=60))
                 track2.measure_list[i].measure.beats.append(
-                    beat_track.Beat(timepos=Duration(3, 4), velocity=40))
+                    beat_track.Beat(time=audioproc.MusicalDuration(3, 4), velocity=40))
 
             track3 = sample_track.SampleTrack(
                 name="Track 3")
@@ -833,27 +851,27 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             smpl = sample_track.Sample(
                 path=os.path.abspath(os.path.join(
                     os.path.dirname(__file__), 'testdata', 'future-thunder1.wav')))
-            project.sampleproject.append(smpl)
+            project.samples.append(smpl)
 
             track3.samples.append(
-                sample_track.SampleRef(timepos=Duration(2, 4), sample_id=smpl.id))
+                sample_track.SampleRef(time=audioproc.MusicalTime(2, 4), sample_id=smpl.id))
             track3.samples.append(
-                sample_track.SampleRef(timepos=Duration(14, 4), sample_id=smpl.id))
+                sample_track.SampleRef(time=audioproc.MusicalTime(14, 4), sample_id=smpl.id))
 
             track4 = control_track.ControlTrack(
                 name="Track 4")
             project.add_track(project.master_group, 3, track4)
 
             track4.points.append(
-                control_track.ControlPoint(timepos=Duration(0, 4), value=1.0))
+                control_track.ControlPoint(time=audioproc.MusicalTime(0, 4), value=1.0))
             track4.points.append(
-                control_track.ControlPoint(timepos=Duration(4, 4), value=0.0))
+                control_track.ControlPoint(time=audioproc.MusicalTime(4, 4), value=0.0))
             track4.points.append(
-                control_track.ControlPoint(timepos=Duration(8, 4), value=1.0))
+                control_track.ControlPoint(time=audioproc.MusicalTime(8, 4), value=1.0))
 
             project.add_pipeline_graph_connection(
                 pipeline_graph.PipelineGraphConnection(
-                    source_node=track4.control_source_node, source_port='out',
+                    source_node=track4.generator_node, source_port='out',
                     dest_node=filter_node, dest_port='ctrl'))
 
         return project
@@ -950,6 +968,15 @@ class Project(BaseProject):
                 validate_node(root, node, c)
 
         validate_node(self, None, self)
+
+        # This is a bit silly. The master_group object was replaces, so the listener that
+        # was created in BaseProject.__init__ listens on the wrong object.
+        # So we have to recreate it here.
+        # Would be better, if this was a classmethod, which creates the Project object directly
+        # from the checkpoint data, so the master_group object as seen in BaseProject.__init__
+        # remains unchanged for the lifetime of the project.
+        self._duration = self.master_group.duration
+        self.master_group.listeners.add('duration_changed', self._on_duration_changed)
 
     def create_checkpoint(self):
         policy = email.policy.compat32.clone(

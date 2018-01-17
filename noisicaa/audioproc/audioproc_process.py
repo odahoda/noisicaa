@@ -74,6 +74,21 @@ class Session(object):
             logger.error(
                 "PUBLISH_MUTATION failed with exception: %s", exc)
 
+    def publish_player_state(self, state):
+        if not self.callback_stub.connected:
+            return
+
+        callback_task = self.event_loop.create_task(
+            self.callback_stub.call('PLAYER_STATE', state))
+        callback_task.add_done_callback(self.publish_player_state_done)
+
+    def publish_player_state_done(self, callback_task):
+        assert callback_task.done()
+        exc = callback_task.exception()
+        if exc is not None:
+            logger.error(
+                "PLAYER_STATE failed with exception: %s", exc)
+
     def publish_status(self, status):
         status = dict(status)
 
@@ -100,11 +115,15 @@ class Session(object):
 
 
 class AudioProcProcess(core.ProcessBase):
-    def __init__(self, *, shm=None, profile_path=None, **kwargs):
+    def __init__(
+            self, *,
+            shm=None, profile_path=None, enable_player=False,
+            **kwargs):
         super().__init__(**kwargs)
         self.shm_name = shm
         self.profile_path = profile_path
         self.shm = None
+        self.__enable_player = enable_player
         self.__host_data = None
         self.__vm = None
 
@@ -130,12 +149,16 @@ class AudioProcProcess(core.ProcessBase):
         self.server.add_command_handler(
             'PIPELINE_MUTATION', self.handle_pipeline_mutation)
         self.server.add_command_handler(
+            'SEND_NODE_MESSAGE', self.handle_send_node_message)
+        self.server.add_command_handler(
+            'UPDATE_PLAYER_STATE', self.handle_update_player_state)
+        self.server.add_command_handler(
+            'UPDATE_PROJECT_PROPERTIES', self.handle_update_project_properties)
+        self.server.add_command_handler(
             'DUMP', self.handle_dump)
 
         self.nodecls_db = nodecls_db.NodeDB()
         self.nodecls_db.add(node.ProcessorNode)
-        self.nodecls_db.add(nodes.TrackControlSource)
-        self.nodecls_db.add(nodes.TrackAudioSource)
         self.nodecls_db.add(nodes.TrackEventSource)
 
         if self.shm_name is not None:
@@ -147,9 +170,11 @@ class AudioProcProcess(core.ProcessBase):
         self.__vm = vm.PipelineVM(
             host_data=self.__host_data,
             shm=self.shm,
-            profile_path=self.profile_path)
+            profile_path=self.profile_path,
+            enable_player=self.__enable_player)
         self.__vm.listeners.add('perf_data', self.perf_data_callback)
         self.__vm.listeners.add('node_state', self.node_state_callback)
+        self.__vm.listeners.add('player_state', self.player_state_callback)
 
         self.__vm.setup()
 
@@ -205,6 +230,10 @@ class AudioProcProcess(core.ProcessBase):
     def publish_status(self, **kwargs):
         for session in self.sessions.values():
             session.publish_status(kwargs)
+
+    def publish_player_state(self, state):
+        for session in self.sessions.values():
+            session.publish_player_state(state)
 
     def handle_start_session(self, client_address, flags):
         client_stub = ipc.Stub(self.event_loop, client_address)
@@ -320,6 +349,10 @@ class AudioProcProcess(core.ProcessBase):
         else:
             raise ValueError(type(mutation))
 
+    def handle_send_node_message(self, session_id, node_id, msg):
+        self.get_session(session_id)
+        self.__vm.send_node_message(node_id, msg)
+
     def handle_set_backend(self, session_id, name, parameters):
         self.get_session(session_id)
         self.__vm.set_backend(name, **parameters)
@@ -332,6 +365,14 @@ class AudioProcProcess(core.ProcessBase):
         self.get_session(session_id)
         self.__vm.send_message(msg)
 
+    def handle_update_player_state(self, session_id, state):
+        self.get_session(session_id)
+        self.__vm.update_player_state(state)
+
+    def handle_update_project_properties(self, session_id, properties):
+        self.get_session(session_id)
+        self.__vm.update_project_properties(**properties)
+
     def perf_data_callback(self, perf_data):
         self.event_loop.call_soon_threadsafe(
             functools.partial(
@@ -341,6 +382,11 @@ class AudioProcProcess(core.ProcessBase):
         self.event_loop.call_soon_threadsafe(
             functools.partial(
                 self.publish_status, node_state=(node_id, kwargs)))
+
+    def player_state_callback(self, state):
+        self.event_loop.call_soon_threadsafe(
+            functools.partial(
+                self.publish_player_state, state))
 
     async def handle_play_file(self, session_id, path):
         self.get_session(session_id)

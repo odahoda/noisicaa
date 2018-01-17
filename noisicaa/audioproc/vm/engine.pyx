@@ -20,6 +20,8 @@
 #
 # @end:license
 
+from cpython.ref cimport PyObject
+from cpython.exc cimport PyErr_Fetch, PyErr_Restore
 from libc cimport stdlib
 from libc.string cimport memmove
 from libcpp.memory cimport unique_ptr
@@ -46,10 +48,15 @@ from .buffers cimport *
 from .control_value cimport *
 from .backend cimport *
 from .message_queue cimport *
+from .processor cimport *
+from .player cimport *
+from . import musical_time
+from .musical_time cimport *
 from .. import node
 from .. import ports
 from . import graph
 from . import compiler
+from . import vm_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +70,8 @@ cdef class PipelineVM(object):
     cdef VM* __vm
     cdef unique_ptr[Backend] __backend_ptr
     cdef Backend* __backend
+    cdef unique_ptr[Player] __player_ptr
+    cdef Player* __player
 
     cdef readonly object listeners
     cdef PyHostData __host_data
@@ -74,9 +83,9 @@ cdef class PipelineVM(object):
     cdef object __vm_started
     cdef object __vm_exit
     cdef object __vm_lock
+    cdef object __bpm
+    cdef object __duration
     cdef object __graph
-    cdef object __parameters
-    cdef object __notifications
     cdef readonly object notification_listener
     cdef object __backend_ready
     cdef object __backend_released
@@ -84,7 +93,7 @@ cdef class PipelineVM(object):
     def __init__(
             self, *,
             host_data,
-            sample_rate=44100, block_size=128, shm=None, profile_path=None):
+            sample_rate=44100, block_size=128, shm=None, profile_path=None, enable_player=False):
         self.listeners = core.CallbackRegistry()
 
         self.__host_data = host_data
@@ -95,6 +104,14 @@ cdef class PipelineVM(object):
 
         self.__vm = NULL
         self.__backend = NULL
+        if enable_player:
+            logger.info("Enabling player...")
+            self.__player_ptr.reset(
+                new Player(self.__host_data.ptr(), self.player_state_callback, <PyObject*>self))
+            self.__player = self.__player_ptr.get()
+        else:
+            logger.info("Player disabled.")
+            self.__player = NULL
 
         self.__backend_ready = threading.Event()
         self.__backend_released = threading.Event()
@@ -105,9 +122,9 @@ cdef class PipelineVM(object):
         self.__vm_lock = rwlock.RWLock()
 
         self.__graph = graph.PipelineGraph()
-        self.__parameters = {}
+        self.__bpm = 120
+        self.__duration = musical_time.PyMusicalDuration(2, 1)
 
-        self.__notifications = []
         self.notification_listener = core.CallbackRegistry()
 
     def reader_lock(self):
@@ -121,7 +138,10 @@ cdef class PipelineVM(object):
         pass
 
     def setup(self, *, start_thread=True):
-        self.__vm_ptr.reset(new VM(self.__host_data.ptr()))
+        if self.__player != NULL:
+            check(self.__player.setup())
+
+        self.__vm_ptr.reset(new VM(self.__host_data.ptr(), self.__player))
         self.__vm = self.__vm_ptr.get()
         check(self.__vm.setup())
         self.__vm.set_block_size(self.__block_size)
@@ -158,12 +178,18 @@ cdef class PipelineVM(object):
             self.__vm.cleanup()
         self.__vm_ptr.reset()
 
+        if self.__player != NULL:
+            with nogil:
+                self.__player.cleanup()
+
     def set_spec(self, PySpec spec):
         self.__vm.set_spec(spec.release())
 
     def update_spec(self):
         spec = compiler.compile_graph(
             graph=self.__graph)
+        spec.bpm = self.__bpm
+        spec.duration = self.__duration
         self.set_spec(spec)
 
     def get_buffer_bytes(self, name):
@@ -262,9 +288,6 @@ cdef class PipelineVM(object):
         for cv in node.control_values:
             self.__vm.add_control_value(cv.release());
 
-    def set_parameter(self, name, value):
-        self.__parameters[name] = value
-
     def set_control_value(self, name, value):
         if isinstance(value, float):
             check(self.__vm.set_float_control_value(name.encode('utf-8'), value))
@@ -272,8 +295,45 @@ cdef class PipelineVM(object):
             raise TypeError(
                 "Type %s not supported for control values." % type(value).__name__)
 
-    def add_notification(self, node_id, notification):
-        self.__notifications.append((node_id, notification))
+    def send_node_message(self, node_id, msg):
+        n = self.__graph.find_node(node_id)
+        assert isinstance(n, node.ProcessorNode), type(n).__name__
+        proc = n.get_processor()
+        assert proc is not None
+
+        check(self.__vm.send_processor_message(proc.id, msg.SerializeToString()))
+
+    def update_player_state(self, state):
+        assert self.__player != NULL
+        self.__player.update_state(state.SerializeToString())
+
+    def update_project_properties(self, *, bpm=None, duration=None):
+        if bpm is not None:
+            self.__bpm = bpm
+
+        if duration is not None:
+            self.__duration = duration
+
+        self.update_spec()
+
+    @staticmethod
+    cdef void player_state_callback(void* c_self, const string& state_serialized) with gil:
+        cdef PipelineVM self = <object><PyObject*>c_self
+
+        # Have to stash away any active exception, because otherwise exception handling
+        # might get confused.
+        # See https://github.com/cython/cython/issues/1877
+        cdef PyObject* exc_type
+        cdef PyObject* exc_value
+        cdef PyObject* exc_trackback
+        PyErr_Fetch(&exc_type, &exc_value, &exc_trackback)
+        try:
+            state_pb = vm_pb2.PlayerState()
+            state_pb.ParseFromString(state_serialized)
+            self.listeners.call('player_state', state_pb)
+
+        finally:
+            PyErr_Restore(exc_type, exc_value, exc_trackback)
 
     def vm_main(self):
         profiler = None

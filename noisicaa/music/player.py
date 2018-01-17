@@ -23,16 +23,10 @@
 import asyncio
 import enum
 import functools
-import itertools
 import logging
 import os
 import os.path
-import pickle
-import queue
-import random
-import sys
 import tempfile
-import threading
 import time
 import uuid
 
@@ -42,14 +36,8 @@ from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa.core import model_base
 from noisicaa import audioproc
-from noisicaa import music
 
-from . import project
-from . import mutations
-from . import commands
 from . import model
-from . import time_mapper
-from . import project_client
 
 logger = logging.getLogger(__name__)
 
@@ -60,15 +48,6 @@ class BackendState(enum.Enum):
     Running = 'running'
     Crashed = 'crashed'
     Stopping = 'stopping'
-
-
-class GetBuffersContext(object):
-    def __init__(self, *, buffers, block_size):
-        self.buffers = buffers
-        self.block_size = block_size
-        self.sample_pos = None
-        self.offset = 0
-        self.length = None
 
 
 class BackendManager(object):
@@ -157,7 +136,13 @@ class BackendManager(object):
             # self._event_loop.create_task(self.cleanup())
 
         self._set_state(BackendState.Running)
-        self._event_loop.create_task(self.backend_started())
+        task = self._event_loop.create_task(self.backend_started())
+        task.add_done_callback(self._backend_started_finished)
+
+    def _backend_started_finished(self, task):
+        exc = task.exception()
+        if exc is not None:
+            raise exc
 
     def _stop_backend_finished(self, task):
         exc = task.exception()
@@ -172,7 +157,13 @@ class BackendManager(object):
         if exc is not None:
             raise exc
         self._set_state(BackendState.Stopped)
-        self._event_loop.create_task(self.backend_stopped())
+        task = self._event_loop.create_task(self.backend_stopped())
+        task.add_done_callback(self._backend_stopped_finished)
+
+    def _backend_stopped_finished(self, task):
+        exc = task.exception()
+        if exc is not None:
+            raise exc
 
     async def start_backend(self):
         raise NotImplementedError
@@ -228,224 +219,6 @@ class AudioProcClient(
     pass
 
 
-class AudioStreamProxy(object):
-    def __init__(self, player, socket_dir=None):
-        self._player = player
-
-        if socket_dir is None:
-            socket_dir = tempfile.gettempdir()
-
-        self.address = os.path.join(
-            socket_dir, 'player.%s.pipe' % uuid.uuid4().hex)
-
-        self._lock = threading.Lock()
-
-        self._server = audioproc.AudioStream.create_server(self.address)
-        self._client = None
-
-        self._stopped = threading.Event()
-        self._settings_queue = queue.Queue()
-        self._message_queue = queue.Queue()
-        self._thread = threading.Thread(target=self.main)
-
-    def setup(self):
-        self._server.setup()
-        self._thread.start()
-
-    def cleanup(self):
-        self._server.close()
-        self._stopped.set()
-        self._thread.join()
-        self._server.cleanup()
-
-    def set_client(self, client):
-        if client is not None:
-            logger.info("Proxy will talk to %s...", client.address)
-        else:
-            logger.info("Disabling proxy backend.")
-        with self._lock:
-            self._client = client
-
-    def update_settings(self, settings):
-        self._settings_queue.put(settings)
-
-    def send_message(self, msg):
-        self._message_queue.put(msg)
-
-    def main(self):
-        sample_pos_offset = None
-        settings = project_client.PlayerSettings()
-        settings.state = 'stopped'
-        settings.sample_pos = 0
-        tmap = time_mapper.TimeMapper(self._player.project)
-
-        logger.info("Player proxy started.")
-        try:
-            while not self._stopped.is_set():
-                try:
-                    server_request = self._server.receive_block()
-                except core.ConnectionClosed:
-                    logger.warning("Stream to PlayerClient closed.")
-                    raise
-
-                perf = core.PerfStats()
-                perf.start_span('player_proxy')
-
-                request = audioproc.BlockData.new_message()
-                request.samplePos = server_request.samplePos
-                request.blockSize = server_request.blockSize
-
-                buffers = {}
-                messages = []
-
-                while True:
-                    try:
-                        new_settings = self._settings_queue.get_nowait()
-                    except queue.Empty:
-                        break
-
-                    if new_settings.sample_pos is not None:
-                        settings.sample_pos = new_settings.sample_pos
-                        if settings.state == 'playing':
-                            sample_pos_offset = request.samplePos - settings.sample_pos
-                        self._player.publish_status_async(
-                            playback_pos=(
-                                settings.sample_pos,
-                                request.blockSize))
-
-                    if new_settings.loop_start is not None:
-                        settings.loop_start = new_settings.loop_start
-                        self._player.publish_status_async(
-                            loop_start=settings.loop_start)
-
-                    if new_settings.loop_end is not None:
-                        settings.loop_end = new_settings.loop_end
-                        self._player.publish_status_async(
-                            loop_end=settings.loop_end)
-
-                    if new_settings.loop is not None:
-                        settings.loop = new_settings.loop
-                        self._player.publish_status_async(
-                            loop=settings.loop)
-
-                    if new_settings.state is not None:
-                        new_state = new_settings.state
-                        if settings.state != new_state:
-                            if new_state == 'playing':
-                                sample_pos_offset = request.samplePos - settings.sample_pos
-                            settings.state = new_state
-                            self._player.publish_status_async(
-                                player_state=new_state)
-
-                while True:
-                    try:
-                        msg = self._message_queue.get_nowait()
-                    except queue.Empty:
-                        break
-
-                    messages.append(msg)
-
-                if settings.state == 'playing':
-                    self._player.publish_status_async(
-                        playback_pos=(
-                            request.samplePos - sample_pos_offset,
-                            request.blockSize))
-
-                    if settings.loop_start is not None:
-                        range_start = settings.loop_start
-                    else:
-                        range_start = 0
-
-                    if settings.loop_end is not None:
-                        range_end = settings.loop_end
-                    else:
-                        range_end = tmap.total_duration_samples
-
-                    with perf.track('get_track_buffers'):
-                        duration = request.blockSize
-                        out_sample_pos = request.samplePos
-
-                        ctxt = GetBuffersContext(
-                            buffers=buffers,
-                            block_size=request.blockSize)
-                        while ctxt.offset < request.blockSize:
-                            ctxt.sample_pos = settings.sample_pos
-                            ctxt.length = min(request.blockSize, range_end - settings.sample_pos)
-                            self._player.get_track_buffers(ctxt)
-
-                            ctxt.offset += ctxt.length
-                            out_sample_pos += ctxt.length
-                            settings.sample_pos += ctxt.length
-
-                            if settings.sample_pos >= range_end:
-                                settings.sample_pos = range_start
-                                sample_pos_offset = out_sample_pos - settings.sample_pos
-                                if not settings.loop:
-                                    settings.state = 'stopped'
-                                    self._player.publish_status_async(
-                                        player_state=settings.state)
-                                    break
-
-                request.init(
-                    'buffers',
-                    len(server_request.buffers) + len(buffers))
-                for idx, buf in enumerate(
-                        itertools.chain(server_request.buffers, buffers.values())):
-                    request.buffers[idx] = buf
-
-                request.init(
-                    'messages',
-                    len(server_request.messages) + len(messages))
-                for idx, msg in enumerate(
-                        itertools.chain(server_request.messages, messages)):
-                    request.messages[idx] = msg
-
-                with self._lock:
-                    if self._client is not None:
-                        try:
-                            with perf.track('send_block'):
-                                self._client.send_block(request)
-                            with perf.track('receive_block'):
-                                client_response = self._client.receive_block()
-                            perf.add_spans(client_response.perfData)
-
-                        except core.ConnectionClosed:
-                            logger.warning("Stream to pipeline closed.")
-                            self._player.event_loop.call_soon_threadsafe(
-                                self._player.audioproc_backend.backend_crashed)
-                            self._client = None
-
-                    if self._client is None:
-                        client_response = audioproc.BlockData.new_message()
-                        client_response.samplePos = request.samplePos
-                        client_response.blockSize = request.blockSize
-
-
-                response = audioproc.BlockData.new_message()
-                response.samplePos = client_response.samplePos
-                response.blockSize = client_response.blockSize
-                response.init('buffers', len(client_response.buffers))
-                for idx, buf in enumerate(client_response.buffers):
-                    response.buffers[idx] = buf
-                perf.end_span()
-                response.perfData = perf.serialize()
-
-                try:
-                    self._server.send_block(response)
-                except core.ConnectionClosed:
-                    logger.warning("Stream to PlayerClient closed.")
-                    raise
-
-        except core.ConnectionClosed:
-            pass
-
-        except:  # pylint: disable=bare-except
-            sys.excepthook(*sys.exc_info())
-
-        finally:
-            logger.info("Player proxy terminated.")
-
-
 class Player(object):
     def __init__(self, project, callback_address, manager, event_loop):
         self.project = project
@@ -454,6 +227,7 @@ class Player(object):
         self.event_loop = event_loop
 
         self.listeners = core.CallbackRegistry()
+        self.__listeners = {}
 
         self.id = uuid.uuid4().hex
         self.server = ipc.Server(self.event_loop, 'player')
@@ -461,27 +235,18 @@ class Player(object):
         self.callback_stub = None
 
         self.audioproc_backend = None
-        self.audioproc_backend_state_listener = None
         self.audioproc_backend_last_crash_time = None
         self.audioproc_address = None
         self.audioproc_client = None
         self.audioproc_status_listener = None
+        self.audioproc_player_state_listener = None
         self.audioproc_ready = None
-        self.audiostream_address = None
-        self.audiostream_client = None
+        self.audiostream_address = os.path.join(
+            tempfile.gettempdir(), 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
-        self.mutation_listener = None
         self.pending_pipeline_mutations = None
 
-        self.proxy = None
-
-        self.track_buffer_sources = {}
-        self.group_listeners = {}
-
-    @property
-    def proxy_address(self):
-        assert self.proxy is not None
-        return self.proxy.address
+        self.track_connectors = {}
 
     async def setup(self):
         logger.info("Setting up player instance %s..", self.id)
@@ -495,11 +260,7 @@ class Player(object):
             self.event_loop, self.callback_address)
         await self.callback_stub.connect()
 
-        logger.info("Starting audio stream proxy...")
-        self.proxy = AudioStreamProxy(self)
-        self.proxy.setup()
-
-        self.mutation_listener = self.project.listeners.add(
+        self.__listeners['pipeline_mutations'] = self.project.listeners.add(
             'pipeline_mutations', self.handle_pipeline_mutation)
 
         self.audioproc_shm = posix_ipc.SharedMemory(
@@ -510,27 +271,26 @@ class Player(object):
         logger.info("Starting audio process...")
         self.audioproc_ready = asyncio.Event(loop=self.event_loop)
         self.audioproc_backend = AudioProcBackend(self, self.event_loop)
-        self.audioproc_backend_state_listener = self.audioproc_backend.add_state_listener(
+        self.__listeners['audioproc_backend_state'] = self.audioproc_backend.add_state_listener(
             self.audioproc_state_changed)
         self.audioproc_backend.start()
 
         # TODO: with timeout
         await self.audioproc_ready.wait()
 
-        self.add_track(self.project.master_group)
+        self.__listeners['project:bpm'] = self.project.listeners.add(
+            'bpm', self.__on_project_bpm_changed)
+        self.__listeners['project:duration'] = self.project.listeners.add(
+            'duration', self.__on_project_duration_changed)
 
         logger.info("Player instance %s setup complete.", self.id)
 
     async def cleanup(self):
         logger.info("Cleaning up player instance %s..", self.id)
 
-        if self.mutation_listener is not None:
-            self.mutation_listener.remove()
-            self.mutation_listener = None
-
-        if self.audioproc_backend_state_listener is not None:
-            self.audioproc_backend_state_listener.remove()
-            self.audioproc_backend_state_listener = None
+        for listener in self.__listeners.values():
+            listener.remove()
+        self.__listeners.clear()
 
         if self.audioproc_backend is not None:
             self.audioproc_backend = None
@@ -550,23 +310,38 @@ class Player(object):
             await self.callback_stub.close()
             self.callback_stub = None
 
-        if self.proxy is not None:
-            logger.info("Stopping audio stream proxy...")
-            self.proxy.cleanup()
-            self.proxy = None
-
-        for listener in self.group_listeners.values():
-            listener.remove()
-        self.group_listeners.clear()
-
-        for buffer_source in self.track_buffer_sources.values():
-            buffer_source.close()
-        self.track_buffer_sources.clear()
+        for connector in self.track_connectors.values():
+            connector.close()
+        self.track_connectors.clear()
 
         logger.info("Cleaning up player server...")
         await self.server.cleanup()
 
         logger.info("Player instance %s cleanup complete.", self.id)
+
+    def __on_project_bpm_changed(self, change):
+        if self.audioproc_client is None:
+            return
+
+        callback_task = asyncio.run_coroutine_threadsafe(
+            self.audioproc_client.update_project_properties(bpm=change.new_value),
+            self.event_loop)
+        callback_task.add_done_callback(self.__update_project_properties_done)
+
+    def __on_project_duration_changed(self, change):
+        if self.audioproc_client is None:
+            return
+
+        callback_task = asyncio.run_coroutine_threadsafe(
+            self.audioproc_client.update_project_properties(duration=change.new_value),
+            self.event_loop)
+        callback_task.add_done_callback(self.__update_project_properties_done)
+
+    def __update_project_properties_done(self, callback_task):
+        assert callback_task.done()
+        exc = callback_task.exception()
+        if exc is not None:
+            logger.error("UPDATE_PROJECT_PROPERTIES failed with exception: %s", exc)
 
     def audioproc_state_changed(self, state):
         self.publish_status_async(pipeline_state=state.value)
@@ -577,7 +352,8 @@ class Player(object):
         logger.info("Creating audioproc process...")
         self.audioproc_address = await self.manager.call(
             'CREATE_AUDIOPROC_PROCESS', 'player',
-            shm=self.audioproc_shm.name)
+            shm=self.audioproc_shm.name,
+            enable_player=True)
 
         logger.info("Creating audioproc client...")
         self.audioproc_client = AudioProcClient(
@@ -585,19 +361,15 @@ class Player(object):
         self.audioproc_status_listener = self.audioproc_client.listeners.add(
             'pipeline_status', functools.partial(
                 self.listeners.call, 'pipeline_status'))
+        self.audioproc_player_state_listener = self.audioproc_client.listeners.add(
+            'player_state', lambda state: self.publish_status_async(player_state=state))
         await self.audioproc_client.setup()
 
         logger.info("Connecting audioproc client...")
         await self.audioproc_client.connect(self.audioproc_address)
 
         logger.info("Setting backend...")
-        self.audiostream_address = os.path.join(
-            tempfile.gettempdir(), 'audiostream.%s.pipe' % uuid.uuid4().hex)
         await self.audioproc_client.set_backend('ipc', ipc_address=self.audiostream_address)
-
-        logger.info("Creating audiostream client...")
-        self.audiostream_client = audioproc.AudioStream.create_client(self.audiostream_address)
-        self.audiostream_client.setup()
 
         logger.info("Audioproc backend started.")
 
@@ -613,7 +385,13 @@ class Player(object):
 
             await self.audioproc_client.dump()
 
-            self.proxy.set_client(self.audiostream_client)
+            await self.audioproc_client.update_project_properties(
+                bpm=self.project.bpm,
+                duration=self.project.duration)
+
+            self.add_track(self.project.master_group)
+
+            # TODO: Notify client (UI) about new stream address.
 
             self.audioproc_ready.set()
 
@@ -623,11 +401,9 @@ class Player(object):
     async def stop_audioproc(self):
         logger.info("Stopping audioproc backend...")
 
-        if self.audiostream_client is not None:
-            self.proxy.set_client(None)
-            self.audiostream_client.cleanup()
-            self.audiostream_client = None
-            self.audiostream_address = None
+        if self.audioproc_player_state_listener is not None:
+            self.audioproc_player_state_listener.remove()
+            self.audioproc_player_state_listener = None
 
         if self.audioproc_status_listener is not None:
             self.audioproc_status_listener.remove()
@@ -642,11 +418,12 @@ class Player(object):
             await self.audioproc_client.cleanup()
             self.audioproc_client = None
             self.audioproc_address = None
-            self.audiostream_address = None
 
         logger.info("Audioproc backend stopped.")
 
     async def audioproc_stopped(self):
+        self.remove_track(self.project.master_group)
+
         if self.audioproc_shm is not None:
             os.lseek(self.audioproc_shm.fd, 0, os.SEEK_SET)
             logger.info(
@@ -689,23 +466,16 @@ class Player(object):
     def add_track(self, track):
         for t in track.walk_tracks(groups=True, tracks=True):
             if isinstance(t, model.TrackGroup):
-                self.group_listeners[t.id] = t.listeners.add(
-                    'tracks', self.tracks_changed)
+                self.__listeners['track_group:%s' % t.id] = t.listeners.add('tracks', self.tracks_changed)
             else:
-                self.track_buffer_sources[t.id] = t.create_buffer_source()
+                self.track_connectors[t.id] = t.create_player_connector(self)
 
     def remove_track(self, track):
         for t in track.walk_tracks(groups=True, tracks=True):
             if isinstance(t, model.TrackGroup):
-                listener = self.group_listeners.pop(t.id)
-                listener.remove()
+                self.__listeners.pop('track_group:%s' % t.id).remove()
             else:
-                buffer_source = self.track_buffer_sources.pop(t.id)
-                buffer_source.close()
-
-    def get_track_buffers(self, ctxt):
-        for buffer_source in self.track_buffer_sources.values():
-            buffer_source.get_buffers(ctxt)
+                self.track_connectors.pop(t.id).close()
 
     def handle_pipeline_mutation(self, mutation):
         if self.pending_pipeline_mutations is not None:
@@ -724,8 +494,29 @@ class Player(object):
         except ipc.ConnectionClosed:
             self.audioproc_backend.backend_crashed()
 
-    async def update_settings(self, settings):
-        self.proxy.update_settings(settings)
+    def send_node_message(self, node_id, msg):
+        self.event_loop.create_task(self.__send_node_message_async(node_id, msg))
+
+    async def __send_node_message_async(self, node_id, msg):
+        if self.audioproc_client is None:
+            return
+
+        try:
+            await self.audioproc_client.send_node_message(node_id, msg)
+
+        except ipc.ConnectionClosed:
+            self.audioproc_backend.backend_crashed()
+
+    async def update_state(self, state):
+        if self.audioproc_client is None:
+            return
+
+        try:
+            await self.audioproc_client.update_player_state(state)
+
+        except ipc.ConnectionClosed:
+            self.audioproc_backend.backend_crashed()
 
     def send_message(self, msg):
-        self.proxy.send_message(msg)
+        # TODO: reimplement this.
+        pass

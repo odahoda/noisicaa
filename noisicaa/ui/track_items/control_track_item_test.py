@@ -33,7 +33,7 @@ class ControlTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uite
     async def setUp(self):
         await super().setUp()
 
-        self.project.master_group.tracks.append(model.ControlTrack('track-1'))
+        self.project.master_group.tracks.append(model.ControlTrack(obj_id='track-1'))
 
         self.tool_box = control_track_item.ControlTrackToolBox(**self.context_args)
 

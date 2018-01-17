@@ -82,7 +82,7 @@ class TestProcessorSamplePlayer(unittest.TestCase):
         with forge.sequence():
             pass
 
-        check(processor.run(ctxt.get()))
+        check(processor.run(ctxt.get(), NULL))  # TODO: pass time_mapper
 
         forge = atom.AtomForge(urid.static_mapper)
         forge.set_buffer(inbuf, 10240)
@@ -94,7 +94,7 @@ class TestProcessorSamplePlayer(unittest.TestCase):
             outleftbuf[i] = 0.0
             outrightbuf[i] = 0.0
 
-        check(processor.run(ctxt.get()))
+        check(processor.run(ctxt.get(), NULL))  # TODO: pass time_mapper
 
         self.assertTrue(any(v != 0.0 for v in outleftbuf))
         self.assertTrue(any(v != 0.0 for v in outrightbuf))

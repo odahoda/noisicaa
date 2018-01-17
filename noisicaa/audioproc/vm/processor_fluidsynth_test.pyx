@@ -86,7 +86,7 @@ class TestProcessorFluidSynth(unittest.TestCase):
         cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.block_size = 128
 
-        check(processor.run(ctxt.get()))
+        check(processor.run(ctxt.get(), NULL))  # TODO: pass time_mapper
 
         self.assertTrue(any(v != 0.0 for v in outleftbuf))
         self.assertTrue(any(v != 0.0 for v in outrightbuf))

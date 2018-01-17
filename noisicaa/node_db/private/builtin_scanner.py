@@ -74,9 +74,9 @@ IPCDescription = node_db.ProcessorDescription(
             name='ipc_address', hidden=True)
     ])
 
-AudioSourceDescription = node_db.UserNodeDescription(
-    display_name='Audio',
-    node_cls='track_audio_source',
+SampleScriptDescription = node_db.ProcessorDescription(
+    display_name='Sample Script',
+    processor_name='sample_script',
     ports=[
         node_db.AudioPortDescription(
             name='out:left',
@@ -95,11 +95,20 @@ EventSourceDescription = node_db.UserNodeDescription(
             direction=node_db.PortDirection.Output),
     ])
 
-ControlSourceDescription = node_db.UserNodeDescription(
-    display_name='Control',
-    node_cls='track_control_source',
+CVGeneratorDescription = node_db.ProcessorDescription(
+    display_name='Control Value',
+    processor_name='cvgenerator',
     ports=[
         node_db.ARateControlPortDescription(
+            name='out',
+            direction=node_db.PortDirection.Output),
+    ])
+
+PianoRollDescription = node_db.ProcessorDescription(
+    display_name='Piano Roll',
+    processor_name='pianoroll',
+    ports=[
+        node_db.EventPortDescription(
             name='out',
             direction=node_db.PortDirection.Output),
     ])
@@ -227,9 +236,9 @@ class BuiltinScanner(scanner.Scanner):
     def scan(self):
         yield ('builtin://track_mixer', TrackMixerDescription)
         yield ('builtin://ipc', IPCDescription)
-        yield ('builtin://audio_source', AudioSourceDescription)
+        yield ('builtin://sample_script', SampleScriptDescription)
         yield ('builtin://event_source', EventSourceDescription)
-        yield ('builtin://control_source', ControlSourceDescription)
+        yield ('builtin://cvgenerator', CVGeneratorDescription)
         yield ('builtin://sink', SinkDescription)
         yield ('builtin://fluidsynth', FluidSynthDescription)
         yield ('builtin://sample_player', SamplePlayerDescription)

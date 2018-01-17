@@ -233,10 +233,10 @@ class UITest(asynctest.TestCase):
         self.project_client = None
         self.selection_set = selection_set.SelectionSet()
 
-        self.project = model.Project('project')
+        self.project = model.Project(obj_id='project')
         self.obj_map = {}
         self.project.init(None, self.obj_map)
-        self.project.property_track = model.PropertyTrack('prop-track')
+        self.project.property_track = model.PropertyTrack(obj_id='prop-track')
 
         self.session_data = {}
 

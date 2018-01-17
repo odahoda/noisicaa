@@ -27,6 +27,7 @@ import pprint
 import fractions
 import collections
 
+from noisicaa import audioproc
 from noisicaa import music
 
 logger = logging.getLogger('__name__')
@@ -435,7 +436,7 @@ class ABCImporter(object):
 
         note = music.Note(
             pitches=[pitch],
-            base_duration=music.Duration(base_duration),
+            base_duration=audioproc.MusicalDuration(base_duration),
             dots=dots)
 
         return note, line
@@ -483,7 +484,7 @@ class ABCImporter(object):
             if line[0] == '>' and len(self.notes) > 0:
                 prev_note = self.notes[-1]
                 while len(line) > 0 and line[0] == '>':
-                    prev_note.base_duration = music.Duration(
+                    prev_note.base_duration = audioproc.MusicalDuration(
                         prev_note.base_duration * fractions.Fraction(3, 2))
                     self.next_length_multiplier /= 2
                     line = line[1:]
@@ -492,7 +493,7 @@ class ABCImporter(object):
             if line[0] == '<' and len(self.notes) > 0:
                 prev_note = self.notes[-1]
                 while len(line) > 0 and line[0] == '<':
-                    prev_note.base_duration = music.Duration(
+                    prev_note.base_duration = audioproc.MusicalDuration(
                         prev_note.base_duration * fractions.Fraction(1, 2))
                     self.next_length_multiplier *= fractions.Fraction(3, 2)
                     line = line[1:]

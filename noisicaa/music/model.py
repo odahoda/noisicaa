@@ -23,10 +23,10 @@
 import fractions
 
 from noisicaa import core
+from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import instrument_db
 from . import pitch
-from . import time
 from . import clef
 from . import key_signature
 from . import time_signature
@@ -50,6 +50,10 @@ class Track(ProjectChild):
     mixer_id = core.Property(str, allow_none=True)
 
     @property
+    def duration(self):
+        return audioproc.MusicalDuration(1, 1)
+
+    @property
     def is_master_group(self):
         return False
 
@@ -66,7 +70,7 @@ class Measure(ProjectChild):
     @property
     def duration(self):
         time_signature = self.project.get_time_signature(self.index)
-        return time.Duration(time_signature.upper, time_signature.lower)
+        return audioproc.MusicalDuration(time_signature.upper, time_signature.lower)
 
 
 class MeasureReference(ProjectChild):
@@ -85,10 +89,17 @@ class MeasuredTrack(Track):
     measure_list = core.ObjectListProperty(cls=MeasureReference)
     measure_heap = core.ObjectListProperty(cls=Measure)
 
+    @property
+    def duration(self):
+        duration = audioproc.MusicalDuration()
+        for mref in self.measure_list:
+            duration += mref.measure.duration
+        return duration
+
 
 class Note(ProjectChild):
     pitches = core.ListProperty(pitch.Pitch)
-    base_duration = core.Property(time.Duration, default=time.Duration(1, 4))
+    base_duration = core.Property(audioproc.MusicalDuration, default=audioproc.MusicalDuration(1, 4))
     dots = core.Property(int, default=0)
     tuplet = core.Property(int, default=0)
 
@@ -102,11 +113,11 @@ class Note(ProjectChild):
 
     @property
     def max_allowed_dots(self):
-        if self.base_duration <= time.Duration(1, 32):
+        if self.base_duration <= audioproc.MusicalDuration(1, 32):
             return 0
-        if self.base_duration <= time.Duration(1, 16):
+        if self.base_duration <= audioproc.MusicalDuration(1, 16):
             return 1
-        if self.base_duration <= time.Duration(1, 8):
+        if self.base_duration <= audioproc.MusicalDuration(1, 8):
             return 2
         return 3
 
@@ -119,11 +130,18 @@ class Note(ProjectChild):
             duration *= fractions.Fraction(2, 3)
         elif self.tuplet == 5:
             duration *= fractions.Fraction(4, 5)
-        return time.Duration(duration)
+        return audioproc.MusicalDuration(duration)
 
 
 class TrackGroup(Track):
     tracks = core.ObjectListProperty(Track)
+
+    @property
+    def duration(self):
+        duration = audioproc.MusicalDuration()
+        for track in self.tracks:
+            duration = max(duration, track.duration)
+        return duration
 
     def walk_tracks(self, groups=False, tracks=True):
         if groups:
@@ -160,7 +178,7 @@ class ScoreTrack(MeasuredTrack):
 
 
 class Beat(ProjectChild):
-    timepos = core.Property(time.Duration)
+    time = core.Property(audioproc.MusicalDuration)
     velocity = core.Property(int)
 
     @property
@@ -195,22 +213,27 @@ class PropertyTrack(MeasuredTrack):
 
 
 class ControlPoint(ProjectChild):
-    timepos = core.Property(time.Duration)
+    time = core.Property(audioproc.MusicalTime)
     value = core.Property(float)
 
 
 class ControlTrack(Track):
     points = core.ObjectListProperty(ControlPoint)
+    generator_id = core.Property(str, allow_none=True)
 
 
 class SampleRef(ProjectChild):
-    timepos = core.Property(time.Duration)
+    time = core.Property(audioproc.MusicalTime)
     sample_id = core.Property(str)
+
+    @property
+    def sample(self):
+        return self.root.get_object(self.sample_id)
 
 
 class SampleTrack(Track):
     samples = core.ObjectListProperty(SampleRef)
-    audio_source_id = core.Property(str, allow_none=True)
+    sample_script_id = core.Property(str, allow_none=True)
 
 
 class PipelineGraphNodeParameterValue(ProjectChild):
@@ -287,7 +310,7 @@ class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
         return node_db.TrackMixerDescription
 
 
-class EventSourcePipelineGraphNode(BasePipelineGraphNode):
+class PianoRollPipelineGraphNode(BasePipelineGraphNode):
     track_id = core.Property(str)
 
     @property
@@ -304,10 +327,10 @@ class EventSourcePipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return node_db.EventSourceDescription
+        return node_db.PianoRollDescription
 
 
-class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
+class CVGeneratorPipelineGraphNode(BasePipelineGraphNode):
     track_id = core.Property(str)
 
     @property
@@ -324,10 +347,10 @@ class ControlSourcePipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return node_db.ControlSourceDescription
+        return node_db.CVGeneratorDescription
 
 
-class AudioSourcePipelineGraphNode(BasePipelineGraphNode):
+class SampleScriptPipelineGraphNode(BasePipelineGraphNode):
     track_id = core.Property(str)
 
     @property
@@ -344,7 +367,7 @@ class AudioSourcePipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return node_db.AudioSourceDescription
+        return node_db.SampleScriptDescription
 
 
 class InstrumentPipelineGraphNode(BasePipelineGraphNode):

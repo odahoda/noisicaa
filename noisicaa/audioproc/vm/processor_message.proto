@@ -1,0 +1,49 @@
+syntax = "proto2";
+
+import "noisicaa/audioproc/vm/musical_time.proto";
+
+package noisicaa.pb;
+
+message ProcessorMessage {
+  message PianoRollAddInterval {
+    required uint64 id = 1;
+    required MusicalTime start_time = 2;
+    required MusicalTime end_time = 3;
+    required uint32 pitch = 4;
+    required uint32 velocity = 5;
+  }
+
+  message PianoRollRemoveInterval {
+    required uint64 id = 1;
+  }
+
+  message CVGeneratorAddControlPoint {
+    required uint64 id = 1;
+    required MusicalTime time = 2;
+    required float value = 3;
+  }
+
+  message CVGeneratorRemoveControlPoint {
+    required uint64 id = 1;
+  }
+
+  message SampleScriptAddSample {
+    required uint64 id = 1;
+    required MusicalTime time = 2;
+    required string sample_path = 3;
+  }
+
+  message SampleScriptRemoveSample {
+    required uint64 id = 1;
+  }
+
+  oneof msg {
+    PianoRollAddInterval pianoroll_add_interval = 1;
+    PianoRollRemoveInterval pianoroll_remove_interval = 2;
+    CVGeneratorAddControlPoint cvgenerator_add_control_point = 3;
+    CVGeneratorRemoveControlPoint cvgenerator_remove_control_point = 4;
+    SampleScriptAddSample sample_script_add_sample = 5;
+    SampleScriptRemoveSample sample_script_remove_sample = 6;
+  }
+}
+

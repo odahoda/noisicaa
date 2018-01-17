@@ -67,8 +67,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     # of a specific class or None.
     currentProjectChanged = QtCore.pyqtSignal(object)
     currentTrackChanged = QtCore.pyqtSignal(object)
-    playbackStateChanged = QtCore.pyqtSignal(str)
-    playbackLoopChanged = QtCore.pyqtSignal(bool)
+    playingChanged = QtCore.pyqtSignal(bool)
+    loopEnabledChanged = QtCore.pyqtSignal(bool)
     projectListChanged = QtCore.pyqtSignal()
 
     def __init__(self, **kwargs):
@@ -91,8 +91,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.createStatusBar()
         self.createDockWidgets()
 
-        self.playbackStateChanged.connect(self.onPlaybackStateChanged)
-        self.playbackLoopChanged.connect(self.onPlaybackLoopChanged)
+        self.playingChanged.connect(self.onPlayingChanged)
+        self.loopEnabledChanged.connect(self.onLoopEnabledChanged)
 
         self._project_tabs = QtWidgets.QTabWidget(self)
         self._project_tabs.setTabBarAutoHide(True)
@@ -464,18 +464,14 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             return
 
         if self._current_project_view is not None:
-            self._current_project_view.playbackStateChanged.disconnect(
-                self.playbackStateChanged)
-            self._current_project_view.playbackLoopChanged.disconnect(
-                self.playbackLoopChanged)
+            self._current_project_view.playingChanged.disconnect(self.playingChanged)
+            self._current_project_view.loopEnabledChanged.disconnect(self.loopEnabledChanged)
 
         if project_view is not None:
-            project_view.playbackStateChanged.connect(
-                self.playbackStateChanged)
-            self.playbackStateChanged.emit(project_view.playbackState())
-            project_view.playbackLoopChanged.connect(
-                self.playbackLoopChanged)
-            self.playbackLoopChanged.emit(project_view.playbackLoop())
+            project_view.playingChanged.connect(self.playingChanged)
+            self.playingChanged.emit(project_view.playing())
+            project_view.loopEnabledChanged.connect(self.loopEnabledChanged)
+            self.loopEnabledChanged.emit(project_view.loopEnabled())
 
         self._current_project_view = project_view
 
@@ -632,16 +628,16 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         view = self._project_tabs.currentWidget()
         view.onSetNumMeasures()
 
-    def onPlaybackStateChanged(self, state):
-        if state == 'playing':
+    def onPlayingChanged(self, playing):
+        if playing:
             self._player_toggle_action.setIcon(
                 QtGui.QIcon.fromTheme('media-playback-pause'))
         else:
             self._player_toggle_action.setIcon(
                 QtGui.QIcon.fromTheme('media-playback-start'))
 
-    def onPlaybackLoopChanged(self, loop):
-        self._player_loop_action.setChecked(loop)
+    def onLoopEnabledChanged(self, loop_enabled):
+        self._player_loop_action.setChecked(loop_enabled)
 
     def onPlayerMoveTo(self, where):
         view = self._project_tabs.currentWidget()

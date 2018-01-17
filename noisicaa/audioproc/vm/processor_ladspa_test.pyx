@@ -73,7 +73,7 @@ class TestProcessorLadspa(unittest.TestCase):
         cdef PyBlockContext ctxt = PyBlockContext()
         ctxt.block_size = 128
 
-        check(processor.run(ctxt.get()))
+        check(processor.run(ctxt.get(), NULL))  # TODO: pass time_mapper
 
         for i in range(128):
             self.assertEqual(outbuf[i], 0.5)

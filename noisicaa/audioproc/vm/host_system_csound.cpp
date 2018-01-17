@@ -60,7 +60,7 @@ void CSoundSubSystem::_log_cb(CSOUND* csnd, int attr, const char* fmt, va_list a
 }
 
 void CSoundSubSystem::_log_cb(int attr, const char* fmt, va_list args) {
-  LogLevel level;
+  LogLevel level = LogLevel::INFO;
   switch (attr & CSOUNDMSG_TYPE_MASK) {
   case CSOUNDMSG_ORCH:
   case CSOUNDMSG_REALTIME:

@@ -679,23 +679,23 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         x, note_area_width = self._note_area
         if note_area_width > 80:
             px = x - 20
-            note_time = music.Duration(0)
+            note_time = audioproc.MusicalDuration(0)
             for idx, note in enumerate(self.measure.notes):
                 overflow = note_time + note.duration > self.measure.duration
 
                 if note.is_rest:
                     sym = {
-                        music.Duration(1, 1): 'rest-whole',
-                        music.Duration(1, 2): 'rest-half',
-                        music.Duration(1, 4): 'rest-quarter',
-                        music.Duration(1, 8): 'rest-8th',
-                        music.Duration(1, 16): 'rest-16th',
-                        music.Duration(1, 32): 'rest-32th',
-                    }[note.base_duration]
+                        1: 'rest-whole',
+                        2: 'rest-half',
+                        4: 'rest-quarter',
+                        8: 'rest-8th',
+                        16: 'rest-16th',
+                        32: 'rest-32th',
+                    }[note.base_duration.denominator]
                     svg_symbol.paintSymbol(
                         painter, sym, QtCore.QPoint(x, ymid))
 
-                    if note.base_duration >= music.Duration(1, 2):
+                    if note.base_duration >= audioproc.MusicalDuration(1, 2):
                         dx = 25
                         dy = -10
                     else:
@@ -752,21 +752,21 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
                                 QtCore.QPoint(x - 12, y))
                             active_accidentals[pitch.value] = pitch.accidental
 
-                        if note.base_duration >= music.Duration(1, 2):
+                        if note.base_duration >= audioproc.MusicalDuration(1, 2):
                             svg_symbol.paintSymbol(
                                 painter, 'note-head-void', QtCore.QPoint(x, y))
                         else:
                             svg_symbol.paintSymbol(
                                 painter, 'note-head-black', QtCore.QPoint(x, y))
 
-                        if note.base_duration <= music.Duration(1, 2):
+                        if note.base_duration <= audioproc.MusicalDuration(1, 2):
                             painter.fillRect(x + 8, y - 63, 3, 60, Qt.black)
 
-                        if note.base_duration == music.Duration(1, 8):
+                        if note.base_duration == audioproc.MusicalDuration(1, 8):
                             flags = 1
-                        elif note.base_duration == music.Duration(1, 16):
+                        elif note.base_duration == audioproc.MusicalDuration(1, 16):
                             flags = 2
-                        elif note.base_duration == music.Duration(1, 32):
+                        elif note.base_duration == audioproc.MusicalDuration(1, 32):
                             flags = 3
                         else:
                             flags = 0
@@ -803,7 +803,7 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
                     px = x2
 
                 note_time += note.duration
-                x += int(note_area_width * note.duration)
+                x += int(note_area_width * note.duration.fraction)
 
             if px < self.width():
                 self._edit_areas.append(
@@ -823,34 +823,34 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
 
         if tool.is_rest:
             sym = {
-                music.Duration(1, 1): 'rest-whole',
-                music.Duration(1, 2): 'rest-half',
-                music.Duration(1, 4): 'rest-quarter',
-                music.Duration(1, 8): 'rest-8th',
-                music.Duration(1, 16): 'rest-16th',
-                music.Duration(1, 32): 'rest-32th',
-            }[self._tool_duration_map[tool]]
+                1: 'rest-whole',
+                2: 'rest-half',
+                4: 'rest-quarter',
+                8: 'rest-8th',
+                16: 'rest-16th',
+                32: 'rest-32th',
+            }[self._tool_duration_map[tool].denominator]
             svg_symbol.paintSymbol(
                 painter, sym, QtCore.QPoint(pos.x(), ymid))
 
         elif tool.is_note:
             duration = self._tool_duration_map[tool]
 
-            if duration >= music.Duration(1, 2):
+            if duration >= audioproc.MusicalDuration(1, 2):
                 svg_symbol.paintSymbol(
                     painter, 'note-head-void', pos)
             else:
                 svg_symbol.paintSymbol(
                     painter, 'note-head-black', pos)
 
-            if duration <= music.Duration(1, 2):
+            if duration <= audioproc.MusicalDuration(1, 2):
                 painter.fillRect(pos.x() + 8, pos.y() - 63, 3, 60, Qt.black)
 
-            if duration == music.Duration(1, 8):
+            if duration == audioproc.MusicalDuration(1, 8):
                 flags = 1
-            elif duration == music.Duration(1, 16):
+            elif duration == audioproc.MusicalDuration(1, 16):
                 flags = 2
-            elif duration == music.Duration(1, 32):
+            elif duration == audioproc.MusicalDuration(1, 32):
                 flags = 3
             else:
                 flags = 0
@@ -880,10 +880,7 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         assert self._note_area is not None
 
         left, width = self._note_area
-        pos = left + int(
-            width
-            * self.playbackPos()
-            / self.measure.duration)
+        pos = left + int(width * (self.playbackPos() / self.measure.duration).fraction)
         painter.fillRect(pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
 
     def getEditArea(self, x):
@@ -893,19 +890,19 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         return -1, False, 0
 
     _tool_duration_map = {
-        tools.ToolType.NOTE_WHOLE:   music.Duration(1, 1),
-        tools.ToolType.NOTE_HALF:    music.Duration(1, 2),
-        tools.ToolType.NOTE_QUARTER: music.Duration(1, 4),
-        tools.ToolType.NOTE_8TH:     music.Duration(1, 8),
-        tools.ToolType.NOTE_16TH:    music.Duration(1, 16),
-        tools.ToolType.NOTE_32TH:    music.Duration(1, 32),
+        tools.ToolType.NOTE_WHOLE:   audioproc.MusicalDuration(1, 1),
+        tools.ToolType.NOTE_HALF:    audioproc.MusicalDuration(1, 2),
+        tools.ToolType.NOTE_QUARTER: audioproc.MusicalDuration(1, 4),
+        tools.ToolType.NOTE_8TH:     audioproc.MusicalDuration(1, 8),
+        tools.ToolType.NOTE_16TH:    audioproc.MusicalDuration(1, 16),
+        tools.ToolType.NOTE_32TH:    audioproc.MusicalDuration(1, 32),
 
-        tools.ToolType.REST_WHOLE:   music.Duration(1, 1),
-        tools.ToolType.REST_HALF:    music.Duration(1, 2),
-        tools.ToolType.REST_QUARTER: music.Duration(1, 4),
-        tools.ToolType.REST_8TH:     music.Duration(1, 8),
-        tools.ToolType.REST_16TH:    music.Duration(1, 16),
-        tools.ToolType.REST_32TH:    music.Duration(1, 32),
+        tools.ToolType.REST_WHOLE:   audioproc.MusicalDuration(1, 1),
+        tools.ToolType.REST_HALF:    audioproc.MusicalDuration(1, 2),
+        tools.ToolType.REST_QUARTER: audioproc.MusicalDuration(1, 4),
+        tools.ToolType.REST_8TH:     audioproc.MusicalDuration(1, 8),
+        tools.ToolType.REST_16TH:    audioproc.MusicalDuration(1, 16),
+        tools.ToolType.REST_32TH:    audioproc.MusicalDuration(1, 32),
     }
 
     def durationForTool(self, tool):

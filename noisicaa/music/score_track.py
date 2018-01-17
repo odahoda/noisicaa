@@ -24,21 +24,17 @@ import functools
 import logging
 
 from noisicaa import core
+from noisicaa import audioproc
 
 from .pitch import Pitch
 from .clef import Clef
 from .key_signature import KeySignature
-from .time import Duration
 from . import base_track
 from . import model
 from . import state
 from . import commands
-from . import mutations
 from . import pipeline_graph
 from . import misc
-from . import time
-from . import event_set
-from . import time_mapper
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +59,7 @@ commands.Command.register_command(SetInstrument)
 class ChangeNote(commands.Command):
     idx = core.Property(int)
     pitch = core.Property(str, allow_none=True)
-    duration = core.Property(Duration, allow_none=True)
+    duration = core.Property(audioproc.MusicalDuration, allow_none=True)
     dots = core.Property(int, allow_none=True)
     tuplet = core.Property(int, allow_none=True)
 
@@ -104,7 +100,7 @@ commands.Command.register_command(ChangeNote)
 class InsertNote(commands.Command):
     idx = core.Property(int)
     pitch = core.Property(str)
-    duration = core.Property(Duration)
+    duration = core.Property(audioproc.MusicalDuration)
 
     def __init__(self, idx=None, pitch=None, duration=None, state=None):
         super().__init__(state=state)
@@ -287,7 +283,7 @@ class Note(model.Note, state.StateBase):
             if pitches is not None:
                 self.pitches.extend(pitches)
             if base_duration is None:
-                base_duration = Duration(1, 4)
+                base_duration = audioproc.MusicalDuration(1, 4)
             self.base_duration = base_duration
             self.dots = dots
             self.tuplet = tuplet
@@ -336,15 +332,7 @@ class ScoreMeasure(model.ScoreMeasure, base_track.Measure):
 state.StateBase.register_class(ScoreMeasure)
 
 
-class ScoreBufferSource(base_track.EventSetBufferSource):
-    def _create_connector(self, track, event_set):
-        return EventSetConnector(track, event_set)
-
-
-class EventSetConnector(base_track.MeasuredEventSetConnector):
-    def __init__(self, track, event_set):
-        super().__init__(track, event_set)
-
+class ScoreTrackConnector(base_track.MeasuredTrackConnector):
     def _add_track_listeners(self):
         self._listeners['transpose_octaves'] = self._track.listeners.add(
             'transpose_octaves', self.__transpose_octaves_changed)
@@ -357,15 +345,16 @@ class EventSetConnector(base_track.MeasuredEventSetConnector):
     def _remove_measure_listeners(self, mref):
         self._listeners.pop('measure:%s:notes' % mref.id).remove()
 
-    def _create_events(self, timepos, measure):
+    def _create_events(self, time, measure):
         for note in measure.notes:
             if not note.is_rest:
                 for pitch in note.pitches:
                     pitch = pitch.transposed(octaves=self._track.transpose_octaves)
-                    event = event_set.NoteEvent(timepos, timepos + note.duration, pitch, 127)
+                    event = base_track.PianoRollInterval(
+                        time, time + note.duration, pitch, 127)
                     yield event
 
-            timepos += note.duration
+            time += note.duration
 
     def __transpose_octaves_changed(self, change):
         self._update_measure_range(0, len(self._track.measure_list))
@@ -399,8 +388,8 @@ class ScoreTrack(model.ScoreTrack, base_track.MeasuredTrack):
 
         return measure
 
-    def create_buffer_source(self):
-        return ScoreBufferSource(self)
+    def create_player_connector(self, player):
+        return ScoreTrackConnector(self, self.event_source_name, player)
 
     @property
     def event_source_name(self):
@@ -442,7 +431,7 @@ class ScoreTrack(model.ScoreTrack, base_track.MeasuredTrack):
             pipeline_graph.PipelineGraphConnection(
                 instrument_node, 'out:right', self.mixer_node, 'in:right'))
 
-        event_source_node = pipeline_graph.EventSourcePipelineGraphNode(
+        event_source_node = pipeline_graph.PianoRollPipelineGraphNode(
             name="Track Events",
             graph_pos=instrument_node.graph_pos - misc.Pos2F(200, 0),
             track=self)

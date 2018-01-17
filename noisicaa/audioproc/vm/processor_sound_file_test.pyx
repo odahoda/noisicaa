@@ -75,7 +75,7 @@ class TestProcessorSoundFile(unittest.TestCase):
         cdef Message* msg
         done = False
         while not done:
-            check(processor.run(ctxt.get()))
+            check(processor.run(ctxt.get(), NULL))  # TODO: pass time_mapper
 
             msg = ctxt.get().out_messages.get().first()
             while not ctxt.get().out_messages.get().is_end(msg):

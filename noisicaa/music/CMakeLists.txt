@@ -25,8 +25,7 @@ add_python_package(
   commands.py
   commands_test.py
   control_track.py
-  event_set.py
-  event_set_test.py
+  control_track_test.py
   exceptions.py
   key_signature.py
   key_signature_test.py
@@ -36,8 +35,8 @@ add_python_package(
   pipeline_graph.py
   pitch.py
   pitch_test.py
-  player_integration_test.py
   player.py
+  player_integration_test.py
   player_test.py
   project_client.py
   project_client_test.py
@@ -45,17 +44,16 @@ add_python_package(
   project.py
   project_test.py
   sample_track.py
+  sample_track_test.py
   score_track.py
   score_track_test.py
   property_track.py
   state.py
   state_test.py
-  time_mapper.py
-  time_mapper_test.py
-  time.py
   time_signature.py
   time_signature_test.py
   track_group.py
+  track_group_test.py
 )
 
 file(COPY testdata DESTINATION .)

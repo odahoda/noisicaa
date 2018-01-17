@@ -40,7 +40,7 @@ Status ProcessorNull::connect_port(uint32_t port_idx, BufferPtr buf) {
   return Status::Ok();
 }
 
-Status ProcessorNull::run(BlockContext* ctxt) {
+Status ProcessorNull::run(BlockContext* ctxt, TimeMapper* time_mapper) {
   return Status::Ok();
 }
 

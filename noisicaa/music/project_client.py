@@ -20,24 +20,23 @@
 #
 # @end:license
 
-import asyncio
 from fractions import Fraction
 import getpass
 import logging
 import socket
 
+from noisicaa import audioproc
 from noisicaa import core
 from noisicaa.core import ipc
 
 from . import mutations
-from . import model
 
 logger = logging.getLogger(__name__)
 
 
 class ObjectProxy(core.ObjectBase):
-    def __init__(self, obj_id):
-        super().__init__()
+    def __init__(self, *, obj_id, **kwargs):
+        super().__init__(**kwargs)
         self.state['id'] = obj_id
         self.listeners = core.CallbackRegistry()
 
@@ -56,9 +55,6 @@ class ObjectProxy(core.ObjectBase):
                 change.prop_name, 'delete',
                 change.index, change.old_value)
 
-        elif isinstance(change, core.PropertyListClear):
-            self.listeners.call(change.prop_name, 'clear')
-
         else:
             raise TypeError("Unsupported change type %s" % type(change))
 
@@ -74,15 +70,6 @@ class ProjectClientBase(object):
 
     async def cleanup(self):
         await self.server.cleanup()
-
-
-class PlayerSettings(object):
-    def __init__(self, *, state=None, sample_pos=None, loop_start=None, loop_end=None, loop=None):
-        self.state = state
-        self.sample_pos = sample_pos
-        self.loop_start = loop_start
-        self.loop_end = loop_end
-        self.loop = loop
 
 
 class ProjectClientMixin(object):
@@ -199,7 +186,7 @@ class ProjectClientMixin(object):
 
         elif isinstance(mutation, mutations.AddObject):
             cls = self.cls_map[mutation.cls]
-            obj = cls(mutation.id)
+            obj = cls(obj_id=mutation.id)
             self.apply_properties(obj, mutation.properties)
             # TODO: We should assert that mutation.id is either not
             # in _object_map or points at a DeferredReference.
@@ -295,9 +282,9 @@ class ProjectClientMixin(object):
         return await self._stub.call(
             'DELETE_PLAYER', self._session_id, player_id)
 
-    async def player_update_settings(self, player_id, settings):
+    async def update_player_state(self, player_id, state):
         return await self._stub.call(
-            'PLAYER_UPDATE_SETTINGS', self._session_id, player_id, settings)
+            'UPDATE_PLAYER_STATE', self._session_id, player_id, state)
 
     async def player_send_message(self, player_id, msg):
         return await self._stub.call(
@@ -327,7 +314,7 @@ class ProjectClientMixin(object):
         assert isinstance(data, dict), data
         for key, value in data.items():
             assert isinstance(key, str), key
-            assert isinstance(value, (str, bytes, bool, int, float, Fraction)), value
+            assert isinstance(value, (str, bytes, bool, int, float, Fraction, audioproc.MusicalTime, audioproc.MusicalDuration)), value
 
         self._session_data.update(data)
         self.event_loop.create_task(

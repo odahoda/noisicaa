@@ -52,7 +52,7 @@ public:
   void cleanup() override;
 
   Status connect_port(uint32_t port_idx, BufferPtr buf) override;
-  Status run(BlockContext* ctxt) override;
+  Status run(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 protected:
   Status set_code(const string& orchestra, const string& score);

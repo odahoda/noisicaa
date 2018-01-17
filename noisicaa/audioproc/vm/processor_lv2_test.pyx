@@ -87,7 +87,7 @@ cdef class TestProcessorLV2Impl(object):
         for i in range(128):
             outbuf[i] = 0.0
 
-        check(self.processor.run(self.ctxt.get()))
+        check(self.processor.run(self.ctxt.get(), NULL))  # TODO: pass time_mapper
 
         for i in range(128):
             self.assertAlmostEqual(outbuf[i], 0.5, places=2)
@@ -115,7 +115,7 @@ cdef class TestProcessorLV2Impl(object):
             forge.write_midi_event(0, bytes([0x90, 60, 100]), 3)
             forge.write_midi_event(64, bytes([0x80, 60, 0]), 3)
 
-        check(self.processor.run(self.ctxt.get()))
+        check(self.processor.run(self.ctxt.get(), NULL))  # TODO: pass time_mapper
 
         seq = atom.Atom.wrap(urid.static_mapper, bytes(outbuf[:10240]))
         self.assertIsInstance(seq, atom.Sequence)

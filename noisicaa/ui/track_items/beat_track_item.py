@@ -46,24 +46,24 @@ class EditBeatsTool(base_track_item.MeasuredToolBase):
         return 'edit-beats'
 
     def mouseMoveEvent(self, target, evt):
-        target.setGhostTimepos(target.xToTimepos(evt.pos().x()))
+        target.setGhostTime(target.xToTime(evt.pos().x()))
         super().mouseMoveEvent(target, evt)
 
     def mousePressEvent(self, target, evt):
         assert isinstance(target, BeatMeasureEditorItem), type(target).__name__
 
         if (evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier):
-            click_timepos = target.xToTimepos(evt.pos().x())
+            click_time = target.xToTime(evt.pos().x())
 
             for beat in target.measure.beats:
-                if beat.timepos == click_timepos:
+                if beat.time == click_time:
                     self.send_command_async(
                         target.measure.id, 'RemoveBeat', beat_id=beat.id)
                     evt.accept()
                     return
 
             self.send_command_async(
-                target.measure.id, 'AddBeat', timepos=click_timepos)
+                target.measure.id, 'AddBeat', time=click_time)
             target.track_item.playNoteOn(target.track.pitch)
             evt.accept()
             return
@@ -79,10 +79,10 @@ class EditBeatsTool(base_track_item.MeasuredToolBase):
             else:
                 vel_delta = (10 if evt.angleDelta().y() > 0 else -10)
 
-            click_timepos = target.xToTimepos(evt.pos().x())
+            click_time = target.xToTime(evt.pos().x())
 
             for beat in target.measure.beats:
-                if beat.timepos == click_timepos:
+                if beat.time == click_time:
                     self.send_command_async(
                         beat.id, 'SetBeatVelocity',
                         velocity=max(0, min(127, beat.velocity + vel_delta)))
@@ -115,10 +115,10 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.__ghost_timepos = None
+        self.__ghost_time = None
 
-    def xToTimepos(self, x):
-        return music.Duration(
+    def xToTime(self, x):
+        return audioproc.MusicalDuration(
             int(8 * self.measure.time_signature.upper * x / self.width()),
             8 * self.measure.time_signature.upper)
 
@@ -130,10 +130,10 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
             'beats',
             lambda *args: self.invalidatePaintCache(self.FOREGROUND)))
 
-    def setGhostTimepos(self, timepos):
-        if timepos == self.__ghost_timepos:
+    def setGhostTime(self, time):
+        if time == self.__ghost_time:
             return
-        self.__ghost_timepos = timepos
+        self.__ghost_time = time
         self.invalidatePaintCache(self.GHOST)
 
     def paintLayer(self, layer, painter):
@@ -171,13 +171,13 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
         ymid = self.height() // 2
 
         for beat in self.measure.beats:
-            if not (0 <= beat.timepos < self.measure.duration):
+            if not (audioproc.MusicalDuration(0, 1) <= beat.time < self.measure.duration):
                 logger.warning(
                     "Beat outside of measure: %s not in [0,%s)",
-                    beat.timepos, self.measure.duration)
+                    beat.time, self.measure.duration)
                 continue
 
-            pos = int(self.width() * beat.timepos / self.measure.duration)
+            pos = int(self.width() * (beat.time / self.measure.duration).fraction)
 
             painter.fillRect(
                 pos + 2, ymid + 8, 4, 22 * beat.velocity // 127,
@@ -192,11 +192,11 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
             painter.drawPolygon(polygon)
 
     def paintGhost(self, painter):
-        if self.__ghost_timepos is None:
+        if self.__ghost_time is None:
             return
 
         ymid = self.height() // 2
-        pos = int(self.width() * self.__ghost_timepos / self.measure.duration)
+        pos = int(self.width() * (self.__ghost_time / self.measure.duration).fraction)
 
         painter.setPen(Qt.NoPen)
         painter.setBrush(Qt.black)
@@ -208,14 +208,11 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
         painter.drawPolygon(polygon)
 
     def paintPlaybackPos(self, painter):
-        pos = int(
-            self.width()
-            * self.playbackPos()
-            / self.measure.duration)
+        pos = int(self.width() * (self.playbackPos() / self.measure.duration).fraction)
         painter.fillRect(pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
 
     def leaveEvent(self, evt):
-        self.setGhostTimepos(None)
+        self.setGhostTime(None)
         super().leaveEvent(evt)
 
 

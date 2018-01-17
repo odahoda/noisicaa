@@ -35,7 +35,7 @@ class TracksModelTest(uitest_utils.UITest):
     async def setUp(self):
         await super().setUp()
 
-        self.project.master_group = model.MasterTrackGroup('master')
+        self.project.master_group = model.MasterTrackGroup(obj_id='master')
         self.project.master_group.name = 'master'
 
     async def test_start_empty(self):
@@ -53,7 +53,7 @@ class TracksModelTest(uitest_utils.UITest):
             self.assertEqual(
                 tracks_model.parent(master_index), QtCore.QModelIndex())
 
-            track1 = model.ScoreTrack('track1')
+            track1 = model.ScoreTrack(obj_id='track1')
             track1.name = 'track1'
             self.project.master_group.tracks.append(track1)
             self.assertEqual(tracks_model.rowCount(master_index), 1)
@@ -65,7 +65,7 @@ class TracksModelTest(uitest_utils.UITest):
             self.assertEqual(
                 tracks_model.parent(track1_index), master_index)
 
-            grp1 = model.TrackGroup('grp1')
+            grp1 = model.TrackGroup(obj_id='grp1')
             grp1.name = 'grp1'
             self.project.master_group.tracks.append(grp1)
             self.assertEqual(tracks_model.rowCount(master_index), 2)
@@ -77,7 +77,7 @@ class TracksModelTest(uitest_utils.UITest):
             self.assertEqual(
                 tracks_model.parent(grp1_index), master_index)
 
-            track2 = model.ScoreTrack('track2')
+            track2 = model.ScoreTrack(obj_id='track2')
             track2.name = 'track2'
             grp1.tracks.append(track2)
             self.assertEqual(tracks_model.rowCount(master_index), 2)
@@ -90,7 +90,7 @@ class TracksModelTest(uitest_utils.UITest):
             self.assertEqual(
                 tracks_model.parent(track2_index), grp1_index)
 
-            track3 = model.ScoreTrack('track3')
+            track3 = model.ScoreTrack(obj_id='track3')
             track3.name = 'track3'
             grp1.tracks.append(track3)
             self.assertEqual(tracks_model.rowCount(master_index), 2)
@@ -107,16 +107,16 @@ class TracksModelTest(uitest_utils.UITest):
             tracks_model.close()
 
     async def test_start_filled(self):
-        track1 = model.ScoreTrack('track1')
+        track1 = model.ScoreTrack(obj_id='track1')
         track1.name = 'track1'
         self.project.master_group.tracks.append(track1)
-        grp1 = model.TrackGroup('grp1')
+        grp1 = model.TrackGroup(obj_id='grp1')
         grp1.name = 'grp1'
         self.project.master_group.tracks.append(grp1)
-        track2 = model.ScoreTrack('track2')
+        track2 = model.ScoreTrack(obj_id='track2')
         track2.name = 'track2'
         grp1.tracks.append(track2)
-        track3 = model.ScoreTrack('track3')
+        track3 = model.ScoreTrack(obj_id='track3')
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
@@ -165,16 +165,16 @@ class TracksModelTest(uitest_utils.UITest):
             tracks_model.close()
 
     async def test_delete_track(self):
-        track1 = model.ScoreTrack('track1')
+        track1 = model.ScoreTrack(obj_id='track1')
         track1.name = 'track1'
         self.project.master_group.tracks.append(track1)
-        grp1 = model.TrackGroup('grp1')
+        grp1 = model.TrackGroup(obj_id='grp1')
         grp1.name = 'grp1'
         self.project.master_group.tracks.append(grp1)
-        track2 = model.ScoreTrack('track2')
+        track2 = model.ScoreTrack(obj_id='track2')
         track2.name = 'track2'
         grp1.tracks.append(track2)
-        track3 = model.ScoreTrack('track3')
+        track3 = model.ScoreTrack(obj_id='track3')
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
@@ -195,16 +195,16 @@ class TracksModelTest(uitest_utils.UITest):
             tracks_model.close()
 
     async def test_track_property_changed(self):
-        track1 = model.ScoreTrack('track1')
+        track1 = model.ScoreTrack(obj_id='track1')
         track1.name = 'track1'
         self.project.master_group.tracks.append(track1)
-        grp1 = model.TrackGroup('grp1')
+        grp1 = model.TrackGroup(obj_id='grp1')
         grp1.name = 'grp1'
         self.project.master_group.tracks.append(grp1)
-        track2 = model.ScoreTrack('track2')
+        track2 = model.ScoreTrack(obj_id='track2')
         track2.name = 'track2'
         grp1.tracks.append(track2)
-        track3 = model.ScoreTrack('track3')
+        track3 = model.ScoreTrack(obj_id='track3')
         track3.name = 'track3'
         grp1.tracks.append(track3)
 

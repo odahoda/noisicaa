@@ -115,7 +115,7 @@ class TestProcessorIPC(unittest.TestCase):
         ctxt.sample_pos = 1024
 
         with nogil:
-            status = processor.run(ctxt.get())
+            status = processor.run(ctxt.get(), NULL)  # TODO: pass time_mapper
         check(status)
 
         self.assertEqual(leftbuf, [0.0, 0.5, 1.0, 0.5])

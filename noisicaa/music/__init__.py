@@ -22,12 +22,9 @@ from .key_signature import KeySignature
 from .time_signature import TimeSignature
 from .clef import Clef
 from .pitch import Pitch, NOTE_TO_MIDI
-from .time import Duration
 from .project_client import (
     ProjectClient,
-    PlayerSettings,
 )
-
 from .project import (
     BaseProject, Project,
 )
@@ -41,9 +38,6 @@ from .score_track import (
 )
 from .property_track import (
     PropertyMeasure, PropertyTrack,
-)
-from .time_mapper import (
-    TimeMapper, TimeOutOfRange
 )
 from .misc import (
     Pos2F

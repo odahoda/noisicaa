@@ -24,19 +24,33 @@ capnproto
 libcapnp-0.5.3
 libcapnp-dev
 
+# protocol buffers
+# - build locally, see installation instructions for current list of dependencies.
+autoconf
+automake
+libtool
+curl
+make
+g++
+unzip
+
 # QT
 python3-pyqt5
 python3-pyqt5.qtsvg
+
+# libswresample
+libswresample-dev
+libswresample2
+
+# libavutil
+libavutil-dev
+libavutil55
 
 # other...
 python3.5-dev
 libxml2-dev
 libxslt1-dev
 portaudio19-dev
-libavutil-dev
-libavutil-ffmpeg54
-libswresample-dev
-libswresample-ffmpeg1
 libfluidsynth1
 libfluidsynth-dev
 inkscape

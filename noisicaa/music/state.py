@@ -22,13 +22,13 @@
 
 import copy
 import logging
-import traceback
 import uuid
 
 from noisicaa import core
 from noisicaa.core import model_base
 
 logger = logging.getLogger(__name__)
+
 
 class StateBase(model_base.ObjectBase):
     SERIALIZED_CLASS_NAME = None

@@ -20,22 +20,18 @@
 #
 # @end:license
 
-import asyncio
-import time
 import uuid
 import unittest
 from unittest import mock
 
 import asynctest
 
-from noisicaa import core
 from noisicaa import node_db
 from noisicaa.core import ipc
 from noisicaa.ui import model
 
 from . import project_process
 from . import project_client
-from . import project
 
 
 class TestClientImpl():

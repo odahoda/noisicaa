@@ -239,11 +239,9 @@ class TrackEditorItemTestMixin(object):
     async def setUp(self):
         await super().setUp()
 
-        self.project.master_group = model.MasterTrackGroup('master')
+        self.project.master_group = model.MasterTrackGroup(obj_id='master')
 
-        self.time_mapper = music.TimeMapper(self.project)
-        self.player_state = project_view.PlayerState(
-            time_mapper=self.time_mapper, **self.context_args)
+        self.player_state = project_view.PlayerState(**self.context_args)
         self.tool_box = None
         self.editor = mock.Mock()
         self.editor.currentToolBox.side_effect = lambda: self.tool_box

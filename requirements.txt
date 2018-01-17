@@ -19,9 +19,10 @@ eventfd
 psutil
 ./3rdparty/lv2/
 ./3rdparty/lilv/
-intervaltree
 pkgconfig
 pycapnp
 py-cpuinfo
 pyyaml
 python-xlib
+./3rdparty/protoc/
+protobuf
