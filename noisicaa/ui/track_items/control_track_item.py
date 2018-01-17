@@ -265,6 +265,11 @@ class ControlPoint(object):
         else:
             self.__pos = pos
 
+    def recomputePos(self):
+        self.__pos = QtCore.QPoint(
+            self.__track_item.timeToX(self.__point.time),
+            self.__track_item.valueToY(self.__point.value))
+
 
 class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
     toolBoxClass = ControlTrackToolBox
@@ -274,6 +279,7 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
 
         self.__mouse_pos = None
         self.__highlighted_point = None
+        self.__playback_time = None
 
         self.__listeners = []
         self.points = []
@@ -286,11 +292,18 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
 
         self.updateSize()
 
+        self.scaleXChanged.connect(self.__onScaleXChanged)
+
     def close(self):
         for points in self.points:
             points.close()
         self.points.clear()
         super().close()
+
+    def __onScaleXChanged(self, scale_x):
+        for cpoint in self.points:
+            cpoint.recomputePos()
+        self.rectChanged.emit(self.viewRect())
 
     def updateSize(self):
         width = 20
@@ -350,6 +363,19 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
 
         else:
             raise ValueError("Unknown action %r" % action)
+
+    def setPlaybackPos(self, time):
+        if self.__playback_time is not None:
+            x = self.timeToX(self.__playback_time)
+            self.rectChanged.emit(
+                QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
+
+        self.__playback_time = time
+
+        if self.__playback_time is not None:
+            x = self.timeToX(self.__playback_time)
+            self.rectChanged.emit(
+                QtCore.QRect(self.viewLeft() + x, self.viewTop(), 2, self.height()))
 
     def valueToY(self, value):
         return int(self.height() - int(self.height() * value))
@@ -463,3 +489,7 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
                 painter.drawLine(x + 3, y - 3, x + 3, y + 3)
                 painter.drawLine(x + 3, y + 3, x - 3, y + 3)
                 painter.drawLine(x - 3, y + 3, x - 3, y - 3)
+
+        if self.__playback_time is not None:
+            pos = self.timeToX(self.__playback_time)
+            painter.fillRect(pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))

@@ -15,7 +15,6 @@ to the backend.
   - Could also be used to collect actions that should be sent out in a batch at the end
     (e.g. project mutations).
 
-* ControlTrack doesn't show current playback position.                                       :BUG:
 * Cascading failures in unittests                                                        :CLEANUP:
 When some test fails, following unrelated tests also fail, because some IPC server was not
 cleaned up properly by the failing test.
@@ -49,9 +48,6 @@ cleaned up properly by the failing test.
           File "/home/pink/noisicaa/build/noisicaa/core/model_base.py", line 374, in root
             raise ObjectNotAttachedError(self)
         noisicaa.core.model_base.ObjectNotAttachedError: <PipelineGraphConnection id=9216c4b99b2644fa8ee42d062f2ea295>
-
-* ControlTrack doesn't scale properly                                                        :BUG:
-Position of each ControlPoint needs to be recomputed when scaleX changes.
 
 * Base class for processor_*_test.pyx                                                    :CLEANUP:
 - setUp()/tearDown() to handle all the boilerplate (HostData, TimeMapper, ...).
@@ -209,9 +205,6 @@ Is there some cross-compiler/-platform header to provide this functionality?
 * crash on shutdown, when csound wants to log after LogSink has been destroyed             :CRASH:
 - is HostData properly cleaned up?
 * turn off all notes when playback gets paused						      :FR:
-* Control values									      :FR:
-- at beginning of block, take current list, apply CVs by writing values to buffers
-
 * Sections on the timeline                                                                    :FR:
 - have different regions in time within the project, e.g. for experiments, etc.
   - tracks can be discontinuous, i.e. measures don't need to line up
@@ -342,7 +335,6 @@ http://pyxdg.readthedocs.io/en/latest/recentfiles.html
 ** UI prefers showing port groups instead of individual ports, option to ungroup ports
 ** Implicit coercing of mono->stereo ports
 
-* ControlTrack: point y values messed up after restarting editor			     :BUG:
 * Use flatbuffers for RPC serialization							      :FR:
 - https://github.com/google/flatbuffers
 

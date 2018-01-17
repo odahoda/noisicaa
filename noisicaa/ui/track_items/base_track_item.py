@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 class BaseTrackItem(ui_base.ProjectMixin, QtCore.QObject):
     rectChanged = QtCore.pyqtSignal(QtCore.QRect)
     sizeChanged = QtCore.pyqtSignal(QtCore.QSize)
+    scaleXChanged = QtCore.pyqtSignal(Fraction)
 
     def __init__(self, *, track, **kwargs):
         super().__init__(**kwargs)
@@ -64,9 +65,13 @@ class BaseTrackItem(ui_base.ProjectMixin, QtCore.QObject):
         return self.__scale_x
 
     def setScaleX(self, scale_x):
+        if scale_x == self.__scale_x:
+            return
+
         self.__scale_x = scale_x
         self.updateSize()
         self.purgePaintCaches()
+        self.scaleXChanged.emit(self.__scale_x)
         self.rectChanged.emit(self.viewRect())
 
     def width(self):
