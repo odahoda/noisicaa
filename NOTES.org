@@ -19,36 +19,6 @@ to the backend.
 When some test fails, following unrelated tests also fail, because some IPC server was not
 cleaned up properly by the failing test.
 
-* exception when deleting track                                                            :CRASH:
-        Traceback (most recent call last):
-          File "/home/pink/noisicaa/build/noisicaa/music/project_process.py", line 108, in publish_mutations
-            await self.callback_stub.call('PROJECT_MUTATIONS', mutations)
-          File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 423, in call
-            raise RemoteException(self._server_address, response[4:].decode('utf-8'))
-        noisicaa.core.ipc.RemoteException: From server /tmp/client.4f349b939eef425eb0fd2cd423435959.sock:
-        Traceback (most recent call last):
-          File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 244, in handle_command
-            result = handler(*args, **kwargs)
-          File "/home/pink/noisicaa/build/noisicaa/ui/project_registry.py", line 43, in handle_project_mutations
-            return super().handle_project_mutations(mutations)
-          File "/home/pink/noisicaa/build/noisicaa/music/project_client.py", line 182, in handle_project_mutations
-            self.handle_project_mutation(mutation)
-          File "/home/pink/noisicaa/build/noisicaa/music/project_client.py", line 224, in handle_project_mutation
-            del lst[mutation.index]
-          File "/home/pink/noisicaa/build/noisicaa/core/model_base.py", line 252, in __delitem__
-            PropertyListDelete(self._prop.name, idx, old_child))
-          File "/home/pink/noisicaa/build/noisicaa/music/project_client.py", line 58, in property_changed
-            change.index, change.old_value)
-          File "/home/pink/noisicaa/build/noisicaa/core/callbacks.py", line 133, in call
-            listener.callback(*args, **kwargs)
-          File "/home/pink/noisicaa/build/noisicaa/ui/pipeline_graph_view.py", line 1022, in onPipelineGraphConnectionsChange
-            self._node_map[connection.source_node.id].connections.remove(item)
-          File "/home/pink/noisicaa/build/noisicaa/music/model.py", line 384, in source_node
-            return self.root.get_object(self.source_node_id)
-          File "/home/pink/noisicaa/build/noisicaa/core/model_base.py", line 374, in root
-            raise ObjectNotAttachedError(self)
-        noisicaa.core.model_base.ObjectNotAttachedError: <PipelineGraphConnection id=9216c4b99b2644fa8ee42d062f2ea295>
-
 * Base class for processor_*_test.pyx                                                    :CLEANUP:
 - setUp()/tearDown() to handle all the boilerplate (HostData, TimeMapper, ...).
 

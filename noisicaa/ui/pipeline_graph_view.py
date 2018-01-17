@@ -1011,16 +1011,16 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
                 connection=connection, view=self, **self.context_args)
             self._scene.addItem(item)
             self._connections.insert(idx, item)
-            self._node_map[connection.source_node.id].connections.add(item)
-            self._node_map[connection.dest_node.id].connections.add(item)
+            self._node_map[connection.source_node_id].connections.add(item)
+            self._node_map[connection.dest_node_id].connections.add(item)
 
         elif action == 'delete':
             idx, connection = args
             item = self._connections[idx]
             self._scene.removeItem(item)
             del self._connections[idx]
-            self._node_map[connection.source_node.id].connections.remove(item)
-            self._node_map[connection.dest_node.id].connections.remove(item)
+            self._node_map[connection.source_node_id].connections.remove(item)
+            self._node_map[connection.dest_node_id].connections.remove(item)
             if self._highlight_item is item:
                 self._highlight_item = None
 
