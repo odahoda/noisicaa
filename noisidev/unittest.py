@@ -26,6 +26,7 @@ import asynctest
 
 
 skip = unittest.skip
+TestSuite = unittest.TestSuite
 
 
 class TestCase(unittest.TestCase):
