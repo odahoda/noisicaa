@@ -1,10 +1,5 @@
 # -*- org-tags-column: -98 -*-
 
-* Built-in testcases                                                                     :CLEANUP:
-- for each file generate a built-in TestCase
-  - run pylint on the file, with a set of whitelisted messages, that cause the test to fail
-  - run some C++ linter and iwyu on *.cpp/*.h files.
-
 * Move various test helpers to noisidev.unittest                                         :CLEANUP:
 - noisicaa.ui.uitest_utils
 
@@ -251,6 +246,11 @@ Is there some cross-compiler/-platform header to provide this functionality?
       python_module(foo) -> foo.py
       cython_module(foo) -> foo.so
       etc. for pb, capnp, ...
+
+* Built-in testcases                                                                     :CLEANUP:
+- for each file generate a built-in TestCase
+  - run some C++ linter and iwyu on *.cpp/*.h files.
+  - run mypy when using type declarations.
 
 * Reduce duplication in noisicaa/music/*_test.py					 :CLEANUP:
 - create TestProject class

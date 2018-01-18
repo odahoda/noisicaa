@@ -33,6 +33,8 @@ import textwrap
 import unittest
 
 import coverage
+import pylint.lint
+import pylint.reporters
 
 ROOTDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 LIBDIR = os.path.join(ROOTDIR, 'build')
@@ -56,6 +58,60 @@ def bool_arg(value):
     raise TypeError("Invalid type '%s'." % type(value).__name__)
 
 
+class PylintReporter(pylint.reporters.CollectingReporter):
+    def _display(self, layout):
+        pass
+
+
+class PylintLinter(pylint.lint.PyLinter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.quiet = 1
+
+
+class PylintRunner(pylint.lint.Run):
+    LinterClass = PylintLinter
+
+
+class BuiltinPyTests(unittest.TestCase):
+    def __init__(self, *, modname, method_name, pedantic):
+        super().__init__(method_name)
+
+        self.__modname = modname
+        self.__method_name = method_name
+        self.__pedantic = pedantic
+
+    def __str__(self):
+        return '%s (%s)' % (self.__method_name, self.__modname)
+
+    # TODO: Add more stuff to the whitelist. Eventually all messages should be enabled
+    #   (i.e. always running in pedantic mode), but right now there are too many
+    #   false-positives.
+    pylint_whitelist = [
+        'trailing-whitespace',
+        'unused-import',
+    ]
+
+    def test_pylint(self):
+        args = ['--rcfile=%s' % os.path.join(ROOTDIR, 'bin', 'pylintrc')]
+
+        if not self.__pedantic:
+            args += [
+                '--disable=all',
+                '--enable=%s' % ','.join(self.pylint_whitelist),
+            ]
+
+        args += [self.__modname]
+
+        reporter = PylintReporter()
+        PylintRunner(args, reporter=reporter, exit=False)
+        if reporter.messages:
+            sys.stderr.write('\n')
+            for msg in reporter.messages:
+                sys.stderr.write(msg.format('{path}:{line}: [{msg_id}({symbol})] {msg}\n'))
+            self.fail("pylint reported issues.")
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('selectors', type=str, nargs='*')
@@ -69,6 +125,8 @@ def main(argv):
     parser.add_argument('--profile', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--gdb', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--rebuild', nargs='?', type=bool_arg, const=True, default=True)
+    parser.add_argument('--pedantic', nargs='?', type=bool_arg, const=True, default=False)
+    parser.add_argument('--builtin-tests', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--playback-backend', type=str, default='null')
     args = parser.parse_args(argv[1:])
 
@@ -163,40 +221,57 @@ def main(argv):
             if ignore_dir in dirnames:
                 dirnames.remove(ignore_dir)
 
-        for filename in filenames:
+        dirnames.sort()
+
+        for filename in sorted(filenames):
             if (not (fnmatch.fnmatch(filename, '*.py') or fnmatch.fnmatch(filename, '*.so'))
                 or fnmatch.fnmatch(filename, 'lib*.so')):
                 continue
 
-            filename = os.path.splitext(filename)[0]
-
-            modpath = os.path.join(dirpath, filename)
+            basename = os.path.splitext(filename)[0]
+            modpath = os.path.join(dirpath, basename)
             assert modpath.startswith(LIBDIR + '/')
             modpath = modpath[len(LIBDIR)+1:]
             modname = modpath.replace('/', '.')
 
-            is_test = modname.endswith('test')
-            is_unittest = modname.endswith('_test')
-
-            if args.selectors:
-                matched = False
-                for selector in args.selectors:
-                    if modname == selector:
-                        matched = is_test
-                    elif modname.startswith(selector):
-                        matched = is_unittest
-            else:
-                matched = is_unittest
-
-            if matched or args.coverage:
+            if args.coverage:
                 logging.info("Loading module %s...", modname)
                 __import__(modname)
 
-            if not matched:
-                continue
+            is_test = modname.endswith('test')
+            is_unittest = modname.endswith('_test')
+            if is_test:
+                if args.selectors:
+                    matched = False
+                    for selector in args.selectors:
+                        if modname == selector:
+                            matched = is_test
+                        elif modname.startswith(selector):
+                            matched = is_unittest
+                else:
+                    matched = is_unittest
 
-            modsuite = loader.loadTestsFromName(modname)
-            suite.addTest(modsuite)
+                if matched:
+                    modsuite = loader.loadTestsFromName(modname)
+                    suite.addTest(modsuite)
+
+            if args.builtin_tests and fnmatch.fnmatch(filename, '*.py'):
+                if args.selectors:
+                    matched = False
+                    for selector in args.selectors:
+                        if modname.startswith(selector):
+                            matched = True
+                else:
+                    matched = True
+
+                if matched:
+                    test_cls = BuiltinPyTests
+                    for method_name in loader.getTestCaseNames(test_cls):
+                        suite.addTest(test_cls(
+                            modname=modname,
+                            method_name=method_name,
+                            pedantic=args.pedantic,
+                        ))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
