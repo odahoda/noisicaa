@@ -20,8 +20,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from .pitch import Pitch
 
 
@@ -48,7 +47,3 @@ class PitchTest(unittest.TestCase):
     def test_transposed(self):
         p = Pitch('G#4')
         self.assertEqual(p.transposed(octaves=-1), Pitch('G#3'))
-
-
-if __name__ == '__main__':
-    unittest.main()

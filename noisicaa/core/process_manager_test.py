@@ -25,14 +25,12 @@ import os
 import signal
 import sys
 import time
-import unittest
 
-import asynctest
-
+from noisidev import unittest
 from . import process_manager
 
 
-class ProcessManagerTest(asynctest.TestCase):
+class ProcessManagerTest(unittest.AsyncTestCase):
     async def test_simple(self):
         class Child(process_manager.SubprocessMixin, process_manager.ProcessBase):
             def __init__(self, *, foo, **kwargs):
@@ -99,7 +97,3 @@ class ProcessManagerTest(asynctest.TestCase):
             proc = await mgr.start_process('test', Child)
             await proc.wait()
             self.assertEqual(proc.returncode, 0)
-
-
-if __name__ == '__main__':
-    unittest.main()

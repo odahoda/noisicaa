@@ -20,13 +20,12 @@
 
 from libcpp.memory cimport unique_ptr
 
+from noisidev import unittest
 from noisicaa.core.status cimport *
 from .buffers cimport *
 from .vm cimport *
 from .backend cimport *
 from .host_data cimport *
-
-import unittest
 
 
 class TestPortAudioBackend(unittest.TestCase):

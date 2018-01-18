@@ -22,10 +22,8 @@
 
 import logging
 
-import asynctest
-
+from noisidev import unittest
 from noisicaa.node_db.private import db as node_db
-
 from . import project
 from . import track_group
 from . import beat_track
@@ -62,14 +60,14 @@ class Signal(object):
         return self.__set
 
 
-class TrackGroupTest(asynctest.TestCase):
-    async def setUp(self):
+class TrackGroupTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.node_db = NodeDB()
         await self.node_db.setup()
 
         self.project = project.BaseProject(node_db=self.node_db)
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         await self.node_db.cleanup()
 
     def test_duration_changed(self):

@@ -22,14 +22,14 @@ import os
 import os.path
 import uuid
 import tempfile
-import unittest
 import threading
 
+from noisidev import unittest
 from . import audio_stream
 
 
 class TestAudioStream(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.address = os.fsencode(
             os.path.join(
                 tempfile.gettempdir(),

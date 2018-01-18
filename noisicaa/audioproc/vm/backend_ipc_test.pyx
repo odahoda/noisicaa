@@ -25,11 +25,11 @@ import os.path
 import struct
 import tempfile
 import uuid
-import unittest
 import threading
 
 import capnp
 
+from noisidev import unittest
 from noisicaa.core.status cimport *
 from noisicaa.core.status import *
 from . import audio_stream

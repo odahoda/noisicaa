@@ -20,26 +20,46 @@
 #
 # @end:license
 
-from noisidev import unittest
-from noisicaa.ui import uitest_utils
-from noisicaa.ui import model
-from noisicaa.ui import tools
-from . import sample_track_item
-from . import track_item_tests
+import unittest
+
+import asynctest
 
 
-class SampleTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
+skip = unittest.skip
+
+
+class TestCase(unittest.TestCase):
+    def setUp(self):
+        try:
+            self.setup_testcase()
+        except:
+            self.cleanup_testcase()
+            raise
+
+    def tearDown(self):
+        self.cleanup_testcase()
+
+    def setup_testcase(self):
+        pass
+
+    def cleanup_testcase(self):
+        pass
+
+
+class AsyncTestCase(asynctest.TestCase):
+    async def setUp(self):
+        try:
+            await self.setup_testcase()
+        except:
+            await self.cleanup_testcase()
+            raise
+
+    async def tearDown(self):
+        await self.cleanup_testcase()
+
     async def setup_testcase(self):
-        await super().setup_testcase()
+        pass
 
-        self.project.master_group.tracks.append(model.SampleTrack(obj_id='track-1'))
+    async def cleanup_testcase(self):
+        pass
 
-        self.tool_box = sample_track_item.SampleTrackToolBox(**self.context_args)
-
-    def _createTrackItem(self, **kwargs):
-        return sample_track_item.SampleTrackEditorItem(
-            track=self.project.master_group.tracks[0],
-            player_state=self.player_state,
-            editor=self.editor,
-            **self.context_args,
-            **kwargs)

@@ -20,20 +20,20 @@
 #
 # @end:license
 
-import unittest
 from unittest import mock
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 
+from noisidev import unittest
 from . import uitest_utils
 from . import model
 from . import tracks_dock
 
 
 class TracksModelTest(uitest_utils.UITest):
-    async def setUp(self):
-        await super().setUp()
+    async def setup_testcase(self):
+        await super().setup_testcase()
 
         self.project.master_group = model.MasterTrackGroup(obj_id='master')
         self.project.master_group.name = 'master'
@@ -256,7 +256,3 @@ class TracksModelTest(uitest_utils.UITest):
 
         finally:
             tracks_model.close()
-
-
-if __name__ == '__main__':
-    unittest.main()

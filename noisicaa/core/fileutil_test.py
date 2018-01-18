@@ -21,16 +21,16 @@
 # @end:license
 
 import builtins
-import unittest
 import textwrap
 
 from mox3 import stubout
 from pyfakefs import fake_filesystem
 
+from noisidev import unittest
 from . import fileutil
 
 class FileTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.stubs = stubout.StubOutForTesting()
         self.addCleanup(self.stubs.SmartUnsetAll)
 
@@ -88,7 +88,7 @@ class FileTest(unittest.TestCase):
 
 
 class LogFileTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.stubs = stubout.StubOutForTesting()
         self.addCleanup(self.stubs.SmartUnsetAll)
 
@@ -255,7 +255,7 @@ class LogFileTest(unittest.TestCase):
 
 
 class MimeLogFileTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.stubs = stubout.StubOutForTesting()
         self.addCleanup(self.stubs.SmartUnsetAll)
 
@@ -280,7 +280,3 @@ class MimeLogFileTest(unittest.TestCase):
             self.assertEqual(content, 'lididö')
             self.assertEqual(headers['Foo'], 'bar')
             self.assertEqual(entry_type, b'T')
-
-
-if __name__ == '__main__':
-    unittest.main()

@@ -20,10 +20,11 @@
 #
 # @end:license
 
-import unittest
 from unittest import mock
 
+from noisidev import unittest
 from . import callbacks
+
 
 class CallbackRegistryTest(unittest.TestCase):
     def test_callbacks(self):
@@ -57,7 +58,3 @@ class CallbackRegistryTest(unittest.TestCase):
         lid2.remove()
         registry.call('bar', 'arg4')
         self.assertEqual(listener2.call_args_list, [mock.call('arg3')])
-
-
-if __name__ == '__main__':
-    unittest.main()

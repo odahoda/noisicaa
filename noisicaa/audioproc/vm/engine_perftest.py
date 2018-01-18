@@ -21,11 +21,11 @@
 # @end:license
 
 import logging
-import unittest
 import os.path
 
 from noisidev import perf_stats
 from noisidev import profutil
+from noisidev import unittest
 
 # from .. import backend
 # from .. import nodes
@@ -103,7 +103,3 @@ from noisidev import profutil
 
 #         finally:
 #             vm.cleanup()
-
-
-if __name__ == '__main__':
-    unittest.main()

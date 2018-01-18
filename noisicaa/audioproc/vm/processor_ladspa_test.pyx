@@ -18,12 +18,12 @@
 #
 # @end:license
 
+import sys
+
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
-import unittest
-import sys
-
+from noisidev import unittest
 from noisicaa.core.status cimport *
 from .block_context cimport *
 from .buffers cimport *

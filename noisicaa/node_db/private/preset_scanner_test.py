@@ -20,14 +20,13 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from . import builtin_scanner
 from . import preset_scanner
 
 
 class PresetScannerTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         scanner = builtin_scanner.BuiltinScanner()
         self.nodes = dict(scanner.scan())
 
@@ -35,7 +34,3 @@ class PresetScannerTest(unittest.TestCase):
         scanner = preset_scanner.PresetScanner(self.nodes)
         for uri, preset_description in scanner.scan():
             print(uri)
-
-
-if __name__ == '__main__':
-    unittest.main()

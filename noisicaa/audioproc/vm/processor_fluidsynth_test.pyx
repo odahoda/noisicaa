@@ -25,8 +25,8 @@ from libcpp.memory cimport unique_ptr
 import os
 import os.path
 import sys
-import unittest
 
+from noisidev import unittest
 from noisicaa import constants
 from noisicaa.core.status cimport *
 from noisicaa.bindings.lv2 cimport atom

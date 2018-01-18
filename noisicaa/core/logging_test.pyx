@@ -21,10 +21,9 @@
 from cpython.ref cimport PyObject
 from libcpp.memory cimport unique_ptr
 
+from noisidev import unittest
 from .logging cimport *
 from .logging import *
-
-import unittest
 
 
 cdef void cb_proxy(void* handle, const char* logger, LogLevel level, const char* msg) with gil:

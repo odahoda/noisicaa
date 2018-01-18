@@ -21,10 +21,10 @@
 # @end:license
 
 import struct
-import unittest
 
 import numpy
 
+from noisidev import unittest
 from . cimport ladspa
 
 

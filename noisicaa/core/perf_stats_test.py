@@ -20,8 +20,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from . import perf_stats
 
 class TestPerfStats(perf_stats.PyPerfStats):
@@ -103,8 +102,3 @@ class PerfStatsTest(unittest.TestCase):
         self.assertEqual(msg.spans[1].parentId, msg.spans[0].id)
         self.assertEqual(msg.spans[1].startTimeNSec, 1)
         self.assertEqual(msg.spans[1].endTimeNSec, 2)
-
-
-
-if __name__ == '__main__':
-    unittest.main()

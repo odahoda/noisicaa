@@ -26,11 +26,11 @@ import logging
 import os.path
 from unittest import mock
 
-import asynctest
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 
+from noisidev import unittest
 from noisicaa import core
 from noisicaa import instrument_db
 from noisicaa import node_db
@@ -191,14 +191,14 @@ class MockApp(BaseEditorApp, QtCore.QCoreApplication):
 class Bunch(object): pass
 
 
-class UITest(asynctest.TestCase):
+class UITest(unittest.AsyncTestCase):
     # There are random crashes if we create and destroy the QApplication for
     # each test. So create a single one and re-use it for all tests. This
     # makes the tests non-hermetic, which could be a problem, but it's better
     # than fighting with the garbage collection in pyqt5.
     app = None
 
-    async def setUp(self):
+    async def setup_testcase(self):
         self.node_db_process = TestNodeDBProcess(
             name='node_db', event_loop=self.loop, manager=None)
         await self.node_db_process.setup()
@@ -244,7 +244,7 @@ class UITest(asynctest.TestCase):
         self.context_args = {'context': self.context}
         self.commands = []
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         await UITest.app.cleanup()
         UITest.app.process = None
         await self.process.cleanup()

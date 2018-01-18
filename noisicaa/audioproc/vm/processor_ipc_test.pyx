@@ -21,7 +21,6 @@
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
-import unittest
 import sys
 import threading
 import uuid
@@ -32,6 +31,7 @@ import struct
 
 import capnp
 
+from noisidev import unittest
 from noisicaa.core.status cimport *
 from noisicaa.core.status import ConnectionClosed
 from . import block_data_capnp

@@ -22,11 +22,9 @@
 
 import asyncio
 import time
-import unittest
 from unittest import mock
 
-import asynctest
-
+from noisidev import unittest
 from noisicaa import core
 from noisicaa.core import ipc
 
@@ -51,8 +49,8 @@ class TestClient(client.InstrumentDBClientMixin, TestClientImpl):
     pass
 
 
-class InstrumentDBClientTest(asynctest.TestCase):
-    async def setUp(self):
+class InstrumentDBClientTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.process = process.InstrumentDBProcess(
             name='instrument_db', event_loop=self.loop, manager=None)
         await self.process.setup()
@@ -63,7 +61,7 @@ class InstrumentDBClientTest(asynctest.TestCase):
         await self.client.setup()
         await self.client.connect(self.process.server.address)
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         await self.client.disconnect(shutdown=True)
         await self.client.cleanup()
         await asyncio.wait_for(self.process_task, None)
@@ -71,7 +69,3 @@ class InstrumentDBClientTest(asynctest.TestCase):
 
     async def test_start_scan(self):
         await self.client.start_scan()
-
-
-if __name__ == '__main__':
-    unittest.main()

@@ -18,8 +18,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from noisicaa.core.status cimport *
 from .host_data cimport *
 from .musical_time cimport *
@@ -29,11 +28,11 @@ from .player cimport *
 cdef class PlayerTestMixin(object):
     cdef PyHostData host_data
 
-    def setUp(self):
+    def setup_testcase(self):
         self.host_data = PyHostData()
         self.host_data.setup()
 
-    def tearDown(self):
+    def cleanup_testcase(self):
         self.host_data.cleanup()
 
     # def test_state(self):

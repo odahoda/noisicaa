@@ -18,8 +18,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from . import lv2
 from . import sratom
 

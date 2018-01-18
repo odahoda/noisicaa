@@ -18,8 +18,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from noisicaa.bindings import sratom
 from . import atom
 from . import urid

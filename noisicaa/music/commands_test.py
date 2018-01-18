@@ -20,8 +20,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from noisicaa import core
 from . import commands
 from . import state
@@ -182,6 +181,3 @@ class CommandTest(unittest.TestCase):
 
         cmd.redo(root)
         self.assertEqual(root.serialize(), root_serialized_post)
-
-if __name__ == '__main__':
-    unittest.main()

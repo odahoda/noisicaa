@@ -22,8 +22,8 @@ from libc.stdint cimport uint8_t
 from libcpp.memory cimport unique_ptr
 
 import sys
-import unittest
 
+from noisidev import unittest
 from noisicaa.bindings.lv2 cimport atom
 from noisicaa.bindings.lv2 import urid
 from noisicaa.core.status cimport *
@@ -45,7 +45,7 @@ cdef class TestProcessorPianoRollMixin(object):
     cdef PyBlockContext ctxt
     cdef uint8_t outbuf[10240]
 
-    def setUp(self):
+    def setup_testcase(self):
         self.host_data = PyHostData()
         self.host_data.setup()
 
@@ -70,7 +70,7 @@ cdef class TestProcessorPianoRollMixin(object):
 
         check(self.processor.connect_port(0, <BufferPtr>self.outbuf))
 
-    def tearDown(self):
+    def cleanup_testcase(self):
         if self.processor != NULL:
             self.processor.cleanup()
         self.processor_ptr.reset()

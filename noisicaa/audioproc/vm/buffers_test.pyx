@@ -22,8 +22,8 @@ from libcpp.memory cimport unique_ptr
 
 import struct
 import sys
-import unittest
 
+from noisidev import unittest
 from noisicaa.bindings.lv2 cimport atom
 from noisicaa.bindings.lv2 import urid
 from noisicaa.core.status cimport *

@@ -21,16 +21,16 @@
 # @end:license
 
 import builtins
-import unittest
 
 from mox3 import stubout
 from pyfakefs import fake_filesystem
 
+from noisidev import unittest
 from . import recordfile
 
 
 class RecordFileTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.stubs = stubout.StubOutForTesting()
         self.addCleanup(self.stubs.SmartUnsetAll)
 
@@ -95,7 +95,3 @@ class RecordFileTest(unittest.TestCase):
         with recordfile.RecordFile('/test.rec', recordfile.MODE_READONLY) as r:
             data, _ = r.read_record()
             self.assertEqual(data, b'#~tralala')
-
-
-if __name__ == '__main__':
-    unittest.main()

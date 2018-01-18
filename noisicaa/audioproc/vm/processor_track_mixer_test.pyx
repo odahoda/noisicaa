@@ -18,10 +18,13 @@
 #
 # @end:license
 
+import sys
+
 from libc.stdint cimport uint8_t
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
+from noisidev import unittest
 from noisicaa.core.status cimport *
 from .block_context cimport *
 from .buffers cimport *
@@ -29,9 +32,6 @@ from .processor cimport *
 from .processor_spec cimport *
 from .host_data cimport *
 from .message_queue cimport *
-
-import unittest
-import sys
 
 
 class TestProcessorTrackMixer(unittest.TestCase):

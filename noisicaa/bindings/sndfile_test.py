@@ -21,10 +21,10 @@
 # @end:license
 
 import os.path
-import unittest
 
 import numpy
 
+from noisidev import unittest
 from . import sndfile
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), 'testdata')

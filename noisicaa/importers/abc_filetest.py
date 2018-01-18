@@ -25,9 +25,9 @@ import os.path
 import re
 import pprint
 import fractions
-import unittest
 import glob
 
+from noisidev import unittest
 from noisicaa import music
 from . import abc
 
@@ -69,8 +69,3 @@ def filter_suite(suite):
                 t = filter_suite(t)
             filtered.addTest(t)
     return filtered
-
-if __name__ == '__main__':
-    #logging.basicConfig(level=logging.DEBUG)
-
-    unittest.main()

@@ -22,8 +22,7 @@
 
 from unittest import mock
 
-import asynctest
-
+from noisidev import unittest
 from noisicaa import audioproc
 from noisicaa.node_db.private import db as node_db
 
@@ -45,8 +44,8 @@ class NodeDB(object):
         return self.db._nodes[uri]
 
 
-class ControlTrackConnectorTest(asynctest.TestCase):
-    async def setUp(self):
+class ControlTrackConnectorTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.node_db = NodeDB()
         await self.node_db.setup()
 
@@ -63,7 +62,7 @@ class ControlTrackConnectorTest(asynctest.TestCase):
             self.messages.append(msg.WhichOneof('msg'))
         self.player.send_node_message.side_effect = send_node_message
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         await self.node_db.cleanup()
 
     def test_messages_on_mutations(self):

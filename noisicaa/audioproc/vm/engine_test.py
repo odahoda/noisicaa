@@ -23,8 +23,8 @@
 import logging
 import struct
 import threading
-import unittest
 
+from noisidev import unittest
 from noisicaa import constants
 from noisicaa import node_db
 from noisicaa import audioproc
@@ -71,11 +71,11 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineVMTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.host_data = audioproc.HostData()
         self.host_data.setup()
 
-    def tearDown(self):
+    def cleanup_testcase(self):
         self.host_data.cleanup()
 
     # def test_get_buffer_bytes(self):
@@ -334,7 +334,3 @@ class PipelineVMTest(unittest.TestCase):
 
         finally:
             vm.cleanup()
-
-
-if __name__ == '__main__':
-    unittest.main()

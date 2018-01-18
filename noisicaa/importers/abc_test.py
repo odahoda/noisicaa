@@ -25,15 +25,15 @@ import os.path
 import re
 import pprint
 import fractions
-import unittest
 import glob
 
+from noisidev import unittest
 from noisicaa import music
 from . import abc
 
 
 class ABCImporterTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.imp = abc.ABCImporter()
 
     def test_parse_note(self):
@@ -123,9 +123,3 @@ class ABCImporterTest(unittest.TestCase):
 
     def test_bach_measure(self):
         self.imp.unit_length = fractions.Fraction(1, 4)
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
-
-    unittest.main()

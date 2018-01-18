@@ -21,8 +21,8 @@
 # @end:license
 
 import logging
-import unittest
 
+from noisidev import unittest
 from noisicaa.audioproc import vm
 from noisicaa import node_db
 from .. import node
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 class CompilerTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.host_data = vm.HostData()
 
     def _build_graph(self):
@@ -117,7 +117,3 @@ class CompilerTest(unittest.TestCase):
         comp = compiler.Compiler(graph=g)
         spec = comp.build_spec()
         print(spec.dump())
-
-
-if __name__ == '__main__':
-    unittest.main()

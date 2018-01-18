@@ -21,17 +21,17 @@
 # @end:license
 
 import builtins
-import unittest
 
 from mox3 import stubout
 from pyfakefs import fake_filesystem
 
+from noisidev import unittest
 from . import fileutil
 from . import storage
 
 
 class StorageTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.stubs = stubout.StubOutForTesting()
         self.addCleanup(self.stubs.SmartUnsetAll)
 
@@ -255,7 +255,3 @@ class StorageTest(unittest.TestCase):
             self.fake_os.path.isfile('/foo.data/checkpoint.000000'))
         self.assertTrue(
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
-
-
-if __name__ == '__main__':
-    unittest.main()

@@ -20,8 +20,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from . import lv2_scanner
 
 
@@ -30,7 +29,3 @@ class LV2ScannerTest(unittest.TestCase):
         scanner = lv2_scanner.LV2Scanner()
         for uri, node_description in scanner.scan():
             pass
-
-
-if __name__ == '__main__':
-    unittest.main()

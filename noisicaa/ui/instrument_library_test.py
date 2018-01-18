@@ -21,20 +21,20 @@
 # @end:license
 
 import os.path
-import unittest
 from unittest import mock
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 
+from noisidev import unittest
 from noisicaa import instrument_db
 from . import uitest_utils
 from . import instrument_library
 
 
 class TracksModelTest(uitest_utils.UITest):
-    async def setUp(self):
-        await super().setUp()
+    async def setup_testcase(self):
+        await super().setup_testcase()
 
     def __mkinstr(self, path):
         return instrument_db.InstrumentDescription(
@@ -105,8 +105,3 @@ class TracksModelTest(uitest_utils.UITest):
 
         finally:
             model.close()
-
-
-
-if __name__ == '__main__':
-    unittest.main()

@@ -20,8 +20,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from .time_signature import TimeSignature
 
 
@@ -39,7 +38,3 @@ class TimeSignatureTest(unittest.TestCase):
         self.assertEqual(TimeSignature(3, 4).value, (3, 4))
         self.assertEqual(TimeSignature(3, 2).upper, 3)
         self.assertEqual(TimeSignature(3, 2).lower, 2)
-
-
-if __name__ == '__main__':
-    unittest.main()

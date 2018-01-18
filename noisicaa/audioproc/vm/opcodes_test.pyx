@@ -20,9 +20,9 @@
 
 from libcpp.memory cimport unique_ptr
 
-import unittest
 import sys
 
+from noisidev import unittest
 from noisicaa.core.status cimport *
 from .spec cimport *
 from .vm cimport *

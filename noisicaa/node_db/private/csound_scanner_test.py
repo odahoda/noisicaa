@@ -20,8 +20,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from . import csound_scanner
 
 
@@ -30,7 +29,3 @@ class CSoundScannerTest(unittest.TestCase):
         scanner = csound_scanner.CSoundScanner()
         for uri, node_description in scanner.scan():
             pass
-
-
-if __name__ == '__main__':
-    unittest.main()

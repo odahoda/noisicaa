@@ -22,11 +22,9 @@
 
 import asyncio
 import time
-import unittest
 from unittest import mock
 
-import asynctest
-
+from noisidev import unittest
 from noisicaa import core
 from noisicaa import node_db
 from noisicaa.core import ipc
@@ -52,8 +50,8 @@ class TestClient(audioproc_client.AudioProcClientMixin, TestClientImpl):
     pass
 
 
-class ProxyTest(asynctest.TestCase):
-    async def setUp(self):
+class ProxyTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.passthru_description = node_db.ProcessorDescription(
             processor_name='null',
             ports=[
@@ -80,7 +78,7 @@ class ProxyTest(asynctest.TestCase):
         await self.client.setup()
         await self.client.connect(self.audioproc_process.server.address)
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         await self.client.disconnect(shutdown=True)
         await self.client.cleanup()
         await asyncio.wait_for(self.audioproc_task, None)
@@ -100,7 +98,3 @@ class ProxyTest(asynctest.TestCase):
         await self.client.add_node(id='node2', description=self.passthru_description)
         await self.client.connect_ports('node1', 'out:left', 'node2', 'in:left')
         await self.client.disconnect_ports('node1', 'out:left', 'node2', 'in:left')
-
-
-if __name__ == '__main__':
-    unittest.main()

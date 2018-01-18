@@ -25,17 +25,15 @@ import logging
 import os.path
 import threading
 import time
-import unittest
 
-import asynctest
-
+from noisidev import unittest
 from noisicaa import constants
 from . import db
 
 logger = logging.getLogger(__name__)
 
 
-class NodeDBTest(asynctest.TestCase):
+class NodeDBTest(unittest.AsyncTestCase):
     async def test_foo(self):
         complete = asyncio.Event()
         def state_listener(state, *args):
@@ -53,7 +51,3 @@ class NodeDBTest(asynctest.TestCase):
 
         finally:
             instdb.cleanup()
-
-
-if __name__ == '__main__':
-    unittest.main()

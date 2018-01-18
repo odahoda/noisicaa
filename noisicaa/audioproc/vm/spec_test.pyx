@@ -18,14 +18,14 @@
 #
 # @end:license
 
+import sys
+
 from libcpp cimport bool
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libc.stdint cimport int64_t
 
-import unittest
-import sys
-
+from noisidev import unittest
 from noisicaa.core.status cimport *
 from .buffers cimport *
 from .spec cimport *

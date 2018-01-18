@@ -20,13 +20,13 @@
 #
 # @end:license
 
-import unittest
 from unittest import mock
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 
+from noisidev import unittest
 from . import uitest_utils
 from . import project_view
 from . import model
@@ -163,8 +163,8 @@ from . import track_items
 
 
 # class SheetViewTest(uitest_utils.UITest):
-#     async def setUp(self):
-#         await super().setUp()
+#     async def setup_testcase(self):
+#         await super().setup_testcase()
 
 #         self.sheet = model.Sheet('sheet1')
 #         self.sheet.name = 'Sheet 1'
@@ -324,8 +324,8 @@ from . import track_items
 #         view.setCurrentTool(view.currentTool())
 
 # class MeasureItemTest(uitest_utils.UITest):
-#     def setUp(self):
-#         super().setUp()
+#     def setup_testcase(self):
+#         super().setup_testcase()
 #         self.window = None
 #         self.project = EditorProject(self.app)
 #         self.project.sheets.clear()

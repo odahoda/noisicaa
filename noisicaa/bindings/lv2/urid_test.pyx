@@ -18,8 +18,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from . cimport core
 from . cimport urid
 

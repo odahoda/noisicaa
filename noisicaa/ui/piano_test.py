@@ -20,7 +20,7 @@
 #
 # @end:license
 
-import unittest
+from noisidev import unittest
 
 # from noisicaa import devices
 # from noisicaa import music
@@ -29,8 +29,8 @@ import unittest
 
 
 # class PianoTest(uitest_utils.UITest):
-#     def setUp(self):
-#         super().setUp()
+#     def setup_testcase(self):
+#         super().setup_testcase()
 
 #         self.app.sequencer.add_port(
 #             devices.PortInfo(
@@ -163,7 +163,3 @@ import unittest
 #         off_listener.not_called()
 
 #         self.assertTrue(p.close())
-
-
-if __name__ == '__main__':
-    unittest.main()

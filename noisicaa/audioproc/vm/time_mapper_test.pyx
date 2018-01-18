@@ -19,8 +19,8 @@
 # @end:license
 
 import itertools
-import unittest
 
+from noisidev import unittest
 from .time_mapper import PyTimeMapper
 from .musical_time import PyMusicalTime, PyMusicalDuration
 

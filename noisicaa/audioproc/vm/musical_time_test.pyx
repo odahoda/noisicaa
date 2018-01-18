@@ -22,7 +22,8 @@ from .musical_time cimport *
 from . import musical_time_pb2
 
 import fractions
-import unittest
+
+from noisidev import unittest
 
 
 class MusicalDurationTest(unittest.TestCase):

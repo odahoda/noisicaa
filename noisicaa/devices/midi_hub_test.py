@@ -23,9 +23,9 @@
 import logging
 import threading
 import time
-import unittest
 from unittest import mock
 
+from noisidev import unittest
 from . import libalsa
 from . import midi_events
 from . import midi_hub
@@ -85,7 +85,7 @@ class MockSequencer(object):
 
 
 class MidiHubTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.seq = MockSequencer()
 
     def test_start_stop(self):
@@ -136,8 +136,3 @@ class MidiHubTest(unittest.TestCase):
         with midi_hub.MidiHub(self.seq) as hub:
             with self.assertRaises(midi_hub.Error):
                 hub.listeners.add('111/222', mock.Mock())
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
-    unittest.main()

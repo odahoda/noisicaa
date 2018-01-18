@@ -25,11 +25,9 @@ import contextlib
 import logging
 import os.path
 import tempfile
-import unittest
 from unittest import mock
 
-import asynctest
-
+from noisidev import unittest
 from noisicaa import constants
 from noisicaa import core
 from noisicaa import audioproc
@@ -109,8 +107,8 @@ class NodeDB(object):
         return self.db._nodes[uri]
 
 
-class PlayerTest(asynctest.TestCase):
-    async def setUp(self):
+class PlayerTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.node_db = NodeDB()
         await self.node_db.setup()
 
@@ -152,7 +150,7 @@ class PlayerTest(asynctest.TestCase):
 
         logger.info("Testcase setup complete.")
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         logger.info("Testcase teardown starts...")
 
         await asyncio.wait_for(self.audioproc_server_player_task, None)
@@ -296,7 +294,3 @@ class PlayerTest(asynctest.TestCase):
 
         finally:
             await p.cleanup()
-
-
-if __name__ == '__main__':
-    unittest.main()

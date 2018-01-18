@@ -20,8 +20,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from noisicaa.ui import uitest_utils
 from noisicaa.ui import model
 from noisicaa.ui import tools
@@ -30,8 +29,8 @@ from . import track_item_tests
 
 
 class ControlTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
-    async def setUp(self):
-        await super().setUp()
+    async def setup_testcase(self):
+        await super().setup_testcase()
 
         self.project.master_group.tracks.append(model.ControlTrack(obj_id='track-1'))
 

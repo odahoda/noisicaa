@@ -25,8 +25,8 @@ import itertools
 import math
 import os.path
 import sys
-import unittest
 
+from noisidev import unittest
 from noisicaa import constants
 from noisicaa.core.status cimport *
 from . import musical_time
@@ -53,7 +53,7 @@ cdef class TestProcessorSampleScriptMixin(object):
     cdef float outlbuf[4096]
     cdef float outrbuf[4096]
 
-    def setUp(self):
+    def setup_testcase(self):
         self.host_data = PyHostData()
         self.host_data.setup()
 
@@ -85,7 +85,7 @@ cdef class TestProcessorSampleScriptMixin(object):
         self.sample1_path = os.path.join(TESTDATA, 'future-thunder1.wav')
         self.sample2_path = os.path.join(TESTDATA, 'kick-gettinglaid.wav')
 
-    def tearDown(self):
+    def cleanup_testcase(self):
         if self.processor != NULL:
             self.processor.cleanup()
         self.processor_ptr.reset()

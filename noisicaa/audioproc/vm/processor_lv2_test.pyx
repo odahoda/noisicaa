@@ -21,9 +21,9 @@
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
-import unittest
 import sys
 
+from noisidev import unittest
 from noisicaa.core.status cimport *
 from noisicaa.bindings.lv2 cimport atom
 from noisicaa.bindings.lv2 import urid
@@ -42,7 +42,7 @@ cdef class TestProcessorLV2Impl(object):
     cdef unique_ptr[ProcessorSpec] spec_ptr
     cdef ProcessorSpec* spec
 
-    def setUp(self):
+    def setup_testcase(self):
         self.host_data = PyHostData()
         self.host_data.setup()
 
@@ -57,7 +57,7 @@ cdef class TestProcessorLV2Impl(object):
         self.spec_ptr.reset(new ProcessorSpec())
         self.spec = self.spec_ptr.get()
 
-    def tearDown(self):
+    def cleanup_testcase(self):
         self.spec_ptr.reset()
         self.spec = NULL
         self.processor_ptr.reset()

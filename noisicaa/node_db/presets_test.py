@@ -22,8 +22,8 @@
 
 import textwrap
 import os.path
-import unittest
 
+from noisidev import unittest
 from . import node_description
 from . import presets
 from .private import builtin_scanner
@@ -32,7 +32,7 @@ TESTDATA = os.path.join(os.path.dirname(__file__), 'testdata')
 
 
 class PresetTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         scanner = builtin_scanner.BuiltinScanner()
         self.nodes = dict(scanner.scan())
         self.node_factory = self.nodes.get
@@ -61,7 +61,3 @@ class PresetTest(unittest.TestCase):
         self.assertEqual(preset.node_uri, 'builtin://custom_csound')
         self.assertIsInstance(preset.node_description, node_description.NodeDescription)
         self.assertEqual(preset.node_description.node_cls, 'processor')
-
-
-if __name__ == '__main__':
-    unittest.main()

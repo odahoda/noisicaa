@@ -21,8 +21,8 @@
 # @end:license
 
 import time
-import unittest
 
+from noisidev import unittest
 from . import stats
 
 
@@ -77,7 +77,3 @@ class CollectorTest(unittest.TestCase):
             s1.incr()
             s2.incr(2)
             collector.collect(registry)
-
-
-if __name__ == '__main__':
-    unittest.main()

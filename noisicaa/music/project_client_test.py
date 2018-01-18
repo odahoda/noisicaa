@@ -21,11 +21,9 @@
 # @end:license
 
 import uuid
-import unittest
 from unittest import mock
 
-import asynctest
-
+from noisidev import unittest
 from noisicaa import node_db
 from noisicaa.core import ipc
 from noisicaa.ui import model
@@ -66,8 +64,8 @@ class TestNodeDBProcess(node_db.NodeDBProcessBase):
         return None
 
 
-class ProxyTest(asynctest.TestCase):
-    async def setUp(self):
+class ProxyTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.node_db_process = TestNodeDBProcess(
             name='node_db', event_loop=self.loop, manager=None)
         await self.node_db_process.setup()
@@ -87,7 +85,7 @@ class ProxyTest(asynctest.TestCase):
         await self.client.setup()
         await self.client.connect(self.project_process.server.address)
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         await self.client.shutdown()
         await self.client.disconnect()
         await self.client.cleanup()
@@ -120,7 +118,3 @@ class ProxyTest(asynctest.TestCase):
             track_type='score',
             parent_group_id=project.master_group.id)
         self.assertEqual(len(project.master_group.tracks), num_tracks + 1)
-
-
-if __name__ == '__main__':
-    unittest.main()

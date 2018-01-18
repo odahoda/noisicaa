@@ -21,8 +21,8 @@
 # @end:license
 
 import time
-import unittest
 
+from noisidev import unittest
 from . import libalsa
 
 class AlsaSequencerTest(unittest.TestCase):
@@ -63,7 +63,3 @@ class AlsaSequencerTest(unittest.TestCase):
 
     #         for _ in range(100):
     #             seq.get_event()
-
-
-if __name__ == '__main__':
-    unittest.main()

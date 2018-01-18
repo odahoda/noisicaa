@@ -20,22 +20,17 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from noisicaa.music import project
 from . import uitest_utils
 from . import render_project_dialog
 
 
 # class RenderProjectDialogTest(uitest_utils.UITest):
-#     async def setUp(self):
-#         await super().setUp()
+#     async def setup_testcase(self):
+#         await super().setup_testcase()
 #         self.project = project.BaseProject()
 
 #     async def test_init(self):
 #         dialog = render_project_dialog.RenderProjectDialog(None, self.app, self.project)
 #         self.assertTrue(dialog.close())
-
-
-if __name__ == '__main__':
-    unittest.main()

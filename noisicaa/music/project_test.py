@@ -23,10 +23,10 @@
 import builtins
 import json
 
-import asynctest
 from mox3 import stubout
 from pyfakefs import fake_filesystem
 
+from noisidev import unittest
 from noisicaa.node_db.private import db as node_db
 from noisicaa.core import fileutil
 from noisicaa.core import storage
@@ -55,12 +55,12 @@ class NodeDB(object):
         return self.db._nodes[uri]
 
 
-class BaseProjectTest(asynctest.TestCase):
-    async def setUp(self):
+class BaseProjectTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.node_db = NodeDB()
         await self.node_db.setup()
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         await self.node_db.cleanup()
 
     def test_serialize(self):
@@ -79,8 +79,8 @@ class BaseProjectTest(asynctest.TestCase):
         #pprint.pprint(p.serialize())
 
 
-class ProjectTest(asynctest.TestCase):
-    async def setUp(self):
+class ProjectTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.node_db = NodeDB()
         await self.node_db.setup()
 
@@ -95,7 +95,7 @@ class ProjectTest(asynctest.TestCase):
         self.stubs.SmartSet(fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         await self.node_db.cleanup()
 
     def test_create(self):
@@ -142,14 +142,14 @@ class ProjectTest(asynctest.TestCase):
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
 
 
-class CommandTest(asynctest.TestCase):
-    async def setUp(self):
+class CommandTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.node_db = NodeDB()
         await self.node_db.setup()
 
         self.project = project.BaseProject(node_db=self.node_db)
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         await self.node_db.cleanup()
 
 

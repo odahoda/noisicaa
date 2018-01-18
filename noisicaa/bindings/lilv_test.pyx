@@ -21,9 +21,9 @@
 # @end:license
 
 import logging
-import unittest
 import struct
 
+from noisidev import unittest
 from . cimport lilv
 from . import lv2
 from . import sratom
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class NodeTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.world = lilv.World()
 
     def test_string(self):
@@ -95,7 +95,7 @@ class WorldTest(unittest.TestCase):
 
 
 class PluginTest(unittest.TestCase):
-    def setUp(self):
+    def setup_testcase(self):
         self.world = lilv.World()
         self.world.load_all()
         self.plugins = self.world.get_all_plugins()

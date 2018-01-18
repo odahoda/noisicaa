@@ -23,8 +23,8 @@ from libcpp.memory cimport unique_ptr
 
 import math
 import sys
-import unittest
 
+from noisidev import unittest
 from noisicaa.core.status cimport *
 from . import musical_time
 from . import processor
@@ -44,7 +44,7 @@ cdef class TestProcessorCVGeneratorMixin(object):
     cdef PyBlockContext ctxt
     cdef float outbuf[4096]
 
-    def setUp(self):
+    def setup_testcase(self):
         self.host_data = PyHostData()
         self.host_data.setup()
 
@@ -69,7 +69,7 @@ cdef class TestProcessorCVGeneratorMixin(object):
 
         check(self.processor.connect_port(0, <BufferPtr>self.outbuf))
 
-    def tearDown(self):
+    def cleanup_testcase(self):
         if self.processor != NULL:
             self.processor.cleanup()
         self.processor_ptr.reset()

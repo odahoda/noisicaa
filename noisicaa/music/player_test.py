@@ -24,8 +24,7 @@ import asyncio
 import logging
 from unittest import mock
 
-import asynctest
-
+from noisidev import unittest
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.core import ipc
@@ -78,8 +77,8 @@ class MockAudioProcClient(object):
         self.audiostream_server = None
 
 
-class PlayerTest(asynctest.TestCase):
-    async def setUp(self):
+class PlayerTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.project = project.BaseProject()
 
         self.player_status_calls = asyncio.Queue()
@@ -102,7 +101,7 @@ class PlayerTest(asynctest.TestCase):
 
         logger.info("Testcase setup complete.")
 
-    async def tearDown(self):
+    async def cleanup_testcase(self):
         logger.info("Testcase teardown starts...")
 
         await self.audioproc_server.cleanup()

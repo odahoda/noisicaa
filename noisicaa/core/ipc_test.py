@@ -20,14 +20,11 @@
 #
 # @end:license
 
-import unittest
-
-import asynctest
-
+from noisidev import unittest
 from . import ipc
 
 
-class IPCTest(asynctest.TestCase):
+class IPCTest(unittest.AsyncTestCase):
     async def test_ping(self):
         async with ipc.Server(self.loop, name='test') as server:
             async with ipc.Stub(self.loop, server.address) as stub:
@@ -64,7 +61,3 @@ class IPCTest(asynctest.TestCase):
 
             async with ipc.Stub(self.loop, server.address) as stub:
                 self.assertEqual(await stub.call('foo', 3), 4)
-
-
-if __name__ == '__main__':
-    unittest.main()

@@ -18,10 +18,14 @@
 #
 # @end:license
 
+import textwrap
+import sys
+
 from libc.stdint cimport uint8_t
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
+from noisidev import unittest
 from noisicaa.bindings.lv2 cimport atom
 from noisicaa.bindings.lv2 import urid
 from noisicaa.core.status cimport *
@@ -30,10 +34,6 @@ from .buffers cimport *
 from .processor cimport *
 from .processor_spec cimport *
 from .host_data cimport *
-
-import textwrap
-import unittest
-import sys
 
 
 class TestProcessorCSound(unittest.TestCase):

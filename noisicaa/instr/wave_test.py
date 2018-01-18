@@ -21,12 +21,13 @@
 # @end:license
 
 import os.path
-import unittest
 from unittest import mock
 
+from noisidev import unittest
 from . import wave
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), 'testdata')
+
 
 class WaveFileTest(unittest.TestCase):
     def test_foo(self):
@@ -36,7 +37,3 @@ class WaveFileTest(unittest.TestCase):
         self.assertEqual(w.sample_rate, 44100)
         self.assertEqual(w.bits_per_sample, 16)
         self.assertEqual(w.num_samples, 9450)
-
-
-if __name__ == '__main__':
-    unittest.main()

@@ -20,15 +20,15 @@
 #
 # @end:license
 
-import unittest
 import json
 
-from . import state
+from noisidev import unittest
 from noisicaa import core
+from . import state
 
 
 # class PropertyTest(unittest.TestCase):
-#     def setUp(self):
+#     def setup_testcase(self):
 #         class TestObj(state.StateBase):
 #             pass
 
@@ -103,7 +103,7 @@ class TestStateBase(state.StateBase):
 
 
 class StateTest(unittest.TestCase):
-    def tearDown(self):
+    def cleanup_testcase(self):
         TestStateBase.clear_class_registry()
 
     def _validate_node(self, root, parent, node):
@@ -574,7 +574,3 @@ class StateTest(unittest.TestCase):
         self.assertNotEqual(o1.children[1].id, o2.children[1].id)
         self.assertEqual(o1.ref.name, 'r2')
         self.assertEqual(o1.ref.id, r2.id)
-
-
-if __name__ == '__main__':
-    unittest.main()

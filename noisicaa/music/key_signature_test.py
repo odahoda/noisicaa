@@ -20,8 +20,7 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from .key_signature import KeySignature
 
 
@@ -40,7 +39,3 @@ class KeySignatureTest(unittest.TestCase):
     def test_preset_names(self):
         self.assertEqual(KeySignature(name='G major').accidentals, ['F#'])
         self.assertEqual(KeySignature(name='G minor').accidentals, ['Bb', 'Eb'])
-
-
-if __name__ == '__main__':
-    unittest.main()

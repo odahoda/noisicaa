@@ -20,10 +20,10 @@
 #
 # @end:license
 
-import unittest
-
+from noisidev import unittest
 from . import expressions
 from . import stats
+
 
 class CompileExpressionTest(unittest.TestCase):
     def test_select(self):
@@ -36,7 +36,3 @@ class CompileExpressionTest(unittest.TestCase):
             expressions.compile_expression('SELECT(name="foo").RATE()'),
             [('SELECT', stats.StatName(name='foo')),
              ('RATE',)])
-
-
-if __name__ == '__main__':
-    unittest.main()

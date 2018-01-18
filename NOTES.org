@@ -1,5 +1,8 @@
 # -*- org-tags-column: -98 -*-
 
+* Move various test helpers to noisidev.unittest                                         :CLEANUP:
+* Unclean shut down                                                                          :BUG:
+- hangs during shut down
 * Make playing notes on insert when editing work again                                       :BUG:
 Reimplement Player.send_message() again, now without the proxy, forwarding the message directly
 to the backend.
@@ -14,10 +17,6 @@ to the backend.
     section.
   - Could also be used to collect actions that should be sent out in a batch at the end
     (e.g. project mutations).
-
-* Cascading failures in unittests                                                        :CLEANUP:
-When some test fails, following unrelated tests also fail, because some IPC server was not
-cleaned up properly by the failing test.
 
 * Base class for processor_*_test.pyx                                                    :CLEANUP:
 - setUp()/tearDown() to handle all the boilerplate (HostData, TimeMapper, ...).
@@ -234,7 +233,7 @@ Is there some cross-compiler/-platform header to provide this functionality?
 - allow any ksmps with block_size % ksmps == 0
 * Improve CMakeLists.txt                                                                 :CLEANUP:
 - Use CMAKE_BUILD_TYPE to set the right compiler flags
-- .pyx should depend on cimported .pxd files
+- autogenerate dependencies for .pyx, .proto files.
 - don't make every file a separate target
   - does that make the build faster (if just a few files changed)?
   - single target for each python package

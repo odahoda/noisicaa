@@ -21,9 +21,9 @@
 # @end:license
 
 import os.path
-import unittest
 from xml.etree.ElementTree import ElementTree
 
+from noisidev import unittest
 from . import svg_symbol
 
 TESTDATA_DIR = os.path.join(os.path.dirname(__file__), 'testdata')
@@ -60,7 +60,3 @@ class SymbolItemTest(unittest.TestCase):
         bbox = item.body.boundingRect()
         self.assertGreater(bbox.width(), 0)
         self.assertGreater(bbox.height(), 0)
-
-
-if __name__ == '__main__':
-    unittest.main()

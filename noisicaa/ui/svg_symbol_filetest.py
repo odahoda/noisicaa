@@ -21,11 +21,11 @@
 # @end:license
 
 import os.path
-import unittest
 import glob
 import tempfile
 import shutil
 
+from noisidev import unittest
 from noisicaa.constants import DATA_DIR
 from . import svg_symbol
 
@@ -40,7 +40,7 @@ class _FileTest(unittest.TestCase):
             os.path.basename(self.path),
             self.__class__.__module__, self.__class__.__name__)
 
-    def setUp(self):
+    def setup_testcase(self):
         self.cache_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.cache_dir)
 
@@ -75,6 +75,3 @@ def filter_suite(suite):
                 t = filter_suite(t)
             filtered.addTest(t)
     return filtered
-
-if __name__ == '__main__':
-    unittest.main()

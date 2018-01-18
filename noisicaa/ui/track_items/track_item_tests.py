@@ -22,7 +22,6 @@
 
 import contextlib
 from fractions import Fraction
-import unittest
 from unittest import mock
 
 from PyQt5.QtCore import Qt
@@ -30,6 +29,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisidev import unittest
 from noisicaa import music
 from noisicaa.ui import project_view
 from noisicaa.ui import model
@@ -236,8 +236,8 @@ class ReleaseKey(Event):
 
 
 class TrackEditorItemTestMixin(object):
-    async def setUp(self):
-        await super().setUp()
+    async def setup_testcase(self):
+        await super().setup_testcase()
 
         self.project.master_group = model.MasterTrackGroup(obj_id='master')
 
