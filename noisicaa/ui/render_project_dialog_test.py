@@ -20,10 +20,10 @@
 #
 # @end:license
 
-from noisidev import unittest
-from noisicaa.music import project
-from . import uitest_utils
-from . import render_project_dialog
+# from noisidev import unittest
+# from noisicaa.music import project
+# from . import uitest_utils
+# from . import render_project_dialog
 
 
 # class RenderProjectDialogTest(uitest_utils.UITest):

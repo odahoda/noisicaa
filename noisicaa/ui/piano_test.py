@@ -20,8 +20,7 @@
 #
 # @end:license
 
-from noisidev import unittest
-
+# from noisidev import unittest
 # from noisicaa import devices
 # from noisicaa import music
 # from . import uitest_utils

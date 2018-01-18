@@ -24,7 +24,6 @@ import logging
 import os
 import os.path
 
-from noisicaa import constants
 from noisicaa import instrument_db
 from noisicaa.instr import wave
 from noisicaa.instr import riff

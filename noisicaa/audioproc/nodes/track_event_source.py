@@ -21,12 +21,8 @@
 # @end:license
 
 import logging
-import random
 
 from noisicaa import core
-from noisicaa import music
-from noisicaa import node_db
-from .. import ports
 from .. import node
 from .. import vm
 

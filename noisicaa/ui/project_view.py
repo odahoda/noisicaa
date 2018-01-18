@@ -32,7 +32,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
-from noisicaa import music
 from noisicaa import node_db
 from noisicaa.music import model
 from . import tool_dock

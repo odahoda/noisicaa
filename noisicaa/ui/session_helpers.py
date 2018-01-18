@@ -20,17 +20,6 @@
 #
 # @end:license
 
-import functools
-import logging
-import math
-
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
-
-logger = logging.getLogger(__name__)
-
 
 class ManagedWindowMixin(object):
     def __init__(self, session_prefix, **kwargs):

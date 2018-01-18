@@ -22,7 +22,7 @@
 
 import logging
 
-import capnp
+import capnp  # pylint: disable=unused-import
 
 from . import message_capnp
 

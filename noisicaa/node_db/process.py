@@ -21,7 +21,6 @@
 # @end:license
 
 import asyncio
-import functools
 import logging
 import uuid
 

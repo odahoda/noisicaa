@@ -21,11 +21,8 @@
 # @end:license
 
 import logging
-import os
-import os.path
 
 from noisicaa.bindings import lilv
-from noisicaa import constants
 from noisicaa import node_db
 
 from . import scanner

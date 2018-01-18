@@ -20,9 +20,7 @@
 #
 # @end:license
 
-import logging
 import threading
-import time
 from unittest import mock
 
 from noisidev import unittest

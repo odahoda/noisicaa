@@ -20,19 +20,18 @@
 #
 # @end:license
 
-from unittest import mock
+# from unittest import mock
 
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-from PyQt5 import QtGui
+# from PyQt5.QtCore import Qt
+# from PyQt5 import QtCore
+# from PyQt5 import QtGui
 
-from noisidev import unittest
-from . import uitest_utils
-from . import project_view
-from . import model
-from . import tool_dock
-from . import track_items
-
+# from noisidev import unittest
+# from . import uitest_utils
+# from . import project_view
+# from . import model
+# from . import tool_dock
+# from . import track_items
 
 
 # class InitTest(uitest_utils.UITest):

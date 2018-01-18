@@ -21,12 +21,8 @@
 # @end:license
 
 import logging
-import os
-import os.path
-from xml.etree import ElementTree
 
 from noisicaa import core
-from noisicaa import constants
 from noisicaa import node_db
 
 from . import csound_scanner

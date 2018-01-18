@@ -22,10 +22,6 @@
 
 import functools
 import io
-import logging
-import traceback
-
-logger = logging.getLogger(__name__)
 
 
 class CommonContext(object):

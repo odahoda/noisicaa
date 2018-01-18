@@ -21,15 +21,12 @@
 # @end:license
 
 import logging
-import os.path
-import enum
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisicaa import constants
 from . import flowlayout
 from . import dock_widget
 from . import tools

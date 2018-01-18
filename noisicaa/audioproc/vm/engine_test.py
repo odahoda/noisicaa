@@ -22,13 +22,10 @@
 
 import logging
 import struct
-import threading
 
 from noisidev import unittest
 from noisicaa import constants
-from noisicaa import node_db
 from noisicaa import audioproc
-from .. import nodes
 from . import engine
 
 logger = logging.getLogger(__name__)

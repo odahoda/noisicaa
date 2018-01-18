@@ -23,7 +23,6 @@ add_python_package(
   csound_scanner.py
   csound_scanner_test.py
   db.py
-  db_test.py
   ladspa_scanner.py
   ladspa_scanner_test.py
   lv2_scanner.py

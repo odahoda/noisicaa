@@ -21,9 +21,9 @@
 # @end:license
 
 import logging
-import uuid
 
 logger = logging.getLogger(__name__)
+
 
 class Error(Exception):
     pass

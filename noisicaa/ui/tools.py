@@ -27,10 +27,8 @@ import os.path
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
-from PyQt5 import QtWidgets
 
 from noisicaa import constants
-from noisicaa import utils
 from . import ui_base
 
 

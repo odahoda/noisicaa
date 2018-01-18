@@ -23,8 +23,6 @@
 import asyncio
 import logging
 import os.path
-import threading
-import time
 
 from noisidev import unittest
 from noisicaa import constants

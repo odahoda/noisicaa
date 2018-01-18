@@ -34,7 +34,6 @@ from noisicaa import music
 from noisicaa import node_db
 from . import ui_base
 from . import dock_widget
-from . import mute_button
 from . import session_helpers
 
 logger = logging.getLogger(__name__)

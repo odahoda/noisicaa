@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import collections
 import logging
 
 from . import stats

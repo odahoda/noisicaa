@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import glob
 import os
 import os.path
 import logging

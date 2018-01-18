@@ -36,9 +36,7 @@ class RecordFileTest(unittest.TestCase):
 
         # Setup fake filesystem.
         self.fake_fs = fake_filesystem.FakeFilesystem()
-        self.fake_os = fake_filesystem.FakeOsModule(self.fake_fs)
         self.fake_open = fake_filesystem.FakeFileOpen(self.fake_fs)
-        self.stubs.SmartSet(recordfile, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
     def test_invalid_mode(self):

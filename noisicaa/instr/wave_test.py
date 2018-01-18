@@ -21,7 +21,6 @@
 # @end:license
 
 import os.path
-from unittest import mock
 
 from noisidev import unittest
 from . import wave

@@ -21,8 +21,6 @@
 # @end:license
 
 import functools
-import math
-import time
 import uuid
 
 from PyQt5.QtCore import Qt

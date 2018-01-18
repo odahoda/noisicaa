@@ -30,8 +30,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
-from noisicaa import music
-from noisicaa.ui import ui_base
 from noisicaa.ui import tools
 from . import base_track_item
 

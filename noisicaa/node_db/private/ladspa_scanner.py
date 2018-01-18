@@ -24,7 +24,6 @@ import logging
 import os
 import os.path
 
-from noisicaa import constants
 from noisicaa import node_db
 from noisicaa.bindings import ladspa
 

@@ -21,11 +21,8 @@
 # @end:license
 
 import asyncio
-import time
-from unittest import mock
 
 from noisidev import unittest
-from noisicaa import core
 from noisicaa.core import ipc
 
 from . import process

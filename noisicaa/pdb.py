@@ -24,7 +24,6 @@ import asyncio
 import asyncio.streams
 import logging
 import pprint
-import os
 import subprocess
 import sys
 import textwrap

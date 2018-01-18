@@ -24,7 +24,6 @@ import logging
 
 from noisicaa import node_db
 
-from .exceptions import Error
 from . import vm
 from . import ports
 

@@ -39,7 +39,6 @@ from .editor_window import EditorWindow
 
 from . import project_registry
 from . import pipeline_perf_monitor
-from . import pipeline_graph_monitor
 from . import stat_monitor
 from . import ui_base
 

@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import json
 
 class RuntimeSettings(object):
     def __init__(self):

@@ -40,7 +40,6 @@ from .settings import SettingsDialog
 from .project_view import ProjectView
 from .dock_widget import DockWidget
 from ..importers.abc import ABCImporter, ImporterError
-from .load_history import LoadHistoryWidget
 from . import ui_base
 from . import instrument_library
 from . import selection_set

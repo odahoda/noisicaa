@@ -19,14 +19,12 @@
 # @end:license
 
 import argparse
-import uuid
 import logging
 import select
 import time
 import threading
 
 from noisicaa.core import callbacks
-from . import libalsa
 
 logger = logging.getLogger(__name__)
 

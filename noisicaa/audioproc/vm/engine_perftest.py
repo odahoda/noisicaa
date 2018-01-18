@@ -20,12 +20,12 @@
 #
 # @end:license
 
-import logging
-import os.path
+# import logging
+# import os.path
 
-from noisidev import perf_stats
-from noisidev import profutil
-from noisidev import unittest
+# from noisidev import perf_stats
+# from noisidev import profutil
+# from noisidev import unittest
 
 # from .. import backend
 # from .. import nodes

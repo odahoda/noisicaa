@@ -21,12 +21,10 @@
 # @end:license
 
 import os.path
-from unittest import mock
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 
-from noisidev import unittest
 from noisicaa import instrument_db
 from . import uitest_utils
 from . import instrument_library

@@ -30,7 +30,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisidev import unittest
-from noisicaa import music
 from noisicaa.ui import project_view
 from noisicaa.ui import model
 

@@ -20,10 +20,8 @@
 #
 # @end:license
 
-import contextlib
 import logging
 import hashlib
-import os
 import re
 
 logger = logging.getLogger(__name__)

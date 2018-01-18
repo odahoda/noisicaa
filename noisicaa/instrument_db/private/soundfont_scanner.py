@@ -21,11 +21,7 @@
 # @end:license
 
 import logging
-import os
-import os.path
-import urllib.parse
 
-from noisicaa import constants
 from noisicaa import instrument_db
 from noisicaa.instr import soundfont
 from noisicaa.instr import riff

@@ -20,8 +20,6 @@
 #
 # @end:license
 
-import time
-
 from noisidev import unittest
 from . import stats
 

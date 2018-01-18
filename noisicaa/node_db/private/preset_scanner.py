@@ -23,7 +23,6 @@
 import logging
 import os
 import os.path
-from xml.etree import ElementTree
 
 from noisicaa import constants
 from noisicaa import node_db

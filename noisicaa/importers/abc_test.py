@@ -20,12 +20,7 @@
 #
 # @end:license
 
-import logging
-import os.path
-import re
-import pprint
 import fractions
-import glob
 
 from noisidev import unittest
 from noisicaa import music

@@ -23,7 +23,6 @@
 import logging
 import textwrap
 
-from noisicaa import constants
 from noisicaa import node_db
 
 from . import scanner

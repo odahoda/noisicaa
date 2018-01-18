@@ -25,7 +25,6 @@ from unittest import mock
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 
-from noisidev import unittest
 from . import uitest_utils
 from . import model
 from . import tracks_dock

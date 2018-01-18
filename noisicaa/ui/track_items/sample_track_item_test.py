@@ -20,10 +20,8 @@
 #
 # @end:license
 
-from noisidev import unittest
 from noisicaa.ui import uitest_utils
 from noisicaa.ui import model
-from noisicaa.ui import tools
 from . import sample_track_item
 from . import track_item_tests
 

@@ -34,7 +34,6 @@ from noisidev import unittest
 from noisicaa import core
 from noisicaa import instrument_db
 from noisicaa import node_db
-from noisicaa.core import ipc
 from noisicaa.runtime_settings import RuntimeSettings
 from .editor_app import BaseEditorApp
 from . import model
