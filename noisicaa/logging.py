@@ -52,10 +52,9 @@ class LogFilter(object):
 
     def filter(self, record):
         for logger_name, level in self.levels:
-            if ((logger_name == ''
-                 or record.name == logger_name
-                 or record.name.startswith(logger_name + '.'))
-                and record.levelno >= level):
+            if (record.levelno >= level and (logger_name == ''
+                                             or record.name == logger_name
+                                             or record.name.startswith(logger_name + '.'))):
                 return True
         return False
 

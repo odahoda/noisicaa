@@ -83,7 +83,7 @@ class RecordFile(object):
         checksum.update(self._format_properties(properties))
         checksum.update(data)
         return 'md5:' + checksum.hexdigest()
-        
+
     def append_record(self, data, **properties):
         assert isinstance(data, bytes), \
             "Expected bytes, got %s" % type(data).__name__
@@ -157,7 +157,7 @@ class RecordFile(object):
         if len(data) != size:
             raise CorruptedFileError(
                 "Truncated data, %d bytes missing." % (size - len(data)))
-            
+
         if self._compute_checksum(data, properties) != checksum:
             raise CorruptedFileError("Checksum mismatch.")
 
