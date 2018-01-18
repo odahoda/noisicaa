@@ -21,4 +21,4 @@
 # @end:license
 
 export LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib
-exec python3 $(readlink -f "$(dirname "$0")/runtests.py") "$@"
+exec python3 -m noisidev.runtests "$@"

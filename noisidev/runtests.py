@@ -105,7 +105,8 @@ def main(argv):
             '/usr/bin/gdb',
             '--quiet',
             '--command', '/tmp/noisicaa.gdbinit',
-            '--args', sys.executable, __file__]
+            '--args', sys.executable,
+            '-m', 'noisidev.runtests']
         for arg, value in sorted(args.__dict__.items()):
             arg = arg.replace('_', '-')
             if arg == 'selectors':

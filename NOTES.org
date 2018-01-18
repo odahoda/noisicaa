@@ -1,8 +1,17 @@
 # -*- org-tags-column: -98 -*-
 
+* Built-in testcases                                                                     :CLEANUP:
+- for each file generate a built-in TestCase
+  - run pylint on the file, with a set of whitelisted messages, that cause the test to fail
+  - run some C++ linter and iwyu on *.cpp/*.h files.
+
 * Move various test helpers to noisidev.unittest                                         :CLEANUP:
+- noisicaa.ui.uitest_utils
+
 * Unclean shut down                                                                          :BUG:
 - hangs during shut down
+
+* Explore https://github.com/census-instrumentation for stats tracking                        :FR:
 * Make playing notes on insert when editing work again                                       :BUG:
 Reimplement Player.send_message() again, now without the proxy, forwarding the message directly
 to the backend.
