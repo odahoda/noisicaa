@@ -126,6 +126,7 @@ class AudioProcProcess(core.ProcessBase):
         self.__enable_player = enable_player
         self.__host_data = None
         self.__vm = None
+        self.sessions = {}
 
     async def setup(self):
         await super().setup()
@@ -168,6 +169,7 @@ class AudioProcProcess(core.ProcessBase):
         self.__host_data.setup()
 
         self.__vm = vm.PipelineVM(
+            event_loop=self.event_loop,
             host_data=self.__host_data,
             shm=self.shm,
             profile_path=self.profile_path,
@@ -181,8 +183,6 @@ class AudioProcProcess(core.ProcessBase):
         sink = nodes.Sink(host_data=self.__host_data)
         self.__vm.setup_node(sink)
         self.__vm.add_node(sink)
-
-        self.sessions = {}
 
     async def cleanup(self):
         logger.info("Cleaning up AudioProcProcess %s...", self.name)

@@ -47,9 +47,7 @@ Processor::Processor(const string& node_id, const char* logger_name, HostData* h
     _id(Processor::new_id()),
     _node_id(node_id) {}
 
-Processor::~Processor() {
-  cleanup();
-}
+Processor::~Processor() {}
 
 StatusOr<Processor*> Processor::create(
     const string& node_id, HostData* host_data, const string& name) {

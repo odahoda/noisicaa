@@ -44,4 +44,5 @@ cdef extern from "noisicaa/audioproc/vm/vm.h" namespace "noisicaa" nogil:
         Status set_block_size(uint32_t block_size)
         Status set_spec(const Spec* spec)
         Status process_block(Backend* backend, BlockContext* ctxt)
+        Status run_maintenance()
         Buffer* get_buffer(const string& name)

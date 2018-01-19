@@ -333,4 +333,16 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
   return Status::Ok();
 }
 
+Status VM::run_maintenance() {
+  // Discard program, which the audio thread doesn't use anymore.
+  Program* old_program = _old_program.exchange(nullptr);
+  if (old_program != nullptr) {
+    _logger->info("Deactivate old program v%d", old_program->version);
+    deactivate_program(old_program);
+    delete old_program;
+  }
+
+  return Status::Ok();
+}
+
 }  // namespace noisicaa

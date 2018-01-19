@@ -32,22 +32,6 @@
 #include "noisicaa/audioproc/vm/audio_stream.h"
 #include "noisicaa/audioproc/vm/misc.h"
 
-namespace {
-
-using namespace noisicaa;
-
-Status set_blocking(int fd, int blocking) {
-  int arg = !blocking;
-  int rc = ioctl(fd, FIONBIO, &arg);
-  if (rc < 0) {
-    // TODO: Status::ErrorFromErrno
-    return ERROR_STATUS("Failed ioctl on FD %d: %d", fd, rc);
-  }
-  return Status::Ok();
-}
-
-}  // anonymous namespace
-
 namespace noisicaa {
 
 AudioStreamBase::AudioStreamBase(const char* logger_name, const string& address)
@@ -181,6 +165,8 @@ AudioStreamServer::AudioStreamServer(const string& address)
   : AudioStreamBase("noisicaa.audioproc.vm.audio_stream.server", address) {}
 
 Status AudioStreamServer::setup() {
+  RETURN_IF_ERROR(AudioStreamBase::setup());
+
   _logger->info("Serving from %s", _address.c_str());
 
   int rc;
@@ -198,8 +184,6 @@ Status AudioStreamServer::setup() {
   if (_pipe_in < 0) {
     return ERROR_STATUS("Failed to open %s: %d", address_in.c_str(), _pipe_in);
   }
-  status = set_blocking(_pipe_in, true);
-  RETURN_IF_ERROR(status);
 
   rc = mkfifo(address_out.c_str(), 0600);
   if (rc != 0) {
@@ -210,16 +194,14 @@ Status AudioStreamServer::setup() {
   if (_pipe_out < 0) {
     return ERROR_STATUS("Failed to open %s: %d", address_out.c_str(), _pipe_out);
   }
-  status = set_blocking(_pipe_out, true);
-  RETURN_IF_ERROR(status);
 
   _logger->info("Server ready.");
 
-  return AudioStreamBase::setup();
+  return Status::Ok();
 }
 
 void AudioStreamServer::cleanup() {
-  AudioStreamBase::cleanup();
+  _logger->info("Stop serving from %s", _address.c_str());
 
   if (_pipe_in >= 0) {
     ::close(_pipe_in);
@@ -236,12 +218,16 @@ void AudioStreamServer::cleanup() {
 
 //         if os.path.exists(self._address + '.recv'):
 //             os.unlink(self._address + '.recv')
+
+  AudioStreamBase::cleanup();
 }
 
 AudioStreamClient::AudioStreamClient(const string& address)
   : AudioStreamBase("noisicaa.audioproc.vm.audio_stream.client", address) {}
 
 Status AudioStreamClient::setup() {
+  RETURN_IF_ERROR(AudioStreamBase::setup());
+
   _logger->info("Connecting to %s...", _address.c_str());
 
   Status status;
@@ -253,23 +239,21 @@ Status AudioStreamClient::setup() {
   if (_pipe_in < 0) {
     return ERROR_STATUS("Failed to open %s: %d", address_in.c_str(), _pipe_in);
   }
-  status = set_blocking(_pipe_in, true);
-  RETURN_IF_ERROR(status);
 
   _pipe_out = open(address_out.c_str(), O_RDWR | O_NONBLOCK);
   if (_pipe_out < 0) {
     return ERROR_STATUS("Failed to open %s: %d", address_out.c_str(), _pipe_out);
   }
-  status = set_blocking(_pipe_out, true);
-  RETURN_IF_ERROR(status);
 
-  return AudioStreamBase::setup();
+  return Status::Ok();
 }
 
 void AudioStreamClient::cleanup() {
-  AudioStreamBase::cleanup();
+  _logger->info("Disconnecting from %s...", _address.c_str());
 
   if (_pipe_out >= 0) {
+    _logger->info("Sending CLOSE message to %s...", _address.c_str());
+
     uint32_t header[1] = { CLOSE };
     Status status = pipe_write((const char*)header, sizeof(header));
     if (status.is_error()) {
@@ -280,10 +264,12 @@ void AudioStreamClient::cleanup() {
     _pipe_out = -1;
   }
 
-  if (_pipe_in) {
+  if (_pipe_in >= 0) {
     ::close(_pipe_in);
     _pipe_in = -1;
   }
+
+  AudioStreamBase::cleanup();
 }
 
 }  // namespace noisicaa

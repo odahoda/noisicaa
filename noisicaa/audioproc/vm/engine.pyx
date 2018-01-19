@@ -26,6 +26,7 @@ from libc cimport stdlib
 from libc.string cimport memmove
 from libcpp.memory cimport unique_ptr
 
+import asyncio
 import enum
 import logging
 import math
@@ -75,6 +76,7 @@ cdef class PipelineVM(object):
 
     cdef readonly object listeners
     cdef PyHostData __host_data
+    cdef object __event_loop
     cdef object __sample_rate
     cdef object __block_size
     cdef object __shm
@@ -83,6 +85,7 @@ cdef class PipelineVM(object):
     cdef object __vm_started
     cdef object __vm_exit
     cdef object __vm_lock
+    cdef object __maintenance_task
     cdef object __bpm
     cdef object __duration
     cdef object __graph
@@ -92,11 +95,12 @@ cdef class PipelineVM(object):
 
     def __init__(
             self, *,
-            host_data,
+            host_data, event_loop,
             sample_rate=44100, block_size=128, shm=None, profile_path=None, enable_player=False):
         self.listeners = core.CallbackRegistry()
 
         self.__host_data = host_data
+        self.__event_loop = event_loop
         self.__sample_rate = sample_rate
         self.__block_size = block_size
         self.__shm = shm
@@ -120,6 +124,8 @@ cdef class PipelineVM(object):
         self.__vm_started = None
         self.__vm_exit = None
         self.__vm_lock = rwlock.RWLock()
+
+        self.__maintenance_task = None
 
         self.__graph = graph.PipelineGraph()
         self.__bpm = 120
@@ -151,13 +157,23 @@ cdef class PipelineVM(object):
         if start_thread:
             self.__vm_thread = threading.Thread(target=self.vm_main)
             self.__vm_thread.start()
+            logger.info("Starting VM thread (%s)...", self.__vm_thread.ident)
             self.__vm_started.wait()
+
+            logger.info("Starting maintenance task...")
+            self.__maintenance_task = self.__event_loop.create_task(self.__maintenance_task_main())
+
         logger.info("VM up and running.")
 
     def cleanup(self):
         if self.__backend != NULL:
             logger.info("Stopping backend...")
             self.__backend.stop()
+
+        if self.__maintenance_task is not None:
+            logger.info("Shutting down maintenance task...")
+            self.__maintenance_task.cancel()
+            self.__maintenance_task = None
 
         if self.__vm_thread is not None:  # pragma: no branch
             logger.info("Shutting down VM thread...")
@@ -416,3 +432,10 @@ cdef class PipelineVM(object):
 
     def process_block(self, PyBlockContext ctxt):
         check(self.__vm.process_block(self.__backend, ctxt.get()))
+
+    async def __maintenance_task_main(self):
+        while True:
+            logger.debug("Running maintenance task...")
+            with nogil:
+                check(self.__vm.run_maintenance())
+            await asyncio.sleep(0.2, self.__event_loop)

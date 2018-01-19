@@ -77,6 +77,7 @@ struct ProgramState {
 
 struct ActiveProcessor {
   ActiveProcessor(Processor* processor) : processor(processor), ref_count(0) {}
+  ~ActiveProcessor() { processor->cleanup(); }
 
   unique_ptr<Processor> processor;
   int ref_count;
@@ -108,6 +109,8 @@ public:
   Status send_processor_message(uint64_t processor_id, const string& msg_serialized);
 
   Status process_block(Backend* backend, BlockContext* ctxt);
+
+  Status run_maintenance();
 
   Buffer* get_buffer(const string& name);
 

@@ -36,19 +36,15 @@ namespace noisicaa {
 ProcessorIPC::ProcessorIPC(const string& node_id, HostData* host_data)
   : Processor(node_id, "noisicaa.audioproc.vm.processor.ipc", host_data) {}
 
-ProcessorIPC::~ProcessorIPC() {}
-
 Status ProcessorIPC::setup(const ProcessorSpec* spec) {
-  Status status = Processor::setup(spec);
-  RETURN_IF_ERROR(status);
+  RETURN_IF_ERROR(Processor::setup(spec));
 
   StatusOr<string> stor_or_address = get_string_parameter("ipc_address");
   RETURN_IF_ERROR(stor_or_address);
   string address = stor_or_address.result();
 
   _stream.reset(new AudioStreamClient(address));
-  status = _stream->setup();
-  RETURN_IF_ERROR(status);
+  RETURN_IF_ERROR(_stream->setup());
 
   return Status::Ok();
 }

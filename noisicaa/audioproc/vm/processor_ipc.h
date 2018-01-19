@@ -43,7 +43,6 @@ class HostData;
 class ProcessorIPC : public Processor {
 public:
   ProcessorIPC(const string& node_id, HostData* host_data);
-  ~ProcessorIPC() override;
 
   Status setup(const ProcessorSpec* spec) override;
   void cleanup() override;

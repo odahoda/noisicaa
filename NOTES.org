@@ -1,10 +1,71 @@
 # -*- org-tags-column: -98 -*-
 
-* Move various test helpers to noisidev.unittest                                         :CLEANUP:
-- noisicaa.ui.uitest_utils
+* No cleanup in destructors                                                                  :BUG:
+- Was a bad idea: http://www.artima.com/cppsource/nevercall.html
+- Code that deletes something must explicitly call cleanup() before.
+- Destructor should assert that the object has been properly cleaned up.
+- or: Get rid of the cleanup() methods and just do the cleaning up in the destructor.
+  - Any reason why I should call cleanup without destroying the object?
 
 * Unclean shut down                                                                          :BUG:
-- hangs during shut down
+Traceback (most recent call last):
+  File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 242, in handle_command
+    result = await handler(*args, **kwargs)
+  File "/home/pink/noisicaa/build/noisicaa/music/project_process.py", line 387, in handle_close
+    self.project.close()
+  File "/home/pink/noisicaa/build/noisicaa/music/project.py", line 946, in close
+    self.reset_state()
+  File "/home/pink/noisicaa/build/noisicaa/music/state.py", line 82, in reset_state
+    obj.reset_state()
+  File "/home/pink/noisicaa/build/noisicaa/music/state.py", line 89, in reset_state
+    obj.reset_state()
+  File "/home/pink/noisicaa/build/noisicaa/music/state.py", line 90, in reset_state
+    objs.clear()
+  File "/home/pink/noisicaa/build/noisicaa/core/model_base.py", line 270, in clear
+    self.__delitem__(0)
+  File "/home/pink/noisicaa/build/noisicaa/core/model_base.py", line 252, in __delitem__
+    PropertyListDelete(self._prop.name, idx, old_child))
+  File "/home/pink/noisicaa/build/noisicaa/music/state.py", line 70, in property_changed
+    self.listeners.call(change.prop_name, change)
+  File "/home/pink/noisicaa/build/noisicaa/core/callbacks.py", line 133, in call
+    listener.callback(*args, **kwargs)
+  File "/home/pink/noisicaa/build/noisicaa/music/base_track.py", line 404, in __measure_list_changed
+    self.__remove_measure(change.old_value)
+  File "/home/pink/noisicaa/build/noisicaa/music/base_track.py", line 415, in __remove_measure
+    self.listeners.call('duration_changed')
+  File "/home/pink/noisicaa/build/noisicaa/core/callbacks.py", line 133, in call
+    listener.callback(*args, **kwargs)
+  File "/home/pink/noisicaa/build/noisicaa/music/track_group.py", line 54, in <lambda>
+    'duration_changed', lambda: self.listeners.call('duration_changed'))
+  File "/home/pink/noisicaa/build/noisicaa/core/callbacks.py", line 133, in call
+    listener.callback(*args, **kwargs)
+  File "/home/pink/noisicaa/build/noisicaa/music/project.py", line 487, in _on_duration_changed
+    new_duration = self.master_group.duration
+  File "/home/pink/noisicaa/build/noisicaa/music/model.py", line 143, in duration
+    duration = max(duration, track.duration)
+  File "/home/pink/noisicaa/build/noisicaa/music/model.py", line 96, in duration
+    duration += mref.measure.duration
+  File "/home/pink/noisicaa/build/noisicaa/music/model.py", line 81, in measure
+    return self.root.get_object(self.measure_id)
+  File "/home/pink/noisicaa/build/noisicaa/music/state.py", line 211, in get_object
+    return self.__obj_map[obj_id]
+KeyError: None
+
+* Cleanup temp files on shutdown                                                              :FR:
+- store sockets, etc. in separate directory
+- directory is chosen by ProcessManager and propagated to subprocesses
+- cleaned up on exit
+- still leaves a dead directory around on unclean shutdown, SIGKILL, etc.
+  - put in /tmp and rely on OS to cleanup junk
+  - on startup try to find dead directories and clean them up
+    - take a lock, which is automatically released by OS
+- in tests, runtests manages directory and same principles apply
+
+* Visual feedback when opening project                                                        :FR:
+- Create tab first, show some spinning wheel, until project is setup completely.
+
+* Move various test helpers to noisidev.unittest                                         :CLEANUP:
+- noisicaa.ui.uitest_utils
 
 * Explore https://github.com/census-instrumentation for stats tracking                        :FR:
 * Make playing notes on insert when editing work again                                       :BUG:
@@ -81,7 +142,7 @@ to the backend.
 E.g. use unlikely() when checking for error conditions.
 Is there some cross-compiler/-platform header to provide this functionality?
 
-* Evaluate performance of exceptions vs. Status returns                                  :CLEANUP:
+* Evaluate performance of exceptions vs. Status returns                                 :RESEARCH:
 - build test case
 - compare
   - Status with -fno-exceptions
@@ -90,6 +151,9 @@ Is there some cross-compiler/-platform header to provide this functionality?
   - Case without exception raised/error status
   - Case with exception raised/error status
 
+* Consider switching the build system                                                   :RESEARCH:
+- cmake is nice for C++, but quirky for non-C++ stuff
+- https://waf.io/
 * Improve ArrangeMeasuresTool                                                                 :FR:
 - remove selection when switching away from tool
 - Use QClipboard

@@ -67,12 +67,12 @@ logger = logging.getLogger(__name__)
 #         self.step_done.clear()
 
 
-class PipelineVMTest(unittest.TestCase):
-    def setup_testcase(self):
+class PipelineVMTest(unittest.AsyncTestCase):
+    async def setup_testcase(self):
         self.host_data = audioproc.HostData()
         self.host_data.setup()
 
-    def cleanup_testcase(self):
+    async def cleanup_testcase(self):
         self.host_data.cleanup()
 
     # def test_get_buffer_bytes(self):
@@ -127,7 +127,7 @@ class PipelineVMTest(unittest.TestCase):
         spec.append_opcode('COPY', 'buf2', 'buf3')
         spec.append_opcode('CLEAR', 'buf2')
 
-        vm = engine.PipelineVM(host_data=self.host_data, block_size=4)
+        vm = engine.PipelineVM(host_data=self.host_data, event_loop=self.loop, block_size=4)
         vm.setup(start_thread=False)
         try:
             vm.set_backend('null', block_size=4)
@@ -305,7 +305,7 @@ class PipelineVMTest(unittest.TestCase):
     #         node.cleanup()
 
     def test_play(self):
-        vm = engine.PipelineVM(host_data=self.host_data, block_size=256)
+        vm = engine.PipelineVM(host_data=self.host_data, event_loop=self.loop, block_size=256)
         try:
             vm.setup(start_thread=False)
             vm.set_backend(constants.TEST_OPTS.PLAYBACK_BACKEND, block_size=4096)
