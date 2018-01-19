@@ -397,8 +397,9 @@ class ProcessManager(object):
                 if not self._processes:
                     break
                 logger.info(
-                    ("%d children still running, waiting for SIGCHLD"
-                     " signal..."), len(self._processes))
+                    "%d children still running (%s), waiting for SIGCHLD signal...",
+                    len(self._processes),
+                    ", ".join(str(pid) for pid in sorted(self._processes.keys())))
                 try:
                     await asyncio.wait_for(
                         self._sigchld_received.wait(), min(0.05, timeout))
@@ -708,7 +709,13 @@ class SubprocessMixin(object):
         async with self.manager:
             try:
                 logger.info("Setting up process.")
-                await self.setup()
+                try:
+                    await self.setup()
+                except Exception as exc:
+                    logger.error(
+                        "Exception while setting up %s:\n%s",
+                        self.name, traceback.format_exc())
+                    return 1
 
                 stub_address = self.server.address.encode('utf-8')
                 child_connection.write(stub_address)
@@ -723,7 +730,7 @@ class SubprocessMixin(object):
                     logger.error(
                         "Unhandled exception in process %s:\n%s",
                         self.name, traceback.format_exc())
-                    raise
+                    return 1
 
                 finally:
                     logger.info("Closing child connection...")
