@@ -116,4 +116,4 @@ class CompilerTest(unittest.TestCase):
         g = self._build_graph()
         comp = compiler.Compiler(graph=g)
         spec = comp.build_spec()
-        print(spec.dump())
+        logger.info(spec.dump())
