@@ -37,6 +37,8 @@ CSoundSubSystem::~CSoundSubSystem() {
 CSoundSubSystem* CSoundSubSystem::_instance = nullptr;
 
 Status CSoundSubSystem::setup() {
+  csoundInitialize(CSOUNDINIT_NO_SIGNAL_HANDLER | CSOUNDINIT_NO_ATEXIT);
+
   if (_instance == nullptr) {
     _instance = this;
     memset(_log_buf, 0, sizeof(_log_buf));
