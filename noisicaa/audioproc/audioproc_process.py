@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import asyncio
 import functools
 import logging
 import sys
@@ -131,14 +130,11 @@ class AudioProcProcess(core.ProcessBase):
     async def setup(self):
         await super().setup()
 
-        self.__shutting_down = asyncio.Event()
-        self.__shutdown_complete = asyncio.Event()
-
         self.server.add_command_handler(
             'START_SESSION', self.handle_start_session)
         self.server.add_command_handler(
             'END_SESSION', self.handle_end_session)
-        self.server.add_command_handler('SHUTDOWN', self.handle_shutdown)
+        self.server.add_command_handler('SHUTDOWN', self.shutdown)
         self.server.add_command_handler(
             'SET_BACKEND', self.handle_set_backend)
         self.server.add_command_handler(
@@ -208,22 +204,6 @@ class AudioProcProcess(core.ProcessBase):
 
         await super().cleanup()
 
-    async def run(self):
-        await self.__shutting_down.wait()
-        logger.info("Shutting down...")
-        if self.__vm is not None:
-            self.__vm.cleanup()
-            self.__vm = None
-        logger.info("Pipeline finished.")
-        self.__shutdown_complete.set()
-
-    async def shutdown(self):
-        logger.info("Shutdown received.")
-        self.__shutting_down.set()
-        logger.info("Waiting for shutdown to complete...")
-        await self.__shutdown_complete.wait()
-        logger.info("Shutdown complete.")
-
     def get_session(self, session_id):
         try:
             return self.sessions[session_id]
@@ -279,9 +259,6 @@ class AudioProcProcess(core.ProcessBase):
         session = self.get_session(session_id)
         await session.cleanup()
         del self.sessions[session_id]
-
-    async def handle_shutdown(self):
-        await self.shutdown()
 
     async def handle_pipeline_mutation(self, session_id, mutation):
         self.get_session(session_id)

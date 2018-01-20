@@ -196,13 +196,11 @@ class ProjectProcess(core.ProcessBase):
     async def setup(self):
         await super().setup()
 
-        self._shutting_down = asyncio.Event()
-
         self.server.add_command_handler(
             'START_SESSION', self.handle_start_session)
         self.server.add_command_handler(
             'END_SESSION', self.handle_end_session)
-        self.server.add_command_handler('SHUTDOWN', self.handle_shutdown)
+        self.server.add_command_handler('SHUTDOWN', self.shutdown)
         self.server.add_command_handler('CREATE', self.handle_create)
         self.server.add_command_handler(
             'CREATE_INMEMORY', self.handle_create_inmemory)
@@ -245,9 +243,6 @@ class ProjectProcess(core.ProcessBase):
             await self.node_db.cleanup()
             self.node_db = None
         await super().cleanup()
-
-    async def run(self):
-        await self._shutting_down.wait()
 
     def get_session(self, session_id):
         try:
@@ -311,9 +306,6 @@ class ProjectProcess(core.ProcessBase):
         session = self.get_session(session_id)
         await session.cleanup()
         del self.sessions[session_id]
-
-    def handle_shutdown(self):
-        self._shutting_down.set()
 
     def add_object_mutations(self, obj):
         for prop in obj.list_properties():

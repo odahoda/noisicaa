@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import asyncio
 import logging
 import uuid
 
@@ -62,26 +61,11 @@ class NodeDBProcess(process_base.NodeDBProcessBase):
     async def setup(self):
         await super().setup()
 
-        self._shutting_down = asyncio.Event()
-        self._shutdown_complete = asyncio.Event()
-
         self.db.setup()
 
     async def cleanup(self):
         self.db.cleanup()
         await super().cleanup()
-
-    async def run(self):
-        await self._shutting_down.wait()
-        logger.info("Shutting down...")
-        self._shutdown_complete.set()
-
-    async def shutdown(self):
-        logger.info("Shutdown received.")
-        self._shutting_down.set()
-        logger.info("Waiting for shutdown to complete...")
-        await self._shutdown_complete.wait()
-        logger.info("Shutdown complete.")
 
     def get_session(self, session_id):
         try:
@@ -110,9 +94,6 @@ class NodeDBProcess(process_base.NodeDBProcessBase):
         session = self.get_session(session_id)
         await session.cleanup()
         del self.sessions[session_id]
-
-    async def handle_shutdown(self):
-        await self.shutdown()
 
     async def handle_start_scan(self, session_id):
         self.get_session(session_id)

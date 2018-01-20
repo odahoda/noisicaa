@@ -686,16 +686,33 @@ class ProcessBase(object):
         self.tmp_dir = tmp_dir
         self.server = None
 
+        self.__shutting_down = None
+        self.__shutdown_complete = None
+
     async def setup(self):
+        self.__shutting_down = asyncio.Event(loop=self.event_loop)
+        self.__shutdown_complete = asyncio.Event(loop=self.event_loop)
+
         self.server = ipc.Server(self.event_loop, self.name, socket_dir=self.tmp_dir)
         await self.server.setup()
 
     async def cleanup(self):
-        await self.server.cleanup()
-        self.server = None
+        if self.server is not None:
+            await self.server.cleanup()
+            self.server = None
 
     async def run(self):
-        raise NotImplementedError(type(self).__name__)
+        await self.__shutting_down.wait()
+        logger.info("Shutting down process '%s'...", self.name)
+        await self.cleanup()
+        self.__shutdown_complete.set()
+
+    async def shutdown(self):
+        logger.info("Shutdown received for process '%s'.", self.name)
+        self.__shutting_down.set()
+        logger.info("Waiting for shutdown of process '%s' to complete...", self.name)
+        await self.__shutdown_complete.wait()
+        logger.info("Shutdown of process '%s' complete.", self.name)
 
 
 class SubprocessMixin(object):

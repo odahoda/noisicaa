@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import asyncio
 import functools
 import inspect
 import logging
@@ -157,9 +158,6 @@ class TestNodeDBProcess(node_db.NodeDBProcessBase):
     def handle_end_session(self, session_id):
         return None
 
-    def handle_shutdown(self):
-        pass
-
 
 class TestInstrumentDBProcess(instrument_db.InstrumentDBProcessBase):
     def handle_start_session(self, client_address, flags):
@@ -167,9 +165,6 @@ class TestInstrumentDBProcess(instrument_db.InstrumentDBProcessBase):
 
     def handle_end_session(self, session_id):
         return None
-
-    def handle_shutdown(self):
-        pass
 
 
 class MockProcess(core.ProcessBase):
@@ -202,17 +197,21 @@ class UITest(unittest.AsyncTestCase):
         super().__init__(*args, **kwargs)
 
         self.node_db_process = None
+        self.node_db_process_task = None
         self.instrument_db_process = None
+        self.instrument_db_process_task = None
         self.process = None
 
     async def setup_testcase(self):
         self.node_db_process = TestNodeDBProcess(
             name='node_db', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.node_db_process.setup()
+        self.node_db_process_task = self.loop.create_task(self.node_db_process.run())
 
         self.instrument_db_process = TestInstrumentDBProcess(
             name='instrument_db', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.instrument_db_process.setup()
+        self.instrument_db_process_task = self.loop.create_task(self.instrument_db_process.run())
 
         self.manager = mock.Mock()
         async def mock_call(cmd, *args, **kwargs):
@@ -255,12 +254,21 @@ class UITest(unittest.AsyncTestCase):
         if UITest.app is not None and UITest.app.process is not None:
             await UITest.app.cleanup()
             UITest.app.process = None
+
         if self.process is not None:
             await self.process.cleanup()
-        if self.instrument_db_process is not None:
-            await self.instrument_db_process.cleanup()
+
         if self.node_db_process is not None:
+            if self.node_db_process_task is not None:
+                await self.node_db_process.shutdown()
+                await asyncio.wait_for(self.node_db_process_task, None)
             await self.node_db_process.cleanup()
+
+        if self.instrument_db_process is not None:
+            if self.instrument_db_process_task is not None:
+                await self.instrument_db_process.shutdown()
+                await asyncio.wait_for(self.instrument_db_process_task, None)
+            await self.instrument_db_process.cleanup()
 
     _snapshot_numbers = {}
 
