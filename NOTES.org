@@ -11,8 +11,25 @@
 Sometimes still hangs on shutdown. Subprocess calls _exit(), but manager doesn't seem to get the
 SIGCHLD. Non-deterministic and rare, so hard to debug...
 
-* Visual feedback when opening project                                                        :FR:
-- Create tab first, show some spinning wheel, until project is setup completely.
+* Crash when opening second project                                                        :CRASH:
+ERROR   : 8298:7fbd9ef37700:ui.editor_app: Exception in callback: Traceback for <Task finished coro=<BaseEditorApp.openProject() done, defined at /home/pink/noisicaa/build/noisicaa/ui/editor_app.py:253> exception=AssertionError()> (most recent call last):
+          File "/usr/lib/python3.5/asyncio/tasks.py", line 293, in _step
+            self = None  # Needed to break cycles when an exception occurs.
+          File "/home/pink/noisicaa/build/noisicaa/ui/editor_app.py", line 256, in openProject
+            await project_connection.open()
+          File "/home/pink/noisicaa/build/noisicaa/ui/project_registry.py", line 75, in open
+            await self.create_process()
+          File "/home/pink/noisicaa/build/noisicaa/ui/project_registry.py", line 71, in create_process
+            await self.client.setup()
+          File "/home/pink/noisicaa/build/noisicaa/music/project_client.py", line 93, in setup
+            await super().setup()
+          File "/home/pink/noisicaa/build/noisicaa/music/project_client.py", line 69, in setup
+            await self.server.setup()
+          File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 177, in setup
+            stats.Counter, stats.StatName(name='ipc_server_bytes_sent', server=self.name))
+          File "/home/pink/noisicaa/build/noisicaa/core/stats/registry.py", line 45, in register
+            return stat
+        AssertionError
 
 * Move various test helpers to noisidev.unittest                                         :CLEANUP:
 - noisicaa.ui.uitest_utils

@@ -98,18 +98,9 @@ class ProjectRegistry(QtCore.QObject):
         self.node_db = node_db
         self.projects = {}
 
-    async def open_project(self, path):
+    def add_project(self, path):
         project = Project(
             path, self.event_loop, self.tmp_dir, self.process_manager, self.node_db)
-        await project.open()
-        self.projects[path] = project
-        self.projectListChanged.emit()
-        return project
-
-    async def create_project(self, path):
-        project = Project(
-            path, self.event_loop, self.tmp_dir, self.process_manager, self.node_db)
-        await project.create()
         self.projects[path] = project
         self.projectListChanged.emit()
         return project

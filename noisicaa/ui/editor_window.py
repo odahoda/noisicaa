@@ -43,6 +43,7 @@ from ..importers.abc import ABCImporter, ImporterError
 from . import ui_base
 from . import instrument_library
 from . import selection_set
+from . import qprogressindicator
 
 logger = logging.getLogger(__name__)
 
@@ -479,7 +480,32 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         else:
             self.currentProjectChanged.emit(None)
 
-    async def addProjectView(self, project_connection):
+    def addProjectSetupView(self, project_connection):
+        widget = QtWidgets.QWidget()
+
+        label = QtWidgets.QLabel(widget)
+        label.setText("Opening project '%s'..." % project_connection.path)
+
+        wheel = qprogressindicator.QProgressIndicator(widget)
+        wheel.setMinimumSize(48, 48)
+        wheel.setMaximumSize(48, 48)
+        wheel.setAnimationDelay(100)
+        wheel.startAnimation()
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addStretch(2)
+        layout.addWidget(label, 0, Qt.AlignHCenter)
+        layout.addSpacing(10)
+        layout.addWidget(wheel, 0, Qt.AlignHCenter)
+        layout.addStretch(3)
+        widget.setLayout(layout)
+
+        idx = self._project_tabs.addTab(widget, project_connection.name)
+        self._project_tabs.setCurrentIndex(idx)
+        self._main_area.setCurrentIndex(0)
+        return idx
+
+    async def activateProjectView(self, idx, project_connection):
         context = ui_base.ProjectContext(
             selection_set=selection_set.SelectionSet(),
             project_connection=project_connection,
@@ -487,18 +513,18 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         view = ProjectView(context=context)
         await view.setup()
 
-        idx = self._project_tabs.addTab(view, project_connection.name)
+        self._project_tabs.insertTab(idx, view, project_connection.name)
+        self._project_tabs.removeTab(idx + 1)
 
         self._project_tabs.setCurrentIndex(idx)
         self._close_current_project_action.setEnabled(True)
-        self._main_area.setCurrentIndex(0)
 
         self.projectListChanged.emit()
 
     async def removeProjectView(self, project_connection):
         for idx in range(self._project_tabs.count()):
             view = self._project_tabs.widget(idx)
-            if view.project_connection is project_connection:
+            if isinstance(view, ProjectView) and view.project_connection is project_connection:
                 self._project_tabs.removeTab(idx)
                 if self._project_tabs.count() == 0:
                     self._main_area.setCurrentIndex(1)
@@ -515,19 +541,20 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         view = self._project_tabs.currentWidget()
         closed = view.close()
         if closed:
-            self.call_async(
-                    self.app.removeProject(view.project_connection))
+            self.call_async(self.app.removeProject(view.project_connection))
 
     def onCurrentProjectTabChanged(self, idx):
-        project_view = self._project_tabs.widget(idx)
-        self.setCurrentProjectView(project_view)
+        widget = self._project_tabs.widget(idx)
+        if isinstance(widget, ProjectView):
+            self.setCurrentProjectView(widget)
+        else:
+            self.setCurrentProjectView(None)
 
     def onCloseProjectTab(self, idx):
         view = self._project_tabs.widget(idx)
         closed = view.close()
         if closed:
-            self.call_async(
-                self.app.removeProject(view.project_connection))
+            self.call_async(self.app.removeProject(view.project_connection))
 
     def getCurrentProjectView(self):
         return self._project_tabs.currentWidget()

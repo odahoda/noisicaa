@@ -244,27 +244,26 @@ class BaseEditorApp(object):
                 and self.show_edit_areas_action.isChecked())
 
     async def createProject(self, path):
-        project = await self.project_registry.create_project(path)
-        await self.addProject(project)
-        return project
+        project_connection = self.project_registry.add_project(path)
+        idx = self.win.addProjectSetupView(project_connection)
+        await project_connection.create()
+        await self.win.activateProjectView(idx, project_connection)
+        self._updateOpenedProjects()
 
     async def openProject(self, path):
-        project = await self.project_registry.open_project(path)
-        await self.addProject(project)
-        return project
+        project_connection = self.project_registry.add_project(path)
+        idx = self.win.addProjectSetupView(project_connection)
+        await project_connection.open()
+        await self.win.activateProjectView(idx, project_connection)
+        self._updateOpenedProjects()
 
     def _updateOpenedProjects(self):
         self.settings.setValue(
             'opened_projects',
             sorted(
                 project.path
-                for project
-                in self.project_registry.projects.values()
+                for project in self.project_registry.projects.values()
                 if project.path))
-
-    async def addProject(self, project_connection):
-        await self.win.addProjectView(project_connection)
-        self._updateOpenedProjects()
 
     async def removeProject(self, project_connection):
         await self.win.removeProjectView(project_connection)
@@ -333,18 +332,13 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
             logger.info("Starting with projects from cmdline.")
             for path in self.paths:
                 if path.startswith('+'):
-                    path = path[1:]
-                    project = await self.project_registry.create_project(
-                        path)
+                    await self.createProject(path[1:])
                 else:
-                    project = await self.project_registry.open_project(
-                        path)
-                await self.addProject(project)
+                    await self.openProject(path)
         else:
             reopen_projects = self.settings.value('opened_projects', [])
             for path in reopen_projects or []:
-                project = await self.project_registry.open_project(path)
-                await self.addProject(project)
+                await self.openProject(path)
 
     async def cleanup(self):
         logger.info("Cleanup app...")
