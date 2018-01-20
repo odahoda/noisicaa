@@ -29,10 +29,12 @@
 
 namespace noisicaa {
 
-ProcessorCSoundBase::Instance::Instance() {}
+ProcessorCSoundBase::Instance::Instance(Logger* logger)
+  : _logger(logger) {}
 
 ProcessorCSoundBase::Instance::~Instance() {
   if (csnd != nullptr) {
+    _logger->info("Destroying csound instance %p", csnd);
     csoundDestroy(csnd);
   }
 }
@@ -98,11 +100,12 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
   }
 
   // Create the next instance.
-  unique_ptr<Instance> instance(new Instance());
+  unique_ptr<Instance> instance(new Instance(_logger));
   instance->csnd = csoundCreate(this);
   if (instance->csnd == nullptr) {
     return ERROR_STATUS("Failed to create Csound instance.");
   }
+  _logger->info("Created csound instance %p", instance->csnd);
 
   csoundSetMessageCallback(instance->csnd, ProcessorCSoundBase::_log_cb);
 

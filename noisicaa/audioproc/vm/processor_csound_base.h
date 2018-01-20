@@ -64,7 +64,7 @@ private:
 
   class Instance {
   public:
-    Instance();
+    Instance(Logger* logger);
     ~Instance();
 
     Instance(const Instance&) = delete;
@@ -75,6 +75,9 @@ private:
     CSOUND* csnd = nullptr;
     vector<MYFLT*> channel_ptr;
     vector<int*> channel_lock;
+
+  private:
+    Logger* _logger;
   };
 
   struct EventInputPort {

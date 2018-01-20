@@ -392,14 +392,19 @@ class ProcessManager(object):
                 os.kill(pid, sig)
 
             deadline = time.time() + timeout
+            processes_left = set()
             while time.time() < deadline:
                 self.collect_dead_children()
                 if not self._processes:
                     break
-                logger.info(
-                    "%d children still running (%s), waiting for SIGCHLD signal...",
-                    len(self._processes),
-                    ", ".join(str(pid) for pid in sorted(self._processes.keys())))
+
+                if set(self._processes.keys()) != processes_left:
+                    logger.info(
+                        "%d children still running (%s), waiting for SIGCHLD signal...",
+                        len(self._processes),
+                        ", ".join(str(pid) for pid in sorted(self._processes.keys())))
+                    processes_left = set(self._processes.keys())
+
                 try:
                     await asyncio.wait_for(
                         self._sigchld_received.wait(), min(0.05, timeout))
@@ -462,7 +467,6 @@ class ProcessManager(object):
                 while root_logger.handlers:
                     root_logger.removeHandler(root_logger.handlers[0])
                 root_logger.addHandler(ChildLogHandler(logger_out))
-                #root_logger.addHandler(logging.StreamHandler())
 
                 if isinstance(cls, str):
                     mod_name, cls_name = cls.rsplit('.', 1)
@@ -473,10 +477,13 @@ class ProcessManager(object):
 
                 rc = impl.main(child_connection)
 
+                frames = sys._current_frames()
                 for thread in threading.enumerate():
                     if thread.ident == threading.get_ident():
                         continue
-                    logger.warning("Left over thread %s (%d)", thread.name, thread.ident)
+                    logger.warning("Left over thread %s (%x)", thread.name, thread.ident)
+                    if thread.ident in frames:
+                        logger.warning("".join(traceback.format_stack(frames[thread.ident])))
 
             except SystemExit as exc:
                 rc = exc.code
@@ -484,9 +491,12 @@ class ProcessManager(object):
                 traceback.print_exc()
                 rc = 1
             finally:
+                rc = rc or 0
+                sys.stdout.write("_exit(%d)\n" % rc)
                 sys.stdout.flush()
                 sys.stderr.flush()
-                os._exit(rc or 0)
+                os._exit(rc)
+                assert False
 
         else:
             # In manager process.
@@ -698,8 +708,10 @@ class SubprocessMixin(object):
                 self.main_async(child_connection, *args, **kwargs))
         finally:
             logger.info("Closing event loop...")
-            self.event_loop.run_until_complete(
-                asyncio.gather(*asyncio.Task.all_tasks(self.event_loop)))
+            pending_tasks = asyncio.Task.all_tasks(self.event_loop)
+            if pending_tasks:
+                logger.info("Waiting for %d tasks to complete..." % len(pending_tasks))
+                self.event_loop.run_until_complete(asyncio.gather(*pending_tasks))
             self.event_loop.stop()
             self.event_loop.close()
             logger.info("Event loop closed.")

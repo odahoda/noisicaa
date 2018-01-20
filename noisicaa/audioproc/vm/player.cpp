@@ -144,12 +144,14 @@ Player::~Player() {
 }
 
 Status Player::setup() {
+  _logger->info("Setting up player...");
   RETURN_IF_ERROR(_state_pump.setup());
   return Status::Ok();
 }
 
 void Player::cleanup() {
   _state_pump.cleanup();
+  _logger->info("Player cleaned up.");
 }
 
 void Player::update_state(const string& state_serialized) {
