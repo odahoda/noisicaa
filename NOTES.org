@@ -11,16 +11,6 @@
 Sometimes still hangs on shutdown. Subprocess calls _exit(), but manager doesn't seem to get the
 SIGCHLD. Non-deterministic and rare, so hard to debug...
 
-* Cleanup temp files on shutdown                                                              :FR:
-- store sockets, etc. in separate directory
-- directory is chosen by ProcessManager and propagated to subprocesses
-- cleaned up on exit
-- still leaves a dead directory around on unclean shutdown, SIGKILL, etc.
-  - put in /tmp and rely on OS to cleanup junk
-  - on startup try to find dead directories and clean them up
-    - take a lock, which is automatically released by OS
-- in tests, runtests manages directory and same principles apply
-
 * Visual feedback when opening project                                                        :FR:
 - Create tab first, show some spinning wheel, until project is setup completely.
 
@@ -199,6 +189,12 @@ Is there some cross-compiler/-platform header to provide this functionality?
 
 * Make sample rate configurable                                                               :FR:
 - all processors need to cleanup/setup on changes
+* Cleanup temp files on shutdown                                                              :FR:
+- still leaves a dead directory around on unclean shutdown, SIGKILL, etc.
+  - put in /tmp and rely on OS to cleanup junk
+  - on startup try to find dead directories and clean them up
+    - take a lock, which is automatically released by OS
+
 * crash on shutdown, when csound wants to log after LogSink has been destroyed             :CRASH:
 - is HostData properly cleaned up?
 * turn off all notes when playback gets paused						      :FR:

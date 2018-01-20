@@ -151,7 +151,7 @@ class BaseEditorApp(object):
         await self.createInstrumentDB()
 
         self.project_registry = project_registry.ProjectRegistry(
-            self.process.event_loop, self.process.manager, self.node_db)
+            self.process.event_loop, self.process.tmp_dir, self.process.manager, self.node_db)
 
         self.sequencer = self.createSequencer()
 

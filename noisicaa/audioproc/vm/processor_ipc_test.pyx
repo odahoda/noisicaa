@@ -26,12 +26,12 @@ import threading
 import uuid
 import os
 import os.path
-import tempfile
 import struct
 
 import capnp
 
 from noisidev import unittest
+from noisicaa.constants import TEST_OPTS
 from noisicaa.core.status cimport *
 from noisicaa.core.status import ConnectionClosed
 from . import block_data_capnp
@@ -51,9 +51,7 @@ class TestProcessorIPC(unittest.TestCase):
         host_data.reset(new HostData())
 
         address = os.fsencode(
-            os.path.join(
-                tempfile.gettempdir(),
-                'test.%s.pipe' % uuid.uuid4().hex))
+            os.path.join(TEST_OPTS.TMP_DIR, 'test.%s.pipe' % uuid.uuid4().hex))
 
         cdef StatusOr[Processor*] stor_processor = Processor.create(
             b'test_node', host_data.get(), b'ipc')

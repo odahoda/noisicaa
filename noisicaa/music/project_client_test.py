@@ -27,6 +27,7 @@ from noisidev import unittest
 from noisicaa import node_db
 from noisicaa.core import ipc
 from noisicaa.ui import model
+from noisicaa.constants import TEST_OPTS
 
 from . import project_process
 from . import project_client
@@ -36,7 +37,7 @@ class TestClientImpl():
     def __init__(self, event_loop):
         super().__init__()
         self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'client')
+        self.server = ipc.Server(self.event_loop, 'client', socket_dir=TEST_OPTS.tmp_dir)
 
     async def setup(self):
         await self.server.setup()

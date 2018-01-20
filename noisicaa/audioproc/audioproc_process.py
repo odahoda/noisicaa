@@ -217,6 +217,13 @@ class AudioProcProcess(core.ProcessBase):
         logger.info("Pipeline finished.")
         self.__shutdown_complete.set()
 
+    async def shutdown(self):
+        logger.info("Shutdown received.")
+        self.__shutting_down.set()
+        logger.info("Waiting for shutdown to complete...")
+        await self.__shutdown_complete.wait()
+        logger.info("Shutdown complete.")
+
     def get_session(self, session_id):
         try:
             return self.sessions[session_id]
@@ -274,11 +281,7 @@ class AudioProcProcess(core.ProcessBase):
         del self.sessions[session_id]
 
     async def handle_shutdown(self):
-        logger.info("Shutdown received.")
-        self.__shutting_down.set()
-        logger.info("Waiting for shutdown to complete...")
-        await self.__shutdown_complete.wait()
-        logger.info("Shutdown complete.")
+        await self.shutdown()
 
     async def handle_pipeline_mutation(self, session_id, mutation):
         self.get_session(session_id)

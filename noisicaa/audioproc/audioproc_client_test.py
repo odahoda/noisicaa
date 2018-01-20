@@ -24,6 +24,7 @@ import asyncio
 
 from noisidev import unittest
 from noisicaa import node_db
+from noisicaa.constants import TEST_OPTS
 from noisicaa.core import ipc
 
 from . import audioproc_process
@@ -34,7 +35,7 @@ class TestClientImpl(object):
     def __init__(self, event_loop):
         super().__init__()
         self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'client')
+        self.server = ipc.Server(self.event_loop, 'client', TEST_OPTS.TMP_DIR)
 
     async def setup(self):
         await self.server.setup()
@@ -48,6 +49,13 @@ class TestClient(audioproc_client.AudioProcClientMixin, TestClientImpl):
 
 
 class ProxyTest(unittest.AsyncTestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.client = None
+        self.audioproc_task = None
+        self.audioproc_process = None
+
     async def setup_testcase(self):
         self.passthru_description = node_db.ProcessorDescription(
             processor_name='null',
@@ -67,19 +75,22 @@ class ProxyTest(unittest.AsyncTestCase):
             ])
 
         self.audioproc_process = audioproc_process.AudioProcProcess(
-            name='audioproc', event_loop=self.loop, manager=None)
+            name='audioproc', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.audioproc_process.setup()
-        self.audioproc_task = self.loop.create_task(
-            self.audioproc_process.run())
+        self.audioproc_task = self.loop.create_task(self.audioproc_process.run())
         self.client = TestClient(self.loop)
         await self.client.setup()
         await self.client.connect(self.audioproc_process.server.address)
 
     async def cleanup_testcase(self):
-        await self.client.disconnect(shutdown=True)
-        await self.client.cleanup()
-        await asyncio.wait_for(self.audioproc_task, None)
-        await self.audioproc_process.cleanup()
+        if self.client is not None:
+            await self.client.disconnect(shutdown=True)
+            await self.client.cleanup()
+        if self.audioproc_process is not None:
+            if self.audioproc_task is not None:
+                await self.audioproc_process.shutdown()
+                await asyncio.wait_for(self.audioproc_task, None)
+            await self.audioproc_process.cleanup()
 
     async def test_add_remove_node(self):
         await self.client.add_node(id='test', description=self.passthru_description)

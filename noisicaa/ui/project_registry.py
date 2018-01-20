@@ -46,9 +46,10 @@ class ProjectClient(music.ProjectClient):
 
 
 class Project(object):
-    def __init__(self, path, event_loop, process_manager, node_db):
+    def __init__(self, path, event_loop, tmp_dir, process_manager, node_db):
         self.path = path
         self.event_loop = event_loop
+        self.tmp_dir = tmp_dir
         self.process_manager = process_manager
         self.node_db = node_db
 
@@ -63,7 +64,9 @@ class Project(object):
         self.process_address = await self.process_manager.call(
             'CREATE_PROJECT_PROCESS', self.path)
         self.client = ProjectClient(
-            event_loop=self.event_loop, node_db=self.node_db)
+            event_loop=self.event_loop,
+            tmp_dir=self.tmp_dir,
+            node_db=self.node_db)
         self.client.cls_map.update(model.cls_map)
         await self.client.setup()
         await self.client.connect(self.process_address)
@@ -86,17 +89,18 @@ class Project(object):
 class ProjectRegistry(QtCore.QObject):
     projectListChanged = QtCore.pyqtSignal()
 
-    def __init__(self, event_loop, process_manager, node_db):
+    def __init__(self, event_loop, tmp_dir, process_manager, node_db):
         super().__init__()
 
         self.event_loop = event_loop
+        self.tmp_dir = tmp_dir
         self.process_manager = process_manager
         self.node_db = node_db
         self.projects = {}
 
     async def open_project(self, path):
         project = Project(
-            path, self.event_loop, self.process_manager, self.node_db)
+            path, self.event_loop, self.tmp_dir, self.process_manager, self.node_db)
         await project.open()
         self.projects[path] = project
         self.projectListChanged.emit()
@@ -104,7 +108,7 @@ class ProjectRegistry(QtCore.QObject):
 
     async def create_project(self, path):
         project = Project(
-            path, self.event_loop, self.process_manager, self.node_db)
+            path, self.event_loop, self.tmp_dir, self.process_manager, self.node_db)
         await project.create()
         self.projects[path] = project
         self.projectListChanged.emit()

@@ -118,6 +118,13 @@ class InstrumentDBProcess(process_base.InstrumentDBProcessBase):
         logger.info("Shutting down...")
         self._shutdown_complete.set()
 
+    async def shutdown(self):
+        logger.info("Shutdown received.")
+        self._shutting_down.set()
+        logger.info("Waiting for shutdown to complete...")
+        await self._shutdown_complete.wait()
+        logger.info("Shutdown complete.")
+
     def get_session(self, session_id):
         try:
             return self.sessions[session_id]
@@ -157,11 +164,7 @@ class InstrumentDBProcess(process_base.InstrumentDBProcessBase):
         del self.sessions[session_id]
 
     async def handle_shutdown(self):
-        logger.info("Shutdown received.")
-        self._shutting_down.set()
-        logger.info("Waiting for shutdown to complete...")
-        await self._shutdown_complete.wait()
-        logger.info("Shutdown complete.")
+        await self.shutdown()
 
     async def handle_start_scan(self, session_id):
         self.get_session(session_id)

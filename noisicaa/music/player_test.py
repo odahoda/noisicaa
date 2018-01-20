@@ -28,6 +28,7 @@ from noisidev import unittest
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.core import ipc
+from noisicaa.constants import TEST_OPTS
 
 from . import project
 from . import player
@@ -82,13 +83,13 @@ class PlayerTest(unittest.AsyncTestCase):
         self.project = project.BaseProject()
 
         self.player_status_calls = asyncio.Queue()
-        self.callback_server = ipc.Server(self.loop, 'callback')
+        self.callback_server = ipc.Server(self.loop, 'callback', socket_dir=TEST_OPTS.TMP_DIR)
         self.callback_server.add_command_handler(
             'PLAYER_STATUS',
             lambda player_id, kwargs: self.player_status_calls.put_nowait(kwargs))
         await self.callback_server.setup()
 
-        self.audioproc_server = ipc.Server(self.loop, 'audioproc')
+        self.audioproc_server = ipc.Server(self.loop, 'audioproc', socket_dir=TEST_OPTS.TMP_DIR)
         await self.audioproc_server.setup()
 
         self.mock_manager = mock.Mock()
@@ -108,7 +109,12 @@ class PlayerTest(unittest.AsyncTestCase):
         await self.callback_server.cleanup()
 
     async def test_audio_stream_fails(self):
-        p = player.Player(self.project, self.callback_server.address, self.mock_manager, self.loop)
+        p = player.Player(
+            project=self.project,
+            callback_address=self.callback_server.address,
+            manager=self.mock_manager,
+            event_loop=self.loop,
+            tmp_dir=TEST_OPTS.TMP_DIR)
         try:
             with mock.patch('noisicaa.music.player.AudioProcClient', MockAudioProcClient):
                 await p.setup()

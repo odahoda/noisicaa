@@ -37,6 +37,7 @@ from noisicaa.bindings import lv2
 from noisicaa.core import ipc
 from noisicaa.node_db.private import db as node_db
 from noisidev import perf_stats
+from noisicaa.constants import TEST_OPTS
 
 from . import project
 from . import player
@@ -48,7 +49,7 @@ class TestAudioProcClientImpl(object):
     def __init__(self, event_loop, name):
         super().__init__()
         self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, name)
+        self.server = ipc.Server(self.event_loop, name, socket_dir=TEST_OPTS.tmp_dir)
 
     async def setup(self):
         await self.server.setup()

@@ -60,10 +60,10 @@ class ObjectProxy(core.ObjectBase):
 
 
 class ProjectClientBase(object):
-    def __init__(self, event_loop):
+    def __init__(self, event_loop, tmp_dir):
         super().__init__()
         self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'client')
+        self.server = ipc.Server(self.event_loop, 'client', socket_dir=tmp_dir)
 
     async def setup(self):
         await self.server.setup()

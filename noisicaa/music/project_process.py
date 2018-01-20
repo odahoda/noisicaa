@@ -433,7 +433,12 @@ class ProjectProcess(core.ProcessBase):
         session = self.get_session(session_id)
         assert self.project is not None
 
-        p = player.Player(self.project, client_address, self.manager, self.event_loop)
+        p = player.Player(
+            project=self.project,
+            callback_address=client_address,
+            manager=self.manager,
+            event_loop=self.event_loop,
+            tmp_dir=self.tmp_dir)
         await p.setup()
 
         session.add_player(p)

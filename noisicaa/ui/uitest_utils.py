@@ -35,6 +35,7 @@ from noisicaa import core
 from noisicaa import instrument_db
 from noisicaa import node_db
 from noisicaa.runtime_settings import RuntimeSettings
+from noisicaa.constants import TEST_OPTS
 from .editor_app import BaseEditorApp
 from . import model
 from . import selection_set
@@ -197,13 +198,20 @@ class UITest(unittest.AsyncTestCase):
     # than fighting with the garbage collection in pyqt5.
     app = None
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.node_db_process = None
+        self.instrument_db_process = None
+        self.process = None
+
     async def setup_testcase(self):
         self.node_db_process = TestNodeDBProcess(
-            name='node_db', event_loop=self.loop, manager=None)
+            name='node_db', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.node_db_process.setup()
 
         self.instrument_db_process = TestInstrumentDBProcess(
-            name='instrument_db', event_loop=self.loop, manager=None)
+            name='instrument_db', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.instrument_db_process.setup()
 
         self.manager = mock.Mock()
@@ -218,7 +226,7 @@ class UITest(unittest.AsyncTestCase):
         self.manager.call.side_effect = mock_call
 
         self.process = MockProcess(
-            name='ui', event_loop=self.loop, manager=self.manager)
+            name='ui', event_loop=self.loop, manager=self.manager, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.process.setup()
 
         if UITest.app is None:
@@ -244,11 +252,15 @@ class UITest(unittest.AsyncTestCase):
         self.commands = []
 
     async def cleanup_testcase(self):
-        await UITest.app.cleanup()
-        UITest.app.process = None
-        await self.process.cleanup()
-        await self.instrument_db_process.cleanup()
-        await self.node_db_process.cleanup()
+        if UITest.app is not None and UITest.app.process is not None:
+            await UITest.app.cleanup()
+            UITest.app.process = None
+        if self.process is not None:
+            await self.process.cleanup()
+        if self.instrument_db_process is not None:
+            await self.instrument_db_process.cleanup()
+        if self.node_db_process is not None:
+            await self.node_db_process.cleanup()
 
     _snapshot_numbers = {}
 

@@ -23,6 +23,7 @@
 import asyncio
 
 from noisidev import unittest
+from noisicaa.constants import TEST_OPTS
 from noisicaa.core import ipc
 
 from . import process
@@ -33,7 +34,7 @@ class TestClientImpl(object):
     def __init__(self, event_loop):
         super().__init__()
         self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'client')
+        self.server = ipc.Server(self.event_loop, 'client', socket_dir=TEST_OPTS.TMP_DIR)
 
     async def setup(self):
         await self.server.setup()
@@ -47,9 +48,16 @@ class TestClient(client.NodeDBClientMixin, TestClientImpl):
 
 
 class NodeDBClientTest(unittest.AsyncTestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.process = None
+        self.process_task = None
+        self.client = None
+
     async def setup_testcase(self):
         self.process = process.NodeDBProcess(
-            name='node_db', event_loop=self.loop, manager=None)
+            name='node_db', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.process.setup()
         self.process_task = self.loop.create_task(
             self.process.run())
@@ -59,10 +67,14 @@ class NodeDBClientTest(unittest.AsyncTestCase):
         await self.client.connect(self.process.server.address)
 
     async def cleanup_testcase(self):
-        await self.client.disconnect(shutdown=True)
-        await self.client.cleanup()
-        await asyncio.wait_for(self.process_task, None)
-        await self.process.cleanup()
+        if self.client is not None:
+            await self.client.disconnect(shutdown=True)
+            await self.client.cleanup()
+        if self.process is not None:
+            if self.process_task is not None:
+                await self.process.shutdown()
+                await asyncio.wait_for(self.process_task, None)
+            await self.process.cleanup()
 
     async def test_start_scan(self):
         pass  #await self.client.start_scan()

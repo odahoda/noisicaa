@@ -28,7 +28,6 @@ import os
 import os.path
 import pickle
 import pprint
-import tempfile
 import traceback
 import uuid
 
@@ -138,17 +137,13 @@ class Server(object):
         pickle.dumps, protocol=pickle.HIGHEST_PROTOCOL)
     deserialize = pickle.loads
 
-    def __init__(self, event_loop, name, socket_dir=None):
+    def __init__(self, event_loop, name, socket_dir):
         self.event_loop = event_loop
         self.name = name
 
         self.logger = logger.getChild(name)
 
-        if socket_dir is None:
-            socket_dir = tempfile.gettempdir()
-
-        self.address = os.path.join(
-            socket_dir, '%s.%s.sock' % (self.name, uuid.uuid4().hex))
+        self.address = os.path.join(socket_dir, '%s.%s.sock' % (self.name, uuid.uuid4().hex))
 
         self._next_connection_id = 0
         self._server = None

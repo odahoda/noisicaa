@@ -23,13 +23,13 @@ from libcpp.memory cimport unique_ptr
 import os
 import os.path
 import struct
-import tempfile
 import uuid
 import threading
 
 import capnp
 
 from noisidev import unittest
+from noisicaa.constants import TEST_OPTS
 from noisicaa.core.status cimport *
 from noisicaa.core.status import *
 from . import audio_stream
@@ -52,9 +52,7 @@ class TestIPCBackend(unittest.TestCase):
         vm.reset(new VM(host_data.get(), NULL))
 
         cdef PyBackendSettings backend_settings = PyBackendSettings(
-            ipc_address=os.path.join(
-                tempfile.gettempdir(),
-                'test.%s.pipe' % uuid.uuid4().hex))
+            ipc_address=os.path.join(TEST_OPTS.TMP_DIR, 'test.%s.pipe' % uuid.uuid4().hex))
 
         cdef StatusOr[Backend*] stor_backend = Backend.create(b"ipc", backend_settings.get())
         check(stor_backend)

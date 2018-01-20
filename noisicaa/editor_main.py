@@ -49,17 +49,6 @@ class Editor(object):
 
         self.event_loop = asyncio.get_event_loop()
         self.manager = process_manager.ProcessManager(self.event_loop)
-        self.manager.server.add_command_handler(
-            'CREATE_PROJECT_PROCESS', self.handle_create_project_process)
-        self.manager.server.add_command_handler(
-            'CREATE_AUDIOPROC_PROCESS',
-            self.handle_create_audioproc_process)
-        self.manager.server.add_command_handler(
-            'CREATE_NODE_DB_PROCESS',
-            self.handle_create_node_db_process)
-        self.manager.server.add_command_handler(
-            'CREATE_INSTRUMENT_DB_PROCESS',
-            self.handle_create_instrument_db_process)
         self.stop_event = asyncio.Event()
         self.returncode = 0
 
@@ -86,6 +75,18 @@ class Editor(object):
 
     async def run_async(self):
         async with self.manager:
+            self.manager.server.add_command_handler(
+                'CREATE_PROJECT_PROCESS', self.handle_create_project_process)
+            self.manager.server.add_command_handler(
+                'CREATE_AUDIOPROC_PROCESS',
+                self.handle_create_audioproc_process)
+            self.manager.server.add_command_handler(
+                'CREATE_NODE_DB_PROCESS',
+                self.handle_create_node_db_process)
+            self.manager.server.add_command_handler(
+                'CREATE_INSTRUMENT_DB_PROCESS',
+                self.handle_create_instrument_db_process)
+
             task = self.event_loop.create_task(self.launch_ui())
             task.add_done_callback(self.ui_closed)
             await self.stop_event.wait()

@@ -21,19 +21,17 @@
 import os
 import os.path
 import uuid
-import tempfile
 import threading
 
 from noisidev import unittest
+from noisicaa.constants import TEST_OPTS
 from . import audio_stream
 
 
 class TestAudioStream(unittest.TestCase):
     def setup_testcase(self):
         self.address = os.fsencode(
-            os.path.join(
-                tempfile.gettempdir(),
-                'test.%s.pipe' % uuid.uuid4().hex))
+            os.path.join(TEST_OPTS.TMP_DIR, 'test.%s.pipe' % uuid.uuid4().hex))
 
     def test_client_to_server(self):
         server = audio_stream.AudioStream.create_server(self.address)

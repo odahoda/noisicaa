@@ -26,7 +26,6 @@ import functools
 import logging
 import os
 import os.path
-import tempfile
 import time
 import uuid
 
@@ -220,7 +219,7 @@ class AudioProcClient(
 
 
 class Player(object):
-    def __init__(self, project, callback_address, manager, event_loop):
+    def __init__(self, *, project, callback_address, manager, event_loop, tmp_dir):
         self.project = project
         self.manager = manager
         self.callback_address = callback_address
@@ -230,7 +229,7 @@ class Player(object):
         self.__listeners = {}
 
         self.id = uuid.uuid4().hex
-        self.server = ipc.Server(self.event_loop, 'player')
+        self.server = ipc.Server(self.event_loop, 'player', socket_dir=tmp_dir)
 
         self.callback_stub = None
 
@@ -241,8 +240,7 @@ class Player(object):
         self.audioproc_status_listener = None
         self.audioproc_player_state_listener = None
         self.audioproc_ready = None
-        self.audiostream_address = os.path.join(
-            tempfile.gettempdir(), 'audiostream.%s.pipe' % uuid.uuid4().hex)
+        self.audiostream_address = os.path.join(tmp_dir, 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
         self.pending_pipeline_mutations = None
 

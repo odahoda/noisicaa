@@ -29,6 +29,7 @@ import os.path
 import shutil
 import subprocess
 import sys
+import tempfile
 import textwrap
 import unittest
 
@@ -127,6 +128,7 @@ def main(argv):
     parser.add_argument('--rebuild', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--pedantic', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--builtin-tests', nargs='?', type=bool_arg, const=True, default=True)
+    parser.add_argument('--keep-temp', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--playback-backend', type=str, default='null')
     args = parser.parse_args(argv[1:])
 
@@ -201,6 +203,7 @@ def main(argv):
     constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
     constants.TEST_OPTS.ENABLE_PROFILER = args.profile
     constants.TEST_OPTS.PLAYBACK_BACKEND = args.playback_backend
+    constants.TEST_OPTS.TMP_DIR = tempfile.mkdtemp(prefix='noisicaa-tests-')
 
     from noisicaa import core
     core.init_pylogging()
@@ -275,6 +278,9 @@ def main(argv):
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
+
+    if not args.keep_temp:
+        shutil.rmtree(constants.TEST_OPTS.TMP_DIR)
 
     if args.coverage:
         cov.stop()

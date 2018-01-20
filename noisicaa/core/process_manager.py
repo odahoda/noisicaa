@@ -28,9 +28,11 @@ import logging
 import os
 import pickle
 import select
+import shutil
 import signal
 import struct
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -337,7 +339,8 @@ class ProcessManager(object):
         self._processes = {}
         self._sigchld_received = asyncio.Event()
 
-        self._server = ipc.Server(event_loop, 'manager')
+        self._tmp_dir = None
+        self._server = None
 
         if collect_stats:
             self._stats_collector = stats.Collector()
@@ -355,6 +358,12 @@ class ProcessManager(object):
         self._event_loop.add_signal_handler(
             signal.SIGCHLD, self.sigchld_handler)
 
+        self._tmp_dir = tempfile.mkdtemp(
+            prefix='noisicaa-%s-%d-' % (time.strftime('%Y%m%d-%H%M%S'), os.getpid()))
+        logger.info("Using %s for temp files.", self._tmp_dir)
+
+        self._server = ipc.Server(self._event_loop, 'manager', socket_dir=self._tmp_dir)
+
         self._server.add_command_handler(
             'STATS_LIST', self.handle_stats_list)
         self._server.add_command_handler(
@@ -370,10 +379,17 @@ class ProcessManager(object):
             self._child_collector.cleanup()
 
         await self.terminate_all_children()
-        await self._server.cleanup()
+        if self._server is not None:
+            await self._server.cleanup()
 
-        self._server.remove_command_handler('STATS_LIST')
-        self._server.remove_command_handler('STATS_FETCH')
+            self._server.remove_command_handler('STATS_LIST')
+            self._server.remove_command_handler('STATS_FETCH')
+
+            self._server = None
+
+        if self._tmp_dir is not None:
+            shutil.rmtree(self._tmp_dir)
+            self._tmp_dir = None
 
     async def __aenter__(self):
         await self.setup()
@@ -473,7 +489,8 @@ class ProcessManager(object):
                     mod = importlib.import_module(mod_name)
                     cls = getattr(mod, cls_name)
                 impl = cls(
-                    name=name, manager_address=manager_address, **kwargs)
+                    name=name, manager_address=manager_address, tmp_dir=self._tmp_dir,
+                    **kwargs)
 
                 rc = impl.main(child_connection)
 
@@ -662,14 +679,15 @@ class ChildConnectionHandler(object):
 
 
 class ProcessBase(object):
-    def __init__(self, *, name, manager, event_loop):
+    def __init__(self, *, name, manager, event_loop, tmp_dir):
         self.name = name
         self.manager = manager
         self.event_loop = event_loop
+        self.tmp_dir = tmp_dir
         self.server = None
 
     async def setup(self):
-        self.server = ipc.Server(self.event_loop, self.name)
+        self.server = ipc.Server(self.event_loop, self.name, socket_dir=self.tmp_dir)
         await self.server.setup()
 
     async def cleanup(self):
