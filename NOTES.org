@@ -8,48 +8,8 @@
   - Any reason why I should call cleanup without destroying the object?
 
 * Unclean shut down                                                                          :BUG:
-Traceback (most recent call last):
-  File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 242, in handle_command
-    result = await handler(*args, **kwargs)
-  File "/home/pink/noisicaa/build/noisicaa/music/project_process.py", line 387, in handle_close
-    self.project.close()
-  File "/home/pink/noisicaa/build/noisicaa/music/project.py", line 946, in close
-    self.reset_state()
-  File "/home/pink/noisicaa/build/noisicaa/music/state.py", line 82, in reset_state
-    obj.reset_state()
-  File "/home/pink/noisicaa/build/noisicaa/music/state.py", line 89, in reset_state
-    obj.reset_state()
-  File "/home/pink/noisicaa/build/noisicaa/music/state.py", line 90, in reset_state
-    objs.clear()
-  File "/home/pink/noisicaa/build/noisicaa/core/model_base.py", line 270, in clear
-    self.__delitem__(0)
-  File "/home/pink/noisicaa/build/noisicaa/core/model_base.py", line 252, in __delitem__
-    PropertyListDelete(self._prop.name, idx, old_child))
-  File "/home/pink/noisicaa/build/noisicaa/music/state.py", line 70, in property_changed
-    self.listeners.call(change.prop_name, change)
-  File "/home/pink/noisicaa/build/noisicaa/core/callbacks.py", line 133, in call
-    listener.callback(*args, **kwargs)
-  File "/home/pink/noisicaa/build/noisicaa/music/base_track.py", line 404, in __measure_list_changed
-    self.__remove_measure(change.old_value)
-  File "/home/pink/noisicaa/build/noisicaa/music/base_track.py", line 415, in __remove_measure
-    self.listeners.call('duration_changed')
-  File "/home/pink/noisicaa/build/noisicaa/core/callbacks.py", line 133, in call
-    listener.callback(*args, **kwargs)
-  File "/home/pink/noisicaa/build/noisicaa/music/track_group.py", line 54, in <lambda>
-    'duration_changed', lambda: self.listeners.call('duration_changed'))
-  File "/home/pink/noisicaa/build/noisicaa/core/callbacks.py", line 133, in call
-    listener.callback(*args, **kwargs)
-  File "/home/pink/noisicaa/build/noisicaa/music/project.py", line 487, in _on_duration_changed
-    new_duration = self.master_group.duration
-  File "/home/pink/noisicaa/build/noisicaa/music/model.py", line 143, in duration
-    duration = max(duration, track.duration)
-  File "/home/pink/noisicaa/build/noisicaa/music/model.py", line 96, in duration
-    duration += mref.measure.duration
-  File "/home/pink/noisicaa/build/noisicaa/music/model.py", line 81, in measure
-    return self.root.get_object(self.measure_id)
-  File "/home/pink/noisicaa/build/noisicaa/music/state.py", line 211, in get_object
-    return self.__obj_map[obj_id]
-KeyError: None
+Sometimes still hangs on shutdown. Subprocess calls _exit(), but manager doesn't seem to get the
+SIGCHLD. Non-deterministic and rare, so hard to debug...
 
 * Cleanup temp files on shutdown                                                              :FR:
 - store sockets, etc. in separate directory

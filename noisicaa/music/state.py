@@ -75,6 +75,8 @@ class StateBase(model_base.ObjectBase):
         root.listeners.call('model_changes', self, change)
 
     def reset_state(self):
+        self.listeners.clear()
+
         for prop in self.list_properties():
             if isinstance(prop, model_base.ObjectProperty):
                 obj = prop.__get__(self, self.__class__)
