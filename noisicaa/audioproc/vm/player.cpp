@@ -135,7 +135,7 @@ string PlayerStateMutation::to_string() const {
 
 Player::Player(
     HostData* host_data, void (*state_callback)(void*, const string&), void* userdata)
-  : _logger(LoggerRegistry::get_logger("player")),
+  : _logger(LoggerRegistry::get_logger("noisicaa.audioproc.vm.player")),
     _host_data(host_data),
     _state_pump(_logger, state_callback, userdata) {}
 
