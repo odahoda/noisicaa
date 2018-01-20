@@ -247,8 +247,7 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
     return Status::Ok();
   }
 
-  Status status = backend->begin_block(ctxt);
-  RETURN_IF_ERROR(status);
+  RETURN_IF_ERROR(backend->begin_block(ctxt));
   auto end_block = scopeGuard([&]() {
       Status status = backend->end_block(ctxt);
       if (status.is_error()) {
@@ -310,15 +309,13 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
     OpCode opcode = spec->get_opcode(p);
     OpSpec opspec = opspecs[opcode];
     if (run_init && opspec.init != nullptr) {
-      Status status = opspec.init(ctxt, &state, spec->get_opargs(p));
-      RETURN_IF_ERROR(status);
+      RETURN_IF_ERROR(opspec.init(ctxt, &state, spec->get_opargs(p)));
     }
     if (opspec.run != nullptr) {
       char perf_label[PerfStats::NAME_LENGTH];
       snprintf(perf_label, PerfStats::NAME_LENGTH, "opcode(%s)", opspec.name);
       PerfTracker tracker(ctxt->perf.get(), perf_label);
-      Status status = opspec.run(ctxt, &state, spec->get_opargs(p));
-      RETURN_IF_ERROR(status);
+      RETURN_IF_ERROR(opspec.run(ctxt, &state, spec->get_opargs(p)));
     }
   }
 
@@ -327,8 +324,7 @@ Status VM::process_block(Backend* backend, BlockContext* ctxt) {
   }
 
   end_block.dismiss();
-  status = backend->end_block(ctxt);
-  RETURN_IF_ERROR(status);
+  RETURN_IF_ERROR(backend->end_block(ctxt));
 
   return Status::Ok();
 }

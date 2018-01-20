@@ -195,7 +195,12 @@ Status IPCBackend::end_block(BlockContext* ctxt) {
     const auto& bytes = words.asChars();
 
     Status status = _stream->send_bytes(bytes.begin(), bytes.size());
-    RETURN_IF_ERROR(status);
+    if (status.is_connection_closed()) {
+      _logger->warning("Stopping IPC backend...");
+      stop();
+    } else {
+      RETURN_IF_ERROR(status);
+    }
   }
 
   return Status::Ok();
