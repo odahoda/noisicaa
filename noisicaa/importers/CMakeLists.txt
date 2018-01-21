@@ -23,6 +23,4 @@ add_python_package(
   abc_filetest.py
   abc_parse.py
   abc_test.py
-  )
-
-file(COPY testdata DESTINATION .)
+)

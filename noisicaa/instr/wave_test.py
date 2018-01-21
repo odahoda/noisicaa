@@ -25,12 +25,10 @@ import os.path
 from noisidev import unittest
 from . import wave
 
-TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), 'testdata')
-
 
 class WaveFileTest(unittest.TestCase):
     def test_foo(self):
-        w = wave.WaveFile().parse(os.path.join(TEST_DATA_DIR, 'test1.wav'))
+        w = wave.WaveFile().parse(os.path.join(unittest.TESTDATA_DIR, 'test1.wav'))
         self.assertEqual(w.data_format, 'pcm')
         self.assertEqual(w.channels, 2)
         self.assertEqual(w.sample_rate, 44100)

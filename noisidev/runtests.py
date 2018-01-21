@@ -41,6 +41,9 @@ ROOTDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 LIBDIR = os.path.join(ROOTDIR, 'build')
 sys.path.insert(0, LIBDIR)
 
+# Ensure that future imports from noisidev come from LIBDIR.
+sys.modules.pop('noisidev')
+
 os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
 
 # Ensure all tests work without X.

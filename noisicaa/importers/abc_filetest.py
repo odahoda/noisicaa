@@ -48,7 +48,7 @@ class FileTestSuite(unittest.TestSuite):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        for path in glob.glob(os.path.join(os.path.dirname(__file__), 'testdata', '*.abc')):
+        for path in glob.glob(os.path.join(unittest.TESTDATA_DIR, 'abc', '*.abc')):
             self.addTest(_FileTest(path))
 
 

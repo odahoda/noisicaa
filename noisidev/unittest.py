@@ -20,10 +20,14 @@
 #
 # @end:license
 
+import os.path
 import unittest
 
 import asynctest
 
+from noisicaa import constants
+
+TESTDATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'testdata'))
 
 skip = unittest.skip
 TestSuite = unittest.TestSuite

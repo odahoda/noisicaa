@@ -34,11 +34,42 @@ macro(mksf2 src dest)
   )
 endmacro(mksf2)
 
+macro(static_file src)
+  add_custom_command(
+    OUTPUT ${src}
+    COMMAND mkdir -p "$$(dirname" ${src} ")" && cp -f ${CMAKE_CURRENT_LIST_DIR}/${src} ${src}
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
+  )
+endmacro(static_file)
+
+static_file(kick-gettinglaid.wav)
+static_file(future-thunder1.wav)
+static_file(test1.wav)
 
 render_wav(kick.csnd kick.wav)
 render_wav(hihat.csnd hihat.wav)
 render_wav(snare.csnd snare.wav)
+render_wav(organ.csnd organ.wav)
 
 mksf2(sf2test.yaml sf2test.sf2)
 
-add_custom_target(testdata ALL DEPENDS kick.wav hihat.wav snare.wav sf2test.sf2)
+static_file(abc/all-around-my-hat.abc)
+static_file(abc/sonata-i.abc)
+
+static_file(symbol.svg)
+
+add_custom_target(
+  testdata ALL
+  DEPENDS
+    kick-gettinglaid.wav
+    future-thunder1.wav
+    test1.wav
+    kick.wav
+    hihat.wav
+    snare.wav
+    organ.wav
+    sf2test.sf2
+    abc/all-around-my-hat.abc
+    abc/sonata-i.abc
+    symbol.svg
+)

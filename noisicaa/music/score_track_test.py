@@ -23,6 +23,7 @@
 from unittest import mock
 
 from noisidev import unittest
+from noisidev import demo_project
 from noisicaa.node_db.private import db as node_db
 from . import pitch
 from . import project
@@ -53,7 +54,7 @@ class ScoreTrackConnectorTest(unittest.AsyncTestCase):
         await self.node_db.cleanup()
 
     def test_foo(self):
-        pr = project.BaseProject.make_demo(node_db=self.node_db)
+        pr = demo_project.basic(project.BaseProject, node_db=self.node_db)
         tr = pr.master_group.tracks[0]
 
         player = mock.Mock()

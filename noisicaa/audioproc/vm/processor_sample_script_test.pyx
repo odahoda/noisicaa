@@ -27,7 +27,6 @@ import os.path
 import sys
 
 from noisidev import unittest
-from noisicaa import constants
 from noisicaa.core.status cimport *
 from noisicaa.audioproc.public import musical_time
 from noisicaa.audioproc.public import processor_message_pb2
@@ -38,9 +37,6 @@ from .buffers cimport *
 from .processor cimport *
 from .processor_spec cimport *
 from .host_data cimport *
-
-
-TESTDATA = os.path.abspath(os.path.join(constants.ROOT, 'music', 'testdata'))
 
 
 cdef class TestProcessorSampleScriptMixin(object):
@@ -81,8 +77,8 @@ cdef class TestProcessorSampleScriptMixin(object):
         check(self.processor.connect_port(0, <BufferPtr>self.outlbuf))
         check(self.processor.connect_port(1, <BufferPtr>self.outrbuf))
 
-        self.sample1_path = os.path.join(TESTDATA, 'future-thunder1.wav')
-        self.sample2_path = os.path.join(TESTDATA, 'kick-gettinglaid.wav')
+        self.sample1_path = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')
+        self.sample2_path = os.path.join(unittest.TESTDATA_DIR, 'kick-gettinglaid.wav')
 
     def cleanup_testcase(self):
         if self.processor != NULL:

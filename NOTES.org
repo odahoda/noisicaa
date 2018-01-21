@@ -181,12 +181,13 @@ Is there some cross-compiler/-platform header to provide this functionality?
   - select, cut, copy, paste arbitrary regions
     - automatically insert control points/split samples at selection boundary
   - selecting measures is just a special case of this
-* Common testdata directory with some audio files                                        :CLEANUP:
-- possibly also lv2, ladspa, ... plugins (built from source)?
-- replace all uses of system files in tests.
 * Some builtin instruments                                                                    :FR:
 - Have set of reasonably sounding instruments builtin.
 - Remove dependencies on *-soundfont-* packages.
+
+* Don't use system files in tests                                                        :CLEANUP:
+- grep for '/usr/'
+- build test ladspa, lv2 plugins from source in testdata
 
 * Full app run in vmtest                                                                      :FR:
 - bin/noisicaä --play-and-exit --demo="demo name"

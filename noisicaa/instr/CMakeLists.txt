@@ -24,5 +24,3 @@ add_python_package(
   wave.py
   wave_test.py
 )
-
-file(COPY testdata DESTINATION .)

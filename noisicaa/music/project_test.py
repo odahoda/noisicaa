@@ -74,10 +74,6 @@ class BaseProjectTest(unittest.AsyncTestCase):
         p2 = project.Project(state=state)
         self.assertEqual(len(p2.master_group.tracks), 1)
 
-    def test_demo(self):
-        p = project.BaseProject.make_demo(node_db=self.node_db)
-        #pprint.pprint(p.serialize())
-
 
 class ProjectTest(unittest.AsyncTestCase):
     async def setup_testcase(self):

@@ -22,4 +22,5 @@ add_python_package(
   profutil.py
   perf_stats.py
   unittest.py
+  demo_project.py
 )

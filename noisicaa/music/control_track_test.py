@@ -23,6 +23,7 @@
 from unittest import mock
 
 from noisidev import unittest
+from noisidev import demo_project
 from noisicaa import audioproc
 from noisicaa.node_db.private import db as node_db
 
@@ -49,7 +50,7 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
         self.node_db = NodeDB()
         await self.node_db.setup()
 
-        self.project = project.BaseProject.make_demo(node_db=self.node_db)
+        self.project = demo_project.basic(project.BaseProject, node_db=self.node_db)
         self.track = control_track.ControlTrack(name='test')
         self.project.master_group.tracks.append(self.track)
 

@@ -60,6 +60,4 @@ add_python_package(
   uitest_utils.py
 )
 
-file(COPY testdata DESTINATION .)
-
 add_subdirectory(track_items)

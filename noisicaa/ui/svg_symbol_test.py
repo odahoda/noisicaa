@@ -26,8 +26,6 @@ from xml.etree.ElementTree import ElementTree
 from noisidev import unittest
 from . import svg_symbol
 
-TESTDATA_DIR = os.path.join(os.path.dirname(__file__), 'testdata')
-
 
 class SvgSymbolTest(unittest.TestCase):
     def test_orig_not_found(self):
@@ -35,20 +33,17 @@ class SvgSymbolTest(unittest.TestCase):
             svg_symbol.SvgSymbol('/does-not-exist')
 
     def test_get_dom(self):
-        sym = svg_symbol.SvgSymbol(
-            os.path.join(TESTDATA_DIR, 'symbol.svg'))
+        sym = svg_symbol.SvgSymbol(os.path.join(unittest.TESTDATA_DIR, 'symbol.svg'))
         dom = sym.get_dom()
         self.assertIsInstance(dom, ElementTree)
 
     def test_get_xml(self):
-        sym = svg_symbol.SvgSymbol(
-            os.path.join(TESTDATA_DIR, 'symbol.svg'))
+        sym = svg_symbol.SvgSymbol(os.path.join(unittest.TESTDATA_DIR, 'symbol.svg'))
         xml1 = sym.get_xml()
         self.assertIsInstance(xml1, bytes)
 
     def test_get_origin(self):
-        sym = svg_symbol.SvgSymbol(
-            os.path.join(TESTDATA_DIR, 'symbol.svg'))
+        sym = svg_symbol.SvgSymbol(os.path.join(unittest.TESTDATA_DIR, 'symbol.svg'))
         ox, oy = sym.get_origin()
         self.assertIsInstance(ox, float)
         self.assertIsInstance(oy, float)

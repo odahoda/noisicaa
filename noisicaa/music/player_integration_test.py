@@ -28,7 +28,8 @@ import tempfile
 from unittest import mock
 
 from noisidev import unittest
-from noisicaa import constants
+from noisidev import demo_project
+from noisicaa.constants import TEST_OPTS
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.audioproc import audioproc_process
@@ -37,7 +38,6 @@ from noisicaa.bindings import lv2
 from noisicaa.core import ipc
 from noisicaa.node_db.private import db as node_db
 from noisidev import perf_stats
-from noisicaa.constants import TEST_OPTS
 
 from . import project
 from . import player
@@ -49,7 +49,7 @@ class TestAudioProcClientImpl(object):
     def __init__(self, event_loop, name):
         super().__init__()
         self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, name, socket_dir=TEST_OPTS.tmp_dir)
+        self.server = ipc.Server(self.event_loop, name, socket_dir=TEST_OPTS.TMP_DIR)
 
     async def setup(self):
         await self.server.setup()
@@ -67,7 +67,7 @@ UNSET = object()
 
 class CallbackServer(ipc.Server):
     def __init__(self, event_loop):
-        super().__init__(event_loop, 'callback')
+        super().__init__(event_loop, 'callback', socket_dir=TEST_OPTS.TMP_DIR)
 
         self.player_status_calls = asyncio.Queue()
         self.add_command_handler(
@@ -109,17 +109,28 @@ class NodeDB(object):
 
 
 class PlayerTest(unittest.AsyncTestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.node_db = None
+        self.audioproc_server_player = None
+        self.audioproc_server_player_task = None
+        self.audioproc_server_main = None
+        self.audioproc_server_main_task = None
+        self.audioproc_client_main = None
+        self.callback_server = None
+
     async def setup_testcase(self):
         self.node_db = NodeDB()
         await self.node_db.setup()
 
-        self.project = project.BaseProject.make_demo(demo='complex', node_db=self.node_db)
+        self.project = demo_project.complex(project.BaseProject, node_db=self.node_db)
 
         self.callback_server = CallbackServer(self.loop)
         await self.callback_server.setup()
 
         self.audioproc_server_main = audioproc_process.AudioProcProcess(
-            name='main_process', event_loop=self.loop, manager=None)
+            name='main_process', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.audioproc_server_main.setup()
         self.audioproc_server_main_task = self.loop.create_task(
             self.audioproc_server_main.run())
@@ -128,13 +139,13 @@ class PlayerTest(unittest.AsyncTestCase):
         await self.audioproc_client_main.setup()
         await self.audioproc_client_main.connect(
             self.audioproc_server_main.server.address, flags={'perf_data'})
-        await self.audioproc_client_main.set_backend(constants.TEST_OPTS.PLAYBACK_BACKEND)
+        await self.audioproc_client_main.set_backend(TEST_OPTS.PLAYBACK_BACKEND)
 
         profile_path = None
-        if constants.TEST_OPTS.ENABLE_PROFILER:
+        if TEST_OPTS.ENABLE_PROFILER:
             profile_path = os.path.join(tempfile.gettempdir(), self.id() + '.prof')
         self.audioproc_server_player = audioproc_process.AudioProcProcess(
-            name='player_process', event_loop=self.loop, manager=None,
+            name='player_process', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR,
             profile_path=profile_path, enable_player=True)
         await self.audioproc_server_player.setup()
         self.audioproc_server_player_task = self.loop.create_task(
@@ -154,17 +165,27 @@ class PlayerTest(unittest.AsyncTestCase):
     async def cleanup_testcase(self):
         logger.info("Testcase teardown starts...")
 
-        await asyncio.wait_for(self.audioproc_server_player_task, None)
-        await self.audioproc_server_player.cleanup()
-        await self.audioproc_client_main.disconnect(shutdown=True)
-        await self.audioproc_client_main.cleanup()
+        if self.audioproc_server_player is not None:
+            if self.audioproc_server_player_task is not None:
+                await self.audioproc_server_player.shutdown()
+                await asyncio.wait_for(self.audioproc_server_player_task, None)
+            await self.audioproc_server_player.cleanup()
 
-        await asyncio.wait_for(self.audioproc_server_main_task, None)
-        await self.audioproc_server_main.cleanup()
+        if self.audioproc_client_main is not None:
+            await self.audioproc_client_main.disconnect()
+            await self.audioproc_client_main.cleanup()
 
-        await self.callback_server.cleanup()
+        if self.audioproc_server_main is not None:
+            if self.audioproc_server_main_task is not None:
+                await self.audioproc_server_main.shutdown()
+                await asyncio.wait_for(self.audioproc_server_main_task, None)
+            await self.audioproc_server_main.cleanup()
 
-        await self.node_db.cleanup()
+        if self.callback_server is not None:
+            await self.callback_server.cleanup()
+
+        if self.node_db is not None:
+            await self.node_db.cleanup()
 
     @contextlib.contextmanager
     def track_frame_stats(self, testname):
@@ -199,7 +220,12 @@ class PlayerTest(unittest.AsyncTestCase):
 
     @unittest.skip("TODO: async status updates are flaky")
     async def test_playback_demo(self):
-        p = player.Player(self.project, self.callback_server.address, self.mock_manager, self.loop)
+        p = player.Player(
+            project=self.project,
+            callback_address=self.callback_server.address,
+            manager=self.mock_manager,
+            event_loop=self.loop,
+            tmp_dir=TEST_OPTS.TMP_DIR)
         try:
             logger.info("Setup player...")
             await p.setup()
@@ -249,7 +275,12 @@ class PlayerTest(unittest.AsyncTestCase):
 
     @unittest.skip("TODO: async status updates are flaky")
     async def test_send_message(self):
-        p = player.Player(self.project, self.callback_server.address, self.mock_manager, self.loop)
+        p = player.Player(
+            project=self.project,
+            callback_address=self.callback_server.address,
+            manager=self.mock_manager,
+            event_loop=self.loop,
+            tmp_dir=TEST_OPTS.TMP_DIR)
         try:
             await p.setup()
 

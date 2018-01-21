@@ -55,5 +55,3 @@ add_python_package(
   track_group.py
   track_group_test.py
 )
-
-file(COPY testdata DESTINATION .)

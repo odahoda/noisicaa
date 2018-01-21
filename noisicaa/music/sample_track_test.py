@@ -24,14 +24,12 @@ import os.path
 from unittest import mock
 
 from noisidev import unittest
+from noisidev import demo_project
 from noisicaa import audioproc
 from noisicaa.node_db.private import db as node_db
 
 from . import project
 from . import sample_track
-
-
-TESTDATA = os.path.abspath(os.path.join(os.path.dirname(__file__), 'testdata'))
 
 
 class NodeDB(object):
@@ -53,13 +51,15 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
         self.node_db = NodeDB()
         await self.node_db.setup()
 
-        self.project = project.BaseProject.make_demo(node_db=self.node_db)
+        self.project = demo_project.basic(project.BaseProject, node_db=self.node_db)
         self.track = sample_track.SampleTrack(name='test')
         self.project.master_group.tracks.append(self.track)
 
-        self.sample1 = sample_track.Sample(path=os.path.join(TESTDATA, 'future-thunder1.wav'))
+        self.sample1 = sample_track.Sample(
+            path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
         self.project.samples.append(self.sample1)
-        self.sample2 = sample_track.Sample(path=os.path.join(TESTDATA, 'kick-gettinglaid.wav'))
+        self.sample2 = sample_track.Sample(
+            path=os.path.join(unittest.TESTDATA_DIR, 'kick-gettinglaid.wav'))
         self.project.samples.append(self.sample2)
 
         self.messages = []
