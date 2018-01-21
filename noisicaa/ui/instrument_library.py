@@ -29,6 +29,7 @@ import bisect
 import logging
 import pathlib
 import pprint
+import textwrap
 import uuid
 
 from PyQt5.QtCore import Qt
@@ -41,7 +42,8 @@ from noisicaa import node_db
 from noisicaa import core
 from noisicaa.bindings import lv2
 
-from .piano import PianoWidget
+from . import piano
+from . import qprogressindicator
 from . import ui_base
 
 logger = logging.getLogger(__name__)
@@ -382,14 +384,17 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         logger.info("InstrumentLibrary created")
 
-        self._pipeline_lock = asyncio.Lock()
-        self._pipeline_mixer_id = None
-        self._pipeline_instrument_id = None
-        self._pipeline_event_source_id = None
+        self.__instrument_lock = asyncio.Lock(loop=self.event_loop)
 
-        self._instrument_mutation_listener = None
+        self.__pipeline_mixer_id = None
+        self.__pipeline_instrument_id = None
+        self.__pipeline_event_source_id = None
 
-        self._instrument = None
+        self.__instrument_mutation_listener = None
+
+        self.__instrument = None
+        self.__instrument_loader_task = None
+        self.__instrument_queue = asyncio.Queue(loop=self.event_loop)
 
         self.setWindowTitle("noisicaä - Instrument Library")
 
@@ -402,15 +407,14 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             triggered=self.onRescan)
         library_menu.addAction(rescan_action)
 
-        self.tabs = QtWidgets.QTabWidget(self)
-
-        self.instruments_page = QtWidgets.QSplitter(self.tabs)
-        self.instruments_page.setChildrenCollapsible(False)
+        splitter = QtWidgets.QSplitter(self)
+        splitter.setChildrenCollapsible(False)
 
         left = QtWidgets.QWidget(self)
-        self.instruments_page.addWidget(left)
+        splitter.addWidget(left)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         left.setLayout(layout)
 
         self.instruments_search = QtWidgets.QLineEdit(self)
@@ -428,9 +432,11 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.__view.currentIndexChanged.connect(self.onInstrumentItemSelected)
 
         instrument_info = QtWidgets.QWidget(self)
-        self.instruments_page.addWidget(instrument_info)
+        splitter.addWidget(instrument_info)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         instrument_info.setLayout(layout)
 
         form_layout = QtWidgets.QFormLayout()
@@ -444,22 +450,30 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         layout.addStretch(1)
 
-        self.piano = PianoWidget(self, self.app)
-        self.piano.setVisible(False)
+        self.piano = piano.PianoWidget(self, self.app)
+        self.piano.setEnabled(False)
         self.piano.noteOn.connect(self.onNoteOn)
         self.piano.noteOff.connect(self.onNoteOff)
         layout.addWidget(self.piano)
 
-        self.tabs.addTab(self.instruments_page, "Instruments")
+        self.spinner = QtWidgets.QWidget(self)
+        self.spinner.setVisible(False)
 
-        collections_page = QtWidgets.QWidget(self.tabs)
-        layout = QtWidgets.QVBoxLayout()
+        spinner_indicator = qprogressindicator.QProgressIndicator(self.spinner)
+        spinner_indicator.setAnimationDelay(100)
+        spinner_indicator.startAnimation()
 
-        layout.addStretch(1)
-        collections_page.setLayout(layout)
+        spinner_label = QtWidgets.QLabel(self.spinner)
+        spinner_label.setAlignment(Qt.AlignVCenter)
+        spinner_label.setText("Loading instrument...")
 
-        self.tabs.addTab(collections_page, "Collections")
-
+        spinner_layout = QtWidgets.QHBoxLayout()
+        spinner_layout.setContentsMargins(0, 0, 0, 0)
+        spinner_layout.addStretch(1)
+        spinner_layout.addWidget(spinner_indicator)
+        spinner_layout.addWidget(spinner_label)
+        spinner_layout.addStretch(1)
+        self.spinner.setLayout(spinner_layout)
 
         close = QtWidgets.QPushButton("Close")
         close.clicked.connect(self.close)
@@ -469,14 +483,17 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             select.clicked.connect(self.accept)
 
         buttons = QtWidgets.QHBoxLayout()
+        buttons.setContentsMargins(0, 0, 0, 0)
+        buttons.addWidget(self.spinner)
         buttons.addStretch(1)
         if selectButton:
             buttons.addWidget(select)
         buttons.addWidget(close)
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setMenuBar(menubar)
-        layout.addWidget(self.tabs, 1)
+        layout.addWidget(splitter, 1)
         layout.addLayout(buttons)
 
         self.setLayout(layout)
@@ -486,7 +503,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         return self.app.instrument_library
 
     def instrument(self):
-        return self._instrument
+        return self.__instrument
 
     async def setup(self):
         logger.info("Setting up instrument library dialog...")
@@ -495,95 +512,127 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         for description in self.app.instrument_db.instruments:
             self.__model.addInstrument(description)
 
-        self._instrument_mutation_listener = self.app.instrument_db.listeners.add(
+        self.__instrument_mutation_listener = self.app.instrument_db.listeners.add(
             'mutation', self.handleInstrumentMutation)
 
-        self._pipeline_mixer_id = uuid.uuid4().hex
+        self.__pipeline_mixer_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
             description=node_db.TrackMixerDescription,
-            id=self._pipeline_mixer_id,
+            id=self.__pipeline_mixer_id,
             name='library-mixer')
         await self.audioproc_client.connect_ports(
-            self._pipeline_mixer_id, 'out:left', 'sink', 'in:left')
+            self.__pipeline_mixer_id, 'out:left', 'sink', 'in:left')
         await self.audioproc_client.connect_ports(
-            self._pipeline_mixer_id, 'out:right', 'sink', 'in:right')
+            self.__pipeline_mixer_id, 'out:right', 'sink', 'in:right')
+
+        self.__instrument_loader_task = self.event_loop.create_task(
+            self.__instrumentLoader())
 
     async def cleanup(self):
         logger.info("Cleaning up instrument library dialog...")
 
-        if self._pipeline_instrument_id is not None:
-            assert self._pipeline_mixer_id is not None
-            await self.removeInstrumentFromPipeline()
+        async with self.__instrument_lock:
+            if self.__instrument_loader_task is not None:
+                self.__instrument_loader_task.cancel()
+                self.__instrument_loader_task = None
 
-        if self._pipeline_mixer_id is not None:
-            await self.audioproc_client.disconnect_ports(
-                self._pipeline_mixer_id, 'out:left', 'sink', 'in:left')
-            await self.audioproc_client.disconnect_ports(
-                self._pipeline_mixer_id, 'out:right', 'sink', 'in:right')
-            await self.audioproc_client.remove_node(
-                self._pipeline_mixer_id)
-            self._pipeline_mixer_id = None
+            if self.__pipeline_instrument_id is not None:
+                assert self.__pipeline_mixer_id is not None
+                await self.removeInstrumentFromPipeline()
 
-        if self._instrument_mutation_listener is not None:
-            self._instrument_mutation_listener.remove()
-            self._instrument_mutation_listener = None
+            if self.__pipeline_mixer_id is not None:
+                await self.audioproc_client.disconnect_ports(
+                    self.__pipeline_mixer_id, 'out:left', 'sink', 'in:left')
+                await self.audioproc_client.disconnect_ports(
+                    self.__pipeline_mixer_id, 'out:right', 'sink', 'in:right')
+                await self.audioproc_client.remove_node(
+                    self.__pipeline_mixer_id)
+                self.__pipeline_mixer_id = None
+
+        if self.__instrument_mutation_listener is not None:
+            self.__instrument_mutation_listener.remove()
+            self.__instrument_mutation_listener = None
 
     def handleInstrumentMutation(self, mutation):
         logger.info("Mutation received: %s", mutation)
         self.__model.addInstrument(mutation.description)
 
     async def addInstrumentToPipeline(self, uri):
-        assert self._pipeline_instrument_id is None
+        assert self.__pipeline_instrument_id is None
 
         node_uri, node_params = instrument_db.parse_uri(uri)
-        self._pipeline_instrument_id = uuid.uuid4().hex
+        self.__pipeline_instrument_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
             description=self.app.node_db.get_node_description(node_uri),
-            id=self._pipeline_instrument_id,
+            id=self.__pipeline_instrument_id,
             initial_parameters=node_params)
         await self.audioproc_client.connect_ports(
-            self._pipeline_instrument_id, 'out:left',
-            self._pipeline_mixer_id, 'in:left')
+            self.__pipeline_instrument_id, 'out:left',
+            self.__pipeline_mixer_id, 'in:left')
         await self.audioproc_client.connect_ports(
-            self._pipeline_instrument_id, 'out:right',
-            self._pipeline_mixer_id, 'in:right')
+            self.__pipeline_instrument_id, 'out:right',
+            self.__pipeline_mixer_id, 'in:right')
 
-        self._pipeline_event_source_id = uuid.uuid4().hex
+        self.__pipeline_event_source_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
             description=node_db.EventSourceDescription,
-            id=self._pipeline_event_source_id,
+            id=self.__pipeline_event_source_id,
             track_id='instrument_library')
         await self.audioproc_client.connect_ports(
-            self._pipeline_event_source_id, 'out',
-            self._pipeline_instrument_id, 'in')
+            self.__pipeline_event_source_id, 'out',
+            self.__pipeline_instrument_id, 'in')
 
     async def removeInstrumentFromPipeline(self):
-        async with self._pipeline_lock:
-            if self._pipeline_instrument_id is None:
-                return
+        if self.__pipeline_instrument_id is None:
+            return
 
-            await self.audioproc_client.disconnect_ports(
-                self._pipeline_event_source_id, 'out',
-                self._pipeline_instrument_id, 'in')
-            await self.audioproc_client.remove_node(
-                self._pipeline_event_source_id)
-            self._pipeline_event_source_id = None
+        await self.audioproc_client.disconnect_ports(
+            self.__pipeline_event_source_id, 'out',
+            self.__pipeline_instrument_id, 'in')
+        await self.audioproc_client.remove_node(
+            self.__pipeline_event_source_id)
+        self.__pipeline_event_source_id = None
 
-            await self.audioproc_client.disconnect_ports(
-                self._pipeline_instrument_id, 'out:left',
-                self._pipeline_mixer_id, 'in:left')
-            await self.audioproc_client.disconnect_ports(
-                self._pipeline_instrument_id, 'out:right',
-                self._pipeline_mixer_id, 'in:right')
-            await self.audioproc_client.remove_node(
-                self._pipeline_instrument_id)
-            self._pipeline_instrument_id = None
+        await self.audioproc_client.disconnect_ports(
+            self.__pipeline_instrument_id, 'out:left',
+            self.__pipeline_mixer_id, 'in:left')
+        await self.audioproc_client.disconnect_ports(
+            self.__pipeline_instrument_id, 'out:right',
+            self.__pipeline_mixer_id, 'in:right')
+        await self.audioproc_client.remove_node(
+            self.__pipeline_instrument_id)
+        self.__pipeline_instrument_id = None
 
-    def closeEvent(self, event):
-        if self._pipeline_instrument_id is not None:
-            self.call_async(self.removeInstrumentFromPipeline())
+    async def __instrumentLoader(self):
+        while True:
+            description = await self.__instrument_queue.get()
+            while True:
+                try:
+                    description = self.__instrument_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
 
-        super().closeEvent(event)
+            async with self.__instrument_lock:
+                self.piano.setEnabled(False)
+                self.spinner.setVisible(True)
+
+                await self.removeInstrumentFromPipeline()
+
+                self.instrument_name.setText(description.display_name)
+                self.instrument_data.setPlainText(textwrap.dedent("""\
+                    uri: {uri}
+                    properties: {properties}
+                    """.format(
+                        uri=description.uri,
+                        properties=pprint.pformat(description.properties))))
+
+                await self.addInstrumentToPipeline(description.uri)
+
+                self.piano.setEnabled(True)
+                self.spinner.setVisible(False)
+
+                self.__instrument = description
+                self.instrumentChanged.emit(description)
 
     def onRescan(self):
         self.call_async(self.app.instrument_db.start_scan())
@@ -598,31 +647,8 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     def onInstrumentItemSelected(self, index):
         index = self.__model_filter.mapToSource(index)
         item = self.__model.item(index)
-        if item is None or not isinstance(item, Instrument):
-            self.instrument_name.setText("")
-            self.instrument_data.setText("")
-            return
-
-        self.call_async(self.setCurrentInstrument(item.description))
-
-    async def setCurrentInstrument(self, description):
-        await self.removeInstrumentFromPipeline()
-
-        self.instrument_name.setText(description.display_name)
-        self.instrument_data.setPlainText("""\
-uri: {uri}
-properties: {properties}
-            """.format(
-                uri=description.uri,
-                properties=pprint.pformat(description.properties)))
-
-        await self.addInstrumentToPipeline(description.uri)
-
-        self.piano.setVisible(True)
-        self.piano.setFocus(Qt.OtherFocusReason)
-
-        self._instrument = description
-        self.instrumentChanged.emit(description)
+        if item is not None and isinstance(item, Instrument):
+            self.__instrument_queue.put_nowait(item.description)
 
     def onInstrumentSearchChanged(self, text):
         self.__model_filter.setFilter(text)
@@ -634,7 +660,7 @@ properties: {properties}
         self.piano.keyReleaseEvent(event)
 
     def onNoteOn(self, note, velocity):
-        if self._pipeline_event_source_id is not None:
+        if self.__pipeline_event_source_id is not None:
             self.call_async(
                 self.audioproc_client.send_message(
                     core.build_message(
@@ -643,7 +669,7 @@ properties: {properties}
                         lv2.AtomForge.build_midi_noteon(0, note.midi_note, velocity))))
 
     def onNoteOff(self, note):
-        if self._pipeline_event_source_id is not None:
+        if self.__pipeline_event_source_id is not None:
             self.call_async(
                 self.audioproc_client.send_message(
                     core.build_message(
