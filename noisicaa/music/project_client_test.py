@@ -24,10 +24,10 @@ import uuid
 from unittest import mock
 
 from noisidev import unittest
-from noisicaa import node_db
 from noisicaa.core import ipc
 from noisicaa.ui import model
 from noisicaa.constants import TEST_OPTS
+from noisicaa.node_db import process as node_db_process
 
 from . import project_process
 from . import project_client
@@ -37,7 +37,7 @@ class TestClientImpl():
     def __init__(self, event_loop):
         super().__init__()
         self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'client', socket_dir=TEST_OPTS.tmp_dir)
+        self.server = ipc.Server(self.event_loop, 'client', socket_dir=TEST_OPTS.TMP_DIR)
 
     async def setup(self):
         await self.server.setup()
@@ -50,26 +50,21 @@ class TestClient(project_client.ProjectClientMixin, TestClientImpl):
     pass
 
 
-class AsyncSetupBase():
-    async def setup(self):
-        pass
+class ProjectClientTest(unittest.AsyncTestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    async def cleanup(self):
-        pass
+        self.node_db_process = None
+        self.node_db_process_task = None
+        self.project_process = None
+        self.project_process_task = None
+        self.client = None
 
-class TestNodeDBProcess(node_db.NodeDBProcessBase):
-    def handle_start_session(self, client_address, flags):
-        return '123'
-
-    def handle_end_session(self, session_id):
-        return None
-
-
-class ProxyTest(unittest.AsyncTestCase):
     async def setup_testcase(self):
-        self.node_db_process = TestNodeDBProcess(
-            name='node_db', event_loop=self.loop, manager=None)
+        self.node_db_process = node_db_process.NodeDBProcess(
+            name='node_db', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.node_db_process.setup()
+        self.node_db_process_task = self.loop.create_task(self.node_db_process.run())
 
         self.manager = mock.Mock()
         async def mock_call(cmd, *args, **kwargs):
@@ -78,8 +73,9 @@ class ProxyTest(unittest.AsyncTestCase):
         self.manager.call.side_effect = mock_call
 
         self.project_process = project_process.ProjectProcess(
-            name='project', manager=self.manager, event_loop=self.loop)
+            name='project', manager=self.manager, event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.project_process.setup()
+        self.project_process_task = self.loop.create_task(self.project_process.run())
 
         self.client = TestClient(self.loop)
         self.client.cls_map = model.cls_map
@@ -87,19 +83,27 @@ class ProxyTest(unittest.AsyncTestCase):
         await self.client.connect(self.project_process.server.address)
 
     async def cleanup_testcase(self):
-        await self.client.shutdown()
-        await self.client.disconnect()
-        await self.client.cleanup()
-        await self.project_process.cleanup()
-        await self.node_db_process.cleanup()
+        if self.client is not None:
+            await self.client.disconnect()
+            await self.client.cleanup()
 
-    @unittest.skip("TODO: Requires a properly setup node_db")
+        if self.project_process is not None:
+            if self.project_process_task is not None:
+                await self.project_process.shutdown()
+                self.project_process_task.cancel()
+            await self.project_process.cleanup()
+
+        if self.node_db_process is not None:
+            if self.node_db_process_task is not None:
+                await self.node_db_process.shutdown()
+                self.node_db_process_task.cancel()
+            await self.node_db_process.cleanup()
+
     async def test_basic(self):
         await self.client.create_inmemory()
         project = self.client.project
         self.assertTrue(hasattr(project, 'metadata'))
 
-    @unittest.skip("TODO: Requires a properly setup node_db")
     async def test_create_close_open(self):
         path = '/tmp/foo%s' % uuid.uuid4().hex
         await self.client.create(path)
@@ -109,7 +113,6 @@ class ProxyTest(unittest.AsyncTestCase):
         # TODO: check property
         await self.client.close()
 
-    @unittest.skip("TODO: Requires a properly setup node_db")
     async def test_call_command(self):
         await self.client.create_inmemory()
         project = self.client.project
