@@ -20,8 +20,6 @@
 #
 # @end:license
 
-from unittest import mock
-
 from noisidev import unittest
 from noisidev import demo_project
 from noisicaa.node_db.private import db as node_db
@@ -57,15 +55,18 @@ class ScoreTrackConnectorTest(unittest.AsyncTestCase):
         pr = demo_project.basic(project.BaseProject, node_db=self.node_db)
         tr = pr.master_group.tracks[0]
 
-        player = mock.Mock()
-        connector = tr.create_player_connector(player)
+        messages = []
+
+        connector = tr.create_track_connector(message_cb=messages.append)
         try:
+            messages.extend(connector.init())
+
             pr.property_track.insert_measure(1)
             tr.insert_measure(1)
             m = tr.measure_list[1].measure
             m.notes.append(score_track.Note(pitches=[pitch.Pitch('D#4')]))
 
-            self.assertTrue(player.send_node_message.called)
+            self.assertTrue(len(messages) > 0)
 
         finally:
             connector.close()

@@ -85,6 +85,7 @@ cdef class TestProcessorCVGeneratorMixin(object):
 
     def test_single_control_point(self):
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             cvgenerator_add_control_point=processor_message_pb2.ProcessorMessage.CVGeneratorAddControlPoint(
                 id=0x0001,
                 time=musical_time.PyMusicalTime(1024, 44100).to_proto(),
@@ -97,6 +98,7 @@ cdef class TestProcessorCVGeneratorMixin(object):
 
     def test_two_control_points(self):
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             cvgenerator_add_control_point=processor_message_pb2.ProcessorMessage.CVGeneratorAddControlPoint(
                 id=0x0001,
                 time=musical_time.PyMusicalTime(1024, 44100).to_proto(),
@@ -104,6 +106,7 @@ cdef class TestProcessorCVGeneratorMixin(object):
         check(self.processor.handle_message(msg.SerializeToString()))
 
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             cvgenerator_add_control_point=processor_message_pb2.ProcessorMessage.CVGeneratorAddControlPoint(
                 id=0x0002,
                 time=musical_time.PyMusicalTime(3072, 44100).to_proto(),
@@ -128,6 +131,7 @@ cdef class TestProcessorCVGeneratorMixin(object):
 
     def test_remove_control_point(self):
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             cvgenerator_add_control_point=processor_message_pb2.ProcessorMessage.CVGeneratorAddControlPoint(
                 id=0x0001,
                 time=musical_time.PyMusicalTime(1024, 44100).to_proto(),
@@ -135,6 +139,7 @@ cdef class TestProcessorCVGeneratorMixin(object):
         check(self.processor.handle_message(msg.SerializeToString()))
 
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             cvgenerator_add_control_point=processor_message_pb2.ProcessorMessage.CVGeneratorAddControlPoint(
                 id=0x0002,
                 time=musical_time.PyMusicalTime(2048, 44100).to_proto(),
@@ -142,6 +147,7 @@ cdef class TestProcessorCVGeneratorMixin(object):
         check(self.processor.handle_message(msg.SerializeToString()))
 
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             cvgenerator_remove_control_point=processor_message_pb2.ProcessorMessage.CVGeneratorRemoveControlPoint(
                 id=0x0002))
         check(self.processor.handle_message(msg.SerializeToString()))

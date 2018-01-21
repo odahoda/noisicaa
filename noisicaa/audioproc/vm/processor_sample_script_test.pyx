@@ -98,6 +98,7 @@ cdef class TestProcessorSampleScriptMixin(object):
 
     def test_single_sample(self):
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             sample_script_add_sample=processor_message_pb2.ProcessorMessage.SampleScriptAddSample(
                 id=0x0001,
                 time=musical_time.PyMusicalTime(2048, 44100).to_proto(),
@@ -112,6 +113,7 @@ cdef class TestProcessorSampleScriptMixin(object):
 
     def test_two_samples(self):
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             sample_script_add_sample=processor_message_pb2.ProcessorMessage.SampleScriptAddSample(
                 id=0x0001,
                 time=musical_time.PyMusicalTime(1024, 44100).to_proto(),
@@ -119,6 +121,7 @@ cdef class TestProcessorSampleScriptMixin(object):
         check(self.processor.handle_message(msg.SerializeToString()))
 
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             sample_script_add_sample=processor_message_pb2.ProcessorMessage.SampleScriptAddSample(
                 id=0x0002,
                 time=musical_time.PyMusicalTime(3072, 44100).to_proto(),
@@ -133,6 +136,7 @@ cdef class TestProcessorSampleScriptMixin(object):
 
     def test_remove_sample(self):
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             sample_script_add_sample=processor_message_pb2.ProcessorMessage.SampleScriptAddSample(
                 id=0x0001,
                 time=musical_time.PyMusicalTime(2048, 44100).to_proto(),
@@ -140,6 +144,7 @@ cdef class TestProcessorSampleScriptMixin(object):
         check(self.processor.handle_message(msg.SerializeToString()))
 
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             sample_script_add_sample=processor_message_pb2.ProcessorMessage.SampleScriptAddSample(
                 id=0x0002,
                 time=musical_time.PyMusicalTime(1024, 44100).to_proto(),
@@ -147,6 +152,7 @@ cdef class TestProcessorSampleScriptMixin(object):
         check(self.processor.handle_message(msg.SerializeToString()))
 
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             sample_script_remove_sample=processor_message_pb2.ProcessorMessage.SampleScriptRemoveSample(
                 id=0x0002))
         check(self.processor.handle_message(msg.SerializeToString()))
@@ -159,6 +165,7 @@ cdef class TestProcessorSampleScriptMixin(object):
 
     def test_seek_into_sample(self):
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             sample_script_add_sample=processor_message_pb2.ProcessorMessage.SampleScriptAddSample(
                 id=0x0001,
                 time=musical_time.PyMusicalTime(0, 1).to_proto(),

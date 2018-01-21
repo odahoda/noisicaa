@@ -146,7 +146,7 @@ class AudioProcProcess(core.ProcessBase):
         self.server.add_command_handler(
             'PIPELINE_MUTATION', self.handle_pipeline_mutation)
         self.server.add_command_handler(
-            'SEND_NODE_MESSAGE', self.handle_send_node_message)
+            'SEND_NODE_MESSAGES', self.handle_send_node_messages)
         self.server.add_command_handler(
             'UPDATE_PLAYER_STATE', self.handle_update_player_state)
         self.server.add_command_handler(
@@ -329,9 +329,10 @@ class AudioProcProcess(core.ProcessBase):
         else:
             raise ValueError(type(mutation))
 
-    def handle_send_node_message(self, session_id, node_id, msg):
+    def handle_send_node_messages(self, session_id, messages):
         self.get_session(session_id)
-        self.__vm.send_node_message(node_id, msg)
+        for msg in messages.messages:
+            self.__vm.send_node_message(msg)
 
     def handle_set_backend(self, session_id, name, parameters):
         self.get_session(session_id)

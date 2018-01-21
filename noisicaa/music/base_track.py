@@ -145,9 +145,29 @@ commands.Command.register_command(UpdateTrackProperties)
 
 
 class TrackConnector(object):
-    def __init__(self, track, player):
+    def __init__(self, *, track, message_cb):
         self._track = track
-        self._player = player
+        self.__message_cb = message_cb
+
+        self.__initializing = True
+        self.__initial_messages = []
+
+    def init(self):
+        assert self.__initializing
+        self._init_internal()
+        self.__initializing = False
+        messages = self.__initial_messages
+        self.__initial_messages = None
+        return messages
+
+    def _init_internal(self):
+        raise NotImplementedError
+
+    def _emit_message(self, msg):
+        if self.__initializing:
+            self.__initial_messages.append(msg)
+        else:
+            self.__message_cb(msg)
 
     def close(self):
         pass
@@ -160,7 +180,7 @@ class Track(model.Track, state.StateBase):
         if state is None:
             self.name = name
 
-    def create_player_connector(self, player):
+    def create_track_connector(self, **kwargs):
         raise NotImplementedError
 
     @property
@@ -250,8 +270,9 @@ class PianoRollInterval(object):
             self.id, self.begin, self.end, self.pitch, self.velocity)
     __repr__ = __str__
 
-    def create_add_message(self):
+    def create_add_message(self, node_id):
         return audioproc.ProcessorMessage(
+            node_id=node_id,
             pianoroll_add_interval=audioproc.ProcessorMessage.PianoRollAddInterval(
                 id=self.id,
                 start_time=self.begin.to_proto(),
@@ -259,21 +280,23 @@ class PianoRollInterval(object):
                 pitch=self.pitch.midi_note,
                 velocity=self.velocity))
 
-    def create_remove_message(self):
+    def create_remove_message(self, node_id):
         return audioproc.ProcessorMessage(
+            node_id=node_id,
             pianoroll_remove_interval=audioproc.ProcessorMessage.PianoRollRemoveInterval(
                 id=self.id))
 
 
 class MeasuredTrackConnector(TrackConnector):
-    def __init__(self, track, node_id, player):
-        super().__init__(track, player)
+    def __init__(self, *, node_id, **kwargs):
+        super().__init__(**kwargs)
 
         self._listeners = {}
 
         self.__node_id = node_id
         self.__measure_events = {}
 
+    def _init_internal(self):
         time = audioproc.MusicalTime()
         for mref in self._track.measure_list:
             self.__add_measure(time, mref)
@@ -291,10 +314,10 @@ class MeasuredTrackConnector(TrackConnector):
         super().close()
 
     def __add_event(self, event):
-        self._player.send_node_message(self.__node_id, event.create_add_message())
+        self._emit_message(event.create_add_message(self.__node_id))
 
     def __remove_event(self, event):
-        self._player.send_node_message(self.__node_id, event.create_remove_message())
+        self._emit_message(event.create_remove_message(self.__node_id))
 
     def _add_track_listeners(self):
         pass

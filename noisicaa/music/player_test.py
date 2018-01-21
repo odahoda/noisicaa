@@ -64,6 +64,9 @@ class MockAudioProcClient(object):
     async def dump(self):
         pass
 
+    async def send_node_messages(self, messages):
+        pass
+
     async def update_project_properties(self, bpm=None, duration=None):
         assert bpm is None or isinstance(bpm, int)
         assert duration is None or isinstance(duration, audioproc.MusicalDuration)

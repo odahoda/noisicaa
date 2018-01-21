@@ -30,4 +30,5 @@ from .player_state_pb2 import (
 )
 from .processor_message_pb2 import (
     ProcessorMessage,
+    ProcessorMessageList,
 )

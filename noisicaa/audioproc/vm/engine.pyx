@@ -310,8 +310,8 @@ cdef class PipelineVM(object):
             raise TypeError(
                 "Type %s not supported for control values." % type(value).__name__)
 
-    def send_node_message(self, node_id, msg):
-        n = self.__graph.find_node(node_id)
+    def send_node_message(self, msg):
+        n = self.__graph.find_node(msg.node_id)
         assert isinstance(n, node.ProcessorNode), type(n).__name__
         proc = n.get_processor()
         assert proc is not None

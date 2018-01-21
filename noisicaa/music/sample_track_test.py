@@ -21,7 +21,6 @@
 # @end:license
 
 import os.path
-from unittest import mock
 
 from noisidev import unittest
 from noisidev import demo_project
@@ -64,19 +63,19 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
 
         self.messages = []
 
-        self.player = mock.Mock()
-        def send_node_message(node_id, msg):
-            self.assertEqual(node_id, self.track.sample_script_name)
-            # TODO: track the messages themselves and inspect their contents as well.
-            self.messages.append(msg.WhichOneof('msg'))
-        self.player.send_node_message.side_effect = send_node_message
+    def message_cb(self, msg):
+        self.assertEqual(msg.node_id, self.track.sample_script_name)
+        # TODO: track the messages themselves and inspect their contents as well.
+        self.messages.append(msg.WhichOneof('msg'))
 
     async def cleanup_testcase(self):
         await self.node_db.cleanup()
 
     def test_messages_on_mutations(self):
-        connector = self.track.create_player_connector(self.player)
+        connector = self.track.create_track_connector(message_cb=self.message_cb)
         try:
+            self.assertEqual(connector.init(), [])
+
             self.messages.clear()
             self.track.samples.insert(
                 0,
@@ -126,10 +125,12 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
             1,
             sample_track.SampleRef(time=audioproc.MusicalTime(2, 4), sample_id=self.sample2.id))
 
-        connector = self.track.create_player_connector(self.player)
+        connector = self.track.create_track_connector(message_cb=self.message_cb)
         try:
+            messages = connector.init()
+
             self.assertEqual(
-                self.messages,
+                [msg.WhichOneof('msg') for msg in messages],
                 ['sample_script_add_sample',
                  'sample_script_add_sample'])
 

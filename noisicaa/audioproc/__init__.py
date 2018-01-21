@@ -32,6 +32,7 @@ from .public import (
     MusicalDuration,
     MusicalTime,
     ProcessorMessage,
+    ProcessorMessageList,
     PlayerState,
     TimeMapper,
 )

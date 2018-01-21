@@ -203,8 +203,11 @@ class BeatTrack(model.BeatTrack, base_track.MeasuredTrack):
             for _ in range(num_measures):
                 self.append_measure()
 
-    def create_player_connector(self, player):
-        return BeatTrackConnector(self, self.event_source_name, player)
+    def create_track_connector(self, **kwargs):
+        return BeatTrackConnector(
+            track=self,
+            node_id=self.event_source_name,
+            **kwargs)
 
     @property
     def event_source_name(self):

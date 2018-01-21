@@ -387,7 +387,9 @@ class Player(object):
                 bpm=self.project.bpm,
                 duration=self.project.duration)
 
-            self.add_track(self.project.master_group)
+            messages = audioproc.ProcessorMessageList()
+            messages.messages.extend(self.add_track(self.project.master_group))
+            await self.audioproc_client.send_node_messages(messages)
 
             # TODO: Notify client (UI) about new stream address.
 
@@ -454,7 +456,10 @@ class Player(object):
 
     def tracks_changed(self, change):
         if isinstance(change, model_base.PropertyListInsert):
-            self.add_track(change.new_value)
+            messages = audioproc.ProcessorMessageList()
+            messages.messages.extend(self.add_track(change.new_value))
+            self.send_node_messages(messages)
+
         elif isinstance(change, model_base.PropertyListDelete):
             self.remove_track(change.old_value)
         else:
@@ -466,7 +471,9 @@ class Player(object):
             if isinstance(t, model.TrackGroup):
                 self.__listeners['track_group:%s' % t.id] = t.listeners.add('tracks', self.tracks_changed)
             else:
-                self.track_connectors[t.id] = t.create_player_connector(self)
+                connector = t.create_track_connector(message_cb=self.send_node_message)
+                yield from connector.init()
+                self.track_connectors[t.id] = connector
 
     def remove_track(self, track):
         for t in track.walk_tracks(groups=True, tracks=True):
@@ -492,15 +499,20 @@ class Player(object):
         except ipc.ConnectionClosed:
             self.audioproc_backend.backend_crashed()
 
-    def send_node_message(self, node_id, msg):
-        self.event_loop.create_task(self.__send_node_message_async(node_id, msg))
+    def send_node_message(self, msg):
+        messages = audioproc.ProcessorMessageList()
+        messages.messages.extend([msg])
+        self.event_loop.create_task(self.__send_node_messages_async(messages))
 
-    async def __send_node_message_async(self, node_id, msg):
+    def send_node_messages(self, messages):
+        self.event_loop.create_task(self.__send_node_messages_async(messages))
+
+    async def __send_node_messages_async(self, messages):
         if self.audioproc_client is None:
             return
 
         try:
-            await self.audioproc_client.send_node_message(node_id, msg)
+            await self.audioproc_client.send_node_messages(messages)
 
         except ipc.ConnectionClosed:
             self.audioproc_backend.backend_crashed()

@@ -45,16 +45,18 @@ ERROR   : 8298:7fbd9ef37700:ui.editor_app: Exception in callback: Traceback for 
 Reimplement Player.send_message() again, now without the proxy, forwarding the message directly
 to the backend.
 
-* TrackConnector: messages in __init__ should be synchronous (and ideally batched)       :CLEANUP:
-- is there a straight forward way to do this? or go all the way and:
-  - Pass around a CommandContext reference, which collects async tasks. At the end of its
-    lifetime, it waits for all pending tasks to complete (i.e. it can only be created/destroyed
-    in a coroutine).
-  - IPC server creates the main context for each command
-  - Subcontexts for specific sections where async tasks should complete before leaving the
-    section.
-  - Could also be used to collect actions that should be sent out in a batch at the end
-    (e.g. project mutations).
+* Explore the usefulness of a CommandContext                                            :RESEARCH:
+- Pass around a CommandContext reference, which collects async tasks. At the end of its
+  lifetime, it waits for all pending tasks to complete (i.e. it can only be created/destroyed
+  in a coroutine).
+- IPC server creates the main context for each command
+- Subcontexts for specific sections where async tasks should complete before leaving the
+  section.
+- Could also be used to collect actions that should be sent out in a batch at the end
+  (e.g. project mutations).
+- Setting properties has no way to set the context object.
+  - Track the context in the project object.
+  - We assume single-threading, so it's safe (but ugly) to use this 'kinda' global variable.
 
 * Base class for processor_*_test.pyx                                                    :CLEANUP:
 - setUp()/tearDown() to handle all the boilerplate (HostData, TimeMapper, ...).

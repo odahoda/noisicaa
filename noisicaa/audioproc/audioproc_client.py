@@ -110,9 +110,9 @@ class AudioProcClientMixin(object):
         return await self._stub.call(
             'PIPELINE_MUTATION', self._session_id, mutation)
 
-    async def send_node_message(self, node_id, msg):
+    async def send_node_messages(self, messages):
         return await self._stub.call(
-            'SEND_NODE_MESSAGE', self._session_id, node_id, msg)
+            'SEND_NODE_MESSAGES', self._session_id, messages)
 
     async def set_backend(self, name, **parameters):
         return await self._stub.call(

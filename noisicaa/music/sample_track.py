@@ -189,18 +189,19 @@ state.StateBase.register_class(SampleRef)
 
 
 class SampleTrackConnector(base_track.TrackConnector):
-    def __init__(self, track, node_id, player):
-        super().__init__(track, player)
+    def __init__(self, *, node_id, **kwargs):
+        super().__init__(**kwargs)
 
         self.__node_id = node_id
         self.__listeners = {}
         self.__sample_ids = {}
 
-        self.__listeners['samples'] = self._track.listeners.add(
-            'samples', self.__samples_list_changed)
-
+    def _init_internal(self):
         for sample_ref in self._track.samples:
             self.__add_sample(sample_ref)
+
+        self.__listeners['samples'] = self._track.listeners.add(
+            'samples', self.__samples_list_changed)
 
     def close(self):
         for listener in self.__listeners.values():
@@ -223,9 +224,9 @@ class SampleTrackConnector(base_track.TrackConnector):
     def __add_sample(self, sample_ref):
         sample_id = self.__sample_ids[sample_ref.id] = random.getrandbits(64)
 
-        self._player.send_node_message(
-            self.__node_id,
+        self._emit_message(
             audioproc.ProcessorMessage(
+                node_id=self.__node_id,
                 sample_script_add_sample=audioproc.ProcessorMessage.SampleScriptAddSample(
                     id=sample_id,
                     time=sample_ref.time.to_proto(),
@@ -240,9 +241,9 @@ class SampleTrackConnector(base_track.TrackConnector):
     def __remove_sample(self, sample_ref):
         sample_id = self.__sample_ids[sample_ref.id]
 
-        self._player.send_node_message(
-            self.__node_id,
+        self._emit_message(
             audioproc.ProcessorMessage(
+                node_id=self.__node_id,
                 sample_script_remove_sample=audioproc.ProcessorMessage.SampleScriptRemoveSample(
                     id=sample_id)))
 
@@ -252,14 +253,14 @@ class SampleTrackConnector(base_track.TrackConnector):
     def __sample_changed(self, sample_ref):
         sample_id = self.__sample_ids[sample_ref.id]
 
-        self._player.send_node_message(
-            self.__node_id,
+        self._emit_message(
             audioproc.ProcessorMessage(
+                node_id=self.__node_id,
                 sample_script_remove_sample=audioproc.ProcessorMessage.SampleScriptRemoveSample(
                     id=sample_id)))
-        self._player.send_node_message(
-            self.__node_id,
+        self._emit_message(
             audioproc.ProcessorMessage(
+                node_id=self.__node_id,
                 sample_script_add_sample=audioproc.ProcessorMessage.SampleScriptAddSample(
                     id=sample_id,
                     time=sample_ref.time.to_proto(),
@@ -270,8 +271,11 @@ class SampleTrack(model.SampleTrack, base_track.Track):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
-    def create_player_connector(self, player):
-        return SampleTrackConnector(self, self.sample_script_name, player)
+    def create_track_connector(self, **kwargs):
+        return SampleTrackConnector(
+            track=self,
+            node_id=self.sample_script_name,
+            **kwargs)
 
     @property
     def sample_script_name(self):

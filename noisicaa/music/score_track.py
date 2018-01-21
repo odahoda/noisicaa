@@ -388,8 +388,11 @@ class ScoreTrack(model.ScoreTrack, base_track.MeasuredTrack):
 
         return measure
 
-    def create_player_connector(self, player):
-        return ScoreTrackConnector(self, self.event_source_name, player)
+    def create_track_connector(self, **kwargs):
+        return ScoreTrackConnector(
+            track=self,
+            node_id=self.event_source_name,
+            **kwargs)
 
     @property
     def event_source_name(self):

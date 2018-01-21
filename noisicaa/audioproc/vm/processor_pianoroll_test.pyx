@@ -90,6 +90,7 @@ cdef class TestProcessorPianoRollMixin(object):
 
     def test_add_interval(self):
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             pianoroll_add_interval=processor_message_pb2.ProcessorMessage.PianoRollAddInterval(
                 id=0x0001,
                 start_time=musical_time.PyMusicalTime(1, 4).to_proto(),
@@ -99,6 +100,7 @@ cdef class TestProcessorPianoRollMixin(object):
         check(self.processor.handle_message(msg.SerializeToString()))
 
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             pianoroll_add_interval=processor_message_pb2.ProcessorMessage.PianoRollAddInterval(
                 id=0x0002,
                 start_time=musical_time.PyMusicalTime(2, 4).to_proto(),
@@ -120,6 +122,7 @@ cdef class TestProcessorPianoRollMixin(object):
 
     def test_remove_interval(self):
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             pianoroll_add_interval=processor_message_pb2.ProcessorMessage.PianoRollAddInterval(
                 id=0x0001,
                 start_time=musical_time.PyMusicalTime(1, 4).to_proto(),
@@ -129,6 +132,7 @@ cdef class TestProcessorPianoRollMixin(object):
         check(self.processor.handle_message(msg.SerializeToString()))
 
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             pianoroll_remove_interval=processor_message_pb2.ProcessorMessage.PianoRollRemoveInterval(
                 id=0x0001))
         check(self.processor.handle_message(msg.SerializeToString()))
@@ -143,6 +147,7 @@ cdef class TestProcessorPianoRollMixin(object):
 
     def test_pianoroll_buffering(self):
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             pianoroll_add_interval=processor_message_pb2.ProcessorMessage.PianoRollAddInterval(
                 id=0x0001,
                 start_time=musical_time.PyMusicalTime(1, 4).to_proto(),
@@ -154,6 +159,7 @@ cdef class TestProcessorPianoRollMixin(object):
         check(self.processor.run(self.ctxt.get(), NULL))  # TODO: pass time_mapper
 
         msg = processor_message_pb2.ProcessorMessage(
+            node_id='123',
             pianoroll_add_interval=processor_message_pb2.ProcessorMessage.PianoRollAddInterval(
                 id=0x0002,
                 start_time=musical_time.PyMusicalTime(2, 4).to_proto(),

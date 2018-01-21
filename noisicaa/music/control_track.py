@@ -136,18 +136,19 @@ state.StateBase.register_class(ControlPoint)
 
 
 class ControlTrackConnector(base_track.TrackConnector):
-    def __init__(self, track, node_id, player):
-        super().__init__(track, player)
+    def __init__(self, *, node_id, **kwargs):
+        super().__init__(**kwargs)
 
         self.__node_id = node_id
         self.__listeners = {}
         self.__point_ids = {}
 
-        self.__listeners['points'] = self._track.listeners.add(
-            'points', self.__points_list_changed)
-
+    def _init_internal(self):
         for point in self._track.points:
             self.__add_point(point)
+
+        self.__listeners['points'] = self._track.listeners.add(
+            'points', self.__points_list_changed)
 
     def close(self):
         for listener in self.__listeners.values():
@@ -170,9 +171,9 @@ class ControlTrackConnector(base_track.TrackConnector):
     def __add_point(self, point):
         point_id = self.__point_ids[point.id] = random.getrandbits(64)
 
-        self._player.send_node_message(
-            self.__node_id,
+        self._emit_message(
             audioproc.ProcessorMessage(
+                node_id=self.__node_id,
                 cvgenerator_add_control_point=audioproc.ProcessorMessage.CVGeneratorAddControlPoint(
                     id=point_id,
                     time=point.time.to_proto(),
@@ -187,9 +188,9 @@ class ControlTrackConnector(base_track.TrackConnector):
     def __remove_point(self, point):
         point_id = self.__point_ids[point.id]
 
-        self._player.send_node_message(
-            self.__node_id,
+        self._emit_message(
             audioproc.ProcessorMessage(
+                node_id=self.__node_id,
                 cvgenerator_remove_control_point=(
                     audioproc.ProcessorMessage.CVGeneratorRemoveControlPoint(id=point_id))))
 
@@ -199,14 +200,14 @@ class ControlTrackConnector(base_track.TrackConnector):
     def __point_changed(self, point):
         point_id = self.__point_ids[point.id]
 
-        self._player.send_node_message(
-            self.__node_id,
+        self._emit_message(
             audioproc.ProcessorMessage(
+                node_id=self.__node_id,
                 cvgenerator_remove_control_point=(
                     audioproc.ProcessorMessage.CVGeneratorRemoveControlPoint(id=point_id))))
-        self._player.send_node_message(
-            self.__node_id,
+        self._emit_message(
             audioproc.ProcessorMessage(
+                node_id=self.__node_id,
                 cvgenerator_add_control_point=audioproc.ProcessorMessage.CVGeneratorAddControlPoint(
                     id=point_id,
                     time=point.time.to_proto(),
@@ -217,8 +218,11 @@ class ControlTrack(model.ControlTrack, base_track.Track):
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
-    def create_player_connector(self, player):
-        return ControlTrackConnector(self, self.generator_name, player)
+    def create_track_connector(self, **kwargs):
+        return ControlTrackConnector(
+            track=self,
+            node_id=self.generator_name,
+            **kwargs)
 
     @property
     def mixer_name(self):
