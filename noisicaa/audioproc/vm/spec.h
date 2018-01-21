@@ -30,7 +30,7 @@
 #include <vector>
 #include <stdint.h>
 #include "noisicaa/core/status.h"
-#include "noisicaa/audioproc/vm/musical_time.h"
+#include "noisicaa/audioproc/public/musical_time.h"
 #include "noisicaa/audioproc/vm/opcodes.h"
 
 namespace noisicaa {

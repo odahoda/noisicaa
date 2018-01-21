@@ -23,11 +23,11 @@ from libcpp.vector cimport vector
 from libcpp.memory cimport unique_ptr
 
 from noisicaa.core.status cimport *
+from noisicaa.audioproc.public.musical_time cimport MusicalDuration
 from .buffers cimport *
 from .control_value cimport *
 from .opcodes cimport *
 from .processor cimport *
-from .musical_time cimport MusicalDuration
 
 
 cdef extern from "noisicaa/audioproc/vm/spec.h" namespace "noisicaa" nogil:

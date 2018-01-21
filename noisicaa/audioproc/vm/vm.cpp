@@ -26,6 +26,7 @@
 
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/core/status.h"
+#include "noisicaa/audioproc/public/time_mapper.h"
 #include "noisicaa/audioproc/vm/misc.h"
 #include "noisicaa/audioproc/vm/vm.h"
 #include "noisicaa/audioproc/vm/host_data.h"
@@ -34,7 +35,6 @@
 #include "noisicaa/audioproc/vm/backend.h"
 #include "noisicaa/audioproc/vm/processor.h"
 #include "noisicaa/audioproc/vm/player.h"
-#include "noisicaa/audioproc/vm/time_mapper.h"
 
 namespace noisicaa {
 

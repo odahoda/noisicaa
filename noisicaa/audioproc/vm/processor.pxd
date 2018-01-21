@@ -23,12 +23,12 @@ from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
 
 from noisicaa.core.status cimport *
+from noisicaa.audioproc.public.time_mapper cimport TimeMapper
+from noisicaa.audioproc.public.musical_time cimport MusicalTime
 from .buffers cimport *
 from .block_context cimport *
 from .processor_spec cimport *
 from .host_data cimport *
-from .musical_time cimport *
-from .time_mapper cimport TimeMapper
 
 
 cdef extern from "noisicaa/audioproc/vm/processor.h" namespace "noisicaa" nogil:

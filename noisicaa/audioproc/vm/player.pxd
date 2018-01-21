@@ -23,8 +23,8 @@ from libcpp.string cimport string
 from libcpp.functional cimport function
 
 from noisicaa.core.status cimport *
+from noisicaa.audioproc.public.musical_time cimport MusicalTime
 from .host_data cimport *
-from .musical_time cimport *
 
 cdef extern from "noisicaa/audioproc/vm/player.h" namespace "noisicaa" nogil:
     cppclass PlayerStateMutation:

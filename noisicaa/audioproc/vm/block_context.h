@@ -31,8 +31,8 @@
 #include <vector>
 #include <stdint.h>
 #include "noisicaa/core/message.capnp.h"
+#include "noisicaa/audioproc/public/musical_time.h"
 #include "noisicaa/audioproc/vm/buffers.h"
-#include "noisicaa/audioproc/vm/musical_time.h"
 
 namespace noisicaa {
 

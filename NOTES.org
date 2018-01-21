@@ -1,5 +1,11 @@
 # -*- org-tags-column: -98 -*-
 
+* Speed up project setup                                                                      :FR:
+- takes quite some time until a project is up and running.
+- figure out what the bottlenecks are.
+  - a lot of messages are passes around. Anything that can be batched.
+  - how much time is the logging taking up?
+
 * No cleanup in destructors                                                                  :BUG:
 - Was a bad idea: http://www.artima.com/cppsource/nevercall.html
 - Code that deletes something must explicitly call cleanup() before.
@@ -34,7 +40,7 @@ ERROR   : 8298:7fbd9ef37700:ui.editor_app: Exception in callback: Traceback for 
 * Move various test helpers to noisidev.unittest                                         :CLEANUP:
 - noisicaa.ui.uitest_utils
 
-* Explore https://github.com/census-instrumentation for stats tracking                        :FR:
+* Explore https://github.com/census-instrumentation for stats tracking                  :RESEARCH:
 * Make playing notes on insert when editing work again                                       :BUG:
 Reimplement Player.send_message() again, now without the proxy, forwarding the message directly
 to the backend.
@@ -52,11 +58,6 @@ to the backend.
 
 * Base class for processor_*_test.pyx                                                    :CLEANUP:
 - setUp()/tearDown() to handle all the boilerplate (HostData, TimeMapper, ...).
-
-* Split libnoisicaa-audioproc-vm into two                                                :CLEANUP:
-- noisicaa/audioproc/core/ for musical_time, time_mapper, ..
-  - all the stuff that is imported from outside of audioproc
-- noisicaa/audioproc/vm/ should be private to audioproc
 
 * Switch UI to use PropertyChange instances for listeners                                :CLEANUP:
 - make it more like music

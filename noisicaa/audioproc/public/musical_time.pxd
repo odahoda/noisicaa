@@ -21,7 +21,7 @@
 from libc.stdint cimport int64_t
 from libcpp cimport bool
 
-cdef extern from "noisicaa/audioproc/vm/musical_time.h" namespace "noisicaa" nogil:
+cdef extern from "noisicaa/audioproc/public/musical_time.h" namespace "noisicaa" nogil:
     cppclass Fraction:
         Fraction()
         Fraction(int64_t n, int64_t d)

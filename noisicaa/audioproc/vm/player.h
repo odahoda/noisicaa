@@ -31,8 +31,8 @@
 #include <thread>
 #include "noisicaa/core/fifo_queue.h"
 #include "noisicaa/core/status.h"
-#include "noisicaa/audioproc/vm/musical_time.h"
-#include "noisicaa/audioproc/vm/time_mapper.h"
+#include "noisicaa/audioproc/public/musical_time.h"
+#include "noisicaa/audioproc/public/time_mapper.h"
 
 namespace noisicaa {
 

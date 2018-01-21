@@ -20,7 +20,7 @@
  * @end:license
  */
 
-#include "noisicaa/audioproc/vm/time_mapper.h"
+#include "noisicaa/audioproc/public/time_mapper.h"
 
 namespace noisicaa {
 

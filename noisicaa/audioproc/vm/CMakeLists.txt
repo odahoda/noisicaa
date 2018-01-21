@@ -42,12 +42,9 @@ set(LIB_SRCS
   host_system_audio_file.cpp
   misc.cpp
   message_queue.cpp
-  musical_time.cpp
-  musical_time.pb.cc
   opcodes.cpp
   player.cpp
   processor_spec.cpp
-  processor_message.pb.cc
   processor.cpp
   processor_null.cpp
   processor_ladspa.cpp
@@ -64,16 +61,13 @@ set(LIB_SRCS
   processor_cvgenerator.cpp
   processor_sample_script.cpp
   spec.cpp
-  time_mapper.cpp
   vm.cpp
-  vm.pb.cc
 )
 
 set(TEST_SRCS
   backend_test.pyx
   backend_ipc_test.pyx
   buffers_test.pyx
-  musical_time_test.pyx
   opcodes_test.pyx
   player_test.pyx
   processor_test.pyx
@@ -89,23 +83,17 @@ set(TEST_SRCS
   processor_cvgenerator_test.pyx
   processor_sample_script_test.pyx
   spec_test.pyx
-  time_mapper_test.pyx
   vm_test.pyx
 )
 
 add_cpp_capnp(block_data.capnp)
 add_py_capnp(block_data.capnp)
-cpp_proto(musical_time.proto)
-py_proto(musical_time.proto)
-cpp_proto(vm.proto)
-py_proto(vm.proto)
-cpp_proto(processor_message.proto)
-py_proto(processor_message.proto)
 
 add_library(noisicaa-audioproc-vm SHARED ${LIB_SRCS} block_data.capnp.c++)
 target_compile_options(noisicaa-audioproc-vm PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
 target_link_libraries(noisicaa-audioproc-vm PRIVATE noisicaa-core)
 target_link_libraries(noisicaa-audioproc-vm PRIVATE noisicaa-lv2)
+target_link_libraries(noisicaa-audioproc-vm PRIVATE noisicaa-audioproc-public)
 target_link_libraries(noisicaa-audioproc-vm PRIVATE capnp)
 target_link_libraries(noisicaa-audioproc-vm PRIVATE pthread)
 target_link_libraries(noisicaa-audioproc-vm PRIVATE portaudio)
@@ -150,12 +138,6 @@ target_link_libraries(${block_context.so} PRIVATE noisicaa-audioproc-vm)
 
 add_cython_module(backend CXX)
 target_link_libraries(${backend.so} PRIVATE noisicaa-audioproc-vm)
-
-add_cython_module(musical_time CXX)
-target_link_libraries(${musical_time.so} PRIVATE noisicaa-audioproc-vm)
-
-add_cython_module(time_mapper CXX)
-target_link_libraries(${time_mapper.so} PRIVATE noisicaa-audioproc-vm)
 
 add_cython_module(engine CXX)
 target_link_libraries(${engine.so} PRIVATE noisicaa-audioproc-vm)

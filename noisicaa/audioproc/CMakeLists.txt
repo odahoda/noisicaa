@@ -31,5 +31,6 @@ add_python_package(
 
 add_subdirectory(nodes)
 add_subdirectory(vm)
+add_subdirectory(public)
 
 file(COPY testdata DESTINATION .)

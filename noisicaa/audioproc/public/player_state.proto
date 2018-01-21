@@ -22,7 +22,7 @@
 
 syntax = "proto2";
 
-import "noisicaa/audioproc/vm/musical_time.proto";
+import "noisicaa/audioproc/public/musical_time.proto";
 
 package noisicaa.pb;
 

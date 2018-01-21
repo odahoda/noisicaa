@@ -21,12 +21,12 @@
  */
 
 #include "noisicaa/core/logging.h"
+#include "noisicaa/audioproc/public/time_mapper.h"
+#include "noisicaa/audioproc/public/player_state.pb.h"
 #include "noisicaa/audioproc/vm/block_context.h"
 #include "noisicaa/audioproc/vm/misc.h"
 #include "noisicaa/audioproc/vm/double_buffered_state_manager.inl.h"
-#include "noisicaa/audioproc/vm/time_mapper.h"
 #include "noisicaa/audioproc/vm/player.h"
-#include "noisicaa/audioproc/vm/vm.pb.h"
 
 namespace noisicaa {
 

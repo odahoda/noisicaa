@@ -26,7 +26,7 @@ from noisicaa.core.status cimport Status
 from .musical_time cimport MusicalTime, MusicalDuration
 
 
-cdef extern from "noisicaa/audioproc/vm/time_mapper.h" namespace "noisicaa" nogil:
+cdef extern from "noisicaa/audioproc/public/time_mapper.h" namespace "noisicaa" nogil:
     cppclass TimeMapper:
         TimeMapper()
 

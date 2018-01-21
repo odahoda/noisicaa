@@ -21,7 +21,6 @@
 from noisidev import unittest
 from noisicaa.core.status cimport *
 from .host_data cimport *
-from .musical_time cimport *
 from .player cimport *
 
 

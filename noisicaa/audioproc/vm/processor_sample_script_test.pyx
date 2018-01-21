@@ -29,16 +29,15 @@ import sys
 from noisidev import unittest
 from noisicaa import constants
 from noisicaa.core.status cimport *
-from . import musical_time
+from noisicaa.audioproc.public import musical_time
+from noisicaa.audioproc.public import processor_message_pb2
+from noisicaa.audioproc.public.time_mapper cimport PyTimeMapper
 from . import processor
-from . import processor_message_pb2
 from .block_context cimport *
 from .buffers cimport *
 from .processor cimport *
 from .processor_spec cimport *
 from .host_data cimport *
-from .time_mapper cimport PyTimeMapper
-from .musical_time cimport *
 
 
 TESTDATA = os.path.abspath(os.path.join(constants.ROOT, 'music', 'testdata'))

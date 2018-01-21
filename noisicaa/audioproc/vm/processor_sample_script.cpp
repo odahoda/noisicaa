@@ -23,12 +23,12 @@
 #include <algorithm>
 
 #include "noisicaa/core/perf_stats.h"
+#include "noisicaa/audioproc/public/time_mapper.h"
+#include "noisicaa/audioproc/public/processor_message.pb.h"
 #include "noisicaa/audioproc/vm/misc.h"
 #include "noisicaa/audioproc/vm/host_data.h"
 #include "noisicaa/audioproc/vm/double_buffered_state_manager.inl.h"
-#include "noisicaa/audioproc/vm/time_mapper.h"
 #include "noisicaa/audioproc/vm/vm.h"
-#include "noisicaa/audioproc/vm/processor_message.pb.h"
 #include "noisicaa/audioproc/vm/processor_sample_script.h"
 
 namespace {

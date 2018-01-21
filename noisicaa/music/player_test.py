@@ -45,9 +45,7 @@ class MockAudioProcClient(object):
         pass
 
     async def cleanup(self):
-        if self.audiostream_server is not None:
-            self.audiostream_server.cleanup()
-            self.audiostream_server = None
+        pass
 
     async def connect(self, address):
         logger.info("Connecting to audioproc client at %s...", address)
@@ -60,11 +58,8 @@ class MockAudioProcClient(object):
 
     async def set_backend(self, backend, **settings):
         logger.info("Set to audioproc backend to %s.", backend)
-        if backend == 'ipc':
-            self.audiostream_server = audioproc.AudioStream.create_server(settings['ipc_address'])
-            self.audiostream_server.setup()
-        else:
-            raise ValueError("Unexpected backend '%s'" % backend)
+        assert backend == 'ipc'
+        assert 'ipc_address' in settings
 
     async def dump(self):
         pass
@@ -72,10 +67,6 @@ class MockAudioProcClient(object):
     async def update_project_properties(self, bpm=None, duration=None):
         assert bpm is None or isinstance(bpm, int)
         assert duration is None or isinstance(duration, audioproc.MusicalDuration)
-
-    def kill_backend(self):
-        self.audiostream_server.cleanup()
-        self.audiostream_server = None
 
 
 class PlayerTest(unittest.AsyncTestCase):

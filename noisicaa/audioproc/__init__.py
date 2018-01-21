@@ -28,16 +28,7 @@ from .mutations import (
     SetNodeParameter,
     SetControlValue,
 )
-from .vm import (
-    Buffer,
-    BlockData,
-    AudioStream,
-    Spec,
-    Float,
-    FloatAudioBlock,
-    AtomData,
-    HostData,
-    BlockContext,
+from .public import (
     MusicalDuration,
     MusicalTime,
     ProcessorMessage,

@@ -18,7 +18,7 @@
 #
 # @end:license
 
-from . cimport musical_time
+from noisicaa.audioproc.public.musical_time cimport PyMusicalTime
 
 
 cdef class PyBlockContext(object):

@@ -25,8 +25,11 @@ import struct
 
 from noisidev import unittest
 from noisicaa import constants
-from noisicaa import audioproc
 from . import engine
+from .spec import PySpec
+from .buffers import PyFloat, PyFloatAudioBlock
+from .block_context import PyBlockContext
+from .host_data import PyHostData
 
 logger = logging.getLogger(__name__)
 
@@ -68,12 +71,18 @@ logger = logging.getLogger(__name__)
 
 
 class PipelineVMTest(unittest.AsyncTestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.host_data = None
+
     async def setup_testcase(self):
-        self.host_data = audioproc.HostData()
+        self.host_data = PyHostData()
         self.host_data.setup()
 
     async def cleanup_testcase(self):
-        self.host_data.cleanup()
+        if self.host_data is not None:
+            self.host_data.cleanup()
 
     # def test_get_buffer_bytes(self):
     #     vm = engine.PipelineVM()
@@ -119,10 +128,10 @@ class PipelineVMTest(unittest.AsyncTestCase):
     #         vm.cleanup()
 
     def test_run_vm(self):
-        spec = audioproc.Spec()
-        spec.append_buffer('buf1', audioproc.Float())
-        spec.append_buffer('buf2', audioproc.FloatAudioBlock())
-        spec.append_buffer('buf3', audioproc.FloatAudioBlock())
+        spec = PySpec()
+        spec.append_buffer('buf1', PyFloat())
+        spec.append_buffer('buf2', PyFloatAudioBlock())
+        spec.append_buffer('buf3', PyFloatAudioBlock())
         spec.append_opcode('SET_FLOAT', 'buf1', 12.0)
         spec.append_opcode('COPY', 'buf2', 'buf3')
         spec.append_opcode('CLEAR', 'buf2')
@@ -133,7 +142,7 @@ class PipelineVMTest(unittest.AsyncTestCase):
             vm.set_backend('null', block_size=4)
             vm.set_spec(spec)
 
-            ctxt = audioproc.BlockContext()
+            ctxt = PyBlockContext()
             ctxt.sample_pos = 0
             ctxt.block_size = 4
             vm.process_block(ctxt)
@@ -310,9 +319,9 @@ class PipelineVMTest(unittest.AsyncTestCase):
             vm.setup(start_thread=False)
             vm.set_backend(constants.TEST_OPTS.PLAYBACK_BACKEND, block_size=4096)
 
-            spec = audioproc.Spec()
-            spec.append_buffer('buf1', audioproc.FloatAudioBlock())
-            spec.append_buffer('buf2', audioproc.FloatAudioBlock())
+            spec = PySpec()
+            spec.append_buffer('buf1', PyFloatAudioBlock())
+            spec.append_buffer('buf2', PyFloatAudioBlock())
             spec.append_opcode('NOISE', 'buf1')
             spec.append_opcode('MUL', 'buf1', 0.2)
             spec.append_opcode('OUTPUT', 'buf1', 'left')
@@ -321,7 +330,7 @@ class PipelineVMTest(unittest.AsyncTestCase):
             spec.append_opcode('OUTPUT', 'buf2', 'right')
             vm.set_spec(spec)
 
-            ctxt = audioproc.BlockContext()
+            ctxt = PyBlockContext()
             ctxt.sample_pos = 0
             ctxt.block_size = 256
 

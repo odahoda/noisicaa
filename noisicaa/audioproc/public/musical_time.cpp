@@ -20,7 +20,7 @@
  * @end:license
  */
 
-#include "noisicaa/audioproc/vm/musical_time.h"
+#include "noisicaa/audioproc/public/musical_time.h"
 
 namespace {
 

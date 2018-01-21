@@ -22,12 +22,12 @@
  * @end:license
  */
 
-#ifndef _NOISICAA_MUSIC_MUSICAL_TIME_H
-#define _NOISICAA_MUSIC_MUSICAL_TIME_H
+#ifndef _NOISICAA_AUDIOPROC_PUBLIC_MUSICAL_TIME_H
+#define _NOISICAA_AUDIOPROC_PUBLIC_MUSICAL_TIME_H
 
 #include <assert.h>
 #include <stdlib.h>
-#include <noisicaa/audioproc/vm/musical_time.pb.h>
+#include <noisicaa/audioproc/public/musical_time.pb.h>
 
 namespace noisicaa {
 

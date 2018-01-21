@@ -22,11 +22,11 @@ from libc.stdint cimport int64_t
 from libcpp.memory cimport unique_ptr
 
 from noisicaa.core.status cimport *
+from noisicaa.audioproc.public.musical_time cimport PyMusicalDuration
 from .buffers cimport *
 from .control_value cimport *
 from .opcodes cimport *
 from .processor cimport *
-from .musical_time import PyMusicalDuration
 
 opcode_map = {
     'NOOP':                OpCode.NOOP,

@@ -26,15 +26,14 @@ import sys
 
 from noisidev import unittest
 from noisicaa.core.status cimport *
-from . import musical_time
+from noisicaa.audioproc.public import musical_time
+from noisicaa.audioproc.public import processor_message_pb2
 from . import processor
-from . import processor_message_pb2
 from .block_context cimport *
 from .buffers cimport *
 from .processor cimport *
 from .processor_spec cimport *
 from .host_data cimport *
-from .musical_time cimport *
 
 
 cdef class TestProcessorCVGeneratorMixin(object):

@@ -31,10 +31,10 @@
 #include <stdint.h>
 #include "noisicaa/core/logging.h"
 #include "noisicaa/core/status.h"
+#include "noisicaa/audioproc/public/musical_time.h"
 #include "noisicaa/audioproc/vm/buffers.h"
 #include "noisicaa/audioproc/vm/block_context.h"
 #include "noisicaa/audioproc/vm/processor_spec.h"
-#include "noisicaa/audioproc/vm/musical_time.h"
 #include "noisicaa/audioproc/vm/misc.h"
 
 namespace noisicaa {

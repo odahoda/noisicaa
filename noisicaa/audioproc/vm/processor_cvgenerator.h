@@ -30,11 +30,11 @@
 #include <memory>
 #include <vector>
 #include "noisicaa/core/status.h"
+#include "noisicaa/audioproc/public/musical_time.h"
+#include "noisicaa/audioproc/public/processor_message.pb.h"
 #include "noisicaa/audioproc/vm/buffers.h"
-#include "noisicaa/audioproc/vm/musical_time.h"
 #include "noisicaa/audioproc/vm/double_buffered_state_manager.h"
 #include "noisicaa/audioproc/vm/processor.h"
-#include "noisicaa/audioproc/vm/processor_message.pb.h"
 
 
 namespace noisicaa {

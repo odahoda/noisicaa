@@ -22,13 +22,13 @@
  * @end:license
  */
 
-#ifndef _NOISICAA_MUSIC_TIME_MAPPER_H
-#define _NOISICAA_MUSIC_TIME_MAPPER_H
+#ifndef _NOISICAA_AUDIOPROC_PUBLIC_TIME_MAPPER_H
+#define _NOISICAA_AUDIOPROC_PUBLIC_TIME_MAPPER_H
 
 #include <stdlib.h>
 #include <iterator>
 #include "noisicaa/core/status.h"
-#include "noisicaa/audioproc/vm/musical_time.h"
+#include "noisicaa/audioproc/public/musical_time.h"
 
 namespace noisicaa {
 

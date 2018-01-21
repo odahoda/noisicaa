@@ -23,8 +23,8 @@
 #include <random>
 #include <time.h>
 
+#include "noisicaa/audioproc/public/processor_message.pb.h"
 #include "noisicaa/audioproc/vm/processor.h"
-#include "noisicaa/audioproc/vm/processor_message.pb.h"
 #include "noisicaa/audioproc/vm/processor_null.h"
 #include "noisicaa/audioproc/vm/processor_ladspa.h"
 #include "noisicaa/audioproc/vm/processor_lv2.h"

@@ -41,6 +41,8 @@ from noisicaa import core
 from noisicaa import rwlock
 from noisicaa.bindings import lv2
 from noisicaa.core.status cimport *
+from noisicaa.audioproc.public import musical_time
+from noisicaa.audioproc.public import player_state_pb2
 from .vm cimport *
 from .host_data cimport *
 from .spec cimport *
@@ -51,13 +53,10 @@ from .backend cimport *
 from .message_queue cimport *
 from .processor cimport *
 from .player cimport *
-from . import musical_time
-from .musical_time cimport *
 from .. import node
 from .. import ports
 from . import graph
 from . import compiler
-from . import vm_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -344,7 +343,7 @@ cdef class PipelineVM(object):
         cdef PyObject* exc_trackback
         PyErr_Fetch(&exc_type, &exc_value, &exc_trackback)
         try:
-            state_pb = vm_pb2.PlayerState()
+            state_pb = player_state_pb2.PlayerState()
             state_pb.ParseFromString(state_serialized)
             self.listeners.call('player_state', state_pb)
 
