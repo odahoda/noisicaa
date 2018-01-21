@@ -123,7 +123,7 @@ StatusOr<AudioFile*> AudioFileSubSystem::load_audio_file(const string& path) {
         ctxt,
         out_planes, num_samples - out_pos,
         in_planes, frames_read);
-    if (rc < 0) {
+    if (samples_written < 0) {
       char buf[AV_ERROR_MAX_STRING_SIZE];
       return ERROR_STATUS(
           "Failed to convert samples: %s", av_make_error_string(buf, sizeof(buf), samples_written));
