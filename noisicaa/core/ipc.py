@@ -140,10 +140,11 @@ class Server(object):
     def __init__(self, event_loop, name, socket_dir):
         self.event_loop = event_loop
         self.name = name
+        self.id = uuid.uuid4().hex
 
         self.logger = logger.getChild(name)
 
-        self.address = os.path.join(socket_dir, '%s.%s.sock' % (self.name, uuid.uuid4().hex))
+        self.address = os.path.join(socket_dir, '%s.%s.sock' % (self.name, self.id))
 
         self._next_connection_id = 0
         self._server = None
@@ -174,9 +175,17 @@ class Server(object):
 
     async def setup(self):
         self.stat_bytes_sent = stats.registry.register(
-            stats.Counter, stats.StatName(name='ipc_server_bytes_sent', server=self.name))
+            stats.Counter,
+            stats.StatName(
+                name='ipc_server_bytes_sent',
+                server_name=self.name,
+                server_id=self.id))
         self.stat_bytes_received = stats.registry.register(
-            stats.Counter, stats.StatName(name='ipc_server_bytes_received', server=self.name))
+            stats.Counter,
+            stats.StatName(
+                name='ipc_server_bytes_received',
+                server_name=self.name,
+                server_id=self.id))
 
         self._server = await self.event_loop.create_unix_server(
             functools.partial(ServerProtocol, self.event_loop, self),
@@ -246,18 +255,18 @@ class Server(object):
 
 
 class ClientProtocol(asyncio.Protocol):
-    def __init__(self, stub):
+    def __init__(self, stub, event_loop):
         self.stub = stub
-        self.closed_event = asyncio.Event()
+        self.closed_event = asyncio.Event(loop=event_loop)
         self.state = 0
         self.buf = bytearray()
         self.length = None
         self.response = None
-        self.response_queue = asyncio.Queue()
+        self.response_queue = asyncio.Queue(loop=event_loop)
 
     def connection_lost(self, exc):
         self.closed_event.set()
-        logger.info("Client connection to %s lost.", self.stub.server_address)
+        logger.info("%s: Connection lost.", self.stub.id)
         self.response_queue.put_nowait(self.stub.CLOSE_SENTINEL)
 
     def data_received(self, data):
@@ -313,6 +322,7 @@ class Stub(object):
     CLOSE_SENTINEL = object()
 
     def __init__(self, event_loop, server_address):
+        self.id = uuid.uuid4().hex
         self._event_loop = event_loop
         self._server_address = server_address
         self._transport = None
@@ -320,6 +330,8 @@ class Stub(object):
         self._command_queue = None
         self._command_loop_cancelled = None
         self._command_loop_task = None
+        self._connected = False
+        self._lock = asyncio.Lock(loop=event_loop)
 
     @property
     def server_address(self):
@@ -327,35 +339,47 @@ class Stub(object):
 
     @property
     def connected(self):
-        return self._transport is not None
+        return self._connected
 
     async def connect(self):
-        assert self._transport is None and self._protocol is None
-        self._transport, self._protocol = (
-            await self._event_loop.create_unix_connection(
-                functools.partial(ClientProtocol, self),
-                self._server_address))
-        logger.info("Connected to server at %s", self._server_address)
+        async with self._lock:
+            assert not self._connected
 
-        self._command_queue = asyncio.Queue(loop=self._event_loop)
-        self._command_loop_cancelled = asyncio.Event(loop=self._event_loop)
-        self._command_loop_task = self._event_loop.create_task(self.command_loop())
+            self._transport, self._protocol = (
+                await self._event_loop.create_unix_connection(
+                    functools.partial(ClientProtocol, self, self._event_loop),
+                    self._server_address))
+            logger.info("%s: Connected to server at %s", self.id, self._server_address)
+
+            self._command_queue = asyncio.Queue(loop=self._event_loop)
+            self._command_loop_cancelled = asyncio.Event(loop=self._event_loop)
+            self._command_loop_task = self._event_loop.create_task(self.command_loop())
+
+            self._connected = True
 
     async def close(self):
-        assert self._transport is not None
-        self._transport.close()
-        await self._protocol.closed_event.wait()
+        async with self._lock:
+            if not self._connected:
+                return
 
-        self._transport = None
-        self._protocol = None
+            logger.info("%s: Closing stub...", self.id)
+            assert self._transport is not None
+            self._transport.close()
+            await self._protocol.closed_event.wait()
+            logger.info("%s: Connection closed.", self.id)
 
-        if self._command_loop_task is not None:
-            self._command_loop_cancelled.set()
-            await asyncio.wait_for(self._command_loop_task, None)
-            self._command_loop_task = None
+            if self._command_loop_task is not None:
+                self._command_loop_cancelled.set()
+                await asyncio.wait_for(self._command_loop_task, None)
+                logger.info("%s: Command queue cleaned up.", self.id)
+                self._command_loop_task = None
 
-        if self._command_queue is not None:
             self._command_queue = None
+            self._transport = None
+            self._protocol = None
+
+            logger.info("%s: Stub closed.", self.id)
+            self._connected = True
 
     async def __aenter__(self):
         await self.connect()
