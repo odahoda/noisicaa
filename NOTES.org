@@ -13,10 +13,6 @@
 - https://docs.pytest.org/en/latest/
 - supports parallel test execution with pytest-xdist
 
-* remove some cruft                                                                      :CLEANUP:
-- noisicaa.ui.command_shell (nice idea, never used)
-- noisicaa.audio_playground (obsolete)
-
 * Handle async calls using a "queue pump"                                                :CLEANUP:
 - separate class
   - items to publish are pushed onto a queue

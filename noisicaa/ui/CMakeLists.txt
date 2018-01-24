@@ -19,7 +19,6 @@
 # @end:license
 
 add_python_package(
-  command_shell.py
   dock_widget.py
   editor_app.py
   editor_window.py

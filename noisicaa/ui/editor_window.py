@@ -37,10 +37,8 @@ from PyQt5 import QtWidgets
 from noisicaa import constants
 
 from ..exceptions import RestartAppException, RestartAppCleanException
-from .command_shell import CommandShell
 from .settings import SettingsDialog
 from .project_view import ProjectView
-from .dock_widget import DockWidget
 from ..importers.abc import ABCImporter, ImporterError
 from . import ui_base
 from . import instrument_library
@@ -48,20 +46,6 @@ from . import selection_set
 from . import qprogressindicator
 
 logger = logging.getLogger(__name__)
-
-
-class CommandShellDockWidget(DockWidget):
-    def __init__(self, *, parent, **kwargs):
-        super().__init__(
-            parent=parent,
-            identifier='command_shell',
-            title="Command Shell",
-            allowed_areas=Qt.AllDockWidgetAreas,
-            initial_area=Qt.BottomDockWidgetArea,
-            initial_visible=False,
-            **kwargs)
-        command_shell = CommandShell(parent=self)
-        self.setWidget(command_shell)
 
 
 class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
@@ -91,7 +75,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.createMenus()
         self.createToolBar()
         self.createStatusBar()
-        self.createDockWidgets()
 
         self.playingChanged.connect(self.onPlayingChanged)
         self.loopEnabledChanged.connect(self.onLoopEnabledChanged)
@@ -411,9 +394,6 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.statusbar.addPermanentWidget(self.pipeline_status)
 
         self.setStatusBar(self.statusbar)
-
-    def createDockWidgets(self):
-        self._docks.append(CommandShellDockWidget(parent=self, **self.context_args))
 
     def storeState(self):
         logger.info("Saving current EditorWindow geometry.")

@@ -19,7 +19,6 @@
 # @end:license
 
 add_python_package(
-  audio_playground.py
   constants.py
   editor_main.py
   exceptions.py
