@@ -9,8 +9,9 @@
 - pick some file and clean it up.
 - until grep finds no more files.
 
-* runtests should run tests in parallel                                                       :FR:
-- using subprocesses to isolate test cases from each other.
+* Export pytest as a better unittest framework                                          :RESEARCH:
+- https://docs.pytest.org/en/latest/
+- supports parallel test execution with pytest-xdist
 
 * remove some cruft                                                                      :CLEANUP:
 - noisicaa.ui.command_shell (nice idea, never used)
