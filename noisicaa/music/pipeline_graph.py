@@ -534,7 +534,7 @@ class InstrumentPipelineGraphNode(
         yield from self.get_remove_mutations()
         yield from self.get_add_mutations()
         for connection in connections:
-            yield connection.get_add_mutations()
+            yield from connection.get_add_mutations()
 
     def get_add_mutations(self):
         node_uri, node_params = instrument_db.parse_uri(self.track.instrument)
