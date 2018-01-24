@@ -169,7 +169,7 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
         ymid = self.height() // 2
 
         for beat in self.measure.beats:
-            if not (audioproc.MusicalDuration(0, 1) <= beat.time < self.measure.duration):
+            if not audioproc.MusicalDuration(0, 1) <= beat.time < self.measure.duration:
                 logger.warning(
                     "Beat outside of measure: %s not in [0,%s)",
                     beat.time, self.measure.duration)

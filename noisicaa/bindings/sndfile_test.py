@@ -25,7 +25,8 @@ import os.path
 import numpy
 
 from noisidev import unittest
-from . import sndfile
+# TODO: pylint has issues with cython modules.
+from . import sndfile  # pylint: disable=no-name-in-module
 
 
 class SndFileTest(unittest.TestCase):
@@ -41,5 +42,5 @@ class SndFileTest(unittest.TestCase):
         with sndfile.SndFile(os.path.join(unittest.TESTDATA_DIR, 'test1.wav')) as sf:
             smpls = sf.get_samples()
             self.assertIsInstance(smpls, numpy.ndarray)
-            self.assertEqual(smpls.dtype, numpy.float32)
+            self.assertEqual(smpls.dtype, numpy.float32)  # pylint: disable=no-member
             self.assertEqual(smpls.shape, (9450, 2))

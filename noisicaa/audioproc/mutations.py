@@ -39,8 +39,7 @@ class AddNode(Mutation):
         return '<AddNode name="%s" type=%s%s>' % (
             self.description.display_name,
             type(self.description).__name__,
-            ''.join(' %s=%r' % (k, v)
-                     for k, v in sorted(self.args.items())))
+            ''.join(' %s=%r' % (k, v) for k, v in sorted(self.args.items())))
 
 
 class RemoveNode(Mutation):

@@ -380,5 +380,6 @@ class TrackEditorItemTestMixin(object):
                 ti.paint(painter, ti.viewRect())
                 self.assertEqual(QtGui.QColor(img.pixel(0, 0)), QtGui.QColor(240, 240, 255))
             finally:
+                painter.end()
                 painter = None  # QPainter must be destroyed before QImage.
                 img = None

@@ -260,4 +260,3 @@ class RootMixin(object):
                         refid = refid[1]
                         refobj = self.__obj_map[refid]
                         prop.__set__(node, refobj)
-

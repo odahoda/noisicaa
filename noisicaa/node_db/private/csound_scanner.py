@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 import logging
 import os
 import os.path
@@ -152,4 +154,3 @@ class CSoundScanner(scanner.Scanner):
                     parameters=parameters)
 
                 yield uri, node_desc
-

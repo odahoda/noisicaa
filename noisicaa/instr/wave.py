@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 import logging
 import struct
 

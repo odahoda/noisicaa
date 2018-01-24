@@ -18,6 +18,7 @@
 #
 # @end:license
 
+# TODO: pylint doesn't handle cython modules correctly
 from .model_base import (
     ObjectBase,
 
@@ -40,7 +41,7 @@ from .process_manager import (
 from .callbacks import (
     CallbackRegistry,
 )
-from .perf_stats import (
+from .perf_stats import (  # pylint: disable=import-error
     PyPerfStats as PerfStats,
 )
 from .message import (
@@ -49,10 +50,10 @@ from .message import (
     MessageType,
     MessageKey,
 )
-from .logging import (
+from .logging import (  # pylint: disable=import-error
     init_pylogging,
 )
-from .status import (
+from .status import (  # pylint: disable=import-error
     Error,
     ConnectionClosed,
 )

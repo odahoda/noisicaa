@@ -158,12 +158,18 @@ class TestNodeDBProcess(node_db.NodeDBProcessBase):
     def handle_end_session(self, session_id):
         return None
 
+    def handle_start_scan(self, session_id):
+        return None
+
 
 class TestInstrumentDBProcess(instrument_db.InstrumentDBProcessBase):
     def handle_start_session(self, client_address, flags):
         return '123'
 
     def handle_end_session(self, session_id):
+        return None
+
+    def handle_start_scan(self, session_id):
         return None
 
 

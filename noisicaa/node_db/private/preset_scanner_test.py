@@ -20,9 +20,13 @@
 #
 # @end:license
 
+import logging
+
 from noisidev import unittest
 from . import builtin_scanner
 from . import preset_scanner
+
+logger = logging.getLogger(__name__)
 
 
 class PresetScannerTest(unittest.TestCase):
@@ -32,5 +36,5 @@ class PresetScannerTest(unittest.TestCase):
 
     def test_scan(self):
         scanner = preset_scanner.PresetScanner(self.nodes)
-        for uri, preset_description in scanner.scan():
-            print(uri)
+        for uri, _ in scanner.scan():
+            logger.info(uri)

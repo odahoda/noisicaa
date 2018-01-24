@@ -440,7 +440,7 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
         menu.addAction(add_sample_action)
 
     def onAddSample(self, time):
-        path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
             parent=self.window,
             caption="Add Sample to track \"%s\"" % self.track.name,
             #directory=self.ui_state.get(

@@ -214,5 +214,5 @@ class AudioPage(Page):
         self.call_async(self._testBackendAsync())
 
     async def _testBackendAsync(self):
-        node = await self.app.audioproc_client.play_file(
+        await self.app.audioproc_client.play_file(
             '/usr/share/sounds/purple/send.wav')

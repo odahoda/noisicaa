@@ -435,15 +435,15 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
         self.__mouse_pos = evt.pos()
         super().mouseDoubleClickEvent(evt)
 
-    def paint(self, painter, paintRect):
-        super().paint(painter, paintRect)
+    def paint(self, painter, paint_rect):
+        super().paint(painter, paint_rect)
 
         x = 10
         for mref in self.project.property_track.measure_list:
             measure = mref.measure
             width = int(self.scaleX() * measure.duration.fraction)
 
-            if x + width > paintRect.x() and x < paintRect.x() + paintRect.width():
+            if x + width > paint_rect.x() and x < paint_rect.x() + paint_rect.width():
                 if mref.is_first:
                     painter.fillRect(x, 0, 2, self.height(), QtGui.QColor(160, 160, 160))
                 else:

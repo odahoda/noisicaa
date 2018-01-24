@@ -43,7 +43,8 @@ class AudioProcClient(audioproc.AudioProcClientMixin):
         super().__init__()
         self.event_loop = monitor.event_loop
         self.monitor = monitor
-        self.server = ipc.Server(self.event_loop, 'audioproc_monitor')
+        self.server = ipc.Server(
+            self.event_loop, 'audioproc_monitor', socket_dir=self.monitor.app.process.tmp_dir)
 
     async def setup(self):
         await self.server.setup()

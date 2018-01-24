@@ -202,8 +202,6 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         if self.realtime and self.isVisible():
             now = time.time()
-            if (self.last_update is None
-                or now - self.last_update > 1.0 / self.max_fps):
+            if self.last_update is None or now - self.last_update > 1.0 / self.max_fps:
                 self.updateGanttScene(perf_data)
                 self.last_update = now
-

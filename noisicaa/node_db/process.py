@@ -32,7 +32,8 @@ from . import process_base
 logger = logging.getLogger(__name__)
 
 
-class InvalidSessionError(Exception): pass
+class InvalidSessionError(Exception):
+    pass
 
 
 class Session(object):

@@ -42,7 +42,7 @@ def __xdg_user_dir(resource):
     try:
         res = subprocess.run(['/usr/bin/xdg-user-dir', resource], stdout=subprocess.PIPE)
         return os.fsdecode(res.stdout.rstrip(b'\n'))
-    except:
+    except:  # pylint: disable=bare-except
         return os.path.expanduser('~')
 
 MUSIC_DIR = __xdg_user_dir('MUSIC')

@@ -22,7 +22,8 @@
 
 from noisidev import unittest
 from . import lv2
-from . import sratom
+# TODO: pylint has issues with cython modules.
+from . import sratom  # pylint: disable=no-name-in-module
 
 
 class SratomTest(unittest.TestCase):
@@ -37,4 +38,3 @@ class SratomTest(unittest.TestCase):
 
         turtle = sratom.atom_to_turtle(lv2.static_mapper, buf)
         self.assertIsInstance(turtle, str)
-

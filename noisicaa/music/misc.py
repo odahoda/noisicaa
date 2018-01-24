@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 class Pos2F(object):
     def __init__(self, x, y):
         self._x = float(x)

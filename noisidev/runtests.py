@@ -27,6 +27,7 @@ import fnmatch
 import logging
 import os
 import os.path
+import re
 import shutil
 import subprocess
 import sys
@@ -39,6 +40,7 @@ import pylint.lint
 import pylint.reporters
 
 ROOTDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+SRCDIR = ROOTDIR
 LIBDIR = os.path.join(ROOTDIR, 'build')
 sys.path.insert(0, LIBDIR)
 
@@ -63,6 +65,26 @@ def bool_arg(value):
     raise TypeError("Invalid type '%s'." % type(value).__name__)
 
 
+class PylintMessageCollector(object):
+    def __init__(self):
+        self.messages = []
+
+    def append(self, msg):
+        self.messages.append(msg)
+
+    def extend(self, msgs):
+        self.messages.extend(msgs)
+
+    def print_report(self):
+        if not self.messages:
+            return
+
+        sys.stderr.write("\n==== Pylint report\n\n")
+        for msg in self.messages:
+            sys.stderr.write(msg.format('{path}:{line}: [{msg_id}({symbol})] {msg}\n'))
+        sys.stderr.write("\n\n")
+
+
 class PylintReporter(pylint.reporters.CollectingReporter):
     def _display(self, layout):
         pass
@@ -79,12 +101,13 @@ class PylintRunner(pylint.lint.Run):
 
 
 class BuiltinPyTests(unittest.TestCase):
-    def __init__(self, *, modname, method_name, pedantic):
+    def __init__(self, *, modname, method_name, pedantic, pylint_collector):
         super().__init__(method_name)
 
         self.__modname = modname
         self.__method_name = method_name
         self.__pedantic = pedantic
+        self.__pylint_collector = pylint_collector
 
     def __str__(self):
         return '%s (%s)' % (self.__method_name, self.__modname)
@@ -92,32 +115,57 @@ class BuiltinPyTests(unittest.TestCase):
     # TODO: Add more stuff to the whitelist. Eventually all messages should be enabled
     #   (i.e. always running in pedantic mode), but right now there are too many
     #   false-positives.
-    pylint_whitelist = [
-        'trailing-whitespace',
-        'unused-import',
+    pylint_whitelist = {
         'attribute-defined-outside-init',
         'bad-classmethod-argument',
         'logging-not-lazy',
+        'trailing-newlines',
+        'trailing-whitespace',
+        'unused-import',
         'useless-super-delegation',
-    ]
+    }
 
     def test_pylint(self):
-        args = ['--rcfile=%s' % os.path.join(ROOTDIR, 'bin', 'pylintrc')]
+        src_path = os.path.join(SRCDIR, os.path.join(*self.__modname.split('.')) + '.py')
+        src = open(src_path, 'r').read()
 
-        if not self.__pedantic:
-            args += [
-                '--disable=all',
-                '--enable=%s' % ','.join(self.pylint_whitelist),
-            ]
+        is_unclean = False
+        unclean_lineno = -1
+        for lineno, line in enumerate(src.splitlines(), 1):
+            if re.match(r'^#\s*pylint:\s*skip-file\s*$', line):
+                self.skipTest('pylint disabled for this file')
+            if re.match(r'^#\s*TODO:\s*pylint-unclean\s*$', line):
+                is_unclean = True
+                unclean_lineno = lineno
 
-        args += [self.__modname]
+        be_pedantic = self.__pedantic or not is_unclean
+
+        args = [
+            '--rcfile=%s' % os.path.join(ROOTDIR, 'bin', 'pylintrc'),
+            self.__modname,
+        ]
 
         reporter = PylintReporter()
         PylintRunner(args, reporter=reporter, exit=False)
-        if reporter.messages:
-            sys.stderr.write('\n')
-            for msg in reporter.messages:
-                sys.stderr.write(msg.format('{path}:{line}: [{msg_id}({symbol})] {msg}\n'))
+
+        messages = list(reporter.messages)
+
+        if is_unclean and len(messages) < 3:
+            self.__pylint_collector.extend(messages)
+            msg = "\nFile \"%s\", line %d, is marked as pylint-unclean" % (src_path, unclean_lineno)
+            if not messages:
+                msg += ", but no issues were reported."
+            elif len(messages) == 1:
+                msg += ", but only one issue was reported."
+            else:
+                msg += ", but only %d issues were reported." % len(messages)
+            self.fail(msg)
+
+        if not be_pedantic:
+            messages = [msg for msg in messages if msg.symbol in self.pylint_whitelist]
+
+        if messages:
+            self.__pylint_collector.extend(messages)
             self.fail("pylint reported issues.")
 
 
@@ -220,6 +268,8 @@ def main(argv):
     from noisicaa import core
     core.init_pylogging()
 
+    pylint_collector = PylintMessageCollector()
+
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
 
@@ -288,11 +338,13 @@ def main(argv):
                             modname=modname,
                             method_name=method_name,
                             pedantic=args.pedantic,
+                            pylint_collector=pylint_collector,
                         ))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
 
+    pylint_collector.print_report()
 
     if args.coverage:
         cov.stop()

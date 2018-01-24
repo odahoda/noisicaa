@@ -59,9 +59,9 @@ class ToolsDockWidget(ui_base.ProjectMixin, dock_widget.DockWidget):
         tool_type = tools.ToolType(self.__group.id(button))
         self.__tool_box.setCurrentToolType(tool_type)
 
-    def __onToolTypeChanged(self, type):
+    def __onToolTypeChanged(self, tool_type):
         for button in self.__group.buttons():
-            if self.__group.id(button) == type.value:
+            if self.__group.id(button) == tool_type.value:
                 button.setChecked(True)
 
     def setCurrentToolBox(self, tool_box):

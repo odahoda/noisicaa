@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 class MidiEvent(object):
     NOTE_ON = 'note-on'
     NOTE_OFF = 'note-off'

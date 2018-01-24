@@ -23,7 +23,6 @@
 import io
 import logging
 import os.path
-import sys
 from xml.etree import ElementTree
 
 from PyQt5 import QtCore
@@ -132,8 +131,3 @@ class SymbolItem(QGraphicsItemGroup):
         # FIXME: conditionally enable bounding boxes
         #box = QtWidgets.QGraphicsRectItem(self.grp)
         #box.setRect(self.body.boundingRect())
-
-
-if __name__ == '__main__':  # pragma: no cover
-    sym = SvgSymbol(sys.argv[1])
-    print(sym.get_xml().decode('utf-8'))

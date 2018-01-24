@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 from noisidev import unittest
 from noisicaa import core
 from . import commands

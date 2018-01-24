@@ -119,5 +119,3 @@ class ListDelete(Mutation):
     def __str__(self):
         return '<ListDelete id=%s prop=%s index=%d>' % (
             self.id, self.prop_name, self.index)
-
-

@@ -47,4 +47,3 @@ class MuteButton(QtWidgets.QToolButton):
             self.setIcon(self._muted_icon)
         else:
             self.setIcon(self._not_muted_icon)
-

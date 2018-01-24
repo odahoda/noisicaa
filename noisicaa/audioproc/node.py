@@ -36,7 +36,10 @@ class Node(object):
     init_ports_from_description = True
     init_parameters_from_description = True
 
-    def __init__(self, *, host_data, description, id, name=None, initial_parameters=None):
+    def __init__(
+            self, *,
+            host_data, description, id,  # pylint: disable=redefined-builtin
+            name=None, initial_parameters=None):
         assert isinstance(description, node_db.NodeDescription), description
 
         self._host_data = host_data

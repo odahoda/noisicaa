@@ -20,6 +20,7 @@
 #
 # @end:license
 
+
 class Mutation(object):
     pass
 
@@ -39,5 +40,3 @@ class RemoveNodeDescription(Mutation):
 
     def __str__(self):
         return '<RemoveNodeDescription uri="%s">' % self.uri
-
-

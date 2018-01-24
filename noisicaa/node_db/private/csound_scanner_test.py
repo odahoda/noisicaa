@@ -20,12 +20,16 @@
 #
 # @end:license
 
+import logging
+
 from noisidev import unittest
 from . import csound_scanner
+
+logger = logging.getLogger(__name__)
 
 
 class CSoundScannerTest(unittest.TestCase):
     def test_load_csound_nodes(self):
         scanner = csound_scanner.CSoundScanner()
-        for uri, node_description in scanner.scan():
-            pass
+        for uri, _ in scanner.scan():
+            logging.info(uri)

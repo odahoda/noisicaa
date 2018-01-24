@@ -35,6 +35,5 @@ class Scanner(object):
             urllib.parse.urlencode(sorted((k, str(v)) for k, v in kwargs.items()), True),
             None))
 
-    def scan(self):
+    def scan(self, path):
         raise NotImplementedError
-

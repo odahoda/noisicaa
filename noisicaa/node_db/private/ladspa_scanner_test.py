@@ -20,12 +20,16 @@
 #
 # @end:license
 
+import logging
+
 from noisidev import unittest
 from . import ladspa_scanner
+
+logger = logging.getLogger(__name__)
 
 
 class LadspaScannerTest(unittest.TestCase):
     def test_scan(self):
         scanner = ladspa_scanner.LadspaScanner()
-        for uri, node_description in scanner.scan():
-            pass
+        for uri, _ in scanner.scan():
+            logger.info(uri)

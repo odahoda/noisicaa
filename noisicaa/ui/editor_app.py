@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 import logging
 import os
 import pprint
@@ -414,4 +416,3 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
         sys.stdout.flush()
         sys.stderr.flush()
         os._exit(EXIT_EXCEPTION)
-

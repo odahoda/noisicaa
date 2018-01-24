@@ -52,7 +52,7 @@ class PresetScanner(scanner.Scanner):
                 continue
 
             logger.info("Loading presets from %s...", search_path)
-            for dirpath, dirnames, filenames in os.walk(search_path):
+            for dirpath, _, filenames in os.walk(search_path):
                 for filename in filenames:
                     if not filename.endswith('.preset'):
                         continue
@@ -62,7 +62,7 @@ class PresetScanner(scanner.Scanner):
 
                     try:
                         preset = node_db.Preset.from_file(path, node_factory)
-                    except node_db.PresetLoadError as exc:
+                    except node_db.PresetLoadError:
                         logger.error("Failed to load preset %s: %s", uri, path)
                     else:
                         yield uri, preset

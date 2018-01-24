@@ -18,17 +18,18 @@
 #
 # @end:license
 
-from .musical_time import (
+# TODO: pylint has issues with cython and proto modules.
+from .musical_time import (  # pylint: disable=import-error
     PyMusicalDuration as MusicalDuration,
     PyMusicalTime as MusicalTime,
 )
-from .time_mapper import (
+from .time_mapper import (  # pylint: disable=import-error
     PyTimeMapper as TimeMapper,
 )
-from .player_state_pb2 import (
+from .player_state_pb2 import (  # pylint: disable=import-error
     PlayerState,
 )
-from .processor_message_pb2 import (
+from .processor_message_pb2 import (  # pylint: disable=import-error
     ProcessorMessage,
     ProcessorMessageList,
 )

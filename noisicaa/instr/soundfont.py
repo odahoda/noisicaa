@@ -93,7 +93,7 @@ class SoundFont(riff.RiffFile):
         handler_name = 'handle_' + '_'.join(path + [identifier])
         handler = getattr(self, handler_name, None)
         if handler is not None:
-            handler(size, fp)
+            handler(size, fp)  # pylint: disable=not-callable
 
     def handle_sfbk_INFO_ifil(self, size, fp):
         if size != 4:

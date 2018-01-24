@@ -96,8 +96,8 @@ class QValueSlider(QtWidgets.QWidget):
             font_metrics.boundingRect(self.__formatValue(value)).width()
             for value in [self.__slider.minimum(), self.__slider.maximum()]))
 
-    def setRange(self, min, max):
-        self.__slider.setRange(min, max)
+    def setRange(self, minimum, maximum):
+        self.__slider.setRange(minimum, maximum)
         self.__update()
 
     def setValue(self, value):

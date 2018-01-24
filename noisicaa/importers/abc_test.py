@@ -92,13 +92,12 @@ class ABCImporterTest(unittest.TestCase):
     def test_pitch_in_key(self):
         self.imp.unit_length = fractions.Fraction(1, 4)
         self.imp.key = music.KeySignature('G major')
-        note, remainder = self.imp.parse_note('f')
+        note, _ = self.imp.parse_note('f')
         self.assertEqual(str(note), 'F#5/4')
 
     def test_broken_rhythm(self):
         self.imp.unit_length = fractions.Fraction(1, 4)
         self.imp.parse_music('a>b c<d')
-        notes = [str(n) for n in self.imp.notes]
         self.assertEqual(
             [str(n) for n in self.imp.notes],
             ['A5;3/8', 'B5/8', 'C5/8', 'D5;3/8'])

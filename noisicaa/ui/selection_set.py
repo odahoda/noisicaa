@@ -64,4 +64,3 @@ class SelectionSet(object):
         self.__selection_set.remove(obj)
         if update_object:
             obj.setSelected(False)
-

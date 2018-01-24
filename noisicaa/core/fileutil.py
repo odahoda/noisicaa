@@ -316,8 +316,8 @@ class LogFile(object):
 
 
 class MimeLogFile(LogFile):
-    def append(self, content, entry_type, content_type,
-               encoding='utf-8', headers=None):
+    def append(  # pylint: disable=arguments-differ
+            self, content, entry_type, content_type, encoding='utf-8', headers=None):
         policy = email.policy.compat32.clone(
             linesep='\n',
             max_line_length=0,

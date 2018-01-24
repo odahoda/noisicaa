@@ -23,7 +23,9 @@
 import time
 
 from noisidev import unittest
-from . import libalsa
+
+# TODO: pylint has issues with cython modules
+from . import libalsa  # pylint: disable=no-name-in-module
 
 class AlsaSequencerTest(unittest.TestCase):
     def test_list_clients(self):

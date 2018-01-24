@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 import fractions
 import functools
 import logging
@@ -742,33 +744,34 @@ class Editor(TrackViewMixin, TimeViewMixin, ui_base.ProjectMixin, AsyncSetupBase
         t1 = time.perf_counter()
 
         painter = QtGui.QPainter(self)
+        try:
+            p = -self.offset()
+            for track_item in self.tracks():
+                track_rect = QtCore.QRect(
+                    0, p.y(), max(self.contentWidth(), self.width()), track_item.height())
+                track_rect = track_rect.intersected(evt.rect())
+                if not track_rect.isEmpty():
+                    painter.save()
+                    try:
+                        painter.setClipRect(track_rect)
+                        painter.translate(p)
+                        track_item.paint(painter, track_rect.translated(-p))
+                    finally:
+                        painter.restore()
+                p += QtCore.QPoint(0, track_item.height())
 
-        p = -self.offset()
-        for track_item in self.tracks():
-            track_rect = QtCore.QRect(
-                0, p.y(), max(self.contentWidth(), self.width()), track_item.height())
-            track_rect = track_rect.intersected(evt.rect())
-            if not track_rect.isEmpty():
-                painter.save()
-                try:
-                    painter.setClipRect(track_rect)
-                    painter.translate(p)
-                    track_item.paint(painter, track_rect.translated(-p))
-                finally:
-                    painter.restore()
-            p += QtCore.QPoint(0, track_item.height())
+                painter.fillRect(
+                    evt.rect().left(), p.y(),
+                    evt.rect().width(), 3,
+                    QtGui.QColor(200, 200, 200))
+                p += QtCore.QPoint(0, 3)
 
-            painter.fillRect(
-                evt.rect().left(), p.y(),
-                evt.rect().width(), 3,
-                QtGui.QColor(200, 200, 200))
-            p += QtCore.QPoint(0, 3)
+            fill_rect = QtCore.QRect(p, evt.rect().bottomRight())
+            if not fill_rect.isEmpty():
+                painter.fillRect(fill_rect, Qt.white)
 
-        fill_rect = QtCore.QRect(p, evt.rect().bottomRight())
-        if not fill_rect.isEmpty():
-            painter.fillRect(fill_rect, Qt.white)
-
-        painter.end()
+        finally:
+            painter.end()
 
         t2 = time.perf_counter()
 
@@ -1010,8 +1013,8 @@ class TrackListItem(base_track_item.BaseTrackItem):
             'SampleTrack': 120,
         }[type(self.track).__name__]
 
-    def paint(self, painter, paintRect):
-        super().paint(painter, paintRect)
+    def paint(self, painter, paint_rect):
+        super().paint(painter, paint_rect)
 
         painter.setPen(Qt.black)
         painter.drawText(QtCore.QPoint(3, 20), self.track.name)
@@ -1063,33 +1066,34 @@ class TrackList(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidgets.
         super().paintEvent(evt)
 
         painter = QtGui.QPainter(self)
+        try:
+            p = QtCore.QPoint(0, -self.__y_offset)
+            for track_item in self.tracks():
+                track_rect = QtCore.QRect(0, p.y(), self.width(), track_item.height())
+                track_rect = track_rect.intersected(evt.rect())
+                if not track_rect.isEmpty():
+                    painter.save()
+                    try:
+                        painter.setClipRect(track_rect)
+                        painter.translate(p)
 
-        p = QtCore.QPoint(0, -self.__y_offset)
-        for track_item in self.tracks():
-            track_rect = QtCore.QRect(0, p.y(), self.width(), track_item.height())
-            track_rect = track_rect.intersected(evt.rect())
-            if not track_rect.isEmpty():
-                painter.save()
-                try:
-                    painter.setClipRect(track_rect)
-                    painter.translate(p)
+                        track_item.paint(painter, track_rect.translated(-p))
+                    finally:
+                        painter.restore()
+                p += QtCore.QPoint(0, track_item.height())
 
-                    track_item.paint(painter, track_rect.translated(-p))
-                finally:
-                    painter.restore()
-            p += QtCore.QPoint(0, track_item.height())
+                painter.fillRect(
+                    evt.rect().left(), p.y(),
+                    evt.rect().width(), 3,
+                    QtGui.QColor(200, 200, 200))
+                p += QtCore.QPoint(0, 3)
 
-            painter.fillRect(
-                evt.rect().left(), p.y(),
-                evt.rect().width(), 3,
-                QtGui.QColor(200, 200, 200))
-            p += QtCore.QPoint(0, 3)
+            fill_rect = QtCore.QRect(p, evt.rect().bottomRight())
+            if not fill_rect.isEmpty():
+                painter.fillRect(fill_rect, Qt.white)
 
-        fill_rect = QtCore.QRect(p, evt.rect().bottomRight())
-        if not fill_rect.isEmpty():
-            painter.fillRect(fill_rect, Qt.white)
-
-        painter.end()
+        finally:
+            painter.end()
 
 
 class Frame(QtWidgets.QFrame):

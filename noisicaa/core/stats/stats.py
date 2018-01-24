@@ -65,8 +65,9 @@ class StatName(object):
         return True
 
     def merge(self, other):
+        assert isinstance(other, StatName)
         labels = self.__labels.copy()
-        labels.update(other.__labels)
+        labels.update(other.__labels)  # pylint: disable=protected-access
         return StatName(**labels)
 
 

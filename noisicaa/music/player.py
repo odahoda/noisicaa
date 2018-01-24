@@ -483,7 +483,8 @@ class Player(object):
     def add_track(self, track):
         for t in track.walk_tracks(groups=True, tracks=True):
             if isinstance(t, model.TrackGroup):
-                self.__listeners['track_group:%s' % t.id] = t.listeners.add('tracks', self.tracks_changed)
+                self.__listeners['track_group:%s' % t.id] = t.listeners.add(
+                    'tracks', self.tracks_changed)
             else:
                 connector = t.create_track_connector(message_cb=self.send_node_message)
                 yield from connector.init()

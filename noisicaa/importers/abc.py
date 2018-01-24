@@ -21,7 +21,6 @@
 # @end:license
 
 import logging
-import os.path
 import re
 import fractions
 import collections
@@ -97,7 +96,7 @@ class ABCImporter(object):
 
                 elif self.state == 'tune':
                     if line.strip() == '':
-                        self.state == 'after-tune'
+                        self.state = 'after-tune'
 
                 if self.state == 'start':
                     if line.strip() != '':
@@ -115,12 +114,10 @@ class ABCImporter(object):
                     else:
                         self.parse_music(line)
 
-        sheet = music.Sheet(name=os.path.basename(path), num_tracks=0)
         for voice in self.voices.values():
-            sheet.tracks.append(voice)
-        sheet.equalize_tracks()
-        sheet.bpm = self.tempo
-        proj.sheets.append(sheet)
+            proj.master_group.tracks.append(voice)
+        proj.equalize_tracks()
+        proj.bpm = self.tempo
 
     def parse_information_field(self, field, contents):
         if field == 'K':

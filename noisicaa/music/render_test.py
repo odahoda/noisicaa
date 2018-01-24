@@ -25,7 +25,8 @@ import random
 import struct
 
 from noisidev import unittest
-from . import render_settings_pb2
+# TODO: pylint has issues with proto imports
+from . import render_settings_pb2  # pylint: disable=no-name-in-module
 from . import render
 
 

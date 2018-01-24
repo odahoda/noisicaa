@@ -20,6 +20,7 @@
 #
 # @end:license
 
+
 class NodeDB(object):
     def __init__(self):
         self._db = {}
@@ -32,4 +33,3 @@ class NodeDB(object):
     def create(self, cls_name, host_data, **args):
         cls = self._db[cls_name]
         return cls(host_data=host_data, **args)
-

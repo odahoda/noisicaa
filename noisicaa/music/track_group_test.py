@@ -42,7 +42,7 @@ class NodeDB(object):
         self.db.cleanup()
 
     def get_node_description(self, uri):
-        return self.db._nodes[uri]
+        return self.db._nodes[uri]  # pylint: disable=protected-access
 
 
 class Signal(object):
@@ -101,4 +101,3 @@ class TrackGroupTest(unittest.AsyncTestCase):
         duration_changed.clear()
         del self.project.master_group.tracks[track.index]
         self.assertTrue(duration_changed.is_set)
-

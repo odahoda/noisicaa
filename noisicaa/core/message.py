@@ -22,9 +22,9 @@
 
 import logging
 
+# pylint doesn't know about the capnp import magic.
 import capnp  # pylint: disable=unused-import
-
-from . import message_capnp
+from . import message_capnp  # pylint: disable=no-name-in-module
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def build_labelset(labels):
         label.value = v
     return lset
 
-def build_message(labels, type, data):
+def build_message(labels, type, data):  # pylint: disable=redefined-builtin
     msg = message_capnp.Message.new_message()
     msg.init('labelset')
     msg.labelset.init('labels', len(labels))

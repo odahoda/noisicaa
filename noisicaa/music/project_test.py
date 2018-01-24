@@ -52,7 +52,7 @@ class NodeDB(object):
         self.db.cleanup()
 
     def get_node_description(self, uri):
-        return self.db._nodes[uri]
+        return self.db._nodes[uri]  # pylint: disable=protected-access
 
 
 class BaseProjectTest(unittest.AsyncTestCase):
@@ -191,7 +191,8 @@ class DeleteTrackTest(CommandTest):
         self.project.add_track(
             self.project.master_group, 0,
             score_track.ScoreTrack(name='Test'))
-        self.project.master_group.tracks[0].instrument = 'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0'
+        self.project.master_group.tracks[0].instrument = (
+            'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0')
 
         cmd = project.RemoveTrack(
             track_id=self.project.master_group.tracks[0].id)

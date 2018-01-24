@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 from unittest import mock
 
 from PyQt5.QtCore import Qt

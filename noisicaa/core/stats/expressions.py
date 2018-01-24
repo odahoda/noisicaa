@@ -45,7 +45,7 @@ class Builder(object):
 
 def compile_expression(expr):
     try:
-        builder = eval(expr, {'SELECT': Builder})
+        builder = eval(expr, {'SELECT': Builder})  # pylint: disable=eval-used
     except Exception as exc:
         raise InvalidExpressionError(str(exc))
     return builder.get_code()

@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 import re
 
 NOTE_TO_MIDI = {}

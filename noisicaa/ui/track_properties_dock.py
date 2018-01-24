@@ -28,10 +28,10 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import music
+from noisicaa.music import model
 from .dock_widget import DockWidget
 from . import instrument_library
 from . import ui_base
-from noisicaa.music import model
 from . import mute_button
 
 logger = logging.getLogger(__name__)

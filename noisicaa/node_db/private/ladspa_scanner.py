@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 import logging
 import os
 import os.path
@@ -127,4 +129,3 @@ class LadspaScanner(scanner.Scanner):
                         parameters=parameters)
 
                     yield uri, node_desc
-

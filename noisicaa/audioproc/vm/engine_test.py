@@ -25,11 +25,12 @@ import struct
 
 from noisidev import unittest
 from noisicaa import constants
-from . import engine
-from .spec import PySpec
-from .buffers import PyFloat, PyFloatAudioBlock
-from .block_context import PyBlockContext
-from .host_data import PyHostData
+# TODO: pylint has issues with cython modules.
+from . import engine  # pylint: disable=no-name-in-module
+from .spec import PySpec  # pylint: disable=import-error
+from .buffers import PyFloat, PyFloatAudioBlock  # pylint: disable=import-error
+from .block_context import PyBlockContext  # pylint: disable=import-error
+from .host_data import PyHostData  # pylint: disable=import-error
 
 logger = logging.getLogger(__name__)
 

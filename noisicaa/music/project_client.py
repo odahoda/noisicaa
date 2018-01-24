@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 from fractions import Fraction
 import getpass
 import logging

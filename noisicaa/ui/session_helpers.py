@@ -70,4 +70,3 @@ class ManagedWindowMixin(object):
         if self.__init_done and self.isVisible():
             self.set_session_values({'w': evt.size().width(), 'h': evt.size().height()})
         super().resizeEvent(evt)
-

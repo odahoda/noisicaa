@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 import argparse
 import logging
 import select
@@ -169,4 +171,3 @@ if __name__ == '__main__':
             except KeyboardInterrupt:
                 print("***BREAK")
             listener.remove()
-

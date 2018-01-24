@@ -22,8 +22,6 @@
 
 import os.path
 import glob
-import tempfile
-import shutil
 
 from noisidev import unittest
 from noisicaa.constants import DATA_DIR
@@ -40,14 +38,9 @@ class _FileTest(unittest.TestCase):
             os.path.basename(self.path),
             self.__class__.__module__, self.__class__.__name__)
 
-    def setup_testcase(self):
-        self.cache_dir = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, self.cache_dir)
-
     def runTest(self):
-        sym = svg_symbol.SvgSymbol(
-            self.path, cache_dir=self.cache_dir)
-        xml = sym.get_xml()
+        sym = svg_symbol.SvgSymbol(self.path)
+        sym.get_xml()
 
 
 class FileTestSuite(unittest.TestSuite):

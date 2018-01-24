@@ -104,8 +104,8 @@ class FlowLayout(QtWidgets.QLayout):
             if not wid.isVisibleTo(self.parentWidget()):
                 continue
 
-            spaceX = self.spacing() # + wid.style().layoutSpacing(QSizePolicy.PushButton, QSizePolicy.PushButton, Qt.Horizontal)
-            spaceY = self.spacing() # + wid.style().layoutSpacing(QSizePolicy.PushButton, QSizePolicy.PushButton, Qt.Vertical)
+            spaceX = self.spacing()
+            spaceY = self.spacing()
             nextX = x + item.sizeHint().width() + spaceX
             if nextX - spaceX > rect.right() and lineHeight > 0:
                 x = rect.x()

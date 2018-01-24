@@ -20,12 +20,16 @@
 #
 # @end:license
 
+import logging
+
 from noisidev import unittest
 from . import lv2_scanner
+
+logger = logging.getLogger(__name__)
 
 
 class LV2ScannerTest(unittest.TestCase):
     def test_scan(self):
         scanner = lv2_scanner.LV2Scanner()
-        for uri, node_description in scanner.scan():
-            pass
+        for uri, _ in scanner.scan():
+            logger.info(uri)

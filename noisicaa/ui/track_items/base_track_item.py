@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: pylint-unclean
+
 from fractions import Fraction
 import itertools
 import logging
@@ -134,11 +136,11 @@ class BaseTrackItem(ui_base.ProjectMixin, QtCore.QObject):
     def purgePaintCaches(self):
         pass
 
-    def paint(self, painter, paintRect):
+    def paint(self, painter, paint_rect):
         if self.isCurrent():
-            painter.fillRect(paintRect, QtGui.QColor(240, 240, 255))
+            painter.fillRect(paint_rect, QtGui.QColor(240, 240, 255))
         else:
-            painter.fillRect(paintRect, Qt.white)
+            painter.fillRect(paint_Rect, Qt.white)
 
     def enterEvent(self, evt):
         pass  # pragma: no coverage
@@ -308,7 +310,7 @@ class BaseMeasureEditorItem(ui_base.ProjectMixin, selection_set.Selectable, QtCo
     def purgePaintCaches(self):
         pass
 
-    def paint(self, painter, paintRect):
+    def paint(self, painter, paint_rect):
         raise NotImplementedError
 
     def enterEvent(self, evt):
@@ -450,7 +452,7 @@ class MeasureEditorItem(BaseMeasureEditorItem):
     def paintPlaybackPos(self, painter):
         raise NotImplementedError
 
-    def paint(self, painter, paintRect):
+    def paint(self, painter, paint_rect):
         if self.__cached_size != self.size():
             self.__paint_caches.clear()
 
@@ -474,9 +476,9 @@ class MeasureEditorItem(BaseMeasureEditorItem):
         self.__cached_size = self.size()
 
         if self.__selected:
-            painter.fillRect(paintRect, QtGui.QColor(255, 200, 200))
+            painter.fillRect(paint_rect, QtGui.QColor(255, 200, 200))
         elif self.__hovered:
-            painter.fillRect(paintRect, QtGui.QColor(220, 220, 255))
+            painter.fillRect(paint_rect, QtGui.QColor(220, 220, 255))
 
         for layer in self.layers:
             if layer == self.PLAYBACK_POS:
@@ -510,7 +512,7 @@ class Appendix(BaseMeasureEditorItem):
     def width(self):
         return 90
 
-    def paint(self, painter, paintRect):
+    def paint(self, painter, paint_rect):
         click_rect = self.clickRect()
         if click_rect.height() > 20:
             if self.__hover:
@@ -901,13 +903,13 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
         for measure_item in self.measure_items():
             measure_item.purgePaintCaches()
 
-    def paint(self, painter, paintRect):
-        super().paint(painter, paintRect)
+    def paint(self, painter, paint_rect):
+        super().paint(painter, paint_rect)
 
         p = QtCore.QPoint(10, 0)
         for measure_item in self.measure_items():
             measure_rect = QtCore.QRect(p.x(), 0, measure_item.width(), self.height())
-            measure_rect = measure_rect.intersected(paintRect)
+            measure_rect = measure_rect.intersected(paint_rect)
             if not measure_rect.isEmpty():
                 painter.save()
                 try:
