@@ -34,10 +34,6 @@ make
 g++
 unzip
 
-# QT
-python3-pyqt5
-python3-pyqt5.qtsvg
-
 # libswresample
 libswresample-dev
 libswresample2
