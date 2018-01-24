@@ -185,7 +185,7 @@ class AudioProcProcess(core.ProcessBase):
 
         for session in self.sessions.values():
             logger.info("Cleaning up session %s...", session.id)
-            session.cleanup()
+            await session.cleanup()
         self.sessions.clear()
 
         if self.shm is not None:
@@ -256,9 +256,9 @@ class AudioProcProcess(core.ProcessBase):
         session.callback_stub_connected()
 
     async def handle_end_session(self, session_id):
-        session = self.get_session(session_id)
+        self.get_session(session_id)
+        session = self.sessions.pop(session_id)
         await session.cleanup()
-        del self.sessions[session_id]
 
     async def handle_pipeline_mutation(self, session_id, mutation):
         self.get_session(session_id)
@@ -366,8 +366,7 @@ class AudioProcProcess(core.ProcessBase):
 
     def player_state_callback(self, state):
         self.event_loop.call_soon_threadsafe(
-            functools.partial(
-                self.publish_player_state, state))
+            functools.partial(self.publish_player_state, state))
 
     async def handle_play_file(self, session_id, path):
         self.get_session(session_id)
