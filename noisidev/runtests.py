@@ -21,6 +21,7 @@
 # @end:license
 
 import argparse
+import atexit
 import itertools
 import fnmatch
 import logging
@@ -206,11 +207,15 @@ def main(argv):
     if args.rebuild:
         subprocess.run([sys.executable, 'setup.py', 'build'], cwd=ROOTDIR, check=True)
 
+    tmp_dir = tempfile.mkdtemp(prefix='noisicaa-tests-')
+    if not args.keep_temp:
+        atexit.register(shutil.rmtree, tmp_dir)
+
     from noisicaa import constants
     constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
     constants.TEST_OPTS.ENABLE_PROFILER = args.profile
     constants.TEST_OPTS.PLAYBACK_BACKEND = args.playback_backend
-    constants.TEST_OPTS.TMP_DIR = tempfile.mkdtemp(prefix='noisicaa-tests-')
+    constants.TEST_OPTS.TMP_DIR = tmp_dir
 
     from noisicaa import core
     core.init_pylogging()
@@ -288,8 +293,6 @@ def main(argv):
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
 
-    if not args.keep_temp:
-        shutil.rmtree(constants.TEST_OPTS.TMP_DIR)
 
     if args.coverage:
         cov.stop()
