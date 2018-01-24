@@ -22,8 +22,7 @@
 
 import logging
 
-# TODO: pylint has issues with cython modules.
-from noisicaa.bindings import lilv  # pylint: disable=no-name-in-module
+from noisicaa.bindings import lilv
 from noisicaa import node_db
 
 from . import scanner

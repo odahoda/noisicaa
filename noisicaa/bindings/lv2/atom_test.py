@@ -21,10 +21,9 @@
 import logging
 
 from noisidev import unittest
-# TODO: pylint has issues with cython modules.
-from noisicaa.bindings import sratom  # pylint: disable=no-name-in-module
-from . import atom  # pylint: disable=no-name-in-module
-from . import urid  # pylint: disable=no-name-in-module
+from noisicaa.bindings import sratom
+from . import atom
+from . import urid
 
 logger = logging.getLogger(__name__)
 

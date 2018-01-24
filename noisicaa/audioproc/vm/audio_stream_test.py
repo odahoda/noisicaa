@@ -25,8 +25,7 @@ import threading
 
 from noisidev import unittest
 from noisicaa.constants import TEST_OPTS
-# TODO: pylint has issues with cython modules.
-from . import audio_stream  # pylint: disable=no-name-in-module
+from . import audio_stream
 
 
 class TestAudioStream(unittest.TestCase):

@@ -22,8 +22,7 @@
 
 from noisidev import unittest
 from . import lv2
-# TODO: pylint has issues with cython modules.
-from . import sratom  # pylint: disable=no-name-in-module
+from . import sratom
 
 
 class SratomTest(unittest.TestCase):

@@ -18,10 +18,9 @@
 #
 # @end:license
 
-# TODO: pylint has issues with cython modules.
-from .engine import PipelineVM  # pylint: disable=import-error
+from .engine import PipelineVM
 from .compiler import compile_graph
-from .audio_stream import (  # pylint: disable=import-error
+from .audio_stream import (
     AudioStream,
 )
 # pylint doesn't know about capnp import magic
@@ -30,29 +29,29 @@ from .block_data_capnp import (  # pylint: disable=import-error
     BlockData,
     Buffer,
 )
-from .spec import (  # pylint: disable=import-error
+from .spec import (
     PySpec as Spec
 )
-from .buffers import (  # pylint: disable=import-error
+from .buffers import (
     PyBufferType as BufferType,
     PyFloat as Float,
     PyFloatAudioBlock as FloatAudioBlock,
     PyAtomData as AtomData,
 )
-from .control_value import (  # pylint: disable=import-error
+from .control_value import (
     PyControlValueType as ControlValueType,
     PyFloatControlValue as FloatControlValue,
     PyIntControlValue as IntControlValue,
 )
-from .host_data import (  # pylint: disable=import-error
+from .host_data import (
     PyHostData as HostData,
 )
-from .block_context import (  # pylint: disable=import-error
+from .block_context import (
     PyBlockContext as BlockContext,
 )
-from .processor import (  # pylint: disable=import-error
+from .processor import (
     PyProcessor as Processor,
 )
-from .processor_spec import (  # pylint: disable=import-error
+from .processor_spec import (
     PyProcessorSpec as ProcessorSpec,
 )

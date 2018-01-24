@@ -22,6 +22,7 @@
 
 import argparse
 import atexit
+import contextlib
 import itertools
 import fnmatch
 import logging
@@ -38,6 +39,17 @@ import unittest
 import coverage
 import pylint.lint
 import pylint.reporters
+
+# --- HACK ---
+# pylint adds the cwd to sys.path <quote>to have a correct behaviour</quote>.
+# In this case, this is not the correct behavior, because it causes the module to be loaded
+# from the src directory and not the build directory. And this causes it to not find cython
+# or generated *_py2 modules.
+# We solve this with monkey patching...
+@contextlib.contextmanager
+def fix_import_path(args):
+    yield
+pylint.lint.fix_import_path = fix_import_path
 
 ROOTDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 SRCDIR = ROOTDIR
@@ -79,9 +91,17 @@ class PylintMessageCollector(object):
         if not self.messages:
             return
 
-        sys.stderr.write("\n==== Pylint report\n\n")
+        sys.stderr.write(
+            "\n==== pylint report ===================================================\n\n")
+        fmt = '{path}:{line}: [{msg_id}({symbol})] {msg}\n'
         for msg in self.messages:
-            sys.stderr.write(msg.format('{path}:{line}: [{msg_id}({symbol})] {msg}\n'))
+            # The path that pylint reported is relative to the build dir. But we want to
+            # show the path to the source dir, so emacs can jump to the right file.
+            path = msg.path
+            if path.startswith('build/'):
+                path = path[6:]
+            msg = msg._replace(path=path)
+            sys.stderr.write(fmt.format(**msg._asdict()))
         sys.stderr.write("\n\n")
 
 

@@ -42,8 +42,6 @@ from .property_track import (
 from .misc import (
     Pos2F
 )
-
-# TODO: pylint has problems with proto imports.
-from .render_settings_pb2 import (  # pylint: disable=import-error
+from .render_settings_pb2 import (
     RenderSettings,
 )

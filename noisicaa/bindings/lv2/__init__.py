@@ -18,12 +18,11 @@
 #
 # @end:license
 
-# TODO: pylint has issues with cython modules.
-from .urid import (  # pylint: disable=import-error
+from .urid import (
     DynamicURIDMapper,
     static_mapper,
 )
-from .atom import (  # pylint: disable=import-error
+from .atom import (
     AtomForge,
     wrap_atom,
 )

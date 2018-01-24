@@ -20,9 +20,8 @@
 #
 # @end:license
 
-# TODO: pylint doesn't handle cython modules correctly
 from noisidev import unittest
-from . import perf_stats  # pylint: disable=no-name-in-module
+from . import perf_stats
 
 
 class TestPerfStats(perf_stats.PyPerfStats):

@@ -1,9 +1,5 @@
 # -*- org-tags-column: -98 -*-
 
-* pylint doesn't work with cython/proto modules                                              :BUG:
-- throws import-error or no-name-in-modules errors.
-- could it be that pylint is looking in the src, not in the build dir?
-
 * clean up pylint issues in pylint-unclean files                                         :CLEANUP:
 - grep -r pylint-unclean noisicaa/
 - pick some file and clean it up.

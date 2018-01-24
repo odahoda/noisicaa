@@ -20,6 +20,4 @@
 
 from .midi_hub import MidiHub
 from .midi_events import MidiEvent, NoteOnEvent, NoteOffEvent, ControlChangeEvent
-
-# TODO: pylint has issues with cython modules
-from .libalsa import AlsaSequencer, PortInfo, ClientInfo  # pylint: disable=import-error
+from .libalsa import AlsaSequencer, PortInfo, ClientInfo
