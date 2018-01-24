@@ -140,7 +140,7 @@ class BaseTrackItem(ui_base.ProjectMixin, QtCore.QObject):
         if self.isCurrent():
             painter.fillRect(paint_rect, QtGui.QColor(240, 240, 255))
         else:
-            painter.fillRect(paint_Rect, Qt.white)
+            painter.fillRect(paint_rect, Qt.white)
 
     def enterEvent(self, evt):
         pass  # pragma: no coverage
