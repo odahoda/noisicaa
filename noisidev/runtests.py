@@ -265,7 +265,9 @@ def main(argv):
                     modsuite = loader.loadTestsFromName(modname)
                     suite.addTest(modsuite)
 
-            if args.builtin_tests and fnmatch.fnmatch(filename, '*.py'):
+            if (args.builtin_tests
+                    and fnmatch.fnmatch(filename, '*.py')
+                    and not fnmatch.fnmatch(filename, '*_pb2.py')):
                 if args.selectors:
                     matched = False
                     for selector in args.selectors:
