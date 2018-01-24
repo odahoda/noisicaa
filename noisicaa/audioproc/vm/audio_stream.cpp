@@ -62,8 +62,7 @@ Status AudioStreamBase::pipe_read(char* data, size_t size) {
     struct pollfd fds = {_pipe_in, POLLIN, 0};
     int rc = poll(&fds, 1, 500);
     if (rc < 0) {
-      // TODO: Status::ErrorFromErrno
-      return ERROR_STATUS("Failed to poll in pipe: %d", rc);
+      return OSERROR_STATUS("Failed to poll in pipe");
     }
 
     if (_closed) {
@@ -73,8 +72,7 @@ Status AudioStreamBase::pipe_read(char* data, size_t size) {
     if (fds.revents & POLLIN) {
       ssize_t bytes_read = read(_pipe_in, data, size);
       if (bytes_read < 0) {
-        // TODO: Status::ErrorFromErrno
-        return ERROR_STATUS("Failed to read from pipe.");
+        return OSERROR_STATUS("Failed to read from pipe");
       }
       data += bytes_read;
       size -= bytes_read;
@@ -95,8 +93,7 @@ Status AudioStreamBase::pipe_write(const char* data, size_t size) {
     struct pollfd fds = {_pipe_out, POLLOUT, 0};
     int rc = poll(&fds, 1, 500);
     if (rc < 0) {
-      // TODO: Status::ErrorFromErrno
-      return ERROR_STATUS("Failed to poll out pipe: %d", rc);
+      return OSERROR_STATUS("Failed to poll out pipe");
     }
 
     if (_closed) {
@@ -106,8 +103,7 @@ Status AudioStreamBase::pipe_write(const char* data, size_t size) {
     if (fds.revents & POLLOUT) {
       ssize_t bytes_written = write(_pipe_out, data, size);
       if (bytes_written < 0) {
-        // TODO: Status::ErrorFromErrno
-        return ERROR_STATUS("Failed to write to pipe.");
+        return OSERROR_STATUS("Failed to write to pipe");
       }
       data += bytes_written;
       size -= bytes_written;
@@ -120,23 +116,18 @@ Status AudioStreamBase::pipe_write(const char* data, size_t size) {
 }
 
 StatusOr<string> AudioStreamBase::receive_bytes() {
-  Status status;
-
   uint32_t magic;
-  status = pipe_read((char*)&magic, sizeof(magic));
-  RETURN_IF_ERROR(status);
+  RETURN_IF_ERROR(pipe_read((char*)&magic, sizeof(magic)));
 
   if (magic == CLOSE) {
     return CONNECTION_CLOSED_STATUS();
   } else if (magic == BLOCK_START) {
     uint32_t num_bytes;
-    status = pipe_read((char*)&num_bytes, sizeof(num_bytes));
-    RETURN_IF_ERROR(status);
+    RETURN_IF_ERROR(pipe_read((char*)&num_bytes, sizeof(num_bytes)));
 
     string payload;
     payload.resize(num_bytes);
-    status = pipe_read((char*)payload.data(), num_bytes);
-    RETURN_IF_ERROR(status);
+    RETURN_IF_ERROR(pipe_read((char*)payload.data(), num_bytes));
 
     return payload;
   } else {
@@ -145,18 +136,13 @@ StatusOr<string> AudioStreamBase::receive_bytes() {
 }
 
 Status AudioStreamBase::send_bytes(const char* data, size_t size) {
-  Status status;
-
   if (size > 1 << 30) {
     return ERROR_STATUS("Block too large (%d bytes)", size);
   }
 
   uint32_t header[2] = { BLOCK_START, (uint32_t)size };
-  status = pipe_write((const char*)header, sizeof(header));
-  RETURN_IF_ERROR(status);
-
-  status = pipe_write(data, size);
-  RETURN_IF_ERROR(status);
+  RETURN_IF_ERROR(pipe_write((const char*)header, sizeof(header)));
+  RETURN_IF_ERROR(pipe_write(data, size));
 
   return Status::Ok();
 }
@@ -177,22 +163,22 @@ Status AudioStreamServer::setup() {
 
   rc = mkfifo(address_in.c_str(), 0600);
   if (rc != 0) {
-    return ERROR_STATUS("Failed to create %s: %d", address_in.c_str(), rc);
+    return OSERROR_STATUS("Failed to create %s", address_in.c_str());
   }
 
   _pipe_in = open(address_in.c_str(), O_RDONLY | O_NONBLOCK);
   if (_pipe_in < 0) {
-    return ERROR_STATUS("Failed to open %s: %d", address_in.c_str(), _pipe_in);
+    return OSERROR_STATUS("Failed to open %s", address_in.c_str());
   }
 
   rc = mkfifo(address_out.c_str(), 0600);
   if (rc != 0) {
-    return ERROR_STATUS("Failed to create %s: %d", address_out.c_str(), rc);
+    return OSERROR_STATUS("Failed to create %s", address_out.c_str());
   }
 
   _pipe_out = open(address_out.c_str(), O_RDWR | O_NONBLOCK);
   if (_pipe_out < 0) {
-    return ERROR_STATUS("Failed to open %s: %d", address_out.c_str(), _pipe_out);
+    return OSERROR_STATUS("Failed to open %s", address_out.c_str());
   }
 
   _logger->info("Server ready.");
@@ -237,12 +223,12 @@ Status AudioStreamClient::setup() {
 
   _pipe_in = open(address_in.c_str(), O_RDONLY | O_NONBLOCK);
   if (_pipe_in < 0) {
-    return ERROR_STATUS("Failed to open %s: %d", address_in.c_str(), _pipe_in);
+    return OSERROR_STATUS("Failed to open %s", address_in.c_str());
   }
 
   _pipe_out = open(address_out.c_str(), O_RDWR | O_NONBLOCK);
   if (_pipe_out < 0) {
-    return ERROR_STATUS("Failed to open %s: %d", address_out.c_str(), _pipe_out);
+    return OSERROR_STATUS("Failed to open %s", address_out.c_str());
   }
 
   return Status::Ok();

@@ -41,8 +41,8 @@ add_python_package(
   project_view_test.py
   qled.py
   qprogressindicator.py
-  render_project_dialog.py
-  render_project_dialog_test.py
+  render_dialog.py
+  render_dialog_test.py
   selection_set.py
   session_helpers.py
   settings.py

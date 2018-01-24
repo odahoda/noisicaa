@@ -78,8 +78,8 @@ public:
   static Status ConnectionClosed(const char* file, int line) {
     return Status(Code::CONNECTION_CLOSED, file, line, "Connection closed");
   }
-  static Status OSError(const char* file, int line, const string& message) {
-    return Status(Code::OS_ERROR, file, line, message); }
+  static Status OSError(const char* file, int line, const string& message);
+  static Status OSError(const char* file, int line, const char* fmt, ...);
 
 private:
   Code _code;
@@ -90,7 +90,7 @@ private:
 
 #define ERROR_STATUS(...) Status::Error(__FILE__, __LINE__, __VA_ARGS__)
 #define CONNECTION_CLOSED_STATUS() Status::ConnectionClosed(__FILE__, __LINE__)
-#define OSERROR_STATUS(MSG) Status::OsError(__FILE__, __LINE__, MSG)
+#define OSERROR_STATUS(...) Status::OSError(__FILE__, __LINE__, __VA_ARGS__)
 
 #define RETURN_IF_ERROR(STATUS) do { if (STATUS.is_error()) { return STATUS; } } while (false)
 

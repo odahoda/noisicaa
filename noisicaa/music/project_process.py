@@ -22,11 +22,12 @@
 
 import asyncio
 import logging
+import os
 import os.path
+import pickle
 import pprint
 import traceback
 import uuid
-import pickle
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -39,6 +40,7 @@ from . import commands
 from . import player
 from . import state
 from . import score_track
+from . import render
 
 logger = logging.getLogger(__name__)
 
@@ -223,10 +225,9 @@ class ProjectProcess(core.ProcessBase):
             'PLAYER_SEND_MESSAGE', self.handle_player_send_message)
         self.server.add_command_handler(
             'RESTART_PLAYER_PIPELINE', self.handle_restart_player_pipeline)
-        self.server.add_command_handler(
-            'DUMP', self.handle_dump)
-        self.server.add_command_handler(
-            'SET_SESSION_VALUES', self.handle_set_session_values)
+        self.server.add_command_handler('DUMP', self.handle_dump)
+        self.server.add_command_handler('RENDER', self.handle_render)
+        self.server.add_command_handler('SET_SESSION_VALUES', self.handle_set_session_values)
 
         node_db_address = await self.manager.call(
             'CREATE_NODE_DB_PROCESS')
@@ -468,6 +469,20 @@ class ProjectProcess(core.ProcessBase):
         assert self.project is not None
         session = self.get_session(session_id)
         logger.info("%s", pprint.pformat(self.project.serialize()))
+
+    async def handle_render(self, session_id, callback_address, render_settings):
+        assert self.project is not None
+        self.get_session(session_id)
+
+        renderer = render.Renderer(
+            project=self.project,
+            tmp_dir=self.tmp_dir,
+            manager=self.manager,
+            event_loop=self.event_loop,
+            callback_address=callback_address,
+            render_settings=render_settings,
+        )
+        await renderer.run()
 
     async def handle_set_session_values(self, session_id, data):
         assert self.project is not None

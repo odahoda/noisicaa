@@ -42,6 +42,7 @@ from . import pipeline_graph_view
 from . import tool_dock
 from . import ui_base
 from . import tools
+from . import render_dialog
 from .track_items import base_track_item
 from .track_items import score_track_item
 from .track_items import beat_track_item
@@ -1438,6 +1439,11 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
 
     def onPaste(self, *, mode):
         self.__editor.onPaste(mode=mode)
+
+    def onRender(self):
+        dialog = render_dialog.RenderDialog(parent=self, **self.context_args)
+        dialog.setModal(True)
+        dialog.show()
 
     def onSetNumMeasures(self):
         dialog = QtWidgets.QInputDialog(self)

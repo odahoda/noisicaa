@@ -42,3 +42,6 @@ from .property_track import (
 from .misc import (
     Pos2F
 )
+from .render_settings_pb2 import (
+    RenderSettings,
+)

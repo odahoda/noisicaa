@@ -22,7 +22,6 @@
 
 import asyncio
 import enum
-import functools
 import logging
 import os
 import os.path
@@ -219,11 +218,15 @@ class AudioProcClient(
 
 
 class Player(object):
-    def __init__(self, *, project, callback_address, manager, event_loop, tmp_dir):
+    def __init__(self, *,
+                 project, manager, event_loop, tmp_dir,
+                 callback_address=None, backend_type='ipc', datastream_address=None):
         self.project = project
         self.manager = manager
         self.callback_address = callback_address
         self.event_loop = event_loop
+        self.backend_type = backend_type
+        self.datastream_address = datastream_address
 
         self.listeners = core.CallbackRegistry()
         self.__listeners = {}
@@ -242,8 +245,6 @@ class Player(object):
         self.audioproc_ready = None
         self.audiostream_address = os.path.join(tmp_dir, 'audiostream.%s.pipe' % uuid.uuid4().hex)
 
-        self.pending_pipeline_mutations = None
-
         self.track_connectors = {}
 
     async def setup(self):
@@ -253,10 +254,10 @@ class Player(object):
         await self.server.setup()
         logger.info("Player server address: %s", self.server.address)
 
-        logger.info("Connecting to client callback server %s..", self.callback_address)
-        self.callback_stub = ipc.Stub(
-            self.event_loop, self.callback_address)
-        await self.callback_stub.connect()
+        if self.callback_address is not None:
+            logger.info("Connecting to client callback server %s..", self.callback_address)
+            self.callback_stub = ipc.Stub(self.event_loop, self.callback_address)
+            await self.callback_stub.connect()
 
         self.__listeners['pipeline_mutations'] = self.project.listeners.add(
             'pipeline_mutations', self.handle_pipeline_mutation)
@@ -342,7 +343,15 @@ class Player(object):
             logger.error("UPDATE_PROJECT_PROPERTIES failed with exception: %s", exc)
 
     def audioproc_state_changed(self, state):
+        self.listeners.call('pipeline_status', {'pipeline_state': state.value})
         self.publish_status_async(pipeline_state=state.value)
+
+    def __handle_pipeline_status(self, status):
+        self.listeners.call('pipeline_status', status)
+
+    def __handle_player_state(self, state):
+        self.listeners.call('player_state', state)
+        self.publish_status_async(player_state=state)
 
     async def start_audioproc(self):
         logger.info("Starting audioproc backend...")
@@ -357,28 +366,29 @@ class Player(object):
         self.audioproc_client = AudioProcClient(
             self.event_loop, self.server)
         self.audioproc_status_listener = self.audioproc_client.listeners.add(
-            'pipeline_status', functools.partial(
-                self.listeners.call, 'pipeline_status'))
+            'pipeline_status', self.__handle_pipeline_status)
         self.audioproc_player_state_listener = self.audioproc_client.listeners.add(
-            'player_state', lambda state: self.publish_status_async(player_state=state))
+            'player_state', self.__handle_player_state)
         await self.audioproc_client.setup()
 
         logger.info("Connecting audioproc client...")
         await self.audioproc_client.connect(self.audioproc_address)
 
         logger.info("Setting backend...")
-        await self.audioproc_client.set_backend('ipc', ipc_address=self.audiostream_address)
+        if self.backend_type == 'ipc':
+            await self.audioproc_client.set_backend(
+                'ipc', ipc_address=self.audiostream_address)
+        else:
+            assert self.backend_type == 'renderer'
+            assert self.datastream_address is not None
+            await self.audioproc_client.set_backend(
+                'renderer', datastream_address=self.datastream_address)
 
         logger.info("Audioproc backend started.")
 
     async def audioproc_started(self):
-        self.pending_pipeline_mutations = []
-        self.project.add_to_pipeline()
-        pipeline_mutations = self.pending_pipeline_mutations[:]
-        self.pending_pipeline_mutations = None
-
         try:
-            for mutation in pipeline_mutations:
+            for mutation in self.project.get_add_mutations():
                 await self.publish_pipeline_mutation(mutation)
 
             await self.audioproc_client.dump()
@@ -443,6 +453,9 @@ class Player(object):
         self.audioproc_backend.start()
 
     def publish_status_async(self, **kwargs):
+        if self.callback_stub is None:
+            return
+
         callback_task = asyncio.run_coroutine_threadsafe(
             self.callback_stub.call('PLAYER_STATUS', self.id, kwargs),
             self.event_loop)
@@ -483,11 +496,7 @@ class Player(object):
                 self.track_connectors.pop(t.id).close()
 
     def handle_pipeline_mutation(self, mutation):
-        if self.pending_pipeline_mutations is not None:
-            self.pending_pipeline_mutations.append(mutation)
-        else:
-            self.event_loop.create_task(
-                self.publish_pipeline_mutation(mutation))
+        self.event_loop.create_task(self.publish_pipeline_mutation(mutation))
 
     async def publish_pipeline_mutation(self, mutation):
         if self.audioproc_client is None:

@@ -26,6 +26,7 @@
 #include "noisicaa/audioproc/vm/backend_ipc.h"
 #include "noisicaa/audioproc/vm/backend_null.h"
 #include "noisicaa/audioproc/vm/backend_portaudio.h"
+#include "noisicaa/audioproc/vm/backend_renderer.h"
 
 namespace noisicaa {
 
@@ -44,6 +45,8 @@ StatusOr<Backend*> Backend::create(const string& name, const BackendSettings& se
     return new IPCBackend(settings);
   } else if (name == "null") {
     return new NullBackend(settings);
+  } else if (name == "renderer") {
+    return new RendererBackend(settings);
   }
 
   return ERROR_STATUS("Invalid backend name '%s'", name.c_str());

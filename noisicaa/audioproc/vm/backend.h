@@ -41,6 +41,7 @@ class VM;
 
 struct BackendSettings {
   string ipc_address;
+  string datastream_address;
   uint32_t block_size;
   float time_scale;
 };

@@ -33,6 +33,7 @@ set(LIB_SRCS
   backend_ipc.cpp
   backend_null.cpp
   backend_portaudio.cpp
+  backend_renderer.cpp
   buffers.cpp
   control_value.cpp
   double_buffered_state_manager.cpp

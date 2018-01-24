@@ -54,8 +54,7 @@ Status Program::setup(HostData* host_data, const Spec* s, uint32_t block_size) {
 
   for (int i = 0 ; i < spec->num_buffers() ; ++i) {
     unique_ptr<Buffer> buf(new Buffer(host_data, spec->get_buffer(i)));
-    Status status = buf->allocate(block_size);
-    RETURN_IF_ERROR(status);
+    RETURN_IF_ERROR(buf->allocate(block_size));
     buffers.emplace_back(buf.release());
   }
 
@@ -101,7 +100,10 @@ void VM::cleanup() {
 
 Status VM::add_processor(Processor* processor) {
   unique_ptr<Processor> ptr(processor);
-  assert(_processors.find(processor->id()) == _processors.end());
+  if (_processors.count(processor->id()) != 0) {
+    return ERROR_STATUS("Duplicate processor %llx", processor->id());
+  }
+
   _processors.emplace(
        processor->id(), unique_ptr<ActiveProcessor>(new ActiveProcessor(ptr.release())));
   return Status::Ok();
@@ -109,7 +111,10 @@ Status VM::add_processor(Processor* processor) {
 
 Status VM::add_control_value(ControlValue* cv) {
   unique_ptr<ControlValue> ptr(cv);
-  assert(_control_values.find(cv->name()) == _control_values.end());
+  if (_control_values.count(cv->name()) != 0) {
+    return ERROR_STATUS("Duplicate control value %s", cv->name().c_str());
+  }
+
   _control_values.emplace(
        cv->name(), unique_ptr<ActiveControlValue>(new ActiveControlValue(ptr.release())));
   return Status::Ok();

@@ -49,7 +49,10 @@ class SetBeatTrackInstrument(commands.Command):
         assert isinstance(track, BeatTrack)
 
         track.instrument = self.instrument
-        track.instrument_node.update_pipeline()
+
+        project = track.project
+        for mutation in track.instrument_node.get_update_mutations():
+            project.handle_pipeline_mutation(mutation)
 
 commands.Command.register_command(SetBeatTrackInstrument)
 

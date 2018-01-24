@@ -21,9 +21,13 @@
 _UNSET = object()
 
 cdef class PyBackendSettings(object):
-    def __init__(self, *, ipc_address=_UNSET, block_size=2048, time_scale=1.0):
+    def __init__(
+            self, *,
+            ipc_address=_UNSET, datastream_address=_UNSET, block_size=2048, time_scale=1.0):
         if ipc_address is not _UNSET:
             self.ipc_address = ipc_address
+        if datastream_address is not _UNSET:
+            self.datastream_address = datastream_address
         if block_size is not _UNSET:
             self.block_size = block_size
         if time_scale is not _UNSET:
@@ -39,6 +43,14 @@ cdef class PyBackendSettings(object):
     @ipc_address.setter
     def ipc_address(self, value):
         self.__settings.ipc_address = value.encode('utf-8')
+
+    @property
+    def datastream_address(self):
+        return bytes(self.__settings.datastream_address).decode('utf-8')
+
+    @datastream_address.setter
+    def datastream_address(self, value):
+        self.__settings.datastream_address = value.encode('utf-8')
 
     @property
     def block_size(self):

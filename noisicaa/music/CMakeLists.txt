@@ -43,6 +43,8 @@ add_python_package(
   project_process.py
   project.py
   project_test.py
+  render.py
+  render_test.py
   sample_track.py
   sample_track_test.py
   score_track.py
@@ -55,3 +57,5 @@ add_python_package(
   track_group.py
   track_group_test.py
 )
+
+py_proto(render_settings.proto)

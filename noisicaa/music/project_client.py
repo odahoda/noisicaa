@@ -304,6 +304,9 @@ class ProjectClientMixin(object):
     async def dump(self):
         await self._stub.call('DUMP', self._session_id)
 
+    async def render(self, callback_address, render_settings):
+        await self._stub.call('RENDER', self._session_id, callback_address, render_settings)
+
     async def handle_session_data_mutation(self, data):
         for key, value in data.items():
             if key not in self._session_data or self._session_data[key] != value:
@@ -322,6 +325,7 @@ class ProjectClientMixin(object):
 
     def get_session_value(self, key, default):
         return self._session_data.get(key, default)
+
 
 class ProjectClient(ProjectClientMixin, ProjectClientBase):
     pass

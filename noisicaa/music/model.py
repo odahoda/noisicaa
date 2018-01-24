@@ -435,6 +435,10 @@ class Project(core.ObjectBase):
     bpm = core.Property(int, default=120)
 
     @property
+    def duration(self):
+        self.master_group.duration
+
+    @property
     def all_tracks(self):
         return ([self.property_track]
                 + list(self.master_group.walk_tracks()))

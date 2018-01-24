@@ -202,7 +202,7 @@ cdef class PyMusicalTime(object):
         return fractions.Fraction(self.numerator, self.denominator)
 
     def to_float(self):
-        return float(self._duration.to_float())
+        return float(self._time.to_float())
 
     def __bool__(PyMusicalTime self):
         return self._time != MusicalTime(0, 1)

@@ -225,12 +225,6 @@ void Player::fill_time_map(TimeMapper* time_mapper, BlockContext* ctxt) {
       ? _state.loop_end_time : time_mapper->end_time();
 
     for (auto& stime : ctxt->time_map) {
-      MusicalTime prev_time = _state.current_time;
-      ++_tmap_it;
-      _state.current_time = *_tmap_it;
-
-      stime = SampleTime{ prev_time, min(_state.current_time, loop_end_time) };
-
       if (_state.current_time >= loop_end_time) {
         if (!_state.loop_enabled) {
           _state.current_time = loop_end_time;
@@ -241,6 +235,13 @@ void Player::fill_time_map(TimeMapper* time_mapper, BlockContext* ctxt) {
         }
         _tmap_it = time_mapper->find(_state.current_time);
       }
+
+      MusicalTime prev_time = _state.current_time;
+      ++_tmap_it;
+      _state.current_time = min(*_tmap_it, loop_end_time);
+      assert(_state.current_time > prev_time);
+
+      stime = SampleTime{ prev_time, _state.current_time };
 
       ++i;
     }

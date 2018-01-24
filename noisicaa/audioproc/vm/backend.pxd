@@ -29,6 +29,7 @@ from .block_context cimport *
 cdef extern from "noisicaa/audioproc/vm/backend.h" namespace "noisicaa" nogil:
     struct BackendSettings:
         string ipc_address
+        string datastream_address
         uint32_t block_size
         float time_scale
 

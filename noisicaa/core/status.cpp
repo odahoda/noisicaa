@@ -21,6 +21,7 @@
  */
 
 #include <stdarg.h>
+#include <string.h>
 #include "noisicaa/core/status.h"
 
 namespace noisicaa {
@@ -33,6 +34,29 @@ Status Status::Error(const char* file, int line, const char* fmt, ...) {
   vsnprintf(msg, sizeof(msg), fmt, args);
 
   return Error(file, line, string(msg));
+}
+
+Status Status::OSError(const char* file, int line, const string& message) {
+  char buf[1024];
+  strncpy(buf, message.c_str(), sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = '\0';
+
+  strncat(buf, ": ", sizeof(buf) - strlen(buf) - 1);
+
+  char ebuf[1024];
+  strncat(buf, strerror_r(errno, ebuf, sizeof(ebuf)), sizeof(buf) - strlen(buf) - 1);
+
+  return Status(Code::OS_ERROR, file, line, string(buf));
+}
+
+Status Status::OSError(const char* file, int line, const char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+
+  char msg[10240];
+  vsnprintf(msg, sizeof(msg), fmt, args);
+
+  return OSError(file, line, string(msg));
 }
 
 }  // namespace noisicaa

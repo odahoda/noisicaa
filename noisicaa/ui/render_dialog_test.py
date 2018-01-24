@@ -23,14 +23,14 @@
 # from noisidev import unittest
 # from noisicaa.music import project
 # from . import uitest_utils
-# from . import render_project_dialog
+# from . import render_dialog
 
 
-# class RenderProjectDialogTest(uitest_utils.UITest):
+# class RenderDialogTest(uitest_utils.UITest):
 #     async def setup_testcase(self):
 #         await super().setup_testcase()
 #         self.project = project.BaseProject()
 
 #     async def test_init(self):
-#         dialog = render_project_dialog.RenderProjectDialog(None, self.app, self.project)
+#         dialog = render_dialog.RenderDialog(None, self.app, self.project)
 #         self.assertTrue(dialog.close())

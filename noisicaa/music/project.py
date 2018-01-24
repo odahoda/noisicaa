@@ -552,7 +552,8 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
 
     def add_pipeline_graph_node(self, node):
         self.pipeline_graph_nodes.append(node)
-        node.add_to_pipeline()
+        for mutation in node.get_add_mutations():
+            self.handle_pipeline_mutation(mutation)
 
     def remove_pipeline_graph_node(self, node):
         delete_connections = set()
@@ -566,28 +567,32 @@ class BaseProject(model.Project, state.RootMixin, state.StateBase):
             self.remove_pipeline_graph_connection(
                 self.pipeline_graph_connections[cidx])
 
-        node.remove_from_pipeline()
+        for mutation in node.get_remove_mutations():
+            self.handle_pipeline_mutation(mutation)
+
         del self.pipeline_graph_nodes[node.index]
 
     def add_pipeline_graph_connection(self, connection):
         self.pipeline_graph_connections.append(connection)
-        connection.add_to_pipeline()
+        for mutation in connection.get_add_mutations():
+            self.handle_pipeline_mutation(mutation)
 
     def remove_pipeline_graph_connection(self, connection):
-        connection.remove_from_pipeline()
+        for mutation in connection.get_remove_mutations():
+            self.handle_pipeline_mutation(mutation)
         del self.pipeline_graph_connections[connection.index]
 
-    def add_to_pipeline(self):
+    def get_add_mutations(self):
         for node in self.pipeline_graph_nodes:
-            node.add_to_pipeline()
+            yield from node.get_add_mutations()
         for connection in self.pipeline_graph_connections:
-            connection.add_to_pipeline()
+            yield from connection.get_add_mutations()
 
-    def remove_from_pipeline(self):
+    def get_remove_mutations(self):
         for connection in self.pipeline_graph_connections:
-            connection.remove_from_pipeline()
+            yield from connection.get_remove_mutations()
         for node in self.pipeline_graph_nodes:
-            node.remove_from_pipeline()
+            yield from node.get_remove_mutations()
 
 
 class Project(BaseProject):

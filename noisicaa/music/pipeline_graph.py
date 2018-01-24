@@ -219,10 +219,10 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
     def pipeline_node_id(self):
         raise NotImplementedError
 
-    def add_to_pipeline(self):
+    def get_add_mutations(self):
         raise NotImplementedError
 
-    def set_initial_parameters(self):
+    def get_initial_parameter_mutations(self):
         parameter_values = dict(
             (p.name, p.value) for p in self.parameter_values)
 
@@ -236,16 +236,14 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                     parameter.name, parameter.default)
 
         if params:
-            self.project.handle_pipeline_mutation(
-                audioproc.SetNodeParameter(self.pipeline_node_id, **params))
+            yield audioproc.SetNodeParameter(self.pipeline_node_id, **params)
 
         for port in self.description.ports:
             if (port.direction == node_db.PortDirection.Input
                 and port.port_type == node_db.PortType.KRateControl):
                 for cv in self.control_values:
-                    self.project.handle_pipeline_mutation(
-                        audioproc.SetControlValue(
-                            '%s:%s' % (self.pipeline_node_id, cv.name), cv.value))
+                    yield audioproc.SetControlValue(
+                        '%s:%s' % (self.pipeline_node_id, cv.name), cv.value)
 
             elif port.direction == node_db.PortDirection.Output:
                 port_property_values = dict(
@@ -253,12 +251,11 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                     if p.port_name == port.name)
 
                 if port_property_values:
-                    self.project.handle_pipeline_mutation(
-                        audioproc.SetPortProperty(
-                            self.pipeline_node_id, port.name,
-                            **port_property_values))
+                    yield audioproc.SetPortProperty(
+                        self.pipeline_node_id, port.name,
+                        **port_property_values)
 
-    def remove_from_pipeline(self):
+    def get_remove_mutations(self):
         raise NotImplementedError
 
     def set_parameter(self, parameter_name, value):
@@ -377,20 +374,18 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
     def pipeline_node_id(self):
         return self.id
 
-    def add_to_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.AddNode(
-                description=self.description,
-                id=self.pipeline_node_id,
-                name=self.name,
-                initial_parameters=dict(
-                    (p.name, p.value) for p in self.parameter_values)))
+    def get_add_mutations(self):
+        yield audioproc.AddNode(
+            description=self.description,
+            id=self.pipeline_node_id,
+            name=self.name,
+            initial_parameters=dict(
+                (p.name, p.value) for p in self.parameter_values))
 
-        self.set_initial_parameters()
+        yield from self.get_initial_parameter_mutations()
 
-    def remove_from_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.RemoveNode(self.pipeline_node_id))
+    def get_remove_mutations(self):
+        yield audioproc.RemoveNode(self.pipeline_node_id)
 
 state.StateBase.register_class(PipelineGraphNode)
 
@@ -404,13 +399,13 @@ class AudioOutPipelineGraphNode(
     def pipeline_node_id(self):
         return 'sink'
 
-    def add_to_pipeline(self):
+    def get_add_mutations(self):
         # Nothing to do, predefined node of the pipeline.
-        pass
+        return []
 
-    def remove_from_pipeline(self):
+    def get_remove_mutations(self):
         # Nothing to do, predefined node of the pipeline.
-        pass
+        return []
 
 state.StateBase.register_class(AudioOutPipelineGraphNode)
 
@@ -427,18 +422,16 @@ class TrackMixerPipelineGraphNode(
     def pipeline_node_id(self):
         return self.track.mixer_name
 
-    def add_to_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.AddNode(
-                description=self.description,
-                id=self.pipeline_node_id,
-                name=self.name))
+    def get_add_mutations(self):
+        yield audioproc.AddNode(
+            description=self.description,
+            id=self.pipeline_node_id,
+            name=self.name)
 
-        self.set_initial_parameters()
+        yield from self.get_initial_parameter_mutations()
 
-    def remove_from_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.RemoveNode(self.pipeline_node_id))
+    def get_remove_mutations(self):
+        yield audioproc.RemoveNode(self.pipeline_node_id)
 
 state.StateBase.register_class(TrackMixerPipelineGraphNode)
 
@@ -454,18 +447,16 @@ class CVGeneratorPipelineGraphNode(model.CVGeneratorPipelineGraphNode, BasePipel
     def pipeline_node_id(self):
         return self.track.generator_name
 
-    def add_to_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.AddNode(
-                description=self.description,
-                id=self.pipeline_node_id,
-                name=self.name))
+    def get_add_mutations(self):
+        yield audioproc.AddNode(
+            description=self.description,
+            id=self.pipeline_node_id,
+            name=self.name)
 
-        self.set_initial_parameters()
+        yield from self.get_initial_parameter_mutations()
 
-    def remove_from_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.RemoveNode(self.pipeline_node_id))
+    def get_remove_mutations(self):
+        yield audioproc.RemoveNode(self.pipeline_node_id)
 
 state.StateBase.register_class(CVGeneratorPipelineGraphNode)
 
@@ -481,18 +472,16 @@ class SampleScriptPipelineGraphNode(model.SampleScriptPipelineGraphNode, BasePip
     def pipeline_node_id(self):
         return self.track.sample_script_name
 
-    def add_to_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.AddNode(
-                description=self.description,
-                id=self.pipeline_node_id,
-                name=self.name))
+    def get_add_mutations(self):
+        yield audioproc.AddNode(
+            description=self.description,
+            id=self.pipeline_node_id,
+            name=self.name)
 
-        self.set_initial_parameters()
+        yield from self.get_initial_parameter_mutations()
 
-    def remove_from_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.RemoveNode(self.pipeline_node_id))
+    def get_remove_mutations(self):
+        yield audioproc.RemoveNode(self.pipeline_node_id)
 
 state.StateBase.register_class(SampleScriptPipelineGraphNode)
 
@@ -508,18 +497,16 @@ class PianoRollPipelineGraphNode(model.PianoRollPipelineGraphNode, BasePipelineG
     def pipeline_node_id(self):
         return self.track.event_source_name
 
-    def add_to_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.AddNode(
-                description=self.description,
-                id=self.pipeline_node_id,
-                name=self.name))
+    def get_add_mutations(self):
+        yield audioproc.AddNode(
+            description=self.description,
+            id=self.pipeline_node_id,
+            name=self.name)
 
-        self.set_initial_parameters()
+        yield from self.get_initial_parameter_mutations()
 
-    def remove_from_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.RemoveNode(self.pipeline_node_id))
+    def get_remove_mutations(self):
+        yield audioproc.RemoveNode(self.pipeline_node_id)
 
 state.StateBase.register_class(PianoRollPipelineGraphNode)
 
@@ -536,33 +523,31 @@ class InstrumentPipelineGraphNode(
     def pipeline_node_id(self):
         return self.track.instr_name
 
-    def update_pipeline(self):
+    def get_update_mutations(self):
         connections = []
         for connection in self.project.pipeline_graph_connections:
             if connection.source_node is self or connection.dest_node is self:
                 connections.append(connection)
 
         for connection in connections:
-            connection.remove_from_pipeline()
-        self.remove_from_pipeline()
-        self.add_to_pipeline()
+            yield from connection.get_remove_mutations()
+        yield from self.get_remove_mutations()
+        yield from self.get_add_mutations()
         for connection in connections:
-            connection.add_to_pipeline()
+            yield connection.get_add_mutations()
 
-    def add_to_pipeline(self):
+    def get_add_mutations(self):
         node_uri, node_params = instrument_db.parse_uri(self.track.instrument)
-        self.project.handle_pipeline_mutation(
-            audioproc.AddNode(
-                description=self.project.get_node_description(node_uri),
-                id=self.pipeline_node_id,
-                name=self.name,
-                initial_parameters=node_params))
+        yield audioproc.AddNode(
+            description=self.project.get_node_description(node_uri),
+            id=self.pipeline_node_id,
+            name=self.name,
+            initial_parameters=node_params)
 
-        self.set_initial_parameters()
+        yield from self.get_initial_parameter_mutations()
 
-    def remove_from_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.RemoveNode(self.pipeline_node_id))
+    def get_remove_mutations(self):
+        yield audioproc.RemoveNode(self.pipeline_node_id)
 
 state.StateBase.register_class(InstrumentPipelineGraphNode)
 
@@ -578,16 +563,14 @@ class PipelineGraphConnection(
             self.dest_node = dest_node
             self.dest_port = dest_port
 
-    def add_to_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.ConnectPorts(
-                self.source_node.pipeline_node_id, self.source_port,
-                self.dest_node.pipeline_node_id, self.dest_port))
+    def get_add_mutations(self):
+        yield audioproc.ConnectPorts(
+            self.source_node.pipeline_node_id, self.source_port,
+            self.dest_node.pipeline_node_id, self.dest_port)
 
-    def remove_from_pipeline(self):
-        self.project.handle_pipeline_mutation(
-            audioproc.DisconnectPorts(
-                self.source_node.pipeline_node_id, self.source_port,
-                self.dest_node.pipeline_node_id, self.dest_port))
+    def get_remove_mutations(self):
+        yield audioproc.DisconnectPorts(
+            self.source_node.pipeline_node_id, self.source_port,
+            self.dest_node.pipeline_node_id, self.dest_port)
 
 state.StateBase.register_class(PipelineGraphConnection)
