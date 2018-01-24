@@ -135,6 +135,7 @@ class BaseEditorApp(object):
         self.project_registry = None
         self.sequencer = None
         self.midi_hub = None
+        self.show_edit_areas_action = None
         self.audioproc_client = None
         self.audioproc_process = None
         self.node_db = None

@@ -34,9 +34,6 @@ logger = logging.getLogger(__name__)
 
 
 class SampleScanner(scanner.Scanner):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     def scan(self, path):
         if not path.endswith('.wav'):
             return

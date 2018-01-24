@@ -239,9 +239,6 @@ class Track(model.Track, state.StateBase):
 
 
 class Measure(model.Measure, state.StateBase):
-    def __init__(self, state=None):
-        super().__init__(state)
-
     @property
     def empty(self):
         return False

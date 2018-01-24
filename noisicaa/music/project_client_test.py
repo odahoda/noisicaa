@@ -201,11 +201,11 @@ class RenderTest(ProjectClientTestBase):
         await super().cleanup_testcase()
 
     async def test_success(self):
-        self.header = bytearray()
+        header = bytearray()
 
         def handle_data(data):
-            if len(self.header) < 4:
-                self.header.extend(data)
+            if len(header) < 4:
+                header.extend(data)
             return self._handle_data(data)
         self.handle_data = handle_data
 
@@ -216,7 +216,7 @@ class RenderTest(ProjectClientTestBase):
         self.assertEqual(self.current_progress, fractions.Fraction(1))
         self.assertEqual(self.current_state, 'complete')
         self.assertGreater(self.bytes_received, 0)
-        self.assertEqual(self.header[:4], b'fLaC')
+        self.assertEqual(header[:4], b'fLaC')
 
     async def test_encoder_fails(self):
         settings = render_settings_pb2.RenderSettings()

@@ -745,7 +745,7 @@ class SubprocessMixin(object):
             logger.info("Closing event loop...")
             pending_tasks = asyncio.Task.all_tasks(self.event_loop)
             if pending_tasks:
-                logger.info("Waiting for %d tasks to complete..." % len(pending_tasks))
+                logger.info("Waiting for %d tasks to complete...", len(pending_tasks))
                 self.event_loop.run_until_complete(asyncio.gather(*pending_tasks))
             self.event_loop.stop()
             self.event_loop.close()

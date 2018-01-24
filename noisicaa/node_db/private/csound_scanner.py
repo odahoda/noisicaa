@@ -34,9 +34,6 @@ logger = logging.getLogger(__name__)
 
 
 class CSoundScanner(scanner.Scanner):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     def scan(self):
         rootdir = os.path.join(constants.DATA_DIR, 'csound')
         for dirpath, dirnames, filenames in os.walk(rootdir):

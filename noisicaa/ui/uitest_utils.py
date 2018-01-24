@@ -183,7 +183,9 @@ class MockApp(BaseEditorApp, QtCore.QCoreApplication):
         return MockSequencer()
 
 
-class Bunch(object): pass
+class MockProjectConnection(object):
+    def __init__(self, *, name):
+        self.name = name
 
 
 class UITest(unittest.AsyncTestCase):
@@ -234,8 +236,7 @@ class UITest(unittest.AsyncTestCase):
         await UITest.app.setup()
 
         self.window = None
-        self.project_connection = Bunch()
-        self.project_connection.name = 'test project'
+        self.project_connection = MockProjectConnection(name='test project')
         self.project_client = None
         self.selection_set = selection_set.SelectionSet()
 

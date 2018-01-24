@@ -80,7 +80,7 @@ class InstrumentDBClientMixin(object):
 
     def handle_mutation(self, mutation_list):
         for mutation in mutation_list:
-            logger.info("Mutation received: %s" % mutation)
+            logger.info("Mutation received: %s", mutation)
             if isinstance(mutation, mutations.AddInstrumentDescription):
                 self._instruments[mutation.description.uri] = mutation.description
             else:

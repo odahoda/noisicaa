@@ -94,6 +94,10 @@ class BuiltinPyTests(unittest.TestCase):
     pylint_whitelist = [
         'trailing-whitespace',
         'unused-import',
+        'attribute-defined-outside-init',
+        'bad-classmethod-argument',
+        'logging-not-lazy',
+        'useless-super-delegation',
     ]
 
     def test_pylint(self):

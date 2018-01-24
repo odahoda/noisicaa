@@ -141,7 +141,7 @@ class AudioProcClientMixin(object):
             'UPDATE_PROJECT_PROPERTIES', self._session_id, kwargs)
 
     def handle_pipeline_mutation(self, mutation):
-        logger.info("Mutation received: %s" % mutation)
+        logger.info("Mutation received: %s", mutation)
 
     def handle_pipeline_status(self, status):
         self.listeners.call('pipeline_status', status)

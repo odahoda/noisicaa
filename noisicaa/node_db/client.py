@@ -83,7 +83,7 @@ class NodeDBClientMixin(object):
         return await self._stub.call('START_SCAN', self._session_id)
 
     def handle_mutation(self, mutation):
-        logger.info("Mutation received: %s" % mutation)
+        logger.info("Mutation received: %s", mutation)
         if isinstance(mutation, mutations.AddNodeDescription):
             assert mutation.uri not in self._nodes
             self._nodes[mutation.uri] = mutation.description

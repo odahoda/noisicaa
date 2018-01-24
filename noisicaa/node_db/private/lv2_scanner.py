@@ -31,9 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 class LV2Scanner(scanner.Scanner):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     def scan(self):
         world = lilv.World()
         ns = world.ns

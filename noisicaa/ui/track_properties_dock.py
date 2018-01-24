@@ -141,18 +141,13 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
 
 
 class TrackGroupProperties(TrackProperties):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
+    pass
 
 class ControlTrackProperties(TrackProperties):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
+    pass
 
 class SampleTrackProperties(TrackProperties):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    pass
 
 
 class ScoreTrackProperties(TrackProperties):

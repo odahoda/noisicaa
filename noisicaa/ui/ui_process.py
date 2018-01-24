@@ -38,6 +38,9 @@ class UISubprocess(core.SubprocessMixin, core.ProcessBase):
     def __init__(self, *, runtime_settings, paths, **kwargs):
         super().__init__(**kwargs)
 
+        self._shutting_down = None
+        self.exit_code = None
+
         self.app = self.create_app(
             process=self,
             runtime_settings=runtime_settings,

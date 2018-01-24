@@ -40,9 +40,6 @@ class Value(object):
 
 
 class ValueSet(collections.UserDict):
-    def __init__(self, data=None):
-        super().__init__(data)
-
     def select(self, name):
         result = ValueSet()
         for value_name, value in self.data.items():
@@ -53,9 +50,6 @@ class ValueSet(collections.UserDict):
 
 
 class Timeseries(collections.UserList):
-    def __init__(self, values=None):
-        super().__init__(values)
-
     def rate(self):
         result = Timeseries()
         prev_value = None
@@ -81,9 +75,6 @@ class Timeseries(collections.UserList):
 
 
 class TimeseriesSet(collections.UserDict):
-    def __init__(self, data=None):
-        super().__init__(data)
-
     def select(self, name):
         result = TimeseriesSet()
         for ts_name, ts in self.data.items():

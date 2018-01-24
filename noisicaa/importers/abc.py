@@ -361,7 +361,7 @@ class ABCImporter(object):
 
         if len(line) > 0 and line[0] in self.decoration_start_chars:
             decoration, line = self.parse_decoration(line)
-            logger.warning("Ignoring unsupported decoration %s" % decoration)
+            logger.warning("Ignoring unsupported decoration %s", decoration)
 
         accidental = ''
         if len(line) > 0 and line[0] in self.accidental_start_chars:
@@ -500,9 +500,7 @@ class ABCImporter(object):
 
             if line[0] in self.grace_notes_start:
                 grace_notes, line = self.parse_grace_notes(line)
-                logger.warning(
-                    "Ignoring grace notes %s" % ''.join(str(n)
-                                                        for n in grace_notes))
+                logger.warning("Ignoring grace notes %s", ''.join(str(n) for n in grace_notes))
                 continue
 
             if line[0] == '|':

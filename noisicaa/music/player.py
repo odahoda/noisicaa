@@ -239,6 +239,7 @@ class Player(object):
         self.audioproc_backend = None
         self.audioproc_backend_last_crash_time = None
         self.audioproc_address = None
+        self.audioproc_shm = None
         self.audioproc_client = None
         self.audioproc_status_listener = None
         self.audioproc_player_state_listener = None

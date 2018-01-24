@@ -32,9 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 class SoundFontScanner(scanner.Scanner):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     def scan(self, path):
         if not path.endswith('.sf2'):
             return
@@ -43,7 +40,7 @@ class SoundFontScanner(scanner.Scanner):
         try:
             sf.parse(path)
         except riff.Error as exc:
-            logger.error("Failed to parse %s: %s" % (path, exc))
+            logger.error("Failed to parse %s: %s", path, exc)
             return
 
         for preset in sf.presets:

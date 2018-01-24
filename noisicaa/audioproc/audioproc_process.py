@@ -126,6 +126,7 @@ class AudioProcProcess(core.ProcessBase):
         self.__host_data = None
         self.__vm = None
         self.sessions = {}
+        self.nodecls_db = None
 
     async def setup(self):
         await super().setup()

@@ -33,9 +33,6 @@ logger = logging.getLogger(__name__)
 
 
 class LadspaScanner(scanner.Scanner):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     def scan(self):
         # TODO: support configurable searchpaths
         rootdir = '/usr/lib/ladspa'

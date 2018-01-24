@@ -229,9 +229,6 @@ CustomCSoundDescription = node_db.ProcessorDescription(
 
 
 class BuiltinScanner(scanner.Scanner):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     def scan(self):
         yield ('builtin://track_mixer', TrackMixerDescription)
         yield ('builtin://ipc', IPCDescription)
