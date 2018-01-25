@@ -96,36 +96,13 @@ class PipelineVMTest(unittest.AsyncTestCase):
     #         vm.get_buffer_bytes(0),
     #         struct.pack('=ffff', 1, 2, 3, 4))
 
-    # def test_vm_thread(self):
-    #     vm = engine.PipelineVM()
-    #     try:
-    #         vm.setup()
-    #         be = TestBackend(step_mode=True)
-    #         vm.set_backend(be)
+    def test_vm_thread(self):
+        vm = engine.PipelineVM(host_data=self.host_data, event_loop=self.loop)
+        try:
+            vm.setup(start_thread=True)
 
-    #         # run once w/o a spec
-    #         be.next_step()
-
-    #         # run with a spec
-    #         spec = vm.Spec()
-    #         spec.buffers.append(buffers.Float())
-    #         spec.opcodes.append(spec.OpCode('SET_FLOAT', buf_idx=0, value=12))
-    #         vm.set_spec(spec)
-    #         be.next_step()
-
-    #         # replace spec
-    #         spec = spec.Spec()
-    #         spec.buffers.append(buffers.Float())
-    #         spec.opcodes.append(spec.OpCode('SET_FLOAT', buf_idx=0, value=14))
-    #         vm.set_spec(spec)
-    #         be.next_step()
-
-    #         # run once w/o a spec
-    #         vm.set_spec(None)
-    #         be.next_step()
-
-    #     finally:
-    #         vm.cleanup()
+        finally:
+            vm.cleanup()
 
     def test_run_vm(self):
         spec = PySpec()

@@ -1,5 +1,8 @@
 # -*- org-tags-column: -98 -*-
 
+* Make the audio thread real-time safe                                                        :FR:
+- no more python code in the main loop
+- lock-free queue for log messages
 * clean up pylint issues in pylint-unclean files                                         :CLEANUP:
 - grep -r pylint-unclean noisicaa/
 - pick some file and clean it up.
@@ -159,6 +162,20 @@ to the backend.
 * Use __builtin_expect() to optimize conditions in vm                                    :CLEANUP:
 E.g. use unlikely() when checking for error conditions.
 Is there some cross-compiler/-platform header to provide this functionality?
+
+* track syscalls in audio thread                                                              :FR:
+- seems non-trivial:
+  - ptrace can trace just a specific thread, but it must be in a subprocess of the tracer.
+  - calling ptrace() with the gettid() of the thread fails with EPERM
+  - perhaps move the tracing into the ProcessManager itself.
+    - every spawned process is being ptrace()'ed
+    - use ptrace to manage process state (instead of SIGCHLD)
+    - track processes/threads created by all processes
+    - can request syscall tracing for a specific pid (which could be a tid)
+    - have a flag --strace-all to enable syscall tracing for all processes.
+    - no fast way to selectively disable tracing for expected syscalls -> no way to make this
+      real-time friendly, so only enable it for debugging
+  - some experimental code in playground/syscall_tracer.py
 
 * Evaluate performance of exceptions vs. Status returns                                 :RESEARCH:
 - build test case
