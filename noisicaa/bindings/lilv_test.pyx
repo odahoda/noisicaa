@@ -101,7 +101,7 @@ class PluginTest(unittest.TestCase):
         self.plugins = self.world.get_all_plugins()
 
     def test_features(self):
-        uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-fifths')
+        uri_node = self.world.new_uri('http://noisicaa.odahoda.de/plugins/test-passthru')
         plugin = self.plugins.get_by_uri(uri_node)
         self.assertIsNot(plugin, None)
 
@@ -129,180 +129,36 @@ class PluginTest(unittest.TestCase):
     def test_instantiate(self):
         cdef:
             cdef lilv.Instance instance
-            cdef bytearray in_buf
-            cdef bytearray out_buf
-            cdef bytearray gain_buf
+            cdef bytearray audio_in
+            cdef bytearray audio_out
+            cdef bytearray midi_in
+            cdef bytearray midi_out
 
-        uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-amp')
+        uri_node = self.world.new_uri('http://noisicaa.odahoda.de/plugins/test-passthru')
         plugin = self.plugins.get_by_uri(uri_node)
         self.assertIsNot(plugin, None)
         self.assertEqual(plugin.get_uri(), uri_node)
 
-        in_port = plugin.get_port_by_symbol(self.world.new_string('in'))
-        out_port = plugin.get_port_by_symbol(self.world.new_string('out'))
-        gain_port = plugin.get_port_by_symbol(self.world.new_string('gain'))
+        audio_in_port = plugin.get_port_by_symbol(self.world.new_string('audio_in'))
+        audio_out_port = plugin.get_port_by_symbol(self.world.new_string('audio_out'))
+        midi_in_port = plugin.get_port_by_symbol(self.world.new_string('midi_in'))
+        midi_out_port = plugin.get_port_by_symbol(self.world.new_string('midi_out'))
 
         instance = plugin.instantiate(44100)
         self.assertIsNot(instance, None)
 
-        in_buf = bytearray(4096)
-        instance.connect_port(in_port.get_index(), <char*>in_buf)
+        audio_in = bytearray(4096)
+        instance.connect_port(audio_in_port.get_index(), <char*>audio_in)
 
-        out_buf = bytearray(4096)
-        instance.connect_port(out_port.get_index(), <char*>out_buf)
+        audio_out = bytearray(4096)
+        instance.connect_port(audio_out_port.get_index(), <char*>audio_out)
 
-        gain_buf = bytearray(4)
-        instance.connect_port(gain_port.get_index(), <char*>gain_buf)
+        midi_in = bytearray(4096)
+        instance.connect_port(midi_in_port.get_index(), <char*>midi_in)
+
+        midi_out = bytearray(4096)
+        instance.connect_port(midi_out_port.get_index(), <char*>midi_out)
 
         instance.activate()
         instance.run(1024)
         instance.deactivate()
-
-    def test_instantiate_amp(self):
-        cdef:
-            cdef lilv.Instance instance
-            cdef bytearray in_buf
-            cdef bytearray out_buf
-            cdef bytearray gain_buf
-
-        uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-amp')
-        plugin = self.plugins.get_by_uri(uri_node)
-        self.assertIsNot(plugin, None)
-        self.assertEqual(plugin.get_uri(), uri_node)
-
-        in_port = plugin.get_port_by_symbol(self.world.new_string('in'))
-        out_port = plugin.get_port_by_symbol(self.world.new_string('out'))
-        gain_port = plugin.get_port_by_symbol(self.world.new_string('gain'))
-
-        instance = plugin.instantiate(44100)
-        self.assertIsNot(instance, None)
-
-        in_buf = bytearray(4096)
-        instance.connect_port(in_port.get_index(), <char*>in_buf)
-
-        out_buf = bytearray(4096)
-        instance.connect_port(out_port.get_index(), <char*>out_buf)
-
-        gain_buf = bytearray(4)
-        instance.connect_port(gain_port.get_index(), <char*>gain_buf)
-
-        instance.activate()
-        instance.run(1024)
-        instance.deactivate()
-
-    def test_instantiate_midigate(self):
-        cdef:
-            cdef lilv.Instance instance
-
-        uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-midigate')
-        plugin = self.plugins.get_by_uri(uri_node)
-        self.assertIsNot(plugin, None)
-        self.assertEqual(plugin.get_uri(), uri_node)
-
-        control_port = plugin.get_port_by_symbol(self.world.new_string('control'))
-        in_port = plugin.get_port_by_symbol(self.world.new_string('in'))
-        out_port = plugin.get_port_by_symbol(self.world.new_string('out'))
-
-        instance = plugin.instantiate(44100)
-        self.assertIsNot(instance, None)
-
-        control_buf = bytearray(1024)
-        instance.connect_port(control_port.get_index(), <char*>control_buf)
-
-        forge = lv2.AtomForge(self.world.urid_mapper)
-        forge.set_buffer(control_buf, 1024)
-        with forge.sequence():
-            forge.write_midi_event(3, bytes([0b10010000, 65, 127]), 3)
-            forge.write_midi_event(7, bytes([0b10000000, 65, 0]), 3)
-
-        logger.info(sratom.atom_to_turtle(self.world.urid_mapper, control_buf))
-
-        in_buf = struct.pack('=ffffffffff', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-        instance.connect_port(in_port.get_index(), <char*>in_buf)
-
-        out_buf = bytearray(40)
-        instance.connect_port(out_port.get_index(), <char*>out_buf)
-
-        instance.activate()
-        instance.run(10)
-        instance.deactivate()
-
-        # The output should rather be [0, 0, 0, 4, 5, 6, 7, 0, 0, 0], but eg-midigate does not
-        # work correctly.
-        self.assertEqual(
-            out_buf,
-            struct.pack('=ffffffffff', 1, 2, 3, 0, 0, 0, 0, 0, 0, 0))
-
-    def test_instantiate_fifths(self):
-        cdef:
-            cdef lilv.Instance instance
-
-        uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-fifths')
-        plugin = self.plugins.get_by_uri(uri_node)
-        self.assertIsNot(plugin, None)
-        self.assertEqual(plugin.get_uri(), uri_node)
-
-        in_port = plugin.get_port_by_symbol(self.world.new_string('in'))
-        out_port = plugin.get_port_by_symbol(self.world.new_string('out'))
-
-        instance = plugin.instantiate(44100)
-        self.assertIsNot(instance, None)
-
-        in_buf = bytearray(1024)
-        instance.connect_port(in_port.get_index(), <char*>in_buf)
-
-        forge = lv2.AtomForge(self.world.urid_mapper)
-        forge.set_buffer(in_buf, 1024)
-        with forge.sequence():
-            forge.write_midi_event(3, bytes([0b10010000, 65, 127]), 3)
-            forge.write_midi_event(8, bytes([0b10000000, 65, 0]), 3)
-
-        logger.info(sratom.atom_to_turtle(self.world.urid_mapper, in_buf))
-
-        out_buf = bytearray(1024)
-        instance.connect_port(out_port.get_index(), <char*>out_buf)
-
-        instance.activate()
-        instance.run(1024)
-        instance.deactivate()
-
-        logger.info(sratom.atom_to_turtle(self.world.urid_mapper, out_buf))
-
-        # TODO: verify that out_buf contains 4 midi events.
-
-    def test_instantiate_(self):
-        cdef:
-            cdef lilv.Instance instance
-
-        uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-fifths')
-        plugin = self.plugins.get_by_uri(uri_node)
-        self.assertIsNot(plugin, None)
-        self.assertEqual(plugin.get_uri(), uri_node)
-
-        in_port = plugin.get_port_by_symbol(self.world.new_string('in'))
-        out_port = plugin.get_port_by_symbol(self.world.new_string('out'))
-
-        instance = plugin.instantiate(44100)
-        self.assertIsNot(instance, None)
-
-        in_buf = bytearray(1024)
-        instance.connect_port(in_port.get_index(), <char*>in_buf)
-
-        forge = lv2.AtomForge(self.world.urid_mapper)
-        forge.set_buffer(in_buf, 1024)
-        with forge.sequence():
-            forge.write_midi_event(3, bytes([0b10010000, 65, 127]), 3)
-            forge.write_midi_event(8, bytes([0b10000000, 65, 0]), 3)
-
-        logger.info(sratom.atom_to_turtle(self.world.urid_mapper, in_buf))
-
-        out_buf = bytearray(1024)
-        instance.connect_port(out_port.get_index(), <char*>out_buf)
-
-        instance.activate()
-        instance.run(1024)
-        instance.deactivate()
-
-        logger.info(sratom.atom_to_turtle(self.world.urid_mapper, out_buf))
-
-        # TODO: verify that out_buf contains 4 midi events.

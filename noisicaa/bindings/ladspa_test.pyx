@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import logging
 import struct
 
 import numpy
@@ -27,14 +28,16 @@ import numpy
 from noisidev import unittest
 from . cimport ladspa
 
+logger = logging.getLogger(__name__)
+
 
 class LadspaTest(unittest.TestCase):
     def test_foo(self):
         lib = ladspa.Library('/usr/lib/ladspa/sine.so')
         for desc in lib.descriptors:
-            print(desc.id, desc.name, desc.label, desc.maker, desc.copyright)
+            logger.info("%d %s %s %s %s", desc.id, desc.name, desc.label, desc.maker, desc.copyright)
             for port in desc.ports:
-                print(port)
+                logger.info("%s", port)
 
 
     def test_run_instance(self):
@@ -52,9 +55,9 @@ class LadspaTest(unittest.TestCase):
 
             inst.activate()
             inst.run(100)
-            print(p3)
+            logger.debug(p3)
             inst.run(100)
-            print(p3)
+            logger.debug(p3)
 
             inst.deactivate()
         finally:

@@ -24,10 +24,14 @@ add_python_package(
 )
 
 add_cython_module(ladspa CXX)
+add_cython_module(ladspa_test CXX)
 
 add_cython_module(lilv CXX)
 target_include_directories(${lilv.so} PRIVATE ${LIBLILV_INCLUDE_DIRS})
 target_link_libraries(${lilv.so} PRIVATE ${LIBLILV_LIBRARIES})
+
+add_cython_module(lilv_test CXX)
+target_include_directories(${lilv_test.so} PRIVATE ${LIBLILV_INCLUDE_DIRS})
 
 add_cython_module(sndfile CXX)
 target_include_directories(${sndfile.so} PRIVATE ${LIBSNDFILE_INCLUDE_DIRS})

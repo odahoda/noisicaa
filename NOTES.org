@@ -1,6 +1,5 @@
 # -*- org-tags-column: -98 -*-
 
-* noisicaa.bindings.lilv_test does not get built                                             :BUG:
 * LV2 support										      :FR:
 - apparently an atom output buffer prefilled with a blank atom denoting the size of the buffer.
   - where is that documented?
