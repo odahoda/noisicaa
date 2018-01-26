@@ -67,3 +67,4 @@ add_custom_target(
 )
 
 add_subdirectory(lv2/test-passthru.lv2)
+add_subdirectory(lv2/test-options.lv2)
