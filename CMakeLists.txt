@@ -135,6 +135,14 @@ macro(cpp_proto src)
   )
 endmacro(cpp_proto)
 
+macro(static_file src)
+  add_custom_command(
+    OUTPUT ${src}
+    COMMAND mkdir -p "$$(dirname" ${src} ")" && cp -f ${CMAKE_CURRENT_LIST_DIR}/${src} ${src}
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
+  )
+endmacro(static_file)
+
 add_subdirectory(noisicaa)
 add_subdirectory(noisidev)
 add_subdirectory(data)

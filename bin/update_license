@@ -35,12 +35,14 @@ DEFAULT_TYPEMAP = {
     '*.pxd': 'text/x-python',
     '*.cpp': 'text/x-c++',
     '*.h': 'text/x-c++',
+    '*.c': 'text/x-c',
     '*.sh': 'text/x-shellscript',
     '*.capnp': 'text/x-capnp',
     '*.proto': 'text/x-protobuf',
     '*.csnd': 'text/x-csound',
     '*.yaml': 'text/x-yaml',
     '*.svg': 'application/xml',
+    '*.ttl': 'text/x-turtle',
     'CMakeLists.txt': 'text/x-cmake',
 }
 
@@ -49,10 +51,12 @@ TYPE_PROPS = {
     'text/x-shellscript': (None, None, '# ', '#'),
     'text/x-cmake': (None, None, '# ', '#'),
     'text/x-c++': ('/*', ' */', ' * ', '//'),
+    'text/x-c': ('/*', ' */', ' * ', None),
     'text/x-protobuf': ('/*', ' */', ' * ', None),
     'text/x-capnp': (None, None, '# ', None),
     'text/x-csound': ('<CsLicense>', '</CsLicense>', '', '<CsoundSynthesizer>'),
     'text/x-yaml': (None, None, '# ', None),
+    'text/x-turtle': (None, None, '# ', None),
     'application/xml': ('<!--', '-->', '  ', '<?'),
 }
 

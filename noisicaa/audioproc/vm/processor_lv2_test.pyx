@@ -18,10 +18,12 @@
 #
 # @end:license
 
+import sys
+
+from libc.string cimport memset
+from libc.stdint cimport uint8_t
 from libcpp.string cimport string
 from libcpp.memory cimport unique_ptr
-
-import sys
 
 from noisidev import unittest
 from noisicaa.core.status cimport *
@@ -64,64 +66,51 @@ cdef class TestProcessorLV2Impl(object):
         self.processor = NULL
         self.host_data.cleanup()
 
-    def test_amp(self):
+    def test_passthru(self):
         check(self.spec.add_port(b'gain', PortType.kRateControl, PortDirection.Input))
         check(self.spec.add_port(b'in', PortType.audio, PortDirection.Input))
         check(self.spec.add_port(b'out', PortType.audio, PortDirection.Output))
         check(self.spec.add_parameter(
-            new StringParameterSpec(b'lv2_uri', b'http://lv2plug.in/plugins/eg-amp')))
+            new StringParameterSpec(
+                b'lv2_uri', b'http://noisicaa.odahoda.de/plugins/test-passthru')))
 
         check(self.processor.setup(self.spec_ptr.release()))
 
-        cdef float gain
-        cdef float inbuf[128]
-        cdef float outbuf[128]
+        cdef float audio_in[128]
+        cdef float audio_out[128]
+        cdef uint8_t midi_in[10240]
+        cdef uint8_t midi_out[10240]
 
-        check(self.processor.connect_port(0, <BufferPtr>&gain))
-        check(self.processor.connect_port(1, <BufferPtr>inbuf))
-        check(self.processor.connect_port(2, <BufferPtr>outbuf))
-
-        gain = -6
-        for i in range(128):
-            inbuf[i] = 1.0
-        for i in range(128):
-            outbuf[i] = 0.0
-
-        check(self.processor.run(self.ctxt.get(), NULL))  # TODO: pass time_mapper
+        check(self.processor.connect_port(0, <BufferPtr>audio_in))
+        check(self.processor.connect_port(1, <BufferPtr>midi_in))
+        check(self.processor.connect_port(2, <BufferPtr>audio_out))
+        check(self.processor.connect_port(3, <BufferPtr>midi_out))
 
         for i in range(128):
-            self.assertAlmostEqual(outbuf[i], 0.5, places=2)
-
-        self.processor.cleanup()
-
-    def test_fifths(self):
-        # This one requires the urid map feature.
-        check(self.spec.add_port(b'in', PortType.atomData, PortDirection.Input))
-        check(self.spec.add_port(b'out', PortType.atomData, PortDirection.Output))
-        check(self.spec.add_parameter(
-            new StringParameterSpec(b'lv2_uri', b'http://lv2plug.in/plugins/eg-fifths')))
-
-        check(self.processor.setup(self.spec_ptr.release()))
-
-        cdef uint8_t inbuf[10240]
-        cdef uint8_t outbuf[10240]
-
-        check(self.processor.connect_port(0, <BufferPtr>inbuf))
-        check(self.processor.connect_port(1, <BufferPtr>outbuf))
+            audio_in[i] = 1.0
 
         cdef atom.AtomForge forge = atom.AtomForge(urid.static_mapper)
-        forge.set_buffer(inbuf, 10240)
+        forge.set_buffer(midi_in, 10240)
         with forge.sequence():
             forge.write_midi_event(0, bytes([0x90, 60, 100]), 3)
             forge.write_midi_event(64, bytes([0x80, 60, 0]), 3)
 
+        memset(audio_out, 0x88, 128 * sizeof(float))
+
+        # A blank atom with the size of the writable output buffer.
+        (<atom.LV2_Atom*>midi_out).type = 0
+        (<atom.LV2_Atom*>midi_out).size = 10240 - sizeof(atom.LV2_Atom)
+
         check(self.processor.run(self.ctxt.get(), NULL))  # TODO: pass time_mapper
 
-        seq = atom.Atom.wrap(urid.static_mapper, bytes(outbuf[:10240]))
+        for i in range(128):
+            self.assertAlmostEqual(audio_out[i], 1.0, places=2)
+
+        seq = atom.Atom.wrap(urid.static_mapper, bytes(midi_out[:10240]))
         self.assertIsInstance(seq, atom.Sequence)
         self.assertEqual(
             [[b for b in event.atom.data[0:3]] for event in seq.events],
-            [[0x90, 60, 100], [0x90, 67, 100], [0x80, 60, 0], [0x80, 67, 0]])
+            [[0x90, 60, 100], [0x80, 60, 0]])
 
         self.processor.cleanup()
 

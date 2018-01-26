@@ -34,14 +34,6 @@ macro(mksf2 src dest)
   )
 endmacro(mksf2)
 
-macro(static_file src)
-  add_custom_command(
-    OUTPUT ${src}
-    COMMAND mkdir -p "$$(dirname" ${src} ")" && cp -f ${CMAKE_CURRENT_LIST_DIR}/${src} ${src}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
-  )
-endmacro(static_file)
-
 static_file(kick-gettinglaid.wav)
 static_file(future-thunder1.wav)
 static_file(test1.wav)
@@ -73,3 +65,5 @@ add_custom_target(
     abc/sonata-i.abc
     symbol.svg
 )
+
+add_subdirectory(lv2/test-passthru.lv2)

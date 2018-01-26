@@ -1,5 +1,39 @@
 # -*- org-tags-column: -98 -*-
 
+* noisicaa.bindings.lilv_test does not get built                                             :BUG:
+* LV2 support										      :FR:
+- apparently an atom output buffer prefilled with a blank atom denoting the size of the buffer.
+  - where is that documented?
+  - size with or without atom header?
+  - any specific atom type?
+
+** support zynaddsubfx
+- required features:
+  - http://lv2plug.in/ns/ext/worker#schedule
+  - http://lv2plug.in/ns/ext/options#options
+- atom input port
+- how to load instrument w/o UI?
+** Native UI support
+- ref implementation:
+  - http://dev.drobilla.net/browser/suil
+  - http://dev.drobilla.net/browser/jalv
+- spawn UI specific process for each plugin
+- needs shared urid mapper for all processes
+- pass port value changes from audioproc process to UI
+  - for every block cycle or rate limited to Xfps?
+** features
+- plugins with unsupported features:
+  - include in NodeDB, but mark as non-functional, with reason text?
+- provide features
+  - which ones are most common?
+  - http://lv2plug.in/ns/ext/worker/worker.html
+    - http://lv2plug.in/ns/ext/worker#schedule
+  - http://lv2plug.in/ns/ext/options/options.html
+    - http://lv2plug.in/ns/ext/options#options
+  - http://lv2plug.in/ns/ext/buf-size/buf-size.html
+    - http://lv2plug.in/ns/ext/buf-size#fixedBlockLength
+    - http://lv2plug.in/ns/ext/buf-size#boundedBlockLength
+** event/atom ports
 * Make the audio thread real-time safe                                                        :FR:
 - no more python code in the main loop
 - lock-free queue for log messages
@@ -251,10 +285,12 @@ Is there some cross-compiler/-platform header to provide this functionality?
 * Some builtin instruments                                                                    :FR:
 - Have set of reasonably sounding instruments builtin.
 - Remove dependencies on *-soundfont-* packages.
+- Use those for demo projects
+- Also remove dependency on mda-lv2 and swh-plugins packages from demo projects
 
 * Don't use system files in tests                                                        :CLEANUP:
 - grep for '/usr/'
-- build test ladspa, lv2 plugins from source in testdata
+- build test ladspa plugins from source in testdata
 
 * Full app run in vmtest                                                                      :FR:
 - bin/noisicaä --play-and-exit --demo="demo name"
@@ -275,6 +311,8 @@ Is there some cross-compiler/-platform header to provide this functionality?
 
 * Make sample rate configurable                                                               :FR:
 - all processors need to cleanup/setup on changes
+- if sample_rate is a property of HostData, can renderer use a different sample_rate than normal
+  playback?
 * Cleanup temp files on shutdown                                                              :FR:
 - still leaves a dead directory around on unclean shutdown, SIGKILL, etc.
   - put in /tmp and rely on OS to cleanup junk
@@ -456,33 +494,6 @@ http://pyxdg.readthedocs.io/en/latest/recentfiles.html
   - correct rendering along x axis
     - map timestamps to x position
     - interpolation
-* LV2 support										      :FR:
-** support zynaddsubfx
-- required features:
-  - http://lv2plug.in/ns/ext/worker#schedule
-  - http://lv2plug.in/ns/ext/options#options
-- atom input port
-- how to load instrument w/o UI?
-** Native UI support
-- ref implementation:
-  - http://dev.drobilla.net/browser/suil
-  - http://dev.drobilla.net/browser/jalv
-- spawn UI specific process for each plugin
-- pass port value changes from audioproc process to UI
-  - for every block cycle or rate limited to Xfps?
-** features
-- plugins with unsupported features:
-  - include in NodeDB, but mark as non-functional, with reason text?
-- provide features
-  - which ones are most common?
-  - http://lv2plug.in/ns/ext/worker/worker.html
-    - http://lv2plug.in/ns/ext/worker#schedule
-  - http://lv2plug.in/ns/ext/options/options.html
-    - http://lv2plug.in/ns/ext/options#options
-  - http://lv2plug.in/ns/ext/buf-size/buf-size.html
-    - http://lv2plug.in/ns/ext/buf-size#fixedBlockLength
-    - http://lv2plug.in/ns/ext/buf-size#boundedBlockLength
-** event/atom ports
 * ipc.Server: shutdown waits for outstanding commands to finish				     :BUG:
 - could crash in ServerProtocol.command_complete, if Server instance has already been cleaned up
 - does it need to lameduck?

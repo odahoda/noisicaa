@@ -59,10 +59,14 @@ sys.path.insert(0, LIBDIR)
 # Ensure that future imports from noisidev come from LIBDIR.
 sys.modules.pop('noisidev')
 
+# Set path to locally built 3rdparty libraries.
 os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
 
 # Ensure all tests work without X.
 os.environ.pop('DISPLAY', None)
+
+# Tests should only see our test plugins.
+os.environ['LV2_PATH'] = os.path.join(ROOTDIR, 'build', 'testdata', 'lv2')
 
 
 def bool_arg(value):
