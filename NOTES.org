@@ -41,7 +41,7 @@
 - pick some file and clean it up.
 - until grep finds no more files.
 
-* Export pytest as a better unittest framework                                          :RESEARCH:
+* Exlore pytest as a better unittest framework                                          :RESEARCH:
 - https://docs.pytest.org/en/latest/
 - supports parallel test execution with pytest-xdist
 
