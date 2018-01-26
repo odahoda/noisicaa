@@ -40,6 +40,7 @@ DEFAULT_TYPEMAP = {
     '*.proto': 'text/x-protobuf',
     '*.csnd': 'text/x-csound',
     '*.yaml': 'text/x-yaml',
+    '*.svg': 'application/xml',
     'CMakeLists.txt': 'text/x-cmake',
 }
 
@@ -70,12 +71,14 @@ DIRS = [
 
 SKIP_DIRS = [
     '__pycache__',
-    'testdata',
 ]
 
 SKIP_FILES = [
     '*.pyc',
     '*~',
+    '*.readme',
+    '*.wav',
+    '*.abc',
     'pylintrc',
 ]
 
