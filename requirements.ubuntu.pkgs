@@ -45,7 +45,7 @@ libavutil55
 ffmpeg
 
 # other...
-python3.5-dev
+python3-dev
 libxml2-dev
 libxslt1-dev
 portaudio19-dev
