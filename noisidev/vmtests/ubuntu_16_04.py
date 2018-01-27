@@ -213,7 +213,7 @@ def run_command(client, command):
 
     def x11_handler(channel, src):
         x11_fileno = channel.fileno()
-        local_x11_channel = xlib_connect.get_socket(*local_x11_display[:3])
+        local_x11_channel = xlib_connect.get_socket(*local_x11_display[:4])
         local_x11_fileno = local_x11_channel.fileno()
 
         # Register both x11 and local_x11 channels

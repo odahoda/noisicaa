@@ -35,11 +35,9 @@ unzip
 
 # libswresample
 libswresample-dev
-libswresample2
 
 # libavutil
 libavutil-dev
-libavutil55
 
 # encoding
 ffmpeg

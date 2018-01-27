@@ -25,3 +25,4 @@ pyyaml
 python-xlib
 ./3rdparty/protoc/
 protobuf
+paramiko
