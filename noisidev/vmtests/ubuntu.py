@@ -200,7 +200,7 @@ python3 -m venv ENV
 . ENV/bin/activate
 
 sudo apt-get -q -y install $(./listdeps --system --build)
-pip install --upgrade pip
+pip install --upgrade pip wheel
 pip install $(./listdeps --pip --build)
 python3 setup.py build
 

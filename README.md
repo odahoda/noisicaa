@@ -25,14 +25,16 @@ Requirements
 ------------
 
 This project is currenly only designed to run on Linux desktops. No effort has
-yet been made to make it run on anything else than the latest Ubuntu release
-(16.04 at the time of writing).
+yet been made to make it run on anything else than Ubuntu 16.04 and 17.10
+(which are the distributions used for development).
 
 Getting Started
 ---------------
 
-These instructions are not targetted at end users. It is assumed that you're
-moderately experienced with software development on Linux.
+These instructions are not targetted at end users. There are not prebuilt
+binary packages, which you could just install, so you have to build from
+source. It is assumed that you're moderately experienced with software
+development on Linux.
 
 First grab the latest source code:
 
@@ -40,18 +42,20 @@ First grab the latest source code:
     cd noisicaa
 Then install the deb packages that are needed to build and run it:
 
-    sudo apt-get install $(./requirements.ubuntu.pkgs)
+    sudo apt-get install $(./listdeps --system --build)
 For the first time setup, create a new virtualenv:
 
-    pyvenv-3.5 ENV
+    python3 -m venv ENV
     . ENV/bin/activate
+    pip install --upgrade pip wheel
 And populate it with a bunch of python packages that noisicaä uses:
 
-    pip install -r requirements.txt
+    pip install $(./listdeps --pip --build)
 Now you should be ready to build it:
 
     python3 setup.py build
-And finally run
+There is currently no way to install it, so you can only run it from the build
+directory using
 
     bin/noisicaä
 

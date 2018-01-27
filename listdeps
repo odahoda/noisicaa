@@ -1,157 +1,250 @@
 #!/usr/bin/python3
 
 import argparse
+import functools
+import operator
 import os.path
 import subprocess
 import sys
+import textwrap
+
+def PKG(name, pkg_dist=None, pkg_release=None):
+    def check(dist, release):
+        if isinstance(pkg_dist, str) and dist != pkg_dist:
+            return None
+
+        if isinstance(pkg_dist, set) and dist not in pkg_dist:
+            return None
+
+        if isinstance(pkg_release, str):
+            if pkg_release.startswith('<='):
+                op = operator.le
+                check_release = pkg_release[2:]
+            elif pkg_release.startswith('<'):
+                op = operator.lt
+                check_release = pkg_release[1:]
+            elif pkg_release.startswith('>='):
+                op = operator.ge
+                check_release = pkg_release[2:]
+            elif pkg_release.startswith('>'):
+                op = operator.gt
+                check_release = pkg_release[1:]
+            else:
+                op = operator.eq
+                check_release = pkg_release
+
+            if not op(release, check_release):
+                return None
+
+        if isinstance(pkg_release, set) and release not in pkg_release:
+            return None
+
+        return name
+
+    return check
+
 
 PIP_DEPS = {
     'runtime': [
-        './3rdparty/csound/',
-        './3rdparty/lilv/',
-        './3rdparty/lv2/',
-        './3rdparty/protoc/',
-        'PyQt5',
-        'eventfd',
-        #'lxml',
-        'numpy',
-        'portalocker',
-        'posix_ipc',
-        'protobuf',
-        'psutil',
-        'pyaudio',
-        'pycapnp',
-        'quamash',
-        'toposort',
+        PKG('./3rdparty/csound/', 'ubuntu', '<17.10'),
+        PKG('./3rdparty/lv2/', 'ubuntu', '<17.10'),
+        PKG('./3rdparty/lilv/', 'ubuntu', '<17.10'),
+        PKG('PyQt5'),
+        PKG('eventfd'),
+        PKG('numpy'),
+        PKG('portalocker'),
+        PKG('posix_ipc'),
+        PKG('protobuf'),
+        PKG('psutil'),
+        PKG('pyaudio'),
+        PKG('pycapnp'),
+        PKG('quamash'),
+        PKG('toposort'),
     ],
     'build': [
-        'wheel',
-        'asynctest',
-        'coverage',
-        'cssutils',
-        'cython',
-        'pkgconfig',
-        'pyyaml',
+        PKG('./3rdparty/protoc/', 'ubuntu', '<17.10'),
+        PKG('cssutils'),
+        PKG('cython'),
+        PKG('pkgconfig'),
+        PKG('pyyaml'),
     ],
     'dev': [
-        'mox3',
-        'paramiko',
-        'py-cpuinfo',
-        'pyfakefs',
-        'pylint',
-        'python-xlib',
+        PKG('asynctest'),
+        PKG('coverage'),
+        PKG('mox3'),
+        PKG('py-cpuinfo'),
+        PKG('pyfakefs'),
+        PKG('pylint'),
+    ],
+    'vmtests': [
+        PKG('paramiko'),
+        PKG('python-xlib'),
     ],
 }
 
 SYS_DEPS = {
     'runtime': [
         # sf2
-        'libfluidsynth1',
-        'timgm6mb-soundfont',
-        'fluid-soundfont-gs',
-        'fluid-soundfont-gm',
+        PKG('libfluidsynth1'),
+        PKG('timgm6mb-soundfont'),
+        PKG('fluid-soundfont-gs'),
+        PKG('fluid-soundfont-gm'),
 
         # encoding
-        'ffmpeg',
+        PKG('ffmpeg'),
     ],
     'build': [
-        # lilv
-        'libserd-dev',
-        'libsord-dev',
-        'libsratom-dev',
+        # lv2/lilv
+        PKG('libserd-dev'),
+        PKG('libsord-dev'),
+        PKG('libsratom-dev'),
+        PKG('lv2-dev', 'ubuntu', '>=17.10'),
+        PKG('liblilv-dev', 'ubuntu', '>=17.10'),
 
         # ladspa
-        'ladspa-sdk',
+        PKG('ladspa-sdk'),
+
+        # sndfile
+        PKG('libsndfile1-dev'),
 
         # csound
-        'libsndfile1-dev',
-        'libsamplerate0-dev',
-        'libboost-dev',
-        'flex',
-        'bison',
-        'cmake',
+        PKG('libsamplerate0-dev', 'ubuntu', '<17.10'),
+        PKG('libboost-dev', 'ubuntu', '<17.10'),
+        PKG('flex', 'ubuntu', '<17.10'),
+        PKG('bison', 'ubuntu', '<17.10'),
+        PKG('cmake', 'ubuntu', '<17.10'),
+        PKG('csound', 'ubuntu', '>=17.10'),
+        PKG('libcsound64-dev', 'ubuntu', '>=17.10'),
 
         # capnp
-        'capnproto',
-        'libcapnp-0.5.3',
-        'libcapnp-dev',
+        PKG('capnproto'),
+        PKG('libcapnp-0.5.3'),
+        PKG('libcapnp-dev'),
 
         # protocol buffers
-        # - build locally, see installation instructions for current list of dependencies.
-        'autoconf',
-        'automake',
-        'libtool',
-        'curl',
-        'make',
-        'g++',
-        'unzip',
+        PKG('autoconf', 'ubuntu', '<17.10'),
+        PKG('automake', 'ubuntu', '<17.10'),
+        PKG('libtool', 'ubuntu', '<17.10'),
+        PKG('curl', 'ubuntu', '<17.10'),
+        PKG('make', 'ubuntu', '<17.10'),
+        PKG('g++', 'ubuntu', '<17.10'),
+        PKG('unzip', 'ubuntu', '<17.10'),
+        PKG('libprotobuf-dev', 'ubuntu', '>=17.10'),
+        PKG('protobuf-compiler', 'ubuntu', '>=17.10'),
 
         # libswresample
-        'libswresample-dev',
+        PKG('libswresample-dev'),
 
         # libavutil
-        'libavutil-dev',
+        PKG('libavutil-dev'),
 
         # other...
-        'python3-dev',
-        #'libxml2-dev',
-        #'libxslt1-dev',
-        'portaudio19-dev',
-        'libfluidsynth-dev',
-        'inkscape',
-        'zlib1g-dev',
+        PKG('cmake'),
+        PKG('python3-dev'),
+        PKG('portaudio19-dev'),
+        PKG('libfluidsynth-dev'),
+        PKG('inkscape'),
+        PKG('zlib1g-dev'),
     ],
     'dev': [
-        'mda-lv2',
-        'swh-plugins',
-        'gdb',
+        PKG('mda-lv2'),
+        PKG('swh-plugins'),
+        PKG('gdb'),
+    ],
+    'vmtests': [
+        PKG('virtualbox'),
     ],
 }
 
 
-def pip_deps(dist, mode):
-    if mode == 'runtime':
-        return PIP_DEPS['runtime']
-    if mode == 'build':
-        return PIP_DEPS['runtime'] + PIP_DEPS['build']
-    if mode == 'dev':
-        return PIP_DEPS['runtime'] + PIP_DEPS['build'] + PIP_DEPS['dev']
+def list_deps(depdef, dist, release, mode):
+    # The ordering of the package list is significant, because I can't figure out how to make lv2
+    # get installed before lilv...
+    packages = []
 
-def system_deps(dist, mode):
     if mode == 'runtime':
-        return SYS_DEPS['runtime']
+        deps = depdef['runtime']
     if mode == 'build':
-        return SYS_DEPS['runtime'] + SYS_DEPS['build']
+        packages += list_deps(depdef, dist, release, 'runtime')
+        deps = depdef['build']
     if mode == 'dev':
-        return SYS_DEPS['runtime'] + SYS_DEPS['build'] + SYS_DEPS['dev']
+        packages += list_deps(depdef, dist, release, 'build')
+        deps = depdef['dev']
+    if mode == 'vmtests':
+        packages += list_deps(depdef, dist, release, 'dev')
+        deps = depdef['vmtests']
+
+    for dep in deps:
+        pkg = dep(dist, release)
+        if pkg is not None and pkg not in packages:
+            packages.append(pkg)
+
+    return packages
+
+
+def pip_deps(dist, release, mode):
+    return list_deps(PIP_DEPS, dist, release, mode)
+
+
+def system_deps(dist, release, mode):
+    return list_deps(SYS_DEPS, dist, release, mode)
 
 
 def main(argv):
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument('--pip', action='store_const', const=True, default=False)
-    argparser.add_argument('--system', action='store_const', const=True, default=False)
-    argparser.add_argument('--runtime', action='store_const', const=True, default=False)
-    argparser.add_argument('--build', action='store_const', const=True, default=False)
-    argparser.add_argument('--dev', action='store_const', const=True, default=False)
-    argparser.add_argument('--dist', type=str, default=None)
+    argparser = argparse.ArgumentParser(
+        description=textwrap.dedent("""\
+            List the packages that noisicaä depends on.
+
+            E.g. to install all dependencies needed to build noisicaä from source:
+              $ pip install $(./listdeps --pip --build)
+              $ apt install $(./listdeps --system --build)
+            """),
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    argparser.add_argument(
+        '--pip', action='store_const', const=True, default=False,
+        help="List python packages (to be installed with e.g. 'pip').")
+    argparser.add_argument(
+        '--system', action='store_const', const=True, default=False,
+        help="List system packages (to be installed with e.g. 'apt').")
+    argparser.add_argument(
+        '--runtime', action='store_const', const=True, default=False,
+        help="List packages needed to run noisicaä.")
+    argparser.add_argument(
+        '--build', action='store_const', const=True, default=False,
+        help="List packages needed to build noisicaä. This includes 'runtime' dependencies.")
+    argparser.add_argument(
+        '--dev', action='store_const', const=True, default=False,
+        help=("List packages needed to develop noisicaä (e.g. run tests). This includes"
+              " 'runtime' and 'build' dependencies."))
+    argparser.add_argument(
+        '--vmtests', action='store_const', const=True, default=False,
+        help=("List packages needed to run noisidev.runvmtests. This includes"
+              " 'runtime', 'build' and 'dev' dependencies."))
+    argparser.add_argument(
+        '--dist', type=str, default=None,
+        help=("Select the distribution for which to list packages. By default the distribution"
+              " is auto'detected."))
     args = argparser.parse_args(argv[1:])
 
     if int(args.pip) + int(args.system) != 1:
         argparser.error("Exactly one of --pip and --system must be set.")
 
-    if int(args.runtime) + int(args.build) + int(args.dev) != 1:
-        argparser.error("Exactly one of --runtime, --build and --dev must be set.")
+    if int(args.runtime) + int(args.build) + int(args.dev) + int(args.vmtests) != 1:
+        argparser.error("Exactly one of --runtime, --build, --dev, --vmtests must be set.")
 
-    if args.dist is None:
+    if args.dist is not None:
+        dist, release = args.dist.split('-', 1)
+    else:
         if os.path.exists('/usr/bin/lsb_release'):
-            dist_id, dist_release = subprocess.check_output(
+            dist, release = subprocess.check_output(
                 ['/usr/bin/lsb_release', '-s', '-i', '-r']).decode('ascii').lower().split('\n', 1)
-            args.dist = '%s-%s' % (dist_id, dist_release)
 
         else:
             argparser.error("Can't auto-detect distribution, please set --dist")
 
-    if args.dev:
+    if args.vmtests:
+        mode = 'vmtests'
+    elif args.dev:
         mode = 'dev'
     elif args.build:
         mode = 'build'
@@ -159,9 +252,9 @@ def main(argv):
         mode = 'runtime'
 
     if args.pip:
-        print('\n'.join(pip_deps(dist=args.dist, mode=mode)))
+        print('\n'.join(pip_deps(dist, release, mode)))
     elif args.system:
-        print('\n'.join(system_deps(dist=args.dist, mode=mode)))
+        print('\n'.join(system_deps(dist, release, mode)))
 
     return 0
 

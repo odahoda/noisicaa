@@ -41,6 +41,8 @@ class TestSettings(object):
     def __init__(self, args):
         self.branch = args.branch
         self.source = args.source
+        self.rebuild_vm = args.rebuild_vm
+        self.just_start = args.just_start
         self.clean_snapshot = args.clean_snapshot
         self.shutdown = args.shutdown
 
@@ -59,23 +61,24 @@ def bool_arg(value):
 
 def main(argv):
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--deletevm', type=str, default=None)
     argparser.add_argument('--source', type=str, choices=['local', 'git'], default='local')
     argparser.add_argument('--branch', type=str, default='master')
-    argparser.add_argument('--clean-snapshot', type=bool_arg, default=True)
-    argparser.add_argument('--shutdown', type=bool_arg, default=True)
+    argparser.add_argument(
+        '--rebuild-vm', type=bool_arg, default=False,
+        help="Rebuild the VM from scratch, discarding the current state.")
+    argparser.add_argument(
+        '--clean-snapshot', type=bool_arg, default=True,
+        help=("Restore the VM from the 'clean' snapshot (which was created after the VM has"
+              " been setup) before running the tests."))
+    argparser.add_argument(
+        '--just-start', type=bool_arg, default=False,
+        help=("Just start the VM in the current state (not restoring the clean snapshot)"
+              " and don't run the tests."))
+    argparser.add_argument(
+        '--shutdown', type=bool_arg, default=True,
+        help="Shut the VM down after running the tests.")
     argparser.add_argument('vms', nargs='*')
     args = argparser.parse_args(argv[1:])
-
-    if args.deletevm is not None:
-        try:
-            vm = VMs[args.deletevm]
-        except KeyError:
-            print("Invalid distribution name.")
-            return 1
-
-        vm.delete()
-        return 0
 
     if not args.vms:
         args.vms = list(sorted(VMs.keys()))

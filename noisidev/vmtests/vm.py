@@ -186,7 +186,7 @@ class VM(object):
             self.vboxmanage(
                 'modifyvm', self.name,
                 '--memory', '1024',  # 1G
-                '--cpus', '2',
+                '--cpus', '%d' % os.cpu_count(),
                 '--nic1', 'bridged',
                 '--bridgeadapter1', self.get_default_if(),
                 '--audio', 'alsa',
@@ -261,7 +261,17 @@ class VM(object):
         raise NotImplementedError
 
     def runtest(self, settings):
+        if settings.just_start:
+            self.vboxmanage(
+                'startvm', self.name,
+                '--type', 'gui'
+            )
+            return True
+
         try:
+            if settings.rebuild_vm:
+                self.delete()
+
             self.install()
 
             if settings.clean_snapshot:
