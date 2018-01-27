@@ -166,7 +166,7 @@ WRAP_SCRIPT = r'''#!/bin/bash
 set -e
 set -x
 
-sudo apt-get -q -y install git python3.5 python3.5-venv xterm >&2
+sudo apt-get -q -y install git python3 python3-venv xterm >&2
 
 echo -n >test.log
 xterm -e tail -f test.log &
@@ -196,13 +196,16 @@ fi
 
 cd noisicaa/
 
-pyvenv-3.5 ENV
+python3 -m venv ENV
 . ENV/bin/activate
 
-sudo apt-get -q -y install $(./requirements.ubuntu.pkgs)
+sudo apt-get -q -y install $(./listdeps --system --build)
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install $(./listdeps --pip --build)
 python3 setup.py build
+
+sudo apt-get -q -y install $(./listdeps --system --dev)
+pip install $(./listdeps --pip --dev)
 bin/runtests --gdb=false
 '''
 
@@ -267,13 +270,11 @@ def run_command(client, command):
     return session.recv_exit_status(), b''.join(stdout), b''.join(stderr)
 
 
-class Ubuntu_16_04(vm.VM):
-    def __init__(self):
-        super().__init__(name='ubuntu-16.04')
+class Ubuntu(vm.VM):
+    def __init__(self, *, release, iso_url):
+        super().__init__(name='ubuntu-%s' % release)
 
-        self.iso_url = (
-            'http://archive.ubuntu.com/ubuntu/dists/xenial-updates/main/'
-            'installer-amd64/current/images/netboot/mini.iso')
+        self.iso_url = iso_url
 
     def do_install(self):
         orig_iso_path = os.path.join(self.vm_dir, 'installer-orig.iso')
@@ -334,7 +335,7 @@ class Ubuntu_16_04(vm.VM):
         self.run_cmd(
             ['mkisofs',
              '-r',
-             '-V', 'ubuntu 16.04 netboot unattended',
+             '-V', '%s netboot unattended' % self.name,
              '-cache-inodes', '-J', '-l',
              '-b', 'isolinux.bin',
              '-c', 'boot.cat',
@@ -502,3 +503,22 @@ label unattended
             print()
             print('  ERROR')
             return False
+
+
+class Ubuntu_16_04(Ubuntu):
+    def __init__(self):
+        super().__init__(
+            release='16.04',
+            iso_url=('http://archive.ubuntu.com/ubuntu/dists/xenial-updates/main/'
+                     'installer-amd64/current/images/netboot/mini.iso'),
+        )
+
+
+class Ubuntu_17_10(Ubuntu):
+    def __init__(self):
+        super().__init__(
+            release='17.10',
+            iso_url=('http://archive.ubuntu.com/ubuntu/dists/artful-updates/main/'
+                     'installer-amd64/current/images/netboot/mini.iso'),
+        )
+

@@ -25,7 +25,7 @@ import os
 import os.path
 import sys
 
-from .vmtests import ubuntu_16_04
+from .vmtests import ubuntu
 
 VMs = {}
 
@@ -33,7 +33,8 @@ def register_vm(vm):
     assert vm.name not in VMs
     VMs[vm.name] = vm
 
-register_vm(ubuntu_16_04.Ubuntu_16_04())
+register_vm(ubuntu.Ubuntu_16_04())
+register_vm(ubuntu.Ubuntu_17_10())
 
 
 class TestSettings(object):
@@ -63,6 +64,7 @@ def main(argv):
     argparser.add_argument('--branch', type=str, default='master')
     argparser.add_argument('--clean-snapshot', type=bool_arg, default=True)
     argparser.add_argument('--shutdown', type=bool_arg, default=True)
+    argparser.add_argument('vms', nargs='*')
     args = argparser.parse_args(argv[1:])
 
     if args.deletevm is not None:
@@ -75,11 +77,15 @@ def main(argv):
         vm.delete()
         return 0
 
+    if not args.vms:
+        args.vms = list(sorted(VMs.keys()))
+
     settings = TestSettings(args)
 
     results = {}
     for _, vm in sorted(VMs.items()):
-        results[vm.name] = vm.runtest(settings)
+        if vm.name in args.vms:
+            results[vm.name] = vm.runtest(settings)
 
     if not all(results.values()):
         print()
