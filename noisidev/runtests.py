@@ -199,7 +199,7 @@ def main(argv):
     parser.add_argument(
         '--log-level',
         choices=['debug', 'info', 'warning', 'error', 'critical'],
-        default='error',
+        default='critical',
         help="Minimum level for log messages written to STDERR.")
     parser.add_argument('--coverage', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--write-perf-stats', nargs='?', type=bool_arg, const=True, default=False)
