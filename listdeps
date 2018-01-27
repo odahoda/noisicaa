@@ -1,0 +1,170 @@
+#!/usr/bin/python3
+
+import argparse
+import os.path
+import subprocess
+import sys
+
+PIP_DEPS = {
+    'runtime': [
+        './3rdparty/csound/',
+        './3rdparty/lilv/',
+        './3rdparty/lv2/',
+        './3rdparty/protoc/',
+        'PyQt5',
+        'eventfd',
+        #'lxml',
+        'numpy',
+        'portalocker',
+        'posix_ipc',
+        'protobuf',
+        'psutil',
+        'pyaudio',
+        'pycapnp',
+        'quamash',
+        'toposort',
+    ],
+    'build': [
+        'wheel',
+        'asynctest',
+        'coverage',
+        'cssutils',
+        'cython',
+        'pkgconfig',
+        'pyyaml',
+    ],
+    'dev': [
+        'mox3',
+        'paramiko',
+        'py-cpuinfo',
+        'pyfakefs',
+        'pylint',
+        'python-xlib',
+    ],
+}
+
+SYS_DEPS = {
+    'runtime': [
+        # sf2
+        'libfluidsynth1',
+        'timgm6mb-soundfont',
+        'fluid-soundfont-gs',
+        'fluid-soundfont-gm',
+
+        # encoding
+        'ffmpeg',
+    ],
+    'build': [
+        # lilv
+        'libserd-dev',
+        'libsord-dev',
+        'libsratom-dev',
+
+        # ladspa
+        'ladspa-sdk',
+
+        # csound
+        'libsndfile1-dev',
+        'libsamplerate0-dev',
+        'libboost-dev',
+        'flex',
+        'bison',
+        'cmake',
+
+        # capnp
+        'capnproto',
+        'libcapnp-0.5.3',
+        'libcapnp-dev',
+
+        # protocol buffers
+        # - build locally, see installation instructions for current list of dependencies.
+        'autoconf',
+        'automake',
+        'libtool',
+        'curl',
+        'make',
+        'g++',
+        'unzip',
+
+        # libswresample
+        'libswresample-dev',
+
+        # libavutil
+        'libavutil-dev',
+
+        # other...
+        'python3-dev',
+        #'libxml2-dev',
+        #'libxslt1-dev',
+        'portaudio19-dev',
+        'libfluidsynth-dev',
+        'inkscape',
+        'zlib1g-dev',
+    ],
+    'dev': [
+        'mda-lv2',
+        'swh-plugins',
+        'gdb',
+    ],
+}
+
+
+def pip_deps(dist, mode):
+    if mode == 'runtime':
+        return PIP_DEPS['runtime']
+    if mode == 'build':
+        return PIP_DEPS['runtime'] + PIP_DEPS['build']
+    if mode == 'dev':
+        return PIP_DEPS['runtime'] + PIP_DEPS['build'] + PIP_DEPS['dev']
+
+def system_deps(dist, mode):
+    if mode == 'runtime':
+        return SYS_DEPS['runtime']
+    if mode == 'build':
+        return SYS_DEPS['runtime'] + SYS_DEPS['build']
+    if mode == 'dev':
+        return SYS_DEPS['runtime'] + SYS_DEPS['build'] + SYS_DEPS['dev']
+
+
+def main(argv):
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument('--pip', action='store_const', const=True, default=False)
+    argparser.add_argument('--system', action='store_const', const=True, default=False)
+    argparser.add_argument('--runtime', action='store_const', const=True, default=False)
+    argparser.add_argument('--build', action='store_const', const=True, default=False)
+    argparser.add_argument('--dev', action='store_const', const=True, default=False)
+    argparser.add_argument('--dist', type=str, default=None)
+    args = argparser.parse_args(argv[1:])
+
+    if int(args.pip) + int(args.system) != 1:
+        argparser.error("Exactly one of --pip and --system must be set.")
+
+    if int(args.runtime) + int(args.build) + int(args.dev) != 1:
+        argparser.error("Exactly one of --runtime, --build and --dev must be set.")
+
+    if args.dist is None:
+        if os.path.exists('/usr/bin/lsb_release'):
+            dist_id, dist_release = subprocess.check_output(
+                ['/usr/bin/lsb_release', '-s', '-i', '-r']).decode('ascii').lower().split('\n', 1)
+            args.dist = '%s-%s' % (dist_id, dist_release)
+
+        else:
+            argparser.error("Can't auto-detect distribution, please set --dist")
+
+    if args.dev:
+        mode = 'dev'
+    elif args.build:
+        mode = 'build'
+    else:
+        mode = 'runtime'
+
+    if args.pip:
+        print('\n'.join(pip_deps(dist=args.dist, mode=mode)))
+    elif args.system:
+        print('\n'.join(system_deps(dist=args.dist, mode=mode)))
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv))
