@@ -1,18 +1,14 @@
 # -*- org-tags-column: -98 -*-
 
-* LV2 support										      :FR:
+* properly prepare atom output buffers                                                       :BUG:
 - apparently an atom output buffer prefilled with a blank atom denoting the size of the buffer.
   - where is that documented?
   - size with or without atom header?
   - any specific atom type?
 
-** support zynaddsubfx
-- required features:
-  - http://lv2plug.in/ns/ext/worker#schedule
-  - http://lv2plug.in/ns/ext/options#options
-- atom input port
-- how to load instrument w/o UI?
-** Native UI support
+* Native LV2 UI support                                                                       :FR:
+- helm works as a plugin, good candidate for a test
+  - helm UI has instance-access as required feature :(
 - ref implementation:
   - http://dev.drobilla.net/browser/suil
   - http://dev.drobilla.net/browser/jalv
@@ -20,6 +16,14 @@
 - needs shared urid mapper for all processes
 - pass port value changes from audioproc process to UI
   - for every block cycle or rate limited to Xfps?
+
+* LV2 support										      :FR:
+** support zynaddsubfx
+- required features:
+  - http://lv2plug.in/ns/ext/worker#schedule
+  - http://lv2plug.in/ns/ext/options#options
+- atom input port
+- how to load instrument w/o UI?
 ** features
 - plugins with unsupported features:
   - include in NodeDB, but mark as non-functional, with reason text?
@@ -44,6 +48,14 @@
 * Exlore pytest as a better unittest framework                                          :RESEARCH:
 - https://docs.pytest.org/en/latest/
 - supports parallel test execution with pytest-xdist
+
+* Revisit source directory structure                                                    :RESEARCH:
+- move all sources into src/
+  - can't accidentally import modules from source
+- have test in tests/
+- what about noisidev?
+- tests run against the installed packages (or from build)
+  - what about test modules that needs building (cython)?
 
 * Handle async calls using a "queue pump"                                                :CLEANUP:
 - separate class
