@@ -73,7 +73,7 @@ class NodeDBClientTest(unittest.AsyncTestCase):
         if self.process is not None:
             if self.process_task is not None:
                 await self.process.shutdown()
-                await asyncio.wait_for(self.process_task, None)
+                await asyncio.wait_for(self.process_task, None, loop=self.loop)
             await self.process.cleanup()
 
     async def test_start_scan(self):

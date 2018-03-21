@@ -42,7 +42,6 @@ from .project_view import ProjectView
 from ..importers.abc import ABCImporter, ImporterError
 from . import ui_base
 from . import instrument_library
-from . import selection_set
 from . import qprogressindicator
 
 logger = logging.getLogger(__name__)
@@ -111,7 +110,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         while self._project_tabs.count() > 0:
             view = self._project_tabs.widget(0)
-            await view.cleanup()
+            if isinstance(view, ProjectView):
+                await view.cleanup()
             self._project_tabs.removeTab(0)
         self._settings_dialog.close()
         self.close()
@@ -488,11 +488,9 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         return idx
 
     async def activateProjectView(self, idx, project_connection):
-        context = ui_base.ProjectContext(
-            selection_set=selection_set.SelectionSet(),
-            project_connection=project_connection,
+        context = ui_base.CommonContext(
             app=self.app)
-        view = ProjectView(context=context)
+        view = ProjectView(project_connection=project_connection, context=context)
         await view.setup()
 
         self._project_tabs.insertTab(idx, view, project_connection.name)

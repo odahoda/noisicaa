@@ -27,7 +27,7 @@ from .musical_time import PyMusicalTime, PyMusicalDuration
 
 class TimeMapperTest(unittest.TestCase):
     def test_sample_to_musical_time(self):
-        tmap = PyTimeMapper()
+        tmap = PyTimeMapper(44100)
         try:
             tmap.setup()
 
@@ -39,7 +39,7 @@ class TimeMapperTest(unittest.TestCase):
             tmap.cleanup()
 
     def test_musical_to_sample_time(self):
-        tmap = PyTimeMapper()
+        tmap = PyTimeMapper(44100)
         try:
             tmap.setup()
 
@@ -51,7 +51,7 @@ class TimeMapperTest(unittest.TestCase):
             tmap.cleanup()
 
     def test_bpm(self):
-        tmap = PyTimeMapper()
+        tmap = PyTimeMapper(44100)
         try:
             tmap.setup()
             self.assertEqual(tmap.bpm, 120)
@@ -66,7 +66,7 @@ class TimeMapperTest(unittest.TestCase):
             tmap.cleanup()
 
     def test_duration(self):
-        tmap = PyTimeMapper()
+        tmap = PyTimeMapper(44100)
         try:
             tmap.setup()
             self.assertEqual(tmap.duration, PyMusicalDuration(4, 1))
@@ -79,7 +79,7 @@ class TimeMapperTest(unittest.TestCase):
             tmap.cleanup()
 
     def test_iter(self):
-        tmap = PyTimeMapper()
+        tmap = PyTimeMapper(44100)
         try:
             tmap.setup()
 
@@ -90,7 +90,7 @@ class TimeMapperTest(unittest.TestCase):
             tmap.cleanup()
 
     def test_find(self):
-        tmap = PyTimeMapper()
+        tmap = PyTimeMapper(44100)
         try:
             tmap.setup()
 

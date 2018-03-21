@@ -28,8 +28,6 @@ from . import track_item_tests
 
 class SampleTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
     async def setup_testcase(self):
-        await super().setup_testcase()
-
         self.project.master_group.tracks.append(model.SampleTrack(obj_id='track-1'))
 
         self.tool_box = sample_track_item.SampleTrackToolBox(**self.context_args)

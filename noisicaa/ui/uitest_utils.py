@@ -151,23 +151,29 @@ class AsyncSetupBase():
         pass
 
 
-class TestNodeDBProcess(node_db.NodeDBProcessBase):
-    def handle_start_session(self, client_address, flags):
-        return '123'
+class TestNodeDBSession(core.CallbackSessionMixin, core.SessionBase):
+    async_connect = False
 
-    def handle_end_session(self, session_id):
-        return None
+    def __init__(self, client_address, flags, **kwargs):
+        super().__init__(callback_address=client_address, **kwargs)
+
+
+class TestNodeDBProcess(node_db.NodeDBProcessBase):
+    session_cls = TestNodeDBSession
 
     def handle_start_scan(self, session_id):
         return None
 
 
-class TestInstrumentDBProcess(instrument_db.InstrumentDBProcessBase):
-    def handle_start_session(self, client_address, flags):
-        return '123'
+class TestInstrumentDBSession(core.CallbackSessionMixin, core.SessionBase):
+    async_connect = False
 
-    def handle_end_session(self, session_id):
-        return None
+    def __init__(self, client_address, flags, **kwargs):
+        super().__init__(callback_address=client_address, **kwargs)
+
+
+class TestInstrumentDBProcess(instrument_db.InstrumentDBProcessBase):
+    session_cls = TestInstrumentDBSession
 
     def handle_start_scan(self, session_id):
         return None
@@ -268,13 +274,13 @@ class UITest(unittest.AsyncTestCase):
         if self.node_db_process is not None:
             if self.node_db_process_task is not None:
                 await self.node_db_process.shutdown()
-                await asyncio.wait_for(self.node_db_process_task, None)
+                await asyncio.wait_for(self.node_db_process_task, None, loop=self.loop)
             await self.node_db_process.cleanup()
 
         if self.instrument_db_process is not None:
             if self.instrument_db_process_task is not None:
                 await self.instrument_db_process.shutdown()
-                await asyncio.wait_for(self.instrument_db_process_task, None)
+                await asyncio.wait_for(self.instrument_db_process_task, None, loop=self.loop)
             await self.instrument_db_process.cleanup()
 
     _snapshot_numbers = {}

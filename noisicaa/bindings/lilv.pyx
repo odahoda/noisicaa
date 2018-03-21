@@ -22,11 +22,9 @@ from cpython.ref cimport PyObject
 from libc.stdint cimport uint8_t, uint32_t
 from libc cimport stdlib
 from libc cimport string
-cimport numpy
 
 import logging
 import operator
-import numpy
 
 from .lv2.core cimport (
     Feature,
@@ -100,18 +98,6 @@ cdef class Plugin(object):
 #         testing utilities, etc.
 #         """
 #         return plugin_verify(self.plugin)
-
-    def get_missing_features(self):
-        missing = []
-
-        for feature_uri in self.get_required_features():
-            if not supports_feature(feature_uri):
-                missing.append(feature_uri)
-
-        return missing
-
-    def instantiate(self, double rate):
-        return Instance().init(self.world, self, rate)
 
     def get_uri(self):
         """Get the URI of `plugin`.
@@ -193,37 +179,49 @@ cdef class Plugin(object):
         """
         return lilv_plugin_has_feature(self.plugin, feature_uri.node)
 
-    def get_supported_features(self):
-        """Get the LV2 Features supported (required or optionally) by a plugin.
+    @property
+    def required_features(self):
+        cdef:
+            LilvNodes* nodes
+            LilvIter* it
+            const LilvNode* node
+        result = []
 
-        A feature is "supported" by a plugin if it is required OR optional.
+        nodes = lilv_plugin_get_required_features(self.plugin)
+        try:
+            it = lilv_nodes_begin(nodes)
+            while not lilv_nodes_is_end(nodes, it):
+                node = lilv_nodes_get(nodes, it)
+                assert node != NULL
+                result.append(lilv_node_as_string(node).decode('utf-8'))
+                it = lilv_nodes_next(nodes, it)
 
-        Since required features have special rules the host must obey, this function
-        probably shouldn't be used by normal hosts.  Using get_optional_features()
-        and get_required_features() separately is best in most cases.
-        """
-        return Nodes().init(lilv_plugin_get_supported_features(self.plugin))
+        finally:
+            lilv_nodes_free(nodes)
 
-    def get_required_features(self):
-        """Get the LV2 Features required by a plugin.
+        return result
 
-        If a feature is required by a plugin, hosts MUST NOT use the plugin if they do not
-        understand (or are unable to support) that feature.
+    @property
+    def optional_features(self):
+        cdef:
+            LilvNodes* nodes
+            LilvIter* it
+            const LilvNode* node
+        result = []
 
-        All values returned here MUST be return plugin_(self.plugin)ed to the plugin's instantiate method
-        (along with data, if necessary, as defined by the feature specification)
-        or plugin instantiation will fail.
-        """
-        return Nodes().init(lilv_plugin_get_required_features(self.plugin))
+        nodes = lilv_plugin_get_optional_features(self.plugin)
+        try:
+            it = lilv_nodes_begin(nodes)
+            while not lilv_nodes_is_end(nodes, it):
+                node = lilv_nodes_get(nodes, it)
+                assert node != NULL
+                result.append(lilv_node_as_string(node).decode('utf-8'))
+                it = lilv_nodes_next(nodes, it)
 
-    def get_optional_features(self):
-        """Get the LV2 Features optionally supported by a plugin.
+        finally:
+            lilv_nodes_free(nodes)
 
-        Hosts MAY ignore optional plugin features for whatever reasons.  Plugins
-        MUST operate (at least somewhat) if they are instantiated without being
-        passed optional features.
-        """
-        return Nodes().init(lilv_plugin_get_optional_features(self.plugin))
+        return result
 
     def has_extension_data(self, Node uri):
         """Return whether or not a plugin provides a specific extension data."""
@@ -376,9 +374,10 @@ cdef class Plugin(object):
 #         """
 #         return Nodes().init(plugin_get_related(self.plugin, resource_type))
 
-#     def get_uis(self):
-#         """Get all UIs for `plugin`."""
-#         return UIs(plugin_get_uis(self.plugin))
+    def get_uis(self):
+        """Get all UIs for `plugin`."""
+        return UIs().init(self.world, lilv_plugin_get_uis(self.plugin))
+
 
 # class PluginClass(Structure):
 #     """Plugin Class (type/category)."""
@@ -529,40 +528,6 @@ cdef class Port(object):
 #         """Get the value of this scale point (enumeration value)."""
 #         return WrapNode(scale_point_get_value(self.point))
 
-# class UI(Structure):
-#     """Plugin UI."""
-#     def __init__(self, ui):
-#         self.ui = ui
-
-#     def __str__(self):
-#         return str(self.get_uri())
-
-#     def __eq__(self, other):
-#         return self.get_uri() == _as_uri(other)
-
-#     def get_uri(self):
-#         """Get the URI of a Plugin UI."""
-#         return WrapNode(lilv_node_duplicate(ui_get_uri(self.ui)))
-
-#     def get_classes(self):
-#         """Get the types (URIs of RDF classes) of a Plugin UI.
-
-#         Note that in most cases is_supported() should be used, which avoids
-#            the need to use this function (and type specific logic).
-#         """
-#         return Nodes().init(ui_get_classes(self.ui))
-
-#     def is_a(self, class_uri):
-#         """Check whether a plugin UI has a given type."""
-#         return ui_is_a(self.ui, class_uri.node)
-
-#     def get_bundle_uri(self):
-#         """Get the URI of the UI's bundle."""
-#         return WrapNode(lilv_node_duplicate(ui_get_bundle_uri(self.ui)))
-
-#     def get_binary_uri(self):
-#         """Get the URI for the UI's shared library."""
-#         return WrapNode(lilv_node_duplicate(ui_get_binary_uri(self.ui)))
 
 cdef class BaseNode(object):
     """Data node (URI, string, integer, etc.).
@@ -804,26 +769,155 @@ cdef class Plugins(object):
 #     def __len__(self):
 #         return scale_points_size(self.collection)
 
-# class UIs(Collection):
-#     """Collection of plugin UIs."""
-#     def __init__(self, collection):
-#         super(UIs, self).__init__(collection, uis_begin, UI,
-#                                   uis_get, uis_next, uis_is_end)
+cdef class UI(object):
+    """Plugin UI."""
 
-#     def __contains__(self, uri):
-#         return bool(self.get_by_uri(_as_uri(uri)))
+    def __cdef__(self):
+        self.ui = NULL
 
-#     def __len__(self):
-#         return uis_size(self.collection)
+    cdef init(self, World world, const LilvUI* ui):
+        self.world  = world
+        self.ui = ui
+        return self
 
-#     def __getitem__(self, key):
-#         if type(key) == int:
-#             return super(UIs, self).__getitem__(key)
-#         return self.get_by_uri(key)
+#     def __str__(self):
+#         return str(self.get_uri())
 
-#     def get_by_uri(self, uri):
-#         ui = uis_get_by_uri(self.collection, uri.node)
-#         return UI(ui) if ui else None
+#     def __eq__(self, other):
+#         return self.get_uri() == _as_uri(other)
+
+    def get_classes(self):
+        """Get the types (URIs of RDF classes) of a Plugin UI.
+
+        Note that in most cases is_supported() should be used, which avoids
+        the need to use this function (and type specific logic).
+        """
+        return ConstNodes().init(lilv_ui_get_classes(self.ui))
+
+#     def is_a(self, class_uri):
+#         """Check whether a plugin UI has a given type."""
+#         return ui_is_a(self.ui, class_uri.node)
+
+    def has_feature(self, BaseNode feature_uri):
+        """Return whether a feature is supported by a UI.
+
+        This will return true if the feature is an optional or required feature
+        of the UI.
+        """
+        return lilv_ui_has_feature(self.ui, feature_uri.node)
+
+    @property
+    def required_features(self):
+        cdef:
+            LilvNodes* nodes
+            LilvIter* it
+            const LilvNode* node
+        result = []
+
+        nodes = lilv_ui_get_required_features(self.ui)
+        try:
+            it = lilv_nodes_begin(nodes)
+            while not lilv_nodes_is_end(nodes, it):
+                node = lilv_nodes_get(nodes, it)
+                assert node != NULL
+                result.append(lilv_node_as_string(node).decode('utf-8'))
+                it = lilv_nodes_next(nodes, it)
+
+        finally:
+            lilv_nodes_free(nodes)
+
+        return result
+
+    @property
+    def optional_features(self):
+        cdef:
+            LilvNodes* nodes
+            LilvIter* it
+            const LilvNode* node
+        result = []
+
+        nodes = lilv_ui_get_optional_features(self.ui)
+        try:
+            it = lilv_nodes_begin(nodes)
+            while not lilv_nodes_is_end(nodes, it):
+                node = lilv_nodes_get(nodes, it)
+                assert node != NULL
+                result.append(lilv_node_as_string(node).decode('utf-8'))
+                it = lilv_nodes_next(nodes, it)
+
+        finally:
+            lilv_nodes_free(nodes)
+
+        return result
+
+    @property
+    def uri(self):
+        cdef const char* uri = lilv_node_as_uri(lilv_ui_get_uri(self.ui))
+        if uri == NULL:
+            raise ValueError("not a uri")
+        return uri.decode('utf-8')
+
+    @property
+    def binary_path(self):
+        cdef char* path = lilv_node_get_path(lilv_ui_get_binary_uri(self.ui), NULL)
+        if path == NULL:
+            raise ValueError("not a path")
+        try:
+            return path.decode('utf-8')
+
+        finally:
+            lilv_free(path)
+
+    @property
+    def bundle_path(self):
+        cdef char* path = lilv_node_get_path(lilv_ui_get_bundle_uri(self.ui), NULL)
+        if path == NULL:
+            raise ValueError("not a path")
+        try:
+            return path.decode('utf-8')
+
+        finally:
+            lilv_free(path)
+
+
+cdef class UIs(object):
+    """Collection of plugin UIs."""
+
+    def __cinit__(self):
+        self.uis = NULL
+
+    cdef init(self, World world, const LilvUIs* uis):
+        self.world = world
+        self.uis = uis
+        return self
+
+    def __iter__(self):
+        cdef LilvIter* it
+        cdef const LilvUI* ui
+
+        it = lilv_uis_begin(self.uis)
+        while not lilv_uis_is_end(self.uis, it):
+            ui = lilv_uis_get(self.uis, it)
+            assert ui != NULL
+            yield UI().init(self.world, ui)
+            it = lilv_uis_next(self.uis, it)
+
+    # def __contains__(self, key):
+    #     return bool(self.get_by_uri(_as_uri(key)))
+
+    # def __len__(self):
+    #     return plugins_size(self.collection)
+
+    # def __getitem__(self, key):
+    #     if type(key) == int:
+    #         return super(Plugins, self).__getitem__(key)
+    #     return self.get_by_uri(key)
+
+    def get_by_uri(self, Node uri):
+        cdef const LilvUI* ui
+        ui = lilv_uis_get_by_uri(self.uis, uri.node)
+        return UI().init(self.world, ui) if ui != NULL else None
+
 
 cdef class Namespace(object):
     """Namespace prefix.
@@ -1065,141 +1159,6 @@ cdef class World(object):
     def new_bool(self, val):
         """Create a new bool node."""
         return WrapNode(lilv_new_bool(self.world, val))
-
-
-cdef class Instance(object):
-    """Plugin instance."""
-
-    def __cinit__(self):
-        self.lv2_features = NULL
-        self.instance = NULL
-
-    cdef init(self, World world, Plugin plugin, double rate):
-        self.world = world
-        self.plugin = plugin
-        self.rate = rate
-
-        self.features = []
-
-        logger.info("Instantiate plugin %s...", self.plugin.get_uri())
-
-        used_features = []
-        for feature_uri in self.plugin.get_supported_features():
-            if supports_feature(feature_uri):
-                logger.info("with feature %s", feature_uri)
-                used_features.append(feature_uri)
-
-        self.lv2_features = <const LV2_Feature**>stdlib.calloc(
-            sizeof(LV2_Feature*), len(used_features) + 1)
-        cdef Feature feature
-        for idx, feature_uri in enumerate(used_features):
-            feature = get_feature(self, feature_uri)
-            self.features.append(feature)
-            self.lv2_features[idx] = &feature.lv2_feature
-        self.lv2_features[len(used_features)] = NULL
-
-        self.instance = lilv_plugin_instantiate(plugin.plugin, rate, self.lv2_features)
-        assert self.instance != NULL
-        return self
-
-    def __dealloc__(self):
-        if self.instance != NULL:
-            lilv_instance_free(self.instance)
-            self.instance = NULL
-
-        if self.lv2_features != NULL:
-            stdlib.free(<void*>self.lv2_features)
-            self.lv2_features = NULL
-
-        self.features.clear()
-
-    @staticmethod
-    cdef Feature create_urid_map_feature(Instance instance):
-        return URID_Map_Feature(instance.world.urid_mapper)
-
-    @staticmethod
-    cdef Feature create_urid_unmap_feature(Instance instance):
-        return URID_Unmap_Feature(instance.world.urid_mapper)
-
-    @staticmethod
-    cdef Feature create_options_feature(Instance instance):
-        return Options_Feature(instance.world.urid_mapper)
-
-    @staticmethod
-    cdef Feature create_bufsize_boundedblocklength_feature(Instance instance):
-        return BufSize_BoundedBlockLength_Feature()
-
-    @staticmethod
-    cdef Feature create_bufsize_powerof2blocklength_feature(Instance instance):
-        return BufSize_PowerOf2BlockLength_Feature()
-
-    @staticmethod
-    cdef Feature create_worker_feature(Instance instance):
-        return Worker_Feature()
-
-    def get_uri(self):
-        """Get the URI of the plugin which `instance` is an instance of.
-
-           Returned string is shared and must not be modified or deleted.
-        """
-        return str(lilv_instance_get_uri(self.instance))
-
-    cdef connect_port(self, int port_index, void* data):
-        """Connect a port to a data location.
-
-           This may be called regardless of whether the plugin is activated,
-           activation and deactivation does not destroy port connections.
-        """
-        lilv_instance_connect_port(self.instance, port_index, data)
-
-    def activate(self):
-        """Activate a plugin instance.
-
-           This resets all state information in the plugin, except for port data
-           locations (as set by connect_port()).  This MUST be called
-           before calling run().
-        """
-        lilv_instance_activate(self.instance)
-
-    def run(self, sample_count):
-        """Run `instance` for `sample_count` frames.
-
-           If the hint lv2:hardRTCapable is set for this plugin, this function is
-           guaranteed not to block.
-        """
-        lilv_instance_run(self.instance, sample_count)
-
-    def deactivate(self):
-        """Deactivate a plugin instance.
-
-           Note that to run the plugin after this you must activate it, which will
-           reset all state information (except port connections).
-        """
-        lilv_instance_deactivate(self.instance)
-
-#     def get_extension_data(self, uri):
-#         """Get extension data from the plugin instance.
-
-#            The type and semantics of the data returned is specific to the particular
-#            extension, though in all cases it is shared and must not be deleted.
-#         """
-#         if self.get_descriptor().extension_data:
-#             return self.get_descriptor().extension_data(str(uri))
-
-feature_map = {
-    URID_Map_Feature.uri: Instance.create_urid_map_feature,
-    URID_Unmap_Feature.uri: Instance.create_urid_unmap_feature,
-    Options_Feature.uri: Instance.create_options_feature,
-    BufSize_BoundedBlockLength_Feature.uri: Instance.create_bufsize_boundedblocklength_feature,
-    BufSize_PowerOf2BlockLength_Feature.uri: Instance.create_bufsize_powerof2blocklength_feature,
-    Worker_Feature.uri: Instance.create_worker_feature,
-}
-
-cdef bool supports_feature(BaseNode uri):
-    return str(uri) in feature_map
-
-cdef Feature get_feature(Instance instance, BaseNode uri):
-    return feature_map[str(uri)](instance)
 
 
 # class State(Structure):

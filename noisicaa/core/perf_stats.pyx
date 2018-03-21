@@ -69,6 +69,15 @@ cdef class PyPerfStats(object):
 
         self.__stats = self.__stats_ptr.get()
 
+    @staticmethod
+    cdef PyPerfStats create(PerfStats* c_stats):
+        if c_stats == NULL:
+            return None
+
+        cdef PyPerfStats stats = PyPerfStats.__new__(PyPerfStats)
+        stats.__stats = c_stats
+        return stats
+
     cdef PerfStats* get(self):
         return self.__stats_ptr.get()
 

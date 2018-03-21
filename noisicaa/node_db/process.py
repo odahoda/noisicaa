@@ -21,42 +21,33 @@
 # @end:license
 
 import logging
-import uuid
 
 from noisicaa import core
-from noisicaa.core import ipc
-
 from .private import db
 from . import process_base
 
 logger = logging.getLogger(__name__)
 
 
-class InvalidSessionError(Exception):
-    pass
+class Session(core.CallbackSessionMixin, core.SessionBase):
+    async_connect = False
 
-
-class Session(object):
-    def __init__(self, event_loop, callback_stub, flags):
-        self.event_loop = event_loop
-        self.callback_stub = callback_stub
+    def __init__(self, client_address, flags, **kwargs):
+        super().__init__(callback_address=client_address, **kwargs)
         self.flags = flags or set()
-        self.id = uuid.uuid4().hex
-
-    async def cleanup(self):
-        if self.callback_stub is not None:
-            await self.callback_stub.close()
-            self.callback_stub = None
 
     async def publish_mutation(self, mutation):
-        assert self.callback_stub.connected
-        await self.callback_stub.call('NODEDB_MUTATION', mutation)
+        await self.callback('NODEDB_MUTATION', mutation)
+
+    def async_publish_mutation(self, mutation):
+        self.async_callback('NODEDB_MUTATION', mutation)
 
 
 class NodeDBProcess(process_base.NodeDBProcessBase):
+    session_cls = Session
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.sessions = {}
         self.db = db.NodeDB()
 
     async def setup(self):
@@ -68,33 +59,15 @@ class NodeDBProcess(process_base.NodeDBProcessBase):
         self.db.cleanup()
         await super().cleanup()
 
-    def get_session(self, session_id):
-        try:
-            return self.sessions[session_id]
-        except KeyError:
-            raise InvalidSessionError
-
     def publish_mutation(self, mutation):
-        for session in self.sessions.values():
-            session.publish_mutation(mutation)
+        for session in self.sessions:
+            session.async_publish_mutation(mutation)
 
-    async def handle_start_session(self, client_address, flags):
-        client_stub = ipc.Stub(self.event_loop, client_address)
-        await client_stub.connect()
-        session = Session(self.event_loop, client_stub, flags)
-        self.sessions[session.id] = session
-
+    async def session_started(self, session):
         # Send initial mutations to build up the current pipeline
         # state.
         for mutation in self.db.initial_mutations():
             await session.publish_mutation(mutation)
-
-        return session.id
-
-    async def handle_end_session(self, session_id):
-        session = self.get_session(session_id)
-        await session.cleanup()
-        del self.sessions[session_id]
 
     async def handle_start_scan(self, session_id):
         self.get_session(session_id)

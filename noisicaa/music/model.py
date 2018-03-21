@@ -238,11 +238,6 @@ class SampleTrack(Track):
     sample_script_id = core.Property(str, allow_none=True)
 
 
-class PipelineGraphNodeParameterValue(ProjectChild):
-    name = core.Property(str)
-    value = core.Property((str, float, int))
-
-
 class PipelineGraphControlValue(ProjectChild):
     name = core.Property(str)
     value = core.Property(float)
@@ -257,7 +252,6 @@ class PipelineGraphPortPropertyValue(ProjectChild):
 class BasePipelineGraphNode(ProjectChild):
     name = core.Property(str)
     graph_pos = core.Property(misc.Pos2F)
-    parameter_values = core.ObjectListProperty(PipelineGraphNodeParameterValue)
     control_values = core.ObjectListProperty(PipelineGraphControlValue)
     port_property_values = core.ObjectListProperty(PipelineGraphPortPropertyValue)
 
@@ -289,7 +283,7 @@ class AudioOutPipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return node_db.SinkDescription
+        return node_db.Builtins.RealmSinkDescription
 
 
 class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
@@ -309,7 +303,7 @@ class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return node_db.TrackMixerDescription
+        return node_db.Builtins.TrackMixerDescription
 
 
 class PianoRollPipelineGraphNode(BasePipelineGraphNode):
@@ -329,7 +323,7 @@ class PianoRollPipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return node_db.PianoRollDescription
+        return node_db.Builtins.PianoRollDescription
 
 
 class CVGeneratorPipelineGraphNode(BasePipelineGraphNode):
@@ -349,7 +343,7 @@ class CVGeneratorPipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return node_db.CVGeneratorDescription
+        return node_db.Builtins.CVGeneratorDescription
 
 
 class SampleScriptPipelineGraphNode(BasePipelineGraphNode):
@@ -369,7 +363,7 @@ class SampleScriptPipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        return node_db.SampleScriptDescription
+        return node_db.Builtins.SampleScriptDescription
 
 
 class InstrumentPipelineGraphNode(BasePipelineGraphNode):
@@ -389,8 +383,7 @@ class InstrumentPipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self):
-        node_uri, _ = instrument_db.parse_uri(self.track.instrument)
-        return self.project.get_node_description(node_uri)
+        return instrument_db.parse_uri(self.track.instrument, self.project.get_node_description)
 
 
 class PipelineGraphConnection(ProjectChild):

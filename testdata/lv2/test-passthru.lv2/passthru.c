@@ -60,6 +60,7 @@ static LV2_Handle instantiate(
     }
   }
   if (self->map == NULL) {
+    fprintf(stderr, "map feature is missing.\n");
     free(self);
     return NULL;
   }

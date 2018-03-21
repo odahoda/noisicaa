@@ -29,8 +29,6 @@ from . import track_item_tests
 
 class BeatTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
     async def setup_testcase(self):
-        await super().setup_testcase()
-
         self.project.master_group.tracks.append(model.BeatTrack(obj_id='track-1'))
 
         m = model.PropertyMeasure(obj_id='msr-0.1')

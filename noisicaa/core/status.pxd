@@ -27,6 +27,7 @@ cdef extern from "noisicaa/core/status.h" namespace "noisicaa" nogil:
         int line() const
         bool is_error() const
         bool is_connection_closed() const
+        bool is_timeout() const
         bool is_os_error() const
         string message() const
 

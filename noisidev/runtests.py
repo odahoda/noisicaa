@@ -34,6 +34,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
 import unittest
 
 import coverage
@@ -51,6 +52,12 @@ def fix_import_path(args):
     yield
 pylint.lint.fix_import_path = fix_import_path
 
+SITE_PACKAGES_DIR = os.path.join(
+    os.getenv('VIRTUAL_ENV'),
+    'lib',
+    'python%d.%d' % (sys.version_info[0], sys.version_info[1]),
+    'site-packages')
+
 ROOTDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 SRCDIR = ROOTDIR
 LIBDIR = os.path.join(ROOTDIR, 'build')
@@ -62,11 +69,9 @@ sys.modules.pop('noisidev')
 # Set path to locally built 3rdparty libraries.
 os.environ['LD_LIBRARY_PATH'] = os.path.join(os.getenv('VIRTUAL_ENV'), 'lib')
 
-# Ensure all tests work without X.
-os.environ.pop('DISPLAY', None)
-
 # Tests should only see our test plugins.
 os.environ['LV2_PATH'] = os.path.join(ROOTDIR, 'build', 'testdata', 'lv2')
+os.environ['LADSPA_PATH'] = os.path.join(ROOTDIR, 'build', 'testdata', 'ladspa')
 
 
 def bool_arg(value):
@@ -192,6 +197,90 @@ class BuiltinPyTests(unittest.TestCase):
             self.__pylint_collector.extend(messages)
             self.fail("pylint reported issues.")
 
+    def test_mypy(self):
+        if self.__modname.split('.')[-1] == '__init__':
+            self.skipTest('mypy disabled for this file')
+
+        subprocess.run(
+            [os.path.join(os.environ['VIRTUAL_ENV'], 'bin', 'mypy'),
+             '--follow-imports=silent',
+             '--cache-dir=%s' % os.path.join(LIBDIR, 'mypy-cache'),
+             '-m', self.__modname
+            ],
+            cwd=LIBDIR,
+            env={
+                'MYPYPATH': SITE_PACKAGES_DIR,
+                'VIRTUAL_ENV': os.environ['VIRTUAL_ENV'],
+            },
+            check=True)
+
+
+class DisplayManager(object):
+    def __init__(self, display):
+        self.__display = display
+
+        self.__xvfb_process = None
+
+    def __xvfb_logger(self):
+        logger = logging.getLogger('xvfb')
+        for l in self.__xvfb_process.stdout:
+            logger.info(l.rstrip().decode('ascii', 'replace'))
+        self.__xvfb_process.wait()
+        logger.info("Xvfb process terminated with returncode=%d", self.__xvfb_process.returncode)
+
+    def __enter__(self):
+        if self.__display == 'off':
+            logging.info("Disabling X11 display")
+            os.environ.pop('DISPLAY', None)
+            return
+
+        if self.__display == 'local':
+            assert 'DISPLAY' in os.environ
+            return
+
+        assert self.__display == 'xvfb'
+
+        disp_r, disp_w = os.pipe()
+        try:
+            self.__xvfb_process = subprocess.Popen(
+                ['/usr/bin/Xvfb',
+                 '-screen', '0', '1600x1200x24',
+                 '-displayfd', '%d' % disp_w,
+                ],
+                pass_fds=[disp_w],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT)
+            atexit.register(self.__xvfb_process.kill)
+
+            xvfb_logger_thread = threading.Thread(target=self.__xvfb_logger)
+            xvfb_logger_thread.start()
+
+            disp_num_str = b''
+            while b'\n' not in disp_num_str and self.__xvfb_process.poll() is None:
+                d = os.read(disp_r, 1)
+                if not d:
+                    break
+                disp_num_str += d
+
+            if self.__xvfb_process.poll() is not None:
+                raise RuntimeError(
+                    "Xvfb server terminated with rc=%d" % self.__xvfb_process.returncode)
+
+            disp_num = int(disp_num_str.strip())
+
+        finally:
+            os.close(disp_r)
+            os.close(disp_w)
+
+        logging.info("Started Xvfb server on display :%d", disp_num)
+        os.environ['DISPLAY'] = ':%d' % disp_num
+
+    def __exit__(self, type, value, exc):
+        if self.__xvfb_process is not None:
+            self.__xvfb_process.terminate()
+            self.__xvfb_process.wait()
+            atexit.unregister(self.__xvfb_process.kill)
+
 
 def main(argv):
     parser = argparse.ArgumentParser()
@@ -204,12 +293,14 @@ def main(argv):
     parser.add_argument('--coverage', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--write-perf-stats', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--profile', nargs='?', type=bool_arg, const=True, default=False)
-    parser.add_argument('--gdb', nargs='?', type=bool_arg, const=True, default=True)
+    parser.add_argument('--gdb', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--rebuild', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--pedantic', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--builtin-tests', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--keep-temp', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--playback-backend', type=str, default='null')
+    parser.add_argument('--mypy', type=bool_arg, default=False)
+    parser.add_argument('--display', choices=['off', 'local', 'xvfb'], default='xvfb')
     args = parser.parse_args(argv[1:])
 
     if args.gdb:
@@ -235,11 +326,7 @@ def main(argv):
                 end
                 bt
                 '''.format(
-                    site_packages=os.path.join(
-                        os.getenv('VIRTUAL_ENV'),
-                        'lib',
-                        'python%d.%d' % (sys.version_info[0], sys.version_info[1]),
-                        'site-packages'))))
+                    site_packages=SITE_PACKAGES_DIR)))
 
         subargv = [
             '/usr/bin/gdb',
@@ -276,6 +363,10 @@ def main(argv):
             'critical': logging.CRITICAL,
         }[args.log_level])
 
+    # Make loggers of 3rd party modules less noisy.
+    for other in ['quamash']:
+        logging.getLogger(other).setLevel(logging.WARNING)
+
     if args.rebuild:
         subprocess.run([sys.executable, 'setup.py', 'build'], cwd=ROOTDIR, check=True)
 
@@ -283,27 +374,31 @@ def main(argv):
     if not args.keep_temp:
         atexit.register(shutil.rmtree, tmp_dir)
 
+    if args.coverage:
+        cov = coverage.Coverage(
+            source=['build/noisicaa', 'build/noisidev'],
+            omit='*_*test.py',
+            config_file=False)
+        cov.set_option("run:branch", True)
+        cov.start()
+
     from noisicaa import constants
     constants.TEST_OPTS.WRITE_PERF_STATS = args.write_perf_stats
     constants.TEST_OPTS.ENABLE_PROFILER = args.profile
     constants.TEST_OPTS.PLAYBACK_BACKEND = args.playback_backend
+    constants.TEST_OPTS.ALLOW_UI = (args.display != 'off')
     constants.TEST_OPTS.TMP_DIR = tmp_dir
 
     from noisicaa import core
     core.init_pylogging()
 
+    from noisicaa.core import stacktrace
+    stacktrace.init()
+
     pylint_collector = PylintMessageCollector()
 
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
-
-    if args.coverage:
-        cov = coverage.Coverage(
-            source=['build/noisicaa'],
-            omit='*_*test.py',
-            config_file=False)
-        cov.set_option("run:branch", True)
-        cov.start()
 
     for dirpath, dirnames, filenames in os.walk(os.path.join(LIBDIR, 'noisicaa')):
         for ignore_dir in ('__pycache__', 'testdata'):
@@ -358,6 +453,9 @@ def main(argv):
                 if matched:
                     test_cls = BuiltinPyTests
                     for method_name in loader.getTestCaseNames(test_cls):
+                        if method_name == 'test_mypy' and not args.mypy:
+                            continue
+
                         suite.addTest(test_cls(
                             modname=modname,
                             method_name=method_name,
@@ -366,7 +464,8 @@ def main(argv):
                         ))
 
     runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
+    with DisplayManager(args.display):
+        result = runner.run(suite)
 
     pylint_collector.print_report()
 

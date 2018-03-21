@@ -132,7 +132,6 @@ class SampleRef(model.SampleRef, project_client.ObjectProxy): pass
 class SampleTrack(model.SampleTrack, project_client.ObjectProxy): pass
 class PropertyMeasure(model.PropertyMeasure, project_client.ObjectProxy): pass
 class PropertyTrack(model.PropertyTrack, project_client.ObjectProxy): pass
-class PipelineGraphNodeParameterValue(model.PipelineGraphNodeParameterValue, project_client.ObjectProxy): pass
 class PipelineGraphControlValue(model.PipelineGraphControlValue, project_client.ObjectProxy): pass
 class PipelineGraphPortPropertyValue(model.PipelineGraphPortPropertyValue, project_client.ObjectProxy): pass
 class PipelineGraphNode(model.PipelineGraphNode, project_client.ObjectProxy): pass
@@ -157,7 +156,8 @@ class Project(model.Project, project_client.ObjectProxy):
         self.__master_group_listener = None
         self.listeners.add('master_group', self.__on_master_group_changed)
 
-        self.__time_mapper = audioproc.TimeMapper()
+        # TODO: use correct sample_rate
+        self.__time_mapper = audioproc.TimeMapper(44100)
         self.__time_mapper.setup(self)
 
     @property
@@ -224,7 +224,6 @@ cls_map = {
     'SampleTrack': SampleTrack,
     'PropertyMeasure': PropertyMeasure,
     'PropertyTrack': PropertyTrack,
-    'PipelineGraphNodeParameterValue': PipelineGraphNodeParameterValue,
     'PipelineGraphControlValue': PipelineGraphControlValue,
     'PipelineGraphPortPropertyValue': PipelineGraphPortPropertyValue,
     'PipelineGraphNode': PipelineGraphNode,

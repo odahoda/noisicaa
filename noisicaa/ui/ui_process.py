@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-
 import functools
 import asyncio
 import logging
@@ -43,19 +41,16 @@ class UISubprocess(core.SubprocessMixin, core.ProcessBase):
         self._shutting_down = None
         self.exit_code = None
 
-        self.app = self.create_app(
+        self.app = editor_app.EditorApp(
             process=self,
             runtime_settings=runtime_settings,
             paths=paths)
-
-    def create_app(self, **kwargs):
-        return editor_app.EditorApp(**kwargs)
 
     def create_event_loop(self):
         return quamash.QEventLoop(self.app)
 
     async def setup(self):
-        self._shutting_down = asyncio.Event()
+        self._shutting_down = asyncio.Event(loop=self.event_loop)
         for sig in (signal.SIGINT, signal.SIGTERM):
             self.event_loop.add_signal_handler(
                 sig, functools.partial(self.handle_signal, sig))

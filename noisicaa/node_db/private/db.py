@@ -29,15 +29,20 @@ from . import csound_scanner
 from . import builtin_scanner
 from . import ladspa_scanner
 from . import lv2_scanner
-from . import preset_scanner
+#from . import preset_scanner
 
 logger = logging.getLogger(__name__)
 
 
 class NodeDB(object):
     def __init__(self):
-        self._nodes = {}
+        self.__nodes = {}
         self.listeners = core.CallbackRegistry()
+
+    def __getitem__(self, uri: str) -> node_db.NodeDescription:
+        desc = node_db.NodeDescription()
+        desc.CopyFrom(self.__nodes[uri])
+        return desc
 
     def setup(self):
         scanners = [
@@ -48,21 +53,22 @@ class NodeDB(object):
         ]
         for scanner in scanners:
             for uri, node_description in scanner.scan():
-                assert uri not in self._nodes
-                self._nodes[uri] = node_description
+                logger.debug("%s:\n%s", uri, node_description)
+                assert uri not in self.__nodes
+                self.__nodes[uri] = node_description
 
-        scanner = preset_scanner.PresetScanner(self._nodes)
-        presets = {}
-        for uri, preset_description in scanner.scan():
-            assert uri not in presets
-            presets[uri] = preset_description
-        self._nodes.update(presets)
+        # scanner = preset_scanner.PresetScanner(self.__nodes)
+        # presets = {}
+        # for uri, preset_description in scanner.scan():
+        #     assert uri not in presets
+        #     presets[uri] = preset_description
+        # self.__nodes.update(presets)
 
     def cleanup(self):
         pass
 
     def initial_mutations(self):
-        for uri, node_description in sorted(self._nodes.items()):
+        for uri, node_description in sorted(self.__nodes.items()):
             yield node_db.AddNodeDescription(uri, node_description)
 
     def start_scan(self):

@@ -170,9 +170,20 @@ class AudioPage(Page):
             self.app.settings.value('audio/block_size', 10)))
         block_size_widget.valueChanged.connect(self.blockSizeChanged)
 
+        sample_rate_widget = QtWidgets.QComboBox()
+        for idx, (label, value) in enumerate([("22.05 kHz", 22050),
+                                              ("44.1 kHz", 44100),
+                                              ("48 kHz", 48000),
+                                              ("96 kHz", 96000)]):
+            sample_rate_widget.addItem(label, userData=value)
+            if value == int(self.app.settings.value('audio/sample_rate', 44100)):
+                sample_rate_widget.setCurrentIndex(idx)
+        sample_rate_widget.currentIndexChanged.connect(self.sampleRateChanged)
+
         main_layout = QtWidgets.QFormLayout()
         main_layout.addRow("Backend:", backend_widget)
         main_layout.addRow("Block size:", block_size_widget)
+        main_layout.addRow("Sample rate:", sample_rate_widget)
 
         layout.addLayout(main_layout)
 
@@ -191,9 +202,7 @@ class AudioPage(Page):
         backend = self._backends[index]
 
         self.call_async(
-            self.app.audioproc_client.set_backend(
-                backend,
-                block_size=2 ** int(self.app.settings.value('audio/block_size', 10))),
+            self.app.audioproc_client.set_backend(backend),
             callback=functools.partial(
                 self._set_backend_done, backend=backend))
 
@@ -202,17 +211,23 @@ class AudioPage(Page):
 
     def blockSizeChanged(self, block_size):
         self.call_async(
-            self.app.audioproc_client.set_backend_parameters(
-                block_size=2 ** block_size),
-            callback=functools.partial(
-                self._set_block_size_done, block_size=block_size))
+            self.app.audioproc_client.set_host_parameters(block_size=2 ** block_size),
+            callback=functools.partial(self._set_block_size_done, block_size=block_size))
 
     def _set_block_size_done(self, result, block_size):
         self.app.settings.setValue('audio/block_size', block_size)
+
+    def sampleRateChanged(self, sample_rate):
+        self.call_async(
+            self.app.audioproc_client.set_host_parameters(sample_rate=sample_rate),
+            callback=functools.partial(self._set_sample_rate_done, sample_rate=sample_rate))
+
+    def _set_sample_rate_done(self, result, sample_rate):
+        self.app.settings.setValue('audio/sample_rate', sample_rate)
 
     def testBackend(self):
         self.call_async(self._testBackendAsync())
 
     async def _testBackendAsync(self):
         await self.app.audioproc_client.play_file(
-            '/usr/share/sounds/purple/send.wav')
+            os.path.join(DATA_DIR, 'sounds', 'test_sound.wav'))

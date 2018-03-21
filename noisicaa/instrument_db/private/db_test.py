@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 class NodeDBTest(unittest.AsyncTestCase):
     async def test_foo(self):
-        complete = asyncio.Event()
+        complete = asyncio.Event(loop=self.loop)
         def state_listener(state, *args):
             if state == 'complete':
                 complete.set()

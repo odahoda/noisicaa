@@ -52,6 +52,9 @@ cdef class PyPerfStats(object):
     cdef PerfStats* __stats
     cdef object __clock
 
+    @staticmethod
+    cdef PyPerfStats create(PerfStats*)
+
     cdef PerfStats* get(self)
     cdef PerfStats* release(self)
 

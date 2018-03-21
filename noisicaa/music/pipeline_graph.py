@@ -62,38 +62,6 @@ class SetPipelineGraphNodePos(commands.Command):
 commands.Command.register_command(SetPipelineGraphNodePos)
 
 
-class SetPipelineGraphNodeParameter(commands.Command):
-    parameter_name = core.Property(str)
-    float_value = core.Property(float, allow_none=True)
-    str_value = core.Property(str, allow_none=True)
-
-    def __init__(self, parameter_name=None, float_value=None, str_value=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.parameter_name = parameter_name
-            self.float_value = float_value
-            self.str_value = str_value
-
-    def run(self, node):
-        assert isinstance(node, BasePipelineGraphNode)
-
-        parameter = node.description.get_parameter(self.parameter_name)
-        if parameter.param_type == node_db.ParameterType.Float:
-            assert self.float_value is not None
-            node.set_parameter(
-                parameter.name,
-                parameter.validate(self.float_value))
-        elif parameter.param_type == node_db.ParameterType.Text:
-            assert self.str_value is not None
-            node.set_parameter(
-                parameter.name,
-                parameter.validate(self.str_value))
-        else:
-            raise ValueError("Can't set parameter of type %s" % parameter.param_type)
-
-commands.Command.register_command(SetPipelineGraphNodeParameter)
-
-
 class SetPipelineGraphControlValue(commands.Command):
     port_name = core.Property(str)
     float_value = core.Property(float, allow_none=True)
@@ -107,9 +75,9 @@ class SetPipelineGraphControlValue(commands.Command):
     def run(self, node):
         assert isinstance(node, BasePipelineGraphNode)
 
-        port = node.description.get_port(self.port_name)
-        assert port.direction == node_db.PortDirection.Input
-        assert port.port_type == node_db.PortType.KRateControl
+        port = node_db.get_port(node.description, self.port_name)
+        assert port.direction == node_db.PortDescription.INPUT
+        assert port.type == node_db.PortDescription.KRATE_CONTROL
         assert self.float_value is not None
 
         node.set_control_value(port.name, self.float_value)
@@ -170,18 +138,6 @@ class PipelineGraphNodeFromPreset(commands.Command):
 commands.Command.register_command(PipelineGraphNodeFromPreset)
 
 
-class PipelineGraphNodeParameterValue(
-        model.PipelineGraphNodeParameterValue, state.StateBase):
-    def __init__(self, name=None, value=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
-
-        if state is None:
-            self.name = name
-            self.value = value
-
-state.StateBase.register_class(PipelineGraphNodeParameterValue)
-
-
 class PipelineGraphControlValue(
         model.PipelineGraphControlValue, state.StateBase):
     def __init__(self, name=None, value=None, state=None, **kwargs):
@@ -225,29 +181,14 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
         raise NotImplementedError
 
     def get_initial_parameter_mutations(self):
-        parameter_values = dict(
-            (p.name, p.value) for p in self.parameter_values)
-
-        params = {}
-        for parameter in self.description.parameters:
-            if parameter.param_type in (
-                    node_db.ParameterType.Float,
-                    node_db.ParameterType.String,
-                    node_db.ParameterType.Text):
-                params[parameter.name] = parameter_values.get(
-                    parameter.name, parameter.default)
-
-        if params:
-            yield audioproc.SetNodeParameter(self.pipeline_node_id, **params)
-
         for port in self.description.ports:
-            if (port.direction == node_db.PortDirection.Input
-                and port.port_type == node_db.PortType.KRateControl):
+            if (port.direction == node_db.PortDescription.INPUT
+                and port.type == node_db.PortDescription.KRATE_CONTROL):
                 for cv in self.control_values:
                     yield audioproc.SetControlValue(
                         '%s:%s' % (self.pipeline_node_id, cv.name), cv.value)
 
-            elif port.direction == node_db.PortDirection.Output:
+            elif port.direction == node_db.PortDescription.OUTPUT:
                 port_property_values = dict(
                     (p.name, p.value) for p in self.port_property_values
                     if p.port_name == port.name)
@@ -259,24 +200,6 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
 
     def get_remove_mutations(self):
         raise NotImplementedError
-
-    def set_parameter(self, parameter_name, value):
-        self.set_parameters({parameter_name: value})
-
-    def set_parameters(self, parameters):
-        for name, value in parameters.items():
-            for param_value in self.parameter_values:
-                if param_value.name == name:
-                    param_value.value = value
-                    break
-            else:
-                self.parameter_values.append(PipelineGraphNodeParameterValue(
-                    name=name, value=value))
-
-        if self.attached_to_root:
-            self.project.handle_pipeline_mutation(
-                audioproc.SetNodeParameter(
-                    self.pipeline_node_id, **parameters))
 
     def set_port_parameters(self, port_name, bypass=None, drywet=None):
         for prop_name, value in (
@@ -333,28 +256,6 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
         node_uri_elem = ElementTree.SubElement(doc, 'node', uri=self.node_uri)
         node_uri_elem.tail = '\n'
 
-        parameters_elem = ElementTree.SubElement(doc, 'parameter-values')
-        parameters_elem.text = '\n'
-        parameters_elem.tail = '\n'
-
-        parameters = sorted(self.description.parameters, key=lambda p: p.name)
-        parameter_values = dict(
-            (p.name, p.value) for p in self.parameter_values)
-
-        for parameter in parameters:
-            if parameter.hidden:
-                continue
-
-            value = parameter_values.get(parameter.name, parameter.default)
-
-            parameter_elem = ElementTree.SubElement(
-                parameters_elem, 'parameter', name=parameter.name)
-            if parameter.param_type == node_db.ParameterType.Text:
-                parameter_elem.text = parameter.to_string(value)
-            else:
-                parameter_elem.set('value', parameter.to_string(value))
-            parameter_elem.tail = '\n'
-
         tree = ElementTree.ElementTree(doc)
         buf = io.BytesIO()
         tree.write(buf, encoding='utf-8', xml_declaration=True)
@@ -368,10 +269,6 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
                 "Mismatching node_uri (Expected %s, got %s)."
                 % (self.node_uri, preset.node_uri))
 
-        self.parameter_values.clear()
-        if preset.parameter_values:
-            self.set_parameters(preset.parameter_values)
-
     @property
     def pipeline_node_id(self):
         return self.id
@@ -380,9 +277,7 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
         yield audioproc.AddNode(
             description=self.description,
             id=self.pipeline_node_id,
-            name=self.name,
-            initial_parameters=dict(
-                (p.name, p.value) for p in self.parameter_values))
+            name=self.name)
 
         yield from self.get_initial_parameter_mutations()
 
@@ -539,12 +434,12 @@ class InstrumentPipelineGraphNode(
             yield from connection.get_add_mutations()
 
     def get_add_mutations(self):
-        node_uri, node_params = instrument_db.parse_uri(self.track.instrument)
+        node_description = instrument_db.parse_uri(
+            self.track.instrument, self.project.get_node_description)
         yield audioproc.AddNode(
-            description=self.project.get_node_description(node_uri),
+            description=node_description,
             id=self.pipeline_node_id,
-            name=self.name,
-            initial_parameters=node_params)
+            name=self.name)
 
         yield from self.get_initial_parameter_mutations()
 

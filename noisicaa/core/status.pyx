@@ -23,17 +23,27 @@ import os.path
 class Error(Exception):
     pass
 
-
 class ConnectionClosed(Exception):
+    pass
+
+class Timeout(Exception):
     pass
 
 
 cdef int check(const Status& status) nogil except -1:
+    if status.is_timeout():
+        with gil:
+            raise Timeout('[%s:%d] Timeout' % (
+                os.path.relpath(
+                    os.path.abspath(bytes(status.file()).decode('utf-8', 'replace')),
+                    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))),
+                status.line()))
+
     if status.is_connection_closed():
         with gil:
             raise ConnectionClosed('[%s:%d] Connection closed' % (
                 os.path.relpath(
-                    os.path.abspath(bytes(status.file()).decode('utf-8')),
+                    os.path.abspath(bytes(status.file()).decode('utf-8', 'replace')),
                     os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))),
                 status.line()))
 
@@ -41,9 +51,10 @@ cdef int check(const Status& status) nogil except -1:
         with gil:
             raise Error('[%s:%d] %s' % (
                 os.path.relpath(
-                    os.path.abspath(bytes(status.file()).decode('utf-8')),
+                    os.path.abspath(bytes(status.file()).decode('utf-8', 'replace')),
                     os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))),
                 status.line(),
-                bytes(status.message()).decode('utf-8')))
+                bytes(status.message()).decode('utf-8', 'replace')))
+
     return 0
 

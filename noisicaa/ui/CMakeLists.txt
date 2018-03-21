@@ -33,6 +33,7 @@ add_python_package(
   piano_test.py
   pipeline_graph_monitor.py
   pipeline_graph_view.py
+  pipeline_graph_view_test.py
   pipeline_perf_monitor.py
   project_properties_dock.py
   project_registry.py

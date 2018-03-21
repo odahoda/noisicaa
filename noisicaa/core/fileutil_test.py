@@ -58,7 +58,7 @@ class FileTest(unittest.TestCase):
             Content-Length: 16
 
             {"a": [0, 1, 2]}""").encode('ascii')
-        self.fake_fs.CreateFile('/foo', contents=contents)
+        self.fake_fs.create_file('/foo', contents=contents)
 
         fp = fileutil.File('/foo')
         header, content = fp.read()
@@ -78,7 +78,7 @@ class FileTest(unittest.TestCase):
             Content-Length: 16
 
             {"a": [0, 1, 2]}""").encode('ascii')
-        self.fake_fs.CreateFile('/foo', contents=contents)
+        self.fake_fs.create_file('/foo', contents=contents)
 
         fp = fileutil.File('/foo')
         header, content = fp.read_json()

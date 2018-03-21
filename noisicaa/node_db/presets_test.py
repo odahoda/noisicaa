@@ -24,7 +24,7 @@ import textwrap
 import os.path
 
 from noisidev import unittest
-from . import node_description
+from . import node_description_pb2
 from . import presets
 from .private import builtin_scanner
 
@@ -43,21 +43,10 @@ class PresetTest(unittest.TestCase):
             <preset>
               <display-name>Light Reverb</display-name>
               <node uri="builtin://custom_csound"/>
-              <parameter-values>
-                <parameter name="orchestra"><![CDATA[
-            instr 1
-              gaOutL, gaOutR reverbsc gaInL, gaInR, 0.2, 2000
-            endin
-            ]]></parameter>
-                <parameter name="score"><![CDATA[
-            i1 0 -1
-            ]]></parameter>
-              </parameter-values>
             </preset>
             """)
 
         preset = presets.Preset.from_string(xml, self.node_factory)
         self.assertEqual(preset.display_name, "Light Reverb")
         self.assertEqual(preset.node_uri, 'builtin://custom_csound')
-        self.assertIsInstance(preset.node_description, node_description.NodeDescription)
-        self.assertEqual(preset.node_description.node_cls, 'processor')
+        self.assertIsInstance(preset.node_description, node_description_pb2.NodeDescription)

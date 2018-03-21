@@ -113,8 +113,8 @@ class ProjectClientMixin(object):
         await self._stub.connect()
         self._session_data = {}
         session_name = '%s.%s' % (getpass.getuser(), socket.getfqdn())
-        self._session_id, root_id = await self._stub.call(
-            'START_SESSION', self.server.address, session_name)
+        self._session_id = await self._stub.call('START_SESSION', self.server.address, session_name)
+        root_id = await self._stub.call('GET_ROOT_ID', self._session_id)
         if root_id is not None:
             # Connected to a loaded project.
             self.__set_project(root_id)
@@ -271,34 +271,33 @@ class ProjectClientMixin(object):
         assert self.project is not None
         return await self._stub.call('SERIALIZE', self._session_id, obj_id)
 
-    async def create_player(self):
+    async def create_player(self, *, audioproc_address):
         return await self._stub.call(
             'CREATE_PLAYER', self._session_id,
-            self.server.address)
-
-    async def get_player_audioproc_address(self, player_id):
-        return await self._stub.call(
-            'GET_PLAYER_AUDIOPROC_ADDRESS', self._session_id, player_id)
+            client_address=self.server.address,
+            audioproc_address=audioproc_address)
 
     async def delete_player(self, player_id):
-        return await self._stub.call(
-            'DELETE_PLAYER', self._session_id, player_id)
+        return await self._stub.call('DELETE_PLAYER', self._session_id, player_id)
+
+    async def create_plugin_ui(self, player_id, node_id):
+        return await self._stub.call('CREATE_PLUGIN_UI', self._session_id, player_id, node_id)
+
+    async def delete_plugin_ui(self, player_id, node_id):
+        return await self._stub.call('DELETE_PLUGIN_UI', self._session_id, player_id, node_id)
 
     async def update_player_state(self, player_id, state):
-        return await self._stub.call(
-            'UPDATE_PLAYER_STATE', self._session_id, player_id, state)
+        return await self._stub.call('UPDATE_PLAYER_STATE', self._session_id, player_id, state)
 
     async def player_send_message(self, player_id, msg):
         return await self._stub.call(
             'PLAYER_SEND_MESSAGE', self._session_id, player_id, msg.to_bytes())
 
     async def restart_player_pipeline(self, player_id):
-        return await self._stub.call(
-            'RESTART_PLAYER_PIPELINE', self._session_id, player_id)
+        return await self._stub.call('RESTART_PLAYER_PIPELINE', self._session_id, player_id)
 
     def add_player_status_listener(self, player_id, callback):
-        return self.listeners.add(
-            'player_status:%s' % player_id, callback)
+        return self.listeners.add('player_status:%s' % player_id, callback)
 
     async def handle_player_status(self, player_id, args):
         self.listeners.call('player_status:%s' % player_id, **args)

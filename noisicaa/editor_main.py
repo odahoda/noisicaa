@@ -32,14 +32,6 @@ from .runtime_settings import RuntimeSettings
 from . import logging
 from .core import process_manager, init_pylogging
 
-# # Unload all noisicaa modules, so that every subprocess reloads everything
-# # from scratch again.
-# noisicaa_modules = [
-#     mod for mod in sys.modules.keys()
-#     if mod == 'noisicaa' or mod.startswith('noisicaa.')]
-# for mod in noisicaa_modules:
-#     del sys.modules[mod]
-
 
 class Editor(object):
     def __init__(self, runtime_settings, paths, logger):
@@ -49,7 +41,7 @@ class Editor(object):
 
         self.event_loop = asyncio.get_event_loop()
         self.manager = process_manager.ProcessManager(self.event_loop)
-        self.stop_event = asyncio.Event()
+        self.stop_event = asyncio.Event(loop=self.event_loop)
         self.returncode = 0
 
         self.node_db_process = None
@@ -57,6 +49,9 @@ class Editor(object):
 
         self.instrument_db_process = None
         self.instrument_db_process_lock = asyncio.Lock(loop=self.event_loop)
+
+        self.urid_mapper_process = None
+        self.urid_mapper_process_lock = asyncio.Lock(loop=self.event_loop)
 
     def run(self):
         for sig in (signal.SIGINT, signal.SIGTERM):
@@ -86,6 +81,12 @@ class Editor(object):
             self.manager.server.add_command_handler(
                 'CREATE_INSTRUMENT_DB_PROCESS',
                 self.handle_create_instrument_db_process)
+            self.manager.server.add_command_handler(
+                'CREATE_URID_MAPPER_PROCESS',
+                self.handle_create_urid_mapper_process)
+            self.manager.server.add_command_handler(
+                'CREATE_PLUGIN_HOST_PROCESS',
+                self.handle_create_plugin_host_process)
 
             task = self.event_loop.create_task(self.launch_ui())
             task.add_done_callback(self.ui_closed)
@@ -99,7 +100,7 @@ class Editor(object):
     async def launch_ui(self):
         while True:
             next_retry = time.time() + 5
-            proc = await self.manager.start_process(
+            proc = await self.manager.start_subprocess(
                 'ui', 'noisicaa.ui.ui_process.UISubprocess',
                 runtime_settings=self.runtime_settings,
                 paths=self.paths)
@@ -126,13 +127,13 @@ class Editor(object):
                         self.logger.warning(
                             "Sleeping %.1fsec before restarting.",
                             delay)
-                        await asyncio.sleep(delay)
+                        await asyncio.sleep(delay, loop=self.event_loop)
                 else:
                     return proc.returncode
 
     def ui_closed(self, task):
         if task.exception():
-            self.logger.error("Exception", task.exception())
+            self.logger.error("UI failed with an exception: %s", task.exception())
             self.returncode = 1
         else:
             self.returncode = task.result()
@@ -141,14 +142,14 @@ class Editor(object):
     async def handle_create_project_process(self, uri):
         # TODO: keep map of uri->proc, only create processes for new
         # URIs.
-        proc = await self.manager.start_process(
+        proc = await self.manager.start_subprocess(
             'project', 'noisicaa.music.project_process.ProjectSubprocess')
         return proc.address
 
     async def handle_create_audioproc_process(self, name, **kwargs):
         # TODO: keep map of name->proc, only create processes for new
         # names.
-        proc = await self.manager.start_process(
+        proc = await self.manager.start_subprocess(
             'audioproc<%s>' % name,
             'noisicaa.audioproc.audioproc_process.AudioProcSubprocess',
             **kwargs)
@@ -157,7 +158,7 @@ class Editor(object):
     async def handle_create_node_db_process(self):
         async with self.node_db_process_lock:
             if self.node_db_process is None:
-                self.node_db_process = await self.manager.start_process(
+                self.node_db_process = await self.manager.start_subprocess(
                     'node_db',
                     'noisicaa.node_db.process.NodeDBSubprocess')
 
@@ -166,11 +167,27 @@ class Editor(object):
     async def handle_create_instrument_db_process(self):
         async with self.instrument_db_process_lock:
             if self.instrument_db_process is None:
-                self.instrument_db_process = await self.manager.start_process(
+                self.instrument_db_process = await self.manager.start_subprocess(
                     'instrument_db',
                     'noisicaa.instrument_db.process.InstrumentDBSubprocess')
 
         return self.instrument_db_process.address
+
+    async def handle_create_urid_mapper_process(self):
+        async with self.urid_mapper_process_lock:
+            if self.urid_mapper_process is None:
+                self.urid_mapper_process = await self.manager.start_subprocess(
+                    'urid_mapper',
+                    'noisicaa.lv2.urid_mapper_process.URIDMapperSubprocess')
+
+        return self.urid_mapper_process.address
+
+    async def handle_create_plugin_host_process(self, **kwargs):
+        proc = await self.manager.start_subprocess(
+            'plugin',
+            'noisicaa.audioproc.engine.plugin_host_process.PluginHostSubprocess',
+            **kwargs)
+        return proc.address
 
 
 class Main(object):

@@ -52,105 +52,75 @@ class CSoundScanner(scanner.Scanner):
                 root = tree.getroot()
                 assert root.tag == 'csound'
 
-                ports = []
+                desc = node_db.NodeDescription()
+                desc.supported = True
+                desc.type = node_db.NodeDescription.PROCESSOR
+                desc.processor.type = node_db.ProcessorDescription.CSOUND
+
+                desc.display_name = ''.join(root.find('display-name').itertext())
+
+                desc.has_ui = False
+
                 for port_elem in root.find('ports').findall('port'):
-                    port_type = {
-                        'audio': node_db.PortType.Audio,
-                        'kratecontrol': node_db.PortType.KRateControl,
-                        'aratecontrol': node_db.PortType.ARateControl,
-                        'events': node_db.PortType.Events,
+                    port_desc = desc.ports.add()
+                    port_desc.name = port_elem.get('name')
+
+                    display_name_elem = port_elem.find('display-name')
+                    if display_name_elem is not None:
+                        port_desc.display_name = ''.join(display_name_elem.itertext())
+
+                    port_desc.type = {
+                        'audio': node_db.PortDescription.AUDIO,
+                        'kratecontrol': node_db.PortDescription.KRATE_CONTROL,
+                        'aratecontrol': node_db.PortDescription.ARATE_CONTROL,
+                        'events': node_db.PortDescription.EVENTS,
                     }[port_elem.get('type')]
 
-                    direction = {
-                        'input': node_db.PortDirection.Input,
-                        'output': node_db.PortDirection.Output,
+                    port_desc.direction = {
+                        'input': node_db.PortDescription.INPUT,
+                        'output': node_db.PortDescription.OUTPUT,
                     }[port_elem.get('direction')]
 
-                    kwargs = {}
 
-                    if direction == node_db.PortDirection.Output:
+                    if port_desc.direction == node_db.PortDescription.OUTPUT:
                         drywet_elem = port_elem.find('drywet')
                         if drywet_elem is not None:
-                            kwargs['drywet_port'] = drywet_elem.get('port')
-                            kwargs['drywet_default'] = drywet_elem.get('default')
+                            port_desc.drywet_port = drywet_elem.get('port')
+                            port_desc.drywet_default = float(drywet_elem.get('default'))
 
                         bypass_elem = port_elem.find('bypass')
                         if bypass_elem is not None:
-                            kwargs['bypass_port'] = bypass_elem.get('port')
+                            port_desc.bypass_port = bypass_elem.get('port')
 
-                    if (direction == node_db.PortDirection.Input
-                        and port_type == node_db.PortType.Events):
+                    if (port_desc.direction == node_db.PortDescription.INPUT
+                        and port_desc.type == node_db.PortDescription.EVENTS):
                         csound_elem = port_elem.find('csound')
                         if csound_elem is not None:
-                            kwargs['csound_instr'] = csound_elem.get('instr')
+                            port_desc.csound_instr = csound_elem.get('instr')
 
-                    if (direction == node_db.PortDirection.Input
-                        and port_type == node_db.PortType.KRateControl):
+                    if (port_desc.direction == node_db.PortDescription.INPUT
+                        and port_desc.type == node_db.PortDescription.KRATE_CONTROL):
                         float_control_elem = port_elem.find('float-control')
                         if float_control_elem is not None:
+                            value_desc = port_desc.float_value
                             min = float_control_elem.get('min')
                             if min is not None:
-                                kwargs['min'] = float(min)
+                                value_desc.min = float(min)
                             max = float_control_elem.get('max')
                             if max is not None:
-                                kwargs['max'] = float(max)
+                                value_desc.max = float(max)
                             default = float_control_elem.get('default')
                             if default is not None:
-                                kwargs['default'] = float(default)
+                                value_desc.default = float(default)
 
-                    port_cls = {
-                        node_db.PortType.Audio: node_db.AudioPortDescription,
-                        node_db.PortType.ARateControl: node_db.ARateControlPortDescription,
-                        node_db.PortType.KRateControl: node_db.KRateControlPortDescription,
-                        node_db.PortType.Events: node_db.EventPortDescription,
-                    }[port_type]
-
-                    port_desc = port_cls(
-                        name=port_elem.get('name'),
-                        direction=direction,
-                        **kwargs)
-                    ports.append(port_desc)
-
-                parameters = []
-                parameters_elem = root.find('parameters')
-                if parameters_elem is not None:
-                    for parameter_elem in parameters_elem.findall('parameter'):
-                        parameter_cls = {
-                            'float': node_db.FloatParameterDescription,
-                        }[parameter_elem.get('type')]
-
-                        kwargs = {}
-                        kwargs['name'] = parameter_elem.get('name')
-                        kwargs['display_name'] = ''.join(
-                            parameter_elem.find('display-name').itertext())
-
-                        if parameter_elem.get('type') == 'float':
-                            kwargs['min'] = float(parameter_elem.get('min'))
-                            kwargs['max'] = float(parameter_elem.get('max'))
-                            kwargs['default'] = float(parameter_elem.get('default'))
-
-                        parameter_desc = parameter_cls(**kwargs)
-                        parameters.append(parameter_desc)
+                csound_desc = desc.csound
 
                 orchestra = ''.join(root.find('orchestra').itertext())
                 orchestra = orchestra.strip() + '\n'
-                parameters.append(
-                    node_db.StringParameterDescription(
-                        name='csound_orchestra', default=orchestra, hidden=True))
+                csound_desc.orchestra = orchestra
 
                 score = ''.join(root.find('score').itertext())
                 score = score.strip() + '\n'
-                parameters.append(
-                    node_db.StringParameterDescription(
-                        name='csound_score', default=score, hidden=True))
+                csound_desc.score = score
 
-                display_name = ''.join(
-                    root.find('display-name').itertext())
-
-                node_desc = node_db.ProcessorDescription(
-                    display_name=display_name,
-                    processor_name='csound',
-                    ports=ports,
-                    parameters=parameters)
-
-                yield uri, node_desc
+                yield uri, desc

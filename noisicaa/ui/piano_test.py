@@ -29,8 +29,6 @@
 
 # class PianoTest(uitest_utils.UITest):
 #     def setup_testcase(self):
-#         super().setup_testcase()
-
 #         self.app.sequencer.add_port(
 #             devices.PortInfo(
 #                 devices.ClientInfo(1, "test"),

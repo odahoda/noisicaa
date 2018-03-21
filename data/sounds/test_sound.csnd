@@ -1,0 +1,93 @@
+<CsoundSynthesizer>
+<CsLicense>
+@begin:license
+
+Copyright (c) 2015-2018, Benjamin Niemann <pink@odahoda.de>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.,
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+@end:license
+
+Based on http://www.adp-gmbh.ch/csound/instruments/gong.html
+</CsLicense>
+<CsOptions>
+-d
+</CsOptions>
+<CsInstruments>
+sr = 44100
+kr  =  441
+ksmps= 100
+nchnls = 2
+
+instr 1; *****************************************************************
+  ilen  = p3
+  ifrq  = cpspch(p4)
+  iamp  = p5
+  ipan  = p6
+
+  ifrq1 =  1.0000  * ifrq
+  ifrq2 =  1.1541  * ifrq
+  ifrq3 =  1.6041  * ifrq
+  ifrq4 =  1.5208  * ifrq
+  ifrq5 =  1.4166  * ifrq
+  ifrq6 =  2.7916  * ifrq
+  ifrq7 =  3.3833  * ifrq
+
+  iamp1 =  1.0000  * iamp
+  iamp2 =  0.8333  * iamp
+  iamp3 =  0.6667  * iamp
+  iamp4 =  1.0000  * iamp
+  iamp5 =  0.3333  * iamp
+  iamp6 =  0.3333  * iamp
+  iamp7 =  0.3333  * iamp
+
+  aenv1    oscili  iamp1, 1/ilen, 2
+  aenv2    oscili  iamp2, 1/ilen, 2
+  aenv3    oscili  iamp3, 1/ilen, 2
+  aenv4    oscili  iamp4, 1/ilen, 2
+  aenv5    oscili  iamp5, 1/ilen, 2
+  aenv6    oscili  iamp6, 1/ilen, 2
+  aenv7    oscili  iamp7, 1/ilen, 2
+
+  asig1    oscili  aenv1, ifrq1, 1
+  asig2    oscili  aenv2, ifrq2, 1
+  asig3    oscili  aenv3, ifrq3, 1
+  asig4    oscili  aenv4, ifrq4, 1
+  asig5    oscili  aenv5, ifrq5, 1
+  asig6    oscili  aenv6, ifrq6, 1
+  asig7    oscili  aenv7, ifrq7, 1
+
+  asig = asig1 + asig2 + asig3 + asig4 + asig5 + asig6 + asig7
+
+  i_sqrt2   = 1.414213562373095
+  i_theta   = 3.141592653589793 * 45 * (1 - ipan) / 180
+  asig_l = i_sqrt2 * cos(i_theta) * asig
+  asig_r = i_sqrt2 * sin(i_theta) * asig
+
+  out asig_l, asig_r
+endin
+</CsInstruments>
+<CsScore>
+f1  0   512   9  1  1  0    ; basic waveform
+f2  0   513   5  128 512 1  ; envelopes
+
+i1   0  2  7.02  5000 -1
+i1   0  3  6.02  5000 0
+i1   0.3  2  7.06  4000 1
+i1   0.3  3  6.06  4000 0
+i1   0.6  2  7.04  3500 0
+i1   0.6  3  6.04  3500 0
+</CsScore>
+</CsoundSynthesizer>

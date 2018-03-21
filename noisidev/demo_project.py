@@ -164,20 +164,21 @@ def complex(cls, **kwargs):  # pylint: disable=redefined-builtin
     eq_node.set_control_value('Mid gain (dB)', 0.0)
     eq_node.set_control_value('Hi gain (dB)', 5.0)
 
-    filter_node_uri = 'builtin://custom_csound'
-    filter_node = pipeline_graph.PipelineGraphNode(
-        name='Filter',
-        node_uri=filter_node_uri)
-    filter_node.set_parameter(
-        'csound_orchestra',
-        textwrap.dedent('''\
-            instr 2
-                printk(0.5, k(gaCtrl))
-                gaOutLeft = butterlp(gaInLeft, 200 + 2000 * gaCtrl)
-                gaOutRight = butterlp(gaInRight, 200 + 2000 * gaCtrl)
-            endin
-        '''))
-    project.add_pipeline_graph_node(filter_node)
+    # TODO: custom_csound currently not supported
+    # filter_node_uri = 'builtin://custom_csound'
+    # filter_node = pipeline_graph.PipelineGraphNode(
+    #     name='Filter',
+    #     node_uri=filter_node_uri)
+    # filter_node.set_parameter(
+    #     'csound_orchestra',
+    #     textwrap.dedent('''\
+    #         instr 2
+    #             printk(0.5, k(gaCtrl))
+    #             gaOutLeft = butterlp(gaInLeft, 200 + 2000 * gaCtrl)
+    #             gaOutRight = butterlp(gaInRight, 200 + 2000 * gaCtrl)
+    #         endin
+    #     '''))
+    # project.add_pipeline_graph_node(filter_node)
 
     project.add_pipeline_graph_connection(
         pipeline_graph.PipelineGraphConnection(
@@ -191,19 +192,10 @@ def complex(cls, **kwargs):  # pylint: disable=redefined-builtin
     project.add_pipeline_graph_connection(
         pipeline_graph.PipelineGraphConnection(
             source_node=eq_node, source_port='Output L',
-            dest_node=filter_node, dest_port='in:left'))
-    project.add_pipeline_graph_connection(
-        pipeline_graph.PipelineGraphConnection(
-            source_node=eq_node, source_port='Output R',
-            dest_node=filter_node, dest_port='in:right'))
-
-    project.add_pipeline_graph_connection(
-        pipeline_graph.PipelineGraphConnection(
-            source_node=filter_node, source_port='out:left',
             dest_node=master_mixer, dest_port='in:left'))
     project.add_pipeline_graph_connection(
         pipeline_graph.PipelineGraphConnection(
-            source_node=filter_node, source_port='out:right',
+            source_node=eq_node, source_port='Output R',
             dest_node=master_mixer, dest_port='in:right'))
 
     for i in range(4):
@@ -318,9 +310,9 @@ def complex(cls, **kwargs):  # pylint: disable=redefined-builtin
     track4.points.append(
         control_track.ControlPoint(time=MusicalTime(8, 4), value=1.0))
 
-    project.add_pipeline_graph_connection(
-        pipeline_graph.PipelineGraphConnection(
-            source_node=track4.generator_node, source_port='out',
-            dest_node=filter_node, dest_port='ctrl'))
+    # project.add_pipeline_graph_connection(
+    #     pipeline_graph.PipelineGraphConnection(
+    #         source_node=track4.generator_node, source_port='out',
+    #         dest_node=filter_node, dest_port='ctrl'))
 
     return project

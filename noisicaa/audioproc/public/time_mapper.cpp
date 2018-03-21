@@ -24,7 +24,8 @@
 
 namespace noisicaa {
 
-TimeMapper::TimeMapper() {}
+TimeMapper::TimeMapper(uint32_t sample_rate)
+  : _sample_rate(sample_rate) {}
 
 Status TimeMapper::setup() {
   return Status::Ok();

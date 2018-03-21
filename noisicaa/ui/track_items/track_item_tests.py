@@ -236,8 +236,6 @@ class ReleaseKey(Event):
 
 class TrackEditorItemTestMixin(object):
     async def setup_testcase(self):
-        await super().setup_testcase()
-
         self.project.master_group = model.MasterTrackGroup(obj_id='master')
 
         self.player_state = project_view.PlayerState(**self.context_args)

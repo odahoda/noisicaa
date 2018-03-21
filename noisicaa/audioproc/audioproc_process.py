@@ -26,268 +26,219 @@ import functools
 import logging
 import sys
 import uuid
-import io
 
 import posix_ipc
 
 from noisicaa import core
 from noisicaa import node_db
-from noisicaa.core import ipc
+from noisicaa import lv2
+from noisicaa import host_system
 
-from . import vm
+from . import engine
 from . import mutations
-from . import node_db as nodecls_db
-from . import node
-from . import nodes
 
 logger = logging.getLogger(__name__)
 
 
-class InvalidSessionError(Exception): pass
+class Session(core.CallbackSessionMixin, core.SessionBase):
+    def __init__(self, client_address, flags, **kwargs):
+        super().__init__(callback_address=client_address, **kwargs)
 
+        self.__flags = flags or set()
+        self.__pending_mutations = []
+        self.owned_realms = set()
 
-class Session(object):
-    def __init__(self, event_loop, callback_stub, flags):
-        self.event_loop = event_loop
-        self.callback_stub = callback_stub
-        self.flags = flags or set()
-        self.id = uuid.uuid4().hex
-        self.pending_mutations = []
-
-    async def cleanup(self):
-        if self.callback_stub is not None:
-            await self.callback_stub.close()
-            self.callback_stub = None
-
-    def publish_mutation(self, mutation):
-        if not self.callback_stub.connected:
-            self.pending_mutations.append(mutation)
-            return
-
-        callback_task = self.event_loop.create_task(
-            self.callback_stub.call('PIPELINE_MUTATION', mutation))
-        callback_task.add_done_callback(self.publish_mutation_done)
-
-    def publish_mutation_done(self, callback_task):
-        assert callback_task.done()
-        exc = callback_task.exception()
-        if exc is not None:
-            logger.error(
-                "PUBLISH_MUTATION failed with exception: %s", exc)
-
-    def publish_player_state(self, state):
-        if not self.callback_stub.connected:
-            return
-
-        callback_task = self.event_loop.create_task(
-            self.callback_stub.call('PLAYER_STATE', state))
-        callback_task.add_done_callback(self.publish_player_state_done)
-
-    def publish_player_state_done(self, callback_task):
-        assert callback_task.done()
-        exc = callback_task.exception()
-        if exc is not None:
-            logger.error(
-                "PLAYER_STATE failed with exception: %s", exc)
-
-    def publish_status(self, status):
-        status = dict(status)
-
-        if 'perf_data' not in self.flags and 'perf_data' in status:
-            del status['perf_data']
-
-        if status:
-            callback_task = self.event_loop.create_task(
-                self.callback_stub.call('PIPELINE_STATUS', status))
-            callback_task.add_done_callback(self.publish_status_done)
-
-    def publish_status_done(self, callback_task):
-        assert callback_task.done()
-        exc = callback_task.exception()
-        if exc is not None:
-            buf = io.StringIO()
-            callback_task.print_stack(file=buf)
-            logger.error("PUBLISH_STATUS failed with exception: %s\n%s", exc, buf.getvalue())
-
-    def callback_stub_connected(self):
-        assert self.callback_stub.connected
-        while self.pending_mutations:
-            self.publish_mutation(self.pending_mutations.pop(0))
-
-
-class AudioProcProcess(core.ProcessBase):
-    def __init__(
-            self, *,
-            shm=None, profile_path=None, enable_player=False,
-            **kwargs):
-        super().__init__(**kwargs)
-        self.shm_name = shm
-        self.profile_path = profile_path
-        self.shm = None
-        self.__enable_player = enable_player
-        self.__host_data = None
-        self.__vm = None
-        self.sessions = {}
-        self.nodecls_db = None
-
-    async def setup(self):
-        await super().setup()
-
-        self.server.add_command_handler(
-            'START_SESSION', self.handle_start_session)
-        self.server.add_command_handler(
-            'END_SESSION', self.handle_end_session)
-        self.server.add_command_handler('SHUTDOWN', self.shutdown)
-        self.server.add_command_handler(
-            'SET_BACKEND', self.handle_set_backend)
-        self.server.add_command_handler(
-            'SET_BACKEND_PARAMETERS', self.handle_set_backend_parameters)
-        self.server.add_command_handler(
-            'SEND_MESSAGE', self.handle_send_message)
-        self.server.add_command_handler(
-            'PLAY_FILE', self.handle_play_file)
-        self.server.add_command_handler(
-            'PIPELINE_MUTATION', self.handle_pipeline_mutation)
-        self.server.add_command_handler(
-            'SEND_NODE_MESSAGES', self.handle_send_node_messages)
-        self.server.add_command_handler(
-            'UPDATE_PLAYER_STATE', self.handle_update_player_state)
-        self.server.add_command_handler(
-            'UPDATE_PROJECT_PROPERTIES', self.handle_update_project_properties)
-        self.server.add_command_handler(
-            'DUMP', self.handle_dump)
-
-        self.nodecls_db = nodecls_db.NodeDB()
-        self.nodecls_db.add(node.ProcessorNode)
-        self.nodecls_db.add(nodes.TrackEventSource)
-
-        if self.shm_name is not None:
-            self.shm = posix_ipc.SharedMemory(self.shm_name)
-
-        self.__host_data = vm.HostData()
-        self.__host_data.setup()
-
-        self.__vm = vm.PipelineVM(
-            event_loop=self.event_loop,
-            host_data=self.__host_data,
-            shm=self.shm,
-            profile_path=self.profile_path,
-            enable_player=self.__enable_player)
-        self.__vm.listeners.add('perf_data', self.perf_data_callback)
-        self.__vm.listeners.add('node_state', self.node_state_callback)
-        self.__vm.listeners.add('player_state', self.player_state_callback)
-
-        self.__vm.setup()
-
-        sink = nodes.Sink(host_data=self.__host_data)
-        self.__vm.setup_node(sink)
-        self.__vm.add_node(sink)
-
-    async def cleanup(self):
-        logger.info("Cleaning up AudioProcProcess %s...", self.name)
-
-        for session in self.sessions.values():
-            logger.info("Cleaning up session %s...", session.id)
-            await session.cleanup()
-        self.sessions.clear()
-
-        if self.shm is not None:
-            self.shm.close_fd()
-            self.shm = None
-
-        if self.__vm is not None:
-            logger.info("Cleaning up VM...")
-            self.__vm.cleanup()
-            self.__vm = None
-
-        if self.__host_data is not None:
-            logger.info("Cleaning up HostData...")
-            self.__host_data.cleanup()
-            self.__host_data = None
-
-        await super().cleanup()
-
-    def get_session(self, session_id):
-        try:
-            return self.sessions[session_id]
-        except KeyError:
-            raise InvalidSessionError
-
-    def publish_mutation(self, mutation):
-        for session in self.sessions.values():
-            session.publish_mutation(mutation)
-
-    def publish_status(self, **kwargs):
-        for session in self.sessions.values():
-            session.publish_status(kwargs)
-
-    def publish_player_state(self, state):
-        for session in self.sessions.values():
-            session.publish_player_state(state)
-
-    def handle_start_session(self, client_address, flags):
-        client_stub = ipc.Stub(self.event_loop, client_address)
-        connect_task = self.event_loop.create_task(client_stub.connect())
-        session = Session(self.event_loop, client_stub, flags)
-        connect_task.add_done_callback(
-            functools.partial(self.__client_connected, session))
-        self.sessions[session.id] = session
+    # async def setup(self):
+    #     await super().setup()
 
         # Send initial mutations to build up the current pipeline
         # state.
         # TODO: reanimate
-        # with self.__vm.reader_lock():
-        #     for node in self.__vm.nodes:
+        #     for node in self.__engine.nodes:
         #         mutation = mutations.AddNode(node)
         #         session.publish_mutation(mutation)
-        #     for node in self.__vm.nodes:
+        #     for node in self.__engine.nodes:
         #         for port in node.inputs.values():
         #             for upstream_port in port.inputs:
         #                 mutation = mutations.ConnectPorts(
         #                     upstream_port, port)
         #                 session.publish_mutation(mutation)
 
-        return session.id
+    def callback_connected(self):
+        while self.__pending_mutations:
+            self.publish_mutation(self.__pending_mutations.pop(0))
 
-    def __client_connected(self, session, connect_task):
-        assert connect_task.done()
-        exc = connect_task.exception()
-        if exc is not None:
-            logger.error("Failed to connect to callback client: %s", exc)
+    def publish_mutation(self, mutation):
+        if not self.callback_alive:
+            self.__pending_mutations.append(mutation)
             return
 
-        session.callback_stub_connected()
+        self.async_callback('PIPELINE_MUTATION', mutation)
 
-    async def handle_end_session(self, session_id):
-        self.get_session(session_id)
-        session = self.sessions.pop(session_id)
-        await session.cleanup()
+    def publish_player_state(self, realm, state):
+        if realm not in self.owned_realms:
+            return
 
-    async def handle_pipeline_mutation(self, session_id, mutation):
+        if not self.callback_alive:
+            return
+
+        self.async_callback('PLAYER_STATE', realm, state)
+
+    def publish_status(self, status):
+        if not self.callback_alive:
+            return
+
+        status = dict(status)
+
+        if 'perf_data' not in self.__flags and 'perf_data' in status:
+            del status['perf_data']
+
+        if status:
+            self.async_callback('PIPELINE_STATUS', status)
+
+
+class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
+
+    session_cls = Session
+
+    def __init__(
+            self, *,
+            shm=None, profile_path=None, block_size=None, sample_rate=None,
+            **kwargs):
+        super().__init__(**kwargs)
+        self.shm_name = shm
+        self.profile_path = profile_path
+        self.shm = None
+        self.__urid_mapper = None
+        self.__block_size = block_size
+        self.__sample_rate = sample_rate
+        self.__host_system = None
+        self.__engine = None
+
+    async def setup(self):
+        await super().setup()
+
+        self.server.add_command_handler('SHUTDOWN', self.shutdown)
+        self.server.add_command_handler('CREATE_REALM', self.__handle_create_realm)
+        self.server.add_command_handler('DELETE_REALM', self.__handle_delete_realm)
+        self.server.add_command_handler('SET_HOST_PARAMETERS', self.handle_set_host_parameters)
+        self.server.add_command_handler('SET_BACKEND', self.handle_set_backend)
+        self.server.add_command_handler('SET_BACKEND_PARAMETERS', self.handle_set_backend_parameters)
+        self.server.add_command_handler('SEND_MESSAGE', self.handle_send_message)
+        self.server.add_command_handler('PLAY_FILE', self.handle_play_file)
+        self.server.add_command_handler('PIPELINE_MUTATION', self.handle_pipeline_mutation)
+        self.server.add_command_handler('SEND_NODE_MESSAGES', self.handle_send_node_messages)
+        self.server.add_command_handler('UPDATE_PLAYER_STATE', self.handle_update_player_state)
+        self.server.add_command_handler(
+            'UPDATE_PROJECT_PROPERTIES', self.handle_update_project_properties)
+        self.server.add_command_handler('CREATE_PLUGIN_UI', self.handle_create_plugin_ui)
+        self.server.add_command_handler('DELETE_PLUGIN_UI', self.handle_delete_plugin_ui)
+        self.server.add_command_handler('DUMP', self.handle_dump)
+
+        if self.shm_name is not None:
+            self.shm = posix_ipc.SharedMemory(self.shm_name)
+
+        urid_mapper_address = await self.manager.call('CREATE_URID_MAPPER_PROCESS')
+
+        self.__urid_mapper = lv2.ProxyURIDMapper(
+            server_address=urid_mapper_address,
+            tmp_dir=self.tmp_dir)
+        await self.__urid_mapper.setup(self.event_loop)
+
+        self.__host_system = host_system.HostSystem(self.__urid_mapper)
+        if self.__block_size is not None:
+            self.__host_system.set_block_size(self.__block_size)
+        if self.__sample_rate is not None:
+            self.__host_system.set_sample_rate(self.__sample_rate)
+        self.__host_system.setup()
+
+        self.__engine = engine.Engine(
+            event_loop=self.event_loop,
+            manager=self.manager,
+            server_address=self.server.address,
+            host_system=self.__host_system,
+            shm=self.shm,
+            profile_path=self.profile_path)
+        self.__engine.listeners.add('perf_data', self.perf_data_callback)
+        self.__engine.listeners.add('node_state', self.node_state_callback)
+        self.__engine.listeners.add('player_state', self.player_state_callback)
+
+        await self.__engine.setup()
+
+    async def cleanup(self):
+        logger.info("Cleaning up AudioProcProcess %s...", self.name)
+
+        if self.shm is not None:
+            self.shm.close_fd()
+            self.shm = None
+
+        if self.__engine is not None:
+            logger.info("Cleaning up engine...")
+            await self.__engine.cleanup()
+            self.__engine = None
+
+        if self.__host_system is not None:
+            logger.info("Cleaning up HostSystem...")
+            self.__host_system.cleanup()
+            self.__host_system = None
+
+        if self.__urid_mapper is not None:
+            logger.info("Cleaning up ProxyURIDMapper...")
+            await self.__urid_mapper.cleanup(self.event_loop)
+            self.__urid_mapper = None
+
+        await super().cleanup()
+
+    def publish_mutation(self, mutation):
+        for session in self.sessions:
+            session.publish_mutation(mutation)
+
+    def publish_status(self, **kwargs):
+        for session in self.sessions:
+            session.publish_status(kwargs)
+
+    def publish_player_state(self, realm, state):
+        for session in self.sessions:
+            session.publish_player_state(realm, state)
+
+    async def __handle_create_realm(self, session_id, name, parent, enable_player):
+        session = self.get_session(session_id)
+        await self.__engine.create_realm(
+            name=name,
+            parent=parent,
+            enable_player=enable_player)
+        session.owned_realms.add(name)
+
+    async def __handle_delete_realm(self, session_id, name):
+        session = self.get_session(session_id)
+        assert name in session.owned_realms
+        await self.__engine.delete_realm(name)
+        session.owned_realms.remove(name)
+
+    async def handle_pipeline_mutation(self, session_id, realm_name, mutation):
         self.get_session(session_id)
+        realm = self.__engine.get_realm(realm_name)
+        graph = realm.graph
 
         if isinstance(mutation, mutations.AddNode):
             logger.info("AddNode():\n%s", mutation.description)
-            node = self.nodecls_db.create(
-                mutation.description.node_cls,
-                self.__host_data,
+            node = engine.Node.create(
+                host_system=self.__host_system,
                 description=mutation.description,
                 **mutation.args)
+            graph.add_node(node)
             # TODO: schedule setup in a worker thread.
-            self.__vm.setup_node(node)
-            with self.__vm.writer_lock():
-                self.__vm.add_node(node)
-                self.__vm.update_spec()
+            await realm.setup_node(node)
+            realm.update_spec()
 
         elif isinstance(mutation, mutations.RemoveNode):
-            node = self.__vm.find_node(mutation.node_id)
-            with self.__vm.writer_lock():
-                self.__vm.remove_node(node)
-                self.__vm.update_spec()
-            node.cleanup()
+            node = graph.find_node(mutation.node_id)
+            await node.cleanup(deref=True)
+            graph.remove_node(node)
+            realm.update_spec()
 
         elif isinstance(mutation, mutations.ConnectPorts):
-            node1 = self.__vm.find_node(mutation.src_node)
+            node1 = graph.find_node(mutation.src_node)
             try:
                 port1 = node1.outputs[mutation.src_port]
             except KeyError as exc:
@@ -296,7 +247,7 @@ class AudioProcProcess(core.ProcessBase):
                     % (node1.id, type(node1).__name__, mutation.src_port)
                 ).with_traceback(sys.exc_info()[2]) from None
 
-            node2 = self.__vm.find_node(mutation.dest_node)
+            node2 = graph.find_node(mutation.dest_node)
             try:
                 port2 = node2.inputs[mutation.dest_port]
             except KeyError as exc:
@@ -304,111 +255,120 @@ class AudioProcProcess(core.ProcessBase):
                     "Node %s (%s) has no port %s"
                     % (node2.id, type(node2).__name__, mutation.dest_port)
                 ).with_traceback(sys.exc_info()[2]) from None
-            with self.__vm.writer_lock():
-                port2.connect(port1)
-                self.__vm.update_spec()
+            port2.connect(port1)
+            realm.update_spec()
 
         elif isinstance(mutation, mutations.DisconnectPorts):
-            node1 = self.__vm.find_node(mutation.src_node)
-            node2 = self.__vm.find_node(mutation.dest_node)
-            with self.__vm.writer_lock():
-                node2.inputs[mutation.dest_port].disconnect(node1.outputs[mutation.src_port])
-                self.__vm.update_spec()
+            node1 = graph.find_node(mutation.src_node)
+            node2 = graph.find_node(mutation.dest_node)
+            node2.inputs[mutation.dest_port].disconnect(node1.outputs[mutation.src_port])
+            realm.update_spec()
 
         elif isinstance(mutation, mutations.SetPortProperty):
-            node = self.__vm.find_node(mutation.node)
+            node = graph.find_node(mutation.node)
             port = node.outputs[mutation.port]
-            with self.__vm.writer_lock():
-                port.set_prop(**mutation.kwargs)
-
-        elif isinstance(mutation, mutations.SetNodeParameter):
-            node = self.__vm.find_node(mutation.node)
-            with self.__vm.writer_lock():
-                node.set_param(**mutation.kwargs)
+            port.set_prop(**mutation.kwargs)
 
         elif isinstance(mutation, mutations.SetControlValue):
-            self.__vm.set_control_value(mutation.name, mutation.value)
+            realm.set_control_value(mutation.name, mutation.value)
 
         else:
             raise ValueError(type(mutation))
 
-    def handle_send_node_messages(self, session_id, messages):
+    def handle_send_node_messages(self, session_id, realm_name, messages):
         self.get_session(session_id)
+        realm = self.__engine.get_realm(realm_name)
         for msg in messages.messages:
-            self.__vm.send_node_message(msg)
+            realm.send_node_message(msg)
+
+    async def handle_set_host_parameters(self, session_id, parameters):
+        self.get_session(session_id)
+        await self.__engine.set_host_parameters(**parameters)
 
     def handle_set_backend(self, session_id, name, parameters):
         self.get_session(session_id)
-        self.__vm.set_backend(name, **parameters)
+        self.__engine.set_backend(name, **parameters)
 
     def handle_set_backend_parameters(self, session_id, parameters):
         self.get_session(session_id)
-        self.__vm.set_backend_parameters(**parameters)
+        self.__engine.set_backend_parameters(**parameters)
 
     def handle_send_message(self, session_id, msg):
         self.get_session(session_id)
-        self.__vm.send_message(msg)
+        self.__engine.send_message(msg)
 
-    def handle_update_player_state(self, session_id, state):
+    def handle_update_player_state(self, session_id, realm_name, state):
         self.get_session(session_id)
-        self.__vm.update_player_state(state)
+        realm = self.__engine.get_realm(realm_name)
+        realm.player.update_state(state)
 
-    def handle_update_project_properties(self, session_id, properties):
+    def handle_update_project_properties(self, session_id, realm_name, properties):
         self.get_session(session_id)
-        self.__vm.update_project_properties(**properties)
+        realm = self.__engine.get_realm(realm_name)
+        realm.update_project_properties(**properties)
 
     def perf_data_callback(self, perf_data):
         self.event_loop.call_soon_threadsafe(
             functools.partial(
                 self.publish_status, perf_data=perf_data))
 
-    def node_state_callback(self, node_id, **kwargs):
+    def node_state_callback(self, realm, node_id, state):
+        logger.info('%s %s', node_id, state)
         self.event_loop.call_soon_threadsafe(
             functools.partial(
-                self.publish_status, node_state=(node_id, kwargs)))
+                self.publish_status, node_state=(realm, node_id, state)))
 
-    def player_state_callback(self, state):
+    def player_state_callback(self, realm, state):
         self.event_loop.call_soon_threadsafe(
-            functools.partial(self.publish_player_state, state))
+            functools.partial(self.publish_player_state, realm, state))
 
     async def handle_play_file(self, session_id, path):
         self.get_session(session_id)
 
-        description = node_db.SoundFileDescription
-        node = self.nodecls_db.create(
-            description.node_cls,
-            self.__host_data,
+        realm = self.__engine.get_realm('root')
+
+        node_desc = node_db.NodeDescription()
+        node_desc.CopyFrom(node_db.Builtins.SoundFileDescription)
+        node_desc.sound_file.sound_file_path = path
+
+        node = engine.Node.create(
+            host_system=self.__host_system,
             id=uuid.uuid4().hex,
-            description=description,
-            initial_parameters=dict(
-                sound_file_path=path))
+            description=node_desc)
+        realm.graph.add_node(node)
+        await realm.setup_node(node)
 
-        self.__vm.setup_node(node)
+        sink = realm.graph.find_node('sink')
+        sink.inputs['in:left'].connect(node.outputs['out:left'])
+        sink.inputs['in:right'].connect(node.outputs['out:right'])
+        realm.update_spec()
 
-        self.__vm.notification_listener.add(
+        self.__engine.notification_listener.add(
             node.id,
             functools.partial(self.play_file_done, node_id=node.id))
-
-        with self.__vm.writer_lock():
-            sink = self.__vm.find_node('sink')
-            self.__vm.add_node(node)
-            sink.inputs['in:left'].connect(node.outputs['out:left'])
-            sink.inputs['in:right'].connect(node.outputs['out:right'])
-            self.__vm.update_spec()
 
         return node.id
 
     def play_file_done(self, msg_type, *, node_id):
-        with self.__vm.writer_lock():
-            node = self.__vm.find_node(node_id)
-            sink = self.__vm.find_node('sink')
-            sink.inputs['in:left'].disconnect(node.outputs['out:left'])
-            sink.inputs['in:right'].disconnect(node.outputs['out:right'])
-            self.__vm.remove_node(node)
-            self.__vm.update_spec()
+        realm = self.__engine.get_realm('root')
+
+        node = realm.graph.find_node(node_id)
+        sink = realm.graph.find_node('sink')
+        sink.inputs['in:left'].disconnect(node.outputs['out:left'])
+        sink.inputs['in:right'].disconnect(node.outputs['out:right'])
+        realm.graph.remove_node(node)
+        realm.update_spec()
+
+    async def handle_create_plugin_ui(self, session_id, realm_name, node_id):
+        self.get_session(session_id)
+        return await self.__engine.create_plugin_ui(realm_name, node_id)
+
+    async def handle_delete_plugin_ui(self, session_id, realm_name, node_id):
+        self.get_session(session_id)
+        return await self.__engine.delete_plugin_ui(realm_name, node_id)
 
     def handle_dump(self, session_id):
-        self.__vm.dump()
+        self.__engine.dump()
 
 
 class AudioProcSubprocess(core.SubprocessMixin, AudioProcProcess):

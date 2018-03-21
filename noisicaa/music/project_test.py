@@ -52,7 +52,7 @@ class NodeDB(object):
         self.db.cleanup()
 
     def get_node_description(self, uri):
-        return self.db._nodes[uri]  # pylint: disable=protected-access
+        return self.db[uri]
 
 
 class BaseProjectTest(unittest.AsyncTestCase):

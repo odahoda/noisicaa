@@ -28,7 +28,6 @@
 
 # class RenderDialogTest(uitest_utils.UITest):
 #     async def setup_testcase(self):
-#         await super().setup_testcase()
 #         self.project = project.BaseProject()
 
 #     async def test_init(self):

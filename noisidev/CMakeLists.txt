@@ -22,5 +22,12 @@ add_python_package(
   profutil.py
   perf_stats.py
   unittest.py
+  unittest_mixins.py
   demo_project.py
 )
+
+add_cython_module(unittest_engine_mixins CXX)
+target_link_libraries(${unittest_engine_mixins.so} PRIVATE noisicaa-audioproc-engine)
+
+add_cython_module(unittest_engine_utils CXX)
+target_link_libraries(${unittest_engine_utils.so} PRIVATE noisicaa-audioproc-engine)

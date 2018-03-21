@@ -37,6 +37,11 @@ from .process_manager import (
     ProcessBase,
     SubprocessMixin,
 )
+from .sessions import (
+    SessionHandlerMixin,
+    SessionBase,
+    CallbackSessionMixin,
+)
 from .callbacks import (
     CallbackRegistry,
 )
@@ -55,4 +60,12 @@ from .logging import (
 from .status import (
     Error,
     ConnectionClosed,
+    Timeout,
+)
+from .threads import (
+    Thread,
+)
+from .backend_manager import (
+    BackendManager,
+    ManagedBackend,
 )

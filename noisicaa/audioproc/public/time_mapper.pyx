@@ -24,13 +24,14 @@ from .musical_time cimport PyMusicalTime, PyMusicalDuration
 
 
 cdef class PyTimeMapper(object):
-    def __init__(self):
-        self.__ptr.reset(new TimeMapper())
+    def __init__(self, sample_rate):
+        self.__ptr.reset(new TimeMapper(sample_rate))
         self.__tmap = self.__ptr.get()
         self.__listeners = {}
 
     def setup(self, project=None):
-        check(self.__tmap.setup())
+        with nogil:
+            check(self.__tmap.setup())
 
         if project is not None:
             self.bpm = project.bpm

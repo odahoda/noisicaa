@@ -18,8 +18,7 @@
 #
 # @end:license
 
-add_python_package(
-)
+add_python_package()
 
 set(LIB_SRCS
   musical_time.cpp

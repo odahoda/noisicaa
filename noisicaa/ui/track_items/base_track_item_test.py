@@ -51,8 +51,6 @@ class TestTrackEditorItem(base_track_item.BaseTrackEditorItem):
 
 class BaseTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
     async def setup_testcase(self):
-        await super().setup_testcase()
-
         self.project.master_group.tracks.append(model.ScoreTrack(obj_id='track-1'))
         self.tool_box = TestToolBox(**self.context_args)
 
@@ -71,8 +69,6 @@ class TestMeasuredTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
 
 class MeasuredTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
     async def setup_testcase(self):
-        await super().setup_testcase()
-
         self.project.master_group.tracks.append(model.ScoreTrack(obj_id='track-1'))
         self.tool_box = TestToolBox(**self.context_args)
 

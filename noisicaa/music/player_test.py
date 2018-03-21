@@ -22,14 +22,12 @@
 
 import asyncio
 import logging
-from unittest import mock
 
 from noisidev import unittest
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
-
 from . import project
 from . import player
 
@@ -37,8 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class MockAudioProcClient(object):
-    def __init__(self, event_loop, server):
-        self.audiostream_server = None
+    def __init__(self):
         self.listeners = core.CallbackRegistry()
 
     async def setup(self):
@@ -53,21 +50,14 @@ class MockAudioProcClient(object):
     async def disconnect(self, shutdown=False):
         logger.info("Disconnect audioproc client (shutdown=%s).", shutdown)
 
-    async def pipeline_mutation(self, mutation):
-        pass
+    async def pipeline_mutation(self, realm, mutation):
+        assert realm == 'player'
 
-    async def set_backend(self, backend, **settings):
-        logger.info("Set to audioproc backend to %s.", backend)
-        assert backend == 'ipc'
-        assert 'ipc_address' in settings
+    async def send_node_messages(self, realm, messages):
+        assert realm == 'player'
 
-    async def dump(self):
-        pass
-
-    async def send_node_messages(self, messages):
-        pass
-
-    async def update_project_properties(self, bpm=None, duration=None):
+    async def update_project_properties(self, realm, bpm=None, duration=None):
+        assert realm == 'player'
         assert bpm is None or isinstance(bpm, int)
         assert duration is None or isinstance(duration, audioproc.MusicalDuration)
 
@@ -76,7 +66,7 @@ class PlayerTest(unittest.AsyncTestCase):
     async def setup_testcase(self):
         self.project = project.BaseProject()
 
-        self.player_status_calls = asyncio.Queue()
+        self.player_status_calls = asyncio.Queue(loop=self.loop)
         self.callback_server = ipc.Server(self.loop, 'callback', socket_dir=TEST_OPTS.TMP_DIR)
         self.callback_server.add_command_handler(
             'PLAYER_STATUS',
@@ -86,14 +76,6 @@ class PlayerTest(unittest.AsyncTestCase):
         self.audioproc_server = ipc.Server(self.loop, 'audioproc', socket_dir=TEST_OPTS.TMP_DIR)
         await self.audioproc_server.setup()
 
-        self.mock_manager = mock.Mock()
-        async def mock_call(cmd, *args, **kwargs):
-            assert cmd == 'CREATE_AUDIOPROC_PROCESS'
-            name, = args
-            assert name == 'player'
-            return self.audioproc_server.address
-        self.mock_manager.call.side_effect = mock_call
-
         logger.info("Testcase setup complete.")
 
     async def cleanup_testcase(self):
@@ -102,42 +84,15 @@ class PlayerTest(unittest.AsyncTestCase):
         await self.audioproc_server.cleanup()
         await self.callback_server.cleanup()
 
-    async def test_audio_stream_fails(self):
+    async def test_playback(self):
         p = player.Player(
             project=self.project,
             callback_address=self.callback_server.address,
-            manager=self.mock_manager,
             event_loop=self.loop,
-            tmp_dir=TEST_OPTS.TMP_DIR)
+            audioproc_client=MockAudioProcClient(),
+            realm='player')
         try:
-            with mock.patch('noisicaa.music.player.AudioProcClient', MockAudioProcClient):
-                await p.setup()
+            await p.setup()
 
-                logger.info("Wait until audioproc is ready...")
-                self.assertEqual(
-                    await self.player_status_calls.get(),
-                    {'pipeline_state': 'starting'})
-                self.assertEqual(
-                    await self.player_status_calls.get(),
-                    {'pipeline_state': 'running'})
-
-                logger.info("Backend closes its pipe...")
-                p.audioproc_backend.backend_crashed()
-
-                self.assertEqual(
-                    await self.player_status_calls.get(),
-                    {'pipeline_state': 'crashed'})
-
-                logger.info("Waiting until audioproc is down...")
-                self.assertEqual(
-                    await self.player_status_calls.get(),
-                    {'pipeline_state': 'stopped'})
-
-                # TODO: verify that backend gets restarted correctly (currently it doesn't).
-
-                # need some time to finish the IPC response of the last PLAYER_STATUS call
-                # TODO: server shutdown should lame duck and wait until all pending
-                # calls are finished.
-                await asyncio.sleep(0.1)
         finally:
             await p.cleanup()

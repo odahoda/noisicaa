@@ -18,3 +18,14 @@
 #
 # @end:license
 
+from .ui_host import (
+    PyLV2UIHost as LV2UIHost,
+)
+from .urid_mapper import (
+    PyDynamicURIDMapper as DynamicURIDMapper,
+    PyProxyURIDMapper as ProxyURIDMapper,
+)
+from .feature_manager import (
+    supports_plugin_feature,
+    supports_ui_feature,
+)

@@ -106,16 +106,11 @@ class PluginTest(unittest.TestCase):
         self.assertIsNot(plugin, None)
 
         self.assertEqual(
-            list(plugin.get_required_features()),
+            plugin.required_features,
             ['http://lv2plug.in/ns/ext/urid#map'])
         self.assertEqual(
-            list(plugin.get_optional_features()),
+            plugin.optional_features,
             ['http://lv2plug.in/ns/lv2core#hardRTCapable'])
-
-        self.assertEqual(plugin.get_missing_features(), [])
-
-        instance = plugin.instantiate(44100)
-        self.assertIsNot(instance, None)
 
     # def test_not_supported(self):
     #     uri_node = self.world.new_uri('http://lv2plug.in/plugins/eg-sampler')
@@ -125,40 +120,3 @@ class PluginTest(unittest.TestCase):
     #     self.assertEqual(
     #         sorted(str(f) for f in plugin.get_missing_features()),
     #         ['http://lv2plug.in/ns/ext/state#loadDefaultState'])
-
-    def test_instantiate(self):
-        cdef:
-            cdef lilv.Instance instance
-            cdef bytearray audio_in
-            cdef bytearray audio_out
-            cdef bytearray midi_in
-            cdef bytearray midi_out
-
-        uri_node = self.world.new_uri('http://noisicaa.odahoda.de/plugins/test-passthru')
-        plugin = self.plugins.get_by_uri(uri_node)
-        self.assertIsNot(plugin, None)
-        self.assertEqual(plugin.get_uri(), uri_node)
-
-        audio_in_port = plugin.get_port_by_symbol(self.world.new_string('audio_in'))
-        audio_out_port = plugin.get_port_by_symbol(self.world.new_string('audio_out'))
-        midi_in_port = plugin.get_port_by_symbol(self.world.new_string('midi_in'))
-        midi_out_port = plugin.get_port_by_symbol(self.world.new_string('midi_out'))
-
-        instance = plugin.instantiate(44100)
-        self.assertIsNot(instance, None)
-
-        audio_in = bytearray(4096)
-        instance.connect_port(audio_in_port.get_index(), <char*>audio_in)
-
-        audio_out = bytearray(4096)
-        instance.connect_port(audio_out_port.get_index(), <char*>audio_out)
-
-        midi_in = bytearray(4096)
-        instance.connect_port(midi_in_port.get_index(), <char*>midi_in)
-
-        midi_out = bytearray(4096)
-        instance.connect_port(midi_out_port.get_index(), <char*>midi_out)
-
-        instance.activate()
-        instance.run(1024)
-        instance.deactivate()

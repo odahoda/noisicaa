@@ -28,7 +28,9 @@ from .musical_time cimport MusicalTime, MusicalDuration
 
 cdef extern from "noisicaa/audioproc/public/time_mapper.h" namespace "noisicaa" nogil:
     cppclass TimeMapper:
-        TimeMapper()
+        TimeMapper()  # only declared, because otherwise cython complains when instanciating
+                      # a TimeMapper.iterator on the stack. cython bug?
+        TimeMapper(uint32_t sample_rate)
 
         Status setup()
         void cleanup()

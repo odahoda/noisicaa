@@ -34,7 +34,7 @@ namespace noisicaa {
 
 class TimeMapper {
 public:
-  TimeMapper();
+  TimeMapper(uint32_t sample_rate);
 
   Status setup();
   void cleanup();
@@ -99,7 +99,7 @@ public:
 
 private:
   uint32_t _bpm = 120;
-  const uint32_t _sample_rate = 44100;  // TODO: use host_data.sample_rate
+  uint32_t _sample_rate;
   MusicalDuration _duration = MusicalDuration(4, 1);
 };
 

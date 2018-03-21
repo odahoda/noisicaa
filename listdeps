@@ -48,9 +48,12 @@ PIP_DEPS = {
     'runtime': [
         PKG('./3rdparty/csound/', 'ubuntu', '<17.10'),
         PKG('./3rdparty/lv2/', 'ubuntu', '<17.10'),
-        PKG('./3rdparty/lilv/', 'ubuntu', '<17.10'),
+        PKG('./3rdparty/lilv/'),
+        PKG('./3rdparty/suil/'),
+        PKG('PyGObject'),
         PKG('PyQt5'),
         PKG('eventfd'),
+        PKG('gbulb'),
         PKG('numpy'),
         PKG('portalocker'),
         PKG('posix_ipc'),
@@ -70,11 +73,13 @@ PIP_DEPS = {
     ],
     'dev': [
         PKG('asynctest'),
+        PKG('async_generator'),
         PKG('coverage'),
         PKG('mox3'),
         PKG('py-cpuinfo'),
         PKG('pyfakefs'),
         PKG('pylint'),
+        PKG('mypy'),
     ],
     'vmtests': [
         PKG('paramiko'),
@@ -94,12 +99,18 @@ SYS_DEPS = {
         PKG('ffmpeg'),
     ],
     'build': [
+        # qt4
+        PKG('libqt4-dev'),
+
+        # gtk2
+        PKG('libgtk2.0-dev'),
+        PKG('libgirepository1.0-dev'),
+
         # lv2/lilv
         PKG('libserd-dev'),
         PKG('libsord-dev'),
         PKG('libsratom-dev'),
         PKG('lv2-dev', 'ubuntu', '>=17.10'),
-        PKG('liblilv-dev', 'ubuntu', '>=17.10'),
 
         # ladspa
         PKG('ladspa-sdk'),
@@ -145,11 +156,13 @@ SYS_DEPS = {
         PKG('libfluidsynth-dev'),
         PKG('inkscape'),
         PKG('zlib1g-dev'),
+        PKG('libunwind-dev'),
     ],
     'dev': [
         PKG('mda-lv2'),
         PKG('swh-plugins'),
         PKG('gdb'),
+        PKG('xvfb'),
     ],
     'vmtests': [
         PKG('virtualbox'),

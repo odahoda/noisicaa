@@ -106,4 +106,41 @@ const char* DynamicURIDMapper::unmap(LV2_URID urid) const {
   return it->second.c_str();
 }
 
+ProxyURIDMapper::ProxyURIDMapper(LV2_URID (*map_func)(void*, const char*), void* handle)
+  : _map_func(map_func),
+    _handle(handle) {}
+
+LV2_URID ProxyURIDMapper::map(const char* uri) {
+  LV2_URID urid = StaticURIDMapper::map(uri);
+  if (urid != 0) {
+    return urid;
+  }
+
+  const auto& it = _map.find(uri);
+  if (it != _map.end()) {
+    return it->second;
+  }
+
+  return _map_func(_handle, uri);
+}
+
+const char* ProxyURIDMapper::unmap(LV2_URID urid) const {
+  const char* uri = StaticURIDMapper::unmap(urid);
+  if (uri != nullptr) {
+    return uri;
+  }
+
+  const auto& it = _rmap.find(urid);
+  if (it == _rmap.end()) {
+    return nullptr;
+  }
+  return it->second.c_str();
+}
+
+void ProxyURIDMapper::insert(const char*uri, LV2_URID urid) {
+  assert(_map.count(uri) == 0);
+  _map.emplace(uri, urid);
+  _rmap.emplace(urid, uri);
+}
+
 }  // namespace noisicaa

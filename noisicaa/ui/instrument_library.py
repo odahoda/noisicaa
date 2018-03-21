@@ -519,12 +519,15 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.__pipeline_mixer_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
-            description=node_db.TrackMixerDescription,
+            'root',
+            description=node_db.Builtins.TrackMixerDescription,
             id=self.__pipeline_mixer_id,
             name='library-mixer')
         await self.audioproc_client.connect_ports(
+            'root',
             self.__pipeline_mixer_id, 'out:left', 'sink', 'in:left')
         await self.audioproc_client.connect_ports(
+            'root',
             self.__pipeline_mixer_id, 'out:right', 'sink', 'in:right')
 
         self.__instrument_loader_task = self.event_loop.create_task(
@@ -544,10 +547,13 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
             if self.__pipeline_mixer_id is not None:
                 await self.audioproc_client.disconnect_ports(
+                    'root',
                     self.__pipeline_mixer_id, 'out:left', 'sink', 'in:left')
                 await self.audioproc_client.disconnect_ports(
+                    'root',
                     self.__pipeline_mixer_id, 'out:right', 'sink', 'in:right')
                 await self.audioproc_client.remove_node(
+                    'root',
                     self.__pipeline_mixer_id)
                 self.__pipeline_mixer_id = None
 
@@ -562,25 +568,29 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     async def addInstrumentToPipeline(self, uri):
         assert self.__pipeline_instrument_id is None
 
-        node_uri, node_params = instrument_db.parse_uri(uri)
+        node_description = instrument_db.parse_uri(uri, self.app.node_db.get_node_description)
         self.__pipeline_instrument_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
-            description=self.app.node_db.get_node_description(node_uri),
-            id=self.__pipeline_instrument_id,
-            initial_parameters=node_params)
+            'root',
+            description=node_description,
+            id=self.__pipeline_instrument_id)
         await self.audioproc_client.connect_ports(
+            'root',
             self.__pipeline_instrument_id, 'out:left',
             self.__pipeline_mixer_id, 'in:left')
         await self.audioproc_client.connect_ports(
+            'root',
             self.__pipeline_instrument_id, 'out:right',
             self.__pipeline_mixer_id, 'in:right')
 
         self.__pipeline_event_source_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
-            description=node_db.EventSourceDescription,
+            'root',
+            description=node_db.Builtins.EventSourceDescription,
             id=self.__pipeline_event_source_id,
             track_id='instrument_library')
         await self.audioproc_client.connect_ports(
+            'root',
             self.__pipeline_event_source_id, 'out',
             self.__pipeline_instrument_id, 'in')
 
@@ -589,19 +599,24 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             return
 
         await self.audioproc_client.disconnect_ports(
+            'root',
             self.__pipeline_event_source_id, 'out',
             self.__pipeline_instrument_id, 'in')
         await self.audioproc_client.remove_node(
+            'root',
             self.__pipeline_event_source_id)
         self.__pipeline_event_source_id = None
 
         await self.audioproc_client.disconnect_ports(
+            'root',
             self.__pipeline_instrument_id, 'out:left',
             self.__pipeline_mixer_id, 'in:left')
         await self.audioproc_client.disconnect_ports(
+            'root',
             self.__pipeline_instrument_id, 'out:right',
             self.__pipeline_mixer_id, 'in:right')
         await self.audioproc_client.remove_node(
+            'root',
             self.__pipeline_instrument_id)
         self.__pipeline_instrument_id = None
 

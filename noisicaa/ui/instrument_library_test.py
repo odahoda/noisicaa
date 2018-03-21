@@ -31,9 +31,6 @@ from . import instrument_library
 
 
 class TracksModelTest(uitest_utils.UITest):
-    async def setup_testcase(self):
-        await super().setup_testcase()
-
     def __mkinstr(self, path):
         return instrument_db.InstrumentDescription(
             uri='wav:' + path,

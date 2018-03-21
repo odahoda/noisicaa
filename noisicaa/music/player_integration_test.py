@@ -20,26 +20,23 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-
 import asyncio
 import contextlib
 import logging
+import os
 import os.path
-import tempfile
-from unittest import mock
 
 from noisidev import unittest
+from noisidev import unittest_mixins
 from noisidev import demo_project
+from noisidev import perf_stats
 from noisicaa.constants import TEST_OPTS
 from noisicaa import core
 from noisicaa import audioproc
-from noisicaa.audioproc import audioproc_process
+from noisicaa import node_db
 from noisicaa.audioproc import audioproc_client
 from noisicaa.bindings import lv2
 from noisicaa.core import ipc
-from noisicaa.node_db.private import db as node_db
-from noisidev import perf_stats
 
 from . import project
 from . import player
@@ -59,9 +56,24 @@ class TestAudioProcClientImpl(object):
     async def cleanup(self):
         await self.server.cleanup()
 
-
 class TestAudioProcClient(
         audioproc_client.AudioProcClientMixin, TestAudioProcClientImpl):
+    pass
+
+
+class NodeDBClientImpl(object):
+    def __init__(self, event_loop, server):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = server
+
+    async def setup(self):
+        pass
+
+    async def cleanup(self):
+        pass
+
+class NodeDBClient(node_db.NodeDBClientMixin, NodeDBClientImpl):
     pass
 
 
@@ -71,7 +83,7 @@ class CallbackServer(ipc.Server):
     def __init__(self, event_loop):
         super().__init__(event_loop, 'callback', socket_dir=TEST_OPTS.TMP_DIR)
 
-        self.player_status_calls = asyncio.Queue()
+        self.player_status_calls = asyncio.Queue(loop=event_loop)
         self.add_command_handler(
             'PLAYER_STATUS', self.handle_player_update,
             log_level=logging.DEBUG)
@@ -96,98 +108,58 @@ class CallbackServer(ipc.Server):
                         return getattr(state, name)
 
 
-class NodeDB(object):
-    def __init__(self):
-        self.db = node_db.NodeDB()
-
-    async def setup(self):
-        self.db.setup()
-
-    async def cleanup(self):
-        self.db.cleanup()
-
-    def get_node_description(self, uri):
-        return self.db._nodes[uri]
-
-
-class PlayerTest(unittest.AsyncTestCase):
+class PlayerTest(
+        unittest_mixins.ProcessManagerMixin,
+        unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.node_db = None
-        self.audioproc_server_player = None
-        self.audioproc_server_player_task = None
-        self.audioproc_server_main = None
-        self.audioproc_server_main_task = None
-        self.audioproc_client_main = None
         self.callback_server = None
+        self.node_db_client = None
+        self.audioproc_address_player = None
+        self.audioproc_address_main = None
+        self.audioproc_client_main = None
+        self.project = None
 
     async def setup_testcase(self):
-        self.node_db = NodeDB()
-        await self.node_db.setup()
+        os.environ['LADSPA_PATH'] = '/usr/lib/ladspa'
+        os.environ['LV2_PATH'] = '/usr/lib/lv2'
 
-        self.project = demo_project.complex(project.BaseProject, node_db=self.node_db)
+        self.setup_node_db_process(inline=True)
+        self.setup_urid_mapper_process(inline=True)
+        self.setup_audioproc_process(inline=True)
+        self.setup_plugin_host_process(inline=True)
 
         self.callback_server = CallbackServer(self.loop)
         await self.callback_server.setup()
 
-        self.audioproc_server_main = audioproc_process.AudioProcProcess(
-            name='main_process', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR)
-        await self.audioproc_server_main.setup()
-        self.audioproc_server_main_task = self.loop.create_task(
-            self.audioproc_server_main.run())
+        node_db_address = await self.process_manager_client.call('CREATE_NODE_DB_PROCESS')
+        self.node_db_client = NodeDBClient(self.loop, self.callback_server)
+        await self.node_db_client.setup()
+        await self.node_db_client.connect(node_db_address)
+
+        self.audioproc_address_main = await self.process_manager_client.call(
+            'CREATE_AUDIOPROC_PROCESS', 'main_process')
 
         self.audioproc_client_main = TestAudioProcClient(self.loop, 'main_client')
         await self.audioproc_client_main.setup()
         await self.audioproc_client_main.connect(
-            self.audioproc_server_main.server.address, flags={'perf_data'})
+            self.audioproc_address_main, flags={'perf_data'})
         await self.audioproc_client_main.set_backend(TEST_OPTS.PLAYBACK_BACKEND)
 
-        profile_path = None
-        if TEST_OPTS.ENABLE_PROFILER:
-            profile_path = os.path.join(tempfile.gettempdir(), self.id() + '.prof')
-        self.audioproc_server_player = audioproc_process.AudioProcProcess(
-            name='player_process', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR,
-            profile_path=profile_path, enable_player=True)
-        await self.audioproc_server_player.setup()
-        self.audioproc_server_player_task = self.loop.create_task(
-            self.audioproc_server_player.run())
-
-        self.mock_manager = mock.Mock()
-        async def mock_call(cmd, *args, **kwargs):
-            assert cmd == 'CREATE_AUDIOPROC_PROCESS'
-            name, = args
-            assert name == 'player'
-            assert kwargs.get('enable_player', False)
-            return self.audioproc_server_player.server.address
-        self.mock_manager.call.side_effect = mock_call
+        self.project = demo_project.complex(project.BaseProject, node_db=self.node_db_client)
 
         logger.info("Testcase setup complete.")
 
     async def cleanup_testcase(self):
         logger.info("Testcase teardown starts...")
 
-        if self.audioproc_server_player is not None:
-            if self.audioproc_server_player_task is not None:
-                await self.audioproc_server_player.shutdown()
-                await asyncio.wait_for(self.audioproc_server_player_task, None)
-            await self.audioproc_server_player.cleanup()
-
-        if self.audioproc_client_main is not None:
-            await self.audioproc_client_main.disconnect()
-            await self.audioproc_client_main.cleanup()
-
-        if self.audioproc_server_main is not None:
-            if self.audioproc_server_main_task is not None:
-                await self.audioproc_server_main.shutdown()
-                await asyncio.wait_for(self.audioproc_server_main_task, None)
-            await self.audioproc_server_main.cleanup()
+        if self.node_db_client is not None:
+            await self.node_db_client.disconnect()
+            await self.node_db_client.cleanup()
 
         if self.callback_server is not None:
             await self.callback_server.cleanup()
-
-        if self.node_db is not None:
-            await self.node_db.cleanup()
 
     @contextlib.contextmanager
     def track_frame_stats(self, testname):
@@ -196,7 +168,10 @@ class PlayerTest(unittest.AsyncTestCase):
         def log_stats(spans, parent_id, indent):
             for span in spans:
                 if span.parentId == parent_id:
-                    logger.info("%-40s: %10.3fµs", '  ' * indent + span.name, (span.endTimeNSec - span.startTimeNSec) / 1000.0)
+                    logger.debug(
+                        "%-40s: %10.3fµs",
+                        '  ' * indent + span.name,
+                        (span.endTimeNSec - span.startTimeNSec) / 1000.0)
                     log_stats(spans, span.id, indent+1)
 
         def cb(status):
@@ -225,48 +200,32 @@ class PlayerTest(unittest.AsyncTestCase):
         p = player.Player(
             project=self.project,
             callback_address=self.callback_server.address,
-            manager=self.mock_manager,
             event_loop=self.loop,
-            tmp_dir=TEST_OPTS.TMP_DIR)
+            audioproc_client=self.audioproc_client_main,
+            realm='root')
         try:
             logger.info("Setup player...")
             await p.setup()
             logger.info("Player setup complete.")
 
-            await self.audioproc_client_main.add_node(
-                description=self.node_db.get_node_description('builtin://ipc'),
-                id='player',
-                initial_parameters=dict(ipc_address=p.audiostream_address))
-            await self.audioproc_client_main.connect_ports(
-                'player', 'out:left', 'sink', 'in:left')
-            await self.audioproc_client_main.connect_ports(
-                'player', 'out:right', 'sink', 'in:right')
-            try:
-                logger.info("Wait until audioproc is ready...")
-                self.assertEqual(
-                    await self.callback_server.wait_for('pipeline_state'),
-                    'starting')
-                self.assertEqual(
-                    await self.callback_server.wait_for('pipeline_state'),
-                    'running')
+            logger.info("Wait until audioproc is ready...")
+            self.assertEqual(
+                await self.callback_server.wait_for('pipeline_state'),
+                'starting')
+            self.assertEqual(
+                await self.callback_server.wait_for('pipeline_state'),
+                'running')
 
-                with self.track_frame_stats('playback_demo'):
-                    logger.info("Start playback...")
-                    await p.update_state(audioproc.PlayerState(playing=True))
+            with self.track_frame_stats('playback_demo'):
+                logger.info("Start playback...")
+                await p.update_state(audioproc.PlayerState(playing=True))
 
-                    await self.callback_server.wait_for_player_state('playing', True)
+                await self.callback_server.wait_for_player_state('playing', True)
 
-                    logger.info("Waiting for end...")
+                logger.info("Waiting for end...")
 
-                    await self.callback_server.wait_for_player_state('playing', False)
-                    logger.info("Playback finished.")
-
-            finally:
-                await self.audioproc_client_main.disconnect_ports(
-                    'player', 'out:left', 'sink', 'in:left')
-                await self.audioproc_client_main.disconnect_ports(
-                    'player', 'out:right', 'sink', 'in:right')
-                await self.audioproc_client_main.remove_node('player')
+                await self.callback_server.wait_for_player_state('playing', False)
+                logger.info("Playback finished.")
 
         except:
             logger.exception("")
@@ -280,47 +239,31 @@ class PlayerTest(unittest.AsyncTestCase):
         p = player.Player(
             project=self.project,
             callback_address=self.callback_server.address,
-            manager=self.mock_manager,
             event_loop=self.loop,
-            tmp_dir=TEST_OPTS.TMP_DIR)
+            audioproc_client=self.audioproc_client_main,
+            realm='root')
         try:
             await p.setup()
 
-            await self.audioproc_client_main.add_node(
-                description=self.node_db.get_node_description('builtin://ipc'),
-                id='player',
-                initial_parameters=dict(ipc_address=p.audiostream_address))
-            await self.audioproc_client_main.connect_ports(
-                'player', 'out:left', 'sink', 'in:left')
-            await self.audioproc_client_main.connect_ports(
-                'player', 'out:right', 'sink', 'in:right')
-            try:
-                logger.info("Wait until audioproc is ready...")
-                self.assertEqual(
-                    await self.callback_server.wait_for('pipeline_state'),
-                    'starting')
-                self.assertEqual(
-                    await self.callback_server.wait_for('pipeline_state'),
-                    'running')
-                logger.info("audioproc is ready...")
+            logger.info("Wait until audioproc is ready...")
+            self.assertEqual(
+                await self.callback_server.wait_for('pipeline_state'),
+                'starting')
+            self.assertEqual(
+                await self.callback_server.wait_for('pipeline_state'),
+                'running')
+            logger.info("audioproc is ready...")
 
-                await asyncio.sleep(0.2)
+            await asyncio.sleep(0.2, loop=self.loop)
 
-                logger.info("Send messsage...")
-                p.send_message(core.build_message(
-                    {core.MessageKey.trackId: self.project.master_group.tracks[0].id},
-                    core.MessageType.atom,
-                    lv2.AtomForge.build_midi_noteon(0, 65, 127)).to_bytes())
+            logger.info("Send messsage...")
+            p.send_message(core.build_message(
+                {core.MessageKey.trackId: self.project.master_group.tracks[0].id},
+                core.MessageType.atom,
+                lv2.AtomForge.build_midi_noteon(0, 65, 127)).to_bytes())
 
-                # TODO: wait for player ready (node setup complete).
-                await asyncio.sleep(1)
-
-            finally:
-                await self.audioproc_client_main.disconnect_ports(
-                    'player', 'out:left', 'sink', 'in:left')
-                await self.audioproc_client_main.disconnect_ports(
-                    'player', 'out:right', 'sink', 'in:right')
-                await self.audioproc_client_main.remove_node('player')
+            # TODO: wait for player ready (node setup complete).
+            await asyncio.sleep(1, loop=self.loop)
 
         except:
             logger.exception("")

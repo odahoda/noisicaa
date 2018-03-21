@@ -68,7 +68,7 @@ class Port(QtWidgets.QGraphicsRectItem):
         self.setRect(0, 0, 45, 15)
         self.setBrush(Qt.white)
 
-        if self.port_direction == node_db.PortDirection.Input:
+        if self.port_direction == node_db.PortDescription.INPUT:
             self.dot_pos = QtCore.QPoint(7, 7)
         else:
             self.dot_pos = QtCore.QPoint(45-7, 7)
@@ -96,10 +96,7 @@ class Node(QtWidgets.QGraphicsRectItem):
         self.setFlag(self.ItemSendsGeometryChanges, True)
 
         self.setRect(0, 0, 100, 60)
-        if isinstance(self.description, node_db.SystemNodeDescription):
-            self.setBrush(QtGui.QBrush(QtGui.QColor(200, 200, 255)))
-        else:
-            self.setBrush(Qt.white)
+        self.setBrush(Qt.white)
 
         self.ports = {}
         self.connections = set()
@@ -111,12 +108,12 @@ class Node(QtWidgets.QGraphicsRectItem):
         in_y = 25
         out_y = 25
         for port_desc in self.description.ports:
-            if port_desc.direction == node_db.PortDirection.Input:
+            if port_desc.direction == node_db.PortDescription.INPUT:
                 x = -5
                 y = in_y
                 in_y += 20
 
-            elif port_desc.direction == node_db.PortDirection.Output:
+            elif port_desc.direction == node_db.PortDescription.OUTPUT:
                 x = 105-45
                 y = out_y
                 out_y += 20

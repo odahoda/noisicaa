@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-
 from unittest import mock
 
 from PyQt5.QtCore import Qt
@@ -34,8 +32,6 @@ from . import tracks_dock
 
 class TracksModelTest(uitest_utils.UITest):
     async def setup_testcase(self):
-        await super().setup_testcase()
-
         self.project.master_group = model.MasterTrackGroup(obj_id='master')
         self.project.master_group.name = 'master'
 

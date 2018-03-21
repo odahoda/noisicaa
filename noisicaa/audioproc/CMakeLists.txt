@@ -24,11 +24,7 @@ add_python_package(
   audioproc_process.py
   exceptions.py
   mutations.py
-  node.py
-  node_db.py
-  ports.py
 )
 
-add_subdirectory(nodes)
-add_subdirectory(vm)
+add_subdirectory(engine)
 add_subdirectory(public)

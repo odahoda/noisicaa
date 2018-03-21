@@ -39,8 +39,8 @@ cdef class AtomForge(object):
 
         lv2_atom_forge_init(&self.forge, &self.map.data)
 
-    cpdef set_buffer(self, uint8_t* buf, size_t size):
-        lv2_atom_forge_set_buffer(&self.forge, buf, size)
+    cpdef set_buffer(self, uint8_t[:] buf, size_t size):
+        lv2_atom_forge_set_buffer(&self.forge, &buf[0], size)
 
     @property
     def bytes_written(self):

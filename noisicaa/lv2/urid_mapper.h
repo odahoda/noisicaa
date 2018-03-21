@@ -72,10 +72,33 @@ public:
   LV2_URID map(const char* uri) override;
   const char* unmap(LV2_URID urid) const override;
 
+  bool known(const char* uri) const { return _map.count(uri) > 0; }
+
+  typedef unordered_map<string, LV2_URID>::const_iterator const_iterator;
+  const_iterator begin() const { return _map.begin(); }
+  const_iterator end() const { return _map.end(); }
+
 private:
   unordered_map<string, LV2_URID> _map;
   unordered_map<LV2_URID, string> _rmap;
   LV2_URID _next_urid = 1000;
+};
+
+class ProxyURIDMapper : public StaticURIDMapper {
+public:
+  ProxyURIDMapper(LV2_URID (*map_func)(void*, const char*), void* handle);
+
+  LV2_URID map(const char* uri) override;
+  const char* unmap(LV2_URID urid) const override;
+
+  void insert(const char*uri, LV2_URID urid);
+
+private:
+  LV2_URID (*_map_func)(void*, const char*);
+  void* _handle;
+
+  unordered_map<string, LV2_URID> _map;
+  unordered_map<LV2_URID, string> _rmap;
 };
 
 }  // namespace noisicaa

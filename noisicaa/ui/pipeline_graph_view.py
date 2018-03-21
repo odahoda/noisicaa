@@ -22,6 +22,7 @@
 
 # TODO: pylint-unclean
 
+import asyncio
 import functools
 import logging
 import math
@@ -37,6 +38,7 @@ from noisicaa import node_db
 from . import ui_base
 from . import dock_widget
 from . import session_helpers
+from . import qprogressindicator
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,7 @@ class Port(QtWidgets.QGraphicsRectItem):
         self.setRect(0, 0, 45, 15)
         self.setBrush(Qt.white)
 
-        if self.port_desc.direction == node_db.PortDirection.Input:
+        if self.port_desc.direction == node_db.PortDescription.INPUT:
             self.dot_pos = QtCore.QPoint(7, 7)
             sym_pos = QtCore.QPoint(45-11, -1)
         else:
@@ -71,13 +73,13 @@ class Port(QtWidgets.QGraphicsRectItem):
         dot.setBrush(Qt.black)
         dot.pen().setStyle(Qt.NoPen)
 
-        if self.port_desc.port_type == node_db.PortType.Audio:
+        if self.port_desc.type == node_db.PortDescription.AUDIO:
             sym = QtWidgets.QGraphicsSimpleTextItem(self)
             sym.setText('A')
-        elif self.port_desc.port_type == node_db.PortType.KRateControl:
+        elif self.port_desc.type == node_db.PortDescription.KRATE_CONTROL:
             sym = QtWidgets.QGraphicsSimpleTextItem(self)
             sym.setText('C')
-        elif self.port_desc.port_type == node_db.PortType.Events:
+        elif self.port_desc.type == node_db.PortDescription.EVENTS:
             sym = QtWidgets.QGraphicsSimpleTextItem(self)
             sym.setText('E')
         else:
@@ -88,15 +90,15 @@ class Port(QtWidgets.QGraphicsRectItem):
     def getInfoText(self):
         text = '%s: ' % self.port_desc.name
         text += {
-            (node_db.PortType.Audio, node_db.PortDirection.Input): "audio input",
-            (node_db.PortType.Audio, node_db.PortDirection.Output): "audio output",
-            (node_db.PortType.KRateControl, node_db.PortDirection.Input): "control input",
-            (node_db.PortType.KRateControl, node_db.PortDirection.Output): "control output",
-            (node_db.PortType.Events, node_db.PortDirection.Input): "event input",
-            (node_db.PortType.Events, node_db.PortDirection.Output): "event output",
-        }[(self.port_desc.port_type, self.port_desc.direction)]
+            (node_db.PortDescription.AUDIO, node_db.PortDescription.INPUT): "audio input",
+            (node_db.PortDescription.AUDIO, node_db.PortDescription.OUTPUT): "audio output",
+            (node_db.PortDescription.KRATE_CONTROL, node_db.PortDescription.INPUT): "control input",
+            (node_db.PortDescription.KRATE_CONTROL, node_db.PortDescription.OUTPUT): "control output",
+            (node_db.PortDescription.EVENTS, node_db.PortDescription.INPUT): "event input",
+            (node_db.PortDescription.EVENTS, node_db.PortDescription.OUTPUT): "event output",
+        }[(self.port_desc.type, self.port_desc.direction)]
 
-        # if self.port_desc.port_type == node_db.PortType.Audio:
+        # if self.port_desc.type == node_db.PortDescription.AUDIO:
         #     if len(self.port_desc.channels) == 1:
         #         text += ', 1 channel'
         #     else:
@@ -193,15 +195,138 @@ class QTextEdit(QtWidgets.QTextEdit):
         self.__initial_text = None
 
 
+class PluginUI(ui_base.ProjectMixin, QtWidgets.QScrollArea):
+    def __init__(self, *, node, **kwargs):
+        super().__init__(**kwargs)
+
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        self.__node = node
+
+        self.__lock = asyncio.Lock(loop=self.event_loop)
+        self.__loading = False
+        self.__loaded = False
+        self.__hiding_task = None
+        self.__closing = False
+        self.__initial_size_set = False
+
+        self.__wid = None
+
+        self.setWidget(self.__createLoadingWidget())
+        self.setWidgetResizable(True)
+
+    def cleanup(self):
+        if self.__hiding_task is not None:
+            self.__hiding_task.cancel()
+            self.__hiding_task = None
+
+        if not self.__closing:
+            self.__closing = True
+            self.call_async(self.__cleanupAsync())
+
+    async def __cleanupAsync(self):
+        async with self.__lock:
+            if self.__wid is not None:
+                await self.project_view.deletePluginUI(self.__node.id)
+                self.__wid = None
+
+    def showEvent(self, evt):
+        if self.__hiding_task is not None:
+            self.__hiding_task.cancel()
+            self.__hiding_task = None
+
+        if not self.__loading and not self.__loaded:
+            self.__loading = True
+            self.call_async(self.__loadUI())
+
+        super().showEvent(evt)
+
+    def hideEvent(self, evt):
+        if self.__hiding_task is None and self.__loaded:
+            self.__hiding_task = self.event_loop.create_task(self.__unloadUI())
+
+        super().hideEvent(evt)
+
+    def __createLoadingWidget(self):
+        loading_spinner = qprogressindicator.QProgressIndicator(self)
+        loading_spinner.setAnimationDelay(100)
+        loading_spinner.startAnimation()
+
+        loading_text = QtWidgets.QLabel(self)
+        loading_text.setText("Loading native UI...")
+
+        hlayout = QtWidgets.QHBoxLayout()
+        hlayout.setContentsMargins(0, 0, 0, 0)
+        hlayout.addStretch(1)
+        hlayout.addWidget(loading_spinner)
+        hlayout.addWidget(loading_text)
+        hlayout.addStretch(1)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addStretch(1)
+        layout.addLayout(hlayout)
+        layout.addStretch(1)
+
+        loading = QtWidgets.QWidget(self)
+        loading.setLayout(layout)
+
+        return loading
+
+    async def __loadUI(self):
+        async with self.__lock:
+            self.__wid, size = await self.project_view.createPluginUI(self.__node.id)
+
+            proxy_win = QtGui.QWindow.fromWinId(self.__wid)
+            proxy_widget = QtWidgets.QWidget.createWindowContainer(proxy_win, self)
+            proxy_widget.setMinimumSize(*size)
+            #proxy_widget.setMaximumSize(*size)
+
+            self.setWidget(proxy_widget)
+            self.setWidgetResizable(False)
+
+            if not self.__initial_size_set:
+                view_size = self.size()
+                view_size.setWidth(max(view_size.width(), size[0]))
+                view_size.setHeight(max(view_size.height(), size[1]))
+                logger.info("Resizing to %s", view_size)
+                self.setMinimumSize(view_size)
+
+                parent = self.parentWidget()
+                while True:
+                    if isinstance(parent, QtWidgets.QDialog):
+                        parent.adjustSize()
+                        break
+                    parent = parent.parentWidget()
+
+                self.__initial_size_set = True
+
+            self.__loaded = True
+            self.__loading = False
+
+    async def __unloadUI(self):
+        await asyncio.sleep(10, loop=self.event_loop)
+
+        async with self.__lock:
+            await self.project_view.deletePluginUI(self.__node.id)
+
+            self.setWidget(self.__createLoadingWidget())
+            self.setWidgetResizable(True)
+
+            self.__loaded = False
+            self.__hiding_task = None
+
+
 class ControlValuesConnector(object):
     def __init__(self, node):
         self.__node = node
 
         self.__control_values = {}
         for port in self.__node.description.ports:
-            if (port.direction == node_db.PortDirection.Input
-                and port.port_type == node_db.PortType.KRateControl):
-                self.__control_values[port.name] = port.default
+            if (port.direction == node_db.PortDescription.INPUT
+                and port.type == node_db.PortDescription.KRATE_CONTROL):
+                self.__control_values[port.name] = port.float_value.default
 
         self.__control_value_listeners = []
         for control_value in self.__node.control_values:
@@ -264,79 +389,6 @@ class ControlValuesConnector(object):
         self.__control_values[control_value_name] = new_value
 
 
-# TODO: This might be better it the model level.
-class ParameterValuesConnector(object):
-    def __init__(self, node):
-        self.__node = node
-
-        self.__parameter_values = {}
-        for parameter in self.__node.description.parameters:
-            if parameter.hidden:
-                continue
-
-            self.__parameter_values[parameter.name] = parameter.default
-
-        self.__parameter_value_listeners = []
-        for parameter_value in self.__node.parameter_values:
-            self.__parameter_values[parameter_value.name] = parameter_value.value
-
-            self.__parameter_value_listeners.append(
-                parameter_value.listeners.add(
-                    'value', functools.partial(
-                        self.onParameterValueChanged, parameter_value.name)))
-
-        self.__parameter_values_listener = self.__node.listeners.add(
-            'parameter_values', self.onParameterValuesChanged)
-
-        self.listeners = core.CallbackRegistry()
-
-    def __getitem__(self, name):
-        return self.__parameter_values[name]
-
-    def cleanup(self):
-        for listener in self.__parameter_value_listeners:
-            listener.remove()
-        self.__parameter_value_listeners.clear()
-
-        if self.__parameter_values_listener is not None:
-            self.__parameter_values_listener.remove()
-            self.__parameter_values_listener = None
-
-    def onParameterValuesChanged(self, action, index, parameter_value):
-        if action == 'insert':
-            self.listeners.call(
-                parameter_value.name,
-                self.__parameter_values[parameter_value.name], parameter_value.value)
-            self.__parameter_values[parameter_value.name] = parameter_value.value
-
-            self.__parameter_value_listeners.insert(
-                index,
-                parameter_value.listeners.add(
-                    'value', functools.partial(
-                        self.onParameterValueChanged, parameter_value.name)))
-
-        elif action == 'delete':
-            for parameter in self.__node.description.parameters:
-                if parameter.name == parameter_value.name:
-                    self.listeners.call(
-                        parameter_value.name,
-                        self.__parameter_values[parameter_value.name], parameter.default)
-                    self.__parameter_values[parameter.name] = parameter.default
-                    break
-
-            listener = self.__parameter_value_listeners.pop(index)
-            listener.remove()
-
-        else:
-            raise ValueError(action)
-
-    def onParameterValueChanged(self, parameter_name, old_value, new_value):
-        self.listeners.call(
-            parameter_name,
-            self.__parameter_values[parameter_name], new_value)
-        self.__parameter_values[parameter_name] = new_value
-
-
 class NodePropertyDialog(
         session_helpers.ManagedWindowMixin, ui_base.ProjectMixin, QtWidgets.QDialog):
     def __init__(self, node_item, **kwargs):
@@ -349,6 +401,8 @@ class NodePropertyDialog(
         self._node_item = node_item
 
         self.__listeners = []
+
+        self.__plugin_ui = None
 
         self._preset_edit_metadata_action = QtWidgets.QAction(
             "Edit metadata", self,
@@ -391,38 +445,38 @@ class NodePropertyDialog(
         preset_menu.addAction(self._preset_import_action)
         preset_menu.addAction(self._preset_export_action)
 
-        layout = QtWidgets.QFormLayout()
-        layout.setMenuBar(menubar)
-        layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
-        layout.setVerticalSpacing(1)
+        props = QtWidgets.QWidget()
+        prop_layout = QtWidgets.QFormLayout()
+        prop_layout.setVerticalSpacing(1)
+        props.setLayout(prop_layout)
 
         node = self._node_item.node
 
-        self._name = QtWidgets.QLineEdit(self)
+        self._name = QtWidgets.QLineEdit(props)
         self._name.setText(node.name)
         self._name.editingFinished.connect(self.onNameEdited)
-        layout.addRow("Name", self._name)
+        prop_layout.addRow("Name", self._name)
 
         self.__listeners.append(
             node.listeners.add('name', self.onNameChanged))
 
         for port in self._node_item.node_description.ports:
-            if (port.direction == node_db.PortDirection.Output
-                and port.port_type == node_db.PortType.Audio):
+            if (port.direction == node_db.PortDescription.OUTPUT
+                and port.type == node_db.PortDescription.AUDIO):
                 port_property_values = dict(
                     (p.name, p.value)
                     for p in node.port_property_values
                     if p.port_name == port.name)
 
                 # TODO: port can be bypassable without dry/wet
-                if port.drywet_port is not None:
+                if port.drywet_port:
                     bypass_widget = QtWidgets.QToolButton(
-                        self, checkable=True, autoRaise=True)
+                        props, checkable=True, autoRaise=True)
                     bypass_widget.setText('B')
                     bypass_widget.setChecked(
                         port_property_values.get('bypass', False))
                     drywet_widget = QtWidgets.QSlider(
-                        self,
+                        props,
                         minimum=-100, maximum=100,
                         orientation=Qt.Horizontal, tickInterval=20,
                         tickPosition=QtWidgets.QSlider.TicksBothSides)
@@ -440,70 +494,77 @@ class NodePropertyDialog(
                     row_layout.setSpacing(0)
                     row_layout.addWidget(bypass_widget)
                     row_layout.addWidget(drywet_widget, 1)
-                    layout.addRow(
+                    prop_layout.addRow(
                         "Dry/wet (port <i>%s</i>)" % port.name, row_layout)
 
         self.__control_values = ControlValuesConnector(node)
         for port in self._node_item.node_description.ports:
-            if (port.direction == node_db.PortDirection.Input
-                and port.port_type == node_db.PortType.KRateControl):
-                widget = QtWidgets.QLineEdit(self)
+            if (port.direction == node_db.PortDescription.INPUT
+                and port.type == node_db.PortDescription.KRATE_CONTROL):
+                widget = QtWidgets.QLineEdit(props)
                 widget.setText(str(self.__control_values[port.name]))
                 widget.setValidator(QtGui.QDoubleValidator())
                 widget.editingFinished.connect(functools.partial(
                     self.onFloatControlValueEdited, widget, port))
-                layout.addRow(port.name, widget)
+                prop_layout.addRow(port.name, widget)
 
                 self.__listeners.append(
                     self.__control_values.listeners.add(
                         port.name, functools.partial(
                             self.onFloatControlValueChanged, widget, port)))
 
-        self.__parameter_values = ParameterValuesConnector(node)
-        for parameter in self._node_item.node_description.parameters:
-            if parameter.hidden:
-                continue
+        prop_tab = QtWidgets.QScrollArea()
+        prop_tab.setWidgetResizable(True)
+        prop_tab.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        prop_tab.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        prop_tab.setWidget(props)
 
-            if parameter.param_type == node_db.ParameterType.Float:
-                widget = QtWidgets.QLineEdit(self)
-                widget.setText(parameter.to_string(self.__parameter_values[parameter.name]))
-                widget.setValidator(QtGui.QDoubleValidator())
-                widget.editingFinished.connect(functools.partial(
-                    self.onFloatParameterEdited, widget, parameter))
-                layout.addRow(parameter.display_name, widget)
+        tabs = QtWidgets.QTabWidget(self)
+        tabs.setTabPosition(QtWidgets.QTabWidget.West)
+        tabs.addTab(prop_tab, "Properties")
+        ui_index = tabs.addTab(self.__createUITab(tabs), "UI")
 
-                self.__listeners.append(
-                    self.__parameter_values.listeners.add(
-                        parameter.name, functools.partial(
-                            self.onFloatParameterChanged, widget, parameter)))
+        if node.description.has_ui:
+            tabs.setCurrentIndex(ui_index)
 
-            elif parameter.param_type == node_db.ParameterType.Text:
-                widget = QTextEdit(self)
-                widget.setPlainText(self.__parameter_values[parameter.name])
-                widget.editingFinished.connect(functools.partial(
-                    self.onTextParameterEdited, widget, parameter))
-                layout.addRow(parameter.display_name, widget)
-
-                self.__listeners.append(
-                    self.__parameter_values.listeners.add(
-                        parameter.name, functools.partial(
-                            self.onTextParameterChanged, widget, parameter)))
-
-            else:
-                raise ValueError(parameter)
-
-        self.__parameter_values_connector = ParameterValuesConnector(node)
-
-        self.setLayout(layout)
+        main_layout = QtWidgets.QVBoxLayout()
+        main_layout.setMenuBar(menubar)
+        main_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+        main_layout.setSpacing(1)
+        main_layout.addWidget(tabs)
+        self.setLayout(main_layout)
 
     def cleanup(self):
         for listener in self.__listeners:
             listener.remove()
         self.__listeners.clear()
 
-        if self.__parameter_values is not None:
-            self.__parameter_values.cleanup()
-            self.__parameter_values = None
+        if self.__plugin_ui is not None:
+            self.__plugin_ui.cleanup()
+            self.__plugin_ui = None
+
+    def __createUITab(self, parent):
+        node = self._node_item.node
+        node_description = node.description
+
+        if node_description.has_ui:
+            return PluginUI(parent=parent, node=node, **self.context_args)
+
+        else:
+            tab = QtWidgets.QWidget(parent)
+
+            label = QtWidgets.QLabel(tab)
+            label.setText("This node has no native UI.")
+            label.setAlignment(Qt.AlignHCenter)
+
+            layout = QtWidgets.QVBoxLayout()
+            layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+            layout.addStretch(1)
+            layout.addWidget(label)
+            layout.addStretch(1)
+            tab.setLayout(layout)
+
+            return tab
 
     def onPresetEditMetadata(self):
         pass
@@ -589,28 +650,6 @@ class NodePropertyDialog(
                 port_name=port.name,
                 float_value=value)
 
-    def onFloatParameterChanged(self, widget, parameter, old_value, new_value):
-        widget.setText(parameter.to_string(new_value))
-
-    def onFloatParameterEdited(self, widget, parameter):
-        value, ok = widget.locale().toDouble(widget.text())
-        if ok and value != self.__parameter_values[parameter.name]:
-            self.send_command_async(
-                self._node_item.node.id, 'SetPipelineGraphNodeParameter',
-                parameter_name=parameter.name,
-                float_value=value)
-
-    def onTextParameterChanged(self, widget, parameter, old_value, new_value):
-        widget.setPlainText(new_value)
-
-    def onTextParameterEdited(self, widget, parameter):
-        value = widget.toPlainText()
-        if value != self.__parameter_values[parameter.name]:
-            self.send_command_async(
-                self._node_item.node.id, 'SetPipelineGraphNodeParameter',
-                parameter_name=parameter.name,
-                str_value=value)
-
     def onPortBypassEdited(self, port, drywet_widget, value):
         drywet_widget.setEnabled(not value)
         self.send_command_async(
@@ -663,16 +702,16 @@ class NodeItem(ui_base.ProjectMixin, QtWidgets.QGraphicsRectItem):
         in_y = 25
         out_y = 25
         for port_desc in self._node.description.ports:
-            if (port_desc.direction == node_db.PortDirection.Input
-                and port_desc.port_type == node_db.PortType.KRateControl):
+            if (port_desc.direction == node_db.PortDescription.INPUT
+                and port_desc.type == node_db.PortDescription.KRATE_CONTROL):
                 continue
 
-            if port_desc.direction == node_db.PortDirection.Input:
+            if port_desc.direction == node_db.PortDescription.INPUT:
                 x = -5
                 y = in_y
                 in_y += 20
 
-            elif port_desc.direction == node_db.PortDirection.Output:
+            elif port_desc.direction == node_db.PortDescription.OUTPUT:
                 x = 105-45
                 y = out_y
                 out_y += 20
@@ -721,19 +760,7 @@ class NodeItem(ui_base.ProjectMixin, QtWidgets.QGraphicsRectItem):
                 % (self.node.name, self.node.id, port_id))
 
     def getInfoText(self):
-        info_lines = []
-
-        parameter_values = dict(
-            (p.name, p.value) for p in self._node.parameter_values)
-
-        for parameter in self._node.description.parameters:
-            if parameter.param_type == node_db.ParameterType.Float:
-                value = parameter_values.get(
-                    parameter.name, parameter.default)
-                info_lines.append("%s: %s" % (
-                    parameter.display_name, value))
-
-        return '\n'.join(info_lines)
+        return ""
 
     def cleanup(self):
         if self._broken_listener is not None:
@@ -863,7 +890,7 @@ class ConnectionItem(ui_base.ProjectMixin, QtWidgets.QGraphicsPathItem):
         path = QtGui.QPainterPath()
         path.moveTo(pos1)
         path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
-        # if (port1_item.port_desc.port_type != node_db.PortType.Audio
+        # if (port1_item.port_desc.type != node_db.PortDescription.AUDIO
         #         or len(port1_item.port_desc.channels) == 1):
         #     path.moveTo(pos1)
         #     path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
@@ -901,7 +928,7 @@ class DragConnection(QtWidgets.QGraphicsPathItem):
         pos1 = self.port.mapToScene(self.port.dot_pos)
         pos2 = self.end_pos
 
-        if self.port.port_desc.direction == node_db.PortDirection.Input:
+        if self.port.port_desc.direction == node_db.PortDescription.INPUT:
             pos1, pos2 = pos2, pos1
 
         cpos = QtCore.QPointF(min(100, abs(pos2.x() - pos1.x()) / 2), 0)
@@ -909,7 +936,7 @@ class DragConnection(QtWidgets.QGraphicsPathItem):
         path = QtGui.QPainterPath()
         path.moveTo(pos1)
         path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
-        # if (self.port.port_desc.port_type != node_db.PortType.Audio
+        # if (self.port.port_desc.type != node_db.PortDescription.AUDIO
         #         or len(self.port.port_desc.channels) == 1):
         #     path.moveTo(pos1)
         #     path.cubicTo(pos1 + cpos, pos2 - cpos, pos2)
@@ -1062,11 +1089,11 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
                     src_desc = src_port.port_desc
                     dest_desc = port_item.port_desc
 
-                    if dest_desc.port_type != src_desc.port_type:
+                    if dest_desc.type != src_desc.type:
                         continue
                     if dest_desc.direction == src_desc.direction:
                         continue
-                    # if (dest_desc.port_type == node_db.PortType.Audio
+                    # if (dest_desc.type == node_db.PortDescription.AUDIO
                     #         and dest_desc.channels != src_desc.channels):
                     #     continue
 
@@ -1128,11 +1155,11 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
                 self._drag_src_port.setHighlighted(False)
                 self._drag_dest_port.setHighlighted(False)
 
-                if self._drag_src_port.port_desc.direction != node_db.PortDirection.Output:
+                if self._drag_src_port.port_desc.direction != node_db.PortDescription.OUTPUT:
                     self._drag_src_port, self._drag_dest_port = self._drag_dest_port, self._drag_src_port
 
-                assert self._drag_src_port.port_desc.direction == node_db.PortDirection.Output
-                assert self._drag_dest_port.port_desc.direction == node_db.PortDirection.Input
+                assert self._drag_src_port.port_desc.direction == node_db.PortDescription.OUTPUT
+                assert self._drag_dest_port.port_desc.direction == node_db.PortDescription.INPUT
 
                 self.send_command_async(
                     self.project.id, 'AddPipelineGraphConnection',

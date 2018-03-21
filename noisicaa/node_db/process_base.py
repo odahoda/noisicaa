@@ -23,23 +23,12 @@
 from noisicaa import core
 
 
-class NodeDBProcessBase(core.ProcessBase):
+class NodeDBProcessBase(core.SessionHandlerMixin, core.ProcessBase):
     async def setup(self):
         await super().setup()
 
-        self.server.add_command_handler(
-            'START_SESSION', self.handle_start_session)
-        self.server.add_command_handler(
-            'END_SESSION', self.handle_end_session)
         self.server.add_command_handler('SHUTDOWN', self.shutdown)
-        self.server.add_command_handler(
-            'START_SCAN', self.handle_start_scan)
-
-    def handle_start_session(self, client_address, flags):
-        raise NotImplementedError
-
-    def handle_end_session(self, session_id):
-        raise NotImplementedError
+        self.server.add_command_handler('START_SCAN', self.handle_start_scan)
 
     async def handle_start_scan(self, session_id):
         raise NotImplementedError

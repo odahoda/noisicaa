@@ -36,11 +36,17 @@ set(ENV{PKG_CONFIG_PATH} $ENV{VIRTUAL_ENV}/lib/pkgconfig)
 find_package(PkgConfig)
 pkg_check_modules(LIBSRATOM REQUIRED sratom-0)
 pkg_check_modules(LIBLILV REQUIRED lilv-0)
+pkg_check_modules(LIBSUIL REQUIRED suil-0>=0.10.0)
 pkg_check_modules(LIBSNDFILE REQUIRED sndfile)
-pkg_check_modules(LIBFLUIDSYNTH REQUIRED fluidsynth)
+pkg_check_modules(LIBFLUIDSYNTH REQUIRED fluidsynth>=1.1.6)
 pkg_check_modules(LIBAVUTIL REQUIRED libavutil)
 pkg_check_modules(LIBSWRESAMPLE REQUIRED libswresample)
-pkg_check_modules(LIBPROTOBUF REQUIRED protobuf)
+pkg_check_modules(LIBPROTOBUF REQUIRED protobuf>=3.0)
+pkg_check_modules(LIBPORTAUDIO REQUIRED portaudio-2.0>=19)
+pkg_check_modules(LIBUNWIND REQUIRED libunwind-generic>=1.1)
+
+find_package(Qt4 4.8 REQUIRED QtGui)
+find_package(GTK2 2.24 REQUIRED gtk)
 
 set(LIBCSOUND_INCLUDE_DIRS)
 set(LIBCSOUND_LIBRARIES csound64)
@@ -142,6 +148,14 @@ macro(static_file src)
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
   )
 endmacro(static_file)
+
+macro(render_csound src dest)
+  add_custom_command(
+    OUTPUT ${dest}
+    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib csound -o${dest} ${CMAKE_CURRENT_LIST_DIR}/${src}
+    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
+  )
+endmacro(render_csound)
 
 add_subdirectory(noisicaa)
 add_subdirectory(noisidev)

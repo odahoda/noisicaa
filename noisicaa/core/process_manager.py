@@ -23,7 +23,9 @@
 # TODO: pylint-unclean
 
 import asyncio
+import base64
 import enum
+import errno
 import functools
 import importlib
 import logging
@@ -43,6 +45,8 @@ import eventfd
 
 from . import ipc
 from . import stats
+from . import stacktrace
+from .logging import init_pylogging
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +54,7 @@ logger = logging.getLogger(__name__)
 class ProcessState(enum.Enum):
     NOT_STARTED = 'not_started'
     RUNNING = 'running'
+    STOPPING = 'stopping'
     FINISHED = 'finished'
 
 
@@ -166,13 +171,17 @@ class ChildConnection(object):
     def __read_internal(self):
         if self.__reader_state == 0:
             d = os.read(self.fd_in, 1)
-            assert d == b'#'
+            if not d:
+                raise OSError(errno.EBADF, "File descriptor closed")
+            assert d == b'#', d
             self.__reader_buf = bytearray()
             self.__reader_state = 1
 
         elif self.__reader_state == 1:
             d = os.read(self.fd_in, 1)
-            if d == b'\n':
+            if not d:
+                raise OSError(errno.EBADF, "File descriptor closed")
+            elif d == b'\n':
                 self.__reader_length = int(self.__reader_buf)
                 self.__reader_buf = bytearray()
                 self.__reader_state = 2
@@ -182,6 +191,8 @@ class ChildConnection(object):
         elif self.__reader_state == 2:
             if len(self.__reader_buf) < self.__reader_length:
                 d = os.read(self.fd_in, self.__reader_length - len(self.__reader_buf))
+                if not d:
+                    raise OSError(errno.EBADF, "File descriptor closed")
                 self.__reader_buf += d
 
             if len(self.__reader_buf) == self.__reader_length:
@@ -207,9 +218,16 @@ class ChildConnection(object):
         def read_cb():
             try:
                 self.__read_internal()
+
+            except OSError as exc:
+                event_loop.remove_reader(self.fd_in)
+                done.set()
+                return
+
             except:
                 event_loop.remove_reader(self.fd_in)
                 raise
+
             if self.__reader_done:
                 event_loop.remove_reader(self.fd_in)
                 done.set()
@@ -218,7 +236,10 @@ class ChildConnection(object):
         event_loop.add_reader(self.fd_in, read_cb)
         await done.wait()
 
-        return self.__reader_response
+        if self.__reader_done:
+            return self.__reader_response
+        else:
+            raise OSError("Failed to read from connection")
 
     def close(self):
         os.close(self.fd_in)
@@ -336,12 +357,13 @@ class ChildCollector(object):
 
 
 class ProcessManager(object):
-    def __init__(self, event_loop, collect_stats=True):
+    def __init__(self, event_loop, collect_stats=True, tmp_dir=None):
         self._event_loop = event_loop
-        self._processes = {}
-        self._sigchld_received = asyncio.Event()
+        self._processes = set()
+        self._sigchld_received = asyncio.Event(loop=event_loop)
 
-        self._tmp_dir = None
+        self._tmp_dir = tmp_dir
+        self._clear_tmp_dir = False
         self._server = None
 
         if collect_stats:
@@ -357,12 +379,13 @@ class ProcessManager(object):
 
     async def setup(self):
         logger.info("Starting ProcessManager...")
-        self._event_loop.add_signal_handler(
-            signal.SIGCHLD, self.sigchld_handler)
+        self._event_loop.add_signal_handler(signal.SIGCHLD, self.sigchld_handler)
 
-        self._tmp_dir = tempfile.mkdtemp(
-            prefix='noisicaa-%s-%d-' % (time.strftime('%Y%m%d-%H%M%S'), os.getpid()))
-        logger.info("Using %s for temp files.", self._tmp_dir)
+        if self._tmp_dir is None:
+            self._tmp_dir = tempfile.mkdtemp(
+                prefix='noisicaa-%s-%d-' % (time.strftime('%Y%m%d-%H%M%S'), os.getpid()))
+            self._clear_tmp_dir = True
+            logger.info("Using %s for temp files.", self._tmp_dir)
 
         self._server = ipc.Server(self._event_loop, 'manager', socket_dir=self._tmp_dir)
 
@@ -381,6 +404,7 @@ class ProcessManager(object):
             self._child_collector.cleanup()
 
         await self.terminate_all_children()
+
         if self._server is not None:
             await self._server.cleanup()
 
@@ -389,9 +413,12 @@ class ProcessManager(object):
 
             self._server = None
 
-        if self._tmp_dir is not None:
+        if self._clear_tmp_dir:
+            assert self._tmp_dir is not None
             shutil.rmtree(self._tmp_dir)
-            self._tmp_dir = None
+            self._clear_tmp_dir = False
+
+        self._event_loop.remove_signal_handler(signal.SIGCHLD)
 
     async def __aenter__(self):
         await self.setup()
@@ -403,11 +430,9 @@ class ProcessManager(object):
 
     async def terminate_all_children(self, timeout=10):
         for sig in [signal.SIGTERM, signal.SIGKILL]:
-            for pid in list(self._processes.keys()):
-                logger.warning(
-                    "Sending %s to left over child pid=%d",
-                    sig.name, pid)
-                os.kill(pid, sig)
+            for proc in self._processes:
+                if proc.state == ProcessState.RUNNING:
+                    proc.kill(sig)
 
             deadline = time.time() + timeout
             processes_left = set()
@@ -416,31 +441,65 @@ class ProcessManager(object):
                 if not self._processes:
                     break
 
-                if set(self._processes.keys()) != processes_left:
+                if self._processes != processes_left:
                     logger.info(
                         "%d children still running (%s), waiting for SIGCHLD signal...",
                         len(self._processes),
-                        ", ".join(str(pid) for pid in sorted(self._processes.keys())))
-                    processes_left = set(self._processes.keys())
+                        ", ".join(sorted(proc.id for proc in self._processes)))
+                    processes_left = set(self._processes)
 
                 try:
                     await asyncio.wait_for(
-                        self._sigchld_received.wait(), min(0.05, timeout))
+                        self._sigchld_received.wait(), min(0.05, timeout), loop=self._event_loop)
                     self._sigchld_received.clear()
                 except asyncio.TimeoutError:
                     pass
 
-        for pid in self._processes.keys():
-            logger.error("Failed to kill child pid=%d", pid)
+        for proc in self._processes:
+            logger.error("Failed to kill child %s", proc.id)
 
-    async def start_process(self, name, cls, **kwargs):
-        proc = ProcessHandle()
+    async def start_inline_process(self, name, entry, **kwargs):
+        proc = InlineProcessHandle(self._event_loop)
+        self._processes.add(proc)
 
-        request_in, request_out = os.pipe()
-        response_in, response_out = os.pipe()
-        stdout_in, stdout_out = os.pipe()
-        stderr_in, stderr_out = os.pipe()
-        logger_in, logger_out = os.pipe()
+        proc.create_loggers()
+
+        proc.manager_stub = ManagerStub(self._event_loop, self._server.address)
+        await proc.manager_stub.connect()
+
+        mod_name, cls_name = entry.rsplit('.', 1)
+        mod = importlib.import_module(mod_name)
+        cls = getattr(mod, cls_name)
+        proc.process = cls(
+            name=name,
+            manager=proc.manager_stub,
+            tmp_dir=self._tmp_dir,
+            event_loop=self._event_loop,
+            **kwargs)
+
+        await proc.process.setup()
+        assert proc.process.server is not None
+        assert proc.process.server.address is not None
+        proc.address = proc.process.server.address
+
+        proc.task = self._event_loop.create_task(proc.process.run())
+        proc.task.add_done_callback(proc.on_task_done)
+
+        proc.state = ProcessState.RUNNING
+
+        proc.logger.info("Created new subprocess '%s' (%s).", name, entry)
+
+        return proc
+
+    async def start_subprocess(self, name, entry, **kwargs):
+        proc = SubprocessHandle(self._event_loop)
+
+        # Open pipes without O_CLOEXEC, so they survive the exec() call.
+        request_in, request_out = os.pipe2(0)
+        response_in, response_out = os.pipe2(0)
+        stdout_in, stdout_out = os.pipe2(0)
+        stderr_in, stderr_out = os.pipe2(0)
+        logger_in, logger_out = os.pipe2(0)
 
         manager_address = self._server.address
 
@@ -448,13 +507,6 @@ class ProcessManager(object):
         if pid == 0:
             # In child process.
             try:
-                # Remove all signal handlers.
-                for sig in signal.Signals:
-                    self._event_loop.remove_signal_handler(sig)
-
-                # Create a new stats registry for this process.
-                stats.registry = stats.Registry()
-
                 # Close the "other ends" of the pipes.
                 os.close(request_out)
                 os.close(response_in)
@@ -478,31 +530,30 @@ class ProcessManager(object):
                 msg = child_connection.read()
                 assert msg == b'START'
 
-                # Remove all existing log handlers, and install a new
-                # handler to pipe all log messages back to the manager
-                # process.
-                root_logger = logging.getLogger()
-                while root_logger.handlers:
-                    root_logger.removeHandler(root_logger.handlers[0])
-                root_logger.addHandler(ChildLogHandler(logger_out))
+                args = dict(
+                    name=name,
+                    entry=entry,
+                    manager_address=manager_address,
+                    tmp_dir=self._tmp_dir,
+                    cwd=os.getcwd(),
+                    logger_out=logger_out,
+                    log_level=logging.getLogger().getEffectiveLevel(),
+                    request_in=request_in,
+                    response_out=response_out,
+                    kwargs=kwargs,
+                )
 
-                if isinstance(cls, str):
-                    mod_name, cls_name = cls.rsplit('.', 1)
-                    mod = importlib.import_module(mod_name)
-                    cls = getattr(mod, cls_name)
-                impl = cls(
-                    name=name, manager_address=manager_address, tmp_dir=self._tmp_dir,
-                    **kwargs)
+                cmdline = [
+                    sys.executable,
+                    '-m', 'noisicaa.core.process_manager',
+                    base64.b64encode(pickle.dumps(args, protocol=-1)),
+                ]
 
-                rc = impl.main(child_connection)
+                env = dict(**os.environ)
+                env['PYTHONPATH'] = ':'.join(p for p in sys.path if p)
 
-                frames = sys._current_frames()
-                for thread in threading.enumerate():
-                    if thread.ident == threading.get_ident():
-                        continue
-                    logger.warning("Left over thread %s (%x)", thread.name, thread.ident)
-                    if thread.ident in frames:
-                        logger.warning("".join(traceback.format_stack(frames[thread.ident])))
+                os.chdir('/tmp')
+                os.execve(cmdline[0], cmdline, env)
 
             except SystemExit as exc:
                 rc = exc.code
@@ -525,32 +576,36 @@ class ProcessManager(object):
             os.close(stderr_out)
             os.close(logger_out)
 
-            self._processes[pid] = proc
+            proc.pid = pid
+            self._processes.add(proc)
 
             child_connection = ChildConnection(response_in, request_out)
 
-            proc.pid = pid
             proc.create_loggers()
 
-            proc.logger.info("Created new subprocess '%s' (%s).", name, cls)
+            proc.logger.info("Created new subprocess '%s' (%s).", name, entry)
 
-            await proc.setup_std_handlers(
-                self._event_loop, stdout_in, stderr_in, logger_in)
+            await proc.setup_std_handlers(stdout_in, stderr_in, logger_in)
 
             # Unleash the child.
             proc.state = ProcessState.RUNNING
             child_connection.write(b'START')
 
-            stub_address = await child_connection.read_async(self._event_loop)
+            try:
+                stub_address = await child_connection.read_async(self._event_loop)
 
-            if self._child_collector is not None:
-                self._child_collector.add_child(pid, child_connection)
+            except OSError as exc:
+                logger.error("Failed to read child's server address: %s", exc)
+                raise OSError("Failed to start subprocess.")
+
             else:
-                child_connection.close()
+                if self._child_collector is not None:
+                    self._child_collector.add_child(pid, child_connection)
+                else:
+                    child_connection.close()
 
-            proc.address = stub_address.decode('utf-8')
-            logger.info(
-                "Child pid=%d has IPC address %s", pid, proc.address)
+                proc.address = stub_address.decode('utf-8')
+                logger.info("Child pid=%d has IPC address %s", pid, proc.address)
 
             return proc
 
@@ -561,64 +616,14 @@ class ProcessManager(object):
 
     def collect_dead_children(self):
         dead_children = set()
-        for pid, proc in self._processes.items():
-            rpid, status, resinfo = os.wait4(pid, os.WNOHANG)
-            if rpid == 0:
-                continue
-            assert rpid == pid
+        for proc in self._processes:
+            if proc.try_collect():
+                dead_children.add(proc)
 
-            if proc.state != ProcessState.RUNNING:
-                proc.logger.error("Unexpected state %s", proc.state)
-                continue
-
-            if os.WIFEXITED(status):
-                proc.returncode = os.WEXITSTATUS(status)
-                proc.logger.info("Terminated with rc=%d", proc.returncode)
-            elif os.WIFSIGNALED(status):
-                proc.returncode = 1
-                proc.signal = os.WTERMSIG(status)
-                proc.logger.info("Terminated by signal=%d", proc.signal)
-            elif os.WIFSTOPPED(status):
-                sig = os.WSTOPSIG(status)
-                proc.logger.info("Stopped by signal=%d", sig)
-                continue
-            else:
-                proc.logger.error("Unexpected status %d", status)
-                continue
-
-            # The handle should receive an EOF when the child died and the
-            # pipe gets closed. We should wait for it asynchronously.
-            proc.stdout_protocol.eof_received()
-            proc.stderr_protocol.eof_received()
-
-            proc.resinfo = resinfo
-            # proc.logger.info("Resource usage:")
-            # proc.logger.info("  utime=%f", resinfo.ru_utime)
-            # proc.logger.info("  stime=%f", resinfo.ru_stime)
-            # proc.logger.info("  maxrss=%d", resinfo.ru_maxrss)
-            # proc.logger.info("  ixrss=%d", resinfo.ru_ixrss)
-            # proc.logger.info("  idrss=%d", resinfo.ru_idrss)
-            # proc.logger.info("  isrss=%d", resinfo.ru_isrss)
-            # proc.logger.info("  minflt=%d", resinfo.ru_minflt)
-            # proc.logger.info("  majflt=%d", resinfo.ru_majflt)
-            # proc.logger.info("  nswap=%d", resinfo.ru_nswap)
-            # proc.logger.info("  inblock=%d", resinfo.ru_inblock)
-            # proc.logger.info("  oublock=%d", resinfo.ru_oublock)
-            # proc.logger.info("  msgsnd=%d", resinfo.ru_msgsnd)
-            # proc.logger.info("  msgrcv=%d", resinfo.ru_msgrcv)
-            # proc.logger.info("  nsignals=%d", resinfo.ru_nsignals)
-            # proc.logger.info("  nvcsw=%d", resinfo.ru_nvcsw)
-            # proc.logger.info("  nivcsw=%d", resinfo.ru_nivcsw)
-
-            proc.state = ProcessState.FINISHED
-            proc.term_event.set()
-
-            dead_children.add(pid)
-
-        for pid in dead_children:
-            if self._child_collector is not None:
-                self._child_collector.remove_child(pid)
-            del self._processes[pid]
+        for proc in dead_children:
+            if self._child_collector is not None and isinstance(proc, SubprocessHandle):
+                self._child_collector.remove_child(proc.pid)
+            self._processes.remove(proc)
 
     def handle_stats_list(self):
         if self._stats_collector is None:
@@ -717,6 +722,14 @@ class ProcessBase(object):
         logger.info("Shutdown of process '%s' complete.", self.name)
 
 
+class EventLoopPolicy(asyncio.DefaultEventLoopPolicy):
+    def get_event_loop(self):
+        raise RuntimeError("get_event_loop() is not allowed.")
+
+    def set_event_loop(self, loop):
+        raise RuntimeError("set_event_loop() is not allowed.")
+
+
 class SubprocessMixin(object):
     def __init__(self, *, manager_address, **kwargs):
         super().__init__(manager=None, event_loop=None, **kwargs)
@@ -728,17 +741,39 @@ class SubprocessMixin(object):
         return asyncio.new_event_loop()
 
     def error_handler(self, event_loop, context):
-        event_loop.default_exception_handler(context)
-        logging.error("%s:\n%s", context['message'], traceback.format_exc())
+        try:
+            event_loop.default_exception_handler(context)
+        except:
+            traceback.print_exc()
+
+        try:
+            msg = context['message']
+            exc = context.get('exception', None)
+            if exc is not None:
+                tb = exc.__traceback__
+                if tb is not None:
+                    msg += '\n%s' % ''.join(traceback.format_exception(type(exc), exc, tb))
+                else:
+                    msg += '\n%s: %s\nNo traceback' % (type(exc).__name__, exc)
+            logging.error(msg)
+
+        except:
+            traceback.print_exc()
         sys.stdout.flush()
         sys.stderr.flush()
         os._exit(1)
 
     def main(self, child_connection, *args, **kwargs):
+        event_loop_policy = EventLoopPolicy()
+        asyncio.set_event_loop_policy(event_loop_policy)
+
         # Create a new event loop to replace the one we inherited.
         self.event_loop = self.create_event_loop()
         self.event_loop.set_exception_handler(self.error_handler)
-        asyncio.set_event_loop(self.event_loop)
+
+        child_watcher = asyncio.SafeChildWatcher()
+        child_watcher.attach_loop(self.event_loop)
+        event_loop_policy.set_child_watcher(child_watcher)
 
         try:
             return self.event_loop.run_until_complete(
@@ -748,7 +783,8 @@ class SubprocessMixin(object):
             pending_tasks = asyncio.Task.all_tasks(self.event_loop)
             if pending_tasks:
                 logger.info("Waiting for %d tasks to complete...", len(pending_tasks))
-                self.event_loop.run_until_complete(asyncio.gather(*pending_tasks))
+                self.event_loop.run_until_complete(
+                    asyncio.gather(*pending_tasks, loop=self.event_loop))
             self.event_loop.stop()
             self.event_loop.close()
             logger.info("Event loop closed.")
@@ -801,15 +837,107 @@ class SetPIDHandler(logging.Handler):
 
 
 class ProcessHandle(object):
-    def __init__(self):
+    def __init__(self, event_loop):
+        self.event_loop = event_loop
         self.state = ProcessState.NOT_STARTED
-        self.pid = None
+        self.logger = None
         self.address = None
         self.returncode = None
+
+    @property
+    def id(self):
+        raise NotImplementedError
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def create_loggers(self):
+        raise NotImplementedError
+
+    def kill(self, sig):
+        raise NotImplementedError
+
+    def try_collect(self):
+        raise NotImplementedError
+
+    async def wait(self):
+        raise NotImplementedError
+
+
+class InlineProcessHandle(ProcessHandle):
+    def __init__(self, event_loop):
+        super().__init__(event_loop)
+
+        self.process = None
+        self.task = None
+        self.cleanup_task = None
+        self.manager_stub = None
+
+    @property
+    def id(self):
+        return 'inline:%016x' % id(self)
+
+    def create_loggers(self):
+        self.logger = logging.getLogger('childproc[%016x]' % id(self))
+
+    def kill(self, sig):
+        if not self.task.done():
+            logger.warning("Cancelling left over child %s", self.id)
+            self.task.cancel()
+
+        if sig == signal.SIGKILL and self.cleanup_task is not None and not self.cleanup_task.done():
+            logger.warning("Cancelling left over child %s", self.id)
+            self.cleanup_task.cancel()
+
+    def try_collect(self):
+        if self.task is None:
+            return True
+
+        if not self.task.done():
+            return False
+
+        if self.cleanup_task is not None and not self.cleanup_task.done():
+            return False
+
+        if self.task.cancelled():
+            self.returncode = 1
+            self.logger.info("Cancelled")
+
+        else:
+            self.returncode = self.task.result() or 0
+            self.logger.info("Terminated with rc=%d", self.returncode)
+
+        return True
+
+    async def wait(self):
+        self.returncode = await asyncio.wait_for(self.task, None, loop=self.event_loop) or 0
+
+    async def cleanup(self):
+        await self.process.cleanup()
+        if self.manager_stub is not None:
+            await self.manager_stub.close()
+            self.manager_stub = None
+
+    def on_task_done(self, task):
+        self.logger.info("run() finished, cleaning up...")
+        self.state = ProcessState.STOPPING
+        self.cleanup_task = self.event_loop.create_task(self.cleanup())
+        self.cleanup_task.add_done_callback(self.on_cleanup_done)
+
+    def on_cleanup_done(self, task):
+        self.logger.info("cleanup() finished.")
+        self.state = ProcessState.FINISHED
+        task.result()
+
+
+class SubprocessHandle(ProcessHandle):
+    def __init__(self, event_loop):
+        super().__init__(event_loop)
+
+        self.pid = None
         self.signal = None
         self.resinfo = None
-        self.term_event = asyncio.Event()
-        self.logger = None
+        self.term_event = asyncio.Event(loop=event_loop)
         self.stdout_logger = None
         self.stderr_logger = None
         self.stdout_protocol = None
@@ -817,6 +945,10 @@ class ProcessHandle(object):
         self.logger_protocol = None
 
         self._stderr_empty_lines = []
+
+    @property
+    def id(self):
+        return 'subprocess:%d' % self.pid
 
     def create_loggers(self):
         assert self.pid is not None
@@ -827,22 +959,79 @@ class ProcessHandle(object):
         self.stderr_logger = self.logger.getChild('stderr')
         self.stderr_logger.addHandler(SetPIDHandler(self.pid))
 
-    async def setup_std_handlers(
-        self, event_loop, stdout_fd, stderr_fd, logger_fd):
-        _, self.stdout_protocol = await event_loop.connect_read_pipe(
-            functools.partial(PipeAdapter, self.handle_stdout),
-            os.fdopen(stdout_fd))
+    def kill(self, sig):
+        logger.warning("Sending %s to left over child pid=%d", sig.name, self.pid)
+        os.kill(self.pid, sig)
 
-        _, self.stderr_protocol = await event_loop.connect_read_pipe(
-            functools.partial(PipeAdapter, self.handle_stderr),
-            os.fdopen(stderr_fd))
+    def try_collect(self):
+        rpid, status, resinfo = os.wait4(self.pid, os.WNOHANG)
+        if rpid == 0:
+            return False
+        assert rpid == self.pid
 
-        _, self.logger_protocol = await event_loop.connect_read_pipe(
-            functools.partial(LogAdapter, self.logger),
-            os.fdopen(logger_fd))
+        if self.state != ProcessState.RUNNING:
+            self.logger.error("Unexpected state %s", self.state)
+            return False
+
+        if os.WIFEXITED(status):
+            self.returncode = os.WEXITSTATUS(status)
+            self.logger.info("Terminated with rc=%d", self.returncode)
+        elif os.WIFSIGNALED(status):
+            self.returncode = 1
+            self.signal = os.WTERMSIG(status)
+            self.logger.info("Terminated by signal=%d", self.signal)
+        elif os.WIFSTOPPED(status):
+            sig = os.WSTOPSIG(status)
+            self.logger.info("Stopped by signal=%d", sig)
+            return False
+        else:
+            self.logger.error("Unexpected status %d", status)
+            return False
+
+        # The handle should receive an EOF when the child died and the
+        # pipe gets closed. We should wait for it asynchronously.
+        self.stdout_protocol.eof_received()
+        self.stderr_protocol.eof_received()
+
+        self.resinfo = resinfo
+        # self.logger.info("Resource usage:")
+        # self.logger.info("  utime=%f", resinfo.ru_utime)
+        # self.logger.info("  stime=%f", resinfo.ru_stime)
+        # self.logger.info("  maxrss=%d", resinfo.ru_maxrss)
+        # self.logger.info("  ixrss=%d", resinfo.ru_ixrss)
+        # self.logger.info("  idrss=%d", resinfo.ru_idrss)
+        # self.logger.info("  isrss=%d", resinfo.ru_isrss)
+        # self.logger.info("  minflt=%d", resinfo.ru_minflt)
+        # self.logger.info("  majflt=%d", resinfo.ru_majflt)
+        # self.logger.info("  nswap=%d", resinfo.ru_nswap)
+        # self.logger.info("  inblock=%d", resinfo.ru_inblock)
+        # self.logger.info("  oublock=%d", resinfo.ru_oublock)
+        # self.logger.info("  msgsnd=%d", resinfo.ru_msgsnd)
+        # self.logger.info("  msgrcv=%d", resinfo.ru_msgrcv)
+        # self.logger.info("  nsignals=%d", resinfo.ru_nsignals)
+        # self.logger.info("  nvcsw=%d", resinfo.ru_nvcsw)
+        # self.logger.info("  nivcsw=%d", resinfo.ru_nivcsw)
+
+        self.state = ProcessState.FINISHED
+        self.term_event.set()
+
+        return True
 
     async def wait(self):
         await self.term_event.wait()
+
+    async def setup_std_handlers(self, stdout_fd, stderr_fd, logger_fd):
+        _, self.stdout_protocol = await self.event_loop.connect_read_pipe(
+            functools.partial(PipeAdapter, self.handle_stdout),
+            os.fdopen(stdout_fd))
+
+        _, self.stderr_protocol = await self.event_loop.connect_read_pipe(
+            functools.partial(PipeAdapter, self.handle_stderr),
+            os.fdopen(stderr_fd))
+
+        _, self.logger_protocol = await self.event_loop.connect_read_pipe(
+            functools.partial(LogAdapter, self.logger),
+            os.fdopen(logger_fd))
 
     def handle_stdout(self, line):
         self.stdout_logger.info(line)
@@ -867,3 +1056,67 @@ class ProcessHandle(object):
 
 class ManagerStub(ipc.Stub):
     pass
+
+
+if __name__ == '__main__':
+    # Entry point for subprocesses.
+    try:
+        assert len(sys.argv) == 2
+
+        args = pickle.loads(base64.b64decode(sys.argv[1]))
+
+        request_in = args['request_in']
+        response_out = args['response_out']
+        logger_out = args['logger_out']
+        log_level = args['log_level']
+        entry = args['entry']
+        name = args['name']
+        manager_address = args['manager_address']
+        tmp_dir = args['tmp_dir']
+        kwargs = args['kwargs']
+
+        # Remove all existing log handlers, and install a new
+        # handler to pipe all log messages back to the manager
+        # process.
+        root_logger = logging.getLogger()
+        while root_logger.handlers:
+            root_logger.removeHandler(root_logger.handlers[0])
+        root_logger.addHandler(ChildLogHandler(logger_out))
+        root_logger.setLevel(log_level)
+
+        # Make loggers of 3rd party modules less noisy.
+        for other in ['quamash']:
+            logging.getLogger(other).setLevel(logging.WARNING)
+
+        stacktrace.init()
+        init_pylogging()
+
+        mod_name, cls_name = entry.rsplit('.', 1)
+        mod = importlib.import_module(mod_name)
+        cls = getattr(mod, cls_name)
+        impl = cls(
+            name=name, manager_address=manager_address, tmp_dir=tmp_dir,
+            **kwargs)
+
+        child_connection = ChildConnection(request_in, response_out)
+        rc = impl.main(child_connection)
+
+        frames = sys._current_frames()
+        for thread in threading.enumerate():
+            if thread.ident == threading.get_ident():
+                continue
+            logger.warning("Left over thread %s (%x)", thread.name, thread.ident)
+            if thread.ident in frames:
+                logger.warning("".join(traceback.format_stack(frames[thread.ident])))
+
+    except SystemExit as exc:
+        rc = exc.code
+    except:  # pylint: disable=bare-except
+        traceback.print_exc()
+        rc = 1
+    finally:
+        rc = rc or 0
+        sys.stdout.write("_exit(%d)\n" % rc)
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(rc)

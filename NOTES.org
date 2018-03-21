@@ -1,30 +1,121 @@
 # -*- org-tags-column: -98 -*-
 
+* Gracefully handle Processor::setup() failures                                               :FR:
+* Expected SIGPIPE causes gdb to kick in                                             :BUG:TESTING:
+- can I just install a sig handler to ignore SIGPIPE?
+* Convert backend_*_test.pyx to pure python                                      :CLEANUP:TESTING:
+- or at least make more use of Py* wrappers.
+
+* Instrument library is broken                                                               :BUG:
+INFO    :29194:7f7f990a8700:noisicaa.core.ipc: PIPELINE_MUTATION(355c400b4dcb49f980691af733da0531, <AddNode name="Events" type=NodeDescription id='d64cc989c73f44b0a14b6d6cfd474619' track_id='instrument_library'>)
+INFO    :29194:7f7f990a8700:noisicaa.audioproc.audioproc_process: AddNode():
+        type: OTHER
+        display_name: "Events"
+        ports {
+          direction: OUTPUT
+          type: EVENTS
+          name: "out"
+        }
+ERROR   :29165:7f52460e7700:quamash._QEventLoop: Task exception was never retrieved
+        future: <Task finished coro=<InstrumentLibraryDialog.__instrumentLoader() done, defined at /home/pink/noisicaa/build/noisicaa/ui/instrument_library.py:607> exception=RemoteException('From server /tmp/noisicaa-20180316-051900-28513-athmzfpn/audioproc<main>.62c53d407584442f861ca52721658582.sock:\nTraceback (most recent call last):\n  File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 252, in handle_command\n    result = await handler(*args, **kwargs)\n  File "/home/pink/noisicaa/build/noisicaa/audioproc/audioproc_process.py", line 210, in handle_pipeline_mutation\n    **mutation.args)\n  File "/home/pink/noisicaa/build/noisicaa/audioproc/nodes.py", line 65, in create\n    raise ValueError("Unsupported node type %d" % description.type)\nValueError: Unsupported node type 1\n',)>
+ERROR   :29165:7f52460e7700:root: Task exception was never retrieved:
+        NoneType
+
+* Use a single protobuf for audioproc status updates                                     :CLEANUP:
+- PipelineNotification
+- pipeline, player, node status updates and perf data
+- and a single IPC call to post it to clients
+- clients must subscribe to the updates that they want to receive
+
+* Make Slot thread-safe and lock-free                                                         :FR:
+- emit() might be called from any thread, incl. the audio thread
+- either way there needs to be a lock-free queue that transfers state changes from the audio thread
+  into the non-realtime world (so it can then be pushed into the event loop).
+- alternatively:
+  1) make Slot thread-safe, but not lock-free
+    - put lock-free queue into Processor that calls emit() from a non-realtime thread.
+  2) require strict phases:
+    - setup: only connect() can be called
+    - runtime: only emit() can be called
+    - cleanup: only disconnect() can be called
+    Then emit() does not need to acquire a lock
+- OTOH processor state changes in the audiothread are probably catastrophic events anyway, so
+  taking a lock does cause any more damage either.
+
+* Demangle function names in stacktraces                                                      :FR:
+* Denoise build output                                                                   :CLEANUP:
+- get rid of all compiler warnings
+- only dump csound output if it failed.
+
+* Slot::Listener should disconnect on destruction                                        :CLEANUP:
+So I don't have to manually disconnect when descructing the owner.
+Also foo_listener.disconnect() looks nicer than foo_slot.disconnect(foo_listener).
+
+* redesign plugin handling                                                                    :FR:
+- Plugin UI slows down after turning the wheels a lot
+
+- implement instance-access and data-access features on UIs.
+
+- gracefully handle crashes of plugin host processes
+  - reuse BackendManager?
+  - notify UI on processor state changes (careful, when change happens in audio thread).
+  - needs async processor states?
+    - schedule async CLEAN when processor crashes
+
+- use BufferManager in all tests that use buffers
+  - have an PrivateArena that doesn't use shared memory (pure python with bytearray).
+
+- block_size changes must be done via Program changes
+  - how to synchronize this between processes?
+  - subprocess just rejects blocks with non-matching block_size, until its block_size has
+    been changes as well?
+
+- a lot of plugin LV2 UIs require instance-access, would be sad not so support those
+- so have to run the plugin UI in the same process as the plugin
+- disadvantages:
+  - performance? context switch for every plugin call
+  - hypothetical plans of running multiple UIs against a single project will be difficult
+    - could do remote UI via X forwarding
+- run plugins in a separate process from audioproc process
+  - single plugin per process?
+  - or multiple instances of same plugin per process?
+  - or multiple plugins with same UI type per process?
+
+* Switch back to vanilla lilv                                                            :CLEANUP:
+Implement UI feature query with the generic RDF API:
+https://github.com/drobilla/lilv/pull/5#issuecomment-365869585
+
+* Replace ipc.ConnectionClosed by core.ConnectionClosed                                  :CLEANUP:
+* Subprocesses should commit suicide then the parent process dies                            :BUG:
+When process manager dies hard and doesn't cleanup properly
+https://stackoverflow.com/questions/284325/how-to-make-child-process-die-after-parent-exits
+
+* Improve core.Thread                                                                         :FR:
+- Add the boilerplate for
+  - telling the thread to quit
+  - waiting until the thread is ready
+  - simple way to re-raise an exception in the thread in the main event_loop.
+- StatefulThread?
+
+* Use core.Thread instead of threading.Thread, where it makes sense                      :CLEANUP:
 * properly prepare atom output buffers                                                       :BUG:
 - apparently an atom output buffer prefilled with a blank atom denoting the size of the buffer.
   - where is that documented?
   - size with or without atom header?
   - any specific atom type?
 
-* Native LV2 UI support                                                                       :FR:
-- helm works as a plugin, good candidate for a test
-  - helm UI has instance-access as required feature :(
-- ref implementation:
-  - http://dev.drobilla.net/browser/suil
-  - http://dev.drobilla.net/browser/jalv
-- spawn UI specific process for each plugin
-- needs shared urid mapper for all processes
-- pass port value changes from audioproc process to UI
-  - for every block cycle or rate limited to Xfps?
-
-* LV2 support										      :FR:
-** support zynaddsubfx
+* support zynaddsubfx
 - required features:
   - http://lv2plug.in/ns/ext/worker#schedule
   - http://lv2plug.in/ns/ext/options#options
 - atom input port
 - how to load instrument w/o UI?
-** features
+* Native UI support
+- implement portNotification property
+- look into extension data provides by UIs
+- pass port value changes from audioproc process to UI
+  - for every block cycle or rate limited to Xfps?
+* LV2 features
 - plugins with unsupported features:
   - include in NodeDB, but mark as non-functional, with reason text?
 - provide features
@@ -36,19 +127,63 @@
   - http://lv2plug.in/ns/ext/buf-size/buf-size.html
     - http://lv2plug.in/ns/ext/buf-size#fixedBlockLength
     - http://lv2plug.in/ns/ext/buf-size#boundedBlockLength
-** event/atom ports
+
+* Use protobuf for BackendSettings                                                       :CLEANUP:
+* Subprocesses should always shutdown cleanly                                            :CLEANUP:
+- notify manager before entering cleanup method
+- set SubprocessHandle.state = STOPPING
+- manager doesn't try to kill it, while in STOPPING, until some timeout passes
+
+* Disentangle audioproc code                                                             :CLEANUP:
+Convert as much as possible from noisicaa.audioproc.vm.engine to pure Python
+- Make more use of PyFoo wrappers, instead of directly using C++ objects.
+
+Clarify responsibilities of
+- AudioProcServer
+- PipelineVM
+- VM
+
+* Use ProcessManager in unittests                                                        :CLEANUP:
+- single CREATE_PROCESS(cls, ...) command
+- ProcessManager.add_process_class(cls, run_inline:bool, singleton:bool, ...)
+
+* NodeDB should use separate subprocess to analyze plugins                                    :FR:
+- at least LADSPA requires dlopen'ing an .so file, which is dangerous
+- if subprocess crashes, mark the plugin as broken
+- reuse the same subprocesses, until done or it crashes (and the spawn a new one)
+
+* Allow project specific block_size/sample_rate                                               :FR:
+ProcessorIPC does resampling and buffering to translate it to main engine.
+* runtests crashes on some module if DISPLAY is not set                              :BUG:TESTING:
+- noisicaa.ui.pipeline_graph_view_test
+- noisicaa.ui.plugin_ui_process_test
+
+Probably related to unittest.UITestCase
+
+* runtests: disable gdb, if stdout is not a tty                                       :FR:TESTING:
 * Make the audio thread real-time safe                                                        :FR:
 - no more python code in the main loop
 - lock-free queue for log messages
-* clean up pylint issues in pylint-unclean files                                         :CLEANUP:
+* clean up pylint issues in pylint-unclean files                                 :CLEANUP:TESTING:
 - grep -r pylint-unclean noisicaa/
 - pick some file and clean it up.
 - until grep finds no more files.
 
-* Exlore pytest as a better unittest framework                                          :RESEARCH:
+* Exlore pytest as a better unittest framework                                  :RESEARCH:TESTING:
 - https://docs.pytest.org/en/latest/
 - supports parallel test execution with pytest-xdist
 
+* Add UI tests                                                                  :RESEARCH:TESTING:
+- any framework to use for testing Qt apps?
+* Tag tests with a 'test class', select which tests to run                               :TESTING:
+- decorator @unittest.XXX_TEST
+- runtests --classes=xxx,yyy,...
+- classes:
+  - unittest
+  - integration
+  - performance
+  - ui
+  - lint
 * Revisit source directory structure                                                    :RESEARCH:
 - move all sources into src/
   - can't accidentally import modules from source
@@ -95,12 +230,15 @@
   that type.
   - 'Open with...' drop down?
   - 'Open directory in file manager'
-
+- placeholders in file name
+  - $(project_name), $(sample_rate), ...
 * Speed up project setup                                                                      :FR:
 - takes quite some time until a project is up and running.
 - figure out what the bottlenecks are.
   - a lot of messages are passes around. Anything that can be batched.
   - how much time is the logging taking up?
+- Batch set_control_value when initializing a node
+  - some nodes have a lot of control values...
 
 * No cleanup in destructors                                                                  :BUG:
 - Was a bad idea: http://www.artima.com/cppsource/nevercall.html
@@ -133,7 +271,7 @@ ERROR   : 8298:7fbd9ef37700:ui.editor_app: Exception in callback: Traceback for 
             return stat
         AssertionError
 
-* Move various test helpers to noisidev.unittest                                         :CLEANUP:
+* Move various test helpers to noisidev.unittest                                 :CLEANUP:TESTING:
 - noisicaa.ui.uitest_utils
 
 * Explore https://github.com/census-instrumentation for stats tracking                  :RESEARCH:
@@ -208,7 +346,7 @@ to the backend.
 E.g. use unlikely() when checking for error conditions.
 Is there some cross-compiler/-platform header to provide this functionality?
 
-* track syscalls in audio thread                                                              :FR:
+* track syscalls in audio thread                                                      :FR:TESTING:
 - seems non-trivial:
   - ptrace can trace just a specific thread, but it must be in a subprocess of the tracer.
   - calling ptrace() with the gettid() of the thread fails with EPERM
@@ -299,11 +437,11 @@ Is there some cross-compiler/-platform header to provide this functionality?
 - Use those for demo projects
 - Also remove dependency on mda-lv2 and swh-plugins packages from demo projects
 
-* Don't use system files in tests                                                        :CLEANUP:
+* Don't use system files in tests                                                :CLEANUP:TESTING:
 - grep for '/usr/'
 - build test ladspa plugins from source in testdata
 
-* Full app run in vmtest                                                                      :FR:
+* Full app run in vmtest                                                              :FR:TESTING:
 - bin/noisicaä --play-and-exit --demo="demo name"
 
 * Track properties should directly modify mixer control values                           :CLEANUP:
@@ -350,10 +488,6 @@ Is there some cross-compiler/-platform header to provide this functionality?
   - bypass needs conditionals
 - lv2 features
   - make atom buffer size a param of hostsystem
-  - some test plugins to validate features
-    - point LV2_PATH to just those, so test don't see all plugins on a host
-  - move feature handling to noisicaa.lv2
-    - the node_db has access to the list of supported features, w/o duplicating code.
 - ProcessorFluidSynth
   - capture fluidsynth logs
   - cache soundfonts in master instrument again
@@ -365,7 +499,6 @@ Is there some cross-compiler/-platform header to provide this functionality?
   - are there any other places, where I care about zero-copy deserialization?
 - clean use of NodeDescription types
   - which types are actually needed?
-- always call cleanup() in destructor
 - engine_perftest should focus on other opcodes than CALL
 - use this pattern for C-only classes
   https://github.com/cython/cython/wiki/FAQ#can-cython-create-objects-or-apply-operators-to-locally-created-objects-as-pure-c-code
@@ -402,10 +535,21 @@ Is there some cross-compiler/-platform header to provide this functionality?
       cython_module(foo) -> foo.so
       etc. for pb, capnp, ...
 
-* Built-in testcases                                                                     :CLEANUP:
+* Built-in testcases                                                             :CLEANUP:TESTING:
 - for each file generate a built-in TestCase
   - run some C++ linter and iwyu on *.cpp/*.h files.
   - run mypy when using type declarations.
+
+* Get pycheck working                                                           :RESEARCH:TESTING:
+- seems much faster than mypy
+- problems:
+  - no documentation
+  - requires python2.7, so can't be installed in the venv
+  - not installable via apt either
+  - doesn't find typeshed on its own, need to set TYPESHED_HOME
+  - needs --python_version=3.5 --python_exe=/usr/bin/python3.5
+    - crashes if it uses the python exe from the venv
+  - complains about super()
 
 * Reduce duplication in noisicaa/music/*_test.py					 :CLEANUP:
 - create TestProject class
@@ -414,7 +558,7 @@ Is there some cross-compiler/-platform header to provide this functionality?
 * Capture per-node logs									      :FR:
 - csound, lv2 log extensions, ...
 - logs tab in node IU
-* Improve noisicaa.core.stats_test							 :CLEANUP:
+* Improve noisicaa.core.stats_test                                               :CLEANUP:TESTING:
 The module's code changed a lot, but the unittest wasn't updated.
 
 * Loop start/end move around when BPM is changed					     :BUG:
@@ -467,9 +611,6 @@ http://pyxdg.readthedocs.io/en/latest/recentfiles.html
 ** LV2 spec: http://lv2plug.in/ns/ext/port-groups/port-groups.html
 ** UI prefers showing port groups instead of individual ports, option to ungroup ports
 ** Implicit coercing of mono->stereo ports
-
-* Use flatbuffers for RPC serialization							      :FR:
-- https://github.com/google/flatbuffers
 
 * Message router									      :FR:
 - Send messages to ports, which might live in another process.
@@ -654,7 +795,6 @@ Blacklist crashing nodes
 - no way to remove trailing measures from sheet
 
 * Unify instrument handling in ScoreTrack and BeatTrack					 :CLEANUP:
-* Move BackendManager to noisicaa.core							 :CLEANUP:
 * Review licenses of all used modules							      :FR:
 All compatible with GPL?
 * SampleInstrument: tuning								      :FR:
@@ -969,7 +1109,6 @@ otherwise set volume on outgoing samples.
 * separate client, server and common code in music					 :CLEANUP:
 * proper classes for mutations emitted from state.py					 :CLEANUP:
 * move tests from state_test.py to model_base_test.py					 :CLEANUP:
-* find a proper test sample for audio settings dialog					 :CLEANUP:
 * move initial project mutations to BaseProject						 :CLEANUP:
 * node_db imports all nodes and populates itself					 :CLEANUP:
 * use registry instance instead of class attributes to track classes			 :CLEANUP:

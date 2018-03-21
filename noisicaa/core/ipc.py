@@ -30,6 +30,7 @@ import os
 import os.path
 import pickle
 import pprint
+import time
 import traceback
 import uuid
 
@@ -189,6 +190,7 @@ class Server(object):
                 server_name=self.name,
                 server_id=self.id))
 
+        self.logger.info("Creating server on socket %s", self.address)
         self._server = await self.event_loop.create_unix_server(
             functools.partial(ServerProtocol, self.event_loop, self),
             path=self.address)
@@ -198,7 +200,10 @@ class Server(object):
         if self._server is not None:
             self._server.close()
             await self._server.wait_closed()
-            os.unlink(self.address)
+
+            if os.path.isfile(self.address):
+                os.unlink(self.address)
+
             self._server = None
             self.logger.info("Server closed")
 
@@ -372,7 +377,7 @@ class Stub(object):
 
             if self._command_loop_task is not None:
                 self._command_loop_cancelled.set()
-                await asyncio.wait_for(self._command_loop_task, None)
+                await asyncio.wait_for(self._command_loop_task, None, loop=self._event_loop)
                 logger.info("%s: Command queue cleaned up.", self.id)
                 self._command_loop_task = None
 
@@ -392,15 +397,16 @@ class Stub(object):
         return False
 
     async def command_loop(self):
-        cancelled_task = asyncio.ensure_future(self._command_loop_cancelled.wait())
+        cancelled_task = asyncio.ensure_future(
+            self._command_loop_cancelled.wait(), loop=self._event_loop)
         while not self._command_loop_cancelled.is_set():
-            get_task = asyncio.ensure_future(self._command_queue.get())
+            get_task = asyncio.ensure_future(self._command_queue.get(), loop=self._event_loop)
             done, pending = await asyncio.wait(
                 [get_task, cancelled_task],
-                return_when=asyncio.FIRST_COMPLETED)
+                return_when=asyncio.FIRST_COMPLETED,
+                loop=self._event_loop)
             if get_task not in done:
                 get_task.cancel()
-                asyncio.gather(get_task, return_exceptions=True)
                 continue
 
             cmd, payload, response_container = get_task.result()
@@ -409,15 +415,18 @@ class Stub(object):
                 response_container.set(self.CLOSE_SENTINEL)
                 continue
 
+            logger.debug("sending %s to %s...", cmd.decode('utf-8'), self._server_address)
+            start_time = time.time()
             self._transport.write(b'CALL %s %d\n' % (cmd, len(payload)))
             if payload:
                 self._transport.write(payload)
 
             response = await self._protocol.response_queue.get()
+            logger.debug(
+                "%s to %s finished in %.2fmsec", cmd.decode('utf-8'), self._server_address, 1000 * (time.time() - start_time))
             response_container.set(response)
 
         cancelled_task.cancel()
-        asyncio.gather(cancelled_task, return_exceptions=True)
 
     async def call(self, cmd, *args, **kwargs):
         if not isinstance(cmd, bytes):
@@ -435,7 +444,7 @@ class Stub(object):
         response = await response_container.wait()
 
         if response is self.CLOSE_SENTINEL:
-            raise ConnectionClosed
+            raise ConnectionClosed(self.id)
         elif response == b'OK':
             return None
         elif response.startswith(b'OK:'):

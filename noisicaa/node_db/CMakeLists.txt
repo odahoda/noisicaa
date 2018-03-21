@@ -22,10 +22,22 @@ add_python_package(
   client.py
   client_test.py
   mutations.py
-  node_description.py
   presets.py
   presets_test.py
   process_base.py
   process.py
+  utils.py
 )
+
+set(LIB_SRCS
+  node_description.pb.cc
+)
+
+cpp_proto(node_description.proto)
+py_proto(node_description.proto)
+
+add_library(noisicaa-node_db SHARED ${LIB_SRCS})
+target_include_directories(noisicaa-node_db PRIVATE ${LIBPROTOBUF_INCLUDE_DIRS})
+target_link_libraries(noisicaa-node_db PRIVATE ${LIBPROTOBUF_LIBRARIES})
+
 add_subdirectory(private)

@@ -59,6 +59,7 @@ class TEST_OPTS(object):
     WRITE_PERF_STATS = False
     ENABLE_PROFILER = False
     PLAYBACK_BACKEND = 'null'
+    ALLOW_UI = False
     TMP_DIR = '/tmp'
 
 # Cleanup namespace

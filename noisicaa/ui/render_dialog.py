@@ -168,7 +168,11 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.sample_rate = QtWidgets.QComboBox(self.top_area)
         populateComboBox(
             self.sample_rate,
-            [("44.1 kHz", 44100)],
+            [("22.05 kHz", 22050),
+             ("44.1 kHz", 44100),
+             ("48 kHz", 48000),
+             ("96 kHz", 96000),
+            ],
             self.__settings.sample_rate)
         self.sample_rate.currentIndexChanged.connect(self.onSampleRateChanged)
 

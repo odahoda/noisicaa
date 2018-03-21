@@ -34,7 +34,6 @@ import uuid
 
 from noisicaa.core import ipc
 from noisicaa import audioproc
-
 from . import player
 from . import render_settings_pb2
 
@@ -42,6 +41,22 @@ logger = logging.getLogger(__name__)
 
 
 class RendererFailed(Exception):
+    pass
+
+
+class AudioProcClientImpl(object):
+    def __init__(self, event_loop, tmp_dir):
+        super().__init__()
+        self.event_loop = event_loop
+        self.server = ipc.Server(event_loop, 'render', tmp_dir)
+
+    async def setup(self):
+        await self.server.setup()
+
+    async def cleanup(self):
+        await self.server.cleanup()
+
+class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
     pass
 
 
@@ -67,7 +82,7 @@ class DataStreamProtocol(asyncio.Protocol):
 
 class EncoderProtocol(asyncio.streams.FlowControlMixin, asyncio.SubprocessProtocol):
     def __init__(self, *, data_handler, stderr_handler, failure_handler, event_loop):
-        super().__init__()
+        super().__init__(loop=event_loop)
         self.__closed = asyncio.Event(loop=event_loop)
 
         self.__data_handler = data_handler
@@ -218,7 +233,7 @@ class FfmpegEncoder(SubprocessEncoder):
 
         input_flags = [
             '-f', 'f32le',
-            '-ar', '44100',
+            '-ar', '%d' % self.settings.sample_rate,
             '-ac', '2',
             '-i', 'pipe:0',
         ]
@@ -356,6 +371,8 @@ class Renderer(object):
         self.__playing = None
         self.__current_time = None
         self.__duration = self.__project.duration
+        self.__audioproc_address = None
+        self.__audioproc_client = None
         self.__player = None
         self.__next_progress_update = None
         self.__progress_pump_task = None
@@ -379,7 +396,7 @@ class Renderer(object):
 
     async def __data_pump_main(self):
         while True:
-            get = asyncio.ensure_future(self.__data_queue.get())
+            get = asyncio.ensure_future(self.__data_queue.get(), loop=self.__event_loop)
             await self.__wait_for_some(get, self.__failed.wait())
             if self.__failed.is_set():
                 logger.info("Stopping data pump, because encoder failed.")
@@ -425,6 +442,7 @@ class Renderer(object):
     def __handle_player_state(self, state):
         assert state.HasField('playing')
         assert state.HasField('current_time')
+
         if self.__playing:
             self.__current_time = audioproc.MusicalTime.from_proto(state.current_time)
 
@@ -476,16 +494,25 @@ class Renderer(object):
         self.__current_time = audioproc.MusicalTime()
         self.__duration = self.__project.duration
 
+        self.__audioproc_address = await self.__manager.call(
+            'CREATE_AUDIOPROC_PROCESS', 'render',
+            block_size=self.__render_settings.block_size,
+            sample_rate=self.__render_settings.sample_rate)
+
+        self.__audioproc_client = AudioProcClient(self.__event_loop, self.__tmp_dir)
+        await self.__audioproc_client.setup()
+        await self.__audioproc_client.connect(self.__audioproc_address)
+
+        await self.__audioproc_client.create_realm(name='root', enable_player=True)
+        await self.__audioproc_client.set_backend(
+            'renderer', datastream_address=self.__datastream_address)
+
         self.__player = player.Player(
             project=self.__project,
-            manager=self.__manager,
             event_loop=self.__event_loop,
-            tmp_dir=self.__tmp_dir,
-            backend_type='renderer',
-            datastream_address=self.__datastream_address)
-
+            audioproc_client=self.__audioproc_client,
+            realm='root')
         self.__player.listeners.add('player_state', self.__handle_player_state)
-
         await self.__player.setup()
 
     async def run(self):
@@ -542,22 +569,28 @@ class Renderer(object):
 
     async def __cleanup(self):
         if self.__progress_pump_task is not None:
-            logger.info("Shutting down progress pump.")
+            logger.info("Shutting down progress pump...")
             self.__progress_pump_task.cancel()
             self.__progress_pump_task = None
 
         if self.__player is not None:
-            logger.info("Shutting down player.")
+            logger.info("Shutting down player...")
             await self.__player.cleanup()
             self.__player = None
 
+        if self.__audioproc_client is not None:
+            logger.info("Shutting down audio process...")
+            await self.__audioproc_client.disconnect(shutdown=True)
+            await self.__audioproc_client.cleanup()
+            self.__audioproc_client = None
+
         if self.__encoder is not None:
-            logger.info("Shutting down encoder.")
+            logger.info("Shutting down encoder...")
             await self.__encoder.cleanup()
             self.__encoder = None
 
         if self.__datastream_transport is not None:
-            logger.info("Shutting down data stream.")
+            logger.info("Shutting down data stream...")
             self.__datastream_transport.close()
             self.__datastream_transport = None
             self.__datastream_protocol = None
@@ -576,7 +609,7 @@ class Renderer(object):
             self.__datastream_address = None
 
         if self.__data_pump_task is not None:
-            logger.info("Shutting down data pump.")
+            logger.info("Shutting down data pump...")
             self.__data_pump_task.cancel()
             self.__data_pump_task = None
 

@@ -380,7 +380,10 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
 
     async def createAudioProcProcess(self):
         self.audioproc_process = await self.process.manager.call(
-            'CREATE_AUDIOPROC_PROCESS', 'main')
+            'CREATE_AUDIOPROC_PROCESS', 'main',
+            block_size=2 ** int(self.settings.value('audio/block_size', 10)),
+            sample_rate=int(self.settings.value('audio/sample_rate', 44100)),
+        )
 
         self.audioproc_client = AudioProcClient(
             self, self.process.event_loop, self.process.server)
@@ -388,9 +391,11 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
         await self.audioproc_client.connect(
             self.audioproc_process, {'perf_data'})
 
+        await self.audioproc_client.create_realm(name='root')
+
         await self.audioproc_client.set_backend(
             self.settings.value('audio/backend', 'portaudio'),
-            block_size=2 ** int(self.settings.value('audio/block_size', 10)))
+        )
 
     def onPipelineStatus(self, status):
         if 'perf_data' in status:

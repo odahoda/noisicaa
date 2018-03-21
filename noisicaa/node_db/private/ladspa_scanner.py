@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 class LadspaScanner(scanner.Scanner):
     def scan(self):
         # TODO: support configurable searchpaths
-        rootdir = '/usr/lib/ladspa'
+        rootdir = os.environ.get('LADSPA_PATH', '/usr/lib/ladspa')
         for dirpath, dirnames, filenames in os.walk(rootdir):
             for filename in filenames:
                 if not filename.endswith('.so'):
@@ -52,80 +52,53 @@ class LadspaScanner(scanner.Scanner):
                     logger.warning("Failed to load LADSPA library %s: %s", path, exc)
                     continue
 
-                for desc in lib.descriptors:
-                    uri = 'ladspa://%s/%s' % (filename, desc.label)
+                for descriptor in lib.descriptors:
+                    uri = 'ladspa://%s/%s' % (filename, descriptor.label)
                     logger.info("Adding LADSPA plugin %s", uri)
 
-                    ports = []
-                    parameters = []
+                    desc = node_db.NodeDescription()
+                    desc.supported = True
+                    desc.display_name = descriptor.name
+                    desc.type = node_db.NodeDescription.PLUGIN
+                    desc.processor.type = node_db.ProcessorDescription.PLUGIN
+                    desc.plugin.type = node_db.PluginDescription.LADSPA
+                    desc.has_ui = False
 
-                    for port in desc.ports:
-                        # if (port.type == ladspa.PortType.Control
-                        #         and port.direction == ladspa.PortDirection.Input):
-                        #     if port.is_integer:
-                        #         # TODO: this should be IntParameter
-                        #         parameter_cls = node_db.FloatParameterDescription
-                        #     else:
-                        #         parameter_cls = node_db.FloatParameterDescription
+                    ladspa_desc = desc.ladspa
+                    ladspa_desc.library_path = path
+                    ladspa_desc.label = descriptor.label
 
-                        #     kwargs = {}
-                        #     kwargs['name'] = port.name
-                        #     kwargs['display_name'] = port.name
+                    for port in descriptor.ports:
+                        port_desc = desc.ports.add()
+                        port_desc.name = port.name
 
-                        #     # Using a fixed sample rate is pretty ugly...
-                        #     kwargs['min'] = port.lower_bound(44100)
-                        #     kwargs['max'] = port.upper_bound(44100)
-                        #     default = port.default(44100)
-                        #     if default is not None:
-                        #         kwargs['default'] = default
+                        if port.direction == ladspa.PortDirection.Input:
+                            port_desc.direction = node_db.PortDescription.INPUT
+                        elif port.direction == ladspa.PortDirection.Output:
+                            port_desc.direction = node_db.PortDescription.OUTPUT
+                        else:
+                            raise ValueError(port)
 
-                        #     parameter_desc = parameter_cls(**kwargs)
-                        #     parameters.append(parameter_desc)
-
-                        # else:
-                        port_type = {
-                            ladspa.PortType.Audio: node_db.PortType.Audio,
-                            ladspa.PortType.Control: node_db.PortType.KRateControl,
-                        }[port.type]
-
-                        direction = {
-                            ladspa.PortDirection.Input: node_db.PortDirection.Input,
-                            ladspa.PortDirection.Output: node_db.PortDirection.Output,
-                        }[port.direction]
-
-                        port_cls = {
-                            node_db.PortType.Audio: node_db.AudioPortDescription,
-                            node_db.PortType.KRateControl: node_db.KRateControlPortDescription,
-                        }[port_type]
-
-                        kwargs = {}
+                        if port.type == ladspa.PortType.Control:
+                            port_desc.type = node_db.PortDescription.KRATE_CONTROL
+                        elif port.type == ladspa.PortType.Audio:
+                            port_desc.type = node_db.PortDescription.AUDIO
+                        else:
+                            raise ValueError(port)
 
                         if (port.type == ladspa.PortType.Control
-                            and port.direction == ladspa.PortDirection.Input):
-                            # Using a fixed sample rate is pretty ugly...
-                            kwargs['min'] = port.lower_bound(44100)
-                            kwargs['max'] = port.upper_bound(44100)
+                                and port.direction == ladspa.PortDirection.Input):
+                            lower_bound = port.lower_bound(44100)
+                            upper_bound = port.upper_bound(44100)
                             default = port.default(44100)
+
+                            value_desc = port_desc.float_value
+                            # Using a fixed sample rate is pretty ugly...
+                            if lower_bound is not None:
+                                value_desc.min = lower_bound
+                            if upper_bound is not None:
+                                value_desc.max = upper_bound
                             if default is not None:
-                                kwargs['default'] = default
+                                value_desc.default = default
 
-                        port_desc = port_cls(
-                            name=port.name,
-                            direction=direction,
-                            **kwargs)
-                        ports.append(port_desc)
-
-                    parameters.append(
-                        node_db.StringParameterDescription(
-                            name='ladspa_library_path', default=path, hidden=True))
-                    parameters.append(
-                        node_db.StringParameterDescription(
-                            name='ladspa_plugin_label', default=desc.label, hidden=True))
-
-                    node_desc = node_db.ProcessorDescription(
-                        display_name=desc.name,
-                        processor_name='ladspa',
-                        ports=ports,
-                        parameters=parameters)
-
-                    yield uri, node_desc
+                    yield uri, desc

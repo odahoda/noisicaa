@@ -19,6 +19,8 @@
 # @end:license
 
 add_python_package(
+  backend_manager.py
+  backend_manager_test.py
   callbacks.py
   callbacks_test.py
   fileutil.py
@@ -33,9 +35,12 @@ add_python_package(
   process_manager_test.py
   recordfile.py
   recordfile_test.py
+  sessions.py
   stats_test.py
   storage.py
   storage_test.py
+  threads.py
+  threads_test.py
 )
 
 add_cython_module(logging_test CXX)
@@ -44,7 +49,11 @@ target_link_libraries(${logging_test.so} PRIVATE noisicaa-core)
 set(LIB_SRCS
   logging.cpp
   perf_stats.cpp
+  refcount.cpp
   status.cpp
+  stacktrace.cpp
+  message.capnp.c++
+  perf_stats.capnp.c++
 )
 
 add_cpp_capnp(message.capnp)
@@ -52,7 +61,10 @@ add_py_capnp(message.capnp)
 add_cpp_capnp(perf_stats.capnp)
 add_py_capnp(perf_stats.capnp)
 
-add_library(noisicaa-core SHARED ${LIB_SRCS} message.capnp.c++ perf_stats.capnp.c++)
+add_library(noisicaa-core SHARED ${LIB_SRCS})
+target_link_libraries(noisicaa-core PRIVATE pthread)
+target_include_directories(noisicaa-core PRIVATE ${LIBUNWIND_INCLUDE_DIRS})
+target_link_libraries(noisicaa-core PRIVATE ${LIBUNWIND_LIBRARIES})
 
 add_cython_module(perf_stats CXX)
 target_link_libraries(${perf_stats.so} PRIVATE noisicaa-core)
@@ -62,5 +74,8 @@ target_link_libraries(${logging.so} PRIVATE noisicaa-core)
 
 add_cython_module(status CXX)
 target_link_libraries(${status.so} PRIVATE noisicaa-core)
+
+add_cython_module(stacktrace CXX)
+target_link_libraries(${stacktrace.so} PRIVATE noisicaa-core)
 
 add_subdirectory(stats)

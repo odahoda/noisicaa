@@ -392,6 +392,14 @@ cdef extern from "lilv/lilv.h" nogil:
 
     LilvNode* lilv_ui_get_binary_uri(LilvUI* ui)
 
+    bool lilv_ui_has_feature(LilvUI* p, LilvNode* feature_uri)
+
+    LilvNodes* lilv_ui_get_supported_features(LilvUI* p)
+
+    LilvNodes* lilv_ui_get_required_features(LilvUI* p)
+
+    LilvNodes* lilv_ui_get_optional_features(LilvUI* p)
+
 
 cdef class Plugin(object):
     cdef World world
@@ -424,12 +432,23 @@ cdef class ConstNodes(BaseNodes):
 cdef class Nodes(BaseNodes):
     cdef init(self, LilvNodes* nodes)
 
-
 cdef class Plugins(object):
     cdef World world
     cdef const LilvPlugins* plugins
 
     cdef init(self, World world, const LilvPlugins* plugins)
+
+cdef class UI(object):
+    cdef World world
+    cdef const LilvUI* ui
+
+    cdef init(self, World world, const LilvUI* ui)
+
+cdef class UIs(object):
+    cdef World world
+    cdef const LilvUIs* uis
+
+    cdef init(self, World world, const LilvUIs* uis)
 
 cdef class Namespace(object):
     cdef World world
@@ -448,43 +467,8 @@ cdef class Namespaces(object):
     cdef readonly Namespace ui
     cdef readonly Namespace xsd
 
-
 cdef class World(object):
     cdef LilvWorld* world
     cdef readonly Namespaces ns
 
     cdef readonly URIDMapper urid_mapper
-
-
-cdef class Instance(object):
-    cdef World world
-    cdef Plugin plugin
-    cdef double rate
-
-    cdef list features
-    cdef const LV2_Feature** lv2_features
-    cdef LilvInstance* instance
-
-    cdef init(self, World world, Plugin plugin, double rate)
-    cdef connect_port(self, int port_index, void* data)
-
-    @staticmethod
-    cdef Feature create_urid_map_feature(Instance instance)
-
-    @staticmethod
-    cdef Feature create_urid_unmap_feature(Instance instance)
-
-    @staticmethod
-    cdef Feature create_options_feature(Instance instance)
-
-    @staticmethod
-    cdef Feature create_bufsize_boundedblocklength_feature(Instance instance)
-
-    @staticmethod
-    cdef Feature create_bufsize_powerof2blocklength_feature(Instance instance)
-
-    @staticmethod
-    cdef Feature create_worker_feature(Instance instance)
-
-cdef bool supports_feature(BaseNode uri)
-cdef Feature get_feature(Instance instance, BaseNode uri)

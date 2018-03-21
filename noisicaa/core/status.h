@@ -39,6 +39,7 @@ public:
     ERROR,
     CONNECTION_CLOSED,
     OS_ERROR,
+    TIMEOUT,
   };
 
   Status()
@@ -67,6 +68,7 @@ public:
   int line() const { return _line; }
   bool is_error() const { return _code != Code::OK; }
   bool is_connection_closed() const { return _code == Code::CONNECTION_CLOSED; }
+  bool is_timeout() const { return _code == Code::TIMEOUT; }
   bool is_os_error() const { return _code == Code::OS_ERROR; }
   string message() const { return _message; }
 
@@ -77,6 +79,9 @@ public:
   static Status Error(const char* file, int line, const char* fmt, ...);
   static Status ConnectionClosed(const char* file, int line) {
     return Status(Code::CONNECTION_CLOSED, file, line, "Connection closed");
+  }
+  static Status Timeout(const char* file, int line) {
+    return Status(Code::TIMEOUT, file, line, "Timeout");
   }
   static Status OSError(const char* file, int line, const string& message);
   static Status OSError(const char* file, int line, const char* fmt, ...);
@@ -90,9 +95,11 @@ private:
 
 #define ERROR_STATUS(...) Status::Error(__FILE__, __LINE__, __VA_ARGS__)
 #define CONNECTION_CLOSED_STATUS() Status::ConnectionClosed(__FILE__, __LINE__)
+#define TIMEOUT_STATUS() Status::Timeout(__FILE__, __LINE__)
 #define OSERROR_STATUS(...) Status::OSError(__FILE__, __LINE__, __VA_ARGS__)
 
-#define RETURN_IF_ERROR(STATUS) do { if (STATUS.is_error()) { return STATUS; } } while (false)
+#define RETURN_IF_ERROR(STATUS) do { Status __s = STATUS; if (__s.is_error()) { return __s; } } while (false)
+#define RETURN_IF_PTHREAD_ERROR(STATUS) do { int __s = STATUS; if (__s == ETIMEDOUT) { return TIMEOUT_STATUS(); } else if (__s != 0) { return OSERROR_STATUS("pthread function failed"); } } while (false)
 
 template<class T> class StatusOr : public Status {
 public:

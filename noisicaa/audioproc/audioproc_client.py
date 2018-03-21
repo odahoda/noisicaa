@@ -37,6 +37,10 @@ class AudioProcClientMixin(object):
         self._session_id = None
         self.listeners = core.CallbackRegistry()
 
+    @property
+    def address(self):
+        return self._stub.server_address
+
     async def setup(self):
         await super().setup()
         self.server.add_command_handler(
@@ -57,8 +61,8 @@ class AudioProcClientMixin(object):
         assert self._stub is None
         self._stub = ipc.Stub(self.event_loop, address)
         await self._stub.connect()
-        self._session_id = await self._stub.call(
-            'START_SESSION', self.server.address, flags)
+        self._session_id = await self._stub.call('START_SESSION', self.server.address, flags)
+        logger.info("Started session %s", self._session_id)
 
     async def disconnect(self, shutdown=False):
         if self._session_id is not None:
@@ -78,41 +82,56 @@ class AudioProcClientMixin(object):
     async def shutdown(self):
         await self._stub.call('SHUTDOWN')
 
-    async def add_node(self, *, description, **args):
-        return await self.pipeline_mutation(
-            mutations.AddNode(description=description, **args))
+    async def ping(self):
+        await self._stub.ping()
 
-    async def remove_node(self, node_id):
-        return await self.pipeline_mutation(
-            mutations.RemoveNode(node_id))
+    async def create_realm(self, *, name, parent=None, enable_player=False):
+        await self._stub.call('CREATE_REALM', self._session_id, name, parent, enable_player)
 
-    async def connect_ports(self, node1_id, port1_name, node2_id, port2_name):
-        return await self.pipeline_mutation(
-            mutations.ConnectPorts(node1_id, port1_name, node2_id, port2_name))
+    async def delete_realm(self, name):
+        await self._stub.call('DELETE_REALM', self._session_id, name)
 
-    async def disconnect_ports(self, node1_id, port1_name, node2_id, port2_name):
+    async def add_node(self, realm, *, description, **args):
         return await self.pipeline_mutation(
-            mutations.DisconnectPorts(node1_id, port1_name, node2_id, port2_name))
+            realm, mutations.AddNode(description=description, **args))
 
-    async def set_port_property(self, node_id, port_name, **kwargs):
+    async def remove_node(self, realm, node_id):
         return await self.pipeline_mutation(
-            mutations.SetPortProperty(node_id, port_name, **kwargs))
+            realm, mutations.RemoveNode(node_id))
 
-    async def set_node_parameter(self, node_id, **kwargs):
+    async def connect_ports(self, realm, node1_id, port1_name, node2_id, port2_name):
         return await self.pipeline_mutation(
-            mutations.SetNodeParameter(node_id, **kwargs))
+            realm, mutations.ConnectPorts(node1_id, port1_name, node2_id, port2_name))
 
-    async def set_control_value(self, name, value):
+    async def disconnect_ports(self, realm, node1_id, port1_name, node2_id, port2_name):
         return await self.pipeline_mutation(
-            mutations.SetControlValue(name, value))
+            realm, mutations.DisconnectPorts(node1_id, port1_name, node2_id, port2_name))
 
-    async def pipeline_mutation(self, mutation):
+    async def set_port_property(self, realm, node_id, port_name, **kwargs):
+        return await self.pipeline_mutation(
+            realm, mutations.SetPortProperty(node_id, port_name, **kwargs))
+
+    async def set_control_value(self, realm, name, value):
+        return await self.pipeline_mutation(
+            realm, mutations.SetControlValue(name, value))
+
+    async def pipeline_mutation(self, realm, mutation):
         return await self._stub.call(
-            'PIPELINE_MUTATION', self._session_id, mutation)
+            'PIPELINE_MUTATION', self._session_id, realm, mutation)
 
-    async def send_node_messages(self, messages):
+    async def create_plugin_ui(self, realm, node_id):
+        return await self._stub.call('CREATE_PLUGIN_UI', self._session_id, realm, node_id)
+
+    async def delete_plugin_ui(self, realm, node_id):
+        return await self._stub.call('DELETE_PLUGIN_UI', self._session_id, realm, node_id)
+
+    async def send_node_messages(self, realm, messages):
         return await self._stub.call(
-            'SEND_NODE_MESSAGES', self._session_id, messages)
+            'SEND_NODE_MESSAGES', self._session_id, realm, messages)
+
+    async def set_host_parameters(self, **parameters):
+        return await self._stub.call(
+            'SET_HOST_PARAMETERS', self._session_id, parameters)
 
     async def set_backend(self, name, **parameters):
         return await self._stub.call(
@@ -122,9 +141,9 @@ class AudioProcClientMixin(object):
         return await self._stub.call(
             'SET_BACKEND_PARAMETERS', self._session_id, parameters)
 
-    async def update_player_state(self, state):
+    async def update_player_state(self, realm, state):
         return await self._stub.call(
-            'UPDATE_PLAYER_STATE', self._session_id, state)
+            'UPDATE_PLAYER_STATE', self._session_id, realm, state)
 
     async def send_message(self, msg):
         return await self._stub.call('SEND_MESSAGE', self._session_id, msg.to_bytes())
@@ -136,9 +155,9 @@ class AudioProcClientMixin(object):
     async def dump(self):
         return await self._stub.call('DUMP', self._session_id)
 
-    async def update_project_properties(self, **kwargs):
+    async def update_project_properties(self, realm, **kwargs):
         return await self._stub.call(
-            'UPDATE_PROJECT_PROPERTIES', self._session_id, kwargs)
+            'UPDATE_PROJECT_PROPERTIES', self._session_id, realm, kwargs)
 
     def handle_pipeline_mutation(self, mutation):
         logger.info("Mutation received: %s", mutation)
@@ -146,5 +165,5 @@ class AudioProcClientMixin(object):
     def handle_pipeline_status(self, status):
         self.listeners.call('pipeline_status', status)
 
-    def handle_player_state(self, state):
-        self.listeners.call('player_state', state)
+    def handle_player_state(self, realm, state):
+        self.listeners.call('player_state', realm, state)

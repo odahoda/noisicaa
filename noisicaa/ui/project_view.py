@@ -45,6 +45,7 @@ from . import tool_dock
 from . import ui_base
 from . import tools
 from . import render_dialog
+from . import selection_set
 from .track_items import base_track_item
 from .track_items import score_track_item
 from .track_items import beat_track_item
@@ -1115,8 +1116,13 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
     playingChanged = QtCore.pyqtSignal(bool)
     loopEnabledChanged = QtCore.pyqtSignal(bool)
 
-    def __init__(self, **kwargs):
-        super().__init__(parent=None, flags=Qt.Widget, **kwargs)
+    def __init__(self, *, project_connection, context, **kwargs):
+        context = ui_base.ProjectContext(
+            selection_set=selection_set.SelectionSet(),
+            project_connection=project_connection,
+            project_view=self,
+            app=context.app)
+        super().__init__(parent=None, flags=Qt.Widget, context=context, **kwargs)
 
         self.__session_prefix = 'projectview:%s:' % self.project.id
         self.__session_data_last_update = {}
@@ -1126,8 +1132,6 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
         self.__player_node_id = None
         self.__player_status_listener = None
         self.__playback_pos_mode = 'follow'
-
-        self.player_audioproc_address = None
 
         self.__player_state = PlayerState(**self.context_args)
         self.__player_state.playingChanged.connect(self.playingChanged)
@@ -1237,7 +1241,8 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
         self._tracks_dock.currentTrackChanged.connect(self._track_properties_dock.setTrack)
 
     async def setup(self):
-        self.__player_id, self.__player_stream_address = await self.project_client.create_player()
+        self.__player_id, player_realm = await self.project_client.create_player(
+            audioproc_address=self.audioproc_client.address)
         self.__player_status_listener = self.project_client.add_player_status_listener(
             self.__player_id, self.onPlayerStatus)
 
@@ -1252,27 +1257,26 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
                 loop_start_time=self.__player_state.loopStartTimeProto(),
                 loop_end_time=self.__player_state.loopEndTimeProto()))
 
-        self.player_audioproc_address = await self.project_client.get_player_audioproc_address(
-            self.__player_id)
-
         self.__player_node_id = uuid.uuid4().hex
+
         await self.audioproc_client.add_node(
-            description=node_db.IPCDescription,
+            'root',
             id=self.__player_node_id,
-            initial_parameters=dict(ipc_address=self.__player_stream_address))
+            child_realm=player_realm,
+            description=node_db.Builtins.ChildRealmDescription,)
         await self.audioproc_client.connect_ports(
-            self.__player_node_id, 'out:left', 'sink', 'in:left')
+            'root', self.__player_node_id, 'out:left', 'sink', 'in:left')
         await self.audioproc_client.connect_ports(
-            self.__player_node_id, 'out:right', 'sink', 'in:right')
+            'root', self.__player_node_id, 'out:right', 'sink', 'in:right')
 
     async def cleanup(self):
         if self.__player_node_id is not None:
             await self.audioproc_client.disconnect_ports(
-                self.__player_node_id, 'out:left', 'sink', 'in:left')
+                'root', self.__player_node_id, 'out:left', 'sink', 'in:left')
             await self.audioproc_client.disconnect_ports(
-                self.__player_node_id, 'out:right', 'sink', 'in:right')
+                'root', self.__player_node_id, 'out:right', 'sink', 'in:right')
             await self.audioproc_client.remove_node(
-                self.__player_node_id)
+                'root', self.__player_node_id)
             self.__player_node_id = None
             self.__player_stream_address = None
 
@@ -1322,6 +1326,12 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
 
     def currentToolBox(self):
         return self.__editor.currentToolBox()
+
+    async def createPluginUI(self, node_id):
+        return await self.project_client.create_plugin_ui(self.__player_id, node_id)
+
+    async def deletePluginUI(self, node_id):
+        return await self.project_client.delete_plugin_ui(self.__player_id, node_id)
 
     def onPlayerStatus(
             self, player_state=None, pipeline_state=None, pipeline_disabled=None, **kwargs):

@@ -47,7 +47,7 @@
 		a lv2:AudioPort , lv2:OutputPort ;
 		lv2:index 2 ;
 		lv2:symbol "audio_out" ;
-		lv2:name "Midi Out"
+		lv2:name "Audio Out"
 	] , [
 		a atom:AtomPort , lv2:OutputPort ;
 		atom:bufferType atom:Sequence ;

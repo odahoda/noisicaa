@@ -91,19 +91,6 @@ class SetPortProperty(Mutation):
                     for k, v in sorted(self.kwargs.items())))
 
 
-class SetNodeParameter(Mutation):
-    def __init__(self, node, **kwargs):
-        super().__init__()
-        self.node = node
-        self.kwargs = kwargs
-
-    def __str__(self):
-        return '<SetNodeParameter node=%s%s>' % (
-            self.node,
-            ''.join(' %s=%r' % (k, v)
-                    for k, v in sorted(self.kwargs.items())))
-
-
 class SetControlValue(Mutation):
     def __init__(self, name, value):
         super().__init__()

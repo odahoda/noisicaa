@@ -25,7 +25,6 @@ from .mutations import (
     ConnectPorts,
     DisconnectPorts,
     SetPortProperty,
-    SetNodeParameter,
     SetControlValue,
 )
 from .public import (

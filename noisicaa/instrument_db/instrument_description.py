@@ -22,6 +22,10 @@
 
 import enum
 import urllib.parse
+from typing import Callable
+
+from noisicaa import node_db
+
 
 class Property(enum.Enum):
     # int
@@ -54,7 +58,9 @@ class InstrumentDescription(object):
         return urllib.parse.urlparse(self.uri).scheme
 
 
-def parse_uri(uri):
+def parse_uri(
+        uri: str,
+        get_node_description: Callable[[str], node_db.NodeDescription]) -> node_db.NodeDescription:
     fmt, _, path, _, args, _ = urllib.parse.urlparse(uri)
     path = urllib.parse.unquote(path)
     if args:
@@ -63,16 +69,16 @@ def parse_uri(uri):
         args = {}
 
     if fmt == 'sf2':
-        return 'builtin://fluidsynth', {
-            'soundfont_path': path,
-            'bank': int(args['bank']),
-            'preset': int(args['preset'])
-        }
+        desc = get_node_description('builtin://fluidsynth')
+        desc.fluidsynth.soundfont_path = path
+        desc.fluidsynth.bank = int(args['bank'])
+        desc.fluidsynth.preset = int(args['preset'])
+        return desc
 
     elif fmt == 'sample':
-        return 'builtin://sample_player', {
-            'sample_path': path,
-        }
+        desc = get_node_description('builtin://sample_player')
+        desc.sample_player.sample_path = path
+        return desc
 
     else:
         raise ValueError(fmt)

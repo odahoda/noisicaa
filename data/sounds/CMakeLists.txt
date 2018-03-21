@@ -18,7 +18,12 @@
 #
 # @end:license
 
-install_files(
-  "data.sounds"
-  metronome.wav
+static_file(metronome.wav)
+render_csound(test_sound.csnd test_sound.wav)
+
+add_custom_target(
+  "data.sounds" ALL
+  DEPENDS
+    metronome.wav
+    test_sound.wav
 )

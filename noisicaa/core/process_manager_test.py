@@ -31,70 +31,105 @@ from noisidev import unittest
 from . import process_manager
 
 
-class ProcessManagerTest(unittest.AsyncTestCase):
+class TestProcess(process_manager.ProcessBase):
+    def __init__(self, *, action, **kwargs):
+        super().__init__(**kwargs)
+
+        self.__action = action
+
+    async def run(self):
+        if self.__action == 'success':
+            pass
+
+        elif self.__action == 'fail':
+            return 2
+
+        elif self.__action == 'fail_hard':
+            os._exit(2)
+
+        elif self.__action == 'kill':
+            os.kill(self.pid, signal.SIGKILL)
+
+        elif self.__action == 'loop':
+            while True:
+                await asyncio.sleep(1, loop=self.event_loop)
+
+        elif self.__action == 'loop_no_sigterm':
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            while True:
+                await asyncio.sleep(1, loop=self.event_loop)
+
+        elif self.__action == 'print':
+            for i in range(10):
+                print(i)
+            sys.stderr.write('goo')
+
+        else:
+            raise ValueError(self.__action)
+
+
+class TestSubprocess(process_manager.SubprocessMixin, TestProcess):
+    pass
+
+
+class SubprocessTest(unittest.AsyncTestCase):
     async def test_simple(self):
-        class Child(process_manager.SubprocessMixin, process_manager.ProcessBase):
-            def __init__(self, *, foo, **kwargs):
-                super().__init__(**kwargs)
-                assert foo == 'bar'
-
-            async def run(self):
-                pass
-
         async with process_manager.ProcessManager(self.loop, collect_stats=False) as mgr:
-            proc = await mgr.start_process('test', Child, foo='bar')
+            proc = await mgr.start_subprocess(
+                'test', 'noisicaa.core.process_manager_test.TestSubprocess', action='success')
             await proc.wait()
             self.assertEqual(proc.returncode, 0)
 
     async def test_child_fails(self):
-        class Child(process_manager.SubprocessMixin, process_manager.ProcessBase):
-            async def run(self):
-                os._exit(2)
-
         async with process_manager.ProcessManager(self.loop, collect_stats=False) as mgr:
-            proc = await mgr.start_process('test', Child)
+            proc = await mgr.start_subprocess(
+                'test', 'noisicaa.core.process_manager_test.TestSubprocess', action='fail_hard')
             await proc.wait()
             self.assertEqual(proc.returncode, 2)
 
     async def test_child_killed(self):
-        class Child(process_manager.SubprocessMixin, process_manager.ProcessBase):
-            async def run(self):
-                os.kill(self.pid, signal.SIGKILL)
-
         async with process_manager.ProcessManager(self.loop, collect_stats=False) as mgr:
-            proc = await mgr.start_process('test', Child)
+            proc = await mgr.start_subprocess(
+                'test', 'noisicaa.core.process_manager_test.TestSubprocess', action='kill')
             await proc.wait()
             self.assertEqual(proc.returncode, 1)
             self.assertEqual(proc.signal, signal.SIGKILL)
 
     async def test_left_over(self):
-        class Child(process_manager.SubprocessMixin, process_manager.ProcessBase):
-            async def run(self):
-                while True:
-                    await asyncio.sleep(1)
-
         async with process_manager.ProcessManager(self.loop, collect_stats=False) as mgr:
-            stub = await mgr.start_process('test', Child)
+            stub = await mgr.start_subprocess(
+                'test', 'noisicaa.core.process_manager_test.TestSubprocess', action='loop')
 
     async def test_left_over_sigterm_fails(self):
-        class Child(process_manager.SubprocessMixin, process_manager.ProcessBase):
-            async def run(self):
-                signal.signal(signal.SIGTERM, signal.SIG_IGN)
-                while True:
-                    await asyncio.sleep(1)
-
         async with process_manager.ProcessManager(self.loop, collect_stats=False) as mgr:
-            stub = await mgr.start_process('test', Child)
+            stub = await mgr.start_subprocess(
+                'test', 'noisicaa.core.process_manager_test.TestSubprocess', action='loop_no_sigterm')
             await mgr.terminate_all_children(timeout=0.2)
 
     async def test_capture_stdout(self):
-        class Child(process_manager.SubprocessMixin, process_manager.ProcessBase):
-            async def run(self):
-                for i in range(10):
-                    print(i)
-                sys.stderr.write('goo')
-
         async with process_manager.ProcessManager(self.loop, collect_stats=False) as mgr:
-            proc = await mgr.start_process('test', Child)
+            proc = await mgr.start_subprocess(
+                'test', 'noisicaa.core.process_manager_test.TestSubprocess', action='print')
             await proc.wait()
             self.assertEqual(proc.returncode, 0)
+
+
+class InlineProcessTest(unittest.AsyncTestCase):
+    async def test_simple(self):
+        async with process_manager.ProcessManager(self.loop, collect_stats=False) as mgr:
+            proc = await mgr.start_inline_process(
+                'test', 'noisicaa.core.process_manager_test.TestProcess', action='success')
+            await proc.wait()
+            self.assertEqual(proc.returncode, 0)
+
+    async def test_child_fails(self):
+        async with process_manager.ProcessManager(self.loop, collect_stats=False) as mgr:
+            proc = await mgr.start_inline_process(
+                'test', 'noisicaa.core.process_manager_test.TestProcess', action='fail')
+            await proc.wait()
+            self.assertEqual(proc.returncode, 2)
+
+    async def test_left_over(self):
+        async with process_manager.ProcessManager(self.loop, collect_stats=False) as mgr:
+            stub = await mgr.start_inline_process(
+                'test', 'noisicaa.core.process_manager_test.TestProcess', action='loop')

@@ -33,6 +33,7 @@ from noisicaa.ui import model
 from noisicaa.constants import TEST_OPTS
 from noisicaa.node_db import process as node_db_process
 from noisicaa.audioproc import audioproc_process
+from noisicaa.lv2 import urid_mapper_process
 from . import project_process
 from . import project_client
 from . import render_settings_pb2
@@ -69,17 +70,17 @@ class ProjectClientTestBase(unittest.AsyncTestCase):
         self.manager_address_map = {}
 
     async def setup_testcase(self):
-        self.node_db_process = node_db_process.NodeDBProcess(
-            name='node_db', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR)
-        await self.node_db_process.setup()
-        self.node_db_process_task = self.loop.create_task(self.node_db_process.run())
-
-        self.manager_address_map['CREATE_NODE_DB_PROCESS'] = self.node_db_process.server.address
-
         self.manager = mock.Mock()
         async def mock_call(cmd, *args, **kwargs):
             return self.manager_address_map[cmd]
         self.manager.call.side_effect = mock_call
+
+        self.node_db_process = node_db_process.NodeDBProcess(
+            name='node_db', event_loop=self.loop, manager=self.manager, tmp_dir=TEST_OPTS.TMP_DIR)
+        await self.node_db_process.setup()
+        self.node_db_process_task = self.loop.create_task(self.node_db_process.run())
+
+        self.manager_address_map['CREATE_NODE_DB_PROCESS'] = self.node_db_process.server.address
 
         self.project_process = project_process.ProjectProcess(
             name='project', manager=self.manager, event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
@@ -142,6 +143,8 @@ class RenderTest(ProjectClientTestBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.urid_mapper_process = None
+        self.urid_mapper_process_task = None
         self.audioproc_process = None
         self.audioproc_process_task = None
 
@@ -172,13 +175,18 @@ class RenderTest(ProjectClientTestBase):
         return True, ''
 
     async def setup_testcase(self):
-        await super().setup_testcase()
-
         await self.client.create_inmemory()
 
+        self.urid_mapper_process = urid_mapper_process.URIDMapperProcess(
+            name='urid_mapper', event_loop=self.loop, manager=self.manager, tmp_dir=TEST_OPTS.TMP_DIR)
+        await self.urid_mapper_process.setup()
+        self.urid_mapper_process_task = self.loop.create_task(self.urid_mapper_process.run())
+
+        self.manager_address_map['CREATE_URID_MAPPER_PROCESS'] = (
+            self.urid_mapper_process.server.address)
+
         self.audioproc_process = audioproc_process.AudioProcProcess(
-            name='audioproc', event_loop=self.loop, manager=None, tmp_dir=TEST_OPTS.TMP_DIR,
-            enable_player=True)
+            name='audioproc', event_loop=self.loop, manager=self.manager, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.audioproc_process.setup()
         self.audioproc_process_task = self.loop.create_task(self.audioproc_process.run())
 
@@ -200,7 +208,11 @@ class RenderTest(ProjectClientTestBase):
                 self.audioproc_process_task.cancel()
             await self.audioproc_process.cleanup()
 
-        await super().cleanup_testcase()
+        if self.urid_mapper_process is not None:
+            if self.urid_mapper_process_task is not None:
+                await self.urid_mapper_process.shutdown()
+                self.urid_mapper_process_task.cancel()
+            await self.urid_mapper_process.cleanup()
 
     async def test_success(self):
         header = bytearray()

@@ -20,14 +20,11 @@
 #
 # @end:license
 
-import functools
 import logging
 import time
-import uuid
 
 from noisicaa import constants
 from noisicaa import core
-from noisicaa.core import ipc
 
 from .private import db
 from . import process_base
@@ -35,55 +32,38 @@ from . import process_base
 logger = logging.getLogger(__name__)
 
 
-class InvalidSessionError(Exception):
-    pass
-
-
-class Session(object):
-    def __init__(self, event_loop, callback_stub, flags):
-        self.event_loop = event_loop
-        self.callback_stub = callback_stub
+class Session(core.CallbackSessionMixin, core.SessionBase):
+    def __init__(self, client_address, flags, **kwargs):
+        super().__init__(callback_address=client_address, **kwargs)
         self.flags = flags or set()
-        self.id = uuid.uuid4().hex
         self.pending_mutations = []
 
-    async def cleanup(self):
-        if self.callback_stub is not None:
-            await self.callback_stub.close()
-            self.callback_stub = None
+    async def setup(self):
+        await super().setup()
+
+    def callback_connected(self):
+        logger.info(
+            "Client callback connection established, sending %d pending mutations.",
+            len(self.pending_mutations))
+        self.publish_mutations(self.pending_mutations)
+        self.pending_mutations.clear()
 
     def publish_mutations(self, mutations):
         if not mutations:
             return
 
-        if not self.callback_stub.connected:
+        if not self.callback_alive:
             self.pending_mutations.extend(mutations)
             return
 
-        callback_task = self.event_loop.create_task(
-            self.callback_stub.call('INSTRUMENTDB_MUTATIONS', list(mutations)))
-        callback_task.add_done_callback(self.publish_mutations_done)
-
-    def publish_mutations_done(self, callback_task):
-        assert callback_task.done()
-        exc = callback_task.exception()
-        if exc is not None:
-            logger.error(
-                "INSTRUMENTDB_MUTATIONS failed with exception: %s", exc)
-
-    def callback_stub_connected(self):
-        logger.info(
-            "Client callback connection established, sending %d pending mutations.",
-            len(self.pending_mutations))
-        assert self.callback_stub.connected
-        self.publish_mutations(self.pending_mutations)
-        self.pending_mutations.clear()
+        self.async_callback('INSTRUMENTDB_MUTATIONS', list(mutations))
 
 
 class InstrumentDBProcess(process_base.InstrumentDBProcessBase):
+    session_cls = Session
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.sessions = {}
         self.db = None
         self.search_paths = [
             '/usr/share/sounds/sf2/',
@@ -100,53 +80,20 @@ class InstrumentDBProcess(process_base.InstrumentDBProcessBase):
             self.db.start_scan(self.search_paths, True)
 
     async def cleanup(self):
-        for session in self.sessions.values():
-            await session.cleanup()
-        self.sessions.clear()
-
         if self.db is not None:
             self.db.cleanup()
             self.db = None
 
         await super().cleanup()
 
-    def get_session(self, session_id):
-        try:
-            return self.sessions[session_id]
-        except KeyError:
-            raise InvalidSessionError
-
     def publish_mutations(self, mutations):
-        for session in self.sessions.values():
+        for session in self.sessions:
             session.publish_mutations(mutations)
 
-    def handle_start_session(self, client_address, flags):
-        client_stub = ipc.Stub(self.event_loop, client_address)
-        connect_task = self.event_loop.create_task(client_stub.connect())
-        session = Session(self.event_loop, client_stub, flags)
-        connect_task.add_done_callback(
-            functools.partial(self._client_connected, session))
-        self.sessions[session.id] = session
-
+    async def session_started(self, session):
         # Send initial mutations to build up the current pipeline
         # state.
         session.publish_mutations(list(self.db.initial_mutations()))
-
-        return session.id
-
-    def _client_connected(self, session, connect_task):
-        assert connect_task.done()
-        exc = connect_task.exception()
-        if exc is not None:
-            logger.error("Failed to connect to callback client: %s", exc)
-            return
-
-        session.callback_stub_connected()
-
-    async def handle_end_session(self, session_id):
-        session = self.get_session(session_id)
-        await session.cleanup()
-        del self.sessions[session_id]
 
     async def handle_start_scan(self, session_id):
         self.get_session(session_id)

@@ -163,8 +163,6 @@
 
 # class SheetViewTest(uitest_utils.UITest):
 #     async def setup_testcase(self):
-#         await super().setup_testcase()
-
 #         self.sheet = model.Sheet('sheet1')
 #         self.sheet.name = 'Sheet 1'
 #         self.sheet.property_track = model.SheetPropertyTrack('prop1')
@@ -324,7 +322,6 @@
 
 # class MeasureItemTest(uitest_utils.UITest):
 #     def setup_testcase(self):
-#         super().setup_testcase()
 #         self.window = None
 #         self.project = EditorProject(self.app)
 #         self.project.sheets.clear()

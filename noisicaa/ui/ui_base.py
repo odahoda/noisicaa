@@ -93,14 +93,19 @@ class CommonMixin(object):
 
 
 class ProjectContext(CommonContext):
-    def __init__(self, *, project_connection, selection_set, **kwargs):
+    def __init__(self, *, project_connection, selection_set, project_view, **kwargs):
         super().__init__(**kwargs)
         self.__project_connection = project_connection
         self.__selection_set = selection_set
+        self.__project_view = project_view
 
     @property
     def selection_set(self):
         return self.__selection_set
+
+    @property
+    def project_view(self):
+        return self.__project_view
 
     @property
     def project_connection(self):
@@ -144,6 +149,10 @@ class ProjectMixin(CommonMixin):
     @property
     def project(self):
         return self._context.project
+
+    @property
+    def project_view(self):
+        return self._context.project_view
 
     @property
     def time_mapper(self):

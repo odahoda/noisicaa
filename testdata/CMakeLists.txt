@@ -18,14 +18,6 @@
 #
 # @end:license
 
-macro(render_wav src dest)
-  add_custom_command(
-    OUTPUT ${dest}
-    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib csound -o${dest} ${CMAKE_CURRENT_LIST_DIR}/${src}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
-  )
-endmacro(render_wav)
-
 macro(mksf2 src dest)
   add_custom_command(
     OUTPUT ${dest}
@@ -38,10 +30,10 @@ static_file(kick-gettinglaid.wav)
 static_file(future-thunder1.wav)
 static_file(test1.wav)
 
-render_wav(kick.csnd kick.wav)
-render_wav(hihat.csnd hihat.wav)
-render_wav(snare.csnd snare.wav)
-render_wav(organ.csnd organ.wav)
+render_csound(kick.csnd kick.wav)
+render_csound(hihat.csnd hihat.wav)
+render_csound(snare.csnd snare.wav)
+render_csound(organ.csnd organ.wav)
 
 mksf2(sf2test.yaml sf2test.sf2)
 
@@ -66,5 +58,7 @@ add_custom_target(
     symbol.svg
 )
 
+add_subdirectory(ladspa)
 add_subdirectory(lv2/test-passthru.lv2)
 add_subdirectory(lv2/test-options.lv2)
+add_subdirectory(lv2/test-ui-gtk2.lv2)
