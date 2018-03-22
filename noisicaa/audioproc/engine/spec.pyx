@@ -95,7 +95,7 @@ cdef class PySpec(object):
                 elif oparg.type() == OpArgType.FLOAT:
                     args.append('f:%f' % oparg.float_value())
                 elif oparg.type() == OpArgType.STRING:
-                    args.append('s:%r' % oparg.string_value().decode('utf-8'))
+                    args.append('s:%r' % oparg.string_value().decode('ascii', 'replace'))
                 else:
                     args.append('??')
 

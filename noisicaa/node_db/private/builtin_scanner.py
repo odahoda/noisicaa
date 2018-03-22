@@ -97,7 +97,7 @@ class Builtins(object):
 
     EventSourceDescription = node_db.NodeDescription(
         display_name='Events',
-        type=node_db.NodeDescription.OTHER,  # TODO: proper type
+        type=node_db.NodeDescription.EVENT_SOURCE,
         ports=[
             node_db.PortDescription(
                 name='out',

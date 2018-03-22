@@ -25,6 +25,7 @@ import os
 
 import toposort
 
+from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
 from . import control_value
@@ -242,6 +243,7 @@ class Node(object):
             node_db.NodeDescription.PLUGIN: PluginNode,
             node_db.NodeDescription.REALM_SINK: RealmSinkNode,
             node_db.NodeDescription.CHILD_REALM: ChildRealmNode,
+            node_db.NodeDescription.EVENT_SOURCE: EventSourceNode,
         }
 
         try:
@@ -469,6 +471,21 @@ class ChildRealmNode(Node):
             'CALL_CHILD_REALM',
             self.__child_realm,
             self.outputs['out:left'].buf_name, self.outputs['out:right'].buf_name)
+
+
+class EventSourceNode(Node):
+    def __init__(self, *, track_id, **kwargs):
+        super().__init__(**kwargs)
+
+        self.__track_id = track_id
+
+    def add_to_spec_pre(self, spec):
+        super().add_to_spec_pre(spec)
+
+        spec.append_opcode(
+            'FETCH_MESSAGES',
+            core.build_labelset({core.MessageKey.trackId: self.__track_id}).to_bytes(),
+            self.outputs['out'].buf_name)
 
 
 class Graph(object):

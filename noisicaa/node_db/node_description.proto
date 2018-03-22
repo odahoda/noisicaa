@@ -145,6 +145,7 @@ message NodeDescription {
     PLUGIN = 3;
     REALM_SINK = 4;
     CHILD_REALM = 5;
+    EVENT_SOURCE = 6;
   }
   required Type type = 3;
 

@@ -532,6 +532,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.__instrument_loader_task = self.event_loop.create_task(
             self.__instrumentLoader())
+        self.__instrument_loader_task.add_done_callback(self.__instrument_loader_done)
 
     async def cleanup(self):
         logger.info("Cleaning up instrument library dialog...")
@@ -650,6 +651,11 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
                 self.__instrument = description
                 self.instrumentChanged.emit(description)
+
+    def __instrument_loader_done(self, task):
+        if task.cancelled():
+            return
+        task.result()
 
     def onRescan(self):
         self.call_async(self.app.instrument_db.start_scan())

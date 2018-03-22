@@ -1,25 +1,58 @@
 # -*- org-tags-column: -98 -*-
 
+* Redesign settings handling                                                                  :FR:
+- requirements:
+  - all settings should be overrideable with flags
+  - settings can be passed in for tests to make them predictable
+  - listener system, so different components can react to settings changes (and the component
+    changing a setting doesn't need to know who uses it)
+  - flags override config file, but changes are not persisted
+- questions:
+  - do settings changes need to be propagated across processes?
+    - then they should be managed by some process (ProcessManager?), with other processes listening
+      for changes
+    - or does UI process own the settings and updates other processes as needed (i.e. tell node_db
+      about changed search paths explicitly).
+- autogenerate cmdline flags from settings class
+  - meta flags:
+    - --config=/path/to/config.pb
+- store settings as ascii protobufs
+- layers:
+  - DEFAULT: hardcoded defaults
+  - SYSTEM: system-wide config file ($INSTALLROOT/etc/noisicaa/config.pb)
+  - USER: user config file (~/.noisicaa/config.pb)
+  - FLAGS: cmdline flags
+- settings dialog updates user config
+  - but those changes must not be shadowed by cmdline flags
+  - setting a config value clears it in the FLAGS layer, stores in USER layer.
+
+* Settings: what to do on startup                                                             :FR:
+  - start with open dialog
+  - start with new project
+  - start with previously opened projects
+  - remove --start-clean flag (if needed, rm ~/.noisicaa/settings before starting app)
+
+* Testcases for builtin csound processors                                                :TESTING:
+- for $DATADIR/csound/*.csnd
+- automatically set up buffers, fill with data
+- should be usable for other types of processors
+- how to verify that output is sensible?
+- some *_test.def file along the *.csnd files?
+  - list of test cases
+  - specify what goes into the input buffers
+    - audio: constant value, noise, ...,
+    - control: value
+    - event: ?
+  - specify what to expect in output buffers
+    - same as input x
+    - constant value
+    - non-zero
+
 * Gracefully handle Processor::setup() failures                                               :FR:
 * Expected SIGPIPE causes gdb to kick in                                             :BUG:TESTING:
 - can I just install a sig handler to ignore SIGPIPE?
 * Convert backend_*_test.pyx to pure python                                      :CLEANUP:TESTING:
 - or at least make more use of Py* wrappers.
-
-* Instrument library is broken                                                               :BUG:
-INFO    :29194:7f7f990a8700:noisicaa.core.ipc: PIPELINE_MUTATION(355c400b4dcb49f980691af733da0531, <AddNode name="Events" type=NodeDescription id='d64cc989c73f44b0a14b6d6cfd474619' track_id='instrument_library'>)
-INFO    :29194:7f7f990a8700:noisicaa.audioproc.audioproc_process: AddNode():
-        type: OTHER
-        display_name: "Events"
-        ports {
-          direction: OUTPUT
-          type: EVENTS
-          name: "out"
-        }
-ERROR   :29165:7f52460e7700:quamash._QEventLoop: Task exception was never retrieved
-        future: <Task finished coro=<InstrumentLibraryDialog.__instrumentLoader() done, defined at /home/pink/noisicaa/build/noisicaa/ui/instrument_library.py:607> exception=RemoteException('From server /tmp/noisicaa-20180316-051900-28513-athmzfpn/audioproc<main>.62c53d407584442f861ca52721658582.sock:\nTraceback (most recent call last):\n  File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 252, in handle_command\n    result = await handler(*args, **kwargs)\n  File "/home/pink/noisicaa/build/noisicaa/audioproc/audioproc_process.py", line 210, in handle_pipeline_mutation\n    **mutation.args)\n  File "/home/pink/noisicaa/build/noisicaa/audioproc/nodes.py", line 65, in create\n    raise ValueError("Unsupported node type %d" % description.type)\nValueError: Unsupported node type 1\n',)>
-ERROR   :29165:7f52460e7700:root: Task exception was never retrieved:
-        NoneType
 
 * Use a single protobuf for audioproc status updates                                     :CLEANUP:
 - PipelineNotification
@@ -161,6 +194,16 @@ ProcessorIPC does resampling and buffering to translate it to main engine.
 Probably related to unittest.UITestCase
 
 * runtests: disable gdb, if stdout is not a tty                                       :FR:TESTING:
+* Export midi inputs as sources in root realm                                                :BUG:
+- instrument library routes selected port to its instrument
+- how to deal with MIDI channels
+  - one port per channel?
+  - tell instrument which channel to listen on?
+  - put a channel filter node between source and instrument?
+- how to deal with devices added/removed?
+  - create nodes for each device as they come and go?
+- how to implement virtual piano?
+  - events needs to be routed from the UI to the backend
 * Make the audio thread real-time safe                                                        :FR:
 - no more python code in the main loop
 - lock-free queue for log messages
