@@ -375,6 +375,7 @@ def main(argv):
     parser.add_argument('--keep-temp', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--playback-backend', type=str, default='null')
     parser.add_argument('--mypy', type=bool_arg, default=True)
+    parser.add_argument('--pylint', type=bool_arg, default=True)
     parser.add_argument('--display', choices=['off', 'local', 'xvfb'], default='xvfb')
     args = parser.parse_args(argv[1:])
 
@@ -530,6 +531,8 @@ def main(argv):
                     test_cls = BuiltinPyTests
                     for method_name in loader.getTestCaseNames(test_cls):
                         if method_name == 'test_mypy' and not args.mypy:
+                            continue
+                        if method_name == 'test_pylint' and not args.pylint:
                             continue
 
                         suite.addTest(test_cls(
