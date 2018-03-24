@@ -38,6 +38,7 @@ import threading
 import unittest
 
 import coverage
+from mypy import api as mypy
 import pylint.lint
 import pylint.reporters
 
@@ -86,6 +87,27 @@ def bool_arg(value):
     raise TypeError("Invalid type '%s'." % type(value).__name__)
 
 
+class MypyMessageCollector(object):
+    def __init__(self):
+        self.messages = []
+
+    def append(self, msg):
+        self.messages.append(msg)
+
+    def extend(self, msgs):
+        self.messages.extend(msgs)
+
+    def print_report(self):
+        if not self.messages:
+            return
+
+        sys.stderr.write(
+            "\n==== mypy report =====================================================\n\n")
+        for msg in self.messages:
+            sys.stderr.write(msg + '\n')
+        sys.stderr.write("\n\n")
+
+
 class PylintMessageCollector(object):
     def __init__(self):
         self.messages = []
@@ -130,13 +152,14 @@ class PylintRunner(pylint.lint.Run):
 
 
 class BuiltinPyTests(unittest.TestCase):
-    def __init__(self, *, modname, method_name, pedantic, pylint_collector):
+    def __init__(self, *, modname, method_name, pedantic, pylint_collector, mypy_collector):
         super().__init__(method_name)
 
         self.__modname = modname
         self.__method_name = method_name
         self.__pedantic = pedantic
         self.__pylint_collector = pylint_collector
+        self.__mypy_collector = mypy_collector
 
     def __str__(self):
         return '%s (%s)' % (self.__method_name, self.__modname)
@@ -201,18 +224,29 @@ class BuiltinPyTests(unittest.TestCase):
         if self.__modname.split('.')[-1] == '__init__':
             self.skipTest('mypy disabled for this file')
 
-        subprocess.run(
-            [os.path.join(os.environ['VIRTUAL_ENV'], 'bin', 'mypy'),
-             '--follow-imports=silent',
-             '--cache-dir=%s' % os.path.join(LIBDIR, 'mypy-cache'),
-             '-m', self.__modname
-            ],
-            cwd=LIBDIR,
-            env={
-                'MYPYPATH': SITE_PACKAGES_DIR,
-                'VIRTUAL_ENV': os.environ['VIRTUAL_ENV'],
-            },
-            check=True)
+        mypy_ini_path = os.path.join(os.path.dirname(__file__), 'mypy.ini')
+        try:
+            os.environ['MYPYPATH'] = SITE_PACKAGES_DIR
+            old_cwd = os.getcwd()
+            os.chdir(LIBDIR)
+
+            stdout, stderr, rc = mypy.run(
+                ['--config-file', mypy_ini_path,
+                 '--cache-dir=%s' % os.path.join(LIBDIR, 'mypy-cache'),
+                 '-m', self.__modname
+                ])
+        finally:
+            os.chdir(old_cwd)
+            os.environ.pop('MYPYPATH')
+
+        if stderr:
+            sys.stderr.write(stderr)
+
+        if rc != 0:
+            for msg in stdout.splitlines(False):
+                self.__mypy_collector.append(msg)
+
+        self.assertEqual(rc, 0, "mypy reported issues.")
 
 
 class DisplayManager(object):
@@ -396,6 +430,7 @@ def main(argv):
     stacktrace.init()
 
     pylint_collector = PylintMessageCollector()
+    mypy_collector = MypyMessageCollector()
 
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
@@ -461,6 +496,7 @@ def main(argv):
                             method_name=method_name,
                             pedantic=args.pedantic,
                             pylint_collector=pylint_collector,
+                            mypy_collector=mypy_collector,
                         ))
 
     runner = unittest.TextTestRunner(verbosity=2)
@@ -468,6 +504,7 @@ def main(argv):
         result = runner.run(suite)
 
     pylint_collector.print_report()
+    mypy_collector.print_report()
 
     if args.coverage:
         cov.stop()

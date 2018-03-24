@@ -578,7 +578,12 @@ Is there some cross-compiler/-platform header to provide this functionality?
 * Built-in testcases                                                             :CLEANUP:TESTING:
 - for each file generate a built-in TestCase
   - run some C++ linter and iwyu on *.cpp/*.h files.
-  - run mypy when using type declarations.
+* Improve mypy checking                                                                  :TESTING:
+- adding manual .pyi files for every .pyx is cumbersome...
+  - any way to automate that?
+- require type annotations
+- enable mypy by default
+ - mark files as mypy-unclean
 
 * Get pycheck working                                                           :RESEARCH:TESTING:
 - seems much faster than mypy
