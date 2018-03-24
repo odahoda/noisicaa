@@ -554,7 +554,6 @@ Is there some cross-compiler/-platform header to provide this functionality?
   - auto convert as needed
 
 * Use https://abseil.io/blog/								 :CLEANUP:
-- absl::Mutex for rwlock.py
 - absl::Substitude for sprintf
 - absl::string_view for method args
 - absl::GetCurrentTimeNanos() for PerfStats

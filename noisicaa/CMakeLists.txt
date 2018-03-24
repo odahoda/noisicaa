@@ -25,7 +25,6 @@ add_python_package(
   logging.py
   pdb.py
   runtime_settings.py
-  rwlock.py
   utils.py
 )
 
