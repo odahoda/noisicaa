@@ -52,7 +52,7 @@ class ManagedBackend(object):  # pragma: no coverage
 
 
 class BackendManager(object):
-    def __init__(self, event_loop: asyncio.AbstractEventLoop, backend: ManagedBackend):
+    def __init__(self, event_loop: asyncio.AbstractEventLoop, backend: ManagedBackend) -> None:
         self.__event_loop = event_loop
         self.__backend = backend
 

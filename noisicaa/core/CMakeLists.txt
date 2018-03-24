@@ -27,6 +27,7 @@ add_python_package(
   fileutil_test.py
   ipc.py
   ipc_test.py
+  logging.pyi
   message.py
   message_test.py
   model_base.py
@@ -36,6 +37,7 @@ add_python_package(
   recordfile.py
   recordfile_test.py
   sessions.py
+  stacktrace.pyi
   stats_test.py
   storage.py
   storage_test.py

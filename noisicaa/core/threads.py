@@ -29,30 +29,40 @@ from typing import Callable, Awaitable, Any
 logger = logging.getLogger(__name__)
 
 
-class Thread(threading.Thread):
+class Thread(object):
     def __init__(
             self, *,
             event_loop: asyncio.AbstractEventLoop,
             target: Callable[[], Any],
-            done_cb: Awaitable = None):
-        super().__init__(target=self.__main)
-
+            done_cb: Awaitable = None) -> None:
         self.__event_loop = event_loop
         self.__target = target
         self.__done_cb = done_cb
 
-        self.__thread_done = concurrent.futures.Future()
+        self.__thread = None  # type: threading.Thread
+        self.__thread_done = None  # type: concurrent.futures.Future
+
+    @property
+    def ident(self):
+        assert self.__thread is not None
+        return self.__thread.ident
 
     def start(self):
-        super().start()
+        assert self.__thread is None
+        self.__thread_done = concurrent.futures.Future()
+        self.__thread = threading.Thread(target=self.__main)
+        self.__thread.start()
         logger.info("Started thread %08x", self.ident)
 
-    async def join(self, timeout=None) -> None:
-        done_fut = asyncio.wrap_future(self.__thread_done, loop=self.__event_loop)
+    async def join(self, timeout=None) -> Any:
+        assert self.__thread is not None
+
+        # mypy doesn't know about the loop kwarg.
+        done_fut = asyncio.wrap_future(self.__thread_done, loop=self.__event_loop)  # type: ignore
         await asyncio.wait_for(asyncio.shield(done_fut), timeout, loop=self.__event_loop)
         assert self.__thread_done.done()
 
-        super().join()
+        self.__thread.join()
 
         return done_fut.result()
 

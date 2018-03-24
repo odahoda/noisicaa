@@ -24,7 +24,7 @@ import asyncio
 import functools
 import io
 import logging
-from typing import List, Dict  # pylint: disable=unused-import
+from typing import List, Dict, Type  # pylint: disable=unused-import
 import uuid
 
 from . import ipc
@@ -38,7 +38,8 @@ class InvalidSessionError(Exception):
 
 
 class SessionBase(object):
-    def __init__(self, *, event_loop: asyncio.AbstractEventLoop):
+    def __init__(self, *argv, event_loop: asyncio.AbstractEventLoop) -> None:
+        assert not argv
         self.event_loop = event_loop
         self.id = uuid.uuid4().hex
         self.__closed = False
@@ -144,7 +145,7 @@ class CallbackSessionMixin(SessionBase):
 
 
 class SessionHandlerMixin(process_manager.ProcessBase):
-    session_cls = None  # type: SessionBase
+    session_cls = None  # type: Type[SessionBase]
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

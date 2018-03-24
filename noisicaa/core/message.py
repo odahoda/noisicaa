@@ -22,9 +22,10 @@
 
 import logging
 
-# pylint doesn't know about the capnp import magic.
+# pylint/mypy doesn't know about the capnp import magic.
 import capnp  # pylint: disable=unused-import
-from . import message_capnp  # pylint: disable=no-name-in-module
+# pylint: disable=no-name-in-module
+from . import message_capnp  # type: ignore
 
 logger = logging.getLogger(__name__)
 

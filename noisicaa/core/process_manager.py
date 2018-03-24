@@ -722,7 +722,9 @@ class ProcessBase(object):
         logger.info("Shutdown of process '%s' complete.", self.name)
 
 
-class EventLoopPolicy(asyncio.DefaultEventLoopPolicy):
+# mypy complains: Invalid type "asyncio.DefaultEventLoopPolicy"
+# Not sure if that's related to https://github.com/python/mypy/issues/1843
+class EventLoopPolicy(asyncio.DefaultEventLoopPolicy):  # type: ignore
     def get_event_loop(self):
         raise RuntimeError("get_event_loop() is not allowed.")
 
