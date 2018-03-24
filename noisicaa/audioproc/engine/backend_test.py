@@ -29,10 +29,8 @@ from .backend import PyBackend, PyBackendSettings
 from .block_context import PyBlockContext
 
 
-class BackendTestMixin(unittest_engine_mixins.HostSystemMixin, unittest.TestCase):
-    def test_foo(self):
-        #self.host_system.set_block_size(256)
-
+class BackendTest(unittest_engine_mixins.HostSystemMixin, unittest.TestCase):
+    def test_output(self):
         realm = PyRealm(
             name='root', host_system=self.host_system,
             engine=None, parent=None, player=None)
