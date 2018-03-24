@@ -38,7 +38,6 @@ import threading
 import unittest
 
 import coverage
-from mypy import api as mypy
 import pylint.lint
 import pylint.reporters
 
@@ -239,27 +238,28 @@ class BuiltinPyTests(unittest.TestCase):
 
         be_pedantic = self.__pedantic or not is_unclean
 
-        mypy_ini_path = os.path.join(os.path.dirname(__file__), 'mypy.ini')
-        try:
-            os.environ['MYPYPATH'] = SITE_PACKAGES_DIR
-            old_cwd = os.getcwd()
-            os.chdir(LIBDIR)
+        mypy_ini_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mypy.ini'))
+        proc = subprocess.run(
+            [os.path.join(os.environ['VIRTUAL_ENV'], 'bin', 'mypy'),
+             '--config-file', mypy_ini_path,
+             '--cache-dir=%s' % os.path.join(LIBDIR, 'mypy-cache'),
+             '--show-traceback',
+             '-m', self.__modname,
+            ],
+            cwd=LIBDIR,
+            env={
+                'MYPYPATH': SITE_PACKAGES_DIR,
+                'VIRTUAL_ENV': os.environ['VIRTUAL_ENV'],
+            },
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False)
 
-            stdout, stderr, rc = mypy.run(
-                ['--config-file', mypy_ini_path,
-                 '--cache-dir=%s' % os.path.join(LIBDIR, 'mypy-cache'),
-                 '--show-traceback',
-                 '-m', self.__modname
-                ])
-        finally:
-            os.chdir(old_cwd)
-            os.environ.pop('MYPYPATH')
-
-        if stderr:
-            sys.stderr.write(stderr)
+        if proc.stderr:
+            sys.stderr.buffer.write(proc.stderr)
 
         messages = []
-        for line in stdout.splitlines(False):
+        for line in proc.stdout.decode('utf-8').splitlines(False):
             m = re.match(r'([^:]+):(\d+):((\d+):)? ([a-z]+): (.*)$', line)
             if m is None:
                 self.fail("Unrecognized mypy output: %s" % line)
