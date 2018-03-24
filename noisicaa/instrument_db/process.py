@@ -20,42 +20,39 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import logging
 import time
+from typing import cast, List, Set  # pylint: disable=unused-import
 
 from noisicaa import constants
 from noisicaa import core
 
 from .private import db
 from . import process_base
+from . import mutations as mutations_lib  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 
 
 class Session(core.CallbackSessionMixin, core.SessionBase):
-    def __init__(self, client_address, flags, **kwargs):
+    def __init__(self, client_address: str, flags: Set[str], **kwargs) -> None:
         super().__init__(callback_address=client_address, **kwargs)
-        self.flags = flags or set()
-        self.pending_mutations = []
+        self.__flags = flags or set()
+        self.__pending_mutations = []  # type: List[mutations_lib.Mutation]
 
-    async def setup(self):
-        await super().setup()
-
-    def callback_connected(self):
+    def callback_connected(self) -> None:
         logger.info(
             "Client callback connection established, sending %d pending mutations.",
-            len(self.pending_mutations))
-        self.publish_mutations(self.pending_mutations)
-        self.pending_mutations.clear()
+            len(self.__pending_mutations))
+        self.publish_mutations(self.__pending_mutations)
+        self.__pending_mutations.clear()
 
-    def publish_mutations(self, mutations):
+    def publish_mutations(self, mutations: List[mutations_lib.Mutation]) -> None:
         if not mutations:
             return
 
         if not self.callback_alive:
-            self.pending_mutations.extend(mutations)
+            self.__pending_mutations.extend(mutations)
             return
 
         self.async_callback('INSTRUMENTDB_MUTATIONS', list(mutations))
@@ -64,15 +61,16 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 class InstrumentDBProcess(process_base.InstrumentDBProcessBase):
     session_cls = Session
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.db = None
+
+        self.db = None  # type: db.InstrumentDB
         self.search_paths = [
             '/usr/share/sounds/sf2/',
             '/data/instruments/',
         ]
 
-    async def setup(self):
+    async def setup(self) -> None:
         await super().setup()
 
         self.db = db.InstrumentDB(self.event_loop, constants.CACHE_DIR)
@@ -81,25 +79,27 @@ class InstrumentDBProcess(process_base.InstrumentDBProcessBase):
         if time.time() - self.db.last_scan_time > 3600:
             self.db.start_scan(self.search_paths, True)
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         if self.db is not None:
             self.db.cleanup()
             self.db = None
 
         await super().cleanup()
 
-    def publish_mutations(self, mutations):
+    def publish_mutations(self, mutations: List[mutations_lib.Mutation]) -> None:
         for session in self.sessions:
+            session = cast(Session, session)
             session.publish_mutations(mutations)
 
-    async def session_started(self, session):
+    async def session_started(self, session: core.SessionBase) -> None:
+        session = cast(Session, session)
         # Send initial mutations to build up the current pipeline
         # state.
         session.publish_mutations(list(self.db.initial_mutations()))
 
-    async def handle_start_scan(self, session_id):
+    async def handle_start_scan(self, session_id: str) -> None:
         self.get_session(session_id)
-        return self.db.start_scan(self.search_paths, True)
+        self.db.start_scan(self.search_paths, True)
 
 
 class InstrumentDBSubprocess(core.SubprocessMixin, InstrumentDBProcess):

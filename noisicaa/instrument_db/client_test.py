@@ -30,29 +30,13 @@ from . import process
 from . import client
 
 
-class TestClientImpl(object):
-    def __init__(self, event_loop):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'client', socket_dir=TEST_OPTS.TMP_DIR)
-
-    async def setup(self):
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
-
-
-class TestClient(client.InstrumentDBClientMixin, TestClientImpl):
-    pass
-
-
 class InstrumentDBClientTest(unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.process = None
         self.process_task = None
+        self.client_server = None
         self.client = None
 
     async def setup_testcase(self):
@@ -61,7 +45,10 @@ class InstrumentDBClientTest(unittest.AsyncTestCase):
         await self.process.setup()
         self.process_task = self.loop.create_task(self.process.run())
 
-        self.client = TestClient(self.loop)
+        self.client_server = ipc.Server(self.loop, 'client', socket_dir=TEST_OPTS.TMP_DIR)
+        await self.client_server.setup()
+
+        self.client = client.InstrumentDBClient(self.loop, self.client_server)
         await self.client.setup()
         await self.client.connect(self.process.server.address)
 
@@ -69,6 +56,8 @@ class InstrumentDBClientTest(unittest.AsyncTestCase):
         if self.client is not None:
             await self.client.disconnect(shutdown=True)
             await self.client.cleanup()
+        if self.client_server is not None:
+            await self.client_server.cleanup()
         if self.process is not None:
             if self.process_task is not None:
                 await self.process.shutdown()

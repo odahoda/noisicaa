@@ -20,71 +20,76 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
+import asyncio
 import logging
+from typing import Dict, Set, List, Iterable  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa.core import ipc
 from . import mutations
+from . import instrument_description
 
 logger = logging.getLogger(__name__)
 
 
-class InstrumentDBClientMixin(object):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._stub = None
-        self._session_id = None
-        self._instruments = {}
+class InstrumentDBClient(object):
+    def __init__(self, event_loop: asyncio.AbstractEventLoop, server: ipc.Server) -> None:
+        self.event_loop = event_loop
+        self.server = server
+
         self.listeners = core.CallbackRegistry()
 
+        self.__stub = None  # type: ipc.Stub
+        self.__session_id = None  # type: str
+        self.__instruments = {}  # type: Dict[str, instrument_description.InstrumentDescription]
+
     @property
-    def instruments(self):
+    def instruments(self) -> Iterable[instrument_description.InstrumentDescription]:
         return sorted(
-            self._instruments.values(), key=lambda i: i.display_name.lower())
+            self.__instruments.values(), key=lambda i: i.display_name.lower())
 
-    def get_instrument_description(self, uri):
-        return self._instrument[uri]
+    def get_instrument_description(self, uri: str) -> instrument_description.InstrumentDescription:
+        return self.__instruments[uri]
 
-    async def setup(self):
-        await super().setup()
-        self.server.add_command_handler(
-            'INSTRUMENTDB_MUTATIONS', self.handle_mutation)
+    async def setup(self) -> None:
+        self.server.add_command_handler('INSTRUMENTDB_MUTATIONS', self.__handle_mutation)
 
-    async def connect(self, address, flags=None):
-        assert self._stub is None
-        self._stub = ipc.Stub(self.event_loop, address)
-        await self._stub.connect()
-        self._session_id = await self._stub.call(
+    async def cleanup(self) -> None:
+        self.server.remove_command_handler('INSTRUMENTDB_MUTATIONS')
+
+    async def connect(self, address: str, flags: Set[str] = None) -> None:
+        assert self.__stub is None
+        self.__stub = ipc.Stub(self.event_loop, address)
+        await self.__stub.connect()
+        self.__session_id = await self.__stub.call(
             'START_SESSION', self.server.address, flags)
 
-    async def disconnect(self, shutdown=False):
-        if self._session_id is not None:
+    async def disconnect(self, shutdown: bool = False) -> None:
+        if self.__session_id is not None:
             try:
-                await self._stub.call('END_SESSION', self._session_id)
+                await self.__stub.call('END_SESSION', self.__session_id)
             except ipc.ConnectionClosed:
                 logger.info("Connection already closed.")
-            self._session_id = None
+            self.__session_id = None
 
-        if self._stub is not None:
+        if self.__stub is not None:
             if shutdown:
                 await self.shutdown()
 
-            await self._stub.close()
-            self._stub = None
+            await self.__stub.close()
+            self.__stub = None
 
-    async def shutdown(self):
-        await self._stub.call('SHUTDOWN')
+    async def shutdown(self) -> None:
+        await self.__stub.call('SHUTDOWN')
 
-    async def start_scan(self):
-        return await self._stub.call('START_SCAN', self._session_id)
+    async def start_scan(self) -> None:
+        await self.__stub.call('START_SCAN', self.__session_id)
 
-    def handle_mutation(self, mutation_list):
+    def __handle_mutation(self, mutation_list: List[mutations.Mutation]) -> None:
         for mutation in mutation_list:
             logger.info("Mutation received: %s", mutation)
             if isinstance(mutation, mutations.AddInstrumentDescription):
-                self._instruments[mutation.description.uri] = mutation.description
+                self.__instruments[mutation.description.uri] = mutation.description
             else:
                 raise ValueError(mutation)
 

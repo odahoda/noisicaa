@@ -20,9 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-# TODO: pylint-unclean
-
+import asyncio
 import os
 import os.path
 import logging
@@ -31,6 +29,7 @@ import queue
 import sys
 import threading
 import time
+from typing import Any, Callable, Dict, List, Set, Iterable  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa import instrument_db
@@ -48,51 +47,56 @@ class ScanAborted(Exception):
 class InstrumentDB(object):
     VERSION = 2
 
-    def __init__(self, event_loop, cache_dir):
-        self.event_loop = event_loop
-        self.cache_dir = cache_dir
-
+    def __init__(self, event_loop: asyncio.AbstractEventLoop, cache_dir: str) -> None:
         self.listeners = core.CallbackRegistry()
 
-        self.instruments = None
-        self.file_map = None
-        self.last_scan_time = None
-        self.scan_thread = None
-        self.scan_commands = queue.Queue()
-        self.stopping = threading.Event()
+        self.__event_loop = event_loop
+        self.__cache_dir = cache_dir
 
-    def setup(self):
-        if not os.path.isdir(self.cache_dir):
-            os.makedirs(self.cache_dir)
+        self.__instruments = None  # type: Dict[str, instrument_db.InstrumentDescription]
+        self.__file_map = None  # type: Dict[str, float]
+        self.__last_scan_time = None  # type: float
+        self.__scan_thread = None  # type: threading.Thread
+        self.__scan_commands = queue.Queue()  # type: queue.Queue
+        self.__stopping = threading.Event()  # type: threading.Event
 
-        cache_data = self.load_cache(self.cache_path, None)
+    @property
+    def last_scan_time(self) -> float:
+        return self.__last_scan_time
+
+    def setup(self) -> None:
+        if not os.path.isdir(self.__cache_dir):
+            os.makedirs(self.__cache_dir)
+
+        cache_data = self.__load_cache(self.__cache_path, None)
         if cache_data is not None:
             logger.info("Loaded cached instrument database.")
-            self.instruments = cache_data['instruments']
-            self.file_map = cache_data['file_map']
-            self.last_scan_time = cache_data['last_scan_time']
-            logger.info("%d instruments.", len(self.instruments))
-            logger.info("last scan: %s.", time.ctime(self.last_scan_time))
+            self.__instruments = cache_data['instruments']
+            self.__file_map = cache_data['file_map']
+            self.__last_scan_time = cache_data['last_scan_time']
+            logger.info("%d instruments.", len(self.__instruments))
+            logger.info("last scan: %s.", time.ctime(self.__last_scan_time))
         else:
             logger.info("Starting with empty instrument database.")
-            self.instruments = {}
-            self.file_map = {}
-            self.last_scan_time = 0
+            self.__instruments = {}
+            self.__file_map = {}
+            self.__last_scan_time = 0
 
-        self.scan_thread = threading.Thread(target=self.scan_main)
-        self.scan_thread.start()
+        self.__scan_thread = threading.Thread(target=self.__scan_main)
+        self.__scan_thread.start()
 
-    def cleanup(self):
-        if self.scan_thread is not None:
-            self.scan_commands.put(('STOP',))
-            self.stopping.set()
-            self.scan_thread.join()
-            self.scan_thread = None
+    def cleanup(self) -> None:
+        if self.__scan_thread is not None:
+            self.__scan_commands.put(('STOP',))
+            self.__stopping.set()
+            self.__scan_thread.join()
+            self.__scan_thread = None
 
-    def add_mutations_listener(self, callback):
+    def add_mutations_listener(
+            self, callback: Callable[[List[instrument_db.Mutation]], None]) -> None:
         return self.listeners.add('db_mutations', callback)
 
-    def load_cache(self, path, default):
+    def __load_cache(self, path: str, default: Dict[str, Any]) -> Dict[str, Any]:
         if not os.path.isfile(path):
             return default
 
@@ -107,7 +111,7 @@ class InstrumentDB(object):
 
         return cached.get('data', default)
 
-    def store_cache(self, path, data):
+    def __store_cache(self, path: str, data: Dict[str, Any]) -> None:
         cached = {
             'version': self.VERSION,
             'data': data,
@@ -119,30 +123,30 @@ class InstrumentDB(object):
         os.replace(path + '.new', path)
 
     @property
-    def cache_path(self):
-        return os.path.join(self.cache_dir, 'instrument_db.cache')
+    def __cache_path(self) -> str:
+        return os.path.join(self.__cache_dir, 'instrument_db.cache')
 
-    def publish_scan_state(self, state, *args):
-        self.event_loop.call_soon_threadsafe(
+    def __publish_scan_state(self, state: str, *args) -> None:
+        self.__event_loop.call_soon_threadsafe(
             self.listeners.call, 'scan-state', state, *args)
 
-    def add_instruments(self, descriptions):
+    def __add_instruments(self, descriptions: List[instrument_db.InstrumentDescription]) -> None:
         for description in descriptions:
-            self.instruments[description.uri] = description
+            self.__instruments[description.uri] = description
 
         self.listeners.call(
             'db_mutations',
             [instrument_db.AddInstrumentDescription(description)
              for description in descriptions])
 
-    def scan_main(self):
+    def __scan_main(self) -> None:
         try:
-            while not self.stopping.is_set():
-                cmd, *args = self.scan_commands.get()
+            while not self.__stopping.is_set():
+                cmd, *args = self.__scan_commands.get()
                 if cmd == 'STOP':
                     break
                 elif cmd == 'SCAN':
-                    self.do_scan(*args)
+                    self.__do_scan(*args)
                 else:
                     raise ValueError(cmd)
 
@@ -150,37 +154,37 @@ class InstrumentDB(object):
             sys.stdout.flush()
             sys.excepthook(*sys.exc_info())
             sys.stderr.flush()
-            os._exit(1)
+            os._exit(1)  # pylint: disable=protected-access
 
-    def update_cache(self):
+    def __update_cache(self) -> None:
         cache_data = {
-            'instruments': self.instruments,
-            'file_map': self.file_map,
-            'last_scan_time': self.last_scan_time,
+            'instruments': self.__instruments,
+            'file_map': self.__file_map,
+            'last_scan_time': self.__last_scan_time,
             }
-        self.store_cache(self.cache_path, cache_data)
+        self.__store_cache(self.__cache_path, cache_data)
 
-    def do_scan(self, search_paths, incremental):
+    def __do_scan(self, search_paths: List[str], incremental: bool) -> None:
         try:
-            file_list = self.collect_files(search_paths, incremental)
-            self.scan_files(file_list)
-            self.last_scan_time = time.time()
-            self.update_cache()
+            file_list = self.__collect_files(search_paths, incremental)
+            self.__scan_files(file_list)
+            self.__last_scan_time = time.time()
+            self.__update_cache()
         except ScanAborted:
             logger.warning("Scan was aborted.")
-            self.publish_scan_state('aborted')
+            self.__publish_scan_state('aborted')
 
-    def collect_files(self, search_paths, incremental):
+    def __collect_files(self, search_paths: List[str], incremental: bool) -> List[str]:
         logger.info("Collecting files (incremental=%s)", incremental)
-        self.publish_scan_state('prepare')
+        self.__publish_scan_state('prepare')
 
-        seen_files = set()
+        seen_files = set()  # type: Set[str]
         file_list = []
         for root_path in search_paths:
             logger.info("Collecting files from %s", root_path)
 
-            for dname, dirs, files in os.walk(root_path):
-                if self.stopping.is_set():
+            for dname, _, files in os.walk(root_path):
+                if self.__stopping.is_set():
                     raise ScanAborted
 
                 for fname in sorted(files):
@@ -189,7 +193,7 @@ class InstrumentDB(object):
                     if path in seen_files:
                         continue
 
-                    if incremental and os.path.getmtime(path) == self.file_map.get(path, -1):
+                    if incremental and os.path.getmtime(path) == self.__file_map.get(path, -1):
                         continue
 
                     seen_files.add(path)
@@ -202,7 +206,7 @@ class InstrumentDB(object):
 
         return file_list
 
-    def scan_files(self, file_list):
+    def __scan_files(self, file_list: List[str]) -> None:
         scanners = [
             sample_scanner.SampleScanner(),
             soundfont_scanner.SoundFontScanner(),
@@ -210,32 +214,32 @@ class InstrumentDB(object):
 
         batch = []
         for idx, path in enumerate(file_list):
-            if self.stopping.is_set():
+            if self.__stopping.is_set():
                 raise ScanAborted
 
             logger.info("Scanning file %s...", path)
-            self.publish_scan_state('scan', idx, len(file_list))
+            self.__publish_scan_state('scan', idx, len(file_list))
 
             for scanner in scanners:
                 for description in scanner.scan(path):
                     batch.append(description)
                     if len(batch) > 10:
-                        self.event_loop.call_soon_threadsafe(
-                            self.add_instruments, list(batch))
+                        self.__event_loop.call_soon_threadsafe(
+                            self.__add_instruments, list(batch))
                         batch.clear()
 
-            self.file_map[path] = os.path.getmtime(path)
+            self.__file_map[path] = os.path.getmtime(path)
 
         if batch:
-            self.event_loop.call_soon_threadsafe(
-                self.add_instruments, list(batch))
+            self.__event_loop.call_soon_threadsafe(
+                self.__add_instruments, list(batch))
             batch.clear()
 
-        self.publish_scan_state('complete')
+        self.__publish_scan_state('complete')
 
-    def initial_mutations(self):
-        for uri, description in sorted(self.instruments.items()):
+    def initial_mutations(self) -> Iterable[instrument_db.Mutation]:
+        for _, description in sorted(self.__instruments.items()):
             yield instrument_db.AddInstrumentDescription(description)
 
-    def start_scan(self, search_paths, incremental):
-        self.scan_commands.put(('SCAN', list(search_paths), incremental))
+    def start_scan(self, search_paths: List[str], incremental: bool) -> None:
+        self.__scan_commands.put(('SCAN', list(search_paths), incremental))

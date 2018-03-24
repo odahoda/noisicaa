@@ -87,22 +87,6 @@ class AudioProcClient(
         self.__app.onPipelineStatus(status)
 
 
-class InstrumentDBClientImpl(object):
-    def __init__(self, event_loop, server):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = server
-
-    async def setup(self):
-        pass
-
-    async def cleanup(self):
-        pass
-
-class InstrumentDBClient(instrument_db.InstrumentDBClientMixin, InstrumentDBClientImpl):
-    pass
-
-
 class BaseEditorApp(object):
     def __init__(self, *, process, runtime_settings, settings=None):
         self.__context = ui_base.CommonContext(app=self)
@@ -207,7 +191,7 @@ class BaseEditorApp(object):
         instrument_db_address = await self.process.manager.call(
             'CREATE_INSTRUMENT_DB_PROCESS')
 
-        self.instrument_db = InstrumentDBClient(
+        self.instrument_db = instrument_db.InstrumentDBClient(
             self.process.event_loop, self.process.server)
         await self.instrument_db.setup()
         await self.instrument_db.connect(instrument_db_address)

@@ -20,13 +20,14 @@
 #
 # @end:license
 
+from typing import Iterable
 import urllib.parse
 
-class Scanner(object):
-    def __init__(self):
-        pass
+from noisicaa import instrument_db
 
-    def make_uri(self, fmt, path, **kwargs):
+
+class Scanner(object):
+    def make_uri(self, fmt: str, path: str, **kwargs) -> str:
         return urllib.parse.urlunparse((
             fmt,
             None,
@@ -35,5 +36,5 @@ class Scanner(object):
             urllib.parse.urlencode(sorted((k, str(v)) for k, v in kwargs.items()), True),
             None))
 
-    def scan(self, path):
+    def scan(self, path: str) -> Iterable[instrument_db.InstrumentDescription]:
         raise NotImplementedError

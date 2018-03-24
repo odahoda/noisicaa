@@ -20,11 +20,9 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import enum
 import urllib.parse
-from typing import Callable
+from typing import Callable, Dict, Any
 
 from noisicaa import node_db
 
@@ -49,24 +47,30 @@ class Property(enum.Enum):
 
 
 class InstrumentDescription(object):
-    def __init__(self, uri, path, display_name, properties):
+    def __init__(
+            self,
+            uri: str,
+            path: str,
+            display_name: str,
+            properties: Dict[Property, Any],
+    ) -> None:
         self.uri = uri
         self.path = path
         self.display_name = display_name
         self.properties = properties
 
     @property
-    def format(self):
+    def format(self) -> str:
         return urllib.parse.urlparse(self.uri).scheme
 
 
 def parse_uri(
         uri: str,
         get_node_description: Callable[[str], node_db.NodeDescription]) -> node_db.NodeDescription:
-    fmt, _, path, _, args, _ = urllib.parse.urlparse(uri)
+    fmt, _, path, _, query, _ = urllib.parse.urlparse(uri)
     path = urllib.parse.unquote(path)
-    if args:
-        args = dict(urllib.parse.parse_qsl(args, strict_parsing=True))
+    if query:
+        args = dict(urllib.parse.parse_qsl(query, strict_parsing=True))
     else:
         args = {}
 

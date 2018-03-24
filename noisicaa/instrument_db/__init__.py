@@ -18,13 +18,14 @@
 #
 # @end:license
 
-from .client import InstrumentDBClientMixin
+from .client import InstrumentDBClient
 from .instrument_description import (
     InstrumentDescription,
     Property,
     parse_uri,
 )
 from .mutations import (
+    Mutation,
     AddInstrumentDescription,
     RemoveInstrumentDescription,
 )
