@@ -28,7 +28,8 @@ from . import wave
 
 class WaveFileTest(unittest.TestCase):
     def test_foo(self):
-        w = wave.WaveFile().parse(os.path.join(unittest.TESTDATA_DIR, 'test1.wav'))
+        w = wave.WaveFile()
+        w.parse(os.path.join(unittest.TESTDATA_DIR, 'test1.wav'))
         self.assertEqual(w.data_format, 'pcm')
         self.assertEqual(w.channels, 2)
         self.assertEqual(w.sample_rate, 44100)

@@ -25,6 +25,7 @@ import io
 import logging
 import sys
 import struct
+from typing import List, IO  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 
@@ -39,16 +40,16 @@ class DataError(Error):
 
 
 class RiffFile(object):
-    def start_list(self, identifier, path):
+    def start_list(self, identifier: str, path: List[str]) -> None:
         pass
 
-    def end_list(self, identifier, path):
+    def end_list(self, identifier: str, path: List[str]) -> None:
         pass
 
-    def handle_chunk(self, identifier, path, size, fp):
+    def handle_chunk(self, identifier: str, path: List[str], size: int, fp: IO) -> None:
         pass
 
-    def parse(self, path):
+    def parse(self, path: str) -> 'RiffFile':
         logger.info("Opening file %s", path)
         with open(path, 'rb') as fp:
             if os.path.getsize(path) < 8:
@@ -73,7 +74,7 @@ class RiffFile(object):
 
         return self
 
-    def _parse_list(self, fp, path, offset, end_offset):
+    def _parse_list(self, fp: IO, path: List[str], offset: int, end_offset: int):
         list_identifier = fp.read(4)
         try:
             list_identifier = list_identifier.decode('ascii')

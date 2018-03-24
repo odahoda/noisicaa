@@ -20,11 +20,9 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-# TODO: pylint-unclean
-
 import logging
 import struct
+from typing import Set, List, IO  # pylint: disable=unused-import
 
 from . import riff
 
@@ -40,52 +38,53 @@ class FormatError(Error):
 class WaveFile(riff.RiffFile):
     def __init__(self):
         super().__init__()
-        self._seen = set()
 
-        self.data_format = None
-        self.channels = None
-        self.sample_rate = None
-        self.bits_per_sample = None
+        self.data_format = None  # type: str
+        self.channels = None  # type: int
+        self.sample_rate = None  # type: int
+        self.bits_per_sample = None  # type: int
 
-        self._num_samples = None
-        self._bytes_per_sample = None
-        self._data_length = None
+        self.__seen = set()  # type: Set[str]
+        self.__num_samples = None  # type: int
+        self.__bytes_per_sample = None  # type: int
+        self.__data_length = None  # type: int
 
     @property
-    def num_samples(self):
-        if self._num_samples is not None:
-            return self._num_samples
+    def num_samples(self) -> int:
+        if self.__num_samples is not None:
+            return self.__num_samples
 
-        if self._data_length is not None and self._bytes_per_sample is not None:
-            return self._data_length // self._bytes_per_sample
+        if self.__data_length is not None and self.__bytes_per_sample is not None:
+            return self.__data_length // self.__bytes_per_sample
 
         return None
 
-    def start_list(self, identifier, path):
+    def start_list(self, identifier: str, path: List[str]) -> None:
         if path == [] and identifier != 'WAVE':
             raise FormatError("Note a WAVE file")
 
         if identifier in ('INFO', 'pdta') and path == []:
-            if identifier in self._seen:
+            if identifier in self.__seen:
                 raise FormatError("Duplicate %s chunk" % identifier)
-            self._seen.add(identifier)
+            self.__seen.add(identifier)
 
-    def handle_chunk(self, identifier, path, size, fp):
+    def handle_chunk(self, identifier: str, path: List[str], size: int, fp: IO) -> None:
         logger.debug(
             "CHUNK %s (%d bytes)", ' > '.join(path + [identifier]), size)
         handler_name = 'handle_' + '_'.join(id.strip() for id in path + [identifier])
         handler = getattr(self, handler_name, None)
         if handler is not None:
-            handler(size, fp)
+            handler(size, fp)  # pylint: disable=not-callable
 
-    def handle_WAVE_fmt(self, size, fp):
-        if 'WAVE/fmt' in self._seen:
+    def handle_WAVE_fmt(self, size: int, fp: IO) -> None:
+        if 'WAVE/fmt' in self.__seen:
             raise FormatError("Duplicate fmt chunk")
-        self._seen = 'WAVE/fmt'
+        self.__seen.add('WAVE/fmt')
 
         if size not in (16, 18, 40):
             raise FormatError("Invalid fmt chunk size %d" % size)
 
+        # pylint: disable=unused-variable
         wFormatTag, nChannels, nSamplesPerSec, nAvgBytesPerSec, nBlockAlign, wBitsPerSample = (
             struct.unpack('<HHIIHH', fp.read(16)))
 
@@ -98,32 +97,34 @@ class WaveFile(riff.RiffFile):
         elif wFormatTag == 0x0007:
             self.data_format = 'u-law'
         else:
-            self.data_format == '0x%04X' % wFormatTag
+            self.data_format = '0x%04X' % wFormatTag
 
         self.channels = nChannels
         self.sample_rate = nSamplesPerSec
         self.bits_per_sample = wBitsPerSample
-        self._bytes_per_sample = nBlockAlign
+        self.__bytes_per_sample = nBlockAlign
 
         if size >= 18:
             cbSize, = struct.unpack('<H', fp.read(2))
             if cbSize == 22:
-                wValidBitsPerSample, dwChannelMast, SubFormat = struct.unpack('<HI16s', fp.read(cbSize))
+                # pylint: disable=unused-variable
+                wValidBitsPerSample, dwChannelMast, SubFormat = struct.unpack(
+                    '<HI16s', fp.read(cbSize))
 
-    def handle_WAVE_fact(self, size, fp):
-        if 'WAVE/fact' in self._seen:
+    def handle_WAVE_fact(self, size: int, fp: IO) -> None:
+        if 'WAVE/fact' in self.__seen:
             raise FormatError("Duplicate fact chunk")
-        self._seen = 'WAVE/fact'
+        self.__seen.add('WAVE/fact')
 
         if size < 4:
             raise FormatError("Invalid fact chunk size %d" % size)
 
         dwSampleLength, = struct.unpack('<I', fp.read(4))
-        self._num_samples = dwSampleLength
+        self.__num_samples = dwSampleLength
 
-    def handle_WAVE_data(self, size, fp):
-        if 'WAVE/data' in self._seen:
+    def handle_WAVE_data(self, size: int, fp: IO) -> None:
+        if 'WAVE/data' in self.__seen:
             raise FormatError("Duplicate data chunk")
-        self._seen = 'WAVE/data'
+        self.__seen.add('WAVE/data')
 
-        self._data_length = size
+        self.__data_length = size
