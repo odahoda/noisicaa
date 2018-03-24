@@ -19,6 +19,7 @@
 # @end:license
 
 add_python_package(
+  backend_test.py
   engine_perftest.py
   engine_test.py
   graph.py
@@ -75,7 +76,6 @@ set(LIB_SRCS
 )
 
 set(TEST_SRCS
-  backend_test.pyx
   buffers_test.pyx
   opcodes_test.pyx
   player_test.pyx

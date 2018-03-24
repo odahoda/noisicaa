@@ -51,9 +51,6 @@
 * Gracefully handle Processor::setup() failures                                               :FR:
 * Expected SIGPIPE causes gdb to kick in                                             :BUG:TESTING:
 - can I just install a sig handler to ignore SIGPIPE?
-* Convert backend_*_test.pyx to pure python                                      :CLEANUP:TESTING:
-- or at least make more use of Py* wrappers.
-
 * Use a single protobuf for audioproc status updates                                     :CLEANUP:
 - PipelineNotification
 - pipeline, player, node status updates and perf data
