@@ -273,16 +273,16 @@ class BuiltinPyTests(unittest.TestCase):
                 continue
             messages.append(msg)
 
-        # if is_unclean and len(messages) < 3:
-        #     self.__mypy_collector.extend(messages)
-        #     msg = "\nFile \"%s\", line %d, is marked as mypy-unclean" % (src_path, unclean_lineno)
-        #     if not messages:
-        #         msg += ", but no issues were reported."
-        #     elif len(messages) == 1:
-        #         msg += ", but only one issue was reported."
-        #     else:
-        #         msg += ", but only %d issues were reported." % len(messages)
-        #     self.fail(msg)
+        if is_unclean and len(messages) < 1:
+            self.__mypy_collector.extend(messages)
+            msg = "\nFile \"%s\", line %d, is marked as mypy-unclean" % (src_path, unclean_lineno)
+            if not messages:
+                msg += ", but no issues were reported."
+            elif len(messages) == 1:
+                msg += ", but only one issue was reported."
+            else:
+                msg += ", but only %d issues were reported." % len(messages)
+            self.fail(msg)
 
         if be_pedantic and messages:
             self.__mypy_collector.extend(messages)

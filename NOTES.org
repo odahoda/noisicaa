@@ -17,7 +17,6 @@
           File "time_mapper.pyx", line 27, in noisicaa.audioproc.public.time_mapper.PyTimeMapper.__init__
         TypeError: __init__() takes exactly 1 positional argument (0 given)
 
-
 * Redesign settings handling                                                                  :FR:
 - requirements:
   - all settings should be overrideable with flags
