@@ -20,10 +20,13 @@
 #
 # @end:license
 
+from typing import Iterable, Tuple
+from noisicaa import node_db
+
 
 class Scanner(object):
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def scan(self):
+    def scan(self) -> Iterable[Tuple[str, node_db.NodeDescription]]:
         raise NotImplementedError

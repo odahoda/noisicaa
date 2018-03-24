@@ -21,10 +21,12 @@
 # @end:license
 
 import logging
+from typing import cast, Set, Dict, List  # pylint: disable=unused-import
 
 from noisicaa import core
 from .private import db
 from . import process_base
+from . import mutations
 
 logger = logging.getLogger(__name__)
 
@@ -32,46 +34,47 @@ logger = logging.getLogger(__name__)
 class Session(core.CallbackSessionMixin, core.SessionBase):
     async_connect = False
 
-    def __init__(self, client_address, flags, **kwargs):
+    def __init__(self, client_address: str, flags: Set[str], **kwargs) -> None:
         super().__init__(callback_address=client_address, **kwargs)
-        self.flags = flags or set()
+        self.__flags = flags or set()
 
-    async def publish_mutation(self, mutation):
+    async def publish_mutation(self, mutation: mutations.Mutation) -> None:
         await self.callback('NODEDB_MUTATION', mutation)
 
-    def async_publish_mutation(self, mutation):
+    def async_publish_mutation(self, mutation: mutations.Mutation) -> None:
         self.async_callback('NODEDB_MUTATION', mutation)
 
 
 class NodeDBProcess(process_base.NodeDBProcessBase):
     session_cls = Session
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.db = db.NodeDB()
 
-    async def setup(self):
+    async def setup(self) -> None:
         await super().setup()
-
         self.db.setup()
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         self.db.cleanup()
         await super().cleanup()
 
-    def publish_mutation(self, mutation):
+    def publish_mutation(self, mutation: mutations.Mutation) -> None:
         for session in self.sessions:
+            session = cast(Session, session)
             session.async_publish_mutation(mutation)
 
-    async def session_started(self, session):
+    async def session_started(self, session: core.SessionBase) -> None:
+        session = cast(Session, session)
         # Send initial mutations to build up the current pipeline
         # state.
         for mutation in self.db.initial_mutations():
             await session.publish_mutation(mutation)
 
-    async def handle_start_scan(self, session_id):
+    async def handle_start_scan(self, session_id: str) -> None:
         self.get_session(session_id)
-        return self.db.start_scan()
+        self.db.start_scan()
 
 
 class NodeDBSubprocess(core.SubprocessMixin, NodeDBProcess):

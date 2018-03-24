@@ -18,7 +18,7 @@
 #
 # @end:license
 
-from .client import NodeDBClientMixin
+from .client import NodeDBClient
 from .node_description_pb2 import (
     NotSupportedReasons,
     ProcessorDescription,

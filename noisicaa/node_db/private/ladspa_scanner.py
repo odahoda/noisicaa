@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-
 import logging
 import os
 import os.path
@@ -39,12 +37,12 @@ class LadspaScanner(scanner.Scanner):
     def scan(self):
         # TODO: support configurable searchpaths
         rootdir = os.environ.get('LADSPA_PATH', '/usr/lib/ladspa')
-        for dirpath, dirnames, filenames in os.walk(rootdir):
+        for dirpath, _, filenames in os.walk(rootdir):
             for filename in filenames:
                 if not filename.endswith('.so'):
                     continue
 
-                path = os.path.join(rootdir, filename)
+                path = os.path.join(dirpath, filename)
                 logger.info("Loading LADSPA plugins from %s", path)
 
                 try:
@@ -53,7 +51,7 @@ class LadspaScanner(scanner.Scanner):
                     logger.warning("Failed to load LADSPA library %s: %s", path, exc)
                     continue
 
-                for descriptor in lib.descriptors:
+                for descriptor in lib.descriptors:  # pylint: disable=not-an-iterable
                     uri = 'ladspa://%s/%s' % (filename, descriptor.label)
                     logger.info("Adding LADSPA plugin %s", uri)
 

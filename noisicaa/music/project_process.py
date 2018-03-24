@@ -156,22 +156,6 @@ class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
     pass
 
 
-class NodeDBClientImpl(object):
-    def __init__(self, event_loop, server):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = server
-
-    async def setup(self):
-        pass
-
-    async def cleanup(self):
-        pass
-
-class NodeDBClient(node_db.NodeDBClientMixin, NodeDBClientImpl):
-    pass
-
-
 class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
     session_cls = Session
 
@@ -214,7 +198,7 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
 
         node_db_address = await self.manager.call(
             'CREATE_NODE_DB_PROCESS')
-        self.node_db = NodeDBClient(self.event_loop, self.server)
+        self.node_db = node_db.NodeDBClient(self.event_loop, self.server)
         await self.node_db.setup()
         await self.node_db.connect(node_db_address)
 

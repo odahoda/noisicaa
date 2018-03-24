@@ -87,22 +87,6 @@ class AudioProcClient(
         self.__app.onPipelineStatus(status)
 
 
-class NodeDBClientImpl(object):
-    def __init__(self, event_loop, server):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = server
-
-    async def setup(self):
-        pass
-
-    async def cleanup(self):
-        pass
-
-class NodeDBClient(node_db.NodeDBClientMixin, NodeDBClientImpl):
-    pass
-
-
 class InstrumentDBClientImpl(object):
     def __init__(self, event_loop, server):
         super().__init__()
@@ -213,11 +197,9 @@ class BaseEditorApp(object):
         pass
 
     async def createNodeDB(self):
-        node_db_address = await self.process.manager.call(
-            'CREATE_NODE_DB_PROCESS')
+        node_db_address = await self.process.manager.call('CREATE_NODE_DB_PROCESS')
 
-        self.node_db = NodeDBClient(
-            self.process.event_loop, self.process.server)
+        self.node_db = node_db.NodeDBClient(self.process.event_loop, self.process.server)
         await self.node_db.setup()
         await self.node_db.connect(node_db_address)
 

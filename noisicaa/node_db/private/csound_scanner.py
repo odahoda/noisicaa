@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-
 import logging
 import os
 import os.path
@@ -38,14 +36,14 @@ logger = logging.getLogger(__name__)
 class CSoundScanner(scanner.Scanner):
     def scan(self):
         rootdir = os.path.join(constants.DATA_DIR, 'csound')
-        for dirpath, dirnames, filenames in os.walk(rootdir):
+        for dirpath, _, filenames in os.walk(rootdir):
             for filename in filenames:
                 if not filename.endswith('.csnd'):
                     continue
 
                 uri = 'builtin://csound/%s' % filename[:-5]
 
-                path = os.path.join(rootdir, filename)
+                path = os.path.join(dirpath, filename)
                 logger.info("Loading csound node %s from %s", uri, path)
 
                 tree = ElementTree.parse(path)
@@ -93,25 +91,25 @@ class CSoundScanner(scanner.Scanner):
                             port_desc.bypass_port = bypass_elem.get('port')
 
                     if (port_desc.direction == node_db.PortDescription.INPUT
-                        and port_desc.type == node_db.PortDescription.EVENTS):
+                            and port_desc.type == node_db.PortDescription.EVENTS):
                         csound_elem = port_elem.find('csound')
                         if csound_elem is not None:
                             port_desc.csound_instr = csound_elem.get('instr')
 
                     if (port_desc.direction == node_db.PortDescription.INPUT
-                        and port_desc.type == node_db.PortDescription.KRATE_CONTROL):
+                            and port_desc.type == node_db.PortDescription.KRATE_CONTROL):
                         float_control_elem = port_elem.find('float-control')
                         if float_control_elem is not None:
                             value_desc = port_desc.float_value
-                            min = float_control_elem.get('min')
-                            if min is not None:
-                                value_desc.min = float(min)
-                            max = float_control_elem.get('max')
-                            if max is not None:
-                                value_desc.max = float(max)
-                            default = float_control_elem.get('default')
-                            if default is not None:
-                                value_desc.default = float(default)
+                            min_value = float_control_elem.get('min')
+                            if min_value is not None:
+                                value_desc.min = float(min_value)
+                            max_value = float_control_elem.get('max')
+                            if max_value is not None:
+                                value_desc.max = float(max_value)
+                            default_value = float_control_elem.get('default')
+                            if default_value is not None:
+                                value_desc.default = float(default_value)
 
                 csound_desc = desc.csound
 

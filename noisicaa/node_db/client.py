@@ -20,75 +20,76 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
+import asyncio
 import logging
+from typing import Dict, Iterable, Set  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa.core import ipc
 from . import mutations
+from . import node_description_pb2
 
 logger = logging.getLogger(__name__)
 
 
-class NodeDBClientMixin(object):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._stub = None
-        self._session_id = None
-        self._nodes = {}
+class NodeDBClient(object):
+    def __init__(self, event_loop: asyncio.AbstractEventLoop, server: ipc.Server) -> None:
+        self.event_loop = event_loop
+        self.server = server
+
         self.listeners = core.CallbackRegistry()
 
+        self.__stub = None  # type: ipc.Stub
+        self.__session_id = None  # type: str
+        self.__nodes = {}  # type: Dict[str, node_description_pb2.NodeDescription]
+
     @property
-    def nodes(self):
+    def nodes(self) -> Iterable[node_description_pb2.NodeDescription]:
         return sorted(
-            self._nodes.items(), key=lambda i: i[1].display_name)
+            self.__nodes.items(), key=lambda i: i[1].display_name)
 
-    def get_node_description(self, uri):
-        return self._nodes[uri]
+    def get_node_description(self, uri: str) -> node_description_pb2.NodeDescription:
+        return self.__nodes[uri]
 
-    async def setup(self):
-        await super().setup()
-        self.server.add_command_handler(
-            'NODEDB_MUTATION', self.handle_mutation)
+    async def setup(self) -> None:
+        self.server.add_command_handler('NODEDB_MUTATION', self.__handle_mutation)
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         await self.disconnect()
-        await super().cleanup()
 
-    async def connect(self, address, flags=None):
-        assert self._stub is None
-        self._stub = ipc.Stub(self.event_loop, address)
-        await self._stub.connect()
-        self._session_id = await self._stub.call(
+    async def connect(self, address: str, flags: Set[str] = None) -> None:
+        assert self.__stub is None
+        self.__stub = ipc.Stub(self.event_loop, address)
+        await self.__stub.connect()
+        self.__session_id = await self.__stub.call(
             'START_SESSION', self.server.address, flags)
 
-    async def disconnect(self, shutdown=False):
-        if self._session_id is not None:
+    async def disconnect(self, shutdown: bool = False) -> None:
+        if self.__session_id is not None:
             try:
-                await self._stub.call('END_SESSION', self._session_id)
+                await self.__stub.call('END_SESSION', self.__session_id)
             except ipc.ConnectionClosed:
                 logger.info("Connection already closed.")
-            self._session_id = None
+            self.__session_id = None
 
-        if self._stub is not None:
+        if self.__stub is not None:
             if shutdown:
                 await self.shutdown()
 
-            await self._stub.close()
-            self._stub = None
+            await self.__stub.close()
+            self.__stub = None
 
-    async def shutdown(self):
-        await self._stub.call('SHUTDOWN')
+    async def shutdown(self) -> None:
+        await self.__stub.call('SHUTDOWN')
 
-    async def start_scan(self):
-        return await self._stub.call('START_SCAN', self._session_id)
+    async def start_scan(self) -> None:
+        await self.__stub.call('START_SCAN', self.__session_id)
 
-    def handle_mutation(self, mutation):
+    def __handle_mutation(self, mutation: mutations.Mutation) -> None:
         logger.info("Mutation received: %s", mutation)
         if isinstance(mutation, mutations.AddNodeDescription):
-            assert mutation.uri not in self._nodes
-            self._nodes[mutation.uri] = mutation.description
+            assert mutation.uri not in self.__nodes
+            self.__nodes[mutation.uri] = mutation.description
         else:
             raise ValueError(mutation)
 
