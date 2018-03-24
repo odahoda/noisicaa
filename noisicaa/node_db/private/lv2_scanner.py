@@ -24,7 +24,8 @@ import logging
 
 from noisicaa import node_db
 from noisicaa import lv2
-from noisicaa.bindings import lilv
+# TODO: needs pyi for cython module
+from noisicaa.bindings import lilv  # type: ignore
 
 from . import scanner
 

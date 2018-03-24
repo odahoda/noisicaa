@@ -78,7 +78,7 @@ class Preset(object):
             node_description=node_desc)
 
     def to_bytes(self):
-        doc = ElementTree.Element('preset', version='1')
+        doc = ElementTree.Element('preset', version='1')  # type: ignore
         doc.text = '\n'
         doc.tail = '\n'
 

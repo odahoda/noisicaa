@@ -27,7 +27,8 @@ import os
 import os.path
 
 from noisicaa import node_db
-from noisicaa.bindings import ladspa
+# TODO: needs pyi for cython module
+from noisicaa.bindings import ladspa  # type: ignore
 
 from . import scanner
 

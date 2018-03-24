@@ -21,6 +21,7 @@
 # @end:license
 
 import logging
+from typing import Dict  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa import node_db
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 class NodeDB(object):
     def __init__(self):
-        self.__nodes = {}
+        self.__nodes = {}  # type: Dict[str, node_db.NodeDescription]
         self.listeners = core.CallbackRegistry()
 
     def __getitem__(self, uri: str) -> node_db.NodeDescription:

@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 
 class PresetScanner(scanner.Scanner):
-    def __init__(self, nodes, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, nodes):
+        super().__init__()
 
         self.__nodes = nodes
 
