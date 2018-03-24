@@ -26,8 +26,6 @@ from fractions import Fraction
 import logging
 import random
 
-import numpy
-
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.bindings import sndfile
@@ -38,6 +36,7 @@ from . import commands
 from . import base_track
 from . import pipeline_graph
 from . import misc
+from . import rms
 
 logger = logging.getLogger(__name__)
 
@@ -145,14 +144,14 @@ class RenderSample(commands.Command):
         width = int(self.scale_x * (end_time - begin_time).fraction)
 
         if width < num_samples / 10:
-            rms = []
+            result = []
             for p in range(0, width):
                 p_start = p * num_samples // width
                 p_end = (p + 1) * num_samples // width
                 s = samples[p_start:p_end]
-                rms.append(numpy.sqrt(numpy.mean(numpy.square(s))))
+                result.append(rms.rms(s))
 
-            return ['rms', rms]
+            return ['rms', result]
 
         else:
             return ['broken']
