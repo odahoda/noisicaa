@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: mypy-unclean
+
 import os.path
 
 from PyQt5.QtCore import Qt

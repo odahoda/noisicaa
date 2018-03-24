@@ -14,6 +14,7 @@
 
 # Ignore formatting of 3rd party code for now.
 # pylint: skip-file
+# mypy: skip-file
 
 import sys
 from PyQt5.QtCore import Qt

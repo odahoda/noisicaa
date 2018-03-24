@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: mypy-unclean
+
 from noisidev import unittest
 from noisidev import demo_project
 from noisicaa.node_db.private import db as node_db

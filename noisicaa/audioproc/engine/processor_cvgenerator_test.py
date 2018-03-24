@@ -18,6 +18,8 @@
 #
 # @end:license
 
+# TODO: mypy-unclean
+
 import math
 
 from noisidev import unittest

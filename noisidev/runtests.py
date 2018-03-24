@@ -103,8 +103,9 @@ class MypyMessageCollector(object):
 
         sys.stderr.write(
             "\n==== mypy report =====================================================\n\n")
+        fmt = '{path}:{line}: [{type}] {msg}\n'
         for msg in self.messages:
-            sys.stderr.write(msg + '\n')
+            sys.stderr.write(fmt.format(**msg))
         sys.stderr.write("\n\n")
 
 
@@ -247,6 +248,7 @@ class BuiltinPyTests(unittest.TestCase):
             stdout, stderr, rc = mypy.run(
                 ['--config-file', mypy_ini_path,
                  '--cache-dir=%s' % os.path.join(LIBDIR, 'mypy-cache'),
+                 '--show-traceback',
                  '-m', self.__modname
                 ])
         finally:
@@ -256,18 +258,31 @@ class BuiltinPyTests(unittest.TestCase):
         if stderr:
             sys.stderr.write(stderr)
 
-        messages = list(stdout.splitlines(False))
+        messages = []
+        for line in stdout.splitlines(False):
+            m = re.match(r'([^:]+):(\d+): ([a-z]+): (.*)$', line)
+            if m is None:
+                self.fail("Unrecognized mypy output: %s" % line)
+            msg = dict(
+                path=m.group(1),
+                line=m.group(2),
+                type=m.group(3),
+                msg=m.group(4),
+            )
+            if msg['type'] == 'note':
+                continue
+            messages.append(msg)
 
-        if is_unclean and len(messages) < 3:
-            self.__mypy_collector.extend(messages)
-            msg = "\nFile \"%s\", line %d, is marked as mypy-unclean" % (src_path, unclean_lineno)
-            if not messages:
-                msg += ", but no issues were reported."
-            elif len(messages) == 1:
-                msg += ", but only one issue was reported."
-            else:
-                msg += ", but only %d issues were reported." % len(messages)
-            self.fail(msg)
+        # if is_unclean and len(messages) < 3:
+        #     self.__mypy_collector.extend(messages)
+        #     msg = "\nFile \"%s\", line %d, is marked as mypy-unclean" % (src_path, unclean_lineno)
+        #     if not messages:
+        #         msg += ", but no issues were reported."
+        #     elif len(messages) == 1:
+        #         msg += ", but only one issue was reported."
+        #     else:
+        #         msg += ", but only %d issues were reported." % len(messages)
+        #     self.fail(msg)
 
         if be_pedantic and messages:
             self.__mypy_collector.extend(messages)
@@ -358,7 +373,7 @@ def main(argv):
     parser.add_argument('--builtin-tests', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--keep-temp', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--playback-backend', type=str, default='null')
-    parser.add_argument('--mypy', type=bool_arg, default=False)
+    parser.add_argument('--mypy', type=bool_arg, default=True)
     parser.add_argument('--display', choices=['off', 'local', 'xvfb'], default='xvfb')
     args = parser.parse_args(argv[1:])
 

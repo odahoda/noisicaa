@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: mypy-unclean
+
 import logging
 
 from PyQt5.QtWidgets import QGraphicsItem

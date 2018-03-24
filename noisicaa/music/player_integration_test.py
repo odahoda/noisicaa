@@ -20,6 +20,9 @@
 #
 # @end:license
 
+# This file triggers https://github.com/JukkaL/mypy/issues/730
+# mypy: skip-file
+
 import asyncio
 import contextlib
 import logging

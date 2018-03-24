@@ -20,6 +20,7 @@
 #
 # @end:license
 
+# TODO: mypy-unclean
 # TODO: pylint-unclean
 
 # Still need to figure out how to pass around the app reference, disable

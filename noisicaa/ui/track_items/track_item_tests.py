@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: mypy-unclean
+
 import contextlib
 from fractions import Fraction
 from unittest import mock

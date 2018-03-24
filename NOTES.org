@@ -1,5 +1,23 @@
 # -*- org-tags-column: -98 -*-
 
+* SampleTrack: crash when rendering                                                        :CRASH:
+        Traceback (most recent call last):
+          File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 254, in handle_command
+            result = await handler(*args, **kwargs)
+          File "/home/pink/noisicaa/build/noisicaa/music/project_process.py", line 354, in handle_command
+            result = self.project.dispatch_command(target, cmd)
+          File "/home/pink/noisicaa/build/noisicaa/music/project.py", line 773, in dispatch_command
+            result = super().dispatch_command(obj_id, cmd)
+          File "/home/pink/noisicaa/build/noisicaa/music/project.py", line 498, in dispatch_command
+            result = cmd.apply(obj)
+          File "/home/pink/noisicaa/build/noisicaa/music/commands.py", line 237, in apply
+            result = self.run(obj)
+          File "/home/pink/noisicaa/build/noisicaa/music/sample_track.py", line 131, in run
+            tmap = audioproc.TimeMapper()
+          File "time_mapper.pyx", line 27, in noisicaa.audioproc.public.time_mapper.PyTimeMapper.__init__
+        TypeError: __init__() takes exactly 1 positional argument (0 given)
+
+
 * Redesign settings handling                                                                  :FR:
 - requirements:
   - all settings should be overrideable with flags
@@ -206,6 +224,11 @@ Probably related to unittest.UITestCase
 - lock-free queue for log messages
 * clean up pylint issues in pylint-unclean files                                 :CLEANUP:TESTING:
 - grep -r pylint-unclean noisicaa/
+- pick some file and clean it up.
+- until grep finds no more files.
+
+* clean up mypy issues in mypy-unclean files                                     :CLEANUP:TESTING:
+- grep -r mypy-unclean noisicaa/
 - pick some file and clean it up.
 - until grep finds no more files.
 
@@ -581,8 +604,6 @@ Is there some cross-compiler/-platform header to provide this functionality?
 - adding manual .pyi files for every .pyx is cumbersome...
   - any way to automate that?
 - require type annotations
-- enable mypy by default
- - mark files as mypy-unclean
 
 * Get pycheck working                                                           :RESEARCH:TESTING:
 - seems much faster than mypy

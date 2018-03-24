@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: mypy-unclean
+
 from unittest import mock
 
 from PyQt5.QtCore import Qt

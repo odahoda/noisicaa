@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: mypy-unclean
+
 import enum
 import urllib.parse
 from typing import Callable

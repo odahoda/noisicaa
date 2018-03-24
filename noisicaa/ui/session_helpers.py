@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# TODO: mypy-unclean
+
 
 class ManagedWindowMixin(object):
     def __init__(self, session_prefix, **kwargs):
