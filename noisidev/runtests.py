@@ -224,6 +224,20 @@ class BuiltinPyTests(unittest.TestCase):
         if self.__modname.split('.')[-1] == '__init__':
             self.skipTest('mypy disabled for this file')
 
+        src_path = os.path.join(SRCDIR, os.path.join(*self.__modname.split('.')) + '.py')
+        src = open(src_path, 'r').read()
+
+        is_unclean = False
+        unclean_lineno = -1
+        for lineno, line in enumerate(src.splitlines(), 1):
+            if re.match(r'^#\s*mypy:\s*skip-file\s*$', line):
+                self.skipTest('mypy disabled for this file')
+            if re.match(r'^#\s*TODO:\s*mypy-unclean\s*$', line):
+                is_unclean = True
+                unclean_lineno = lineno
+
+        be_pedantic = self.__pedantic or not is_unclean
+
         mypy_ini_path = os.path.join(os.path.dirname(__file__), 'mypy.ini')
         try:
             os.environ['MYPYPATH'] = SITE_PACKAGES_DIR
@@ -242,11 +256,22 @@ class BuiltinPyTests(unittest.TestCase):
         if stderr:
             sys.stderr.write(stderr)
 
-        if rc != 0:
-            for msg in stdout.splitlines(False):
-                self.__mypy_collector.append(msg)
+        messages = list(stdout.splitlines(False))
 
-        self.assertEqual(rc, 0, "mypy reported issues.")
+        if is_unclean and len(messages) < 3:
+            self.__mypy_collector.extend(messages)
+            msg = "\nFile \"%s\", line %d, is marked as mypy-unclean" % (src_path, unclean_lineno)
+            if not messages:
+                msg += ", but no issues were reported."
+            elif len(messages) == 1:
+                msg += ", but only one issue was reported."
+            else:
+                msg += ", but only %d issues were reported." % len(messages)
+            self.fail(msg)
+
+        if be_pedantic and messages:
+            self.__mypy_collector.extend(messages)
+            self.fail("mypy reported issues.")
 
 
 class DisplayManager(object):
