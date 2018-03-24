@@ -103,7 +103,7 @@ class MypyMessageCollector(object):
 
         sys.stderr.write(
             "\n==== mypy report =====================================================\n\n")
-        fmt = '{path}:{line}: [{type}] {msg}\n'
+        fmt = '{path}:{line}:{column}: [{type}] {msg}\n'
         for msg in self.messages:
             sys.stderr.write(fmt.format(**msg))
         sys.stderr.write("\n\n")
@@ -260,14 +260,15 @@ class BuiltinPyTests(unittest.TestCase):
 
         messages = []
         for line in stdout.splitlines(False):
-            m = re.match(r'([^:]+):(\d+): ([a-z]+): (.*)$', line)
+            m = re.match(r'([^:]+):(\d+):(\d+): ([a-z]+): (.*)$', line)
             if m is None:
                 self.fail("Unrecognized mypy output: %s" % line)
             msg = dict(
                 path=m.group(1),
                 line=m.group(2),
-                type=m.group(3),
-                msg=m.group(4),
+                column=m.group(3),
+                type=m.group(4),
+                msg=m.group(5),
             )
             if msg['type'] == 'note':
                 continue
