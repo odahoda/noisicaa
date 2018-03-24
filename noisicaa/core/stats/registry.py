@@ -23,6 +23,7 @@
 import logging
 import threading
 import time
+from typing import Dict  # pylint: disable=unused-import
 
 import psutil
 
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 class Registry(object):
     def __init__(self):
         self.__lock = threading.RLock()
-        self.__stats = {}
+        self.__stats = {}  # type: Dict[str, stats.BaseStat]
 
     def register(self, stat_cls, name):
         with self.__lock:

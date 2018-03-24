@@ -23,6 +23,7 @@
 import logging
 import uuid
 import threading
+from typing import Dict, Callable, List  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +68,8 @@ class CallbackRegistry(object):
         """
 
         self._register_cb = register_cb
-        self._listeners = {}
-        self._target_map = {}
+        self._listeners = {}  # type: Dict[str, Callable]
+        self._target_map = {}  # type: Dict[str, List[str]]
         self._lock = threading.RLock()
 
     def clear(self):

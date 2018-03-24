@@ -30,6 +30,7 @@ import time
 import struct
 import queue
 import threading
+from typing import Dict, Set, IO  # pylint: disable=unused-import
 
 import portalocker
 
@@ -77,7 +78,7 @@ class ProjectStorage(object):
 
         self.next_log_number = None
         self.log_file_number = 0
-        self.log_fp_map = {}
+        self.log_fp_map = {}  # type: Dict[int, IO]
         self.log_index_formatter = struct.Struct('>QQ')
         self.log_index = None
 
@@ -92,10 +93,10 @@ class ProjectStorage(object):
         self.checkpoint_index = None
 
         self.cache_lock = threading.RLock()
-        self.log_entry_cache = collections.OrderedDict()
+        self.log_entry_cache = collections.OrderedDict()  # type: collections.OrderedDict
         self.log_entry_cache_size = 20
 
-        self.write_queue = queue.Queue()
+        self.write_queue = queue.Queue()  # type: queue.Queue
         self.writer_thread = threading.Thread(target=self._writer_main)
         self.written_log_number = None
         self.written_sequence_number = None
@@ -389,7 +390,7 @@ class ProjectStorage(object):
         with self.cache_lock:
             entries_to_drop = len(self.log_entry_cache) - cache_size
             if entries_to_drop > 0:
-                dropped_entries = set()
+                dropped_entries = set()  # type: Set[int]
                 for ln in self.log_entry_cache.keys():
                     if len(dropped_entries) >= entries_to_drop:
                         break

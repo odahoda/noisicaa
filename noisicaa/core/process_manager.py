@@ -40,6 +40,7 @@ import tempfile
 import threading
 import time
 import traceback
+from typing import Dict, List, Set  # pylint: disable=unused-import
 
 import eventfd
 
@@ -255,9 +256,9 @@ class ChildCollector(object):
         self.__stat_poll_count = None
 
         self.__lock = threading.Lock()
-        self.__connections = {}
-        self.__stop = None
-        self.__thread = None
+        self.__connections = {}  # type: Dict[int, ChildConnection]
+        self.__stop = None  # type: threading.Event
+        self.__thread = None  # type: threading.Thread
 
     def setup(self):
         self.__stat_poll_duration = stats.registry.register(
@@ -359,7 +360,7 @@ class ChildCollector(object):
 class ProcessManager(object):
     def __init__(self, event_loop, collect_stats=True, tmp_dir=None):
         self._event_loop = event_loop
-        self._processes = set()
+        self._processes = set()  # type: Set[ProcessHandle]
         self._sigchld_received = asyncio.Event(loop=event_loop)
 
         self._tmp_dir = tmp_dir
@@ -435,7 +436,7 @@ class ProcessManager(object):
                     proc.kill(sig)
 
             deadline = time.time() + timeout
-            processes_left = set()
+            processes_left = set()  # type: Set[ProcessHandle]
             while time.time() < deadline:
                 self.collect_dead_children()
                 if not self._processes:
@@ -543,11 +544,10 @@ class ProcessManager(object):
                     kwargs=kwargs,
                 )
 
-                cmdline = [
-                    sys.executable,
-                    '-m', 'noisicaa.core.process_manager',
-                    base64.b64encode(pickle.dumps(args, protocol=-1)),
-                ]
+                cmdline = []  # type: List[str]
+                cmdline += [sys.executable]
+                cmdline += ['-m', 'noisicaa.core.process_manager']
+                cmdline += [base64.b64encode(pickle.dumps(args, protocol=-1)).decode('ascii')]
 
                 env = dict(**os.environ)
                 env['PYTHONPATH'] = ':'.join(p for p in sys.path if p)
@@ -691,7 +691,8 @@ class ProcessBase(object):
         self.manager = manager
         self.event_loop = event_loop
         self.tmp_dir = tmp_dir
-        self.server = None
+
+        self.server = None  # type: ipc.Server
 
         self.__shutting_down = None
         self.__shutdown_complete = None
@@ -732,7 +733,7 @@ class EventLoopPolicy(asyncio.DefaultEventLoopPolicy):  # type: ignore
         raise RuntimeError("set_event_loop() is not allowed.")
 
 
-class SubprocessMixin(object):
+class SubprocessMixin(ProcessBase):
     def __init__(self, *, manager_address, **kwargs):
         super().__init__(manager=None, event_loop=None, **kwargs)
 
@@ -773,7 +774,8 @@ class SubprocessMixin(object):
         self.event_loop = self.create_event_loop()
         self.event_loop.set_exception_handler(self.error_handler)
 
-        child_watcher = asyncio.SafeChildWatcher()
+        # mypy doesn't know about asyncio.SafeChildWatcher.
+        child_watcher = asyncio.SafeChildWatcher()  # type: ignore
         child_watcher.attach_loop(self.event_loop)
         event_loop_policy.set_child_watcher(child_watcher)
 
@@ -842,9 +844,9 @@ class ProcessHandle(object):
     def __init__(self, event_loop):
         self.event_loop = event_loop
         self.state = ProcessState.NOT_STARTED
-        self.logger = None
-        self.address = None
-        self.returncode = None
+        self.logger = None  # type: logging.Logger
+        self.address = None  # type: str
+        self.returncode = None  # type: int
 
     @property
     def id(self):
@@ -870,10 +872,10 @@ class InlineProcessHandle(ProcessHandle):
     def __init__(self, event_loop):
         super().__init__(event_loop)
 
-        self.process = None
-        self.task = None
-        self.cleanup_task = None
-        self.manager_stub = None
+        self.process = None  # type: ProcessBase
+        self.task = None  # type: asyncio.Task
+        self.cleanup_task = None  # type: asyncio.Task
+        self.manager_stub = None  # type: ManagerStub
 
     @property
     def id(self):
@@ -936,7 +938,7 @@ class SubprocessHandle(ProcessHandle):
     def __init__(self, event_loop):
         super().__init__(event_loop)
 
-        self.pid = None
+        self.pid = None  # type: int
         self.signal = None
         self.resinfo = None
         self.term_event = asyncio.Event(loop=event_loop)
@@ -946,7 +948,7 @@ class SubprocessHandle(ProcessHandle):
         self.stderr_protocol = None
         self.logger_protocol = None
 
-        self._stderr_empty_lines = []
+        self._stderr_empty_lines = []  # type: List[str]
 
     @property
     def id(self):

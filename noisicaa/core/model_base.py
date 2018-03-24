@@ -23,6 +23,7 @@
 # TODO: pylint-unclean
 
 import logging
+from typing import Dict, List, Tuple, Any  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,7 @@ class SimpleObjectList(object):
     def __init__(self, prop, instance):
         self._prop = prop
         self._instance = instance
-        self._objs = []
+        self._objs = []  # type: List[Any]
 
     def _check_type(self, value):
         if not isinstance(value, self._prop.type):
@@ -229,7 +230,7 @@ class ObjectList(object):
     def __init__(self, prop, instance):
         self._prop = prop
         self._instance = instance
-        self._objs = []
+        self._objs = []  # type: List['ObjectBase']
 
     def __len__(self):
         return len(self._objs)
@@ -291,7 +292,7 @@ class ObjectListProperty(ObjectPropertyBase):
 class DeferredReference(object):
     def __init__(self, obj_id):
         self._obj_id = obj_id
-        self._props = []
+        self._props = []  # type: Tuple[ObjectBase, ObjectReferenceProperty]
 
     def add_reference(self, obj, prop):
         assert isinstance(prop, ObjectReferenceProperty)
@@ -350,7 +351,7 @@ class ObjectBase(object, metaclass=ObjectMeta):
 
     def __init__(self):
         super().__init__()
-        self.state = {}
+        self.state = {}  # type: Dict[str, Any]
         self._is_root = False
         self.parent = None
         self.__parent_container = None

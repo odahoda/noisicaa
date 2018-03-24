@@ -32,6 +32,7 @@ import pickle
 import pprint
 import time
 import traceback
+from typing import Dict, Callable  # pylint: disable=unused-import
 import uuid
 
 from . import stats
@@ -152,8 +153,8 @@ class Server(object):
         self._next_connection_id = 0
         self._server = None
 
-        self._command_handlers = {}
-        self._command_log_levels = {}
+        self._command_handlers = {}  # type: Dict[str, Callable]
+        self._command_log_levels = {}  # type: Dict[str, int]
 
         self.stat_bytes_sent = None
         self.stat_bytes_received = None
@@ -269,7 +270,7 @@ class ClientProtocol(asyncio.Protocol):
         self.buf = bytearray()
         self.length = None
         self.response = None
-        self.response_queue = asyncio.Queue(loop=event_loop)
+        self.response_queue = asyncio.Queue(loop=event_loop)  # type: asyncio.Queue
 
     def connection_lost(self, exc):
         self.closed_event.set()

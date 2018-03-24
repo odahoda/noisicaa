@@ -52,7 +52,7 @@ class ValueSet(collections.UserDict):
 class Timeseries(collections.UserList):
     def rate(self):
         result = Timeseries()
-        prev_value = None
+        prev_value = None  # type: Value
         for value in reversed(self):
             if prev_value is not None:
                 result.insert(
