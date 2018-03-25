@@ -384,6 +384,7 @@ def main(argv):
             fp.write(textwrap.dedent('''\
                 set print thread-events off
                 set confirm off
+                handle SIGPIPE nostop noprint pass
 
                 python
                 import gdb
