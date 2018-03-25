@@ -50,4 +50,5 @@
 
 <http://noisicaa.odahoda.de/plugins/test-ui-gtk2#ui>
 	a ui:GtkUI ;
-	lv2:requiredFeature urid:map .
+	lv2:requiredFeature urid:map ;
+        lv2:requiredFeature <http://lv2plug.in/ns/ext/instance-access> .

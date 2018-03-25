@@ -25,6 +25,7 @@
 #include "lv2/lv2plug.in/ns/ext/options/options.h"
 #include "lv2/lv2plug.in/ns/ext/buf-size/buf-size.h"
 #include "lv2/lv2plug.in/ns/ext/worker/worker.h"
+#include "lv2/lv2plug.in/ns/ext/instance-access/instance-access.h"
 #include "lv2/lv2plug.in/ns/extensions/ui/ui.h"
 #include "noisicaa/core/logging.h"
 #include "noisicaa/host_system/host_system.h"
@@ -160,6 +161,12 @@ public:
     : LV2FeatureWrapper(LV2_UI__parent, parent_widget) {}
 };
 
+class InstanceAccess : public LV2FeatureWrapper {
+public:
+  InstanceAccess(void* instance)
+    : LV2FeatureWrapper(LV2_INSTANCE_ACCESS_URI, instance) {}
+};
+
 class MakeResident : public LV2FeatureWrapper {
 public:
   MakeResident()
@@ -261,6 +268,7 @@ bool LV2PluginFeatureManager::supports_feature(const string& uri) {
 const char* LV2UIFeatureManager::_supported_features[] = {
   LV2_UI__parent,
   LV2_UI__makeResident,
+  LV2_INSTANCE_ACCESS_URI,
 
   // These features are implicitly added by suil:
   LV2_UI__portMap,
@@ -271,10 +279,11 @@ const char* LV2UIFeatureManager::_supported_features[] = {
   nullptr
 };
 
-LV2UIFeatureManager::LV2UIFeatureManager(HostSystem* host_system, void* parent_widget)
+LV2UIFeatureManager::LV2UIFeatureManager(HostSystem* host_system, void* parent_widget, void* instance)
   : LV2FeatureManager(host_system) {
   _features.emplace_back(new lv2_feature_wrapper::ParentWidget(parent_widget));
   _features.emplace_back(new lv2_feature_wrapper::MakeResident());
+  _features.emplace_back(new lv2_feature_wrapper::InstanceAccess(instance));
 }
 
 bool LV2UIFeatureManager::supports_feature(const string& uri) {

@@ -27,22 +27,13 @@
 #include "lv2/lv2plug.in/ns/ext/atom/util.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
 #include "lv2/lv2plug.in/ns/ext/midi/midi.h"
-
-#define PLUGIN_URI "http://noisicaa.odahoda.de/plugins/test-ui-gtk2"
+#include "ui-gtk2.h"
 
 typedef enum {
   AUDIO_INPUT  = 0,
   AUDIO_OUTPUT = 1,
   CONTROL = 2,
 } PortIndex;
-
-typedef struct {
-  const float* audio_in;
-  float*       audio_out;
-  const float* control;
-
-  LV2_URID_Map*  map;
-} Plugin;
 
 static LV2_Handle instantiate(
     const LV2_Descriptor* descriptor,
@@ -61,6 +52,8 @@ static LV2_Handle instantiate(
     free(self);
     return NULL;
   }
+
+  self->magic = 0x532643f1;
 
   return (LV2_Handle)self;
 }

@@ -71,7 +71,7 @@ private:
 
 class LV2UIFeatureManager : public LV2FeatureManager {
 public:
-  LV2UIFeatureManager(HostSystem* host_system, void* parent_widget);
+  LV2UIFeatureManager(HostSystem* host_system, void* parent_widget, void* instance);
 
   static bool supports_feature(const string& uri);
 

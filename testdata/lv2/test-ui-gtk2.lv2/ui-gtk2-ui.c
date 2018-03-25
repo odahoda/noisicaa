@@ -27,9 +27,11 @@
 
 #include <gtk/gtk.h>
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
+#include "lv2/lv2plug.in/ns/ext/instance-access/instance-access.h"
 #include "lv2/lv2plug.in/ns/extensions/ui/ui.h"
 
-#define PLUGIN_URI "http://noisicaa.odahoda.de/plugins/test-ui-gtk2"
+#include "ui-gtk2.h"
+
 #define UI_URI PLUGIN_URI "#ui"
 
 typedef struct {
@@ -74,14 +76,30 @@ static LV2UI_Handle instantiate(
   ui->map = NULL;
   *widget = NULL;
 
+  Plugin* instance = NULL;
+
   for (int i = 0; features[i]; ++i) {
     if (!strcmp(features[i]->URI, LV2_URID_URI "#map")) {
       ui->map = (LV2_URID_Map*)features[i]->data;
+    } else if (!strcmp(features[i]->URI, LV2_INSTANCE_ACCESS_URI)) {
+      instance = (Plugin*)features[i]->data;
     }
   }
 
   if (!ui->map) {
     fprintf(stderr, "map feature missing\n");
+    free(ui);
+    return NULL;
+  }
+
+  if (!instance) {
+    fprintf(stderr, "instance-access feature missing\n");
+    free(ui);
+    return NULL;
+  }
+
+  if (instance->magic != 0x532643f1) {
+    fprintf(stderr, "invalid instance pointer\n");
     free(ui);
     return NULL;
   }

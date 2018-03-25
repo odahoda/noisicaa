@@ -38,22 +38,3 @@ target_link_libraries(${urid_mapper.so} PRIVATE noisicaa-lv2)
 
 add_cython_module(feature_manager CXX)
 target_link_libraries(${feature_manager.so} PRIVATE noisicaa-lv2)
-
-set(LIB_UI_HOST_SRCS
-  ui_host.cpp
-)
-
-add_library(noisicaa-lv2-ui-host SHARED ${LIB_UI_HOST_SRCS})
-target_link_libraries(noisicaa-lv2-ui-host PRIVATE noisicaa-core)
-target_link_libraries(noisicaa-lv2-ui-host PRIVATE noisicaa-lv2)
-target_link_libraries(noisicaa-lv2-ui-host PRIVATE noisicaa-node_db)
-target_link_libraries(noisicaa-lv2-ui-host PRIVATE noisicaa-host_system)
-target_include_directories(noisicaa-lv2-ui-host PUBLIC ${LIBSUIL_INCLUDE_DIRS})
-target_link_libraries(noisicaa-lv2-ui-host PRIVATE ${LIBSUIL_LIBRARIES})
-target_include_directories(noisicaa-lv2-ui-host PUBLIC ${LIBLILV_INCLUDE_DIRS})
-target_link_libraries(noisicaa-lv2-ui-host PRIVATE ${LIBLILV_LIBRARIES})
-target_include_directories(noisicaa-lv2-ui-host PRIVATE ${GTK2_INCLUDE_DIRS})
-target_link_libraries(noisicaa-lv2-ui-host PRIVATE ${GTK2_LIBRARIES})
-
-add_cython_module(ui_host CXX)
-target_link_libraries(${ui_host.so} PRIVATE noisicaa-lv2-ui-host)

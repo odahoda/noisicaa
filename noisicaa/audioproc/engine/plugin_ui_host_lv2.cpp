@@ -29,32 +29,35 @@
 #include "noisicaa/host_system/host_system.h"
 #include "noisicaa/lv2/urid_mapper.h"
 #include "noisicaa/lv2/feature_manager.h"
-#include "noisicaa/lv2/ui_host.h"
+#include "noisicaa/audioproc/engine/plugin_host_lv2.h"
+#include "noisicaa/audioproc/engine/plugin_ui_host_lv2.h"
+
 
 namespace noisicaa {
 
-LV2UIHost::LV2UIHost(
-    const string& desc,
+PluginUIHostLV2::PluginUIHostLV2(
+    PluginHostLV2* plugin,
     HostSystem* host_system,
     void* handle,
     void (*control_value_change_cb)(void*, uint32_t, float))
-  : _logger(LoggerRegistry::get_logger("noisicaa.lv2.ui_host")),
-    _host_system(host_system),
-    _handle(handle),
-    _control_value_change_cb(control_value_change_cb) {
-  assert(_desc.ParseFromString(desc));
-  assert(_desc.has_plugin());
-  assert(_desc.plugin().type() == pb::PluginDescription::LV2);
-  assert(_desc.has_ui());
-  assert(_desc.has_lv2());
-  assert(_desc.lv2().uis_size() > 0);
+  : PluginUIHost(
+      plugin, host_system,
+      handle, control_value_change_cb,
+      "noisicaa.audioproc.engine.plugin_ui_host_lv2"),
+    _plugin_handle(plugin->handle()) {
+  const pb::NodeDescription& desc = plugin->description();
+  assert(desc.has_plugin());
+  assert(desc.plugin().type() == pb::PluginDescription::LV2);
+  assert(desc.has_ui());
+  assert(desc.has_lv2());
+  assert(desc.lv2().uis_size() > 0);
 }
 
-LV2UIHost::~LV2UIHost() {}
+bool PluginUIHostLV2::_initialized = false;
 
-bool LV2UIHost::_initialized = false;
+Status PluginUIHostLV2::setup() {
+  RETURN_IF_ERROR(PluginUIHost::setup());
 
-Status LV2UIHost::setup() {
   if (!_initialized) {
     _logger->info("Initialize suil...");
     suil_init(nullptr, nullptr, SUIL_ARG_NONE);
@@ -83,7 +86,7 @@ Status LV2UIHost::setup() {
 
   _logger->info("Creating suil instance...");
 
-  const pb::LV2Description& plugin_desc = _desc.lv2();
+  const pb::LV2Description& plugin_desc = _plugin->description().lv2();
   int ui_idx;
   for (ui_idx = 0 ; ui_idx < plugin_desc.uis_size() ; ++ui_idx) {
     if (plugin_desc.uis(ui_idx).uri() == plugin_desc.ui_uri()) {
@@ -93,7 +96,7 @@ Status LV2UIHost::setup() {
   assert(ui_idx < plugin_desc.uis_size());
   const pb::LV2Description::UI& ui_desc = plugin_desc.uis(ui_idx);
 
-  _feature_manager.reset(new LV2UIFeatureManager(_host_system, _plug));
+  _feature_manager.reset(new LV2UIFeatureManager(_host_system, _plug, _plugin_handle));
 
   _instance = suil_instance_new(
       _host,
@@ -126,7 +129,7 @@ Status LV2UIHost::setup() {
   return Status::Ok();
 }
 
-void LV2UIHost::cleanup() {
+void PluginUIHostLV2::cleanup() {
   if (_instance != nullptr) {
     _logger->info("Cleaning up suil instance...");
     suil_instance_free(_instance);
@@ -149,15 +152,17 @@ void LV2UIHost::cleanup() {
     suil_host_free(_host);
     _host = nullptr;
   }
+
+  PluginUIHost::cleanup();
 }
 
-void LV2UIHost::port_write_func(
+void PluginUIHostLV2::port_write_func(
     uint32_t port_index, uint32_t buffer_size, uint32_t protocol, void const *buffer) {
   if (protocol == 0 || protocol == _urid_floatProtocol) {
     assert(buffer_size == sizeof(float));
     assert(buffer != nullptr);
     float value = *((float*)buffer);
-    _control_value_change_cb(_handle, port_index, value);
+    control_value_change(port_index, value);
   } else {
     _logger->info("port_write(%d, %d, %d, %p)", port_index, buffer_size, protocol, buffer);
 
@@ -170,23 +175,24 @@ void LV2UIHost::port_write_func(
   }
 }
 
-uint32_t LV2UIHost::port_index_func(const char *port_symbol) {
+uint32_t PluginUIHostLV2::port_index_func(const char *port_symbol) {
   _logger->info("port_index(%s)", port_symbol);
   return 0;
 }
 
-uint32_t LV2UIHost::port_subscribe_func(
+uint32_t PluginUIHostLV2::port_subscribe_func(
     uint32_t port_index, uint32_t protocol, const LV2_Feature *const *features) {
   _logger->info("port_subscribe(%d, %d, %p)", port_index, protocol, features);
   return 0;
 }
 
-uint32_t LV2UIHost::port_unsubscribe_func(
+uint32_t PluginUIHostLV2::port_unsubscribe_func(
     uint32_t port_index, uint32_t protocol, const LV2_Feature *const *features) {
   _logger->info("port_unsubscribe(%d, %d, %p)", port_index, protocol, features);
+  return 0;
 }
 
-void LV2UIHost::touch_func(uint32_t port_index, bool grabbed) {
+void PluginUIHostLV2::touch_func(uint32_t port_index, bool grabbed) {
   _logger->info("touch(%d, %d)", port_index, grabbed);
 }
 

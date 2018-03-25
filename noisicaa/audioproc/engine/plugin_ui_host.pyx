@@ -19,54 +19,48 @@
 # @end:license
 
 import logging
-import traceback
-
-from cpython.ref cimport PyObject
 
 from noisicaa.core.status cimport check
 
 logger = logging.getLogger(__name__)
 
 
-cdef class PyLV2UIHost(object):
-    def __init__(self, desc, host_system, control_value_change_cb):
-        self.__desc = desc
-        self.__host_system = host_system
-        self.__control_value_change_cb = control_value_change_cb
+cdef class PyPluginUIHost(object):
 
-        self.__ptr.reset(new LV2UIHost(
-            self.__desc.SerializeToString(),
-            self.__host_system.get(),
-            <PyObject*>self, self.control_value_change))
-        self.__host = self.__ptr.get()
+    cdef int init(self, PluginUIHost* plugin_ui_host) except -1:
+        self.__plugin_ui_host_ptr.reset(plugin_ui_host)
+        self.__plugin_ui_host = plugin_ui_host
 
-    cdef LV2UIHost* get(self):
-        return self.__host
+    cdef PluginUIHost* get(self) nogil:
+        return self.__plugin_ui_host
 
-    cdef LV2UIHost* release(self):
-        return self.__ptr.release()
+    cdef PluginUIHost* release(self) nogil:
+        return self.__plugin_ui_host_ptr.release()
+
+    def setup(self):
+        with nogil:
+            check(self.__plugin_ui_host.setup())
+
+    def cleanup(self):
+        # Only do cleanup, when we still own the processor.
+        cdef PluginUIHost* plugin_ui_host = self.__plugin_ui_host_ptr.get()
+        if plugin_ui_host != NULL:
+            with nogil:
+                plugin_ui_host.cleanup()
 
     @staticmethod
-    cdef void control_value_change(void* handle, uint32_t port_index, float value) with gil:
-        cdef PyLV2UIHost self = <object>handle
+    cdef void __control_value_change(void* handle, uint32_t port_index, float value) with gil:
+        cdef PyPluginUIHost self = <object>handle
         try:
             self.__control_value_change_cb(port_index, value)
 
         except Exception as exc:
             logger.exception("Callback failed with an exception: %s", exc)
 
-    def setup(self):
-        with nogil:
-            check(self.__host.setup())
-
-    def cleanup(self):
-        with nogil:
-            self.__host.cleanup()
-
     @property
     def wid(self):
-        return self.__host.wid()
+        return self.__plugin_ui_host.wid()
 
     @property
     def size(self):
-        return (self.__host.width(), self.__host.height())
+        return (self.__plugin_ui_host.width(), self.__plugin_ui_host.height())

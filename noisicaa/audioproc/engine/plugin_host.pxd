@@ -26,6 +26,7 @@ from libcpp.memory cimport unique_ptr
 from noisicaa.core.status cimport Status, StatusOr
 from noisicaa.host_system.host_system cimport HostSystem
 from noisicaa.audioproc.engine.buffers cimport BufferPtr
+from .plugin_ui_host cimport PluginUIHost
 
 cdef extern from "limits.h" nogil:
     cpdef enum:
@@ -58,6 +59,9 @@ cdef extern from "noisicaa/audioproc/engine/plugin_host.h" namespace "noisicaa" 
 
         # uint64_t id() const
         const string& node_id() const
+        StatusOr[PluginUIHost*] create_ui(
+            void* handle,
+            void (*control_value_change_cb)(void*, uint32_t, float))
 
         Status setup()
         void cleanup()

@@ -22,42 +22,41 @@
  * @end:license
  */
 
-#ifndef _NOISICAA_LV2_UI_HOST_H
-#define _NOISICAA_LV2_UI_HOST_H
+#ifndef _NOISICAA_AUDIOPROC_ENGINE_PLUGIN_UI_HOST_LV2_H
+#define _NOISICAA_AUDIOPROC_ENGINE_PLUGIN_UI_HOST_LV2_H
 
 #include <memory>
-#include <thread>
-#include <condition_variable>
-#include <mutex>
+#include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 #include "suil/suil.h"
 #include "noisicaa/core/status.h"
-#include "noisicaa/node_db/node_description.pb.h"
+#include "noisicaa/audioproc/engine/plugin_ui_host.h"
 
 struct _GtkWidget;
 typedef _GtkWidget GtkWidget;
 
 namespace noisicaa {
 
-class LV2UIFeatureManager;
-class HostSystem;
-class URIDMapper;
-class Logger;
+using namespace std;
 
-class LV2UIHost {
+class HostSystem;
+class PluginHostLV2;
+class LV2UIFeatureManager;
+class URIDMapper;
+
+class PluginUIHostLV2 : public PluginUIHost {
 public:
-  LV2UIHost(
-      const string& desc,
+  PluginUIHostLV2(
+      PluginHostLV2* plugin,
       HostSystem* host_system,
       void* handle,
       void (*control_value_change_cb)(void*, uint32_t, float));
-  ~LV2UIHost();
 
-  Status setup();
-  void cleanup();
+  Status setup() override;
+  void cleanup() override;
 
-  unsigned long int wid() const { return _wid; }
-  int width() const { return _width; }
-  int height() const { return _height; }
+  unsigned long int wid() const override { return _wid; }
+  int width() const override { return _width; }
+  int height() const override { return _height; }
 
 private:
   void port_write_func(
@@ -65,13 +64,13 @@ private:
   static void port_write_proxy(
       SuilController controller, uint32_t port_index, uint32_t buffer_size, uint32_t protocol,
       void const *buffer) {
-    LV2UIHost* self = (LV2UIHost*)controller;
+    PluginUIHostLV2* self = (PluginUIHostLV2*)controller;
     self->port_write_func(port_index, buffer_size, protocol, buffer);
   }
 
   uint32_t port_index_func(const char *port_symbol);
   static uint32_t port_index_proxy(SuilController controller, const char *port_symbol) {
-    LV2UIHost* self = (LV2UIHost*)controller;
+    PluginUIHostLV2* self = (PluginUIHostLV2*)controller;
     return self->port_index_func(port_symbol);
   }
 
@@ -80,7 +79,7 @@ private:
   static uint32_t port_subscribe_proxy(
       SuilController controller, uint32_t port_index, uint32_t protocol,
       const LV2_Feature *const *features) {
-    LV2UIHost* self = (LV2UIHost*)controller;
+    PluginUIHostLV2* self = (PluginUIHostLV2*)controller;
     return self->port_subscribe_func(port_index, protocol, features);
   }
 
@@ -89,25 +88,21 @@ private:
   static uint32_t port_unsubscribe_proxy(
       SuilController controller, uint32_t port_index, uint32_t protocol,
       const LV2_Feature *const *features) {
-    LV2UIHost* self = (LV2UIHost*)controller;
+    PluginUIHostLV2* self = (PluginUIHostLV2*)controller;
     return self->port_unsubscribe_func(port_index, protocol, features);
   }
 
   void touch_func(uint32_t port_index, bool grabbed);
   static void touch_proxy(SuilController controller, uint32_t port_index, bool grabbed) {
-    LV2UIHost* self = (LV2UIHost*)controller;
+    PluginUIHostLV2* self = (PluginUIHostLV2*)controller;
     self->touch_func(port_index, grabbed);
   }
 
   static bool _initialized;
 
-  Logger* _logger;
-  pb::NodeDescription _desc;
-  HostSystem* _host_system;
   LV2_URID _urid_floatProtocol;
 
-  void* _handle;
-  void (*_control_value_change_cb)(void*, uint32_t, float);
+  LV2_Handle _plugin_handle = nullptr;
 
   unsigned long int _wid = 0;
   int _width = -1;

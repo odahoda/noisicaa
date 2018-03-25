@@ -57,6 +57,8 @@ set(LIB_SRCS
   plugin_host.cpp
   plugin_host_lv2.cpp
   plugin_host_ladspa.cpp
+  plugin_ui_host.cpp
+  plugin_ui_host_lv2.cpp
   processor.cpp
   processor.pb.cc
   processor_null.cpp
@@ -114,6 +116,10 @@ target_include_directories(noisicaa-audioproc-engine PRIVATE ${LIBPROTOBUF_INCLU
 target_link_libraries(noisicaa-audioproc-engine PRIVATE ${LIBPROTOBUF_LIBRARIES})
 target_include_directories(noisicaa-audioproc-engine PRIVATE ${LIBPORTAUDIO_INCLUDE_DIRS})
 target_link_libraries(noisicaa-audioproc-engine PRIVATE ${LIBPORTAUDIO_LIBRARIES})
+target_include_directories(noisicaa-audioproc-engine PUBLIC ${LIBSUIL_INCLUDE_DIRS})
+target_link_libraries(noisicaa-audioproc-engine PRIVATE ${LIBSUIL_LIBRARIES})
+target_include_directories(noisicaa-audioproc-engine PRIVATE ${GTK2_INCLUDE_DIRS})
+target_link_libraries(noisicaa-audioproc-engine PRIVATE ${GTK2_LIBRARIES})
 
 add_cython_module(spec CXX)
 target_link_libraries(${spec.so} PRIVATE noisicaa-audioproc-engine)
@@ -144,6 +150,9 @@ target_link_libraries(${message_queue.so} PRIVATE noisicaa-audioproc-engine)
 
 add_cython_module(plugin_host CXX)
 target_link_libraries(${plugin_host.so} PRIVATE noisicaa-audioproc-engine)
+
+add_cython_module(plugin_ui_host CXX)
+target_link_libraries(${plugin_ui_host.so} PRIVATE noisicaa-audioproc-engine)
 
 add_cython_module(realm CXX)
 target_link_libraries(${realm.so} PRIVATE noisicaa-audioproc-engine)

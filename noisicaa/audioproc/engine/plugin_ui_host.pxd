@@ -20,34 +20,26 @@
 
 from libc.stdint cimport uint32_t
 from libcpp.memory cimport unique_ptr
-from libcpp.string cimport string
-
 from noisicaa.core.status cimport Status
-from noisicaa.host_system cimport host_system
-from noisicaa.lv2 cimport urid_mapper
 
 
-cdef extern from "noisicaa/lv2/ui_host.h" namespace "noisicaa" nogil:
-    cppclass LV2UIHost:
-        LV2UIHost(const string&,
-                  host_system.HostSystem* host_system,
-                  void* handle,
-                  void (*control_value_change_cb)(void*, uint32_t, float))
+cdef extern from "noisicaa/audioproc/engine/plugin_ui_host.h" namespace "noisicaa" nogil:
+    cppclass PluginUIHost:
         Status setup()
         void cleanup()
+
         unsigned long int wid() const
         int width() const
         int height() const
 
 
-cdef class PyLV2UIHost(object):
-    cdef object __desc
-    cdef host_system.PyHostSystem __host_system
+cdef class PyPluginUIHost(object):
     cdef object __control_value_change_cb
-    cdef unique_ptr[LV2UIHost] __ptr
-    cdef LV2UIHost* __host
+    cdef unique_ptr[PluginUIHost] __plugin_ui_host_ptr
+    cdef PluginUIHost* __plugin_ui_host
 
-    cdef LV2UIHost* get(self)
-    cdef LV2UIHost* release(self)
+    cdef int init(self, PluginUIHost* plugin_ui_host) except -1
+    cdef PluginUIHost* get(self) nogil
+    cdef PluginUIHost* release(self) nogil
     @staticmethod
-    cdef void control_value_change(void* handle, uint32_t port_index, float value) with gil
+    cdef void __control_value_change(void* handle, uint32_t port_index, float value) with gil

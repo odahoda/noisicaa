@@ -67,6 +67,11 @@ StatusOr<PluginHost*> PluginHost::create(const string& spec_serialized, HostSyst
 
 }
 
+StatusOr<PluginUIHost*> PluginHost::create_ui(
+    void* handle, void (*control_value_change_cb)(void*, uint32_t, float)) {
+  return ERROR_STATUS("Plugin does not support UIs.");
+}
+
 Status PluginHost::setup() {
   _logger->info("Setting up plugin host %s...", _spec.node_id().c_str());
 

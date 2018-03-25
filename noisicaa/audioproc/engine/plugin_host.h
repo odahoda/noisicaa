@@ -39,6 +39,7 @@ using namespace std;
 
 class Logger;
 class HostSystem;
+class PluginUIHost;
 
 struct PluginMemoryMapping {
   char shmem_path[PATH_MAX];
@@ -66,6 +67,11 @@ public:
   static StatusOr<PluginHost*> create(const string& spec_serialized, HostSystem* host_system);
 
   const string& node_id() const { return _spec.node_id(); }
+  const pb::NodeDescription& description() const { return _spec.node_description(); }
+
+  virtual StatusOr<PluginUIHost*> create_ui(
+      void* handle,
+      void (*control_value_change_cb)(void*, uint32_t, float));
 
   virtual Status setup();
   virtual void cleanup();

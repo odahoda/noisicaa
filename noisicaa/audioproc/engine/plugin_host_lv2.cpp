@@ -24,6 +24,7 @@
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/lv2/feature_manager.h"
 #include "noisicaa/host_system/host_system.h"
+#include "noisicaa/audioproc/engine/plugin_ui_host_lv2.h"
 #include "noisicaa/audioproc/engine/plugin_host_lv2.h"
 
 namespace noisicaa {
@@ -33,6 +34,12 @@ PluginHostLV2::PluginHostLV2(const pb::PluginInstanceSpec& spec, HostSystem* hos
 }
 
 PluginHostLV2::~PluginHostLV2() {}
+
+StatusOr<PluginUIHost*> PluginHostLV2::create_ui(
+    void* handle,
+    void (*control_value_change_cb)(void*, uint32_t, float)) {
+  return new PluginUIHostLV2(this, _host_system, handle, control_value_change_cb);
+}
 
 Status PluginHostLV2::setup() {
   RETURN_IF_ERROR(PluginHost::setup());

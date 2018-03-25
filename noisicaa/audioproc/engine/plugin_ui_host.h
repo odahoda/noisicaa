@@ -22,41 +22,51 @@
  * @end:license
  */
 
-#ifndef _NOISICAA_AUDIOPROC_ENGINE_PLUGIN_HOST_LV2_H
-#define _NOISICAA_AUDIOPROC_ENGINE_PLUGIN_HOST_LV2_H
+#ifndef _NOISICAA_AUDIOPROC_ENGINE_PLUGIN_UI_HOST_H
+#define _NOISICAA_AUDIOPROC_ENGINE_PLUGIN_UI_HOST_H
 
-#include <memory>
-#include "lilv/lilv.h"
 #include "noisicaa/core/status.h"
-#include "noisicaa/audioproc/engine/plugin_host.h"
+#include "noisicaa/audioproc/engine/buffers.h"
+#include "noisicaa/audioproc/engine/plugin_host.pb.h"
 
 namespace noisicaa {
 
 using namespace std;
 
-class LV2PluginFeatureManager;
+class Logger;
+class HostSystem;
+class PluginHost;
 
-class PluginHostLV2 : public PluginHost {
+class PluginUIHost {
 public:
-  PluginHostLV2(const pb::PluginInstanceSpec& spec, HostSystem* host_system);
-  ~PluginHostLV2() override;
+  virtual ~PluginUIHost();
 
-  StatusOr<PluginUIHost*> create_ui(
+  virtual Status setup();
+  virtual void cleanup();
+
+  virtual unsigned long int wid() const = 0;
+  virtual int width() const = 0;
+  virtual int height() const = 0;
+
+protected:
+  PluginUIHost(
+      PluginHost* plugin,
+      HostSystem* host_system,
       void* handle,
-      void (*control_value_change_cb)(void*, uint32_t, float)) override;
+      void (*control_value_change_cb)(void*, uint32_t, float),
+      const char* logger_name);
 
-  Status setup() override;
-  void cleanup() override;
+  void control_value_change(uint32_t port_index, float value) {
+    _control_value_change_cb(_handle, port_index, value);
+  }
 
-  Status connect_port(uint32_t port_idx, BufferPtr buf) override;
-  Status process_block(uint32_t block_size) override;
-
-  LV2_Handle handle() const { return _instance->lv2_handle; }
+  PluginHost* _plugin;
+  Logger* _logger;
+  HostSystem* _host_system;
 
 private:
-  unique_ptr<LV2PluginFeatureManager> _feature_manager;
-  const LilvPlugin* _plugin = nullptr;
-  LilvInstance* _instance = nullptr;
+  void* _handle;
+  void (*_control_value_change_cb)(void*, uint32_t, float);
 };
 
 }  // namespace noisicaa

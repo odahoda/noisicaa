@@ -22,9 +22,11 @@ import logging
 import os
 
 from libc.string cimport strncpy
+from cpython.ref cimport PyObject
 
 from noisicaa.core.status cimport check
 from noisicaa.host_system.host_system cimport PyHostSystem
+from .plugin_ui_host cimport PluginUIHost, PyPluginUIHost
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +159,17 @@ cdef class PyPluginHost(object):
         if plugin_host != NULL:
             with nogil:
                 plugin_host.cleanup()
+
+    def create_ui(self, control_value_change_cb):
+        cdef PyPluginUIHost plugin_ui_host = PyPluginUIHost.__new__(PyPluginUIHost)
+        plugin_ui_host.__control_value_change_cb = control_value_change_cb
+
+        cdef StatusOr[PluginUIHost*] stor_plugin_ui_host = self.__plugin_host.create_ui(
+            <PyObject*>plugin_ui_host, plugin_ui_host.__control_value_change)
+        check(stor_plugin_ui_host)
+
+        plugin_ui_host.init(stor_plugin_ui_host.result())
+        return plugin_ui_host
 
     def main_loop(self, pipe_fd):
         cdef int c_pipe_fd = pipe_fd

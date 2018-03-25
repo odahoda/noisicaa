@@ -265,9 +265,7 @@ class PluginHostProcess(core.ProcessBase):
         plugin = self.__plugins[key]
         logger.info("Creating UI for plugin %s", plugin)
 
-        ui_host = lv2.LV2UIHost(
-            plugin.node_description, self.__host_system,
-            functools.partial(self.__control_value_change, plugin))
+        ui_host = plugin.create_ui(functools.partial(self.__control_value_change, plugin))
         ui_host.setup()
 
         self.__uis[key] = ui_host

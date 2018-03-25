@@ -99,7 +99,7 @@ Also foo_listener.disconnect() looks nicer than foo_slot.disconnect(foo_listener
 * redesign plugin handling                                                                    :FR:
 - Plugin UI slows down after turning the wheels a lot
 
-- implement instance-access and data-access features on UIs.
+- implement data-access features on UIs.
 
 - gracefully handle crashes of plugin host processes
   - reuse BackendManager?
