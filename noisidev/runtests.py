@@ -161,6 +161,11 @@ class BuiltinPyTests(unittest.TestCase):
         self.__pylint_collector = pylint_collector
         self.__mypy_collector = mypy_collector
 
+    @property
+    def tags(self):
+        test_method = getattr(self, self._testMethodName)
+        return getattr(test_method, '_unittest_tags', {'unit'})
+
     def __str__(self):
         return '%s (%s)' % (self.__method_name, self.__modname)
 
@@ -219,6 +224,8 @@ class BuiltinPyTests(unittest.TestCase):
         if messages:
             self.__pylint_collector.extend(messages)
             self.fail("pylint reported issues.")
+
+    test_pylint._unittest_tags = {'lint', 'pylint'}
 
     def test_mypy(self):
         if self.__modname.split('.')[-1] == '__init__':
@@ -306,6 +313,8 @@ class BuiltinPyTests(unittest.TestCase):
             self.__mypy_collector.extend(messages)
             self.fail("mypy reported issues.")
 
+    test_mypy._unittest_tags = {'lint', 'mypy'}
+
 
 class DisplayManager(object):
     def __init__(self, display):
@@ -388,11 +397,9 @@ def main(argv):
     parser.add_argument('--gdb', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--rebuild', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--pedantic', nargs='?', type=bool_arg, const=True, default=False)
-    parser.add_argument('--builtin-tests', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--keep-temp', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--playback-backend', type=str, default='null')
-    parser.add_argument('--mypy', type=bool_arg, default=True)
-    parser.add_argument('--pylint', type=bool_arg, default=True)
+    parser.add_argument('--tags', default='unit,lint')
     parser.add_argument('--display', choices=['off', 'local', 'xvfb'], default='xvfb')
     args = parser.parse_args(argv[1:])
 
@@ -534,9 +541,7 @@ def main(argv):
                     modsuite = loader.loadTestsFromName(modname)
                     suite.addTest(modsuite)
 
-            if (args.builtin_tests
-                    and fnmatch.fnmatch(filename, '*.py')
-                    and not fnmatch.fnmatch(filename, '*_pb2.py')):
+            if (fnmatch.fnmatch(filename, '*.py') and not fnmatch.fnmatch(filename, '*_pb2.py')):
                 if args.selectors:
                     matched = False
                     for selector in args.selectors:
@@ -548,11 +553,6 @@ def main(argv):
                 if matched:
                     test_cls = BuiltinPyTests
                     for method_name in loader.getTestCaseNames(test_cls):
-                        if method_name == 'test_mypy' and not args.mypy:
-                            continue
-                        if method_name == 'test_pylint' and not args.pylint:
-                            continue
-
                         suite.addTest(test_cls(
                             modname=modname,
                             method_name=method_name,
@@ -561,9 +561,27 @@ def main(argv):
                             mypy_collector=mypy_collector,
                         ))
 
+    def flatten_suite(suite):
+        for child in suite:
+            if isinstance(child, unittest.TestSuite):
+                yield from flatten_suite(child)
+            else:
+                yield child
+
+    tags_to_run = set()
+    for tag in args.tags.split(','):
+        tag = tag.strip()
+        assert tag in {'all', 'unit', 'lint', 'pylint', 'mypy', 'integration', 'perf'}
+        tags_to_run.add(tag)
+
+    flat_suite = unittest.TestSuite()
+    for case in flatten_suite(suite):
+        if 'all' in tags_to_run or case.tags & tags_to_run:
+            flat_suite.addTest(case)
+
     runner = unittest.TextTestRunner(verbosity=2)
     with DisplayManager(args.display):
-        result = runner.run(suite)
+        result = runner.run(flat_suite)
 
     pylint_collector.print_report()
     mypy_collector.print_report()

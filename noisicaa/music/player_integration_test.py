@@ -183,6 +183,7 @@ class PlayerTest(
             listener.remove()
 
     @unittest.skip("TODO: async status updates are flaky")
+    @unittest.tag('integration')
     async def test_playback_demo(self):
         p = player.Player(
             project=self.project,
@@ -222,6 +223,7 @@ class PlayerTest(
             await p.cleanup()
 
     @unittest.skip("TODO: async status updates are flaky")
+    @unittest.tag('integration')
     async def test_send_message(self):
         p = player.Player(
             project=self.project,

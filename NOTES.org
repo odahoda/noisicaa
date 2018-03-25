@@ -235,15 +235,6 @@ Probably related to unittest.UITestCase
 
 * Add UI tests                                                                  :RESEARCH:TESTING:
 - any framework to use for testing Qt apps?
-* Tag tests with a 'test class', select which tests to run                               :TESTING:
-- decorator @unittest.XXX_TEST
-- runtests --classes=xxx,yyy,...
-- classes:
-  - unittest
-  - integration
-  - performance
-  - ui
-  - lint
 * Revisit source directory structure                                                    :RESEARCH:
 - move all sources into src/
   - can't accidentally import modules from source
