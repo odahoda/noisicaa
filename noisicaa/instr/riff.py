@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import os.path
 import io
 import logging

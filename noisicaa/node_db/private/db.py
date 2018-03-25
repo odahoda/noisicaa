@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import logging
 from typing import Dict  # pylint: disable=unused-import
 

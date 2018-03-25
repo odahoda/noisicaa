@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import logging
 import threading
 import time

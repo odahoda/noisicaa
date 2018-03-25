@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import argparse
 import logging
 import pprint

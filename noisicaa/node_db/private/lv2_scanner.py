@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import logging
 
 from noisicaa import node_db

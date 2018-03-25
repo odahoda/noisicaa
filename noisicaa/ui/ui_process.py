@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import functools
 import asyncio
 import logging

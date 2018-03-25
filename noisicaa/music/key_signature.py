@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 class KeySignature(object):
     _signatures = {
         'C major':  [],

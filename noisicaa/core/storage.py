@@ -20,6 +20,7 @@
 #
 # @end:license
 
+# mypy: loose
 # TODO: pylint-unclean
 
 import collections

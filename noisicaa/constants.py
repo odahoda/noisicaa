@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 # Important: This module must not import any other noisicaa modules.
 
 import os

@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 from noisicaa import core
 
 

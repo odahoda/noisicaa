@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import logging
 
 logger = logging.getLogger(__name__)

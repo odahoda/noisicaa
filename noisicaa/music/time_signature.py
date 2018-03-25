@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 class TimeSignature(object):
     def __init__(self, upper=4, lower=4):
         if upper < 1 or upper > 99:

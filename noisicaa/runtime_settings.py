@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 
 class RuntimeSettings(object):
     def __init__(self):

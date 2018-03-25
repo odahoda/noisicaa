@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import enum
 
 from .pitch import Pitch

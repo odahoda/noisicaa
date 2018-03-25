@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import logging
 import struct
 from typing import List, Set, Tuple, IO  # pylint: disable=unused-import

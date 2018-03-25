@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import json
 import hashlib
 import email.message

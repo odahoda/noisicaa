@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 from . import node_description_pb2
 
 

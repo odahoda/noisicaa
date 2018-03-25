@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import io
 import logging
 from xml.etree import ElementTree

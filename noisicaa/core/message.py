@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import logging
 
 # pylint/mypy doesn't know about the capnp import magic.

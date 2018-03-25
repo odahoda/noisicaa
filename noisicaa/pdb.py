@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 import asyncio
 import asyncio.streams
 import logging

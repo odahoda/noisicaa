@@ -20,6 +20,8 @@
 #
 # @end:license
 
+# mypy: loose
+
 
 class Mutation(object):
     pass
