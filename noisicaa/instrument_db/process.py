@@ -22,7 +22,7 @@
 
 import logging
 import time
-from typing import cast, List, Set  # pylint: disable=unused-import
+from typing import cast, Any, List, Set  # pylint: disable=unused-import
 
 from noisicaa import constants
 from noisicaa import core
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class Session(core.CallbackSessionMixin, core.SessionBase):
-    def __init__(self, client_address: str, flags: Set[str], **kwargs) -> None:
+    def __init__(self, client_address: str, flags: Set[str], **kwargs: Any) -> None:
         super().__init__(callback_address=client_address, **kwargs)
         self.__flags = flags or set()
         self.__pending_mutations = []  # type: List[mutations_lib.Mutation]
@@ -61,7 +61,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 class InstrumentDBProcess(process_base.InstrumentDBProcessBase):
     session_cls = Session
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.db = None  # type: db.InstrumentDB

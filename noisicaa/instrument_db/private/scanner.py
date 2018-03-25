@@ -20,14 +20,14 @@
 #
 # @end:license
 
-from typing import Iterable
+from typing import Iterable, Any
 import urllib.parse
 
 from noisicaa import instrument_db
 
 
 class Scanner(object):
-    def make_uri(self, fmt: str, path: str, **kwargs) -> str:
+    def make_uri(self, fmt: str, path: str, **kwargs: Any) -> str:
         return urllib.parse.urlunparse((
             fmt,
             None,

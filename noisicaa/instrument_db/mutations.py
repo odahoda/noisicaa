@@ -20,22 +20,24 @@
 #
 # @end:license
 
+from . import instrument_description
+
 
 class Mutation(object):
     pass
 
 
 class AddInstrumentDescription(Mutation):
-    def __init__(self, description):
+    def __init__(self, description: instrument_description.InstrumentDescription) -> None:
         self.description = description
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<AddInstrumentDescription uri="%s">' % self.description.uri
 
 
 class RemoveInstrumentDescription(Mutation):
-    def __init__(self, uri):
+    def __init__(self, uri: str) -> None:
         self.uri = uri
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<RemoveInstrumentDescription uri="%s">' % self.uri

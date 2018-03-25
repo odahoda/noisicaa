@@ -126,7 +126,7 @@ class InstrumentDB(object):
     def __cache_path(self) -> str:
         return os.path.join(self.__cache_dir, 'instrument_db.cache')
 
-    def __publish_scan_state(self, state: str, *args) -> None:
+    def __publish_scan_state(self, state: str, *args: Any) -> None:
         self.__event_loop.call_soon_threadsafe(
             self.listeners.call, 'scan-state', state, *args)
 

@@ -21,6 +21,7 @@
 # @end:license
 
 import logging
+from typing import Iterable  # pylint: disable=unused-import
 
 from noisicaa import instrument_db
 from noisicaa.instr import soundfont
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 class SoundFontScanner(scanner.Scanner):
-    def scan(self, path):
+    def scan(self, path: str) -> Iterable[instrument_db.InstrumentDescription]:
         if not path.endswith('.sf2'):
             return
 

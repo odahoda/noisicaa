@@ -24,12 +24,12 @@ from noisicaa import core
 
 
 class InstrumentDBProcessBase(core.SessionHandlerMixin, core.ProcessBase):
-    async def setup(self):
+    async def setup(self) -> None:
         await super().setup()
 
         self.server.add_command_handler('SHUTDOWN', self.shutdown)
         self.server.add_command_handler(
             'START_SCAN', self.handle_start_scan)
 
-    async def handle_start_scan(self, session_id):
+    async def handle_start_scan(self, session_id: str) -> None:
         raise NotImplementedError

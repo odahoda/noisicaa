@@ -23,6 +23,7 @@
 import logging
 import os
 import os.path
+from typing import Dict, Iterable, Any  # pylint: disable=unused-import
 
 from noisicaa import instrument_db
 from noisicaa.instr import wave
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class SampleScanner(scanner.Scanner):
-    def scan(self, path):
+    def scan(self, path: str) -> Iterable[instrument_db.InstrumentDescription]:
         if not path.endswith('.wav'):
             return
 
@@ -42,12 +43,13 @@ class SampleScanner(scanner.Scanner):
         logger.info("Adding sample instrument %s...", uri)
 
         try:
-            parsed = wave.WaveFile().parse(path)
+            parsed = wave.WaveFile()
+            parsed.parse(path)
         except riff.Error as exc:
             logger.error("Failed to parse WAVE file %s: %s", path, exc)
             return
 
-        properties = {}
+        properties = {}  # type: Dict[instrument_db.Property, Any]
         if parsed.bits_per_sample is not None:
             properties[instrument_db.Property.BitsPerSample] = parsed.bits_per_sample
         if parsed.channels is not None:
