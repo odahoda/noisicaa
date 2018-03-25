@@ -576,7 +576,7 @@ def main(argv):
 
     flat_suite = unittest.TestSuite()
     for case in flatten_suite(suite):
-        if 'all' in tags_to_run or case.tags & tags_to_run:
+        if not hasattr(case, 'tags') or 'all' in tags_to_run or case.tags & tags_to_run:
             flat_suite.addTest(case)
 
     runner = unittest.TextTestRunner(verbosity=2)
