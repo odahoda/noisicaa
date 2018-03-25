@@ -18,7 +18,9 @@
 #
 # @end:license
 
-add_python_package()
+add_python_package(
+  host_system.pyi
+)
 
 set(LIB_SRCS
   host_system.cpp

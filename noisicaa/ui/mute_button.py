@@ -20,18 +20,16 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import os.path
 
-from PyQt5 import QtGui
-from PyQt5 import QtWidgets
+from PyQt5 import QtGui  # type: ignore
+from PyQt5 import QtWidgets  # type: ignore
 
 from noisicaa import constants
 
 
 class MuteButton(QtWidgets.QToolButton):
-    def __init__(self, parent=None):
+    def __init__(self, parent: QtWidgets.QWidget = None) -> None:
         super().__init__(parent, checkable=True, autoRaise=True)
 
         self._muted_icon = QtGui.QIcon(
@@ -44,7 +42,7 @@ class MuteButton(QtWidgets.QToolButton):
         self.setIcon(self._not_muted_icon)
         self.toggled.connect(self.onToggled)
 
-    def onToggled(self, checked):
+    def onToggled(self, checked: bool) -> None:
         if checked:
             self.setIcon(self._muted_icon)
         else:

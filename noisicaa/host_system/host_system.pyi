@@ -18,12 +18,15 @@
 #
 # @end:license
 
-from .urid_mapper import (
-    PyURIDMapper as URIDMapper,
-    PyDynamicURIDMapper as DynamicURIDMapper,
-    PyProxyURIDMapper as ProxyURIDMapper,
-)
-from .feature_manager import (
-    supports_plugin_feature,
-    supports_ui_feature,
-)
+from noisicaa import lv2
+
+
+class PyHostSystem(object):
+    block_size = ...  # type: int
+    sample_rate = ...  # type: int
+
+    def __init__(self, mapper: lv2.URIDMapper) -> None: ...
+    def setup(self) -> None: ...
+    def cleanup(self) -> None: ...
+    def set_block_size(self, block_size: int) -> None: ...
+    def set_sample_rate(self, sample_rate: int) -> None: ...

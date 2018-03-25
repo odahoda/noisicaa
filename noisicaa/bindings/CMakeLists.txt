@@ -20,6 +20,7 @@
 
 add_python_package(
   sndfile_test.py
+  sratom.pyi
   sratom_test.py
 )
 

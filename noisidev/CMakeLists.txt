@@ -23,6 +23,8 @@ add_python_package(
   perf_stats.py
   unittest.py
   unittest_mixins.py
+  unittest_engine_mixins.pyi
+  unittest_engine_utils.pyi
   demo_project.py
 )
 

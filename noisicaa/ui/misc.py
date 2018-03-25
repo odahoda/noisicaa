@@ -20,19 +20,18 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
-import logging
-
-from PyQt5.QtWidgets import QGraphicsItem
+from PyQt5 import QtCore  # type: ignore
+from PyQt5 import QtGui  # type: ignore
+from PyQt5 import QtWidgets  # type: ignore
 
 
-logger = logging.getLogger(__name__)
-
-
-class QGraphicsGroup(QGraphicsItem):
-    def boundingRect(self):
+class QGraphicsGroup(QtWidgets.QGraphicsItem):
+    def boundingRect(self) -> QtCore.QRectF:
         return self.childrenBoundingRect()
 
-    def paint(self, painter, option, widget=None):
+    def paint(
+            self,
+            painter: QtGui.QPainter,
+            option: QtWidgets.QStyleOptionGraphicsItem,
+            widget: QtWidgets.QWidget = None) -> None:
         pass

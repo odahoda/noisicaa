@@ -1,5 +1,8 @@
 # -*- org-tags-column: -98 -*-
 
+NEXT: route control value changes to project, so they're persisted and propagated to the UI
+THEN: investigate how other plugin state can be persisted
+
 * SampleTrack: crash when rendering                                                        :CRASH:
         Traceback (most recent call last):
           File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 254, in handle_command
@@ -96,35 +99,14 @@
 So I don't have to manually disconnect when descructing the owner.
 Also foo_listener.disconnect() looks nicer than foo_slot.disconnect(foo_listener).
 
+* LV2 UI: implement data-access feature                                                       :FR:
 * redesign plugin handling                                                                    :FR:
-- Plugin UI slows down after turning the wheels a lot
-
-- implement data-access features on UIs.
-
-- gracefully handle crashes of plugin host processes
+* Plugin UI slows down after turning the wheels a lot                                        :BUG:
+* gracefully handle crashes of plugin host processes                                          :FR:
   - reuse BackendManager?
   - notify UI on processor state changes (careful, when change happens in audio thread).
   - needs async processor states?
     - schedule async CLEAN when processor crashes
-
-- use BufferManager in all tests that use buffers
-  - have an PrivateArena that doesn't use shared memory (pure python with bytearray).
-
-- block_size changes must be done via Program changes
-  - how to synchronize this between processes?
-  - subprocess just rejects blocks with non-matching block_size, until its block_size has
-    been changes as well?
-
-- a lot of plugin LV2 UIs require instance-access, would be sad not so support those
-- so have to run the plugin UI in the same process as the plugin
-- disadvantages:
-  - performance? context switch for every plugin call
-  - hypothetical plans of running multiple UIs against a single project will be difficult
-    - could do remote UI via X forwarding
-- run plugins in a separate process from audioproc process
-  - single plugin per process?
-  - or multiple instances of same plugin per process?
-  - or multiple plugins with same UI type per process?
 
 * Switch back to vanilla lilv                                                            :CLEANUP:
 Implement UI feature query with the generic RDF API:

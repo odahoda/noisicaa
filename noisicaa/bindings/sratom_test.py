@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 from noisidev import unittest
 from . import lv2
 from . import sratom

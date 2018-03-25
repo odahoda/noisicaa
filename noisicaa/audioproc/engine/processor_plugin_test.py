@@ -18,8 +18,6 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import logging
 import os
 import os.path

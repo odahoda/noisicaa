@@ -18,12 +18,16 @@
 #
 # @end:license
 
-from .urid_mapper import (
-    PyURIDMapper as URIDMapper,
-    PyDynamicURIDMapper as DynamicURIDMapper,
-    PyProxyURIDMapper as ProxyURIDMapper,
-)
-from .feature_manager import (
-    supports_plugin_feature,
-    supports_ui_feature,
-)
+from typing import Any
+
+from noisicaa.lv2 import urid_mapper as urid_mapper_lib
+from noisicaa.host_system import host_system as host_system_lib
+
+
+class HostSystemMixin(object):
+    urid_mapper = ...  # type: urid_mapper_lib.PyURIDMapper
+    host_system = ...  # type: host_system_lib.PyHostSystem
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+    def setup_testcase(self) -> None: ...
+    def cleanup_testcase(self) -> None: ...

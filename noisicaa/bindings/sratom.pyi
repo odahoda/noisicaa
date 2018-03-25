@@ -18,12 +18,6 @@
 #
 # @end:license
 
-from .urid_mapper import (
-    PyURIDMapper as URIDMapper,
-    PyDynamicURIDMapper as DynamicURIDMapper,
-    PyProxyURIDMapper as ProxyURIDMapper,
-)
-from .feature_manager import (
-    supports_plugin_feature,
-    supports_ui_feature,
-)
+from .lv2 import urid
+
+def atom_to_turtle(mapper: urid.URIDMapper, atom: bytes) -> str: ...
