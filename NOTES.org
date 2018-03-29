@@ -3,6 +3,24 @@
 NEXT: route control value changes to project, so they're persisted and propagated to the UI
 THEN: investigate how other plugin state can be persisted
 
+* Parallelize tests                                                                   :TESTING:FR:
+- memory growth when running all tests is way too high
+- run pylint in a subprocess again
+- to make tests faster again, run tests in parallel
+- for each test, dump results into files (unittest, pylint, mypy, coverage)
+- merge results from all tests at the end
+- collect logs, stdout/err for each tests into separate files
+- is mypy cache safe for concurrent usage?
+
+* memoryview stubs don't know about cast()                                           :TESTING:BUG:
+- doesn't know that view[i] = float works
+
+* PyQt5 stubs declare signals incorrectly                                            :TESTING:BUG:
+- declared as methods, should be some object with connect/disconnect methods.
+
+* Try protostub to generate .pyi stubs for *_pb2 modules                              :TESTING:FR:
+https://github.com/arachnys/protostub
+
 * SampleTrack: crash when rendering                                                        :CRASH:
         Traceback (most recent call last):
           File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 254, in handle_command

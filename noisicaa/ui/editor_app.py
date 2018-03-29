@@ -130,12 +130,12 @@ class BaseEditorApp(object):
         self.midi_hub = self.createMidiHub()
         self.midi_hub.start()
 
-        self.show_edit_areas_action = QtWidgets.QAction(
-            "Show Edit Areas", self,
-            checkable=True,
-            triggered=self.onShowEditAreasChanged)
+        self.show_edit_areas_action = QtWidgets.QAction("Show Edit Areas", self)
+        self.show_edit_areas_action.setCheckable(True)
+        # TODO: triggered signal has wrong declaration.
+        self.show_edit_areas_action.triggered.connect(self.onShowEditAreasChanged) # type:ignore
         self.show_edit_areas_action.setChecked(
-            int(self.settings.value('dev/show_edit_areas', '0')))
+            bool(self.settings.value('dev/show_edit_areas', '0')))
 
         await self.createAudioProcProcess()
 

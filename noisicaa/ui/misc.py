@@ -20,9 +20,9 @@
 #
 # @end:license
 
-from PyQt5 import QtCore  # type: ignore
-from PyQt5 import QtGui  # type: ignore
-from PyQt5 import QtWidgets  # type: ignore
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 
 class QGraphicsGroup(QtWidgets.QGraphicsItem):
