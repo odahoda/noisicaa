@@ -38,13 +38,13 @@ cdef extern from "noisicaa/audioproc/engine/buffers.h" namespace "noisicaa" nogi
         Status mix_buffers(HostSystem* host_system, const BufferPtr buf1, BufferPtr buf2) const
         Status mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const
 
-    cppclass Float(BufferType):
+    cppclass FloatControlValueBuffer(BufferType):
         pass
 
-    cppclass FloatAudioBlock(BufferType):
+    cppclass FloatAudioBlockBuffer(BufferType):
         pass
 
-    cppclass AtomData(BufferType):
+    cppclass AtomDataBuffer(BufferType):
         pass
 
     cppclass PluginCondBuffer(BufferType):

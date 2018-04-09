@@ -163,8 +163,7 @@ class Engine(object):
 
     async def get_plugin_host(self):
         if self.__plugin_host is None:
-            address = await self.__manager.call(
-                'CREATE_PLUGIN_HOST_PROCESS', audioproc_address=self.__server_address)
+            address = await self.__manager.call('CREATE_PLUGIN_HOST_PROCESS')
             self.__plugin_host = ipc.Stub(self.__event_loop, address)
             await self.__plugin_host.connect()
 
@@ -182,7 +181,10 @@ class Engine(object):
         except KeyError as exc:
             raise RealmNotFound("Realm '%s' does not exist" % name) from exc
 
-    async def create_realm(self, *, name: str, parent: str, enable_player: bool = False):
+    async def create_realm(
+            self, *,
+            name: str, parent: str, enable_player: bool = False, callback_address: str = None
+    ) -> realm_lib.PyRealm:
         if name in self.__realms:
             raise DuplicateRealmName("Realm '%s' already exists" % name)
 
@@ -211,7 +213,8 @@ class Engine(object):
             name=name,
             parent=parent_realm,
             host_system=self.__host_system,
-            player=player)
+            player=player,
+            callback_address=callback_address)
         self.__realms[name] = realm
         self.__realm_listeners['%s:node_state_changed' % name] = realm.listeners.add(
             'node_state_changed',
@@ -418,7 +421,8 @@ class Engine(object):
                 self.__root_realm.process_block(program)
 
                 for channel in ('left', 'right'):
-                    sink_buf = self.__root_realm.get_buffer('sink:in:' + channel, buffers.PyFloatAudioBlock())
+                    sink_buf = self.__root_realm.get_buffer(
+                        'sink:in:' + channel, buffers.PyFloatAudioBlockBuffer())
                     backend.output(ctxt, channel, sink_buf)
 
             finally:

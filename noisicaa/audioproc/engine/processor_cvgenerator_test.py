@@ -57,7 +57,7 @@ class ProcessorCVGeneratorTest(
 
         self.buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
-        self.outbuf = self.buffer_mgr.allocate('out', buffers.PyFloatAudioBlock())
+        self.outbuf = self.buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
 
         self.ctxt = block_context.PyBlockContext()
 

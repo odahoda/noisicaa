@@ -26,6 +26,8 @@ add_python_package(
   plugin_host_process.py
   plugin_host_process_test.py
   plugin_host_test.py
+  plugin_host_ladspa_test.py
+  plugin_host_lv2_test.py
   processor_test.py
   processor_csound_test.py
   processor_cvgenerator_test.py

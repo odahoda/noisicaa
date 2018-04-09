@@ -61,4 +61,5 @@ add_custom_target(
 add_subdirectory(ladspa)
 add_subdirectory(lv2/test-passthru.lv2)
 add_subdirectory(lv2/test-options.lv2)
+add_subdirectory(lv2/test-state.lv2)
 add_subdirectory(lv2/test-ui-gtk2.lv2)

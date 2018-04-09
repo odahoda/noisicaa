@@ -37,6 +37,8 @@ namespace noisicaa {
 
 using namespace std;
 
+class Logger;
+
 template<typename T>
 class Pump {
 public:

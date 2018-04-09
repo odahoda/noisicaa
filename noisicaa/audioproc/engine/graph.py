@@ -123,22 +123,22 @@ class OutputPortMixin(Port):
 
 class AudioPortMixin(Port):
     def get_buf_type(self):
-        return buffers.PyFloatAudioBlock()
+        return buffers.PyFloatAudioBlockBuffer()
 
 
 class ARateControlPortMixin(Port):
     def get_buf_type(self):
-        return buffers.PyFloatAudioBlock()
+        return buffers.PyFloatAudioBlockBuffer()
 
 
 class KRateControlPortMixin(Port):
     def get_buf_type(self):
-        return buffers.PyFloat()
+        return buffers.PyFloatControlValueBuffer()
 
 
 class EventPortMixin(Port):
     def get_buf_type(self):
-        return buffers.PyAtomData()
+        return buffers.PyAtomDataBuffer()
 
 
 class AudioInputPort(AudioPortMixin, InputPortMixin, Port):
@@ -219,13 +219,14 @@ class Node(object):
     def __init__(
             self, *,
             host_system, description, id,  # pylint: disable=redefined-builtin
-            name=None):
+            name=None, initial_state=None):
         assert isinstance(description, node_db.NodeDescription), description
 
         self._host_system = host_system
         self.description = description
         self.name = name or type(self).__name__
         self.id = id
+        self.initial_state = initial_state
 
         self.__realm = None
         self.broken = False
@@ -330,7 +331,7 @@ class Node(object):
             if isinstance(port, KRateControlInputPort):
                 logger.info("Float control value '%s'", port.buf_name)
                 cv = control_value.PyFloatControlValue(
-                    port.buf_name, port.description.float_value.default)
+                    port.buf_name, port.description.float_value.default, 1)
                 self.__control_values[port.buf_name] = cv
                 self.realm.add_active_control_value(cv)
 
@@ -421,7 +422,10 @@ class PluginNode(ProcessorNode):
         spec.realm = self.realm.name
         spec.node_id = self.id
         spec.node_description.CopyFrom(self.description)
-        self.__plugin_pipe_path = await self.__plugin_host.call('CREATE_PLUGIN', spec)
+        if self.initial_state is not None:
+            spec.initial_state.CopyFrom(self.initial_state)
+        self.__plugin_pipe_path = await self.__plugin_host.call(
+            'CREATE_PLUGIN', spec, self.realm.callback_address)
 
         self.processor.set_parameters(
             processor_pb2.ProcessorParameters(

@@ -33,39 +33,39 @@ cdef class PyBufferType(object):
         raise NotImplementedError
 
 
-cdef class PyFloat(PyBufferType):
+cdef class PyFloatControlValueBuffer(PyBufferType):
     def __init__(self):
-        self.__type_ref.reset(new Float())
+        self.__type_ref.reset(new FloatControlValueBuffer())
         self.__type = self.__type_ref.get()
 
     def __str__(self):
-        return 'Float'
+        return 'FloatControlValueBuffer'
 
     @property
     def view_type(self):
         return 'f'
 
 
-cdef class PyFloatAudioBlock(PyBufferType):
+cdef class PyFloatAudioBlockBuffer(PyBufferType):
     def __init__(self):
-        self.__type_ref.reset(new FloatAudioBlock())
+        self.__type_ref.reset(new FloatAudioBlockBuffer())
         self.__type = self.__type_ref.get()
 
     def __str__(self):
-        return 'FloatAudioBlock'
+        return 'FloatAudioBlockBuffer'
 
     @property
     def view_type(self):
         return 'f'
 
 
-cdef class PyAtomData(PyBufferType):
+cdef class PyAtomDataBuffer(PyBufferType):
     def __init__(self):
-        self.__type_ref.reset(new AtomData())
+        self.__type_ref.reset(new AtomDataBuffer())
         self.__type = self.__type_ref.get()
 
     def __str__(self):
-        return 'AtomData'
+        return 'AtomDataBuffer'
 
     @property
     def view_type(self):

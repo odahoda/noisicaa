@@ -53,20 +53,20 @@ protected:
       PluginHost* plugin,
       HostSystem* host_system,
       void* handle,
-      void (*control_value_change_cb)(void*, uint32_t, float),
+      void (*control_value_change_cb)(void*, uint32_t, float, uint32_t),
       const char* logger_name);
 
-  void control_value_change(uint32_t port_index, float value) {
-    _control_value_change_cb(_handle, port_index, value);
+  void control_value_change(uint32_t port_index, float value, uint32_t generation) {
+    _control_value_change_cb(_handle, port_index, value, generation);
   }
 
-  PluginHost* _plugin;
   Logger* _logger;
   HostSystem* _host_system;
 
 private:
+  PluginHost* _plugin;
   void* _handle;
-  void (*_control_value_change_cb)(void*, uint32_t, float);
+  void (*_control_value_change_cb)(void*, uint32_t, float, uint32_t);
 };
 
 }  // namespace noisicaa

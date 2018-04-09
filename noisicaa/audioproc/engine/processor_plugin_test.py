@@ -48,28 +48,8 @@ class ProcessorPluginTest(
         unittest_mixins.NodeDBMixin,
         unittest_mixins.ProcessManagerMixin,
         unittest.AsyncTestCase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.audioproc_server = None
-
     async def setup_testcase(self):
         self.setup_urid_mapper_process(inline=True)
-
-        self.audioproc_server = ipc.Server(self.loop, 'audioproc', TEST_OPTS.TMP_DIR)
-        self.audioproc_server.add_command_handler('START_SESSION', self.audioproc_start_session)
-        self.audioproc_server.add_command_handler('END_SESSION', self.audioproc_end_session)
-        await self.audioproc_server.setup()
-
-    async def cleanup_testcase(self):
-        if self.audioproc_server is not None:
-            await self.audioproc_server.cleanup()
-
-    def audioproc_start_session(self, callback_address, flags):
-        return 'session-123'
-
-    def audioproc_end_session(self, session_id):
-        assert session_id == 'session-123'
 
     @async_generator.asynccontextmanager
     @async_generator.async_generator
@@ -77,13 +57,11 @@ class ProcessorPluginTest(
         if inline_plugin_host:
             proc = await self.process_manager.start_inline_process(
                 name='plugin_host',
-                entry='noisicaa.audioproc.engine.plugin_host_process.PluginHostProcess',
-                audioproc_address=self.audioproc_server.address)
+                entry='noisicaa.audioproc.engine.plugin_host_process.PluginHostProcess')
         else:
             proc = await self.process_manager.start_subprocess(
                 name='plugin_host',
-                entry='noisicaa.audioproc.engine.plugin_host_process.PluginHostSubprocess',
-                audioproc_address=self.audioproc_server.address)
+                entry='noisicaa.audioproc.engine.plugin_host_process.PluginHostSubprocess')
 
         stub = ipc.Stub(self.loop, proc.address)
         await stub.connect()

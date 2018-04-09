@@ -48,9 +48,9 @@ class ProcessorSamplePlayerTestMixin(
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
-        buffer_mgr.allocate('in', buffers.PyAtomData())
-        audio_l_out = buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlock())
-        audio_r_out = buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlock())
+        buffer_mgr.allocate('in', buffers.PyAtomDataBuffer())
+        audio_l_out = buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlockBuffer())
+        audio_r_out = buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlockBuffer())
 
         ctxt = block_context.PyBlockContext()
         ctxt.sample_pos = 1024

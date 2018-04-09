@@ -26,6 +26,7 @@
 #include "suil/suil.h"
 #include "lv2/lv2plug.in/ns/extensions/ui/ui.h"
 #include "noisicaa/core/logging.h"
+#include "noisicaa/core/slots.inl.h"
 #include "noisicaa/host_system/host_system.h"
 #include "noisicaa/lv2/urid_mapper.h"
 #include "noisicaa/lv2/feature_manager.h"
@@ -39,12 +40,13 @@ PluginUIHostLV2::PluginUIHostLV2(
     PluginHostLV2* plugin,
     HostSystem* host_system,
     void* handle,
-    void (*control_value_change_cb)(void*, uint32_t, float))
+    void (*control_value_change_cb)(void*, uint32_t, float, uint32_t))
   : PluginUIHost(
       plugin, host_system,
       handle, control_value_change_cb,
       "noisicaa.audioproc.engine.plugin_ui_host_lv2"),
-    _plugin_handle(plugin->handle()) {
+    _plugin(plugin),
+    _plugin_handle(_plugin->handle()) {
   const pb::NodeDescription& desc = plugin->description();
   assert(desc.has_plugin());
   assert(desc.plugin().type() == pb::PluginDescription::LV2);
@@ -112,6 +114,15 @@ Status PluginUIHostLV2::setup() {
     return ERROR_STATUS("Failed to create suil instance.");
   }
 
+  _control_values.resize(_plugin->description().ports_size());
+  for (size_t idx = 0 ; idx < _control_values.size() ; ++idx) {
+    _control_values[idx] = ControlValue{ 0.0, 0 };
+  }
+
+  _control_value_change_listener = _plugin->subscribe_to_control_value_changes(
+      bind(&PluginUIHostLV2::control_value_changed, this,
+           placeholders::_1, placeholders::_2, placeholders::_3));
+
   _logger->info("Attaching plugin widget...");
   GtkWidget* plug_widget = (GtkWidget*)suil_instance_get_widget(_instance);
   assert(plug_widget != nullptr);
@@ -130,6 +141,13 @@ Status PluginUIHostLV2::setup() {
 }
 
 void PluginUIHostLV2::cleanup() {
+  if (_control_value_change_listener != 0) {
+    _plugin->unsubscribe_from_control_value_changes(_control_value_change_listener);
+    _control_value_change_listener = 0;
+  }
+
+  _control_values.clear();
+
   if (_instance != nullptr) {
     _logger->info("Cleaning up suil instance...");
     suil_instance_free(_instance);
@@ -156,13 +174,25 @@ void PluginUIHostLV2::cleanup() {
   PluginUIHost::cleanup();
 }
 
+void PluginUIHostLV2::control_value_changed(int port_idx, float value, uint32_t generation) {
+  _logger->info("control_value_changed(%d, %f, %d)", port_idx, value, generation);
+  if (generation > _control_values[port_idx].generation) {
+    _control_values[port_idx] = ControlValue{ value, generation };
+    suil_instance_port_event(_instance, port_idx, sizeof(float), 0, &value);
+  }
+}
+
 void PluginUIHostLV2::port_write_func(
     uint32_t port_index, uint32_t buffer_size, uint32_t protocol, void const *buffer) {
   if (protocol == 0 || protocol == _urid_floatProtocol) {
     assert(buffer_size == sizeof(float));
     assert(buffer != nullptr);
     float value = *((float*)buffer);
-    control_value_change(port_index, value);
+    if (value != _control_values[port_index].value) {
+      _control_values[port_index].value = value;
+      ++_control_values[port_index].generation;
+      control_value_change(port_index, value, _control_values[port_index].generation);
+    }
   } else {
     _logger->info("port_write(%d, %d, %d, %p)", port_index, buffer_size, protocol, buffer);
 

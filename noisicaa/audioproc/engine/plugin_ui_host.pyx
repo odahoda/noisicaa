@@ -49,10 +49,11 @@ cdef class PyPluginUIHost(object):
                 plugin_ui_host.cleanup()
 
     @staticmethod
-    cdef void __control_value_change(void* handle, uint32_t port_index, float value) with gil:
+    cdef void __control_value_change(
+        void* handle, uint32_t port_index, float value, uint32_t generation) with gil:
         cdef PyPluginUIHost self = <object>handle
         try:
-            self.__control_value_change_cb(port_index, value)
+            self.__control_value_change_cb(port_index, value, generation)
 
         except Exception as exc:
             logger.exception("Callback failed with an exception: %s", exc)

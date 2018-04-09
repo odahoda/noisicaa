@@ -241,7 +241,7 @@ class SampleTrack(Track):
 
 class PipelineGraphControlValue(ProjectChild):
     name = core.Property(str)
-    value = core.Property(float)
+    value = core.Property((tuple, list))  # This is a bit ugly...
 
 
 class PipelineGraphPortPropertyValue(ProjectChild):
@@ -255,6 +255,7 @@ class BasePipelineGraphNode(ProjectChild):
     graph_pos = core.Property(misc.Pos2F)
     control_values = core.ObjectListProperty(PipelineGraphControlValue)
     port_property_values = core.ObjectListProperty(PipelineGraphPortPropertyValue)
+    plugin_state = core.Property(audioproc.PluginState, allow_none=True)
 
     @property
     def removable(self):

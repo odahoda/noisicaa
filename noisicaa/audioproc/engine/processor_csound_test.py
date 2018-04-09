@@ -85,9 +85,9 @@ class ProcessorCsoundTestMixin(
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
-        gain = buffer_mgr.allocate('gain', buffers.PyFloat())
-        audio_in = buffer_mgr.allocate('in', buffers.PyFloatAudioBlock())
-        audio_out = buffer_mgr.allocate('out', buffers.PyFloatAudioBlock())
+        gain = buffer_mgr.allocate('gain', buffers.PyFloatControlValueBuffer())
+        audio_in = buffer_mgr.allocate('in', buffers.PyFloatAudioBlockBuffer())
+        audio_out = buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
 
         ctxt = block_context.PyBlockContext()
         ctxt.sample_pos = 1024
@@ -153,8 +153,8 @@ class ProcessorCsoundTestMixin(
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
-        buffer_mgr.allocate('in', buffers.PyAtomData())
-        audio_out = buffer_mgr.allocate('out', buffers.PyFloatAudioBlock())
+        buffer_mgr.allocate('in', buffers.PyAtomDataBuffer())
+        audio_out = buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
 
         ctxt = block_context.PyBlockContext()
         ctxt.sample_pos = 1024

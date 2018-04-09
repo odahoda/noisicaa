@@ -132,7 +132,7 @@ class LogManager(object):
     def create_file_logger(self):
         handler = logging.handlers.RotatingFileHandler(
             self.runtime_settings.log_file,
-            maxBytes=10 * 2**20,
+            maxBytes=100 * 2**20,
             backupCount=9,
             encoding='utf-8')
         handler.setLevel(DEBUG)

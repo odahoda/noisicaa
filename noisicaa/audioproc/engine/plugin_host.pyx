@@ -26,6 +26,7 @@ from cpython.ref cimport PyObject
 
 from noisicaa.core.status cimport check
 from noisicaa.host_system.host_system cimport PyHostSystem
+from noisicaa.audioproc.public import plugin_state_pb2
 from .plugin_ui_host cimport PluginUIHost, PyPluginUIHost
 
 logger = logging.getLogger(__name__)
@@ -190,3 +191,21 @@ cdef class PyPluginHost(object):
         cdef uint32_t c_block_size = block_size
         with nogil:
             check(self.__plugin_host.process_block(c_block_size))
+
+    def has_state(self):
+        return self.__plugin_host.has_state()
+
+    def get_state(self):
+        cdef StatusOr[string] stor_serialized_state
+        with nogil:
+            stor_serialized_state = self.__plugin_host.get_state()
+        check(stor_serialized_state)
+
+        state = plugin_state_pb2.PluginState()
+        state.MergeFromString(stor_serialized_state.result())
+        return state
+
+    def set_state(self, state):
+        cdef string serialized_state = state.SerializeToString()
+        with nogil:
+            check(self.__plugin_host.set_state(serialized_state))

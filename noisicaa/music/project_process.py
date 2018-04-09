@@ -189,6 +189,8 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
             'GET_PLAYER_AUDIOPROC_ADDRESS',
             self.handle_get_player_audioproc_address)
         self.server.add_command_handler('UPDATE_PLAYER_STATE', self.handle_update_player_state)
+        self.server.add_command_handler('CONTROL_VALUE_CHANGE', self.handle_control_value_change)
+        self.server.add_command_handler('PLUGIN_STATE_CHANGE', self.handle_plugin_state_change)
         self.server.add_command_handler('PLAYER_SEND_MESSAGE', self.handle_player_send_message)
         self.server.add_command_handler(
             'RESTART_PLAYER_PIPELINE', self.handle_restart_player_pipeline)
@@ -386,7 +388,9 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
 
         realm_name = 'project:%s' % self.project.id
         logger.info("Creating realm '%s'...", realm_name)
-        await audioproc_client.create_realm(name=realm_name, parent='root', enable_player=True)
+        await audioproc_client.create_realm(
+            name=realm_name, parent='root',
+            enable_player=True, callback_address=self.server.address)
 
         p = player.Player(
             project=self.project,
@@ -468,6 +472,53 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
         assert self.project is not None
         session = self.get_session(session_id)
         session.set_values(data, from_client=True)
+
+    async def handle_control_value_change(self, realm, node_id, port_name, value, generation):
+        assert self.project is not None
+
+        logger.info(
+            "control_value_change(%s, %s, %s, %f, %d)",
+            realm, node_id, port_name, value, generation)
+
+        for node in self.project.pipeline_graph_nodes:
+            if node.pipeline_node_id == node_id:
+                break
+
+        else:
+            raise ValueError("Invalid node_id '%s'" % node_id)
+
+        target = node.id
+        cmd = commands.Command.create(
+            'SetPipelineGraphControlValue',
+            port_name=port_name, float_value=value, generation=generation)
+
+        # This block must be atomic, no 'awaits'!
+        assert not self.pending_mutations
+        result = self.project.dispatch_command(target, cmd)
+        mutations = self.pending_mutations[:]
+        self.pending_mutations.clear()
+
+        await self.publish_mutations(mutations)
+
+    async def handle_plugin_state_change(self, realm, node_id, state):
+        assert self.project is not None
+
+        for node in self.project.pipeline_graph_nodes:
+            if node.pipeline_node_id == node_id:
+                break
+        else:
+            raise ValueError("Invalid node_id '%s'" % node_id)
+
+        target = node.id
+        cmd = commands.Command.create('SetPipelineGraphPluginState', plugin_state=state)
+
+        # This block must be atomic, no 'awaits'!
+        assert not self.pending_mutations
+        result = self.project.dispatch_command(target, cmd)
+        mutations = self.pending_mutations[:]
+        self.pending_mutations.clear()
+
+        await self.publish_mutations(mutations)
 
 
 class ProjectSubprocess(core.SubprocessMixin, ProjectProcess):

@@ -94,11 +94,22 @@ class SetPortProperty(Mutation):
 
 
 class SetControlValue(Mutation):
-    def __init__(self, name, value):
+    def __init__(self, name, value, generation):
         super().__init__()
         self.name = name
         self.value = value
+        self.generation = generation
 
     def __str__(self):
-        return '<SetControlValue name="%s" value=%s>' % (
-            self.name, self.value)
+        return '<SetControlValue name="%s" value=%s generation=%d>' % (
+            self.name, self.value, self.generation)
+
+
+class SetPluginState(Mutation):
+    def __init__(self, node, state):
+        super().__init__()
+        self.node = node
+        self.state = state
+
+    def __str__(self):
+        return '<SetPluginState node="%s" state=%s>' % (self.node, self.state)

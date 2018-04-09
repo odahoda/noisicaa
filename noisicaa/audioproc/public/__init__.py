@@ -28,6 +28,9 @@ from .time_mapper import (
 from .player_state_pb2 import (
     PlayerState,
 )
+from .plugin_state_pb2 import (
+    PluginState,
+)
 from .processor_message_pb2 import (
     ProcessorMessage,
     ProcessorMessageList,

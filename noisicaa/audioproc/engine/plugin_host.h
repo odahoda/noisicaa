@@ -29,6 +29,7 @@
 #include <pthread.h>
 #include <sys/mman.h>
 #include <atomic>
+#include <string>
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/engine/buffers.h"
 #include "noisicaa/audioproc/engine/plugin_host.pb.h"
@@ -40,6 +41,9 @@ using namespace std;
 class Logger;
 class HostSystem;
 class PluginUIHost;
+namespace pb {
+class PluginState;
+}
 
 struct PluginMemoryMapping {
   char shmem_path[PATH_MAX];
@@ -71,7 +75,7 @@ public:
 
   virtual StatusOr<PluginUIHost*> create_ui(
       void* handle,
-      void (*control_value_change_cb)(void*, uint32_t, float));
+      void (*control_value_change_cb)(void*, uint32_t, float, uint32_t));
 
   virtual Status setup();
   virtual void cleanup();
@@ -81,6 +85,11 @@ public:
 
   virtual Status connect_port(uint32_t port_idx, BufferPtr buf) = 0;
   virtual Status process_block(uint32_t block_size) = 0;
+
+  virtual bool has_state() const;
+  virtual StatusOr<string> get_state();
+  Status set_state(const string& serialized_state);
+  virtual Status set_state(const pb::PluginState& state);
 
 protected:
   PluginHost(const pb::PluginInstanceSpec& spec, HostSystem* host_system, const char* logger_name);

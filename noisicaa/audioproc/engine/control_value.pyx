@@ -38,8 +38,8 @@ cdef class PyControlValue(object):
 
 
 cdef class PyFloatControlValue(PyControlValue):
-    def __init__(self, name, value):
-        self.__cv_ptr.reset(new FloatControlValue(name.encode('utf-8'), value))
+    def __init__(self, name, value, generation):
+        self.__cv_ptr.reset(new FloatControlValue(name.encode('utf-8'), value, generation))
         self.__cv = self.__cv_ptr.get()
 
     @property
@@ -47,15 +47,14 @@ cdef class PyFloatControlValue(PyControlValue):
         cdef FloatControlValue* cv = <FloatControlValue*>self.__cv;
         return float(cv.value())
 
-    @value.setter
-    def value(self, v):
+    def set_value(self, v, generation):
         cdef FloatControlValue* cv = <FloatControlValue*>self.__cv;
-        cv.set_value(<float>v)
+        cv.set_value(<float>v, generation)
 
 
 cdef class PyIntControlValue(PyControlValue):
-    def __init__(self, name, value):
-        self.__cv_ptr.reset(new IntControlValue(name.encode('utf-8'), value))
+    def __init__(self, name, value, generation):
+        self.__cv_ptr.reset(new IntControlValue(name.encode('utf-8'), value, generation))
         self.__cv = self.__cv_ptr.get()
 
     @property
@@ -63,8 +62,7 @@ cdef class PyIntControlValue(PyControlValue):
         cdef IntControlValue* cv = <IntControlValue*>self.__cv;
         return int(cv.value())
 
-    @value.setter
-    def value(self, v):
+    def set_value(self, v, generation):
         cdef IntControlValue* cv = <IntControlValue*>self.__cv;
-        cv.set_value(<int64_t>v)
+        cv.set_value(<int64_t>v, generation)
 

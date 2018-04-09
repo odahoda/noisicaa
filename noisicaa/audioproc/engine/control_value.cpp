@@ -24,18 +24,19 @@
 
 namespace noisicaa {
 
-ControlValue::ControlValue(ControlValueType type, const string& name)
+ControlValue::ControlValue(ControlValueType type, const string& name, uint32_t generation)
   : _type(type),
-    _name(name) {}
+    _name(name),
+    _generation(generation) {}
 
 ControlValue::~ControlValue() {}
 
-FloatControlValue::FloatControlValue(const string& name, float value)
-  : ControlValue(ControlValueType::FloatCV, name),
+FloatControlValue::FloatControlValue(const string& name, float value, uint32_t generation)
+  : ControlValue(ControlValueType::FloatCV, name, generation),
     _value(value) {}
 
-IntControlValue::IntControlValue(const string& name, int64_t value)
-  : ControlValue(ControlValueType::IntCV, name),
+IntControlValue::IntControlValue(const string& name, int64_t value, uint32_t generation)
+  : ControlValue(ControlValueType::IntCV, name, generation),
     _value(value) {}
 
 }  // namespace noisicaa

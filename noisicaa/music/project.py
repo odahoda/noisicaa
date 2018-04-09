@@ -416,6 +416,9 @@ class JSONEncoder(json.JSONEncoder):
         if isinstance(obj, audioproc.MusicalTime):
             return {'__type__': 'MusicalTime',
                     'value': [obj.numerator, obj.denominator]}
+        if isinstance(obj, audioproc.PluginState):
+            return {'__type__': 'PluginState',
+                    'value': obj.SerializeToString()}
         if isinstance(obj, Pitch):
             return {'__type__': 'Pitch',
                     'value': [obj.name]}
@@ -446,6 +449,10 @@ class JSONDecoder(json.JSONDecoder):
             return audioproc.MusicalDuration(*obj['value'])
         if objtype == 'MusicalTime':
             return audioproc.MusicalTime(*obj['value'])
+        if objtype == 'PluginState':
+            plugin_state = audioproc.PluginState()
+            plugin_state.MergeFromString(obj['value'])
+            return plugin_state
         if objtype == 'Pitch':
             return Pitch(*obj['value'])
         if objtype == 'Clef':

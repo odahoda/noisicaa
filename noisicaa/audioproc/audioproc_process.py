@@ -202,12 +202,13 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         for session in self.sessions:
             session.publish_player_state(realm, state)
 
-    async def __handle_create_realm(self, session_id, name, parent, enable_player):
+    async def __handle_create_realm(self, session_id, name, parent, enable_player, callback_address):
         session = self.get_session(session_id)
         await self.__engine.create_realm(
             name=name,
             parent=parent,
-            enable_player=enable_player)
+            enable_player=enable_player,
+            callback_address=callback_address)
         session.owned_realms.add(name)
 
     async def __handle_delete_realm(self, session_id, name):
@@ -271,7 +272,10 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             port.set_prop(**mutation.kwargs)
 
         elif isinstance(mutation, mutations.SetControlValue):
-            realm.set_control_value(mutation.name, mutation.value)
+            realm.set_control_value(mutation.name, mutation.value, mutation.generation)
+
+        elif isinstance(mutation, mutations.SetPluginState):
+            await realm.set_plugin_state(mutation.node, mutation.state)
 
         else:
             raise ValueError(type(mutation))

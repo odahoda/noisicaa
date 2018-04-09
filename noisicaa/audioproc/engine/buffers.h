@@ -54,7 +54,21 @@ public:
   virtual Status mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const = 0;
 };
 
-class Float : public BufferType {
+class FloatControlValueBuffer : public BufferType {
+public:
+  struct ControlValue {
+    float value;
+    uint32_t generation;
+  };
+
+  uint32_t size(HostSystem* host_system) const override;
+
+  Status clear_buffer(HostSystem* host_system, BufferPtr buf) const override;
+  Status mix_buffers(HostSystem* host_system, const BufferPtr buf1, BufferPtr buf2) const override;
+  Status mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const override;
+};
+
+class FloatAudioBlockBuffer : public BufferType {
 public:
   uint32_t size(HostSystem* host_system) const override;
 
@@ -63,16 +77,7 @@ public:
   Status mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const override;
 };
 
-class FloatAudioBlock : public BufferType {
-public:
-  uint32_t size(HostSystem* host_system) const override;
-
-  Status clear_buffer(HostSystem* host_system, BufferPtr buf) const override;
-  Status mix_buffers(HostSystem* host_system, const BufferPtr buf1, BufferPtr buf2) const override;
-  Status mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const override;
-};
-
-class AtomData : public BufferType {
+class AtomDataBuffer : public BufferType {
 public:
   uint32_t size(HostSystem* host_system) const override;
 

@@ -18,7 +18,7 @@
 #
 # @end:license
 
-from libc.stdint cimport int64_t
+from libc.stdint cimport uint32_t, int64_t
 from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 
@@ -30,18 +30,19 @@ cdef extern from "noisicaa/audioproc/engine/control_value.h" namespace "noisicaa
     cppclass ControlValue:
         ControlValueType type() const
         const string& name() const
+        uint32_t generation() const
 
     cppclass FloatControlValue(ControlValue):
-        FloatControlValue(const string& name, float value)
+        FloatControlValue(const string& name, float value, uint32_t generation)
 
         float value() const
-        void set_value(float value)
+        void set_value(float value, uint32_t generation)
 
     cppclass IntControlValue(ControlValue):
-        IntControlValue(const string& name, int64_t value)
+        IntControlValue(const string& name, int64_t value, uint32_t generation)
 
         int64_t value() const
-        void set_value(int64_t value)
+        void set_value(int64_t value, uint32_t generation)
 
 
 cdef class PyControlValue(object):

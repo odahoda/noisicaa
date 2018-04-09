@@ -20,8 +20,14 @@
 #
 # @end:license
 
+import logging
+import struct
+
 from noisidev import unittest
+from noisicaa.audioproc.public import plugin_state_pb2
 from . import plugin_host_test
+
+logger = logging.getLogger(__name__)
 
 
 class PluginHostLV2Test(plugin_host_test.PluginHostMixin, unittest.TestCase):
@@ -39,3 +45,19 @@ class PluginHostLV2Test(plugin_host_test.PluginHostMixin, unittest.TestCase):
             for s in range(block_size):
                 self.assertAlmostEqual(bufp['audio_in'][s], 0.5, places=2)
                 self.assertAlmostEqual(bufp['audio_out'][s], 0.5, places=2)
+
+    def test_state(self):
+        plugin_uri = 'http://noisicaa.odahoda.de/plugins/test-state'
+        block_size = 256
+
+        with self.setup_plugin(block_size, plugin_uri) as (plugin, _):
+            state = plugin.get_state()
+            logger.info("State:\n%s", state)
+            self.assertIsInstance(state, plugin_state_pb2.PluginState)
+            self.assertEqual(len(state.lv2.properties), 1)
+            self.assertEqual(
+                state.lv2.properties[0].key, 'http://noisicaa.odahoda.de/plugins/test-state#foo')
+            self.assertEqual(
+                state.lv2.properties[0].type, 'http://lv2plug.in/ns/ext/atom#Number')
+            self.assertEqual(
+                struct.unpack('!I', state.lv2.properties[0].value)[0], 0x75391654)

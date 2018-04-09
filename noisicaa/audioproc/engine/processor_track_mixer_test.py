@@ -40,13 +40,13 @@ class ProcessorTrackMixerTestMixin(
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
-        audio_l_in = buffer_mgr.allocate('in:left', buffers.PyFloatAudioBlock())
-        audio_r_in = buffer_mgr.allocate('in:right', buffers.PyFloatAudioBlock())
-        audio_l_out = buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlock())
-        audio_r_out = buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlock())
-        gain = buffer_mgr.allocate('gain', buffers.PyFloat())
-        muted = buffer_mgr.allocate('muted', buffers.PyFloat())
-        pan = buffer_mgr.allocate('pan', buffers.PyFloat())
+        audio_l_in = buffer_mgr.allocate('in:left', buffers.PyFloatAudioBlockBuffer())
+        audio_r_in = buffer_mgr.allocate('in:right', buffers.PyFloatAudioBlockBuffer())
+        audio_l_out = buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlockBuffer())
+        audio_r_out = buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlockBuffer())
+        gain = buffer_mgr.allocate('gain', buffers.PyFloatControlValueBuffer())
+        muted = buffer_mgr.allocate('muted', buffers.PyFloatControlValueBuffer())
+        pan = buffer_mgr.allocate('pan', buffers.PyFloatControlValueBuffer())
 
         ctxt = block_context.PyBlockContext()
         ctxt.sample_pos = 1024

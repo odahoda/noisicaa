@@ -36,24 +36,6 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
-class AudioProcBackend(core.ManagedBackend):
-    def __init__(self, player):
-        super().__init__()
-        self.__player = player
-
-    async def start(self):
-        await self.__player.start_audioproc()
-
-    async def stop(self):
-        await self.__player.stop_audioproc()
-
-    async def started(self, mgr):
-        await self.__player.audioproc_started()
-
-    async def stopped(self, mgr):
-        await self.__player.audioproc_stopped()
-
-
 class Player(object):
     def __init__(self, *,
                  project, event_loop, audioproc_client, realm,

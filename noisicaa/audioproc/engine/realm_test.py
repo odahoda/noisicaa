@@ -52,7 +52,7 @@ class RealmTest(
             parent=parent,
             name=name,
             host_system=self.host_system,
-            player=None, engine=None)
+            player=None, engine=None, callback_address=None)
         try:
             await realm.setup()
 
@@ -87,12 +87,12 @@ class RealmTest(
             realm.add_active_processor(fluidsynth_proc)
 
             spec = PySpec()
-            spec.append_buffer('noise_out', buffers.PyFloatAudioBlock())
-            spec.append_buffer('fluid_in', buffers.PyAtomData())
-            spec.append_buffer('fluid_out_left', buffers.PyFloatAudioBlock())
-            spec.append_buffer('fluid_out_right', buffers.PyFloatAudioBlock())
-            spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlock())
-            spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlock())
+            spec.append_buffer('noise_out', buffers.PyFloatAudioBlockBuffer())
+            spec.append_buffer('fluid_in', buffers.PyAtomDataBuffer())
+            spec.append_buffer('fluid_out_left', buffers.PyFloatAudioBlockBuffer())
+            spec.append_buffer('fluid_out_right', buffers.PyFloatAudioBlockBuffer())
+            spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlockBuffer())
+            spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlockBuffer())
             spec.append_processor(fluidsynth_proc)
             spec.append_opcode('CLEAR', 'sink:in:left')
             spec.append_opcode('CLEAR', 'sink:in:right')
@@ -120,18 +120,18 @@ class RealmTest(
         self.host_system.set_block_size(256)
         async with self.create_realm() as realm:
             spec = PySpec()
-            spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlock())
-            spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlock())
-            spec.append_buffer('buf1', buffers.PyFloatAudioBlock())
-            spec.append_buffer('buf2', buffers.PyFloatAudioBlock())
+            spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlockBuffer())
+            spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlockBuffer())
+            spec.append_buffer('buf1', buffers.PyFloatAudioBlockBuffer())
+            spec.append_buffer('buf2', buffers.PyFloatAudioBlockBuffer())
             spec.append_opcode('MIX', 'buf1', 'buf2')
             realm.set_spec(spec)
 
             # Initializes the program with the new spec (required for Realm::get_buffer() to work).
             program = realm.get_active_program()
 
-            buf1 = realm.get_buffer('buf1', buffers.PyFloatAudioBlock())
-            buf2 = realm.get_buffer('buf2', buffers.PyFloatAudioBlock())
+            buf1 = realm.get_buffer('buf1', buffers.PyFloatAudioBlockBuffer())
+            buf2 = realm.get_buffer('buf2', buffers.PyFloatAudioBlockBuffer())
 
             buf1[0] = 1.0
             buf1[1] = 2.0
@@ -175,11 +175,11 @@ class RealmTest(
             realm.add_active_processor(processor)
 
             spec = PySpec()
-            spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlock())
-            spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlock())
-            spec.append_buffer('gain', buffers.PyFloat())
-            spec.append_buffer('in', buffers.PyFloatAudioBlock())
-            spec.append_buffer('out', buffers.PyFloatAudioBlock())
+            spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlockBuffer())
+            spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlockBuffer())
+            spec.append_buffer('gain', buffers.PyFloatControlValueBuffer())
+            spec.append_buffer('in', buffers.PyFloatAudioBlockBuffer())
+            spec.append_buffer('out', buffers.PyFloatAudioBlockBuffer())
             spec.append_processor(processor)
             spec.append_opcode('CONNECT_PORT', processor, 0, 'gain')
             spec.append_opcode('CONNECT_PORT', processor, 1, 'in')
@@ -190,10 +190,10 @@ class RealmTest(
             # Initializes the program with the new spec (required for Realm::get_buffer() to work).
             program = realm.get_active_program()
 
-            buf_gain = realm.get_buffer('gain', buffers.PyFloat())
+            buf_gain = realm.get_buffer('gain', buffers.PyFloatControlValueBuffer())
             buf_gain[0] = 0.5
 
-            buf_in = realm.get_buffer('in', buffers.PyFloatAudioBlock())
+            buf_in = realm.get_buffer('in', buffers.PyFloatAudioBlockBuffer())
             buf_in[0] = 1.0
             buf_in[1] = 2.0
             buf_in[2] = 3.0
@@ -201,7 +201,7 @@ class RealmTest(
 
             realm.process_block(program)
 
-            # buf_out = realm.get_buffer('out', buffers.PyFloatAudioBlock())
+            # buf_out = realm.get_buffer('out', buffers.PyFloatAudioBlockBuffer())
             # self.assertEqual(data[0], 0.5)
             # self.assertEqual(data[1], 1.0)
             # self.assertEqual(data[2], 1.5)
@@ -213,8 +213,8 @@ class RealmTest(
                 root_realm.add_active_child_realm(child_realm)
 
                 root_spec = PySpec()
-                root_spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlock())
-                root_spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlock())
+                root_spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlockBuffer())
+                root_spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlockBuffer())
                 root_spec.append_opcode('CLEAR', 'sink:in:left')
                 root_spec.append_opcode('CLEAR', 'sink:in:right')
                 root_spec.append_child_realm(child_realm)
@@ -223,8 +223,8 @@ class RealmTest(
                 root_realm.set_spec(root_spec)
 
                 child_spec = PySpec()
-                child_spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlock())
-                child_spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlock())
+                child_spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlockBuffer())
+                child_spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlockBuffer())
                 child_spec.append_opcode('NOISE', 'sink:in:left')
                 child_spec.append_opcode('NOISE', 'sink:in:right')
                 child_realm.set_spec(child_spec)
@@ -233,10 +233,10 @@ class RealmTest(
 
                 self.assertTrue(any(
                     v != 0.0 for v in root_realm.get_buffer(
-                        'sink:in:left', buffers.PyFloatAudioBlock())))
+                        'sink:in:left', buffers.PyFloatAudioBlockBuffer())))
                 self.assertTrue(any(
                     v != 0.0 for v in root_realm.get_buffer(
-                        'sink:in:right', buffers.PyFloatAudioBlock())))
+                        'sink:in:right', buffers.PyFloatAudioBlockBuffer())))
 
     async def test_child_realm_graph(self):
         async with self.create_realm() as root_realm:
@@ -247,8 +247,8 @@ class RealmTest(
 
             async with self.create_realm(name='child', parent=root_realm) as child_realm:
                 child_spec = PySpec()
-                child_spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlock())
-                child_spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlock())
+                child_spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlockBuffer())
+                child_spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlockBuffer())
                 child_spec.append_opcode('NOISE', 'sink:in:left')
                 child_spec.append_opcode('NOISE', 'sink:in:right')
                 child_realm.set_spec(child_spec)
@@ -270,10 +270,10 @@ class RealmTest(
 
                 self.assertTrue(any(
                     v != 0.0 for v in root_realm.get_buffer(
-                        'sink:in:left', buffers.PyFloatAudioBlock())))
+                        'sink:in:left', buffers.PyFloatAudioBlockBuffer())))
                 self.assertTrue(any(
                     v != 0.0 for v in root_realm.get_buffer(
-                        'sink:in:right', buffers.PyFloatAudioBlock())))
+                        'sink:in:right', buffers.PyFloatAudioBlockBuffer())))
 
                 root_sink.inputs['in:left'].disconnect(child_realm_node.outputs['out:left'])
                 root_sink.inputs['in:right'].disconnect(child_realm_node.outputs['out:right'])
@@ -287,10 +287,10 @@ class RealmTest(
 
             self.assertTrue(all(
                 v == 0.0 for v in root_realm.get_buffer(
-                    'sink:in:left', buffers.PyFloatAudioBlock())))
+                    'sink:in:left', buffers.PyFloatAudioBlockBuffer())))
             self.assertTrue(all(
                 v == 0.0 for v in root_realm.get_buffer(
-                    'sink:in:right', buffers.PyFloatAudioBlock())))
+                    'sink:in:right', buffers.PyFloatAudioBlockBuffer())))
 
     async def test_graph_mutations(self):
         async with self.create_realm() as realm:

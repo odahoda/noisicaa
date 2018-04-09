@@ -63,8 +63,8 @@ class ProcessorSampleScriptTest(
 
         self.buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
-        self.outlbuf = self.buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlock())
-        self.outrbuf = self.buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlock())
+        self.outlbuf = self.buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlockBuffer())
+        self.outrbuf = self.buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlockBuffer())
 
         self.time_mapper = time_mapper.PyTimeMapper(self.host_system.sample_rate)
         self.time_mapper.setup()

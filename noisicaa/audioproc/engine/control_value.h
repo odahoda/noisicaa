@@ -43,21 +43,28 @@ public:
 
   ControlValueType type() const { return _type; }
   const string& name() const { return _name; }
+  uint32_t generation() const { return _generation; }
 
 protected:
-  ControlValue(ControlValueType type, const string& name);
+  ControlValue(ControlValueType type, const string& name, uint32_t generation);
+
+  void set_generation(uint32_t generation) { _generation = generation; }
 
 private:
   ControlValueType _type;
   string _name;
+  uint32_t _generation;
 };
 
 class FloatControlValue : public ControlValue {
 public:
-  FloatControlValue(const string& name, float value);
+  FloatControlValue(const string& name, float value, uint32_t generation);
 
   float value() const { return _value; }
-  void set_value(float value) { _value = value; }
+  void set_value(float value, uint32_t generation) {
+    _value = value;
+    set_generation(generation);
+  }
 
 private:
   float _value;
@@ -65,10 +72,13 @@ private:
 
 class IntControlValue : public ControlValue {
 public:
-  IntControlValue(const string& name, int64_t value);
+  IntControlValue(const string& name, int64_t value, uint32_t generation);
 
   int64_t value() const { return _value; }
-  void set_value(int64_t value) { _value = value; }
+  void set_value(int64_t value, uint32_t generation) {
+    _value = value;
+    set_generation(generation);
+  }
 
 private:
   int64_t _value;

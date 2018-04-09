@@ -24,12 +24,16 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
-import "noisicaa/node_db/node_description.proto";
-import "noisicaa/audioproc/public/plugin_state.proto";
+message PluginStateLV2Property {
+  required string key = 1;
+  required string type = 2;
+  required bytes value = 3;
+}
 
-message PluginInstanceSpec {
-  required string realm = 1;
-  required string node_id = 2;
-  required NodeDescription node_description = 3;
-  optional PluginState initial_state = 4;
+message PluginStateLV2 {
+  repeated PluginStateLV2Property properties = 1;
+}
+
+message PluginState {
+  optional PluginStateLV2 lv2 = 1;
 }

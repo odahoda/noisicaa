@@ -22,7 +22,7 @@ import logging
 
 from cpython.ref cimport PyObject
 from cpython.exc cimport PyErr_Fetch, PyErr_Restore
-from libc.stdint cimport uint8_t
+from libc.stdint cimport uint8_t, uint32_t
 from libc.string cimport memmove
 
 from noisicaa import core
@@ -57,7 +57,8 @@ cdef class PyRealm(object):
             str name,
             PyRealm parent,
             PyHostSystem host_system,
-            PyPlayer player):
+            PyPlayer player,
+            str callback_address):
         self.listeners = core.CallbackRegistry()
 
         self.__engine = engine
@@ -65,6 +66,7 @@ cdef class PyRealm(object):
         self.__parent = parent
         self.__host_system = host_system
         self.__player = player
+        self.__callback_address = callback_address
 
         self.__bpm = 120
         self.__duration = audioproc.MusicalDuration(4, 1)
@@ -105,6 +107,10 @@ cdef class PyRealm(object):
     @property
     def player(self):
         return self.__player
+
+    @property
+    def callback_address(self):
+        return self.__callback_address
 
     @property
     def block_context(self):
@@ -192,16 +198,21 @@ cdef class PyRealm(object):
         with nogil:
             check(self.__realm.add_child_realm(child.get()))
 
-    def set_control_value(self, name, value):
+    def set_control_value(self, name, value, generation):
         cdef string c_name = name.encode('utf-8')
         cdef float c_float
+        cdef uint32_t c_generation = generation
         if isinstance(value, float):
             c_float = value
             with nogil:
-                check(self.__realm.set_float_control_value(c_name, c_float))
+                check(self.__realm.set_float_control_value(c_name, c_float, c_generation))
         else:
             raise TypeError(
                 "Type %s not supported for control values." % type(value).__name__)
+
+    async def set_plugin_state(self, node, state):
+        plugin_host = await self.get_plugin_host()
+        await plugin_host.call('SET_PLUGIN_STATE', self.__name, node, state)
 
     def send_node_message(self, msg):
         node = self.__graph.find_node(msg.node_id)

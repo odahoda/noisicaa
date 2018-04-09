@@ -35,10 +35,11 @@ import posix_ipc
 
 from noisidev import unittest
 from noisidev import unittest_mixins
+from noisidev import unittest_engine_mixins
 from noisicaa.constants import TEST_OPTS
-from noisicaa import audioproc
 from noisicaa.core import ipc
 from noisicaa import node_db
+from noisicaa.audioproc.public import plugin_state_pb2
 from . import plugin_host_pb2
 from . import plugin_host
 
@@ -56,14 +57,14 @@ class Window(QtWidgets.QMainWindow):
 class PluginHostProcessTest(
         unittest_mixins.NodeDBMixin,
         unittest_mixins.ProcessManagerMixin,
+        unittest_engine_mixins.HostSystemMixin,
         unittest.QtTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.done = None
         self.shm = None
         self.shm_data = None
-        self.audioproc_server = None
+        self.project_server = None
 
     async def setup_testcase(self):
         self.done = asyncio.Event(loop=self.loop)
@@ -75,22 +76,17 @@ class PluginHostProcessTest(
 
         self.shm_data = mmap.mmap(self.shm.fd, self.shm.size)
 
-        self.setup_urid_mapper_process(inline=False)
-
-        self.audioproc_server = ipc.Server(
-            name='audioproc',
+        self.project_server = ipc.Server(
+            name='project',
             event_loop=self.loop,
             socket_dir=TEST_OPTS.TMP_DIR)
-        self.audioproc_server.add_command_handler('START_SESSION', self.audioproc_start_session)
-        self.audioproc_server.add_command_handler('END_SESSION', self.audioproc_end_session)
-        self.audioproc_server.add_command_handler(
-            'PIPELINE_MUTATION', self.audioproc_pipeline_mutation)
-        await self.audioproc_server.setup()
+        await self.project_server.setup()
+
+        self.setup_urid_mapper_process(inline=False)
 
     async def cleanup_testcase(self):
-        if self.audioproc_server is not None:
-            await self.audioproc_server.cleanup()
-            self.audioproc_server = None
+        if self.project_server is not None:
+            await self.project_server.cleanup()
 
         if self.shm_data is not None:
             self.shm_data.close()
@@ -105,32 +101,15 @@ class PluginHostProcessTest(
         if inline:
             proc = await self.process_manager.start_inline_process(
                 name='test-plugin-host',
-                entry='noisicaa.audioproc.engine.plugin_host_process.PluginHostProcess',
-                audioproc_address=self.audioproc_server.address)
+                entry='noisicaa.audioproc.engine.plugin_host_process.PluginHostProcess')
         else:
             proc = await self.process_manager.start_subprocess(
                 'test-plugin-host',
-                'noisicaa.audioproc.engine.plugin_host_process.PluginHostSubprocess',
-                audioproc_address=self.audioproc_server.address)
+                'noisicaa.audioproc.engine.plugin_host_process.PluginHostSubprocess')
 
         stub = ipc.Stub(self.loop, proc.address)
         await stub.connect()
         return proc, stub
-
-    def audioproc_start_session(self, callback_address, flags):
-        return 'session-id-123'
-
-    def audioproc_end_session(self, session_id):
-        self.assertEqual(session_id, 'session-id-123')
-
-    def audioproc_pipeline_mutation(self, session_id, realm, mutation):
-        self.assertEqual(session_id, 'session-id-123')
-        self.assertEqual(realm, 'root')
-        self.assertIsInstance(mutation, audioproc.SetControlValue)
-        self.assertIsInstance(mutation.value, float)
-        self.assertEqual(mutation.name, '1234:ctrl')
-        if mutation.value >= 1.0:
-            self.done.set()
 
     async def test_create_plugin(self):
         _, stub = await self.create_process(inline=True)
@@ -142,7 +121,7 @@ class PluginHostProcessTest(
             spec.realm = 'root'
             spec.node_id = '1234'
             spec.node_description.CopyFrom(self.node_db[plugin_uri])
-            pipe_path = await stub.call('CREATE_PLUGIN', spec)
+            pipe_path = await stub.call('CREATE_PLUGIN', spec, self.project_server.address)
 
             pipe = open(pipe_path, 'wb', buffering=0)
 
@@ -205,14 +184,33 @@ class PluginHostProcessTest(
             await stub.call('SHUTDOWN')
             await stub.close()
 
-    @unittest.skip("health checks don't work as intended.")
-    async def test_audioproc_dies(self):
-        proc, stub = await self.create_process(inline=False)
-        try:
-            await self.audioproc_server.cleanup()
-            self.audioproc_server = None
+    async def test_save_state(self):
+        self.host_system.set_block_size(256)
 
-            await proc.wait()
+        done = asyncio.Event(loop=self.loop)
+
+        def plugin_state_change(realm, node_id, state):
+            self.assertEqual(realm, 'root')
+            self.assertEqual(node_id, '1234')
+            self.assertIsInstance(state, plugin_state_pb2.PluginState)
+            done.set()
+        self.project_server.add_command_handler('PLUGIN_STATE_CHANGE', plugin_state_change)
+
+        _, stub = await self.create_process(inline=True)
+        try:
+            plugin_uri = 'http://noisicaa.odahoda.de/plugins/test-state'
+            node_desc = self.node_db[plugin_uri]
+
+            spec = plugin_host_pb2.PluginInstanceSpec()
+            spec.realm = 'root'
+            spec.node_id = '1234'
+            spec.node_description.CopyFrom(node_desc)
+            pipe_path = await stub.call('CREATE_PLUGIN', spec, self.project_server.address)
+
+            with open(pipe_path, 'wb', buffering=0):
+                await asyncio.wait_for(done.wait(), 10, loop=self.loop)
+
+            await stub.call('DELETE_PLUGIN', 'root', '1234')
 
         finally:
             await stub.call('SHUTDOWN')
@@ -220,8 +218,19 @@ class PluginHostProcessTest(
 
     @unittest.skipUnless(TEST_OPTS.ALLOW_UI, "Requires UI")
     async def test_create_ui(self):
+        done = asyncio.Event(loop=self.loop)
+
         win = Window()
-        win.closed.connect(self.done.set)
+        win.closed.connect(done.set)
+
+        def control_value_change(realm, node_id, port_name, value, generation):
+            self.assertEqual(realm, 'root')
+            self.assertEqual(node_id, '1234')
+            self.assertEqual(port_name, 'ctrl')
+            self.assertIsInstance(value, float)
+            if value >= 1.0:
+                done.set()
+        self.project_server.add_command_handler('CONTROL_VALUE_CHANGE', control_value_change)
 
         _, stub = await self.create_process(inline=False)
         try:
@@ -231,7 +240,7 @@ class PluginHostProcessTest(
             spec.realm = 'root'
             spec.node_id = '1234'
             spec.node_description.CopyFrom(self.node_db[plugin_uri])
-            await stub.call('CREATE_PLUGIN', spec)
+            await stub.call('CREATE_PLUGIN', spec, self.project_server.address)
 
             wid, size = await stub.call('CREATE_UI', 'root', '1234')
 
@@ -244,7 +253,7 @@ class PluginHostProcessTest(
             win.resize(*size)
             win.show()
 
-            await asyncio.wait_for(self.done.wait(), 10, loop=self.loop)
+            await asyncio.wait_for(done.wait(), 10, loop=self.loop)
 
             win.hide()
 

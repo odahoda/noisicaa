@@ -24,6 +24,7 @@ set(LIB_SRCS
   musical_time.cpp
   musical_time.pb.cc
   player_state.pb.cc
+  plugin_state.pb.cc
   processor_message.pb.cc
   time_mapper.cpp
 )
@@ -37,6 +38,8 @@ cpp_proto(musical_time.proto)
 py_proto(musical_time.proto)
 cpp_proto(player_state.proto)
 py_proto(player_state.proto)
+cpp_proto(plugin_state.proto)
+py_proto(plugin_state.proto)
 cpp_proto(processor_message.proto)
 py_proto(processor_message.proto)
 

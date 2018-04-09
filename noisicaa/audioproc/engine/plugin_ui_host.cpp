@@ -31,11 +31,11 @@ PluginUIHost::PluginUIHost(
     PluginHost* plugin,
     HostSystem* host_system,
     void* handle,
-    void (*control_value_change_cb)(void*, uint32_t, float),
+    void (*control_value_change_cb)(void*, uint32_t, float, uint32_t),
     const char* logger_name)
-  : _plugin(plugin),
-    _logger(LoggerRegistry::get_logger(logger_name)),
+  : _logger(LoggerRegistry::get_logger(logger_name)),
     _host_system(host_system),
+    _plugin(plugin),
     _handle(handle),
     _control_value_change_cb(control_value_change_cb) {}
 

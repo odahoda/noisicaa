@@ -1,13 +1,48 @@
 # -*- org-tags-column: -98 -*-
 
-NEXT: route control value changes to project, so they're persisted and propagated to the UI
-THEN: investigate how other plugin state can be persisted
+* Make control value generations work with undo                                              :BUG:
+- generation must also increment, when value change is caused by undo
+- track generation outside of model
+- but also synchronize generation with model listeners
+- some special 'value plus generation' container?
+- also use generation for plugin_state
+
+* LV2: implement http://lv2plug.in/ns/ext/presets extension                                   :FR:
+- provide list of presets as drop down
+- set state and control values
+
+* LV2: implement state reset                                                                  :FR:
+- set all ports to default values
+- call set_state with empty proto
+
+* LV2: implement ui:portNotification                                                          :FR:
+* LV2: implement ui:portSubscribe                                                             :FR:
+* Crash when opening a project with an opened plugin ui                                    :CRASH:
+          File "/home/pink/noisicaa/build/noisicaa/ui/pipeline_graph_view.py", line 307, in __loadUI
+            self.__loading = False
+          File "/home/pink/noisicaa/build/noisicaa/ui/project_view.py", line 1332, in createPluginUI
+            return await self.project_client.create_plugin_ui(self.__player_id, node_id)
+          File "/home/pink/noisicaa/build/noisicaa/music/project_client.py", line 285, in create_plugin_ui
+            return await self._stub.call('CREATE_PLUGIN_UI', self._session_id, player_id, node_id)
+          File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 455, in call
+            raise RemoteException(self._server_address, response[4:].decode('utf-8'))
+        noisicaa.core.ipc.RemoteException: From server /tmp/noisicaa-20180330-173955-12839-pc15ov6v/project.299137cfc7b84addaeffae4eadc4139a.sock:
+        Traceback (most recent call last):
+          File "/home/pink/noisicaa/build/noisicaa/core/ipc.py", line 255, in handle_command
+            result = await handler(*args, **kwargs)
+          File "/home/pink/noisicaa/build/noisicaa/music/project_process.py", line 426, in handle_create_plugin_ui
+            p = session.get_player(player_id)
+          File "/home/pink/noisicaa/build/noisicaa/music/project_process.py", line 68, in get_player
+            return self._players[player_id][1]
+        KeyError: None
 
 * Parallelize tests                                                                   :TESTING:FR:
 - memory growth when running all tests is way too high
 - run pylint in a subprocess again
 - to make tests faster again, run tests in parallel
 - for each test, dump results into files (unittest, pylint, mypy, coverage)
+  - what std formats are there?
+  - libraries to load/merge/report?
 - merge results from all tests at the end
 - collect logs, stdout/err for each tests into separate files
 - is mypy cache safe for concurrent usage?

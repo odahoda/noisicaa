@@ -18,31 +18,18 @@
 #
 # @end:license
 
-from .engine import Engine
-from .spec import (
-    PySpec as Spec
+add_library(testdata-lv2-state-plugin MODULE state.c)
+set_target_properties(testdata-lv2-state-plugin PROPERTIES
+  PREFIX ""
+  OUTPUT_NAME state
 )
-from .graph import (
-    Node,
-)
-from .buffers import (
-    PyBufferType as BufferType,
-    PyFloatControlValueBuffer as FloatControlValueBuffer,
-    PyFloatAudioBlockBuffer as FloatAudioBlockBuffer,
-    PyAtomDataBuffer as AtomDataBuffer,
-    PyPluginCondBuffer as PluginCondBuffer,
-)
-from .control_value import (
-    PyControlValueType as ControlValueType,
-    PyFloatControlValue as FloatControlValue,
-    PyIntControlValue as IntControlValue,
-)
-from .block_context import (
-    PyBlockContext as BlockContext,
-)
-from .processor import (
-    PyProcessor as Processor,
-)
-from .plugin_host_pb2 import (
-    PluginInstanceSpec,
+
+static_file(manifest.ttl)
+static_file(state.ttl)
+
+add_custom_target(
+  testdata-lv2-state-data ALL
+  DEPENDS
+    manifest.ttl
+    state.ttl
 )

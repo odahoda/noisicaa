@@ -29,6 +29,7 @@
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 #include "suil/suil.h"
 #include "noisicaa/core/status.h"
+#include "noisicaa/core/slots.h"
 #include "noisicaa/audioproc/engine/plugin_ui_host.h"
 
 struct _GtkWidget;
@@ -49,7 +50,7 @@ public:
       PluginHostLV2* plugin,
       HostSystem* host_system,
       void* handle,
-      void (*control_value_change_cb)(void*, uint32_t, float));
+      void (*control_value_change_cb)(void*, uint32_t, float, uint32_t));
 
   Status setup() override;
   void cleanup() override;
@@ -102,7 +103,16 @@ private:
 
   LV2_URID _urid_floatProtocol;
 
+  PluginHostLV2* _plugin = nullptr;
   LV2_Handle _plugin_handle = nullptr;
+
+  Slot<int, float>::Listener _control_value_change_listener = 0;
+  void control_value_changed(int port_idx, float value, uint32_t generation);
+  struct ControlValue {
+    float value;
+    uint32_t generation;
+  };
+  vector<ControlValue> _control_values;
 
   unsigned long int _wid = 0;
   int _width = -1;

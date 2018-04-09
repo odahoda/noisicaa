@@ -55,7 +55,7 @@ class ProcessorPianoRollTestMixin(
 
         self.buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
-        self.outbuf = self.buffer_mgr.allocate('out', buffers.PyAtomData())
+        self.outbuf = self.buffer_mgr.allocate('out', buffers.PyAtomDataBuffer())
 
         self.ctxt = block_context.PyBlockContext()
 

@@ -26,10 +26,12 @@ from .mutations import (
     DisconnectPorts,
     SetPortProperty,
     SetControlValue,
+    SetPluginState,
 )
 from .public import (
     MusicalDuration,
     MusicalTime,
+    PluginState,
     ProcessorMessage,
     ProcessorMessageList,
     PlayerState,

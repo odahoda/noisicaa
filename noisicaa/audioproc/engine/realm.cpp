@@ -372,7 +372,7 @@ Buffer* Realm::get_buffer(const string& name) {
   return program->buffers[stor_idx.result()].get();
 }
 
-Status Realm::set_float_control_value(const string& name, float value) {
+Status Realm::set_float_control_value(const string& name, float value, uint32_t generation) {
   const auto& it = _control_values.find(name);
   if (it == _control_values.end()) {
     return ERROR_STATUS("Control value '%s' not found.", name.c_str());
@@ -383,7 +383,10 @@ Status Realm::set_float_control_value(const string& name, float value) {
     return ERROR_STATUS("Control value '%s' is not of type Float.", name.c_str());
   }
 
-  dynamic_cast<FloatControlValue*>(cv)->set_value(value);
+  FloatControlValue* fcv = (FloatControlValue*)cv;
+  if (generation > fcv->generation()) {
+    fcv->set_value(value, generation);
+  }
   return Status::Ok();
 }
 

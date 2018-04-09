@@ -87,8 +87,9 @@ class AudioProcClientMixin(object):
     async def ping(self):
         await self._stub.ping()
 
-    async def create_realm(self, *, name, parent=None, enable_player=False):
-        await self._stub.call('CREATE_REALM', self._session_id, name, parent, enable_player)
+    async def create_realm(self, *, name, parent=None, enable_player=False, callback_address=None):
+        await self._stub.call(
+            'CREATE_REALM', self._session_id, name, parent, enable_player, callback_address)
 
     async def delete_realm(self, name):
         await self._stub.call('DELETE_REALM', self._session_id, name)
@@ -113,13 +114,12 @@ class AudioProcClientMixin(object):
         return await self.pipeline_mutation(
             realm, mutations.SetPortProperty(node_id, port_name, **kwargs))
 
-    async def set_control_value(self, realm, name, value):
+    async def set_control_value(self, realm, name, value, generation):
         return await self.pipeline_mutation(
-            realm, mutations.SetControlValue(name, value))
+            realm, mutations.SetControlValue(name, value, generation))
 
     async def pipeline_mutation(self, realm, mutation):
-        return await self._stub.call(
-            'PIPELINE_MUTATION', self._session_id, realm, mutation)
+        return await self._stub.call('PIPELINE_MUTATION', self._session_id, realm, mutation)
 
     async def create_plugin_ui(self, realm, node_id):
         return await self._stub.call('CREATE_PLUGIN_UI', self._session_id, realm, node_id)
@@ -128,38 +128,31 @@ class AudioProcClientMixin(object):
         return await self._stub.call('DELETE_PLUGIN_UI', self._session_id, realm, node_id)
 
     async def send_node_messages(self, realm, messages):
-        return await self._stub.call(
-            'SEND_NODE_MESSAGES', self._session_id, realm, messages)
+        return await self._stub.call('SEND_NODE_MESSAGES', self._session_id, realm, messages)
 
     async def set_host_parameters(self, **parameters):
-        return await self._stub.call(
-            'SET_HOST_PARAMETERS', self._session_id, parameters)
+        return await self._stub.call('SET_HOST_PARAMETERS', self._session_id, parameters)
 
     async def set_backend(self, name, **parameters):
-        return await self._stub.call(
-            'SET_BACKEND', self._session_id, name, parameters)
+        return await self._stub.call('SET_BACKEND', self._session_id, name, parameters)
 
     async def set_backend_parameters(self, **parameters):
-        return await self._stub.call(
-            'SET_BACKEND_PARAMETERS', self._session_id, parameters)
+        return await self._stub.call('SET_BACKEND_PARAMETERS', self._session_id, parameters)
 
     async def update_player_state(self, realm, state):
-        return await self._stub.call(
-            'UPDATE_PLAYER_STATE', self._session_id, realm, state)
+        return await self._stub.call('UPDATE_PLAYER_STATE', self._session_id, realm, state)
 
     async def send_message(self, msg):
         return await self._stub.call('SEND_MESSAGE', self._session_id, msg.to_bytes())
 
     async def play_file(self, path):
-        return await self._stub.call(
-            'PLAY_FILE', self._session_id, path)
+        return await self._stub.call('PLAY_FILE', self._session_id, path)
 
     async def dump(self):
         return await self._stub.call('DUMP', self._session_id)
 
     async def update_project_properties(self, realm, **kwargs):
-        return await self._stub.call(
-            'UPDATE_PROJECT_PROPERTIES', self._session_id, realm, kwargs)
+        return await self._stub.call('UPDATE_PROJECT_PROPERTIES', self._session_id, realm, kwargs)
 
     def handle_pipeline_mutation(self, mutation):
         logger.info("Mutation received: %s", mutation)

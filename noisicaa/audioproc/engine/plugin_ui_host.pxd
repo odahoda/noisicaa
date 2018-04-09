@@ -42,4 +42,5 @@ cdef class PyPluginUIHost(object):
     cdef PluginUIHost* get(self) nogil
     cdef PluginUIHost* release(self) nogil
     @staticmethod
-    cdef void __control_value_change(void* handle, uint32_t port_index, float value) with gil
+    cdef void __control_value_change(
+        void* handle, uint32_t port_index, float value, uint32_t generation) with gil

@@ -46,8 +46,8 @@ class ProcessorSoundFileTestMixin(
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
-        audio_l_out = buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlock())
-        audio_r_out = buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlock())
+        audio_l_out = buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlockBuffer())
+        audio_r_out = buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlockBuffer())
 
         ctxt = block_context.PyBlockContext()
         ctxt.sample_pos = 1024

@@ -123,7 +123,7 @@ public:
 
   Status set_spec(const Spec* spec);
 
-  Status set_float_control_value(const string& name, float value);
+  Status set_float_control_value(const string& name, float value, uint32_t generation);
 
   Status send_processor_message(uint64_t processor_id, const string& msg_serialized);
 

@@ -307,7 +307,7 @@ class PluginUI(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             self.__loading = False
 
     async def __unloadUI(self):
-        await asyncio.sleep(10, loop=self.event_loop)
+        #await asyncio.sleep(10, loop=self.event_loop)
 
         async with self.__lock:
             await self.project_view.deletePluginUI(self.__node.id)
@@ -327,7 +327,7 @@ class ControlValuesConnector(object):
         for port in self.__node.description.ports:
             if (port.direction == node_db.PortDescription.INPUT
                 and port.type == node_db.PortDescription.KRATE_CONTROL):
-                self.__control_values[port.name] = port.float_value.default
+                self.__control_values[port.name] = (port.float_value.default, 1)
 
         self.__control_value_listeners = []
         for control_value in self.__node.control_values:
@@ -343,8 +343,11 @@ class ControlValuesConnector(object):
 
         self.listeners = core.CallbackRegistry()
 
-    def __getitem__(self, name):
-        return self.__control_values[name]
+    def value(self, name):
+        return self.__control_values[name][0]
+
+    def generation(self, name):
+        return self.__control_values[name][1]
 
     def cleanup(self):
         for listener in self.__control_value_listeners:
@@ -373,8 +376,8 @@ class ControlValuesConnector(object):
                 if port.name == control_value.name:
                     self.listeners.call(
                         control_value.name,
-                        self.__control_values[control_value.name], port.default)
-                    self.__control_values[control_value.name] = port.default
+                        self.__control_values[control_value.name], (port.default, 1))
+                    self.__control_values[control_value.name] = (port.default, 1)
                     break
 
             listener = self.__control_value_listeners.pop(index)
@@ -388,6 +391,56 @@ class ControlValuesConnector(object):
             control_value_name,
             self.__control_values[control_value_name], new_value)
         self.__control_values[control_value_name] = new_value
+
+
+class ControlValueWidget(ui_base.ProjectMixin, QtCore.QObject):
+    def __init__(self, *, node_item, port, connector, parent, **kwargs):
+        super().__init__(**kwargs)
+
+        self.__node_item = node_item
+        self.__port = port
+        self.__connector = connector
+        self.__parent = parent
+
+        self.__listeners = []
+        self.__generation = self.__connector.generation(self.__port.name)
+
+        self.__widget = QtWidgets.QLineEdit(self.__parent)
+        self.__widget.setText(str(self.__connector.value(self.__port.name)))
+        self.__widget.setValidator(QtGui.QDoubleValidator())
+        self.__widget.editingFinished.connect(self.__onValueEdited)
+
+        self.__listeners.append(self.__connector.listeners.add(
+            self.__port.name, self.__onValueChanged))
+
+    def cleanup(self):
+        for listener in self.__listeners:
+            listener.remove()
+        self.__listeners.clear()
+
+    def label(self):
+        return self.__port.name
+
+    def widget(self):
+        return self.__widget
+
+    def __onValueEdited(self):
+        value, ok = self.__widget.locale().toDouble(self.__widget.text())
+        if ok and value != self.__connector.value(self.__port.name):
+            self.__generation += 1
+            self.send_command_async(
+                self.__node_item.node.id, 'SetPipelineGraphControlValue',
+                port_name=self.__port.name,
+                float_value=value,
+                generation=self.__generation)
+
+    def __onValueChanged(self, old_value, new_value):
+        value, generation = new_value
+        if generation < self.__generation:
+            return
+
+        self.__generation = generation
+        self.__widget.setText(str(value))
 
 
 class NodePropertyDialog(
@@ -499,20 +552,18 @@ class NodePropertyDialog(
                         "Dry/wet (port <i>%s</i>)" % port.name, row_layout)
 
         self.__control_values = ControlValuesConnector(node)
+        self.__control_value_widgets = []
         for port in self._node_item.node_description.ports:
             if (port.direction == node_db.PortDescription.INPUT
                 and port.type == node_db.PortDescription.KRATE_CONTROL):
-                widget = QtWidgets.QLineEdit(props)
-                widget.setText(str(self.__control_values[port.name]))
-                widget.setValidator(QtGui.QDoubleValidator())
-                widget.editingFinished.connect(functools.partial(
-                    self.onFloatControlValueEdited, widget, port))
-                prop_layout.addRow(port.name, widget)
-
-                self.__listeners.append(
-                    self.__control_values.listeners.add(
-                        port.name, functools.partial(
-                            self.onFloatControlValueChanged, widget, port)))
+                widget = ControlValueWidget(
+                    node_item=self._node_item,
+                    port=port,
+                    connector=self.__control_values,
+                    parent=props,
+                    **self.context_args)
+                self.__control_value_widgets.append(widget)
+                prop_layout.addRow(widget.label(), widget.widget())
 
         prop_tab = QtWidgets.QScrollArea()
         prop_tab.setWidgetResizable(True)
@@ -539,6 +590,10 @@ class NodePropertyDialog(
         for listener in self.__listeners:
             listener.remove()
         self.__listeners.clear()
+
+        for widget in self.__control_value_widgets:
+            widget.cleanup()
+        self.__control_value_widgets.clear()
 
         if self.__plugin_ui is not None:
             self.__plugin_ui.cleanup()
@@ -639,17 +694,6 @@ class NodePropertyDialog(
 
     def onNameEdited(self):
         pass
-
-    def onFloatControlValueChanged(self, widget, port, old_value, new_value):
-        widget.setText(str(new_value))
-
-    def onFloatControlValueEdited(self, widget, port):
-        value, ok = widget.locale().toDouble(widget.text())
-        if ok and value != self.__control_values[port.name]:
-            self.send_command_async(
-                self._node_item.node.id, 'SetPipelineGraphControlValue',
-                port_name=port.name,
-                float_value=value)
 
     def onPortBypassEdited(self, port, drywet_widget, value):
         drywet_widget.setEnabled(not value)

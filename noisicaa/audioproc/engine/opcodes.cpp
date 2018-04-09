@@ -155,8 +155,9 @@ Status run_FETCH_CONTROL_VALUE(BlockContext* ctxt, ProgramState* state, const ve
   switch (cv->type()) {
   case ControlValueType::FloatCV: {
     FloatControlValue* fcv = (FloatControlValue*)cv;
-    float* data = (float*)buf->data();
-    *data = fcv->value();
+    FloatControlValueBuffer::ControlValue* data = (FloatControlValueBuffer::ControlValue*)buf->data();
+    data->value = fcv->value();
+    data->generation = fcv->generation();
     return Status::Ok();
   }
   case ControlValueType::IntCV:

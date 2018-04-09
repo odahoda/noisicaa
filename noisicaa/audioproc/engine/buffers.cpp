@@ -38,34 +38,39 @@ Status BufferType::setup(HostSystem* host_system, BufferPtr buf) const {
 void BufferType::cleanup(HostSystem* host_system, BufferPtr buf) const {
 }
 
-uint32_t Float::size(HostSystem* host_system) const {
-  return sizeof(float);
+uint32_t FloatControlValueBuffer::size(HostSystem* host_system) const {
+  return sizeof(ControlValue);
 }
 
-Status Float::clear_buffer(HostSystem* host_system, BufferPtr buf) const {
-  float* ptr = (float*)buf;
-  ptr[0] = 0.0;
+Status FloatControlValueBuffer::clear_buffer(HostSystem* host_system, BufferPtr buf) const {
+  ControlValue* ptr = (ControlValue*)buf;
+  ptr->value = 0.0;
+  ptr->generation = 0;
   return Status::Ok();
 }
 
-Status Float::mix_buffers(HostSystem* host_system, const BufferPtr buf1, BufferPtr buf2) const {
-  float* ptr1 = (float*)buf1;
-  float* ptr2 = (float*)buf2;
-  ptr2[0] += ptr1[0];
+Status FloatControlValueBuffer::mix_buffers(
+    HostSystem* host_system, const BufferPtr buf1, BufferPtr buf2) const {
+  ControlValue* ptr1 = (ControlValue*)buf1;
+  ControlValue* ptr2 = (ControlValue*)buf2;
+  ptr2->value += ptr1->value;
+  ptr2->generation = max(ptr1->generation, ptr2->generation) + 1;
   return Status::Ok();
 }
 
-Status Float::mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const {
-  float* ptr = (float*)buf;
-  ptr[0] *= factor;
+Status FloatControlValueBuffer::mul_buffer(
+    HostSystem* host_system, BufferPtr buf, float factor) const {
+  ControlValue* ptr = (ControlValue*)buf;
+  ptr->value *= factor;
+  ptr->generation += 1;
   return Status::Ok();
 }
 
-uint32_t FloatAudioBlock::size(HostSystem* host_system) const {
+uint32_t FloatAudioBlockBuffer::size(HostSystem* host_system) const {
   return host_system->block_size() * sizeof(float);
 }
 
-Status FloatAudioBlock::clear_buffer(HostSystem* host_system, BufferPtr buf) const {
+Status FloatAudioBlockBuffer::clear_buffer(HostSystem* host_system, BufferPtr buf) const {
   float* ptr = (float*)buf;
   for (uint32_t i = 0 ; i < host_system->block_size() ; ++i) {
     *ptr++ = 0.0;
@@ -73,7 +78,8 @@ Status FloatAudioBlock::clear_buffer(HostSystem* host_system, BufferPtr buf) con
   return Status::Ok();
 }
 
-Status FloatAudioBlock::mix_buffers(HostSystem* host_system, const BufferPtr buf1, BufferPtr buf2) const {
+Status FloatAudioBlockBuffer::mix_buffers(
+    HostSystem* host_system, const BufferPtr buf1, BufferPtr buf2) const {
   float* ptr1 = (float*)buf1;
   float* ptr2 = (float*)buf2;
   for (uint32_t i = 0 ; i < host_system->block_size() ; ++i) {
@@ -82,7 +88,7 @@ Status FloatAudioBlock::mix_buffers(HostSystem* host_system, const BufferPtr buf
   return Status::Ok();
 }
 
-Status FloatAudioBlock::mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const {
+Status FloatAudioBlockBuffer::mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const {
   float* ptr = (float*)buf;
   for (uint32_t i = 0 ; i < host_system->block_size() ; ++i) {
     *ptr++ *= factor;
@@ -90,11 +96,11 @@ Status FloatAudioBlock::mul_buffer(HostSystem* host_system, BufferPtr buf, float
   return Status::Ok();
 }
 
-uint32_t AtomData::size(HostSystem* host_system) const {
+uint32_t AtomDataBuffer::size(HostSystem* host_system) const {
   return 10240;
 }
 
-Status AtomData::clear_buffer(HostSystem* host_system, BufferPtr buf) const {
+Status AtomDataBuffer::clear_buffer(HostSystem* host_system, BufferPtr buf) const {
   memset(buf, 0, 10240);
 
   LV2_Atom_Forge forge;
@@ -109,7 +115,8 @@ Status AtomData::clear_buffer(HostSystem* host_system, BufferPtr buf) const {
   return Status::Ok();
 }
 
-Status AtomData::mix_buffers(HostSystem* host_system, const BufferPtr buf1, BufferPtr buf2) const {
+Status AtomDataBuffer::mix_buffers(
+    HostSystem* host_system, const BufferPtr buf1, BufferPtr buf2) const {
   LV2_Atom_Sequence* seq1 = (LV2_Atom_Sequence*)buf1;
   if (seq1->atom.type != host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS("Excepted sequence, got %d.", seq1->atom.type);
@@ -166,8 +173,8 @@ Status AtomData::mix_buffers(HostSystem* host_system, const BufferPtr buf1, Buff
   return Status::Ok();
 }
 
-Status AtomData::mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const {
-  return ERROR_STATUS("Operation not supported for AtomData");
+Status AtomDataBuffer::mul_buffer(HostSystem* host_system, BufferPtr buf, float factor) const {
+  return ERROR_STATUS("Operation not supported for AtomDataBuffer");
 }
 
 uint32_t PluginCondBuffer::size(HostSystem* host_system) const {

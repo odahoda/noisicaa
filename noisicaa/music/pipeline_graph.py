@@ -66,12 +66,14 @@ commands.Command.register_command(SetPipelineGraphNodePos)
 class SetPipelineGraphControlValue(commands.Command):
     port_name = core.Property(str)
     float_value = core.Property(float, allow_none=True)
+    generation = core.Property(int)
 
-    def __init__(self, port_name=None, float_value=None, state=None):
+    def __init__(self, port_name=None, float_value=None, generation=None, state=None):
         super().__init__(state=state)
         if state is None:
             self.port_name = port_name
             self.float_value = float_value
+            self.generation = generation
 
     def run(self, node):
         assert isinstance(node, BasePipelineGraphNode)
@@ -81,9 +83,25 @@ class SetPipelineGraphControlValue(commands.Command):
         assert port.type == node_db.PortDescription.KRATE_CONTROL
         assert self.float_value is not None
 
-        node.set_control_value(port.name, self.float_value)
+        node.set_control_value(port.name, self.float_value, self.generation)
 
 commands.Command.register_command(SetPipelineGraphControlValue)
+
+
+class SetPipelineGraphPluginState(commands.Command):
+    plugin_state = core.Property(audioproc.PluginState)
+
+    def __init__(self, plugin_state=None, state=None):
+        super().__init__(state=state)
+        if state is None:
+            self.plugin_state = plugin_state
+
+    def run(self, node):
+        assert isinstance(node, BasePipelineGraphNode)
+
+        node.set_plugin_state(self.plugin_state)
+
+commands.Command.register_command(SetPipelineGraphPluginState)
 
 
 class SetPipelineGraphPortParameter(commands.Command):
@@ -141,12 +159,12 @@ commands.Command.register_command(PipelineGraphNodeFromPreset)
 
 class PipelineGraphControlValue(
         model.PipelineGraphControlValue, state.StateBase):
-    def __init__(self, name=None, value=None, state=None, **kwargs):
+    def __init__(self, name=None, value=None, generation=None, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
         if state is None:
             self.name = name
-            self.value = value
+            self.value = (value, generation)
 
 state.StateBase.register_class(PipelineGraphControlValue)
 
@@ -186,8 +204,10 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
             if (port.direction == node_db.PortDescription.INPUT
                 and port.type == node_db.PortDescription.KRATE_CONTROL):
                 for cv in self.control_values:
-                    yield audioproc.SetControlValue(
-                        '%s:%s' % (self.pipeline_node_id, cv.name), cv.value)
+                    if cv.name == port.name:
+                        yield audioproc.SetControlValue(
+                            '%s:%s' % (self.pipeline_node_id, cv.name),
+                            cv.value[0], cv.value[1])
 
             elif port.direction == node_db.PortDescription.OUTPUT:
                 port_property_values = dict(
@@ -224,18 +244,29 @@ class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
                     self.pipeline_node_id, port_name,
                     bypass=bypass, drywet=drywet))
 
-    def set_control_value(self, port_name, value):
+    def set_control_value(self, port_name, value, generation):
         for control_value in self.control_values:
             if control_value.name == port_name:
-                control_value.value = value
+                if generation < control_value.value[1]:
+                    return
+                control_value.value = (value, generation)
                 break
         else:
             self.control_values.append(PipelineGraphControlValue(
-                name=port_name, value=value))
+                name=port_name, value=value, generation=generation))
 
         if self.attached_to_root:
             self.project.handle_pipeline_mutation(
-                audioproc.SetControlValue('%s:%s' % (self.pipeline_node_id, port_name), value))
+                audioproc.SetControlValue(
+                    '%s:%s' % (self.pipeline_node_id, port_name),
+                    value, generation))
+
+    def set_plugin_state(self, state):
+        self.plugin_state = state
+
+        if self.attached_to_root:
+            self.project.handle_pipeline_mutation(
+                audioproc.SetPluginState(self.pipeline_node_id, state))
 
 
 class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
@@ -278,7 +309,8 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
         yield audioproc.AddNode(
             description=self.description,
             id=self.pipeline_node_id,
-            name=self.name)
+            name=self.name,
+            initial_state=self.plugin_state)
 
         yield from self.get_initial_parameter_mutations()
 

@@ -61,7 +61,7 @@ cdef extern from "noisicaa/audioproc/engine/plugin_host.h" namespace "noisicaa" 
         const string& node_id() const
         StatusOr[PluginUIHost*] create_ui(
             void* handle,
-            void (*control_value_change_cb)(void*, uint32_t, float))
+            void (*control_value_change_cb)(void*, uint32_t, float, uint32_t))
 
         Status setup()
         void cleanup()
@@ -73,6 +73,9 @@ cdef extern from "noisicaa/audioproc/engine/plugin_host.h" namespace "noisicaa" 
 
         Status connect_port(uint32_t port_idx, BufferPtr buf)
         Status process_block(uint32_t block_size)
+        bool has_state()
+        StatusOr[string] get_state()
+        Status set_state(const string& serialized_state)
 
 
 cdef class PyPluginHost(object):

@@ -33,6 +33,7 @@ class PluginHostMixin(unittest_mixins.NodeDBMixin, unittest_engine_mixins.HostSy
     @contextlib.contextmanager
     def setup_plugin(self, block_size, plugin_uri):
         spec = plugin_host_pb2.PluginInstanceSpec()
+        spec.realm = 'root'
         spec.node_id = '1234'
         spec.node_description.CopyFrom(self.node_db[plugin_uri])
 

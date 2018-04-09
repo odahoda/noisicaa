@@ -18,31 +18,10 @@
 #
 # @end:license
 
-from .engine import Engine
-from .spec import (
-    PySpec as Spec
-)
-from .graph import (
-    Node,
-)
-from .buffers import (
-    PyBufferType as BufferType,
-    PyFloatControlValueBuffer as FloatControlValueBuffer,
-    PyFloatAudioBlockBuffer as FloatAudioBlockBuffer,
-    PyAtomDataBuffer as AtomDataBuffer,
-    PyPluginCondBuffer as PluginCondBuffer,
-)
-from .control_value import (
-    PyControlValueType as ControlValueType,
-    PyFloatControlValue as FloatControlValue,
-    PyIntControlValue as IntControlValue,
-)
-from .block_context import (
-    PyBlockContext as BlockContext,
-)
-from .processor import (
-    PyProcessor as Processor,
-)
-from .plugin_host_pb2 import (
-    PluginInstanceSpec,
-)
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<http://noisicaa.odahoda.de/plugins/test-state>
+	a lv2:Plugin ;
+	lv2:binary <state.so>  ;
+	rdfs:seeAlso <state.ttl> .

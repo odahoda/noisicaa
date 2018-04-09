@@ -31,6 +31,7 @@
 #include "noisicaa/core/logging.h"
 #include "noisicaa/node_db/node_description.pb.h"
 #include "noisicaa/host_system/host_system.h"
+#include "noisicaa/audioproc/public/plugin_state.pb.h"
 #include "noisicaa/audioproc/engine/plugin_host.h"
 #include "noisicaa/audioproc/engine/plugin_host_lv2.h"
 #include "noisicaa/audioproc/engine/plugin_host_ladspa.h"
@@ -68,7 +69,7 @@ StatusOr<PluginHost*> PluginHost::create(const string& spec_serialized, HostSyst
 }
 
 StatusOr<PluginUIHost*> PluginHost::create_ui(
-    void* handle, void (*control_value_change_cb)(void*, uint32_t, float)) {
+    void* handle, void (*control_value_change_cb)(void*, uint32_t, float, uint32_t)) {
   return ERROR_STATUS("Plugin does not support UIs.");
 }
 
@@ -93,6 +94,25 @@ void PluginHost::cleanup() {
   }
 
   _logger->info("Plugin host %s cleaned up.", _spec.node_id().c_str());
+}
+
+
+bool PluginHost::has_state() const {
+  return false;
+}
+
+StatusOr<string> PluginHost::get_state() {
+  return ERROR_STATUS("Not supported by this plugin.");
+}
+
+Status PluginHost::set_state(const string& serialized_string) {
+  pb::PluginState state;
+  assert(state.ParseFromString(serialized_string));
+  return set_state(state);
+}
+
+Status PluginHost::set_state(const pb::PluginState& state) {
+  return ERROR_STATUS("Not supported by this plugin.");
 }
 
 Status PluginHost::main_loop(int pipe_fd) {
