@@ -20,22 +20,24 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import logging
 import os
+from typing import Any, Dict, List, Optional, Set  # pylint: disable=unused-import
 
 import toposort
 
 from noisicaa import core
+from noisicaa.core import ipc  # pylint: disable=unused-import
 from noisicaa import audioproc
 from noisicaa import node_db
+from noisicaa import host_system as host_system_lib
 from . import control_value
-from . import processor
+from . import processor as processor_lib
 from . import processor_pb2
 from . import plugin_host_pb2
 from . import buffers
 from . import spec as spec_lib
+from . import realm as realm_lib
 
 logger = logging.getLogger(__name__)
 
@@ -45,51 +47,51 @@ class GraphError(Exception):
 
 
 class Port(object):
-    def __init__(self, *, description):
+    def __init__(self, *, description: node_db.PortDescription) -> None:
         self.__description = description
-        self.owner = None
+        self.owner = None  # type: Node
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<%s %s:%s>' % (
             type(self).__name__,
             self.owner.id if self.owner is not None else 'None',
             self.name)
 
     @property
-    def description(self):
+    def description(self) -> node_db.PortDescription:
         return self.__description
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.__description.name
 
     @property
-    def buf_name(self):
+    def buf_name(self) -> str:
         return '%s:%s' % (self.owner.id, self.__description.name)
 
-    def get_buf_type(self):
+    def get_buf_type(self) -> buffers.PyBufferType:
         raise NotImplementedError(type(self).__name__)
 
-    def set_prop(self, **kwargs):
+    def set_prop(self, **kwargs: Any) -> None:
         assert not kwargs
 
 
 class InputPortMixin(Port):
     # pylint: disable=abstract-method
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.inputs = []
+        self.inputs = []  # type: List[Port]
 
-    def connect(self, port):
+    def connect(self, port: Port) -> None:
         self.check_port(port)
         self.inputs.append(port)
 
-    def disconnect(self, port):
+    def disconnect(self, port: Port) -> None:
         assert port in self.inputs, port
         self.inputs.remove(port)
 
-    def check_port(self, port):
+    def check_port(self, port: Port) -> None:
         if not isinstance(port, OutputPortMixin):
             raise GraphError("Can only connect to output ports")
 
@@ -97,87 +99,91 @@ class InputPortMixin(Port):
 class OutputPortMixin(Port):
     # pylint: disable=abstract-method
 
-    def __init__(self, *, bypass_port=None, **kwargs):
+    def __init__(self, *, bypass_port: Optional[str] = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._bypass = False
         self._bypass_port = bypass_port
 
     @property
-    def bypass_port(self):
+    def bypass_port(self) -> Optional[str]:
         return self._bypass_port
 
     @property
-    def bypass(self):
+    def bypass(self) -> bool:
         return self._bypass
 
     @bypass.setter
-    def bypass(self, value):
+    def bypass(self, value: bool) -> None:
         assert self._bypass_port is not None
         self._bypass = bool(value)
 
-    def set_prop(self, *, bypass=None, **kwargs):  # pylint: disable=arguments-differ
+    def set_prop(  # pylint: disable=arguments-differ
+            self, *, bypass: Optional[bool] = None, **kwargs: Any
+    ) -> None:
         super().set_prop(**kwargs)
         if bypass is not None:
             self.bypass = bypass
 
 
 class AudioPortMixin(Port):
-    def get_buf_type(self):
+    def get_buf_type(self) -> buffers.PyBufferType:
         return buffers.PyFloatAudioBlockBuffer()
 
 
 class ARateControlPortMixin(Port):
-    def get_buf_type(self):
+    def get_buf_type(self) -> buffers.PyBufferType:
         return buffers.PyFloatAudioBlockBuffer()
 
 
 class KRateControlPortMixin(Port):
-    def get_buf_type(self):
+    def get_buf_type(self) -> buffers.PyBufferType:
         return buffers.PyFloatControlValueBuffer()
 
 
 class EventPortMixin(Port):
-    def get_buf_type(self):
+    def get_buf_type(self) -> buffers.PyBufferType:
         return buffers.PyAtomDataBuffer()
 
 
 class AudioInputPort(AudioPortMixin, InputPortMixin, Port):
-    def check_port(self, port):
+    def check_port(self, port: Port) -> None:
         super().check_port(port)
         if not isinstance(port, AudioOutputPort):
             raise GraphError("Can only connect to AudioOutputPort")
 
 
 class AudioOutputPort(AudioPortMixin, OutputPortMixin, Port):
-    def __init__(self, *, drywet_port=None, **kwargs):
+    def __init__(self, *, drywet_port: Optional[str] = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self._drywet = 0.0
         self._drywet_port = drywet_port
 
     @property
-    def drywet_port(self):
+    def drywet_port(self) -> str:
         return self._drywet_port
 
     @property
-    def drywet(self):
+    def drywet(self) -> float:
         return self._drywet
 
     @drywet.setter
-    def drywet(self, value):
+    def drywet(self, value: float) -> None:
         value = float(value)
         if value < -100.0 or value > 100.0:
             raise ValueError("Invalid dry/wet value.")
         self._drywet = float(value)
 
-    def set_prop(self, *, drywet=None, **kwargs):  # pylint: disable=arguments-differ
+    def set_prop(  # pylint: disable=arguments-differ
+            self, *, drywet: Optional[float] = None, **kwargs: Any
+    ) -> None:
         super().set_prop(**kwargs)
         if drywet is not None:
             self.drywet = drywet
 
 
 class ARateControlInputPort(ARateControlPortMixin, InputPortMixin, Port):
-    def check_port(self, port):
+    def check_port(self, port: Port) -> None:
         super().check_port(port)
         if not isinstance(port, ARateControlOutputPort):
             raise GraphError("Can only connect to ARateControlOutputPort")
@@ -188,7 +194,7 @@ class ARateControlOutputPort(ARateControlPortMixin, OutputPortMixin, Port):
 
 
 class KRateControlInputPort(KRateControlPortMixin, InputPortMixin, Port):
-    def check_port(self, port):
+    def check_port(self, port: Port) -> None:
         super().check_port(port)
         if not isinstance(port, KRateControlOutputPort):
             raise GraphError("Can only connect to KRateControlOutputPort")
@@ -199,11 +205,11 @@ class KRateControlOutputPort(KRateControlPortMixin, OutputPortMixin, Port):
 
 
 class EventInputPort(EventPortMixin, InputPortMixin, Port):
-    def __init__(self, *, csound_instr='1', **kwargs):
+    def __init__(self, *, csound_instr: str = '1', **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.csound_instr = csound_instr
 
-    def check_port(self, port):
+    def check_port(self, port: Port) -> None:
         super().check_port(port)
         if not isinstance(port, EventOutputPort):
             raise GraphError("Can only connect to EventOutputPort")
@@ -218,8 +224,10 @@ class Node(object):
 
     def __init__(
             self, *,
-            host_system, description, id,  # pylint: disable=redefined-builtin
-            name=None, initial_state=None):
+            host_system: host_system_lib.HostSystem, description: node_db.NodeDescription,
+            id: str,  # pylint: disable=redefined-builtin
+            name: Optional[str] = None, initial_state: Optional[audioproc.PluginState] = None
+    ) -> None:
         assert isinstance(description, node_db.NodeDescription), description
 
         self._host_system = host_system
@@ -228,19 +236,19 @@ class Node(object):
         self.id = id
         self.initial_state = initial_state
 
-        self.__realm = None
+        self.__realm = None  # type: realm_lib.PyRealm
         self.broken = False
-        self.ports = []
-        self.inputs = {}
-        self.outputs = {}
+        self.ports = []  # type: List[Port]
+        self.inputs = {}  # type: Dict[str, InputPortMixin]
+        self.outputs = {}  # type: Dict[str, OutputPortMixin]
 
-        self.__control_values = {}
+        self.__control_values = {}  # type: Dict[str, control_value.PyControlValue]
 
         if self.init_ports_from_description:
             self.init_ports()
 
     @classmethod
-    def create(cls, *, description: node_db.NodeDescription, **kwargs) -> 'Node':
+    def create(cls, *, description: node_db.NodeDescription, **kwargs: Any) -> 'Node':
         cls_map = {
             node_db.NodeDescription.PROCESSOR: ProcessorNode,
             node_db.NodeDescription.PLUGIN: PluginNode,
@@ -257,21 +265,21 @@ class Node(object):
         return node_cls(description=description, **kwargs)
 
     @property
-    def realm(self):
+    def realm(self) -> realm_lib.PyRealm:
         assert self.__realm is not None
         return self.__realm
 
-    def set_realm(self, realm):
+    def set_realm(self, realm: realm_lib.PyRealm) -> None:
         assert self.__realm is None
         self.__realm = realm
 
-    def clear_realm(self):
+    def clear_realm(self) -> None:
         self.__realm = None
 
-    def is_owned_by(self, realm):
+    def is_owned_by(self, realm: realm_lib.PyRealm) -> bool:
         return self.__realm is realm
 
-    def init_ports(self):
+    def init_ports(self) -> None:
         port_cls_map = {
             (node_db.PortDescription.AUDIO,
              node_db.PortDescription.INPUT): AudioInputPort,
@@ -313,14 +321,14 @@ class Node(object):
                 self.outputs[port.name] = port
 
     @property
-    def parent_nodes(self):
-        parents = []
+    def parent_nodes(self) -> List['Node']:
+        parents = []  # type: List[Node]
         for port in self.inputs.values():
             for upstream_port in port.inputs:
                 parents.append(upstream_port.owner)
         return parents
 
-    async def setup(self):
+    async def setup(self) -> None:
         """Set up the node.
 
         Any expensive initialization should go here.
@@ -335,7 +343,7 @@ class Node(object):
                 self.__control_values[port.buf_name] = cv
                 self.realm.add_active_control_value(cv)
 
-    async def cleanup(self, deref=False):
+    async def cleanup(self, deref: bool = False) -> None:
         """Clean up the node.
 
         The counterpart of setup().
@@ -343,10 +351,10 @@ class Node(object):
         logger.info("%s: cleanup()", self.name)
 
     @property
-    def control_values(self):
+    def control_values(self) -> List[control_value.PyControlValue]:
         return [v for _, v in sorted(self.__control_values.items())]
 
-    def add_to_spec_pre(self, spec):
+    def add_to_spec_pre(self, spec: spec_lib.PySpec) -> None:
         for cv in self.control_values:
             spec.append_control_value(cv)
 
@@ -361,7 +369,7 @@ class Node(object):
                 for upstream_port in port.inputs:
                     spec.append_opcode('MIX', upstream_port.buf_name, port.buf_name)
 
-    def add_to_spec_post(self, spec):
+    def add_to_spec_post(self, spec: spec_lib.PySpec) -> None:
         for port_idx, port in enumerate(self.ports):
             if isinstance(port, AudioOutputPort):
                 spec.append_opcode('POST_RMS', self.id, port_idx, port.buf_name)
@@ -370,23 +378,23 @@ class Node(object):
 
 
 class ProcessorNode(Node):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__processor = processor.PyProcessor(self.id, self._host_system, self.description)
+        self.__processor = processor_lib.PyProcessor(self.id, self._host_system, self.description)
 
     @property
-    def processor(self):
+    def processor(self) -> processor_lib.PyProcessor:
         assert self.__processor is not None
         return self.__processor
 
-    async def setup(self):
+    async def setup(self) -> None:
         await super().setup()
 
         self.__processor.setup()
         self.realm.add_active_processor(self.__processor)
 
-    async def cleanup(self, deref=False):
+    async def cleanup(self, deref: bool = False) -> None:
         if self.__processor is not None:
             if deref:
                 self.__processor = None
@@ -395,7 +403,7 @@ class ProcessorNode(Node):
 
         await super().cleanup(deref)
 
-    def add_to_spec_pre(self, spec):
+    def add_to_spec_pre(self, spec: spec_lib.PySpec) -> None:
         super().add_to_spec_pre(spec)
 
         spec.append_processor(self.__processor)
@@ -407,13 +415,13 @@ class ProcessorNode(Node):
 
 
 class PluginNode(ProcessorNode):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__plugin_host = None
-        self.__plugin_pipe_path = None
+        self.__plugin_host = None  # type: ipc.Stub
+        self.__plugin_pipe_path = None  # type: str
 
-    async def setup(self):
+    async def setup(self) -> None:
         await super().setup()
 
         self.__plugin_host = await self.realm.get_plugin_host()
@@ -431,7 +439,7 @@ class PluginNode(ProcessorNode):
             processor_pb2.ProcessorParameters(
                 plugin_pipe_path=os.fsencode(self.__plugin_pipe_path)))
 
-    async def cleanup(self, deref=False):
+    async def cleanup(self, deref: bool = False) -> None:
         await super().cleanup(deref)
 
         if self.__plugin_pipe_path is not None:
@@ -440,7 +448,7 @@ class PluginNode(ProcessorNode):
 
         self.__plugin_host = None
 
-    def add_to_spec_pre(self, spec):
+    def add_to_spec_pre(self, spec: spec_lib.PySpec) -> None:
         super().add_to_spec_pre(spec)
         spec.append_buffer('%s:plugin_cond' % self.id, buffers.PyPluginCondBuffer())
         spec.append_opcode(
@@ -448,28 +456,28 @@ class PluginNode(ProcessorNode):
 
 
 class RealmSinkNode(Node):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(id='sink', **kwargs)
 
-    def add_to_spec_pre(self, spec):
+    def add_to_spec_pre(self, spec: spec_lib.PySpec) -> None:
         super().add_to_spec_pre(spec)
         spec.append_opcode('POST_RMS', self.id, 0, self.inputs['in:left'].buf_name)
         spec.append_opcode('POST_RMS', self.id, 1, self.inputs['in:right'].buf_name)
 
 
 class ChildRealmNode(Node):
-    def __init__(self, *, child_realm, **kwargs):
+    def __init__(self, *, child_realm: str, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.__child_realm_name = child_realm
-        self.__child_realm = None
+        self.__child_realm = None  # type: realm_lib.PyRealm
 
-    async def setup(self):
+    async def setup(self) -> None:
         await super().setup()
 
         self.__child_realm = self.realm.child_realms[self.__child_realm_name]
         self.realm.add_active_child_realm(self.__child_realm)
 
-    def add_to_spec_pre(self, spec):
+    def add_to_spec_pre(self, spec: spec_lib.PySpec) -> None:
         super().add_to_spec_pre(spec)
 
         spec.append_child_realm(self.__child_realm)
@@ -480,12 +488,12 @@ class ChildRealmNode(Node):
 
 
 class EventSourceNode(Node):
-    def __init__(self, *, track_id, **kwargs):
+    def __init__(self, *, track_id: str, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__track_id = track_id
 
-    def add_to_spec_pre(self, spec):
+    def add_to_spec_pre(self, spec: spec_lib.PySpec) -> None:
         super().add_to_spec_pre(spec)
 
         spec.append_opcode(
@@ -495,25 +503,25 @@ class EventSourceNode(Node):
 
 
 class Graph(object):
-    def __init__(self, realm):
+    def __init__(self, realm: realm_lib.PyRealm) -> None:
         self.__realm = realm
-        self.__nodes = {}
+        self.__nodes = {}  # type: Dict[str, Node]
 
     @property
-    def nodes(self):
+    def nodes(self) -> Set[Node]:
         return set(self.__nodes.values())
 
-    def find_node(self, node_id):
+    def find_node(self, node_id: str) -> Node:
         return self.__nodes[node_id]
 
-    def add_node(self, node):
+    def add_node(self, node: Node) -> None:
         if node.id in self.__nodes:
             raise GraphError("Duplicate node ID '%s'" % node.id)
         node.set_realm(self.__realm)
 
         self.__nodes[node.id] = node
 
-    def remove_node(self, node):
+    def remove_node(self, node: Node) -> None:
         if not node.is_owned_by(self.__realm):
             raise GraphError("Node has not been added to this realm")
         node.clear_realm()

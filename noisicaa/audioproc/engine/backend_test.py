@@ -18,8 +18,6 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 from noisidev import unittest
 from noisidev import unittest_engine_mixins
 from noisidev import unittest_engine_utils

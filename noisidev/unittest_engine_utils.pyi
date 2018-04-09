@@ -18,30 +18,37 @@
 #
 # @end:license
 
+from typing import List
+
 from noisicaa import node_db
-from noisicaa.host_system.host_system import PyHostSystem
+from noisicaa import host_system as host_system_lib
 from noisicaa.audioproc.engine import buffers
-from noisicaa.audioproc.engine.buffer_arena import PyBufferArena
-from noisicaa.audioproc.engine.block_context import PyBlockContext
-from noisicaa.audioproc.engine.processor import PyProcessor
+from noisicaa.audioproc.engine import buffer_arena
+from noisicaa.audioproc.engine import block_context
+from noisicaa.audioproc.engine import processor
+
+
+# We actually use memoryviews, but mypy doesn't know that a memoryview can also behave like an
+# array of floats.
+BufferView = List
 
 
 class BufferManager(object):
     def __init__(
             self,
-            host_system: PyHostSystem ,
-            arena: PyBufferArena = None,
+            host_system: host_system_lib.HostSystem ,
+            arena: buffer_arena.PyBufferArena = None,
             size: int = 2**20) -> None:
         ...
     def allocate_from_node_description(
             self, node_description: node_db.NodeDescription, prefix: str = '') -> None: ...
     def connect_ports(
             self,
-            proc: PyProcessor,
-            ctxt: PyBlockContext,
+            proc: processor.PyProcessor,
+            ctxt: block_context.PyBlockContext,
             node_description: node_db.NodeDescription,
            prefix: str = '') -> None: ...
-    def allocate(self, name: str, type: buffers.PyBufferType) -> memoryview: ...
-    def __getitem__(self, name: str) -> memoryview: ...
+    def allocate(self, name: str, type: buffers.PyBufferType) -> BufferView: ...
+    def __getitem__(self, name: str) -> BufferView: ...
     def type(self, name: str) -> buffers.PyBufferType: ...
     def data(self, name: str) -> memoryview: ...

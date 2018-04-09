@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import logging
 
 import async_generator

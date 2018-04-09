@@ -260,7 +260,7 @@ Probably related to unittest.UITestCase
 - until grep finds no more files.
 
 * clean up mypy issues in mypy-unclean files                                     :CLEANUP:TESTING:
-- grep -r mypy-unclean noisicaa/
+- wc -l $(grep -l -r mypy-unclean noisicaa/ | grep -Ev '~$') | sort -nr
 - pick some file and clean it up.
 - until grep finds no more files.
 

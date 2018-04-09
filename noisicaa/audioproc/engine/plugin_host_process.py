@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import asyncio
 import concurrent.futures
 import functools
@@ -41,7 +39,8 @@ with warnings.catch_warnings():
     # So let's cross fingers that is keeps working and suppress that warning.
     warnings.filterwarnings('ignore', r"You have imported the Gtk 2\.0 module")
     gi.require_version("Gtk", "2.0")
-    from gi.repository import Gtk  # pylint: disable=unused-import
+    # pylint: disable=unused-import
+    from gi.repository import Gtk  # type: ignore
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -56,6 +55,7 @@ from . import plugin_ui_host  # pylint: disable=unused-import
 logger = logging.getLogger(__name__)
 
 
+# TODO: this should not extend PyPluginHost, but be a proxy class.
 class PluginHost(plugin_host.PyPluginHost):
     def __init__(
             self, *,
@@ -107,7 +107,8 @@ class PluginHost(plugin_host.PyPluginHost):
         super().set_state(state)
         self.__state = state
 
-    async def setup(self) -> None:
+    # Parent class doesn't use async setup/cleanup.
+    async def setup(self) -> None:  # type: ignore
         super().setup()
 
         if self.__callback_address is not None:
@@ -132,7 +133,7 @@ class PluginHost(plugin_host.PyPluginHost):
             self.__state_fetcher_task = self.__event_loop.create_task(
                 self.__state_fetcher_main())
 
-    async def cleanup(self) -> None:
+    async def cleanup(self) -> None:  # type: ignore
         if self.__state_fetcher_task:
             if self.__state_fetcher_task.done():
                 self.__state_fetcher_task.result()
@@ -172,7 +173,7 @@ class PluginHost(plugin_host.PyPluginHost):
         else:
             self.__thread_result.set_result(True)
 
-    async def __state_fetcher_main(self):
+    async def __state_fetcher_main(self) -> None:
         while True:
             await asyncio.sleep(1.0, loop=self.__event_loop)
 

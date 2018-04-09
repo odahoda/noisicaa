@@ -18,8 +18,6 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import contextlib
 
 from noisidev import unittest_mixins
@@ -58,7 +56,8 @@ class PluginHostMixin(unittest_mixins.NodeDBMixin, unittest_engine_mixins.HostSy
                 buf = bytearray(bufsize)
                 plugin.connect_port(idx, buf)
 
-                bufp[port.name] = memoryview(buf).cast(valuetype)
+                # TODO: mypy doesn't know memoryview.cast
+                bufp[port.name] = memoryview(buf).cast(valuetype)  # type: ignore
 
             yield plugin, bufp
 

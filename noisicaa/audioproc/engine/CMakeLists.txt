@@ -19,15 +19,23 @@
 # @end:license
 
 add_python_package(
+  backend.pyi
   backend_test.py
+  block_context.pyi
+  buffer_arena.pyi
   engine_perftest.py
   engine_test.py
   graph.py
+  message_queue.pyi
+  player.pyi
+  plugin_host.pyi
   plugin_host_process.py
   plugin_host_process_test.py
   plugin_host_test.py
   plugin_host_ladspa_test.py
   plugin_host_lv2_test.py
+  plugin_ui_host.pyi
+  processor.pyi
   processor_test.py
   processor_csound_test.py
   processor_cvgenerator_test.py
@@ -38,7 +46,9 @@ add_python_package(
   processor_sample_script_test.py
   processor_sound_file_test.py
   processor_track_mixer_test.py
+  realm.pyi
   realm_test.py
+  spec.pyi
 )
 
 set(LIB_SRCS

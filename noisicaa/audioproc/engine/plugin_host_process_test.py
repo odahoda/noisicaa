@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import asyncio
 import logging
 import mmap
@@ -142,9 +140,11 @@ class PluginHostProcessTest(
 
                 p = shm_data[offset:offset+bufsize]
                 if port_spec.type == node_db.PortDescription.AUDIO:
-                    bufp[port_spec.name] = p.cast('f')
+                    # TODO: mypy doesn't know memoryview.cast
+                    bufp[port_spec.name] = p.cast('f')  # type: ignore
                 elif port_spec.type == node_db.PortDescription.KRATE_CONTROL:
-                    bufp[port_spec.name] = p.cast('f')
+                    # TODO: mypy doesn't know memoryview.cast
+                    bufp[port_spec.name] = p.cast('f')  # type: ignore
                 else:
                     raise ValueError(port_spec.type)
 
