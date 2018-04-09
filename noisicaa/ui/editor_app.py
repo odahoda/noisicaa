@@ -66,20 +66,14 @@ class ExceptHook(object):
         self.app.crashWithMessage("Uncaught exception", msg)
 
 
-class AudioProcClientImpl(object):
-    def __init__(self, event_loop, server):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = server
-
+class AudioProcClientImpl(audioproc.AudioProcClientBase):
     async def setup(self):
         pass
 
     async def cleanup(self):
         pass
 
-class AudioProcClient(
-        audioproc.AudioProcClientMixin, AudioProcClientImpl):
+class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
     def __init__(self, app, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__app = app

@@ -20,13 +20,11 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-# TODO: pylint-unclean
-
 import functools
 import logging
 import sys
 import uuid
+from typing import cast, Any, Optional, Dict, List, Set, Tuple  # pylint: disable=unused-import
 
 import posix_ipc
 
@@ -34,7 +32,8 @@ from noisicaa import core
 from noisicaa import node_db
 from noisicaa import lv2
 from noisicaa import host_system
-
+from .public import player_state_pb2
+from .public import processor_message_pb2
 from . import engine
 from . import mutations
 
@@ -42,12 +41,12 @@ logger = logging.getLogger(__name__)
 
 
 class Session(core.CallbackSessionMixin, core.SessionBase):
-    def __init__(self, client_address, flags, **kwargs):
+    def __init__(self, client_address: str, flags: Set, **kwargs: Any) -> None:
         super().__init__(callback_address=client_address, **kwargs)
 
         self.__flags = flags or set()
-        self.__pending_mutations = []
-        self.owned_realms = set()
+        self.__pending_mutations = []  # type: List[mutations.Mutation]
+        self.owned_realms = set()  # type: Set[str]
 
     # async def setup(self):
     #     await super().setup()
@@ -65,18 +64,18 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
         #                     upstream_port, port)
         #                 session.publish_mutation(mutation)
 
-    def callback_connected(self):
+    def callback_connected(self) -> None:
         while self.__pending_mutations:
             self.publish_mutation(self.__pending_mutations.pop(0))
 
-    def publish_mutation(self, mutation):
+    def publish_mutation(self, mutation: mutations.Mutation) -> None:
         if not self.callback_alive:
             self.__pending_mutations.append(mutation)
             return
 
         self.async_callback('PIPELINE_MUTATION', mutation)
 
-    def publish_player_state(self, realm, state):
+    def publish_player_state(self, realm: str, state: player_state_pb2.PlayerState) -> None:
         if realm not in self.owned_realms:
             return
 
@@ -85,7 +84,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
         self.async_callback('PLAYER_STATE', realm, state)
 
-    def publish_status(self, status):
+    def publish_status(self, status: Dict[str, Any]) -> None:
         if not self.callback_alive:
             return
 
@@ -104,19 +103,20 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
 
     def __init__(
             self, *,
-            shm=None, profile_path=None, block_size=None, sample_rate=None,
-            **kwargs):
+            shm: Optional[str] = None, profile_path: Optional[str] = None,
+            block_size: Optional[int] = None, sample_rate: Optional[int] = None,
+            **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.shm_name = shm
         self.profile_path = profile_path
-        self.shm = None
-        self.__urid_mapper = None
+        self.shm = None  # type: Optional[posix_ipc.SharedMemory]
+        self.__urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.__block_size = block_size
         self.__sample_rate = sample_rate
-        self.__host_system = None
-        self.__engine = None
+        self.__host_system = None  # type: host_system.HostSystem
+        self.__engine = None  # type: engine.Engine
 
-    async def setup(self):
+    async def setup(self) -> None:
         await super().setup()
 
         self.server.add_command_handler('SHUTDOWN', self.shutdown)
@@ -124,7 +124,8 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         self.server.add_command_handler('DELETE_REALM', self.__handle_delete_realm)
         self.server.add_command_handler('SET_HOST_PARAMETERS', self.handle_set_host_parameters)
         self.server.add_command_handler('SET_BACKEND', self.handle_set_backend)
-        self.server.add_command_handler('SET_BACKEND_PARAMETERS', self.handle_set_backend_parameters)
+        self.server.add_command_handler(
+            'SET_BACKEND_PARAMETERS', self.handle_set_backend_parameters)
         self.server.add_command_handler('SEND_MESSAGE', self.handle_send_message)
         self.server.add_command_handler('PLAY_FILE', self.handle_play_file)
         self.server.add_command_handler('PIPELINE_MUTATION', self.handle_pipeline_mutation)
@@ -160,13 +161,14 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             host_system=self.__host_system,
             shm=self.shm,
             profile_path=self.profile_path)
-        self.__engine.listeners.add('perf_data', self.perf_data_callback)
-        self.__engine.listeners.add('node_state', self.node_state_callback)
-        self.__engine.listeners.add('player_state', self.player_state_callback)
+        # pylint is confused by cython.
+        self.__engine.listeners.add('perf_data', self.perf_data_callback)  # pylint: disable=no-member
+        self.__engine.listeners.add('node_state', self.node_state_callback)  # pylint: disable=no-member
+        self.__engine.listeners.add('player_state', self.player_state_callback)  # pylint: disable=no-member
 
         await self.__engine.setup()
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         logger.info("Cleaning up AudioProcProcess %s...", self.name)
 
         if self.shm is not None:
@@ -190,20 +192,23 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
 
         await super().cleanup()
 
-    def publish_mutation(self, mutation):
+    def publish_mutation(self, mutation: mutations.Mutation) -> None:
         for session in self.sessions:
-            session.publish_mutation(mutation)
+            cast(Session, session).publish_mutation(mutation)
 
-    def publish_status(self, **kwargs):
+    def publish_status(self, **kwargs: Any) -> None:
         for session in self.sessions:
-            session.publish_status(kwargs)
+            cast(Session, session).publish_status(kwargs)
 
-    def publish_player_state(self, realm, state):
+    def publish_player_state(self, realm: str, state: player_state_pb2.PlayerState) -> None:
         for session in self.sessions:
-            session.publish_player_state(realm, state)
+            cast(Session, session).publish_player_state(realm, state)
 
-    async def __handle_create_realm(self, session_id, name, parent, enable_player, callback_address):
-        session = self.get_session(session_id)
+    async def __handle_create_realm(
+            self, session_id: str, name: str, parent: str, enable_player: bool,
+            callback_address: str
+    ) -> None:
+        session = cast(Session, self.get_session(session_id))
         await self.__engine.create_realm(
             name=name,
             parent=parent,
@@ -211,13 +216,14 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             callback_address=callback_address)
         session.owned_realms.add(name)
 
-    async def __handle_delete_realm(self, session_id, name):
-        session = self.get_session(session_id)
+    async def __handle_delete_realm(self, session_id: str, name: str) -> None:
+        session = cast(Session, self.get_session(session_id))
         assert name in session.owned_realms
         await self.__engine.delete_realm(name)
         session.owned_realms.remove(name)
 
-    async def handle_pipeline_mutation(self, session_id, realm_name, mutation):
+    async def handle_pipeline_mutation(
+            self, session_id: str, realm_name: str, mutation: mutations.Mutation) -> None:
         self.get_session(session_id)
         realm = self.__engine.get_realm(realm_name)
         graph = realm.graph
@@ -243,7 +249,7 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             node1 = graph.find_node(mutation.src_node)
             try:
                 port1 = node1.outputs[mutation.src_port]
-            except KeyError as exc:
+            except KeyError:
                 raise KeyError(
                     "Node %s (%s) has no port %s"
                     % (node1.id, type(node1).__name__, mutation.src_port)
@@ -252,7 +258,7 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             node2 = graph.find_node(mutation.dest_node)
             try:
                 port2 = node2.inputs[mutation.dest_port]
-            except KeyError as exc:
+            except KeyError:
                 raise KeyError(
                     "Node %s (%s) has no port %s"
                     % (node2.id, type(node2).__name__, mutation.dest_port)
@@ -280,54 +286,58 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         else:
             raise ValueError(type(mutation))
 
-    def handle_send_node_messages(self, session_id, realm_name, messages):
+    def handle_send_node_messages(
+            self, session_id: str, realm_name: str,
+            messages: processor_message_pb2.ProcessorMessageList) -> None:
         self.get_session(session_id)
         realm = self.__engine.get_realm(realm_name)
         for msg in messages.messages:
             realm.send_node_message(msg)
 
-    async def handle_set_host_parameters(self, session_id, parameters):
+    async def handle_set_host_parameters(self, session_id: str, parameters: Any) -> None:
         self.get_session(session_id)
         await self.__engine.set_host_parameters(**parameters)
 
-    def handle_set_backend(self, session_id, name, parameters):
+    def handle_set_backend(self, session_id: str, name: str, parameters: Dict[str, Any]) -> None:
         self.get_session(session_id)
         self.__engine.set_backend(name, **parameters)
 
-    def handle_set_backend_parameters(self, session_id, parameters):
+    def handle_set_backend_parameters(self, session_id: str, parameters: Dict[str, Any]) -> None:
         self.get_session(session_id)
         self.__engine.set_backend_parameters(**parameters)
 
-    def handle_send_message(self, session_id, msg):
+    def handle_send_message(self, session_id: str, msg: bytes) -> None:
         self.get_session(session_id)
         self.__engine.send_message(msg)
 
-    def handle_update_player_state(self, session_id, realm_name, state):
+    def handle_update_player_state(
+            self, session_id: str, realm_name: str, state: player_state_pb2.PlayerState) -> None:
         self.get_session(session_id)
         realm = self.__engine.get_realm(realm_name)
         realm.player.update_state(state)
 
-    def handle_update_project_properties(self, session_id, realm_name, properties):
+    def handle_update_project_properties(
+            self, session_id: str, realm_name: str, properties: Dict[str, Any]) -> None:
         self.get_session(session_id)
         realm = self.__engine.get_realm(realm_name)
         realm.update_project_properties(**properties)
 
-    def perf_data_callback(self, perf_data):
+    def perf_data_callback(self, perf_data: core.PerfStats) -> None:
         self.event_loop.call_soon_threadsafe(
             functools.partial(
                 self.publish_status, perf_data=perf_data))
 
-    def node_state_callback(self, realm, node_id, state):
+    def node_state_callback(self, realm: str, node_id: str, state: engine.ProcessorState) -> None:
         logger.info('%s %s', node_id, state)
         self.event_loop.call_soon_threadsafe(
             functools.partial(
                 self.publish_status, node_state=(realm, node_id, state)))
 
-    def player_state_callback(self, realm, state):
+    def player_state_callback(self, realm: str, state: Dict[str, Any]) -> None:
         self.event_loop.call_soon_threadsafe(
             functools.partial(self.publish_player_state, realm, state))
 
-    async def handle_play_file(self, session_id, path):
+    async def handle_play_file(self, session_id: str, path: str) -> str:
         self.get_session(session_id)
 
         realm = self.__engine.get_realm('root')
@@ -348,13 +358,14 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         sink.inputs['in:right'].connect(node.outputs['out:right'])
         realm.update_spec()
 
-        self.__engine.notification_listener.add(
+        # pylint is confused by cython.
+        self.__engine.notification_listener.add(  # pylint: disable=no-member
             node.id,
             functools.partial(self.play_file_done, node_id=node.id))
 
         return node.id
 
-    def play_file_done(self, msg_type, *, node_id):
+    def play_file_done(self, msg_type: str, *, node_id: str) -> None:
         realm = self.__engine.get_realm('root')
 
         node = realm.graph.find_node(node_id)
@@ -364,15 +375,16 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         realm.graph.remove_node(node)
         realm.update_spec()
 
-    async def handle_create_plugin_ui(self, session_id, realm_name, node_id):
+    async def handle_create_plugin_ui(
+            self, session_id: str, realm_name: str, node_id: str) -> Tuple[int, Tuple[int, int]]:
         self.get_session(session_id)
         return await self.__engine.create_plugin_ui(realm_name, node_id)
 
-    async def handle_delete_plugin_ui(self, session_id, realm_name, node_id):
+    async def handle_delete_plugin_ui(self, session_id: str, realm_name: str, node_id: str) -> None:
         self.get_session(session_id)
         return await self.__engine.delete_plugin_ui(realm_name, node_id)
 
-    def handle_dump(self, session_id):
+    def handle_dump(self, session_id: str) -> None:
         self.__engine.dump()
 
 

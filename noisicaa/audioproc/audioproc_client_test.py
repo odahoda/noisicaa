@@ -36,11 +36,9 @@ from . import audioproc_client
 logger = logging.getLogger(__name__)
 
 
-class TestClientImpl(object):
+class TestClientImpl(audioproc_client.AudioProcClientBase):
     def __init__(self, event_loop):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'client', TEST_OPTS.TMP_DIR)
+        super().__init__(event_loop, ipc.Server(event_loop, 'client', TEST_OPTS.TMP_DIR))
 
     async def setup(self):
         await self.server.setup()

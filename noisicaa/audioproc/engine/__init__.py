@@ -42,6 +42,7 @@ from .block_context import (
 )
 from .processor import (
     PyProcessor as Processor,
+    State as ProcessorState,
 )
 from .plugin_host_pb2 import (
     PluginInstanceSpec,

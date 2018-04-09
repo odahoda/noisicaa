@@ -47,11 +47,10 @@ from . import player
 logger = logging.getLogger(__name__)
 
 
-class TestAudioProcClientImpl(object):
+class TestAudioProcClientImpl(audioproc_client.AudioProcClientBase):
     def __init__(self, event_loop, name):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, name, socket_dir=TEST_OPTS.TMP_DIR)
+        super().__init__(
+            event_loop, ipc.Server(event_loop, name, socket_dir=TEST_OPTS.TMP_DIR))
 
     async def setup(self):
         await self.server.setup()
@@ -59,8 +58,7 @@ class TestAudioProcClientImpl(object):
     async def cleanup(self):
         await self.server.cleanup()
 
-class TestAudioProcClient(
-        audioproc_client.AudioProcClientMixin, TestAudioProcClientImpl):
+class TestAudioProcClient(audioproc_client.AudioProcClientMixin, TestAudioProcClientImpl):
     pass
 
 

@@ -45,11 +45,9 @@ class RendererFailed(Exception):
     pass
 
 
-class AudioProcClientImpl(object):
+class AudioProcClientImpl(audioproc.AudioProcClientBase):
     def __init__(self, event_loop, tmp_dir):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(event_loop, 'render', tmp_dir)
+        super().__init__(event_loop, ipc.Server(event_loop, 'render', tmp_dir))
 
     async def setup(self):
         await self.server.setup()

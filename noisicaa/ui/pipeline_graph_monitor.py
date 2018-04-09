@@ -40,13 +40,14 @@ from . import ui_base
 logger = logging.getLogger(__name__)
 
 
-class AudioProcClient(audioproc.AudioProcClientMixin):
+class AudioProcClientImpl(audioproc.AudioProcClientBase):
     def __init__(self, monitor):
-        super().__init__()
-        self.event_loop = monitor.event_loop
+        super().__init__(
+            monitor.event_loop,
+            ipc.Server(
+                monitor.event_loop, 'audioproc_monitor',
+                socket_dir=monitor.app.process.tmp_dir))
         self.monitor = monitor
-        self.server = ipc.Server(
-            self.event_loop, 'audioproc_monitor', socket_dir=self.monitor.app.process.tmp_dir)
 
     async def setup(self):
         await self.server.setup()
@@ -54,6 +55,8 @@ class AudioProcClient(audioproc.AudioProcClientMixin):
     async def cleanup(self):
         await self.server.cleanup()
 
+
+class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
     def handle_pipeline_mutation(self, mutation):
         self.monitor.onPipelineMutation(mutation)
 

@@ -140,11 +140,9 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
             self.async_callback('SESSION_DATA_MUTATION', data)
 
 
-class AudioProcClientImpl(object):
+class AudioProcClientImpl(audioproc.AudioProcClientBase):
     def __init__(self, event_loop, name, tmp_dir):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(event_loop, name, socket_dir=tmp_dir)
+        super().__init__(event_loop, ipc.Server(event_loop, name, socket_dir=tmp_dir))
 
     async def setup(self):
         await self.server.setup()

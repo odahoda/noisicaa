@@ -18,7 +18,10 @@
 #
 # @end:license
 
-from .audioproc_client import AudioProcClientMixin
+from .audioproc_client import (
+    AudioProcClientBase,
+    AudioProcClientMixin,
+)
 from .mutations import (
     AddNode,
     RemoveNode,
