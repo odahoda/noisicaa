@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import asyncio
 import asyncio.streams
 import logging
@@ -29,23 +27,24 @@ import pprint
 import subprocess
 import sys
 import textwrap
+from typing import List
 
 from noisicaa.music import project
+from . import runtime_settings as runtime_settings_lib
 
 logger = logging.getLogger(__name__)
 
 
 class ProjectDebugger(object):
-    def __init__(self, runtime_settings, paths):
+    def __init__(
+            self, runtime_settings: runtime_settings_lib.RuntimeSettings, paths: List[str]) -> None:
         self.runtime_settings = runtime_settings
         self.paths = paths
 
-        self.event_loop = None
-        self.stdin = None
-        self.stdout = None
-        self.project = None
+        self.event_loop = None  # type: asyncio.AbstractEventLoop
+        self.project = None  # type: project.Project
 
-    def run(self):
+    def run(self) -> int:
         self.write("noisicaä project debugger\n\n")
 
         if len(self.paths) != 1:
@@ -58,18 +57,20 @@ class ProjectDebugger(object):
             self.event_loop.stop()
             self.event_loop.close()
 
-    def write(self, text):
+        return 0
+
+    def write(self, text: str) -> None:
         sys.stdout.write(text)
         sys.stdout.flush()
 
-    async def readline(self):
+    async def readline(self) -> str:
         text = await self.event_loop.run_in_executor(None, sys.stdin.readline)
         if text == '':
             raise EOFError
         text = text.rstrip('\n')
         return text
 
-    async def run_async(self, path):
+    async def run_async(self, path: str) -> None:
         self.project = project.Project(node_db=None)
         try:
             self.project.open(path)

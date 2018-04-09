@@ -20,22 +20,28 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import sys
 import logging.handlers
 from logging import *  # pylint: disable=W0614,W0401
 import queue
+from typing import Any, Optional, List, Tuple, Type  # pylint: disable=unused-import
+
+from . import runtime_settings as runtime_settings_lib
+
 
 class WrappingFormatter(Formatter):
-    def formatMessage(self, record):
+    def formatMessage(self, record: LogRecord) -> str:
         record.message = record.message.replace('\n', '\n\t')
-        return super().formatMessage(record)
+        # Typeshed doesn't know about formatMessage. It is also not documented, so it might
+        # not be the best idea to extend it...
+        return super().formatMessage(record)  # type: ignore
 
 
-class LogFilter(object):
-    def __init__(self, level_spec):
-        self.levels = []
+class LogFilter(Filter):
+    def __init__(self, level_spec: str) -> None:
+        super().__init__()
+
+        self.levels = []  # type: List[Tuple[str, int]]
 
         for pair in level_spec.split(','):
             if '=' in pair:
@@ -52,7 +58,7 @@ class LogFilter(object):
             }[level_name]
             self.levels.append((logger_name, log_level))
 
-    def filter(self, record):
+    def filter(self, record: LogRecord) -> bool:
         for logger_name, level in self.levels:
             if (record.levelno >= level and (logger_name == ''
                                              or record.name == logger_name
@@ -62,23 +68,23 @@ class LogFilter(object):
 
 
 class LogManager(object):
-    def __init__(self, runtime_settings):
+    def __init__(self, runtime_settings: runtime_settings_lib.RuntimeSettings) -> None:
         self.runtime_settings = runtime_settings
 
-        self.root_logger = None
-        self.queue = None
-        self.queue_handler = None
-        self.queue_listener = None
+        self.root_logger = None  # type: Logger
+        self.queue = None  # type: queue.Queue
+        self.queue_handler = None  # type: logging.handlers.QueueHandler
+        self.queue_listener = None  # type: logging.handlers.QueueListener
 
-    def __enter__(self):
+    def __enter__(self) -> 'LogManager':
         self.setup()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, *args: Any) -> bool:
         self.cleanup()
         return False
 
-    def setup(self):
+    def setup(self) -> None:
         captureWarnings(True)
 
         # Remove all existing log handlers and install a single QueueHandler.
@@ -108,7 +114,7 @@ class LogManager(object):
             self.queue, *handlers, respect_handler_level=True)
         self.queue_listener.start()
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         if self.queue_handler is not None:
             self.root_logger.removeHandler(self.queue_handler)
             self.queue_handler = None
@@ -121,7 +127,7 @@ class LogManager(object):
             assert self.queue.empty()
             self.queue = None
 
-    def create_stderr_logger(self):
+    def create_stderr_logger(self) -> Handler:
         handler = StreamHandler(sys.stderr)
         handler.addFilter(LogFilter(self.runtime_settings.log_level))
         handler.setFormatter(
@@ -129,7 +135,7 @@ class LogManager(object):
                 '%(levelname)-8s:%(process)5s:%(thread)08x:%(name)s: %(message)s'))
         return handler
 
-    def create_file_logger(self):
+    def create_file_logger(self) -> Handler:
         handler = logging.handlers.RotatingFileHandler(
             self.runtime_settings.log_file,
             maxBytes=100 * 2**20,

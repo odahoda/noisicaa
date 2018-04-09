@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 # Important: This module must not import any other noisicaa modules.
 
 import os
@@ -40,7 +38,7 @@ DATA_DIR = os.path.abspath(os.path.join(__file__, '..', '..', 'data'))
 
 CACHE_DIR = os.path.abspath(os.path.join(os.path.expanduser('~'), '.cache', 'noisicaä'))
 
-def __xdg_user_dir(resource):
+def __xdg_user_dir(resource: str) -> str:
     try:
         res = subprocess.run(['/usr/bin/xdg-user-dir', resource], stdout=subprocess.PIPE)
         return os.fsdecode(res.stdout.rstrip(b'\n'))

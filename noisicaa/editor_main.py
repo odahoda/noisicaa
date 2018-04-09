@@ -20,14 +20,13 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import argparse
 import asyncio
 import functools
 import signal
 import sys
 import time
+from typing import Any, List
 
 from .constants import EXIT_SUCCESS, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .runtime_settings import RuntimeSettings
@@ -36,7 +35,9 @@ from .core import process_manager, init_pylogging
 
 
 class Editor(object):
-    def __init__(self, runtime_settings, paths, logger):
+    def __init__(
+            self, runtime_settings: RuntimeSettings, paths: List[str], logger: logging.Logger
+    ) -> None:
         self.runtime_settings = runtime_settings
         self.paths = paths
         self.logger = logger
@@ -46,16 +47,16 @@ class Editor(object):
         self.stop_event = asyncio.Event(loop=self.event_loop)
         self.returncode = 0
 
-        self.node_db_process = None
+        self.node_db_process = None  # type: process_manager.ProcessHandle
         self.node_db_process_lock = asyncio.Lock(loop=self.event_loop)
 
-        self.instrument_db_process = None
+        self.instrument_db_process = None  # type: process_manager.ProcessHandle
         self.instrument_db_process_lock = asyncio.Lock(loop=self.event_loop)
 
-        self.urid_mapper_process = None
+        self.urid_mapper_process = None  # type: process_manager.ProcessHandle
         self.urid_mapper_process_lock = asyncio.Lock(loop=self.event_loop)
 
-    def run(self):
+    def run(self) -> int:
         for sig in (signal.SIGINT, signal.SIGTERM):
             self.event_loop.add_signal_handler(
                 sig, functools.partial(self.handle_signal, sig))
@@ -70,7 +71,7 @@ class Editor(object):
 
         return self.returncode
 
-    async def run_async(self):
+    async def run_async(self) -> None:
         async with self.manager:
             self.manager.server.add_command_handler(
                 'CREATE_PROJECT_PROCESS', self.handle_create_project_process)
@@ -95,11 +96,14 @@ class Editor(object):
             await self.stop_event.wait()
             self.logger.info("Shutting down...")
 
-    def handle_signal(self, sig):
+    def handle_signal(
+            self,
+            sig: signal.Signals  # pylint: disable=no-member
+    ) -> None:
         self.logger.info("%s received.", sig.name)
         self.stop_event.set()
 
-    async def launch_ui(self):
+    async def launch_ui(self) -> int:
         while True:
             next_retry = time.time() + 5
             proc = await self.manager.start_subprocess(
@@ -133,7 +137,7 @@ class Editor(object):
                 else:
                     return proc.returncode
 
-    def ui_closed(self, task):
+    def ui_closed(self, task: asyncio.Task) -> None:
         if task.exception():
             self.logger.error("UI failed with an exception: %s", task.exception())
             self.returncode = 1
@@ -141,14 +145,14 @@ class Editor(object):
             self.returncode = task.result()
         self.stop_event.set()
 
-    async def handle_create_project_process(self, uri):
+    async def handle_create_project_process(self, uri: str) -> str:
         # TODO: keep map of uri->proc, only create processes for new
         # URIs.
         proc = await self.manager.start_subprocess(
             'project', 'noisicaa.music.project_process.ProjectSubprocess')
         return proc.address
 
-    async def handle_create_audioproc_process(self, name, **kwargs):
+    async def handle_create_audioproc_process(self, name: str, **kwargs: Any) -> str:
         # TODO: keep map of name->proc, only create processes for new
         # names.
         proc = await self.manager.start_subprocess(
@@ -157,7 +161,7 @@ class Editor(object):
             **kwargs)
         return proc.address
 
-    async def handle_create_node_db_process(self):
+    async def handle_create_node_db_process(self) -> str:
         async with self.node_db_process_lock:
             if self.node_db_process is None:
                 self.node_db_process = await self.manager.start_subprocess(
@@ -166,7 +170,7 @@ class Editor(object):
 
         return self.node_db_process.address
 
-    async def handle_create_instrument_db_process(self):
+    async def handle_create_instrument_db_process(self) -> str:
         async with self.instrument_db_process_lock:
             if self.instrument_db_process is None:
                 self.instrument_db_process = await self.manager.start_subprocess(
@@ -175,7 +179,7 @@ class Editor(object):
 
         return self.instrument_db_process.address
 
-    async def handle_create_urid_mapper_process(self):
+    async def handle_create_urid_mapper_process(self) -> str:
         async with self.urid_mapper_process_lock:
             if self.urid_mapper_process is None:
                 self.urid_mapper_process = await self.manager.start_subprocess(
@@ -184,7 +188,7 @@ class Editor(object):
 
         return self.urid_mapper_process.address
 
-    async def handle_create_plugin_host_process(self, **kwargs):
+    async def handle_create_plugin_host_process(self, **kwargs: Any) -> str:
         proc = await self.manager.start_subprocess(
             'plugin',
             'noisicaa.audioproc.engine.plugin_host_process.PluginHostSubprocess',
@@ -193,13 +197,13 @@ class Editor(object):
 
 
 class Main(object):
-    def __init__(self):
-        self.action = None
+    def __init__(self) -> None:
+        self.action = None  # type: str
         self.runtime_settings = RuntimeSettings()
-        self.paths = []
-        self.logger = None
+        self.paths = []  # type: List[str]
+        self.logger = None  # type: logging.Logger
 
-    def run(self, argv):
+    def run(self, argv: List[str]) -> int:
         self.parse_args(argv)
 
         with logging.LogManager(self.runtime_settings):
@@ -217,7 +221,7 @@ class Main(object):
 
         return rc
 
-    def parse_args(self, argv):
+    def parse_args(self, argv: List[str]) -> None:
         parser = argparse.ArgumentParser(
             prog=argv[0])
         parser.add_argument(

@@ -20,11 +20,12 @@
 #
 # @end:license
 
-# mypy: loose
+import argparse
+from typing import Any
 
 
 class RuntimeSettings(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.dev_mode = False
         self.restart_on_crash = False
         self.start_clean = False
@@ -33,7 +34,7 @@ class RuntimeSettings(object):
         self.log_file_size = 10 * 2**20
         self.log_file_keep_old = 9
 
-    def init_argparser(self, parser):
+    def init_argparser(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             '--dev-mode',
             dest='dev_mode', action='store_true',
@@ -82,7 +83,8 @@ class RuntimeSettings(object):
 
         parser.set_defaults(dev_mode=True)
 
-    def set_from_args(self, args):
+    # args is actually argparse.Namespace, but then mypy complains about all the unknown attributes.
+    def set_from_args(self, args: Any) -> None:
         self.dev_mode = args.dev_mode
         self.restart_on_crash = args.restart_on_crash
         self.start_clean = args.start_clean
