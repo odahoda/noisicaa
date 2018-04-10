@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import Any
+from typing import Any, Dict  # pylint: disable=unused-import
 
 
 class MidiEvent(object):
@@ -28,7 +28,7 @@ class MidiEvent(object):
     NOTE_OFF = 'note-off'
     CONTROLLER_CHANGE = 'controller-change'
 
-    def __init__(self, type: str, timestamp: int, device_id: int) -> None:  # pylint: disable=redefined-builtin
+    def __init__(self, type: str, timestamp: int, device_id: str) -> None:  # pylint: disable=redefined-builtin
         self.type = type
         self.timestamp = timestamp
         self.device_id = device_id
@@ -43,7 +43,7 @@ class MidiEvent(object):
 
 class NoteOnEvent(MidiEvent):
     def __init__(
-            self, timestamp: int, device_id: int, channel: int, note: int, velocity: int) -> None:
+            self, timestamp: int, device_id: str, channel: int, note: int, velocity: int) -> None:
         super().__init__(MidiEvent.NOTE_ON, timestamp, device_id)
         self.channel = channel
         self.note = note
@@ -64,7 +64,7 @@ class NoteOnEvent(MidiEvent):
 
 class NoteOffEvent(MidiEvent):
     def __init__(
-            self, timestamp: int, device_id: int, channel: int, note: int, velocity: int) -> None:
+            self, timestamp: int, device_id: str, channel: int, note: int, velocity: int) -> None:
         super().__init__(MidiEvent.NOTE_OFF, timestamp, device_id)
         self.channel = channel
         self.note = note
@@ -85,7 +85,7 @@ class NoteOffEvent(MidiEvent):
 
 class ControlChangeEvent(MidiEvent):
     def __init__(
-            self, timestamp: int, device_id: int, channel: int, controller: int, value: int
+            self, timestamp: int, device_id: str, channel: int, controller: int, value: int
     ) -> None:
         super().__init__(MidiEvent.CONTROLLER_CHANGE, timestamp, device_id)
         self.channel = channel
@@ -107,7 +107,7 @@ class ControlChangeEvent(MidiEvent):
 
 class DeviceChangeEvent(MidiEvent):
     def __init__(
-            self, timestamp: int, device_id: int, evt: str, client_id: int, port_id: int) -> None:
+            self, timestamp: int, device_id: str, evt: str, client_id: int, port_id: int) -> None:
         super().__init__(evt, timestamp, device_id)
         self.evt = evt
         self.client_id = client_id

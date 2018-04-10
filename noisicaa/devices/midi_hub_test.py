@@ -20,11 +20,9 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-# TODO: pylint-unclean
-
 import threading
 from unittest import mock
+from typing import Dict, Iterable  # pylint: disable=unused-import
 
 from noisidev import unittest
 from . import libalsa
@@ -47,7 +45,7 @@ class MockSequencer(object):
         self._events = {
             '10/14': [midi_events.NoteOnEvent(1000, '10/14', 0, 65, 120)]
             }
-        self._connected = {}
+        self._connected = {}  # type: Dict[str, Iterable[midi_events.MidiEvent]]
         self._exhausted = threading.Event()
 
     def close(self):
@@ -77,9 +75,9 @@ class MockSequencer(object):
                 return next(it)
             except StopIteration:
                 pass
-        else:
-            self._exhausted.set()
-            return None
+
+        self._exhausted.set()
+        return None
 
     def wait_until_done(self):
         self._exhausted.wait()
@@ -92,7 +90,7 @@ class MidiHubTest(unittest.TestCase):
     def test_start_stop(self):
         hub = midi_hub.MidiHub(self.seq)
         hub.start()
-        hub._seq.wait_until_done()
+        hub.sequencer.wait_until_done()
         hub.stop()
 
     def test_stop_before_start(self):
@@ -107,7 +105,7 @@ class MidiHubTest(unittest.TestCase):
         callback = mock.Mock()
         with midi_hub.MidiHub(self.seq) as hub:
             listener = hub.listeners.add('10/14', callback)
-            hub._seq.wait_until_done()
+            hub.sequencer.wait_until_done()
             listener.remove()
 
         callback.assert_called_with(
@@ -124,7 +122,7 @@ class MidiHubTest(unittest.TestCase):
         with midi_hub.MidiHub(self.seq) as hub:
             listener1 = hub.listeners.add('10/14', callback1)
             listener2 = hub.listeners.add('10/14', callback2)
-            hub._seq.wait_until_done()
+            hub.sequencer.wait_until_done()
             listener1.remove()
             listener2.remove()
 
