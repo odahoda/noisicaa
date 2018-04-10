@@ -20,12 +20,9 @@
 #
 # @end:license
 
-# mypy: loose
-
 import os.path
 import io
 import logging
-import sys
 import struct
 from typing import List, IO  # pylint: disable=unused-import
 
@@ -76,7 +73,7 @@ class RiffFile(object):
 
         return self
 
-    def _parse_list(self, fp: IO, path: List[str], offset: int, end_offset: int):
+    def _parse_list(self, fp: IO, path: List[str], offset: int, end_offset: int) -> None:
         list_identifier = fp.read(4)
         try:
             list_identifier = list_identifier.decode('ascii')
@@ -114,19 +111,3 @@ class RiffFile(object):
                     raise FormatError("%d > %d" % (offset, end_offset))
 
         self.end_list(list_identifier, path)
-
-
-if __name__ == '__main__':
-    class DumpStructure(RiffFile):
-        def start_list(self, identifier, path):
-            print("BEGIN %s" % ' > '.join(path + [identifier]))
-
-        def end_list(self, identifier, path):
-            print("END   %s" % ' > '.join(path + [identifier]))
-
-        def handle_chunk(self, identifier, path, size, fp):
-            print(
-                "CHUNK %s (%d bytes)" % (' > '.join(path + [identifier]), size))
-
-    logger.setLevel(logging.DEBUG)
-    DumpStructure().parse(sys.argv[1])

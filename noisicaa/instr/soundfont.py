@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
 import struct
 from typing import List, Set, Tuple, IO  # pylint: disable=unused-import
@@ -56,7 +54,7 @@ class Preset(object):
         self.genre = genre
         self.morphology = morphology
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '%s (preset=%d, bank=%d)' % (self.name, self.preset, self.bank)
     __repr__ = __str__
 
@@ -66,13 +64,13 @@ class Instrument(object):
         self.name = name
         self.bag_index = bag_index
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '%s' % self.name
     __repr__ = __str__
 
 
 class SoundFont(riff.RiffFile):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.__seen = set()  # type: Set[str]
 

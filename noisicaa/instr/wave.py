@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
 import struct
 from typing import Set, List, IO  # pylint: disable=unused-import
@@ -38,7 +36,7 @@ class FormatError(Error):
 
 
 class WaveFile(riff.RiffFile):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.data_format = None  # type: str
