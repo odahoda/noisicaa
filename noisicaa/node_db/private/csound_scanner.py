@@ -20,12 +20,11 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
 import os
 import os.path
 from xml.etree import ElementTree
+from typing import Iterator, Tuple
 
 from noisicaa import constants
 from noisicaa import node_db
@@ -36,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class CSoundScanner(scanner.Scanner):
-    def scan(self):
+    def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
         rootdir = os.path.join(constants.DATA_DIR, 'csound')
         for dirpath, _, filenames in os.walk(rootdir):
             for filename in filenames:

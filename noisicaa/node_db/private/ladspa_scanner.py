@@ -20,11 +20,10 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
 import os
 import os.path
+from typing import Iterator, Tuple
 
 from noisicaa import node_db
 from noisicaa.bindings import ladspa
@@ -35,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class LadspaScanner(scanner.Scanner):
-    def scan(self):
+    def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
         # TODO: support configurable searchpaths
         rootdir = os.environ.get('LADSPA_PATH', '/usr/lib/ladspa')
         for dirpath, _, filenames in os.walk(rootdir):

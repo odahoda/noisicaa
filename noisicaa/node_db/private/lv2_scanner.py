@@ -20,9 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
+from typing import Iterator, Tuple
 
 from noisicaa import node_db
 from noisicaa import lv2
@@ -42,7 +41,7 @@ supported_uis = {
 
 
 class LV2Scanner(scanner.Scanner):
-    def scan(self):
+    def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
         world = lilv.World()
         ns = world.ns
         world.load_all()

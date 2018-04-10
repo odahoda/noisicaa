@@ -20,11 +20,10 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
 import os
 import os.path
+from typing import Iterator, Dict, Tuple
 
 from noisicaa import constants
 from noisicaa import node_db
@@ -35,12 +34,12 @@ logger = logging.getLogger(__name__)
 
 
 class PresetScanner(scanner.Scanner):
-    def __init__(self, nodes):
+    def __init__(self, nodes: Dict[str, node_db.NodeDescription]) -> None:
         super().__init__()
 
         self.__nodes = nodes
 
-    def scan(self):
+    def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
         search_paths = [
             os.path.join(constants.DATA_DIR, 'presets'),
             os.path.join(os.path.expanduser('~'), '.noisicaä', 'presets'),

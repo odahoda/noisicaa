@@ -41,6 +41,7 @@ from .presets import (
     PresetLoadError,
 )
 from .mutations import (
+    Mutation,
     AddNodeDescription,
     RemoveNodeDescription,
 )

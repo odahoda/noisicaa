@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# mypy: loose
+from . import node_description_pb2
 
 
 class Mutation(object):
@@ -28,17 +28,17 @@ class Mutation(object):
 
 
 class AddNodeDescription(Mutation):
-    def __init__(self, uri, description):
+    def __init__(self, uri: str, description: node_description_pb2.NodeDescription) -> None:
         self.uri = uri
         self.description = description
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<AddNodeDescription uri="%s">' % self.uri
 
 
 class RemoveNodeDescription(Mutation):
-    def __init__(self, uri):
+    def __init__(self, uri: str) -> None:
         self.uri = uri
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<RemoveNodeDescription uri="%s">' % self.uri

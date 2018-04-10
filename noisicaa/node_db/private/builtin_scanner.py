@@ -20,9 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
+from typing import Iterator, Tuple
 
 from noisicaa import node_db
 
@@ -285,7 +284,7 @@ class Builtins(object):
 
 
 class BuiltinScanner(scanner.Scanner):
-    def scan(self):
+    def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
         yield ('builtin://track_mixer', Builtins.TrackMixerDescription)
         yield ('builtin://sample_script', Builtins.SampleScriptDescription)
         yield ('builtin://event_source', Builtins.EventSourceDescription)

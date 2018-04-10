@@ -20,10 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
-from typing import Dict  # pylint: disable=unused-import
+from typing import Iterator, Dict  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa import node_db
@@ -38,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 class NodeDB(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.__nodes = {}  # type: Dict[str, node_db.NodeDescription]
         self.listeners = core.CallbackRegistry()
 
@@ -47,7 +45,7 @@ class NodeDB(object):
         desc.CopyFrom(self.__nodes[uri])
         return desc
 
-    def setup(self):
+    def setup(self) -> None:
         scanners = [
             csound_scanner.CSoundScanner(),
             builtin_scanner.BuiltinScanner(),
@@ -67,12 +65,12 @@ class NodeDB(object):
         #     presets[uri] = preset_description
         # self.__nodes.update(presets)
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         pass
 
-    def initial_mutations(self):
+    def initial_mutations(self) -> Iterator[node_db.Mutation]:
         for uri, node_description in sorted(self.__nodes.items()):
             yield node_db.AddNodeDescription(uri, node_description)
 
-    def start_scan(self):
+    def start_scan(self) -> None:
         pass

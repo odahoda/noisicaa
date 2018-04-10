@@ -20,11 +20,12 @@
 #
 # @end:license
 
-# mypy: loose
-
 import io
 import logging
 from xml.etree import ElementTree
+from typing import Callable, IO
+
+from . import node_description_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -36,25 +37,32 @@ class PresetLoadError(PresetError):
     pass
 
 
+NodeFactory = Callable[..., node_description_pb2.NodeDescription]
+
+
 class Preset(object):
-    def __init__(self, *, display_name, node_uri, node_description):
+    def __init__(
+            self, *, display_name: str, node_uri: str,
+            node_description: node_description_pb2.NodeDescription) -> None:
         self.display_name = display_name
         self.node_uri = node_uri
         self.node_description = node_description
 
     @classmethod
-    def from_file(cls, path, node_factory):
+    def from_file(
+            cls, path: str, node_factory: NodeFactory) -> node_description_pb2.NodeDescription:
         logger.info("Loading preset from %s", path)
         with open(path, 'rb') as fp:
             return cls.parse(fp, node_factory)
 
     @classmethod
-    def from_string(cls, xml, node_factory):
+    def from_string(
+            cls, xml: str, node_factory: NodeFactory) -> node_description_pb2.NodeDescription:
         stream = io.BytesIO(xml.encode('utf-8'))
         return cls.parse(stream, node_factory)
 
     @classmethod
-    def parse(cls, stream, node_factory):
+    def parse(cls, stream: IO, node_factory: NodeFactory) -> node_description_pb2.NodeDescription:
         tree = ElementTree.parse(stream)
         root = tree.getroot()
         if root.tag != 'preset':
@@ -79,7 +87,7 @@ class Preset(object):
             node_uri=node_uri,
             node_description=node_desc)
 
-    def to_bytes(self):
+    def to_bytes(self) -> bytes:
         doc = ElementTree.Element('preset', version='1')  # type: ignore
         doc.text = '\n'
         doc.tail = '\n'

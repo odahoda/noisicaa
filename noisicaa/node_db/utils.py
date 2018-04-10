@@ -20,12 +20,12 @@
 #
 # @end:license
 
-# mypy: loose
-
 from . import node_description_pb2
 
 
-def get_port(desc: node_description_pb2.NodeDescription, port_name: str):
+def get_port(
+        desc: node_description_pb2.NodeDescription,
+        port_name: str) -> node_description_pb2.PortDescription:
     for port in desc.ports:
         if port.name == port_name:
             return port

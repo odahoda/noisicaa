@@ -20,10 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
-from typing import cast, Set, Dict, List  # pylint: disable=unused-import
+from typing import cast, Any, Set, Dict, List  # pylint: disable=unused-import
 
 from noisicaa import core
 from .private import db
@@ -36,7 +34,7 @@ logger = logging.getLogger(__name__)
 class Session(core.CallbackSessionMixin, core.SessionBase):
     async_connect = False
 
-    def __init__(self, client_address: str, flags: Set[str], **kwargs) -> None:
+    def __init__(self, client_address: str, flags: Set[str], **kwargs: Any) -> None:
         super().__init__(callback_address=client_address, **kwargs)
         self.__flags = flags or set()
 
@@ -50,7 +48,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 class NodeDBProcess(process_base.NodeDBProcessBase):
     session_cls = Session
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.db = db.NodeDB()
 
