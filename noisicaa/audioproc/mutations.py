@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# mypy: loose
+from typing import Any
 
 from noisicaa import node_db
 
@@ -30,14 +30,13 @@ class Mutation(object):
 
 
 class AddNode(Mutation):
-    def __init__(self, *, description, **args):
+    def __init__(self, *, description: node_db.NodeDescription, **args: Any) -> None:
         super().__init__()
-        assert isinstance(description, node_db.NodeDescription)
 
         self.description = description
         self.args = args
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<AddNode name="%s" type=%s%s>' % (
             self.description.display_name,
             type(self.description).__name__,
@@ -45,48 +44,48 @@ class AddNode(Mutation):
 
 
 class RemoveNode(Mutation):
-    def __init__(self, node_id):
+    def __init__(self, node_id: str) -> None:
         super().__init__()
         self.node_id = node_id
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<RemoveNode id=%s>' % self.node_id
 
 
 class ConnectPorts(Mutation):
-    def __init__(self, src_node, src_port, dest_node, dest_port):
+    def __init__(self, src_node: str, src_port: str, dest_node: str, dest_port: str) -> None:
         super().__init__()
         self.src_node = src_node
         self.src_port = src_port
         self.dest_node = dest_node
         self.dest_port = dest_port
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<ConnectPorts src=%s:%s dest=%s:%s>' % (
             self.src_node, self.src_port, self.dest_node, self.dest_port)
 
 
 class DisconnectPorts(Mutation):
-    def __init__(self, src_node, src_port, dest_node, dest_port):
+    def __init__(self, src_node: str, src_port: str, dest_node: str, dest_port: str) -> None:
         super().__init__()
         self.src_node = src_node
         self.src_port = src_port
         self.dest_node = dest_node
         self.dest_port = dest_port
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<DisconnectPorts src=%s:%s dest=%s:%s>' % (
             self.src_node, self.src_port, self.dest_node, self.dest_port)
 
 
 class SetPortProperty(Mutation):
-    def __init__(self, node, port, **kwargs):
+    def __init__(self, node: str, port: str, **kwargs: Any) -> None:
         super().__init__()
         self.node = node
         self.port = port
         self.kwargs = kwargs
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<SetPortProperty port=%s:%s%s>' % (
             self.node, self.port,
             ''.join(' %s=%r' % (k, v)
@@ -94,22 +93,22 @@ class SetPortProperty(Mutation):
 
 
 class SetControlValue(Mutation):
-    def __init__(self, name, value, generation):
+    def __init__(self, name: str, value: float, generation: int) -> None:
         super().__init__()
         self.name = name
         self.value = value
         self.generation = generation
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<SetControlValue name="%s" value=%s generation=%d>' % (
             self.name, self.value, self.generation)
 
 
 class SetPluginState(Mutation):
-    def __init__(self, node, state):
+    def __init__(self, node: str, state: str) -> None:
         super().__init__()
         self.node = node
         self.state = state
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<SetPluginState node="%s" state=%s>' % (self.node, self.state)
