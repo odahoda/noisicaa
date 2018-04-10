@@ -20,9 +20,8 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import logging
+from typing import Dict  # pylint: disable=unused-import
 
 from noisidev import unittest
 from noisicaa.constants import TEST_OPTS
@@ -38,7 +37,7 @@ class PluginUIProcessTest(unittest.AsyncTestCase):
 
         self.mgr = None
         self.cb_server = None
-        self.uris = {}
+        self.uris = {}  # type: Dict[str, int]
 
     async def setup_testcase(self):
         self.mgr = core.ProcessManager(event_loop=self.loop)
