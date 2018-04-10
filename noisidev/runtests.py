@@ -265,7 +265,7 @@ class BuiltinPyTests(unittest.TestCase):
             '-m', self.__modname,
         ]
 
-        if be_strict:
+        if be_strict and not self.__modname.endswith('_test'):
             mypy_argv.append('--disallow-untyped-defs')
 
         proc = subprocess.run(
