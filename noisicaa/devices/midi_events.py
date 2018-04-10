@@ -20,86 +20,107 @@
 #
 # @end:license
 
-# mypy: loose
-# TODO: pylint-unclean
+from typing import Any
+
 
 class MidiEvent(object):
     NOTE_ON = 'note-on'
     NOTE_OFF = 'note-off'
     CONTROLLER_CHANGE = 'controller-change'
 
-    def __init__(self, type, timestamp, device_id):
+    def __init__(self, type: str, timestamp: int, device_id: int) -> None:  # pylint: disable=redefined-builtin
         self.type = type
         self.timestamp = timestamp
         self.device_id = device_id
 
-    def __eq__(self, other):
-        return (self.type, self.timestamp, self.device_id) == (other.type, other.timestamp, other.device_id)
+    def __eq__(self, other: Any) -> bool:
+        return(
+            isinstance(other, MidiEvent)
+            and self.type == other.type
+            and self.timestamp == other.timestamp
+            and self.device_id == other.device_id)
 
 
 class NoteOnEvent(MidiEvent):
-    def __init__(self, timestamp, device_id, channel, note, velocity):
+    def __init__(
+            self, timestamp: int, device_id: int, channel: int, note: int, velocity: int) -> None:
         super().__init__(MidiEvent.NOTE_ON, timestamp, device_id)
         self.channel = channel
         self.note = note
         self.velocity = velocity
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<%d NoteOnEvent %d %d %d>' % (
             self.timestamp, self.channel, self.note, self.velocity)
 
-    def __eq__(self, other):
-        if not super().__eq__(other):
-            return False
-        return (self.channel, self.note, self.velocity) == (other.channel, other.note, other.velocity)
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, NoteOnEvent)
+            and super().__eq__(other)
+            and self.channel == other.channel
+            and self.note == other.note
+            and self.velocity == other.velocity)
 
 
 class NoteOffEvent(MidiEvent):
-    def __init__(self, timestamp, device_id, channel, note, velocity):
+    def __init__(
+            self, timestamp: int, device_id: int, channel: int, note: int, velocity: int) -> None:
         super().__init__(MidiEvent.NOTE_OFF, timestamp, device_id)
         self.channel = channel
         self.note = note
         self.velocity = velocity
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<%d NoteOffEvent %d %d %d>' % (
             self.timestamp, self.channel, self.note, self.velocity)
 
-    def __eq__(self, other):
-        if not super().__eq__(other):
-            return False
-        return (self.channel, self.note, self.velocity) == (other.channel, other.note, other.velocity)
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, NoteOffEvent)
+            and super().__eq__(other)
+            and self.channel == other.channel
+            and self.note == other.note
+            and self.velocity == other.velocity)
 
 
 class ControlChangeEvent(MidiEvent):
-    def __init__(self, timestamp, device_id, channel, controller, value):
+    def __init__(
+            self, timestamp: int, device_id: int, channel: int, controller: int, value: int
+    ) -> None:
         super().__init__(MidiEvent.CONTROLLER_CHANGE, timestamp, device_id)
         self.channel = channel
         self.controller = controller
         self.value = value
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<%d ControlChangeEvent %d %d %d>' % (
             self.timestamp, self.channel, self.controller, self.value)
 
-    def __eq__(self, other):
-        if not super().__eq__(other):
-            return False
-        return (self.channel, self.controller, self.value) == (other.channel, other.controller, other.value)
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, ControlChangeEvent)
+            and super().__eq__(other)
+            and self.channel == other.channel
+            and self.controller == other.controller
+            and self.value == other.value)
 
 
 class DeviceChangeEvent(MidiEvent):
-    def __init__(self, timestamp, device_id, evt, client_id, port_id):
+    def __init__(
+            self, timestamp: int, device_id: int, evt: str, client_id: int, port_id: int) -> None:
         super().__init__(evt, timestamp, device_id)
         self.evt = evt
         self.client_id = client_id
         self.port_id = port_id
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<%d DeviceChangeEvent %s %d %d>' % (
             self.timestamp, self.evt, self.client_id, self.port_id)
 
-    def __eq__(self, other):
-        if not super().__eq__(other):
-            return False
-        return (self.evt, self.client_id, self.port_id) == (other.evt, other.client_id, other.port_id)
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, DeviceChangeEvent)
+            and super().__eq__(other)
+            and self.evt == other.evt
+            and self.client_id == other.client_id
+            and self.port_id == other.port_id)
