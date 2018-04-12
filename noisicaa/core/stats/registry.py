@@ -20,12 +20,10 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
 import threading
 import time
-from typing import Dict  # pylint: disable=unused-import
+from typing import Dict, List, Tuple, Type, TypeVar  # pylint: disable=unused-import
 
 import psutil
 
@@ -35,30 +33,32 @@ from . import timeseries
 logger = logging.getLogger(__name__)
 
 
-class Registry(object):
-    def __init__(self):
-        self.__lock = threading.RLock()
-        self.__stats = {}  # type: Dict[str, stats.BaseStat]
+STAT = TypeVar('STAT', bound=stats.BaseStat)
 
-    def register(self, stat_cls, name):
+class Registry(object):
+    def __init__(self) -> None:
+        self.__lock = threading.RLock()
+        self.__stats = {}  # type: Dict[stats.StatName, stats.BaseStat]
+
+    def register(self, stat_cls: Type[STAT], name: stats.StatName) -> STAT:
         with self.__lock:
             assert name not in self.__stats
             stat = stat_cls(name, self, self.__lock)
             self.__stats[name] = stat
             return stat
 
-    def unregister(self, stat):
+    def unregister(self, stat: stats.BaseStat) -> None:
         with self.__lock:
             del self.__stats[stat.name]
 
-    def clear(self):
+    def clear(self) -> None:
         with self.__lock:
             for stat in list(self.__stats.values()):
                 stat.unregister()
             assert not self.__stats
 
-    def collect(self):
-        data = []
+    def collect(self) -> List[Tuple[stats.StatName, timeseries.Value]]:
+        data = []  # type: List[Tuple[stats.StatName, timeseries.Value]]
         proc_info = psutil.Process()
 
         with self.__lock:

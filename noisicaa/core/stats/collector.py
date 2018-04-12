@@ -20,21 +20,23 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
+from typing import Dict, List
 
 from . import timeseries
+from . import stats
+from . import expressions
+from .registry import Registry
 
 logger = logging.getLogger(__name__)
 
 
 class Collector(object):
-    def __init__(self, timeseries_length=60*10*10):
+    def __init__(self, timeseries_length: int = 60*10*10) -> None:
         self.__timeseries = timeseries.TimeseriesSet()
         self.__timeseries_length = timeseries_length
 
-    def add_value(self, name, value):
+    def add_value(self, name: stats.StatName, value: timeseries.Value) -> None:
         ts = self.__timeseries.setdefault(name, timeseries.Timeseries())
         ts.insert(0, value)
 
@@ -42,11 +44,11 @@ class Collector(object):
         if drop_count > 0:
             del ts[-drop_count:]
 
-    def collect(self, registry):
+    def collect(self, registry: Registry) -> None:
         for name, value in registry.collect():
             self.add_value(name, value)
 
-    def evaluate_expression(self, expr):
+    def evaluate_expression(self, expr: expressions.Expression) -> timeseries.TimeseriesSet:
         result = self.__timeseries
 
         for op, *args in expr:
@@ -59,14 +61,16 @@ class Collector(object):
 
         return result
 
-    def list_stats(self):
+    def list_stats(self) -> List[stats.StatName]:
         return list(sorted(self.__timeseries.keys()))
 
-    def fetch_stats(self, expressions):
+    def fetch_stats(
+            self, exprs: Dict[str, expressions.Expression]
+    ) -> Dict[str, timeseries.TimeseriesSet]:
         return {
             id: self.evaluate_expression(expr)
-            for id, expr in expressions.items()}
+            for id, expr in exprs.items()}
 
-    def dump(self):
+    def dump(self) -> None:
         for name, ts in sorted(self.__timeseries.items()):
             logger.info("%s = %s", name, ts.latest())

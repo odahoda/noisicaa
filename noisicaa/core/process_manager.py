@@ -632,12 +632,13 @@ class ProcessManager(object):
                 self._child_collector.remove_child(proc.pid)
             self._processes.remove(proc)
 
-    def handle_stats_list(self) -> List[str]:
+    def handle_stats_list(self) -> List[stats.StatName]:
         if self._stats_collector is None:
             raise RuntimeError("Stats collection not enabled.")
         return self._stats_collector.list_stats()
 
-    def handle_stats_fetch(self, expressions: str) -> Dict[str, stats.Timeseries]:
+    def handle_stats_fetch(
+            self, expressions: Dict[str, stats.Expression]) -> Dict[str, stats.TimeseriesSet]:
         if self._stats_collector is None:
             raise RuntimeError("Stats collection not enabled.")
         return self._stats_collector.fetch_stats(expressions)

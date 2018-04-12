@@ -22,6 +22,7 @@ from .registry import Registry
 from .collector import Collector
 from .expressions import (
     InvalidExpressionError,
+    Expression,
     compile_expression,
 )
 from .stats import (

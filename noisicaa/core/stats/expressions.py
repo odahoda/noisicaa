@@ -20,9 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
+from typing import Any, List, Tuple
 
 from . import stats
 
@@ -32,20 +31,24 @@ logger = logging.getLogger(__name__)
 class InvalidExpressionError(ValueError):
     pass
 
-class Builder(object):
-    def __init__(self, **labels):
-        name = stats.StatName(**labels)
-        self.__code = [('SELECT', name)]
 
-    def get_code(self):
+Expression = List[Tuple[Any, ...]]
+
+
+class Builder(object):
+    def __init__(self, **labels: str) -> None:
+        name = stats.StatName(**labels)
+        self.__code = [('SELECT', name)]  # type: Expression
+
+    def get_code(self) -> Expression:
         return self.__code
 
-    def RATE(self):
+    def RATE(self) -> 'Builder':
         self.__code.append(('RATE',))
         return self
 
 
-def compile_expression(expr):
+def compile_expression(expr: str) -> Expression:
     try:
         builder = eval(expr, {'SELECT': Builder})  # pylint: disable=eval-used
     except Exception as exc:
