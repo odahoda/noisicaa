@@ -20,9 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
+from typing import Dict
 
 # pylint/mypy doesn't know about the capnp import magic.
 import capnp  # pylint: disable=unused-import
@@ -35,7 +34,7 @@ logger = logging.getLogger(__name__)
 MessageKey = message_capnp.Key
 MessageType = message_capnp.Type
 
-def build_labelset(labels):
+def build_labelset(labels: Dict[int, str]) -> message_capnp.Labelset:
     lset = message_capnp.Labelset.new_message()
     lset.init('labels', len(labels))
     for i, (k, v) in enumerate(sorted(labels.items())):
@@ -44,7 +43,7 @@ def build_labelset(labels):
         label.value = v
     return lset
 
-def build_message(labels, type, data):  # pylint: disable=redefined-builtin
+def build_message(labels: Dict[int, str], msgtype: int, data: bytes) -> message_capnp.Labelset:
     msg = message_capnp.Message.new_message()
     msg.init('labelset')
     msg.labelset.init('labels', len(labels))
@@ -52,6 +51,6 @@ def build_message(labels, type, data):  # pylint: disable=redefined-builtin
         label = msg.labelset.labels[i]
         label.key = k
         label.value = v
-    msg.type = type
+    msg.type = msgtype
     msg.data = data
     return msg

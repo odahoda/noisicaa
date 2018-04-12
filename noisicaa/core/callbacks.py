@@ -20,27 +20,29 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
 import uuid
 import threading
-from typing import Dict, Callable, List  # pylint: disable=unused-import
+from typing import Any, Dict, Callable, List, Optional  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
+
+
+Callback = Callable[..., None]
+RegisterCallback = Callable[[str, str, bool], None]
 
 
 class Listener(object):
     """Only internally used by CallbackRegistry."""
 
-    def __init__(self, registry, target, callback):
-        self._registry = registry
+    def __init__(self, registry: 'CallbackRegistry', target: str, callback: Callback) -> None:
+        self.__registry = registry
         self.id = str(uuid.uuid4())
         self.target = target
         self.callback = callback
 
-    def remove(self):
-        self._registry.remove(self)
+    def remove(self) -> None:
+        self.__registry.remove(self)
 
 
 class CallbackRegistry(object):
@@ -59,7 +61,7 @@ class CallbackRegistry(object):
     This class is thread-safe.
     """
 
-    def __init__(self, register_cb=None):
+    def __init__(self, register_cb: Optional[RegisterCallback] = None) -> None:
         """Create a new registry.
 
         Args:
@@ -69,17 +71,17 @@ class CallbackRegistry(object):
               the listener has been added or False when removed.
         """
 
-        self._register_cb = register_cb
-        self._listeners = {}  # type: Dict[str, Callable]
-        self._target_map = {}  # type: Dict[str, List[str]]
-        self._lock = threading.RLock()
+        self.__register_cb = register_cb
+        self.__listeners = {}  # type: Dict[str, Listener]
+        self.__target_map = {}  # type: Dict[str, List[str]]
+        self.__lock = threading.RLock()
 
-    def clear(self):
-        with self._lock:
-            self._listeners.clear()
-            self._target_map.clear()
+    def clear(self) -> None:
+        with self.__lock:
+            self.__listeners.clear()
+            self.__target_map.clear()
 
-    def add(self, target, callback):
+    def add(self, target: str, callback: Callback) -> Listener:
         """Register a new callback.
 
         Args:
@@ -91,15 +93,15 @@ class CallbackRegistry(object):
         """
 
         listener = Listener(self, target, callback)
-        if self._register_cb is not None:
-            self._register_cb(target, listener.id, True)
-        with self._lock:
-            self._listeners[listener.id] = listener
-            self._target_map.setdefault(target, []).append(listener.id)
+        if self.__register_cb is not None:
+            self.__register_cb(target, listener.id, True)
+        with self.__lock:
+            self.__listeners[listener.id] = listener
+            self.__target_map.setdefault(target, []).append(listener.id)
         logger.debug("Added listener %s to target %s", listener.id, target)
         return listener
 
-    def remove(self, listener):
+    def remove(self, listener: Listener) -> None:
         """Remove a callback.
 
         Alternatively you can just call remove() on the listener returned by
@@ -112,15 +114,15 @@ class CallbackRegistry(object):
           KeyError: if the listener is not a valid callback.
         """
 
-        with self._lock:
-            del self._listeners[listener.id]
-            self._target_map[listener.target].remove(listener.id)
-        if self._register_cb is not None:
-            self._register_cb(listener.target, listener.id, False)
+        with self.__lock:
+            del self.__listeners[listener.id]
+            self.__target_map[listener.target].remove(listener.id)
+        if self.__register_cb is not None:
+            self.__register_cb(listener.target, listener.id, False)
         logger.debug(
             "Removed listener %s from target %s", listener.id, listener.target)
 
-    def call(self, target, *args, **kwargs):
+    def call(self, target: str, *args: Any, **kwargs: Any) -> None:
         """Call all callbacks registered for a given target.
 
         This method should only be called by the owner of the registry.
@@ -130,7 +132,7 @@ class CallbackRegistry(object):
           args, kwargs: The arguments passed to all callbacks.
         """
 
-        with self._lock:
-            for listener_id in self._target_map.get(target, []):
-                listener = self._listeners[listener_id]
+        with self.__lock:
+            for listener_id in self.__target_map.get(target, []):
+                listener = self.__listeners[listener_id]
                 listener.callback(*args, **kwargs)

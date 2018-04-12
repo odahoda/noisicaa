@@ -20,13 +20,11 @@
 #
 # @end:license
 
-# mypy: loose
-
 import asyncio
 import functools
 import io
 import logging
-from typing import List, Dict, Type  # pylint: disable=unused-import
+from typing import Any, List, Dict, Type  # pylint: disable=unused-import
 import uuid
 
 from . import ipc
@@ -40,7 +38,7 @@ class InvalidSessionError(Exception):
 
 
 class SessionBase(object):
-    def __init__(self, *argv, event_loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(self, *argv: Any, event_loop: asyncio.AbstractEventLoop) -> None:
         assert not argv
         self.event_loop = event_loop
         self.id = uuid.uuid4().hex
@@ -65,21 +63,21 @@ class SessionBase(object):
 class CallbackSessionMixin(SessionBase):
     async_connect = True
 
-    def __init__(self, *, callback_address, **kwargs):
+    def __init__(self, *, callback_address: str, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__callback_address = callback_address
-        self.__connect_task = None
-        self.__callback_stub = None
+        self.__connect_task = None  # type: asyncio.Task
+        self.__callback_stub = None  # type: ipc.Stub
 
     @property
-    def callback_alive(self):
+    def callback_alive(self) -> bool:
         return (
             not self.closed
             and self.__callback_stub is not None
             and self.__callback_stub.connected)
 
-    async def setup(self):
+    async def setup(self) -> None:
         await super().setup()
 
         self.__callback_stub = ipc.Stub(self.event_loop, self.__callback_address)
@@ -89,7 +87,7 @@ class CallbackSessionMixin(SessionBase):
         else:
             self.__connect_task = await self.__callback_stub.connect()
 
-    def __callback_connected(self, task):
+    def __callback_connected(self, task: asyncio.Task) -> None:
         if task.cancelled():
             return
 
@@ -103,7 +101,7 @@ class CallbackSessionMixin(SessionBase):
         assert self.__callback_stub.connected
         self.callback_connected()
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         if self.__connect_task is not None:
             self.__connect_task.cancel()
             self.__connect_task = None
@@ -112,14 +110,14 @@ class CallbackSessionMixin(SessionBase):
             await self.__callback_stub.close()
             self.__callback_stub = None
 
-    def callback_connected(self):
+    def callback_connected(self) -> None:
         pass
 
-    async def callback(self, cmd, *args, **kwargs):
+    async def callback(self, cmd: str, *args: Any, **kwargs: Any) -> None:
         assert self.callback_alive
         await self.__callback_stub.call(cmd, *args, **kwargs)
 
-    def async_callback(self, cmd, *args, **kwargs):
+    def async_callback(self, cmd: str, *args: Any, **kwargs: Any) -> None:
         assert self.callback_alive
 
         callback_task = self.event_loop.create_task(
@@ -127,7 +125,7 @@ class CallbackSessionMixin(SessionBase):
         callback_task.add_done_callback(
             functools.partial(self.__callback_done, cmd))
 
-    def __callback_done(self, cmd, task):
+    def __callback_done(self, cmd: str, task: asyncio.Task) -> None:
         if task.cancelled():
             logger.info("Session %s: %s was cancelled.", self.id, cmd)
             return
@@ -149,7 +147,7 @@ class CallbackSessionMixin(SessionBase):
 class SessionHandlerMixin(process_manager.ProcessBase):
     session_cls = None  # type: Type[SessionBase]
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__sessions = {}  # type: Dict[str, SessionBase]
@@ -188,7 +186,7 @@ class SessionHandlerMixin(process_manager.ProcessBase):
     async def session_ended(self, session: SessionBase) -> None:
         pass
 
-    async def __handle_start_session(self, *args, **kwargs) -> str:
+    async def __handle_start_session(self, *args: Any, **kwargs: Any) -> str:
         session = self.session_cls(  # pylint: disable=not-callable
             *args, event_loop=self.event_loop, **kwargs)
         try:

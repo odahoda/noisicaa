@@ -20,11 +20,10 @@
 #
 # @end:license
 
-# mypy: loose
-
 import asyncio
 import enum
 import logging
+from typing import Callable, Optional
 
 from . import callbacks
 
@@ -40,16 +39,16 @@ class BackendState(enum.Enum):
 
 
 class ManagedBackend(object):  # pragma: no coverage
-    async def start(self):
+    async def start(self) -> None:
         raise NotImplementedError
 
-    async def stop(self):
+    async def stop(self) -> None:
         raise NotImplementedError
 
-    async def started(self, mgr: 'BackendManager'):
+    async def started(self, mgr: 'BackendManager') -> None:
         pass
 
-    async def stopped(self, mgr: 'BackendManager'):
+    async def stopped(self, mgr: 'BackendManager') -> None:
         pass
 
 
@@ -61,30 +60,30 @@ class BackendManager(object):
         self.__state = BackendState.Stopped
         self.__state_changed = asyncio.Event(loop=self.__event_loop)
         self.__listeners = callbacks.CallbackRegistry()
-        self.__start_backend_result = None
+        self.__start_backend_result = None  # type: asyncio.Future
         self.__stop_lock = asyncio.Lock(loop=self.__event_loop)
-        self.__stop_backend_result = None
+        self.__stop_backend_result = None  # type: asyncio.Future
 
     @property
-    def is_running(self):
+    def is_running(self) -> bool:
         return self.__state == BackendState.Running
 
-    def add_state_listener(self, callback):
+    def add_state_listener(self, callback: Callable[[BackendState], None]) -> callbacks.Listener:
         return self.__listeners.add('state-changed', callback)
 
-    async def wait_until_running(self, *, timeout=None):
+    async def wait_until_running(self, *, timeout: Optional[float] = None) -> None:
         assert self.__start_backend_result is not None
         await asyncio.wait_for(self.__start_backend_result, timeout, loop=self.__event_loop)
         self.__start_backend_result.result()
         self.__start_backend_result = None
 
-    async def wait_until_stopped(self, *, timeout=None):
+    async def wait_until_stopped(self, *, timeout: Optional[float] = None) -> None:
         assert self.__stop_backend_result is not None
         await asyncio.wait_for(self.__stop_backend_result, timeout, loop=self.__event_loop)
         self.__stop_backend_result.result()
         self.__stop_backend_result = None
 
-    def start(self):
+    def start(self) -> None:
         if self.__state == BackendState.Stopped:
             self.__set_state(BackendState.Starting)
 
@@ -95,7 +94,7 @@ class BackendManager(object):
         else:  # pragma: no coverage
             raise AssertionError("Unexpected state %s" % self.__state.value)
 
-    def stop(self):
+    def stop(self) -> None:
         if self.__state in (BackendState.Stopped, BackendState.Stopping):
             pass
 
@@ -109,7 +108,7 @@ class BackendManager(object):
         else:  # pragma: no coverage
             raise AssertionError("Unexpected state %s" % self.__state.value)
 
-    def crashed(self):
+    def crashed(self) -> None:
         if self.__state in (BackendState.Crashed, BackendState.Stopping, BackendState.Stopped):
             pass
 
@@ -122,14 +121,14 @@ class BackendManager(object):
         else:  # pragma: no coverage
             raise AssertionError("Unexpected state %s" % self.__state.value)
 
-    def __set_state(self, new_state):
+    def __set_state(self, new_state: BackendState) -> None:
         logger.info("State %s -> %s", self.__state.value, new_state.value)
         assert new_state != self.__state
         self.__state = new_state
         self.__state_changed.set()
         self.__listeners.call('state-changed', new_state)
 
-    async def __start_backend(self):
+    async def __start_backend(self) -> None:
         try:
             await self.__backend.start()
 
@@ -144,7 +143,7 @@ class BackendManager(object):
 
             await self.__backend.started(self)
 
-    async def __stop_backend(self):
+    async def __stop_backend(self) -> None:
         async with self.__stop_lock:
             if self.__state == BackendState.Stopped:
                 return

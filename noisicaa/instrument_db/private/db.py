@@ -93,7 +93,7 @@ class InstrumentDB(object):
             self.__scan_thread = None
 
     def add_mutations_listener(
-            self, callback: Callable[[List[instrument_db.Mutation]], None]) -> None:
+            self, callback: Callable[[List[instrument_db.Mutation]], None]) -> core.Listener:
         return self.listeners.add('db_mutations', callback)
 
     def __load_cache(self, path: str, default: Dict[str, Any]) -> Dict[str, Any]:

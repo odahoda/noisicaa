@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import asyncio
 import concurrent.futures
 import logging
@@ -45,18 +43,18 @@ class Thread(object):
         self.__thread_done = None  # type: concurrent.futures.Future
 
     @property
-    def ident(self):
+    def ident(self) -> int:
         assert self.__thread is not None
         return self.__thread.ident
 
-    def start(self):
+    def start(self) -> None:
         assert self.__thread is None
         self.__thread_done = concurrent.futures.Future()
         self.__thread = threading.Thread(target=self.__main)
         self.__thread.start()
         logger.info("Started thread %08x", self.ident)
 
-    async def join(self, timeout=None) -> Any:
+    async def join(self, timeout: float = None) -> Any:
         assert self.__thread is not None
 
         # mypy doesn't know about the loop kwarg.

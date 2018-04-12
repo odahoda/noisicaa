@@ -20,11 +20,10 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
 import hashlib
 import re
+from typing import Any, Dict, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +37,7 @@ MODE_APPEND = 'a'
 
 LF = ord(b'\n')
 
+
 class Error(Exception):
     pass
 
@@ -45,51 +45,54 @@ class CorruptedFileError(Error):
     pass
 
 
+Properties = Dict[str, str]
+
+
 class RecordFile(object):
-    def __init__(self, path, mode):
-        self._path = path
-        self._mode = mode
+    def __init__(self, path: str, mode: str) -> None:
+        self.__path = path
+        self.__mode = mode
 
-        if self._mode == MODE_CREATE:
-            self._fp = open(self._path, 'wb')
-            self._index = 0
-        elif self._mode == MODE_READONLY:
-            self._fp = open(self._path, 'rb')
-            self._index = 0
+        if self.__mode == MODE_CREATE:
+            self.__fp = open(self.__path, 'wb')
+            self.__index = 0
+        elif self.__mode == MODE_READONLY:
+            self.__fp = open(self.__path, 'rb')
+            self.__index = 0
         else:
-            raise ValueError("Invalid mode %r" % self._mode)
+            raise ValueError("Invalid mode %r" % self.__mode)
 
-    def __enter__(self):
+    def __enter__(self) -> 'RecordFile':
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, *args: Any) -> bool:
         self.close()
         return False
 
-    def close(self):
-        assert self._fp is not None, "Already closed."
-        self._fp.close()
-        self._fp = None
+    def close(self) -> None:
+        assert self.__fp is not None, "Already closed."
+        self.__fp.close()
+        self.__fp = None
 
     @property
-    def num_records(self):
-        return self._index
+    def num_records(self) -> int:
+        return self.__index
 
-    def _format_properties(self, properties):
+    def __format_properties(self, properties: Properties) -> bytes:
         prop_str = ', '.join('%s=%s' % (key, value)
                              for key, value in sorted(properties.items()))
         return prop_str.encode('ascii')
 
-    def _compute_checksum(self, data, properties):
+    def __compute_checksum(self, data: bytes, properties: Properties) -> str:
         checksum = hashlib.md5()
-        checksum.update(self._format_properties(properties))
+        checksum.update(self.__format_properties(properties))
         checksum.update(data)
         return 'md5:' + checksum.hexdigest()
 
-    def append_record(self, data, **properties):
+    def append_record(self, data: bytes, **properties: str) -> None:
         assert isinstance(data, bytes), \
             "Expected bytes, got %s" % type(data).__name__
-        assert self._fp is not None, "Already closed."
+        assert self.__fp is not None, "Already closed."
 
         for key, value in properties.items():
             assert _PROP_KEY_RE.match(key), "Invalid key %r." % key
@@ -102,29 +105,29 @@ class RecordFile(object):
 
         properties = dict(properties)
         properties['size'] = str(len(data))
-        properties['index'] = str(self._index)
-        properties['checksum'] = self._compute_checksum(data, properties)
+        properties['index'] = str(self.__index)
+        properties['checksum'] = self.__compute_checksum(data, properties)
         if len(data) > 0 and data[-1] != LF:
             properties['traillf'] = '1'
             traillf = True
         else:
             traillf = False
 
-        self._fp.write(b'#~REC: ')
-        self._fp.write(self._format_properties(properties))
-        self._fp.write(b'\n')
-        self._fp.write(data)
+        self.__fp.write(b'#~REC: ')
+        self.__fp.write(self.__format_properties(properties))
+        self.__fp.write(b'\n')
+        self.__fp.write(data)
         if traillf:
-            self._fp.write(b'\n')
-        self._fp.flush()
+            self.__fp.write(b'\n')
+        self.__fp.flush()
 
-        self._index += 1
+        self.__index += 1
 
-    def read_record(self):
-        assert self._fp is not None, "Already closed."
-        assert self._mode in (MODE_READONLY,), "File not opened in read mode."
+    def read_record(self) -> Tuple[bytes, Dict[str, Union[str, int]]]:
+        assert self.__fp is not None, "Already closed."
+        assert self.__mode in (MODE_READONLY,), "File not opened in read mode."
 
-        header = self._fp.read(6)
+        header = self.__fp.read(6)
         if len(header) == 0:
             raise EOFError
 
@@ -132,9 +135,9 @@ class RecordFile(object):
             raise CorruptedFileError("Expected '#~REC:', found %r" % header)
 
         while header[-1] != LF:
-            header += self._fp.read(1)
+            header += self.__fp.read(1)
 
-        properties = {}
+        properties = {}  # Properties
         for part in header[6:-1].decode('ascii').split(','):
             key, value = part.split('=', 1)
             properties[key.strip()] = value.strip()
@@ -155,23 +158,26 @@ class RecordFile(object):
 
         del properties['checksum']
 
-        data = self._fp.read(size)
+        data = self.__fp.read(size)
         if len(data) != size:
             raise CorruptedFileError(
                 "Truncated data, %d bytes missing." % (size - len(data)))
 
-        if self._compute_checksum(data, properties) != checksum:
+        if self.__compute_checksum(data, properties) != checksum:
             raise CorruptedFileError("Checksum mismatch.")
 
         data = data.replace(b'#\\\\', b'#\\')
         data = data.replace(b'#\\~', b'#~', )
 
         if traillf:
-            c = self._fp.read(1)
+            c = self.__fp.read(1)
             if len(c) != 1 or ord(c) != LF:
                 raise CorruptedFileError(
                     "Expected %r, found %r." % (chr(LF), c))
 
-        properties['index'] = index
-        del properties['size']
-        return data, properties
+        tweaked_properties = {}  # type: Dict[str, Union[str, int]]
+        tweaked_properties.update(properties)
+        tweaked_properties['index'] = index
+        del tweaked_properties['size']
+
+        return data, tweaked_properties
