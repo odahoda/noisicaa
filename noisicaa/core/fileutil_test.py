@@ -41,14 +41,14 @@ class FileTest(unittest.TestCase):
         self.stubs.SmartSet(fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
-    def testWriteJson(self):
+    def test_write_json(self):
         fp = fileutil.File('/foo')
         fp.write_json(
             {'a': [0, 1, 2]},
             fileutil.FileInfo(filetype='test', version=1))
         self.assertTrue(self.fake_os.path.exists('/foo'))
 
-    def testRead(self):
+    def test_read(self):
         contents = textwrap.dedent("""\
             NOISICAA
             Version: 1
@@ -68,7 +68,7 @@ class FileTest(unittest.TestCase):
         self.assertEqual(header.encoding, 'utf-8')
         self.assertEqual(content, b'{"a": [0, 1, 2]}')
 
-    def testReadJson(self):
+    def test_read_json(self):
         contents = textwrap.dedent("""\
             NOISICAA
             Version: 1
@@ -104,15 +104,15 @@ class LogFileTest(unittest.TestCase):
             fileutil.LogFile('/test.log', 'p')
 
     def test_invalid_append(self):
-        with fileutil.LogFile('/test.log', 'w') as fp:
+        with fileutil.LogFile('/test.log', 'w') as log:
             with self.assertRaises(TypeError):
-                fp.append('12345678', b'L')
+                log.append('12345678', b'L')  # type: ignore
 
             with self.assertRaises(TypeError):
-                fp.append(b'12345678', 'L')
+                log.append(b'12345678', 'L')  # type: ignore
 
             with self.assertRaises(ValueError):
-                fp.append(b'12345678', b'LA')
+                log.append(b'12345678', b'LA')
 
     def test_bad_header(self):
         with self.fake_open('/test.log', 'wb') as fp:
@@ -137,11 +137,11 @@ class LogFileTest(unittest.TestCase):
             fileutil.LogFile('/test.log', 'a')
 
     def test_append(self):
-        fp = fileutil.LogFile('/test.log', 'w')
+        log = fileutil.LogFile('/test.log', 'w')
         try:
-            fp.append(b'12345678', b'L')
+            log.append(b'12345678', b'L')
         finally:
-            fp.close()
+            log.close()
 
         self.assertTrue(self.fake_os.path.exists('/test.log'))
         self.assertEqual(
@@ -149,43 +149,43 @@ class LogFileTest(unittest.TestCase):
             b'NOISILOG\n1\n~BL\x00\x00\x00\x0812345678~EL\x00\x00\x00\x08')
 
     def test_contextmanager(self):
-        fp = fileutil.LogFile('/test.log', 'w')
-        with fp:
-            fp.append(b'12345678', b'L')
-        self.assertTrue(fp.closed)
+        log = fileutil.LogFile('/test.log', 'w')
+        with log:
+            log.append(b'12345678', b'L')
+        self.assertTrue(log.closed)
 
     def test_read(self):
-        with fileutil.LogFile('/test.log', 'w') as fp:
-            fp.append(b'12345678', b'L')
-            fp.append(b'abcd', b'D')
-            fp.append(b'~~12~', b'B')
+        with fileutil.LogFile('/test.log', 'w') as log:
+            log.append(b'12345678', b'L')
+            log.append(b'abcd', b'D')
+            log.append(b'~~12~', b'B')
 
-        with fileutil.LogFile('/test.log', 'r') as fp:
+        with fileutil.LogFile('/test.log', 'r') as log:
             self.assertEqual(
-                [fp.read() for __type in range(3)],
+                [log.read() for __type in range(3)],
                 [(b'12345678', b'L'),
                  (b'abcd', b'D'),
                  (b'~~12~', b'B')])
 
             with self.assertRaises(EOFError):
-                fp.read()
+                log.read()
 
     def test_read_iterator(self):
-        with fileutil.LogFile('/test.log', 'w') as fp:
-            fp.append(b'12345678', b'L')
-            fp.append(b'abcd', b'D')
-            fp.append(b'~~12~', b'B')
+        with fileutil.LogFile('/test.log', 'w') as log:
+            log.append(b'12345678', b'L')
+            log.append(b'abcd', b'D')
+            log.append(b'~~12~', b'B')
 
-        with fileutil.LogFile('/test.log', 'r') as fp:
+        with fileutil.LogFile('/test.log', 'r') as log:
             self.assertEqual(
-                [(data, entry_type) for data, entry_type in fp],
+                [(data, entry_type) for data, entry_type in log],
                 [(b'12345678', b'L'),
                  (b'abcd', b'D'),
                  (b'~~12~', b'B')])
 
     def test_read_truncated(self):
-        with fileutil.LogFile('/test.log', 'w') as fp:
-            fp.append(b'12345678', b'L')
+        with fileutil.LogFile('/test.log', 'w') as log:
+            log.append(b'12345678', b'L')
         with self.fake_open('/test.log', 'rb') as fp:
             contents = fp.read()
 
@@ -194,47 +194,47 @@ class LogFileTest(unittest.TestCase):
             with self.fake_open('/test.log', 'wb') as fp:
                 fp.write(contents)
 
-            with fileutil.LogFile('/test.log', 'r') as fp:
+            with fileutil.LogFile('/test.log', 'r') as log:
                 with self.assertRaises(fileutil.CorruptedFileError):
-                    fp.read()
+                    log.read()
 
     def test_read_corrupted(self):
         with self.fake_open('/test.log', 'wb') as fp:
             fp.write(
                 b'NOISILOG\n1\n~BL\x00\x00\x00\x0812345678-EL\x00\x00\x00\x08')
             #                                             ^
-        with fileutil.LogFile('/test.log', 'r') as fp:
+        with fileutil.LogFile('/test.log', 'r') as log:
             with self.assertRaises(fileutil.CorruptedFileError):
-                fp.read()
+                log.read()
 
         with self.fake_open('/test.log', 'wb') as fp:
             fp.write(
                 b'NOISILOG\n1\n~BL\x00\x00\x00\x0812345678~EE\x00\x00\x00\x08')
             #                                               ^
-        with fileutil.LogFile('/test.log', 'r') as fp:
+        with fileutil.LogFile('/test.log', 'r') as log:
             with self.assertRaises(fileutil.CorruptedFileError):
-                fp.read()
+                log.read()
 
         with self.fake_open('/test.log', 'wb') as fp:
             fp.write(
                 b'NOISILOG\n1\n~BL\x00\x00\x00\x0812345678~EL\x00\x00\x00\x09')
             #                                                               ^
-        with fileutil.LogFile('/test.log', 'r') as fp:
+        with fileutil.LogFile('/test.log', 'r') as log:
             with self.assertRaises(fileutil.CorruptedFileError):
-                fp.read()
+                log.read()
 
     def test_mode_append(self):
         fileutil.LogFile('/test.log', 'w').close()
 
-        with fileutil.LogFile('/test.log', 'a') as fp:
-            fp.append(b'12345678', b'L')
+        with fileutil.LogFile('/test.log', 'a') as log:
+            log.append(b'12345678', b'L')
 
-        with fileutil.LogFile('/test.log', 'a') as fp:
-            fp.append(b'~~12~', b'B')
+        with fileutil.LogFile('/test.log', 'a') as log:
+            log.append(b'~~12~', b'B')
 
-        with fileutil.LogFile('/test.log', 'r') as fp:
+        with fileutil.LogFile('/test.log', 'r') as log:
             self.assertEqual(
-                [(data, entry_type) for data, entry_type in fp],
+                [(data, entry_type) for data, entry_type in log],
                 [(b'12345678', b'L'),
                  (b'~~12~', b'B')])
 
@@ -267,16 +267,16 @@ class MimeLogFileTest(unittest.TestCase):
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
     def test_append_read(self):
-        with fileutil.MimeLogFile('/test.log', 'w') as fp:
-            fp.append(
+        with fileutil.MimeLogFile('/test.log', 'w') as log:
+            log.append(
                 'lididö',
                 content_type='text/plain',
                 encoding='punycode',
                 headers={'Foo': 'bar'},
                 entry_type=b'T')
 
-        with fileutil.MimeLogFile('/test.log', 'r') as fp:
-            content, headers, entry_type = fp.read()
+        with fileutil.MimeLogFile('/test.log', 'r') as log:
+            content, headers, entry_type = log.read()
             self.assertEqual(content, 'lididö')
             self.assertEqual(headers['Foo'], 'bar')
             self.assertEqual(entry_type, b'T')

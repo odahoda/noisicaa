@@ -20,9 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-# TODO: pylint-unclean
-
 import asyncio
 import enum
 import functools
@@ -33,7 +30,7 @@ import pickle
 import pprint
 import time
 import traceback
-from typing import Dict, Callable  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Dict, Callable  # pylint: disable=unused-import
 import uuid
 
 from . import stats
@@ -42,12 +39,17 @@ logger = logging.getLogger(__name__)
 
 
 class RemoteException(Exception):
-    def __init__(self, server_address, tb):
+    def __init__(self, server_address: str, tb: str) -> None:
         super().__init__("From server %s:\n%s" % (server_address, tb))
 
-class Error(Exception): pass
-class InvalidResponseError(Error): pass
-class ConnectionClosed(Error): pass
+class Error(Exception):
+    pass
+
+class InvalidResponseError(Error):
+    pass
+
+class ConnectionClosed(Error):
+    pass
 
 
 class ConnState(enum.Enum):
@@ -56,25 +58,25 @@ class ConnState(enum.Enum):
 
 
 class ServerProtocol(asyncio.Protocol):
-    def __init__(self, event_loop, server):
+    def __init__(self, event_loop: asyncio.AbstractEventLoop, server: 'Server') -> None:
         self.event_loop = event_loop
         self.server = server
         self.id = server.new_connection_id()
-        self.transport = None
+        self.transport = None  # type: asyncio.WriteTransport
         self.state = ConnState.READ_MESSAGE
-        self.command = None
-        self.payload_length = None
+        self.command = None  # type: str
+        self.payload_length = None  # type: int
         self.inbuf = bytearray()
         self.logger = server.logger.getChild("conn-%d" % self.id)
 
-    def connection_made(self, transport):
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
         self.logger.info("Accepted new connection.")
-        self.transport = transport
+        self.transport = cast(asyncio.WriteTransport, transport)
 
-    def connection_lost(self, exc):
+    def connection_lost(self, exc: Exception) -> None:
         self.logger.info("Connection closed.")
 
-    def data_received(self, data):
+    def data_received(self, data: bytes) -> None:
         if self.server.closed:
             self.logger.warning("Received data in closed server.")
             return
@@ -101,13 +103,13 @@ class ServerProtocol(asyncio.Protocol):
                     command, length = header[5:].split(b' ')
                     self.command = command.decode('ascii')
                     self.payload_length = int(length)
-                    #self.logger.debug("CALL %s received (%d bytes payload)", self.command, self.payload_length)
+                    #self.logger.debug(
+                    #    "CALL %s received (%d bytes payload)", self.command, self.payload_length)
                     if self.payload_length > 0:
                         self.state = ConnState.READ_PAYLOAD
                     else:
-                        task = self.event_loop(
-                            self.server.handle_command(
-                                self.command, None))
+                        task = self.event_loop.create_task(
+                            self.server.handle_command(self.command, None))
                         task.add_done_callback(self.command_complete)
                 else:
                     self.logger.error("Received unknown message '%s'", header)
@@ -123,7 +125,7 @@ class ServerProtocol(asyncio.Protocol):
                 self.command = None
                 self.payload_length = None
 
-    def command_complete(self, task):
+    def command_complete(self, task: asyncio.Task) -> None:
         if task.exception() is not None:
             raise task.exception()
 
@@ -138,11 +140,7 @@ class ServerProtocol(asyncio.Protocol):
 
 
 class Server(object):
-    serialize = functools.partial(
-        pickle.dumps, protocol=pickle.HIGHEST_PROTOCOL)
-    deserialize = pickle.loads
-
-    def __init__(self, event_loop, name, socket_dir):
+    def __init__(self, event_loop: asyncio.AbstractEventLoop, name: str, socket_dir: str) -> None:
         self.event_loop = event_loop
         self.name = name
         self.id = uuid.uuid4().hex
@@ -151,34 +149,41 @@ class Server(object):
 
         self.address = os.path.join(socket_dir, '%s.%s.sock' % (self.name, self.id))
 
-        self._next_connection_id = 0
-        self._server = None
+        self.__next_connection_id = 0
+        self.__server = None  # type: asyncio.AbstractServer
 
-        self._command_handlers = {}  # type: Dict[str, Callable]
-        self._command_log_levels = {}  # type: Dict[str, int]
+        self.__command_handlers = {}  # type: Dict[str, Callable]
+        self.__command_log_levels = {}  # type: Dict[str, int]
 
-        self.stat_bytes_sent = None
-        self.stat_bytes_received = None
+        self.stat_bytes_sent = None  # type: stats.Counter
+        self.stat_bytes_received = None  # type: stats.Counter
 
     @property
-    def closed(self):
-        return self._server is None
+    def closed(self) -> bool:
+        return self.__server is None
 
-    def add_command_handler(self, cmd, handler, log_level=None):
-        assert cmd not in self._command_handlers
-        self._command_handlers[cmd] = handler
+    def add_command_handler(
+            self, cmd: str, handler: Callable[..., Any], log_level: Optional[int] = None) -> None:
+        assert cmd not in self.__command_handlers
+        self.__command_handlers[cmd] = handler
         if log_level is not None:
-            self._command_log_levels[cmd] = log_level
+            self.__command_log_levels[cmd] = log_level
 
-    def remove_command_handler(self, cmd):
-        if cmd in self._command_handlers:
-            del self._command_handlers[cmd]
+    def remove_command_handler(self, cmd: str) -> None:
+        if cmd in self.__command_handlers:
+            del self.__command_handlers[cmd]
 
-    def new_connection_id(self):
-        self._next_connection_id += 1
-        return self._next_connection_id
+    def new_connection_id(self) -> int:
+        self.__next_connection_id += 1
+        return self.__next_connection_id
 
-    async def setup(self):
+    def serialize(self, payload: Any) -> bytes:
+        return pickle.dumps(payload, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def deserialize(self, serialized_payload: bytes) -> Any:
+        return pickle.loads(serialized_payload)
+
+    async def setup(self) -> None:
         self.stat_bytes_sent = stats.registry.register(
             stats.Counter,
             stats.StatName(
@@ -193,20 +198,20 @@ class Server(object):
                 server_id=self.id))
 
         self.logger.info("Creating server on socket %s", self.address)
-        self._server = await self.event_loop.create_unix_server(
+        self.__server = await self.event_loop.create_unix_server(
             functools.partial(ServerProtocol, self.event_loop, self),
             path=self.address)
         self.logger.info("Listening on socket %s", self.address)
 
-    async def cleanup(self):
-        if self._server is not None:
-            self._server.close()
-            await self._server.wait_closed()
+    async def cleanup(self) -> None:
+        if self.__server is not None:
+            self.__server.close()
+            await self.__server.wait_closed()
 
             if os.path.isfile(self.address):
                 os.unlink(self.address)
 
-            self._server = None
+            self.__server = None
             self.logger.info("Server closed")
 
         if self.stat_bytes_sent is not None:
@@ -217,11 +222,11 @@ class Server(object):
             self.stat_bytes_received.unregister()
             self.stat_bytes_received = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'Server':
         await self.setup()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, *args: Any) -> bool:
         await self.cleanup()
         return False
 
@@ -232,16 +237,16 @@ class Server(object):
     #     sock.close()
 
     # def wait_for_pending_connections(self):
-    #     while len(self._connections) > 0:
+    #     while len(self.__connections) > 0:
     #         time.sleep(0.01)
 
-    async def handle_command(self, command, payload):
+    async def handle_command(self, command: str, payload: bytes) -> bytes:
         try:
-            handler = self._command_handlers[command]
+            handler = self.__command_handlers[command]
 
             args, kwargs = self.deserialize(payload)
 
-            log_level = self._command_log_levels.get(command, logging.INFO)
+            log_level = self.__command_log_levels.get(command, logging.INFO)
             if log_level >= 0:
                 logger.log(
                     log_level,
@@ -259,26 +264,26 @@ class Server(object):
                 return b'OK:' + self.serialize(result)
             else:
                 return b'OK'
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             return b'EXC:' + str(traceback.format_exc()).encode('utf-8')
 
 
 class ClientProtocol(asyncio.Protocol):
-    def __init__(self, stub, event_loop):
+    def __init__(self, stub: 'Stub', event_loop: asyncio.AbstractEventLoop) -> None:
         self.stub = stub
         self.closed_event = asyncio.Event(loop=event_loop)
         self.state = 0
         self.buf = bytearray()
-        self.length = None
-        self.response = None
+        self.length = None  # type: int
+        self.response = None  # type: bytes
         self.response_queue = asyncio.Queue(loop=event_loop)  # type: asyncio.Queue
 
-    def connection_lost(self, exc):
+    def connection_lost(self, exc: Exception) -> None:
         self.closed_event.set()
         logger.info("%s: Connection lost.", self.stub.id)
         self.response_queue.put_nowait(self.stub.CLOSE_SENTINEL)
 
-    def data_received(self, data):
+    def data_received(self, data: bytes) -> None:
         self.buf.extend(data)
 
         while self.buf:
@@ -310,129 +315,132 @@ class ClientProtocol(asyncio.Protocol):
 
 
 class ResponseContainer(object):
-    def __init__(self, event_loop):
-        self.response = None
-        self._event = asyncio.Event(loop=event_loop)
+    def __init__(self, event_loop: asyncio.AbstractEventLoop) -> None:
+        self.response = None  # type: bytes
+        self.__event = asyncio.Event(loop=event_loop)
 
-    def set(self, response):
+    def set(self, response: bytes) -> None:
         self.response = response
-        self._event.set()
+        self.__event.set()
 
-    async def wait(self):
-        await self._event.wait()
+    async def wait(self) -> bytes:
+        await self.__event.wait()
         return self.response
 
 
 class Stub(object):
-    serialize = functools.partial(
-        pickle.dumps, protocol=pickle.HIGHEST_PROTOCOL)
-    deserialize = pickle.loads
-
     CLOSE_SENTINEL = object()
 
-    def __init__(self, event_loop, server_address):
+    def __init__(self, event_loop: asyncio.AbstractEventLoop, server_address: str) -> None:
         self.id = uuid.uuid4().hex
-        self._event_loop = event_loop
-        self._server_address = server_address
-        self._transport = None
-        self._protocol = None
-        self._command_queue = None
-        self._command_loop_cancelled = None
-        self._command_loop_task = None
-        self._connected = False
-        self._lock = asyncio.Lock(loop=event_loop)
+        self.__event_loop = event_loop
+        self.__server_address = server_address
+        self.__transport = None  # type: asyncio.WriteTransport
+        self.__protocol = None  # type: ClientProtocol
+        self.__command_queue = None  # type: asyncio.Queue
+        self.__command_loop_cancelled = None  # type: asyncio.Event
+        self.__command_loop_task = None  # type: asyncio.Task
+        self.__connected = False
+        self.__lock = asyncio.Lock(loop=event_loop)
 
     @property
-    def server_address(self):
-        return self._server_address
+    def server_address(self) -> str:
+        return self.__server_address
 
     @property
-    def connected(self):
-        return self._connected
+    def connected(self) -> bool:
+        return self.__connected
 
-    async def connect(self):
-        async with self._lock:
-            assert not self._connected
+    def serialize(self, payload: Any) -> bytes:
+        return pickle.dumps(payload, protocol=pickle.HIGHEST_PROTOCOL)
 
-            self._transport, self._protocol = (
-                await self._event_loop.create_unix_connection(
-                    functools.partial(ClientProtocol, self, self._event_loop),
-                    self._server_address))
-            logger.info("%s: Connected to server at %s", self.id, self._server_address)
+    def deserialize(self, serialized_payload: bytes) -> Any:
+        return pickle.loads(serialized_payload)
 
-            self._command_queue = asyncio.Queue(loop=self._event_loop)
-            self._command_loop_cancelled = asyncio.Event(loop=self._event_loop)
-            self._command_loop_task = self._event_loop.create_task(self.command_loop())
+    async def connect(self) -> None:
+        async with self.__lock:
+            assert not self.__connected
 
-            self._connected = True
+            transport, protocol = (
+                await self.__event_loop.create_unix_connection(
+                    functools.partial(ClientProtocol, self, self.__event_loop),
+                    self.__server_address))
+            self.__transport = cast(asyncio.WriteTransport, transport)
+            self.__protocol = cast(ClientProtocol, protocol)
+            logger.info("%s: Connected to server at %s", self.id, self.__server_address)
 
-    async def close(self):
-        async with self._lock:
-            if not self._connected:
+            self.__command_queue = asyncio.Queue(loop=self.__event_loop)
+            self.__command_loop_cancelled = asyncio.Event(loop=self.__event_loop)
+            self.__command_loop_task = self.__event_loop.create_task(self.command_loop())
+
+            self.__connected = True
+
+    async def close(self) -> None:
+        async with self.__lock:
+            if not self.__connected:
                 return
 
             logger.info("%s: Closing stub...", self.id)
-            assert self._transport is not None
-            self._transport.close()
-            await self._protocol.closed_event.wait()
+            assert self.__transport is not None
+            self.__transport.close()
+            await self.__protocol.closed_event.wait()
             logger.info("%s: Connection closed.", self.id)
 
-            if self._command_loop_task is not None:
-                self._command_loop_cancelled.set()
-                await asyncio.wait_for(self._command_loop_task, None, loop=self._event_loop)
+            if self.__command_loop_task is not None:
+                self.__command_loop_cancelled.set()
+                await asyncio.wait_for(self.__command_loop_task, None, loop=self.__event_loop)
                 logger.info("%s: Command queue cleaned up.", self.id)
-                self._command_loop_task = None
+                self.__command_loop_task = None
 
-            self._command_queue = None
-            self._transport = None
-            self._protocol = None
+            self.__command_queue = None
+            self.__transport = None
+            self.__protocol = None
 
             logger.info("%s: Stub closed.", self.id)
-            self._connected = True
+            self.__connected = True
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'Stub':
         await self.connect()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, *argv: Any) -> bool:
         await self.close()
         return False
 
-    async def command_loop(self):
+    async def command_loop(self) -> None:
         cancelled_task = asyncio.ensure_future(
-            self._command_loop_cancelled.wait(), loop=self._event_loop)
-        while not self._command_loop_cancelled.is_set():
-            get_task = asyncio.ensure_future(self._command_queue.get(), loop=self._event_loop)
-            done, pending = await asyncio.wait(
+            self.__command_loop_cancelled.wait(), loop=self.__event_loop)
+        while not self.__command_loop_cancelled.is_set():
+            get_task = asyncio.ensure_future(self.__command_queue.get(), loop=self.__event_loop)
+            done, _ = await asyncio.wait(
                 [get_task, cancelled_task],
                 return_when=asyncio.FIRST_COMPLETED,
-                loop=self._event_loop)
+                loop=self.__event_loop)
             if get_task not in done:
                 get_task.cancel()
                 continue
 
             cmd, payload, response_container = get_task.result()
 
-            if self._transport.is_closing():
+            if self.__transport.is_closing():
                 response_container.set(self.CLOSE_SENTINEL)
                 continue
 
-            logger.debug("sending %s to %s...", cmd.decode('utf-8'), self._server_address)
+            logger.debug("sending %s to %s...", cmd.decode('utf-8'), self.__server_address)
             start_time = time.time()
-            self._transport.write(b'CALL %s %d\n' % (cmd, len(payload)))
+            self.__transport.write(b'CALL %s %d\n' % (cmd, len(payload)))
             if payload:
-                self._transport.write(payload)
+                self.__transport.write(payload)
 
-            response = await self._protocol.response_queue.get()
+            response = await self.__protocol.response_queue.get()
             logger.debug(
-                "%s to %s finished in %.2fmsec", cmd.decode('utf-8'), self._server_address, 1000 * (time.time() - start_time))
+                "%s to %s finished in %.2fmsec",
+                cmd.decode('utf-8'), self.__server_address, 1000 * (time.time() - start_time))
             response_container.set(response)
 
         cancelled_task.cancel()
 
-    async def call(self, cmd, *args, **kwargs):
-        if not isinstance(cmd, bytes):
-            cmd = cmd.encode('ascii')
+    async def call(self, cmd: str, *args: Any, **kwargs: Any) -> Any:
         try:
             payload = self.serialize([args, kwargs])
         except TypeError as exc:
@@ -441,8 +449,8 @@ class Stub(object):
                     exc, pprint.pformat(args), pprint.pformat(kwargs))
             ) from None
 
-        response_container = ResponseContainer(self._event_loop)
-        self._command_queue.put_nowait((cmd, payload, response_container))
+        response_container = ResponseContainer(self.__event_loop)
+        self.__command_queue.put_nowait((cmd.encode('ascii'), payload, response_container))
         response = await response_container.wait()
 
         if response is self.CLOSE_SENTINEL:
@@ -452,14 +460,14 @@ class Stub(object):
         elif response.startswith(b'OK:'):
             return self.deserialize(response[3:])
         elif response.startswith(b'EXC:'):
-            raise RemoteException(self._server_address, response[4:].decode('utf-8'))
+            raise RemoteException(self.__server_address, response[4:].decode('utf-8'))
         else:
             raise InvalidResponseError(response)
 
-    def call_sync(self, cmd, payload=b''):
-        return self._event_loop.run_until_complete(self.call(cmd, payload))
+    def call_sync(self, cmd: str, payload: bytes = b'') -> Any:
+        return self.__event_loop.run_until_complete(self.call(cmd, payload))
 
-    async def ping(self):
-        self._transport.write(b'PING\n')
-        response = await self._protocol.response_queue.get()
+    async def ping(self) -> None:
+        self.__transport.write(b'PING\n')
+        response = await self.__protocol.response_queue.get()
         assert response == b'PONG', response

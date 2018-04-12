@@ -20,22 +20,22 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import copy
 import logging
 import uuid
+from typing import Dict, Type  # pylint: disable=unused-import
 
 from noisicaa import core
-from noisicaa.core import model_base
 
 logger = logging.getLogger(__name__)
 
 
-class StateBase(model_base.ObjectBase):
+class StateBase(core.ObjectBase):
     SERIALIZED_CLASS_NAME = None
 
-    cls_map = {}
+    cls_map = {}  # type: Dict[str, Type[StateBase]]
 
     def __init__(self, state=None):
         self.listeners = core.CallbackRegistry()
@@ -73,19 +73,18 @@ class StateBase(model_base.ObjectBase):
 
         if not self.attached_to_root:
             return
-        root = self.root
-        root.listeners.call('model_changes', self, change)
+        self.root.listeners.call('model_changes', self, change)
 
     def reset_state(self):
         self.listeners.clear()
 
         for prop in self.list_properties():
-            if isinstance(prop, model_base.ObjectProperty):
+            if isinstance(prop, core.ObjectProperty):
                 obj = prop.__get__(self, self.__class__)
                 if obj is not None:
                     obj.reset_state()
                 prop.__set__(self, None)
-            elif isinstance(prop, model_base.ObjectListProperty):
+            elif isinstance(prop, core.ObjectListProperty):
                 objs = prop.__get__(self, self.__class__)
                 for obj in objs:
                     prop.__get__(self, self.__class__)
@@ -98,20 +97,20 @@ class StateBase(model_base.ObjectBase):
     def serialize(self):
         d = {'__class__': self.SERIALIZED_CLASS_NAME or self.__class__.__name__}
         for prop in self.list_properties():
-            if isinstance(prop, model_base.Property):
+            if isinstance(prop, core.Property):
                 state = getattr(self, prop.name, prop.default)
-            elif isinstance(prop, model_base.ListProperty):
+            elif isinstance(prop, core.ListProperty):
                 state = list(getattr(self, prop.name, []))
-            elif isinstance(prop, model_base.ObjectProperty):
+            elif isinstance(prop, core.ObjectProperty):
                 obj = getattr(self, prop.name, None)
                 if obj is not None:
                     state = obj.serialize()
                 else:
                     state = None
-            elif isinstance(prop, model_base.ObjectListProperty):
+            elif isinstance(prop, core.ObjectListProperty):
                 state = [
                     obj.serialize() for obj in getattr(self, prop.name)]
-            elif isinstance(prop, model_base.ObjectReferenceProperty):
+            elif isinstance(prop, core.ObjectReferenceProperty):
                 obj = getattr(self, prop.name, None)
                 if obj is not None:
                     state = 'ref:' + obj.id
@@ -131,13 +130,13 @@ class StateBase(model_base.ObjectBase):
                 continue
 
             value = state[prop.name]
-            if isinstance(prop, model_base.Property):
+            if isinstance(prop, core.Property):
                 setattr(self, prop.name, value)
-            elif isinstance(prop, model_base.ListProperty):
+            elif isinstance(prop, core.ListProperty):
                 lst = getattr(self, prop.name)
                 lst.clear()
                 lst.extend(value)
-            elif isinstance(prop, model_base.ObjectProperty):
+            elif isinstance(prop, core.ObjectProperty):
                 if value is not None:
                     cls_name = value['__class__']
                     cls = self.cls_map[cls_name]
@@ -145,7 +144,7 @@ class StateBase(model_base.ObjectBase):
                 else:
                     obj = None
                 setattr(self, prop.name, obj)
-            elif isinstance(prop, model_base.ObjectListProperty):
+            elif isinstance(prop, core.ObjectListProperty):
                 lst = getattr(self, prop.name)
                 lst.clear()
                 for v in value:
@@ -153,7 +152,7 @@ class StateBase(model_base.ObjectBase):
                     cls = self.cls_map[cls_name]
                     obj = cls(state=v)
                     lst.append(obj)
-            elif isinstance(prop, model_base.ObjectReferenceProperty):
+            elif isinstance(prop, core.ObjectReferenceProperty):
                 if value is not None:
                     assert isinstance(value, str) and value.startswith('ref:')
                     self.state[prop.name] = ('unresolved reference', value[4:])
@@ -175,41 +174,42 @@ class StateBase(model_base.ObjectBase):
             if prop.name == 'id':
                 continue
 
-            if isinstance(prop, model_base.Property):
+            if isinstance(prop, core.Property):
                 value = prop.__get__(src, src.__class__)
                 prop.__set__(self, value)
 
-            elif isinstance(prop, model_base.ListProperty):
+            elif isinstance(prop, core.ListProperty):
                 lst = prop.__get__(self, self.__class__)
                 lst.clear()
                 for value in prop.__get__(src, src.__class__):
                     lst.append(copy.deepcopy(value))
 
-            elif isinstance(prop, model_base.ObjectProperty):
+            elif isinstance(prop, core.ObjectProperty):
                 obj = prop.__get__(src, src.__class__)
                 if obj is not None:
                     prop.__set__(self, obj.clone())
                 else:
                     prop.__set__(self, None)
 
-            elif isinstance(prop, model_base.ObjectListProperty):
-                lst = prop.__get__(self, self.__class__)
-                lst.clear()
+            elif isinstance(prop, core.ObjectListProperty):
+                objlst = prop.__get__(self, self.__class__)
+                objlst.clear()
                 for obj in prop.__get__(src, src.__class__):
-                    lst.append(obj.clone())
+                    objlst.append(obj.clone())
 
             else:
-                assert isinstance(prop, model_base.ObjectReferenceProperty)
+                assert isinstance(prop, core.ObjectReferenceProperty)
                 obj = prop.__get__(src, src.__class__)
                 prop.__set__(self, obj)
 
 
-class RootMixin(object):
+class RootMixin(core.RootObjectBase, StateBase):
     def __init__(self, state=None):
+        self.__obj_map = {}  # type: Dict[str, StateBase]
+
         super().__init__(state=state)
 
-        self.__obj_map = {self.id: self}
-        self._is_root = True
+        self.__obj_map[self.id] = self
 
     def get_object(self, obj_id):
         return self.__obj_map[obj_id]
@@ -222,7 +222,7 @@ class RootMixin(object):
 
         for o in obj.walk_children():
             for prop in o.list_properties():
-                if isinstance(prop, model_base.ObjectReferenceProperty):
+                if isinstance(prop, core.ObjectReferenceProperty):
                     refid = prop.__get__(o, o.__class__)
                     if refid is not None and isinstance(refid, tuple):
                         assert refid[0] == 'unresolved reference'
@@ -237,7 +237,7 @@ class RootMixin(object):
             del self.__obj_map[o.id]
 
     def validate_object_map(self):
-        obj_map = {}
+        obj_map = {}  # type: Dict[str, StateBase]
         for o in self.walk_children():
             assert o.id is not None
             assert o.id not in obj_map, o
@@ -255,7 +255,7 @@ class RootMixin(object):
 
         for node in self.walk_children():
             for prop in node.list_properties():
-                if isinstance(prop, model_base.ObjectReferenceProperty):
+                if isinstance(prop, core.ObjectReferenceProperty):
                     refid = prop.__get__(node, node.__class__)
                     if refid is not None and isinstance(refid, tuple):
                         assert refid[0] == 'unresolved reference'

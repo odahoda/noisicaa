@@ -148,7 +148,6 @@ class Metadata(model.Metadata, project_client.ObjectProxy): pass
 class Project(model.Project, project_client.ObjectProxy):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._is_root = True
 
         self.__node_db = None
         self.__obj_map = None

@@ -80,6 +80,7 @@ PIP_DEPS = {
         PKG('pyfakefs'),
         PKG('pylint'),
         PKG('mypy'),
+        PKG('mypy-extensions'),
     ],
     'vmtests': [
         PKG('paramiko'),

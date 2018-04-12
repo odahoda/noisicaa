@@ -19,10 +19,9 @@
 # @end:license
 
 from .model_base import (
-    ObjectBase,
+    ObjectBase, RootObjectBase,
 
     Property, ListProperty,
-    ObjectPropertyBase,
     ObjectProperty, ObjectListProperty, ObjectReferenceProperty,
 
     PropertyChange,

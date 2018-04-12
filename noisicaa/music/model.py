@@ -89,8 +89,8 @@ class MeasureReference(ProjectChild):
 
 
 class MeasuredTrack(Track):
-    measure_list = core.ObjectListProperty(cls=MeasureReference)
-    measure_heap = core.ObjectListProperty(cls=Measure)
+    measure_list = core.ObjectListProperty(MeasureReference)
+    measure_heap = core.ObjectListProperty(Measure)
 
     @property
     def duration(self):
@@ -165,7 +165,7 @@ class ScoreMeasure(Measure):
     key_signature = core.Property(
         key_signature.KeySignature,
         default=key_signature.KeySignature('C major'))
-    notes = core.ObjectListProperty(cls=Note)
+    notes = core.ObjectListProperty(Note)
 
     @property
     def time_signature(self):
@@ -241,13 +241,13 @@ class SampleTrack(Track):
 
 class PipelineGraphControlValue(ProjectChild):
     name = core.Property(str)
-    value = core.Property((tuple, list))  # This is a bit ugly...
+    value = core.Property(tuple, list)  # This is a bit ugly...
 
 
 class PipelineGraphPortPropertyValue(ProjectChild):
     port_name = core.Property(str)
     name = core.Property(str)
-    value = core.Property((str, float, int, bool))
+    value = core.Property(str, float, int, bool)
 
 
 class BasePipelineGraphNode(ProjectChild):
@@ -422,8 +422,8 @@ class Metadata(ProjectChild):
     created = core.Property(int, allow_none=True)
 
 
-class Project(core.ObjectBase):
-    metadata = core.ObjectProperty(cls=Metadata)
+class Project(core.RootObjectBase):
+    metadata = core.ObjectProperty(Metadata)
     master_group = core.ObjectProperty(TrackGroup)
     property_track = core.ObjectProperty(PropertyTrack)
     pipeline_graph_nodes = core.ObjectListProperty(PipelineGraphNode)

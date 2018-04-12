@@ -20,9 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-# TODO: pylint-unclean
-
 import asyncio
 import base64
 import enum
@@ -32,6 +29,7 @@ import importlib
 import logging
 import os
 import pickle
+import resource  # pylint: disable=unused-import
 import select
 import shutil
 import signal
@@ -41,7 +39,9 @@ import tempfile
 import threading
 import time
 import traceback
-from typing import Dict, List, Set  # pylint: disable=unused-import
+from typing import (  # pylint: disable=unused-import
+    cast, Any, Optional, Callable, Dict, List, Set, Tuple
+)
 
 import eventfd
 
@@ -61,12 +61,12 @@ class ProcessState(enum.Enum):
 
 
 class PipeAdapter(asyncio.Protocol):
-    def __init__(self, handler):
+    def __init__(self, handler: Callable[[str], None]) -> None:
         super().__init__()
         self._handler = handler
         self._buf = bytearray()
 
-    def data_received(self, data):
+    def data_received(self, data: bytes) -> None:
         self._buf.extend(data)
         while True:
             eol = self._buf.find(b'\n')
@@ -76,7 +76,7 @@ class PipeAdapter(asyncio.Protocol):
             del self._buf[:eol+1]
             self._handler(line)
 
-    def eof_received(self):
+    def eof_received(self) -> None:
         if self._buf:
             line = self._buf.decode('utf-8')
             del self._buf[:]
@@ -84,14 +84,14 @@ class PipeAdapter(asyncio.Protocol):
 
 
 class LogAdapter(asyncio.Protocol):
-    def __init__(self, logger):
+    def __init__(self, target_logger: logging.Logger) -> None:
         super().__init__()
-        self._logger = logger
+        self._logger = target_logger
         self._buf = bytearray()
         self._state = 'header'
-        self._length = None
+        self._length = None  # type: int
 
-    def data_received(self, data):
+    def data_received(self, data: bytes) -> None:
         self._buf.extend(data)
         while True:
             if self._state == 'header':
@@ -121,11 +121,11 @@ class LogAdapter(asyncio.Protocol):
                 self._state = 'header'
 
 class ChildLogHandler(logging.Handler):
-    def __init__(self, log_fd):
+    def __init__(self, log_fd: int) -> None:
         super().__init__()
         self._log_fd = log_fd
 
-    def handle(self, record):
+    def handle(self, record: logging.LogRecord) -> None:
         record_attrs = {
             'msg': record.getMessage(),
             'args': (),
@@ -147,30 +147,32 @@ class ChildLogHandler(logging.Handler):
             written = os.write(self._log_fd, msg)
             msg = msg[written:]
 
+    def emit(self, record: logging.LogRecord) -> None:
+        pass
+
 
 class ChildConnection(object):
-    def __init__(self, fd_in, fd_out):
+    def __init__(self, fd_in: int, fd_out: int) -> None:
         self.fd_in = fd_in
         self.fd_out = fd_out
 
         self.__reader_state = 0
-        self.__reader_buf = None
-        self.__reader_length = None
+        self.__reader_buf = None  # type: bytearray
+        self.__reader_length = None  # type: int
 
-    def write(self, request):
-        assert isinstance(request, bytes)
+    def write(self, request: bytes) -> None:
         header = b'#%d\n' % len(request)
         msg = header + request
         while msg:
             written = os.write(self.fd_out, msg)
             msg = msg[written:]
 
-    def __reader_start(self):
+    def __reader_start(self) -> None:
         self.__reader_state = 0
         self.__reader_buf = None
         self.__reader_length = None
 
-    def __read_internal(self):
+    def __read_internal(self) -> None:
         if self.__reader_state == 0:
             d = os.read(self.fd_in, 1)
             if not d:
@@ -201,27 +203,27 @@ class ChildConnection(object):
                 self.__reader_state = 3
 
     @property
-    def __reader_done(self):
+    def __reader_done(self) -> bool:
         return self.__reader_state == 3
 
     @property
-    def __reader_response(self):
+    def __reader_response(self) -> bytes:
         assert self.__reader_done
         return self.__reader_buf
 
-    def read(self):
+    def read(self) -> bytes:
         self.__reader_start()
         while not self.__reader_done:
             self.__read_internal()
         return self.__reader_response
 
-    async def read_async(self, event_loop):
+    async def read_async(self, event_loop: asyncio.AbstractEventLoop) -> bytes:
         done = asyncio.Event(loop=event_loop)
-        def read_cb():
+        def read_cb() -> None:
             try:
                 self.__read_internal()
 
-            except OSError as exc:
+            except OSError:
                 event_loop.remove_reader(self.fd_in)
                 done.set()
                 return
@@ -243,25 +245,25 @@ class ChildConnection(object):
         else:
             raise OSError("Failed to read from connection")
 
-    def close(self):
+    def close(self) -> None:
         os.close(self.fd_in)
         os.close(self.fd_out)
 
 
 class ChildCollector(object):
-    def __init__(self, stats_collector, collection_interval=100):
+    def __init__(self, stats_collector: stats.Collector, collection_interval: int = 100) -> None:
         self.__stats_collector = stats_collector
         self.__collection_interval = collection_interval
 
-        self.__stat_poll_duration = None
-        self.__stat_poll_count = None
+        self.__stat_poll_duration = None  # type: stats.Counter
+        self.__stat_poll_count = None  # type: stats.Counter
 
         self.__lock = threading.Lock()
         self.__connections = {}  # type: Dict[int, ChildConnection]
         self.__stop = None  # type: threading.Event
         self.__thread = None  # type: threading.Thread
 
-    def setup(self):
+    def setup(self) -> None:
         self.__stat_poll_duration = stats.registry.register(
             stats.Counter, stats.StatName(name='stat_collector_duration_total'))
         self.__stat_poll_count = stats.registry.register(
@@ -272,7 +274,7 @@ class ChildCollector(object):
         self.__thread.start()
         logger.info("Started ChildCollector thread 0x%08x", self.__thread.ident)
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         if self.__thread is not None:
             logger.info("Stopping ChildCollector thread 0x%08x", self.__thread.ident)
             self.__stop.set()
@@ -292,28 +294,28 @@ class ChildCollector(object):
             self.__stat_poll_count.unregister()
             self.__stat_poll_count = None
 
-    def add_child(self, pid, connection):
+    def add_child(self, pid: int, connection: ChildConnection) -> None:
         with self.__lock:
             self.__connections[pid] = connection
 
-    def remove_child(self, pid):
+    def remove_child(self, pid: int) -> None:
         with self.__lock:
             connection = self.__connections.pop(pid, None)
             if connection is not None:
                 connection.close()
 
-    def collect(self):
+    def collect(self) -> None:
         with self.__lock:
             poll_start = time.perf_counter()
 
-            pending = {}
+            pending = {}  # type: Dict[int, Tuple[float, int, ChildConnection]]
             poller = select.poll()
             for pid, connection in self.__connections.items():
                 t0 = time.perf_counter()
                 try:
                     connection.write(b'COLLECT_STATS')
                 except OSError as exc:
-                    logger.warning("Failed to collect stats from PID=%d", pid)
+                    logger.warning("Failed to collect stats from PID=%d: %s", pid, exc)
                 else:
                     pending[connection.fd_in] = (t0, pid, connection)
                     poller.register(connection.fd_in)
@@ -323,7 +325,8 @@ class ChildCollector(object):
                     t0, pid, connection = pending[fd]
                     if evt & select.POLLIN:
                         response = connection.read()
-                        latency = time.perf_counter() - t0
+                        # TODO: record per child latency
+                        #latency = time.perf_counter() - t0
 
                         child_name = stats.StatName(pid=pid)
                         for name, value in pickle.loads(response):
@@ -347,7 +350,7 @@ class ChildCollector(object):
             self.__stats_collector.add_value(
                 name.merge(manager_name), value)
 
-    def __main(self):
+    def __main(self) -> None:
         next_collection = time.perf_counter()
         while not self.__stop.is_set():
             delay = next_collection - time.perf_counter()
@@ -359,14 +362,16 @@ class ChildCollector(object):
 
 
 class ProcessManager(object):
-    def __init__(self, event_loop, collect_stats=True, tmp_dir=None):
+    def __init__(
+            self, event_loop: asyncio.AbstractEventLoop, collect_stats: int = True,
+            tmp_dir: Optional[str] = None) -> None:
         self._event_loop = event_loop
         self._processes = set()  # type: Set[ProcessHandle]
         self._sigchld_received = asyncio.Event(loop=event_loop)
 
         self._tmp_dir = tmp_dir
         self._clear_tmp_dir = False
-        self._server = None
+        self._server = None  # type: ipc.Server
 
         if collect_stats:
             self._stats_collector = stats.Collector()
@@ -376,10 +381,10 @@ class ProcessManager(object):
             self._child_collector = None
 
     @property
-    def server(self):
+    def server(self) -> ipc.Server:
         return self._server
 
-    async def setup(self):
+    async def setup(self) -> None:
         logger.info("Starting ProcessManager...")
         self._event_loop.add_signal_handler(signal.SIGCHLD, self.sigchld_handler)
 
@@ -401,7 +406,7 @@ class ProcessManager(object):
         if self._child_collector is not None:
             self._child_collector.setup()
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         if self._child_collector is not None:
             self._child_collector.cleanup()
 
@@ -422,15 +427,15 @@ class ProcessManager(object):
 
         self._event_loop.remove_signal_handler(signal.SIGCHLD)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'ProcessManager':
         await self.setup()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, *args: Any) -> bool:
         await self.cleanup()
         return False
 
-    async def terminate_all_children(self, timeout=10):
+    async def terminate_all_children(self, timeout: float = 10) -> None:
         for sig in [signal.SIGTERM, signal.SIGKILL]:
             for proc in self._processes:
                 if proc.state == ProcessState.RUNNING:
@@ -460,7 +465,8 @@ class ProcessManager(object):
         for proc in self._processes:
             logger.error("Failed to kill child %s", proc.id)
 
-    async def start_inline_process(self, name, entry, **kwargs):
+    async def start_inline_process(
+            self, name: str, entry: str, **kwargs: Any) -> 'InlineProcessHandle':
         proc = InlineProcessHandle(self._event_loop)
         self._processes.add(proc)
 
@@ -493,7 +499,7 @@ class ProcessManager(object):
 
         return proc
 
-    async def start_subprocess(self, name, entry, **kwargs):
+    async def start_subprocess(self, name: str, entry: str, **kwargs: Any) -> 'SubprocessHandle':
         proc = SubprocessHandle(self._event_loop)
 
         # Open pipes without O_CLOEXEC, so they survive the exec() call.
@@ -566,7 +572,7 @@ class ProcessManager(object):
                 sys.stdout.write("_exit(%d)\n" % rc)
                 sys.stdout.flush()
                 sys.stderr.flush()
-                os._exit(rc)
+                os._exit(rc)  # pylint: disable=protected-access
                 assert False
 
         else:
@@ -610,13 +616,13 @@ class ProcessManager(object):
 
             return proc
 
-    def sigchld_handler(self):
+    def sigchld_handler(self) -> None:
         logger.info("Received SIGCHLD.")
         self.collect_dead_children()
         self._sigchld_received.set()
 
-    def collect_dead_children(self):
-        dead_children = set()
+    def collect_dead_children(self) -> None:
+        dead_children = set()  # type: Set[ProcessHandle]
         for proc in self._processes:
             if proc.try_collect():
                 dead_children.add(proc)
@@ -626,31 +632,31 @@ class ProcessManager(object):
                 self._child_collector.remove_child(proc.pid)
             self._processes.remove(proc)
 
-    def handle_stats_list(self):
+    def handle_stats_list(self) -> List[str]:
         if self._stats_collector is None:
-            return RuntimeError("Stats collection not enabled.")
+            raise RuntimeError("Stats collection not enabled.")
         return self._stats_collector.list_stats()
 
-    def handle_stats_fetch(self, expressions):
+    def handle_stats_fetch(self, expressions: str) -> Dict[str, stats.Timeseries]:
         if self._stats_collector is None:
-            return RuntimeError("Stats collection not enabled.")
+            raise RuntimeError("Stats collection not enabled.")
         return self._stats_collector.fetch_stats(expressions)
 
 
 class ChildConnectionHandler(object):
-    def __init__(self, connection):
+    def __init__(self, connection: ChildConnection) -> None:
         self.connection = connection
 
-        self.__stop = None
-        self.__thread = None
+        self.__stop = None  # type: eventfd.EventFD
+        self.__thread = None  # type: threading.Thread
 
-    def setup(self):
+    def setup(self) -> None:
         self.__stop = eventfd.EventFD()
         self.__thread = threading.Thread(target=self.__main)
         self.__thread.start()
         logger.info("Started ChildConnectionHandler thread 0x%08x", self.__thread.ident)
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         if self.__thread is not None:
             logger.info("Stopping ChildConnectionHandler thread 0x%08x...", self.__thread.ident)
             self.__stop.set()
@@ -658,7 +664,7 @@ class ChildConnectionHandler(object):
             self.__thread = None
             self.__stop = None
 
-    def __main(self):
+    def __main(self) -> None:
         fd_in = self.connection.fd_in
 
         poller = select.poll()
@@ -687,7 +693,9 @@ class ChildConnectionHandler(object):
 
 
 class ProcessBase(object):
-    def __init__(self, *, name, manager, event_loop, tmp_dir):
+    def __init__(
+            self, *, name: str, manager: 'ManagerStub', event_loop: asyncio.AbstractEventLoop,
+            tmp_dir: str) -> None:
         self.name = name
         self.manager = manager
         self.event_loop = event_loop
@@ -695,28 +703,28 @@ class ProcessBase(object):
 
         self.server = None  # type: ipc.Server
 
-        self.__shutting_down = None
-        self.__shutdown_complete = None
+        self.__shutting_down = None  # type: asyncio.Event
+        self.__shutdown_complete = None  # type: asyncio.Event
 
-    async def setup(self):
+    async def setup(self) -> None:
         self.__shutting_down = asyncio.Event(loop=self.event_loop)
         self.__shutdown_complete = asyncio.Event(loop=self.event_loop)
 
         self.server = ipc.Server(self.event_loop, self.name, socket_dir=self.tmp_dir)
         await self.server.setup()
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         if self.server is not None:
             await self.server.cleanup()
             self.server = None
 
-    async def run(self):
+    async def run(self) -> None:
         await self.__shutting_down.wait()
         logger.info("Shutting down process '%s'...", self.name)
         await self.cleanup()
         self.__shutdown_complete.set()
 
-    async def shutdown(self):
+    async def shutdown(self) -> None:
         logger.info("Shutdown received for process '%s'.", self.name)
         self.__shutting_down.set()
         logger.info("Waiting for shutdown of process '%s' to complete...", self.name)
@@ -727,27 +735,90 @@ class ProcessBase(object):
 # mypy complains: Invalid type "asyncio.DefaultEventLoopPolicy"
 # Not sure if that's related to https://github.com/python/mypy/issues/1843
 class EventLoopPolicy(asyncio.DefaultEventLoopPolicy):  # type: ignore
-    def get_event_loop(self):
+    def get_event_loop(self) -> asyncio.AbstractEventLoop:
         raise RuntimeError("get_event_loop() is not allowed.")
 
-    def set_event_loop(self, loop):
+    def set_event_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         raise RuntimeError("set_event_loop() is not allowed.")
 
 
 class SubprocessMixin(ProcessBase):
-    def __init__(self, *, manager_address, **kwargs):
+    def __init__(self, *, manager_address: str, **kwargs: Any) -> None:
         super().__init__(manager=None, event_loop=None, **kwargs)
 
         self.manager_address = manager_address
         self.pid = os.getpid()
 
-    def create_event_loop(self):
+    @staticmethod
+    def entry(argv: List[str]) -> None:
+        try:
+            assert len(argv) == 2
+
+            args = pickle.loads(base64.b64decode(argv[1]))
+
+            request_in = args['request_in']
+            response_out = args['response_out']
+            logger_out = args['logger_out']
+            log_level = args['log_level']
+            entry = args['entry']
+            name = args['name']
+            manager_address = args['manager_address']
+            tmp_dir = args['tmp_dir']
+            kwargs = args['kwargs']
+
+            # Remove all existing log handlers, and install a new
+            # handler to pipe all log messages back to the manager
+            # process.
+            root_logger = logging.getLogger()
+            while root_logger.handlers:
+                root_logger.removeHandler(root_logger.handlers[0])
+            root_logger.addHandler(ChildLogHandler(logger_out))
+            root_logger.setLevel(log_level)
+
+            # Make loggers of 3rd party modules less noisy.
+            for other in ['quamash']:
+                logging.getLogger(other).setLevel(logging.WARNING)
+
+            stacktrace.init()
+            init_pylogging()
+
+            mod_name, cls_name = entry.rsplit('.', 1)
+            mod = importlib.import_module(mod_name)
+            cls = getattr(mod, cls_name)
+            impl = cls(
+                name=name, manager_address=manager_address, tmp_dir=tmp_dir,
+                **kwargs)
+
+            child_connection = ChildConnection(request_in, response_out)
+            rc = impl.main(child_connection)
+
+            frames = sys._current_frames()  # pylint: disable=protected-access
+            for thread in threading.enumerate():
+                if thread.ident == threading.get_ident():
+                    continue
+                logger.warning("Left over thread %s (%x)", thread.name, thread.ident)
+                if thread.ident in frames:
+                    logger.warning("".join(traceback.format_stack(frames[thread.ident])))
+
+        except SystemExit as exc:
+            rc = exc.code
+        except:  # pylint: disable=bare-except
+            traceback.print_exc()
+            rc = 1
+        finally:
+            rc = rc or 0
+            sys.stdout.write("_exit(%d)\n" % rc)
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit(rc)  # pylint: disable=protected-access
+
+    def create_event_loop(self) -> asyncio.AbstractEventLoop:
         return asyncio.new_event_loop()
 
-    def error_handler(self, event_loop, context):
+    def error_handler(self, event_loop: asyncio.AbstractEventLoop, context: Dict[str, Any]) -> None:
         try:
             event_loop.default_exception_handler(context)
-        except:
+        except:  # pylint: disable=bare-except
             traceback.print_exc()
 
         try:
@@ -761,13 +832,14 @@ class SubprocessMixin(ProcessBase):
                     msg += '\n%s: %s\nNo traceback' % (type(exc).__name__, exc)
             logging.error(msg)
 
-        except:
+        except:  # pylint: disable=bare-except
             traceback.print_exc()
+
         sys.stdout.flush()
         sys.stderr.flush()
-        os._exit(1)
+        os._exit(1)  # pylint: disable=protected-access
 
-    def main(self, child_connection, *args, **kwargs):
+    def main(self, child_connection: ChildConnection, *args: Any, **kwargs: Any) -> int:
         event_loop_policy = EventLoopPolicy()
         asyncio.set_event_loop_policy(event_loop_policy)
 
@@ -794,14 +866,14 @@ class SubprocessMixin(ProcessBase):
             self.event_loop.close()
             logger.info("Event loop closed.")
 
-    async def main_async(self, child_connection, *args, **kwargs):
+    async def main_async(self, child_connection: ChildConnection, *args: Any, **kwargs: Any) -> int:
         self.manager = ManagerStub(self.event_loop, self.manager_address)
         async with self.manager:
             try:
                 logger.info("Setting up process.")
                 try:
                     await self.setup()
-                except Exception as exc:
+                except Exception:  # pylint: disable=broad-except
                     logger.error(
                         "Exception while setting up %s:\n%s",
                         self.name, traceback.format_exc())
@@ -814,9 +886,9 @@ class SubprocessMixin(ProcessBase):
                 child_connection_handler.setup()
                 try:
                     logger.info("Entering run method.")
-                    return await self.run(*args, **kwargs)
+                    return await self.run(*args, **kwargs)  # type: ignore
 
-                except Exception as exc:
+                except Exception:  # pylint: disable=broad-except
                     logger.error(
                         "Unhandled exception in process %s:\n%s",
                         self.name, traceback.format_exc())
@@ -833,16 +905,19 @@ class SubprocessMixin(ProcessBase):
 
 
 class SetPIDHandler(logging.Handler):
-    def __init__(self, pid):
+    def __init__(self, pid: int) -> None:
         super().__init__()
         self._pid = pid
 
-    def handle(self, record):
+    def handle(self, record: logging.LogRecord) -> None:
         record.process = self._pid
+
+    def emit(self, record: logging.LogRecord) -> None:
+        pass
 
 
 class ProcessHandle(object):
-    def __init__(self, event_loop):
+    def __init__(self, event_loop: asyncio.AbstractEventLoop) -> None:
         self.event_loop = event_loop
         self.state = ProcessState.NOT_STARTED
         self.logger = None  # type: logging.Logger
@@ -850,27 +925,27 @@ class ProcessHandle(object):
         self.returncode = None  # type: int
 
     @property
-    def id(self):
+    def id(self) -> str:
         raise NotImplementedError
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.id)
 
-    def create_loggers(self):
+    def create_loggers(self) -> None:
         raise NotImplementedError
 
-    def kill(self, sig):
+    def kill(self, sig: signal.Signals) -> None:  # pylint: disable=no-member
         raise NotImplementedError
 
-    def try_collect(self):
+    def try_collect(self) -> bool:
         raise NotImplementedError
 
-    async def wait(self):
+    async def wait(self) -> None:
         raise NotImplementedError
 
 
 class InlineProcessHandle(ProcessHandle):
-    def __init__(self, event_loop):
+    def __init__(self, event_loop: asyncio.AbstractEventLoop) -> None:
         super().__init__(event_loop)
 
         self.process = None  # type: ProcessBase
@@ -879,13 +954,13 @@ class InlineProcessHandle(ProcessHandle):
         self.manager_stub = None  # type: ManagerStub
 
     @property
-    def id(self):
+    def id(self) -> str:
         return 'inline:%016x' % id(self)
 
-    def create_loggers(self):
+    def create_loggers(self) -> None:
         self.logger = logging.getLogger('childproc[%016x]' % id(self))
 
-    def kill(self, sig):
+    def kill(self, sig: signal.Signals) -> None:  # pylint: disable=no-member
         if not self.task.done():
             logger.warning("Cancelling left over child %s", self.id)
             self.task.cancel()
@@ -894,7 +969,7 @@ class InlineProcessHandle(ProcessHandle):
             logger.warning("Cancelling left over child %s", self.id)
             self.cleanup_task.cancel()
 
-    def try_collect(self):
+    def try_collect(self) -> bool:
         if self.task is None:
             return True
 
@@ -914,48 +989,48 @@ class InlineProcessHandle(ProcessHandle):
 
         return True
 
-    async def wait(self):
+    async def wait(self) -> None:
         self.returncode = await asyncio.wait_for(self.task, None, loop=self.event_loop) or 0
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         await self.process.cleanup()
         if self.manager_stub is not None:
             await self.manager_stub.close()
             self.manager_stub = None
 
-    def on_task_done(self, task):
+    def on_task_done(self, task: asyncio.Task) -> None:
         self.logger.info("run() finished, cleaning up...")
         self.state = ProcessState.STOPPING
         self.cleanup_task = self.event_loop.create_task(self.cleanup())
         self.cleanup_task.add_done_callback(self.on_cleanup_done)
 
-    def on_cleanup_done(self, task):
+    def on_cleanup_done(self, task: asyncio.Task) -> None:
         self.logger.info("cleanup() finished.")
         self.state = ProcessState.FINISHED
         task.result()
 
 
 class SubprocessHandle(ProcessHandle):
-    def __init__(self, event_loop):
+    def __init__(self, event_loop: asyncio.AbstractEventLoop) -> None:
         super().__init__(event_loop)
 
         self.pid = None  # type: int
-        self.signal = None
-        self.resinfo = None
+        self.signal = None  # type: Optional[int]
+        self.resinfo = None  # type: Optional[resource._RUsage]
         self.term_event = asyncio.Event(loop=event_loop)
-        self.stdout_logger = None
-        self.stderr_logger = None
-        self.stdout_protocol = None
-        self.stderr_protocol = None
-        self.logger_protocol = None
+        self.stdout_logger = None  # type: logging.Logger
+        self.stderr_logger = None  # type: logging.Logger
+        self.stdout_protocol = None  # type: asyncio.Protocol
+        self.stderr_protocol = None  # type: asyncio.Protocol
+        self.logger_protocol = None  # type: asyncio.Protocol
 
         self._stderr_empty_lines = []  # type: List[str]
 
     @property
-    def id(self):
+    def id(self) -> str:
         return 'subprocess:%d' % self.pid
 
-    def create_loggers(self):
+    def create_loggers(self) -> None:
         assert self.pid is not None
         self.logger = logging.getLogger('childproc[%d]' % self.pid)
 
@@ -964,11 +1039,11 @@ class SubprocessHandle(ProcessHandle):
         self.stderr_logger = self.logger.getChild('stderr')
         self.stderr_logger.addHandler(SetPIDHandler(self.pid))
 
-    def kill(self, sig):
+    def kill(self, sig: signal.Signals) -> None:  # pylint: disable=no-member
         logger.warning("Sending %s to left over child pid=%d", sig.name, self.pid)
         os.kill(self.pid, sig)
 
-    def try_collect(self):
+    def try_collect(self) -> bool:
         rpid, status, resinfo = os.wait4(self.pid, os.WNOHANG)
         if rpid == 0:
             return False
@@ -1022,26 +1097,29 @@ class SubprocessHandle(ProcessHandle):
 
         return True
 
-    async def wait(self):
+    async def wait(self) -> None:
         await self.term_event.wait()
 
-    async def setup_std_handlers(self, stdout_fd, stderr_fd, logger_fd):
-        _, self.stdout_protocol = await self.event_loop.connect_read_pipe(
+    async def setup_std_handlers(self, stdout_fd: int, stderr_fd: int, logger_fd: int) -> None:
+        _, protocol = await self.event_loop.connect_read_pipe(
             functools.partial(PipeAdapter, self.handle_stdout),
             os.fdopen(stdout_fd))
+        self.stdout_protocol = cast(asyncio.Protocol, protocol)
 
-        _, self.stderr_protocol = await self.event_loop.connect_read_pipe(
+        _, protocol = await self.event_loop.connect_read_pipe(
             functools.partial(PipeAdapter, self.handle_stderr),
             os.fdopen(stderr_fd))
+        self.stderr_protocol = cast(asyncio.Protocol, protocol)
 
-        _, self.logger_protocol = await self.event_loop.connect_read_pipe(
+        _, protocol = await self.event_loop.connect_read_pipe(
             functools.partial(LogAdapter, self.logger),
             os.fdopen(logger_fd))
+        self.logger_protocol = cast(asyncio.Protocol, protocol)
 
-    def handle_stdout(self, line):
+    def handle_stdout(self, line: str) -> None:
         self.stdout_logger.info(line)
 
-    def handle_stderr(self, line):
+    def handle_stderr(self, line: str) -> None:
         if len(line.rstrip('\r\n')) == 0:
             # Buffer empty lines, so we can discard those that are followed
             # by a message that we also want to discard.
@@ -1065,63 +1143,4 @@ class ManagerStub(ipc.Stub):
 
 if __name__ == '__main__':
     # Entry point for subprocesses.
-    try:
-        assert len(sys.argv) == 2
-
-        args = pickle.loads(base64.b64decode(sys.argv[1]))
-
-        request_in = args['request_in']
-        response_out = args['response_out']
-        logger_out = args['logger_out']
-        log_level = args['log_level']
-        entry = args['entry']
-        name = args['name']
-        manager_address = args['manager_address']
-        tmp_dir = args['tmp_dir']
-        kwargs = args['kwargs']
-
-        # Remove all existing log handlers, and install a new
-        # handler to pipe all log messages back to the manager
-        # process.
-        root_logger = logging.getLogger()
-        while root_logger.handlers:
-            root_logger.removeHandler(root_logger.handlers[0])
-        root_logger.addHandler(ChildLogHandler(logger_out))
-        root_logger.setLevel(log_level)
-
-        # Make loggers of 3rd party modules less noisy.
-        for other in ['quamash']:
-            logging.getLogger(other).setLevel(logging.WARNING)
-
-        stacktrace.init()
-        init_pylogging()
-
-        mod_name, cls_name = entry.rsplit('.', 1)
-        mod = importlib.import_module(mod_name)
-        cls = getattr(mod, cls_name)
-        impl = cls(
-            name=name, manager_address=manager_address, tmp_dir=tmp_dir,
-            **kwargs)
-
-        child_connection = ChildConnection(request_in, response_out)
-        rc = impl.main(child_connection)
-
-        frames = sys._current_frames()
-        for thread in threading.enumerate():
-            if thread.ident == threading.get_ident():
-                continue
-            logger.warning("Left over thread %s (%x)", thread.name, thread.ident)
-            if thread.ident in frames:
-                logger.warning("".join(traceback.format_stack(frames[thread.ident])))
-
-    except SystemExit as exc:
-        rc = exc.code
-    except:  # pylint: disable=bare-except
-        traceback.print_exc()
-        rc = 1
-    finally:
-        rc = rc or 0
-        sys.stdout.write("_exit(%d)\n" % rc)
-        sys.stdout.flush()
-        sys.stderr.flush()
-        os._exit(rc)
+    SubprocessMixin.entry(sys.argv)

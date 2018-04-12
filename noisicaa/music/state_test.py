@@ -197,7 +197,7 @@ class StateTest(unittest.TestCase):
         TestStateBase.register_class(Leaf)
 
         class Root(state.RootMixin, TestStateBase):
-            child = core.ObjectProperty(cls=Leaf)
+            child = core.ObjectProperty(Leaf)
 
         a = Leaf()
         a.id = 'id1'

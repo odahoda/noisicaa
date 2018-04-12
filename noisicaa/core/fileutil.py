@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import json
 import hashlib
 import email.message
@@ -31,6 +29,7 @@ import os.path
 import struct
 import io
 import logging
+from typing import Any, Optional, Type, Iterator, Dict, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -52,29 +51,30 @@ class UnsupportedVersionError(Error):
 
 
 class FileInfo(object):
-    def __init__(self, version=None, filetype=None):
+    def __init__(self, version: int = None, filetype: str = None) -> None:
         self.version = version
         self.filetype = filetype
-        self.content_type = None
-        self.encoding = None
+        self.content_type = None  # type: str
+        self.encoding = None  # type: str
 
 
 class File(object):
     MAGIC = b'NOISICAA\n'
 
-    def __init__(self, path):
-        super().__init__()
-
+    def __init__(self, path: str) -> None:
         self.path = path
 
-    def write_json(self, obj, file_info, encoder=json.JSONEncoder):
+    def write_json(
+            self, obj: Any, file_info: FileInfo,
+            encoder: Type[json.JSONEncoder] = json.JSONEncoder) -> None:
         content = json.dumps(
             obj,
             ensure_ascii=False, indent='  ', sort_keys=True, cls=encoder)
         self.write_text(content, 'application/json', 'utf-8', file_info)
 
-    def write_text(self, content, content_type, encoding, file_info):
-        content = content.encode(encoding)
+    def write_text(
+            self, content: str, content_type: str, encoding: str, file_info: FileInfo) -> None:
+        encoded_content = content.encode(encoding)
 
         policy = email.policy.compat32.clone(
             linesep='\n',
@@ -88,18 +88,18 @@ class File(object):
         if file_info.filetype is not None:
             message.add_header('File-Type', file_info.filetype)
 
-        message.add_header('Checksum', hashlib.md5(content).hexdigest(),
+        message.add_header('Checksum', hashlib.md5(encoded_content).hexdigest(),
                            type='md5')
         message.add_header('Content-Type', content_type,
                            charset=encoding)
-        message.add_header('Content-Length', str(len(content)))
+        message.add_header('Content-Length', str(len(encoded_content)))
 
         with open(self.path, 'wb') as fp:
             fp.write(self.MAGIC)
             fp.write(message.as_bytes())
-            fp.write(content)
+            fp.write(encoded_content)
 
-    def read(self):
+    def read(self) -> Tuple[FileInfo, bytes]:
         if not os.path.exists(self.path):
             raise NotFoundError()
 
@@ -149,12 +149,11 @@ class File(object):
 
             return file_info, content
 
-    def read_json(self, decoder=json.JSONDecoder):
+    def read_json(self, decoder: Type[json.JSONDecoder] = json.JSONDecoder) -> Tuple[FileInfo, Any]:
         file_info, content = self.read()
         if file_info.content_type != 'application/json':
             raise BadFileFormatError("Expected Content-Type application/json")
-        return file_info, json.loads(content.decode(file_info.encoding),
-                                     cls=decoder)
+        return file_info, json.loads(content.decode(file_info.encoding), cls=decoder)
 
 
 class LogFile(object):
@@ -167,7 +166,7 @@ class LogFile(object):
 
     assert len(ENTRY_BEGIN) == len(ENTRY_END)
 
-    def __init__(self, path, mode):
+    def __init__(self, path: str, mode: str) -> None:
         if mode not in ('a', 'w', 'r'):
             raise ValueError("Invalid mode %r" % mode)
 
@@ -209,7 +208,7 @@ class LogFile(object):
                     raise CorruptedFileError("No entry end marker.")
                 self._fp.seek(self.MARKER_SIZE - len(self.ENTRY_END), io.SEEK_CUR)
 
-    def _read_header(self):
+    def _read_header(self) -> int:
         magic = self._fp.read(len(self.MAGIC))
         if magic != self.MAGIC:
             raise BadFileFormatError("Not a log file.")
@@ -223,23 +222,23 @@ class LogFile(object):
             version += c
         return int(str(version, 'ascii'))
 
-    def __enter__(self):
+    def __enter__(self) -> 'LogFile':
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, *args: Any) -> bool:
         self.close()
         return False
 
-    def close(self):
+    def close(self) -> None:
         assert self._fp is not None, "LogFile already closed."
         self._fp.close()
         self._fp = None
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self._fp is None
 
-    def append(self, data, entry_type):
+    def append(self, data: bytes, entry_type: bytes) -> None:
         assert self._fp is not None, "LogFile already closed."
         assert self.mode in ('a', 'w'), "LogFile not opened for writing."
 
@@ -261,7 +260,7 @@ class LogFile(object):
         self._fp.write(struct.pack('>L', len(data)))
         self._fp.flush()
 
-    def read(self):
+    def read(self) -> Tuple[bytes, bytes]:
         assert self._fp is not None, "LogFile already closed."
         assert self.mode == 'r', "LogFile not opened for reading."
 
@@ -276,10 +275,10 @@ class LogFile(object):
         if len(entry_type) != 1:
             raise CorruptedFileError('Truncated entry.')
 
-        length = self._fp.read(4)
-        if len(length) != 4:
+        length_bytes = self._fp.read(4)
+        if len(length_bytes) != 4:
             raise CorruptedFileError('Truncated entry.')
-        length, = struct.unpack('>L', length)
+        length, = struct.unpack('>L', length_bytes)
 
         data = self._fp.read(length)
         if len(data) != length:
@@ -310,7 +309,7 @@ class LogFile(object):
 
         return data, entry_type
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Tuple[bytes, bytes]]:
         while True:
             try:
                 yield self.read()
@@ -318,9 +317,34 @@ class LogFile(object):
                 break
 
 
-class MimeLogFile(LogFile):
-    def append(  # pylint: disable=arguments-differ
-            self, content, entry_type, content_type, encoding='utf-8', headers=None):
+class MimeLogFile(object):
+    def __init__(self, path: str, mode: str) -> None:
+        self.__file = LogFile(path, mode)
+
+    def __enter__(self) -> 'MimeLogFile':
+        return self
+
+    def __exit__(self, *args: Any) -> bool:
+        self.close()
+        return False
+
+    def close(self) -> None:
+        self.__file.close()
+
+    @property
+    def closed(self) -> bool:
+        return self.__file.closed
+
+    def __iter__(self) -> Iterator[Tuple[str, email.message.Message, bytes]]:
+        while True:
+            try:
+                yield self.read()
+            except EOFError:
+                break
+
+    def append(
+            self, content: str, entry_type: bytes, content_type: str,
+            encoding: str = 'utf-8', headers: Optional[Dict[str, Any]] = None) -> None:
         policy = email.policy.compat32.clone(
             linesep='\n',
             max_line_length=0,
@@ -328,20 +352,20 @@ class MimeLogFile(LogFile):
             raise_on_defect=True)
         message = email.message.Message(policy)
 
-        content = content.encode(encoding)
+        encoded_content = content.encode(encoding)
 
-        message.add_header('Checksum', hashlib.md5(content).hexdigest(),
+        message.add_header('Checksum', hashlib.md5(encoded_content).hexdigest(),
                            type='md5')
         message.add_header('Content-Type', content_type, charset=encoding)
-        message.add_header('Content-Length', str(len(content)))
+        message.add_header('Content-Length', str(len(encoded_content)))
         if headers is not None:  # pragma: no branch
             for key, value in headers.items():
                 message.add_header(key, str(value))
 
-        super().append(message.as_bytes() + content, entry_type)
+        self.__file.append(message.as_bytes() + encoded_content, entry_type)
 
-    def read(self):
-        data, entry_type = super().read()
+    def read(self) -> Tuple[str, email.message.Message, bytes]:
+        data, entry_type = self.__file.read()
 
         headers_length = data.index(b'\n\n') + 2
 
