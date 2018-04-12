@@ -384,47 +384,6 @@ class ObjectListProperty(PropertyBase[ObjectList[OBJTYPE]]):
         raise RuntimeError("ObjectListProperty cannot be assigned.")
 
 
-class DeferredReference(object):
-    def __init__(self, obj_id: str) -> None:
-        self._obj_id = obj_id
-        self._props = []  # type: List[Tuple[ObjectBase, ObjectReferenceProperty]]
-
-    def add_reference(self, obj: 'ObjectBase', prop: 'ObjectReferenceProperty') -> None:
-        self._props.append((obj, prop))
-
-    def dereference(self, target: 'ObjectBase') -> None:
-        assert target.id == self._obj_id
-        for obj, prop in self._props:
-            logger.debug("Deferencing %s.%s = %s", obj.id, prop.name, target)
-            prop.set_value(obj, target)
-
-
-class ObjectReferenceProperty(PropertyBase['ObjectBase']):
-    def __init__(self, allow_none: bool = False) -> None:
-        super().__init__()
-        self.allow_none = allow_none
-
-    def set_value(self, instance: 'ObjectBase', value: Optional['ObjectBase']) -> None:
-        if value is None:
-            if not self.allow_none:
-                raise ValueError("None not allowed")
-        elif not isinstance(value, (ObjectBase, DeferredReference)):
-            raise TypeError(
-                "Expected ObjectBase or DeferredReference object, got %s"
-                % type(value))
-
-        current = self.get_value(instance)
-
-        if current is not None and not isinstance(current, (tuple, DeferredReference)):
-            assert current.ref_count > 0
-            current.ref_count -= 1
-
-        super().set_value(instance, value)
-
-        if value is not None and not isinstance(value, DeferredReference):
-            value.ref_count += 1
-
-
 class ObjectMeta(type):
     def __new__(mcs, name: str, parents: Any, dct: Dict[str, Any]) -> Any:
         for k, v in dct.items():

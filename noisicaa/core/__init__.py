@@ -22,14 +22,12 @@ from .model_base import (
     ObjectBase, RootObjectBase,
 
     Property, ListProperty,
-    ObjectProperty, ObjectListProperty, ObjectReferenceProperty,
+    ObjectProperty, ObjectListProperty,
 
     PropertyChange,
     PropertyValueChange,
     PropertyListChange,
     PropertyListInsert, PropertyListDelete,
-
-    DeferredReference,
 )
 from .process_manager import (
     ProcessManager,

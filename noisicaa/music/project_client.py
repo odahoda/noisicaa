@@ -21,7 +21,6 @@
 # @end:license
 
 # TODO: mypy-unclean
-# TODO: pylint-unclean
 
 from fractions import Fraction
 import getpass
@@ -32,7 +31,7 @@ from noisicaa import audioproc
 from noisicaa import core
 from noisicaa.core import ipc
 
-from . import mutations
+from . import mutations as mutations_lib
 
 logger = logging.getLogger(__name__)
 
@@ -151,19 +150,6 @@ class ProjectClientMixin(object):
                     child = self._object_map[value]
                 setattr(obj, prop_name, child)
 
-            elif prop_type == 'objref':
-                child = None
-                if value is not None:
-                    try:
-                        child = self._object_map[value]
-                    except KeyError:
-                        child = core.DeferredReference(value)
-                        self._object_map[value] = child
-                    if isinstance(child, core.DeferredReference):
-                        child.add_reference(
-                            obj, obj.get_property(prop_name))
-                setattr(obj, prop_name, child)
-
             elif prop_type == 'objlist':
                 lst = getattr(obj, prop_name)
                 lst.clear()
@@ -182,28 +168,17 @@ class ProjectClientMixin(object):
     def handle_project_mutation(self, mutation):
         logger.info("Mutation received: %s", mutation)
 
-        if isinstance(mutation, mutations.SetProperties):
+        if isinstance(mutation, mutations_lib.SetProperties):
             obj = self._object_map[mutation.id]
-            assert not isinstance(obj, core.DeferredReference)
             self.apply_properties(obj, mutation.properties)
 
-        elif isinstance(mutation, mutations.AddObject):
+        elif isinstance(mutation, mutations_lib.AddObject):
             cls = self.cls_map[mutation.cls]
             obj = cls(obj_id=mutation.id)
             self.apply_properties(obj, mutation.properties)
-            # TODO: We should assert that mutation.id is either not
-            # in _object_map or points at a DeferredReference.
-            # But we don't delete entries from _object_map when
-            # objects are removed, so we leave zombies behind, which
-            # we just override here.
-            if (mutation.id in self._object_map
-                and isinstance(
-                    self._object_map[mutation.id],
-                    core.DeferredReference)):
-                self._object_map[mutation.id].dereference(obj)
             self._object_map[mutation.id] = obj
 
-        elif isinstance(mutation, mutations.ListInsert):
+        elif isinstance(mutation, mutations_lib.ListInsert):
             obj = self._object_map[mutation.id]
             lst = getattr(obj, mutation.prop_name)
             if mutation.value_type == 'obj':
@@ -216,7 +191,7 @@ class ProjectClientMixin(object):
                     "Value type %s not supported."
                     % mutation.value_type)
 
-        elif isinstance(mutation, mutations.ListDelete):
+        elif isinstance(mutation, mutations_lib.ListDelete):
             obj = self._object_map[mutation.id]
             lst = getattr(obj, mutation.prop_name)
             del lst[mutation.index]
@@ -319,7 +294,10 @@ class ProjectClientMixin(object):
         assert isinstance(data, dict), data
         for key, value in data.items():
             assert isinstance(key, str), key
-            assert isinstance(value, (str, bytes, bool, int, float, Fraction, audioproc.MusicalTime, audioproc.MusicalDuration)), value
+            assert isinstance(
+                value,
+                (str, bytes, bool, int, float, Fraction, audioproc.MusicalTime,
+                 audioproc.MusicalDuration)), value
 
         self._session_data.update(data)
         self.event_loop.create_task(

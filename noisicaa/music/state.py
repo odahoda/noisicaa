@@ -108,14 +108,7 @@ class StateBase(core.ObjectBase):
                 else:
                     state = None
             elif isinstance(prop, core.ObjectListProperty):
-                state = [
-                    obj.serialize() for obj in getattr(self, prop.name)]
-            elif isinstance(prop, core.ObjectReferenceProperty):
-                obj = getattr(self, prop.name, None)
-                if obj is not None:
-                    state = 'ref:' + obj.id
-                else:
-                    state = None
+                state = [obj.serialize() for obj in getattr(self, prop.name)]
             else:
                 raise TypeError("Unknown property type %s" % type(prop))
 
@@ -152,12 +145,6 @@ class StateBase(core.ObjectBase):
                     cls = self.cls_map[cls_name]
                     obj = cls(state=v)
                     lst.append(obj)
-            elif isinstance(prop, core.ObjectReferenceProperty):
-                if value is not None:
-                    assert isinstance(value, str) and value.startswith('ref:')
-                    self.state[prop.name] = ('unresolved reference', value[4:])
-                else:
-                    setattr(self, prop.name, None)
             else:
                 raise TypeError("Unknown property type %s" % type(prop))
 
@@ -191,16 +178,12 @@ class StateBase(core.ObjectBase):
                 else:
                     prop.__set__(self, None)
 
-            elif isinstance(prop, core.ObjectListProperty):
+            else:
+                assert isinstance(prop, core.ObjectListProperty)
                 objlst = prop.__get__(self, self.__class__)
                 objlst.clear()
                 for obj in prop.__get__(src, src.__class__):
                     objlst.append(obj.clone())
-
-            else:
-                assert isinstance(prop, core.ObjectReferenceProperty)
-                obj = prop.__get__(src, src.__class__)
-                prop.__set__(self, obj)
 
 
 class RootMixin(core.RootObjectBase, StateBase):
@@ -219,16 +202,6 @@ class RootMixin(core.RootObjectBase, StateBase):
             assert o.id is not None, o
             assert o.id not in self.__obj_map, (o.id, o)
             self.__obj_map[o.id] = o
-
-        for o in obj.walk_children():
-            for prop in o.list_properties():
-                if isinstance(prop, core.ObjectReferenceProperty):
-                    refid = prop.__get__(o, o.__class__)
-                    if refid is not None and isinstance(refid, tuple):
-                        assert refid[0] == 'unresolved reference'
-                        refid = refid[1]
-                        refobj = self.__obj_map[refid]
-                        prop.__set__(o, refobj)
 
     def remove_object(self, obj):
         for o in obj.walk_children():
@@ -252,13 +225,3 @@ class RootMixin(core.RootObjectBase, StateBase):
         for node in self.walk_children():
             assert node.id not in self.__obj_map
             self.__obj_map[node.id] = node
-
-        for node in self.walk_children():
-            for prop in node.list_properties():
-                if isinstance(prop, core.ObjectReferenceProperty):
-                    refid = prop.__get__(node, node.__class__)
-                    if refid is not None and isinstance(refid, tuple):
-                        assert refid[0] == 'unresolved reference'
-                        refid = refid[1]
-                        refobj = self.__obj_map[refid]
-                        prop.__set__(node, refobj)

@@ -212,11 +212,7 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
         logger.info("Model change on %s: %s", obj, change)
 
         if isinstance(change, core.PropertyValueChange):
-            if (change.new_value is not None
-                and isinstance(change.new_value, state.StateBase)
-                and not isinstance(
-                    obj.get_property(change.prop_name),
-                    core.ObjectReferenceProperty)):
+            if change.new_value is not None and isinstance(change.new_value, state.StateBase):
                 for mutation in self.add_object_mutations(
                         change.new_value):
                     self.pending_mutations.append(mutation)

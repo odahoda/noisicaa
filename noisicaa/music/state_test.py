@@ -315,62 +315,6 @@ class StateTest(unittest.TestCase):
     #     self.assertEqual(d.children[1].name, 'b')
     #     self.assertEqual(d.children[1].a1, 5)
 
-    def test_object_reference(self):
-        class Leaf(TestStateBase):
-            name = core.Property(str)
-        TestStateBase.register_class(Leaf)
-
-        class LeafWithRef(Leaf):
-            other = core.ObjectReferenceProperty()
-        TestStateBase.register_class(LeafWithRef)
-
-        class Root(state.RootMixin, TestStateBase):
-            children = core.ObjectListProperty(Leaf)
-
-        a = Leaf()
-        a.id = 'id1'
-        a.name = 'a'
-        b = LeafWithRef()
-        b.id = 'id2'
-        b.name = 'b'
-        b.other = a
-        c = Root()
-        c.id = 'id3'
-        c.children.append(a)
-        c.children.append(b)
-        self._validate_tree(c)
-        self.assertEqual(
-            c.serialize(),
-            {'__class__': 'Root',
-             'id': 'id3',
-             'children': [{'__class__': 'Leaf',
-                           'id': 'id1',
-                           'name': 'a'},
-                          {'__class__': 'LeafWithRef',
-                           'id': 'id2',
-                           'name': 'b',
-                           'other': 'ref:id1'}]})
-
-        serialized = json.loads(json.dumps(c.serialize()))
-        d = Root(state=serialized)
-        d.init_references()
-        self._validate_tree(d)
-        self.assertEqual(d.id, 'id3')
-        self.assertIsInstance(d.children[0], Leaf)
-        self.assertEqual(d.children[0].id, 'id1')
-        self.assertEqual(d.children[0].name, 'a')
-        self.assertIsInstance(d.children[1], LeafWithRef)
-        self.assertEqual(d.children[1].id, 'id2')
-        self.assertIs(d.children[1].other, d.children[0])
-
-        # Remove child 1 with ref, serialize/deserialize and add it back.
-        # Reference to child 0 must survive this.
-        e = d.children[1]
-        del d.children[1]
-        e = LeafWithRef(state=json.loads(json.dumps(e.serialize())))
-        d.children.append(e)
-        self.assertIs(d.children[1].other, d.children[0])
-
     # def test_change_listener(self):
     #     a = LeafNode()
     #     a.id = 'id1'
@@ -481,10 +425,9 @@ class StateTest(unittest.TestCase):
             child = core.ObjectProperty(Child)
             none = core.ObjectProperty(Child)
             children = core.ObjectListProperty(Child)
-            ref = core.ObjectReferenceProperty(Child)
 
             def __init__(self, *,
-                         name=None, lst=None, child=None, children=None, ref=None, state=None):
+                         name=None, lst=None, child=None, children=None, state=None):
                 super().__init__(state=state)
                 if state is None:
                     self.name = name
@@ -492,15 +435,12 @@ class StateTest(unittest.TestCase):
                     self.child = child
                     self.none = None
                     self.children.extend(children)
-                    self.ref = ref
 
-        r2 = Child(name='r2')
         o2 = Object(
             name='bar',
             lst=[4, 5, 6],
             child=Child(name='c2'),
             children=[Child(name='cl3'), Child(name='cl4')],
-            ref=r2,
         )
 
         o1 = o2.clone()
@@ -514,8 +454,6 @@ class StateTest(unittest.TestCase):
         self.assertNotEqual(o1.children[0].id, o2.children[0].id)
         self.assertEqual(o1.children[1].name, 'cl4')
         self.assertNotEqual(o1.children[1].id, o2.children[1].id)
-        self.assertEqual(o1.ref.name, 'r2')
-        self.assertEqual(o1.ref.id, r2.id)
 
     def test_copy_from(self):
         class Child(state.StateBase):
@@ -532,10 +470,9 @@ class StateTest(unittest.TestCase):
             child = core.ObjectProperty(Child)
             none = core.ObjectProperty(Child)
             children = core.ObjectListProperty(Child)
-            ref = core.ObjectReferenceProperty(Child)
 
             def __init__(self, *,
-                         name=None, lst=None, child=None, children=None, ref=None, state=None):
+                         name=None, lst=None, child=None, children=None, state=None):
                 super().__init__(state=state)
                 if state is None:
                     self.name = name
@@ -543,24 +480,19 @@ class StateTest(unittest.TestCase):
                     self.child = child
                     self.none = None
                     self.children.extend(children)
-                    self.ref = ref
 
-        r1 = Child(name='r1')
         o1 = Object(
             name='foo',
             lst=[1, 2, 3],
             child=Child(name='c1'),
             children=[Child(name='cl1'), Child(name='cl2')],
-            ref=r1,
         )
 
-        r2 = Child(name='r2')
         o2 = Object(
             name='bar',
             lst=[4, 5, 6],
             child=Child(name='c2'),
             children=[Child(name='cl3'), Child(name='cl4')],
-            ref=r2,
         )
 
         id1 = o1.id
@@ -575,5 +507,3 @@ class StateTest(unittest.TestCase):
         self.assertNotEqual(o1.children[0].id, o2.children[0].id)
         self.assertEqual(o1.children[1].name, 'cl4')
         self.assertNotEqual(o1.children[1].id, o2.children[1].id)
-        self.assertEqual(o1.ref.name, 'r2')
-        self.assertEqual(o1.ref.id, r2.id)
