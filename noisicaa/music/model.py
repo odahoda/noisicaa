@@ -20,10 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-# TODO: pylint-unclean
-
 import fractions
+from typing import cast, Iterator, List, Union
 
 from noisicaa import core
 from noisicaa import audioproc
@@ -32,14 +30,14 @@ from noisicaa import instrument_db
 from . import pitch
 from . import clef
 from . import key_signature
-from . import time_signature
+from . import time_signature as time_signature_lib
 from . import misc
 
 
 class ProjectChild(core.ObjectBase):
     @property
-    def project(self):
-        return self.root
+    def project(self) -> 'Project':
+        return cast(Project, self.root)
 
 
 class Track(ProjectChild):
@@ -53,25 +51,25 @@ class Track(ProjectChild):
     mixer_id = core.Property(str, allow_none=True)
 
     @property
-    def duration(self):
+    def duration(self) -> audioproc.MusicalDuration:
         return audioproc.MusicalDuration(1, 1)
 
     @property
-    def is_master_group(self):
+    def is_master_group(self) -> bool:
         return False
 
-    def walk_tracks(self, groups=False, tracks=True):
+    def walk_tracks(self, groups: bool = False, tracks: bool = True) -> Iterator['Track']:
         if tracks:
             yield self
 
 
 class Measure(ProjectChild):
     @property
-    def track(self):
-        return self.parent
+    def track(self) -> Track:
+        return cast(Track, self.parent)
 
     @property
-    def duration(self):
+    def duration(self) -> audioproc.MusicalDuration:
         time_signature = self.project.get_time_signature(self.index)
         return audioproc.MusicalDuration(time_signature.upper, time_signature.lower)
 
@@ -80,12 +78,12 @@ class MeasureReference(ProjectChild):
     measure_id = core.Property(str)
 
     @property
-    def measure(self):
-        return self.root.get_object(self.measure_id)
+    def measure(self) -> Measure:
+        return cast(Measure, self.root.get_object(self.measure_id))
 
     @property
-    def track(self):
-        return self.parent
+    def track(self) -> Track:
+        return cast(Track, self.parent)
 
 
 class MeasuredTrack(Track):
@@ -93,7 +91,7 @@ class MeasuredTrack(Track):
     measure_heap = core.ObjectListProperty(Measure)
 
     @property
-    def duration(self):
+    def duration(self) -> audioproc.MusicalDuration:
         duration = audioproc.MusicalDuration()
         for mref in self.measure_list:
             duration += mref.measure.duration
@@ -102,20 +100,21 @@ class MeasuredTrack(Track):
 
 class Note(ProjectChild):
     pitches = core.ListProperty(pitch.Pitch)
-    base_duration = core.Property(audioproc.MusicalDuration, default=audioproc.MusicalDuration(1, 4))
+    base_duration = core.Property(
+        audioproc.MusicalDuration, default=audioproc.MusicalDuration(1, 4))
     dots = core.Property(int, default=0)
     tuplet = core.Property(int, default=0)
 
     @property
-    def measure(self):
-        return self.parent
+    def measure(self) -> 'ScoreMeasure':
+        return cast(ScoreMeasure, self.parent)
 
     @property
-    def is_rest(self):
+    def is_rest(self) -> bool:
         return len(self.pitches) == 1 and self.pitches[0].is_rest
 
     @property
-    def max_allowed_dots(self):
+    def max_allowed_dots(self) -> int:
         if self.base_duration <= audioproc.MusicalDuration(1, 32):
             return 0
         if self.base_duration <= audioproc.MusicalDuration(1, 16):
@@ -125,7 +124,7 @@ class Note(ProjectChild):
         return 3
 
     @property
-    def duration(self):
+    def duration(self) -> audioproc.MusicalDuration:
         duration = self.base_duration
         for _ in range(self.dots):
             duration *= fractions.Fraction(3, 2)
@@ -140,13 +139,13 @@ class TrackGroup(Track):
     tracks = core.ObjectListProperty(Track)
 
     @property
-    def duration(self):
+    def duration(self) -> audioproc.MusicalDuration:
         duration = audioproc.MusicalDuration()
         for track in self.tracks:
             duration = max(duration, track.duration)
         return duration
 
-    def walk_tracks(self, groups=False, tracks=True):
+    def walk_tracks(self, groups: bool = False, tracks: bool = True) -> Iterator[Track]:
         if groups:
             yield self
 
@@ -156,7 +155,7 @@ class TrackGroup(Track):
 
 class MasterTrackGroup(TrackGroup):
     @property
-    def is_master_group(self):
+    def is_master_group(self) -> bool:
         return True
 
 
@@ -168,7 +167,7 @@ class ScoreMeasure(Measure):
     notes = core.ObjectListProperty(Note)
 
     @property
-    def time_signature(self):
+    def time_signature(self) -> time_signature_lib.TimeSignature:
         return self.project.get_time_signature(self.index)
 
 
@@ -185,15 +184,15 @@ class Beat(ProjectChild):
     velocity = core.Property(int)
 
     @property
-    def measure(self):
-        return self.parent
+    def measure(self) -> 'BeatMeasure':
+        return cast(BeatMeasure, self.parent)
 
 
 class BeatMeasure(Measure):
     beats = core.ObjectListProperty(Beat)
 
     @property
-    def time_signature(self):
+    def time_signature(self) -> time_signature_lib.TimeSignature:
         return self.project.get_time_signature(self.index)
 
 
@@ -207,8 +206,8 @@ class BeatTrack(MeasuredTrack):
 
 class PropertyMeasure(Measure):
     time_signature = core.Property(
-        time_signature.TimeSignature,
-        default=time_signature.TimeSignature(4, 4))
+        time_signature_lib.TimeSignature,
+        default=time_signature_lib.TimeSignature(4, 4))
 
 
 class PropertyTrack(MeasuredTrack):
@@ -230,8 +229,8 @@ class SampleRef(ProjectChild):
     sample_id = core.Property(str)
 
     @property
-    def sample(self):
-        return self.root.get_object(self.sample_id)
+    def sample(self) -> 'Sample':
+        return cast(Sample, self.root.get_object(self.sample_id))
 
 
 class SampleTrack(Track):
@@ -258,11 +257,11 @@ class BasePipelineGraphNode(ProjectChild):
     plugin_state = core.Property(audioproc.PluginState, allow_none=True)
 
     @property
-    def removable(self):
+    def removable(self) -> bool:
         raise NotImplementedError
 
     @property
-    def description(self):
+    def description(self) -> node_db.NodeDescription:
         raise NotImplementedError
 
 
@@ -270,21 +269,21 @@ class PipelineGraphNode(BasePipelineGraphNode):
     node_uri = core.Property(str)
 
     @property
-    def removable(self):
+    def removable(self) -> bool:
         return True
 
     @property
-    def description(self):
+    def description(self) -> node_db.NodeDescription:
         return self.project.get_node_description(self.node_uri)
 
 
 class AudioOutPipelineGraphNode(BasePipelineGraphNode):
     @property
-    def removable(self):
+    def removable(self) -> bool:
         return False
 
     @property
-    def description(self):
+    def description(self) -> node_db.NodeDescription:
         return node_db.Builtins.RealmSinkDescription
 
 
@@ -292,19 +291,19 @@ class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
     track_id = core.Property(str)
 
     @property
-    def track(self):
-        return self.root.get_object(self.track_id)
+    def track(self) -> Track:
+        return cast(Track, self.root.get_object(self.track_id))
 
     @track.setter
-    def track(self, obj):
+    def track(self, obj: Track) -> None:
         self.track_id = obj.id
 
     @property
-    def removable(self):
+    def removable(self) -> bool:
         return False
 
     @property
-    def description(self):
+    def description(self) -> node_db.NodeDescription:
         return node_db.Builtins.TrackMixerDescription
 
 
@@ -312,19 +311,19 @@ class PianoRollPipelineGraphNode(BasePipelineGraphNode):
     track_id = core.Property(str)
 
     @property
-    def track(self):
-        return self.root.get_object(self.track_id)
+    def track(self) -> ScoreTrack:
+        return cast(ScoreTrack, self.root.get_object(self.track_id))
 
     @track.setter
-    def track(self, obj):
+    def track(self, obj: ScoreTrack) -> None:
         self.track_id = obj.id
 
     @property
-    def removable(self):
+    def removable(self) -> bool:
         return False
 
     @property
-    def description(self):
+    def description(self) -> node_db.NodeDescription:
         return node_db.Builtins.PianoRollDescription
 
 
@@ -332,19 +331,19 @@ class CVGeneratorPipelineGraphNode(BasePipelineGraphNode):
     track_id = core.Property(str)
 
     @property
-    def track(self):
-        return self.root.get_object(self.track_id)
+    def track(self) -> ControlTrack:
+        return cast(ControlTrack, self.root.get_object(self.track_id))
 
     @track.setter
-    def track(self, obj):
+    def track(self, obj: ControlTrack) -> None:
         self.track_id = obj.id
 
     @property
-    def removable(self):
+    def removable(self) -> bool:
         return False
 
     @property
-    def description(self):
+    def description(self) -> node_db.NodeDescription:
         return node_db.Builtins.CVGeneratorDescription
 
 
@@ -352,19 +351,19 @@ class SampleScriptPipelineGraphNode(BasePipelineGraphNode):
     track_id = core.Property(str)
 
     @property
-    def track(self):
-        return self.root.get_object(self.track_id)
+    def track(self) -> SampleTrack:
+        return cast(SampleTrack, self.root.get_object(self.track_id))
 
     @track.setter
-    def track(self, obj):
+    def track(self, obj: SampleTrack) -> None:
         self.track_id = obj.id
 
     @property
-    def removable(self):
+    def removable(self) -> bool:
         return False
 
     @property
-    def description(self):
+    def description(self) -> node_db.NodeDescription:
         return node_db.Builtins.SampleScriptDescription
 
 
@@ -372,19 +371,19 @@ class InstrumentPipelineGraphNode(BasePipelineGraphNode):
     track_id = core.Property(str)
 
     @property
-    def track(self):
-        return self.root.get_object(self.track_id)
+    def track(self) -> Union[ScoreTrack, BeatTrack]:
+        return cast(Union[ScoreTrack, BeatTrack], self.root.get_object(self.track_id))
 
     @track.setter
-    def track(self, obj):
+    def track(self, obj: Union[ScoreTrack, BeatTrack]) -> None:
         self.track_id = obj.id
 
     @property
-    def removable(self):
+    def removable(self) -> bool:
         return False
 
     @property
-    def description(self):
+    def description(self) -> node_db.NodeDescription:
         return instrument_db.parse_uri(self.track.instrument, self.project.get_node_description)
 
 
@@ -395,19 +394,19 @@ class PipelineGraphConnection(ProjectChild):
     dest_port = core.Property(str)
 
     @property
-    def source_node(self):
-        return self.root.get_object(self.source_node_id)
+    def source_node(self) -> PipelineGraphNode:
+        return cast(PipelineGraphNode, self.root.get_object(self.source_node_id))
 
     @source_node.setter
-    def source_node(self, obj):
+    def source_node(self, obj: PipelineGraphNode) -> None:
         self.source_node_id = obj.id
 
     @property
-    def dest_node(self):
-        return self.root.get_object(self.dest_node_id)
+    def dest_node(self) -> PipelineGraphNode:
+        return cast(PipelineGraphNode, self.root.get_object(self.dest_node_id))
 
     @dest_node.setter
-    def dest_node(self, obj):
+    def dest_node(self, obj: PipelineGraphNode) -> None:
         self.dest_node_id = obj.id
 
 
@@ -432,23 +431,25 @@ class Project(core.RootObjectBase):
     bpm = core.Property(int, default=120)
 
     @property
-    def duration(self):
-        self.master_group.duration
+    def duration(self) -> audioproc.MusicalDuration:
+        return self.master_group.duration
 
     @property
-    def all_tracks(self):
-        return ([self.property_track]
-                + list(self.master_group.walk_tracks()))
+    def all_tracks(self) -> List[Track]:
+        tracks = []  # type: List[Track]
+        tracks.append(self.property_track)
+        tracks.extend(self.master_group.walk_tracks())
+        return tracks
 
-    def get_bpm(self, measure_idx, tick):  # pylint: disable=unused-argument
+    def get_bpm(self, measure_idx: int, tick: int) -> int:  # pylint: disable=unused-argument
         return self.bpm
 
-    def get_time_signature(self, measure_idx):
+    def get_time_signature(self, measure_idx: int) -> time_signature_lib.TimeSignature:
         # TODO: this is called with an incorrect measure_idx (index of the measure within the
         #   measure_heap), so always use the time signature from the first measure, which
         #   is also wrong, but at least doesn't crash.
-        return self.property_track.measure_list[0].measure.time_signature
+        return cast(PropertyMeasure, self.property_track.measure_list[0].measure).time_signature
 
 
-    def get_node_description(self, uri):
+    def get_node_description(self, uri: str) -> node_db.NodeDescription:
         raise NotImplementedError

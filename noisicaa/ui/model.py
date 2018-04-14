@@ -145,7 +145,7 @@ class InstrumentPipelineGraphNode(model.InstrumentPipelineGraphNode, project_cli
 class PipelineGraphConnection(model.PipelineGraphConnection, project_client.ObjectProxy): pass
 class Sample(model.Sample, project_client.ObjectProxy): pass
 class Metadata(model.Metadata, project_client.ObjectProxy): pass
-class Project(model.Project, project_client.ObjectProxy):
+class Project(model.Project, project_client.ProjectProxy):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 

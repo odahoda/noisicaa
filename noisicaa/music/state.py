@@ -194,7 +194,7 @@ class RootMixin(core.RootObjectBase, StateBase):
 
         self.__obj_map[self.id] = self
 
-    def get_object(self, obj_id):
+    def get_object(self, obj_id: str) -> StateBase:
         return self.__obj_map[obj_id]
 
     def add_object(self, obj):

@@ -549,3 +549,6 @@ class RootObjectBase(ObjectBase):
 
     def remove_object(self, obj: ObjectBase) -> None:
         pass
+
+    def get_object(self, obj_id: str) -> ObjectBase:
+        pass

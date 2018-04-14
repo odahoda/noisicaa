@@ -42,23 +42,6 @@ from . import render_settings_pb2
 logger = logging.getLogger(__name__)
 
 
-class TestClientImpl():
-    def __init__(self, event_loop):
-        super().__init__()
-        self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'client', socket_dir=TEST_OPTS.TMP_DIR)
-
-    async def setup(self):
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
-
-
-class TestClient(project_client.ProjectClientMixin, TestClientImpl):
-    pass
-
-
 class ProjectClientTestBase(unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -88,7 +71,7 @@ class ProjectClientTestBase(unittest.AsyncTestCase):
         await self.project_process.setup()
         self.project_process_task = self.loop.create_task(self.project_process.run())
 
-        self.client = TestClient(self.loop)
+        self.client = project_client.ProjectClient(event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
         self.client.cls_map = model.cls_map
         await self.client.setup()
         await self.client.connect(self.project_process.server.address)
