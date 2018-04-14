@@ -24,7 +24,7 @@ import sys
 import logging.handlers
 from logging import *  # pylint: disable=W0614,W0401
 import queue
-from typing import Any, Optional, List, Tuple, Type  # pylint: disable=unused-import
+from typing import Any, Dict, Optional, List, Tuple, Type  # pylint: disable=unused-import
 
 from . import runtime_settings as runtime_settings_lib
 
@@ -67,6 +67,29 @@ class LogFilter(Filter):
         return False
 
 
+class HandlerGroup(Handler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.__handlers = {}  # type: Dict[str, Handler]
+
+    def emit(self, record: LogRecord) -> None:
+        raise RuntimeError
+
+    def handle(self, record: LogRecord) -> None:
+        with self.lock:
+            for handler in self.__handlers.values():
+                handler.handle(record)
+
+    def add_handler(self, name: str, handler: Handler) -> None:
+        with self.lock:
+            assert name not in self.__handlers
+            self.__handlers[name] = handler
+
+    def remove_handler(self, name: str) -> Optional[Handler]:
+        with self.lock:
+            return self.__handlers.pop(name, None)
+
+
 class LogManager(object):
     def __init__(self, runtime_settings: runtime_settings_lib.RuntimeSettings) -> None:
         self.runtime_settings = runtime_settings
@@ -75,6 +98,7 @@ class LogManager(object):
         self.queue = None  # type: queue.Queue
         self.queue_handler = None  # type: logging.handlers.QueueHandler
         self.queue_listener = None  # type: logging.handlers.QueueListener
+        self.handlers = None  # type: HandlerGroup
 
     def __enter__(self) -> 'LogManager':
         self.setup()
@@ -103,15 +127,15 @@ class LogManager(object):
 
         # Create a QueueListener that reads from the queue and sends log
         # records to the actual log handlers.
-        handlers = []
+        self.handlers = HandlerGroup()
 
-        handlers.append(self.create_stderr_logger())
+        self.handlers.add_handler('stderr', self.create_stderr_logger())
 
         if self.runtime_settings.log_file:
-            handlers.append(self.create_file_logger())
+            self.handlers.add_handler('file', self.create_file_logger())
 
         self.queue_listener = logging.handlers.QueueListener(
-            self.queue, *handlers, respect_handler_level=True)
+            self.queue, self.handlers, respect_handler_level=True)
         self.queue_listener.start()
 
     def cleanup(self) -> None:
@@ -123,9 +147,17 @@ class LogManager(object):
             self.queue_listener.stop()
             self.queue_listener = None
 
+        self.handlers = None
+
         if self.queue is not None:
             assert self.queue.empty()
             self.queue = None
+
+    def add_handler(self, name: str, handler: Handler) -> None:
+        self.handlers.add_handler(name, handler)
+
+    def remove_handler(self, name: str) -> Optional[Handler]:
+        return self.handlers.remove_handler(name)
 
     def create_stderr_logger(self) -> Handler:
         handler = StreamHandler(sys.stderr)

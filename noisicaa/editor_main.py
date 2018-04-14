@@ -31,16 +31,23 @@ from typing import Any, List
 from .constants import EXIT_SUCCESS, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .runtime_settings import RuntimeSettings
 from . import logging
+from . import debug_console
 from .core import process_manager, init_pylogging
 
 
 class Editor(object):
     def __init__(
-            self, runtime_settings: RuntimeSettings, paths: List[str], logger: logging.Logger
+            self, runtime_settings: RuntimeSettings,
+            paths: List[str],
+            logger: logging.Logger,
+            log_manager: logging.LogManager,
+            enable_debug_console: bool,
     ) -> None:
         self.runtime_settings = runtime_settings
         self.paths = paths
         self.logger = logger
+        self.log_manager = log_manager
+        self.enable_debug_console = enable_debug_console
 
         self.event_loop = asyncio.get_event_loop()
         self.manager = process_manager.ProcessManager(self.event_loop)
@@ -73,28 +80,38 @@ class Editor(object):
 
     async def run_async(self) -> None:
         async with self.manager:
-            self.manager.server.add_command_handler(
-                'CREATE_PROJECT_PROCESS', self.handle_create_project_process)
-            self.manager.server.add_command_handler(
-                'CREATE_AUDIOPROC_PROCESS',
-                self.handle_create_audioproc_process)
-            self.manager.server.add_command_handler(
-                'CREATE_NODE_DB_PROCESS',
-                self.handle_create_node_db_process)
-            self.manager.server.add_command_handler(
-                'CREATE_INSTRUMENT_DB_PROCESS',
-                self.handle_create_instrument_db_process)
-            self.manager.server.add_command_handler(
-                'CREATE_URID_MAPPER_PROCESS',
-                self.handle_create_urid_mapper_process)
-            self.manager.server.add_command_handler(
-                'CREATE_PLUGIN_HOST_PROCESS',
-                self.handle_create_plugin_host_process)
+            dbg = None  # type: debug_console.DebugConsole
+            if self.enable_debug_console:
+                dbg = debug_console.DebugConsole(self.event_loop, self.manager, self.log_manager)
+                await dbg.setup()
 
-            task = self.event_loop.create_task(self.launch_ui())
-            task.add_done_callback(self.ui_closed)
-            await self.stop_event.wait()
-            self.logger.info("Shutting down...")
+            try:
+                self.manager.server.add_command_handler(
+                    'CREATE_PROJECT_PROCESS', self.handle_create_project_process)
+                self.manager.server.add_command_handler(
+                    'CREATE_AUDIOPROC_PROCESS',
+                    self.handle_create_audioproc_process)
+                self.manager.server.add_command_handler(
+                    'CREATE_NODE_DB_PROCESS',
+                    self.handle_create_node_db_process)
+                self.manager.server.add_command_handler(
+                    'CREATE_INSTRUMENT_DB_PROCESS',
+                    self.handle_create_instrument_db_process)
+                self.manager.server.add_command_handler(
+                    'CREATE_URID_MAPPER_PROCESS',
+                    self.handle_create_urid_mapper_process)
+                self.manager.server.add_command_handler(
+                    'CREATE_PLUGIN_HOST_PROCESS',
+                    self.handle_create_plugin_host_process)
+
+                task = self.event_loop.create_task(self.launch_ui())
+                task.add_done_callback(self.ui_closed)
+                await self.stop_event.wait()
+                self.logger.info("Shutting down...")
+
+            finally:
+                if dbg is not None:
+                    await dbg.cleanup()
 
     def handle_signal(
             self,
@@ -199,6 +216,7 @@ class Editor(object):
 class Main(object):
     def __init__(self) -> None:
         self.action = None  # type: str
+        self.enable_debug_console = False
         self.runtime_settings = RuntimeSettings()
         self.paths = []  # type: List[str]
         self.logger = None  # type: logging.Logger
@@ -206,11 +224,14 @@ class Main(object):
     def run(self, argv: List[str]) -> int:
         self.parse_args(argv)
 
-        with logging.LogManager(self.runtime_settings):
+        with logging.LogManager(self.runtime_settings) as log_manager:
             self.logger = logging.getLogger(__name__)
 
             if self.action == 'editor':
-                rc = Editor(self.runtime_settings, self.paths, self.logger).run()
+                rc = Editor(
+                    self.runtime_settings, self.paths, self.logger, log_manager,
+                    self.enable_debug_console
+                ).run()
 
             elif self.action == 'pdb':
                 from . import pdb
@@ -230,6 +251,11 @@ class Main(object):
             default='editor',
             help="Action to execute. editor: Open editor UI. pdb: Run project debugger.")
         parser.add_argument(
+            '--debug-console',
+            action='store_true',
+            default=False,
+            help="Enable the debug console.")
+        parser.add_argument(
             'path',
             nargs='*',
             help="Project file to open.")
@@ -238,7 +264,7 @@ class Main(object):
         self.runtime_settings.set_from_args(args)
         self.paths = args.path
         self.action = args.action
-
+        self.enable_debug_console = args.debug_console
 
 if __name__ == '__main__':
     sys.exit(Main().run(sys.argv))

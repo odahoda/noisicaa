@@ -63,6 +63,7 @@ PIP_DEPS = {
         PKG('pycapnp'),
         PKG('quamash'),
         PKG('toposort'),
+        PKG('urwid'),
     ],
     'build': [
         PKG('./3rdparty/protoc/', 'ubuntu', '<17.10'),

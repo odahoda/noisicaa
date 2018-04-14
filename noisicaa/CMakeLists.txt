@@ -20,6 +20,7 @@
 
 add_python_package(
   constants.py
+  debug_console.py
   editor_main.py
   exceptions.py
   logging.py

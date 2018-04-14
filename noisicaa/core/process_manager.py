@@ -40,7 +40,7 @@ import threading
 import time
 import traceback
 from typing import (  # pylint: disable=unused-import
-    cast, Any, Optional, Callable, Dict, List, Set, Tuple
+    cast, Any, Optional, Callable, Iterator, Dict, List, Set, Tuple
 )
 
 import eventfd
@@ -384,6 +384,13 @@ class ProcessManager(object):
     def server(self) -> ipc.Server:
         return self._server
 
+    @property
+    def processes(self) -> Iterator[Tuple[int, str]]:
+        yield (os.getpid(), '<main>')
+        for proc in self._processes:
+            if isinstance(proc, SubprocessHandle):
+                yield (proc.pid, proc.name)
+
     async def setup(self) -> None:
         logger.info("Starting ProcessManager...")
         self._event_loop.add_signal_handler(signal.SIGCHLD, self.sigchld_handler)
@@ -467,7 +474,7 @@ class ProcessManager(object):
 
     async def start_inline_process(
             self, name: str, entry: str, **kwargs: Any) -> 'InlineProcessHandle':
-        proc = InlineProcessHandle(self._event_loop)
+        proc = InlineProcessHandle(self._event_loop, name)
         self._processes.add(proc)
 
         proc.create_loggers()
@@ -500,7 +507,7 @@ class ProcessManager(object):
         return proc
 
     async def start_subprocess(self, name: str, entry: str, **kwargs: Any) -> 'SubprocessHandle':
-        proc = SubprocessHandle(self._event_loop)
+        proc = SubprocessHandle(self._event_loop, name)
 
         # Open pipes without O_CLOEXEC, so they survive the exec() call.
         request_in, request_out = os.pipe2(0)
@@ -918,7 +925,8 @@ class SetPIDHandler(logging.Handler):
 
 
 class ProcessHandle(object):
-    def __init__(self, event_loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(self, event_loop: asyncio.AbstractEventLoop, name: str) -> None:
+        self.name = name
         self.event_loop = event_loop
         self.state = ProcessState.NOT_STARTED
         self.logger = None  # type: logging.Logger
@@ -946,8 +954,8 @@ class ProcessHandle(object):
 
 
 class InlineProcessHandle(ProcessHandle):
-    def __init__(self, event_loop: asyncio.AbstractEventLoop) -> None:
-        super().__init__(event_loop)
+    def __init__(self, event_loop: asyncio.AbstractEventLoop, name: str) -> None:
+        super().__init__(event_loop, name)
 
         self.process = None  # type: ProcessBase
         self.task = None  # type: asyncio.Task
@@ -1012,8 +1020,8 @@ class InlineProcessHandle(ProcessHandle):
 
 
 class SubprocessHandle(ProcessHandle):
-    def __init__(self, event_loop: asyncio.AbstractEventLoop) -> None:
-        super().__init__(event_loop)
+    def __init__(self, event_loop: asyncio.AbstractEventLoop, name: str) -> None:
+        super().__init__(event_loop, name)
 
         self.pid = None  # type: int
         self.signal = None  # type: Optional[int]
