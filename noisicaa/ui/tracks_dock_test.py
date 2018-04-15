@@ -38,7 +38,7 @@ class TracksModelTest(uitest_utils.UITest):
         self.project.master_group.name = 'master'
 
     async def test_start_empty(self):
-        tracks_model = tracks_dock.TracksModel(**self.context_args)
+        tracks_model = tracks_dock.TracksModel(context=self.context)
         try:
             root_index = QtCore.QModelIndex()
             self.assertEqual(tracks_model.rowCount(root_index), 1)
@@ -119,7 +119,7 @@ class TracksModelTest(uitest_utils.UITest):
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
-        tracks_model = tracks_dock.TracksModel(**self.context_args)
+        tracks_model = tracks_dock.TracksModel(context=self.context)
         try:
             root_index = QtCore.QModelIndex()
             self.assertEqual(tracks_model.rowCount(root_index), 1)
@@ -177,7 +177,7 @@ class TracksModelTest(uitest_utils.UITest):
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
-        tracks_model = tracks_dock.TracksModel(**self.context_args)
+        tracks_model = tracks_dock.TracksModel(context=self.context)
         try:
             master_index = tracks_model.index(0)
             grp1_index = tracks_model.index(1, parent=master_index)
@@ -207,7 +207,7 @@ class TracksModelTest(uitest_utils.UITest):
         track3.name = 'track3'
         grp1.tracks.append(track3)
 
-        tracks_model = tracks_dock.TracksModel(**self.context_args)
+        tracks_model = tracks_dock.TracksModel(context=self.context)
         try:
             master_index = tracks_model.index(0)
             grp1_index = tracks_model.index(1, parent=master_index)

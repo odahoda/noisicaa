@@ -39,7 +39,7 @@ class TracksModelTest(uitest_utils.UITest):
             properties={})
 
     async def test_addInstrument(self):
-        model = instrument_library.LibraryModel(**self.context_args)
+        model = instrument_library.LibraryModel(context=self.context)
         try:
             root_index = QtCore.QModelIndex()
             self.assertEqual(model.rowCount(root_index), 0)
@@ -62,7 +62,7 @@ class TracksModelTest(uitest_utils.UITest):
             model.close()
 
     async def test_addInstrument_long_path(self):
-        model = instrument_library.LibraryModel(**self.context_args)
+        model = instrument_library.LibraryModel(context=self.context)
         try:
             model.addInstrument(self.__mkinstr('/some/path/test1.wav'))
             self.assertEqual(

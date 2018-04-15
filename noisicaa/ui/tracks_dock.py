@@ -475,7 +475,7 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         self._tracks_list = TrackList(self)
         self._tracks_list.currentIndexChanged.connect(self.onCurrentChanged)
 
-        self._model = TracksModel(**self.context_args)
+        self._model = TracksModel(context=self.context)
         self._tracks_list.setModel(self._model)
 
         buttons_layout = QtWidgets.QHBoxLayout(spacing=1)

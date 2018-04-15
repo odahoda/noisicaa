@@ -96,8 +96,8 @@ class BeatToolBox(tools.ToolBox):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.addTool(base_track_item.ArrangeMeasuresTool(**self.context_args))
-        self.addTool(EditBeatsTool(**self.context_args))
+        self.addTool(base_track_item.ArrangeMeasuresTool(context=self.context))
+        self.addTool(EditBeatsTool(context=self.context))
 
 
 class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):

@@ -44,7 +44,7 @@ class TestToolBox(tools.ToolBox):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.addTool(TestTool(**self.context_args))
+        self.addTool(TestTool(context=self.context))
 
 
 class TestTrackEditorItem(base_track_item.BaseTrackEditorItem):
@@ -54,14 +54,14 @@ class TestTrackEditorItem(base_track_item.BaseTrackEditorItem):
 class BaseTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
     async def setup_testcase(self):
         self.project.master_group.tracks.append(model.ScoreTrack(obj_id='track-1'))
-        self.tool_box = TestToolBox(**self.context_args)
+        self.tool_box = TestToolBox(context=self.context)
 
     def _createTrackItem(self, **kwargs):
         return TestTrackEditorItem(
             track=self.project.master_group.tracks[0],
             player_state=self.player_state,
             editor=self.editor,
-            **self.context_args,
+            context=self.context,
             **kwargs)
 
 
@@ -72,12 +72,12 @@ class TestMeasuredTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
 class MeasuredTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
     async def setup_testcase(self):
         self.project.master_group.tracks.append(model.ScoreTrack(obj_id='track-1'))
-        self.tool_box = TestToolBox(**self.context_args)
+        self.tool_box = TestToolBox(context=self.context)
 
     def _createTrackItem(self, **kwargs):
         return TestMeasuredTrackEditorItem(
             track=self.project.master_group.tracks[0],
             player_state=self.player_state,
             editor=self.editor,
-            **self.context_args,
+            context=self.context,
             **kwargs)

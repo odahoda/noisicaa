@@ -262,7 +262,6 @@ class UITest(unittest.AsyncTestCase):
         self.session_data = {}
 
         self.context = TestContext(testcase=self)
-        self.context_args = {'context': self.context}
         self.commands = []
 
     async def cleanup_testcase(self):

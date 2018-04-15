@@ -45,7 +45,7 @@ class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.tabs = QtWidgets.QTabWidget(self)
 
         for cls in (AppearancePage, AudioPage):
-            page = cls(**self.context_args)
+            page = cls(context=self.context)
             self.tabs.addTab(page, page.getIcon(), page.title)
 
         close = QtWidgets.QPushButton("Close")

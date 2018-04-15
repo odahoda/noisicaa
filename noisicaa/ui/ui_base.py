@@ -71,8 +71,8 @@ class CommonMixin(object):
         super().__init__(**kwargs)
 
     @property
-    def context_args(self):
-        return {'context': self._context}
+    def context(self) -> CommonContext:
+        return self._context
 
     @property
     def app(self):

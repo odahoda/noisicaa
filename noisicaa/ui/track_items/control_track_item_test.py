@@ -30,12 +30,12 @@ class ControlTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uite
     async def setup_testcase(self):
         self.project.master_group.tracks.append(model.ControlTrack(obj_id='track-1'))
 
-        self.tool_box = control_track_item.ControlTrackToolBox(**self.context_args)
+        self.tool_box = control_track_item.ControlTrackToolBox(context=self.context)
 
     def _createTrackItem(self, **kwargs):
         return control_track_item.ControlTrackEditorItem(
             track=self.project.master_group.tracks[0],
             player_state=self.player_state,
             editor=self.editor,
-            **self.context_args,
+            context=self.context,
             **kwargs)

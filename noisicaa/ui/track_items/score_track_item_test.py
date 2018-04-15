@@ -50,14 +50,14 @@ class ScoreTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest
         mref.measure_id = m.id
         self.project.master_group.tracks[0].measure_list.append(mref)
 
-        self.tool_box = score_track_item.ScoreToolBox(**self.context_args)
+        self.tool_box = score_track_item.ScoreToolBox(context=self.context)
 
     def _createTrackItem(self, **kwargs):
         return score_track_item.ScoreTrackEditorItem(
             track=self.project.master_group.tracks[0],
             player_state=self.player_state,
             editor=self.editor,
-            **self.context_args,
+            context=self.context,
             **kwargs)
 
     @unittest.skip("Segfaults")

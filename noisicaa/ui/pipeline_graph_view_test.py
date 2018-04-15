@@ -30,7 +30,7 @@ class PluginUITest(unittest.UITestCase):
     async def test_init(self):
         node = None
 
-        plugin_ui = pipeline_graph_view.PluginUI(node=node, **self.context_args)
+        plugin_ui = pipeline_graph_view.PluginUI(node=node, context=self.context)
         try:
             pass
 

@@ -240,7 +240,7 @@ class TrackEditorItemTestMixin(object):
     async def setup_testcase(self):
         self.project.master_group = model.MasterTrackGroup(obj_id='master')
 
-        self.player_state = project_view.PlayerState(**self.context_args)
+        self.player_state = project_view.PlayerState(context=self.context)
         self.tool_box = None
         self.editor = mock.Mock()
         self.editor.currentToolBox.side_effect = lambda: self.tool_box

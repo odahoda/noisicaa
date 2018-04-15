@@ -125,7 +125,7 @@ class SampleTrackToolBox(tools.ToolBox):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.addTool(EditSamplesTool(**self.context_args))
+        self.addTool(EditSamplesTool(context=self.context))
 
 
 class SampleItem(object):

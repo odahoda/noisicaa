@@ -561,7 +561,7 @@ class NodePropertyDialog(
                     port=port,
                     connector=self.__control_values,
                     parent=props,
-                    **self.context_args)
+                    context=self.context)
                 self.__control_value_widgets.append(widget)
                 prop_layout.addRow(widget.label(), widget.widget())
 
@@ -604,7 +604,7 @@ class NodePropertyDialog(
         node_description = node.description
 
         if node_description.has_ui:
-            return PluginUI(parent=parent, node=node, **self.context_args)
+            return PluginUI(parent=parent, node=node, context=self.context)
 
         else:
             tab = QtWidgets.QWidget(parent)
@@ -781,7 +781,7 @@ class NodeItem(ui_base.ProjectMixin, QtWidgets.QGraphicsRectItem):
         self._properties_dialog = NodePropertyDialog(
             node_item=self,
             parent=self.window,
-            **self.context_args)
+            context=self.context)
 
     @property
     def node(self):
@@ -1017,7 +1017,7 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._scene = PipelineGraphScene(view=self, **self.context_args)
+        self._scene = PipelineGraphScene(view=self, context=self.context)
         self.setScene(self._scene)
 
         self._drag_connection = None
@@ -1029,7 +1029,7 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
         self._nodes = []
         self._node_map = {}
         for node in self.project.pipeline_graph_nodes:
-            item = NodeItem(node=node, view=self, **self.context_args)
+            item = NodeItem(node=node, view=self, context=self.context)
             self._scene.addItem(item)
             self._nodes.append(item)
             self._node_map[node.id] = item
@@ -1040,7 +1040,7 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
         self._connections = []
         for connection in self.project.pipeline_graph_connections:
             item = ConnectionItem(
-                connection=connection, view=self, **self.context_args)
+                connection=connection, view=self, context=self.context)
             self._scene.addItem(item)
             self._connections.append(item)
             self._node_map[connection.source_node.id].connections.add(item)
@@ -1058,7 +1058,7 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
     def onPipelineGraphNodesChange(self, action, *args):
         if action == 'insert':
             idx, node = args
-            item = NodeItem(node=node, view=self, **self.context_args)
+            item = NodeItem(node=node, view=self, context=self.context)
             self._scene.addItem(item)
             self._nodes.insert(idx, item)
             self._node_map[node.id] = item
@@ -1081,7 +1081,7 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
         if action == 'insert':
             idx, connection = args
             item = ConnectionItem(
-                connection=connection, view=self, **self.context_args)
+                connection=connection, view=self, context=self.context)
             self._scene.addItem(item)
             self._connections.insert(idx, item)
             self._node_map[connection.source_node_id].connections.add(item)
@@ -1281,7 +1281,7 @@ class NodeListDock(dock_widget.DockWidget):
             initial_visible=True,
             **kwargs)
 
-        self._node_list = NodesList(parent=self, **self.context_args)
+        self._node_list = NodesList(parent=self, context=self.context)
 
         self._node_filter = QtWidgets.QLineEdit(self)
         self._node_filter.addAction(
@@ -1318,9 +1318,9 @@ class PipelineGraphView(ui_base.ProjectMixin, QtWidgets.QWidget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._graph_view = PipelineGraphGraphicsView(**self.context_args)
+        self._graph_view = PipelineGraphGraphicsView(context=self.context)
 
-        self._node_list_dock = NodeListDock(parent=self.window, **self.context_args)
+        self._node_list_dock = NodeListDock(parent=self.window, context=self.context)
         self._node_list_dock.hide()
 
         layout = QtWidgets.QHBoxLayout()

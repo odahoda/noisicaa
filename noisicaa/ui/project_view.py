@@ -404,7 +404,7 @@ class Editor(TrackViewMixin, TimeViewMixin, ui_base.ProjectMixin, AsyncSetupBase
             track=track,
             player_state=self.__player_state,
             editor=self,
-            **self.context_args)
+            context=self.context)
         track_item.rectChanged.connect(
             lambda rect: self.update(rect.translated(-self.offset())))
         track_item.sizeChanged.connect(
@@ -453,7 +453,7 @@ class Editor(TrackViewMixin, TimeViewMixin, ui_base.ProjectMixin, AsyncSetupBase
             self.__current_tool_box = None
 
         if cls is not None:
-            self.__current_tool_box = cls(**self.context_args)
+            self.__current_tool_box = cls(context=self.context)
             self.__onCurrentToolChanged(self.__current_tool_box.currentTool())
             self.__current_tool_box.currentToolChanged.connect(self.__onCurrentToolChanged)
 
@@ -1037,7 +1037,7 @@ class TrackList(TrackViewMixin, ui_base.ProjectMixin, AsyncSetupBase, QtWidgets.
         self.__content_height = 400
 
     def createTrack(self, track):
-        track_item = TrackListItem(track=track, **self.context_args)
+        track_item = TrackListItem(track=track, context=self.context)
         track_item.rectChanged.connect(lambda _: self.update())
         return track_item
 
@@ -1134,7 +1134,7 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
         self.__player_status_listener = None
         self.__playback_pos_mode = 'follow'
 
-        self.__player_state = PlayerState(**self.context_args)
+        self.__player_state = PlayerState(context=self.context)
         self.__player_state.playingChanged.connect(self.playingChanged)
         self.__player_state.loopEnabledChanged.connect(self.loopEnabledChanged)
 
@@ -1143,7 +1143,7 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
         editor_frame = Frame(parent=editor_tab)
         self.__editor = Editor(
             player_state=self.__player_state,
-            parent=editor_frame, **self.context_args)
+            parent=editor_frame, context=self.context)
         editor_frame.setWidget(self.__editor)
 
         self.__editor.setScaleX(self.__get_session_value('scale_x', self.__editor.scaleX()))
@@ -1156,11 +1156,11 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
         time_line_frame = Frame(parent=editor_tab)
         self.__time_line = TimeLine(
             project_view=self, player_state=self.__player_state,
-            parent=time_line_frame, **self.context_args)
+            parent=time_line_frame, context=self.context)
         time_line_frame.setWidget(self.__time_line)
 
         track_list_frame = Frame(parent=editor_tab)
-        track_list = TrackList(parent=track_list_frame, **self.context_args)
+        track_list = TrackList(parent=track_list_frame, context=self.context)
         track_list_frame.setWidget(track_list)
 
         self.__time_line.setScaleX(self.__editor.scaleX())
@@ -1207,7 +1207,7 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
 
         mixer_tab = QtWidgets.QWidget()
 
-        graph_tab = pipeline_graph_view.PipelineGraphView(**self.context_args)
+        graph_tab = pipeline_graph_view.PipelineGraphView(context=self.context)
 
         project_tab = QtWidgets.QTabWidget(self)
         project_tab.setTabPosition(QtWidgets.QTabWidget.West)
@@ -1224,20 +1224,20 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
 
         self._docks = []
 
-        self._tools_dock = tool_dock.ToolsDockWidget(parent=self, **self.context_args)
+        self._tools_dock = tool_dock.ToolsDockWidget(parent=self, context=self.context)
         self._docks.append(self._tools_dock)
         self.currentToolBoxChanged.connect(self._tools_dock.setCurrentToolBox)
         self._tools_dock.setCurrentToolBox(self.currentToolBox())
 
         self._project_properties_dock = project_properties_dock.ProjectPropertiesDockWidget(
-            parent=self, **self.context_args)
+            parent=self, context=self.context)
         self._docks.append(self._project_properties_dock)
 
-        self._tracks_dock = tracks_dock.TracksDockWidget(parent=self, **self.context_args)
+        self._tracks_dock = tracks_dock.TracksDockWidget(parent=self, context=self.context)
         self._docks.append(self._tracks_dock)
 
         self._track_properties_dock = track_properties_dock.TrackPropertiesDockWidget(
-            parent=self, **self.context_args)
+            parent=self, context=self.context)
         self._docks.append(self._track_properties_dock)
         self._tracks_dock.currentTrackChanged.connect(self._track_properties_dock.setTrack)
 
@@ -1456,7 +1456,7 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
         self.__editor.onPaste(mode=mode)
 
     def onRender(self):
-        dialog = render_dialog.RenderDialog(parent=self, **self.context_args)
+        dialog = render_dialog.RenderDialog(parent=self, context=self.context)
         dialog.setModal(True)
         dialog.show()
 

@@ -78,4 +78,4 @@ class ProjectPropertiesDockWidget(ui_base.ProjectMixin, dock_widget.DockWidget):
             initial_visible=True,
             **kwargs)
 
-        self.setWidget(ProjectProperties(**self.context_args))
+        self.setWidget(ProjectProperties(context=self.context))

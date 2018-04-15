@@ -61,10 +61,10 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         super().__init__(**kwargs)
 
         self._docks = []
-        self._settings_dialog = SettingsDialog(parent=self, **self.context_args)
+        self._settings_dialog = SettingsDialog(parent=self, context=self.context)
 
         self._instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
-            **self.context_args, parent=self)
+            context=self.context, parent=self)
 
         self._current_project_view = None
 

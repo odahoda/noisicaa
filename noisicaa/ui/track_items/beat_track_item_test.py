@@ -49,14 +49,14 @@ class BeatTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_
         mref.measure_id = m.id
         self.project.master_group.tracks[0].measure_list.append(mref)
 
-        self.tool_box = beat_track_item.BeatToolBox(**self.context_args)
+        self.tool_box = beat_track_item.BeatToolBox(context=self.context)
 
     def _createTrackItem(self, **kwargs):
         return beat_track_item.BeatTrackEditorItem(
             track=self.project.master_group.tracks[0],
             player_state=self.player_state,
             editor=self.editor,
-            **self.context_args,
+            context=self.context,
             **kwargs)
 
     @unittest.skip("Segfaults")

@@ -208,7 +208,7 @@ class ControlTrackToolBox(tools.ToolBox):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.addTool(EditControlPointsTool(**self.context_args))
+        self.addTool(EditControlPointsTool(context=self.context))
 
 
 class ControlPoint(object):

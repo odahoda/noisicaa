@@ -109,8 +109,8 @@ class BaseEditorApp(object):
         self.__clipboard = None
 
     @property
-    def context_args(self):
-        return {'context': self.__context}
+    def context(self) -> ui_base.CommonContext:
+        return self.__context
 
     async def setup(self):
         await self.createNodeDB()
@@ -277,16 +277,16 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
             self.setStyle(style)
 
         logger.info("Creating PipelinePerfMonitor.")
-        self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(**self.context_args)
+        self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(context=self.context)
 
         # logger.info("Creating PipelineGraphMonitor.")
-        # self.pipeline_graph_monitor = pipeline_graph_monitor.PipelineGraphMonitor(**self.context_args)
+        # self.pipeline_graph_monitor = pipeline_graph_monitor.PipelineGraphMonitor(context=self.context)
 
         logger.info("Creating StatMonitor.")
-        self.stat_monitor = stat_monitor.StatMonitor(**self.context_args)
+        self.stat_monitor = stat_monitor.StatMonitor(context=self.context)
 
         logger.info("Creating EditorWindow.")
-        self.win = EditorWindow(**self.context_args)
+        self.win = EditorWindow(context=self.context)
         await self.win.setup()
         self.win.show()
 
