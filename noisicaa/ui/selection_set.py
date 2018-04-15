@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 class Selectable(object):
-    selection_class = None
+    selection_class = None  # type: str
 
 
 class SelectionSet(object):

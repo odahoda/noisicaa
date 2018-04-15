@@ -20,11 +20,12 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import fractions
 import functools
 import logging
+from typing import List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -32,6 +33,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
+from noisicaa import core  # pylint: disable=unused-import
 from noisicaa.ui import tools
 from . import base_track_item
 
@@ -282,8 +284,8 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.__samples = []
-        self.__listeners = []
+        self.__samples = []  # type: List[SampleItem]
+        self.__listeners = []  # type: List[core.Listener]
 
         self.__playback_time = None
         self.__highlighted_sample = None
@@ -435,10 +437,9 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
 
         time = self.xToTime(pos.x())
 
-        add_sample_action = QtWidgets.QAction(
-            "Add sample...", menu,
-            statusTip="Add a sample to the track.",
-            triggered=functools.partial(self.onAddSample, time))
+        add_sample_action = QtWidgets.QAction("Add sample...", menu)
+        add_sample_action.setStatusTip("Add a sample to the track.")
+        add_sample_action.triggered.connect(functools.partial(self.onAddSample, time))
         menu.addAction(add_sample_action)
 
     def onAddSample(self, time):

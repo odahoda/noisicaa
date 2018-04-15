@@ -20,16 +20,18 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 # TODO: pylint-unclean
 
 import logging
+from typing import List, Tuple  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
-from PyQt5 import QtSvg
+# TODO: add stubs for QtSvg
+from PyQt5 import QtSvg  # type: ignore
 
 from noisicaa import core
 from noisicaa import audioproc
@@ -513,7 +515,7 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._edit_areas = []
+        self._edit_areas = []  # type: List[Tuple[int, int, int, bool]]
         self._note_area = None
         self.__mouse_pos = None
         self.__ghost_pos = None
@@ -952,11 +954,6 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         self.setGhost(None)
         super().leaveEvent(evt)
 
-    def mouseMoveEvent(self, evt):
-        self.__mouse_pos = evt.pos()
-        self.updateGhost(self.__mouse_pos)
-        super().mouseMoveEvent(evt)
-
 
 class ScoreTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
     measure_item_cls = ScoreMeasureEditorItem
@@ -972,7 +969,7 @@ class ScoreTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
     def buildContextMenu(self, menu, pos):
         super().buildContextMenu(menu, pos)
 
-        affected_measure_items = []
+        affected_measure_items = []  # type: List[ScoreMeasureEditorItem]
         if not self.selection_set.empty():
             affected_measure_items.extend(self.selection_set)
         else:
@@ -984,10 +981,11 @@ class ScoreTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
 
         clef_menu = menu.addMenu("Set clef")
         for clef in music.Clef:
-            clef_menu.addAction(QtWidgets.QAction(
-                clef.value, menu,
-                enabled=enable_measure_actions,
-                triggered=lambda _, clef=clef: self.onSetClef(affected_measure_items, clef)))
+            clef_action = QtWidgets.QAction(clef.value, menu)
+            clef_action.setEnabled(enable_measure_actions)
+            clef_action.triggered.connect(
+                lambda _, clef=clef: self.onSetClef(affected_measure_items, clef))
+            clef_menu.addAction(clef_action)
 
         key_signature_menu = menu.addMenu("Set key signature")
         key_signatures = [
@@ -1023,11 +1021,11 @@ class ScoreTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
             'Ab minor',
         ]
         for key_signature in key_signatures:
-            key_signature_menu.addAction(QtWidgets.QAction(
-                key_signature, menu,
-                enabled=enable_measure_actions,
-                triggered=lambda _, sig=key_signature: (
-                    self.onSetKeySignature(affected_measure_items, sig))))
+            key_signature_action = QtWidgets.QAction(key_signature, menu)
+            key_signature_action.setEnabled(enable_measure_actions)
+            key_signature_action.triggered.connect(
+                lambda _, sig=key_signature: self.onSetKeySignature(affected_measure_items, sig))
+            key_signature_menu.addAction(key_signature_action)
 
         time_signature_menu = menu.addMenu("Set time signature")
         time_signatures = [
@@ -1035,37 +1033,43 @@ class ScoreTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
             (3, 4),
         ]
         for upper, lower in time_signatures:
-            time_signature_menu.addAction(QtWidgets.QAction(
-                "%d/%d" % (upper, lower), menu,
-                enabled=enable_measure_actions,
-                triggered=lambda _, upper=upper, lower=lower: (
-                    self.onSetTimeSignature(affected_measure_items, upper, lower))))
+            time_signature_action = QtWidgets.QAction("%d/%d" % (upper, lower), menu)
+            time_signature_action.setEnabled(enable_measure_actions)
+            time_signature_action.triggered.connect(
+                lambda _, upper=upper, lower=lower: (
+                    self.onSetTimeSignature(affected_measure_items, upper, lower)))
+            time_signature_menu.addAction(time_signature_action)
 
         transpose_menu = menu.addMenu("Transpose")
-        transpose_menu.addAction(QtWidgets.QAction(
-            "Octave up", self,
-            enabled=enable_measure_actions,
-            shortcut='Ctrl+Shift+Up',
-            shortcutContext=Qt.WidgetWithChildrenShortcut,
-            triggered=lambda _: self.onTranspose(affected_measure_items, 12)))
-        transpose_menu.addAction(QtWidgets.QAction(
-            "Half-note up", self,
-            enabled=enable_measure_actions,
-            shortcut='Ctrl+Up',
-            shortcutContext=Qt.WidgetWithChildrenShortcut,
-            triggered=lambda _: self.onTranspose(affected_measure_items, 1)))
-        transpose_menu.addAction(QtWidgets.QAction(
-            "Half-note down", self,
-            enabled=enable_measure_actions,
-            shortcut='Ctrl+Down',
-            shortcutContext=Qt.WidgetWithChildrenShortcut,
-            triggered=lambda _: self.onTranspose(affected_measure_items, -1)))
-        transpose_menu.addAction(QtWidgets.QAction(
-            "Octave down", self,
-            enabled=enable_measure_actions,
-            shortcut='Ctrl+Shift+Down',
-            shortcutContext=Qt.WidgetWithChildrenShortcut,
-            triggered=lambda _: self.onTranspose(affected_measure_items, -12)))
+
+        octave_up_action = QtWidgets.QAction("Octave up", self)
+        octave_up_action.setEnabled(enable_measure_actions)
+        octave_up_action.setShortcut('Ctrl+Shift+Up')
+        octave_up_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        octave_up_action.triggered.connect(lambda _: self.onTranspose(affected_measure_items, 12))
+        transpose_menu.addAction(octave_up_action)
+
+        halfnote_up_action = QtWidgets.QAction("Half-note up", self)
+        halfnote_up_action.setEnabled(enable_measure_actions)
+        halfnote_up_action.setShortcut('Ctrl+Up')
+        halfnote_up_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        halfnote_up_action.triggered.connect(lambda _: self.onTranspose(affected_measure_items, 1))
+        transpose_menu.addAction(halfnote_up_action)
+
+        halfnote_down_action = QtWidgets.QAction("Half-note down", self)
+        halfnote_down_action.setEnabled(enable_measure_actions)
+        halfnote_down_action.setShortcut('Ctrl+Down')
+        halfnote_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        halfnote_down_action.triggered.connect(
+            lambda _: self.onTranspose(affected_measure_items, -1))
+        transpose_menu.addAction(halfnote_down_action)
+
+        octave_down_action = QtWidgets.QAction("Octave down", self)
+        octave_down_action.setEnabled(enable_measure_actions)
+        octave_down_action.setShortcut('Ctrl+Shift+Down')
+        octave_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+        octave_down_action.triggered.connect(lambda _: self.onTranspose(affected_measure_items, -12))
+        transpose_menu.addAction(octave_down_action)
 
     def onSetClef(self, affected_measure_items, clef):
         self.send_command_async(

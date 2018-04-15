@@ -20,13 +20,14 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 # TODO: pylint-unclean
 
 from fractions import Fraction
 import itertools
 import logging
 import time
+from typing import Dict, List, Type  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -34,6 +35,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
+from noisicaa import core  # pylint: disable=unused-import
 from noisicaa.ui import tools
 from noisicaa.ui import ui_base
 from noisicaa.ui import selection_set
@@ -118,10 +120,9 @@ class BaseTrackItem(ui_base.ProjectMixin, QtCore.QObject):
         return self.__is_current
 
     def buildContextMenu(self, menu, pos):
-        remove_track_action = QtWidgets.QAction(
-            "Remove track", menu,
-            statusTip="Remove this track.",
-            triggered=self.onRemoveTrack)
+        remove_track_action = QtWidgets.QAction("Remove track", menu)
+        remove_track_action.setStatusTip("Remove this track.")
+        remove_track_action.triggered.connect(self.onRemoveTrack)
         menu.addAction(remove_track_action)
 
     def onRemoveTrack(self):
@@ -174,7 +175,7 @@ class BaseTrackItem(ui_base.ProjectMixin, QtCore.QObject):
 class BaseTrackEditorItem(BaseTrackItem):
     currentToolChanged = QtCore.pyqtSignal(tools.ToolType)
 
-    toolBoxClass = None
+    toolBoxClass = None  # type: Type[tools.ToolBox]
 
     def __init__(self, *, player_state, editor, **kwargs):
         super().__init__(**kwargs)
@@ -327,7 +328,7 @@ class MeasureEditorItem(BaseMeasureEditorItem):
     def __init__(self, measure_reference, **kwargs):
         super().__init__(**kwargs)
 
-        self.__paint_caches = {}
+        self.__paint_caches = {}  # type: Dict[str, QtGui.QPixmap]
         self.__cached_size = QtCore.QSize()
 
         self.__measure_reference = measure_reference
@@ -339,7 +340,7 @@ class MeasureEditorItem(BaseMeasureEditorItem):
         self.__selected = False
         self.__hovered = False
 
-        self.measure_listeners = []
+        self.measure_listeners = []  # type: List[core.Listener]
 
         if self.__measure is not None:
             self.addMeasureListeners()
@@ -397,16 +398,14 @@ class MeasureEditorItem(BaseMeasureEditorItem):
     def buildContextMenu(self, menu, pos):
         super().buildContextMenu(menu, pos)
 
-        insert_measure_action = QtWidgets.QAction(
-            "Insert measure", menu,
-            statusTip="Insert an empty measure at this point.",
-            triggered=self.onInsertMeasure)
+        insert_measure_action = QtWidgets.QAction("Insert measure", menu)
+        insert_measure_action.setStatusTip("Insert an empty measure at this point.")
+        insert_measure_action.triggered.connect(self.onInsertMeasure)
         menu.addAction(insert_measure_action)
 
-        remove_measure_action = QtWidgets.QAction(
-            "Remove measure", menu,
-            statusTip="Remove this measure.",
-            triggered=self.onRemoveMeasure)
+        remove_measure_action = QtWidgets.QAction("Remove measure", menu)
+        remove_measure_action.setStatusTip("Remove this measure.")
+        remove_measure_action.triggered.connect(self.onRemoveMeasure)
         menu.addAction(remove_measure_action)
 
     def onInsertMeasure(self):
@@ -748,17 +747,17 @@ class ArrangeMeasuresTool(tools.ToolBase):
 class MeasuredTrackEditorItem(BaseTrackEditorItem):
     hoveredMeasureChanged = QtCore.pyqtSignal(str)
 
-    measure_item_cls = None
+    measure_item_cls = None  # type: Type[MeasureEditorItem]
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         self.__closing = False
-        self.__listeners = []
+        self.__listeners = []  # type: List[core.Listener]
         self.__measure_item_at_playback_pos = None
         self.__hover_measure_item = None
 
-        self.__measure_items = []
+        self.__measure_items = []  # type: List[MeasureEditorItem]
         for idx, mref in enumerate(self.track.measure_list):
             self.addMeasure(idx, mref)
 

@@ -20,11 +20,12 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import contextlib
 from fractions import Fraction
 from unittest import mock
+from typing import List, Set  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -38,8 +39,8 @@ from noisicaa.ui import model
 
 class HIDState(object):
     def __init__(self):
-        self.__pressed_keys = set()
-        self.__pressed_mouse_buttons = set()
+        self.__pressed_keys = set()  # type: Set[Qt.Key]
+        self.__pressed_mouse_buttons = set()  # type: Set[Qt.MouseButton]
         self.__mouse_pos = QtCore.QPointF(0, 0)
 
     @property
@@ -78,7 +79,7 @@ class HIDState(object):
 
     @property
     def modifiers(self):
-        modifiers = Qt.NoModifier
+        modifiers = Qt.KeyboardModifiers()
         for key in self.__pressed_keys:
             if key == Qt.Key_Shift:
                 modifiers |= Qt.ShiftModifier
@@ -270,7 +271,7 @@ class TrackEditorItemTestMixin(object):
         with self._trackItem() as ti:
             ti.setSize(QtCore.QSize(200, 100))
 
-            rects = []
+            rects = []  # type: List[QtCore.QRect]
             ti.rectChanged.connect(rects.append)
 
             self.assertFalse(ti.isCurrent())
@@ -307,7 +308,7 @@ class TrackEditorItemTestMixin(object):
 
     def test_sizeChanged(self):
         with self._trackItem() as ti:
-            sizes = []
+            sizes = []  # type: List[QtCore.QSize]
             ti.sizeChanged.connect(sizes.append)
             ti.setSize(QtCore.QSize(100, 200))
             ti.setWidth(300)

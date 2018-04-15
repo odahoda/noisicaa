@@ -20,16 +20,18 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import fractions
 import logging
+from typing import List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 
 from noisicaa import audioproc
+from noisicaa import core  # pylint: disable=unused-import
 from noisicaa.ui import tools
 from . import base_track_item
 
@@ -281,8 +283,8 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
         self.__highlighted_point = None
         self.__playback_time = None
 
-        self.__listeners = []
-        self.points = []
+        self.__listeners = []  # type: List[core.Listener]
+        self.points = []  # type: List[ControlPoint]
 
         for point in self.track.points:
             self.addPoint(len(self.points), point)

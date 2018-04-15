@@ -20,8 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-# TODO: pylint-unclean
+# mypy: loose
 
 from noisidev import unittest
 from noisicaa.ui import uitest_utils
@@ -32,20 +31,20 @@ from . import track_item_tests
 
 class ScoreTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
     async def setup_testcase(self):
-        self.project.master_group.tracks.append(model.ScoreTrack('track-1'))
+        self.project.master_group.tracks.append(model.ScoreTrack(obj_id='track-1'))
 
-        m = model.PropertyMeasure('msr-0.1')
-        self.obj_map[m.id] = m
-        self.project.property_track.measure_heap.append(m)
-        mref = model.MeasureReference('msr-ref-0.1')
+        pm = model.PropertyMeasure(obj_id='msr-0.1')
+        self.obj_map[pm.id] = pm
+        self.project.property_track.measure_heap.append(pm)
+        mref = model.MeasureReference(obj_id='msr-ref-0.1')
         self.obj_map[mref.id] = mref
-        mref.measure_id = m.id
+        mref.measure_id = pm.id
         self.project.property_track.measure_list.append(mref)
 
-        m = model.ScoreMeasure('msr-1.1')
+        m = model.ScoreMeasure(obj_id='msr-1.1')
         self.obj_map[m.id] = m
         self.project.master_group.tracks[0].measure_heap.append(m)
-        mref = model.MeasureReference('msr-ref-1.1')
+        mref = model.MeasureReference(obj_id='msr-ref-1.1')
         self.obj_map[mref.id] = mref
         mref.measure_id = m.id
         self.project.master_group.tracks[0].measure_list.append(mref)
