@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import enum
 
 from .pitch import Pitch
@@ -40,19 +38,19 @@ class Clef(enum.Enum):
     Subbass = 'subbass'
 
     @property
-    def symbol(self):
+    def symbol(self) -> str:
         return _clef_data[self][0]
 
     @property
-    def base_pitch(self):
+    def base_pitch(self) -> Pitch:
         return _clef_data[self][1]
 
     @property
-    def center_pitch(self):
+    def center_pitch(self) -> Pitch:
         return _clef_data[self][2]
 
     @property
-    def base_octave(self):
+    def base_octave(self) -> int:
         return _clef_data[self][3]
 
 
@@ -67,4 +65,4 @@ _clef_data = {
     Clef.Baritone:     ('f', Pitch('F3'), Pitch('F3'), 2),
     Clef.Bass:         ('f', Pitch('F3'), Pitch('D3'), 2),
     Clef.Subbass:      ('f', Pitch('F3'), Pitch('B2'), 2),
-    }
+}

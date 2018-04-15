@@ -20,38 +20,34 @@
 #
 # @end:license
 
-# mypy: loose
-# TODO: pylint-unclean
 
 class Pos2F(object):
-    def __init__(self, x, y):
-        self._x = float(x)
-        self._y = float(y)
+    def __init__(self, x: float, y: float) -> None:
+        self.__x = float(x)
+        self.__y = float(y)
 
     @property
-    def x(self):
-        return self._x
+    def x(self) -> float:
+        return self.__x
 
     @property
-    def y(self):
-        return self._y
+    def y(self) -> float:
+        return self.__y
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Pos2F):
             return False
 
-        return (self._x == other._x and self._y == other._y)
+        return self.__x == other.__x and self.__y == other.__y
 
-    def __add__(self, other):
+    def __add__(self, other: 'Pos2F') -> 'Pos2F':
         if not isinstance(other, Pos2F):
-            raise TypeError(
-                "Expected Pos2F, got %s" % type(other).__name__)
+            raise TypeError("Expected Pos2F, got %s" % type(other).__name__)
 
-        return self.__class__(self._x + other._x, self._y + other._y)
+        return self.__class__(self.__x + other.__x, self.__y + other.__y)
 
-    def __sub__(self, other):
+    def __sub__(self, other: 'Pos2F') -> 'Pos2F':
         if not isinstance(other, Pos2F):
-            raise TypeError(
-                "Expected Pos2F, got %s" % type(other).__name__)
+            raise TypeError("Expected Pos2F, got %s" % type(other).__name__)
 
-        return self.__class__(self._x - other._x, self._y - other._y)
+        return self.__class__(self.__x - other.__x, self.__y - other.__y)

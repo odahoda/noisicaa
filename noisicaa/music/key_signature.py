@@ -20,7 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
+from typing import Dict, List
+
 
 class KeySignature(object):
     _signatures = {
@@ -54,37 +55,36 @@ class KeySignature(object):
         'Eb minor': ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'],
         'Cb major': ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Fb'],
         'Ab minor': ['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb', 'Fb'],
-        }
+    }  # type: Dict[str, List[str]]
 
-    def __init__(self, name='C major'):
+    def __init__(self, name: str = 'C major') -> None:
         assert name in self._signatures, name
         self._name = name
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if other is None:
             return False
 
         if not isinstance(other, KeySignature):
             raise TypeError(
-                "Can't compare %s to %s" % (
-                    type(self).__name__, type(other).__name__))
+                "Can't compare %s to %s" % (type(self).__name__, type(other).__name__))
 
         return self.name == other.name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'KeySignature("%s")' % self._name
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @property
-    def accidentals(self):
+    def accidentals(self) -> List[str]:
         return self._signatures[self._name]
 
     @property
-    def accidental_map(self):
-        acc_map = dict((v, '') for v in 'CDEFGAB')
+    def accidental_map(self) -> Dict[str, str]:
+        acc_map = {v: '' for v in 'CDEFGAB'}
         for acc in self._signatures[self._name]:
             acc_map[acc[0]] = acc[1]
         return acc_map

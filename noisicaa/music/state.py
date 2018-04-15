@@ -20,16 +20,18 @@
 #
 # @end:license
 
-# mypy: loose
-
 import copy
 import logging
 import uuid
-from typing import Dict, Type  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Dict, Type, TypeVar  # pylint: disable=unused-import
 
 from noisicaa import core
 
 logger = logging.getLogger(__name__)
+
+State = Dict[str, Any]
+
+SELF = TypeVar('SELF', bound='StateBase')
 
 
 class StateBase(core.ObjectBase):
@@ -37,7 +39,7 @@ class StateBase(core.ObjectBase):
 
     cls_map = {}  # type: Dict[str, Type[StateBase]]
 
-    def __init__(self, state=None):
+    def __init__(self, state: Optional[State] = None) -> None:
         self.listeners = core.CallbackRegistry()
 
         super().__init__()
@@ -51,7 +53,7 @@ class StateBase(core.ObjectBase):
         #             type(self).__name__, self.id, id(self))
         # logger.info("%s", ''.join(traceback.format_list(traceback.extract_stack())))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if self.__class__ is not other.__class__:
             return False
         for prop_name in self.list_property_names():
@@ -60,22 +62,22 @@ class StateBase(core.ObjectBase):
         return True
 
     @classmethod
-    def register_class(cls, c):
+    def register_class(cls, c: Type['StateBase']) -> None:
         assert c.__name__ not in cls.cls_map
         cls.cls_map[c.__name__] = c
 
     @classmethod
-    def clear_class_registry(cls):
+    def clear_class_registry(cls) -> None:
         cls.cls_map.clear()
 
-    def property_changed(self, change):
+    def property_changed(self, change: core.PropertyChange) -> None:
         self.listeners.call(change.prop_name, change)
 
         if not self.attached_to_root:
             return
-        self.root.listeners.call('model_changes', self, change)
+        cast(RootMixin, self.root).listeners.call('model_changes', self, change)
 
-    def reset_state(self):
+    def reset_state(self) -> None:
         self.listeners.clear()
 
         for prop in self.list_properties():
@@ -94,7 +96,7 @@ class StateBase(core.ObjectBase):
 
         self.state = {'id': self.id}  # Don't forget my ID.
 
-    def serialize(self):
+    def serialize(self) -> State:
         d = {'__class__': self.SERIALIZED_CLASS_NAME or self.__class__.__name__}
         for prop in self.list_properties():
             if isinstance(prop, core.Property):
@@ -116,7 +118,7 @@ class StateBase(core.ObjectBase):
 
         return d
 
-    def deserialize(self, state):
+    def deserialize(self, state: State) -> None:
         for prop in self.list_properties():
             if prop.name not in state:
                 # TODO: reset prop
@@ -148,13 +150,13 @@ class StateBase(core.ObjectBase):
             else:
                 raise TypeError("Unknown property type %s" % type(prop))
 
-    def clone(self):
+    def clone(self: SELF) -> SELF:
         cls = type(self)
         obj = cls(state={'id': uuid.uuid4().hex})
         obj.copy_from(self)
         return obj
 
-    def copy_from(self, src):
+    def copy_from(self: SELF, src: SELF) -> None:
         assert isinstance(src, type(self))
 
         for prop in src.list_properties():
@@ -187,7 +189,7 @@ class StateBase(core.ObjectBase):
 
 
 class RootMixin(core.RootObjectBase, StateBase):
-    def __init__(self, state=None):
+    def __init__(self, state: Optional[State] = None) -> None:
         self.__obj_map = {}  # type: Dict[str, StateBase]
 
         super().__init__(state=state)
@@ -197,21 +199,24 @@ class RootMixin(core.RootObjectBase, StateBase):
     def get_object(self, obj_id: str) -> StateBase:
         return self.__obj_map[obj_id]
 
-    def add_object(self, obj):
+    def add_object(self, obj: core.ObjectBase) -> None:
         for o in obj.walk_children():
+            assert isinstance(o, StateBase)
             assert o.id is not None, o
             assert o.id not in self.__obj_map, (o.id, o)
             self.__obj_map[o.id] = o
 
-    def remove_object(self, obj):
+    def remove_object(self, obj: core.ObjectBase) -> None:
         for o in obj.walk_children():
+            assert isinstance(o, StateBase)
             assert o.id is not None, o
             assert o.id in self.__obj_map, (o.id, o)
             del self.__obj_map[o.id]
 
-    def validate_object_map(self):
+    def validate_object_map(self) -> None:
         obj_map = {}  # type: Dict[str, StateBase]
         for o in self.walk_children():
+            assert isinstance(o, StateBase)
             assert o.id is not None
             assert o.id not in obj_map, o
             obj_map[o.id] = o
@@ -220,8 +225,9 @@ class RootMixin(core.RootObjectBase, StateBase):
         assert not missing_objects, missing_objects
         assert not extra_objects, extra_objects
 
-    def init_references(self):
+    def init_references(self) -> None:
         self.__obj_map.clear()
         for node in self.walk_children():
+            assert isinstance(node, StateBase)
             assert node.id not in self.__obj_map
             self.__obj_map[node.id] = node

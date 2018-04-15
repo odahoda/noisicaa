@@ -20,18 +20,17 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
-from typing import Any, List, Tuple  # pylint: disable=unused-import
+from typing import Any, Iterable, List, Tuple  # pylint: disable=unused-import
 
 from noisicaa import core
+from . import state
 
 logger = logging.getLogger(__name__)
 
 
 class Mutation(object):
-    def _prop2tuple(self, obj, prop):
+    def _prop2tuple(self, obj: state.StateBase, prop: core.PropertyBase) -> Tuple[str, str, Any]:
         value = getattr(obj, prop.name, None)
         if isinstance(prop, core.ObjectProperty):
             return (
@@ -53,14 +52,14 @@ class Mutation(object):
 
 
 class SetProperties(Mutation):
-    def __init__(self, obj, properties):
+    def __init__(self, obj: state.StateBase, properties: Iterable[str]) -> None:
         self.id = obj.id
         self.properties = []  # type: List[Tuple[str, str, Any]]
         for prop_name in properties:
             prop = obj.get_property(prop_name)
             self.properties.append(self._prop2tuple(obj, prop))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<SetProperties id="%s" %s>' % (
             self.id,
             ' '.join(
@@ -69,7 +68,7 @@ class SetProperties(Mutation):
 
 
 class AddObject(Mutation):
-    def __init__(self, obj):
+    def __init__(self, obj: state.StateBase) -> None:
         self.id = obj.id
         self.cls = obj.SERIALIZED_CLASS_NAME or obj.__class__.__name__
         self.properties = []  # type: List[Tuple[str, str, Any]]
@@ -78,7 +77,7 @@ class AddObject(Mutation):
                 continue
             self.properties.append(self._prop2tuple(obj, prop))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<AddObject id=%s cls=%s %s>' % (
             self.id, self.cls,
             ' '.join(
@@ -88,7 +87,7 @@ class AddObject(Mutation):
 
 
 class ListInsert(Mutation):
-    def __init__(self, obj, prop_name, index, value):
+    def __init__(self, obj: state.StateBase, prop_name: str, index: int, value: Any) -> None:
         self.id = obj.id
         self.prop_name = prop_name
         self.index = index
@@ -100,7 +99,7 @@ class ListInsert(Mutation):
             self.value_type = 'scalar'
             self.value = value
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<ListInsert id=%s prop=%s index=%d value=%s:%s>' % (
             self.id, self.prop_name, self.index,
             self.value_type, self.value)
@@ -108,11 +107,11 @@ class ListInsert(Mutation):
 
 
 class ListDelete(Mutation):
-    def __init__(self, obj, prop_name, index):
+    def __init__(self, obj: state.StateBase, prop_name: str, index: int) -> None:
         self.id = obj.id
         self.prop_name = prop_name
         self.index = index
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '<ListDelete id=%s prop=%s index=%d>' % (
             self.id, self.prop_name, self.index)

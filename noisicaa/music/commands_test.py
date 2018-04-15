@@ -113,35 +113,35 @@ class CommandTest(unittest.TestCase):
         root = Root(name='old_name')
         root_serialized_pre = root.serialize()
 
-        cmd = ChangeName(new_name='new_name')
-        cmd.apply(root)
+        cmd1 = ChangeName(new_name='new_name')
+        cmd1.apply(root)
         self.assertEqual(root.name, 'new_name')
         root_serialized_post = root.serialize()
 
-        cmd = commands.Command.create_from_state(cmd.serialize())
+        cmd2 = commands.Command.create_from_state(cmd1.serialize())
 
-        cmd.undo(root)
+        cmd2.undo(root)
         self.assertEqual(root.serialize(), root_serialized_pre)
 
-        cmd.redo(root)
+        cmd2.redo(root)
         self.assertEqual(root.serialize(), root_serialized_post)
 
     def test_list_insert(self):
         root = Root(name='root')
         root_serialized_pre = root.serialize()
 
-        cmd = AddChild(child_name='added_child')
-        cmd.apply(root)
+        cmd1 = AddChild(child_name='added_child')
+        cmd1.apply(root)
         self.assertEqual(len(root.children), 1)
         self.assertEqual(root.children[0].name, 'added_child')
         root_serialized_post = root.serialize()
 
-        cmd = commands.Command.create_from_state(cmd.serialize())
+        cmd2 = commands.Command.create_from_state(cmd1.serialize())
 
-        cmd.undo(root)
+        cmd2.undo(root)
         self.assertEqual(root.serialize(), root_serialized_pre)
 
-        cmd.redo(root)
+        cmd2.redo(root)
         self.assertEqual(root.serialize(), root_serialized_post)
 
     def test_list_delete(self):
@@ -149,17 +149,17 @@ class CommandTest(unittest.TestCase):
         root.children.insert(0, Child(name='removed_child'))
         root_serialized_pre = root.serialize()
 
-        cmd = RemoveChild(child_index=0)
-        cmd.apply(root)
+        cmd1 = RemoveChild(child_index=0)
+        cmd1.apply(root)
         self.assertEqual(len(root.children), 0)
         root_serialized_post = root.serialize()
 
-        cmd = commands.Command.create_from_state(cmd.serialize())
+        cmd2 = commands.Command.create_from_state(cmd1.serialize())
 
-        cmd.undo(root)
+        cmd2.undo(root)
         self.assertEqual(root.serialize(), root_serialized_pre)
 
-        cmd.redo(root)
+        cmd2.redo(root)
         self.assertEqual(root.serialize(), root_serialized_post)
 
     def test_list_move(self):
@@ -168,16 +168,16 @@ class CommandTest(unittest.TestCase):
         root.children.insert(1, Child(name='child2'))
         root_serialized_pre = root.serialize()
 
-        cmd = MoveChild(old_index=1, new_index=0)
-        cmd.apply(root)
+        cmd1 = MoveChild(old_index=1, new_index=0)
+        cmd1.apply(root)
         self.assertEqual(root.children[0].name, 'child2')
         self.assertEqual(root.children[1].name, 'child1')
         root_serialized_post = root.serialize()
 
-        cmd = commands.Command.create_from_state(cmd.serialize())
+        cmd2 = commands.Command.create_from_state(cmd1.serialize())
 
-        cmd.undo(root)
+        cmd2.undo(root)
         self.assertEqual(root.serialize(), root_serialized_pre)
 
-        cmd.redo(root)
+        cmd2.redo(root)
         self.assertEqual(root.serialize(), root_serialized_post)

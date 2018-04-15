@@ -20,10 +20,11 @@
 #
 # @end:license
 
-# mypy: loose
+from typing import Tuple
+
 
 class TimeSignature(object):
-    def __init__(self, upper=4, lower=4):
+    def __init__(self, upper: int = 4, lower: int = 4) -> None:
         if upper < 1 or upper > 99:
             raise ValueError("Bad time signature %r/%r" % (upper, lower))
         if lower < 1 or lower > 99:
@@ -32,28 +33,27 @@ class TimeSignature(object):
         self._upper = upper
         self._lower = lower
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'TimeSignature(%d/%d)' % (self.upper, self.lower)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if other is None:
             return False
 
         if not isinstance(other, TimeSignature):
             raise TypeError(
-                "Can't compare %s to %s" % (
-                    type(self).__name__, type(other).__name__))
+                "Can't compare %s to %s" % (type(self).__name__, type(other).__name__))
 
         return self.value == other.value
 
     @property
-    def value(self):
+    def value(self) -> Tuple[int, int]:
         return (self._upper, self._lower)
 
     @property
-    def upper(self):
+    def upper(self) -> int:
         return self._upper
 
     @property
-    def lower(self):
+    def lower(self) -> int:
         return self._lower

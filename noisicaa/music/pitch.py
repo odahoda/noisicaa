@@ -20,45 +20,47 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-# mypy: loose
-
 import re
-from typing import Dict, List, Tuple  # pylint: disable=unused-import
+from typing import Optional, Union, Dict, List, Set, Tuple  # pylint: disable=unused-import
+
+from . import key_signature as key_signature_lib
 
 NOTE_TO_MIDI = {}  # type: Dict[str, int]
 MIDI_TO_NOTE = {}  # type: Dict[int, str]
 
-note_names = [
-    ('C',),
-    ('C#', 'Db'),
-    ('D',),
-    ('D#', 'Eb'),
-    ('E',),
-    ('F',),
-    ('F#', 'Gb'),
-    ('G',),
-    ('G#', 'Ab'),
-    ('A',),
-    ('A#', 'Bb'),
-    ('B',)
-]  # type: List[Tuple[str, ...]]
+def _fill_midi_maps(note_to_midi: Dict[str, int], midi_to_note: Dict[int, str]) -> None:
+    note_names = [
+        ('C',),
+        ('C#', 'Db'),
+        ('D',),
+        ('D#', 'Eb'),
+        ('E',),
+        ('F',),
+        ('F#', 'Gb'),
+        ('G',),
+        ('G#', 'Ab'),
+        ('A',),
+        ('A#', 'Bb'),
+        ('B',)
+    ]  # type: List[Tuple[str, ...]]
 
-k = 0
-for o in range(10):
-    for n in note_names:
-        if k < 128:
-            for p in n:
-                NOTE_TO_MIDI['%s%d' % (p, o)] = k
-            MIDI_TO_NOTE[k] = '%s%d' % (n[0], o)
-        k += 1
+    k = 0
+    for o in range(10):
+        for n in note_names:
+            if k < 128:
+                for p in n:
+                    note_to_midi['%s%d' % (p, o)] = k
+                midi_to_note[k] = '%s%d' % (n[0], o)
+            k += 1
+
+_fill_midi_maps(NOTE_TO_MIDI, MIDI_TO_NOTE)
 
 
 class Pitch(object):
     _values = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G',
                'G#', 'Ab', 'A', 'A#', 'Bb', 'B']
 
-    def __init__(self, name=None):
+    def __init__(self, name: Optional[Union['Pitch', str]] = None) -> None:
         if isinstance(name, Pitch):
             self._is_rest = name._is_rest  # type: bool
             self._value = name._value  # type: str
@@ -89,63 +91,59 @@ class Pitch(object):
             self._octave = octave
 
     @classmethod
-    def from_midi(cls, midi):
+    def from_midi(cls, midi: int) -> 'Pitch':
         return cls(MIDI_TO_NOTE[midi])
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return 'Pitch(%s)' % self.name
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self._is_rest, self._value, self._accidental, self._octave))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if other is None:
             return False
 
         if not isinstance(other, Pitch):
             raise TypeError(
-                "Can't compare %s to %s" % (
-                    type(self).__name__, type(other).__name__))
+                "Can't compare %s to %s" % (type(self).__name__, type(other).__name__))
 
-        # pylint: disable=protected-access
         return (self._is_rest, self._octave, self._value, self._accidental) == (
             self._is_rest, other._octave, other._value, other._accidental)
 
-    def __gt__(self, other):
+    def __gt__(self, other: object) -> bool:
         if not isinstance(other, Pitch):
             raise TypeError(
-                "Can't compare %s to %s" % (
-                    type(self).__name__, type(other).__name__))
+                "Can't compare %s to %s" % (type(self).__name__, type(other).__name__))
 
-        # pylint: disable=protected-access
         return (self._is_rest, self._octave, 'CDEFGAB'.index(self._value), self._accidental) > (
             self._is_rest, other._octave, 'CDEFGAB'.index(other._value), other._accidental)
 
     @property
-    def name(self):
+    def name(self) -> str:
         if self._is_rest:
             return 'r'
         else:
             return '%s%s%d' % (self._value, self._accidental, self._octave)
 
     @property
-    def is_rest(self):
+    def is_rest(self) -> bool:
         return self._is_rest
 
     @property
-    def value(self):
+    def value(self) -> str:
         assert not self._is_rest
         return self._value
 
     @property
-    def accidental(self):
+    def accidental(self) -> str:
         assert not self._is_rest
         return self._accidental
 
-    def add_accidental(self, accidental):
+    def add_accidental(self, accidental: str) -> 'Pitch':
         assert not self._is_rest
         assert accidental in ('', '#', 'b', '##', 'bb')
         assert accidental in self.valid_accidentals
@@ -164,23 +162,24 @@ class Pitch(object):
     }
 
     @property
-    def valid_accidentals(self):
+    def valid_accidentals(self) -> Set[str]:
         if self._is_rest:
             return set()
         return self._valid_accidental_map[self.value]
 
     @property
-    def octave(self):
+    def octave(self) -> int:
         assert not self._is_rest
         return self._octave
 
     @property
-    def stave_line(self):
+    def stave_line(self) -> int:
         assert not self._is_rest
         return 'CDEFGAB'.index(self._value) + 7 * self._octave
 
     @classmethod
-    def name_from_stave_line(cls, line, key_signature=None):
+    def name_from_stave_line(
+            cls, line: int, key_signature: Optional[key_signature_lib.KeySignature] = None) -> str:
         octave = line // 7
         value = 'CDEFGAB'[line % 7]
         if key_signature is not None:
@@ -190,13 +189,14 @@ class Pitch(object):
         return '%s%s%d' % (value, accidental, octave)
 
     @property
-    def midi_note(self):
+    def midi_note(self) -> int:
         try:
             return NOTE_TO_MIDI[self.name]
         except KeyError:
             return 23  # Ehh...
 
     _transpose_up = {
+        # pylint: disable=bad-whitespace
         'C':  ('C#', 0),
         'C#': ('D',  0),
         'Db': ('D',  0),
@@ -217,6 +217,7 @@ class Pitch(object):
     }
 
     _transpose_down = {
+        # pylint: disable=bad-whitespace
         'C':  ('B', -1),
         'C#': ('C',  0),
         'Db': ('C',  0),
@@ -236,7 +237,7 @@ class Pitch(object):
         'B':  ('Bb', 0),
     }
 
-    def transposed(self, half_notes=0, octaves=0):
+    def transposed(self, half_notes: int = 0, octaves: int = 0) -> 'Pitch':
         ttab = self._transpose_down if half_notes < 0 else self._transpose_up
         note = '%s%s' % (self._value, self._accidental)
         octave = self._octave + octaves
