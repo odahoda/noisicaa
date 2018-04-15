@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 from unittest import mock
 
 from PyQt5.QtCore import Qt

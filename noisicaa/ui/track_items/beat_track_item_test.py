@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 from noisidev import unittest
 from noisicaa.ui import uitest_utils
 from noisicaa.ui import model
