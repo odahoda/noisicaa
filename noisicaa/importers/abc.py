@@ -20,12 +20,13 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import logging
 import re
 import fractions
 import collections
+from typing import Dict, List  # pylint: disable=unused-import
 
 from noisicaa import audioproc
 from noisicaa import music
@@ -43,20 +44,18 @@ class ParseError(ImporterError):
 class ABCImporter(object):
     def __init__(self):
         self.state = 'start'
-        self.fields = {}
-        self.prev_field = None
 
         self.reference_number = None
         self.key = music.KeySignature('C major')
         self.unit_length = None
         self.meter = None
         self.tempo = None
-        self.title = []
-        self.composer = []
-        self.lyrics = []
-        self.origin = []
-        self.file_url = []
-        self.transcription = []
+        self.title = []  # type: List[str]
+        self.composer = []  # type: List[str]
+        self.lyrics = []  # type: List[str]
+        self.origin = []  # type: List[str]
+        self.file_url = []  # type: List[str]
+        self.transcription = []  # type: List[str]
 
         self.decorations = {
             '~': 'roll',
@@ -73,8 +72,8 @@ class ABCImporter(object):
 
         self.next_length_multiplier = fractions.Fraction(1)
 
-        self.notes = []
-        self.voices = collections.OrderedDict()
+        self.notes = []  # type: List[music.Note]
+        self.voices = collections.OrderedDict()  # type: Dict[str, music.ScoreTrack]
         self.current_voice = None
 
     def import_file(self, path, proj):
@@ -154,15 +153,6 @@ class ABCImporter(object):
             self.transcription.append(contents)
         else:
             logger.warning("Ignoring unsupported information field %s", field)
-
-        # logger.debug("Information field %c: %s", field, contents)
-        # if field == '+':
-        #     if self.prev_field is None:
-        #         raise ParseError("Continuation doesn't continue anything.")
-        #     self.fields[self.prev_field][-1] += ' ' + contents
-        # else:
-        #     self.fields.setdefault(field, []).append(contents)
-        #     self.prev_field = field
 
     def parse_key(self, s):
         if len(s) == 1:
