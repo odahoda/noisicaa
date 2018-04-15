@@ -1,6 +1,5 @@
 # -*- org-tags-column: -98 -*-
 
-* Remove PipelineGraphMonitor                                                            :CLEANUP:
 * Add stubs for PyQt5.QtSvg                                                           :FR:TESTING:
 * Make control value generations work with undo                                              :BUG:
 - generation must also increment, when value change is caused by undo

@@ -31,7 +31,6 @@ add_python_package(
   mute_button.py
   piano.py
   piano_test.py
-  pipeline_graph_monitor.py
   pipeline_graph_view.py
   pipeline_graph_view_test.py
   pipeline_perf_monitor.py

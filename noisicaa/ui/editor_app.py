@@ -256,7 +256,6 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
         self._old_excepthook = None
         self.win = None
         self.pipeline_perf_monitor = None
-        self.pipeline_graph_monitor = None
         self.stat_monitor = None
         self.default_style = None
 
@@ -279,9 +278,6 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
         logger.info("Creating PipelinePerfMonitor.")
         self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(context=self.context)
 
-        # logger.info("Creating PipelineGraphMonitor.")
-        # self.pipeline_graph_monitor = pipeline_graph_monitor.PipelineGraphMonitor(context=self.context)
-
         logger.info("Creating StatMonitor.")
         self.stat_monitor = stat_monitor.StatMonitor(context=self.context)
 
@@ -289,8 +285,6 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
         self.win = EditorWindow(context=self.context)
         await self.win.setup()
         self.win.show()
-
-        # self.pipeline_graph_monitor.addWindow(self.win)
 
         if self.paths:
             logger.info("Starting with projects from cmdline.")
@@ -314,10 +308,6 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
         if self.pipeline_perf_monitor is not None:
             self.pipeline_perf_monitor.storeState()
             self.pipeline_perf_monitor = None
-
-        if self.pipeline_graph_monitor is not None:
-            self.pipeline_graph_monitor.storeState()
-            self.pipeline_graph_monitor = None
 
         if self.win is not None:
             self.win.storeState()
