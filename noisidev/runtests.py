@@ -247,7 +247,6 @@ class BuiltinPyTests(unittest.TestCase):
                 else:
                     self.fail("Invalid mypy directive '%s'" % m.group(1))
 
-        be_pedantic = self.__pedantic
         be_strict = self.__pedantic or be_strict
 
         mypy_ini_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mypy.ini'))
@@ -292,7 +291,7 @@ class BuiltinPyTests(unittest.TestCase):
                 continue
             messages.append(msg)
 
-        if be_pedantic and messages:
+        if messages:
             self.__mypy_collector.extend(messages)
             self.fail("mypy reported issues.")
 
