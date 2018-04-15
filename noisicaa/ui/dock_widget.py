@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import logging
 
@@ -54,7 +54,8 @@ class DockWidget(ui_base.CommonMixin, QtWidgets.QDockWidget):
         if initial_floating and initial_pos is not None:
             self.move(initial_pos)
 
-        name = QtWidgets.QLabel(self, textFormat=Qt.PlainText)
+        name = QtWidgets.QLabel(self)
+        name.setTextFormat(Qt.PlainText)
         name.setText(self.windowTitle())
         #self.windowTitleChanged.connect(name.setText)
 
