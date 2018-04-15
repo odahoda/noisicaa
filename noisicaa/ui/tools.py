@@ -21,7 +21,6 @@
 # @end:license
 
 # mypy: loose
-# TODO: pylint-unclean
 
 import logging
 import enum
@@ -98,7 +97,7 @@ class ToolType(enum.IntEnum):
 class ToolBase(ui_base.ProjectMixin, QtCore.QObject):
     cursorChanged = QtCore.pyqtSignal(QtGui.QCursor)
 
-    def __init__(self, *, type: ToolType, group: ToolGroup, **kwargs: Any) -> None:
+    def __init__(self, *, type: ToolType, group: ToolGroup, **kwargs: Any) -> None:  # pylint: disable=redefined-builtin
         super().__init__(**kwargs)
         self.type = type
         self.group = group
@@ -190,7 +189,7 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
     def currentToolType(self) -> ToolType:
         return self.__current_tool.type
 
-    def setCurrentToolType(self, type: ToolType) -> None:
+    def setCurrentToolType(self, type: ToolType) -> None:  # pylint: disable=redefined-builtin
         if type != self.__current_tool.type:
             self.__previous_tool = self.__current_tool
             self.__current_tool = self.__tool_map[type]

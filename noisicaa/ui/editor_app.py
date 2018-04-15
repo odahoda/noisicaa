@@ -21,7 +21,6 @@
 # @end:license
 
 # mypy: loose
-# TODO: pylint-unclean
 
 import logging
 import os
@@ -365,7 +364,7 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
             errorbox.setIcon(QtWidgets.QMessageBox.Critical)
             errorbox.addButton("Exit", QtWidgets.QMessageBox.AcceptRole)
             errorbox.exec_()
-        except:
+        except:  # pylint: disable=bare-except
             logger.error(
                 "Failed to show crash dialog: %s", traceback.format_exc())
 
