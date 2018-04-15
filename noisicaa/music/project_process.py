@@ -20,8 +20,8 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import asyncio
 import logging
@@ -29,6 +29,7 @@ import os
 import os.path
 import pickle
 import pprint
+from typing import Any, Dict, List  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -52,9 +53,9 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
         self.session_name = session_name
 
-        self.session_data = {}
-        self.session_data_path = None
-        self._players = {}
+        self.session_data = {}  # type: Dict[str, Any]
+        self.session_data_path = None  # type: str
+        self._players = {}  # type: Dict[str, player.Player]
 
     async def cleanup(self):
         for listener, p in self._players.values():
@@ -164,7 +165,7 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
 
         self.node_db = None
         self.project = None
-        self.pending_mutations = []
+        self.pending_mutations = []  # type: List[mutations.Mutation]
 
     async def setup(self):
         await super().setup()

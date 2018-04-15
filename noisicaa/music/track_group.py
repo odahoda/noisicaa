@@ -20,10 +20,11 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import logging
+from typing import Dict  # pylint: disable=unused-import
 
 from noisicaa import core
 
@@ -39,7 +40,7 @@ class TrackGroup(model.TrackGroup, base_track.Track):
     def __init__(self, state=None, num_measures=None, **kwargs):
         super().__init__(state=state, **kwargs)
 
-        self.__listeners = {}
+        self.__listeners = {}  # type: Dict[str, core.Listener]
         for track in self.tracks:
             self.__add_track(track)
         self.listeners.add('tracks', self.__tracks_changed)

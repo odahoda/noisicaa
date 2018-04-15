@@ -20,14 +20,16 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import logging
 import random
+from typing import Dict  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa import audioproc
+from typing import cast
 
 from . import model
 from . import state
@@ -103,19 +105,19 @@ class MoveControlPoint(commands.Command):
         assert isinstance(track, ControlTrack)
 
         root = track.root
-        point = root.get_object(self.point_id)
+        point = cast(ControlPoint, root.get_object(self.point_id))
         assert point.is_child_of(track)
 
         if self.time is not None:
             if not point.is_first:
-                if self.time <= point.prev_sibling.time:
+                if self.time <= cast(ControlPoint, point.prev_sibling).time:
                     raise ValueError("Control point out of order.")
             else:
                 if self.time < audioproc.MusicalTime(0, 4):
                     raise ValueError("Control point out of order.")
 
             if not point.is_last:
-                if self.time >= point.next_sibling.time:
+                if self.time >= cast(ControlPoint, point.next_sibling).time:
                     raise ValueError("Control point out of order.")
 
             point.time = self.time
@@ -129,7 +131,7 @@ commands.Command.register_command(MoveControlPoint)
 
 class ControlPoint(model.ControlPoint, state.StateBase):
     def __init__(self, time=None, value=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
+        super().__init__(state=state)
 
         if state is None:
             self.time = time
@@ -143,8 +145,8 @@ class ControlTrackConnector(base_track.TrackConnector):
         super().__init__(**kwargs)
 
         self.__node_id = node_id
-        self.__listeners = {}
-        self.__point_ids = {}
+        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__point_ids = {}  # type: Dict[str, int]
 
     def _init_internal(self):
         for point in self._track.points:

@@ -20,11 +20,12 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import asyncio
 import logging
 import uuid
+from typing import Dict  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -32,6 +33,8 @@ from noisicaa.core import model_base
 from noisicaa import audioproc
 
 from . import model
+from . import track_group
+from . import base_track  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 
@@ -47,13 +50,13 @@ class Player(object):
         self.realm = realm
 
         self.listeners = core.CallbackRegistry()
-        self.__listeners = {}
+        self.__listeners = {}  # type: Dict[str, core.Listener]
 
         self.id = uuid.uuid4().hex
 
-        self.callback_stub = None
+        self.callback_stub = None  # ipc.Stub
 
-        self.track_connectors = {}
+        self.track_connectors = {}  # type: Dict[str, base_track.TrackConnector]
 
     async def setup(self):
         logger.info("Setting up player instance %s..", self.id)
@@ -166,7 +169,7 @@ class Player(object):
 
     def add_track(self, track):
         for t in track.walk_tracks(groups=True, tracks=True):
-            if isinstance(t, model.TrackGroup):
+            if isinstance(t, track_group.TrackGroup):
                 self.__listeners['track_group:%s' % t.id] = t.listeners.add(
                     'tracks', self.tracks_changed)
             else:

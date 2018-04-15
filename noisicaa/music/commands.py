@@ -20,11 +20,12 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import contextlib
 import logging
+from typing import Dict, Type  # pylint: disable=unused-import
 
 from noisicaa import core
 from . import state
@@ -81,7 +82,7 @@ class Command(state.RootMixin, state.StateBase):
     log = core.ObjectProperty(CommandLog)
     status = core.Property(str)
 
-    command_classes = {}
+    command_classes = {}  # type: Dict[str, Type[Command]]
 
     def __init__(self, state=None):
         self.__in_mutator = False

@@ -24,6 +24,7 @@
 # TODO: pylint-unclean
 
 import logging
+from typing import Dict  # pylint: disable=unused-import
 
 from noisicaa import audioproc
 from noisicaa.music import model
@@ -237,4 +238,4 @@ cls_map = {
     'Sample': Sample,
     'Metadata': Metadata,
     'Project': Project,
-}
+}  # type: Dict[str, project.ObjectProxy]

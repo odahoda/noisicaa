@@ -20,8 +20,8 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import io
 import logging
@@ -160,7 +160,7 @@ commands.Command.register_command(PipelineGraphNodeFromPreset)
 class PipelineGraphControlValue(
         model.PipelineGraphControlValue, state.StateBase):
     def __init__(self, name=None, value=None, generation=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
+        super().__init__(state=state)
 
         if state is None:
             self.name = name
@@ -174,7 +174,7 @@ class PipelineGraphPortPropertyValue(
     def __init__(
             self, port_name=None, name=None, value=None,
             state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
+        super().__init__(state=state)
 
         if state is None:
             self.port_name = port_name
@@ -277,7 +277,7 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
             self.node_uri = node_uri
 
     def to_preset(self):
-        doc = ElementTree.Element('preset', version='1')
+        doc = ElementTree.Element('preset', version='1')  # type: ignore
         doc.text = '\n'
         doc.tail = '\n'
 

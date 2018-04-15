@@ -20,12 +20,13 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 from fractions import Fraction
 import logging
 import random
+from typing import cast, Dict  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa import audioproc
@@ -55,7 +56,7 @@ class AddSample(commands.Command):
     def run(self, track):
         assert isinstance(track, SampleTrack)
 
-        project = track.project
+        project = cast(model.Project, track.project)
 
         smpl = Sample(path=self.path)
         project.samples.append(smpl)
@@ -78,7 +79,7 @@ class RemoveSample(commands.Command):
         assert isinstance(track, SampleTrack)
 
         root = track.root
-        smpl_ref = root.get_object(self.sample_id)
+        smpl_ref = cast(SampleRef, root.get_object(self.sample_id))
         assert smpl_ref.is_child_of(track)
 
         del track.samples[smpl_ref.index]
@@ -100,7 +101,7 @@ class MoveSample(commands.Command):
         assert isinstance(track, SampleTrack)
 
         root = track.root
-        smpl_ref = root.get_object(self.sample_id)
+        smpl_ref = cast(SampleRef, root.get_object(self.sample_id))
         assert smpl_ref.is_child_of(track)
 
         smpl_ref.time = self.time
@@ -120,7 +121,7 @@ class RenderSample(commands.Command):
         assert isinstance(sample_ref, SampleRef)
 
         root = sample_ref.root
-        sample = root.get_object(sample_ref.sample_id)
+        sample = cast(Sample, root.get_object(sample_ref.sample_id))
 
         try:
             samples = sample.samples
@@ -162,7 +163,7 @@ commands.Command.register_command(RenderSample)
 
 class Sample(model.Sample, state.StateBase):
     def __init__(self, path=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
+        super().__init__(state=state)
 
         if state is None:
             self.path = path
@@ -181,7 +182,7 @@ state.StateBase.register_class(Sample)
 
 class SampleRef(model.SampleRef, state.StateBase):
     def __init__(self, time=None, sample_id=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
+        super().__init__(state=state)
 
         if state is None:
             self.time = time
@@ -195,8 +196,8 @@ class SampleTrackConnector(base_track.TrackConnector):
         super().__init__(**kwargs)
 
         self.__node_id = node_id
-        self.__listeners = {}
-        self.__sample_ids = {}
+        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__sample_ids = {}  # type: Dict[str, int]
 
     def _init_internal(self):
         for sample_ref in self._track.samples:

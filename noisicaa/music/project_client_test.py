@@ -20,13 +20,13 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
 
 import fractions
 import logging
 import uuid
 from unittest import mock
+from typing import Dict  # pylint: disable=unused-import
 
 from noisidev import unittest
 from noisicaa.core import ipc
@@ -51,7 +51,7 @@ class ProjectClientTestBase(unittest.AsyncTestCase):
         self.project_process = None
         self.project_process_task = None
         self.client = None
-        self.manager_address_map = {}
+        self.manager_address_map = {}  # type: Dict[str, str]
 
     async def setup_testcase(self):
         self.manager = mock.Mock()

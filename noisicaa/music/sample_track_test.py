@@ -20,9 +20,8 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
 import os.path
+from typing import List  # pylint: disable=unused-import
 
 from noisidev import unittest
 from noisidev import demo_project
@@ -63,7 +62,7 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
             path=os.path.join(unittest.TESTDATA_DIR, 'kick-gettinglaid.wav'))
         self.project.samples.append(self.sample2)
 
-        self.messages = []
+        self.messages = []  # type: List[str]
 
     def message_cb(self, msg):
         self.assertEqual(msg.node_id, self.track.sample_script_name)

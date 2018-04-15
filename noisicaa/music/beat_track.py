@@ -20,11 +20,12 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import functools
 import logging
+from typing import cast
 
 from noisicaa import core
 from noisicaa import audioproc
@@ -36,6 +37,7 @@ from . import commands
 from . import pipeline_graph
 from . import misc
 from . import base_track
+from . import project
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +55,8 @@ class SetBeatTrackInstrument(commands.Command):
 
         track.instrument = self.instrument
 
-        project = track.project
         for mutation in track.instrument_node.get_update_mutations():
-            project.handle_pipeline_mutation(mutation)
+            cast(project.BaseProject, project).handle_pipeline_mutation(mutation)
 
 commands.Command.register_command(SetBeatTrackInstrument)
 

@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 class StateBase(core.ObjectBase):
-    SERIALIZED_CLASS_NAME = None
+    SERIALIZED_CLASS_NAME = None  # type: str
 
     cls_map = {}  # type: Dict[str, Type[StateBase]]
 

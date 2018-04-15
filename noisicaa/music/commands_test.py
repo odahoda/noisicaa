@@ -20,7 +20,6 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
 
 from noisidev import unittest
@@ -95,8 +94,6 @@ class Child(state.StateBase):
         super().__init__(state=state)
         if state is None:
             self.name = name
-
-        self.commands = []
 
 
 class Root(state.RootMixin, state.StateBase):

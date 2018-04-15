@@ -20,10 +20,10 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
 
 import json
+from typing import Dict, Type  # pylint: disable=unused-import
 
 from noisidev import unittest
 from noisicaa import core
@@ -102,7 +102,7 @@ from . import state
 
 
 class TestStateBase(state.StateBase):
-    cls_map = {}
+    cls_map = {}  # type: Dict[str, Type[state.StateBase]]
 
 
 class StateTest(unittest.TestCase):

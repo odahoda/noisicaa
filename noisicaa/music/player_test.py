@@ -20,7 +20,6 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 
 import asyncio
 import logging
@@ -68,7 +67,7 @@ class PlayerTest(unittest.AsyncTestCase):
     async def setup_testcase(self):
         self.project = project.BaseProject()
 
-        self.player_status_calls = asyncio.Queue(loop=self.loop)
+        self.player_status_calls = asyncio.Queue(loop=self.loop)  # type: asyncio.Queue
         self.callback_server = ipc.Server(self.loop, 'callback', socket_dir=TEST_OPTS.TMP_DIR)
         self.callback_server.add_command_handler(
             'PLAYER_STATUS',

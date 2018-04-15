@@ -20,11 +20,12 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import functools
 import logging
+from typing import cast
 
 from noisicaa import core
 from noisicaa import audioproc
@@ -38,6 +39,7 @@ from . import state
 from . import commands
 from . import pipeline_graph
 from . import misc
+from . import project
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +53,12 @@ class SetInstrument(commands.Command):
             self.instrument = instrument
 
     def run(self, track):
-        assert isinstance(track, base_track.MeasuredTrack)
+        assert isinstance(track, ScoreTrack)
 
         track.instrument = self.instrument
 
-        project = track.project
         for mutation in track.instrument_node.get_update_mutations():
-            project.handle_pipeline_mutation(mutation)
+            cast(project.BaseProject, track.project).handle_pipeline_mutation(mutation)
 
 commands.Command.register_command(SetInstrument)
 
@@ -197,10 +198,9 @@ class SetClef(commands.Command):
 
     def run(self, track):
         assert isinstance(track, ScoreTrack)
-        project = track.project
 
         for measure_id in self.measure_ids:
-            measure = project.get_object(measure_id)
+            measure = cast(ScoreMeasure, track.project.get_object(measure_id))
             assert measure.is_child_of(track)
             measure.clef = Clef(self.clef)
 
@@ -219,10 +219,9 @@ class SetKeySignature(commands.Command):
 
     def run(self, track):
         assert isinstance(track, ScoreTrack)
-        project = track.project
 
         for measure_id in self.measure_ids:
-            measure = project.get_object(measure_id)
+            measure = cast(ScoreMeasure, track.project.get_object(measure_id))
             assert measure.is_child_of(track)
             measure.key_signature = KeySignature(self.key_signature)
 
@@ -269,7 +268,7 @@ class TransposeNotes(commands.Command):
         root = track.root
 
         for note_id in self.note_ids:
-            note = root.get_object(note_id)
+            note = cast(Note, root.get_object(note_id))
             assert note.is_child_of(track)
 
             for pidx, pitch in enumerate(note.pitches):

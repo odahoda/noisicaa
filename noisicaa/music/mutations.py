@@ -20,9 +20,10 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import logging
+from typing import Any, List, Tuple  # pylint: disable=unused-import
 
 from noisicaa import core
 
@@ -54,7 +55,7 @@ class Mutation(object):
 class SetProperties(Mutation):
     def __init__(self, obj, properties):
         self.id = obj.id
-        self.properties = []
+        self.properties = []  # type: List[Tuple[str, str, Any]]
         for prop_name in properties:
             prop = obj.get_property(prop_name)
             self.properties.append(self._prop2tuple(obj, prop))
@@ -71,7 +72,7 @@ class AddObject(Mutation):
     def __init__(self, obj):
         self.id = obj.id
         self.cls = obj.SERIALIZED_CLASS_NAME or obj.__class__.__name__
-        self.properties = []
+        self.properties = []  # type: List[Tuple[str, str, Any]]
         for prop in obj.list_properties():
             if prop.name == 'id':
                 continue

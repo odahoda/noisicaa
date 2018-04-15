@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+from typing import List  # pylint: disable=unused-import
 
 from noisidev import unittest
 from noisidev import demo_project
@@ -57,7 +57,7 @@ class ScoreTrackConnectorTest(unittest.AsyncTestCase):
         pr = demo_project.basic(project.BaseProject, node_db=self.node_db)
         tr = pr.master_group.tracks[0]
 
-        messages = []
+        messages = []  # type: List[str]
 
         connector = tr.create_track_connector(message_cb=messages.append)
         try:

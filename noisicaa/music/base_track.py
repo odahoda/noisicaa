@@ -20,11 +20,12 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import logging
 import random
+from typing import cast, Dict, List, Type  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa import audioproc
@@ -49,7 +50,7 @@ class MoveTrack(commands.Command):
     def run(self, track):
         assert isinstance(track, model.Track)
         assert not track.is_master_group
-        parent = track.parent
+        parent = cast(model.TrackGroup, track.parent)
 
         if self.direction == 0:
             raise ValueError("No direction given.")
@@ -73,7 +74,8 @@ commands.Command.register_command(MoveTrack)
 
 class ReparentTrack(commands.Command):
     new_parent = core.Property(str)
-    index = core.Property(int)
+    # TODO: this clashes with the index attribute of ObjectBase
+    index = core.Property(int)  # type: ignore
 
     def __init__(self, new_parent=None, index=None, state=None):
         super().__init__(state=state)
@@ -92,7 +94,7 @@ class ReparentTrack(commands.Command):
 
         assert 0 <= self.index <= len(new_parent.tracks)
 
-        del track.parent.tracks[track.index]
+        del cast(model.TrackGroup, track.parent).tracks[track.index]
         new_parent.tracks.insert(self.index, track)
 
 commands.Command.register_command(ReparentTrack)
@@ -142,6 +144,7 @@ class UpdateTrackProperties(commands.Command):
             track.mixer_node.set_control_value('pan', self.pan)
 
         if self.transpose_octaves is not None:
+            assert isinstance(track, model.ScoreTrack)
             track.transpose_octaves = self.transpose_octaves
 
 commands.Command.register_command(UpdateTrackProperties)
@@ -153,7 +156,7 @@ class TrackConnector(object):
         self.__message_cb = message_cb
 
         self.__initializing = True
-        self.__initial_messages = []
+        self.__initial_messages = []  # type: List[audioproc.ProcessorMessage]
 
     def init(self):
         assert self.__initializing
@@ -291,10 +294,10 @@ class MeasuredTrackConnector(TrackConnector):
     def __init__(self, *, node_id, **kwargs):
         super().__init__(**kwargs)
 
-        self._listeners = {}
+        self._listeners = {}  # type: Dict[str, core.Listener]
 
         self.__node_id = node_id
-        self.__measure_events = {}
+        self.__measure_events = {}  # type: Dict[str, List[PianoRollInterval]]
 
     def _init_internal(self):
         time = audioproc.MusicalTime()
@@ -405,7 +408,7 @@ class MeasuredTrackConnector(TrackConnector):
 
 
 class MeasuredTrack(model.MeasuredTrack, Track):
-    measure_cls = None
+    measure_cls = None  # type: Type[Measure]
 
     def __init__(self, state=None, **kwargs):
         super().__init__(state=state, **kwargs)
@@ -413,7 +416,7 @@ class MeasuredTrack(model.MeasuredTrack, Track):
         if state is None:
             pass
 
-        self.__listeners = {}
+        self.__listeners = {}  # type: Dict[str, core.Listener]
 
         for mref in self.measure_list:
             self.__add_measure(mref)

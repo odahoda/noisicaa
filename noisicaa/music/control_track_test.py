@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+from typing import List  # pylint: disable=unused-import
 
 from noisidev import unittest
 from noisidev import demo_project
@@ -54,7 +54,7 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
         self.track = control_track.ControlTrack(name='test')
         self.project.master_group.tracks.append(self.track)
 
-        self.messages = []
+        self.messages = []  # type: List[str]
 
     def message_cb(self, msg):
         self.assertEqual(msg.node_id, self.track.generator_name)

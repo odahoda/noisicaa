@@ -20,8 +20,8 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import base64
 import email.parser
@@ -31,6 +31,7 @@ import itertools
 import logging
 import time
 import json
+from typing import cast, Dict  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa.core import storage
@@ -159,12 +160,12 @@ class InsertMeasure(commands.Command):
         assert isinstance(project, BaseProject)
 
         if not self.tracks:
-            project.property_track.insert_measure(self.pos)
+            cast(property_track.PropertyTrack, project.property_track).insert_measure(self.pos)
         else:
-            project.property_track.append_measure()
+            cast(property_track.PropertyTrack, project.property_track).append_measure()
 
         for track in project.master_group.walk_tracks():
-            if not isinstance(track, model.MeasuredTrack):
+            if not isinstance(track, base_track.MeasuredTrack):
                 continue
 
             if not self.tracks or track.id in self.tracks:
@@ -189,9 +190,10 @@ class RemoveMeasure(commands.Command):
         assert isinstance(project, BaseProject)
 
         if not self.tracks:
-            project.property_track.remove_measure(self.pos)
+            cast(property_track.PropertyTrack, project.property_track).remove_measure(self.pos)
 
         for idx, track in enumerate(project.master_group.tracks):
+            track = cast(base_track.MeasuredTrack, track)
             if not self.tracks or idx in self.tracks:
                 track.remove_measure(self.pos)
                 if self.tracks:
@@ -212,8 +214,9 @@ class SetNumMeasures(commands.Command):
         assert isinstance(project, BaseProject)
 
         for track in project.all_tracks:
-            if not isinstance(track, model.MeasuredTrack):
+            if isinstance(track, base_track.MeasuredTrack):
                 continue
+            track = cast(base_track.MeasuredTrack, track)
 
             while len(track.measure_list) < self.num_measures:
                 track.append_measure()
@@ -235,19 +238,21 @@ class ClearMeasures(commands.Command):
     def run(self, project):
         assert isinstance(project, BaseProject)
 
-        measure_references = [project.get_object(obj_id) for obj_id in self.measure_ids]
+        measure_references = [
+            cast(base_track.MeasureReference, project.get_object(obj_id))
+            for obj_id in self.measure_ids]
         assert all(isinstance(obj, base_track.MeasureReference) for obj in measure_references)
 
         affected_track_ids = set(obj.track.id for obj in measure_references)
 
         for mref in measure_references:
-            track = mref.track
+            track = cast(base_track.MeasuredTrack, mref.track)
             measure = track.create_empty_measure(mref.measure)
             track.measure_heap.append(measure)
             mref.measure_id = measure.id
 
         for track_id in affected_track_ids:
-            project.get_object(track_id).garbage_collect_measures()
+            cast(base_track.MeasuredTrack, project.get_object(track_id)).garbage_collect_measures()
 
 commands.Command.register_command(ClearMeasures)
 
@@ -265,12 +270,14 @@ class PasteMeasures(commands.Command):
             self.target_ids.extend(target_ids)
 
     def run(self, project):
-        assert isinstance(project, BaseProject)
+        assert isinstance(project, Project)
 
         src_measures = [project.deserialize_object(obj) for obj in self.src_objs]
         assert all(isinstance(obj, base_track.Measure) for obj in src_measures)
 
-        target_measures = [project.get_object(obj_id) for obj_id in self.target_ids]
+        target_measures = [
+            cast(base_track.MeasureReference, project.get_object(obj_id))
+            for obj_id in self.target_ids]
         assert all(isinstance(obj, base_track.MeasureReference) for obj in target_measures)
 
         affected_track_ids = set(obj.track.id for obj in target_measures)
@@ -278,17 +285,19 @@ class PasteMeasures(commands.Command):
 
         if self.mode == 'link':
             for target, src in zip(target_measures, itertools.cycle(src_measures)):
-                assert(any(src.id == m.id for m in target.track.measure_heap))
+                assert(any(
+                    src.id == m.id
+                    for m in cast(base_track.MeasuredTrack, target.track).measure_heap))
                 target.measure_id = src.id
 
         elif self.mode == 'overwrite':
-            measure_map = {}
+            measure_map = {}  # type: Dict[str, base_track.Measure]
             for target, src in zip(target_measures, itertools.cycle(src_measures)):
                 try:
                     measure = measure_map[src.id]
                 except KeyError:
                     measure = measure_map[src.id] = src.clone()
-                    target.track.measure_heap.append(measure)
+                    cast(base_track.MeasuredTrack, target.track).measure_heap.append(measure)
 
                 target.measure_id = measure.id
 
@@ -296,7 +305,7 @@ class PasteMeasures(commands.Command):
             raise ValueError(self.mode)
 
         for track_id in affected_track_ids:
-            project.get_object(track_id).garbage_collect_measures()
+            cast(base_track.MeasuredTrack, project.get_object(track_id)).garbage_collect_measures()
 
 commands.Command.register_command(PasteMeasures)
 
@@ -439,7 +448,8 @@ class JSONEncoder(json.JSONEncoder):
 
 class JSONDecoder(json.JSONDecoder):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, object_hook=self.object_hook, **kwargs)
+        # why does mypy complain about 'multiple values for keyword argument "object_hook"'?
+        super().__init__(*args, object_hook=self.object_hook, **kwargs)  # type: ignore
 
     def object_hook(self, obj):  # pylint: disable=method-hidden
         objtype = obj.get('__type__', None)
@@ -675,7 +685,8 @@ class Project(BaseProject):
 
     def load_from_checkpoint(self, checkpoint_data):
         parser = email.parser.BytesParser()
-        message = parser.parsebytes(checkpoint_data)
+        # mypy doesn't now about BytesParser.parsebytes.
+        message = parser.parsebytes(checkpoint_data)  # type: ignore
 
         version = int(message['Version'])
         if version not in self.SUPPORTED_VERSIONS:
@@ -764,7 +775,8 @@ class Project(BaseProject):
 
     def deserialize_command(self, cmd_data):
         parser = email.parser.BytesParser()
-        message = parser.parsebytes(cmd_data)
+        # mypy doesn't now about BytesParser.parsebytes.
+        message = parser.parsebytes(cmd_data)  # type: ignore
 
         target_id = message['Target']
         cmd_state = json.loads(message.get_payload(), cls=JSONDecoder)

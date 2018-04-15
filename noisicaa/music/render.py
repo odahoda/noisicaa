@@ -20,8 +20,8 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import asyncio
 import errno
@@ -81,7 +81,9 @@ class DataStreamProtocol(asyncio.Protocol):
 
 class EncoderProtocol(asyncio.streams.FlowControlMixin, asyncio.SubprocessProtocol):
     def __init__(self, *, data_handler, stderr_handler, failure_handler, event_loop):
-        super().__init__(loop=event_loop)
+        # mypy does know about the loop argument
+        super().__init__(loop=event_loop)  # type: ignore
+
         self.__closed = asyncio.Event(loop=event_loop)
 
         self.__data_handler = data_handler

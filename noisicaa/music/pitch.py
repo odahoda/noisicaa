@@ -20,28 +20,33 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
 # TODO: pylint-unclean
+# mypy: loose
 
 import re
+from typing import Dict, List, Tuple  # pylint: disable=unused-import
 
-NOTE_TO_MIDI = {}
-MIDI_TO_NOTE = {}
+NOTE_TO_MIDI = {}  # type: Dict[str, int]
+MIDI_TO_NOTE = {}  # type: Dict[int, str]
+
+note_names = [
+    ('C',),
+    ('C#', 'Db'),
+    ('D',),
+    ('D#', 'Eb'),
+    ('E',),
+    ('F',),
+    ('F#', 'Gb'),
+    ('G',),
+    ('G#', 'Ab'),
+    ('A',),
+    ('A#', 'Bb'),
+    ('B',)
+]  # type: List[Tuple[str, ...]]
 
 k = 0
 for o in range(10):
-    for n in [('C',),
-              ('C#', 'Db'),
-              ('D',),
-              ('D#', 'Eb'),
-              ('E',),
-              ('F',),
-              ('F#', 'Gb'),
-              ('G',),
-              ('G#', 'Ab'),
-              ('A',),
-              ('A#', 'Bb'),
-              ('B',)]:
+    for n in note_names:
         if k < 128:
             for p in n:
                 NOTE_TO_MIDI['%s%d' % (p, o)] = k
@@ -55,10 +60,10 @@ class Pitch(object):
 
     def __init__(self, name=None):
         if isinstance(name, Pitch):
-            self._is_rest = name._is_rest
-            self._value = name._value
-            self._accidental = name._accidental
-            self._octave = name._octave
+            self._is_rest = name._is_rest  # type: bool
+            self._value = name._value  # type: str
+            self._accidental = name._accidental  # type: str
+            self._octave = name._octave  # type: int
         elif name == 'r':
             self._is_rest = True
             self._value = None
