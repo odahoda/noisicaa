@@ -79,7 +79,7 @@ confidence=
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
-disable=fixme,missing-docstring,invalid-name,no-self-use,locally-disabled,star-args,len-as-condition,unused-argument,R
+disable=fixme,missing-docstring,invalid-name,no-self-use,locally-disabled,star-args,len-as-condition,unused-argument,protected-access,typecheck,bad-reversed-sequence,R
 
 #W1604,W1603,W1610,W1614,E1606,W1626,W1609,W0704,W1630,W1601,W1623,W1602,W1631,E1604,W1616,W1611,W1628,W1607,E1602,W1625,W1622,W1612,I0020,E1605,E1608,W1619,W1620,W1617,W1632,W1624,W1613,W1615,E1607,E1601,E1603,W1608,W1629,W1627,W1606,I0021,W1605,W1633,W1618,W1621
 
