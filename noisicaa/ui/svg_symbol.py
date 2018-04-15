@@ -20,16 +20,18 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import io
 import logging
 import os.path
 from xml.etree import ElementTree
+from typing import Dict, Tuple  # pylint: disable=unused-import
 
 from PyQt5 import QtCore
-from PyQt5.QtSvg import QSvgRenderer, QGraphicsSvgItem
-from PyQt5.QtWidgets import QGraphicsItemGroup
+# TODO: add stubs for PyQt5.QtSvg
+from PyQt5 import QtSvg  # type: ignore
+from PyQt5 import QtWidgets
 
 from noisicaa.constants import DATA_DIR
 from noisicaa import utils
@@ -55,7 +57,7 @@ def _fqattr(ns, attr):
 
 
 class SvgSymbol(object):
-    _cache = {}
+    _cache = {}  # type: Dict[str, SvgSymbol]
 
     def __init__(self, path):
         self._path = path
@@ -81,7 +83,7 @@ class SvgSymbol(object):
 
     @utils.memoize
     def get_renderer(self):
-        return QSvgRenderer(self.get_xml())
+        return QtSvg.QSvgRenderer(self.get_xml())
 
     @classmethod
     def get(cls, symbol_name):
@@ -107,8 +109,8 @@ def paintSymbol(painter, symbol_name, pos):
         box.translated(pos))
 
 
-class SymbolItem(QGraphicsItemGroup):
-    _cache = {}
+class SymbolItem(QtWidgets.QGraphicsItemGroup):
+    _cache = {}  # type: Dict[str, Tuple[QtSvg.QSvgRenderer, SvgSymbol]]
 
     def __init__(self, symbol, parent=None):
         super().__init__(parent)
@@ -120,14 +122,14 @@ class SymbolItem(QGraphicsItemGroup):
         except KeyError:
             path = os.path.join(DATA_DIR, 'symbols', '%s.svg' % self._symbol)
             svg_symbol = SvgSymbol(path)
-            renderer = QSvgRenderer(svg_symbol.get_xml())
+            renderer = QtSvg.QSvgRenderer(svg_symbol.get_xml())
             self._cache[self._symbol] = (renderer, svg_symbol)
 
-        self.grp = QGraphicsItemGroup(self)
+        self.grp = QtWidgets.QGraphicsItemGroup(self)
         origin_x, origin_y = svg_symbol.get_origin()
         self.grp.setPos(-origin_x, -origin_y)
 
-        self.body = QGraphicsSvgItem(self.grp)
+        self.body = QtSvg.QGraphicsSvgItem(self.grp)
         self.body.setSharedRenderer(renderer)
 
         # FIXME: conditionally enable bounding boxes

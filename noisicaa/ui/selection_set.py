@@ -20,9 +20,10 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import logging
+from typing import Set  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class Selectable(object):
 
 class SelectionSet(object):
     def __init__(self):
-        self.__selection_set = set()
+        self.__selection_set = set()  # type: Set[Selectable]
 
     def __iter__(self):
         yield from self.__selection_set

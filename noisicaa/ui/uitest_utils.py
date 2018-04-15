@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import asyncio
 import functools
@@ -28,6 +28,7 @@ import inspect
 import logging
 import os.path
 from unittest import mock
+from typing import Any, Dict, List, Tuple, Type  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -37,6 +38,8 @@ from noisidev import unittest
 from noisicaa import core
 from noisicaa import instrument_db
 from noisicaa import node_db
+from noisicaa import music  # pylint: disable=unused-import
+from noisicaa import devices  # pylint: disable=unused-import
 from noisicaa.runtime_settings import RuntimeSettings
 from noisicaa.constants import TEST_OPTS
 from .editor_app import BaseEditorApp
@@ -107,7 +110,7 @@ class TestContext(object):
 
 class MockSettings(object):
     def __init__(self):
-        self._data = {}
+        self._data = {}  # type: Dict[str, Any]
 
     def value(self, key, default):
         return self._data.get(key, default)
@@ -121,7 +124,7 @@ class MockSettings(object):
 
 class MockSequencer(object):
     def __init__(self):
-        self._ports = []
+        self._ports = []  # type: List[devices.PortInfo]
 
     def add_port(self, port_info):
         self._ports.append(port_info)
@@ -255,14 +258,14 @@ class UITest(unittest.AsyncTestCase):
         self.selection_set = selection_set.SelectionSet()
 
         self.project = model.Project(obj_id='project')
-        self.obj_map = {}
+        self.obj_map = {}  # type: Dict[str, Type[music.ObjectProxy]]
         self.project.init(None, self.obj_map)
         self.project.property_track = model.PropertyTrack(obj_id='prop-track')
 
-        self.session_data = {}
+        self.session_data = {}  # type: Dict[str, Any]
 
         self.context = TestContext(testcase=self)
-        self.commands = []
+        self.commands = []  # type: List[Tuple[str, str, Dict[str, Any]]]
 
     async def cleanup_testcase(self):
         if UITest.app is not None and UITest.app.process is not None:
@@ -284,7 +287,7 @@ class UITest(unittest.AsyncTestCase):
                 await asyncio.wait_for(self.instrument_db_process_task, None, loop=self.loop)
             await self.instrument_db_process.cleanup()
 
-    _snapshot_numbers = {}
+    _snapshot_numbers = {}  # type: Dict[Tuple[str, str], int]
 
     def create_snapshot(self, obj, zoom=1.0, raster=False):
         case_name = self.__class__.__name__

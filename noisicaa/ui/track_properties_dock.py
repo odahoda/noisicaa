@@ -20,15 +20,16 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import logging
-
+from typing import List  # pylint: disable=unused-import
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import core  # pylint: disable=unused-import
 from noisicaa import music
 from noisicaa.music import model
 from .dock_widget import DockWidget
@@ -45,7 +46,7 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
 
         self._track = track
 
-        self._listeners = []
+        self._listeners = []  # type: List[core.Listener]
 
         self._name = QtWidgets.QLineEdit(self)
         self._name.textEdited.connect(self.onNameEdited)
@@ -59,38 +60,30 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
         self._listeners.append(
             self._track.listeners.add('muted', self.onMutedChanged))
 
-        self._gain = QtWidgets.QDoubleSpinBox(
-            self,
-            suffix='dB',
-            minimum=-80.0, maximum=20.0, decimals=1,
-            singleStep=0.1, accelerated=True)
+        self._gain = QtWidgets.QDoubleSpinBox(self)
+        self._gain.setSuffix('dB')
+        self._gain.setRange(-80.0, 20.0)
+        self._gain.setDecimals(1)
+        self._gain.setSingleStep(0.1)
+        self._gain.setAccelerated(True)
         self._gain.valueChanged.connect(self.onGainEdited)
         self._gain.setVisible(True)
         self._gain.setValue(self._track.gain)
         self._gain.setEnabled(not self._track.muted)
-        self._listeners.append(
-            self._track.listeners.add('gain', self.onGainChanged))
+        self._listeners.append(self._track.listeners.add('gain', self.onGainChanged))
 
-        self._form_layout = QtWidgets.QFormLayout(spacing=1)
-        self._form_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
-        self._form_layout.addRow("Name", self._name)
-
-        gain_layout = QtWidgets.QHBoxLayout()
-        gain_layout.addWidget(self._muted)
-        gain_layout.addWidget(self._gain, 1)
-        self._form_layout.addRow("Gain", gain_layout)
-
-        self._pan = QtWidgets.QDoubleSpinBox(
-            self,
-            minimum=-1.0, maximum=1.0, decimals=2,
-            singleStep=0.1, accelerated=True)
+        self._pan = QtWidgets.QDoubleSpinBox(self)
+        self._pan.setRange(-1.0, 1.0)
+        self._pan.setDecimals(2)
+        self._pan.setSingleStep(0.1)
+        self._pan.setAccelerated(True)
         self._pan.valueChanged.connect(self.onPanEdited)
         self._pan.setVisible(True)
         self._pan.setValue(self._track.pan)
-        self._listeners.append(
-            self._track.listeners.add('pan', self.onPanChanged))
+        self._listeners.append(self._track.listeners.add('pan', self.onPanChanged))
 
-        self._form_layout = QtWidgets.QFormLayout(spacing=1)
+        self._form_layout = QtWidgets.QFormLayout()
+        self._form_layout.setSpacing(1)
         self._form_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         self._form_layout.addRow("Name", self._name)
 
@@ -156,33 +149,29 @@ class ScoreTrackProperties(TrackProperties):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._select_instrument = QtWidgets.QToolButton(
-            self,
-            icon=QtGui.QIcon.fromTheme('document-open'),
-            autoRaise=True)
+        self._select_instrument = QtWidgets.QToolButton(self)
+        self._select_instrument.setIcon(QtGui.QIcon.fromTheme('document-open'))
+        self._select_instrument.setAutoRaise(True)
         self._select_instrument.clicked.connect(self.onSelectInstrument)
 
-        self._instrument = QtWidgets.QLineEdit(self, readOnly=True)
+        self._instrument = QtWidgets.QLineEdit(self)
+        self._instrument.setReadOnly(True)
         if self._track.instrument is not None:
             self._instrument.setText(self._track.instrument)
         else:
             self._instrument.setText('---')
         self._listeners.append(
-            self._track.listeners.add(
-                'instrument', self.onInstrumentChanged))
+            self._track.listeners.add('instrument', self.onInstrumentChanged))
 
-        self._transpose_octaves = QtWidgets.QSpinBox(
-            self,
-            suffix=' octaves',
-            minimum=-4, maximum=4,
-            singleStep=1)
-        self._transpose_octaves.valueChanged.connect(
-            self.onTransposeOctavesEdited)
+        self._transpose_octaves = QtWidgets.QSpinBox(self)
+        self._transpose_octaves.setSuffix(' octaves')
+        self._transpose_octaves.setRange(-4, 4)
+        self._transpose_octaves.setSingleStep(1)
+        self._transpose_octaves.valueChanged.connect(self.onTransposeOctavesEdited)
         self._transpose_octaves.setVisible(True)
         self._transpose_octaves.setValue(self._track.transpose_octaves)
         self._listeners.append(
-            self._track.listeners.add(
-                'transpose_octaves', self.onTransposeOctavesChanged))
+            self._track.listeners.add('transpose_octaves', self.onTransposeOctavesChanged))
 
         instrument_layout = QtWidgets.QHBoxLayout()
         instrument_layout.addWidget(self._select_instrument)
@@ -247,7 +236,8 @@ class BeatTrackProperties(TrackProperties):
             autoRaise=True)
         self._select_instrument.clicked.connect(self.onSelectInstrument)
 
-        self._instrument = QtWidgets.QLineEdit(self, readOnly=True)
+        self._instrument = QtWidgets.QLineEdit(self)
+        self._instrument.setReadOnly(True)
         if self._track.instrument is not None:
             self._instrument.setText(self._track.instrument)
         else:

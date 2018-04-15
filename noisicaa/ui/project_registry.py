@@ -20,10 +20,11 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import logging
 import os.path
+from typing import Dict  # pylint: disable=unused-import
 
 from PyQt5 import QtCore
 
@@ -98,7 +99,7 @@ class ProjectRegistry(QtCore.QObject):
         self.tmp_dir = tmp_dir
         self.process_manager = process_manager
         self.node_db = node_db
-        self.projects = {}
+        self.projects = {}  # type: Dict[str, Project]
 
     def add_project(self, path):
         project = Project(

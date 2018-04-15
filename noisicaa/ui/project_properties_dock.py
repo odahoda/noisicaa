@@ -20,14 +20,16 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import logging
+from typing import List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 
+from noisicaa import core  # pylint: disable=unused-import
 from . import dock_widget
 from . import ui_base
 
@@ -38,16 +40,16 @@ class ProjectProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.__listeners = []
+        self.__listeners = []  # type: List[core.Listener]
 
         self.__bpm = QtWidgets.QSpinBox(self)
         self.__bpm.setRange(1, 1000)
         self.__bpm.valueChanged.connect(self.onBPMEdited)
         self.__bpm.setValue(self.project.bpm)
-        self.__listeners.append(
-            self.project.listeners.add('bpm', self.onBPMChanged))
+        self.__listeners.append(self.project.listeners.add('bpm', self.onBPMChanged))
 
-        self.__form_layout = QtWidgets.QFormLayout(spacing=1)
+        self.__form_layout = QtWidgets.QFormLayout()
+        self.__form_layout.setSpacing(1)
         self.__form_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         self.__form_layout.addRow("BPM", self.__bpm)
 

@@ -20,10 +20,11 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import math
 import time
+from typing import Any, List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -32,6 +33,9 @@ from PyQt5 import QtWidgets
 
 from . import ui_base
 
+# mypy doesn't understand capnp modules.
+perf_stats_capnp = Any
+
 
 class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
     visibilityChanged = QtCore.pyqtSignal(bool)
@@ -39,7 +43,7 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.history = []
+        self.history = []  # type: List[perf_stats_capnp.PerfStats]
         self.realtime = True
         self.current_spans = None
         self.max_fps = 20
@@ -53,18 +57,17 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.gantt_font = QtGui.QFont()
         self.gantt_font.setPixelSize(10)
 
-        self.pauseAction = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('media-playback-pause'),
-            "Play",
-            self, triggered=self.onToggleRealtime)
-        self.zoomInAction = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('zoom-in'),
-            "Zoom In",
-            self, triggered=self.onZoomIn)
-        self.zoomOutAction = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('zoom-out'),
-            "Zoom Out",
-            self, triggered=self.onZoomOut)
+        self.pauseAction = QtWidgets.QAction("Play", self)
+        self.pauseAction.setIcon(QtGui.QIcon.fromTheme('media-playback-pause'))
+        self.pauseAction.triggered.connect(self.onToggleRealtime)
+
+        self.zoomInAction = QtWidgets.QAction("Zoom In", self)
+        self.zoomInAction.setIcon(QtGui.QIcon.fromTheme('zoom-in'))
+        self.zoomInAction.triggered.connect(self.onZoomIn)
+
+        self.zoomOutAction = QtWidgets.QAction("Zoom Out", self)
+        self.zoomOutAction.setIcon(QtGui.QIcon.fromTheme('zoom-out'))
+        self.zoomOutAction.triggered.connect(self.onZoomOut)
 
         self.toolbar = QtWidgets.QToolBar()
         self.toolbar.addAction(self.pauseAction)

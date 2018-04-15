@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 # TODO: pylint-unclean
 
 import fractions
@@ -28,6 +28,7 @@ import functools
 import logging
 import time
 import uuid
+from typing import cast, Dict, List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -35,8 +36,10 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
+from noisicaa import core  # pylint: disable=unused-import
 from noisicaa import node_db
 from noisicaa.music import model
+from . import dock_widget  # pylint: disable=unused-import
 from . import tool_dock
 from . import project_properties_dock
 from . import tracks_dock
@@ -47,6 +50,7 @@ from . import ui_base
 from . import tools
 from . import render_dialog
 from . import selection_set
+from . import model as uimodel
 from .track_items import base_track_item
 from .track_items import score_track_item
 from .track_items import beat_track_item
@@ -194,7 +198,8 @@ class TimeViewMixin(object):
     scaleXChanged = QtCore.pyqtSignal(fractions.Fraction)
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        # This is a mixin class and actual super class is not object.
+        super().__init__(**kwargs)  # type: ignore
 
         # pixels per beat
         self.__scale_x = fractions.Fraction(500, 1)
@@ -253,7 +258,8 @@ class TimeViewMixin(object):
         self.scaleXChanged.emit(self.__scale_x)
 
     def resizeEvent(self, evt):
-        super().resizeEvent(evt)
+        # This is a mixin class and actual super class is not object.
+        super().resizeEvent(evt)  # type: ignore
 
         self.maximumXOffsetChanged.emit(self.maximumXOffset())
         self.pageWidthChanged.emit(self.width())
@@ -263,21 +269,24 @@ class TrackViewMixin(object):
     currentTrackChanged = QtCore.pyqtSignal(object)
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        # This is a mixin class and actual super class is not object.
+        super().__init__(**kwargs)  # type: ignore
 
         self.__current_track = None
-        self.__tracks = {}
-        self.__group_listeners = {}
+        self.__tracks = {}  # type: Dict[str, base_track_item.BaseTrackItem]
+        self.__group_listeners = {}  # type: Dict[str, core.Listener]
         self.__addTrack(self.project.master_group)
 
     async def setup(self):
-        await super().setup()
+        # This is a mixin class and actual super class is not object.
+        await super().setup()  # type: ignore
 
     async def cleanup(self):
         while len(self.__tracks) > 0:
             self.__removeTrack(next(self.__tracks.values()))
 
-        await super().cleanup()
+        # This is a mixin class and actual super class is not object.
+        await super().cleanup()  # type: ignore
 
     def tracks(self):
         return [
@@ -319,6 +328,7 @@ class TrackViewMixin(object):
 
     def __addSingleTrack(self, track):
         if isinstance(track, model.TrackGroup):
+            track = cast(uimodel.TrackGroup, track)
             listener = track.listeners.add(
                 'tracks',
                 functools.partial(self.__onTracksChanged, track))
@@ -921,16 +931,19 @@ class TimeLine(TimeViewMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
 
         if (not self.__player_state.playing()
             and self.__player_state.currentTime() is not None):
-            menu.addAction(QtWidgets.QAction(
-                "Set loop start", menu,
-                triggered=lambda _: self.onSetLoopStart(self.__player_state.currentTime())))
-            menu.addAction(QtWidgets.QAction(
-                "Set loop end", menu,
-                triggered=lambda _: self.onSetLoopEnd(self.__player_state.currentTime())))
+            set_loop_start = QtWidgets.QAction("Set loop start", menu)
+            set_loop_start.triggered.connect(
+                lambda _: self.onSetLoopStart(self.__player_state.currentTime()))
+            menu.addAction(set_loop_start)
 
-        menu.addAction(QtWidgets.QAction(
-            "Clear loop", menu,
-            triggered=lambda _: self.onClearLoop()))
+            set_loop_end = QtWidgets.QAction("Set loop end", menu)
+            set_loop_end.triggered.connect(
+                lambda _: self.onSetLoopEnd(self.__player_state.currentTime()))
+            menu.addAction(set_loop_end)
+
+        clear_loop = QtWidgets.QAction("Clear loop", menu)
+        clear_loop.triggered.connect(lambda _: self.onClearLoop())
+        menu.addAction(clear_loop)
 
         if not menu.isEmpty():
             menu.exec_(evt.globalPos())
@@ -1126,7 +1139,7 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
         super().__init__(parent=None, flags=Qt.Widget, context=context, **kwargs)
 
         self.__session_prefix = 'projectview:%s:' % self.project.id
-        self.__session_data_last_update = {}
+        self.__session_data_last_update = {}  # type: Dict[str, float]
 
         self.__player_id = None
         self.__player_stream_address = None
@@ -1222,7 +1235,7 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
             self.set_session_value, 'project_view/current_tab_index'))
         self.setCentralWidget(project_tab)
 
-        self._docks = []
+        self._docks = []  # type: List[dock_widget.DockWidget]
 
         self._tools_dock = tool_dock.ToolsDockWidget(parent=self, context=self.context)
         self._docks.append(self._tools_dock)

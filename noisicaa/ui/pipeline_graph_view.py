@@ -20,13 +20,14 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 # TODO: pylint-unclean
 
 import asyncio
 import functools
 import logging
 import math
+from typing import Dict, List, Set, Tuple  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -323,13 +324,13 @@ class ControlValuesConnector(object):
     def __init__(self, node):
         self.__node = node
 
-        self.__control_values = {}
+        self.__control_values = {}  # type: Dict[str, Tuple[float, int]]
         for port in self.__node.description.ports:
             if (port.direction == node_db.PortDescription.INPUT
                 and port.type == node_db.PortDescription.KRATE_CONTROL):
                 self.__control_values[port.name] = (port.float_value.default, 1)
 
-        self.__control_value_listeners = []
+        self.__control_value_listeners = []  # type: List[core.Listener]
         for control_value in self.__node.control_values:
             self.__control_values[control_value.name] = control_value.value
 
@@ -402,7 +403,7 @@ class ControlValueWidget(ui_base.ProjectMixin, QtCore.QObject):
         self.__connector = connector
         self.__parent = parent
 
-        self.__listeners = []
+        self.__listeners = []  # type: List[core.Listener]
         self.__generation = self.__connector.generation(self.__port.name)
 
         self.__widget = QtWidgets.QLineEdit(self.__parent)
@@ -454,38 +455,38 @@ class NodePropertyDialog(
 
         self._node_item = node_item
 
-        self.__listeners = []
+        self.__listeners = []  # type: List[core.Listener]
 
         self.__plugin_ui = None
 
-        self._preset_edit_metadata_action = QtWidgets.QAction(
-            "Edit metadata", self,
-            statusTip="Edit metadata associated with the current preset.",
-            triggered=self.onPresetEditMetadata)
-        self._preset_load_action = QtWidgets.QAction(
-            "Load", self,
-            statusTip="Load state from a preset.",
-            triggered=self.onPresetLoad)
-        self._preset_revert_action = QtWidgets.QAction(
-            "Revert", self,
-            statusTip="Load state from the current preset.",
-            triggered=self.onPresetRevert)
-        self._preset_save_action = QtWidgets.QAction(
-            "Save", self,
-            statusTip="Save state to the current preset.",
-            triggered=self.onPresetSave)
-        self._preset_save_as_action = QtWidgets.QAction(
-            "Save as", self,
-            statusTip="Save state to a new preset.",
-            triggered=self.onPresetSaveAs)
-        self._preset_import_action = QtWidgets.QAction(
-            "Import", self,
-            statusTip="Import state from a file.",
-            triggered=self.onPresetImport)
-        self._preset_export_action = QtWidgets.QAction(
-            "Export", self,
-            statusTip="Export state to a file.",
-            triggered=self.onPresetExport)
+        self._preset_edit_metadata_action = QtWidgets.QAction("Edit metadata", self)
+        self._preset_edit_metadata_action.setStatusTip(
+            "Edit metadata associated with the current preset.")
+        self._preset_edit_metadata_action.triggered.connect(self.onPresetEditMetadata)
+
+        self._preset_load_action = QtWidgets.QAction("Load", self)
+        self._preset_load_action.setStatusTip("Load state from a preset.")
+        self._preset_load_action.triggered.connect(self.onPresetLoad)
+
+        self._preset_revert_action = QtWidgets.QAction("Revert", self)
+        self._preset_revert_action.setStatusTip("Load state from the current preset.")
+        self._preset_revert_action.triggered.connect(self.onPresetRevert)
+
+        self._preset_save_action = QtWidgets.QAction("Save", self)
+        self._preset_save_action.setStatusTip("Save state to the current preset.")
+        self._preset_save_action.triggered.connect(self.onPresetSave)
+
+        self._preset_save_as_action = QtWidgets.QAction("Save as", self)
+        self._preset_save_as_action.setStatusTip("Save state to a new preset.")
+        self._preset_save_as_action.triggered.connect(self.onPresetSaveAs)
+
+        self._preset_import_action = QtWidgets.QAction("Import", self)
+        self._preset_import_action.setStatusTip("Import state from a file.")
+        self._preset_import_action.triggered.connect(self.onPresetImport)
+
+        self._preset_export_action = QtWidgets.QAction("Export", self)
+        self._preset_export_action.setStatusTip("Export state to a file.")
+        self._preset_export_action.triggered.connect(self.onPresetExport)
 
         menubar = QtWidgets.QMenuBar(self)
         preset_menu = menubar.addMenu("Preset")
@@ -511,8 +512,7 @@ class NodePropertyDialog(
         self._name.editingFinished.connect(self.onNameEdited)
         prop_layout.addRow("Name", self._name)
 
-        self.__listeners.append(
-            node.listeners.add('name', self.onNameChanged))
+        self.__listeners.append(node.listeners.add('name', self.onNameChanged))
 
         for port in self._node_item.node_description.ports:
             if (port.direction == node_db.PortDescription.OUTPUT
@@ -524,20 +524,19 @@ class NodePropertyDialog(
 
                 # TODO: port can be bypassable without dry/wet
                 if port.drywet_port:
-                    bypass_widget = QtWidgets.QToolButton(
-                        props, checkable=True, autoRaise=True)
+                    bypass_widget = QtWidgets.QToolButton(props)
+                    bypass_widget.setCheckable(True)
+                    bypass_widget.setAutoRaise(True)
                     bypass_widget.setText('B')
-                    bypass_widget.setChecked(
-                        port_property_values.get('bypass', False))
-                    drywet_widget = QtWidgets.QSlider(
-                        props,
-                        minimum=-100, maximum=100,
-                        orientation=Qt.Horizontal, tickInterval=20,
-                        tickPosition=QtWidgets.QSlider.TicksBothSides)
-                    drywet_widget.setEnabled(
-                        not port_property_values.get('bypass', False))
-                    drywet_widget.setValue(
-                        int(port_property_values.get('drywet', 0.0)))
+                    bypass_widget.setChecked(port_property_values.get('bypass', False))
+
+                    drywet_widget = QtWidgets.QSlider(props)
+                    drywet_widget.setRange(-100, 100)
+                    drywet_widget.setOrientation(Qt.Horizontal)
+                    drywet_widget.setTickInterval(20)
+                    drywet_widget.setTickPosition(QtWidgets.QSlider.TicksBothSides)
+                    drywet_widget.setEnabled(not port_property_values.get('bypass', False))
+                    drywet_widget.setValue(int(port_property_values.get('drywet', 0.0)))
 
                     bypass_widget.toggled.connect(functools.partial(
                         self.onPortBypassEdited, port, drywet_widget))
@@ -552,7 +551,7 @@ class NodePropertyDialog(
                         "Dry/wet (port <i>%s</i>)" % port.name, row_layout)
 
         self.__control_values = ControlValuesConnector(node)
-        self.__control_value_widgets = []
+        self.__control_value_widgets = []  # type: List[ControlValueWidget]
         for port in self._node_item.node_description.ports:
             if (port.direction == node_db.PortDescription.INPUT
                 and port.type == node_db.PortDescription.KRATE_CONTROL):
@@ -715,7 +714,7 @@ class NodeItem(ui_base.ProjectMixin, QtWidgets.QGraphicsRectItem):
         self._node = node
         self._view = view
 
-        self._listeners = []
+        self._listeners = []  # type: List[core.Listener]
 
         self._moving = False
         self._move_handle_pos = None
@@ -729,8 +728,8 @@ class NodeItem(ui_base.ProjectMixin, QtWidgets.QGraphicsRectItem):
         else:
             self.setBrush(Qt.white)
 
-        self.ports = {}
-        self.connections = set()
+        self.ports = {}  # type: Dict[str, Port]
+        self.connections = set()  # type: Set[ConnectionItem]
 
         label = QtWidgets.QGraphicsSimpleTextItem(self)
         label.setPos(2, 2)
@@ -761,8 +760,7 @@ class NodeItem(ui_base.ProjectMixin, QtWidgets.QGraphicsRectItem):
                 y = out_y
                 out_y += 20
 
-            port = Port(
-                self, self._node.id, port_desc)
+            port = Port(self, self._node.id, port_desc)
             port.setPos(x, y)
             self.ports[port_desc.name] = port
 
@@ -1026,25 +1024,24 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
 
         self._highlight_item = None
 
-        self._nodes = []
-        self._node_map = {}
+        self._nodes = []  # type: List[NodeItem]
+        self._node_map = {}  # type: Dict[str, NodeItem]
         for node in self.project.pipeline_graph_nodes:
-            item = NodeItem(node=node, view=self, context=self.context)
-            self._scene.addItem(item)
-            self._nodes.append(item)
-            self._node_map[node.id] = item
+            nitem = NodeItem(node=node, view=self, context=self.context)
+            self._scene.addItem(nitem)
+            self._nodes.append(nitem)
+            self._node_map[node.id] = nitem
 
         self._pipeline_graph_nodes_listener = self.project.listeners.add(
             'pipeline_graph_nodes', self.onPipelineGraphNodesChange)
 
-        self._connections = []
+        self._connections = []  # type: List[ConnectionItem]
         for connection in self.project.pipeline_graph_connections:
-            item = ConnectionItem(
-                connection=connection, view=self, context=self.context)
-            self._scene.addItem(item)
-            self._connections.append(item)
-            self._node_map[connection.source_node.id].connections.add(item)
-            self._node_map[connection.dest_node.id].connections.add(item)
+            citem = ConnectionItem(connection=connection, view=self, context=self.context)
+            self._scene.addItem(citem)
+            self._connections.append(citem)
+            self._node_map[connection.source_node.id].connections.add(citem)
+            self._node_map[connection.dest_node.id].connections.add(citem)
 
         self._pipeline_graph_connections_listener = self.project.listeners.add(
             'pipeline_graph_connections',
@@ -1287,13 +1284,12 @@ class NodeListDock(dock_widget.DockWidget):
         self._node_filter.addAction(
             QtGui.QIcon.fromTheme('edit-find'),
             QtWidgets.QLineEdit.LeadingPosition)
-        self._node_filter.addAction(
-            QtWidgets.QAction(
-                QtGui.QIcon.fromTheme('edit-clear'),
-                "Clear search string", self._node_filter,
-                triggered=self._node_filter.clear),
-            QtWidgets.QLineEdit.TrailingPosition)
         self._node_filter.textChanged.connect(self.onNodeFilterChanged)
+
+        clear_action = QtWidgets.QAction("Clear search string", self._node_filter)
+        clear_action.setIcon(QtGui.QIcon.fromTheme('edit-clear'))
+        clear_action.triggered.connect(self._node_filter.clear)
+        self._node_filter.addAction(clear_action, QtWidgets.QLineEdit.TrailingPosition)
 
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))

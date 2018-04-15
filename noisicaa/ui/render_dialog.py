@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import asyncio
 import enum
@@ -147,14 +147,16 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
             autoRaise=True)
         self.select_output_directory.clicked.connect(self.onSelectOutputDirectory)
 
-        self.output_directory = QtWidgets.QLineEdit(self.top_area, text=os.path.dirname(path))
+        self.output_directory = QtWidgets.QLineEdit(self.top_area)
+        self.output_directory.setText(os.path.dirname(path))
         self.output_directory.textChanged.connect(lambda _: self.validateOutputDirectory())
 
         self.output_directory_warning = QtWidgets.QLabel(self)
         self.output_directory_warning.setPixmap(
             QtGui.QIcon.fromTheme('dialog-warning').pixmap(24, 24))
 
-        self.file_name = QtWidgets.QLineEdit(self.top_area, text=os.path.basename(path))
+        self.file_name = QtWidgets.QLineEdit(self.top_area)
+        self.file_name.setText(os.path.basename(path))
         self.file_name.textChanged.connect(lambda _: self.validateFileName())
 
         self.file_name_warning = QtWidgets.QLabel(self)
@@ -275,11 +277,13 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
             music.RenderSettings.MP3: mp3_settings,
         }
 
-        self.progress = QtWidgets.QProgressBar(
-            self.top_area, minimum=0, maximum=100, visible=False)
+        self.progress = QtWidgets.QProgressBar(self.top_area)
+        self.progress.setRange(0, 100)
+        self.progress.setVisible(False)
         self.progress.setMinimumWidth(200)
 
-        self.status = QtWidgets.QLabel(self, visible=False)
+        self.status = QtWidgets.QLabel(self)
+        self.status.setVisible(False)
         font = QtGui.QFont(self.status.font())
         font.setWeight(QtGui.QFont.Bold)
         if font.pixelSize() != -1:
@@ -302,7 +306,8 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         spinner_layout.addWidget(self.spinner_label)
         self.spinner.setLayout(spinner_layout)
 
-        self.abort_button = QtWidgets.QPushButton("Abort", visible=False)
+        self.abort_button = QtWidgets.QPushButton("Abort")
+        self.abort_button.setVisible(False)
         self.abort_button.clicked.connect(self.onAbort)
 
         self.close_button = QtWidgets.QPushButton("Close")
@@ -311,12 +316,14 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.render_button = QtWidgets.QPushButton("Render")
         self.render_button.clicked.connect(self.onRender)
 
-        output_directory_layout = QtWidgets.QHBoxLayout(spacing=1)
+        output_directory_layout = QtWidgets.QHBoxLayout()
+        output_directory_layout.setSpacing(1)
         output_directory_layout.addWidget(self.output_directory, 1)
         output_directory_layout.addWidget(self.select_output_directory)
         output_directory_layout.addWidget(self.output_directory_warning)
 
-        file_name_layout = QtWidgets.QHBoxLayout(spacing=1)
+        file_name_layout = QtWidgets.QHBoxLayout()
+        file_name_layout.setSpacing(1)
         file_name_layout.addWidget(self.file_name, 1)
         file_name_layout.addWidget(self.file_name_warning)
 

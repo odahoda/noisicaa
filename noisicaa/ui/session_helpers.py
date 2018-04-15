@@ -20,10 +20,12 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
+
+from . import ui_base
 
 
-class ManagedWindowMixin(object):
+class ManagedWindowMixin(ui_base.ProjectMixin):
     def __init__(self, session_prefix, **kwargs):
         self.__init_done = False
         self.__session_prefix = session_prefix
@@ -56,19 +58,19 @@ class ManagedWindowMixin(object):
     def showEvent(self, evt):
         if self.__init_done:
             self.set_session_value('visible', True)
-        super().showEvent(evt)
+        super().showEvent(evt)  # type: ignore
 
     def hideEvent(self, evt):
         if self.__init_done:
             self.set_session_value('visible', False)
-        super().hideEvent(evt)
+        super().hideEvent(evt)  # type: ignore
 
     def moveEvent(self, evt):
         if self.__init_done and self.isVisible():
             self.set_session_values({'x': evt.pos().x(), 'y': evt.pos().y()})
-        super().moveEvent(evt)
+        super().moveEvent(evt)  # type: ignore
 
     def resizeEvent(self, evt):
         if self.__init_done and self.isVisible():
             self.set_session_values({'w': evt.size().width(), 'h': evt.size().height()})
-        super().resizeEvent(evt)
+        super().resizeEvent(evt)  # type: ignore

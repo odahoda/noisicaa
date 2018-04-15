@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets, QtGui

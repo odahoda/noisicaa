@@ -20,12 +20,13 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 # TODO: pylint-unclean
 
 import logging
 import enum
 import os.path
+from typing import Any, List, Dict, Iterator  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -97,18 +98,18 @@ class ToolType(enum.IntEnum):
 class ToolBase(ui_base.ProjectMixin, QtCore.QObject):
     cursorChanged = QtCore.pyqtSignal(QtGui.QCursor)
 
-    def __init__(self, *, type, group, **kwargs):
+    def __init__(self, *, type: ToolType, group: ToolGroup, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.type = type
         self.group = group
 
-    def iconName(self):
+    def iconName(self) -> str:
         raise NotImplementedError
 
-    def iconPath(self):
+    def iconPath(self) -> str:
         return os.path.join(constants.DATA_DIR, 'icons', '%s.svg' % self.iconName())
 
-    def cursor(self):
+    def cursor(self) -> QtGui.QCursor:
         return QtGui.QCursor(Qt.ArrowCursor)
 
     def _mouseMoveEvent(self, target, evt):
@@ -158,20 +159,20 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
     toolTypeChanged = QtCore.pyqtSignal(ToolType)
     currentToolChanged = QtCore.pyqtSignal(ToolBase)
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__tools = []
-        self.__groups = []
-        self.__tool_map = {}
-        self.__current_tool_in_group = {}
-        self.__current_tool = None
-        self.__previous_tool = None
+        self.__tools = []  # type: List[ToolBase]
+        self.__groups = []  # type: List[ToolGroup]
+        self.__tool_map = {}  # type: Dict[ToolType, ToolBase]
+        self.__current_tool_in_group = {}  # type: Dict[ToolGroup, ToolType]
+        self.__current_tool = None  # type: ToolBase
+        self.__previous_tool = None  # type: ToolBase
 
-    def tools(self):
+    def tools(self) -> Iterator[ToolBase]:
         return iter(self.__tools)
 
-    def addTool(self, tool):
+    def addTool(self, tool: ToolBase) -> None:
         assert tool.type not in self.__tool_map
 
         self.__tools.append(tool)
@@ -183,13 +184,13 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
         if tool.group not in self.__current_tool_in_group:
             self.__current_tool_in_group[tool.group] = tool.type
 
-    def currentTool(self):
+    def currentTool(self) -> ToolBase:
         return self.__current_tool
 
-    def currentToolType(self):
+    def currentToolType(self) -> ToolType:
         return self.__current_tool.type
 
-    def setCurrentToolType(self, type):
+    def setCurrentToolType(self, type: ToolType) -> None:
         if type != self.__current_tool.type:
             self.__previous_tool = self.__current_tool
             self.__current_tool = self.__tool_map[type]
@@ -197,7 +198,7 @@ class ToolBox(ui_base.ProjectMixin, QtCore.QObject):
             self.toolTypeChanged.emit(self.__current_tool.type)
             self.currentToolChanged.emit(self.__current_tool)
 
-    def setPreviousTool(self):
+    def setPreviousTool(self) -> None:
         if self.__previous_tool is not None:
             if self.__previous_tool is not self.__current_tool:
                 self.__current_tool = self.__previous_tool

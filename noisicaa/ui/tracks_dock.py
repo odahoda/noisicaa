@@ -20,22 +20,25 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 # TODO: pylint-unclean
 
 import functools
 import logging
 import os.path
+from typing import cast, List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from .dock_widget import DockWidget
-from ..constants import DATA_DIR
-from . import ui_base
+from noisicaa import core  # pylint: disable=unused-import
+from noisicaa.constants import DATA_DIR
 from noisicaa.music import model
+from . import dock_widget
+from . import ui_base
+from . import model as uimodel
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +47,8 @@ class TracksModelItem(object):
     def __init__(self, track, parent):
         self.track = track
         self.parent = parent
-        self.children = []
-        self.listeners = []
+        self.children = []  # type: List[TracksModelItem]
+        self.listeners = []  # type: List[core.Listener]
 
     def walk(self):
         yield self
@@ -64,24 +67,19 @@ class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractItemModel):
 
         self._root_item = self._buildItem(self.project.master_group, None)
 
-        self._score_icon = QtGui.QIcon(
-                os.path.join(DATA_DIR, 'icons', 'track-type-score.svg'))
-        self._beat_icon = QtGui.QIcon(
-                os.path.join(DATA_DIR, 'icons', 'track-type-beat.svg'))
-        self._control_icon = QtGui.QIcon(
-                os.path.join(DATA_DIR, 'icons', 'track-type-control.svg'))
-        self._sample_icon = QtGui.QIcon(
-                os.path.join(DATA_DIR, 'icons', 'track-type-sample.svg'))
-        self._group_icon = QtGui.QIcon(
-                os.path.join(DATA_DIR, 'icons', 'track-type-group.svg'))
+        self._score_icon = QtGui.QIcon(os.path.join(DATA_DIR, 'icons', 'track-type-score.svg'))
+        self._beat_icon = QtGui.QIcon(os.path.join(DATA_DIR, 'icons', 'track-type-beat.svg'))
+        self._control_icon = QtGui.QIcon(os.path.join(DATA_DIR, 'icons', 'track-type-control.svg'))
+        self._sample_icon = QtGui.QIcon(os.path.join(DATA_DIR, 'icons', 'track-type-sample.svg'))
+        self._group_icon = QtGui.QIcon(os.path.join(DATA_DIR, 'icons', 'track-type-group.svg'))
 
     def _buildItem(self, track, parent):
         item = TracksModelItem(track, parent)
 
         if isinstance(track, model.TrackGroup):
+            track = cast(uimodel.TrackGroup, track)
             for child_track in track.tracks:
-                item.children.append(
-                    self._buildItem(child_track, item))
+                item.children.append(self._buildItem(child_track, item))
 
             item.listeners.append(
                 track.listeners.add(
@@ -387,7 +385,7 @@ class TrackList(QtWidgets.QTreeView):
         self.currentIndexChanged.emit(current)
 
 
-class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
+class TracksDockWidget(ui_base.ProjectMixin, dock_widget.DockWidget):
     currentTrackChanged = QtCore.pyqtSignal(object)
 
     def __init__(self, **kwargs):
@@ -399,31 +397,35 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
             initial_visible=True,
             **kwargs)
 
-        self._add_score_track_action = QtWidgets.QAction(
-            QtGui.QIcon(
-                os.path.join(DATA_DIR, 'icons', 'track-type-score.svg')),
-            "Score track", self,
-            triggered=functools.partial(self.onAddClicked, 'score'))
-        self._add_beat_track_action = QtWidgets.QAction(
-            QtGui.QIcon(
-                os.path.join(DATA_DIR, 'icons', 'track-type-beat.svg')),
-            "Beat track", self,
-            triggered=functools.partial(self.onAddClicked, 'beat'))
-        self._add_control_track_action = QtWidgets.QAction(
-            QtGui.QIcon(
-                os.path.join(DATA_DIR, 'icons', 'track-type-control.svg')),
-            "Control track", self,
-            triggered=functools.partial(self.onAddClicked, 'control'))
-        self._add_sample_track_action = QtWidgets.QAction(
-            QtGui.QIcon(
-                os.path.join(DATA_DIR, 'icons', 'track-type-sample.svg')),
-            "Sample track", self,
-            triggered=functools.partial(self.onAddClicked, 'sample'))
-        self._add_track_group_action = QtWidgets.QAction(
-            QtGui.QIcon(
-                os.path.join(DATA_DIR, 'icons', 'track-type-group.svg')),
-            "Group", self,
-            triggered=functools.partial(self.onAddClicked, 'group'))
+        self._add_score_track_action = QtWidgets.QAction("Score track", self)
+        self._add_score_track_action.setIcon(
+            QtGui.QIcon(os.path.join(DATA_DIR, 'icons', 'track-type-score.svg')))
+        self._add_score_track_action.triggered.connect(
+            functools.partial(self.onAddClicked, 'score'))
+
+        self._add_beat_track_action = QtWidgets.QAction("Beat track", self)
+        self._add_beat_track_action.setIcon(
+            QtGui.QIcon(os.path.join(DATA_DIR, 'icons', 'track-type-beat.svg')))
+        self._add_beat_track_action.triggered.connect(
+            functools.partial(self.onAddClicked, 'beat'))
+
+        self._add_control_track_action = QtWidgets.QAction("Control track", self)
+        self._add_control_track_action.setIcon(
+            QtGui.QIcon(os.path.join(DATA_DIR, 'icons', 'track-type-control.svg')))
+        self._add_control_track_action.triggered.connect(
+            functools.partial(self.onAddClicked, 'control'))
+
+        self._add_sample_track_action = QtWidgets.QAction("Sample track", self)
+        self._add_sample_track_action.setIcon(
+            QtGui.QIcon(os.path.join(DATA_DIR, 'icons', 'track-type-sample.svg')))
+        self._add_sample_track_action.triggered.connect(
+            functools.partial(self.onAddClicked, 'sample'))
+
+        self._add_track_group_action = QtWidgets.QAction("Group", self)
+        self._add_track_group_action.setIcon(
+            QtGui.QIcon(os.path.join(DATA_DIR, 'icons', 'track-type-group.svg')))
+        self._add_track_group_action.triggered.connect(
+            functools.partial(self.onAddClicked, 'group'))
 
         self._add_track_menu = QtWidgets.QMenu()
         self._add_track_menu.addAction(self._add_score_track_action)
@@ -432,44 +434,46 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         self._add_track_menu.addAction(self._add_sample_track_action)
         self._add_track_menu.addAction(self._add_track_group_action)
 
-        self._add_button = QtWidgets.QToolButton(
-            icon=QtGui.QIcon.fromTheme('list-add'),
-            iconSize=QtCore.QSize(16, 16),
-            autoRaise=True)
+        self._add_button = QtWidgets.QToolButton()
+        self._add_button.setIcon(QtGui.QIcon.fromTheme('list-add'))
+        self._add_button.setIconSize(QtCore.QSize(16, 16))
+        self._add_button.setAutoRaise(True)
         self._add_button.setMenu(self._add_track_menu)
         self._add_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
 
-        self._remove_button = QtWidgets.QToolButton(
-            icon=QtGui.QIcon.fromTheme('list-remove'),
-            iconSize=QtCore.QSize(16, 16),
-            autoRaise=True,
-            enabled=False)
+        self._remove_button = QtWidgets.QToolButton()
+        self._remove_button.setIcon(QtGui.QIcon.fromTheme('list-remove'))
+        self._remove_button.setIconSize(QtCore.QSize(16, 16))
+        self._remove_button.setAutoRaise(True)
+        self._remove_button.setEnabled(False)
         self._remove_button.clicked.connect(self.onRemoveClicked)
 
-        self._move_up_button = QtWidgets.QToolButton(
-            icon=QtGui.QIcon.fromTheme('go-up'),
-            iconSize=QtCore.QSize(16, 16),
-            autoRaise=True,
-            enabled=False)
+        self._move_up_button = QtWidgets.QToolButton()
+        self._move_up_button.setIcon(QtGui.QIcon.fromTheme('go-up'))
+        self._move_up_button.setIconSize(QtCore.QSize(16, 16))
+        self._move_up_button.setAutoRaise(True)
+        self._move_up_button.setEnabled(False)
         self._move_up_button.clicked.connect(self.onMoveUpClicked)
-        self._move_down_button = QtWidgets.QToolButton(
-            icon=QtGui.QIcon.fromTheme('go-down'),
-            iconSize=QtCore.QSize(16, 16),
-            autoRaise=True,
-            enabled=False)
+
+        self._move_down_button = QtWidgets.QToolButton()
+        self._move_down_button.setIcon(QtGui.QIcon.fromTheme('go-down'))
+        self._move_down_button.setIconSize(QtCore.QSize(16, 16))
+        self._move_down_button.setAutoRaise(True)
+        self._move_down_button.setEnabled(False)
         self._move_down_button.clicked.connect(self.onMoveDownClicked)
 
-        self._move_left_button = QtWidgets.QToolButton(
-            icon=QtGui.QIcon.fromTheme('go-previous'),
-            iconSize=QtCore.QSize(16, 16),
-            autoRaise=True,
-            enabled=False)
+        self._move_left_button = QtWidgets.QToolButton()
+        self._move_left_button.setIcon(QtGui.QIcon.fromTheme('go-previous'))
+        self._move_left_button.setIconSize(QtCore.QSize(16, 16))
+        self._move_left_button.setAutoRaise(True)
+        self._move_left_button.setEnabled(False)
         self._move_left_button.clicked.connect(self.onMoveLeftClicked)
-        self._move_right_button = QtWidgets.QToolButton(
-            icon=QtGui.QIcon.fromTheme('go-next'),
-            iconSize=QtCore.QSize(16, 16),
-            autoRaise=True,
-            enabled=False)
+
+        self._move_right_button = QtWidgets.QToolButton()
+        self._move_right_button.setIcon(QtGui.QIcon.fromTheme('go-next'))
+        self._move_right_button.setIconSize(QtCore.QSize(16, 16))
+        self._move_right_button.setAutoRaise(True)
+        self._move_right_button.setEnabled(False)
         self._move_right_button.clicked.connect(self.onMoveRightClicked)
 
         self._tracks_list = TrackList(self)
@@ -478,7 +482,8 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         self._model = TracksModel(context=self.context)
         self._tracks_list.setModel(self._model)
 
-        buttons_layout = QtWidgets.QHBoxLayout(spacing=1)
+        buttons_layout = QtWidgets.QHBoxLayout()
+        buttons_layout.setSpacing(1)
         buttons_layout.addWidget(self._add_button)
         buttons_layout.addWidget(self._remove_button)
         buttons_layout.addWidget(self._move_up_button)
@@ -487,7 +492,8 @@ class TracksDockWidget(ui_base.ProjectMixin, DockWidget):
         buttons_layout.addWidget(self._move_right_button)
         buttons_layout.addStretch(1)
 
-        main_layout = QtWidgets.QVBoxLayout(spacing=1)
+        main_layout = QtWidgets.QVBoxLayout()
+        main_layout.setSpacing(1)
         main_layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         main_layout.addWidget(self._tracks_list, 1)
         main_layout.addLayout(buttons_layout)

@@ -20,12 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-# TODO: pylint-unclean
-
-# Still need to figure out how to pass around the app reference, disable
-# message "Access to a protected member .. of a client class"
-# pylint: disable=W0212
+# mypy: loose
 
 import asyncio
 import bisect
@@ -34,6 +29,7 @@ import pathlib
 import pprint
 import textwrap
 import uuid
+from typing import List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -82,11 +78,12 @@ class Item(object):
         yield self
 
 
-class AbstractFolder(Item):
-    def __init__(self, **kwargs):
+class AbstractFolder(Item):  # pylint: disable=abstract-method
+    def __init__(self, *, path, **kwargs):
         super().__init__(**kwargs)
 
-        self.children = []
+        self.path = path
+        self.children = []  # type: List[Item]
 
     def walk(self):
         yield from super().walk()
@@ -95,8 +92,8 @@ class AbstractFolder(Item):
 
 
 class Root(AbstractFolder):
-    def __init__(self):
-        super().__init__(parent=None)
+    def __init__(self, **kwargs):
+        super().__init__(parent=None, **kwargs)
 
     @property
     def key(self):
@@ -108,11 +105,6 @@ class Root(AbstractFolder):
 
 
 class Folder(AbstractFolder):
-    def __init__(self, *, path, **kwargs):
-        super().__init__(**kwargs)
-
-        self.path = path
-
     @property
     def key(self):
         return (0, str(self.path).lower(), str(self.path))
@@ -140,13 +132,13 @@ class LibraryModel(ui_base.CommonMixin, QtCore.QAbstractItemModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.__root_item = Root()
+        self.__root_item = Root(path='/')
 
     def close(self):
         self.__root_item = None
 
     def clear(self):
-        self.__root_item = Root()
+        self.__root_item = Root(path='/')
 
     def addInstrument(self, description):
         parent = self.__root_item
@@ -227,7 +219,7 @@ class LibraryModel(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         if parent is None:
             parent = self.__root_item
 
-        path = []
+        path = []  # type: List[str]
         folder = parent
         while folder.parent is not None:
             path.insert(0, folder.display_name)
@@ -389,25 +381,24 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.__instrument_lock = asyncio.Lock(loop=self.event_loop)
 
-        self.__pipeline_mixer_id = None
-        self.__pipeline_instrument_id = None
-        self.__pipeline_event_source_id = None
+        self.__pipeline_mixer_id = None  # type: str
+        self.__pipeline_instrument_id = None  # type: str
+        self.__pipeline_event_source_id = None  # type: str
 
         self.__instrument_mutation_listener = None
 
         self.__instrument = None
-        self.__instrument_loader_task = None
-        self.__instrument_queue = asyncio.Queue(loop=self.event_loop)
+        self.__instrument_loader_task = None  # type: asyncio.Task
+        self.__instrument_queue = asyncio.Queue(loop=self.event_loop)  # type: asyncio.Queue
 
         self.setWindowTitle("noisicaä - Instrument Library")
 
         menubar = QtWidgets.QMenuBar(self)
         library_menu = menubar.addMenu("Library")
 
-        rescan_action = QtWidgets.QAction(
-            "Rescan", self,
-            statusTip="Rescan library for updates.",
-            triggered=self.onRescan)
+        rescan_action = QtWidgets.QAction("Rescan", self)
+        rescan_action.setStatusTip("Rescan library for updates.")
+        rescan_action.triggered.connect(self.onRescan)
         library_menu.addAction(rescan_action)
 
         splitter = QtWidgets.QSplitter(self)
@@ -422,9 +413,13 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.instruments_search = QtWidgets.QLineEdit(self)
         layout.addWidget(self.instruments_search)
-        self.instruments_search.addAction(QtGui.QIcon.fromTheme('edit-find'), QtWidgets.QLineEdit.LeadingPosition)
-        action = QtWidgets.QAction(QtGui.QIcon.fromTheme('edit-clear'), "Clear search string", self.instruments_search, triggered=self.instruments_search.clear)
-        self.instruments_search.addAction(action, QtWidgets.QLineEdit.TrailingPosition)
+        search_action = QtWidgets.QAction()
+        search_action.setIcon(QtGui.QIcon.fromTheme('edit-find'))
+        self.instruments_search.addAction(search_action, QtWidgets.QLineEdit.LeadingPosition)
+        clear_action = QtWidgets.QAction("Clear search string", self.instruments_search)
+        clear_action.setIcon(QtGui.QIcon.fromTheme('edit-clear'))
+        clear_action.triggered.connect(self.instruments_search.clear)
+        self.instruments_search.addAction(clear_action, QtWidgets.QLineEdit.TrailingPosition)
         self.instruments_search.textChanged.connect(self.onInstrumentSearchChanged)
 
         self.__model = LibraryModel(context=self.context)
@@ -445,10 +440,12 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         form_layout = QtWidgets.QFormLayout()
         layout.addLayout(form_layout)
 
-        self.instrument_name = QtWidgets.QLineEdit(self, readOnly=True)
+        self.instrument_name = QtWidgets.QLineEdit(self)
+        self.instrument_name.setReadOnly(True)
         form_layout.addRow("Name", self.instrument_name)
 
-        self.instrument_data = QtWidgets.QTextEdit(self, readOnly=True)
+        self.instrument_data = QtWidgets.QTextEdit(self)
+        self.instrument_data.setReadOnly(True)
         form_layout.addRow("Description", self.instrument_data)
 
         layout.addStretch(1)

@@ -20,9 +20,10 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import functools
+from typing import List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -38,7 +39,7 @@ class FlowLayout(QtWidgets.QLayout):
 
         self.setSpacing(spacing)
 
-        self.itemList = []
+        self.itemList = []  # type: List[QtWidgets.QWidget]
 
     def __del__(self):
         item = self.takeAt(0)
@@ -93,7 +94,7 @@ class FlowLayout(QtWidgets.QLayout):
             size = size.expandedTo(item.minimumSize())
 
         margin, _, _, _ = self.getContentsMargins()
-        size += QtCore.QSize(2 * margin, 2 * margin)
+        size = QtCore.QSize(size.width() + 2 * margin, size.height() + 2 * margin)
         return size
 
     def doLayout(self, rect, testOnly):

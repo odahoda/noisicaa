@@ -1,5 +1,7 @@
 # -*- org-tags-column: -98 -*-
 
+* Remove PipelineGraphMonitor                                                            :CLEANUP:
+* Add stubs for PyQt5.QtSvg                                                           :FR:TESTING:
 * Make control value generations work with undo                                              :BUG:
 - generation must also increment, when value change is caused by undo
 - track generation outside of model
@@ -905,9 +907,6 @@ All compatible with GPL?
 * SampleInstrument: tuning								      :FR:
 Set the base tuning of the instrument.
 - also look at sample rate (ftsr function)
-
-* reanimate PipelineGraphMonitor							     :BUG:
-- doesn't know how to handle changing address of audioproc process
 
 * Control tracks									      :FR:
 Any controllable value can be turned into a control track.

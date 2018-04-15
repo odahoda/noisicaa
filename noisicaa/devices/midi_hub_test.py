@@ -90,7 +90,7 @@ class MidiHubTest(unittest.TestCase):
     def test_start_stop(self):
         hub = midi_hub.MidiHub(self.seq)
         hub.start()
-        hub.sequencer.wait_until_done()
+        self.seq.wait_until_done()
         hub.stop()
 
     def test_stop_before_start(self):
@@ -105,7 +105,7 @@ class MidiHubTest(unittest.TestCase):
         callback = mock.Mock()
         with midi_hub.MidiHub(self.seq) as hub:
             listener = hub.listeners.add('10/14', callback)
-            hub.sequencer.wait_until_done()
+            self.seq.wait_until_done()
             listener.remove()
 
         callback.assert_called_with(
@@ -122,7 +122,7 @@ class MidiHubTest(unittest.TestCase):
         with midi_hub.MidiHub(self.seq) as hub:
             listener1 = hub.listeners.add('10/14', callback1)
             listener2 = hub.listeners.add('10/14', callback2)
-            hub.sequencer.wait_until_done()
+            self.seq.wait_until_done()
             listener1.remove()
             listener2.remove()
 

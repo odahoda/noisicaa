@@ -20,13 +20,10 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
-
-# Still need to figure out how to pass around the app reference, disable
-# message "Access to a protected member .. of a client class"
-# pylint: disable=W0212
+# mypy: loose
 
 import math
+from typing import Dict  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QPalette, QPen, QBrush, QColor
@@ -101,8 +98,8 @@ class PianoKeys(QGraphicsView):
         self._scene = QGraphicsScene(self)
         self.setScene(self._scene)
 
-        self._keys = {}
-        self._midi_to_key = {}
+        self._keys = {}  # type: Dict[str, PianoKey]
+        self._midi_to_key = {}  # type: Dict[int, PianoKey]
         for octave in range(2, 7):
             for idx, note in enumerate(['C', 'D', 'E', 'F', 'G', 'A', 'B']):
                 pitch_name = '%s%d' % (note, octave)

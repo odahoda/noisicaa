@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import logging
 
@@ -86,11 +86,11 @@ class ToolsDockWidget(ui_base.ProjectMixin, dock_widget.DockWidget):
 
         if self.__tool_box is not None:
             for tool in self.__tool_box.tools():
-                button = QtWidgets.QToolButton(
-                    icon=QtGui.QIcon(tool.iconPath()),
-                    iconSize=QtCore.QSize(32, 32),
-                    autoRaise=True,
-                    checkable=True)
+                button = QtWidgets.QToolButton()
+                button.setIcon(QtGui.QIcon(tool.iconPath()))
+                button.setIconSize(QtCore.QSize(32, 32))
+                button.setAutoRaise(True)
+                button.setCheckable(True)
                 button.setChecked(tool.type == self.__tool_box.currentToolType())
                 self.__group.addButton(button, tool.type.value)
                 layout.addWidget(button)

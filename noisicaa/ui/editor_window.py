@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 # TODO: pylint-unclean
 
 # Still need to figure out how to pass around the app reference, disable
@@ -29,6 +29,7 @@
 
 import logging
 import textwrap
+from typing import List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -44,6 +45,7 @@ from ..importers.abc import ABCImporter, ImporterError
 from . import ui_base
 from . import instrument_library
 from . import qprogressindicator
+from . import dock_widget  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._docks = []
+        self._docks = []  # type: List[dock_widget.DockWidget]
         self._settings_dialog = SettingsDialog(parent=self, context=self.context)
 
         self._instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
@@ -136,166 +138,148 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         return view
 
     def createActions(self):
-        self._new_project_action = QtWidgets.QAction(
-            "New", self,
-            shortcut=QtGui.QKeySequence.New,
-            statusTip="Create a new project",
-            triggered=self.onNewProject)
+        self._new_project_action = QtWidgets.QAction("New", self)
+        self._new_project_action.setShortcut(QtGui.QKeySequence.New)
+        self._new_project_action.setStatusTip("Create a new project")
+        self._new_project_action.triggered.connect(self.onNewProject)
 
-        self._open_project_action = QtWidgets.QAction(
-            "Open", self,
-            shortcut=QtGui.QKeySequence.Open,
-            statusTip="Open an existing project",
-            triggered=self.onOpenProject)
+        self._open_project_action = QtWidgets.QAction("Open", self)
+        self._open_project_action.setShortcut(QtGui.QKeySequence.Open)
+        self._open_project_action.setStatusTip("Open an existing project")
+        self._open_project_action.triggered.connect(self.onOpenProject)
 
-        self._import_action = QtWidgets.QAction(
-            "Import", self,
-            statusTip="Import a file into the current project.",
-            triggered=self.onImport)
+        self._import_action = QtWidgets.QAction("Import", self)
+        self._import_action.setStatusTip("Import a file into the current project.")
+        self._import_action.triggered.connect(self.onImport)
 
-        self._render_action = QtWidgets.QAction(
-            "Render", self,
-            statusTip="Render project into an audio file.",
-            triggered=self.onRender)
+        self._render_action = QtWidgets.QAction("Render", self)
+        self._render_action.setStatusTip("Render project into an audio file.")
+        self._render_action.triggered.connect(self.onRender)
 
-        self._save_project_action = QtWidgets.QAction(
-            "Save", self,
-            shortcut=QtGui.QKeySequence.Save,
-            statusTip="Save the current project",
-            triggered=self.onSaveProject)
+        self._save_project_action = QtWidgets.QAction("Save", self)
+        self._save_project_action.setShortcut(QtGui.QKeySequence.Save)
+        self._save_project_action.setStatusTip("Save the current project")
+        self._save_project_action.triggered.connect(self.onSaveProject)
 
-        self._close_current_project_action = QtWidgets.QAction(
-            "Close", self,
-            shortcut=QtGui.QKeySequence.Close,
-            statusTip="Close the current project",
-            triggered=self.onCloseCurrentProjectTab,
-            enabled=False)
+        self._close_current_project_action = QtWidgets.QAction("Close", self)
+        self._close_current_project_action.setShortcut(QtGui.QKeySequence.Close)
+        self._close_current_project_action.setStatusTip("Close the current project")
+        self._close_current_project_action.triggered.connect(self.onCloseCurrentProjectTab)
+        self._close_current_project_action.setEnabled(False)
 
-        self._undo_action = QtWidgets.QAction(
-            "Undo", self,
-            shortcut=QtGui.QKeySequence.Undo,
-            statusTip="Undo most recent action",
-            triggered=self.onUndo)
+        self._undo_action = QtWidgets.QAction("Undo", self)
+        self._undo_action.setShortcut(QtGui.QKeySequence.Undo)
+        self._undo_action.setStatusTip("Undo most recent action")
+        self._undo_action.triggered.connect(self.onUndo)
 
-        self._redo_action = QtWidgets.QAction(
-            "Redo", self,
-            shortcut=QtGui.QKeySequence.Redo,
-            statusTip="Redo most recently undone action",
-            triggered=self.onRedo)
+        self._redo_action = QtWidgets.QAction("Redo", self)
+        self._redo_action.setShortcut(QtGui.QKeySequence.Redo)
+        self._redo_action.setStatusTip("Redo most recently undone action")
+        self._redo_action.triggered.connect(self.onRedo)
 
-        self._clear_selection_action = QtWidgets.QAction(
-            "Clear", self,
-            statusTip="Clear the selected items",
-            triggered=self.onClearSelection)
+        self._clear_selection_action = QtWidgets.QAction("Clear", self)
+        self._clear_selection_action.setStatusTip("Clear the selected items")
+        self._clear_selection_action.triggered.connect(self.onClearSelection)
 
-        self._copy_action = QtWidgets.QAction(
-            "Copy", self,
-            shortcut=QtGui.QKeySequence.Copy,
-            statusTip="Copy current selected items to clipboard",
-            triggered=self.onCopy)
+        self._copy_action = QtWidgets.QAction("Copy", self)
+        self._copy_action.setShortcut(QtGui.QKeySequence.Copy)
+        self._copy_action.setStatusTip("Copy current selected items to clipboard")
+        self._copy_action.triggered.connect(self.onCopy)
 
-        self._paste_as_link_action = QtWidgets.QAction(
-            "Paste as link", self,
-            statusTip=("Paste items from clipboard to current location as"
-                       " linked items"),
-            triggered=self.onPasteAsLink)
+        self._paste_as_link_action = QtWidgets.QAction("Paste as link", self)
+        self._paste_as_link_action.setStatusTip(
+            "Paste items from clipboard to current location as linked items")
+        self._paste_as_link_action.triggered.connect(self.onPasteAsLink)
 
-        self._paste_action = QtWidgets.QAction(
-            "Paste", self,
-            shortcut=QtGui.QKeySequence.Paste,
-            statusTip="Paste items from clipboard to current location",
-            triggered=self.onPaste)
+        self._paste_action = QtWidgets.QAction("Paste", self)
+        self._paste_action.setShortcut(QtGui.QKeySequence.Paste)
+        self._paste_action.setStatusTip("Paste items from clipboard to current location")
+        self._paste_action.triggered.connect(self.onPaste)
 
-        self._set_num_measures_action = QtWidgets.QAction(
-            "Set # measures", self,
-            statusTip="Set the number of measures in the project",
-            triggered=self.onSetNumMeasures)
+        self._set_num_measures_action = QtWidgets.QAction("Set # measures", self)
+        self._set_num_measures_action.setStatusTip("Set the number of measures in the project")
+        self._set_num_measures_action.triggered.connect(self.onSetNumMeasures)
 
-        self._restart_action = QtWidgets.QAction(
-            "Restart", self,
-            shortcut="F5", shortcutContext=Qt.ApplicationShortcut,
-            statusTip="Restart the application", triggered=self.restart)
+        self._restart_action = QtWidgets.QAction("Restart", self)
+        self._restart_action.setShortcut("F5")
+        self._restart_action.setShortcutContext(Qt.ApplicationShortcut)
+        self._restart_action.setStatusTip("Restart the application")
+        self._restart_action.triggered.connect(self.restart)
 
-        self._restart_clean_action = QtWidgets.QAction(
-            "Restart clean", self,
-            shortcut="Ctrl+Shift+F5", shortcutContext=Qt.ApplicationShortcut,
-            statusTip="Restart the application in a clean state",
-            triggered=self.restart_clean)
+        self._restart_clean_action = QtWidgets.QAction("Restart clean", self)
+        self._restart_clean_action.setShortcut("Ctrl+Shift+F5")
+        self._restart_clean_action.setShortcutContext(Qt.ApplicationShortcut)
+        self._restart_clean_action.setStatusTip("Restart the application in a clean state")
+        self._restart_clean_action.triggered.connect(self.restart_clean)
 
-        self._quit_action = QtWidgets.QAction(
-            "Quit", self,
-            shortcut=QtGui.QKeySequence.Quit,
-            shortcutContext=Qt.ApplicationShortcut,
-            statusTip="Quit the application", triggered=self.quit)
+        self._quit_action = QtWidgets.QAction("Quit", self)
+        self._quit_action.setShortcut(QtGui.QKeySequence.Quit)
+        self._quit_action.setShortcutContext(Qt.ApplicationShortcut)
+        self._quit_action.setStatusTip("Quit the application")
+        self._quit_action.triggered.connect(self.quit)
 
-        self._crash_action = QtWidgets.QAction(
-            "Crash", self,
-            triggered=self.crash)
+        self._crash_action = QtWidgets.QAction("Crash", self)
+        self._crash_action.triggered.connect(self.crash)
 
-        self._dump_project_action = QtWidgets.QAction(
-            "Dump Project", self,
-            triggered=self.dumpProject)
+        self._dump_project_action = QtWidgets.QAction("Dump Project", self)
+        self._dump_project_action.triggered.connect(self.dumpProject)
 
-        self._about_action = QtWidgets.QAction(
-            "About", self,
-            statusTip="Show the application's About box",
-            triggered=self.about)
+        self._about_action = QtWidgets.QAction("About", self)
+        self._about_action.setStatusTip("Show the application's About box")
+        self._about_action.triggered.connect(self.about)
 
-        self._aboutqt_action = QtWidgets.QAction(
-            "About Qt", self,
-            statusTip="Show the Qt library's About box",
-            triggered=self.app.aboutQt)
+        self._aboutqt_action = QtWidgets.QAction("About Qt", self)
+        self._aboutqt_action.setStatusTip("Show the Qt library's About box")
+        self._aboutqt_action.triggered.connect(self.app.aboutQt)
 
-        self._open_settings_action = QtWidgets.QAction(
-            "Settings", self,
-            statusTip="Open the settings dialog.",
-            triggered=self.openSettings)
+        self._open_settings_action = QtWidgets.QAction("Settings", self)
+        self._open_settings_action.setStatusTip("Open the settings dialog.")
+        self._open_settings_action.triggered.connect(self.openSettings)
 
-        self._open_instrument_library_action = QtWidgets.QAction(
-            "Instrument Library", self,
-            statusTip="Open the instrument library dialog.",
-            triggered=self.openInstrumentLibrary)
+        self._open_instrument_library_action = QtWidgets.QAction("Instrument Library", self)
+        self._open_instrument_library_action.setStatusTip("Open the instrument library dialog.")
+        self._open_instrument_library_action.triggered.connect(self.openInstrumentLibrary)
 
-        self._player_move_to_start_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('media-skip-backward'),
-            "Move to start", self,
-            shortcut=QtGui.QKeySequence('Home'), shortcutContext=Qt.ApplicationShortcut,
-            triggered=lambda: self.onPlayerMoveTo('start'))
+        self._player_move_to_start_action = QtWidgets.QAction("Move to start", self)
+        self._player_move_to_start_action.setIcon(QtGui.QIcon.fromTheme('media-skip-backward'))
+        self._player_move_to_start_action.setShortcut(QtGui.QKeySequence('Home'))
+        self._player_move_to_start_action.setShortcutContext(Qt.ApplicationShortcut)
+        self._player_move_to_start_action.triggered.connect(lambda: self.onPlayerMoveTo('start'))
 
-        self._player_move_to_end_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('media-skip-forward'),
-            "Move to end", self,
-            shortcut=QtGui.QKeySequence('End'), shortcutContext=Qt.ApplicationShortcut,
-            triggered=lambda: self.onPlayerMoveTo('end'))
+        self._player_move_to_end_action = QtWidgets.QAction("Move to end", self)
+        self._player_move_to_end_action.setIcon(QtGui.QIcon.fromTheme('media-skip-forward'))
+        self._player_move_to_end_action.setShortcut(QtGui.QKeySequence('End'))
+        self._player_move_to_end_action.setShortcutContext(Qt.ApplicationShortcut)
+        self._player_move_to_end_action.triggered.connect(lambda: self.onPlayerMoveTo('end'))
 
-        self._player_move_to_prev_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('media-seek-backward'),
-            "Move to previous measure", self,
-            shortcut=QtGui.QKeySequence('PgUp'), shortcutContext=Qt.ApplicationShortcut,
-            triggered=lambda: self.onPlayerMoveTo('prev'))
+        self._player_move_to_prev_action = QtWidgets.QAction("Move to previous measure", self)
+        self._player_move_to_prev_action.setIcon(QtGui.QIcon.fromTheme('media-seek-backward'))
+        self._player_move_to_prev_action.setShortcut(QtGui.QKeySequence('PgUp'))
+        self._player_move_to_prev_action.setShortcutContext(Qt.ApplicationShortcut)
+        self._player_move_to_prev_action.triggered.connect(lambda: self.onPlayerMoveTo('prev'))
 
-        self._player_move_to_next_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('media-seek-forward'),
-            "Move to next measure", self,
-            shortcut=QtGui.QKeySequence('PgDown'), shortcutContext=Qt.ApplicationShortcut,
-            triggered=lambda: self.onPlayerMoveTo('next'))
+        self._player_move_to_next_action = QtWidgets.QAction("Move to next measure", self)
+        self._player_move_to_next_action.setIcon(QtGui.QIcon.fromTheme('media-seek-forward'))
+        self._player_move_to_next_action.setShortcut(QtGui.QKeySequence('PgDown'))
+        self._player_move_to_next_action.setShortcutContext(Qt.ApplicationShortcut)
+        self._player_move_to_next_action.triggered.connect(lambda: self.onPlayerMoveTo('next'))
 
-        self._player_toggle_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('media-playback-start'),
-            "Play", self,
-            shortcut=QtGui.QKeySequence('Space'), shortcutContext=Qt.ApplicationShortcut,
-            triggered=self.onPlayerToggle)
+        self._player_toggle_action = QtWidgets.QAction("Play", self)
+        self._player_toggle_action.setIcon(QtGui.QIcon.fromTheme('media-playback-start'))
+        self._player_toggle_action.setShortcut(QtGui.QKeySequence('Space'))
+        self._player_toggle_action.setShortcutContext(Qt.ApplicationShortcut)
+        self._player_toggle_action.triggered.connect(self.onPlayerToggle)
 
-        self._player_loop_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('media-playlist-repeat'),
-            "Loop playback",
-            self, toggled=self.onPlayerLoop,
-            checkable=True)
+        self._player_loop_action = QtWidgets.QAction("Loop playback", self)
+        self._player_loop_action.setIcon(QtGui.QIcon.fromTheme('media-playlist-repeat'))
+        self._player_loop_action.setCheckable(True)
+        self._player_loop_action.toggled.connect(self.onPlayerLoop)
 
         self._show_pipeline_perf_monitor_action = QtWidgets.QAction(
-            "Pipeline Performance Monitor", self,
-            checkable=True,
-            checked=self.app.pipeline_perf_monitor.isVisible())
+            "Pipeline Performance Monitor", self)
+        self._show_pipeline_perf_monitor_action.setCheckable(True)
+        self._show_pipeline_perf_monitor_action.setChecked(
+            self.app.pipeline_perf_monitor.isVisible())
         self._show_pipeline_perf_monitor_action.toggled.connect(
             self.app.pipeline_perf_monitor.setVisible)
         self.app.pipeline_perf_monitor.visibilityChanged.connect(
@@ -303,18 +287,18 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         if self.app.pipeline_graph_monitor is not None:
             self._show_pipeline_graph_monitor_action = QtWidgets.QAction(
-                "Pipeline Graph Monitor", self,
-                checkable=True,
-                checked=self.app.pipeline_graph_monitor.isVisible())
+                "Pipeline Graph Monitor", self)
+            self._show_pipeline_graph_monitor_action.setCheckable(True)
+            self._show_pipeline_graph_monitor_action.setChecked(
+                self.app.pipeline_graph_monitor.isVisible())
             self._show_pipeline_graph_monitor_action.toggled.connect(
                 self.app.pipeline_graph_monitor.setVisible)
             self.app.pipeline_graph_monitor.visibilityChanged.connect(
                 self._show_pipeline_graph_monitor_action.setChecked)
 
-        self._show_stat_monitor_action = QtWidgets.QAction(
-            "Stat Monitor", self,
-            checkable=True,
-            checked=self.app.stat_monitor.isVisible())
+        self._show_stat_monitor_action = QtWidgets.QAction("Stat Monitor", self)
+        self._show_stat_monitor_action.setCheckable(True)
+        self._show_stat_monitor_action.setChecked(self.app.stat_monitor.isVisible())
         self._show_stat_monitor_action.toggled.connect(
             self.app.stat_monitor.setVisible)
         self.app.stat_monitor.visibilityChanged.connect(

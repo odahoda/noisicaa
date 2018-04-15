@@ -20,7 +20,7 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 # Still need to figure out how to pass around the app reference, disable
 # message "Access to a protected member .. of a client class"

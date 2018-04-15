@@ -24,6 +24,8 @@ from .clef import Clef
 from .pitch import Pitch, NOTE_TO_MIDI
 from .project_client import (
     ProjectClient,
+    ObjectProxy,
+    ProjectProxy,
 )
 from .project import (
     BaseProject, Project,

@@ -20,10 +20,17 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
+import asyncio
 import functools
 import io
+
+from noisicaa import audioproc
+from noisicaa import music
+from . import selection_set as selection_set_lib
+from . import project_registry
+from . import model
 
 
 class CommonContext(object):
@@ -39,11 +46,11 @@ class CommonContext(object):
         return self.__app.win
 
     @property
-    def audioproc_client(self):
+    def audioproc_client(self) -> audioproc.AudioProcClientMixin:
         return self.__app.audioproc_client
 
     @property
-    def event_loop(self):
+    def event_loop(self) -> asyncio.AbstractEventLoop:
         return self.__app.process.event_loop
 
     def call_async(self, coroutine, callback=None):
@@ -66,9 +73,11 @@ class CommonContext(object):
 
 
 class CommonMixin(object):
-    def __init__(self, *, context, **kwargs):
+    def __init__(self, *, context: CommonContext, **kwargs) -> None:
         self._context = context
-        super().__init__(**kwargs)
+
+        # This is a mixin class, so actual super class is not object.
+        super().__init__(**kwargs)  # type: ignore
 
     @property
     def context(self) -> CommonContext:
@@ -83,11 +92,11 @@ class CommonMixin(object):
         return self._context.window
 
     @property
-    def audioproc_client(self):
+    def audioproc_client(self) -> audioproc.AudioProcClientMixin:
         return self._context.audioproc_client
 
     @property
-    def event_loop(self):
+    def event_loop(self) -> asyncio.AbstractEventLoop:
         return self._context.event_loop
 
     def call_async(self, coroutine, callback=None):
@@ -95,14 +104,19 @@ class CommonMixin(object):
 
 
 class ProjectContext(CommonContext):
-    def __init__(self, *, project_connection, selection_set, project_view, **kwargs):
+    def __init__(
+            self, *,
+            project_connection,
+            selection_set: selection_set_lib.SelectionSet,
+            project_view,
+            **kwargs) -> None:
         super().__init__(**kwargs)
         self.__project_connection = project_connection
         self.__selection_set = selection_set
         self.__project_view = project_view
 
     @property
-    def selection_set(self):
+    def selection_set(self) -> selection_set_lib.SelectionSet:
         return self.__selection_set
 
     @property
@@ -114,11 +128,11 @@ class ProjectContext(CommonContext):
         return self.__project_connection
 
     @property
-    def project(self):
+    def project(self) -> model.Project:
         return self.__project_connection.client.project
 
     @property
-    def project_client(self):
+    def project_client(self) -> music.ProjectClient:
         return self.__project_connection.client
 
     def send_command_async(self, target_id, cmd, callback, **kwargs):
@@ -140,16 +154,18 @@ class ProjectContext(CommonContext):
 
 
 class ProjectMixin(CommonMixin):
+    _context = None  # type: ProjectContext
+
     @property
     def selection_set(self):
         return self._context.selection_set
 
     @property
-    def project_connection(self):
+    def project_connection(self) -> project_registry.Project:
         return self._context.project_connection
 
     @property
-    def project(self):
+    def project(self) -> model.Project:
         return self._context.project
 
     @property
@@ -157,11 +173,11 @@ class ProjectMixin(CommonMixin):
         return self._context.project_view
 
     @property
-    def time_mapper(self):
+    def time_mapper(self) -> audioproc.TimeMapper:
         return self._context.project.time_mapper
 
     @property
-    def project_client(self):
+    def project_client(self) -> music.ProjectClient:
         return self._context.project_client
 
     def send_command_async(self, target_id, cmd, callback=None, **kwargs):

@@ -20,10 +20,11 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 
 import functools
 import uuid
+from typing import List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -163,22 +164,21 @@ class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.setWindowTitle("noisicaä - Stat Monitor")
         self.resize(600, 300)
 
-        self.__pause_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('media-playback-pause'),
-            "Play",
-            self, triggered=self.onToggleRealtime)
-        self.__zoom_in_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('zoom-in'),
-            "Zoom In",
-            self, triggered=self.onZoomIn)
-        self.__zoom_out_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('zoom-out'),
-            "Zoom Out",
-            self, triggered=self.onZoomOut)
-        self.__add_stat_action = QtWidgets.QAction(
-            QtGui.QIcon.fromTheme('list-add'),
-            "Add stat",
-            self, triggered=self.onAddStat)
+        self.__pause_action = QtWidgets.QAction("Play", self)
+        self.__pause_action.setIcon(QtGui.QIcon.fromTheme('media-playback-pause'))
+        self.__pause_action.triggered.connect(self.onToggleRealtime)
+
+        self.__zoom_in_action = QtWidgets.QAction("Zoom In", self)
+        self.__zoom_in_action.setIcon(QtGui.QIcon.fromTheme('zoom-in'))
+        self.__zoom_in_action.triggered.connect(self.onZoomIn)
+
+        self.__zoom_out_action = QtWidgets.QAction("Zoom Out", self)
+        self.__zoom_out_action.setIcon(QtGui.QIcon.fromTheme('zoom-out'))
+        self.__zoom_out_action.triggered.connect(self.onZoomOut)
+
+        self.__add_stat_action = QtWidgets.QAction("Add stat", self)
+        self.__add_stat_action.setIcon(QtGui.QIcon.fromTheme('list-add'))
+        self.__add_stat_action.triggered.connect(self.onAddStat)
 
         self.__toolbar = QtWidgets.QToolBar()
         self.__toolbar.addAction(self.__pause_action)
@@ -187,7 +187,7 @@ class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.__toolbar.addAction(self.__add_stat_action)
         self.addToolBar(Qt.TopToolBarArea, self.__toolbar)
 
-        self.__stat_graphs = []
+        self.__stat_graphs = []  # type: List[StatGraph]
         self.__selected_graph = None
 
         self.__stat_list_layout = QtWidgets.QVBoxLayout()

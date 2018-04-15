@@ -19,6 +19,7 @@
 # @end:license
 
 add_python_package(
+  libalsa.pyi
   libalsa_test.py
   midi_events.py
   midi_hub.py

@@ -20,13 +20,14 @@
 #
 # @end:license
 
-# TODO: mypy-unclean
+# mypy: loose
 # TODO: pylint-unclean
 
 import logging
-from typing import Dict  # pylint: disable=unused-import
+from typing import Dict, Type  # pylint: disable=unused-import
 
 from noisicaa import audioproc
+from noisicaa import core  # pylint: disable=unused-import
 from noisicaa.music import model
 from noisicaa.music import project_client
 
@@ -37,9 +38,10 @@ logger = logging.getLogger(__name__)
 # instances.
 class MeasuredTrackMixin(object):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        # This is a mixin class, so actual super class is not object.
+        super().__init__(**kwargs)  # type: ignore
 
-        self.__listeners = {}
+        self.__listeners = {}  # type: Dict[str, core.Listener]
 
         for mref in self.measure_list:
             self.__add_measure(mref)
@@ -72,9 +74,10 @@ class MeasuredTrackMixin(object):
 # instances.
 class TrackGroupMixin(object):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        # This is a mixin class, so actual super class is not object.
+        super().__init__(**kwargs)  # type: ignore
 
-        self.__listeners = {}
+        self.__listeners = {}  # type: Dict[str, core.Listener]
         for track in self.tracks:
             self.__add_track(track)
         self.listeners.add('tracks', self.__tracks_changed)
@@ -238,4 +241,4 @@ cls_map = {
     'Sample': Sample,
     'Metadata': Metadata,
     'Project': Project,
-}  # type: Dict[str, project.ObjectProxy]
+}  # type: Dict[str, Type[project_client.ObjectProxy]]
