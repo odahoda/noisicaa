@@ -234,9 +234,7 @@ class BuiltinPyTests(unittest.TestCase):
         src_path = os.path.join(SRCDIR, os.path.join(*self.__modname.split('.')) + '.py')
         src = open(src_path, 'r').read()
 
-        is_unclean = False
         be_strict = not self.__modname.endswith('_test')
-        unclean_lineno = -1
         for lineno, line in enumerate(src.splitlines(), 1):
             m = re.match(r'^#\s*mypy:\s*([a-z\-]+)\s*$', line)
             if m is not None:
@@ -249,11 +247,7 @@ class BuiltinPyTests(unittest.TestCase):
                 else:
                     self.fail("Invalid mypy directive '%s'" % m.group(1))
 
-            if re.match(r'^#\s*TODO:\s*mypy-unclean\s*$', line):
-                is_unclean = True
-                unclean_lineno = lineno
-
-        be_pedantic = self.__pedantic or not is_unclean
+        be_pedantic = self.__pedantic
         be_strict = self.__pedantic or be_strict
 
         mypy_ini_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mypy.ini'))
@@ -297,17 +291,6 @@ class BuiltinPyTests(unittest.TestCase):
             if msg['type'] == 'note':
                 continue
             messages.append(msg)
-
-        if is_unclean and len(messages) < 1:
-            self.__mypy_collector.extend(messages)
-            msg = "\nFile \"%s\", line %d, is marked as mypy-unclean" % (src_path, unclean_lineno)
-            if not messages:
-                msg += ", but no issues were reported."
-            elif len(messages) == 1:
-                msg += ", but only one issue was reported."
-            else:
-                msg += ", but only %d issues were reported." % len(messages)
-            self.fail(msg)
 
         if be_pedantic and messages:
             self.__mypy_collector.extend(messages)

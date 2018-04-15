@@ -276,8 +276,8 @@ Probably related to unittest.UITestCase
 - pick some file and clean it up.
 - until grep finds no more files.
 
-* clean up mypy issues in mypy-unclean or mypy: loose files                      :CLEANUP:TESTING:
-- wc -l $(grep -l -r mypy-unclean noisicaa/ | grep -Ev '~$') | sort -nr
+* clean up mypy issues in mypy: loose files                                      :CLEANUP:TESTING:
+- wc -l $(grep -l -r 'mypy: loose' noisicaa/ | grep -Ev '~$') | sort -nr
 - slower: bin/runtests --tags=mypy --pedantic=true 2>&1 | sed -ne '0,/= mypy report =/!p' | grep -vE '^\s*$' | sed -e 's/:.*$//' | sort | uniq -c | sort -nr
 - pick some file and clean it up.
 - until grep finds no more files.
