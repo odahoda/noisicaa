@@ -212,7 +212,7 @@ class Command(state_lib.RootMixin, state_lib.StateBase):
         else:
             raise TypeError("Unsupported change type %s" % type(change))
 
-    def run(self, obj: state_lib.StateBase) -> Any:
+    def run(self, target: state_lib.StateBase) -> Any:
         raise NotImplementedError
 
     def apply(self, obj: state_lib.StateBase) -> Any:

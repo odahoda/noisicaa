@@ -43,6 +43,7 @@ add_python_package(
   storage_test.py
   threads.py
   threads_test.py
+  typing_extra.py
 )
 
 add_cython_module(logging_test CXX)

@@ -25,6 +25,7 @@
 
 import logging
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 
 from .time_signature import TimeSignature
@@ -78,7 +79,7 @@ class PropertyTrack(model.PropertyTrack, base_track.MeasuredTrack):
                 self.append_measure()
 
     def create_empty_measure(self, ref):
-        measure = super().create_empty_measure(ref)
+        measure = down_cast(PropertyMeasure, super().create_empty_measure(ref))
 
         if ref is not None:
             measure.time_signature = ref.time_signature

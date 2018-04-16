@@ -53,6 +53,7 @@ from . import sample_track
 from . import score_track
 from . import state
 from . import track_group
+from . import project_iface
 
 logger = logging.getLogger(__name__)
 
@@ -476,7 +477,7 @@ class JSONDecoder(json.JSONDecoder):
         return obj
 
 
-class BaseProject(model.Project, state.RootMixin, state.StateBase):
+class BaseProject(project_iface.IProject):
     SERIALIZED_CLASS_NAME = 'Project'
 
     def __init__(self, *, node_db=None, state=None):

@@ -27,6 +27,7 @@ import functools
 import logging
 from typing import cast
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import audioproc
 
@@ -385,7 +386,7 @@ class ScoreTrack(model.ScoreTrack, base_track.MeasuredTrack):
                 self.append_measure()
 
     def create_empty_measure(self, ref):
-        measure = super().create_empty_measure(ref)
+        measure = down_cast(ScoreMeasure, super().create_empty_measure(ref))
 
         if ref is not None:
             measure.key_signature = ref.key_signature

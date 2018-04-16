@@ -68,3 +68,6 @@ from .backend_manager import (
     BackendManager,
     ManagedBackend,
 )
+from .typing_extra import (
+    down_cast,
+)

@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2018, Benjamin Niemann <pink@odahoda.de>
@@ -18,48 +20,10 @@
 #
 # @end:license
 
-add_python_package(
-  base_track.py
-  beat_track.py
-  clef.py
-  commands.py
-  commands_test.py
-  control_track.py
-  control_track_test.py
-  exceptions.py
-  key_signature.py
-  key_signature_test.py
-  misc.py
-  model.py
-  mutations.py
-  pipeline_graph.py
-  pitch.py
-  pitch_test.py
-  player.py
-  player_integration_test.py
-  player_test.py
-  project_client.py
-  project_client_test.py
-  project_process.py
-  project_iface.py
-  project.py
-  project_test.py
-  render.py
-  render_test.py
-  rms.pyi
-  sample_track.py
-  sample_track_test.py
-  score_track.py
-  score_track_test.py
-  property_track.py
-  state.py
-  state_test.py
-  time_signature.py
-  time_signature_test.py
-  track_group.py
-  track_group_test.py
-)
+from typing import Any, Type, TypeVar
 
-add_cython_module(rms CXX)
-
-py_proto(render_settings.proto)
+T = TypeVar('T')
+def down_cast(t: Type[T], o: Any) -> T:
+    if not __debug__ and not issubclass(type(o), t):
+        raise TypeError
+    return o
