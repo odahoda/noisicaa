@@ -20,29 +20,34 @@
 #
 # @end:license
 
-# mypy: loose
-
 import asyncio
 import functools
 import io
+from typing import Any, Optional, Dict, Callable, Awaitable
 
 from noisicaa import audioproc
 from noisicaa import music
+from noisicaa import core
 from . import selection_set as selection_set_lib
 from . import project_registry
-from . import model
+
+
+# TODO: these would create cyclic import dependencies.
+EditorApp = Any
+EditorWindow = Any
+ProjectView = Any
 
 
 class CommonContext(object):
-    def __init__(self, *, app):
+    def __init__(self, *, app: EditorApp) -> None:
         self.__app = app
 
     @property
-    def app(self):
+    def app(self) -> EditorApp:
         return self.__app
 
     @property
-    def window(self):
+    def window(self) -> EditorWindow:
         return self.__app.win
 
     @property
@@ -53,12 +58,15 @@ class CommonContext(object):
     def event_loop(self) -> asyncio.AbstractEventLoop:
         return self.__app.process.event_loop
 
-    def call_async(self, coroutine, callback=None):
+    def call_async(
+            self, coroutine: Awaitable, callback: Optional[Callable[[Any], None]] = None
+    ) -> None:
         task = self.event_loop.create_task(coroutine)
         task.add_done_callback(
             functools.partial(self.__call_async_cb, callback=callback))
 
-    def __call_async_cb(self, task, callback):
+    def __call_async_cb(
+            self, task: asyncio.Task, callback: Optional[Callable[[Any], None]]) -> None:
         if task.exception() is not None:
             buf = io.StringIO()
             task.print_stack(file=buf)
@@ -73,7 +81,7 @@ class CommonContext(object):
 
 
 class CommonMixin(object):
-    def __init__(self, *, context: CommonContext, **kwargs) -> None:
+    def __init__(self, *, context: CommonContext, **kwargs: Any) -> None:
         self._context = context
 
         # This is a mixin class, so actual super class is not object.
@@ -84,11 +92,11 @@ class CommonMixin(object):
         return self._context
 
     @property
-    def app(self):
+    def app(self) -> EditorApp:
         return self._context.app
 
     @property
-    def window(self):
+    def window(self) -> EditorWindow:
         return self._context.window
 
     @property
@@ -99,17 +107,18 @@ class CommonMixin(object):
     def event_loop(self) -> asyncio.AbstractEventLoop:
         return self._context.event_loop
 
-    def call_async(self, coroutine, callback=None):
+    def call_async(
+            self, coroutine: Awaitable, callback: Optional[Callable[[Any], None]] = None) -> None:
         self._context.call_async(coroutine, callback)
 
 
 class ProjectContext(CommonContext):
     def __init__(
             self, *,
-            project_connection,
+            project_connection: project_registry.Project,
             selection_set: selection_set_lib.SelectionSet,
-            project_view,
-            **kwargs) -> None:
+            project_view: ProjectView,
+            **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.__project_connection = project_connection
         self.__selection_set = selection_set
@@ -120,36 +129,35 @@ class ProjectContext(CommonContext):
         return self.__selection_set
 
     @property
-    def project_view(self):
+    def project_view(self) -> ProjectView:
         return self.__project_view
 
     @property
-    def project_connection(self):
+    def project_connection(self) -> project_registry.Project:
         return self.__project_connection
 
     @property
-    def project(self) -> model.Project:
+    def project(self) -> music.Project:
         return self.__project_connection.client.project
 
     @property
     def project_client(self) -> music.ProjectClient:
         return self.__project_connection.client
 
-    def send_command_async(self, target_id, cmd, callback, **kwargs):
-        self.call_async(
-            self.project_client.send_command(target_id, cmd, **kwargs),
-            callback=callback)
+    def send_command_async(
+            self, cmd: music.Command, callback: Optional[Callable[[Any], None]]) -> None:
+        self.call_async(self.project_client.send_command(cmd), callback=callback)
 
-    def set_session_value(self, key, value):
+    def set_session_value(self, key: str, value: Any) -> None:
         self.project_client.set_session_values({key: value})
 
-    def set_session_values(self, data):
+    def set_session_values(self, data: Dict[str, Any]) -> None:
         self.project_client.set_session_values(data)
 
-    def get_session_value(self, key, default):
+    def get_session_value(self, key: str, default: Any) -> Any:
         return self.project_client.get_session_value(key, default)
 
-    def add_session_listener(self, key, listener):
+    def add_session_listener(self, key: str, listener: Callable[[Any], None]) -> core.Listener:
         return self.project_client.listeners.add('session_data:' + key, listener)
 
 
@@ -157,7 +165,7 @@ class ProjectMixin(CommonMixin):
     _context = None  # type: ProjectContext
 
     @property
-    def selection_set(self):
+    def selection_set(self) -> selection_set_lib.SelectionSet:
         return self._context.selection_set
 
     @property
@@ -165,11 +173,11 @@ class ProjectMixin(CommonMixin):
         return self._context.project_connection
 
     @property
-    def project(self) -> model.Project:
+    def project(self) -> music.Project:
         return self._context.project
 
     @property
-    def project_view(self):
+    def project_view(self) -> ProjectView:
         return self._context.project_view
 
     @property
@@ -180,17 +188,18 @@ class ProjectMixin(CommonMixin):
     def project_client(self) -> music.ProjectClient:
         return self._context.project_client
 
-    def send_command_async(self, target_id, cmd, callback=None, **kwargs):
-        self._context.send_command_async(target_id, cmd, callback, **kwargs)
+    def send_command_async(
+            self, cmd: music.Command, callback: Optional[Callable[[Any], None]] = None) -> None:
+        self._context.send_command_async(cmd, callback)
 
-    def set_session_value(self, key, value):
+    def set_session_value(self, key: str, value: Any) -> None:
         self._context.set_session_value(key, value)
 
-    def set_session_values(self, data):
+    def set_session_values(self, data: Dict[str, Any]) -> None:
         self._context.set_session_values(data)
 
-    def get_session_value(self, key, default):
+    def get_session_value(self, key: str, default: Any) -> Any:
         return self._context.get_session_value(key, default)
 
-    def add_session_listener(self, key, listener):
+    def add_session_listener(self, key: str, listener: Callable[[Any], None]) -> core.Listener:
         return self._context.add_session_listener(key, listener)

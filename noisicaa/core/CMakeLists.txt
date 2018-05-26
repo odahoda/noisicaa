@@ -30,7 +30,6 @@ add_python_package(
   logging.pyi
   message.py
   message_test.py
-  model_base.py
   perf_stats_test.py
   process_manager.py
   process_manager_test.py
@@ -48,6 +47,8 @@ add_python_package(
 
 add_cython_module(logging_test CXX)
 target_link_libraries(${logging_test.so} PRIVATE noisicaa-core)
+
+py_proto(storage.proto)
 
 set(LIB_SRCS
   logging.cpp

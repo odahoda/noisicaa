@@ -20,11 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-# TODO: pylint-unclean
-
 import logging
-from typing import List, Tuple  # pylint: disable=unused-import
+from typing import Any, List, Tuple  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -33,8 +30,10 @@ from PyQt5 import QtWidgets
 # TODO: add stubs for QtSvg
 from PyQt5 import QtSvg  # type: ignore
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import audioproc
+from noisicaa import model
 from noisicaa import music
 from noisicaa.bindings import lv2
 from noisicaa.ui import svg_symbol
@@ -45,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 class ScoreToolBase(base_track_item.MeasuredToolBase):
-    def __init__(self, *, icon_name, hotspot, **kwargs):
+    def __init__(self, *, icon_name: str, hotspot: Tuple[int, int], **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__icon_name = icon_name
@@ -58,28 +57,29 @@ class ScoreToolBase(base_track_item.MeasuredToolBase):
         painter.end()
         self.__cursor = QtGui.QCursor(pixmap, *hotspot)
 
-    def iconName(self):
+    def iconName(self) -> str:
         return self.__icon_name
 
-    def cursor(self):
+    def cursor(self) -> QtGui.QCursor:
         return self.__cursor
 
-    def _updateGhost(self, target, pos):
+    def _updateGhost(self, target: 'ScoreMeasureEditorItem', pos: QtCore.QPoint) -> None:
         target.setGhost(None)
 
-    def mouseMoveEvent(self, target, evt):
+    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
         assert isinstance(target, ScoreMeasureEditorItem), type(target).__name__
 
         self._updateGhost(target, evt.pos())
 
         ymid = target.height() // 2
-        stave_line = int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line
+        stave_line = (
+            int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line)
 
-        idx, overwrite, insert_x = target.getEditArea(evt.pos().x())
+        idx, _, _ = target.getEditArea(evt.pos().x())
         if idx < 0:
             self.window.setInfoMessage('')
         else:
-            pitch = music.Pitch.name_from_stave_line(
+            pitch = model.Pitch.name_from_stave_line(
                 stave_line, target.measure.key_signature)
             self.window.setInfoMessage(pitch)
 
@@ -87,7 +87,7 @@ class ScoreToolBase(base_track_item.MeasuredToolBase):
 
 
 class InsertNoteTool(ScoreToolBase):
-    def __init__(self, *, type, **kwargs):
+    def __init__(self, *, type: tools.ToolType, **kwargs: Any) -> None:  # pylint: disable=redefined-builtin
         super().__init__(
             type=type,
             group=tools.ToolGroup.EDIT,
@@ -121,7 +121,7 @@ class InsertNoteTool(ScoreToolBase):
             }[type],
             **kwargs)
 
-    def _updateGhost(self, target, pos):
+    def _updateGhost(self, target: 'ScoreMeasureEditorItem', pos: QtCore.QPoint) -> None:
         if pos is None:
             target.setGhost(None)
             return
@@ -129,7 +129,7 @@ class InsertNoteTool(ScoreToolBase):
         ymid = target.height() // 2
         stave_line = int(ymid + 5 - pos.y()) // 10 + target.measure.clef.center_pitch.stave_line
 
-        idx, overwrite, insert_x = target.getEditArea(pos.x())
+        idx, _, insert_x = target.getEditArea(pos.x())
         if idx < 0:
             target.setGhost(None)
             return
@@ -139,21 +139,23 @@ class InsertNoteTool(ScoreToolBase):
                 insert_x,
                 ymid - 10 * (stave_line - target.measure.clef.center_pitch.stave_line)))
 
-    def mousePressEvent(self, target, evt):
-        ymid = target.height() // 2
-        stave_line = int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line
+    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
+        assert isinstance(target, ScoreMeasureEditorItem), type(target).__name__
 
-        if (evt.button() == Qt.LeftButton
-            and (evt.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier):
+        ymid = target.height() // 2
+        stave_line = (
+            int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line)
+
+        if evt.button() == Qt.LeftButton and (evt.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier:
             if self.type.is_note:
-                pitch = music.Pitch.name_from_stave_line(
+                pitch = model.Pitch.name_from_stave_line(
                     stave_line, target.measure.key_signature)
             else:
                 pitch = 'r'
 
             duration = target.durationForTool(self.type)
 
-            idx, overwrite, insert_x = target.getEditArea(evt.pos().x())
+            idx, overwrite, _ = target.getEditArea(evt.pos().x())
             if idx >= 0:
                 cmd = None
                 if evt.modifiers() == Qt.ShiftModifier:
@@ -161,38 +163,49 @@ class InsertNoteTool(ScoreToolBase):
                         if len(target.measure.notes[idx].pitches) > 1:
                             for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                                 if p.stave_line == stave_line:
-                                    cmd = ('RemovePitch', dict(idx=idx, pitch_idx=pitch_idx))
+                                    cmd = music.Command(
+                                        target=target.measure.id,
+                                        remove_pitch=music.RemovePitch(
+                                            idx=idx,
+                                            pitch_idx=pitch_idx))
                                     break
                         else:
-                            cmd = ('DeleteNote', dict(idx=idx))
+                            cmd = music.Command(
+                                target=target.measure.id,
+                                delete_note=music.DeleteNote(idx=idx))
                 else:
                     if overwrite:
                         for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                             if p.stave_line == stave_line:
                                 break
                         else:
-                            cmd = ('AddPitch', dict(idx=idx, pitch=pitch))
-                            target.track_item.playNoteOn(music.Pitch(pitch))
+                            cmd = music.Command(
+                                target=target.measure.id,
+                                add_pitch=music.AddPitch(idx=idx, pitch=pitch))
+                            target.track_item.playNoteOn(model.Pitch(pitch))
                     else:
-                        cmd = ('InsertNote', dict(
-                            idx=idx, pitch=pitch, duration=duration))
-                        target.track_item.playNoteOn(music.Pitch(pitch))
+                        cmd = music.Command(
+                            target=target.measure.id,
+                            insert_note=music.InsertNote(
+                                idx=idx, pitch=pitch, duration=duration.to_proto()))
+                        target.track_item.playNoteOn(model.Pitch(pitch))
 
                 if cmd is not None:
-                    self.send_command_async(
-                        target.measure.id, cmd[0], **cmd[1])
+                    self.send_command_async(cmd)
                     evt.accept()
                     return
 
-        return super().mousePressEvent(target, evt)
+        super().mousePressEvent(target, evt)
 
-    def mouseReleaseEvent(self, target, evt):
+    def mouseReleaseEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
+        assert isinstance(target, ScoreMeasureEditorItem), type(target).__name__
+
         target.track_item.playNoteOff()
         return super().mouseReleaseEvent(target, evt)
 
 
 class ModifyNoteTool(ScoreToolBase):
-    def __init__(self, *, type, **kwargs):
+    def __init__(self, *, type: tools.ToolType, **kwargs: Any) -> None:  # pylint: disable=redefined-builtin
         super().__init__(
             type=type,
             group=tools.ToolGroup.EDIT,
@@ -218,7 +231,7 @@ class ModifyNoteTool(ScoreToolBase):
             }[type],
             **kwargs)
 
-    def _updateGhost(self, target, pos):
+    def _updateGhost(self, target: 'ScoreMeasureEditorItem', pos: QtCore.QPoint) -> None:
         if pos is None:
             target.setGhost(None)
             return
@@ -226,7 +239,7 @@ class ModifyNoteTool(ScoreToolBase):
         ymid = target.height() // 2
         stave_line = int(ymid + 5 - pos.y()) // 10 + target.measure.clef.center_pitch.stave_line
 
-        idx, overwrite, insert_x = target.getEditArea(pos.x())
+        idx, _, insert_x = target.getEditArea(pos.x())
         if idx < 0:
             target.setGhost(None)
             return
@@ -236,14 +249,16 @@ class ModifyNoteTool(ScoreToolBase):
                 insert_x - 12,
                 ymid - 10 * (stave_line - target.measure.clef.center_pitch.stave_line)))
 
-    def mousePressEvent(self, target, evt):
+    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
+        assert isinstance(target, ScoreMeasureEditorItem), type(target).__name__
         ymid = target.height() // 2
-        stave_line = int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line
+        stave_line = (
+            int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line)
 
         if (evt.button() == Qt.LeftButton
-            and evt.modifiers() == Qt.NoModifier
-            and self.type.is_accidental):
-            idx, overwrite, insert_x = target.getEditArea(evt.pos().x())
+                and evt.modifiers() == Qt.NoModifier
+                and self.type.is_accidental):
+            idx, overwrite, _ = target.getEditArea(evt.pos().x())
             if idx >= 0 and overwrite:
                 accidental = {
                     tools.ToolType.ACCIDENTAL_NATURAL: '',
@@ -255,48 +270,66 @@ class ModifyNoteTool(ScoreToolBase):
                 for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                     if accidental in p.valid_accidentals:
                         if p.stave_line == stave_line:
-                            self.send_command_async(
-                                target.measure.id, 'SetAccidental',
-                                idx=idx, accidental=accidental,
-                                pitch_idx=pitch_idx)
+                            self.send_command_async(music.Command(
+                                target.measure.id,
+                                set_accidental=music.SetAccidental(
+                                    idx=idx, accidental=accidental,
+                                    pitch_idx=pitch_idx)))
                             evt.accept()
                             return
 
 
         if (evt.button() == Qt.LeftButton
-            and (evt.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier
-            and self.type.is_duration):
-            idx, overwrite, insert_x = target.getEditArea(evt.pos().x())
+                and (evt.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier
+                and self.type.is_duration):
+            idx, overwrite, _ = target.getEditArea(evt.pos().x())
             if idx >= 0 and overwrite:
                 note = target.measure.notes[idx]
                 cmd = None
                 if self.type == tools.ToolType.DURATION_DOT:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.dots > 0:
-                            cmd = ('ChangeNote', dict(idx=idx, dots=note.dots - 1))
+                            cmd = music.Command(
+                                target=target.measure.id,
+                                change_note=music.ChangeNote(
+                                    idx=idx, dots=note.dots - 1))
                     else:
                         if note.dots < note.max_allowed_dots:
-                            cmd = ('ChangeNote', dict(idx=idx, dots=note.dots + 1))
+                            cmd = music.Command(
+                                target=target.measure.id,
+                                change_note=music.ChangeNote(
+                                    idx=idx, dots=note.dots + 1))
 
                 elif self.type == tools.ToolType.DURATION_TRIPLET:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            cmd = ('ChangeNote', dict(idx=idx, tuplet=0))
+                            cmd = music.Command(
+                                target=target.measure.id,
+                                change_note=music.ChangeNote(
+                                    idx=idx, tuplet=0))
                     else:
                         if note.tuplet != 3:
-                            cmd = ('ChangeNote', dict(idx=idx, tuplet=3))
+                            cmd = music.Command(
+                                target=target.measure.id,
+                                change_note=music.ChangeNote(
+                                    idx=idx, tuplet=3))
 
                 elif self.type == tools.ToolType.DURATION_QUINTUPLET:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            cmd = ('ChangeNote', dict(idx=idx, tuplet=0))
+                            cmd = music.Command(
+                                target=target.measure.id,
+                                change_note=music.ChangeNote(
+                                    idx=idx, tuplet=0))
                     else:
                         if note.tuplet != 5:
-                            cmd = ('ChangeNote', dict(idx=idx, tuplet=5))
+                            cmd = music.Command(
+                                target=target.measure.id,
+                                change_note=music.ChangeNote(
+                                    idx=idx, tuplet=5))
 
                 if cmd is not None:
-                    self.send_command_async(
-                        target.measure.id, cmd[0], **cmd[1])
+                    self.send_command_async(cmd)
                     evt.accept()
                     return
 
@@ -304,7 +337,7 @@ class ModifyNoteTool(ScoreToolBase):
 
 
 class ScoreToolBox(tools.ToolBox):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.addTool(base_track_item.ArrangeMeasuresTool(context=self.context))
@@ -323,13 +356,11 @@ class ScoreToolBox(tools.ToolBox):
         self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_NATURAL, context=self.context))
         self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_SHARP, context=self.context))
         self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_FLAT, context=self.context))
-        #self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_DOUBLE_SHARP, context=self.context))
-        #self.addTool(ModifyNoteTool(type=tools.ToolType.ACCIDENTAL_DOUBLE_FLAT, context=self.context))
         self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_DOT, context=self.context))
         self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_TRIPLET, context=self.context))
         self.addTool(ModifyNoteTool(type=tools.ToolType.DURATION_QUINTUPLET, context=self.context))
 
-    def keyPressEvent(self, target, evt):
+    def keyPressEvent(self, target: Any, evt: QtGui.QKeyEvent) -> None:
         if (not evt.isAutoRepeat()
                 and evt.modifiers() == Qt.NoModifier
                 and evt.key() == Qt.Key_Period):
@@ -439,9 +470,9 @@ class ScoreToolBox(tools.ToolBox):
             evt.accept()
             return
 
-        return super().keyPressEvent(target, evt)
+        super().keyPressEvent(target, evt)
 
-    def keyReleaseEvent(self, target, evt):
+    def keyReleaseEvent(self, target: Any, evt: QtGui.QKeyEvent) -> None:
         if (not evt.isAutoRepeat()
                 and evt.modifiers() == Qt.NoModifier
                 and evt.key() == Qt.Key_Period):
@@ -470,7 +501,7 @@ class ScoreToolBox(tools.ToolBox):
             evt.accept()
             return
 
-        return super().keyReleaseEvent(target, evt)
+        super().keyReleaseEvent(target, evt)
 
     # def keyPressEvent(self, evt):
     #     if (evt.modifiers() == Qt.ControlModifier | Qt.ShiftModifier
@@ -512,16 +543,24 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         GHOST,
     ]
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self._edit_areas = []  # type: List[Tuple[int, int, int, bool]]
-        self._note_area = None
-        self.__mouse_pos = None
-        self.__ghost_pos = None
+        self._note_area = None  # type: Tuple[int, int]
+        self.__mouse_pos = None  # type: QtCore.QPoint
+        self.__ghost_pos = None  # type: QtCore.QPoint
 
         self.track_item.currentToolChanged.connect(
             lambda _: self.updateGhost(self.__mouse_pos))
+
+    @property
+    def track(self) -> music.ScoreTrack:
+        return down_cast(music.ScoreTrack, super().track)
+
+    @property
+    def measure(self) -> music.ScoreMeasure:
+        return down_cast(music.ScoreMeasure, super().measure)
 
     _accidental_map = {
         '': 'accidental-natural',
@@ -531,7 +570,7 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         'bb': 'accidental-double-flat',
     }
 
-    def addMeasureListeners(self):
+    def addMeasureListeners(self) -> None:
         self.measure_listeners.append(self.measure.listeners.add(
             'notes-changed',
             lambda *args: self.invalidatePaintCache(self.FOREGROUND)))
@@ -540,23 +579,24 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         self.measure_listeners.append(self.measure.listeners.add(
             'key_signature', self.onKeySignatureChanged))
 
-    def onClefChanged(self, old_value, new_value):
+    def onClefChanged(self, old_value: model.Clef, new_value: model.Clef) -> None:
         self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
         self.next_sibling.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
 
-    def onKeySignatureChanged(self, old_value, new_value):
+    def onKeySignatureChanged(
+            self, old_value: model.KeySignature, new_value: model.KeySignature) -> None:
         self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
         self.next_sibling.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
 
-    def paintLayer(self, layer, painter):
+    def paintLayer(self, layer: str, painter: QtGui.QPainter) -> None:
         if layer == self.BACKGROUND:
-            return self.paintBackground(painter)
+            self.paintBackground(painter)
         elif layer == self.FOREGROUND:
-            return self.paintForeground(painter)
+            self.paintForeground(painter)
         elif layer == self.GHOST:
-            return self.paintGhost(painter)
+            self.paintGhost(painter)
 
-    def paintBackground(self, painter):
+    def paintBackground(self, painter: QtGui.QPainter) -> None:
         ymid = self.height() // 2
 
         painter.setPen(Qt.black)
@@ -576,7 +616,8 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
 
         paint_clef = (
             self.measure_reference.is_first
-            or self.measure.clef != self.measure_reference.prev_sibling.measure.clef)
+            or (self.measure.clef
+                != down_cast(music.ScoreMeasure, self.measure_reference.prev_sibling.measure).clef))
 
         if paint_clef and self.width() - x > 200:
             svg_symbol.paintSymbol(
@@ -606,13 +647,13 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
 
         paint_key_signature = (
             self.measure_reference.is_first
-            or (self.measure.key_signature
-                != self.measure_reference.prev_sibling.measure.key_signature))
+            or (self.measure.key_signature != down_cast(
+                music.ScoreMeasure, self.measure_reference.prev_sibling.measure).key_signature))
 
         if paint_key_signature and self.width() - x > 200:
             for acc in self.measure.key_signature.accidentals:
                 value = acc_map[acc]
-                stave_line = music.Pitch(value).stave_line - base_stave_line
+                stave_line = model.Pitch(value).stave_line - base_stave_line
 
                 svg_symbol.paintSymbol(
                     painter,
@@ -628,8 +669,8 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
 
         paint_time_signature = (
             self.measure_reference.is_first
-            or (self.measure.time_signature
-                != self.measure_reference.prev_sibling.measure.time_signature))
+            or (self.measure.time_signature != down_cast(
+                music.ScoreMeasure, self.measure_reference.prev_sibling.measure).time_signature))
 
         if paint_time_signature and self.width() - x > 200:
             font = QtGui.QFont('FreeSerif', 30, QtGui.QFont.Black)
@@ -649,7 +690,7 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         else:
             self._note_area = (0, self.width())
 
-    def paintForeground(self, painter):
+    def paintForeground(self, painter: QtGui.QPainter) -> None:
         assert self._note_area is not None
         self._edit_areas.clear()
 
@@ -815,7 +856,7 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         else:
             self._note_area = (0, self.width())
 
-    def paintGhost(self, painter):
+    def paintGhost(self, painter: QtGui.QPainter) -> None:
         if self.__ghost_pos is None:
             return
 
@@ -880,14 +921,14 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
             painter.setBrush(Qt.black)
             painter.drawEllipse(pos.x() - 15, pos.y() - 15, 31, 31)
 
-    def paintPlaybackPos(self, painter):
+    def paintPlaybackPos(self, painter: QtGui.QPainter) -> None:
         assert self._note_area is not None
 
         left, width = self._note_area
         pos = left + int(width * (self.playbackPos() / self.measure.duration).fraction)
         painter.fillRect(pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
 
-    def getEditArea(self, x):
+    def getEditArea(self, x: int) -> Tuple[int, bool, int]:
         for x1, x2, idx, overwrite in self._edit_areas:
             if x1 < x <= x2:
                 return idx, overwrite, (x1 + x2) // 2
@@ -909,18 +950,18 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         tools.ToolType.REST_32TH:    audioproc.MusicalDuration(1, 32),
     }
 
-    def durationForTool(self, tool):
+    def durationForTool(self, tool: tools.ToolType) -> audioproc.MusicalDuration:
         assert tool.is_note or tool.is_rest
         return self._tool_duration_map[tool]
 
-    def setGhost(self, pos):
+    def setGhost(self, pos: QtCore.QPoint) -> None:
         if pos == self.__ghost_pos:
             return
 
         self.__ghost_pos = pos
         self.invalidatePaintCache(self.GHOST)
 
-    def updateGhost(self, pos):
+    def updateGhost(self, pos: QtCore.QPoint) -> None:
         if pos is None:
             self.setGhost(None)
             return
@@ -949,7 +990,7 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
         else:
             self.setGhost(None)
 
-    def leaveEvent(self, evt):
+    def leaveEvent(self, evt: QtCore.QEvent) -> None:
         self.__mouse_pos = None
         self.setGhost(None)
         super().leaveEvent(evt)
@@ -960,18 +1001,19 @@ class ScoreTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
 
     toolBoxClass = ScoreToolBox
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.__play_last_pitch = None
+        self.__play_last_pitch = None  # type: model.Pitch
 
         self.setHeight(240)
 
-    def buildContextMenu(self, menu, pos):
+    def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
         super().buildContextMenu(menu, pos)
 
         affected_measure_items = []  # type: List[ScoreMeasureEditorItem]
         if not self.selection_set.empty():
-            affected_measure_items.extend(self.selection_set)
+            affected_measure_items.extend(
+                down_cast(ScoreMeasureEditorItem, sitem) for sitem in self.selection_set)
         else:
             mitem = self.measureItemAt(pos)
             if isinstance(mitem, ScoreMeasureEditorItem):
@@ -980,7 +1022,7 @@ class ScoreTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
         enable_measure_actions = bool(affected_measure_items)
 
         clef_menu = menu.addMenu("Set clef")
-        for clef in music.Clef:
+        for clef in model.Clef:
             clef_action = QtWidgets.QAction(clef.value, menu)
             clef_action.setEnabled(enable_measure_actions)
             clef_action.triggered.connect(
@@ -1068,41 +1110,52 @@ class ScoreTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
         octave_down_action.setEnabled(enable_measure_actions)
         octave_down_action.setShortcut('Ctrl+Shift+Down')
         octave_down_action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-        octave_down_action.triggered.connect(lambda _: self.onTranspose(affected_measure_items, -12))
+        octave_down_action.triggered.connect(
+            lambda _: self.onTranspose(affected_measure_items, -12))
         transpose_menu.addAction(octave_down_action)
 
-    def onSetClef(self, affected_measure_items, clef):
-        self.send_command_async(
-            self.track.id, 'SetClef',
-            measure_ids=[mitem.measure.id for mitem in affected_measure_items],
-            clef=clef.value)
+    def onSetClef(
+            self, affected_measure_items: List[ScoreMeasureEditorItem], clef: model.Clef) -> None:
+        self.send_command_async(music.Command(
+            target=self.track.id,
+            set_clef=music.SetClef(
+                measure_ids=[mitem.measure.id for mitem in affected_measure_items],
+                clef=clef.value)))
 
-    def onSetKeySignature(self, affected_measure_items, key_signature):
-        self.send_command_async(
-            self.track.id, 'SetKeySignature',
-            measure_ids=[mitem.measure.id for mitem in affected_measure_items],
-            key_signature=key_signature)
+    def onSetKeySignature(
+            self, affected_measure_items: List[ScoreMeasureEditorItem],
+            key_signature: model.KeySignature) -> None:
+        self.send_command_async(music.Command(
+            target=self.track.id,
+            set_key_signature=music.SetKeySignature(
+                measure_ids=[mitem.measure.id for mitem in affected_measure_items],
+                key_signature=key_signature.to_proto())))
 
-    def onSetTimeSignature(self, affected_measure_items, upper, lower):
-        self.send_command_async(
-            self.track.id, 'SetTimeSignature',
-            measure_ids=[
-                self.property_track.measure_list[mitem.measure_reference.index].measure.id
-                for mitem in affected_measure_items],
-            upper=upper, lower=lower)
+    def onSetTimeSignature(
+            self, affected_measure_items: List[ScoreMeasureEditorItem], upper: int, lower: int
+    ) -> None:
+        self.send_command_async(music.Command(
+            target=self.property_track.id,
+            set_time_signature=music.SetTimeSignature(
+                measure_ids=[
+                    self.property_track.measure_list[mitem.measure_reference.index].measure.id
+                    for mitem in affected_measure_items],
+                upper=upper, lower=lower)))
 
-    def onTranspose(self, affected_measure_items, half_notes):
+    def onTranspose(
+            self, affected_measure_items: List[ScoreMeasureEditorItem], half_notes: int) -> None:
         note_ids = set()
         for mitem in affected_measure_items:
             for note in mitem.measure.notes:
                 note_ids.add(note.id)
 
-        self.send_command_async(
-            self.track.id, 'TransposeNotes',
-            note_ids=list(note_ids),
-            half_notes=half_notes)
+        self.send_command_async(music.Command(
+            target=self.track.id,
+            transpose_notes=music.TransposeNotes(
+                note_ids=list(note_ids),
+                half_notes=half_notes)))
 
-    def playNoteOn(self, pitch):
+    def playNoteOn(self, pitch: model.Pitch) -> None:
         self.playNoteOff()
 
         if self.playerState().playerID():
@@ -1116,7 +1169,7 @@ class ScoreTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
 
             self.__play_last_pitch = pitch
 
-    def playNoteOff(self):
+    def playNoteOff(self) -> None:
         if self.__play_last_pitch is not None:
             if self.playerState().playerID():
                 self.call_async(

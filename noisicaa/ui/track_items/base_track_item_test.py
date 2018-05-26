@@ -20,8 +20,8 @@
 #
 # @end:license
 
-from noisicaa.ui import uitest_utils
-from noisicaa.ui import model
+from noisidev import uitest
+from noisicaa import music
 from noisicaa.ui import tools
 from . import base_track_item
 from . import track_item_tests
@@ -49,9 +49,14 @@ class TestTrackEditorItem(base_track_item.BaseTrackEditorItem):
     toolBoxClass = TestToolBox
 
 
-class BaseTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
+class BaseTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        self.project.master_group.tracks.append(model.ScoreTrack(obj_id='track-1'))
+        await self.project_client.send_command(music.Command(
+            target=self.project.id,
+            add_track=music.AddTrack(
+                track_type='score',
+                parent_group_id=self.project.master_group.id)))
+
         self.tool_box = TestToolBox(context=self.context)
 
     def _createTrackItem(self, **kwargs):
@@ -63,13 +68,32 @@ class BaseTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_
             **kwargs)
 
 
+class TestMeasureEditorItem(base_track_item.MeasureEditorItem):
+    layers = ['fg']
+
+    def addMeasureListeners(self):
+        pass
+
+    def paintPlaybackPos(self, painter):
+        pass
+
+    def paintLayer(self, layer, painter):
+        assert layer == 'fg'
+
+
 class TestMeasuredTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
     toolBoxClass = TestToolBox
+    measure_item_cls = TestMeasureEditorItem
 
 
-class MeasuredTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
+class MeasuredTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        self.project.master_group.tracks.append(model.ScoreTrack(obj_id='track-1'))
+        await self.project_client.send_command(music.Command(
+            target=self.project.id,
+            add_track=music.AddTrack(
+                track_type='score',
+                parent_group_id=self.project.master_group.id)))
+
         self.tool_box = TestToolBox(context=self.context)
 
     def _createTrackItem(self, **kwargs):

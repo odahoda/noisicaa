@@ -24,41 +24,30 @@ import os.path
 from typing import List  # pylint: disable=unused-import
 
 from noisidev import unittest
+from noisidev import unittest_mixins
 from noisidev import demo_project
 from noisicaa import audioproc
-from noisicaa.node_db.private import db as node_db
-
+from noisicaa.model import project_pb2
 from . import project
 from . import sample_track
+from . import commands_test
+from . import commands_pb2
+from . import project_client
 
-
-class NodeDB(object):
-    def __init__(self):
-        self.db = node_db.NodeDB()
-
-    async def setup(self):
-        self.db.setup()
-
-    async def cleanup(self):
-        self.db.cleanup()
-
-    def get_node_description(self, uri):
-        return self.db[uri]
-
-
-class ControlTrackConnectorTest(unittest.AsyncTestCase):
+class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
     async def setup_testcase(self):
-        self.node_db = NodeDB()
-        await self.node_db.setup()
+        self.pool = project.Pool()
 
-        self.project = demo_project.basic(project.BaseProject, node_db=self.node_db)
-        self.track = sample_track.SampleTrack(name='test')
+        self.project = demo_project.basic(self.pool, project.BaseProject, node_db=self.node_db)
+        self.track = self.pool.create(sample_track.SampleTrack, name='test')
         self.project.master_group.tracks.append(self.track)
 
-        self.sample1 = sample_track.Sample(
+        self.sample1 = self.pool.create(
+            sample_track.Sample,
             path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
         self.project.samples.append(self.sample1)
-        self.sample2 = sample_track.Sample(
+        self.sample2 = self.pool.create(
+            sample_track.Sample,
             path=os.path.join(unittest.TESTDATA_DIR, 'kick-gettinglaid.wav'))
         self.project.samples.append(self.sample2)
 
@@ -69,9 +58,6 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
         # TODO: track the messages themselves and inspect their contents as well.
         self.messages.append(msg.WhichOneof('msg'))
 
-    async def cleanup_testcase(self):
-        await self.node_db.cleanup()
-
     def test_messages_on_mutations(self):
         connector = self.track.create_track_connector(message_cb=self.message_cb)
         try:
@@ -80,8 +66,9 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
             self.messages.clear()
             self.track.samples.insert(
                 0,
-                sample_track.SampleRef(
-                    time=audioproc.MusicalTime(1, 4), sample_id=self.sample1.id))
+                self.pool.create(
+                    sample_track.SampleRef,
+                    time=audioproc.MusicalTime(1, 4), sample=self.sample1))
             self.assertEqual(
                 self.messages,
                 ['sample_script_add_sample'])
@@ -89,8 +76,9 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
             self.messages.clear()
             self.track.samples.insert(
                 1,
-                sample_track.SampleRef(
-                    time=audioproc.MusicalTime(2, 4), sample_id=self.sample2.id))
+                self.pool.create(
+                    sample_track.SampleRef,
+                    time=audioproc.MusicalTime(2, 4), sample=self.sample2))
             self.assertEqual(
                 self.messages,
                 ['sample_script_add_sample'])
@@ -109,7 +97,7 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
                  'sample_script_add_sample'])
 
             self.messages.clear()
-            self.track.samples[0].sample_id = self.sample1.id
+            self.track.samples[0].sample = self.sample1
             self.assertEqual(
                 self.messages,
                 ['sample_script_remove_sample',
@@ -121,10 +109,14 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
     def test_messages_on_init(self):
         self.track.samples.insert(
             0,
-            sample_track.SampleRef(time=audioproc.MusicalTime(1, 4), sample_id=self.sample1.id))
+            self.pool.create(
+                sample_track.SampleRef,
+                time=audioproc.MusicalTime(1, 4), sample=self.sample1))
         self.track.samples.insert(
             1,
-            sample_track.SampleRef(time=audioproc.MusicalTime(2, 4), sample_id=self.sample2.id))
+            self.pool.create(
+                sample_track.SampleRef,
+                time=audioproc.MusicalTime(2, 4), sample=self.sample2))
 
         connector = self.track.create_track_connector(message_cb=self.message_cb)
         try:
@@ -137,3 +129,83 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
 
         finally:
             connector.close()
+
+
+class SampleTrackTest(commands_test.CommandsTestBase):
+    async def test_add_remove(self):
+        insert_index = await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            add_track=commands_pb2.AddTrack(
+                track_type='sample',
+                parent_group_id=self.project.master_group.id)))
+        self.assertEqual(insert_index, 0)
+
+        track = self.project.master_group.tracks[insert_index]
+        self.assertIsInstance(track, project_client.SampleTrack)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            remove_track=commands_pb2.RemoveTrack(
+                track_id=track.id)))
+        self.assertEqual(len(self.project.master_group.tracks), 0)
+
+    async def _add_track(self):
+        insert_index = await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            add_track=commands_pb2.AddTrack(
+                track_type='sample',
+                parent_group_id=self.project.master_group.id)))
+        return self.project.master_group.tracks[insert_index]
+
+    async def test_add_sample(self):
+        track = await self._add_track()
+
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            add_sample=commands_pb2.AddSample(
+                time=audioproc.MusicalTime(1, 4).to_proto(),
+                path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))))
+        self.assertEqual(track.samples[0].time, audioproc.MusicalTime(1, 4))
+
+    async def test_remove_sample(self):
+        track = await self._add_track()
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            add_sample=commands_pb2.AddSample(
+                time=audioproc.MusicalTime(1, 4).to_proto(),
+                path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))))
+
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            remove_sample=commands_pb2.RemoveSample(
+                sample_id=track.samples[0].id)))
+        self.assertEqual(len(track.samples), 0)
+
+    async def test_move_sample(self):
+        track = await self._add_track()
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            add_sample=commands_pb2.AddSample(
+                time=audioproc.MusicalTime(1, 4).to_proto(),
+                path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))))
+
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            move_sample=commands_pb2.MoveSample(
+                sample_id=track.samples[0].id,
+                time=audioproc.MusicalTime(3, 4).to_proto())))
+        self.assertEqual(track.samples[0].time, audioproc.MusicalTime(3, 4))
+
+    async def test_render_sample(self):
+        track = await self._add_track()
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            add_sample=commands_pb2.AddSample(
+                time=audioproc.MusicalTime(1, 4).to_proto(),
+                path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))))
+
+        samples = await self.client.send_command(commands_pb2.Command(
+            target=track.samples[0].id,
+            render_sample=commands_pb2.RenderSample(
+                scale_x=project_pb2.Fraction(numerator=100, denominator=1))))
+        self.assertEqual(samples[0], 'rms')

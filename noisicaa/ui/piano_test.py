@@ -20,143 +20,142 @@
 #
 # @end:license
 
-# from noisidev import unittest
-# from noisicaa import devices
-# from noisicaa import music
-# from . import uitest_utils
-# from . import piano
+from unittest import mock
+
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+
+from noisidev import uitest
+from noisicaa import devices
+from noisicaa import model
+from . import piano
 
 
-# class PianoTest(uitest_utils.UITest):
-#     def setup_testcase(self):
-#         self.app.sequencer.add_port(
-#             devices.PortInfo(
-#                 devices.ClientInfo(1, "test"),
-#                 1, "test", {'read'}, {'midi_generic'}))
+class PianoTest(uitest.UITestCase):
+    def setup_testcase(self):
+        self.app.sequencer.add_port(
+            devices.PortInfo(
+                devices.ClientInfo(1, "test"),
+                1, "test", {'read'}, {'midi_generic'}))
 
-#     def test_init(self):
-#         p = piano.PianoWidget(None, self.app)
-#         self.assertTrue(p.close())
+    def test_init(self):
+        p = piano.PianoWidget(None, self.app.midi_hub)
+        self.assertTrue(p.close())
 
-#     def test_select_keyboard(self):
-#         p = piano.PianoWidget(None, self.app)
-#         p.keyboard_selector.setCurrentIndex(1)
-#         p.keyboard_selector.setCurrentIndex(0)
-#         p.keyboard_selector.setCurrentIndex(1)
-#         self.assertTrue(p.close())
+    def test_select_keyboard(self):
+        p = piano.PianoWidget(None, self.app.midi_hub)
+        p.keyboard_selector.setCurrentIndex(1)
+        p.keyboard_selector.setCurrentIndex(0)
+        p.keyboard_selector.setCurrentIndex(1)
+        self.assertTrue(p.close())
 
-#     def test_focus_events(self):
-#         p = piano.PianoWidget(None, self.app)
+    def test_focus_events(self):
+        p = piano.PianoWidget(None, self.app.midi_hub)
 
-#         evt = QFocusEvent(QEvent.FocusIn)
-#         p.event(evt)
-#         self.assertTrue(evt.isAccepted())
-#         self.assertTrue(p.focus_indicator.value)
+        evt = QtGui.QFocusEvent(QtCore.QEvent.FocusIn)
+        p.event(evt)
+        self.assertTrue(evt.isAccepted())
+        self.assertTrue(p.focus_indicator.value)
 
-#         evt = QFocusEvent(QEvent.FocusOut)
-#         p.event(evt)
-#         self.assertTrue(evt.isAccepted())
-#         self.assertFalse(p.focus_indicator.value)
+        evt = QtGui.QFocusEvent(QtCore.QEvent.FocusOut)
+        p.event(evt)
+        self.assertTrue(evt.isAccepted())
+        self.assertFalse(p.focus_indicator.value)
 
-#         self.assertTrue(p.close())
+        self.assertTrue(p.close())
 
-#     def test_midi_events(self):
-#         p = piano.PianoWidget(None, self.app)
+    def test_midi_events(self):
+        p = piano.PianoWidget(None, self.app.midi_hub)
 
-#         # White key.
-#         evt = devices.NoteOnEvent(0, '1/1', 0, 65, 120)
-#         p.midiEvent(evt)
-#         evt = devices.NoteOffEvent(0, '1/1', 0, 65, 0)
-#         p.midiEvent(evt)
+        # White key.
+        p.midiEvent(devices.NoteOnEvent(0, '1/1', 0, 65, 120))
+        p.midiEvent(devices.NoteOffEvent(0, '1/1', 0, 65, 0))
 
-#         # Black key.
-#         evt = devices.NoteOnEvent(0, '1/1', 0, 66, 120)
-#         p.midiEvent(evt)
-#         evt = devices.NoteOffEvent(0, '1/1', 0, 66, 0)
-#         p.midiEvent(evt)
+        # Black key.
+        p.midiEvent(devices.NoteOnEvent(0, '1/1', 0, 66, 120))
+        p.midiEvent(devices.NoteOffEvent(0, '1/1', 0, 66, 0))
 
-#         self.assertTrue(p.close())
+        self.assertTrue(p.close())
 
-#     def test_midi_event_out_of_range(self):
-#         p = piano.PianoWidget(None, self.app)
+    def test_midi_event_out_of_range(self):
+        p = piano.PianoWidget(None, self.app.midi_hub)
 
-#         evt = devices.NoteOnEvent(0, '1/1', 0, 1, 120)
-#         p.midiEvent(evt)
+        p.midiEvent(devices.NoteOnEvent(0, '1/1', 0, 1, 120))
 
-#         self.assertTrue(p.close())
+        self.assertTrue(p.close())
 
-#     def test_midi_event_not_note(self):
-#         p = piano.PianoWidget(None, self.app)
+    def test_midi_event_not_note(self):
+        p = piano.PianoWidget(None, self.app.midi_hub)
 
-#         evt = devices.ControlChangeEvent(0, '1/1', 0, 1, 65)
-#         p.midiEvent(evt)
+        p.midiEvent(devices.ControlChangeEvent(0, '1/1', 0, 1, 65))
 
-#         self.assertTrue(p.close())
+        self.assertTrue(p.close())
 
-#     def test_key_events(self):
-#         p = piano.PianoWidget(None, self.app)
+    def test_key_events(self):
+        p = piano.PianoWidget(None, self.app.midi_hub)
 
-#         on_listener = mock.Mock()
-#         p.noteOn.connect(on_listener)
+        on_listener = mock.Mock()
+        p.noteOn.connect(on_listener)
 
-#         off_listener = mock.Mock()
-#         p.noteOff.connect(off_listener)
+        off_listener = mock.Mock()
+        p.noteOff.connect(off_listener)
 
-#         evt = QKeyEvent(
-#             QEvent.KeyPress, Qt.Key_R, Qt.NoModifier, 0x1b, 0, 0, "r")
-#         p.event(evt)
-#         self.assertEqual(
-#             on_listener.call_args_list,
-#             [mock.call(music.Pitch('C5'), 127)])
+        evt = QtGui.QKeyEvent(
+            QtCore.QEvent.KeyPress, Qt.Key_R, Qt.NoModifier, 0x1b, 0, 0, "r")
+        p.event(evt)
+        self.assertEqual(
+            on_listener.call_args_list,
+            [mock.call(model.Pitch('C5'), 127)])
 
-#         evt = QKeyEvent(
-#             QEvent.KeyRelease, Qt.Key_R, Qt.NoModifier, 0x1b, 0, 0, "r")
-#         p.event(evt)
+        evt = QtGui.QKeyEvent(
+            QtCore.QEvent.KeyRelease, Qt.Key_R, Qt.NoModifier, 0x1b, 0, 0, "r")
+        p.event(evt)
 
-#         self.assertEqual(
-#             off_listener.call_args_list,
-#             [mock.call(music.Pitch('C5'))])
+        self.assertEqual(
+            off_listener.call_args_list,
+            [mock.call(model.Pitch('C5'))])
 
-#         self.assertTrue(p.close())
+        self.assertTrue(p.close())
 
-#     def test_key_events_unused_key(self):
-#         p = piano.PianoWidget(None, self.app)
+    def test_key_events_unused_key(self):
+        p = piano.PianoWidget(None, self.app.midi_hub)
 
-#         on_listener = mock.Mock()
-#         p.noteOn.connect(on_listener)
-#         off_listener = mock.Mock()
-#         p.noteOff.connect(off_listener)
+        on_listener = mock.Mock()
+        p.noteOn.connect(on_listener)
+        off_listener = mock.Mock()
+        p.noteOff.connect(off_listener)
 
-#         evt = QKeyEvent(
-#             QEvent.KeyPress, Qt.Key_R, Qt.NoModifier, 0x1b, 0, 0, "r",
-#             autorep=True)
-#         p.event(evt)
-#         on_listener.not_called()
+        evt = QtGui.QKeyEvent(
+            QtCore.QEvent.KeyPress, Qt.Key_R, Qt.NoModifier, 0x1b, 0, 0, "r",
+            autorep=True)
+        p.event(evt)
+        on_listener.not_called()
 
-#         evt = QKeyEvent(
-#             QEvent.KeyRelease, Qt.Key_R, Qt.NoModifier, 0x1b, 0, 0, "r",
-#             autorep=True)
-#         p.event(evt)
-#         off_listener.not_called()
+        evt = QtGui.QKeyEvent(
+            QtCore.QEvent.KeyRelease, Qt.Key_R, Qt.NoModifier, 0x1b, 0, 0, "r",
+            autorep=True)
+        p.event(evt)
+        off_listener.not_called()
 
-#         self.assertTrue(p.close())
+        self.assertTrue(p.close())
 
-#     def test_key_events_ignore_auto_repeat(self):
-#         p = piano.PianoWidget(None, self.app)
+    def test_key_events_ignore_auto_repeat(self):
+        p = piano.PianoWidget(None, self.app.midi_hub)
 
-#         on_listener = mock.Mock()
-#         p.noteOn.connect(on_listener)
-#         off_listener = mock.Mock()
-#         p.noteOff.connect(off_listener)
+        on_listener = mock.Mock()
+        p.noteOn.connect(on_listener)
+        off_listener = mock.Mock()
+        p.noteOff.connect(off_listener)
 
-#         evt = QKeyEvent(
-#             QEvent.KeyPress, Qt.Key_Apostrophe, Qt.NoModifier, 0x14, 0, 0, "'")
-#         p.event(evt)
-#         on_listener.not_called()
+        evt = QtGui.QKeyEvent(
+            QtCore.QEvent.KeyPress, Qt.Key_Apostrophe, Qt.NoModifier, 0x14, 0, 0, "'")
+        p.event(evt)
+        on_listener.not_called()
 
-#         evt = QKeyEvent(
-#             QEvent.KeyRelease, Qt.Key_Apostrophe, Qt.NoModifier, 0x14, 0, 0, "'")
-#         p.event(evt)
-#         off_listener.not_called()
+        evt = QtGui.QKeyEvent(
+            QtCore.QEvent.KeyRelease, Qt.Key_Apostrophe, Qt.NoModifier, 0x14, 0, 0, "'")
+        p.event(evt)
+        off_listener.not_called()
 
-#         self.assertTrue(p.close())
+        self.assertTrue(p.close())

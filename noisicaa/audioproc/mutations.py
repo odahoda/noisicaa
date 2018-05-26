@@ -23,6 +23,7 @@
 from typing import Any
 
 from noisicaa import node_db
+from .public import plugin_state_pb2
 
 
 class Mutation(object):
@@ -78,20 +79,6 @@ class DisconnectPorts(Mutation):
             self.src_node, self.src_port, self.dest_node, self.dest_port)
 
 
-class SetPortProperty(Mutation):
-    def __init__(self, node: str, port: str, **kwargs: Any) -> None:
-        super().__init__()
-        self.node = node
-        self.port = port
-        self.kwargs = kwargs
-
-    def __str__(self) -> str:
-        return '<SetPortProperty port=%s:%s%s>' % (
-            self.node, self.port,
-            ''.join(' %s=%r' % (k, v)
-                    for k, v in sorted(self.kwargs.items())))
-
-
 class SetControlValue(Mutation):
     def __init__(self, name: str, value: float, generation: int) -> None:
         super().__init__()
@@ -105,7 +92,7 @@ class SetControlValue(Mutation):
 
 
 class SetPluginState(Mutation):
-    def __init__(self, node: str, state: str) -> None:
+    def __init__(self, node: str, state: plugin_state_pb2.PluginState) -> None:
         super().__init__()
         self.node = node
         self.state = state

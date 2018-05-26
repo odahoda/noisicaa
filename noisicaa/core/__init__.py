@@ -18,18 +18,6 @@
 #
 # @end:license
 
-from .model_base import (
-    ObjectBase, RootObjectBase,
-
-    PropertyBase,
-    Property, ListProperty,
-    ObjectProperty, ObjectListProperty,
-
-    PropertyChange,
-    PropertyValueChange,
-    PropertyListChange,
-    PropertyListInsert, PropertyListDelete,
-)
 from .process_manager import (
     ProcessManager,
     ProcessBase,

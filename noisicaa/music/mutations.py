@@ -20,98 +20,267 @@
 #
 # @end:license
 
+import contextlib
+import copy
 import logging
-from typing import Any, Iterable, List, Tuple  # pylint: disable=unused-import
+from typing import Any, Iterable, List, Tuple, Generator  # pylint: disable=unused-import
 
-from noisicaa import core
-from . import state
+from noisicaa import audioproc
+from noisicaa import model
+from noisicaa import core  # pylint: disable=unused-import
+from . import pmodel
+from . import mutations_pb2
 
 logger = logging.getLogger(__name__)
 
 
-class Mutation(object):
-    def _prop2tuple(self, obj: state.StateBase, prop: core.PropertyBase) -> Tuple[str, str, Any]:
-        value = getattr(obj, prop.name, None)
-        if isinstance(prop, core.ObjectProperty):
-            return (
-                prop.name,
-                'obj',
-                value.id if value is not None else None)
+def _assert_equal(a: Any, b: Any) -> None:
+    if isinstance(a, model.ObjectBase):
+        a = 'obj:%016x' % a.id
+    if isinstance(b, model.ObjectBase):
+        b = 'obj:%016x' % b.id
+    assert a == b, '%r != %r' % (a, b)
 
-        elif isinstance(prop, core.ObjectListProperty):
-            return (
-                prop.name,
-                'objlist',
-                [v.id for v in value])
 
-        elif isinstance(prop, core.ListProperty):
-            return (prop.name, 'list', list(value))
+class MutationList(object):
+    def __init__(self, pool: model.Pool, mutation_list: mutations_pb2.MutationList) -> None:
+        self.__pool = pool
+        self.__proto = mutation_list
+
+    def get_slot(self, slot_id: int) -> Any:
+        slot = self.__proto.slots[slot_id]
+        vtype = slot.WhichOneof('value')
+
+        if vtype == 'none':
+            return None
+        elif vtype == 'obj_id':
+            return self.__pool[slot.obj_id]
+
+        elif vtype == 'string_value':
+            return slot.string_value
+        elif vtype == 'bytes_value':
+            return slot.bytes_value
+        elif vtype == 'bool_value':
+            return slot.bool_value
+        elif vtype == 'int_value':
+            return slot.int_value
+        elif vtype == 'float_value':
+            return slot.float_value
+
+        elif vtype == 'musical_time':
+            return audioproc.MusicalTime.from_proto(slot.musical_time)
+        elif vtype == 'musical_duration':
+            return audioproc.MusicalDuration.from_proto(slot.musical_duration)
+        elif vtype == 'plugin_state':
+            return copy.deepcopy(slot.plugin_state)
+        elif vtype == 'pitch':
+            return model.Pitch.from_proto(slot.pitch)
+        elif vtype == 'key_signature':
+            return model.KeySignature.from_proto(slot.key_signature)
+        elif vtype == 'time_signature':
+            return model.TimeSignature.from_proto(slot.time_signature)
+        elif vtype == 'clef':
+            return model.Clef.from_proto(slot.clef)
+        elif vtype == 'pos2f':
+            return model.Pos2F.from_proto(slot.pos2f)
+        elif vtype == 'control_value':
+            return copy.deepcopy(slot.control_value)
 
         else:
-            return (prop.name, 'scalar', value)
+            raise TypeError(vtype)
+
+    def apply_forward(self) -> None:
+        for op in self.__proto.ops:
+            op_type = op.WhichOneof('op')
+            if op_type == 'set_property':
+                o = self.__pool[op.set_property.obj_id]
+                old_value = self.get_slot(op.set_property.old_slot)
+                new_value = self.get_slot(op.set_property.new_slot)
+
+                _assert_equal(getattr(o, op.set_property.prop_name), old_value)
+                o.set_property_value(op.set_property.prop_name, new_value)
+
+            elif op_type == 'list_insert':
+                o = self.__pool[op.list_insert.obj_id]
+                new_value = self.get_slot(op.list_insert.slot)
+
+                lst = getattr(o, op.list_insert.prop_name)
+                lst.insert(op.list_insert.index, new_value)
+
+            elif op_type == 'list_delete':
+                o = self.__pool[op.list_delete.obj_id]
+                old_value = self.get_slot(op.list_delete.slot)
+
+                lst = getattr(o, op.list_delete.prop_name)
+                _assert_equal(lst[op.list_delete.index], old_value)
+                del lst[op.list_delete.index]
+
+            elif op_type == 'add_object':
+                self.__pool.deserialize(op.add_object.object)
+
+            elif op_type == 'remove_object':
+                o = self.__pool[op.remove_object.object.id]
+                assert o.proto == op.remove_object.object, \
+                    '%s != %s' % (o.proto, op.remove_object.object)
+                self.__pool.remove(op.remove_object.object.id)
+
+            else:
+                raise ValueError("Unknown op %s" % op)
+
+    def apply_backward(self) -> None:
+        for op in reversed(self.__proto.ops):
+            op_type = op.WhichOneof('op')
+            if op_type == 'set_property':
+                o = self.__pool[op.set_property.obj_id]
+                old_value = self.get_slot(op.set_property.old_slot)
+                new_value = self.get_slot(op.set_property.new_slot)
+
+                _assert_equal(getattr(o, op.set_property.prop_name), new_value)
+                o.set_property_value(op.set_property.prop_name, old_value)
+
+            elif op_type == 'list_insert':
+                o = self.__pool[op.list_insert.obj_id]
+                new_value = self.get_slot(op.list_insert.slot)
+
+                lst = getattr(o, op.list_insert.prop_name)
+                _assert_equal(lst[op.list_insert.index], new_value)
+                del lst[op.list_insert.index]
+
+            elif op_type == 'list_delete':
+                o = self.__pool[op.list_delete.obj_id]
+                old_value = self.get_slot(op.list_delete.slot)
+
+                lst = getattr(o, op.list_delete.prop_name)
+                lst.insert(op.list_delete.index, old_value)
+
+            elif op_type == 'add_object':
+                o = self.__pool[op.add_object.object.id]
+                assert o.proto == op.add_object.object, \
+                    '%s != %s' % (o.proto, op.add_object.object)
+                self.__pool.remove(op.add_object.object.id)
+
+            elif op_type == 'remove_object':
+                self.__pool.deserialize(op.remove_object.object)
+
+            else:
+                raise ValueError("Unknown op %s" % op)
 
 
-class SetProperties(Mutation):
-    def __init__(self, obj: state.StateBase, properties: Iterable[str]) -> None:
-        self.id = obj.id
-        self.properties = []  # type: List[Tuple[str, str, Any]]
-        for prop_name in properties:
-            prop = obj.get_property(prop_name)
-            self.properties.append(self._prop2tuple(obj, prop))
+class MutationCollector(object):
+    def __init__(self, pool: pmodel.Pool, mutation_list: mutations_pb2.MutationList) -> None:
+        self.__pool = pool
+        self.__proto = mutation_list
+        self.__listener = None  # type: core.Listener
 
-    def __str__(self) -> str:
-        return '<SetProperties id="%s" %s>' % (
-            self.id,
-            ' '.join(
-                '%s=%s:%r' % (p, t, v)
-                for p, t, v in self.properties))
+    @property
+    def num_ops(self) -> int:
+        return len(self.__proto.ops)
 
+    @contextlib.contextmanager
+    def collect(self) -> Generator:
+        self.start()
+        try:
+            yield
+        finally:
+            self.stop()
 
-class AddObject(Mutation):
-    def __init__(self, obj: state.StateBase) -> None:
-        self.id = obj.id
-        self.cls = obj.SERIALIZED_CLASS_NAME or obj.__class__.__name__
-        self.properties = []  # type: List[Tuple[str, str, Any]]
-        for prop in obj.list_properties():
-            if prop.name == 'id':
-                continue
-            self.properties.append(self._prop2tuple(obj, prop))
+    def start(self) -> None:
+        assert self.__listener is None
+        self.__listener = self.__pool.listeners.add('model_changes', self.__handle_model_change)
 
-    def __str__(self) -> str:
-        return '<AddObject id=%s cls=%s %s>' % (
-            self.id, self.cls,
-            ' '.join(
-                '%s=%s:%r' % (p, t, v)
-                for p, t, v in self.properties))
-    __repr__ = __str__
+    def stop(self) -> None:
+        assert self.__listener is not None
+        self.__listener.remove()
+        self.__listener = None
 
+    def clear(self) -> None:
+        self.__proto.Clear()
 
-class ListInsert(Mutation):
-    def __init__(self, obj: state.StateBase, prop_name: str, index: int, value: Any) -> None:
-        self.id = obj.id
-        self.prop_name = prop_name
-        self.index = index
-        prop = obj.get_property(prop_name)
-        if isinstance(prop, core.ObjectListProperty):
-            self.value_type = 'obj'
-            self.value = value.id
+    def __handle_model_change(self, obj: model.ObjectBase, change: model.PropertyChange) -> None:
+        if isinstance(change, model.PropertyValueChange):
+            old_slot_id = self.__add_slot(change.old_value)
+            new_slot_id = self.__add_slot(change.new_value)
+
+            self.__add_operation(mutations_pb2.MutationList.Op(
+                set_property=mutations_pb2.MutationList.SetProperty(
+                    obj_id=obj.id,
+                    prop_name=change.prop_name,
+                    old_slot=old_slot_id,
+                    new_slot=new_slot_id)))
+
+        elif isinstance(change, model.PropertyListInsert):
+            slot_id = self.__add_slot(change.new_value)
+            self.__add_operation(mutations_pb2.MutationList.Op(
+                list_insert=mutations_pb2.MutationList.ListInsert(
+                    obj_id=obj.id,
+                    prop_name=change.prop_name,
+                    index=change.index,
+                    slot=slot_id)))
+
+        elif isinstance(change, model.PropertyListDelete):
+            slot_id = self.__add_slot(change.old_value)
+            self.__add_operation(mutations_pb2.MutationList.Op(
+                list_delete=mutations_pb2.MutationList.ListDelete(
+                    obj_id=obj.id,
+                    prop_name=change.prop_name,
+                    index=change.index,
+                    slot=slot_id)))
+
+        elif isinstance(change, model.ObjectAdded):
+            self.__add_operation(mutations_pb2.MutationList.Op(
+                add_object=mutations_pb2.MutationList.AddObject(
+                    object=change.obj.proto)))
+
+        elif isinstance(change, model.ObjectRemoved):
+            self.__add_operation(mutations_pb2.MutationList.Op(
+                remove_object=mutations_pb2.MutationList.RemoveObject(
+                    object=change.obj.proto)))
+
         else:
-            self.value_type = 'scalar'
-            self.value = value
+            raise TypeError("Unsupported change type %s" % type(change))
 
-    def __str__(self) -> str:
-        return '<ListInsert id=%s prop=%s index=%d value=%s:%s>' % (
-            self.id, self.prop_name, self.index,
-            self.value_type, self.value)
-    __repr__ = __str__
+    def __add_slot(self, value: Any) -> int:
+        slot = self.__proto.slots.add()
+        if value is None:
+            slot.none = True
+        elif isinstance(value, model.ObjectBase):
+            slot.obj_id = value.id
 
+        elif isinstance(value, str):
+            slot.string_value = value
+        elif isinstance(value, bytes):
+            slot.bytes_value = value
+        elif isinstance(value, bool):
+            slot.bool_value = value
+        elif isinstance(value, int):
+            slot.int_value = value
+        elif isinstance(value, float):
+            slot.float_value = value
 
-class ListDelete(Mutation):
-    def __init__(self, obj: state.StateBase, prop_name: str, index: int) -> None:
-        self.id = obj.id
-        self.prop_name = prop_name
-        self.index = index
+        elif isinstance(value, audioproc.MusicalTime):
+            slot.musical_time.CopyFrom(value.to_proto())
+        elif isinstance(value, audioproc.MusicalDuration):
+            slot.musical_duration.CopyFrom(value.to_proto())
+        elif isinstance(value, audioproc.PluginState):
+            slot.plugin_state.CopyFrom(value)
+        elif isinstance(value, model.Pitch):
+            slot.pitch.CopyFrom(value.to_proto())
+        elif isinstance(value, model.KeySignature):
+            slot.key_signature.CopyFrom(value.to_proto())
+        elif isinstance(value, model.TimeSignature):
+            slot.time_signature.CopyFrom(value.to_proto())
+        elif isinstance(value, model.Clef):
+            slot.clef.CopyFrom(value.to_proto())
+        elif isinstance(value, model.Pos2F):
+            slot.pos2f.CopyFrom(value.to_proto())
+        elif isinstance(value, model.ControlValue):
+            slot.control_value.CopyFrom(value)
 
-    def __str__(self) -> str:
-        return '<ListDelete id=%s prop=%s index=%d>' % (
-            self.id, self.prop_name, self.index)
+        else:
+            raise TypeError(type(value))
+
+        return len(self.__proto.slots) - 1
+
+    def __add_operation(self, op: mutations_pb2.MutationList.Op) -> None:
+        p = self.__proto.ops.add()
+        p.CopyFrom(op)

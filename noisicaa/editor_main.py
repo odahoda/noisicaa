@@ -233,9 +233,9 @@ class Main(object):
                     self.enable_debug_console
                 ).run()
 
-            elif self.action == 'pdb':
-                from . import pdb
-                rc = pdb.ProjectDebugger(self.runtime_settings, self.paths).run()
+            # elif self.action == 'pdb':
+            #     from . import pdb
+            #     rc = pdb.ProjectDebugger(self.runtime_settings, self.paths).run()
 
             else:
                 raise ValueError(self.action)

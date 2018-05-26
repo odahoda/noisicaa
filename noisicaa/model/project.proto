@@ -1,0 +1,269 @@
+/*
+ * @begin:license
+ *
+ * Copyright (c) 2015-2018, Benjamin Niemann <pink@odahoda.de>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * @end:license
+ */
+
+syntax = "proto2";
+
+package noisicaa.pb;
+
+import "noisicaa/audioproc/public/musical_time.proto";
+import "noisicaa/audioproc/public/plugin_state.proto";
+import "noisicaa/model/model_base.proto";
+
+message Track {
+  optional string name = 1;
+
+  optional bool visible = 2;
+  optional bool muted = 3;
+  optional float gain = 4;
+  optional float pan = 5;
+
+  optional uint64 mixer_node = 6;
+}
+
+message Measure {
+}
+
+message MeasureReference {
+  optional uint64 measure = 1;
+}
+
+message MeasuredTrack {
+  repeated uint64 measure_list = 1;
+  repeated uint64 measure_heap = 2;
+}
+
+message Note {
+  repeated Pitch pitches = 1;
+  optional MusicalDuration base_duration = 2;
+  optional uint32 dots = 3;
+  optional uint32 tuplet = 4;
+}
+
+message TrackGroup {
+  repeated uint64 tracks = 1;
+}
+
+message MasterTrackGroup {
+}
+
+message ScoreMeasure {
+  optional Clef clef = 1;
+  optional KeySignature key_signature = 2;
+  repeated uint64 notes = 3;
+}
+
+message ScoreTrack {
+  optional string instrument = 1;
+  optional int32 transpose_octaves = 2;
+
+  optional uint64 instrument_node = 3;
+  optional uint64 event_source_node = 4;
+}
+
+message Beat {
+  optional MusicalDuration time = 1;
+  optional uint32 velocity = 2;
+}
+
+message BeatMeasure {
+  repeated uint64 beats = 1;
+}
+
+message BeatTrack {
+  optional string instrument = 1;
+  optional Pitch pitch = 2;
+
+  optional uint64 instrument_node = 3;
+  optional uint64 event_source_node = 4;
+}
+
+message PropertyMeasure {
+  optional TimeSignature time_signature = 1;
+}
+
+message PropertyTrack {
+}
+
+message ControlPoint {
+  optional MusicalTime time = 1;
+  optional float value = 2;
+}
+
+message ControlTrack {
+  repeated uint64 points = 1;
+  optional uint64 generator_node = 2;
+      }
+
+message SampleRef {
+  optional MusicalTime time = 1;
+  optional uint64 sample = 2;
+}
+
+message SampleTrack {
+  repeated uint64 samples = 1;
+  optional uint64 sample_script_node = 2;
+}
+
+message PipelineGraphControlValue {
+  optional string name = 1;
+  optional ControlValue value = 2;
+}
+
+message BasePipelineGraphNode {
+  optional string name = 1;
+  optional Pos2F graph_pos = 2;
+  repeated uint64 control_values = 3;
+  optional PluginState plugin_state = 4;
+}
+
+message PipelineGraphNode {
+  optional string node_uri = 1;
+}
+
+message AudioOutPipelineGraphNode {
+}
+
+message TrackMixerPipelineGraphNode {
+  optional uint64 track = 1;
+}
+
+message PianoRollPipelineGraphNode {
+  optional uint64 track = 1;
+}
+
+message CVGeneratorPipelineGraphNode {
+  optional uint64 track = 1;
+}
+
+message SampleScriptPipelineGraphNode {
+  optional uint64 track = 1;
+}
+
+message InstrumentPipelineGraphNode {
+  optional uint64 track = 1;
+}
+
+message PipelineGraphConnection {
+  optional uint64 source_node = 1;
+  optional string source_port = 2;
+  optional uint64 dest_node = 3;
+  optional string dest_port = 4;
+}
+
+message Sample {
+  optional string path = 1;
+      }
+
+message Metadata {
+  optional string author = 1;
+  optional string license = 2;
+  optional string copyright = 3;
+  optional uint32 created = 4;
+}
+
+message Project {
+  optional uint64 metadata = 1;
+  optional uint64 master_group = 2;
+  optional uint64 property_track = 3;
+  repeated uint64 pipeline_graph_nodes = 4;
+  repeated uint64 pipeline_graph_connections = 5;
+  repeated uint64 samples = 6;
+  optional uint32 bpm = 7;
+}
+
+extend ObjectBase {
+  optional Track track = 1000;
+  optional Measure measure = 1001;
+  optional MeasureReference measure_reference = 1002;
+  optional MeasuredTrack measured_track = 1003;
+  optional Note note = 1004;
+  optional TrackGroup track_group = 1005;
+  optional MasterTrackGroup master_track_group = 1006;
+  optional ScoreMeasure score_measure = 1007;
+  optional ScoreTrack score_track = 1008;
+  optional Beat beat = 1009;
+  optional BeatMeasure beat_measure = 1010;
+  optional BeatTrack beat_track = 1011;
+  optional PropertyMeasure property_measure = 1012;
+  optional PropertyTrack property_track = 1013;
+  optional ControlPoint control_point = 1014;
+  optional ControlTrack control_track = 1015;
+  optional SampleRef sample_ref = 1016;
+  optional SampleTrack sample_track = 1017;
+  optional PipelineGraphControlValue pipeline_graph_control_value = 1018;
+  optional BasePipelineGraphNode base_pipeline_graph_node = 1019;
+  optional PipelineGraphNode pipeline_graph_node = 1020;
+  optional AudioOutPipelineGraphNode audio_out_pipeline_graph_node = 1021;
+  optional TrackMixerPipelineGraphNode track_mixer_pipeline_graph_node = 1022;
+  optional PianoRollPipelineGraphNode pianoroll_pipeline_graph_node = 1023;
+  optional CVGeneratorPipelineGraphNode cvgenerator_pipeline_graph_node = 1024;
+  optional SampleScriptPipelineGraphNode sample_script_pipeline_graph_node = 1025;
+  optional InstrumentPipelineGraphNode instrument_pipeline_graph_node = 1026;
+  optional PipelineGraphConnection pipeline_graph_connection = 1027;
+  optional Sample sample = 1028;
+  optional Metadata metadata = 1029;
+  optional Project project = 1030;
+}
+
+message Pitch {
+  optional string name = 1;
+}
+
+message KeySignature {
+  optional string name = 1;
+}
+
+message TimeSignature {
+  optional uint32 upper = 1;
+  optional uint32 lower = 2;
+}
+
+message Clef {
+  enum Type {
+    FrenchViolin = 1;
+    Treble = 2;
+    Soprano = 3;
+    MezzoSoprano = 4;
+    Alto = 5;
+    Tenor = 6;
+    Baritone = 7;
+    Bass = 8;
+    Subbass = 9;
+  }
+
+  optional Type type = 1;
+}
+
+message Pos2F {
+  required float x = 1;
+  required float y = 2;
+}
+
+message ControlValue {
+  optional float value = 1;
+  optional uint64 generation = 2;
+}
+
+message Fraction {
+  optional int64 numerator = 1;
+  optional int64 denominator = 2;
+}

@@ -272,11 +272,6 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             node2.inputs[mutation.dest_port].disconnect(node1.outputs[mutation.src_port])
             realm.update_spec()
 
-        elif isinstance(mutation, mutations.SetPortProperty):
-            node = graph.find_node(mutation.node)
-            port = node.outputs[mutation.port]
-            port.set_prop(**mutation.kwargs)
-
         elif isinstance(mutation, mutations.SetControlValue):
             realm.set_control_value(mutation.name, mutation.value, mutation.generation)
 

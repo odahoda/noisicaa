@@ -22,6 +22,7 @@
 
 import collections
 import enum
+import hashlib
 import logging
 import os
 import os.path
@@ -35,7 +36,7 @@ from mypy_extensions import TypedDict
 import portalocker
 
 from . import fileutil
-
+from . import storage_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,8 @@ def _reverse_action(action: bytes) -> bytes:
 
 
 class ProjectStorage(object):
+    MAGIC = b'NOISICAA\n'
+
     VERSION = 1
     SUPPORTED_VERSIONS = [1]
 
@@ -270,6 +273,30 @@ class ProjectStorage(object):
         self.write_queue.put(
             ('CHECKPOINT', (seq_number, checkpoint_number, checkpoint)))
 
+    def _write_file_header(self, fp: IO[bytes], header: storage_pb2.FileHeader) -> None:
+        fp.write(self.MAGIC)
+        header_serialized = header.SerializeToString()
+        fp.write(struct.pack('>L', len(header_serialized)))
+        fp.write(header_serialized)
+
+    def _read_file_header(self, fp: IO[bytes]) -> storage_pb2.FileHeader:
+        magic = fp.read(len(self.MAGIC))
+        if magic != self.MAGIC:
+            raise CorruptedProjectError("Invalid magic.")
+
+        header_size_b = fp.read(4)
+        if len(header_size_b) < 4:
+            raise CorruptedProjectError("Truncated file.")
+        header_size = struct.unpack('>L', header_size_b)[0]
+        header_serialized = fp.read(header_size)
+        if len(header_serialized) != header_size:
+            raise CorruptedProjectError("Truncated file.")
+
+        header = storage_pb2.FileHeader()
+        header.MergeFromString(header_serialized)
+
+        return header
+
     def _writer_main(self) -> None:
         logger.info("Log writer thread started.")
 
@@ -330,6 +357,15 @@ class ProjectStorage(object):
                         'checkpoint.%06d' % checkpoint_number)
                     logger.info("Writing checkpoint %s...", checkpoint_path)
                     with open(checkpoint_path, mode='wb', buffering=0) as fp:
+                        header = storage_pb2.FileHeader()
+                        header.type = 'checkpoint'
+                        header.version = self.VERSION
+                        header.create_timestamp = int(time.time())
+                        header.size = len(checkpoint)
+                        header.checksum_type = storage_pb2.FileHeader.MD5
+                        header.checksum = hashlib.md5(checkpoint).digest()
+                        self._write_file_header(fp, header)
+
                         fp.write(checkpoint)
 
                     packed_index_entry = self.checkpoint_index_formatter.pack(
@@ -528,4 +564,22 @@ class ProjectStorage(object):
             'checkpoint.%06d' % checkpoint_number)
         logger.info("Reading checkpoint %s...", checkpoint_path)
         with open(checkpoint_path, mode='rb') as fp:
-            return fp.read()
+            header = self._read_file_header(fp)
+            if header.type != 'checkpoint':
+                raise CorruptedProjectError("Not a checkpoint file")
+            if header.version not in self.SUPPORTED_VERSIONS:
+                raise UnsupportedFileVersionError("File version %d not supported" % header.version)
+
+            checkpoint = fp.read(header.size)
+            if len(checkpoint) != header.size:
+                raise CorruptedProjectError("Truncated file")
+
+            if header.checksum_type == storage_pb2.FileHeader.MD5:
+                checksum = hashlib.md5(checkpoint).digest()
+                if checksum != header.checksum:
+                    raise CorruptedProjectError("Checksum mismatch")
+            else:
+                raise UnsupportedFileVersionError(
+                    "Checksum type %d not supported" % header.checksum_type)
+
+            return checkpoint

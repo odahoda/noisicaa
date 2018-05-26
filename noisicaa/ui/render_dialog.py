@@ -20,12 +20,11 @@
 #
 # @end:license
 
-# mypy: loose
-
 import asyncio
 import enum
 import logging
 import os.path
+from typing import Any, Optional, Callable, Iterable, BinaryIO, Tuple  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -57,7 +56,8 @@ suffix_map = {
 }
 
 
-def populateComboBox(widget, values, current):
+def populateComboBox(
+        widget: QtWidgets.QComboBox, values: Iterable[Tuple[str, int]], current: int) -> None:
     for idx, (label, value) in enumerate(values):
         widget.addItem(label, userData=value)
         if value == current:
@@ -67,7 +67,7 @@ def populateComboBox(widget, values, current):
 class QValueSlider(QtWidgets.QWidget):
     valueChanged = QtCore.pyqtSignal(int)
 
-    def __init__(self, parent):
+    def __init__(self, parent: QtWidgets.QWidget) -> None:
         super().__init__(parent)
 
         self.__fmt = '%d'
@@ -87,10 +87,10 @@ class QValueSlider(QtWidgets.QWidget):
 
         self.__update()
 
-    def __formatValue(self, value):
+    def __formatValue(self, value: int) -> str:
         return self.__fmt % self.__translate(value)
 
-    def __update(self):
+    def __update(self) -> None:
         self.__label.setText(self.__formatValue(self.value()))
 
         font_metrics = self.__label.fontMetrics()
@@ -98,31 +98,31 @@ class QValueSlider(QtWidgets.QWidget):
             font_metrics.boundingRect(self.__formatValue(value)).width()
             for value in [self.__slider.minimum(), self.__slider.maximum()]))
 
-    def setRange(self, minimum, maximum):
+    def setRange(self, minimum: int, maximum: int) -> None:
         self.__slider.setRange(minimum, maximum)
         self.__update()
 
-    def setValue(self, value):
+    def setValue(self, value: int) -> None:
         self.__slider.setValue(value)
 
-    def value(self):
+    def value(self) -> int:
         return self.__slider.value()
 
-    def __onValueChanged(self, value):
+    def __onValueChanged(self, value: int) -> None:
         self.valueChanged.emit(value)
         self.__label.setText(self.__formatValue(value))
 
-    def setFormat(self, fmt):
+    def setFormat(self, fmt: str) -> None:
         self.__fmt = fmt
         self.__update()
 
-    def setTranslateFunction(self, func):
+    def setTranslateFunction(self, func: Callable[[int], Any]) -> None:
         self.__translate = func
         self.__update()
 
 
 class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         # TODO: persist
@@ -130,11 +130,11 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.__settings = music.RenderSettings()
 
         self.__aborted = asyncio.Event(loop=self.event_loop)
-        self.__cb_server = None
-        self.__out_fp = None
-        self.__bytes_written = None
-        self.__renderer_state = None
-        self.__failure_reason = None
+        self.__cb_server = None   # type: ipc.Server
+        self.__out_fp = None  # type: BinaryIO
+        self.__bytes_written = None  # type: int
+        self.__renderer_state = None  # type: str
+        self.__failure_reason = None  # type: str
 
         self.setWindowTitle("noisicaä - Render Project")
         self.setMinimumWidth(500)
@@ -406,7 +406,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.status.setVisible(False)
         self.spinner.setVisible(False)
 
-    def setUIState(self, state):
+    def setUIState(self, state: State) -> None:
         assert isinstance(state, State)
         assert state != State.IDLE
 
@@ -434,7 +434,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         method()
         self.__ui_state = state
 
-    def __uiStateSetup(self):
+    def __uiStateSetup(self) -> None:
         self.top_area.setEnabled(False)
 
         self.abort_button.setVisible(True)
@@ -447,7 +447,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.spinner.setVisible(True)
         self.spinner_label.setText("Setting up pipeline...")
 
-    def __uiStateRunning(self):
+    def __uiStateRunning(self) -> None:
         self.top_area.setEnabled(False)
 
         self.abort_button.setVisible(True)
@@ -460,7 +460,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.status.setVisible(False)
         self.spinner.setVisible(False)
 
-    def __uiStateCleanup(self):
+    def __uiStateCleanup(self) -> None:
         self.top_area.setEnabled(False)
 
         self.abort_button.setVisible(False)
@@ -472,7 +472,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.spinner.setVisible(True)
         self.spinner_label.setText("Tearning down pipeline...")
 
-    def __uiStateAborting(self):
+    def __uiStateAborting(self) -> None:
         self.top_area.setEnabled(False)
 
         self.abort_button.setVisible(True)
@@ -485,7 +485,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.spinner.setVisible(True)
         self.spinner_label.setText("Aborting...")
 
-    def __uiStateDone(self):
+    def __uiStateDone(self) -> None:
         self.top_area.setEnabled(True)
 
         self.abort_button.setVisible(False)
@@ -496,13 +496,13 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.status.setVisible(True)
         self.spinner.setVisible(False)
 
-    def setStatusMessage(self, msg, color):
+    def setStatusMessage(self, msg: str, color: QtGui.QColor) -> None:
         self.status.setText(msg)
         palette = QtGui.QPalette(self.status.palette())
         palette.setColor(QtGui.QPalette.WindowText, color)
         self.status.setPalette(palette)
 
-    def getOutputDirectoryError(self):
+    def getOutputDirectoryError(self) -> Optional[str]:
         directory = self.output_directory.text()
 
         if not directory:
@@ -513,7 +513,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
 
         return None
 
-    def getFileNameError(self):
+    def getFileNameError(self) -> Optional[str]:
         filename = self.file_name.text()
 
         if not filename:
@@ -533,22 +533,22 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
 
         return None
 
-    def isPathValid(self):
+    def isPathValid(self) -> bool:
         return self.getOutputDirectoryError() is None and self.getFileNameError() is None
 
-    def validateOutputDirectory(self):
+    def validateOutputDirectory(self) -> None:
         err = self.getOutputDirectoryError()
         self.output_directory_warning.setVisible(err is not None)
         self.output_directory_warning.setToolTip(err)
         self.render_button.setEnabled(self.isPathValid())
 
-    def validateFileName(self):
+    def validateFileName(self) -> None:
         err = self.getFileNameError()
         self.file_name_warning.setVisible(err is not None)
         self.file_name_warning.setToolTip(err)
         self.render_button.setEnabled(self.isPathValid())
 
-    def onSelectOutputDirectory(self):
+    def onSelectOutputDirectory(self) -> None:
         path = QtWidgets.QFileDialog.getExistingDirectory(
             parent=self,
             caption="Select output directory...",
@@ -556,13 +556,13 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         if path is not None:
             self.output_directory.setText(path)
 
-    def onBlockSizeChanged(self):
+    def onBlockSizeChanged(self) -> None:
         self.__settings.block_size = self.block_size.currentData()
 
-    def onSampleRateChanged(self):
+    def onSampleRateChanged(self) -> None:
         self.__settings.sample_rate = self.sample_rate.currentData()
 
-    def onOutputFormatChanged(self):
+    def onOutputFormatChanged(self) -> None:
         output_format = self.output_format.currentData()
         self.__settings.output_format = output_format
 
@@ -585,47 +585,47 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
             file_name += suffix
         self.file_name.setText(file_name)
 
-    def onFlacBitsPerSampleChanged(self):
+    def onFlacBitsPerSampleChanged(self) -> None:
         self.__settings.flac_settings.bits_per_sample = self.flac_bits_per_sample.currentData()
 
-    def onFlacCompressionLevelChanged(self):
+    def onFlacCompressionLevelChanged(self) -> None:
         self.__settings.flac_settings.compression_level = self.flac_compression_level.value()
 
-    def onOggEncodeModeChanged(self):
+    def onOggEncodeModeChanged(self) -> None:
         self.__settings.ogg_settings.encode_mode = self.ogg_encode_mode.currentData()
         self.ogg_bitrate.setEnabled(
             self.__settings.ogg_settings.encode_mode == music.RenderSettings.OggSettings.CBR)
         self.ogg_quality.setEnabled(
             self.__settings.ogg_settings.encode_mode == music.RenderSettings.OggSettings.VBR)
 
-    def onOggBitrateChanged(self):
+    def onOggBitrateChanged(self) -> None:
         self.__settings.ogg_settings.bitrate = self.ogg_bitrate.value()
 
-    def onOggQualityChanged(self):
+    def onOggQualityChanged(self) -> None:
         self.__settings.ogg_settings.quality = float(self.ogg_quality.value()) / 10.0
 
-    def onWaveBitsPerSampleChanged(self):
+    def onWaveBitsPerSampleChanged(self) -> None:
         self.__settings.wave_settings.bits_per_sample = self.wave_bits_per_sample.currentData()
 
-    def onMp3EncodeModeChanged(self):
+    def onMp3EncodeModeChanged(self) -> None:
         self.__settings.mp3_settings.encode_mode = self.mp3_encode_mode.currentData()
         self.mp3_bitrate.setEnabled(
             self.__settings.mp3_settings.encode_mode == music.RenderSettings.Mp3Settings.CBR)
         self.mp3_compression_level.setEnabled(
             self.__settings.mp3_settings.encode_mode == music.RenderSettings.Mp3Settings.VBR)
 
-    def onMp3BitrateChanged(self):
+    def onMp3BitrateChanged(self) -> None:
         self.__settings.mp3_settings.bitrate = self.mp3_bitrate.value()
 
-    def onMp3CompressionLevelChanged(self):
+    def onMp3CompressionLevelChanged(self) -> None:
         self.__settings.mp3_settings.compression_level = self.mp3_compression_level.value()
 
-    def onAbort(self):
+    def onAbort(self) -> None:
         self.__aborted.set()
 
         self.setUIState(State.ABORTING)
 
-    def onRender(self):
+    def onRender(self) -> None:
         path = os.path.join(self.output_directory.text(), self.file_name.text())
 
         if os.path.exists(path):
@@ -648,7 +648,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
 
         self.setUIState(State.SETUP)
 
-    def onRendererDone(self, _):
+    def onRendererDone(self, _: Any) -> None:
         if self.__renderer_state == 'complete':
             self.setStatusMessage("Done.", QtGui.QColor(60, 160, 60))
 
@@ -673,7 +673,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
 
         self.setUIState(State.DONE)
 
-    def __onRendererState(self, state):
+    def __onRendererState(self, state: str) -> None:
         self.__renderer_state = state
 
         if state == 'setup':
@@ -683,11 +683,11 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         elif state == 'cleanup':
             self.setUIState(State.CLEANUP)
 
-    def __onRendererProgress(self, progress):
+    def __onRendererProgress(self, progress: float) -> bool:
         self.progress.setValue(int(100 * progress))
         return self.__aborted.is_set()
 
-    def __onRendererData(self, data):
+    def __onRendererData(self, data: bytes) -> Tuple[bool, str]:
         try:
             self.__out_fp.write(data)
         except (IOError, OSError) as exc:
@@ -696,7 +696,7 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.__bytes_written += len(data)
         return True, ""
 
-    async def __runRenderer(self, path):
+    async def __runRenderer(self, path: str) -> None:
         tmp_path = path + '.partial'
         try:
             self.__out_fp = open(tmp_path, 'wb')

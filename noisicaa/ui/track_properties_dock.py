@@ -20,18 +20,17 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
-from typing import List  # pylint: disable=unused-import
+from typing import Any, List  # pylint: disable=unused-import
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core  # pylint: disable=unused-import
+from noisicaa import model
 from noisicaa import music
-from noisicaa.music import model
+from noisicaa import instrument_db
 from .dock_widget import DockWidget
 from . import instrument_library
 from . import ui_base
@@ -41,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
-    def __init__(self, track, **kwargs):
+    def __init__(self, track: music.Track, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self._track = track
@@ -51,14 +50,12 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
         self._name = QtWidgets.QLineEdit(self)
         self._name.textEdited.connect(self.onNameEdited)
         self._name.setText(self._track.name)
-        self._listeners.append(
-            self._track.listeners.add('name', self.onNameChanged))
+        self._listeners.append(self._track.listeners.add('name', self.onNameChanged))
 
         self._muted = mute_button.MuteButton(self)
         self._muted.toggled.connect(self.onMutedEdited)
         self._muted.setChecked(self._track.muted)
-        self._listeners.append(
-            self._track.listeners.add('muted', self.onMutedChanged))
+        self._listeners.append(self._track.listeners.add('muted', self.onMutedChanged))
 
         self._gain = QtWidgets.QDoubleSpinBox(self)
         self._gain.setSuffix('dB')
@@ -96,57 +93,64 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
 
         self.setLayout(self._form_layout)
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         for listener in self._listeners:
             listener.remove()
         self._listeners.clear()
 
-    def onNameChanged(self, old_name, new_name):
+    def onNameChanged(self, old_name: str, new_name: str) -> None:
         self._name.setText(new_name)
 
-    def onNameEdited(self, name):
+    def onNameEdited(self, name: str) -> None:
         if name != self._track.name:
-            self.send_command_async(
-                self._track.id, 'UpdateTrackProperties', name=name)
+            self.send_command_async(music.Command(
+                target=self._track.id,
+                update_track_properties=music.UpdateTrackProperties(name=name)))
 
-    def onGainChanged(self, old_gain, new_gain):
+    def onGainChanged(self, old_gain: float, new_gain: float) -> None:
         self._gain.setValue(new_gain)
 
-    def onGainEdited(self, gain):
+    def onGainEdited(self, gain: float) -> None:
         if gain != self._track.gain:
-            self.send_command_async(
-                self._track.id, 'UpdateTrackProperties', gain=gain)
+            self.send_command_async(music.Command(
+                target=self._track.id,
+                update_track_properties=music.UpdateTrackProperties(gain=gain)))
 
-    def onMutedChanged(self, old_value, new_value):
+    def onMutedChanged(self, old_value: bool, new_value: bool) -> None:
         self._muted.setChecked(new_value)
         self._gain.setEnabled(not new_value)
 
-    def onMutedEdited(self, muted):
+    def onMutedEdited(self, muted: bool) -> None:
         if muted != self._track.muted:
-            self.send_command_async(
-                self._track.id, 'UpdateTrackProperties', muted=muted)
+            self.send_command_async(music.Command(
+                target=self._track.id,
+                update_track_properties=music.UpdateTrackProperties(muted=muted)))
 
-    def onPanChanged(self, old_value, new_value):
+    def onPanChanged(self, old_value: float, new_value: float) -> None:
         self._pan.setValue(new_value)
 
-    def onPanEdited(self, value):
+    def onPanEdited(self, value: float) -> None:
         if value != self._track.pan:
-            self.send_command_async(
-                self._track.id, 'UpdateTrackProperties', pan=value)
+            self.send_command_async(music.Command(
+                target=self._track.id,
+                update_track_properties=music.UpdateTrackProperties(pan=value)))
 
 
 class TrackGroupProperties(TrackProperties):
     pass
 
 class ControlTrackProperties(TrackProperties):
-    pass
+    _track = None  # type: music.ControlTrack
+
 
 class SampleTrackProperties(TrackProperties):
-    pass
+    _track = None  # type: music.SampleTrack
 
 
 class ScoreTrackProperties(TrackProperties):
-    def __init__(self, **kwargs):
+    _track = None  # type: music.ScoreTrack
+
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self._select_instrument = QtWidgets.QToolButton(self)
@@ -180,16 +184,16 @@ class ScoreTrackProperties(TrackProperties):
 
         self._form_layout.addRow("Transpose", self._transpose_octaves)
 
-    def onInstrumentChanged(self, old_instrument, new_instrument):
+    def onInstrumentChanged(self, old_instrument: str, new_instrument: str) -> None:
         if new_instrument is not None:
             self._instrument.setText(new_instrument)
         else:
             self._instrument.setText('---')
 
-    def onSelectInstrument(self):
+    def onSelectInstrument(self) -> None:
         self.call_async(self.onSelectInstrumentAsync())
 
-    async def onSelectInstrumentAsync(self):
+    async def onSelectInstrumentAsync(self) -> None:
         dialog = instrument_library.InstrumentLibraryDialog(
             context=self.context, selectButton=True, parent=self)
         dialog.setWindowTitle(
@@ -202,32 +206,36 @@ class ScoreTrackProperties(TrackProperties):
             dialog.selectInstrument(self._track.instrument)
         dialog.show()
 
-    def onSelectInstrumentClosed(self, dialog):
+    def onSelectInstrumentClosed(
+            self, dialog: instrument_library.InstrumentLibraryDialog) -> None:
         if dialog.result() == dialog.Accepted:
             self.onInstrumentEdited(dialog.instrument())
         self.call_async(dialog.cleanup())
 
-    def onInstrumentEdited(self, description):
+    def onInstrumentEdited(self, description: instrument_db.InstrumentDescription) -> None:
         if description is None:
             return
 
-        self.send_command_async(
-            self._track.id, 'SetInstrument',
-            instrument=description.uri)
+        self.send_command_async(music.Command(
+            target=self._track.id,
+            set_instrument=music.SetInstrument(instrument=description.uri)))
 
     def onTransposeOctavesChanged(
-            self, old_transpose_octaves, new_transpose_octaves):
+            self, old_transpose_octaves: int, new_transpose_octaves: int) -> None:
         self._transpose_octaves.setValue(new_transpose_octaves)
 
-    def onTransposeOctavesEdited(self, transpose_octaves):
+    def onTransposeOctavesEdited(self, transpose_octaves: int) -> None:
         if transpose_octaves != self._track.transpose_octaves:
-            self.send_command_async(
-                self._track.id, 'UpdateTrackProperties',
-                transpose_octaves=transpose_octaves)
+            self.send_command_async(music.Command(
+                target=self._track.id,
+                update_track_properties=music.UpdateTrackProperties(
+                    transpose_octaves=transpose_octaves)))
 
 
 class BeatTrackProperties(TrackProperties):
-    def __init__(self, **kwargs):
+    _track = None  # type: music.BeatTrack
+
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self._select_instrument = QtWidgets.QToolButton(
@@ -259,19 +267,19 @@ class BeatTrackProperties(TrackProperties):
         self._form_layout.addRow("Instrument", instrument_layout)
         self._form_layout.addRow("Pitch", self._pitch)
 
-    def onInstrumentChanged(self, old_instrument, new_instrument):
+    def onInstrumentChanged(self, old_instrument: str, new_instrument: str) -> None:
         if new_instrument is not None:
             self._instrument.setText(new_instrument)
         else:
             self._instrument.setText('---')
 
-    def onSelectInstrument(self):
+    def onSelectInstrument(self) -> None:
         if self._track is None:
             return
 
         self.call_async(self.onSelectInstrumentAsync())
 
-    async def onSelectInstrumentAsync(self):
+    async def onSelectInstrumentAsync(self) -> None:
         dialog = instrument_library.InstrumentLibraryDialog(
             context=self.context, selectButton=True, parent=self)
         dialog.setWindowTitle(
@@ -284,35 +292,37 @@ class BeatTrackProperties(TrackProperties):
             dialog.selectInstrument(self._track.instrument)
         dialog.show()
 
-    def onSelectInstrumentClosed(self, dialog):
+    def onSelectInstrumentClosed(self, dialog: instrument_library.InstrumentLibraryDialog) -> None:
         if dialog.result() == dialog.Accepted:
             self.onInstrumentEdited(dialog.instrument())
         self.call_async(dialog.cleanup())
 
-    def onInstrumentEdited(self, description):
+    def onInstrumentEdited(self, description: instrument_db.InstrumentDescription) -> None:
         if description is None:
             return
 
-        self.send_command_async(
-            self._track.id, 'SetBeatTrackInstrument',
-            instrument=description.uri)
+        self.send_command_async(music.Command(
+            target=self._track.id,
+            set_beat_track_instrument=music.SetBeatTrackInstrument(
+                instrument=description.uri)))
 
-    def onPitchChanged(self, old_value, new_value):
+    def onPitchChanged(self, old_value: model.Pitch, new_value: model.Pitch) -> None:
         self._pitch.setText(str(new_value))
 
-    def onPitchEdited(self):
+    def onPitchEdited(self) -> None:
         try:
-            pitch = music.Pitch(self._pitch.text())
+            pitch = model.Pitch(self._pitch.text())
         except ValueError:
             self._pitch.setText(str(self._track.pitch))
         else:
             if pitch != self._track.pitch:
-                self.send_command_async(
-                    self._track.id, 'SetBeatTrackPitch', pitch=pitch)
+                self.send_command_async(music.Command(
+                    target=self._track.id,
+                    set_beat_track_pitch=music.SetBeatTrackPitch(pitch=pitch.to_proto())))
 
 
 class TrackPropertiesDockWidget(ui_base.ProjectMixin, DockWidget):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             identifier='track-properties',
             title="Track Properties",
@@ -321,9 +331,9 @@ class TrackPropertiesDockWidget(ui_base.ProjectMixin, DockWidget):
             initial_visible=True,
             **kwargs)
 
-        self._track = None
+        self._track = None  # type: music.Track
 
-    def setTrack(self, track):
+    def setTrack(self, track: music.Track) -> None:
         if track is self._track:
             return
 
@@ -333,23 +343,23 @@ class TrackPropertiesDockWidget(ui_base.ProjectMixin, DockWidget):
                 self.main_widget.cleanup()
             self.setWidget(None)
 
-        elif isinstance(self._track, model.TrackGroup):
+        elif isinstance(self._track, music.TrackGroup):
             self.setWidget(TrackGroupProperties(
                 track=self._track, context=self.context))
 
-        elif isinstance(self._track, model.ScoreTrack):
+        elif isinstance(self._track, music.ScoreTrack):
             self.setWidget(ScoreTrackProperties(
                 track=self._track, context=self.context))
 
-        elif isinstance(self._track, model.BeatTrack):
+        elif isinstance(self._track, music.BeatTrack):
             self.setWidget(BeatTrackProperties(
                 track=self._track, context=self.context))
 
-        elif isinstance(self._track, model.ControlTrack):
+        elif isinstance(self._track, music.ControlTrack):
             self.setWidget(ControlTrackProperties(
                 track=self._track, context=self.context))
 
-        elif isinstance(self._track, model.SampleTrack):
+        elif isinstance(self._track, music.SampleTrack):
             self.setWidget(SampleTrackProperties(
                 track=self._track, context=self.context))
 

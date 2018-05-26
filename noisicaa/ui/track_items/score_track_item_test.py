@@ -20,32 +20,19 @@
 #
 # @end:license
 
-from noisidev import unittest
-from noisicaa.ui import uitest_utils
-from noisicaa.ui import model
+from noisidev import uitest
+from noisicaa import music
 from . import score_track_item
 from . import track_item_tests
 
 
-class ScoreTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
+class ScoreTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        self.project.master_group.tracks.append(model.ScoreTrack(obj_id='track-1'))
-
-        pm = model.PropertyMeasure(obj_id='msr-0.1')
-        self.obj_map[pm.id] = pm
-        self.project.property_track.measure_heap.append(pm)
-        mref = model.MeasureReference(obj_id='msr-ref-0.1')
-        self.obj_map[mref.id] = mref
-        mref.measure_id = pm.id
-        self.project.property_track.measure_list.append(mref)
-
-        m = model.ScoreMeasure(obj_id='msr-1.1')
-        self.obj_map[m.id] = m
-        self.project.master_group.tracks[0].measure_heap.append(m)
-        mref = model.MeasureReference(obj_id='msr-ref-1.1')
-        self.obj_map[mref.id] = mref
-        mref.measure_id = m.id
-        self.project.master_group.tracks[0].measure_list.append(mref)
+        await self.project_client.send_command(music.Command(
+            target=self.project.id,
+            add_track=music.AddTrack(
+                track_type='score',
+                parent_group_id=self.project.master_group.id)))
 
         self.tool_box = score_track_item.ScoreToolBox(context=self.context)
 
@@ -56,43 +43,3 @@ class ScoreTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest
             editor=self.editor,
             context=self.context,
             **kwargs)
-
-    @unittest.skip("Segfaults")
-    def test_isCurrent(self):
-        pass
-
-    @unittest.skip("Segfaults")
-    def test_key_events(self):
-        pass
-
-    @unittest.skip("Segfaults")
-    def test_mouse_events(self):
-        pass
-
-    @unittest.skip("Segfaults")
-    def test_onRemoveTrack(self):
-        pass
-
-    @unittest.skip("Segfaults")
-    def test_paint(self):
-        pass
-
-    @unittest.skip("Segfaults")
-    def test_properties(self):
-        pass
-
-    @unittest.skip("Segfaults")
-    def test_scale(self):
-        pass
-
-    @unittest.skip("Segfaults")
-    def test_size(self):
-        pass
-
-    @unittest.skip("Segfaults")
-    def test_sizeChanged(self):
-        pass
-
-    @unittest.skip("Segfaults")
-    def test_viewRect(self):
-        pass

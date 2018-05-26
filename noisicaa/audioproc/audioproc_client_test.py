@@ -36,7 +36,7 @@ from . import audioproc_client
 logger = logging.getLogger(__name__)
 
 
-class TestClientImpl(audioproc_client.AudioProcClientBase):
+class TestClientImpl(audioproc_client.AudioProcClientBase):  # pylint: disable=abstract-method
     def __init__(self, event_loop):
         super().__init__(event_loop, ipc.Server(event_loop, 'client', TEST_OPTS.TMP_DIR))
 

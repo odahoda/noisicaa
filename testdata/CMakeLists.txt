@@ -37,9 +37,6 @@ render_csound(organ.csnd organ.wav)
 
 mksf2(sf2test.yaml sf2test.sf2)
 
-static_file(abc/all-around-my-hat.abc)
-static_file(abc/sonata-i.abc)
-
 static_file(symbol.svg)
 
 add_custom_target(
@@ -53,8 +50,6 @@ add_custom_target(
     snare.wav
     organ.wav
     sf2test.sf2
-    abc/all-around-my-hat.abc
-    abc/sonata-i.abc
     symbol.svg
 )
 

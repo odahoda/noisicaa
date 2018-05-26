@@ -23,26 +23,12 @@
 import logging
 
 from noisidev import unittest
-from noisicaa.node_db.private import db as node_db
+from noisidev import unittest_mixins
 from . import project
 from . import track_group
 from . import beat_track
 
 logger = logging.getLogger(__name__)
-
-
-class NodeDB(object):
-    def __init__(self):
-        self.db = node_db.NodeDB()
-
-    async def setup(self):
-        self.db.setup()
-
-    async def cleanup(self):
-        self.db.cleanup()
-
-    def get_node_description(self, uri):
-        return self.db[uri]
 
 
 class Signal(object):
@@ -60,28 +46,23 @@ class Signal(object):
         return self.__set
 
 
-class TrackGroupTest(unittest.AsyncTestCase):
+class TrackGroupTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
     async def setup_testcase(self):
-        self.node_db = NodeDB()
-        await self.node_db.setup()
-
-        self.project = project.BaseProject(node_db=self.node_db)
-
-    async def cleanup_testcase(self):
-        await self.node_db.cleanup()
+        self.pool = project.Pool()
+        self.project = self.pool.create(project.BaseProject, node_db=self.node_db)
 
     def test_duration_changed(self):
         duration_changed = Signal()
         self.project.master_group.listeners.add('duration_changed', duration_changed.set)
 
         logger.info("0 -------------")
-        grp = track_group.TrackGroup(name="group")
+        grp = self.pool.create(track_group.TrackGroup, name="group")
         self.project.master_group.tracks.append(grp)
         self.assertTrue(duration_changed.is_set)
 
         logger.info("1 -------------")
         duration_changed.clear()
-        track = beat_track.BeatTrack(name="track1")
+        track = self.pool.create(beat_track.BeatTrack, name="track1")
         track.append_measure()
         track.append_measure()
         grp.tracks.append(track)

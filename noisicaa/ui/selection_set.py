@@ -20,10 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
-from typing import Set  # pylint: disable=unused-import
+from typing import Iterator, Set  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
 
@@ -31,23 +29,26 @@ logger = logging.getLogger(__name__)
 class Selectable(object):
     selection_class = None  # type: str
 
+    def setSelected(self, selected: bool) -> None:
+        raise NotImplementedError
+
 
 class SelectionSet(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.__selection_set = set()  # type: Set[Selectable]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Selectable]:
         yield from self.__selection_set
 
-    def empty(self):
+    def empty(self) -> bool:
         return len(self.__selection_set) == 0
 
-    def clear(self):
+    def clear(self) -> None:
         for obj in self.__selection_set:
             obj.setSelected(False)
         self.__selection_set.clear()
 
-    def add(self, obj):
+    def add(self, obj: Selectable) -> None:
         if obj in self.__selection_set:
             raise RuntimeError("Item already selected.")
 
@@ -58,7 +59,7 @@ class SelectionSet(object):
         self.__selection_set.add(obj)
         obj.setSelected(True)
 
-    def remove(self, obj, update_object=True):
+    def remove(self, obj: Selectable, update_object: bool = True) -> None:
         if obj not in self.__selection_set:
             raise RuntimeError("Item not selected.")
 

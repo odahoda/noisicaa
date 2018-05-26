@@ -20,21 +20,21 @@
 #
 # @end:license
 
-import logging
+# import logging
 
-from noisidev import unittest
-from . import builtin_scanner
-from . import preset_scanner
+# from noisidev import unittest
+# from . import builtin_scanner
+# from . import preset_scanner
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 
-class PresetScannerTest(unittest.TestCase):
-    def setup_testcase(self):
-        scanner = builtin_scanner.BuiltinScanner()
-        self.nodes = dict(scanner.scan())
+# class PresetScannerTest(unittest.TestCase):
+#     def setup_testcase(self):
+#         scanner = builtin_scanner.BuiltinScanner()
+#         self.nodes = dict(scanner.scan())
 
-    def test_scan(self):
-        scanner = preset_scanner.PresetScanner(self.nodes)
-        for uri, _ in scanner.scan():
-            logger.info(uri)
+#     def test_scan(self):
+#         scanner = preset_scanner.PresetScanner(self.nodes)
+#         for uri, _ in scanner.scan():
+#             logger.info(uri)

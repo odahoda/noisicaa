@@ -71,6 +71,8 @@ PIP_DEPS = {
         PKG('cython'),
         PKG('pkgconfig'),
         PKG('pyyaml'),
+        # TODO: get my changes upstream and use regular mypy-protobuf package from pip.
+        PKG('git+https://github.com/odahoda/mypy-protobuf.git#subdirectory=python'),
     ],
     'dev': [
         PKG('asynctest'),

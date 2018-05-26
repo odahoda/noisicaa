@@ -34,6 +34,7 @@ import posix_ipc
 from noisidev import unittest
 from noisidev import unittest_mixins
 from noisidev import unittest_engine_mixins
+from noisidev import qttest
 from noisicaa.constants import TEST_OPTS
 from noisicaa.core import ipc
 from noisicaa import node_db
@@ -56,7 +57,7 @@ class PluginHostProcessTest(
         unittest_mixins.NodeDBMixin,
         unittest_mixins.ProcessManagerMixin,
         unittest_engine_mixins.HostSystemMixin,
-        unittest.QtTestCase):
+        qttest.QtTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

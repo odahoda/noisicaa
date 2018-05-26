@@ -27,14 +27,14 @@
 # from PyQt5 import QtGui
 
 # from noisidev import unittest
-# from . import uitest_utils
+# from noisidev import uitest
 # from . import project_view
 # from . import model
 # from . import tool_dock
 # from . import track_items
 
 
-# class InitTest(uitest_utils.UITest):
+# class InitTest(uitest.UITestCase):
 #     async def test_init(self):
 #         view = ProjectView(context=self.context)
 #         await view.setup()
@@ -56,7 +56,7 @@
 #         self.assertEqual(len(list(view.sheetViews)), 2)
 
 
-# class ModelChangesTest(uitest_utils.UITest):
+# class ModelChangesTest(uitest.UITestCase):
 #     # TODO: the change handler is async, need to wait until it was run
 #     #   before checking that state of the sheetViews list.
 #     pass
@@ -96,7 +96,7 @@
 #     #     self.assertEqual(len(list(view.sheetViews)), 0)
 
 
-# class CommandsTest(uitest_utils.UITest):
+# class CommandsTest(uitest.UITestCase):
 #     async def test_onAddSheet(self):
 #         sheet = model.Sheet('sheet1')
 #         sheet.name = 'Sheet 1'
@@ -161,7 +161,7 @@
 
 
 
-# class SheetViewTest(uitest_utils.UITest):
+# class SheetViewTest(uitest.UITestCase):
 #     async def setup_testcase(self):
 #         self.sheet = model.Sheet('sheet1')
 #         self.sheet.name = 'Sheet 1'
@@ -320,7 +320,7 @@
 
 #         view.setCurrentTool(view.currentTool())
 
-# class MeasureItemTest(uitest_utils.UITest):
+# class MeasureItemTest(uitest.UITestCase):
 #     def setup_testcase(self):
 #         self.window = None
 #         self.project = EditorProject(self.app)

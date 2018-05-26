@@ -21,10 +21,12 @@
 add_python_package(
   profutil.py
   perf_stats.py
+  qttest.py
   unittest.py
   unittest_mixins.py
   unittest_engine_mixins.pyi
   unittest_engine_utils.pyi
+  uitest.py
   demo_project.py
 )
 

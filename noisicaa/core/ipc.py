@@ -45,6 +45,9 @@ class RemoteException(Exception):
 class Error(Exception):
     pass
 
+class ConnectionFailedError(Error):
+    pass
+
 class InvalidResponseError(Error):
     pass
 
@@ -361,10 +364,15 @@ class Stub(object):
         async with self.__lock:
             assert not self.__connected
 
-            transport, protocol = (
-                await self.__event_loop.create_unix_connection(
-                    functools.partial(ClientProtocol, self, self.__event_loop),
-                    self.__server_address))
+            try:
+                transport, protocol = (
+                    await self.__event_loop.create_unix_connection(
+                        functools.partial(ClientProtocol, self, self.__event_loop),
+                        self.__server_address))
+            except IOError as exc:
+                raise ConnectionFailedError(
+                    "Failed to connect to %s: %s" % (self.__server_address, exc))
+
             self.__transport = cast(asyncio.WriteTransport, transport)
             self.__protocol = cast(ClientProtocol, protocol)
             logger.info("%s: Connected to server at %s", self.id, self.__server_address)

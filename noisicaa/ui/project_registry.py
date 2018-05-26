@@ -20,69 +20,65 @@
 #
 # @end:license
 
-# mypy: loose
-
+import asyncio
 import logging
 import os.path
 from typing import Dict  # pylint: disable=unused-import
 
 from PyQt5 import QtCore
 
-from noisicaa import core
 from noisicaa import music
-from . import model
+from noisicaa.core import ipc
+from noisicaa import node_db as node_db_lib
 
 logger = logging.getLogger(__name__)
 
 
 class ProjectClient(music.ProjectClient):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.listeners = core.CallbackRegistry()
-
-    def handle_project_mutations(self, mutations):
+    def handle_project_mutations(self, mutations: music.MutationList) -> None:
         self.listeners.call('project_mutations_begin')
         try:
-            return super().handle_project_mutations(mutations)
+            super().handle_project_mutations(mutations)
         finally:
             self.listeners.call('project_mutations_end')
 
 
 class Project(object):
-    def __init__(self, path, event_loop, tmp_dir, process_manager, node_db):
+    def __init__(
+            self, path: str, event_loop: asyncio.AbstractEventLoop,
+            tmp_dir: str, process_manager: ipc.Stub, node_db: node_db_lib.NodeDBClient) -> None:
         self.path = path
         self.event_loop = event_loop
         self.tmp_dir = tmp_dir
         self.process_manager = process_manager
         self.node_db = node_db
 
-        self.process_address = None
-        self.client = None
+        self.process_address = None  # type: str
+        self.client = None  # type: ProjectClient
 
     @property
-    def name(self):
+    def name(self) -> str:
         return os.path.basename(self.path)
 
-    async def create_process(self):
+    async def create_process(self) -> None:
         self.process_address = await self.process_manager.call(
             'CREATE_PROJECT_PROCESS', self.path)
         self.client = ProjectClient(
             event_loop=self.event_loop,
             tmp_dir=self.tmp_dir,
             node_db=self.node_db)
-        self.client.cls_map.update(model.cls_map)
         await self.client.setup()
         await self.client.connect(self.process_address)
 
-    async def open(self):
+    async def open(self) -> None:
         await self.create_process()
         await self.client.open(self.path)
 
-    async def create(self):
+    async def create(self) -> None:
         await self.create_process()
         await self.client.create(self.path)
 
-    async def close(self):
+    async def close(self) -> None:
         await self.client.close()
         await self.client.disconnect(shutdown=True)
         await self.client.cleanup()
@@ -92,7 +88,9 @@ class Project(object):
 class ProjectRegistry(QtCore.QObject):
     projectListChanged = QtCore.pyqtSignal()
 
-    def __init__(self, event_loop, tmp_dir, process_manager, node_db):
+    def __init__(
+            self, event_loop: asyncio.AbstractEventLoop, tmp_dir: str,
+            process_manager: ipc.Stub, node_db: node_db_lib.NodeDBClient) -> None:
         super().__init__()
 
         self.event_loop = event_loop
@@ -101,19 +99,19 @@ class ProjectRegistry(QtCore.QObject):
         self.node_db = node_db
         self.projects = {}  # type: Dict[str, Project]
 
-    def add_project(self, path):
+    def add_project(self, path: str) -> Project:
         project = Project(
             path, self.event_loop, self.tmp_dir, self.process_manager, self.node_db)
         self.projects[path] = project
         self.projectListChanged.emit()
         return project
 
-    async def close_project(self, project):
+    async def close_project(self, project: Project) -> None:
         await project.close()
         del self.projects[project.path]
         self.projectListChanged.emit()
 
-    async def close_all(self):
+    async def close_all(self) -> None:
         for project in list(self.projects.values()):
             await self.close_project(project)
         self.projectListChanged.emit()

@@ -20,13 +20,16 @@
 #
 # @end:license
 
-# mypy: loose
+from typing import Any, Dict
+
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from . import ui_base
 
 
-class ManagedWindowMixin(ui_base.ProjectMixin):
-    def __init__(self, session_prefix, **kwargs):
+class ManagedWindowMixin(ui_base.ProjectMixin, QtWidgets.QDialog):
+    def __init__(self, session_prefix: str, **kwargs: Any) -> None:
         self.__init_done = False
         self.__session_prefix = session_prefix
 
@@ -44,33 +47,33 @@ class ManagedWindowMixin(ui_base.ProjectMixin):
 
         self.__init_done = True
 
-    def get_session_value(self, key, default):
+    def get_session_value(self, key: str, default: Any) -> Any:
         return super().get_session_value(self.__session_prefix + key, default)
 
-    def set_session_value(self, key, value):
+    def set_session_value(self, key: str, value: Any) -> None:
         super().set_session_value(self.__session_prefix + key, value)
 
-    def set_session_values(self, data):
+    def set_session_values(self, data: Dict[str, Any]) -> None:
         super().set_session_values({
             self.__session_prefix + key: value
             for key, value in data.items()})
 
-    def showEvent(self, evt):
+    def showEvent(self, evt: QtGui.QShowEvent) -> None:
         if self.__init_done:
             self.set_session_value('visible', True)
         super().showEvent(evt)  # type: ignore
 
-    def hideEvent(self, evt):
+    def hideEvent(self, evt: QtGui.QHideEvent) -> None:
         if self.__init_done:
             self.set_session_value('visible', False)
         super().hideEvent(evt)  # type: ignore
 
-    def moveEvent(self, evt):
+    def moveEvent(self, evt: QtGui.QMoveEvent) -> None:
         if self.__init_done and self.isVisible():
             self.set_session_values({'x': evt.pos().x(), 'y': evt.pos().y()})
         super().moveEvent(evt)  # type: ignore
 
-    def resizeEvent(self, evt):
+    def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         if self.__init_done and self.isVisible():
             self.set_session_values({'w': evt.size().width(), 'h': evt.size().height()})
         super().resizeEvent(evt)  # type: ignore

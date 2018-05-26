@@ -20,83 +20,83 @@
 #
 # @end:license
 
-import io
-import logging
-from xml.etree import ElementTree
-from typing import Callable, IO
+# import io
+# import logging
+# from xml.etree import ElementTree
+# from typing import Callable, IO
 
-from . import node_description_pb2
+# from . import node_description_pb2
 
-logger = logging.getLogger(__name__)
-
-
-class PresetError(Exception):
-    pass
-
-class PresetLoadError(PresetError):
-    pass
+# logger = logging.getLogger(__name__)
 
 
-NodeFactory = Callable[..., node_description_pb2.NodeDescription]
+# class PresetError(Exception):
+#     pass
+
+# class PresetLoadError(PresetError):
+#     pass
 
 
-class Preset(object):
-    def __init__(
-            self, *, display_name: str, node_uri: str,
-            node_description: node_description_pb2.NodeDescription) -> None:
-        self.display_name = display_name
-        self.node_uri = node_uri
-        self.node_description = node_description
+# NodeFactory = Callable[..., node_description_pb2.NodeDescription]
 
-    @classmethod
-    def from_file(
-            cls, path: str, node_factory: NodeFactory) -> node_description_pb2.NodeDescription:
-        logger.info("Loading preset from %s", path)
-        with open(path, 'rb') as fp:
-            return cls.parse(fp, node_factory)
 
-    @classmethod
-    def from_string(
-            cls, xml: str, node_factory: NodeFactory) -> node_description_pb2.NodeDescription:
-        stream = io.BytesIO(xml.encode('utf-8'))
-        return cls.parse(stream, node_factory)
+# class Preset(object):
+#     def __init__(
+#             self, *, display_name: str, node_uri: str,
+#             node_description: node_description_pb2.NodeDescription) -> None:
+#         self.display_name = display_name
+#         self.node_uri = node_uri
+#         self.node_description = node_description
 
-    @classmethod
-    def parse(cls, stream: IO, node_factory: NodeFactory) -> node_description_pb2.NodeDescription:
-        tree = ElementTree.parse(stream)
-        root = tree.getroot()
-        if root.tag != 'preset':
-            raise PresetLoadError("Expected <preset> root element, found <%s>" % root.tag)
+#     @classmethod
+#     def from_file(
+#             cls, path: str, node_factory: NodeFactory) -> node_description_pb2.NodeDescription:
+#         logger.info("Loading preset from %s", path)
+#         with open(path, 'rb') as fp:
+#             return cls.parse(fp, node_factory)
 
-        node_elem = root.find('node')
-        if node_elem is None:
-            raise PresetLoadError("Missing <node> element.")
+#     @classmethod
+#     def from_string(
+#             cls, xml: str, node_factory: NodeFactory) -> node_description_pb2.NodeDescription:
+#         stream = io.BytesIO(xml.encode('utf-8'))
+#         return cls.parse(stream, node_factory)
 
-        node_uri = node_elem.get('uri', None)
-        if node_uri is None:
-            raise PresetLoadError("Missing uri attribute on <node> element.")
+#     @classmethod
+#     def parse(cls, stream: IO, node_factory: NodeFactory) -> node_description_pb2.NodeDescription:
+#         tree = ElementTree.parse(stream)
+#         root = tree.getroot()
+#         if root.tag != 'preset':
+#             raise PresetLoadError("Expected <preset> root element, found <%s>" % root.tag)
 
-        node_desc = node_factory(node_uri)
-        if node_desc is None:
-            raise PresetLoadError("Node %s does not exist." % node_uri)
+#         node_elem = root.find('node')
+#         if node_elem is None:
+#             raise PresetLoadError("Missing <node> element.")
 
-        display_name = ''.join(root.find('display-name').itertext())
+#         node_uri = node_elem.get('uri', None)
+#         if node_uri is None:
+#             raise PresetLoadError("Missing uri attribute on <node> element.")
 
-        return cls(
-            display_name=display_name,
-            node_uri=node_uri,
-            node_description=node_desc)
+#         node_desc = node_factory(node_uri)
+#         if node_desc is None:
+#             raise PresetLoadError("Node %s does not exist." % node_uri)
 
-    def to_bytes(self) -> bytes:
-        doc = ElementTree.Element('preset', version='1')  # type: ignore
-        doc.text = '\n'
-        doc.tail = '\n'
+#         display_name = ''.join(root.find('display-name').itertext())
 
-        node_uri_elem = ElementTree.SubElement(doc, 'node_uri')
-        node_uri_elem.text = self.node_uri
-        node_uri_elem.tail = '\n'
+#         return cls(
+#             display_name=display_name,
+#             node_uri=node_uri,
+#             node_description=node_desc)
 
-        tree = ElementTree.ElementTree(doc)
-        buf = io.BytesIO()
-        tree.write(buf, encoding='utf-8', xml_declaration=True)
-        return buf.getvalue()
+#     def to_bytes(self) -> bytes:
+#         doc = ElementTree.Element('preset', version='1')  # type: ignore
+#         doc.text = '\n'
+#         doc.tail = '\n'
+
+#         node_uri_elem = ElementTree.SubElement(doc, 'node_uri')
+#         node_uri_elem.text = self.node_uri
+#         node_uri_elem.tail = '\n'
+
+#         tree = ElementTree.ElementTree(doc)
+#         buf = io.BytesIO()
+#         tree.write(buf, encoding='utf-8', xml_declaration=True)
+#         return buf.getvalue()

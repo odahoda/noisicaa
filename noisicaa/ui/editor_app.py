@@ -20,13 +20,13 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
 import os
 import pprint
 import sys
 import traceback
+import types
+from typing import Any, Optional, Callable, Sequence, Dict, Type  # pylint: disable=unused-import
 
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
@@ -35,6 +35,8 @@ from noisicaa import audioproc
 from noisicaa import instrument_db
 from noisicaa import node_db
 from noisicaa import devices
+from noisicaa import core
+from noisicaa import runtime_settings as runtime_settings_lib
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
@@ -48,10 +50,12 @@ logger = logging.getLogger('ui.editor_app')
 
 
 class ExceptHook(object):
-    def __init__(self, app):
+    def __init__(self, app: 'EditorApp') -> None:
         self.app = app
 
-    def __call__(self, exc_type, exc_value, tb):
+    def __call__(
+            self, exc_type: Type[BaseException], exc_value: BaseException, tb: types.TracebackType
+    ) -> None:
         if issubclass(exc_type, RestartAppException):
             self.app.quit(EXIT_RESTART)
             return
@@ -65,24 +69,29 @@ class ExceptHook(object):
         self.app.crashWithMessage("Uncaught exception", msg)
 
 
-class AudioProcClientImpl(audioproc.AudioProcClientBase):
-    async def setup(self):
+class AudioProcClientImpl(audioproc.AudioProcClientBase):  # pylint: disable=abstract-method
+    async def setup(self) -> None:
         pass
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         pass
 
 class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
-    def __init__(self, app, *args, **kwargs):
+    def __init__(self, app: 'BaseEditorApp', *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.__app = app
 
-    def handle_pipeline_status(self, status):
+    def handle_pipeline_status(self, status: Dict[str, Any]) -> None:
         self.__app.onPipelineStatus(status)
 
 
 class BaseEditorApp(object):
-    def __init__(self, *, process, runtime_settings, settings=None):
+    def __init__(
+            self, *,
+            process: core.ProcessBase,
+            runtime_settings: runtime_settings_lib.RuntimeSettings,
+            settings: Optional[QtCore.QSettings] = None
+    ) -> None:
         self.__context = ui_base.CommonContext(app=self)
 
         self.process = process
@@ -96,22 +105,22 @@ class BaseEditorApp(object):
         self.settings = settings
         self.dumpSettings()
 
-        self.project_registry = None
-        self.sequencer = None
-        self.midi_hub = None
-        self.show_edit_areas_action = None
-        self.audioproc_client = None
-        self.audioproc_process = None
-        self.node_db = None
-        self.instrument_db = None
+        self.project_registry = None  # type: project_registry.ProjectRegistry
+        self.sequencer = None  # type: devices.AlsaSequencer
+        self.midi_hub = None  # type: devices.MidiHub
+        self.show_edit_areas_action = None  # type: QtWidgets.QAction
+        self.audioproc_client = None  # type: AudioProcClient
+        self.audioproc_process = None  # type: str
+        self.node_db = None  # type: node_db.NodeDBClient
+        self.instrument_db = None  # type: instrument_db.InstrumentDBClient
 
-        self.__clipboard = None
+        self.__clipboard = None  # type: Any
 
     @property
     def context(self) -> ui_base.CommonContext:
         return self.__context
 
-    async def setup(self):
+    async def setup(self) -> None:
         await self.createNodeDB()
         await self.createInstrumentDB()
 
@@ -123,16 +132,16 @@ class BaseEditorApp(object):
         self.midi_hub = self.createMidiHub()
         self.midi_hub.start()
 
-        self.show_edit_areas_action = QtWidgets.QAction("Show Edit Areas", self)
+        # TODO: 'self' is not a QObject in this context.
+        self.show_edit_areas_action = QtWidgets.QAction("Show Edit Areas", self)  # type: ignore
         self.show_edit_areas_action.setCheckable(True)
-        # TODO: triggered signal has wrong declaration.
-        self.show_edit_areas_action.triggered.connect(self.onShowEditAreasChanged) # type:ignore
+        self.show_edit_areas_action.triggered.connect(self.onShowEditAreasChanged)
         self.show_edit_areas_action.setChecked(
             bool(self.settings.value('dev/show_edit_areas', '0')))
 
         await self.createAudioProcProcess()
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         logger.info("Cleaning up.")
 
         if self.project_registry is not None:
@@ -162,26 +171,28 @@ class BaseEditorApp(object):
             self.sequencer.close()
             self.sequencer = None
 
-    def quit(self, exit_code=0):
-        self.process.quit(exit_code)
+    def quit(self, exit_code: int = 0) -> None:
+        # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
+        #   fix that without a cyclic import.
+        self.process.quit(exit_code)  # type: ignore
 
-    def createSequencer(self):
+    def createSequencer(self) -> devices.AlsaSequencer:
         return None
 
-    def createMidiHub(self):
+    def createMidiHub(self) -> devices.MidiHub:
         return devices.MidiHub(self.sequencer)
 
-    async def createAudioProcProcess(self):
+    async def createAudioProcProcess(self) -> None:
         pass
 
-    async def createNodeDB(self):
+    async def createNodeDB(self) -> None:
         node_db_address = await self.process.manager.call('CREATE_NODE_DB_PROCESS')
 
         self.node_db = node_db.NodeDBClient(self.process.event_loop, self.process.server)
         await self.node_db.setup()
         await self.node_db.connect(node_db_address)
 
-    async def createInstrumentDB(self):
+    async def createInstrumentDB(self) -> None:
         instrument_db_address = await self.process.manager.call(
             'CREATE_INSTRUMENT_DB_PROCESS')
 
@@ -190,80 +201,54 @@ class BaseEditorApp(object):
         await self.instrument_db.setup()
         await self.instrument_db.connect(instrument_db_address)
 
-    def dumpSettings(self):
+    def dumpSettings(self) -> None:
         for key in self.settings.allKeys():
             value = self.settings.value(key)
             if isinstance(value, (bytes, QtCore.QByteArray)):
                 value = '[%d bytes]' % len(value)
             logger.info('%s: %s', key, value)
 
-    def onShowEditAreasChanged(self):
+    def onShowEditAreasChanged(self) -> None:
         self.settings.setValue(
             'dev/show_edit_areas', int(self.show_edit_areas_action.isChecked()))
 
     @property
-    def showEditAreas(self):
+    def showEditAreas(self) -> bool:
         return (self.runtime_settings.dev_mode
                 and self.show_edit_areas_action.isChecked())
 
-    async def createProject(self, path):
-        project_connection = self.project_registry.add_project(path)
-        idx = self.win.addProjectSetupView(project_connection)
-        await project_connection.create()
-        await self.win.activateProjectView(idx, project_connection)
-        self._updateOpenedProjects()
-
-    async def openProject(self, path):
-        project_connection = self.project_registry.add_project(path)
-        idx = self.win.addProjectSetupView(project_connection)
-        await project_connection.open()
-        await self.win.activateProjectView(idx, project_connection)
-        self._updateOpenedProjects()
-
-    def _updateOpenedProjects(self):
-        self.settings.setValue(
-            'opened_projects',
-            sorted(
-                project.path
-                for project in self.project_registry.projects.values()
-                if project.path))
-
-    async def removeProject(self, project_connection):
-        await self.win.removeProjectView(project_connection)
-        await self.project_registry.close_project(project_connection)
-        self._updateOpenedProjects()
-
-    def onPipelineStatus(self, status):
+    def onPipelineStatus(self, status: Dict[str, Any]) -> None:
         pass
 
-    def setClipboardContent(self, content):
+    def setClipboardContent(self, content: Any) -> None:
         logger.info(
             "Setting clipboard contents to: %s", pprint.pformat(content))
         self.__clipboard = content
 
-    def clipboardContent(self):
+    def clipboardContent(self) -> Any:
         return self.__clipboard
 
 
 class EditorApp(BaseEditorApp, QtWidgets.QApplication):
-    def __init__(self, *, paths, **kwargs):
+    def __init__(self, *, paths: Sequence[str], **kwargs: Any) -> None:
         QtWidgets.QApplication.__init__(self, ['noisicaä'])
         BaseEditorApp.__init__(self, **kwargs)
 
         self.paths = paths
 
-        self._old_excepthook = None
-        self.win = None
-        self.pipeline_perf_monitor = None
-        self.stat_monitor = None
-        self.default_style = None
+        self._old_excepthook = None  # type: Callable[[Type[BaseException], BaseException, types.TracebackType], None]
+
+        self.win = None  # type: EditorWindow
+        self.pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
+        self.stat_monitor = None  # type: stat_monitor.StatMonitor
+        self.default_style = None  # type: str
 
         self.setQuitOnLastWindowClosed(False)
 
-    async def setup(self):
+    async def setup(self) -> None:
         logger.info("Installing custom excepthook.")
         self._old_excepthook = sys.excepthook
-        sys.excepthook = ExceptHook(self)
+        sys.excepthook = ExceptHook(self)  # type: ignore
 
         await super().setup()
 
@@ -271,8 +256,8 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
 
         style_name = self.settings.value('appearance/qtStyle', '')
         if style_name:
-            style = QtWidgets.QStyleFactory.create(style_name)
-            self.setStyle(style)
+            # TODO: something's wrong with the QtWidgets stubs...
+            self.setStyle(QtWidgets.QStyleFactory.create(style_name))  # type: ignore
 
         logger.info("Creating PipelinePerfMonitor.")
         self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(context=self.context)
@@ -297,7 +282,7 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
             for path in reopen_projects or []:
                 await self.openProject(path)
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         logger.info("Cleanup app...")
 
         if self.stat_monitor is not None:
@@ -319,16 +304,16 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
         await super().cleanup()
 
         logger.info("Remove custom excepthook.")
-        sys.excepthook = self._old_excepthook
+        sys.excepthook = self._old_excepthook  # type: ignore
 
-    def createSequencer(self):
+    def createSequencer(self) -> devices.AlsaSequencer:
         # Do other clients handle non-ASCII names?
         # 'aconnect' seems to work (or just spits out whatever bytes it gets
         # and the console interprets it as UTF-8), 'aconnectgui' shows the
         # encoded bytes.
         return devices.AlsaSequencer('noisicaä')
 
-    async def createAudioProcProcess(self):
+    async def createAudioProcProcess(self) -> None:
         self.audioproc_process = await self.process.manager.call(
             'CREATE_AUDIOPROC_PROCESS', 'main',
             block_size=2 ** int(self.settings.value('audio/block_size', 10)),
@@ -347,13 +332,40 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
             self.settings.value('audio/backend', 'portaudio'),
         )
 
-    def onPipelineStatus(self, status):
+    def onPipelineStatus(self, status: Dict[str, Any]) -> None:
         if 'perf_data' in status:
             if self.pipeline_perf_monitor is not None:
                 self.pipeline_perf_monitor.addPerfData(
                     status['perf_data'])
 
-    def crashWithMessage(self, title, msg):
+    async def createProject(self, path: str) -> None:
+        project_connection = self.project_registry.add_project(path)
+        idx = self.win.addProjectSetupView(project_connection)
+        await project_connection.create()
+        await self.win.activateProjectView(idx, project_connection)
+        self._updateOpenedProjects()
+
+    async def openProject(self, path: str) -> None:
+        project_connection = self.project_registry.add_project(path)
+        idx = self.win.addProjectSetupView(project_connection)
+        await project_connection.open()
+        await self.win.activateProjectView(idx, project_connection)
+        self._updateOpenedProjects()
+
+    def _updateOpenedProjects(self) -> None:
+        self.settings.setValue(
+            'opened_projects',
+            sorted(
+                project.path
+                for project in self.project_registry.projects.values()
+                if project.path))
+
+    async def removeProject(self, project_connection: project_registry.Project) -> None:
+        await self.win.removeProjectView(project_connection)
+        await self.project_registry.close_project(project_connection)
+        self._updateOpenedProjects()
+
+    def crashWithMessage(self, title: str, msg: str) -> None:
         logger.error('%s: %s', title, msg)
 
         try:

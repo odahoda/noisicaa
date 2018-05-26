@@ -30,6 +30,8 @@ from .player_state_pb2 import (
 )
 from .plugin_state_pb2 import (
     PluginState,
+    PluginStateLV2,
+    PluginStateLV2Property,
 )
 from .processor_message_pb2 import (
     ProcessorMessage,

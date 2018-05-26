@@ -1,5 +1,51 @@
 # -*- org-tags-column: -98 -*-
 
+* runtests: warn if selector did not match any tests                                     :TESTING:
+* what is the proper type for target in noisicaa.ui.tools?                               :CLEANUP:
+* typesafe callbacks                                                                     :CLEANUP:
+- remove core.CallbackRegistry
+- instead declare all callbacks as explicit class members in __init__
+  self.foo_changed = core.Callback[T]()
+* solve cyclic import dependencies from ui_base                                          :CLEANUP:
+- ui_base needs EditorApp, EditorWindow, ProjectView - which need ui_base
+- ui_base defines interfaces for those classes (and possibly more)
+  - use those for type annotations everywhere else
+  - modules defining the implementations of those classes shouldn't be imported elsewhere
+  - might also make testing easier
+    - tests can implement mocks for those interfaces
+
+* refactor noisicaa.ui.editor_app                                                        :CLEANUP:
+- some better way to make it testable than this BaseEditorApp/EditorApp split.
+- perhaps don't subclass QApplication, just be a QObject with a reference to the QApplication?
+* refactor noisicaa.ui.editor_window                                                     :CLEANUP:
+- just an empty shell that hosts project views
+- menubar, toolbar, etc are owned by ProjectView
+  - when switching current project view, set the current menubar, toolbar, ...
+- dito for dock widgets?
+  - dock widgets are hosted in window
+  - when switching between projects, dock widgets and their states are stored/restored.
+  - ProjectView does not have to be a QMainWindow anymore (which feels hacky anyway).
+- can have any number of windows, with some set of projects hosted within each.
+  - eacg ProjectView is hosted in exactly one window.
+
+* Use 'object' instead of Any for 'some value'                                   :CLEANUP:TESTING:
+- enforces using cast() whenever such a value is used.
+- enable mypy to complain about any untyped/Any-types variable.
+
+* use specific versions for venv packages                                                     :FR:
+- so venv setup is deterministic
+- listdeps --check-updates
+  - check for latest versions, list packages with updates
+
+* reanimate pdb                                                                          :TESTING:
+* Make target object explicit member of command proto                                    :CLEANUP:
+- Remove the Command.target field
+- Add an appropriate field the each command proto (or not).
+
+* asyncio.wait() does not raise exception in failed tasks                                    :BUG:
+- causes 'task never retrieved' messages, and uncaught exceptions
+- always collect results from the done tasks
+* Use command CreateX, UpdateX, DeleteX pattern for commands.                            :CLEANUP:
 * Add stubs for PyQt5.QtSvg                                                           :FR:TESTING:
 * Make control value generations work with undo                                              :BUG:
 - generation must also increment, when value change is caused by undo
@@ -53,9 +99,6 @@
 
 * PyQt5 stubs declare signals incorrectly                                            :TESTING:BUG:
 - declared as methods, should be some object with connect/disconnect methods.
-
-* Try protostub to generate .pyi stubs for *_pb2 modules                              :TESTING:FR:
-https://github.com/arachnys/protostub
 
 * Debug console                                                                               :FR:
 - make switching between toplevel windows work properly
@@ -271,11 +314,6 @@ Probably related to unittest.UITestCase
 * Make the audio thread real-time safe                                                        :FR:
 - no more python code in the main loop
 - lock-free queue for log messages
-* clean up pylint issues in pylint-unclean files                                 :CLEANUP:TESTING:
-- grep -r pylint-unclean noisicaa/
-- pick some file and clean it up.
-- until grep finds no more files.
-
 * clean up mypy issues in mypy: loose files                                      :CLEANUP:TESTING:
 - wc -l $(grep -l -r 'mypy: loose' noisicaa/ | grep -Ev '~$') | sort -nr
 - slower: bin/runtests --tags=mypy --pedantic=true 2>&1 | sed -ne '0,/= mypy report =/!p' | grep -vE '^\s*$' | sed -e 's/:.*$//' | sort | uniq -c | sort -nr
@@ -374,9 +412,6 @@ ERROR   : 8298:7fbd9ef37700:ui.editor_app: Exception in callback: Traceback for 
           File "/home/pink/noisicaa/build/noisicaa/core/stats/registry.py", line 45, in register
             return stat
         AssertionError
-
-* Move various test helpers to noisidev.unittest                                 :CLEANUP:TESTING:
-- noisicaa.ui.uitest_utils
 
 * Explore https://github.com/census-instrumentation for stats tracking                  :RESEARCH:
 * Make playing notes on insert when editing work again                                       :BUG:

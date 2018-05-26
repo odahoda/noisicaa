@@ -20,15 +20,19 @@
 #
 # @end:license
 
-from noisicaa.ui import uitest_utils
-from noisicaa.ui import model
+from noisidev import uitest
+from noisicaa import music
 from . import control_track_item
 from . import track_item_tests
 
 
-class ControlTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
+class ControlTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        self.project.master_group.tracks.append(model.ControlTrack(obj_id='track-1'))
+        await self.project_client.send_command(music.Command(
+            target=self.project.id,
+            add_track=music.AddTrack(
+                track_type='control',
+                parent_group_id=self.project.master_group.id)))
 
         self.tool_box = control_track_item.ControlTrackToolBox(context=self.context)
 

@@ -20,13 +20,11 @@
 #
 # @end:license
 
-from noisidev import unittest
-from noisicaa.constants import TEST_OPTS
+from noisidev import uitest
 from . import pipeline_graph_view
 
 
-class PluginUITest(unittest.UITestCase):
-    @unittest.skipUnless(TEST_OPTS.ALLOW_UI, "Requires UI.")
+class PluginUITest(uitest.UITestCase):
     async def test_init(self):
         node = None
 

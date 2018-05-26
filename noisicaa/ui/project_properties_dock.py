@@ -20,16 +20,15 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
-from typing import List  # pylint: disable=unused-import
+from typing import Any, List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 
 from noisicaa import core  # pylint: disable=unused-import
+from noisicaa import music
 from . import dock_widget
 from . import ui_base
 
@@ -37,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProjectProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__listeners = []  # type: List[core.Listener]
@@ -56,22 +55,23 @@ class ProjectProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.setLayout(self.__form_layout)
 
     # TODO: this gets never called...
-    def cleanup(self):
+    def cleanup(self) -> None:
         for listener in self.__listeners:
             listener.remove()
         self.__listeners.clear()
 
-    def onBPMChanged(self, old_bpm, new_bpm):
+    def onBPMChanged(self, old_bpm: int, new_bpm: int) -> None:
         self.__bpm.setValue(new_bpm)
 
-    def onBPMEdited(self, bpm):
+    def onBPMEdited(self, bpm: int) -> None:
         if bpm != self.project.bpm:
-            self.send_command_async(
-                self.project.id, 'UpdateProjectProperties', bpm=bpm)
+            self.send_command_async(music.Command(
+                target=self.project.id,
+                update_project_properties=music.UpdateProjectProperties(bpm=bpm)))
 
 
 class ProjectPropertiesDockWidget(ui_base.ProjectMixin, dock_widget.DockWidget):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             identifier='project-properties',
             title="Project Properties",

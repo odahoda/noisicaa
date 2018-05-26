@@ -35,8 +35,9 @@ from . import player
 logger = logging.getLogger(__name__)
 
 
-class MockAudioProcClient(object):
+class MockAudioProcClient(audioproc.AudioProcClientBase):  # pylint: disable=abstract-method
     def __init__(self):
+        super().__init__(None, None)
         self.listeners = core.CallbackRegistry()
 
     async def setup(self):
@@ -65,7 +66,8 @@ class MockAudioProcClient(object):
 
 class PlayerTest(unittest.AsyncTestCase):
     async def setup_testcase(self):
-        self.project = project.BaseProject()
+        self.pool = project.Pool()
+        self.project = self.pool.create(project.BaseProject)
 
         self.player_status_calls = asyncio.Queue(loop=self.loop)  # type: asyncio.Queue
         self.callback_server = ipc.Server(self.loop, 'callback', socket_dir=TEST_OPTS.TMP_DIR)

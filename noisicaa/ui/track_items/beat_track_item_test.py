@@ -20,32 +20,19 @@
 #
 # @end:license
 
-from noisidev import unittest
-from noisicaa.ui import uitest_utils
-from noisicaa.ui import model
+from noisidev import uitest
+from noisicaa import music
 from . import beat_track_item
 from . import track_item_tests
 
 
-class BeatTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_utils.UITest):
+class BeatTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        self.project.master_group.tracks.append(model.BeatTrack(obj_id='track-1'))
-
-        pm = model.PropertyMeasure(obj_id='msr-0.1')
-        self.obj_map[pm.id] = pm
-        self.project.property_track.measure_heap.append(pm)
-        mref = model.MeasureReference(obj_id='msr-ref-0.1')
-        self.obj_map[mref.id] = mref
-        mref.measure_id = pm.id
-        self.project.property_track.measure_list.append(mref)
-
-        m = model.BeatMeasure(obj_id='msr-1.1')
-        self.obj_map[m.id] = m
-        self.project.master_group.tracks[0].measure_heap.append(m)
-        mref = model.MeasureReference(obj_id='msr-ref-1.1')
-        self.obj_map[mref.id] = mref
-        mref.measure_id = m.id
-        self.project.master_group.tracks[0].measure_list.append(mref)
+        await self.project_client.send_command(music.Command(
+            target=self.project.id,
+            add_track=music.AddTrack(
+                track_type='beat',
+                parent_group_id=self.project.master_group.id)))
 
         self.tool_box = beat_track_item.BeatToolBox(context=self.context)
 
@@ -56,7 +43,3 @@ class BeatTrackEditorItemTest(track_item_tests.TrackEditorItemTestMixin, uitest_
             editor=self.editor,
             context=self.context,
             **kwargs)
-
-    @unittest.skip("Segfaults")
-    def test_paint(self):
-        pass

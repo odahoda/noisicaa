@@ -25,12 +25,12 @@ import os.path
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 
+from noisidev import uitest
 from noisicaa import instrument_db
-from . import uitest_utils
 from . import instrument_library
 
 
-class TracksModelTest(uitest_utils.UITest):
+class TracksModelTest(uitest.UITestCase):
     def __mkinstr(self, path):
         return instrument_db.InstrumentDescription(
             uri='wav:' + path,

@@ -20,35 +20,25 @@
 #
 # @end:license
 
-# mypy: loose
-
 import math
-from typing import Dict  # pylint: disable=unused-import
+from typing import cast, Optional, Union, Dict  # pylint: disable=unused-import
 
-from PyQt5.QtCore import Qt, QSize, pyqtSignal
-from PyQt5.QtGui import QPalette, QPen, QBrush, QColor
-from PyQt5.QtWidgets import (
-    QWidget,
-    QGraphicsView,
-    QGraphicsScene,
-    QGraphicsRectItem,
-    QFrame,
-    QVBoxLayout,
-    QHBoxLayout,
-    QSlider,
-    QComboBox
-)
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 
 from noisicaa import devices
-from noisicaa import music
-from .qled import QLed
+from noisicaa import model
+from noisicaa import core  # pylint: disable=unused-import
+from . import qled
 
 
-class PianoKey(QGraphicsRectItem):
+class PianoKey(QtWidgets.QGraphicsRectItem):
     WHITE = 0
     BLACK = 1
 
-    def __init__(self, piano, x, name, key_type):
+    def __init__(self, piano: 'PianoWidget', x: int, name: str, key_type: int) -> None:
         super().__init__()
 
         self._piano = piano
@@ -57,45 +47,44 @@ class PianoKey(QGraphicsRectItem):
 
         if self._type == self.WHITE:
             self.setRect(x - 10, 0, 20, 100)
-            self.setBrush(QBrush(Qt.white))
-            self.setPen(QPen(Qt.black))
+            self.setBrush(QtGui.QBrush(Qt.white))
+            self.setPen(QtGui.QPen(Qt.black))
         else:
             self.setRect(x - 7, 0, 14, 60)
-            self.setBrush(QBrush(Qt.black))
-            self.setPen(QPen(Qt.black))
+            self.setBrush(QtGui.QBrush(Qt.black))
+            self.setPen(QtGui.QPen(Qt.black))
 
         self.setCursor(Qt.PointingHandCursor)
 
-    def press(self):
-        self.setBrush(QBrush(QColor(0, 120, 255)))
-        self._piano.noteOn.emit(
-            music.Pitch(self._name), self._piano.velocity.value())
+    def press(self) -> None:
+        self.setBrush(QtGui.QBrush(QtGui.QColor(0, 120, 255)))
+        self._piano.noteOn.emit(model.Pitch(self._name), self._piano.velocity.value())
 
-    def release(self):
+    def release(self) -> None:
         if self._type == self.WHITE:
-            self.setBrush(QBrush(Qt.white))
+            self.setBrush(QtGui.QBrush(Qt.white))
         else:
-            self.setBrush(QBrush(Qt.black))
-        self._piano.noteOff.emit(music.Pitch(self._name))
+            self.setBrush(QtGui.QBrush(Qt.black))
+        self._piano.noteOff.emit(model.Pitch(self._name))
 
-    def mousePressEvent(self, event):  # pylint: disable=unused-argument
+    def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent) -> None:
         self.press()
 
-    def mouseReleaseEvent(self, event):  # pylint: disable=unused-argument
+    def mouseReleaseEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent) -> None:
         self.release()
 
 
-class PianoKeys(QGraphicsView):
-    def __init__(self, parent):
+class PianoKeys(QtWidgets.QGraphicsView):
+    def __init__(self, parent: 'PianoWidget') -> None:
         super().__init__(parent)
 
         self.setFocusPolicy(Qt.NoFocus)
 
-        self.setBackgroundRole(QPalette.Window)
-        self.setFrameShape(QFrame.NoFrame)
-        self.setBackgroundBrush(QBrush(Qt.NoBrush))
+        self.setBackgroundRole(QtGui.QPalette.Window)
+        self.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.setBackgroundBrush(QtGui.QBrush(Qt.NoBrush))
 
-        self._scene = QGraphicsScene(self)
+        self._scene = QtWidgets.QGraphicsScene(self)
         self.setScene(self._scene)
 
         self._keys = {}  # type: Dict[str, PianoKey]
@@ -109,7 +98,7 @@ class PianoKeys(QGraphicsView):
                     pitch_name,
                     PianoKey.WHITE)
                 self._keys[pitch_name] = key
-                self._midi_to_key[music.NOTE_TO_MIDI[pitch_name]] = key
+                self._midi_to_key[model.NOTE_TO_MIDI[pitch_name]] = key
                 self._scene.addItem(key)
 
             for idx, note in enumerate(['C#', 'D#', '', 'F#', 'G#', 'A#', '']):
@@ -122,13 +111,13 @@ class PianoKeys(QGraphicsView):
                     pitch_name,
                     PianoKey.BLACK)
                 self._keys[pitch_name] = key
-                self._midi_to_key[music.NOTE_TO_MIDI[pitch_name]] = key
+                self._midi_to_key[model.NOTE_TO_MIDI[pitch_name]] = key
                 self._scene.addItem(key)
 
 
-        size = self._scene.sceneRect().size()
-        size = QSize(int(math.ceil(size.width())) + 1,
-                     int(math.ceil(size.height())) + 10)
+        scene_size = self._scene.sceneRect().size()
+        size = QtCore.QSize(
+            int(math.ceil(scene_size.width())) + 1, int(math.ceil(scene_size.height())) + 10)
         self.setMinimumSize(size)
         self.setMaximumSize(size)
 
@@ -180,7 +169,7 @@ class PianoKeys(QGraphicsView):
         0x23: 'D6',   # ¨
     }
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
         if event.isAutoRepeat():
             super().keyPressEvent(event)
             return
@@ -193,7 +182,7 @@ class PianoKeys(QGraphicsView):
         else:
             key.press()
 
-    def keyReleaseEvent(self, event):
+    def keyReleaseEvent(self, event: QtGui.QKeyEvent) -> None:
         if event.isAutoRepeat():
             super().keyReleaseEvent(event)
             return
@@ -206,8 +195,9 @@ class PianoKeys(QGraphicsView):
         else:
             key.release()
 
-    def midiEvent(self, event):
+    def midiEvent(self, event: devices.MidiEvent) -> None:
         if event.type in (devices.MidiEvent.NOTE_ON, devices.MidiEvent.NOTE_OFF):
+            event = cast(Union[devices.NoteOnEvent, devices.NoteOffEvent], event)
             try:
                 key = self._midi_to_key[event.note]
             except KeyError:
@@ -219,35 +209,35 @@ class PianoKeys(QGraphicsView):
                     key.release()
 
 
-class PianoWidget(QWidget):
-    noteOn = pyqtSignal(music.Pitch, int)
-    noteOff = pyqtSignal(music.Pitch)
+class PianoWidget(QtWidgets.QWidget):
+    noteOn = QtCore.pyqtSignal(model.Pitch, int)
+    noteOff = QtCore.pyqtSignal(model.Pitch)
 
-    def __init__(self, parent, app):
+    def __init__(self, parent: Optional[QtWidgets.QWidget], midi_hub: devices.MidiHub) -> None:
         super().__init__(parent)
 
-        self._app = app
+        self.__midi_hub = midi_hub
 
         self.setFocusPolicy(Qt.StrongFocus)
 
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         self.setLayout(layout)
 
-        toolbar = QHBoxLayout()
+        toolbar = QtWidgets.QHBoxLayout()
         layout.addLayout(toolbar)
 
-        self.focus_indicator = QLed(self)
+        self.focus_indicator = qled.QLed(self)
         self.focus_indicator.setMinimumSize(24, 24)
         self.focus_indicator.setMaximumSize(24, 24)
         toolbar.addWidget(self.focus_indicator)
 
         toolbar.addSpacing(10)
 
-        self._keyboard_listener = None
+        self._keyboard_listener = None  # type: core.Listener
 
-        self.keyboard_selector = QComboBox()
+        self.keyboard_selector = QtWidgets.QComboBox()
         self.keyboard_selector.addItem("None", userData=None)
-        for device_id, port_info in self._app.midi_hub.list_devices():
+        for device_id, port_info in self.__midi_hub.list_devices():
             self.keyboard_selector.addItem(
                 "%s (%s)" % (port_info.name, port_info.client_info.name),
                 userData=device_id)
@@ -262,12 +252,12 @@ class PianoWidget(QWidget):
         #tb.setIcon(QIcon.fromTheme('multimedia-volume-control'))
         #toolbar.addWidget(tb)
 
-        self.velocity = QSlider(Qt.Horizontal, self)
+        self.velocity = QtWidgets.QSlider(Qt.Horizontal, self)
         self.velocity.setMinimumWidth(200)
         self.velocity.setMinimum(0)
         self.velocity.setMaximum(127)
         self.velocity.setValue(127)
-        self.velocity.setTickPosition(QSlider.TicksBothSides)
+        self.velocity.setTickPosition(QtWidgets.QSlider.TicksBothSides)
         toolbar.addWidget(self.velocity)
 
         toolbar.addStretch(1)
@@ -275,7 +265,7 @@ class PianoWidget(QWidget):
         self.piano_keys = PianoKeys(self)
         layout.addWidget(self.piano_keys)
 
-    def close(self):
+    def close(self) -> bool:
         if not super().close():  # pragma: no coverage
             return False
 
@@ -285,29 +275,29 @@ class PianoWidget(QWidget):
 
         return True
 
-    def onKeyboardDeviceChanged(self, index):
+    def onKeyboardDeviceChanged(self, index: int) -> None:
         if self._keyboard_listener is not None:
             self._keyboard_listener.remove()
             self._keyboard_listener = None
 
         device_id = self.keyboard_selector.itemData(index)
         if device_id is not None:
-            self._keyboard_listener = self._app.midi_hub.listeners.add(
+            self._keyboard_listener = self.__midi_hub.listeners.add(
                 device_id, self.midiEvent)
 
-    def focusInEvent(self, event):
+    def focusInEvent(self, event: QtGui.QFocusEvent) -> None:
         event.accept()
         self.focus_indicator.setValue(True)
 
-    def focusOutEvent(self, event):
+    def focusOutEvent(self, event: QtGui.QFocusEvent) -> None:
         event.accept()
         self.focus_indicator.setValue(False)
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
         self.piano_keys.keyPressEvent(event)
 
-    def keyReleaseEvent(self, event):
+    def keyReleaseEvent(self, event: QtGui.QKeyEvent) -> None:
         self.piano_keys.keyReleaseEvent(event)
 
-    def midiEvent(self, event):
+    def midiEvent(self, event: devices.MidiEvent) -> None:
         self.piano_keys.midiEvent(event)

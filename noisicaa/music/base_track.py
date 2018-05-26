@@ -22,48 +22,43 @@
 
 import logging
 import random
-from typing import Any, Optional, Callable, Dict, List, Type  # pylint: disable=unused-import
+from typing import Any, Optional, Callable, Iterator, Dict, List, Type  # pylint: disable=unused-import
+
+from google.protobuf import message as protobuf
 
 from noisicaa.core.typing_extra import down_cast
-from noisicaa import core
 from noisicaa import audioproc
-
-from . import model
-from . import commands
+from noisicaa import model
+from noisicaa import core  # pylint: disable=unused-import
+from . import pmodel
 from . import pipeline_graph
-from . import misc
-from . import state as state_lib
-from . import pitch as pitch_lib
-from . import project_iface
+from . import commands
+from . import commands_pb2
 
 logger = logging.getLogger(__name__)
 
 
 class MoveTrack(commands.Command):
-    direction = core.Property(int)
+    proto_type = 'move_track'
 
-    def __init__(
-            self, direction: Optional[int] = None, state: Optional[state_lib.State] = None) -> None:
-        super().__init__(state=state)
-        if state is None:
-            self.direction = direction
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.MoveTrack, pb)
+        track = down_cast(pmodel.Track, pool[self.proto.command.target])
 
-    def run(self, target: state_lib.StateBase) -> None:
-        track = down_cast(Track, target)
         assert not track.is_master_group
-        parent = down_cast(model.TrackGroup, track.parent)
+        parent = down_cast(pmodel.TrackGroup, track.parent)
 
-        if self.direction == 0:
+        if pb.direction == 0:
             raise ValueError("No direction given.")
 
-        if self.direction < 0:
+        if pb.direction < 0:
             if track.index == 0:
                 raise ValueError("Can't move first track up.")
             new_pos = track.index - 1
             del parent.tracks[track.index]
             parent.tracks.insert(new_pos, track)
 
-        elif self.direction > 0:
+        elif pb.direction > 0:
             if track.index == len(parent.tracks) - 1:
                 raise ValueError("Can't move last track down.")
             new_pos = track.index + 1
@@ -74,93 +69,64 @@ commands.Command.register_command(MoveTrack)
 
 
 class ReparentTrack(commands.Command):
-    new_parent = core.Property(str)
-    # TODO: this clashes with the index attribute of ObjectBase
-    index = core.Property(int)  # type: ignore
+    proto_type = 'reparent_track'
 
-    def __init__(
-            self, new_parent: Optional[str] = None, index: Optional[int] = None,
-            state: Optional[state_lib.State] = None) -> None:
-        super().__init__(state=state)
-        if state is None:
-            self.new_parent = new_parent
-            self.index = index
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.ReparentTrack, pb)
+        track = down_cast(pmodel.Track, pool[self.proto.command.target])
 
-    def run(self, target: state_lib.StateBase) -> None:
-        track = down_cast(Track, target)
-        assert not track.is_master_group
-
-        old_parent = down_cast(model.TrackGroup, track.parent)
-        new_parent = down_cast(model.TrackGroup, track.root.get_object(self.new_parent))
+        old_parent = down_cast(pmodel.TrackGroup, track.parent)
+        new_parent = down_cast(pmodel.TrackGroup, pool[pb.new_parent])
         assert new_parent.is_child_of(track.project)
-        assert isinstance(new_parent, model.TrackGroup)
+        assert isinstance(new_parent, pmodel.TrackGroup)
 
-        assert 0 <= self.index <= len(new_parent.tracks)
+        assert 0 <= pb.index <= len(new_parent.tracks)
 
         del old_parent.tracks[track.index]
-        new_parent.tracks.insert(self.index, track)
+        new_parent.tracks.insert(pb.index, track)
 
 commands.Command.register_command(ReparentTrack)
 
 
 class UpdateTrackProperties(commands.Command):
-    name = core.Property(str, allow_none=True)
-    visible = core.Property(bool, allow_none=True)
-    muted = core.Property(bool, allow_none=True)
-    gain = core.Property(float, allow_none=True)
-    pan = core.Property(float, allow_none=True)
+    proto_type = 'update_track_properties'
 
-    # TODO: this only applies to ScoreTrack... use separate command for
-    #   class specific properties?
-    transpose_octaves = core.Property(int, allow_none=True)
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.UpdateTrackProperties, pb)
+        track = down_cast(pmodel.Track, pool[self.proto.command.target])
 
-    def __init__(
-            self, name: Optional[str] = None, visible: Optional[bool] = None,
-            muted: Optional[bool] = None, gain: Optional[float] = None,
-            pan: Optional[float] = None, transpose_octaves: Optional[int] = None,
-            state: Optional[state_lib.State] = None) -> None:
-        super().__init__(state=state)
-        if state is None:
-            self.name = name
-            self.visible = visible
-            self.muted = muted
-            self.gain = gain
-            self.pan = pan
-            self.transpose_octaves = transpose_octaves
+        if pb.HasField('name'):
+            track.name = pb.name
 
-    def run(self, target: state_lib.StateBase) -> None:
-        track = down_cast(Track, target)
-
-        if self.name is not None:
-            track.name = self.name
-
-        if self.visible is not None:
-            track.visible = self.visible
+        if pb.HasField('visible'):
+            track.visible = pb.visible
 
         # TODO: broken, needs to increment generation
-        # if self.muted is not None:
-        #     track.muted = self.muted
-        #     track.mixer_node.set_control_value('muted', float(self.muted))
+        # if pb.HasField('muted'):
+        #     track.muted = pb.muted
+        #     track.mixer_node.set_control_value('muted', float(pb.muted))
 
-        # if self.gain is not None:
-        #     track.gain = self.gain
-        #     track.mixer_node.set_control_value('gain', self.gain)
+        # if pb.HasField('gain'):
+        #     track.gain = pb.gain
+        #     track.mixer_node.set_control_value('gain', pb.gain)
 
-        # if self.pan is not None:
-        #     track.pan = self.pan
-        #     track.mixer_node.set_control_value('pan', self.pan)
+        # if pb.HasField('pan'):
+        #     track.pan = pb.pan
+        #     track.mixer_node.set_control_value('pan', pb.pan)
 
-        if self.transpose_octaves is not None:
-            assert isinstance(track, model.ScoreTrack)
-            track.transpose_octaves = self.transpose_octaves
+        if pb.HasField('transpose_octaves'):
+            assert isinstance(track, pmodel.ScoreTrack)
+            track.transpose_octaves = pb.transpose_octaves
 
 commands.Command.register_command(UpdateTrackProperties)
 
 
-class TrackConnector(object):
+class TrackConnector(pmodel.TrackConnector):
     def __init__(
             self, *, track: 'Track', message_cb: Callable[[audioproc.ProcessorMessage], None]
     ) -> None:
+        super().__init__()
+
         self._track = track
         self.__message_cb = message_cb
 
@@ -188,22 +154,18 @@ class TrackConnector(object):
         pass
 
 
-class Track(model.Track, state_lib.StateBase):
-    def __init__(self, name: Optional[str] = None, state: Optional[state_lib.State] = None) -> None:
-        super().__init__(state)
-
-        if state is None:
+class Track(pmodel.Track):  # pylint: disable=abstract-method
+    def create(self, *, name: Optional[str] = None, **kwargs: Any) -> None:
+        super().create(**kwargs)
+        if name is not None:
             self.name = name
 
-    def create_track_connector(self, **kwargs: Any) -> TrackConnector:
-        raise NotImplementedError
-
     @property
-    def parent_mixer_name(self) -> str:
+    def parent_audio_sink_name(self) -> str:
         return down_cast(Track, self.parent).mixer_name
 
     @property
-    def parent_mixer_node(self) -> pipeline_graph.PipelineGraphNode:
+    def parent_audio_sink_node(self) -> pmodel.BasePipelineGraphNode:
         return down_cast(Track, self.parent).mixer_node
 
     # TODO: the following are common to MeasuredTrack and TrackGroup, but not really
@@ -214,70 +176,61 @@ class Track(model.Track, state_lib.StateBase):
         return '%s-track-mixer' % self.id
 
     @property
-    def mixer_node(self) -> pipeline_graph.PipelineGraphNode:
-        if self.mixer_id is None:
-            raise ValueError("No mixer node found.")
-
-        return down_cast(pipeline_graph.PipelineGraphNode, self.root.get_object(self.mixer_id))
-
-    @property
-    def relative_position_to_parent_mixer(self) -> misc.Pos2F:
-        return misc.Pos2F(-200, self.index * 100)
+    def relative_position_to_parent_audio_out(self) -> model.Pos2F:
+        return model.Pos2F(-200, self.index * 100)
 
     @property
     def default_mixer_name(self) -> str:
         return "Track Mixer"
 
     def add_pipeline_nodes(self) -> None:
-        parent_mixer_node = self.parent_mixer_node
+        parent_audio_sink_node = self.parent_audio_sink_node
 
-        project = down_cast(project_iface.IProject, self.project)
+        project = down_cast(pmodel.Project, self.project)
 
-        mixer_node = pipeline_graph.TrackMixerPipelineGraphNode(
+        mixer_node = self._pool.create(
+            pipeline_graph.TrackMixerPipelineGraphNode,
             name=self.default_mixer_name,
-            graph_pos=(
-                parent_mixer_node.graph_pos
-                + self.relative_position_to_parent_mixer),
+            graph_pos=parent_audio_sink_node.graph_pos + self.relative_position_to_parent_audio_out,
             track=self)
         project.add_pipeline_graph_node(mixer_node)
-        self.mixer_id = mixer_node.id
+        self.mixer_node = mixer_node
 
-        conn = pipeline_graph.PipelineGraphConnection(
-            mixer_node, 'out:left', parent_mixer_node, 'in:left')
+        conn = self._pool.create(
+            pipeline_graph.PipelineGraphConnection,
+            source_node=mixer_node, source_port='out:left',
+            dest_node=parent_audio_sink_node, dest_port='in:left')
         project.add_pipeline_graph_connection(conn)
 
-        conn = pipeline_graph.PipelineGraphConnection(
-            mixer_node, 'out:right', parent_mixer_node, 'in:right')
+        conn = self._pool.create(
+            pipeline_graph.PipelineGraphConnection,
+            source_node=mixer_node, source_port='out:right',
+            dest_node=parent_audio_sink_node, dest_port='in:right')
         project.add_pipeline_graph_connection(conn)
 
     def remove_pipeline_nodes(self) -> None:
-        project = down_cast(project_iface.IProject, self.project)
+        project = down_cast(pmodel.Project, self.project)
         project.remove_pipeline_graph_node(self.mixer_node)
-        self.mixer_id = None
+        self.mixer_node = None
 
 
-class Measure(model.Measure, state_lib.StateBase):
+class Measure(pmodel.Measure):
     @property
     def empty(self) -> bool:
         return False
 
 
-class MeasureReference(model.MeasureReference, state_lib.StateBase):
-    def __init__(
-            self, measure_id: Optional[str] = None, state: Optional[state_lib.State] = None
-    ) -> None:
-        super().__init__(state)
+class MeasureReference(pmodel.MeasureReference):
+    def create(self, *, measure: Optional[Measure] = None, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-        if state is None:
-            self.measure_id = measure_id
-
-state_lib.StateBase.register_class(MeasureReference)
+        self.measure = measure
 
 
 class PianoRollInterval(object):
     def __init__(
             self, begin: audioproc.MusicalTime, end: audioproc.MusicalTime,
-            pitch: pitch_lib.Pitch, velocity: int) -> None:
+            pitch: model.Pitch, velocity: int) -> None:
         self.id = random.getrandbits(64)
         self.begin = begin
         self.end = end
@@ -315,7 +268,7 @@ class MeasuredTrackConnector(TrackConnector):
         self._listeners = {}  # type: Dict[str, core.Listener]
 
         self.__node_id = node_id
-        self.__measure_events = {}  # type: Dict[str, List[PianoRollInterval]]
+        self.__measure_events = {}  # type: Dict[int, List[PianoRollInterval]]
 
     def _init_internal(self) -> None:
         time = audioproc.MusicalTime()
@@ -343,19 +296,18 @@ class MeasuredTrackConnector(TrackConnector):
     def _add_track_listeners(self) -> None:
         pass
 
-    def _add_measure_listeners(self, mref: model.MeasureReference) -> None:
+    def _add_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
         pass
 
-    def _remove_measure_listeners(self, mref: model.MeasureReference) -> None:
+    def _remove_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
         pass
 
     def _create_events(
-            self, time: audioproc.MusicalTime, measure: model.Measure) -> List[PianoRollInterval]:
+            self, time: audioproc.MusicalTime, measure: pmodel.Measure
+    ) -> Iterator[PianoRollInterval]:
         raise NotImplementedError
 
-    def _update_measure(self, time: audioproc.MusicalTime, mref: model.MeasureReference) -> None:
-        mref = down_cast(MeasureReference, mref)
-
+    def _update_measure(self, time: audioproc.MusicalTime, mref: pmodel.MeasureReference) -> None:
         events = self.__measure_events[mref.id]
         for event in events:
             self.__remove_event(event)
@@ -376,8 +328,8 @@ class MeasuredTrackConnector(TrackConnector):
 
             time += mref.measure.duration
 
-    def __measure_list_changed(self, change: core.PropertyChange) -> None:
-        if isinstance(change, core.PropertyListInsert):
+    def __measure_list_changed(self, change: model.PropertyChange) -> None:
+        if isinstance(change, model.PropertyListInsert):
             time = audioproc.MusicalTime()
             for mref in self._track.measure_list:
                 if mref.index == change.new_value.index:
@@ -388,15 +340,14 @@ class MeasuredTrackConnector(TrackConnector):
 
                 time += mref.measure.duration
 
-        elif isinstance(change, core.PropertyListDelete):
+        elif isinstance(change, model.PropertyListDelete):
             mref = change.old_value
             self.__remove_measure(mref)
         else:
             raise TypeError(
                 "Unsupported change type %s" % type(change))
 
-    def __add_measure(self, time: audioproc.MusicalTime, mref: model.MeasureReference) -> None:
-        mref = down_cast(MeasureReference, mref)
+    def __add_measure(self, time: audioproc.MusicalTime, mref: pmodel.MeasureReference) -> None:
         assert mref.id not in self.__measure_events
 
         events = self.__measure_events[mref.id] = []
@@ -405,68 +356,60 @@ class MeasuredTrackConnector(TrackConnector):
             events.append(event)
 
         self._listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
-            'measure_id', lambda _: self.__measure_id_changed(mref))
+            'measure', lambda _: self.__measure_changed(mref))
         self._add_measure_listeners(mref)
 
-    def __remove_measure(self, mref: model.MeasureReference) -> None:
-        mref = down_cast(MeasureReference, mref)
-
+    def __remove_measure(self, mref: pmodel.MeasureReference) -> None:
         self._remove_measure_listeners(mref)
         self._listeners.pop('measure:%s:ref' % mref.id).remove()
 
         for event in self.__measure_events.pop(mref.id):
             self.__remove_event(event)
 
-    def __measure_id_changed(self, mref: model.MeasureReference) -> None:
-        mref = down_cast(MeasureReference, mref)
-
+    def __measure_changed(self, mref: pmodel.MeasureReference) -> None:
         self._remove_measure_listeners(mref)
         self._listeners.pop('measure:%s:ref' % mref.id).remove()
 
         self._listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
-            'measure_id', lambda _: self.__measure_id_changed(mref))
+            'measure', lambda _: self.__measure_changed(mref))
         self._add_measure_listeners(mref)
 
         self._update_measure_range(mref.index, mref.index + 1)
 
 
-class MeasuredTrack(model.MeasuredTrack, Track):  # pylint: disable=abstract-method
+class MeasuredTrack(pmodel.MeasuredTrack, Track):  # pylint: disable=abstract-method
     measure_cls = None  # type: Type[Measure]
 
-    def __init__(self, state: Optional[state_lib.State] = None, **kwargs: Any) -> None:
-        super().__init__(state=state, **kwargs)
-
-        if state is None:
-            pass
-
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
         self.__listeners = {}  # type: Dict[str, core.Listener]
+
+    def setup(self) -> None:
+        super().setup()
 
         for mref in self.measure_list:
             self.__add_measure(mref)
 
         self.listeners.add('measure_list', self.__measure_list_changed)
 
-    def __measure_list_changed(self, change: core.PropertyChange) -> None:
-        if isinstance(change, core.PropertyListInsert):
+    def __measure_list_changed(self, change: model.PropertyChange) -> None:
+        if isinstance(change, model.PropertyListInsert):
             self.__add_measure(change.new_value)
-        elif isinstance(change, core.PropertyListDelete):
+        elif isinstance(change, model.PropertyListDelete):
             self.__remove_measure(change.old_value)
         else:
             raise TypeError("Unsupported change type %s" % type(change))
 
-    def __add_measure(self, mref: model.MeasureReference) -> None:
-        mref = down_cast(MeasureReference, mref)
+    def __add_measure(self, mref: pmodel.MeasureReference) -> None:
         self.__listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
-            'measure_id', lambda *_: self.__measure_id_changed(mref))
+            'measure', lambda *_: self.__measure_changed(mref))
         self.listeners.call('duration_changed')
 
-    def __remove_measure(self, mref: model.MeasureReference) -> None:
-        mref = down_cast(MeasureReference, mref)
+    def __remove_measure(self, mref: pmodel.MeasureReference) -> None:
         self.__listeners.pop('measure:%s:ref' % mref.id).remove()
         self.listeners.call('duration_changed')
 
-    def __measure_id_changed(self, mref: model.MeasureReference) -> None:
-        mref = down_cast(MeasureReference, mref)
+    def __measure_changed(self, mref: pmodel.MeasureReference) -> None:
         self.listeners.call('duration_changed')
 
     def append_measure(self) -> None:
@@ -479,36 +422,27 @@ class MeasuredTrack(model.MeasuredTrack, Track):  # pylint: disable=abstract-met
             idx = len(self.measure_list)
 
         if idx == 0 and len(self.measure_list) > 0:
-            ref_id = self.measure_list[0].measure_id
+            ref = self.measure_list[0].measure
         elif idx > 0:
-            ref_id = self.measure_list[idx-1].measure_id
-        else:
-            ref_id = None
-
-        if ref_id is not None:
-            for ref in self.measure_heap:
-                if ref.id == ref_id:
-                    break
-            else:
-                raise ValueError(ref_id)
+            ref = self.measure_list[idx-1].measure
         else:
             ref = None
 
         measure = self.create_empty_measure(ref)
         self.measure_heap.append(measure)
-        self.measure_list.insert(idx, MeasureReference(measure_id=measure.id))
+        self.measure_list.insert(idx, self._pool.create(MeasureReference, measure=measure))
 
     def garbage_collect_measures(self) -> None:
         ref_counts = {measure.id: 0 for measure in self.measure_heap}
 
         for mref in self.measure_list:
-            ref_counts[mref.measure_id] += 1
+            ref_counts[mref.measure.id] += 1
 
         measure_ids_to_delete = [
             measure_id for measure_id, ref_count in ref_counts.items()
             if ref_count == 0]
         indices_to_delete = [
-            self.root.get_object(measure_id).index
+            self._pool[measure_id].index
             for measure_id in measure_ids_to_delete]
         for idx in sorted(indices_to_delete, reverse=True):
             del self.measure_heap[idx]
@@ -517,5 +451,5 @@ class MeasuredTrack(model.MeasuredTrack, Track):  # pylint: disable=abstract-met
         del self.measure_list[idx]
         self.garbage_collect_measures()
 
-    def create_empty_measure(self, ref: Optional[model.Measure]) -> Measure:  # pylint: disable=unused-argument
-        return self.measure_cls()  # pylint: disable=not-callable
+    def create_empty_measure(self, ref: Optional[pmodel.Measure]) -> Measure:  # pylint: disable=unused-argument
+        return self._pool.create(self.measure_cls)

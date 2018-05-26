@@ -22,7 +22,7 @@
 
 import asyncio
 import logging
-from typing import Dict, Iterable, Set  # pylint: disable=unused-import
+from typing import Dict, Iterable, Set, Tuple  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -43,13 +43,12 @@ class NodeDBClient(object):
         self.__session_id = None  # type: str
         self.__nodes = {}  # type: Dict[str, node_description_pb2.NodeDescription]
 
-    @property
-    def nodes(self) -> Iterable[node_description_pb2.NodeDescription]:
-        return sorted(
-            self.__nodes.items(), key=lambda i: i[1].display_name)
-
     def get_node_description(self, uri: str) -> node_description_pb2.NodeDescription:
         return self.__nodes[uri]
+
+    @property
+    def nodes(self) -> Iterable[Tuple[str, node_description_pb2.NodeDescription]]:
+        return sorted(self.__nodes.items())
 
     async def setup(self) -> None:
         self.server.add_command_handler('NODEDB_MUTATION', self.__handle_mutation)

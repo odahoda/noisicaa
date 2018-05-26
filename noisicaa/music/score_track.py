@@ -20,146 +20,108 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-# mypy: loose
-
 import functools
 import logging
-from typing import cast
+from typing import Optional, Any, Iterable, Iterator
+
+from google.protobuf import message as protobuf
 
 from noisicaa.core.typing_extra import down_cast
-from noisicaa import core
 from noisicaa import audioproc
-
-from .pitch import Pitch
-from .clef import Clef
-from .key_signature import KeySignature
+from noisicaa import model
 from . import base_track
-from . import model
-from . import state
-from . import commands
+from . import pmodel
 from . import pipeline_graph
-from . import misc
-from . import project
+from . import commands
+from . import commands_pb2
 
 logger = logging.getLogger(__name__)
 
 
 class SetInstrument(commands.Command):
-    instrument = core.Property(str)
+    proto_type = 'set_instrument'
 
-    def __init__(self, instrument=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.instrument = instrument
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetInstrument, pb)
+        track = down_cast(pmodel.ScoreTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, ScoreTrack)
-
-        track.instrument = self.instrument
+        track.instrument = pb.instrument
 
         for mutation in track.instrument_node.get_update_mutations():
-            cast(project.BaseProject, track.project).handle_pipeline_mutation(mutation)
+            project.handle_pipeline_mutation(mutation)
 
 commands.Command.register_command(SetInstrument)
 
 
 class ChangeNote(commands.Command):
-    idx = core.Property(int)
-    pitch = core.Property(str, allow_none=True)
-    duration = core.Property(audioproc.MusicalDuration, allow_none=True)
-    dots = core.Property(int, allow_none=True)
-    tuplet = core.Property(int, allow_none=True)
+    proto_type = 'change_note'
 
-    def __init__(self, idx=None, pitch=None, duration=None, dots=None, tuplet=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.idx = idx
-            self.pitch = pitch
-            self.duration = duration
-            self.dots = dots
-            self.tuplet = tuplet
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.ChangeNote, pb)
+        measure = down_cast(pmodel.ScoreMeasure, pool[self.proto.command.target])
 
-    def run(self, measure):
-        assert isinstance(measure, ScoreMeasure)
+        assert 0 <= pb.idx < len(measure.notes)
+        note = measure.notes[pb.idx]
 
-        assert 0 <= self.idx < len(measure.notes)
-        note = measure.notes[self.idx]
+        if pb.HasField('pitch'):
+            note.pitches[0] = model.Pitch(pb.pitch)
 
-        if self.pitch is not None:
-            note.pitches[0] = Pitch(self.pitch)
+        if pb.HasField('duration'):
+            note.base_duration = audioproc.MusicalDuration.from_proto(pb.duration)
 
-        if self.duration is not None:
-            note.base_duration = self.duration
-
-        if self.dots is not None:
-            if self.dots > note.max_allowed_dots:
+        if pb.HasField('dots'):
+            if pb.dots > note.max_allowed_dots:
                 raise ValueError("Too many dots on note")
-            note.dots = self.dots
+            note.dots = pb.dots
 
-        if self.tuplet is not None:
-            if self.tuplet not in (0, 3, 5):
+        if pb.HasField('tuplet'):
+            if pb.tuplet not in (0, 3, 5):
                 raise ValueError("Invalid tuplet type")
-            note.tuplet = self.tuplet
+            note.tuplet = pb.tuplet
 
 commands.Command.register_command(ChangeNote)
 
 
 class InsertNote(commands.Command):
-    idx = core.Property(int)
-    pitch = core.Property(str)
-    duration = core.Property(audioproc.MusicalDuration)
+    proto_type = 'insert_note'
 
-    def __init__(self, idx=None, pitch=None, duration=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.idx = idx
-            self.pitch = pitch
-            self.duration = duration
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.InsertNote, pb)
+        measure = down_cast(pmodel.ScoreMeasure, pool[self.proto.command.target])
 
-    def run(self, measure):
-        assert isinstance(measure, ScoreMeasure)
-
-        assert 0 <= self.idx <= len(measure.notes)
-        note = Note(pitches=[Pitch(self.pitch)], base_duration=self.duration)
-        measure.notes.insert(self.idx, note)
+        assert 0 <= pb.idx <= len(measure.notes)
+        note = pool.create(
+            Note,
+            pitches=[model.Pitch(pb.pitch)],
+            base_duration=audioproc.MusicalDuration.from_proto(pb.duration))
+        measure.notes.insert(pb.idx, note)
 
 commands.Command.register_command(InsertNote)
 
 
 class DeleteNote(commands.Command):
-    idx = core.Property(int)
+    proto_type = 'delete_note'
 
-    def __init__(self, idx=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.idx = idx
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.DeleteNote, pb)
+        measure = down_cast(pmodel.ScoreMeasure, pool[self.proto.command.target])
 
-    def run(self, measure):
-        assert isinstance(measure, ScoreMeasure)
-
-        assert 0 <= self.idx < len(measure.notes)
-        del measure.notes[self.idx]
+        assert 0 <= pb.idx < len(measure.notes)
+        del measure.notes[pb.idx]
 
 commands.Command.register_command(DeleteNote)
 
 
 class AddPitch(commands.Command):
-    idx = core.Property(int)
-    pitch = core.Property(str)
+    proto_type = 'add_pitch'
 
-    def __init__(self, idx=None, pitch=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.idx = idx
-            self.pitch = pitch
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.AddPitch, pb)
+        measure = down_cast(pmodel.ScoreMeasure, pool[self.proto.command.target])
 
-    def run(self, measure):
-        assert isinstance(measure, ScoreMeasure)
-
-        assert 0 <= self.idx < len(measure.notes)
-        note = measure.notes[self.idx]
-        pitch = Pitch(self.pitch)
+        assert 0 <= pb.idx < len(measure.notes)
+        note = measure.notes[pb.idx]
+        pitch = model.Pitch(pb.pitch)
         if pitch not in note.pitches:
             note.pitches.append(pitch)
 
@@ -167,138 +129,107 @@ commands.Command.register_command(AddPitch)
 
 
 class RemovePitch(commands.Command):
-    idx = core.Property(int)
-    pitch_idx = core.Property(int)
+    proto_type = 'remove_pitch'
 
-    def __init__(self, idx=None, pitch_idx=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.idx = idx
-            self.pitch_idx = pitch_idx
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.RemovePitch, pb)
+        measure = down_cast(pmodel.ScoreMeasure, pool[self.proto.command.target])
 
-    def run(self, measure):
-        assert isinstance(measure, ScoreMeasure)
-
-        assert 0 <= self.idx < len(measure.notes)
-        note = measure.notes[self.idx]
-        assert 0 <= self.pitch_idx < len(note.pitches)
-        del note.pitches[self.pitch_idx]
+        assert 0 <= pb.idx < len(measure.notes)
+        note = measure.notes[pb.idx]
+        assert 0 <= pb.pitch_idx < len(note.pitches)
+        del note.pitches[pb.pitch_idx]
 
 commands.Command.register_command(RemovePitch)
 
 
 class SetClef(commands.Command):
-    measure_ids = core.ListProperty(str)
-    clef = core.Property(str)
+    proto_type = 'set_clef'
 
-    def __init__(self, measure_ids=None, clef=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.measure_ids.extend(measure_ids)
-            self.clef = clef
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetClef, pb)
+        track = down_cast(pmodel.ScoreTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, ScoreTrack)
-
-        for measure_id in self.measure_ids:
-            measure = cast(ScoreMeasure, track.project.get_object(measure_id))
+        for measure_id in pb.measure_ids:
+            measure = down_cast(pmodel.ScoreMeasure, pool[measure_id])
             assert measure.is_child_of(track)
-            measure.clef = Clef(self.clef)
+            measure.clef = model.Clef.from_proto(pb.clef)
 
 commands.Command.register_command(SetClef)
 
 
 class SetKeySignature(commands.Command):
-    measure_ids = core.ListProperty(str)
-    key_signature = core.Property(str)
+    proto_type = 'set_key_signature'
 
-    def __init__(self, measure_ids=None, key_signature=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.measure_ids.extend(measure_ids)
-            self.key_signature = key_signature
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetKeySignature, pb)
+        track = down_cast(pmodel.ScoreTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, ScoreTrack)
-
-        for measure_id in self.measure_ids:
-            measure = cast(ScoreMeasure, track.project.get_object(measure_id))
+        for measure_id in pb.measure_ids:
+            measure = down_cast(pmodel.ScoreMeasure, pool[measure_id])
             assert measure.is_child_of(track)
-            measure.key_signature = KeySignature(self.key_signature)
+            measure.key_signature = model.KeySignature.from_proto(pb.key_signature)
 
 commands.Command.register_command(SetKeySignature)
 
 
 class SetAccidental(commands.Command):
-    idx = core.Property(int)
-    pitch_idx = core.Property(int)
-    accidental = core.Property(str)
+    proto_type = 'set_accidental'
 
-    def __init__(self, idx=None, pitch_idx=None, accidental=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.idx = idx
-            self.pitch_idx = pitch_idx
-            self.accidental = accidental
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetAccidental, pb)
+        measure = down_cast(pmodel.ScoreMeasure, pool[self.proto.command.target])
 
-    def run(self, measure):
-        assert isinstance(measure, ScoreMeasure)
+        assert 0 <= pb.idx < len(measure.notes)
+        note = measure.notes[pb.idx]
+        assert 0 <= pb.pitch_idx < len(note.pitches)
 
-        assert 0 <= self.idx < len(measure.notes)
-        note = measure.notes[self.idx]
-        assert 0 <= self.pitch_idx < len(note.pitches)
-
-        note.pitches[self.pitch_idx] = note.pitches[self.pitch_idx].add_accidental(self.accidental)
+        note.pitches[pb.pitch_idx] = note.pitches[pb.pitch_idx].add_accidental(pb.accidental)
 
 commands.Command.register_command(SetAccidental)
 
 
 class TransposeNotes(commands.Command):
-    note_ids = core.ListProperty(str)
-    half_notes = core.Property(int)
+    proto_type = 'transpose_notes'
 
-    def __init__(self, note_ids=None, half_notes=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.note_ids.extend(note_ids)
-            self.half_notes = half_notes
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.TransposeNotes, pb)
+        track = down_cast(pmodel.ScoreTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, ScoreTrack)
-
-        root = track.root
-
-        for note_id in self.note_ids:
-            note = cast(Note, root.get_object(note_id))
+        for note_id in pb.note_ids:
+            note = down_cast(pmodel.Note, pool[note_id])
             assert note.is_child_of(track)
 
             for pidx, pitch in enumerate(note.pitches):
                 note.pitches[pidx] = pitch.transposed(
-                    half_notes=self.half_notes % 12,
-                    octaves=self.half_notes // 12)
+                    half_notes=pb.half_notes % 12,
+                    octaves=pb.half_notes // 12)
 
 commands.Command.register_command(TransposeNotes)
 
 
-class Note(model.Note, state.StateBase):
-    def __init__(self,
-                 pitches=None, base_duration=None, dots=0, tuplet=0,
-                 state=None):
-        super().__init__(state=state)
-        if state is None:
-            if pitches is not None:
-                self.pitches.extend(pitches)
-            if base_duration is None:
-                base_duration = audioproc.MusicalDuration(1, 4)
-            self.base_duration = base_duration
-            self.dots = dots
-            self.tuplet = tuplet
+class Note(pmodel.Note):
+    def create(
+            self, *,
+            pitches: Optional[Iterable[model.Pitch]] = None,
+            base_duration: Optional[audioproc.MusicalDuration] = None,
+            dots: int = 0, tuplet: int = 0,
+            **kwargs: Any) -> None:
+        super().create(**kwargs)
+
+        if pitches is not None:
+            self.pitches.extend(pitches)
+        if base_duration is None:
+            base_duration = audioproc.MusicalDuration(1, 4)
+        self.base_duration = base_duration
+        self.dots = dots
+        self.tuplet = tuplet
 
         assert (self.base_duration.numerator == 1
                 and self.base_duration.denominator in (1, 2, 4, 8, 16, 32)), \
             self.base_duration
 
-    def __str__(self):
+    def __str__(self) -> str:
         n = ''
         if len(self.pitches) == 1:
             n += str(self.pitches[0])
@@ -315,43 +246,42 @@ class Note(model.Note, state.StateBase):
 
         return n
 
-    def property_changed(self, changes):
-        super().property_changed(changes)
+    def property_changed(self, change: model.PropertyChange) -> None:
+        super().property_changed(change)
         if self.measure is not None:
             self.measure.listeners.call('notes-changed')
 
-state.StateBase.register_class(Note)
 
+class ScoreMeasure(pmodel.ScoreMeasure, base_track.Measure):
+    def setup(self) -> None:
+        super().setup()
 
-class ScoreMeasure(model.ScoreMeasure, base_track.Measure):
-    def __init__(self, state=None):
-        super().__init__(state=state)
-        if state is None:
-            pass
-        self.listeners.add(
-            'notes', lambda *args: self.listeners.call('notes-changed'))
+        self.listeners.add('notes', lambda *args: self.listeners.call('notes-changed'))
 
     @property
-    def empty(self):
+    def empty(self) -> bool:
         return len(self.notes) == 0
-
-state.StateBase.register_class(ScoreMeasure)
 
 
 class ScoreTrackConnector(base_track.MeasuredTrackConnector):
-    def _add_track_listeners(self):
+    _track = None  # type: ScoreTrack
+
+    def _add_track_listeners(self) -> None:
         self._listeners['transpose_octaves'] = self._track.listeners.add(
             'transpose_octaves', self.__transpose_octaves_changed)
 
-    def _add_measure_listeners(self, mref):
+    def _add_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
         self._listeners['measure:%s:notes' % mref.id] = mref.measure.listeners.add(
             'notes-changed', functools.partial(
                 self.__measure_notes_changed, mref))
 
-    def _remove_measure_listeners(self, mref):
+    def _remove_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
         self._listeners.pop('measure:%s:notes' % mref.id).remove()
 
-    def _create_events(self, time, measure):
+    def _create_events(
+            self, time: audioproc.MusicalTime, measure: pmodel.Measure
+    ) -> Iterator[base_track.PianoRollInterval]:
+        measure = down_cast(ScoreMeasure, measure)
         for note in measure.notes:
             if not note.is_rest:
                 for pitch in note.pitches:
@@ -362,100 +292,91 @@ class ScoreTrackConnector(base_track.MeasuredTrackConnector):
 
             time += note.duration
 
-    def __transpose_octaves_changed(self, change):
+    def __transpose_octaves_changed(self, change: model.PropertyChange) -> None:
         self._update_measure_range(0, len(self._track.measure_list))
 
-    def __measure_notes_changed(self, mref):
+    def __measure_notes_changed(self, mref: base_track.MeasureReference) -> None:
         self._update_measure_range(mref.index, mref.index + 1)
 
 
-class ScoreTrack(model.ScoreTrack, base_track.MeasuredTrack):
+class ScoreTrack(pmodel.ScoreTrack, base_track.MeasuredTrack):
     measure_cls = ScoreMeasure
 
-    def __init__(
-            self, instrument=None, num_measures=1, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
+    def create(
+            self, *, instrument: Optional[str] = None, num_measures: int = 1, **kwargs: Any
+    ) -> None:
+        super().create(**kwargs)
 
-        if state is None:
-            if instrument is None:
-                self.instrument = 'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0'
-            else:
-                self.instrument = instrument
+        if instrument is None:
+            self.instrument = 'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0'
+        else:
+            self.instrument = instrument
 
-            for _ in range(num_measures):
-                self.append_measure()
+        for _ in range(num_measures):
+            self.append_measure()
 
-    def create_empty_measure(self, ref):
+    def create_empty_measure(self, ref: Optional[pmodel.Measure]) -> ScoreMeasure:
         measure = down_cast(ScoreMeasure, super().create_empty_measure(ref))
 
         if ref is not None:
+            ref = down_cast(pmodel.ScoreMeasure, ref)
             measure.key_signature = ref.key_signature
             measure.clef = ref.clef
 
         return measure
 
-    def create_track_connector(self, **kwargs):
+    def create_track_connector(self, **kwargs: Any) -> ScoreTrackConnector:
         return ScoreTrackConnector(
             track=self,
             node_id=self.event_source_name,
             **kwargs)
 
     @property
-    def event_source_name(self):
-        return '%s-events' % self.id
+    def event_source_name(self) -> str:
+        return '%016x-events' % self.id
 
     @property
-    def event_source_node(self):
-        if self.event_source_id is None:
-            raise ValueError("No event source node found.")
-        return self.root.get_object(self.event_source_id)
+    def instr_name(self) -> str:
+        return '%016x-instr' % self.id
 
-    @property
-    def instr_name(self):
-        return '%s-instr' % self.id
-
-    @property
-    def instrument_node(self):
-        if self.instrument_id is None:
-            raise ValueError("No instrument node found.")
-
-        return self.root.get_object(self.instrument_id)
-
-    def add_pipeline_nodes(self):
+    def add_pipeline_nodes(self) -> None:
         super().add_pipeline_nodes()
 
         mixer_node = self.mixer_node
 
-        instrument_node = pipeline_graph.InstrumentPipelineGraphNode(
+        instrument_node = self._pool.create(
+            pipeline_graph.InstrumentPipelineGraphNode,
             name="Track Instrument",
-            graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
+            graph_pos=mixer_node.graph_pos - model.Pos2F(200, 0),
             track=self)
         self.project.add_pipeline_graph_node(instrument_node)
-        self.instrument_id = instrument_node.id
+        self.instrument_node = instrument_node
 
-        self.project.add_pipeline_graph_connection(
-            pipeline_graph.PipelineGraphConnection(
-                instrument_node, 'out:left', self.mixer_node, 'in:left'))
-        self.project.add_pipeline_graph_connection(
-            pipeline_graph.PipelineGraphConnection(
-                instrument_node, 'out:right', self.mixer_node, 'in:right'))
+        self.project.add_pipeline_graph_connection(self._pool.create(
+            pipeline_graph.PipelineGraphConnection,
+            source_node=instrument_node, source_port='out:left',
+            dest_node=self.mixer_node, dest_port='in:left'))
+        self.project.add_pipeline_graph_connection(self._pool.create(
+            pipeline_graph.PipelineGraphConnection,
+            source_node=instrument_node, source_port='out:right',
+            dest_node=self.mixer_node, dest_port='in:right'))
 
-        event_source_node = pipeline_graph.PianoRollPipelineGraphNode(
+        event_source_node = self._pool.create(
+            pipeline_graph.PianoRollPipelineGraphNode,
             name="Track Events",
-            graph_pos=instrument_node.graph_pos - misc.Pos2F(200, 0),
+            graph_pos=instrument_node.graph_pos - model.Pos2F(200, 0),
             track=self)
         self.project.add_pipeline_graph_node(event_source_node)
-        self.event_source_id = event_source_node.id
+        self.event_source_node = event_source_node
 
-        self.project.add_pipeline_graph_connection(
-            pipeline_graph.PipelineGraphConnection(
-                event_source_node, 'out', instrument_node, 'in'))
+        self.project.add_pipeline_graph_connection(self._pool.create(
+            pipeline_graph.PipelineGraphConnection,
+            source_node=event_source_node, source_port='out',
+            dest_node=instrument_node, dest_port='in'))
 
-    def remove_pipeline_nodes(self):
+    def remove_pipeline_nodes(self) -> None:
         self.project.remove_pipeline_graph_node(self.event_source_node)
-        self.event_source_id = None
+        self.event_source_node = None
         self.project.remove_pipeline_graph_node(self.instrument_node)
-        self.instrument_id = None
+        self.instrument_node = None
         super().remove_pipeline_nodes()
-
-state.StateBase.register_class(ScoreTrack)

@@ -20,91 +20,75 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-# mypy: loose
-
 import functools
 import logging
-from typing import cast
+from typing import Any, Optional, Iterator
 
-from noisicaa import core
+from google.protobuf import message as protobuf
+
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
+from noisicaa import model
 
-from .pitch import Pitch
-from . import model
-from . import state
-from . import commands
+from . import pmodel
 from . import pipeline_graph
-from . import misc
 from . import base_track
-from . import project
+from . import commands
+from . import commands_pb2
 
 logger = logging.getLogger(__name__)
 
 
 class SetBeatTrackInstrument(commands.Command):
-    instrument = core.Property(str)
+    proto_type = 'set_beat_track_instrument'
 
-    def __init__(self, instrument=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.instrument = instrument
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetBeatTrackInstrument, pb)
+        track = down_cast(pmodel.BeatTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, BeatTrack)
-
-        track.instrument = self.instrument
+        track.instrument = pb.instrument
 
         for mutation in track.instrument_node.get_update_mutations():
-            cast(project.BaseProject, project).handle_pipeline_mutation(mutation)
+            project.handle_pipeline_mutation(mutation)
 
 commands.Command.register_command(SetBeatTrackInstrument)
 
 
 class SetBeatTrackPitch(commands.Command):
-    pitch = core.Property(Pitch)
+    proto_type = 'set_beat_track_pitch'
 
-    def __init__(self, pitch=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.pitch = pitch
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetBeatTrackPitch, pb)
+        track = down_cast(pmodel.BeatTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, BeatTrack)
-
-        track.pitch = self.pitch
+        track.pitch = model.Pitch.from_proto(pb.pitch)
 
 commands.Command.register_command(SetBeatTrackPitch)
 
 
 class SetBeatVelocity(commands.Command):
-    velocity = core.Property(int)
+    proto_type = 'set_beat_velocity'
 
-    def __init__(self, velocity=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.velocity = velocity
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetBeatVelocity, pb)
+        beat = down_cast(pmodel.Beat, pool[self.proto.command.target])
 
-    def run(self, beat):
-        assert isinstance(beat, Beat)
-
-        beat.velocity = self.velocity
+        beat.velocity = pb.velocity
 
 commands.Command.register_command(SetBeatVelocity)
 
 
 class AddBeat(commands.Command):
-    time = core.Property(audioproc.MusicalDuration)
+    proto_type = 'add_beat'
 
-    def __init__(self, time=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.time = time
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.AddBeat, pb)
+        measure = down_cast(pmodel.BeatMeasure, pool[self.proto.command.target])
 
-    def run(self, measure):
-        assert isinstance(measure, BeatMeasure)
-
-        beat = Beat(time=self.time, velocity=100)
+        beat = pool.create(
+            Beat,
+            time=audioproc.MusicalDuration.from_proto(pb.time),
+            velocity=100)
         assert audioproc.MusicalDuration(0, 1) <= beat.time < measure.duration
         measure.beats.append(beat)
 
@@ -112,68 +96,61 @@ commands.Command.register_command(AddBeat)
 
 
 class RemoveBeat(commands.Command):
-    beat_id = core.Property(str)
+    proto_type = 'remove_beat'
 
-    def __init__(self, beat_id=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.beat_id = beat_id
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.RemoveBeat, pb)
+        measure = down_cast(pmodel.BeatMeasure, pool[self.proto.command.target])
 
-    def run(self, measure):
-        assert isinstance(measure, BeatMeasure)
-
-        root = measure.root
-        beat = root.get_object(self.beat_id)
+        beat = down_cast(pmodel.Beat, pool[pb.beat_id])
         assert beat.is_child_of(measure)
         del measure.beats[beat.index]
 
 commands.Command.register_command(RemoveBeat)
 
 
-class Beat(model.Beat, state.StateBase):
-    def __init__(self,
-                 time=None, velocity=None,
-                 state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.time = time
-            self.velocity = velocity
+class Beat(pmodel.Beat):
+    def create(
+            self, *, time: Optional[audioproc.MusicalTime] = None, velocity: Optional[int] = None,
+            **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-    def property_changed(self, changes):
-        super().property_changed(changes)
+        self.time = time
+        self.velocity = velocity
+
+    def property_changed(self, change: model.PropertyChange) -> None:
+        super().property_changed(change)
         if self.measure is not None:
             self.measure.listeners.call('beats-changed')
 
-state.StateBase.register_class(Beat)
 
-
-class BeatMeasure(model.BeatMeasure, base_track.Measure):
-    def __init__(self, state=None):
-        super().__init__(state=state)
-        self.listeners.add(
-            'beats', lambda *args: self.listeners.call('beats-changed'))
+class BeatMeasure(pmodel.BeatMeasure, base_track.Measure):
+    def setup(self) -> None:
+        super().setup()
+        self.listeners.add('beats', lambda *args: self.listeners.call('beats-changed'))
 
     @property
-    def empty(self):
+    def empty(self) -> bool:
         return len(self.beats) == 0
-
-state.StateBase.register_class(BeatMeasure)
 
 
 class BeatTrackConnector(base_track.MeasuredTrackConnector):
-    def _add_track_listeners(self):
-        self._listeners['pitch'] = self._track.listeners.add(
-            'pitch', self.__pitch_changed)
+    _track = None  # type: BeatTrack
 
-    def _add_measure_listeners(self, mref):
+    def _add_track_listeners(self) -> None:
+        self._listeners['pitch'] = self._track.listeners.add('pitch', self.__pitch_changed)
+
+    def _add_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
         self._listeners['measure:%s:beats' % mref.id] = mref.measure.listeners.add(
-            'beats-changed', functools.partial(
-                self.__measure_beats_changed, mref))
+            'beats-changed', functools.partial(self.__measure_beats_changed, mref))
 
-    def _remove_measure_listeners(self, mref):
+    def _remove_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
         self._listeners.pop('measure:%s:beats' % mref.id).remove()
 
-    def _create_events(self, time, measure):
+    def _create_events(
+            self, time: audioproc.MusicalTime, measure: pmodel.Measure
+    ) -> Iterator[base_track.PianoRollInterval]:
+        measure = down_cast(BeatMeasure, measure)
         for beat in measure.beats:
             beat_time = time + beat.time
             event = base_track.PianoRollInterval(
@@ -181,97 +158,87 @@ class BeatTrackConnector(base_track.MeasuredTrackConnector):
                 self._track.pitch, 127)
             yield event
 
-    def __pitch_changed(self, change):
+    def __pitch_changed(self, change: model.PropertyChange) -> None:
         self._update_measure_range(0, len(self._track.measure_list))
 
-    def __measure_beats_changed(self, mref):
+    def __measure_beats_changed(self, mref: pmodel.MeasureReference) -> None:
         self._update_measure_range(mref.index, mref.index + 1)
 
 
-class BeatTrack(model.BeatTrack, base_track.MeasuredTrack):
+class BeatTrack(pmodel.BeatTrack, base_track.MeasuredTrack):
     measure_cls = BeatMeasure
 
-    def __init__(
-            self, instrument=None, pitch=None, num_measures=1,
-            state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
+    def create(
+            self, *,
+            instrument: Optional[str] = None, pitch: Optional[model.Pitch] = None,
+            num_measures: int = 1, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-        if state is None:
-            if instrument is None:
-                self.instrument = 'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=128&preset=0'
-            else:
-                self.instrument = instrument
+        if instrument is None:
+            self.instrument = 'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=128&preset=0'
+        else:
+            self.instrument = instrument
 
-            if pitch is None:
-                self.pitch = Pitch('B2')
-            else:
-                self.pitch = pitch
+        if pitch is None:
+            self.pitch = model.Pitch('B2')
+        else:
+            self.pitch = pitch
 
-            for _ in range(num_measures):
-                self.append_measure()
+        for _ in range(num_measures):
+            self.append_measure()
 
-    def create_track_connector(self, **kwargs):
+    def create_track_connector(self, **kwargs: Any) -> BeatTrackConnector:
         return BeatTrackConnector(
             track=self,
             node_id=self.event_source_name,
             **kwargs)
 
     @property
-    def event_source_name(self):
-        return '%s-events' % self.id
+    def event_source_name(self) -> str:
+        return '%016x-events' % self.id
 
     @property
-    def event_source_node(self):
-        if self.event_source_id is None:
-            raise ValueError("No event source node found.")
-        return self.root.get_object(self.event_source_id)
+    def instr_name(self) -> str:
+        return '%016x-instr' % self.id
 
-    @property
-    def instr_name(self):
-        return '%s-instr' % self.id
-
-    @property
-    def instrument_node(self):
-        if self.instrument_id is None:
-            raise ValueError("No instrument node found.")
-
-        return self.root.get_object(self.instrument_id)
-
-    def add_pipeline_nodes(self):
+    def add_pipeline_nodes(self) -> None:
         super().add_pipeline_nodes()
 
         mixer_node = self.mixer_node
 
-        instrument_node = pipeline_graph.InstrumentPipelineGraphNode(
+        instrument_node = self._pool.create(
+            pipeline_graph.InstrumentPipelineGraphNode,
             name="Track Instrument",
-            graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
+            graph_pos=mixer_node.graph_pos - model.Pos2F(200, 0),
             track=self)
         self.project.add_pipeline_graph_node(instrument_node)
-        self.instrument_id = instrument_node.id
+        self.instrument_node = instrument_node
 
-        self.project.add_pipeline_graph_connection(
-            pipeline_graph.PipelineGraphConnection(
-                instrument_node, 'out:left', self.mixer_node, 'in:left'))
-        self.project.add_pipeline_graph_connection(
-            pipeline_graph.PipelineGraphConnection(
-                instrument_node, 'out:right', self.mixer_node, 'in:right'))
+        self.project.add_pipeline_graph_connection(self._pool.create(
+            pipeline_graph.PipelineGraphConnection,
+            source_node=instrument_node, source_port='out:left',
+            dest_node=self.mixer_node, dest_port='in:left'))
+        self.project.add_pipeline_graph_connection(self._pool.create(
+            pipeline_graph.PipelineGraphConnection,
+            source_node=instrument_node, source_port='out:right',
+            dest_node=self.mixer_node, dest_port='in:right'))
 
-        event_source_node = pipeline_graph.PianoRollPipelineGraphNode(
+        event_source_node = self._pool.create(
+            pipeline_graph.PianoRollPipelineGraphNode,
             name="Track Events",
-            graph_pos=instrument_node.graph_pos - misc.Pos2F(200, 0),
+            graph_pos=instrument_node.graph_pos - model.Pos2F(200, 0),
             track=self)
         self.project.add_pipeline_graph_node(event_source_node)
-        self.event_source_id = event_source_node.id
+        self.event_source_node = event_source_node
 
-        self.project.add_pipeline_graph_connection(
-            pipeline_graph.PipelineGraphConnection(
-                event_source_node, 'out', instrument_node, 'in'))
+        self.project.add_pipeline_graph_connection(self._pool.create(
+            pipeline_graph.PipelineGraphConnection,
+            source_node=event_source_node, source_port='out',
+            dest_node=instrument_node, dest_port='in'))
 
-    def remove_pipeline_nodes(self):
+    def remove_pipeline_nodes(self) -> None:
         self.project.remove_pipeline_graph_node(self.event_source_node)
-        self.event_source_id = None
+        self.event_source_node = None
         self.project.remove_pipeline_graph_node(self.instrument_node)
-        self.instrument_id = None
+        self.instrument_node = None
         super().remove_pipeline_nodes()
-
-state.StateBase.register_class(BeatTrack)

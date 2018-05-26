@@ -20,9 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
+from typing import Any, Optional
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -38,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 class ToolsDockWidget(ui_base.ProjectMixin, dock_widget.DockWidget):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             identifier='tools',
             title="Tools",
@@ -47,7 +46,7 @@ class ToolsDockWidget(ui_base.ProjectMixin, dock_widget.DockWidget):
             initial_visible=True,
             **kwargs)
 
-        self.__tool_box = None
+        self.__tool_box = None  # type: Optional[tools.ToolBox]
 
         self.__group = QtWidgets.QButtonGroup()
         self.__group.buttonClicked.connect(self.__onButtonClicked)
@@ -56,17 +55,17 @@ class ToolsDockWidget(ui_base.ProjectMixin, dock_widget.DockWidget):
         self.__main_area.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
         self.setWidget(self.__main_area)
 
-    def __onButtonClicked(self, button):
+    def __onButtonClicked(self, button: QtWidgets.QAbstractButton) -> None:
         assert self.__tool_box is not None
         tool_type = tools.ToolType(self.__group.id(button))
         self.__tool_box.setCurrentToolType(tool_type)
 
-    def __onToolTypeChanged(self, tool_type):
+    def __onToolTypeChanged(self, tool_type: tools.ToolType) -> None:
         for button in self.__group.buttons():
             if self.__group.id(button) == tool_type.value:
                 button.setChecked(True)
 
-    def setCurrentToolBox(self, tool_box):
+    def setCurrentToolBox(self, tool_box: Optional[tools.ToolBox]) -> None:
         logger.debug("Updating tool dock for tool_box=%s", type(tool_box).__name__)
 
         if self.__tool_box is not None:

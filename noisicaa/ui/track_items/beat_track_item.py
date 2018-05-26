@@ -20,15 +20,17 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
+from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
+from noisicaa import music
+from noisicaa import model
 from noisicaa.ui import tools
 from . import base_track_item
 
@@ -36,20 +38,21 @@ logger = logging.getLogger(__name__)
 
 
 class EditBeatsTool(base_track_item.MeasuredToolBase):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(
             type=tools.ToolType.EDIT_BEATS,
             group=tools.ToolGroup.EDIT,
             **kwargs)
 
-    def iconName(self):
+    def iconName(self) -> str:
         return 'edit-beats'
 
-    def mouseMoveEvent(self, target, evt):
+    def mouseMoveEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
+        assert isinstance(target, BeatMeasureEditorItem), type(target).__name__
         target.setGhostTime(target.xToTime(evt.pos().x()))
         super().mouseMoveEvent(target, evt)
 
-    def mousePressEvent(self, target, evt):
+    def mousePressEvent(self, target: Any, evt: QtGui.QMouseEvent) -> None:
         assert isinstance(target, BeatMeasureEditorItem), type(target).__name__
 
         if (evt.button() == Qt.LeftButton and evt.modifiers() == Qt.NoModifier):
@@ -57,20 +60,22 @@ class EditBeatsTool(base_track_item.MeasuredToolBase):
 
             for beat in target.measure.beats:
                 if beat.time == click_time:
-                    self.send_command_async(
-                        target.measure.id, 'RemoveBeat', beat_id=beat.id)
+                    self.send_command_async(music.Command(
+                        target=target.measure.id,
+                        remove_beat=music.RemoveBeat(beat_id=beat.id)))
                     evt.accept()
                     return
 
-            self.send_command_async(
-                target.measure.id, 'AddBeat', time=click_time)
+            self.send_command_async(music.Command(
+                target=target.measure.id,
+                add_beat=music.AddBeat(time=click_time.to_proto())))
             target.track_item.playNoteOn(target.track.pitch)
             evt.accept()
             return
 
-        return super().mousePressEvent(target, evt)
+        super().mousePressEvent(target, evt)
 
-    def wheelEvent(self, target, evt):
+    def wheelEvent(self, target: Any, evt: QtGui.QWheelEvent) -> None:
         assert isinstance(target, BeatMeasureEditorItem), type(target).__name__
 
         if evt.modifiers() in (Qt.NoModifier, Qt.ShiftModifier):
@@ -83,17 +88,18 @@ class EditBeatsTool(base_track_item.MeasuredToolBase):
 
             for beat in target.measure.beats:
                 if beat.time == click_time:
-                    self.send_command_async(
-                        beat.id, 'SetBeatVelocity',
-                        velocity=max(0, min(127, beat.velocity + vel_delta)))
+                    self.send_command_async(music.Command(
+                        target=beat.id,
+                        set_beat_velocity=music.SetBeatVelocity(
+                            velocity=max(0, min(127, beat.velocity + vel_delta)))))
                     evt.accept()
                     return
 
-        return super().wheelEvent(target, evt)
+        super().wheelEvent(target, evt)
 
 
 class BeatToolBox(tools.ToolBox):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.addTool(base_track_item.ArrangeMeasuresTool(context=self.context))
@@ -112,17 +118,25 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
         GHOST,
     ]
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__ghost_time = None
+        self.__ghost_time = None  # type: audioproc.MusicalDuration
 
-    def xToTime(self, x):
+    @property
+    def track(self) -> music.BeatTrack:
+        return down_cast(music.BeatTrack, super().track)
+
+    @property
+    def measure(self) -> music.BeatMeasure:
+        return down_cast(music.BeatMeasure, super().measure)
+
+    def xToTime(self, x: int) -> audioproc.MusicalTime:
         return audioproc.MusicalDuration(
             int(8 * self.measure.time_signature.upper * x / self.width()),
             8 * self.measure.time_signature.upper)
 
-    def addMeasureListeners(self):
+    def addMeasureListeners(self) -> None:
         self.measure_listeners.append(self.measure.listeners.add(
             'beats-changed',
             lambda *args: self.invalidatePaintCache(self.FOREGROUND)))
@@ -130,13 +144,13 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
             'beats',
             lambda *args: self.invalidatePaintCache(self.FOREGROUND)))
 
-    def setGhostTime(self, time):
+    def setGhostTime(self, time: audioproc.MusicalDuration) -> None:
         if time == self.__ghost_time:
             return
         self.__ghost_time = time
         self.invalidatePaintCache(self.GHOST)
 
-    def paintLayer(self, layer, painter):
+    def paintLayer(self, layer: str, painter: QtGui.QPainter) -> None:
         if layer == self.BACKGROUND:
             return self.paintBackground(painter)
         elif layer == self.FOREGROUND:
@@ -144,7 +158,7 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
         elif layer == self.GHOST:
             return self.paintGhost(painter)
 
-    def paintBackground(self, painter):
+    def paintBackground(self, painter: QtGui.QPainter) -> None:
         ymid = self.height() // 2
 
         painter.setPen(Qt.black)
@@ -167,7 +181,7 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
 
                 painter.drawLine(x, ymid - h, x, ymid + h)
 
-    def paintForeground(self, painter):
+    def paintForeground(self, painter: QtGui.QPainter) -> None:
         ymid = self.height() // 2
 
         for beat in self.measure.beats:
@@ -191,7 +205,7 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
             polygon.append(QtCore.QPoint(pos + 8, ymid))
             painter.drawPolygon(polygon)
 
-    def paintGhost(self, painter):
+    def paintGhost(self, painter: QtGui.QPainter) -> None:
         if self.__ghost_time is None:
             return
 
@@ -207,11 +221,11 @@ class BeatMeasureEditorItem(base_track_item.MeasureEditorItem):
         polygon.append(QtCore.QPoint(pos + 8, ymid))
         painter.drawPolygon(polygon)
 
-    def paintPlaybackPos(self, painter):
+    def paintPlaybackPos(self, painter: QtGui.QPainter) -> None:
         pos = int(self.width() * (self.playbackPos() / self.measure.duration).fraction)
         painter.fillRect(pos, 0, 2, self.height(), QtGui.QColor(0, 0, 160))
 
-    def leaveEvent(self, evt):
+    def leaveEvent(self, evt: QtCore.QEvent) -> None:
         self.setGhostTime(None)
         super().leaveEvent(evt)
 
@@ -221,13 +235,18 @@ class BeatTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
 
     toolBoxClass = BeatToolBox
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.__play_last_pitch = None
+
+        self.__play_last_pitch = None  # type: model.Pitch
 
         self.setHeight(60)
 
-    def playNoteOn(self, pitch):
+    @property
+    def track(self) -> music.BeatTrack:
+        return down_cast(music.BeatTrack, super().track)
+
+    def playNoteOn(self, pitch: model.Pitch) -> None:
         self.playNoteOff()
 
         # TODO: use messages instead
@@ -238,7 +257,7 @@ class BeatTrackEditorItem(base_track_item.MeasuredTrackEditorItem):
 
         self.__play_last_pitch = pitch
 
-    def playNoteOff(self):
+    def playNoteOff(self) -> None:
         if self.__play_last_pitch is not None:
             # TODO: use messages instead
             # self.call_async(

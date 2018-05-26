@@ -20,66 +20,55 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-# mypy: loose
-
-from fractions import Fraction
+import fractions
 import logging
 import random
-from typing import cast, Dict  # pylint: disable=unused-import
+from typing import cast, Any, List, Optional, Dict  # pylint: disable=unused-import
 
-from noisicaa import core
+from google.protobuf import message as protobuf
+
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
+from noisicaa import model
+from noisicaa import core  # pylint: disable=unused-import
 from noisicaa.bindings import sndfile
-
-from . import model
-from . import state
-from . import commands
+from . import pmodel
 from . import base_track
 from . import pipeline_graph
-from . import misc
+from . import commands
+from . import commands_pb2
 from . import rms
 
 logger = logging.getLogger(__name__)
 
 
 class AddSample(commands.Command):
-    time = core.Property(audioproc.MusicalTime)
-    path = core.Property(str)
+    proto_type = 'add_sample'
 
-    def __init__(self, time=None, path=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.time = time
-            self.path = path
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.AddSample, pb)
+        track = down_cast(pmodel.SampleTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, SampleTrack)
-
-        project = cast(model.Project, track.project)
-
-        smpl = Sample(path=self.path)
+        smpl = pool.create(Sample, path=pb.path)
         project.samples.append(smpl)
 
-        smpl_ref = SampleRef(time=self.time, sample_id=smpl.id)
+        smpl_ref = pool.create(
+            SampleRef,
+            time=audioproc.MusicalTime.from_proto(pb.time),
+            sample=smpl)
         track.samples.append(smpl_ref)
 
 commands.Command.register_command(AddSample)
 
 
 class RemoveSample(commands.Command):
-    sample_id = core.Property(str)
+    proto_type = 'remove_sample'
 
-    def __init__(self, sample_id=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.sample_id = sample_id
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.RemoveSample, pb)
+        track = down_cast(pmodel.SampleTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, SampleTrack)
-
-        root = track.root
-        smpl_ref = cast(SampleRef, root.get_object(self.sample_id))
+        smpl_ref = down_cast(pmodel.SampleRef, pool[pb.sample_id])
         assert smpl_ref.is_child_of(track)
 
         del track.samples[smpl_ref.index]
@@ -88,49 +77,36 @@ commands.Command.register_command(RemoveSample)
 
 
 class MoveSample(commands.Command):
-    sample_id = core.Property(str)
-    time = core.Property(audioproc.MusicalTime)
+    proto_type = 'move_sample'
 
-    def __init__(self, sample_id=None, time=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.sample_id = sample_id
-            self.time = time
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.MoveSample, pb)
+        track = down_cast(pmodel.SampleTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, SampleTrack)
-
-        root = track.root
-        smpl_ref = cast(SampleRef, root.get_object(self.sample_id))
+        smpl_ref = down_cast(pmodel.SampleRef, pool[pb.sample_id])
         assert smpl_ref.is_child_of(track)
 
-        smpl_ref.time = self.time
+        smpl_ref.time = audioproc.MusicalTime.from_proto(pb.time)
 
 commands.Command.register_command(MoveSample)
 
 
 class RenderSample(commands.Command):
-    scale_x = core.Property(Fraction)
+    proto_type = 'render_sample'
 
-    def __init__(self, scale_x=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.scale_x = scale_x
-
-    def run(self, sample_ref):
-        assert isinstance(sample_ref, SampleRef)
-
-        root = sample_ref.root
-        sample = cast(Sample, root.get_object(sample_ref.sample_id))
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> List[Any]:
+        pb = down_cast(commands_pb2.RenderSample, pb)
+        sample_ref = down_cast(pmodel.SampleRef, pool[self.proto.command.target])
+        sample = down_cast(Sample, sample_ref.sample)
 
         try:
             samples = sample.samples
         except sndfile.Error:
             return ['broken']
 
-        samples = sample.samples[...,0]
+        samples = sample.samples[..., 0]  # type: ignore
 
-        tmap = audioproc.TimeMapper()
+        tmap = audioproc.TimeMapper(44100)
         try:
             tmap.setup(sample.project)
 
@@ -143,7 +119,8 @@ class RenderSample(commands.Command):
         finally:
             tmap.cleanup()
 
-        width = int(self.scale_x * (end_time - begin_time).fraction)
+        scale_x = fractions.Fraction(pb.scale_x.numerator, pb.scale_x.denominator)
+        width = int(scale_x * (end_time - begin_time).fraction)
 
         if width < num_samples / 10:
             result = []
@@ -161,70 +138,71 @@ class RenderSample(commands.Command):
 commands.Command.register_command(RenderSample)
 
 
-class Sample(model.Sample, state.StateBase):
-    def __init__(self, path=None, state=None, **kwargs):
-        super().__init__(state=state)
+class Sample(pmodel.Sample):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
 
-        if state is None:
-            self.path = path
+        self._samples = None  # type: memoryview
 
-        self._samples = None
+    def create(self, *, path: Optional[str] = None, **kwargs: Any) -> None:
+        super().create(**kwargs)
+
+        self.path = path
 
     @property
-    def samples(self):
+    def samples(self) -> memoryview:
         if self._samples is None:
             with sndfile.SndFile(self.path) as sf:
                 self._samples = sf.get_samples()
         return self._samples
 
-state.StateBase.register_class(Sample)
 
+class SampleRef(pmodel.SampleRef):
+    def create(
+            self, *,
+            time: Optional[audioproc.MusicalTime] = None, sample: Optional[Sample] = None,
+            **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-class SampleRef(model.SampleRef, state.StateBase):
-    def __init__(self, time=None, sample_id=None, state=None, **kwargs):
-        super().__init__(state=state)
-
-        if state is None:
-            self.time = time
-            self.sample_id = sample_id
-
-state.StateBase.register_class(SampleRef)
+        self.time = time
+        self.sample = sample
 
 
 class SampleTrackConnector(base_track.TrackConnector):
-    def __init__(self, *, node_id, **kwargs):
+    _track = None  # type: SampleTrack
+
+    def __init__(self, *, node_id: str, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node_id = node_id
         self.__listeners = {}  # type: Dict[str, core.Listener]
-        self.__sample_ids = {}  # type: Dict[str, int]
+        self.__sample_ids = {}  # type: Dict[int, int]
 
-    def _init_internal(self):
+    def _init_internal(self) -> None:
         for sample_ref in self._track.samples:
             self.__add_sample(sample_ref)
 
         self.__listeners['samples'] = self._track.listeners.add(
             'samples', self.__samples_list_changed)
 
-    def close(self):
+    def close(self) -> None:
         for listener in self.__listeners.values():
             listener.remove()
         self.__listeners.clear()
 
         super().close()
 
-    def __samples_list_changed(self, change):
-        if isinstance(change, core.PropertyListInsert):
+    def __samples_list_changed(self, change: model.PropertyChange) -> None:
+        if isinstance(change, model.PropertyListInsert):
             self.__add_sample(change.new_value)
 
-        elif isinstance(change, core.PropertyListDelete):
+        elif isinstance(change, model.PropertyListDelete):
             self.__remove_sample(change.old_value)
 
         else:  # pragma: no coverage
-            raise TypeError(
-                "Unsupported change type %s" % type(change))
+            raise TypeError("Unsupported change type %s" % type(change))
 
-    def __add_sample(self, sample_ref):
+    def __add_sample(self, sample_ref: pmodel.SampleRef) -> None:
         sample_id = self.__sample_ids[sample_ref.id] = random.getrandbits(64)
 
         self._emit_message(
@@ -238,10 +216,10 @@ class SampleTrackConnector(base_track.TrackConnector):
         self.__listeners['cp:%s:time' % sample_ref.id] = sample_ref.listeners.add(
             'time', lambda _: self.__sample_changed(sample_ref))
 
-        self.__listeners['cp:%s:sample_id' % sample_ref.id] = sample_ref.listeners.add(
-            'sample_id', lambda _: self.__sample_changed(sample_ref))
+        self.__listeners['cp:%s:sample' % sample_ref.id] = sample_ref.listeners.add(
+            'sample', lambda _: self.__sample_changed(sample_ref))
 
-    def __remove_sample(self, sample_ref):
+    def __remove_sample(self, sample_ref: pmodel.SampleRef) -> None:
         sample_id = self.__sample_ids[sample_ref.id]
 
         self._emit_message(
@@ -251,9 +229,9 @@ class SampleTrackConnector(base_track.TrackConnector):
                     id=sample_id)))
 
         self.__listeners.pop('cp:%s:time' % sample_ref.id).remove()
-        self.__listeners.pop('cp:%s:sample_id' % sample_ref.id).remove()
+        self.__listeners.pop('cp:%s:sample' % sample_ref.id).remove()
 
-    def __sample_changed(self, sample_ref):
+    def __sample_changed(self, sample_ref: pmodel.SampleRef) -> None:
         sample_id = self.__sample_ids[sample_ref.id]
 
         self._emit_message(
@@ -270,50 +248,40 @@ class SampleTrackConnector(base_track.TrackConnector):
                     sample_path=sample_ref.sample.path)))
 
 
-class SampleTrack(model.SampleTrack, base_track.Track):
-    def __init__(self, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
-
-    def create_track_connector(self, **kwargs):
+class SampleTrack(pmodel.SampleTrack, base_track.Track):
+    def create_track_connector(self, **kwargs: Any) -> SampleTrackConnector:
         return SampleTrackConnector(
             track=self,
             node_id=self.sample_script_name,
             **kwargs)
 
     @property
-    def sample_script_name(self):
-        return '%s-samplescript' % self.id
+    def sample_script_name(self) -> str:
+        return '%016x-samplescript' % self.id
 
-    @property
-    def sample_script_node(self):
-        if self.sample_script_id is None:
-            raise ValueError("No samplescript node found.")
-
-        return self.root.get_object(self.sample_script_id)
-
-    def add_pipeline_nodes(self):
+    def add_pipeline_nodes(self) -> None:
         super().add_pipeline_nodes()
 
         mixer_node = self.mixer_node
 
-        sample_script_node = pipeline_graph.SampleScriptPipelineGraphNode(
+        sample_script_node = self._pool.create(
+            pipeline_graph.SampleScriptPipelineGraphNode,
             name="Sample Script",
-            graph_pos=mixer_node.graph_pos - misc.Pos2F(200, 0),
+            graph_pos=mixer_node.graph_pos - model.Pos2F(200, 0),
             track=self)
         self.project.add_pipeline_graph_node(sample_script_node)
-        self.sample_script_id = sample_script_node.id
+        self.sample_script_node = sample_script_node
 
-        self.project.add_pipeline_graph_connection(
-            pipeline_graph.PipelineGraphConnection(
-                sample_script_node, 'out:left', mixer_node, 'in:left'))
-        self.project.add_pipeline_graph_connection(
-            pipeline_graph.PipelineGraphConnection(
-                sample_script_node, 'out:right', mixer_node, 'in:right'))
+        self.project.add_pipeline_graph_connection(self._pool.create(
+            pipeline_graph.PipelineGraphConnection,
+            source_node=sample_script_node, source_port='out:left',
+            dest_node=mixer_node, dest_port='in:left'))
+        self.project.add_pipeline_graph_connection(self._pool.create(
+            pipeline_graph.PipelineGraphConnection,
+            source_node=sample_script_node, source_port='out:right',
+            dest_node=mixer_node, dest_port='in:right'))
 
-    def remove_pipeline_nodes(self):
+    def remove_pipeline_nodes(self) -> None:
         self.project.remove_pipeline_graph_node(self.sample_script_node)
-        self.sample_script_id = None
+        self.sample_script_node = None
         super().remove_pipeline_nodes()
-
-
-state.StateBase.register_class(SampleTrack)

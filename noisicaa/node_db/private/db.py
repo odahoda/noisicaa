@@ -41,6 +41,9 @@ class NodeDB(object):
         self.listeners = core.CallbackRegistry()
 
     def __getitem__(self, uri: str) -> node_db.NodeDescription:
+        return self.get_node_description(uri)
+
+    def get_node_description(self, uri: str) -> node_db.NodeDescription:
         desc = node_db.NodeDescription()
         desc.CopyFrom(self.__nodes[uri])
         return desc

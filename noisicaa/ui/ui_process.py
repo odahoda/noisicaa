@@ -20,38 +20,42 @@
 #
 # @end:license
 
-# mypy: loose
-
 import functools
 import asyncio
 import logging
 import signal
+from typing import Any, Optional, Sequence  # pylint: disable=unused-import
 
 import quamash
 
 from noisicaa import core
-
+from noisicaa import runtime_settings as runtime_settings_lib
 from . import editor_app
 
 logger = logging.getLogger(__name__)
 
 
 class UISubprocess(core.SubprocessMixin, core.ProcessBase):
-    def __init__(self, *, runtime_settings, paths, **kwargs):
+    def __init__(
+            self, *,
+            runtime_settings: runtime_settings_lib.RuntimeSettings,
+            paths: Sequence[str],
+            **kwargs: Any
+    ) -> None:
         super().__init__(**kwargs)
 
-        self._shutting_down = None
-        self.exit_code = None
+        self._shutting_down = None  # type: asyncio.Event
+        self.exit_code = None  # type: Optional[int]
 
         self.app = editor_app.EditorApp(
             process=self,
             runtime_settings=runtime_settings,
             paths=paths)
 
-    def create_event_loop(self):
+    def create_event_loop(self) -> asyncio.AbstractEventLoop:
         return quamash.QEventLoop(self.app)
 
-    async def setup(self):
+    async def setup(self) -> None:
         self._shutting_down = asyncio.Event(loop=self.event_loop)
         for sig in (signal.SIGINT, signal.SIGTERM):
             self.event_loop.add_signal_handler(
@@ -59,18 +63,18 @@ class UISubprocess(core.SubprocessMixin, core.ProcessBase):
         await super().setup()
         await self.app.setup()
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         await self.app.cleanup()
         await super().cleanup()
 
-    async def run(self):
+    async def run(self) -> int:
         await self._shutting_down.wait()
-        return self.exit_code
+        return self.exit_code or 0
 
-    def quit(self, exit_code=0):
+    def quit(self, exit_code: int = 0) -> None:
         self.exit_code = exit_code
         self._shutting_down.set()
 
-    def handle_signal(self, sig):
+    def handle_signal(self, sig: signal.Signals) -> None:
         logger.info("%s received.", sig.name)
         self.quit(0)

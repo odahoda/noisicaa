@@ -47,7 +47,7 @@ from . import player
 logger = logging.getLogger(__name__)
 
 
-class TestAudioProcClientImpl(audioproc_client.AudioProcClientBase):
+class TestAudioProcClientImpl(audioproc_client.AudioProcClientBase):  # pylint: disable=abstract-method
     def __init__(self, event_loop, name):
         super().__init__(
             event_loop, ipc.Server(event_loop, name, socket_dir=TEST_OPTS.TMP_DIR))

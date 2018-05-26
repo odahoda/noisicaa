@@ -20,19 +20,18 @@
 #
 # @end:license
 
-# mypy: loose
-
 import asyncio
+import concurrent.futures
 import logging
 import uuid
-from typing import Dict  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Iterator, Dict, Tuple  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa.core import ipc
-from noisicaa.core import model_base
 from noisicaa import audioproc
+from noisicaa import model
 
-from . import model
+from . import pmodel
 from . import track_group
 from . import base_track  # pylint: disable=unused-import
 
@@ -40,9 +39,14 @@ logger = logging.getLogger(__name__)
 
 
 class Player(object):
-    def __init__(self, *,
-                 project, event_loop, audioproc_client, realm,
-                 callback_address=None):
+    def __init__(
+            self, *,
+            project: pmodel.Project,
+            event_loop: asyncio.AbstractEventLoop,
+            audioproc_client: audioproc.AudioProcClientBase,
+            realm: str,
+            callback_address: Optional[str] = None
+    ) -> None:
         self.project = project
         self.callback_address = callback_address
         self.event_loop = event_loop
@@ -54,11 +58,11 @@ class Player(object):
 
         self.id = uuid.uuid4().hex
 
-        self.callback_stub = None  # ipc.Stub
+        self.callback_stub = None  # type: ipc.Stub
 
-        self.track_connectors = {}  # type: Dict[str, base_track.TrackConnector]
+        self.track_connectors = {}  # type: Dict[int, base_track.TrackConnector]
 
-    async def setup(self):
+    async def setup(self) -> None:
         logger.info("Setting up player instance %s..", self.id)
 
         if self.callback_address is not None:
@@ -92,7 +96,7 @@ class Player(object):
 
         logger.info("Player instance %s setup complete.", self.id)
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         logger.info("Cleaning up player instance %s..", self.id)
 
         for listener in self.__listeners.values():
@@ -110,7 +114,7 @@ class Player(object):
 
         logger.info("Player instance %s cleanup complete.", self.id)
 
-    def __on_project_bpm_changed(self, change):
+    def __on_project_bpm_changed(self, change: model.PropertyValueChange) -> None:
         if self.audioproc_client is None:
             return
 
@@ -120,7 +124,7 @@ class Player(object):
             self.event_loop)
         callback_task.add_done_callback(self.__update_project_properties_done)
 
-    def __on_project_duration_changed(self, change):
+    def __on_project_duration_changed(self, change: model.PropertyValueChange) -> None:
         if self.audioproc_client is None:
             return
 
@@ -130,17 +134,17 @@ class Player(object):
             self.event_loop)
         callback_task.add_done_callback(self.__update_project_properties_done)
 
-    def __update_project_properties_done(self, callback_task):
+    def __update_project_properties_done(self, callback_task: concurrent.futures.Future) -> None:
         assert callback_task.done()
         exc = callback_task.exception()
         if exc is not None:
             logger.error("UPDATE_PROJECT_PROPERTIES failed with exception: %s", exc)
 
-    def __handle_player_state(self, realm, state):
+    def __handle_player_state(self, realm: str, state: audioproc.PlayerState) -> None:
         self.listeners.call('player_state', state)
         self.publish_status_async(player_state=state)
 
-    def publish_status_async(self, **kwargs):
+    def publish_status_async(self, **kwargs: Any) -> None:
         if self.callback_stub is None:
             return
 
@@ -149,76 +153,78 @@ class Player(object):
             self.event_loop)
         callback_task.add_done_callback(self.publish_status_done)
 
-    def publish_status_done(self, callback_task):
+    def publish_status_done(self, callback_task: concurrent.futures.Future) -> None:
         assert callback_task.done()
         exc = callback_task.exception()
         if exc is not None:
             logger.error("PLAYER_STATUS failed with exception: %s", exc)
 
-    def tracks_changed(self, change):
-        if isinstance(change, model_base.PropertyListInsert):
+    def tracks_changed(self, change: model.PropertyChange) -> None:
+        if isinstance(change, model.PropertyListInsert):
             messages = audioproc.ProcessorMessageList()
             messages.messages.extend(self.add_track(change.new_value))
             self.send_node_messages(messages)
 
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, model.PropertyListDelete):
             self.remove_track(change.old_value)
         else:
-            raise TypeError(
-                "Unsupported change type %s" % type(change))
+            raise TypeError("Unsupported change type %s" % type(change))
 
-    def add_track(self, track):
+    def add_track(self, track: pmodel.Track) -> Iterator[audioproc.ProcessorMessage]:
         for t in track.walk_tracks(groups=True, tracks=True):
             if isinstance(t, track_group.TrackGroup):
                 self.__listeners['track_group:%s' % t.id] = t.listeners.add(
                     'tracks', self.tracks_changed)
             else:
-                connector = t.create_track_connector(message_cb=self.send_node_message)
+                assert isinstance(t, base_track.Track)
+                connector = cast(
+                    base_track.TrackConnector,
+                    t.create_track_connector(message_cb=self.send_node_message))
                 yield from connector.init()
                 self.track_connectors[t.id] = connector
 
-    def remove_track(self, track):
+    def remove_track(self, track: pmodel.Track) -> None:
         for t in track.walk_tracks(groups=True, tracks=True):
-            if isinstance(t, model.TrackGroup):
+            if isinstance(t, pmodel.TrackGroup):
                 self.__listeners.pop('track_group:%s' % t.id).remove()
             else:
                 self.track_connectors.pop(t.id).close()
 
-    def handle_pipeline_mutation(self, mutation):
+    def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.event_loop.create_task(self.publish_pipeline_mutation(mutation))
 
-    async def publish_pipeline_mutation(self, mutation):
+    async def publish_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         if self.audioproc_client is None:
             return
 
         await self.audioproc_client.pipeline_mutation(self.realm, mutation)
 
-    def send_node_message(self, msg):
+    def send_node_message(self, msg: audioproc.ProcessorMessage) -> None:
         messages = audioproc.ProcessorMessageList()
         messages.messages.extend([msg])
         self.event_loop.create_task(self.__send_node_messages_async(messages))
 
-    def send_node_messages(self, messages):
+    def send_node_messages(self, messages: audioproc.ProcessorMessageList) -> None:
         self.event_loop.create_task(self.__send_node_messages_async(messages))
 
-    async def __send_node_messages_async(self, messages):
+    async def __send_node_messages_async(self, messages: audioproc.ProcessorMessageList) -> None:
         if self.audioproc_client is None:
             return
 
         await self.audioproc_client.send_node_messages(self.realm, messages)
 
-    async def update_state(self, state):
+    async def update_state(self, state: audioproc.PlayerState) -> None:
         if self.audioproc_client is None:
             return
 
         await self.audioproc_client.update_player_state(self.realm, state)
 
-    def send_message(self, msg):
+    def send_message(self, msg: Any) -> None:
         # TODO: reimplement this.
         pass
 
-    async def create_plugin_ui(self, node_id):
+    async def create_plugin_ui(self, node_id: str) -> Tuple[int, Tuple[int, int]]:
         return await self.audioproc_client.create_plugin_ui(self.realm, node_id)
 
-    async def delete_plugin_ui(self, node_id):
-        return await self.audioproc_client.delete_plugin_ui(self.realm, node_id)
+    async def delete_plugin_ui(self, node_id: str) -> None:
+        await self.audioproc_client.delete_plugin_ui(self.realm, node_id)

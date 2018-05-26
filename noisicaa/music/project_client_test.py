@@ -20,117 +20,88 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-
 import fractions
 import logging
+import os.path
 import uuid
-from unittest import mock
 from typing import Dict  # pylint: disable=unused-import
 
 from noisidev import unittest
+from noisidev import unittest_mixins
 from noisicaa.core import ipc
-from noisicaa.ui import model
 from noisicaa.constants import TEST_OPTS
-from noisicaa.node_db import process as node_db_process
-from noisicaa.audioproc import audioproc_process
-from noisicaa.lv2 import urid_mapper_process
-from . import project_process
 from . import project_client
 from . import render_settings_pb2
+from . import commands_pb2
 
 logger = logging.getLogger(__name__)
 
 
-class ProjectClientTestBase(unittest.AsyncTestCase):
+class ProjectClientTestBase(unittest_mixins.ProcessManagerMixin, unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.node_db_process = None
-        self.node_db_process_task = None
-        self.project_process = None
-        self.project_process_task = None
         self.client = None
-        self.manager_address_map = {}  # type: Dict[str, str]
 
     async def setup_testcase(self):
-        self.manager = mock.Mock()
-        async def mock_call(cmd, *args, **kwargs):
-            return self.manager_address_map[cmd]
-        self.manager.call.side_effect = mock_call
+        self.setup_node_db_process(inline=True)
+        self.setup_project_process(inline=True)
+        await self.connect_project_client()
 
-        self.node_db_process = node_db_process.NodeDBProcess(
-            name='node_db', event_loop=self.loop, manager=self.manager, tmp_dir=TEST_OPTS.TMP_DIR)
-        await self.node_db_process.setup()
-        self.node_db_process_task = self.loop.create_task(self.node_db_process.run())
+    def get_project_path(self):
+        return os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
 
-        self.manager_address_map['CREATE_NODE_DB_PROCESS'] = self.node_db_process.server.address
+    async def connect_project_client(self):
+        if self.client is not None:
+            await self.client.disconnect(shutdown=True)
+            await self.client.cleanup()
 
-        self.project_process = project_process.ProjectProcess(
-            name='project', manager=self.manager, event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
-        await self.project_process.setup()
-        self.project_process_task = self.loop.create_task(self.project_process.run())
+        project_address = await self.process_manager_client.call(
+            'CREATE_PROJECT_PROCESS', 'test-project')
 
-        self.client = project_client.ProjectClient(event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
-        self.client.cls_map = model.cls_map
+        self.client = project_client.ProjectClient(
+            event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
         await self.client.setup()
-        await self.client.connect(self.project_process.server.address)
+        await self.client.connect(project_address)
 
     async def cleanup_testcase(self):
         if self.client is not None:
-            await self.client.disconnect()
+            await self.client.disconnect(shutdown=True)
             await self.client.cleanup()
-
-        if self.project_process is not None:
-            if self.project_process_task is not None:
-                await self.project_process.shutdown()
-                self.project_process_task.cancel()
-            await self.project_process.cleanup()
-
-        if self.node_db_process is not None:
-            if self.node_db_process_task is not None:
-                await self.node_db_process.shutdown()
-                self.node_db_process_task.cancel()
-            await self.node_db_process.cleanup()
 
 
 class ProjectClientTest(ProjectClientTestBase):
-    @unittest.skip("TODO: reenable")
     async def test_basic(self):
         await self.client.create_inmemory()
         project = self.client.project
-        self.assertTrue(hasattr(project, 'metadata'))
+        self.assertIsInstance(project.metadata, project_client.Metadata)
 
-    @unittest.skip("TODO: reenable")
     async def test_create_close_open(self):
-        path = '/tmp/foo%s' % uuid.uuid4().hex
+        path = self.get_project_path()
         await self.client.create(path)
         # TODO: set some property
         await self.client.close()
+
+        await self.connect_project_client()
         await self.client.open(path)
         # TODO: check property
         await self.client.close()
 
-    @unittest.skip("TODO: reenable")
     async def test_call_command(self):
         await self.client.create_inmemory()
         project = self.client.project
         num_tracks = len(project.master_group.tracks)
-        await self.client.send_command(
-            project.id, 'AddTrack',
-            track_type='score',
-            parent_group_id=project.master_group.id)
+        await self.client.send_command(commands_pb2.Command(
+            target=project.id,
+            add_track=commands_pb2.AddTrack(
+                track_type='score',
+                parent_group_id=project.master_group.id)))
         self.assertEqual(len(project.master_group.tracks), num_tracks + 1)
 
 
 class RenderTest(ProjectClientTestBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self.urid_mapper_process = None
-        self.urid_mapper_process_task = None
-        self.audioproc_process = None
-        self.audioproc_process_task = None
 
         self.cb_server = None
         self.current_state = None
@@ -159,44 +130,22 @@ class RenderTest(ProjectClientTestBase):
         return True, ''
 
     async def setup_testcase(self):
+        self.setup_urid_mapper_process(inline=True)
+        self.setup_audioproc_process(inline=True)
+
         await self.client.create_inmemory()
 
-        self.urid_mapper_process = urid_mapper_process.URIDMapperProcess(
-            name='urid_mapper', event_loop=self.loop, manager=self.manager, tmp_dir=TEST_OPTS.TMP_DIR)
-        await self.urid_mapper_process.setup()
-        self.urid_mapper_process_task = self.loop.create_task(self.urid_mapper_process.run())
-
-        self.manager_address_map['CREATE_URID_MAPPER_PROCESS'] = (
-            self.urid_mapper_process.server.address)
-
-        self.audioproc_process = audioproc_process.AudioProcProcess(
-            name='audioproc', event_loop=self.loop, manager=self.manager, tmp_dir=TEST_OPTS.TMP_DIR)
-        await self.audioproc_process.setup()
-        self.audioproc_process_task = self.loop.create_task(self.audioproc_process.run())
-
-        self.manager_address_map['CREATE_AUDIOPROC_PROCESS'] = self.audioproc_process.server.address
-
+        # pylint: disable=unnecessary-lambda
         self.cb_server = ipc.Server(self.loop, 'render_cb', socket_dir=TEST_OPTS.TMP_DIR)
         self.cb_server.add_command_handler('STATE', lambda *a: self.handle_state(*a))
         self.cb_server.add_command_handler('PROGRESS', lambda *a: self.handle_progress(*a))
-        self.cb_server.add_command_handler('DATA', lambda *a: self.handle_data(*a), log_level=logging.DEBUG)
+        self.cb_server.add_command_handler(
+            'DATA', lambda *a: self.handle_data(*a), log_level=logging.DEBUG)
         await self.cb_server.setup()
 
     async def cleanup_testcase(self):
         if self.cb_server is not None:
             await self.cb_server.cleanup()
-
-        if self.audioproc_process is not None:
-            if self.audioproc_process_task is not None:
-                await self.audioproc_process.shutdown()
-                self.audioproc_process_task.cancel()
-            await self.audioproc_process.cleanup()
-
-        if self.urid_mapper_process is not None:
-            if self.urid_mapper_process_task is not None:
-                await self.urid_mapper_process.shutdown()
-                self.urid_mapper_process_task.cancel()
-            await self.urid_mapper_process.cleanup()
 
     async def test_success(self):
         header = bytearray()

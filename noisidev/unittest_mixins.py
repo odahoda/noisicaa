@@ -21,11 +21,14 @@
 # @end:license
 
 import asyncio
+import logging
 
 from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
 from noisicaa.node_db.private import db as node_db
+
+logger = logging.getLogger(__name__)
 
 
 class NodeDBMixin(object):
@@ -53,6 +56,9 @@ class ProcessManagerMixin(object):
         self.__node_db_address = None
         self.__node_db_lock = None
 
+        self.__instrument_db_address = None
+        self.__instrument_db_lock = None
+
         self.__urid_mapper_address = None
         self.__urid_mapper_lock = None
 
@@ -65,20 +71,28 @@ class ProcessManagerMixin(object):
         await self.process_manager_client.connect()
 
         self.__node_db_lock = asyncio.Lock(loop=self.loop)
+        self.__instrument_db_lock = asyncio.Lock(loop=self.loop)
         self.__urid_mapper_lock = asyncio.Lock(loop=self.loop)
 
-    async def cleanup_testcase(self):
-        if self.__node_db_address is not None:
-            stub = ipc.Stub(self.loop, self.__node_db_address)
-            await stub.connect()
-            await stub.call('SHUTDOWN')
-            await stub.close()
+    async def __shutdown_process(self, address):
+        if address is None:
+            return
 
-        if self.__urid_mapper_address is not None:
-            stub = ipc.Stub(self.loop, self.__urid_mapper_address)
-            await stub.connect()
-            await stub.call('SHUTDOWN')
-            await stub.close()
+        try:
+            stub = ipc.Stub(self.loop, address)
+            try:
+                await stub.connect()
+                await stub.call('SHUTDOWN')
+            finally:
+                await stub.close()
+
+        except ipc.Error as exc:
+            logger.info("Failed to send SHUTDOWN to %s", address)
+
+    async def cleanup_testcase(self):
+        await self.__shutdown_process(self.__instrument_db_address)
+        await self.__shutdown_process(self.__node_db_address)
+        await self.__shutdown_process(self.__urid_mapper_address)
 
         if self.process_manager_client is not None:
             await self.process_manager_client.close()
@@ -106,6 +120,27 @@ class ProcessManagerMixin(object):
 
         self.process_manager.server.add_command_handler(
             'CREATE_NODE_DB_PROCESS', wrap)
+
+    async def __create_instrument_db_process(self, inline, kwargs):
+        async with self.__instrument_db_lock:
+            if self.__instrument_db_address is None:
+                if inline:
+                    proc = await self.process_manager.start_inline_process(
+                        name='instrument_db',
+                        entry='noisicaa.instrument_db.process.InstrumentDBProcess',
+                        **kwargs)
+                    self.__instrument_db_address = proc.address
+                else:
+                    raise NotImplementedError
+
+        return self.__instrument_db_address
+
+    def setup_instrument_db_process(self, *, inline):
+        async def wrap(**kwargs):
+            return await self.__create_instrument_db_process(inline, kwargs)
+
+        self.process_manager.server.add_command_handler(
+            'CREATE_INSTRUMENT_DB_PROCESS', wrap)
 
     async def __create_urid_mapper_process(self, inline, kwargs):
         async with self.__urid_mapper_lock:
@@ -171,3 +206,20 @@ class ProcessManagerMixin(object):
 
         self.process_manager.server.add_command_handler(
             'CREATE_PLUGIN_HOST_PROCESS', wrap)
+
+    async def __create_project_process(self, inline, name, kwargs):
+        if inline:
+            proc = await self.process_manager.start_inline_process(
+                name=name,
+                entry='noisicaa.music.project_process.ProjectProcess',
+                **kwargs)
+            return proc.address
+        else:
+            raise NotImplementedError
+
+    def setup_project_process(self, *, inline):
+        async def wrap(name, **kwargs):
+            return await self.__create_project_process(inline, name, kwargs)
+
+        self.process_manager.server.add_command_handler('CREATE_PROJECT_PROCESS', wrap)
+

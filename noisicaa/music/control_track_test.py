@@ -23,35 +23,22 @@
 from typing import List  # pylint: disable=unused-import
 
 from noisidev import unittest
+from noisidev import unittest_mixins
 from noisidev import demo_project
 from noisicaa import audioproc
-from noisicaa.node_db.private import db as node_db
-
 from . import project
 from . import control_track
+from . import commands_test
+from . import commands_pb2
+from . import project_client
 
 
-class NodeDB(object):
-    def __init__(self):
-        self.db = node_db.NodeDB()
-
-    async def setup(self):
-        self.db.setup()
-
-    async def cleanup(self):
-        self.db.cleanup()
-
-    def get_node_description(self, uri):
-        return self.db[uri]
-
-
-class ControlTrackConnectorTest(unittest.AsyncTestCase):
+class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
     async def setup_testcase(self):
-        self.node_db = NodeDB()
-        await self.node_db.setup()
+        self.pool = project.Pool()
 
-        self.project = demo_project.basic(project.BaseProject, node_db=self.node_db)
-        self.track = control_track.ControlTrack(name='test')
+        self.project = demo_project.basic(self.pool, project.BaseProject, node_db=self.node_db)
+        self.track = self.pool.create(control_track.ControlTrack, name='test')
         self.project.master_group.tracks.append(self.track)
 
         self.messages = []  # type: List[str]
@@ -61,9 +48,6 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
         # TODO: track the messages themselves and inspect their contents as well.
         self.messages.append(msg.WhichOneof('msg'))
 
-    async def cleanup_testcase(self):
-        await self.node_db.cleanup()
-
     def test_messages_on_mutations(self):
         connector = self.track.create_track_connector(message_cb=self.message_cb)
         try:
@@ -72,7 +56,8 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
             self.messages.clear()
             self.track.points.insert(
                 0,
-                control_track.ControlPoint(time=audioproc.MusicalTime(1, 4), value=0.5))
+                self.pool.create(
+                    control_track.ControlPoint, time=audioproc.MusicalTime(1, 4), value=0.5))
             self.assertEqual(
                 self.messages,
                 ['cvgenerator_add_control_point'])
@@ -80,7 +65,8 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
             self.messages.clear()
             self.track.points.insert(
                 1,
-                control_track.ControlPoint(time=audioproc.MusicalTime(2, 4), value=0.8))
+                self.pool.create(
+                    control_track.ControlPoint, time=audioproc.MusicalTime(2, 4), value=0.8))
             self.assertEqual(
                 self.messages,
                 ['cvgenerator_add_control_point'])
@@ -111,10 +97,12 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
     def test_messages_on_init(self):
         self.track.points.insert(
             0,
-            control_track.ControlPoint(time=audioproc.MusicalTime(1, 4), value=0.5))
+            self.pool.create(
+                control_track.ControlPoint, time=audioproc.MusicalTime(1, 4), value=0.5))
         self.track.points.insert(
             1,
-            control_track.ControlPoint(time=audioproc.MusicalTime(2, 4), value=0.8))
+            self.pool.create(
+                control_track.ControlPoint, time=audioproc.MusicalTime(2, 4), value=0.8))
 
         connector = self.track.create_track_connector(message_cb=self.message_cb)
         try:
@@ -127,3 +115,72 @@ class ControlTrackConnectorTest(unittest.AsyncTestCase):
 
         finally:
             connector.close()
+
+
+class ControlTrackTest(commands_test.CommandsTestBase):
+    async def test_add_remove(self):
+        insert_index = await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            add_track=commands_pb2.AddTrack(
+                track_type='control',
+                parent_group_id=self.project.master_group.id)))
+        self.assertEqual(insert_index, 0)
+
+        track = self.project.master_group.tracks[insert_index]
+        self.assertIsInstance(track, project_client.ControlTrack)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            remove_track=commands_pb2.RemoveTrack(
+                track_id=track.id)))
+        self.assertEqual(len(self.project.master_group.tracks), 0)
+
+    async def _add_track(self):
+        insert_index = await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            add_track=commands_pb2.AddTrack(
+                track_type='control',
+                parent_group_id=self.project.master_group.id)))
+        return self.project.master_group.tracks[insert_index]
+
+    async def test_add_control_point(self):
+        track = await self._add_track()
+
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            add_control_point=commands_pb2.AddControlPoint(
+                time=audioproc.MusicalTime(1, 4).to_proto(),
+                value=0.7)))
+        self.assertEqual(track.points[0].time, audioproc.MusicalTime(1, 4))
+        self.assertAlmostEqual(track.points[0].value, 0.7)
+
+    async def test_remove_control_point(self):
+        track = await self._add_track()
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            add_control_point=commands_pb2.AddControlPoint(
+                time=audioproc.MusicalTime(1, 4).to_proto(),
+                value=0.7)))
+
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            remove_control_point=commands_pb2.RemoveControlPoint(
+                point_id=track.points[0].id)))
+        self.assertEqual(len(track.points), 0)
+
+    async def test_move_control_point(self):
+        track = await self._add_track()
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            add_control_point=commands_pb2.AddControlPoint(
+                time=audioproc.MusicalTime(1, 4).to_proto(),
+                value=0.7)))
+
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            move_control_point=commands_pb2.MoveControlPoint(
+                point_id=track.points[0].id,
+                time=audioproc.MusicalTime(3, 4).to_proto(),
+                value=0.6)))
+        self.assertEqual(track.points[0].time, audioproc.MusicalTime(3, 4))
+        self.assertAlmostEqual(track.points[0].value, 0.6)

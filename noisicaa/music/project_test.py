@@ -21,65 +21,47 @@
 # @end:license
 
 import builtins
-import json
+from typing import cast
 
 from mox3 import stubout
 from pyfakefs import fake_filesystem
 
 from noisidev import unittest
-from noisicaa.node_db.private import db as node_db
+from noisidev import unittest_mixins
 from noisicaa.core import fileutil
 from noisicaa.core import storage
+from noisicaa import model
 from . import project
-from . import score_track
 from . import track_group
+from . import commands_pb2
+from . import commands_test
 
 
-def store_retrieve(obj):
-    serialized = json.dumps(obj, cls=project.JSONEncoder)
-    deserialized = json.loads(serialized, cls=project.JSONDecoder)
-    return deserialized
+class PoolMixin(object):
+    def setup_testcase(self):
+        self.pool = project.Pool()
 
 
-class NodeDB(object):
-    def __init__(self):
-        self.db = node_db.NodeDB()
-
-    async def setup(self):
-        self.db.setup()
-
-    async def cleanup(self):
-        self.db.cleanup()
-
-    def get_node_description(self, uri):
-        return self.db[uri]
-
-
-class BaseProjectTest(unittest.AsyncTestCase):
-    async def setup_testcase(self):
-        self.node_db = NodeDB()
-        await self.node_db.setup()
-
-    async def cleanup_testcase(self):
-        await self.node_db.cleanup()
-
+class BaseProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
     def test_serialize(self):
-        p = project.BaseProject(node_db=self.node_db)
-        self.assertIsInstance(p.serialize(), dict)
+        p = self.pool.create(project.BaseProject, node_db=self.node_db)
+        serialized = p.serialize()
+        self.assertIsInstance(serialized, model.ObjectTree)
+        self.assertGreater(len(serialized.objects), 0)
+        self.assertEqual(serialized.root, p.id)
 
     def test_deserialize(self):
-        p = project.BaseProject(node_db=self.node_db)
-        p.master_group.tracks.append(track_group.TrackGroup(name='Sub Group'))
-        state = store_retrieve(p.serialize())
-        p2 = project.Project(state=state)
+        p = self.pool.create(project.BaseProject, node_db=self.node_db)
+        p.master_group.tracks.append(self.pool.create(track_group.TrackGroup, name='Sub Group'))
+        serialized = p.serialize()
+
+        pool2 = project.Pool()
+        p2 = cast(project.BaseProject, pool2.deserialize_tree(serialized))
         self.assertEqual(len(p2.master_group.tracks), 1)
 
 
-class ProjectTest(unittest.AsyncTestCase):
-    async def setup_testcase(self):
-        self.node_db = NodeDB()
-        await self.node_db.setup()
-
+class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
+    def setup_testcase(self):
         self.stubs = stubout.StubOutForTesting()
         self.addCleanup(self.stubs.SmartUnsetAll)
 
@@ -91,12 +73,11 @@ class ProjectTest(unittest.AsyncTestCase):
         self.stubs.SmartSet(fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
-    async def cleanup_testcase(self):
-        await self.node_db.cleanup()
-
     def test_create(self):
-        p = project.Project()
-        p.create('/foo.noise')
+        p = project.Project.create_blank(
+            path='/foo.noise',
+            pool=self.pool,
+            node_db=self.node_db)
         p.close()
 
         self.assertTrue(self.fake_os.path.isfile('/foo.noise'))
@@ -109,26 +90,37 @@ class ProjectTest(unittest.AsyncTestCase):
         self.assertIsInstance(contents, dict)
 
     def test_open_and_replay(self):
-        p = project.Project(node_db=self.node_db)
-        p.create('/foo.noise')
+        p = project.Project.create_blank(
+            path='/foo.noise',
+            pool=self.pool,
+            node_db=self.node_db)
         try:
-            p.dispatch_command(p.id, project.AddTrack(
-                track_type='score',
-                parent_group_id=p.master_group.id))
+            self.assertEqual(len(p.master_group.tracks), 0)
+            p.dispatch_command_proto(commands_pb2.Command(
+                target=p.id,
+                add_track=commands_pb2.AddTrack(
+                    track_type='score',
+                    parent_group_id=p.master_group.id)))
             track_id = p.master_group.tracks[-1].id
         finally:
             p.close()
 
-        p = project.Project(node_db=self.node_db)
-        p.open('/foo.noise')
+        pool = project.Pool(project_cls=project.Project)
+        p = project.Project.open(
+            path='/foo.noise',
+            pool=pool,
+            node_db=self.node_db)
         try:
+            self.assertEqual(len(p.master_group.tracks), 1)
             self.assertEqual(p.master_group.tracks[-1].id, track_id)
         finally:
             p.close()
 
     def test_create_checkpoint(self):
-        p = project.Project()
-        p.create('/foo.emp')
+        p = project.Project.create_blank(
+            path='/foo.noise',
+            pool=self.pool,
+            node_db=self.node_db)
         try:
             p.create_checkpoint()
         finally:
@@ -138,74 +130,10 @@ class ProjectTest(unittest.AsyncTestCase):
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
 
 
-class CommandTest(unittest.AsyncTestCase):
-    async def setup_testcase(self):
-        self.node_db = NodeDB()
-        await self.node_db.setup()
-
-        self.project = project.BaseProject(node_db=self.node_db)
-
-    async def cleanup_testcase(self):
-        await self.node_db.cleanup()
-
-
-class AddTrackTest(CommandTest):
-    def test_ok(self):
-        cmd = project.AddTrack(
-            track_type='score',
-            parent_group_id=self.project.master_group.id)
-        self.project.dispatch_command(self.project.id, cmd)
-        self.assertEqual(len(self.project.master_group.tracks), 1)
-
-
-    def test_nested_group(self):
-        cmd = project.AddTrack(
-            track_type='group',
-            parent_group_id=self.project.master_group.id)
-        self.project.dispatch_command(self.project.id, cmd)
-
-        self.assertIsInstance(
-            self.project.master_group.tracks[0], track_group.TrackGroup)
-
-        cmd = project.AddTrack(
-            track_type='score',
-            parent_group_id=self.project.master_group.tracks[0].id)
-        self.project.dispatch_command(self.project.id, cmd)
-
-        self.assertEqual(len(self.project.master_group.tracks), 1)
-        self.assertEqual(len(self.project.master_group.tracks[0].tracks), 1)
-
-
-class DeleteTrackTest(CommandTest):
-    def test_ok(self):
-        self.project.add_track(
-            self.project.master_group, 0,
-            score_track.ScoreTrack(name='Test'))
-
-        cmd = project.RemoveTrack(
-            track_id=self.project.master_group.tracks[0].id)
-        self.project.dispatch_command(self.project.id, cmd)
-        self.assertEqual(len(self.project.master_group.tracks), 0)
-
-    def test_track_with_instrument(self):
-        self.project.add_track(
-            self.project.master_group, 0,
-            score_track.ScoreTrack(name='Test'))
-        self.project.master_group.tracks[0].instrument = (
-            'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0')
-
-        cmd = project.RemoveTrack(
-            track_id=self.project.master_group.tracks[0].id)
-        self.project.dispatch_command(self.project.id, cmd)
-        self.assertEqual(len(self.project.master_group.tracks), 0)
-
-    def test_delete_nested_track(self):
-        grp = track_group.TrackGroup(name='TestGroup')
-        self.project.add_track(self.project.master_group, 0, grp)
-
-        track = score_track.ScoreTrack(name='Test')
-        self.project.add_track(grp, 0, track)
-
-        cmd = project.RemoveTrack(track_id=track.id)
-        self.project.dispatch_command(self.project.id, cmd)
-        self.assertEqual(len(grp.tracks), 0)
+class ProjectPropertiesTest(commands_test.CommandsTestBase):
+    async def test_bpm(self):
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            update_project_properties=commands_pb2.UpdateProjectProperties(
+                bpm=97)))
+        self.assertEqual(self.project.bpm, 97)

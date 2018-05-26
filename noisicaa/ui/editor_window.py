@@ -20,16 +20,9 @@
 #
 # @end:license
 
-# mypy: loose
-# TODO: pylint-unclean
-
-# Still need to figure out how to pass around the app reference, disable
-# message "Access to a protected member .. of a client class"
-# pylint: disable=W0212
-
 import logging
 import textwrap
-from typing import List  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Iterator, List  # pylint: disable=unused-import
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -37,15 +30,15 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import constants
-
+from noisicaa import music
 from ..exceptions import RestartAppException, RestartAppCleanException
 from .settings import SettingsDialog
 from .project_view import ProjectView
-from ..importers.abc import ABCImporter, ImporterError
 from . import ui_base
 from . import instrument_library
 from . import qprogressindicator
 from . import dock_widget  # pylint: disable=unused-import
+from . import project_registry
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +52,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     loopEnabledChanged = QtCore.pyqtSignal(bool)
     projectListChanged = QtCore.pyqtSignal()
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self._docks = []  # type: List[dock_widget.DockWidget]
@@ -68,7 +61,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
             context=self.context, parent=self)
 
-        self._current_project_view = None
+        self._current_project_view = None  # type: Optional[ProjectView]
 
         self.setWindowTitle("noisicaä")
         self.resize(1200, 800)
@@ -103,10 +96,10 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.restoreState(
             self.app.settings.value('mainwindow/state', b''))
 
-    async def setup(self):
+    async def setup(self) -> None:
         await self._instrument_library_dialog.setup()
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         await self._instrument_library_dialog.cleanup()
 
         self.hide()
@@ -119,7 +112,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._settings_dialog.close()
         self.close()
 
-    def createStartView(self):
+    def createStartView(self) -> QtWidgets.QWidget:
         view = QtWidgets.QWidget(self)
 
         gscene = QtWidgets.QGraphicsScene()
@@ -137,7 +130,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         return view
 
-    def createActions(self):
+    def createActions(self) -> None:
         self._new_project_action = QtWidgets.QAction("New", self)
         self._new_project_action.setShortcut(QtGui.QKeySequence.New)
         self._new_project_action.setStatusTip("Create a new project")
@@ -148,18 +141,9 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._open_project_action.setStatusTip("Open an existing project")
         self._open_project_action.triggered.connect(self.onOpenProject)
 
-        self._import_action = QtWidgets.QAction("Import", self)
-        self._import_action.setStatusTip("Import a file into the current project.")
-        self._import_action.triggered.connect(self.onImport)
-
         self._render_action = QtWidgets.QAction("Render", self)
         self._render_action.setStatusTip("Render project into an audio file.")
         self._render_action.triggered.connect(self.onRender)
-
-        self._save_project_action = QtWidgets.QAction("Save", self)
-        self._save_project_action.setShortcut(QtGui.QKeySequence.Save)
-        self._save_project_action.setStatusTip("Save the current project")
-        self._save_project_action.triggered.connect(self.onSaveProject)
 
         self._close_current_project_action = QtWidgets.QAction("Close", self)
         self._close_current_project_action.setShortcut(QtGui.QKeySequence.Close)
@@ -293,16 +277,14 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.app.stat_monitor.visibilityChanged.connect(
             self._show_stat_monitor_action.setChecked)
 
-    def createMenus(self):
+    def createMenus(self) -> None:
         menu_bar = self.menuBar()
 
         self._project_menu = menu_bar.addMenu("Project")
         self._project_menu.addAction(self._new_project_action)
         self._project_menu.addAction(self._open_project_action)
-        self._project_menu.addAction(self._save_project_action)
         self._project_menu.addAction(self._close_current_project_action)
         self._project_menu.addSeparator()
-        self._project_menu.addAction(self._import_action)
         self._project_menu.addAction(self._render_action)
         self._project_menu.addSeparator()
         self._project_menu.addAction(self._open_instrument_library_action)
@@ -341,7 +323,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._help_menu.addAction(self._about_action)
         self._help_menu.addAction(self._aboutqt_action)
 
-    def createToolBar(self):
+    def createToolBar(self) -> None:
         self.toolbar = QtWidgets.QToolBar()
         self.toolbar.setObjectName('toolbar:main')
         self.toolbar.addAction(self._player_toggle_action)
@@ -354,7 +336,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
-    def createStatusBar(self):
+    def createStatusBar(self) -> None:
         self.statusbar = QtWidgets.QStatusBar()
 
         # self.pipeline_load = LoadHistoryWidget(100, 30)
@@ -366,53 +348,53 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self.setStatusBar(self.statusbar)
 
-    def storeState(self):
+    def storeState(self) -> None:
         logger.info("Saving current EditorWindow geometry.")
         self.app.settings.setValue('mainwindow/geometry', self.saveGeometry())
         self.app.settings.setValue('mainwindow/state', self.saveState())
 
         self._settings_dialog.storeState()
 
-    def setInfoMessage(self, msg):
+    def setInfoMessage(self, msg: str) -> None:
         self.statusbar.showMessage(msg)
 
-    def about(self):
+    def about(self) -> None:
         QtWidgets.QMessageBox.about(
             self, "About noisicaä",
             textwrap.dedent("""\
                 Some text goes here...
                 """))
 
-    def crash(self):
+    def crash(self) -> None:
         raise RuntimeError("Something bad happened")
 
-    def dumpProject(self):
+    def dumpProject(self) -> None:
         view = self._project_tabs.currentWidget()
         self.call_async(view.project_client.dump())
 
-    def restart(self):
+    def restart(self) -> None:
         raise RestartAppException("Restart requested by user.")
 
-    def restart_clean(self):
+    def restart_clean(self) -> None:
         raise RestartAppCleanException("Clean restart requested by user.")
 
-    def quit(self):
+    def quit(self) -> None:
         self.app.quit()
 
-    def openSettings(self):
+    def openSettings(self) -> None:
         self._settings_dialog.show()
         self._settings_dialog.activateWindow()
 
-    def openInstrumentLibrary(self):
+    def openInstrumentLibrary(self) -> None:
         self._instrument_library_dialog.show()
         self._instrument_library_dialog.activateWindow()
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         logger.info("CloseEvent received")
         event.accept()
         self.app.quit()
 
-    def setCurrentProjectView(self, project_view):
+    def setCurrentProjectView(self, project_view: Optional[ProjectView]) -> None:
         if project_view == self._current_project_view:
             return
 
@@ -433,7 +415,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         else:
             self.currentProjectChanged.emit(None)
 
-    def addProjectSetupView(self, project_connection):
+    def addProjectSetupView(self, project_connection: project_registry.Project) -> int:
         widget = QtWidgets.QWidget()
 
         label = QtWidgets.QLabel(widget)
@@ -458,9 +440,9 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._main_area.setCurrentIndex(0)
         return idx
 
-    async def activateProjectView(self, idx, project_connection):
-        context = ui_base.CommonContext(
-            app=self.app)
+    async def activateProjectView(
+            self, idx: int, project_connection: project_registry.Project) -> None:
+        context = ui_base.CommonContext(app=self.app)
         view = ProjectView(project_connection=project_connection, context=context)
         await view.setup()
 
@@ -472,7 +454,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self.projectListChanged.emit()
 
-    async def removeProjectView(self, project_connection):
+    async def removeProjectView(self, project_connection: project_registry.Project) -> None:
         for idx in range(self._project_tabs.count()):
             view = self._project_tabs.widget(idx)
             if isinstance(view, ProjectView) and view.project_connection is project_connection:
@@ -488,38 +470,38 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         else:
             raise ValueError("No view for project found.")
 
-    def onCloseCurrentProjectTab(self):
+    def onCloseCurrentProjectTab(self) -> None:
         view = self._project_tabs.currentWidget()
         closed = view.close()
         if closed:
             self.call_async(self.app.removeProject(view.project_connection))
 
-    def onCurrentProjectTabChanged(self, idx):
+    def onCurrentProjectTabChanged(self, idx: int) -> None:
         widget = self._project_tabs.widget(idx)
         if isinstance(widget, ProjectView):
             self.setCurrentProjectView(widget)
         else:
             self.setCurrentProjectView(None)
 
-    def onCloseProjectTab(self, idx):
+    def onCloseProjectTab(self, idx: int) -> None:
         view = self._project_tabs.widget(idx)
         closed = view.close()
         if closed:
             self.call_async(self.app.removeProject(view.project_connection))
 
-    def getCurrentProjectView(self):
-        return self._project_tabs.currentWidget()
+    def getCurrentProjectView(self) -> ProjectView:
+        return cast(ProjectView, self._project_tabs.currentWidget())
 
-    def listProjectViews(self):
+    def listProjectViews(self) -> Iterator[ProjectView]:
         for idx in range(self._project_tabs.count()):
-            yield self._project_tabs.widget(idx)
+            yield cast(ProjectView, self._project_tabs.widget(idx))
 
-    def getCurrentProject(self):
+    def getCurrentProject(self) -> music.Project:
         view = self._project_tabs.currentWidget()
         return view.project
 
-    def onNewProject(self):
-        path, open_filter = QtWidgets.QFileDialog.getSaveFileName(
+    def onNewProject(self) -> None:
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
             parent=self,
             caption="Select Project File",
             directory=constants.PROJECT_DIR,
@@ -531,8 +513,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self.call_async(self.app.createProject(path))
 
-    def onOpenProject(self):
-        path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
+    def onOpenProject(self) -> None:
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
             parent=self,
             caption="Open Project",
             directory=constants.PROJECT_DIR,
@@ -544,68 +526,39 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self.call_async(self.app.openProject(path))
 
-    def onImport(self):
-        path, open_filter = QtWidgets.QFileDialog.getOpenFileName(
-            parent=self,
-            caption="Import file",
-            #directory=self.ui_state.get(
-            #'instruments_add_dialog_path', ''),
-            filter="All Files (*);;ABC (*.abc)",
-            #initialFilter=self.ui_state.get(
-            #    'instruments_add_dialog_path', ''),
-        )
-        if not path:
-            return
-
-        importer = ABCImporter()
-        try:
-            importer.import_file(path, self.getCurrentProject())
-        except ImporterError as exc:
-            errorbox = QtWidgets.QMessageBox()
-            errorbox.setWindowTitle("Failed to import file")
-            errorbox.setText("Failed import file from path %s." % path)
-            errorbox.setInformativeText(str(exc))
-            errorbox.setIcon(QtWidgets.QMessageBox.Warning)
-            errorbox.addButton("Close", QtWidgets.QMessageBox.AcceptRole)
-            errorbox.exec_()
-
-    def onRender(self):
+    def onRender(self) -> None:
         view = self._project_tabs.currentWidget()
         view.onRender()
 
-    def onSaveProject(self):
-        project = self.getCurrentProject()
-        project.create_checkpoint()
-
-    def onUndo(self):
+    def onUndo(self) -> None:
         project_view = self.getCurrentProjectView()
         self.call_async(project_view.project_client.undo())
 
-    def onRedo(self):
+    def onRedo(self) -> None:
         project_view = self.getCurrentProjectView()
         self.call_async(project_view.project_client.redo())
 
-    def onClearSelection(self):
+    def onClearSelection(self) -> None:
         view = self._project_tabs.currentWidget()
         view.onClearSelection()
 
-    def onCopy(self):
+    def onCopy(self) -> None:
         view = self._project_tabs.currentWidget()
         view.onCopy()
 
-    def onPaste(self):
+    def onPaste(self) -> None:
         view = self._project_tabs.currentWidget()
         view.onPaste(mode='overwrite')
 
-    def onPasteAsLink(self):
+    def onPasteAsLink(self) -> None:
         view = self._project_tabs.currentWidget()
         view.onPaste(mode='link')
 
-    def onSetNumMeasures(self):
+    def onSetNumMeasures(self) -> None:
         view = self._project_tabs.currentWidget()
         view.onSetNumMeasures()
 
-    def onPlayingChanged(self, playing):
+    def onPlayingChanged(self, playing: bool) -> None:
         if playing:
             self._player_toggle_action.setIcon(
                 QtGui.QIcon.fromTheme('media-playback-pause'))
@@ -613,17 +566,17 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             self._player_toggle_action.setIcon(
                 QtGui.QIcon.fromTheme('media-playback-start'))
 
-    def onLoopEnabledChanged(self, loop_enabled):
+    def onLoopEnabledChanged(self, loop_enabled: bool) -> None:
         self._player_loop_action.setChecked(loop_enabled)
 
-    def onPlayerMoveTo(self, where):
+    def onPlayerMoveTo(self, where: str) -> None:
         view = self._project_tabs.currentWidget()
         view.onPlayerMoveTo(where)
 
-    def onPlayerToggle(self):
+    def onPlayerToggle(self) -> None:
         view = self._project_tabs.currentWidget()
         view.onPlayerToggle()
 
-    def onPlayerLoop(self, loop):
+    def onPlayerLoop(self, loop: bool) -> None:
         view = self._project_tabs.currentWidget()
         view.onPlayerLoop(loop)

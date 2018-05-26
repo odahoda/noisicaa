@@ -20,22 +20,21 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-# mypy: loose
-
-import io
+#import io
 import logging
-from xml.etree import ElementTree
+#from xml.etree import ElementTree
+from typing import cast, Any, Optional, Union, Iterator, List  # pylint: disable=unused-import
 
+from google.protobuf import message as protobuf
+
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import instrument_db
-from noisicaa import core
 from noisicaa import node_db
-
-from . import model
-from . import state
+from noisicaa import model
+from . import pmodel
 from . import commands
-from . import misc
+from . import commands_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -48,93 +47,51 @@ class NotAPresetError(PresetLoadError):
 
 
 class SetPipelineGraphNodePos(commands.Command):
-    graph_pos = core.Property(misc.Pos2F)
+    proto_type = 'set_pipeline_graph_node_pos'
 
-    def __init__(self, graph_pos=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.graph_pos = graph_pos
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetPipelineGraphNodePos, pb)
+        node = down_cast(pmodel.BasePipelineGraphNode, pool[self.proto.command.target])
 
-    def run(self, node):
-        assert isinstance(node, BasePipelineGraphNode)
-
-        node.graph_pos = self.graph_pos
+        node.graph_pos = model.Pos2F.from_proto(pb.graph_pos)
 
 commands.Command.register_command(SetPipelineGraphNodePos)
 
 
 class SetPipelineGraphControlValue(commands.Command):
-    port_name = core.Property(str)
-    float_value = core.Property(float, allow_none=True)
-    generation = core.Property(int)
+    proto_type = 'set_pipeline_graph_control_value'
 
-    def __init__(self, port_name=None, float_value=None, generation=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.port_name = port_name
-            self.float_value = float_value
-            self.generation = generation
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetPipelineGraphControlValue, pb)
+        node = down_cast(pmodel.BasePipelineGraphNode, pool[self.proto.command.target])
 
-    def run(self, node):
-        assert isinstance(node, BasePipelineGraphNode)
-
-        port = node_db.get_port(node.description, self.port_name)
+        port = node_db.get_port(node.description, pb.port_name)
         assert port.direction == node_db.PortDescription.INPUT
         assert port.type == node_db.PortDescription.KRATE_CONTROL
-        assert self.float_value is not None
 
-        node.set_control_value(port.name, self.float_value, self.generation)
+        node.set_control_value(port.name, pb.float_value, pb.generation)
 
 commands.Command.register_command(SetPipelineGraphControlValue)
 
 
 class SetPipelineGraphPluginState(commands.Command):
-    plugin_state = core.Property(audioproc.PluginState)
+    proto_type = 'set_pipeline_graph_plugin_state'
 
-    def __init__(self, plugin_state=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.plugin_state = plugin_state
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetPipelineGraphPluginState, pb)
+        node = down_cast(pmodel.BasePipelineGraphNode, pool[self.proto.command.target])
 
-    def run(self, node):
-        assert isinstance(node, BasePipelineGraphNode)
-
-        node.set_plugin_state(self.plugin_state)
+        node.set_plugin_state(pb.plugin_state)
 
 commands.Command.register_command(SetPipelineGraphPluginState)
 
 
-class SetPipelineGraphPortParameter(commands.Command):
-    port_name = core.Property(str)
-    bypass = core.Property(bool, allow_none=True)
-    drywet = core.Property(float, allow_none=True)
-
-    def __init__(
-            self, port_name=None,
-            bypass=None, drywet=None,
-            state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.port_name = port_name
-            self.bypass = bypass
-            self.drywet = drywet
-
-    def run(self, node):
-        assert isinstance(node, BasePipelineGraphNode)
-
-        node.set_port_parameters(
-            self.port_name,
-            bypass=self.bypass, drywet=self.drywet)
-
-commands.Command.register_command(SetPipelineGraphPortParameter)
-
-
 class PipelineGraphNodeToPreset(commands.Command):
-    def __init__(self, state=None):
-        super().__init__(state=state)
+    proto_type = 'pipeline_graph_node_to_preset'
 
-    def run(self, node):
-        assert isinstance(node, PipelineGraphNode)
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> bytes:
+        pb = down_cast(commands_pb2.PipelineGraphNodeToPreset, pb)
+        node = down_cast(pmodel.PipelineGraphNode, pool[self.proto.command.target])
 
         return node.to_preset()
 
@@ -142,170 +99,113 @@ commands.Command.register_command(PipelineGraphNodeToPreset)
 
 
 class PipelineGraphNodeFromPreset(commands.Command):
-    preset = core.Property(bytes)
+    proto_type = 'pipeline_graph_node_from_preset'
 
-    def __init__(self, preset=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.preset = preset
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.PipelineGraphNodeFromPreset, pb)
+        node = down_cast(pmodel.PipelineGraphNode, pool[self.proto.command.target])
 
-    def run(self, node):
-        assert isinstance(node, PipelineGraphNode)
-
-        return node.from_preset(self.preset)
+        node.from_preset(pb.preset)
 
 commands.Command.register_command(PipelineGraphNodeFromPreset)
 
 
-class PipelineGraphControlValue(
-        model.PipelineGraphControlValue, state.StateBase):
-    def __init__(self, name=None, value=None, generation=None, state=None, **kwargs):
-        super().__init__(state=state)
+class PipelineGraphControlValue(pmodel.PipelineGraphControlValue):
+    def create(
+            self, *,
+            name: Optional[str] = None,
+            value: Optional[float] = None, generation: Optional[int] = None,
+            **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-        if state is None:
-            self.name = name
-            self.value = (value, generation)
-
-state.StateBase.register_class(PipelineGraphControlValue)
-
-
-class PipelineGraphPortPropertyValue(
-        model.PipelineGraphPortPropertyValue, state.StateBase):
-    def __init__(
-            self, port_name=None, name=None, value=None,
-            state=None, **kwargs):
-        super().__init__(state=state)
-
-        if state is None:
-            self.port_name = port_name
-            self.name = name
-            self.value = value
-
-state.StateBase.register_class(PipelineGraphPortPropertyValue)
+        self.name = name
+        self.value = model.ControlValue(value=value, generation=generation)
 
 
-class BasePipelineGraphNode(model.BasePipelineGraphNode, state.StateBase):
-    def __init__(self, name=None, graph_pos=misc.Pos2F(0, 0), state=None):
-        super().__init__(state)
+class BasePipelineGraphNode(pmodel.BasePipelineGraphNode):  # pylint: disable=abstract-method
+    def create(
+            self, *,
+            name: Optional[str] = None, graph_pos: model.Pos2F = model.Pos2F(0, 0),
+            **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-        if state is None:
-            self.name = name
-            self.graph_pos = graph_pos
+        self.name = name
+        self.graph_pos = graph_pos
 
-    @property
-    def pipeline_node_id(self):
-        raise NotImplementedError
-
-    def get_add_mutations(self):
-        raise NotImplementedError
-
-    def get_initial_parameter_mutations(self):
+    def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
         for port in self.description.ports:
             if (port.direction == node_db.PortDescription.INPUT
-                and port.type == node_db.PortDescription.KRATE_CONTROL):
+                    and port.type == node_db.PortDescription.KRATE_CONTROL):
                 for cv in self.control_values:
                     if cv.name == port.name:
                         yield audioproc.SetControlValue(
                             '%s:%s' % (self.pipeline_node_id, cv.name),
-                            cv.value[0], cv.value[1])
+                            cv.value.value, cv.value.generation)
 
-            elif port.direction == node_db.PortDescription.OUTPUT:
-                port_property_values = dict(
-                    (p.name, p.value) for p in self.port_property_values
-                    if p.port_name == port.name)
-
-                if port_property_values:
-                    yield audioproc.SetPortProperty(
-                        self.pipeline_node_id, port.name,
-                        **port_property_values)
-
-    def get_remove_mutations(self):
-        raise NotImplementedError
-
-    def set_port_parameters(self, port_name, bypass=None, drywet=None):
-        for prop_name, value in (
-                ('bypass', bypass), ('drywet', drywet)):
-            if value is None:
-                continue
-
-            for prop_value in self.port_property_values:
-                if (prop_value.port_name == port_name
-                    and prop_value.name == prop_name):
-                    prop_value.value = value
-                    break
-            else:
-                self.port_property_values.append(
-                    PipelineGraphPortPropertyValue(
-                        port_name=port_name, name=prop_name, value=value))
-
-        if self.attached_to_root:
-            self.project.handle_pipeline_mutation(
-                audioproc.SetPortProperty(
-                    self.pipeline_node_id, port_name,
-                    bypass=bypass, drywet=drywet))
-
-    def set_control_value(self, port_name, value, generation):
+    def set_control_value(self, port_name: str, value: float, generation: int) -> None:
         for control_value in self.control_values:
             if control_value.name == port_name:
-                if generation < control_value.value[1]:
+                if generation < control_value.value.generation:
                     return
-                control_value.value = (value, generation)
+                control_value.value = model.ControlValue(value=value, generation=generation)
                 break
         else:
-            self.control_values.append(PipelineGraphControlValue(
+            self.control_values.append(self._pool.create(
+                PipelineGraphControlValue,
                 name=port_name, value=value, generation=generation))
 
-        if self.attached_to_root:
+        if self.attached_to_project:
             self.project.handle_pipeline_mutation(
                 audioproc.SetControlValue(
                     '%s:%s' % (self.pipeline_node_id, port_name),
                     value, generation))
 
-    def set_plugin_state(self, state):
-        self.plugin_state = state
+    def set_plugin_state(self, plugin_state: audioproc.PluginState) -> None:
+        self.plugin_state = plugin_state
 
-        if self.attached_to_root:
+        if self.attached_to_project:
             self.project.handle_pipeline_mutation(
-                audioproc.SetPluginState(self.pipeline_node_id, state))
+                audioproc.SetPluginState(self.pipeline_node_id, plugin_state))
 
 
-class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
-    def __init__(self, node_uri=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
+class PipelineGraphNode(pmodel.PipelineGraphNode, BasePipelineGraphNode):
+    def create(self, *, node_uri: Optional[str] = None, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-        if state is None:
-            self.node_uri = node_uri
+        self.node_uri = node_uri
 
-    def to_preset(self):
-        doc = ElementTree.Element('preset', version='1')  # type: ignore
-        doc.text = '\n'
-        doc.tail = '\n'
+    def to_preset(self) -> bytes:
+        raise NotImplementedError
+        # doc = ElementTree.Element('preset', version='1')  # type: ignore
+        # doc.text = '\n'
+        # doc.tail = '\n'
 
-        display_name_elem = ElementTree.SubElement(doc, 'display-name')
-        display_name_elem.text = "User preset"
-        display_name_elem.tail = '\n'
+        # display_name_elem = ElementTree.SubElement(doc, 'display-name')
+        # display_name_elem.text = "User preset"
+        # display_name_elem.tail = '\n'
 
-        node_uri_elem = ElementTree.SubElement(doc, 'node', uri=self.node_uri)
-        node_uri_elem.tail = '\n'
+        # node_uri_elem = ElementTree.SubElement(doc, 'node', uri=self.node_uri)
+        # node_uri_elem.tail = '\n'
 
-        tree = ElementTree.ElementTree(doc)
-        buf = io.BytesIO()
-        tree.write(buf, encoding='utf-8', xml_declaration=True)
-        return buf.getvalue()
+        # tree = ElementTree.ElementTree(doc)
+        # buf = io.BytesIO()
+        # tree.write(buf, encoding='utf-8', xml_declaration=True)
+        # return buf.getvalue()
 
-    def from_preset(self, xml):
-        preset = node_db.Preset.parse(io.BytesIO(xml), self.project.get_node_description)
+    def from_preset(self, xml: bytes) -> None:
+        raise NotImplementedError
+        # preset = node_db.Preset.parse(io.BytesIO(xml), self.project.get_node_description)
 
-        if preset.node_uri != self.node_uri:
-            raise node_db.PresetLoadError(
-                "Mismatching node_uri (Expected %s, got %s)."
-                % (self.node_uri, preset.node_uri))
+        # if preset.node_uri != self.node_uri:
+        #     raise node_db.PresetLoadError(
+        #         "Mismatching node_uri (Expected %s, got %s)."
+        #         % (self.node_uri, preset.node_uri))
 
     @property
-    def pipeline_node_id(self):
-        return self.id
+    def pipeline_node_id(self) -> str:
+        return '%016x' % self.id
 
-    def get_add_mutations(self):
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.AddNode(
             description=self.description,
             id=self.pipeline_node_id,
@@ -314,45 +214,35 @@ class PipelineGraphNode(model.PipelineGraphNode, BasePipelineGraphNode):
 
         yield from self.get_initial_parameter_mutations()
 
-    def get_remove_mutations(self):
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.RemoveNode(self.pipeline_node_id)
 
-state.StateBase.register_class(PipelineGraphNode)
 
-
-class AudioOutPipelineGraphNode(
-        model.AudioOutPipelineGraphNode, BasePipelineGraphNode):
-    def __init__(self, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
-
+class AudioOutPipelineGraphNode(pmodel.AudioOutPipelineGraphNode, BasePipelineGraphNode):
     @property
-    def pipeline_node_id(self):
+    def pipeline_node_id(self) -> str:
         return 'sink'
 
-    def get_add_mutations(self):
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         # Nothing to do, predefined node of the pipeline.
-        return []
+        yield from []
 
-    def get_remove_mutations(self):
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         # Nothing to do, predefined node of the pipeline.
-        return []
-
-state.StateBase.register_class(AudioOutPipelineGraphNode)
+        yield from []
 
 
-class TrackMixerPipelineGraphNode(
-        model.TrackMixerPipelineGraphNode, BasePipelineGraphNode):
-    def __init__(self, track=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
+class TrackMixerPipelineGraphNode(pmodel.TrackMixerPipelineGraphNode, BasePipelineGraphNode):
+    def create(self, *, track: Optional[pmodel.Track] = None, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-        if state is None:
-            self.track = track
+        self.track = track
 
     @property
-    def pipeline_node_id(self):
+    def pipeline_node_id(self) -> str:
         return self.track.mixer_name
 
-    def get_add_mutations(self):
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.AddNode(
             description=self.description,
             id=self.pipeline_node_id,
@@ -360,24 +250,21 @@ class TrackMixerPipelineGraphNode(
 
         yield from self.get_initial_parameter_mutations()
 
-    def get_remove_mutations(self):
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.RemoveNode(self.pipeline_node_id)
 
-state.StateBase.register_class(TrackMixerPipelineGraphNode)
 
+class CVGeneratorPipelineGraphNode(pmodel.CVGeneratorPipelineGraphNode, BasePipelineGraphNode):
+    def create(self, *, track: Optional[pmodel.Track] = None, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-class CVGeneratorPipelineGraphNode(model.CVGeneratorPipelineGraphNode, BasePipelineGraphNode):
-    def __init__(self, track=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
-
-        if state is None:
-            self.track = track
+        self.track = track
 
     @property
-    def pipeline_node_id(self):
-        return self.track.generator_name
+    def pipeline_node_id(self) -> str:
+        return down_cast(pmodel.ControlTrack, self.track).generator_name
 
-    def get_add_mutations(self):
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.AddNode(
             description=self.description,
             id=self.pipeline_node_id,
@@ -385,24 +272,21 @@ class CVGeneratorPipelineGraphNode(model.CVGeneratorPipelineGraphNode, BasePipel
 
         yield from self.get_initial_parameter_mutations()
 
-    def get_remove_mutations(self):
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.RemoveNode(self.pipeline_node_id)
 
-state.StateBase.register_class(CVGeneratorPipelineGraphNode)
 
+class SampleScriptPipelineGraphNode(pmodel.SampleScriptPipelineGraphNode, BasePipelineGraphNode):
+    def create(self, *, track: Optional[pmodel.Track] = None, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-class SampleScriptPipelineGraphNode(model.SampleScriptPipelineGraphNode, BasePipelineGraphNode):
-    def __init__(self, track=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
-
-        if state is None:
-            self.track = track
+        self.track = track
 
     @property
-    def pipeline_node_id(self):
-        return self.track.sample_script_name
+    def pipeline_node_id(self) -> str:
+        return down_cast(pmodel.SampleTrack, self.track).sample_script_name
 
-    def get_add_mutations(self):
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.AddNode(
             description=self.description,
             id=self.pipeline_node_id,
@@ -410,24 +294,21 @@ class SampleScriptPipelineGraphNode(model.SampleScriptPipelineGraphNode, BasePip
 
         yield from self.get_initial_parameter_mutations()
 
-    def get_remove_mutations(self):
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.RemoveNode(self.pipeline_node_id)
 
-state.StateBase.register_class(SampleScriptPipelineGraphNode)
 
+class PianoRollPipelineGraphNode(pmodel.PianoRollPipelineGraphNode, BasePipelineGraphNode):
+    def create(self, *, track: Optional[pmodel.Track] = None, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-class PianoRollPipelineGraphNode(model.PianoRollPipelineGraphNode, BasePipelineGraphNode):
-    def __init__(self, track=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
-
-        if state is None:
-            self.track = track
+        self.track = track
 
     @property
-    def pipeline_node_id(self):
-        return self.track.event_source_name
+    def pipeline_node_id(self) -> str:
+        return cast(Union[pmodel.ScoreTrack, pmodel.BeatTrack], self.track).event_source_name
 
-    def get_add_mutations(self):
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.AddNode(
             description=self.description,
             id=self.pipeline_node_id,
@@ -435,26 +316,22 @@ class PianoRollPipelineGraphNode(model.PianoRollPipelineGraphNode, BasePipelineG
 
         yield from self.get_initial_parameter_mutations()
 
-    def get_remove_mutations(self):
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.RemoveNode(self.pipeline_node_id)
 
-state.StateBase.register_class(PianoRollPipelineGraphNode)
 
+class InstrumentPipelineGraphNode(pmodel.InstrumentPipelineGraphNode, BasePipelineGraphNode):
+    def create(self, *, track: Optional[pmodel.Track] = None, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-class InstrumentPipelineGraphNode(
-        model.InstrumentPipelineGraphNode, BasePipelineGraphNode):
-    def __init__(self, track=None, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
-
-        if state is None:
-            self.track = track
+        self.track = track
 
     @property
-    def pipeline_node_id(self):
-        return self.track.instr_name
+    def pipeline_node_id(self) -> str:
+        return cast(Union[pmodel.ScoreTrack, pmodel.BeatTrack], self.track).instr_name
 
-    def get_update_mutations(self):
-        connections = []
+    def get_update_mutations(self) -> Iterator[audioproc.Mutation]:
+        connections = []  # type: List[pmodel.PipelineGraphConnection]
         for connection in self.project.pipeline_graph_connections:
             if connection.source_node is self or connection.dest_node is self:
                 connections.append(connection)
@@ -466,9 +343,10 @@ class InstrumentPipelineGraphNode(
         for connection in connections:
             yield from connection.get_add_mutations()
 
-    def get_add_mutations(self):
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         node_description = instrument_db.parse_uri(
-            self.track.instrument, self.project.get_node_description)
+            cast(Union[pmodel.ScoreTrack, pmodel.BeatTrack], self.track).instrument,
+            self.project.get_node_description)
         yield audioproc.AddNode(
             description=node_description,
             id=self.pipeline_node_id,
@@ -476,31 +354,31 @@ class InstrumentPipelineGraphNode(
 
         yield from self.get_initial_parameter_mutations()
 
-    def get_remove_mutations(self):
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.RemoveNode(self.pipeline_node_id)
 
-state.StateBase.register_class(InstrumentPipelineGraphNode)
 
+class PipelineGraphConnection(pmodel.PipelineGraphConnection):
+    def create(
+            self, *,
+            source_node: Optional[BasePipelineGraphNode] = None,
+            source_port: Optional[str] = None,
+            dest_node: Optional[BasePipelineGraphNode] = None,
+            dest_port: Optional[str] = None,
+            **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-class PipelineGraphConnection(
-        model.PipelineGraphConnection, state.StateBase):
-    def __init__(self, source_node=None, source_port=None, dest_node=None, dest_port=None, state=None):
-        super().__init__(state)
+        self.source_node = source_node
+        self.source_port = source_port
+        self.dest_node = dest_node
+        self.dest_port = dest_port
 
-        if state is None:
-            self.source_node = source_node
-            self.source_port = source_port
-            self.dest_node = dest_node
-            self.dest_port = dest_port
-
-    def get_add_mutations(self):
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.ConnectPorts(
             self.source_node.pipeline_node_id, self.source_port,
             self.dest_node.pipeline_node_id, self.dest_port)
 
-    def get_remove_mutations(self):
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.DisconnectPorts(
             self.source_node.pipeline_node_id, self.source_port,
             self.dest_node.pipeline_node_id, self.dest_port)
-
-state.StateBase.register_class(PipelineGraphConnection)

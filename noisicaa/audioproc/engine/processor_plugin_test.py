@@ -88,7 +88,7 @@ class ProcessorPluginTest(
             proc.setup()
             proc.set_parameters(
                 processor_pb2.ProcessorParameters(
-                    plugin_pipe_path=os.fsencode(pipe_address)))
+                    plugin_pipe_path=pipe_address))
 
             arena = buffer_arena.PyBufferArena(2**20)
             buffer_mgr = unittest_engine_utils.BufferManager(self.host_system, arena)
@@ -157,7 +157,7 @@ class ProcessorPluginTest(
             proc.setup()
             proc.set_parameters(
                 processor_pb2.ProcessorParameters(
-                    plugin_pipe_path=os.fsencode(pipe_address)))
+                    plugin_pipe_path=pipe_address))
 
             ctxt = block_context.PyBlockContext(buffer_arena=arena)
             ctxt.sample_pos = 1024
@@ -221,7 +221,7 @@ class ProcessorPluginTest(
             proc.setup()
             proc.set_parameters(
                 processor_pb2.ProcessorParameters(
-                    plugin_pipe_path=os.fsencode(pipe_address)))
+                    plugin_pipe_path=pipe_address))
 
             ctxt = block_context.PyBlockContext(buffer_arena=arena)
             ctxt.sample_pos = 1024

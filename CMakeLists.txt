@@ -124,7 +124,7 @@ macro(py_proto src)
   string(REGEX REPLACE "\\.proto$" "" base ${src})
   add_custom_command(
     OUTPUT ${base}_pb2.py
-    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib protoc --python_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
+    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib protoc --python_out=${CMAKE_BINARY_DIR} --mypy_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
   )
   file(RELATIVE_PATH pkg_path ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})

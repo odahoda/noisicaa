@@ -20,9 +20,8 @@
 #
 # @end:license
 
-# mypy: loose
-
 import logging
+from typing import Any, Union
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -35,13 +34,14 @@ logger = logging.getLogger(__name__)
 
 
 class DockWidget(ui_base.CommonMixin, QtWidgets.QDockWidget):
-    def __init__(self, title, identifier,
-                 allowed_areas=Qt.AllDockWidgetAreas,
-                 initial_area=Qt.RightDockWidgetArea,
-                 initial_visible=False,
-                 initial_floating=False,
-                 initial_pos=False,
-                 **kwargs):
+    def __init__(
+            self, title: str, identifier: str,
+            allowed_areas: Union[Qt.DockWidgetAreas, Qt.DockWidgetArea] = Qt.AllDockWidgetAreas,
+            initial_area: QtCore.Qt.DockWidgetArea = Qt.RightDockWidgetArea,
+            initial_visible: bool = False,
+            initial_floating: bool = False,
+            initial_pos: QtCore.QPoint = None,
+            **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._identifier = identifier
 
@@ -94,7 +94,7 @@ class DockWidget(ui_base.CommonMixin, QtWidgets.QDockWidget):
         self.onTopLevelChanged(self.isFloating())
         self.topLevelChanged.connect(self.onTopLevelChanged)
 
-        self.main_widget = None
+        self.main_widget = None  # type: QtWidgets.QWidget
         self.filler = QtWidgets.QWidget(self)
 
         self.main_layout = QtWidgets.QVBoxLayout()
@@ -106,7 +106,7 @@ class DockWidget(ui_base.CommonMixin, QtWidgets.QDockWidget):
         top_widget.setLayout(self.main_layout)
         super().setWidget(top_widget)
 
-    def setWidget(self, widget):
+    def setWidget(self, widget: QtWidgets.QWidget) -> None:
         if self.main_widget is not None:
             self.main_widget.setParent(None)
             self.main_layout.removeWidget(self.main_widget)
@@ -118,7 +118,7 @@ class DockWidget(ui_base.CommonMixin, QtWidgets.QDockWidget):
 
         self.main_widget = widget
 
-    def onTopLevelChanged(self, top_level):
+    def onTopLevelChanged(self, top_level: bool) -> None:
         self.hide_button.setDisabled(top_level)
         self.float_button.setChecked(top_level)
         if top_level:
@@ -126,13 +126,11 @@ class DockWidget(ui_base.CommonMixin, QtWidgets.QDockWidget):
                 self.widget().show()
             self.hide_button.setIcon(QtGui.QIcon.fromTheme('list-remove'))
 
-    def onFeaturesChanged(self, features):
-        self.float_button.setVisible(
-            features & QtWidgets.QDockWidget.DockWidgetFloatable != 0)
-        self.close_button.setVisible(
-            features & QtWidgets.QDockWidget.DockWidgetClosable != 0)
+    def onFeaturesChanged(self, features: QtWidgets.QDockWidget.DockWidgetFeatures) -> None:
+        self.float_button.setVisible(features & QtWidgets.QDockWidget.DockWidgetFloatable != 0)
+        self.close_button.setVisible(features & QtWidgets.QDockWidget.DockWidgetClosable != 0)
 
-    def toggleHide(self):
+    def toggleHide(self) -> None:
         if self.main_widget.isHidden():
             self.filler.hide()
             self.main_widget.show()

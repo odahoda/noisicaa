@@ -20,101 +20,102 @@
 #
 # @end:license
 
-import asyncio
-import asyncio.streams
-import logging
-import pprint
-import subprocess
-import sys
-import textwrap
-from typing import List
+# import asyncio
+# import asyncio.streams
+# import logging
+# import pprint
+# import subprocess
+# import sys
+# import textwrap
+# from typing import List
 
-from noisicaa.music import project
-from . import runtime_settings as runtime_settings_lib
+# from noisicaa.music import project
+# from . import runtime_settings as runtime_settings_lib
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 
-class ProjectDebugger(object):
-    def __init__(
-            self, runtime_settings: runtime_settings_lib.RuntimeSettings, paths: List[str]) -> None:
-        self.runtime_settings = runtime_settings
-        self.paths = paths
+# class ProjectDebugger(object):
+#     def __init__(
+#             self, runtime_settings: runtime_settings_lib.RuntimeSettings, paths: List[str]
+#     ) -> None:
+#         self.runtime_settings = runtime_settings
+#         self.paths = paths
 
-        self.event_loop = None  # type: asyncio.AbstractEventLoop
-        self.project = None  # type: project.Project
+#         self.event_loop = None  # type: asyncio.AbstractEventLoop
+#         self.project = None  # type: project.Project
 
-    def run(self) -> int:
-        self.write("noisicaä project debugger\n\n")
+#     def run(self) -> int:
+#         self.write("noisicaä project debugger\n\n")
 
-        if len(self.paths) != 1:
-            raise ValueError("Exactly one project path must be given.")
+#         if len(self.paths) != 1:
+#             raise ValueError("Exactly one project path must be given.")
 
-        self.event_loop = asyncio.get_event_loop()
-        try:
-            self.event_loop.run_until_complete(self.run_async(self.paths[0]))
-        finally:
-            self.event_loop.stop()
-            self.event_loop.close()
+#         self.event_loop = asyncio.get_event_loop()
+#         try:
+#             self.event_loop.run_until_complete(self.run_async(self.paths[0]))
+#         finally:
+#             self.event_loop.stop()
+#             self.event_loop.close()
 
-        return 0
+#         return 0
 
-    def write(self, text: str) -> None:
-        sys.stdout.write(text)
-        sys.stdout.flush()
+#     def write(self, text: str) -> None:
+#         sys.stdout.write(text)
+#         sys.stdout.flush()
 
-    async def readline(self) -> str:
-        text = await self.event_loop.run_in_executor(None, sys.stdin.readline)
-        if text == '':
-            raise EOFError
-        text = text.rstrip('\n')
-        return text
+#     async def readline(self) -> str:
+#         text = await self.event_loop.run_in_executor(None, sys.stdin.readline)
+#         if text == '':
+#             raise EOFError
+#         text = text.rstrip('\n')
+#         return text
 
-    async def run_async(self, path: str) -> None:
-        self.project = project.Project(node_db=None)
-        try:
-            self.project.open(path)
+#     async def run_async(self, path: str) -> None:
+#         self.project = project.Project(node_db=None)
+#         try:
+#             self.project.open(path)
 
-            self.write("Project '%s' successfully opened.\n" % path)
+#             self.write("Project '%s' successfully opened.\n" % path)
 
-            while True:
-                self.write(">>> ")
-                try:
-                    inp = await self.readline()
-                except EOFError:
-                    break
+#             while True:
+#                 self.write(">>> ")
+#                 try:
+#                     inp = await self.readline()
+#                 except EOFError:
+#                     break
 
-                if inp == '':
-                    continue
+#                 if inp == '':
+#                     continue
 
-                elif inp.lower() in ('?', 'help'):
-                    self.write(textwrap.dedent("""\
-                        Usage:
-                          help, ?: Show this text.
-                          undo:    Undo latest command in project.
-                          dump:    Dump serialized project state.
-                          quit:    Exit debugger.
-                        """))
-                    continue
+#                 elif inp.lower() in ('?', 'help'):
+#                     self.write(textwrap.dedent("""\
+#                         Usage:
+#                           help, ?: Show this text.
+#                           undo:    Undo latest command in project.
+#                           dump:    Dump serialized project state.
+#                           quit:    Exit debugger.
+#                         """))
+#                     continue
 
-                elif inp.lower() == 'quit':
-                    break
+#                 elif inp.lower() == 'quit':
+#                     break
 
-                elif inp.lower() == 'undo':
-                    self.project.undo()
+#                 elif inp.lower() == 'undo':
+#                     self.project.undo()
 
-                elif inp.lower() == 'dump':
-                    subprocess.run(
-                        ['/usr/bin/less'],
-                        input=pprint.pformat(self.project.serialize()).encode('utf-8'))
+#                 elif inp.lower() == 'dump':
+#                     subprocess.run(
+#                         ['/usr/bin/less'],
+#                         input=pprint.pformat(self.project.serialize()).encode('utf-8'))
 
-                else:
-                    self.write(
-                        "Unknown command '%s'. Type 'help' to list available commands.\n" % inp)
+#                 else:
+#                     self.write(
+#                         "Unknown command '%s'. Type 'help' to list available commands.\n" % inp)
 
-        except KeyboardInterrupt:
-            pass
+#         except KeyboardInterrupt:
+#             pass
 
-        finally:
-            self.write("Bye.\n")
-            self.project.close()
+#         finally:
+#             self.write("Bye.\n")
+#             self.project.close()

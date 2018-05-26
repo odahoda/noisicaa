@@ -23,11 +23,11 @@ from .audioproc_client import (
     AudioProcClientMixin,
 )
 from .mutations import (
+    Mutation,
     AddNode,
     RemoveNode,
     ConnectPorts,
     DisconnectPorts,
-    SetPortProperty,
     SetControlValue,
     SetPluginState,
 )
@@ -35,6 +35,8 @@ from .public import (
     MusicalDuration,
     MusicalTime,
     PluginState,
+    PluginStateLV2,
+    PluginStateLV2Property,
     ProcessorMessage,
     ProcessorMessageList,
     PlayerState,

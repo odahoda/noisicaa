@@ -21,7 +21,6 @@
 # @end:license
 
 import logging
-import os
 from typing import Any, Dict, List, Optional, Set  # pylint: disable=unused-import
 
 import toposort
@@ -117,9 +116,7 @@ class OutputPortMixin(Port):
         assert self._bypass_port is not None
         self._bypass = bool(value)
 
-    def set_prop(  # pylint: disable=arguments-differ
-            self, *, bypass: Optional[bool] = None, **kwargs: Any
-    ) -> None:
+    def set_prop(self, *, bypass: Optional[bool] = None, **kwargs: Any) -> None:
         super().set_prop(**kwargs)
         if bypass is not None:
             self.bypass = bypass
@@ -174,9 +171,7 @@ class AudioOutputPort(AudioPortMixin, OutputPortMixin, Port):
             raise ValueError("Invalid dry/wet value.")
         self._drywet = float(value)
 
-    def set_prop(  # pylint: disable=arguments-differ
-            self, *, drywet: Optional[float] = None, **kwargs: Any
-    ) -> None:
+    def set_prop(self, *, drywet: Optional[float] = None, **kwargs: Any) -> None:
         super().set_prop(**kwargs)
         if drywet is not None:
             self.drywet = drywet
@@ -437,7 +432,7 @@ class PluginNode(ProcessorNode):
 
         self.processor.set_parameters(
             processor_pb2.ProcessorParameters(
-                plugin_pipe_path=os.fsencode(self.__plugin_pipe_path)))
+                plugin_pipe_path=self.__plugin_pipe_path))
 
     async def cleanup(self, deref: bool = False) -> None:
         await super().cleanup(deref)
@@ -488,7 +483,7 @@ class ChildRealmNode(Node):
 
 
 class EventSourceNode(Node):
-    def __init__(self, *, track_id: str, **kwargs: Any) -> None:
+    def __init__(self, *, track_id: int, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__track_id = track_id

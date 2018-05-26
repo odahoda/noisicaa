@@ -20,14 +20,9 @@
 #
 # @end:license
 
-# mypy: loose
-
-# Still need to figure out how to pass around the app reference, disable
-# message "Access to a protected member .. of a client class"
-# pylint: disable=W0212
-
 import functools
 import os.path
+from typing import Any
 
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
@@ -36,7 +31,7 @@ from ..constants import DATA_DIR
 from . import ui_base
 
 class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.setWindowTitle("noisicaä - Settings")
@@ -61,16 +56,11 @@ class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.setLayout(layout)
 
-        self.setVisible(
-            int(self.app.settings.value(
-                'dialog/settings/visible', False)))
-        self.restoreGeometry(
-            self.app.settings.value(
-                'dialog/settings/geometry', b''))
-        self.tabs.setCurrentIndex(
-            int(self.app.settings.value('dialog/settings/page', 0)))
+        self.setVisible(bool(self.app.settings.value('dialog/settings/visible', False)))
+        self.restoreGeometry(self.app.settings.value('dialog/settings/geometry', b''))
+        self.tabs.setCurrentIndex(int(self.app.settings.value('dialog/settings/page', 0)))
 
-    def storeState(self):
+    def storeState(self) -> None:
         s = self.app.settings
         s.beginGroup('dialog/settings')
         s.setValue('visible', int(self.isVisible()))
@@ -80,7 +70,7 @@ class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
 
 class Page(ui_base.CommonMixin, QtWidgets.QWidget):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         layout = QtWidgets.QVBoxLayout()
@@ -92,20 +82,20 @@ class Page(ui_base.CommonMixin, QtWidgets.QWidget):
 
 
 class AppearancePage(Page):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         self.title = "Appearance"
         self._qt_styles = sorted(QtWidgets.QStyleFactory.keys())
 
         super().__init__(**kwargs)
 
-    def getIcon(self):
+    def getIcon(self) -> QtGui.QIcon:
         path = os.path.join(DATA_DIR, 'icons', 'settings_appearance.png')
         return QtGui.QIcon(path)
 
-    def createOptions(self, layout):
+    def createOptions(self, layout: QtWidgets.QLayout) -> None:
         self.createQtStyle(layout)
 
-    def createQtStyle(self, parent):
+    def createQtStyle(self, parent: QtWidgets.QLayout) -> None:
         layout = QtWidgets.QHBoxLayout()
         parent.addLayout(layout)
 
@@ -115,8 +105,7 @@ class AppearancePage(Page):
         combo = QtWidgets.QComboBox()
         layout.addWidget(combo)
 
-        current = self.app.settings.value(
-            'appearance/qtStyle', self.app.default_style)
+        current = self.app.settings.value('appearance/qtStyle', self.app.default_style)
         for index, style in enumerate(self._qt_styles):
             if style.lower() == self.app.default_style.lower():
                 style += " (default)"
@@ -125,7 +114,7 @@ class AppearancePage(Page):
                 combo.setCurrentIndex(index)
         combo.currentIndexChanged.connect(self.qtStyleChanged)
 
-    def qtStyleChanged(self, index):
+    def qtStyleChanged(self, index: int) -> None:
         style_name = self._qt_styles[index]
         style = QtWidgets.QStyleFactory.create(style_name)
         self.app.setStyle(style)
@@ -134,7 +123,7 @@ class AppearancePage(Page):
 
 
 class QBlockSizeSpinBox(QtWidgets.QSpinBox):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.lineEdit().setReadOnly(True)
@@ -142,21 +131,21 @@ class QBlockSizeSpinBox(QtWidgets.QSpinBox):
         self.setRange(5, 20)
         self.setValue(10)
 
-    def textFromValue(self, value):
+    def textFromValue(self, value: int) -> str:
         return '%d' % (2**value)
 
 
 class AudioPage(Page):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         self.title = "Audio"
         self._backends = ['portaudio', 'null']
         super().__init__(**kwargs)
 
-    def getIcon(self):
+    def getIcon(self) -> QtGui.QIcon:
         path = os.path.join(DATA_DIR, 'icons', 'settings_audio.png')
         return QtGui.QIcon(path)
 
-    def createOptions(self, layout):
+    def createOptions(self, layout: QtWidgets.QLayout) -> None:
         backend_widget = QtWidgets.QComboBox()
         #backend_layout.addWidget(combo, stretch=1)
 
@@ -200,36 +189,35 @@ class AudioPage(Page):
 
         test_button.clicked.connect(self.testBackend)
 
-    def backendChanged(self, index):
+    def backendChanged(self, index: int) -> None:
         backend = self._backends[index]
 
         self.call_async(
             self.app.audioproc_client.set_backend(backend),
-            callback=functools.partial(
-                self._set_backend_done, backend=backend))
+            callback=functools.partial(self._set_backend_done, backend=backend))
 
-    def _set_backend_done(self, result, backend):
+    def _set_backend_done(self, result: Any, backend: str) -> None:
         self.app.settings.setValue('audio/backend', backend)
 
-    def blockSizeChanged(self, block_size):
+    def blockSizeChanged(self, block_size: int) -> None:
         self.call_async(
             self.app.audioproc_client.set_host_parameters(block_size=2 ** block_size),
             callback=functools.partial(self._set_block_size_done, block_size=block_size))
 
-    def _set_block_size_done(self, result, block_size):
+    def _set_block_size_done(self, result: Any, block_size: int) -> None:
         self.app.settings.setValue('audio/block_size', block_size)
 
-    def sampleRateChanged(self, sample_rate):
+    def sampleRateChanged(self, sample_rate: int) -> None:
         self.call_async(
             self.app.audioproc_client.set_host_parameters(sample_rate=sample_rate),
             callback=functools.partial(self._set_sample_rate_done, sample_rate=sample_rate))
 
-    def _set_sample_rate_done(self, result, sample_rate):
+    def _set_sample_rate_done(self, result: Any, sample_rate: int) -> None:
         self.app.settings.setValue('audio/sample_rate', sample_rate)
 
-    def testBackend(self):
+    def testBackend(self) -> None:
         self.call_async(self._testBackendAsync())
 
-    async def _testBackendAsync(self):
+    async def _testBackendAsync(self) -> None:
         await self.app.audioproc_client.play_file(
             os.path.join(DATA_DIR, 'sounds', 'test_sound.wav'))

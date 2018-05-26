@@ -39,10 +39,93 @@ class AudioProcClientBase(object):
         self.event_loop = event_loop
         self.server = server
 
+        self.listeners = None  # type: core.CallbackRegistry
+
+    @property
+    def address(self) -> str:
+        raise NotImplementedError
+
     async def setup(self) -> None:
         raise NotImplementedError
 
     async def cleanup(self) -> None:
+        raise NotImplementedError
+
+    async def connect(self, address: str, flags: Optional[Set[str]] = None) -> None:
+        raise NotImplementedError
+
+    async def disconnect(self, shutdown: bool = False) -> None:
+        raise NotImplementedError
+
+    async def shutdown(self) -> None:
+        raise NotImplementedError
+
+    async def ping(self) -> None:
+        raise NotImplementedError
+
+    async def create_realm(
+            self, *, name: str, parent: Optional[str] = None, enable_player: bool = False,
+            callback_address: Optional[str] = None) -> None:
+        raise NotImplementedError
+
+    async def delete_realm(self, name: str) -> None:
+        raise NotImplementedError
+
+    async def add_node(
+            self, realm: str, *, description: node_db.NodeDescription, **args: Any) -> None:
+        raise NotImplementedError
+
+    async def remove_node(self, realm: str, node_id: str) -> None:
+        raise NotImplementedError
+
+    async def connect_ports(
+            self, realm: str, node1_id: str, port1_name: str, node2_id: str, port2_name: str
+    ) -> None:
+        raise NotImplementedError
+
+    async def disconnect_ports(
+            self, realm: str, node1_id: str, port1_name: str, node2_id: str, port2_name: str
+    ) -> None:
+        raise NotImplementedError
+
+    async def set_control_value(self, realm: str, name: str, value: float, generation: int) -> None:
+        raise NotImplementedError
+
+    async def pipeline_mutation(self, realm: str, mutation: mutations.Mutation) -> None:
+        raise NotImplementedError
+
+    async def create_plugin_ui(self, realm: str, node_id: str) -> Tuple[int, Tuple[int, int]]:
+        raise NotImplementedError
+
+    async def delete_plugin_ui(self, realm: str, node_id: str) -> None:
+        raise NotImplementedError
+
+    async def send_node_messages(
+            self, realm: str, messages: processor_message_pb2.ProcessorMessageList) -> None:
+        raise NotImplementedError
+
+    async def set_host_parameters(self, **parameters: Any) -> None:
+        raise NotImplementedError
+
+    async def set_backend(self, name: str, **parameters: Any) -> None:
+        raise NotImplementedError
+
+    async def set_backend_parameters(self, **parameters: Any) -> None:
+        raise NotImplementedError
+
+    async def update_player_state(self, realm: str, state: player_state_pb2.PlayerState) -> None:
+        raise NotImplementedError
+
+    async def send_message(self, msg: Any) -> None:
+        raise NotImplementedError
+
+    async def play_file(self, path: str) -> str:
+        raise NotImplementedError
+
+    async def dump(self) -> None:
+        raise NotImplementedError
+
+    async def update_project_properties(self, realm: str, **kwargs: Any) -> None:
         raise NotImplementedError
 
 
@@ -128,10 +211,6 @@ class AudioProcClientMixin(AudioProcClientBase):
     ) -> None:
         await self.pipeline_mutation(
             realm, mutations.DisconnectPorts(node1_id, port1_name, node2_id, port2_name))
-
-    async def set_port_property(
-            self, realm: str, node_id: str, port_name: str, **kwargs: Any) -> None:
-        await self.pipeline_mutation(realm, mutations.SetPortProperty(node_id, port_name, **kwargs))
 
     async def set_control_value(self, realm: str, name: str, value: float, generation: int) -> None:
         await self.pipeline_mutation(realm, mutations.SetControlValue(name, value, generation))

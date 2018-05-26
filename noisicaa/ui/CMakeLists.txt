@@ -27,7 +27,6 @@ add_python_package(
   instrument_library_test.py
   load_history.py
   misc.py
-  model.py
   mute_button.py
   piano.py
   piano_test.py
@@ -56,7 +55,6 @@ add_python_package(
   tracks_dock_test.py
   ui_base.py
   ui_process.py
-  uitest_utils.py
 )
 
 add_subdirectory(track_items)

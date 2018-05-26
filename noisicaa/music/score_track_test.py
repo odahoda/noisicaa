@@ -23,38 +23,23 @@
 from typing import List  # pylint: disable=unused-import
 
 from noisidev import unittest
+from noisidev import unittest_mixins
 from noisidev import demo_project
-from noisicaa.node_db.private import db as node_db
-from . import pitch
+from noisicaa import model
+from noisicaa import audioproc
 from . import project
+from . import project_client
 from . import score_track
+from . import commands_test
+from . import commands_pb2
 
 
-class NodeDB(object):
-    def __init__(self):
-        self.db = node_db.NodeDB()
-
-    async def setup(self):
-        self.db.setup()
-
-    async def cleanup(self):
-        self.db.cleanup()
-
-    def get_node_description(self, uri):
-        return self.db[uri]
-
-
-
-class ScoreTrackConnectorTest(unittest.AsyncTestCase):
+class ScoreTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
     async def setup_testcase(self):
-        self.node_db = NodeDB()
-        await self.node_db.setup()
-
-    async def cleanup_testcase(self):
-        await self.node_db.cleanup()
+        self.pool = project.Pool()
 
     def test_foo(self):
-        pr = demo_project.basic(project.BaseProject, node_db=self.node_db)
+        pr = demo_project.basic(self.pool, project.BaseProject, node_db=self.node_db)
         tr = pr.master_group.tracks[0]
 
         messages = []  # type: List[str]
@@ -66,9 +51,308 @@ class ScoreTrackConnectorTest(unittest.AsyncTestCase):
             pr.property_track.insert_measure(1)
             tr.insert_measure(1)
             m = tr.measure_list[1].measure
-            m.notes.append(score_track.Note(pitches=[pitch.Pitch('D#4')]))
+            m.notes.append(self.pool.create(score_track.Note, pitches=[model.Pitch('D#4')]))
 
             self.assertTrue(len(messages) > 0)
 
         finally:
             connector.close()
+
+
+class ScoreTrackTest(commands_test.CommandsTestBase):
+    async def test_add_remove(self):
+        insert_index = await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            add_track=commands_pb2.AddTrack(
+                track_type='score',
+                parent_group_id=self.project.master_group.id)))
+        self.assertEqual(insert_index, 0)
+
+        track = self.project.master_group.tracks[insert_index]
+        self.assertIsInstance(track, project_client.ScoreTrack)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            remove_track=commands_pb2.RemoveTrack(
+                track_id=track.id)))
+        self.assertEqual(len(self.project.master_group.tracks), 0)
+
+    async def _add_track(self, num_measures=None):
+        insert_index = await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            add_track=commands_pb2.AddTrack(
+                track_type='score',
+                parent_group_id=self.project.master_group.id)))
+
+        if num_measures is not None:
+            await self.client.send_command(commands_pb2.Command(
+                target=self.project.id,
+                set_num_measures=commands_pb2.SetNumMeasures(
+                    num_measures=num_measures)))
+
+        return self.project.master_group.tracks[insert_index]
+
+    async def _fill_measure(self, measure):
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            insert_note=commands_pb2.InsertNote(
+                idx=0,
+                pitch='F2',
+                duration=audioproc.MusicalDuration(1, 4).to_proto())))
+        self.assertEqual(len(measure.notes), 1)
+
+    async def test_set_num_measures(self):
+        track = await self._add_track()
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            set_num_measures=commands_pb2.SetNumMeasures(
+                num_measures=10)))
+        self.assertEqual(len(track.measure_list), 10)
+        self.assertEqual(self.project.duration, audioproc.MusicalDuration(10 * 4, 4))
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            set_num_measures=commands_pb2.SetNumMeasures(
+                num_measures=5)))
+        self.assertEqual(len(track.measure_list), 5)
+
+    async def test_insert_measure(self):
+        track = await self._add_track()
+        self.assertEqual(len(track.measure_list), 1)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            insert_measure=commands_pb2.InsertMeasure(
+                pos=0,
+                tracks=[track.id])))
+        self.assertEqual(len(track.measure_list), 2)
+
+    async def test_append_measure(self):
+        track = await self._add_track()
+        self.assertEqual(len(track.measure_list), 1)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            insert_measure=commands_pb2.InsertMeasure(
+                tracks=[])))
+        self.assertEqual(len(track.measure_list), 2)
+
+    async def test_remove_measure(self):
+        track = await self._add_track()
+        self.assertEqual(len(track.measure_list), 1)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            remove_measure=commands_pb2.RemoveMeasure(
+                pos=0,
+                tracks=[])))
+        self.assertEqual(len(track.measure_list), 0)
+
+    async def test_clear_measures(self):
+        track = await self._add_track()
+        self.assertEqual(len(track.measure_list), 1)
+        old_measure = track.measure_list[0].measure
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            clear_measures=commands_pb2.ClearMeasures(
+                measure_ids=[track.measure_list[0].id])))
+        self.assertIsNot(old_measure, track.measure_list[0].measure)
+
+    async def test_set_instrument(self):
+        track = await self._add_track()
+
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            set_instrument=commands_pb2.SetInstrument(
+                instrument='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=2')))
+        self.assertEqual(
+            track.instrument, 'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=2')
+
+    async def test_set_clef(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            set_clef=commands_pb2.SetClef(
+                measure_ids=[measure.id],
+                clef=model.Clef.Tenor.to_proto())))
+        self.assertEqual(measure.clef, model.Clef.Tenor)
+
+    async def test_set_key_signature(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            set_key_signature=commands_pb2.SetKeySignature(
+                measure_ids=[measure.id],
+                key_signature=model.KeySignature('D minor').to_proto())))
+        self.assertEqual(measure.key_signature, model.KeySignature('D minor'))
+
+    async def test_insert_note(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        self.assertEqual(len(measure.notes), 0)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            insert_note=commands_pb2.InsertNote(
+                idx=0,
+                pitch='F2',
+                duration=audioproc.MusicalDuration(1, 4).to_proto())))
+        self.assertEqual(len(measure.notes), 1)
+        self.assertEqual(measure.notes[0].pitches[0], model.Pitch('F2'))
+        self.assertEqual(measure.notes[0].base_duration, audioproc.MusicalDuration(1, 4))
+
+    async def test_delete_note(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            delete_note=commands_pb2.DeleteNote(
+                idx=0)))
+        self.assertEqual(len(measure.notes), 0)
+
+    async def test_change_note_pitch(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            change_note=commands_pb2.ChangeNote(
+                idx=0,
+                pitch='C2')))
+        self.assertEqual(measure.notes[0].pitches[0], model.Pitch('C2'))
+
+    async def test_change_note_duration(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            change_note=commands_pb2.ChangeNote(
+                idx=0,
+                duration=audioproc.MusicalDuration(1, 2).to_proto())))
+        self.assertEqual(measure.notes[0].base_duration, audioproc.MusicalDuration(1, 2))
+
+    async def test_change_note_dots(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            change_note=commands_pb2.ChangeNote(
+                idx=0,
+                dots=1)))
+        self.assertEqual(measure.notes[0].dots, 1)
+
+    async def test_change_note_tuplet(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            change_note=commands_pb2.ChangeNote(
+                idx=0,
+                tuplet=3)))
+        self.assertEqual(measure.notes[0].tuplet, 3)
+
+    async def test_set_accidental(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            set_accidental=commands_pb2.SetAccidental(
+                idx=0,
+                pitch_idx=0,
+                accidental='#')))
+        self.assertEqual(measure.notes[0].pitches[0], model.Pitch('F#2'))
+
+    async def test_add_pitch(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            add_pitch=commands_pb2.AddPitch(
+                idx=0,
+                pitch='C2')))
+        self.assertEqual(len(measure.notes[0].pitches), 2)
+        self.assertEqual(measure.notes[0].pitches[1], model.Pitch('C2'))
+
+    async def test_remove_pitch(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            add_pitch=commands_pb2.AddPitch(
+                idx=0,
+                pitch='C2')))
+        self.assertEqual(len(measure.notes[0].pitches), 2)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=measure.id,
+            remove_pitch=commands_pb2.RemovePitch(
+                idx=0,
+                pitch_idx=0)))
+        self.assertEqual(len(measure.notes[0].pitches), 1)
+        self.assertEqual(measure.notes[0].pitches[0], model.Pitch('C2'))
+
+    async def test_transpose_notes(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+
+        await self.client.send_command(commands_pb2.Command(
+            target=track.id,
+            transpose_notes=commands_pb2.TransposeNotes(
+                note_ids=[measure.notes[0].id],
+                half_notes=2)))
+        self.assertEqual(measure.notes[0].pitches[0], model.Pitch('G2'))
+
+    async def test_paste_overwrite(self):
+        track = await self._add_track()
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+
+        clipboard = measure.serialize()
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            paste_measures=commands_pb2.PasteMeasures(
+                mode='overwrite',
+                src_objs=[clipboard],
+                target_ids=[track.measure_list[0].id])))
+        new_measure = track.measure_list[0].measure
+        self.assertNotEqual(new_measure.id, measure.id)
+        self.assertEqual(new_measure.notes[0].pitches[0], model.Pitch('F2'))
+
+    async def test_paste_link(self):
+        track = await self._add_track(num_measures=3)
+
+        measure = track.measure_list[0].measure
+        await self._fill_measure(measure)
+
+        clipboard = measure.serialize()
+
+        await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            paste_measures=commands_pb2.PasteMeasures(
+                mode='link',
+                src_objs=[clipboard],
+                target_ids=[track.measure_list[1].id, track.measure_list[2].id])))
+        self.assertIs(track.measure_list[1].measure, measure)
+        self.assertIs(track.measure_list[2].measure, measure)

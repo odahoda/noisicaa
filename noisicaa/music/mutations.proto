@@ -1,0 +1,96 @@
+/*
+ * @begin:license
+ *
+ * Copyright (c) 2015-2018, Benjamin Niemann <pink@odahoda.de>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * @end:license
+ */
+
+syntax = "proto2";
+
+import "noisicaa/audioproc/public/musical_time.proto";
+import "noisicaa/audioproc/public/plugin_state.proto";
+import "noisicaa/model/model_base.proto";
+import "noisicaa/model/project.proto";
+
+package noisicaa.pb;
+
+message MutationList {
+  message SetProperty {
+    optional uint64 obj_id = 1;
+    optional string prop_name = 2;
+    optional uint32 old_slot = 3;
+    optional uint32 new_slot = 4;
+  }
+
+  message ListInsert {
+    optional uint64 obj_id = 1;
+    optional string prop_name = 2;
+    optional uint32 index = 3;
+    optional uint32 slot = 4;
+  }
+
+  message ListDelete {
+    optional uint64 obj_id = 1;
+    optional string prop_name = 2;
+    optional uint32 index = 3;
+    optional uint32 slot = 4;
+  }
+
+  message AddObject {
+    optional ObjectBase object = 1;
+  }
+
+  message RemoveObject {
+    optional ObjectBase object = 1;
+  }
+
+  message Op {
+    oneof op {
+      SetProperty set_property = 1;
+      ListInsert list_insert = 2;
+      ListDelete list_delete = 3;
+      AddObject add_object = 4;
+      RemoveObject remove_object = 5;
+    }
+  }
+  repeated Op ops = 1;
+
+  message Slot {
+    oneof value {
+      bool none = 1;
+      uint64 obj_id = 2;
+
+      string string_value = 10;
+      bytes bytes_value = 11;
+      bool bool_value = 12;
+      int64 int_value = 13;
+      float float_value = 14;
+
+      MusicalTime musical_time = 100;
+      MusicalDuration musical_duration = 101;
+      PluginState plugin_state = 102;
+      Pitch pitch = 103;
+      KeySignature key_signature = 104;
+      TimeSignature time_signature = 105;
+      Clef clef = 106;
+      Pos2F pos2f = 107;
+      ControlValue control_value = 108;
+    }
+  }
+  repeated Slot slots = 2;
+}

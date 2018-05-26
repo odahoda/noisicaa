@@ -20,8 +20,6 @@
 #
 # @end:license
 
-# mypy: loose
-
 import math
 import time
 from typing import Any, List  # pylint: disable=unused-import
@@ -31,23 +29,22 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+# pylint/mypy don't understand capnp modules.
+from noisicaa.core import perf_stats_capnp  # type: ignore  # pylint: disable=no-name-in-module
 from . import ui_base
-
-# mypy doesn't understand capnp modules.
-perf_stats_capnp = Any
 
 
 class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
     visibilityChanged = QtCore.pyqtSignal(bool)
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.history = []  # type: List[perf_stats_capnp.PerfStats]
         self.realtime = True
-        self.current_spans = None
+        self.current_spans = None  # type: perf_stats_capnp.PerfStats
         self.max_fps = 20
-        self.last_update = None
+        self.last_update = None  # type: float
         self.max_time_nsec = 100000000
         self.time_scale = 4096
 
@@ -78,33 +75,30 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.gantt_scene = QtWidgets.QGraphicsScene()
         self.gantt_view = QtWidgets.QGraphicsView(self.gantt_scene, self)
         self.gantt_view.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        self.gantt_view.setDragMode(
-            QtWidgets.QGraphicsView.ScrollHandDrag)
+        self.gantt_view.setDragMode(QtWidgets.QGraphicsView.ScrollHandDrag)
         self.setCentralWidget(self.gantt_view)
 
         self.setVisible(
-            int(self.app.settings.value(
-                'dialog/pipeline_perf_monitor/visible', False)))
+            bool(self.app.settings.value('dialog/pipeline_perf_monitor/visible', False)))
         self.restoreGeometry(
-            self.app.settings.value(
-                'dialog/pipeline_perf_monitor/geometry', b''))
+            self.app.settings.value('dialog/pipeline_perf_monitor/geometry', b''))
 
-    def storeState(self):
+    def storeState(self) -> None:
         s = self.app.settings
         s.beginGroup('dialog/pipeline_perf_monitor')
         s.setValue('visible', int(self.isVisible()))
         s.setValue('geometry', self.saveGeometry())
         s.endGroup()
 
-    def showEvent(self, event):
+    def showEvent(self, event: QtGui.QShowEvent) -> None:
         self.visibilityChanged.emit(True)
         super().showEvent(event)
 
-    def hideEvent(self, event):
+    def hideEvent(self, event: QtGui.QHideEvent) -> None:
         self.visibilityChanged.emit(False)
         super().hideEvent(event)
 
-    def onToggleRealtime(self):
+    def onToggleRealtime(self) -> None:
         if self.realtime:
             self.realtime = False
             self.pauseAction.setIcon(
@@ -114,16 +108,16 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
             self.pauseAction.setIcon(
                 QtGui.QIcon.fromTheme('media-playback-start'))
 
-    def onZoomIn(self):
+    def onZoomIn(self) -> None:
         self.time_scale *= 2
         self.updateGanttScene(self.current_spans)
 
-    def onZoomOut(self):
+    def onZoomOut(self) -> None:
         if self.time_scale > 1:
             self.time_scale //= 2
         self.updateGanttScene(self.current_spans)
 
-    def updateGanttScene(self, perf_data):
+    def updateGanttScene(self, perf_data: perf_stats_capnp.PerfStats) -> None:
         if perf_data is None:
             return
         self.current_spans = perf_data
@@ -199,7 +193,7 @@ class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.gantt_view.setSceneRect(
             -10, -10, loffset + scale * max_time_nsec + 20, y + 20)
 
-    def addPerfData(self, perf_data):
+    def addPerfData(self, perf_data: perf_stats_capnp.PerfStats) -> None:
         self.history.append(perf_data)
         num_purge = len(self.history) - 10000
         if num_purge > 0:

@@ -29,7 +29,7 @@ enum Key {
 
 struct Label {
   key @0 :Key;
-  value @1 :Text;
+  value @1 :UInt64;
 }
 
 struct Labelset {

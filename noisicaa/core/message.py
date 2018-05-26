@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 MessageKey = message_capnp.Key
 MessageType = message_capnp.Type
 
-def build_labelset(labels: Dict[int, str]) -> message_capnp.Labelset:
+def build_labelset(labels: Dict[int, int]) -> message_capnp.Labelset:
     lset = message_capnp.Labelset.new_message()
     lset.init('labels', len(labels))
     for i, (k, v) in enumerate(sorted(labels.items())):
@@ -43,7 +43,7 @@ def build_labelset(labels: Dict[int, str]) -> message_capnp.Labelset:
         label.value = v
     return lset
 
-def build_message(labels: Dict[int, str], msgtype: int, data: bytes) -> message_capnp.Labelset:
+def build_message(labels: Dict[int, int], msgtype: int, data: bytes) -> message_capnp.Labelset:
     msg = message_capnp.Message.new_message()
     msg.init('labelset')
     msg.labelset.init('labels', len(labels))

@@ -20,28 +20,25 @@
 
 add_python_package(
   base_track.py
+  base_track_test.py
   beat_track.py
-  clef.py
+  beat_track_test.py
   commands.py
   commands_test.py
   control_track.py
   control_track_test.py
-  exceptions.py
-  key_signature.py
-  key_signature_test.py
-  misc.py
-  model.py
   mutations.py
   pipeline_graph.py
-  pitch.py
-  pitch_test.py
+  pipeline_graph_test.py
   player.py
   player_integration_test.py
   player_test.py
+  pmodel.py
+  pmodel_test.py
   project_client.py
   project_client_test.py
+  project_integration_test.py
   project_process.py
-  project_iface.py
   project.py
   project_test.py
   render.py
@@ -52,10 +49,7 @@ add_python_package(
   score_track.py
   score_track_test.py
   property_track.py
-  state.py
-  state_test.py
-  time_signature.py
-  time_signature_test.py
+  property_track_test.py
   track_group.py
   track_group_test.py
 )
@@ -63,3 +57,5 @@ add_python_package(
 add_cython_module(rms CXX)
 
 py_proto(render_settings.proto)
+py_proto(mutations.proto)
+py_proto(commands.proto)

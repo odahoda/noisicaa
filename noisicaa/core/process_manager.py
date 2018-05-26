@@ -137,7 +137,7 @@ class ChildLogHandler(logging.Handler):
                 'relativeCreated', 'thread', 'threadName'):
             record_attrs[attr] = record.__dict__[attr]
 
-        serialized_record = pickle.dumps(record_attrs)
+        serialized_record = pickle.dumps(record_attrs, protocol=pickle.HIGHEST_PROTOCOL)
         msg = bytearray()
         msg += b'RECORD'
         msg += struct.pack('>L', len(serialized_record))
@@ -561,7 +561,8 @@ class ProcessManager(object):
                 cmdline = []  # type: List[str]
                 cmdline += [sys.executable]
                 cmdline += ['-m', 'noisicaa.core.process_manager']
-                cmdline += [base64.b64encode(pickle.dumps(args, protocol=-1)).decode('ascii')]
+                cmdline += [base64.b64encode(
+                    pickle.dumps(args, protocol=pickle.HIGHEST_PROTOCOL)).decode('ascii')]
 
                 env = dict(**os.environ)
                 env['PYTHONPATH'] = ':'.join(p for p in sys.path if p)
@@ -684,7 +685,7 @@ class ChildConnectionHandler(object):
                     request = self.connection.read()
                     if request == b'COLLECT_STATS':
                         data = stats.registry.collect()
-                        response = pickle.dumps(data, protocol=-1)
+                        response = pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
                     else:
                         raise ValueError(request)
 
@@ -726,11 +727,12 @@ class ProcessBase(object):
             await self.server.cleanup()
             self.server = None
 
-    async def run(self) -> None:
+    async def run(self) -> int:
         await self.__shutting_down.wait()
         logger.info("Shutting down process '%s'...", self.name)
         await self.cleanup()
         self.__shutdown_complete.set()
+        return 0
 
     async def shutdown(self) -> None:
         logger.info("Shutdown received for process '%s'.", self.name)

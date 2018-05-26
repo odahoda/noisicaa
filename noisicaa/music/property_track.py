@@ -20,70 +20,59 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-# mypy: loose
-
 import logging
+from typing import Any, Optional
+
+from google.protobuf import message as protobuf
 
 from noisicaa.core.typing_extra import down_cast
-from noisicaa import core
-
-from .time_signature import TimeSignature
-from . import model
-from . import commands
-from . import state
+from noisicaa import model
+from . import pmodel
 from . import base_track
+from . import commands
+from . import commands_pb2
 
 logger = logging.getLogger(__name__)
 
 
 class SetTimeSignature(commands.Command):
-    upper = core.Property(int)
-    lower = core.Property(int)
+    proto_type = 'set_time_signature'
 
-    def __init__(self, upper=None, lower=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.upper = upper
-            self.lower = lower
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.SetTimeSignature, pb)
+        track = down_cast(pmodel.PropertyTrack, pool[self.proto.command.target])
 
-    def run(self, measure):
-        assert isinstance(measure, PropertyMeasure)
-
-        measure.time_signature = TimeSignature(self.upper, self.lower)
+        for measure_id in pb.measure_ids:
+            measure = down_cast(pmodel.PropertyMeasure, pool[measure_id])
+            assert measure.is_child_of(track)
+            measure.time_signature = model.TimeSignature(pb.upper, pb.lower)
 
 commands.Command.register_command(SetTimeSignature)
 
 
-class PropertyMeasure(model.PropertyMeasure, base_track.Measure):
-    def __init__(self, state=None):
-        super().__init__(state)
-        if state is None:
-            pass
-
+class PropertyMeasure(pmodel.PropertyMeasure, base_track.Measure):
     @property
-    def empty(self):
+    def empty(self) -> bool:
         return True
 
-state.StateBase.register_class(PropertyMeasure)
 
-
-class PropertyTrack(model.PropertyTrack, base_track.MeasuredTrack):
+class PropertyTrack(pmodel.PropertyTrack, base_track.MeasuredTrack):
     measure_cls = PropertyMeasure
 
-    def __init__(self, name=None, num_measures=1, state=None):
-        super().__init__(name=name, state=state)
+    def create(self, num_measures: int = 1, **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-        if state is None:
-            for _ in range(num_measures):
-                self.append_measure()
+        for _ in range(num_measures):
+            self.append_measure()
 
-    def create_empty_measure(self, ref):
+    def create_empty_measure(self, ref: Optional[pmodel.Measure]) -> PropertyMeasure:
         measure = down_cast(PropertyMeasure, super().create_empty_measure(ref))
 
         if ref is not None:
+            ref = down_cast(PropertyMeasure, ref)
             measure.time_signature = ref.time_signature
 
         return measure
 
-state.StateBase.register_class(PropertyTrack)
+    def create_track_connector(self, **kwargs: Any) -> base_track.TrackConnector:
+        raise RuntimeError("No track connector for PropertyTrack")

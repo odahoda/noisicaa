@@ -32,9 +32,9 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisidev import unittest
+from noisidev import uitest
+from noisicaa import music
 from noisicaa.ui import project_view
-from noisicaa.ui import model
 
 
 class HIDState(object):
@@ -237,10 +237,8 @@ class ReleaseKey(Event):
             0))
 
 
-class TrackEditorItemTestMixin(object):
+class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        self.project.master_group = model.MasterTrackGroup(obj_id='master')
-
         self.player_state = project_view.PlayerState(context=self.context)
         self.tool_box = None
         self.editor = mock.Mock()
@@ -354,12 +352,14 @@ class TrackEditorItemTestMixin(object):
 
     def test_onRemoveTrack(self):
         with self._trackItem() as ti:
+            track_id = ti.track.id
             ti.onRemoveTrack()
             self.assertEqual(
                 self.commands,
-                [('project', 'RemoveTrack', {'track_id': 'track-1'})])
+                [music.Command(
+                    target=self.project.id,
+                    remove_track=music.RemoveTrack(track_id=track_id))])
 
-    @unittest.skip("Requires a proper QApplication")
     def test_buildContextMenu(self):
         with self._trackItem() as ti:
             menu = QtWidgets.QMenu()

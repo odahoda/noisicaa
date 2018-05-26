@@ -27,9 +27,7 @@ import logging
 import os.path
 import unittest
 
-from PyQt5 import QtWidgets
 import asynctest
-import quamash
 
 from noisicaa import constants
 
@@ -41,6 +39,7 @@ skip = unittest.skip
 skipIf = unittest.skipIf
 skipUnless = unittest.skipUnless
 expectedFailure = unittest.expectedFailure
+SkipTest = unittest.SkipTest
 TestSuite = unittest.TestSuite
 
 
@@ -135,94 +134,3 @@ class AsyncTestCase(SetupTestCaseMixin, asynctest.TestCase):
             c = cleanup_testcase(self)
             if inspect.isawaitable(c):
                 await c
-
-
-class TestContext(object):
-    def __init__(self, *, testcase):
-        self.__testcase = testcase
-
-    @property
-    def app(self):
-        return self.__testcase.app
-
-    @property
-    def window(self):
-        return self.__testcase.window
-
-    @property
-    def event_loop(self):
-        return self.__testcase.loop
-
-    @property
-    def project_connection(self):
-        return self.__testcase.project_connection
-
-    @property
-    def project(self):
-        return self.__testcase.project
-
-    @property
-    def project_client(self):
-        return self.__testcase.project_client
-
-    @property
-    def selection_set(self):
-        return self.__testcase.selection_set
-
-    def call_async(self, coroutine, callback=None):
-        task = self.event_loop.create_task(coroutine)
-        task.add_done_callback(
-            functools.partial(self.__call_async_cb, callback=callback))
-
-    def __call_async_cb(self, task, callback):
-        if task.exception() is not None:
-            raise task.exception()
-        if callback is not None:
-            callback(task.result())
-
-    def send_command_async(self, target_id, cmd, callback, **kwargs):
-        self.__testcase.commands.append((target_id, cmd, kwargs))
-        if callback is not None:
-            callback()
-
-    def set_session_value(self, key, value):
-        self.__testcase.session_data[key] = value
-
-    def set_session_values(self, data):
-        self.__testcase.session_data.update(data)
-
-    def get_session_value(self, key, default):
-        return self.__testcase.session_data.get(key, default)
-
-    def add_session_listener(self, key, listener):
-        raise NotImplementedError
-
-
-class QtTestCase(AsyncTestCase):
-    use_default_loop = True
-    app = None
-
-    @classmethod
-    def setUpClass(cls):
-        if not constants.TEST_OPTS.ALLOW_UI:
-            return
-
-        if cls.app is None:
-            cls.app = QtWidgets.QApplication(['unittest'])
-            cls.app.setQuitOnLastWindowClosed(False)
-        asyncio.set_event_loop(quamash.QEventLoop(cls.app))
-
-    @classmethod
-    def tearDownClass(cls):
-        asyncio.set_event_loop(None)
-
-
-class UITestCase(QtTestCase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.context = None
-
-    async def setup_testcase(self):
-        self.context = TestContext(testcase=self)
-        self.context_args = {'context': self.context}

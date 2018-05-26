@@ -18,32 +18,93 @@
 #
 # @end:license
 
-from .key_signature import KeySignature
-from .time_signature import TimeSignature
-from .clef import Clef
-from .pitch import Pitch, NOTE_TO_MIDI
 from .project_client import (
     ProjectClient,
-    ObjectProxy,
-    ProjectProxy,
-)
-from .project import (
-    BaseProject, Project,
-)
-from .base_track import (
+
+    ObjectBase,
+    ProjectChild,
     Track,
-    MeasuredTrack, Measure,
-)
-from .score_track import (
-    ScoreMeasure, ScoreTrack,
+    Measure,
+    MeasureReference,
+    MeasuredTrack,
     Note,
-)
-from .property_track import (
-    PropertyMeasure, PropertyTrack,
-)
-from .misc import (
-    Pos2F
+    TrackGroup,
+    MasterTrackGroup,
+    ScoreMeasure,
+    ScoreTrack,
+    Beat,
+    BeatMeasure,
+    BeatTrack,
+    PropertyMeasure,
+    PropertyTrack,
+    ControlPoint,
+    ControlTrack,
+    SampleRef,
+    SampleTrack,
+    PipelineGraphControlValue,
+    BasePipelineGraphNode,
+    PipelineGraphNode,
+    AudioOutPipelineGraphNode,
+    TrackMixerPipelineGraphNode,
+    PianoRollPipelineGraphNode,
+    CVGeneratorPipelineGraphNode,
+    SampleScriptPipelineGraphNode,
+    InstrumentPipelineGraphNode,
+    PipelineGraphConnection,
+    Sample,
+    Metadata,
+    Project,
 )
 from .render_settings_pb2 import (
     RenderSettings,
+)
+from .mutations_pb2 import (
+    MutationList,
+)
+from .commands_pb2 import (
+    Command,
+
+    UpdateProjectProperties,
+    AddTrack,
+    RemoveTrack,
+    InsertMeasure,
+    RemoveMeasure,
+    MoveTrack,
+    ReparentTrack,
+    UpdateTrackProperties,
+    SetNumMeasures,
+    ClearMeasures,
+    PasteMeasures,
+    AddPipelineGraphNode,
+    RemovePipelineGraphNode,
+    AddPipelineGraphConnection,
+    RemovePipelineGraphConnection,
+    SetTimeSignature,
+    SetInstrument,
+    ChangeNote,
+    InsertNote,
+    DeleteNote,
+    AddPitch,
+    RemovePitch,
+    SetClef,
+    SetKeySignature,
+    SetAccidental,
+    TransposeNotes,
+    AddControlPoint,
+    RemoveControlPoint,
+    MoveControlPoint,
+    AddSample,
+    RemoveSample,
+    MoveSample,
+    RenderSample,
+    SetBeatTrackInstrument,
+    SetBeatTrackPitch,
+    SetBeatVelocity,
+    AddBeat,
+    RemoveBeat,
+    SetPipelineGraphNodePos,
+    SetPipelineGraphControlValue,
+    SetPipelineGraphPluginState,
+    PipelineGraphNodeToPreset,
+    PipelineGraphNodeFromPreset,
 )

@@ -20,68 +20,56 @@
 #
 # @end:license
 
-# TODO: pylint-unclean
-# mypy: loose
-
 import logging
 import random
-from typing import Dict  # pylint: disable=unused-import
+from typing import cast, Any, Dict, Optional  # pylint: disable=unused-import
 
-from noisicaa import core
+from google.protobuf import message as protobuf
+
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from typing import cast
-
-from . import model
-from . import state
-from . import commands
+from noisicaa import model
+from noisicaa import core  # pylint: disable=unused-import
+from . import pmodel
 from . import base_track
 from . import pipeline_graph
-from . import misc
+from . import commands
+from . import commands_pb2
 
 logger = logging.getLogger(__name__)
 
 
 class AddControlPoint(commands.Command):
-    time = core.Property(audioproc.MusicalTime)
-    value = core.Property(float)
+    proto_type = 'add_control_point'
 
-    def __init__(self, time=None, value=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.time = time
-            self.value = value
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.AddControlPoint, pb)
+        track = down_cast(pmodel.ControlTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, ControlTrack)
-
+        insert_time = audioproc.MusicalTime.from_proto(pb.time)
         for insert_index, point in enumerate(track.points):
-            if point.time == self.time:
+            if point.time == insert_time:
                 raise ValueError("Duplicate control point")
-            if point.time > self.time:
+            if point.time > insert_time:
                 break
         else:
             insert_index = len(track.points)
 
         track.points.insert(
             insert_index,
-            ControlPoint(time=self.time, value=self.value))
+            pool.create(ControlPoint, time=insert_time, value=pb.value))
 
 commands.Command.register_command(AddControlPoint)
 
 
 class RemoveControlPoint(commands.Command):
-    point_id = core.Property(str)
+    proto_type = 'remove_control_point'
 
-    def __init__(self, point_id=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.point_id = point_id
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.RemoveControlPoint, pb)
+        track = down_cast(pmodel.ControlTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, ControlTrack)
-
-        root = track.root
-        point = root.get_object(self.point_id)
+        point = down_cast(pmodel.ControlPoint, pool[pb.point_id])
         assert point.is_child_of(track)
 
         del track.points[point.index]
@@ -90,90 +78,83 @@ commands.Command.register_command(RemoveControlPoint)
 
 
 class MoveControlPoint(commands.Command):
-    point_id = core.Property(str)
-    time = core.Property(audioproc.MusicalTime, allow_none=True)
-    value = core.Property(float, allow_none=True)
+    proto_type = 'move_control_point'
 
-    def __init__(self, point_id=None, time=None, value=None, state=None):
-        super().__init__(state=state)
-        if state is None:
-            self.point_id = point_id
-            self.time = time
-            self.value = value
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.MoveControlPoint, pb)
+        track = down_cast(pmodel.ControlTrack, pool[self.proto.command.target])
 
-    def run(self, track):
-        assert isinstance(track, ControlTrack)
-
-        root = track.root
-        point = cast(ControlPoint, root.get_object(self.point_id))
+        point = down_cast(pmodel.ControlPoint, pool[pb.point_id])
         assert point.is_child_of(track)
 
-        if self.time is not None:
+        if pb.HasField('time'):
+            new_time = audioproc.MusicalTime.from_proto(pb.time)
             if not point.is_first:
-                if self.time <= cast(ControlPoint, point.prev_sibling).time:
+                if new_time <= cast(ControlPoint, point.prev_sibling).time:
                     raise ValueError("Control point out of order.")
             else:
-                if self.time < audioproc.MusicalTime(0, 4):
+                if new_time < audioproc.MusicalTime(0, 4):
                     raise ValueError("Control point out of order.")
 
             if not point.is_last:
-                if self.time >= cast(ControlPoint, point.next_sibling).time:
+                if new_time >= cast(ControlPoint, point.next_sibling).time:
                     raise ValueError("Control point out of order.")
 
-            point.time = self.time
+            point.time = new_time
 
-        if self.value is not None:
+        if pb.HasField('value'):
             # TODO: check that value is in valid range.
-            point.value = self.value
+            point.value = pb.value
 
 commands.Command.register_command(MoveControlPoint)
 
 
-class ControlPoint(model.ControlPoint, state.StateBase):
-    def __init__(self, time=None, value=None, state=None, **kwargs):
-        super().__init__(state=state)
+class ControlPoint(pmodel.ControlPoint):
+    def create(
+            self, *,
+            time: Optional[audioproc.MusicalTime] = None, value: float = None,
+            **kwargs: Any) -> None:
+        super().create(**kwargs)
 
-        if state is None:
-            self.time = time
-            self.value = value
-
-state.StateBase.register_class(ControlPoint)
+        self.time = time
+        self.value = value
 
 
 class ControlTrackConnector(base_track.TrackConnector):
-    def __init__(self, *, node_id, **kwargs):
+    _track = None  # type: ControlTrack
+
+    def __init__(self, *, node_id: str, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node_id = node_id
         self.__listeners = {}  # type: Dict[str, core.Listener]
-        self.__point_ids = {}  # type: Dict[str, int]
+        self.__point_ids = {}  # type: Dict[int, int]
 
-    def _init_internal(self):
+    def _init_internal(self) -> None:
         for point in self._track.points:
             self.__add_point(point)
 
         self.__listeners['points'] = self._track.listeners.add(
             'points', self.__points_list_changed)
 
-    def close(self):
+    def close(self) -> None:
         for listener in self.__listeners.values():
             listener.remove()
         self.__listeners.clear()
 
         super().close()
 
-    def __points_list_changed(self, change):
-        if isinstance(change, core.PropertyListInsert):
+    def __points_list_changed(self, change: model.PropertyChange) -> None:
+        if isinstance(change, model.PropertyListInsert):
             self.__add_point(change.new_value)
 
-        elif isinstance(change, core.PropertyListDelete):
+        elif isinstance(change, model.PropertyListDelete):
             self.__remove_point(change.old_value)
 
         else:
-            raise TypeError(
-                "Unsupported change type %s" % type(change))
+            raise TypeError("Unsupported change type %s" % type(change))
 
-    def __add_point(self, point):
+    def __add_point(self, point: pmodel.ControlPoint) -> None:
         point_id = self.__point_ids[point.id] = random.getrandbits(64)
 
         self._emit_message(
@@ -190,7 +171,7 @@ class ControlTrackConnector(base_track.TrackConnector):
         self.__listeners['cp:%s:value' % point.id] = point.listeners.add(
             'value', lambda _: self.__point_changed(point))
 
-    def __remove_point(self, point):
+    def __remove_point(self, point: pmodel.ControlPoint) -> None:
         point_id = self.__point_ids[point.id]
 
         self._emit_message(
@@ -202,7 +183,7 @@ class ControlTrackConnector(base_track.TrackConnector):
         self.__listeners.pop('cp:%s:time' % point.id).remove()
         self.__listeners.pop('cp:%s:value' % point.id).remove()
 
-    def __point_changed(self, point):
+    def __point_changed(self, point: pmodel.ControlPoint) -> None:
         point_id = self.__point_ids[point.id]
 
         self._emit_message(
@@ -219,45 +200,38 @@ class ControlTrackConnector(base_track.TrackConnector):
                     value=point.value)))
 
 
-class ControlTrack(model.ControlTrack, base_track.Track):
-    def __init__(self, state=None, **kwargs):
-        super().__init__(state=state, **kwargs)
-
-    def create_track_connector(self, **kwargs):
+class ControlTrack(pmodel.ControlTrack, base_track.Track):
+    def create_track_connector(self, **kwargs: Any) -> ControlTrackConnector:
         return ControlTrackConnector(
             track=self,
             node_id=self.generator_name,
             **kwargs)
 
     @property
-    def mixer_name(self):
-        return self.parent_mixer_name
+    def mixer_name(self) -> str:
+        return self.parent_audio_sink_name
 
     @property
-    def mixer_node(self):
-        return self.parent_mixer_node
+    def mixer_node(self) -> pmodel.BasePipelineGraphNode:
+        return self.parent_audio_sink_node
+
+    @mixer_node.setter
+    def mixer_node(self, value: pmodel.TrackMixerPipelineGraphNode) -> None:
+        raise RuntimeError
 
     @property
-    def generator_name(self):
-        return '%s-generator' % self.id
+    def generator_name(self) -> str:
+        return '%016x-generator' % self.id
 
-    @property
-    def generator_node(self):
-        if self.generator_id is None:
-            raise ValueError("No generator node found.")
-        return self.root.get_object(self.generator_id)
-
-    def add_pipeline_nodes(self):
-        generator_node = pipeline_graph.CVGeneratorPipelineGraphNode(
+    def add_pipeline_nodes(self) -> None:
+        generator_node = self._pool.create(
+            pipeline_graph.CVGeneratorPipelineGraphNode,
             name="Control Value",
-            graph_pos=self.parent_mixer_node.graph_pos - misc.Pos2F(200, 0),
+            graph_pos=self.parent_audio_sink_node.graph_pos - model.Pos2F(200, 0),
             track=self)
         self.project.add_pipeline_graph_node(generator_node)
-        self.generator_id = generator_node.id
+        self.generator_node = generator_node
 
-    def remove_pipeline_nodes(self):
+    def remove_pipeline_nodes(self) -> None:
         self.project.remove_pipeline_graph_node(self.generator_node)
-        self.generator_id = None
-
-
-state.StateBase.register_class(ControlTrack)
+        self.generator_node = None

@@ -20,33 +20,33 @@
 #
 # @end:license
 
-import textwrap
-import os.path
+# import textwrap
+# import os.path
 
-from noisidev import unittest
-from . import node_description_pb2
-from . import presets
-from .private import builtin_scanner
+# from noisidev import unittest
+# from . import node_description_pb2
+# from . import presets
+# from .private import builtin_scanner
 
-TESTDATA = os.path.join(os.path.dirname(__file__), 'testdata')
+# TESTDATA = os.path.join(os.path.dirname(__file__), 'testdata')
 
 
-class PresetTest(unittest.TestCase):
-    def setup_testcase(self):
-        scanner = builtin_scanner.BuiltinScanner()
-        self.nodes = dict(scanner.scan())
-        self.node_factory = self.nodes.get
+# class PresetTest(unittest.TestCase):
+#     def setup_testcase(self):
+#         scanner = builtin_scanner.BuiltinScanner()
+#         self.nodes = dict(scanner.scan())
+#         self.node_factory = self.nodes.get
 
-    def test_load(self):
-        xml = textwrap.dedent("""\
-            <?xml version="1.0"?>
-            <preset>
-              <display-name>Light Reverb</display-name>
-              <node uri="builtin://custom_csound"/>
-            </preset>
-            """)
+#     def test_load(self):
+#         xml = textwrap.dedent("""\
+#             <?xml version="1.0"?>
+#             <preset>
+#               <display-name>Light Reverb</display-name>
+#               <node uri="builtin://custom_csound"/>
+#             </preset>
+#             """)
 
-        preset = presets.Preset.from_string(xml, self.node_factory)
-        self.assertEqual(preset.display_name, "Light Reverb")
-        self.assertEqual(preset.node_uri, 'builtin://custom_csound')
-        self.assertIsInstance(preset.node_description, node_description_pb2.NodeDescription)
+#         preset = presets.Preset.from_string(xml, self.node_factory)
+#         self.assertEqual(preset.display_name, "Light Reverb")
+#         self.assertEqual(preset.node_uri, 'builtin://custom_csound')
+#         self.assertIsInstance(preset.node_description, node_description_pb2.NodeDescription)

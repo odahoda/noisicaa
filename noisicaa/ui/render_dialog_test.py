@@ -20,16 +20,11 @@
 #
 # @end:license
 
-# from noisidev import unittest
-# from noisicaa.music import project
-# from . import uitest_utils
-# from . import render_dialog
+from noisidev import uitest
+from . import render_dialog
 
 
-# class RenderDialogTest(uitest_utils.UITest):
-#     async def setup_testcase(self):
-#         self.project = project.BaseProject()
-
-#     async def test_init(self):
-#         dialog = render_dialog.RenderDialog(None, self.app, self.project)
-#         self.assertTrue(dialog.close())
+class RenderDialogTest(uitest.ProjectMixin, uitest.UITestCase):
+    async def test_init(self):
+        dialog = render_dialog.RenderDialog(context=self.context)
+        self.assertTrue(dialog.close())

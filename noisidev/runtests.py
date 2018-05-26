@@ -166,36 +166,19 @@ class BuiltinPyTests(unittest.TestCase):
         test_method = getattr(self, self._testMethodName)
         return getattr(test_method, '_unittest_tags', {'unit'})
 
+    def id(self):
+        return '%s.%s' % (self.__modname, self.__method_name)
+
     def __str__(self):
         return '%s (%s)' % (self.__method_name, self.__modname)
-
-    # TODO: Add more stuff to the whitelist. Eventually all messages should be enabled
-    #   (i.e. always running in pedantic mode), but right now there are too many
-    #   false-positives.
-    pylint_whitelist = {
-        'attribute-defined-outside-init',
-        'bad-classmethod-argument',
-        'logging-not-lazy',
-        'trailing-newlines',
-        'trailing-whitespace',
-        'unused-import',
-        'useless-super-delegation',
-    }
 
     def test_pylint(self):
         src_path = os.path.join(SRCDIR, os.path.join(*self.__modname.split('.')) + '.py')
         src = open(src_path, 'r').read()
 
-        is_unclean = False
-        unclean_lineno = -1
         for lineno, line in enumerate(src.splitlines(), 1):
             if re.match(r'^#\s*pylint:\s*skip-file\s*$', line):
                 self.skipTest('pylint disabled for this file')
-            if re.match(r'^#\s*TODO:\s*pylint-unclean\s*$', line):
-                is_unclean = True
-                unclean_lineno = lineno
-
-        be_pedantic = self.__pedantic or not is_unclean
 
         args = [
             '--rcfile=%s' % os.path.join(ROOTDIR, 'bin', 'pylintrc'),
@@ -206,21 +189,6 @@ class BuiltinPyTests(unittest.TestCase):
         PylintRunner(args, reporter=reporter, exit=False)
 
         messages = list(reporter.messages)
-
-        if is_unclean and len(messages) < 3:
-            self.__pylint_collector.extend(messages)
-            msg = "\nFile \"%s\", line %d, is marked as pylint-unclean" % (src_path, unclean_lineno)
-            if not messages:
-                msg += ", but no issues were reported."
-            elif len(messages) == 1:
-                msg += ", but only one issue was reported."
-            else:
-                msg += ", but only %d issues were reported." % len(messages)
-            self.fail(msg)
-
-        if not be_pedantic:
-            messages = [msg for msg in messages if msg.symbol in self.pylint_whitelist]
-
         if messages:
             self.__pylint_collector.extend(messages)
             self.fail("pylint reported issues.")
@@ -380,6 +348,8 @@ def main(argv):
     parser.add_argument('--rebuild', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--pedantic', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--keep-temp', nargs='?', type=bool_arg, const=True, default=False)
+    parser.add_argument('--only-failed', nargs='?', type=bool_arg, const=True, default=False)
+    parser.add_argument('--fail-fast', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--playback-backend', type=str, default='null')
     parser.add_argument('--tags', default='unit,lint')
     parser.add_argument('--display', choices=['off', 'local', 'xvfb'], default='xvfb')
@@ -484,6 +454,24 @@ def main(argv):
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
 
+    def matches_selector(modname):
+        if not args.selectors:
+            return True
+
+        mparts = modname.split('.')
+        for selector in args.selectors:
+            sparts = selector.split('.')
+            if len(sparts) > len(mparts):
+                continue
+            matched = True
+            for mpart, spart in zip(mparts[:len(sparts)], sparts):
+                if not fnmatch.fnmatch(mpart, spart):
+                    matched = False
+            if matched:
+                return True
+
+        return False
+
     for dirpath, dirnames, filenames in os.walk(os.path.join(LIBDIR, 'noisicaa')):
         for ignore_dir in ('__pycache__', 'testdata'):
             if ignore_dir in dirnames:
@@ -506,42 +494,22 @@ def main(argv):
                 logging.info("Loading module %s...", modname)
                 __import__(modname)
 
-            is_test = modname.endswith('test')
-            is_unittest = modname.endswith('_test')
-            if is_test:
-                if args.selectors:
-                    matched = False
-                    for selector in args.selectors:
-                        if modname == selector:
-                            matched = is_test
-                        elif modname.startswith(selector):
-                            matched = is_unittest
-                else:
-                    matched = is_unittest
+            if modname.endswith('_test') and matches_selector(modname):
+                modsuite = loader.loadTestsFromName(modname)
+                suite.addTest(modsuite)
 
-                if matched:
-                    modsuite = loader.loadTestsFromName(modname)
-                    suite.addTest(modsuite)
-
-            if (fnmatch.fnmatch(filename, '*.py') and not fnmatch.fnmatch(filename, '*_pb2.py')):
-                if args.selectors:
-                    matched = False
-                    for selector in args.selectors:
-                        if modname.startswith(selector):
-                            matched = True
-                else:
-                    matched = True
-
-                if matched:
-                    test_cls = BuiltinPyTests
-                    for method_name in loader.getTestCaseNames(test_cls):
-                        suite.addTest(test_cls(
-                            modname=modname,
-                            method_name=method_name,
-                            pedantic=args.pedantic,
-                            pylint_collector=pylint_collector,
-                            mypy_collector=mypy_collector,
-                        ))
+            if (fnmatch.fnmatch(filename, '*.py')
+                    and not fnmatch.fnmatch(filename, '*_pb2.py')
+                    and matches_selector(modname)):
+                test_cls = BuiltinPyTests
+                for method_name in loader.getTestCaseNames(test_cls):
+                    suite.addTest(test_cls(
+                        modname=modname,
+                        method_name=method_name,
+                        pedantic=args.pedantic,
+                        pylint_collector=pylint_collector,
+                        mypy_collector=mypy_collector,
+                    ))
 
     def flatten_suite(suite):
         for child in suite:
@@ -556,14 +524,36 @@ def main(argv):
         assert tag in {'all', 'unit', 'lint', 'pylint', 'mypy', 'integration', 'perf'}
         tags_to_run.add(tag)
 
+    tests_to_run = None
+    if args.only_failed:
+        tests_to_run = set()
+        with open('/tmp/noisicaa-failed-tests.txt', 'r', encoding='utf-8') as fp:
+            for test_id in fp:
+                tests_to_run.add(test_id.strip())
+
     flat_suite = unittest.TestSuite()
     for case in flatten_suite(suite):
+        runit = False
         if not hasattr(case, 'tags') or 'all' in tags_to_run or case.tags & tags_to_run:
+            runit = True
+
+        if tests_to_run is not None and case.id() not in tests_to_run:
+            runit = False
+
+        if runit:
             flat_suite.addTest(case)
 
-    runner = unittest.TextTestRunner(verbosity=2)
+    runner = unittest.TextTestRunner(verbosity=2, failfast=args.fail_fast)
     with DisplayManager(args.display):
-        result = runner.run(flat_suite)
+        try:
+            unittest.installHandler()
+            result = runner.run(flat_suite)
+        finally:
+            unittest.removeHandler()
+
+    with open('/tmp/noisicaa-failed-tests.txt', 'w', encoding='utf-8') as fp:
+        for case, _ in result.errors + result.failures:
+            fp.write(case.id() + '\n')
 
     pylint_collector.print_report()
     mypy_collector.print_report()
