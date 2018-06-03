@@ -148,7 +148,7 @@ class QTextEdit(QtWidgets.QTextEdit):
         self.__initial_text = None
 
 
-class StatMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
+class StatMonitor(ui_base.AbstractStatMonitor):
     visibilityChanged = QtCore.pyqtSignal(bool)
 
     def __init__(self, **kwargs):

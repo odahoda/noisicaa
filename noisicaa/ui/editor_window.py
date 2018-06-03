@@ -43,7 +43,7 @@ from . import project_registry
 logger = logging.getLogger(__name__)
 
 
-class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
+class EditorWindow(ui_base.AbstractEditorWindow):
     # Could not figure out how to define a signal that takes either an instance
     # of a specific class or None.
     currentProjectChanged = QtCore.pyqtSignal(object)
@@ -214,7 +214,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
 
         self._aboutqt_action = QtWidgets.QAction("About Qt", self)
         self._aboutqt_action.setStatusTip("Show the Qt library's About box")
-        self._aboutqt_action.triggered.connect(self.app.aboutQt)
+        self._aboutqt_action.triggered.connect(self.qt_app.aboutQt)
 
         self._open_settings_action = QtWidgets.QAction("Settings", self)
         self._open_settings_action.setStatusTip("Open the settings dialog.")

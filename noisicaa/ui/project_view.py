@@ -1128,7 +1128,7 @@ class Frame(QtWidgets.QFrame):
         self.__layout.addWidget(widget, 1)
 
 
-class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
+class ProjectView(ui_base.AbstractProjectView, QtWidgets.QMainWindow):
     currentToolBoxChanged = QtCore.pyqtSignal(tools.ToolBox)
     playingChanged = QtCore.pyqtSignal(bool)
     loopEnabledChanged = QtCore.pyqtSignal(bool)
@@ -1360,7 +1360,7 @@ class ProjectView(ui_base.ProjectMixin, QtWidgets.QMainWindow):
             self.__player_state.updateFromProto(player_state)
 
         if pipeline_state is not None:
-            self.window.pipeline_status.setText(pipeline_state)
+            self.editor_window.pipeline_status.setText(pipeline_state)
             logger.info("pipeline state: %s", pipeline_state)
 
         if pipeline_disabled:

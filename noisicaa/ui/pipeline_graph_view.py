@@ -231,7 +231,7 @@ class PluginUI(ui_base.ProjectMixin, QtWidgets.QScrollArea):
     async def __cleanupAsync(self) -> None:
         async with self.__lock:
             if self.__wid is not None:
-                await self.project_view.deletePluginUI(self.__node.id)
+                await self.project_view.deletePluginUI('%016x' % self.__node.id)
                 self.__wid = None
 
     def showEvent(self, evt: QtGui.QShowEvent) -> None:
@@ -750,7 +750,7 @@ class NodeItem(ui_base.ProjectMixin, QtWidgets.QGraphicsRectItem):
 
         self._properties_dialog = NodePropertyDialog(
             node_item=self,
-            parent=self.window,
+            parent=self.editor_window,
             context=self.context)
 
     @property
@@ -1290,7 +1290,7 @@ class PipelineGraphView(ui_base.ProjectMixin, QtWidgets.QWidget):
 
         self._graph_view = PipelineGraphGraphicsView(context=self.context)
 
-        self._node_list_dock = NodeListDock(parent=self.window, context=self.context)
+        self._node_list_dock = NodeListDock(parent=self.editor_window, context=self.context)
         self._node_list_dock.hide()
 
         layout = QtWidgets.QHBoxLayout()

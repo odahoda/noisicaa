@@ -34,7 +34,7 @@ from noisicaa.core import perf_stats_capnp  # type: ignore  # pylint: disable=no
 from . import ui_base
 
 
-class PipelinePerfMonitor(ui_base.CommonMixin, QtWidgets.QMainWindow):
+class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
     visibilityChanged = QtCore.pyqtSignal(bool)
 
     def __init__(self, **kwargs: Any) -> None:

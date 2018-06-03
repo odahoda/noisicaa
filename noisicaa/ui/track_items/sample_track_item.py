@@ -448,7 +448,7 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
 
     def onAddSample(self, time: audioproc.MusicalTime) -> None:
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            parent=self.window,
+            parent=self.editor_window,
             caption="Add Sample to track \"%s\"" % self.track.name,
             #directory=self.ui_state.get(
             #'instruments_add_dialog_path', ''),

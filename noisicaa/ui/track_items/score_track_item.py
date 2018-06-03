@@ -77,11 +77,11 @@ class ScoreToolBase(base_track_item.MeasuredToolBase):
 
         idx, _, _ = target.getEditArea(evt.pos().x())
         if idx < 0:
-            self.window.setInfoMessage('')
+            self.editor_window.setInfoMessage('')
         else:
             pitch = model.Pitch.name_from_stave_line(
                 stave_line, target.measure.key_signature)
-            self.window.setInfoMessage(pitch)
+            self.editor_window.setInfoMessage(pitch)
 
         super().mouseMoveEvent(target, evt)
 

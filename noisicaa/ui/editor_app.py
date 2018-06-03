@@ -85,7 +85,7 @@ class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
         self.__app.onPipelineStatus(status)
 
 
-class BaseEditorApp(object):
+class BaseEditorApp(ui_base.AbstractEditorApp):  # pylint: disable=abstract-method
     def __init__(
             self, *,
             process: core.ProcessBase,
