@@ -71,7 +71,9 @@ class Engine(object):
             self, *,
             host_system, event_loop, manager, server_address,
             shm=None, profile_path=None):
-        self.listeners = core.CallbackRegistry()
+        self.player_state_changed = core.Callback()
+        self.node_state_changed = core.Callback()
+        self.perf_data = core.Callback()
 
         self.__host_system = host_system
         self.__event_loop = event_loop
@@ -98,7 +100,7 @@ class Engine(object):
         self.__bpm = 120
         self.__duration = musical_time.PyMusicalDuration(2, 1)
 
-        self.notification_listener = core.CallbackRegistry()
+        self.__notification_listeners = core.CallbackMap()
 
     def dump(self):
         # TODO: reimplement
@@ -161,6 +163,9 @@ class Engine(object):
             listener.remove()
         self.__realm_listeners.clear()
 
+    def add_notification_listener(self, node_id, func):
+        return self.__notification_listeners.add(node_id, func)
+
     async def get_plugin_host(self):
         if self.__plugin_host is None:
             address = await self.__manager.call('CREATE_PLUGIN_HOST_PROCESS')
@@ -199,10 +204,8 @@ class Engine(object):
 
         if enable_player:
             logger.info("Enabling player...")
-            player = PyPlayer(self.__host_system)
-            player.listeners.add(
-                'player_state',
-                functools.partial(self.listeners.call, 'player_state', name))
+            player = PyPlayer(self.__host_system, name)
+            player.player_state_changed.add(self.player_state_changed.call)
 
         else:
             logger.info("Player disabled.")
@@ -216,9 +219,8 @@ class Engine(object):
             player=player,
             callback_address=callback_address)
         self.__realms[name] = realm
-        self.__realm_listeners['%s:node_state_changed' % name] = realm.listeners.add(
-            'node_state_changed',
-            functools.partial(self.listeners.call, 'node_state', name))
+        self.__realm_listeners['%s:node_state_changed' % name] = realm.node_state_changed.add(
+            functools.partial(self.node_state_changed.call, name))
         if parent is None:
             self.__root_realm = realm
         else:
@@ -408,7 +410,7 @@ class Engine(object):
             ctxt = self.__root_realm.block_context
 
             if len(ctxt.perf) > 0:
-                self.listeners.call('perf_data', ctxt.perf.serialize())
+                self.perf_data.call(ctxt.perf.serialize())
             ctxt.perf.reset()
 
             program = self.__root_realm.get_active_program()
@@ -433,7 +435,7 @@ class Engine(object):
             while not out_messages.is_end(msg):
                 if msg.type == message_queue.MessageType.SOUND_FILE_COMPLETE:
                     node_id = bytes((<message_queue.SoundFileCompleteMessage*>msg).node_id).decode('utf-8')
-                    self.notification_listener.call(node_id, msg.type)
+                    self.__notification_listeners.call(node_id, msg.type)
 
                 elif msg.type == message_queue.MessageType.PORT_RMS:
                     node_id = bytes(

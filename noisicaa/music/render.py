@@ -411,12 +411,14 @@ class Renderer(object):
 
     async def __wait_for_some(self, *futures: Awaitable) -> None:
         """Wait until at least one of the futures completed and cancel all uncompleted."""
-        _, pending = await asyncio.wait(
+        done, pending = await asyncio.wait(
             futures,
             loop=self.__event_loop,
             return_when=asyncio.FIRST_COMPLETED)
         for f in pending:
             f.cancel()
+        for f in done:
+            f.result()
 
     async def __setup_callback_stub(self) -> None:
         self.__callback = ipc.Stub(self.__event_loop, self.__callback_address)
@@ -542,7 +544,7 @@ class Renderer(object):
             event_loop=self.__event_loop,
             audioproc_client=self.__audioproc_client,
             realm='root')
-        self.__player.listeners.add('player_state', self.__handle_player_state)
+        self.__player.player_state_changed.add(self.__handle_player_state)
         await self.__player.setup()
 
     async def run(self) -> None:

@@ -134,8 +134,8 @@ class ControlTrackConnector(base_track.TrackConnector):
         for point in self._track.points:
             self.__add_point(point)
 
-        self.__listeners['points'] = self._track.listeners.add(
-            'points', self.__points_list_changed)
+        self.__listeners['points'] = self._track.points_changed.add(
+            self.__points_list_changed)
 
     def close(self) -> None:
         for listener in self.__listeners.values():
@@ -165,11 +165,11 @@ class ControlTrackConnector(base_track.TrackConnector):
                     time=point.time.to_proto(),
                     value=point.value)))
 
-        self.__listeners['cp:%s:time' % point.id] = point.listeners.add(
-            'time', lambda _: self.__point_changed(point))
+        self.__listeners['cp:%s:time' % point.id] = point.time_changed.add(
+            lambda _: self.__point_changed(point))
 
-        self.__listeners['cp:%s:value' % point.id] = point.listeners.add(
-            'value', lambda _: self.__point_changed(point))
+        self.__listeners['cp:%s:value' % point.id] = point.value_changed.add(
+            lambda _: self.__point_changed(point))
 
     def __remove_point(self, point: pmodel.ControlPoint) -> None:
         point_id = self.__point_ids[point.id]

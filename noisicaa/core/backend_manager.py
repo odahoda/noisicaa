@@ -59,7 +59,7 @@ class BackendManager(object):
 
         self.__state = BackendState.Stopped
         self.__state_changed = asyncio.Event(loop=self.__event_loop)
-        self.__listeners = callbacks.CallbackRegistry()
+        self.__state_listeners = callbacks.Callback[BackendState]()
         self.__start_backend_result = None  # type: asyncio.Future
         self.__stop_lock = asyncio.Lock(loop=self.__event_loop)
         self.__stop_backend_result = None  # type: asyncio.Future
@@ -69,7 +69,7 @@ class BackendManager(object):
         return self.__state == BackendState.Running
 
     def add_state_listener(self, callback: Callable[[BackendState], None]) -> callbacks.Listener:
-        return self.__listeners.add('state-changed', callback)
+        return self.__state_listeners.add(callback)
 
     async def wait_until_running(self, *, timeout: Optional[float] = None) -> None:
         assert self.__start_backend_result is not None
@@ -126,7 +126,7 @@ class BackendManager(object):
         assert new_state != self.__state
         self.__state = new_state
         self.__state_changed.set()
-        self.__listeners.call('state-changed', new_state)
+        self.__state_listeners.call(new_state)
 
     async def __start_backend(self) -> None:
         try:

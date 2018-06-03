@@ -26,4 +26,7 @@ add_python_package(
   process_base.py
   process.py
 )
+
+py_proto(instrument_db.proto)
+
 add_subdirectory(private)

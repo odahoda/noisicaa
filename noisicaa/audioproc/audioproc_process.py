@@ -75,14 +75,14 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
         self.async_callback('PIPELINE_MUTATION', mutation)
 
-    def publish_player_state(self, realm: str, state: player_state_pb2.PlayerState) -> None:
-        if realm not in self.owned_realms:
+    def publish_player_state(self, state: player_state_pb2.PlayerState) -> None:
+        if state.realm not in self.owned_realms:
             return
 
         if not self.callback_alive:
             return
 
-        self.async_callback('PLAYER_STATE', realm, state)
+        self.async_callback('PLAYER_STATE', state)
 
     def publish_status(self, status: Dict[str, Any]) -> None:
         if not self.callback_alive:
@@ -161,10 +161,9 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             host_system=self.__host_system,
             shm=self.shm,
             profile_path=self.profile_path)
-        # pylint is confused by cython.
-        self.__engine.listeners.add('perf_data', self.perf_data_callback)  # pylint: disable=no-member
-        self.__engine.listeners.add('node_state', self.node_state_callback)  # pylint: disable=no-member
-        self.__engine.listeners.add('player_state', self.player_state_callback)  # pylint: disable=no-member
+        self.__engine.perf_data.add(self.perf_data_callback)
+        self.__engine.node_state_changed.add(self.node_state_callback)
+        self.__engine.player_state_changed.add(self.player_state_callback)
 
         await self.__engine.setup()
 
@@ -200,9 +199,9 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         for session in self.sessions:
             cast(Session, session).publish_status(kwargs)
 
-    def publish_player_state(self, realm: str, state: player_state_pb2.PlayerState) -> None:
+    def publish_player_state(self, state: player_state_pb2.PlayerState) -> None:
         for session in self.sessions:
-            cast(Session, session).publish_player_state(realm, state)
+            cast(Session, session).publish_player_state(state)
 
     async def __handle_create_realm(
             self, session_id: str, name: str, parent: str, enable_player: bool,
@@ -306,9 +305,9 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         self.__engine.send_message(msg)
 
     def handle_update_player_state(
-            self, session_id: str, realm_name: str, state: player_state_pb2.PlayerState) -> None:
+            self, session_id: str, state: player_state_pb2.PlayerState) -> None:
         self.get_session(session_id)
-        realm = self.__engine.get_realm(realm_name)
+        realm = self.__engine.get_realm(state.realm)
         realm.player.update_state(state)
 
     def handle_update_project_properties(
@@ -328,9 +327,9 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             functools.partial(
                 self.publish_status, node_state=(realm, node_id, state)))
 
-    def player_state_callback(self, realm: str, state: Dict[str, Any]) -> None:
+    def player_state_callback(self, state: player_state_pb2.PlayerState) -> None:
         self.event_loop.call_soon_threadsafe(
-            functools.partial(self.publish_player_state, realm, state))
+            functools.partial(self.publish_player_state, state))
 
     async def handle_play_file(self, session_id: str, path: str) -> str:
         self.get_session(session_id)
@@ -353,8 +352,7 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         sink.inputs['in:right'].connect(node.outputs['out:right'])
         realm.update_spec()
 
-        # pylint is confused by cython.
-        self.__engine.notification_listener.add(  # pylint: disable=no-member
+        self.__engine.add_notification_listener(
             node.id,
             functools.partial(self.play_file_done, node_id=node.id))
 

@@ -117,7 +117,7 @@ class Root(model_base.ObjectBase):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.listeners = core.CallbackRegistry()
+        self.change = core.Callback[model_base.PropertyChange]()
 
     def create(self, *, string_value=None, **kwargs: Any) -> None:
         super().create(**kwargs)
@@ -165,15 +165,20 @@ class Root(model_base.ObjectBase):
         return self.get_property_value('child_list')
 
     def property_changed(self, change):
-        self.listeners.call(change.prop_name, change)
+        self.change.call(change)
 
 
 class PropertyChangeCollector(object):
     def __init__(self, obj, prop_name):
-        obj.listeners.add(prop_name, self.on_change)
+        self.prop_name = prop_name
         self.changes = []  # type: List[Tuple[Any]]
 
+        obj.change.add(self.on_change)
+
     def on_change(self, change):
+        if change.prop_name != self.prop_name:
+            return
+
         if isinstance(change, model_base.PropertyValueChange):
             if isinstance(change.old_value, model_base.ObjectBase):
                 old_value = change.old_value.id
@@ -201,22 +206,32 @@ class PropertyChangeCollector(object):
 
 
 class PropertyChangeTest(unittest.TestCase):
+    def setup_testcase(self):
+        self.pool = Pool()
+        self.obj = Root(pb=model_base_pb2.ObjectBase(), pool=self.pool)
+        self.obj.create()
+        self.obj.setup()
+        self.obj.setup_complete()
+
     def test_property_value_change(self):
-        change = model_base.PropertyValueChange('field', 'old', 'new')
+        change = model_base.PropertyValueChange(self.obj, 'field', 'old', 'new')
+        self.assertIs(change.obj, self.obj)
         self.assertEqual(change.prop_name, 'field')
         self.assertEqual(change.old_value, 'old')
         self.assertEqual(change.new_value, 'new')
         self.assertEqual(str(change), "<PropertyValueChange new='new' old='old'>")
 
     def test_property_list_insert(self):
-        change = model_base.PropertyListInsert('field', 12, 'new')
+        change = model_base.PropertyListInsert(self.obj, 'field', 12, 'new')
+        self.assertIs(change.obj, self.obj)
         self.assertEqual(change.prop_name, 'field')
         self.assertEqual(change.index, 12)
         self.assertEqual(change.new_value, 'new')
         self.assertEqual(str(change), "<PropertyListInsert index=12 new='new'>")
 
     def test_property_list_delete(self):
-        change = model_base.PropertyListDelete('field', 12, 'old')
+        change = model_base.PropertyListDelete(self.obj, 'field', 12, 'old')
+        self.assertIs(change.obj, self.obj)
         self.assertEqual(change.prop_name, 'field')
         self.assertEqual(change.index, 12)
         self.assertEqual(change.old_value, 'old')

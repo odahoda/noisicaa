@@ -571,20 +571,19 @@ class ScoreMeasureEditorItem(base_track_item.MeasureEditorItem):
     }
 
     def addMeasureListeners(self) -> None:
-        self.measure_listeners.append(self.measure.listeners.add(
-            'notes-changed',
-            lambda *args: self.invalidatePaintCache(self.FOREGROUND)))
-        self.measure_listeners.append(self.measure.listeners.add(
-            'clef', self.onClefChanged))
-        self.measure_listeners.append(self.measure.listeners.add(
-            'key_signature', self.onKeySignatureChanged))
+        self.measure_listeners.append(self.measure.content_changed.add(
+            lambda _=None: self.invalidatePaintCache(self.FOREGROUND)))  # type: ignore
+        self.measure_listeners.append(self.measure.clef_changed.add(
+            self.onClefChanged))
+        self.measure_listeners.append(self.measure.key_signature_changed.add(
+            self.onKeySignatureChanged))
 
-    def onClefChanged(self, old_value: model.Clef, new_value: model.Clef) -> None:
+    def onClefChanged(self, change: model.PropertyValueChange[model.Clef]) -> None:
         self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
         self.next_sibling.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
 
     def onKeySignatureChanged(
-            self, old_value: model.KeySignature, new_value: model.KeySignature) -> None:
+            self, change: model.PropertyValueChange[model.KeySignature]) -> None:
         self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
         self.next_sibling.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
 

@@ -182,8 +182,8 @@ class SampleTrackConnector(base_track.TrackConnector):
         for sample_ref in self._track.samples:
             self.__add_sample(sample_ref)
 
-        self.__listeners['samples'] = self._track.listeners.add(
-            'samples', self.__samples_list_changed)
+        self.__listeners['samples'] = self._track.samples_changed.add(
+            self.__samples_list_changed)
 
     def close(self) -> None:
         for listener in self.__listeners.values():
@@ -213,11 +213,11 @@ class SampleTrackConnector(base_track.TrackConnector):
                     time=sample_ref.time.to_proto(),
                     sample_path=sample_ref.sample.path)))
 
-        self.__listeners['cp:%s:time' % sample_ref.id] = sample_ref.listeners.add(
-            'time', lambda _: self.__sample_changed(sample_ref))
+        self.__listeners['cp:%s:time' % sample_ref.id] = sample_ref.time_changed.add(
+            lambda _: self.__sample_changed(sample_ref))
 
-        self.__listeners['cp:%s:sample' % sample_ref.id] = sample_ref.listeners.add(
-            'sample', lambda _: self.__sample_changed(sample_ref))
+        self.__listeners['cp:%s:sample' % sample_ref.id] = sample_ref.sample_changed.add(
+            lambda _: self.__sample_changed(sample_ref))
 
     def __remove_sample(self, sample_ref: pmodel.SampleRef) -> None:
         sample_id = self.__sample_ids[sample_ref.id]

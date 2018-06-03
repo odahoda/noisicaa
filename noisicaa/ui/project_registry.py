@@ -34,15 +34,6 @@ from noisicaa import node_db as node_db_lib
 logger = logging.getLogger(__name__)
 
 
-class ProjectClient(music.ProjectClient):
-    def handle_project_mutations(self, mutations: music.MutationList) -> None:
-        self.listeners.call('project_mutations_begin')
-        try:
-            super().handle_project_mutations(mutations)
-        finally:
-            self.listeners.call('project_mutations_end')
-
-
 class Project(object):
     def __init__(
             self, path: str, event_loop: asyncio.AbstractEventLoop,
@@ -54,7 +45,7 @@ class Project(object):
         self.node_db = node_db
 
         self.process_address = None  # type: str
-        self.client = None  # type: ProjectClient
+        self.client = None  # type: music.ProjectClient
 
     @property
     def name(self) -> str:
@@ -63,7 +54,7 @@ class Project(object):
     async def create_process(self) -> None:
         self.process_address = await self.process_manager.call(
             'CREATE_PROJECT_PROCESS', self.path)
-        self.client = ProjectClient(
+        self.client = music.ProjectClient(
             event_loop=self.event_loop,
             tmp_dir=self.tmp_dir,
             node_db=self.node_db)

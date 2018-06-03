@@ -35,11 +35,10 @@ cdef class PyTimeMapper(object):
 
         if project is not None:
             self.bpm = project.bpm
-            self.__listeners['bpm'] = project.listeners.add('bpm', self.__on_bpm_changed)
+            self.__listeners['bpm'] = project.bpm_changed.add(self.__on_bpm_changed)
 
             self.duration = project.duration
-            self.__listeners['duration'] = project.listeners.add(
-                'duration', self.__on_duration_changed)
+            self.__listeners['duration'] = project.duration_changed.add(self.__on_duration_changed)
 
     def cleanup(self):
         for listener in self.__listeners.values():
@@ -54,11 +53,11 @@ cdef class PyTimeMapper(object):
     cdef TimeMapper* release(self):
         return self.__ptr.release()
 
-    def __on_bpm_changed(self, old_value, new_value):
-        self.bpm = new_value
+    def __on_bpm_changed(self, change):
+        self.bpm = change.new_value
 
-    def __on_duration_changed(self, old_value, new_value):
-        self.duration = new_value
+    def __on_duration_changed(self, change):
+        self.duration = change.new_value
 
     @property
     def bpm(self):
@@ -74,6 +73,7 @@ cdef class PyTimeMapper(object):
 
     @duration.setter
     def duration(self, PyMusicalDuration value):
+        assert value is not None
         self.__tmap.set_duration(value.get())
 
     @property

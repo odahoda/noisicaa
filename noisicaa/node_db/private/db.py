@@ -23,7 +23,6 @@
 import logging
 from typing import Iterator, Dict  # pylint: disable=unused-import
 
-from noisicaa import core
 from noisicaa import node_db
 
 from . import csound_scanner
@@ -38,7 +37,6 @@ logger = logging.getLogger(__name__)
 class NodeDB(object):
     def __init__(self) -> None:
         self.__nodes = {}  # type: Dict[str, node_db.NodeDescription]
-        self.listeners = core.CallbackRegistry()
 
     def __getitem__(self, uri: str) -> node_db.NodeDescription:
         return self.get_node_description(uri)

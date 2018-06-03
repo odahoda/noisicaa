@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 class MockAudioProcClient(audioproc.AudioProcClientBase):  # pylint: disable=abstract-method
     def __init__(self):
         super().__init__(None, None)
-        self.listeners = core.CallbackRegistry()
+        self.player_state_changed = core.Callback()
+        self.pipeline_status = core.Callback()
 
     async def setup(self):
         pass

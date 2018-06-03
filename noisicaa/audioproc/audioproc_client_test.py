@@ -166,7 +166,7 @@ class AudioProcClientTest(
                     realm, node_id, node_state = status['node_state']
                     if realm == 'root' and node_id == 'test' and node_state == 'BROKEN':
                         is_broken.set()
-            client.listeners.add('pipeline_status', pipeline_status)
+            client.pipeline_status.add(pipeline_status)
 
             await client.set_backend('null')
 

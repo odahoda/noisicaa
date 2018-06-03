@@ -34,6 +34,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core  # pylint: disable=unused-import
 from noisicaa import music
+from noisicaa import model
 from noisicaa.ui import tools
 from noisicaa.ui import ui_base
 from noisicaa.ui import selection_set
@@ -339,8 +340,8 @@ class MeasureEditorItem(selection_set.Selectable, BaseMeasureEditorItem):
         self.__measure_reference = measure_reference
 
         self.__measure = self.__measure_reference.measure
-        self.__measure_listener = self.__measure_reference.listeners.add(
-            'measure', self.__measureChanged)
+        self.__measure_listener = self.__measure_reference.measure_changed.add(
+            self.__measureChanged)
 
         self.__selected = False
         self.__hovered = False
@@ -388,7 +389,7 @@ class MeasureEditorItem(selection_set.Selectable, BaseMeasureEditorItem):
     def addMeasureListeners(self) -> None:
         raise NotImplementedError
 
-    def __measureChanged(self, old_value: music.Measure, new_value: music.Measure) -> None:
+    def __measureChanged(self, change: model.PropertyValueChange[music.Measure]) -> None:
         for listener in self.measure_listeners:
             listener.remove()
         self.measure_listeners.clear()
@@ -774,8 +775,7 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
         appendix_item.rectChanged.connect(self.rectChanged)
         self.__measure_items.append(appendix_item)
 
-        self.__listeners.append(self.track.listeners.add(
-            'measure_list', self.onMeasureListChanged))
+        self.__listeners.append(self.track.measure_list_changed.add(self.onMeasureListChanged))
 
         self.updateMeasures()
 
@@ -798,17 +798,16 @@ class MeasuredTrackEditorItem(BaseTrackEditorItem):
     def measure_items(self) -> List[BaseMeasureEditorItem]:
         return self.__measure_items
 
-    def onMeasureListChanged(self, action: str, *args: Any) -> None:
-        if action == 'insert':
-            idx, mref = args
-            self.addMeasure(idx, mref)
+    def onMeasureListChanged(
+            self, change: model.PropertyListChange[music.MeasureReference]) -> None:
+        if isinstance(change, model.PropertyListInsert):
+            self.addMeasure(change.index, change.new_value)
 
-        elif action == 'delete':
-            idx, mref = args
-            self.removeMeasure(idx)
+        elif isinstance(change, model.PropertyListDelete):
+            self.removeMeasure(change.index)
 
         else:
-            raise ValueError("Unknown action %r" % action)
+            raise TypeError(type(change))
 
     def addMeasure(self, idx: int, mref: music.MeasureReference) -> None:
         measure_item = self.measure_item_cls(  # pylint: disable=not-callable

@@ -217,6 +217,7 @@ class PianoWidget(QtWidgets.QWidget):
         super().__init__(parent)
 
         self.__midi_hub = midi_hub
+        self.__current_device_id = None
 
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -276,14 +277,17 @@ class PianoWidget(QtWidgets.QWidget):
         return True
 
     def onKeyboardDeviceChanged(self, index: int) -> None:
+        device_id = self.keyboard_selector.itemData(index)
+        if device_id == self.__current_device_id:
+            return
+
         if self._keyboard_listener is not None:
-            self._keyboard_listener.remove()
+            self.__midi_hub.remove_event_handler(self.__current_device_id, self._keyboard_listener)
             self._keyboard_listener = None
 
-        device_id = self.keyboard_selector.itemData(index)
         if device_id is not None:
-            self._keyboard_listener = self.__midi_hub.listeners.add(
-                device_id, self.midiEvent)
+            self._keyboard_listener = self.__midi_hub.add_event_handler(device_id, self.midiEvent)
+            self.__current_device_id = device_id
 
     def focusInEvent(self, event: QtGui.QFocusEvent) -> None:
         event.accept()

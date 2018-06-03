@@ -34,18 +34,9 @@ from noisicaa import model
 class ObjectBase(model.ObjectBase):
     _pool = None  # type: Pool
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.listeners = core.CallbackRegistry()
-
     def property_changed(self, change: model.PropertyChange) -> None:
-        self.listeners.call(change.prop_name, change)
-        cast(Pool, self._pool).listeners.call('model_changes', self, change)
-
-    def reset_state(self) -> None:
-        self.listeners.clear()
-        super().reset_state()
+        super().property_changed(change)
+        self._pool.model_changed.call(change)
 
 
 class ProjectChild(model.ProjectChild, ObjectBase):
@@ -745,10 +736,10 @@ class Pool(model.Pool[ObjectBase]):
     def __init__(self) -> None:
         super().__init__()
 
-        self.listeners = core.CallbackRegistry()
+        self.model_changed = core.Callback[model.Mutation]()
 
     def object_added(self, obj: model.ObjectBase) -> None:
-        self.listeners.call('model_changes', obj, model.ObjectAdded(obj))
+        self.model_changed.call(model.ObjectAdded(obj))
 
     def object_removed(self, obj: model.ObjectBase) -> None:
-        self.listeners.call('model_changes', obj, model.ObjectRemoved(obj))
+        self.model_changed.call(model.ObjectRemoved(obj))

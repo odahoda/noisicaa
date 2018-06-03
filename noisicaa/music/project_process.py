@@ -68,7 +68,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
         return self._players[player_id][1]
 
     def add_player(self, player: player_lib.Player) -> None:
-        listener = player.listeners.add('pipeline_status', self.handle_pipeline_status)
+        listener = player.pipeline_status.add(self.handle_pipeline_status)
         self._players[player.id] = (listener, player)
 
     def remove_player(self, player: player_lib.Player) -> None:
@@ -245,6 +245,7 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
         project.add_track(
             project.master_group, 0,
             self.__pool.create(score_track.ScoreTrack, name="Track 1"))
+        logger.info("...")
         return project
 
     async def __close_project(self) -> None:
@@ -261,8 +262,9 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
             for task in done:
                 task.result()
 
-        self.__mutation_collector.stop()
-        self.__mutation_collector = None
+        if self.__mutation_collector is not None:
+            self.__mutation_collector.stop()
+            self.__mutation_collector = None
 
         self.project.close()
 

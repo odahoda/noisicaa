@@ -30,3 +30,6 @@ from .mutations import (
     RemoveInstrumentDescription,
 )
 from .process_base import InstrumentDBProcessBase
+from .instrument_db_pb2 import (
+    ScanState,
+)

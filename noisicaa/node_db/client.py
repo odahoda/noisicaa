@@ -37,7 +37,7 @@ class NodeDBClient(object):
         self.event_loop = event_loop
         self.server = server
 
-        self.listeners = core.CallbackRegistry()
+        self.mutation_handlers = core.Callback[mutations.Mutation]()
 
         self.__stub = None  # type: ipc.Stub
         self.__session_id = None  # type: str
@@ -92,4 +92,4 @@ class NodeDBClient(object):
         else:
             raise ValueError(mutation)
 
-        self.listeners.call('mutation', mutation)
+        self.mutation_handlers.call(mutation)

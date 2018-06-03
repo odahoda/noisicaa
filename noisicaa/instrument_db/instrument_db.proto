@@ -22,16 +22,17 @@
 
 syntax = "proto2";
 
-import "noisicaa/audioproc/public/musical_time.proto";
-
 package noisicaa.pb;
 
-message PlayerState {
-  optional string realm = 1;
+message ScanState {
+  enum State {
+    PREPARING = 1;
+    SCANNING = 2;
+    COMPLETED = 3;
+    ABORTED = 4;
+  }
+  optional State state = 1;
 
-  optional bool playing = 2;
-  optional MusicalTime current_time = 3;
-  optional bool loop_enabled = 4;
-  optional MusicalTime loop_start_time = 5;
-  optional MusicalTime loop_end_time = 6;
+  optional uint32 current = 2;
+  optional uint32 total = 4;
 }

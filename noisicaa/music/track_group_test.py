@@ -53,7 +53,7 @@ class TrackGroupTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
 
     def test_duration_changed(self):
         duration_changed = Signal()
-        self.project.master_group.listeners.add('duration_changed', duration_changed.set)
+        self.project.master_group.duration_changed.add(duration_changed.set)
 
         logger.info("0 -------------")
         grp = self.pool.create(track_group.TrackGroup, name="group")

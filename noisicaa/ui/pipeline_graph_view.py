@@ -339,13 +339,13 @@ class ControlValuesConnector(object):
             self.__control_values[control_value.name] = control_value.value
 
             self.__control_value_listeners.append(
-                control_value.listeners.add(
-                    'value', functools.partial(self.onControlValueChanged, control_value.name)))
+                control_value.value_changed.add(
+                    functools.partial(self.onControlValueChanged, control_value.name)))
 
-        self.__control_values_listener = self.__node.listeners.add(
-            'control_values', self.onControlValuesChanged)
+        self.__control_values_listener = self.__node.control_values_changed.add(
+            self.onControlValuesChanged)
 
-        self.listeners = core.CallbackRegistry()
+        self.control_value_changed = core.CallbackMap[str, model.PropertyValueChange]()
 
     def value(self, name: str) -> float:
         return self.__control_values[name].value
@@ -363,43 +363,52 @@ class ControlValuesConnector(object):
             self.__control_values_listener = None
 
     def onControlValuesChanged(
-            self, action: str, index: int, control_value: music.PipelineGraphControlValue
-    ) -> None:
-        if action == 'insert':
-            self.listeners.call(
+            self, change: model.PropertyListChange[music.PipelineGraphControlValue]) -> None:
+        if isinstance(change, model.PropertyListInsert):
+            control_value = change.new_value
+
+            self.control_value_changed.call(
                 control_value.name,
-                self.__control_values[control_value.name], control_value.value)
+                model.PropertyValueChange(
+                    self.__node, control_value.name,
+                    self.__control_values[control_value.name], control_value.value))
             self.__control_values[control_value.name] = control_value.value
 
             self.__control_value_listeners.insert(
-                index,
-                control_value.listeners.add(
-                    'value', functools.partial(self.onControlValueChanged, control_value.name)))
+                change.index,
+                control_value.value_changed.add(
+                    functools.partial(self.onControlValueChanged, control_value.name)))
 
-        elif action == 'delete':
+        elif isinstance(change, model.PropertyListDelete):
+            control_value = change.old_value
+
             for port in self.__node.description.ports:
                 if port.name == control_value.name:
                     default_value = model.ControlValue(
                         value=port.float_value.default, generation=1)
-                    self.listeners.call(
+                    self.control_value_changed.call(
                         control_value.name,
-                        self.__control_values[control_value.name], default_value)
+                        model.PropertyValueChange(
+                            self.__node, control_value.name,
+                            self.__control_values[control_value.name], default_value))
                     self.__control_values[control_value.name] = default_value
                     break
 
-            listener = self.__control_value_listeners.pop(index)
+            listener = self.__control_value_listeners.pop(change.index)
             listener.remove()
 
         else:
-            raise ValueError(action)
+            raise TypeError(type(change))
 
     def onControlValueChanged(
-            self, control_value_name: str,
-            old_value: model.ControlValue, new_value: model.ControlValue) -> None:
-        self.listeners.call(
+            self, control_value_name: str, change: model.PropertyValueChange[model.ControlValue]
+    ) -> None:
+        self.control_value_changed.call(
             control_value_name,
-            self.__control_values[control_value_name], new_value)
-        self.__control_values[control_value_name] = new_value
+            model.PropertyValueChange(
+                self.__node, control_value_name,
+                self.__control_values[control_value_name], change.new_value))
+        self.__control_values[control_value_name] = change.new_value
 
 
 class ControlValueWidget(ui_base.ProjectMixin, QtCore.QObject):
@@ -423,7 +432,7 @@ class ControlValueWidget(ui_base.ProjectMixin, QtCore.QObject):
         self.__widget.setValidator(QtGui.QDoubleValidator())
         self.__widget.editingFinished.connect(self.__onValueEdited)
 
-        self.__listeners.append(self.__connector.listeners.add(
+        self.__listeners.append(self.__connector.control_value_changed.add(
             self.__port.name, self.__onValueChanged))
 
     def cleanup(self) -> None:
@@ -449,12 +458,12 @@ class ControlValueWidget(ui_base.ProjectMixin, QtCore.QObject):
                     generation=self.__generation)))
 
     def __onValueChanged(
-            self, old_value: model.ControlValue, new_value: model.ControlValue) -> None:
-        if new_value.generation < self.__generation:
+            self, change: model.PropertyValueChange[model.ControlValue]) -> None:
+        if change.new_value.generation < self.__generation:
             return
 
-        self.__generation = new_value.generation
-        self.__widget.setText(str(new_value.value))
+        self.__generation = change.new_value.generation
+        self.__widget.setText(str(change.new_value.value))
 
 
 class NodePropertyDialog(
@@ -523,7 +532,7 @@ class NodePropertyDialog(
         self._name.editingFinished.connect(self.onNameEdited)
         prop_layout.addRow("Name", self._name)
 
-        self.__listeners.append(node.listeners.add('name', self.onNameChanged))
+        self.__listeners.append(node.name_changed.add(self.onNameChanged))
 
         self.__control_values = ControlValuesConnector(node)
         self.__control_value_widgets = []  # type: List[ControlValueWidget]
@@ -663,7 +672,7 @@ class NodePropertyDialog(
         with open(path, 'wb') as fp:
             fp.write(preset)
 
-    def onNameChanged(self, old_name: str, new_name: str) -> None:
+    def onNameChanged(self, change: model.PropertyValueChange[str]) -> None:
         pass
 
     def onNameEdited(self) -> None:
@@ -737,8 +746,7 @@ class NodeItem(ui_base.ProjectMixin, QtWidgets.QGraphicsRectItem):
             self._broken_sign.setVisible)
 
         self.setPos(self._node.graph_pos.x, self._node.graph_pos.y)
-        self._graph_pos_listener = self._node.listeners.add(
-            'graph_pos', self.onGraphPosChanged)
+        self._graph_pos_listener = self._node.graph_pos_changed.add(self.onGraphPosChanged)
 
         self._properties_dialog = NodePropertyDialog(
             node_item=self,
@@ -999,8 +1007,8 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
             self._nodes.append(nitem)
             self._node_map[node.id] = nitem
 
-        self._pipeline_graph_nodes_listener = self.project.listeners.add(
-            'pipeline_graph_nodes', self.onPipelineGraphNodesChange)
+        self._pipeline_graph_nodes_listener = self.project.pipeline_graph_nodes_changed.add(
+            self.onPipelineGraphNodesChange)
 
         self._connections = []  # type: List[ConnectionItem]
         for connection in self.project.pipeline_graph_connections:
@@ -1010,59 +1018,57 @@ class PipelineGraphGraphicsView(ui_base.ProjectMixin, QtWidgets.QGraphicsView):
             self._node_map[connection.source_node.id].connections.add(citem)
             self._node_map[connection.dest_node.id].connections.add(citem)
 
-        self._pipeline_graph_connections_listener = self.project.listeners.add(
-            'pipeline_graph_connections',
-            self.onPipelineGraphConnectionsChange)
+        self._pipeline_graph_connections_listener = \
+            self.project.pipeline_graph_connections_changed.add(
+                self.onPipelineGraphConnectionsChange)
 
         self.setAcceptDrops(True)
 
     def getNodeItem(self, node_id: int) -> NodeItem:
         return self._node_map[node_id]
 
-    def onPipelineGraphNodesChange(self, action: str, *args: Any) -> None:
-        if action == 'insert':
-            idx, node = args
-            item = NodeItem(node=node, view=self, context=self.context)
+    def onPipelineGraphNodesChange(
+            self, change: model.PropertyListChange[music.BasePipelineGraphNode]) -> None:
+        if isinstance(change, model.PropertyListInsert):
+            item = NodeItem(node=change.new_value, view=self, context=self.context)
             self._scene.addItem(item)
-            self._nodes.insert(idx, item)
-            self._node_map[node.id] = item
+            self._nodes.insert(change.index, item)
+            self._node_map[change.new_value.id] = item
 
-        elif action == 'delete':
-            idx, node = args
-            item = self._nodes[idx]
+        elif isinstance(change, model.PropertyListDelete):
+            item = self._nodes[change.index]
             assert not item.connections, item.connections
             item.cleanup()
             self._scene.removeItem(item)
-            del self._nodes[idx]
-            del self._node_map[node.id]
+            del self._nodes[change.index]
+            del self._node_map[change.old_value.id]
             if self._highlight_item is item:
                 self._highlight_item = None
 
         else:  # pragma: no cover
-            raise AssertionError("Unknown action %r" % action)
+            raise TypeError(type(change))
 
-    def onPipelineGraphConnectionsChange(self, action: str, *args: Any) -> None:
-        if action == 'insert':
-            idx, connection = args
+    def onPipelineGraphConnectionsChange(
+            self, change: model.PropertyListChange[music.PipelineGraphConnection]) -> None:
+        if isinstance(change, model.PropertyListInsert):
             item = ConnectionItem(
-                connection=connection, view=self, context=self.context)
+                connection=change.new_value, view=self, context=self.context)
             self._scene.addItem(item)
-            self._connections.insert(idx, item)
-            self._node_map[connection.source_node.id].connections.add(item)
-            self._node_map[connection.dest_node.id].connections.add(item)
+            self._connections.insert(change.index, item)
+            self._node_map[change.new_value.source_node.id].connections.add(item)
+            self._node_map[change.new_value.dest_node.id].connections.add(item)
 
-        elif action == 'delete':
-            idx, connection = args
-            item = self._connections[idx]
+        elif isinstance(change, model.PropertyListDelete):
+            item = self._connections[change.index]
             self._scene.removeItem(item)
-            del self._connections[idx]
-            self._node_map[connection.source_node.id].connections.remove(item)
-            self._node_map[connection.dest_node.id].connections.remove(item)
+            del self._connections[change.index]
+            self._node_map[change.old_value.source_node.id].connections.remove(item)
+            self._node_map[change.old_value.dest_node.id].connections.remove(item)
             if self._highlight_item is item:
                 self._highlight_item = None
 
         else:  # pragma: no cover
-            raise AssertionError("Unknown action %r" % action)
+            raise TypeError(type(change))
 
     def startConnectionDrag(self, port: Port) -> None:
         assert self._drag_connection is None

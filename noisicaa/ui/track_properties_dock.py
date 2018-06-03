@@ -50,12 +50,12 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
         self._name = QtWidgets.QLineEdit(self)
         self._name.textEdited.connect(self.onNameEdited)
         self._name.setText(self._track.name)
-        self._listeners.append(self._track.listeners.add('name', self.onNameChanged))
+        self._listeners.append(self._track.name_changed.add(self.onNameChanged))
 
         self._muted = mute_button.MuteButton(self)
         self._muted.toggled.connect(self.onMutedEdited)
         self._muted.setChecked(self._track.muted)
-        self._listeners.append(self._track.listeners.add('muted', self.onMutedChanged))
+        self._listeners.append(self._track.muted_changed.add(self.onMutedChanged))
 
         self._gain = QtWidgets.QDoubleSpinBox(self)
         self._gain.setSuffix('dB')
@@ -67,7 +67,7 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
         self._gain.setVisible(True)
         self._gain.setValue(self._track.gain)
         self._gain.setEnabled(not self._track.muted)
-        self._listeners.append(self._track.listeners.add('gain', self.onGainChanged))
+        self._listeners.append(self._track.gain_changed.add(self.onGainChanged))
 
         self._pan = QtWidgets.QDoubleSpinBox(self)
         self._pan.setRange(-1.0, 1.0)
@@ -77,7 +77,7 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
         self._pan.valueChanged.connect(self.onPanEdited)
         self._pan.setVisible(True)
         self._pan.setValue(self._track.pan)
-        self._listeners.append(self._track.listeners.add('pan', self.onPanChanged))
+        self._listeners.append(self._track.pan_changed.add(self.onPanChanged))
 
         self._form_layout = QtWidgets.QFormLayout()
         self._form_layout.setSpacing(1)
@@ -98,8 +98,8 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
             listener.remove()
         self._listeners.clear()
 
-    def onNameChanged(self, old_name: str, new_name: str) -> None:
-        self._name.setText(new_name)
+    def onNameChanged(self, change: model.PropertyValueChange[str]) -> None:
+        self._name.setText(change.new_value)
 
     def onNameEdited(self, name: str) -> None:
         if name != self._track.name:
@@ -107,8 +107,8 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
                 target=self._track.id,
                 update_track_properties=music.UpdateTrackProperties(name=name)))
 
-    def onGainChanged(self, old_gain: float, new_gain: float) -> None:
-        self._gain.setValue(new_gain)
+    def onGainChanged(self, change: model.PropertyValueChange[float]) -> None:
+        self._gain.setValue(change.new_value)
 
     def onGainEdited(self, gain: float) -> None:
         if gain != self._track.gain:
@@ -116,9 +116,9 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
                 target=self._track.id,
                 update_track_properties=music.UpdateTrackProperties(gain=gain)))
 
-    def onMutedChanged(self, old_value: bool, new_value: bool) -> None:
-        self._muted.setChecked(new_value)
-        self._gain.setEnabled(not new_value)
+    def onMutedChanged(self, change: model.PropertyValueChange[bool]) -> None:
+        self._muted.setChecked(change.new_value)
+        self._gain.setEnabled(not change.new_value)
 
     def onMutedEdited(self, muted: bool) -> None:
         if muted != self._track.muted:
@@ -126,8 +126,8 @@ class TrackProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
                 target=self._track.id,
                 update_track_properties=music.UpdateTrackProperties(muted=muted)))
 
-    def onPanChanged(self, old_value: float, new_value: float) -> None:
-        self._pan.setValue(new_value)
+    def onPanChanged(self, change: model.PropertyValueChange[float]) -> None:
+        self._pan.setValue(change.new_value)
 
     def onPanEdited(self, value: float) -> None:
         if value != self._track.pan:
@@ -164,8 +164,7 @@ class ScoreTrackProperties(TrackProperties):
             self._instrument.setText(self._track.instrument)
         else:
             self._instrument.setText('---')
-        self._listeners.append(
-            self._track.listeners.add('instrument', self.onInstrumentChanged))
+        self._listeners.append(self._track.instrument_changed.add(self.onInstrumentChanged))
 
         self._transpose_octaves = QtWidgets.QSpinBox(self)
         self._transpose_octaves.setSuffix(' octaves')
@@ -175,7 +174,7 @@ class ScoreTrackProperties(TrackProperties):
         self._transpose_octaves.setVisible(True)
         self._transpose_octaves.setValue(self._track.transpose_octaves)
         self._listeners.append(
-            self._track.listeners.add('transpose_octaves', self.onTransposeOctavesChanged))
+            self._track.transpose_octaves_changed.add(self.onTransposeOctavesChanged))
 
         instrument_layout = QtWidgets.QHBoxLayout()
         instrument_layout.addWidget(self._select_instrument)
@@ -184,9 +183,9 @@ class ScoreTrackProperties(TrackProperties):
 
         self._form_layout.addRow("Transpose", self._transpose_octaves)
 
-    def onInstrumentChanged(self, old_instrument: str, new_instrument: str) -> None:
-        if new_instrument is not None:
-            self._instrument.setText(new_instrument)
+    def onInstrumentChanged(self, change: model.PropertyValueChange[str]) -> None:
+        if change.new_value is not None:
+            self._instrument.setText(change.new_value)
         else:
             self._instrument.setText('---')
 
@@ -220,9 +219,8 @@ class ScoreTrackProperties(TrackProperties):
             target=self._track.id,
             set_instrument=music.SetInstrument(instrument=description.uri)))
 
-    def onTransposeOctavesChanged(
-            self, old_transpose_octaves: int, new_transpose_octaves: int) -> None:
-        self._transpose_octaves.setValue(new_transpose_octaves)
+    def onTransposeOctavesChanged(self, change: model.PropertyValueChange[int]) -> None:
+        self._transpose_octaves.setValue(change.new_value)
 
     def onTransposeOctavesEdited(self, transpose_octaves: int) -> None:
         if transpose_octaves != self._track.transpose_octaves:
@@ -250,16 +248,12 @@ class BeatTrackProperties(TrackProperties):
             self._instrument.setText(self._track.instrument)
         else:
             self._instrument.setText('---')
-        self._listeners.append(
-            self._track.listeners.add(
-                'instrument', self.onInstrumentChanged))
+        self._listeners.append(self._track.instrument_changed.add(self.onInstrumentChanged))
 
         self._pitch = QtWidgets.QLineEdit(self)
         self._pitch.setText(str(self._track.pitch))
         self._pitch.editingFinished.connect(self.onPitchEdited)
-        self._listeners.append(
-            self._track.listeners.add(
-                'pitch', self.onPitchChanged))
+        self._listeners.append(self._track.pitch_changed.add(self.onPitchChanged))
 
         instrument_layout = QtWidgets.QHBoxLayout()
         instrument_layout.addWidget(self._select_instrument)
@@ -267,9 +261,9 @@ class BeatTrackProperties(TrackProperties):
         self._form_layout.addRow("Instrument", instrument_layout)
         self._form_layout.addRow("Pitch", self._pitch)
 
-    def onInstrumentChanged(self, old_instrument: str, new_instrument: str) -> None:
-        if new_instrument is not None:
-            self._instrument.setText(new_instrument)
+    def onInstrumentChanged(self, change: model.PropertyValueChange[str]) -> None:
+        if change.new_value is not None:
+            self._instrument.setText(change.new_value)
         else:
             self._instrument.setText('---')
 
@@ -306,8 +300,8 @@ class BeatTrackProperties(TrackProperties):
             set_beat_track_instrument=music.SetBeatTrackInstrument(
                 instrument=description.uri)))
 
-    def onPitchChanged(self, old_value: model.Pitch, new_value: model.Pitch) -> None:
-        self._pitch.setText(str(new_value))
+    def onPitchChanged(self, change: model.PropertyValueChange[model.Pitch]) -> None:
+        self._pitch.setText(str(change.new_value))
 
     def onPitchEdited(self) -> None:
         try:

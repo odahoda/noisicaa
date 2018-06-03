@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import functools
 import logging
 from typing import Any, Optional, Iterator
 
@@ -29,7 +28,6 @@ from google.protobuf import message as protobuf
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
-
 from . import pmodel
 from . import pipeline_graph
 from . import base_track
@@ -118,17 +116,8 @@ class Beat(pmodel.Beat):
         self.time = time
         self.velocity = velocity
 
-    def property_changed(self, change: model.PropertyChange) -> None:
-        super().property_changed(change)
-        if self.measure is not None:
-            self.measure.listeners.call('beats-changed')
-
 
 class BeatMeasure(pmodel.BeatMeasure, base_track.Measure):
-    def setup(self) -> None:
-        super().setup()
-        self.listeners.add('beats', lambda *args: self.listeners.call('beats-changed'))
-
     @property
     def empty(self) -> bool:
         return len(self.beats) == 0
@@ -138,11 +127,12 @@ class BeatTrackConnector(base_track.MeasuredTrackConnector):
     _track = None  # type: BeatTrack
 
     def _add_track_listeners(self) -> None:
-        self._listeners['pitch'] = self._track.listeners.add('pitch', self.__pitch_changed)
+        self._listeners['pitch'] = self._track.pitch_changed.add(self.__pitch_changed)
 
     def _add_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
-        self._listeners['measure:%s:beats' % mref.id] = mref.measure.listeners.add(
-            'beats-changed', functools.partial(self.__measure_beats_changed, mref))
+        measure = down_cast(pmodel.BeatMeasure, mref.measure)
+        self._listeners['measure:%s:beats' % mref.id] = measure.content_changed.add(
+            lambda _=None: self.__measure_beats_changed(mref))  # type: ignore
 
     def _remove_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
         self._listeners.pop('measure:%s:beats' % mref.id).remove()

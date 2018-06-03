@@ -53,7 +53,9 @@ class Player(object):
         self.audioproc_client = audioproc_client
         self.realm = realm
 
-        self.listeners = core.CallbackRegistry()
+        self.player_state_changed = core.Callback[audioproc.PlayerState]()
+        self.pipeline_status = core.Callback[Dict[str, Any]]()
+
         self.__listeners = {}  # type: Dict[str, core.Listener]
 
         self.id = uuid.uuid4().hex
@@ -70,10 +72,12 @@ class Player(object):
             self.callback_stub = ipc.Stub(self.event_loop, self.callback_address)
             await self.callback_stub.connect()
 
-        self.__listeners['pipeline_mutations'] = self.project.listeners.add(
-            'pipeline_mutations', self.handle_pipeline_mutation)
-        self.__listeners['player_state'] = self.audioproc_client.listeners.add(
-            'player_state', self.__handle_player_state)
+        self.__listeners['pipeline_mutations'] = self.project.pipeline_mutation.add(
+            self.handle_pipeline_mutation)
+        self.__listeners['player_state'] = self.audioproc_client.player_state_changed.add(
+            self.__handle_player_state)
+        self.__listeners['pipeline_status'] = self.audioproc_client.pipeline_status.add(
+            self.pipeline_status.call)
 
         logger.info("Populating realm with project state...")
         for mutation in self.project.get_add_mutations():
@@ -89,10 +93,10 @@ class Player(object):
         await self.audioproc_client.send_node_messages(
             self.realm, messages)
 
-        self.__listeners['project:bpm'] = self.project.listeners.add(
-            'bpm', self.__on_project_bpm_changed)
-        self.__listeners['project:duration'] = self.project.listeners.add(
-            'duration', self.__on_project_duration_changed)
+        self.__listeners['project:bpm'] = self.project.bpm_changed.add(
+            self.__on_project_bpm_changed)
+        self.__listeners['project:duration'] = self.project.duration_changed.add(
+            self.__on_project_duration_changed)
 
         logger.info("Player instance %s setup complete.", self.id)
 
@@ -140,8 +144,8 @@ class Player(object):
         if exc is not None:
             logger.error("UPDATE_PROJECT_PROPERTIES failed with exception: %s", exc)
 
-    def __handle_player_state(self, realm: str, state: audioproc.PlayerState) -> None:
-        self.listeners.call('player_state', state)
+    def __handle_player_state(self, state: audioproc.PlayerState) -> None:
+        self.player_state_changed.call(state)
         self.publish_status_async(player_state=state)
 
     def publish_status_async(self, **kwargs: Any) -> None:
@@ -173,8 +177,8 @@ class Player(object):
     def add_track(self, track: pmodel.Track) -> Iterator[audioproc.ProcessorMessage]:
         for t in track.walk_tracks(groups=True, tracks=True):
             if isinstance(t, track_group.TrackGroup):
-                self.__listeners['track_group:%s' % t.id] = t.listeners.add(
-                    'tracks', self.tracks_changed)
+                self.__listeners['track_group:%s' % t.id] = t.tracks_changed.add(
+                    self.tracks_changed)
             else:
                 assert isinstance(t, base_track.Track)
                 connector = cast(
@@ -217,7 +221,10 @@ class Player(object):
         if self.audioproc_client is None:
             return
 
-        await self.audioproc_client.update_player_state(self.realm, state)
+        assert not state.HasField('realm'), state
+        state.realm = self.realm
+
+        await self.audioproc_client.update_player_state(state)
 
     def send_message(self, msg: Any) -> None:
         # TODO: reimplement this.

@@ -104,9 +104,9 @@ class MidiHubTest(unittest.TestCase):
     def test_listener(self):
         callback = mock.Mock()
         with midi_hub.MidiHub(self.seq) as hub:
-            listener = hub.listeners.add('10/14', callback)
+            listener = hub.add_event_handler('10/14', callback)
             self.seq.wait_until_done()
-            listener.remove()
+            hub.remove_event_handler('10/14', listener)
 
         callback.assert_called_with(
             midi_events.NoteOnEvent(1000, '10/14', 0, 65, 120))
@@ -114,17 +114,17 @@ class MidiHubTest(unittest.TestCase):
     def test_listen_before_start(self):
         hub = midi_hub.MidiHub(self.seq)
         with self.assertRaises(AssertionError):
-            hub.listeners.add('10/14', mock.Mock())
+            hub.add_event_handler('10/14', mock.Mock())
 
     def test_listener_same_device(self):
         callback1 = mock.Mock()
         callback2 = mock.Mock()
         with midi_hub.MidiHub(self.seq) as hub:
-            listener1 = hub.listeners.add('10/14', callback1)
-            listener2 = hub.listeners.add('10/14', callback2)
+            listener1 = hub.add_event_handler('10/14', callback1)
+            listener2 = hub.add_event_handler('10/14', callback2)
             self.seq.wait_until_done()
-            listener1.remove()
-            listener2.remove()
+            hub.remove_event_handler('10/14', listener1)
+            hub.remove_event_handler('10/14', listener2)
 
         callback1.assert_called_with(
             midi_events.NoteOnEvent(1000, '10/14', 0, 65, 120))
@@ -134,4 +134,4 @@ class MidiHubTest(unittest.TestCase):
     def test_listener_unknown_device(self):
         with midi_hub.MidiHub(self.seq) as hub:
             with self.assertRaises(midi_hub.Error):
-                hub.listeners.add('111/222', mock.Mock())
+                hub.add_event_handler('111/222', mock.Mock())

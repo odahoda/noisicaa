@@ -48,7 +48,8 @@ class InstrumentDB(object):
     VERSION = 2
 
     def __init__(self, event_loop: asyncio.AbstractEventLoop, cache_dir: str) -> None:
-        self.listeners = core.CallbackRegistry()
+        self.scan_state_handlers = core.Callback[instrument_db.ScanState]()
+        self.__mutation_listeners = core.Callback[List[instrument_db.Mutation]]()
 
         self.__event_loop = event_loop
         self.__cache_dir = cache_dir
@@ -94,7 +95,7 @@ class InstrumentDB(object):
 
     def add_mutations_listener(
             self, callback: Callable[[List[instrument_db.Mutation]], None]) -> core.Listener:
-        return self.listeners.add('db_mutations', callback)
+        return self.__mutation_listeners.add(callback)
 
     def __load_cache(self, path: str, default: Dict[str, Any]) -> Dict[str, Any]:
         if not os.path.isfile(path):
@@ -126,16 +127,15 @@ class InstrumentDB(object):
     def __cache_path(self) -> str:
         return os.path.join(self.__cache_dir, 'instrument_db.cache')
 
-    def __publish_scan_state(self, state: str, *args: Any) -> None:
+    def __publish_scan_state(self, state: instrument_db.ScanState) -> None:
         self.__event_loop.call_soon_threadsafe(
-            self.listeners.call, 'scan-state', state, *args)
+            self.scan_state_handlers.call, state)
 
     def __add_instruments(self, descriptions: List[instrument_db.InstrumentDescription]) -> None:
         for description in descriptions:
             self.__instruments[description.uri] = description
 
-        self.listeners.call(
-            'db_mutations',
+        self.__mutation_listeners.call(
             [instrument_db.AddInstrumentDescription(description)
              for description in descriptions])
 
@@ -172,11 +172,13 @@ class InstrumentDB(object):
             self.__update_cache()
         except ScanAborted:
             logger.warning("Scan was aborted.")
-            self.__publish_scan_state('aborted')
+            self.__publish_scan_state(instrument_db.ScanState(
+                state=instrument_db.ScanState.ABORTED))
 
     def __collect_files(self, search_paths: List[str], incremental: bool) -> List[str]:
         logger.info("Collecting files (incremental=%s)", incremental)
-        self.__publish_scan_state('prepare')
+        self.__publish_scan_state(instrument_db.ScanState(
+            state=instrument_db.ScanState.PREPARING))
 
         seen_files = set()  # type: Set[str]
         file_list = []
@@ -218,7 +220,10 @@ class InstrumentDB(object):
                 raise ScanAborted
 
             logger.info("Scanning file %s...", path)
-            self.__publish_scan_state('scan', idx, len(file_list))
+            self.__publish_scan_state(instrument_db.ScanState(
+                state=instrument_db.ScanState.SCANNING,
+                current=idx,
+                total=len(file_list)))
 
             for scanner in scanners:
                 for description in scanner.scan(path):
@@ -235,7 +240,8 @@ class InstrumentDB(object):
                 self.__add_instruments, list(batch))
             batch.clear()
 
-        self.__publish_scan_state('complete')
+        self.__publish_scan_state(instrument_db.ScanState(
+            state=instrument_db.ScanState.COMPLETED))
 
     def initial_mutations(self) -> Iterable[instrument_db.Mutation]:
         for _, description in sorted(self.__instruments.items()):

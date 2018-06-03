@@ -158,7 +158,7 @@ class ProjectContext(CommonContext):
         return self.project_client.get_session_value(key, default)
 
     def add_session_listener(self, key: str, listener: Callable[[Any], None]) -> core.Listener:
-        return self.project_client.listeners.add('session_data:' + key, listener)
+        return self.project_client.add_session_data_listener(key, listener)
 
 
 class ProjectMixin(CommonMixin):

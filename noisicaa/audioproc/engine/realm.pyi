@@ -45,7 +45,7 @@ class PyProgram(object):
 
 
 class PyRealm(object):
-    listeners = ...  # type: core.CallbackRegistry
+    node_state_changed = ...  # type: core.Callback[str]
     child_realms = ...  # type: Dict[str, PyRealm]
 
     def __init__(

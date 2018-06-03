@@ -29,6 +29,7 @@ from PyQt5 import QtWidgets
 
 from noisicaa import core  # pylint: disable=unused-import
 from noisicaa import music
+from noisicaa import model
 from . import dock_widget
 from . import ui_base
 
@@ -45,7 +46,7 @@ class ProjectProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__bpm.setRange(1, 1000)
         self.__bpm.valueChanged.connect(self.onBPMEdited)
         self.__bpm.setValue(self.project.bpm)
-        self.__listeners.append(self.project.listeners.add('bpm', self.onBPMChanged))
+        self.__listeners.append(self.project.bpm_changed.add(self.onBPMChanged))
 
         self.__form_layout = QtWidgets.QFormLayout()
         self.__form_layout.setSpacing(1)
@@ -60,8 +61,8 @@ class ProjectProperties(ui_base.ProjectMixin, QtWidgets.QWidget):
             listener.remove()
         self.__listeners.clear()
 
-    def onBPMChanged(self, old_bpm: int, new_bpm: int) -> None:
-        self.__bpm.setValue(new_bpm)
+    def onBPMChanged(self, change: model.PropertyValueChange[int]) -> None:
+        self.__bpm.setValue(change.new_value)
 
     def onBPMEdited(self, bpm: int) -> None:
         if bpm != self.project.bpm:

@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import functools
 import logging
 from typing import Optional, Any, Iterable, Iterator
 
@@ -246,18 +245,8 @@ class Note(pmodel.Note):
 
         return n
 
-    def property_changed(self, change: model.PropertyChange) -> None:
-        super().property_changed(change)
-        if self.measure is not None:
-            self.measure.listeners.call('notes-changed')
-
 
 class ScoreMeasure(pmodel.ScoreMeasure, base_track.Measure):
-    def setup(self) -> None:
-        super().setup()
-
-        self.listeners.add('notes', lambda *args: self.listeners.call('notes-changed'))
-
     @property
     def empty(self) -> bool:
         return len(self.notes) == 0
@@ -267,13 +256,13 @@ class ScoreTrackConnector(base_track.MeasuredTrackConnector):
     _track = None  # type: ScoreTrack
 
     def _add_track_listeners(self) -> None:
-        self._listeners['transpose_octaves'] = self._track.listeners.add(
-            'transpose_octaves', self.__transpose_octaves_changed)
+        self._listeners['transpose_octaves'] = self._track.transpose_octaves_changed.add(
+            self.__transpose_octaves_changed)
 
     def _add_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
-        self._listeners['measure:%s:notes' % mref.id] = mref.measure.listeners.add(
-            'notes-changed', functools.partial(
-                self.__measure_notes_changed, mref))
+        measure = down_cast(pmodel.ScoreMeasure, mref.measure)
+        self._listeners['measure:%s:notes' % mref.id] = measure.content_changed.add(
+            lambda _=None: self.__measure_notes_changed(mref))  # type: ignore
 
     def _remove_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
         self._listeners.pop('measure:%s:notes' % mref.id).remove()
@@ -295,7 +284,7 @@ class ScoreTrackConnector(base_track.MeasuredTrackConnector):
     def __transpose_octaves_changed(self, change: model.PropertyChange) -> None:
         self._update_measure_range(0, len(self._track.measure_list))
 
-    def __measure_notes_changed(self, mref: base_track.MeasureReference) -> None:
+    def __measure_notes_changed(self, mref: pmodel.MeasureReference) -> None:
         self._update_measure_range(mref.index, mref.index + 1)
 
 

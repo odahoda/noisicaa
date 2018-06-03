@@ -34,6 +34,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core  # pylint: disable=unused-import
 from noisicaa import music
+from noisicaa import model
 from noisicaa.model import project_pb2
 from noisicaa.ui import tools
 from . import base_track_item
@@ -120,7 +121,7 @@ class EditSamplesTool(tools.ToolBase):
                 target=target.track.id,
                 move_sample=music.MoveSample(
                     sample_id=target.highlightedSample().sample_id,
-                    time=target.xToTime(pos.x()))))
+                    time=target.xToTime(pos.x()).to_proto())))
 
             evt.accept()
             return
@@ -148,7 +149,7 @@ class SampleItem(object):
         self.__width = 50
 
         self.__listeners = [
-            self.__sample.listeners.add('time', self.onTimeChanged),
+            self.__sample.time_changed.add(self.onTimeChanged),
         ]
 
     def close(self) -> None:
@@ -181,10 +182,9 @@ class SampleItem(object):
     def rect(self) -> QtCore.QRect:
         return QtCore.QRect(self.pos(), self.size())
 
-    def onTimeChanged(
-            self, old_time: audioproc.MusicalTime, new_time: audioproc.MusicalTime) -> None:
+    def onTimeChanged(self, change: model.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
-            self.__track_item.timeToX(new_time), 0)
+            self.__track_item.timeToX(change.new_value), 0)
         self.__track_item.rectChanged.emit(self.__track_item.viewRect())
 
     def setHighlighted(self, highlighted: bool) -> None:
@@ -305,8 +305,7 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
         for sample in self.track.samples:
             self.addSample(len(self.__samples), sample)
 
-        self.__listeners.append(self.track.listeners.add(
-            'samples', self.onSamplesChanged))
+        self.__listeners.append(self.track.samples_changed.add(self.onSamplesChanged))
 
         self.updateSize()
 
@@ -364,17 +363,15 @@ class SampleTrackEditorItem(base_track_item.BaseTrackEditorItem):
 
         return time
 
-    def onSamplesChanged(self, action: str, *args: Any) -> None:
-        if action == 'insert':
-            insert_index, sample = args
-            self.addSample(insert_index, sample)
+    def onSamplesChanged(self, change: model.PropertyListChange[music.SampleRef]) -> None:
+        if isinstance(change, model.PropertyListInsert):
+            self.addSample(change.index, change.new_value)
 
-        elif action == 'delete':
-            remove_index, sample = args
-            self.removeSample(remove_index, sample)
+        elif isinstance(change, model.PropertyListDelete):
+            self.removeSample(change.index, change.old_value)
 
         else:
-            raise ValueError("Unknown action %r" % action)
+            raise TypeError(type(change))
 
     def addSample(self, insert_index: int, sample: music.SampleRef) -> None:
         item = SampleItem(track_item=self, sample=sample)

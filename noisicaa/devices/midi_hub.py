@@ -23,9 +23,9 @@
 import logging
 import select
 import threading
-from typing import Any, Iterator, Dict, Tuple  # pylint: disable=unused-import
+from typing import Any, Iterator, Callable, Dict, Tuple  # pylint: disable=unused-import
 
-from noisicaa.core import callbacks
+from noisicaa import core
 from . import libalsa
 from . import midi_events
 
@@ -42,40 +42,44 @@ class MidiHub(object):
         self.__thread = None  # type: threading.Thread
         self.__quit_event = None  # type: threading.Event
         self.__started = False
-        self.listeners = callbacks.CallbackRegistry(self.__listener_changed)
+        self.__event_handlers = core.CallbackMap[str, midi_events.MidiEvent]()
 
         self.__connected = None  # type: Dict[str, int]
 
-    def __listener_changed(self, target: str, listener_id: str, add_or_remove: bool) -> None:
+    def add_event_handler(
+            self, device_id: str, func: Callable[[midi_events.MidiEvent], None]) -> core.Listener:
         assert self.__started, "MidiHub must be started before adding listeners."
 
-        if add_or_remove:
-            refcount = self.__connected.setdefault(target, 0)
-            if refcount == 0:
-                for port_info in self.sequencer.list_all_ports():
-                    if port_info.device_id == target:
-                        logger.info("Connecting to %s", port_info)
-                        self.sequencer.connect(port_info)
-                        break
-                else:
-                    raise Error("Device %s not found" % target)
+        refcount = self.__connected.setdefault(device_id, 0)
+        if refcount == 0:
+            for port_info in self.sequencer.list_all_ports():
+                if port_info.device_id == device_id:
+                    logger.info("Connecting to %s", port_info)
+                    self.sequencer.connect(port_info)
+                    break
+            else:
+                raise Error("Device %s not found" % device_id)
 
-            self.__connected[target] += 1
+        self.__connected[device_id] += 1
 
-        else:
-            assert target in self.__connected
-            self.__connected[target] -= 1
+        return self.__event_handlers.add(device_id, func)
 
-            if self.__connected[target] == 0:
-                del self.__connected[target]
+    def remove_event_handler(self, device_id: str, listener: core.Listener) -> None:
+        assert device_id in self.__connected
+        self.__connected[device_id] -= 1
 
-                for port_info in self.sequencer.list_all_ports():
-                    if port_info.device_id == target:
-                        logger.info("Disconnecting from %s", port_info)
-                        self.sequencer.disconnect(port_info)
-                        break
-                else:
-                    raise Error("Device %s not found" % target)
+        listener.remove()
+
+        if self.__connected[device_id] == 0:
+            del self.__connected[device_id]
+
+            for port_info in self.sequencer.list_all_ports():
+                if port_info.device_id == device_id:
+                    logger.info("Disconnecting from %s", port_info)
+                    self.sequencer.disconnect(port_info)
+                    break
+            else:
+                raise Error("Device %s not found" % device_id)
 
     def __enter__(self) -> 'MidiHub':
         self.start()
@@ -136,8 +140,4 @@ class MidiHub(object):
             poller.poll(10)
             event = self.sequencer.get_event()
             if event is not None:
-                self.dispatch_midi_event(event)
-
-    def dispatch_midi_event(self, event: midi_events.MidiEvent) -> None:
-        logger.info("Dispatching MIDI event %s", event)
-        self.listeners.call(event.device_id, event)
+                self.__event_handlers.call(event.device_id, event)

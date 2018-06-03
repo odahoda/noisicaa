@@ -61,7 +61,8 @@ cdef extern from "noisicaa/audioproc/engine/player.h" namespace "noisicaa" nogil
 cdef class PyPlayer(object):
     cdef unique_ptr[Player] __player_ptr
     cdef Player* __player
-    cdef readonly object listeners
+    cdef str __realm
+    cdef readonly object player_state_changed
 
     cdef Player* get(self) nogil
     cdef Player* release(self) nogil

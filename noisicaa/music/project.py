@@ -320,7 +320,6 @@ class BaseProject(pmodel.Project):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.node_db = None  # type: node_db_lib.NodeDBClient
-        self._duration = None  # type: audioproc.MusicalDuration
 
     def create(self, *, node_db: Optional[node_db_lib.NodeDBClient] = None, **kwargs: Any) -> None:
         super().create(**kwargs)
@@ -335,25 +334,8 @@ class BaseProject(pmodel.Project):
         self.add_pipeline_graph_node(audio_out_node)
         self.master_group.add_pipeline_nodes()
 
-    def setup(self) -> None:
-        super().setup()
-        self._duration = self.master_group.duration
-        self.master_group.listeners.add('duration_changed', self._on_duration_changed)
-
     def close(self) -> None:
         pass
-
-    @property
-    def duration(self) -> audioproc.MusicalDuration:
-        return self._duration
-
-    def _on_duration_changed(self) -> None:
-        old_duration = self._duration
-        new_duration = self.master_group.duration
-        if new_duration != self._duration:
-            self._duration = new_duration
-            self.listeners.call(
-                'duration', model.PropertyValueChange('duration', old_duration, new_duration))
 
     def get_node_description(self, uri: str) -> node_db_lib.NodeDescription:
         return self.node_db.get_node_description(uri)
@@ -376,7 +358,7 @@ class BaseProject(pmodel.Project):
         del parent_group.tracks[track.index]
 
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
-        self.listeners.call('pipeline_mutations', mutation)
+        self.pipeline_mutation.call(mutation)
 
     @property
     def audio_out_node(self) -> pmodel.AudioOutPipelineGraphNode:
@@ -527,7 +509,6 @@ class Project(BaseProject):
             self.storage.close()
             self.storage = None
 
-        self.listeners.clear()
         self.reset_state()
 
         super().close()

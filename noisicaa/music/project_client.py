@@ -44,22 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 class ObjectBase(model.ObjectBase):  # pylint: disable=abstract-method
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.listeners = core.CallbackRegistry()
-
-    def property_changed(self, change: model.PropertyChange) -> None:
-        if isinstance(change, model.PropertyValueChange):
-            self.listeners.call(change.prop_name, change.old_value, change.new_value)
-
-        elif isinstance(change, model.PropertyListInsert):
-            self.listeners.call(change.prop_name, 'insert', change.index, change.new_value)
-
-        elif isinstance(change, model.PropertyListDelete):
-            self.listeners.call(change.prop_name, 'delete', change.index, change.old_value)
-
-        else:
-            raise TypeError("Unsupported change type %s" % type(change))
+    pass
 
 
 class ProjectChild(model.ProjectChild, ObjectBase):
@@ -109,39 +94,6 @@ class MeasureReference(ProjectChild, model.MeasureReference, ObjectBase):
 
 
 class MeasuredTrack(Track, model.MeasuredTrack, ObjectBase):
-    # TODO: almost duplicate code. This should be in music/model.py, but only after
-    # the UI code has been changed to call the listeners directly with PropertyChange
-    # instances.
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.__listeners = {}  # type: Dict[str, core.Listener]
-
-        for mref in self.measure_list:
-            self.__add_measure(mref)
-
-        self.listeners.add('measure_list', self.__measure_list_changed)
-
-    def __measure_list_changed(self, action: str, index: int, value: MeasureReference) -> None:
-        if action == 'insert':
-            self.__add_measure(value)
-        elif action == 'delete':
-            self.__remove_measure(value)
-        else:
-            raise TypeError("Unsupported change type %s" % type(action))
-
-    def __add_measure(self, mref: MeasureReference) -> None:
-        self.__listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
-            'measure_id', lambda *_: self.__measure_id_changed(mref))
-        self.listeners.call('duration_changed')
-
-    def __remove_measure(self, mref: MeasureReference) -> None:
-        self.__listeners.pop('measure:%s:ref' % mref.id).remove()
-        self.listeners.call('duration_changed')
-
-    def __measure_id_changed(self, mref: MeasureReference) -> None:
-        self.listeners.call('duration_changed')
-
     @property
     def measure_list(self) -> Sequence[MeasureReference]:
         return self.get_property_value('measure_list')
@@ -172,41 +124,8 @@ class Note(ProjectChild, model.Note, ObjectBase):
     def measure(self) -> 'ScoreMeasure':
         return down_cast(ScoreMeasure, super().measure)
 
-    def property_changed(self, changes: model.PropertyChange) -> None:
-        super().property_changed(changes)
-        if self.measure is not None:
-            self.measure.listeners.call('notes-changed')
-
 
 class TrackGroup(Track, model.TrackGroup, ObjectBase):
-    # TODO: almost duplicate code. This should be in music/model.py, but only after
-    # the UI code has been changed to call the listeners directly with PropertyChange
-    # instances.
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.__listeners = {}  # type: Dict[str, core.Listener]
-        for track in self.tracks:
-            self.__add_track(track)
-        self.listeners.add('tracks', self.__tracks_changed)
-
-    def __tracks_changed(self, action: str, index: int, value: Track) -> None:
-        if action == 'insert':
-            self.__add_track(value)
-        elif action == 'delete':
-            self.__remove_track(value)
-        else:
-            raise TypeError("Unsupported change type %s" % action)
-
-    def __add_track(self, track: Track) -> None:
-        self.__listeners['%s:duration_changed' % track.id] = track.listeners.add(
-            'duration_changed', lambda: self.listeners.call('duration_changed'))
-        self.listeners.call('duration_changed')
-
-    def __remove_track(self, track: Track) -> None:
-        self.__listeners.pop('%s:duration_changed' % track.id).remove()
-        self.listeners.call('duration_changed')
-
     @property
     def tracks(self) -> Sequence[Track]:
         return self.get_property_value('tracks')
@@ -217,10 +136,6 @@ class MasterTrackGroup(TrackGroup, model.MasterTrackGroup, ObjectBase):
 
 
 class ScoreMeasure(Measure, model.ScoreMeasure, ObjectBase):
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.listeners.add('notes', lambda *args: self.listeners.call('notes-changed'))
-
     @property
     def clef(self) -> model.Clef:
         return self.get_property_value('clef')
@@ -269,17 +184,8 @@ class Beat(ProjectChild, model.Beat, ObjectBase):
     def measure(self) -> 'BeatMeasure':
         return down_cast(BeatMeasure, super().measure)
 
-    def property_changed(self, changes: model.PropertyChange) -> None:
-        super().property_changed(changes)
-        if self.measure is not None:
-            self.measure.listeners.call('beats-changed')
-
 
 class BeatMeasure(Measure, model.BeatMeasure, ObjectBase):
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.listeners.add('beats', lambda *args: self.listeners.call('beats-changed'))
-
     @property
     def beats(self) -> Sequence[Beat]:
         return self.get_property_value('beats')
@@ -476,22 +382,7 @@ class Project(model.Project, ObjectBase):
         super().__init__(**kwargs)
 
         self.__node_db = None  # type: node_db_lib.NodeDBClient
-
-        self.__duration = audioproc.MusicalDuration()
-        self.__master_group_listener = None  # type: core.Listener
-        self.listeners.add('master_group', self.__on_master_group_changed)
-
-        # TODO: use correct sample_rate
-        self.__time_mapper = audioproc.TimeMapper(44100)
-        self.__time_mapper.setup(self)
-
-    def setup(self) -> None:
-        super().setup()
-
-        if self.master_group is not None:
-            self.__master_group_listener = self.master_group.listeners.add(
-                'duration_changed', self.__update_duration)
-            self.__update_duration()
+        self.__time_mapper = None  # type: audioproc.TimeMapper
 
     @property
     def master_group(self) -> MasterTrackGroup:
@@ -530,39 +421,15 @@ class Project(model.Project, ObjectBase):
         return down_cast(Project, super().project)
 
     @property
-    def duration(self) -> audioproc.MusicalDuration:
-        return self.__duration
-
-    def __update_duration(self) -> None:
-        if self.master_group is None:
-            return
-
-        new_duration = self.master_group.duration
-        if new_duration != self.__duration:
-            old_duration = self.__duration
-            self.__duration = new_duration
-            self.listeners.call('duration', old_duration, new_duration)
-
-    def __on_master_group_changed(
-            self, old_value: Optional[MasterTrackGroup], new_value: Optional[MasterTrackGroup]
-    ) -> None:
-        if self.__master_group_listener is not None:
-            self.__master_group_listener.remove()
-            self.__master_group_listener = None
-
-        if self.master_group is not None:
-            self.__master_group_listener = self.master_group.listeners.add(
-                'duration_changed', self.__update_duration)
-            self.__update_duration()
-
-    @property
     def time_mapper(self) -> audioproc.TimeMapper:
         return self.__time_mapper
 
     def init(self, node_db: node_db_lib.NodeDBClient) -> None:
         self.__node_db = node_db
 
-        self.__update_duration()
+        # TODO: use correct sample_rate
+        self.__time_mapper = audioproc.TimeMapper(44100)
+        self.__time_mapper.setup(self)
 
     def get_node_description(self, uri: str) -> node_db_lib.NodeDescription:
         return self.__node_db.get_node_description(uri)
@@ -616,7 +483,8 @@ class ProjectClient(object):
         self._session_data = None  # type: Dict[str, Any]
         self.__pool = None  # type: Pool
         self.project = None  # type: Project
-        self.listeners = core.CallbackRegistry()
+        self.__player_status_listeners = core.CallbackMap[str, Any]()
+        self.__session_data_listeners = core.CallbackMap[str, Any]()
 
     def __set_project(self, root_id: int) -> None:
         assert self.project is None
@@ -741,12 +609,11 @@ class ProjectClient(object):
         await self._stub.call('RESTART_PLAYER_PIPELINE', self._session_id, player_id)
 
     def add_player_status_listener(
-            self, player_id: str, callback: Callable[..., None]
-    ) -> core.Listener:
-        return self.listeners.add('player_status:%s' % player_id, callback)
+            self, player_id: str, func: Callable[..., None]) -> core.Listener:
+        return self.__player_status_listeners.add(player_id, func)
 
     async def handle_player_status(self, player_id: str, args: Dict[str, Any]) -> None:
-        self.listeners.call('player_status:%s' % player_id, **args)
+        self.__player_status_listeners.call(player_id, **args)
 
     async def dump(self) -> None:
         await self._stub.call('DUMP', self._session_id)
@@ -756,11 +623,15 @@ class ProjectClient(object):
     ) -> None:
         await self._stub.call('RENDER', self._session_id, callback_address, render_settings)
 
+    def add_session_data_listener(
+            self, key: str, func: Callable[[Any], None]) -> core.Listener:
+        return self.__session_data_listeners.add(key, func)
+
     async def handle_session_data_mutation(self, data: Dict[str, Any]) -> None:
         for key, value in data.items():
             if key not in self._session_data or self._session_data[key] != value:
                 self._session_data[key] = value
-                self.listeners.call('session_data:%s' % key, value)
+                self.__session_data_listeners.call(key, value)
 
     def set_session_values(self, data: Dict[str, Any]) -> None:
         assert isinstance(data, dict), data

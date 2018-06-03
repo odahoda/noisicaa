@@ -29,7 +29,8 @@ from .sessions import (
     CallbackSessionMixin,
 )
 from .callbacks import (
-    CallbackRegistry,
+    CallbackMap,
+    Callback,
     Listener,
 )
 from .perf_stats import (

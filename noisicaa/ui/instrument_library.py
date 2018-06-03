@@ -515,8 +515,8 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         for description in self.app.instrument_db.instruments:
             self.__model.addInstrument(description)
 
-        self.__instrument_mutation_listener = self.app.instrument_db.listeners.add(
-            'mutation', self.handleInstrumentMutation)
+        self.__instrument_mutation_listener = self.app.instrument_db.mutation_handlers.add(
+            self.handleInstrumentMutation)
 
         self.__pipeline_mixer_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(

@@ -38,6 +38,7 @@ from noisicaa.audioproc.public import musical_time_pb2
 from noisicaa import core  # pylint: disable=unused-import
 from noisicaa import node_db
 from noisicaa import music
+from noisicaa import model
 from . import dock_widget  # pylint: disable=unused-import
 from . import project_properties_dock
 from . import tracks_dock
@@ -204,7 +205,7 @@ class TimeViewMixin(ui_base.ProjectMixin):
         self.__scale_x = fractions.Fraction(500, 1)
         self.__x_offset = 0
         self.__content_width = 100
-        self.project.listeners.add('duration', lambda *_: self.__updateContentWidth())
+        self.project.duration_changed.add(lambda _: self.__updateContentWidth())
 
         self.setMinimumWidth(100)  # type: ignore
 
@@ -324,8 +325,7 @@ class TrackViewMixin(AsyncSetupBase, QtWidgets.QWidget):
     def __addSingleTrack(self, track: music.Track) -> None:
         if isinstance(track, music.TrackGroup):
             track = cast(music.TrackGroup, track)
-            listener = track.listeners.add(
-                'tracks', functools.partial(self.__onTracksChanged, track))
+            listener = track.tracks_changed.add(functools.partial(self.__onTracksChanged, track))
             self.__group_listeners[track.id] = listener
         else:
             track_item = self.createTrack(track)
@@ -344,17 +344,16 @@ class TrackViewMixin(AsyncSetupBase, QtWidgets.QWidget):
             track_item = self.__tracks.pop(track.id)
             track_item.close()
 
-    def __onTracksChanged(self, group: music.TrackGroup, action: str, *args: Any) -> None:
-        if action == 'insert':
-            _, track = args
-            self.__addTrack(track)
+    def __onTracksChanged(
+            self, group: music.TrackGroup, change: model.PropertyListChange[music.Track]) -> None:
+        if isinstance(change, model.PropertyListInsert):
+            self.__addTrack(change.new_value)
 
-        elif action == 'delete':
-            _, track = args
-            self.__removeTrack(track)
+        elif isinstance(change, model.PropertyListDelete):
+            self.__removeTrack(change.old_value)
 
         else:  # pragma: no cover
-            raise ValueError("Unknown action %r" % action)
+            raise TypeError(type(change))
 
 
 class Editor(
@@ -809,7 +808,7 @@ class TimeLine(TimeViewMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__player_state.loopStartTimeChanged.connect(lambda _: self.update())
         self.__player_state.loopEndTimeChanged.connect(lambda _: self.update())
 
-        self.__duration_listener = self.project.listeners.add('duration', self.onDurationChanged)
+        self.__duration_listener = self.project.duration_changed.add(self.onDurationChanged)
 
         self.scaleXChanged.connect(lambda _: self.update())
 
@@ -876,9 +875,7 @@ class TimeLine(TimeViewMixin, ui_base.ProjectMixin, QtWidgets.QWidget):
 
         self.update()
 
-    def onDurationChanged(
-            self, old_value: audioproc.MusicalDuration, new_value: audioproc.MusicalDuration
-    ) -> None:
+    def onDurationChanged(self, change: model.PropertyValueChange[float]) -> None:
         self.update()
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:

@@ -276,8 +276,8 @@ class MeasuredTrackConnector(TrackConnector):
             self.__add_measure(time, mref)
             time += mref.measure.duration
 
-        self._listeners['measure_list'] = self._track.listeners.add(
-            'measure_list', self.__measure_list_changed)
+        self._listeners['measure_list'] = self._track.measure_list_changed.add(
+            self.__measure_list_changed)
         self._add_track_listeners()
 
     def close(self) -> None:
@@ -355,8 +355,8 @@ class MeasuredTrackConnector(TrackConnector):
             self.__add_event(event)
             events.append(event)
 
-        self._listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
-            'measure', lambda _: self.__measure_changed(mref))
+        self._listeners['measure:%s:ref' % mref.id] = mref.measure_changed.add(
+            lambda _: self.__measure_changed(mref))
         self._add_measure_listeners(mref)
 
     def __remove_measure(self, mref: pmodel.MeasureReference) -> None:
@@ -370,8 +370,8 @@ class MeasuredTrackConnector(TrackConnector):
         self._remove_measure_listeners(mref)
         self._listeners.pop('measure:%s:ref' % mref.id).remove()
 
-        self._listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
-            'measure', lambda _: self.__measure_changed(mref))
+        self._listeners['measure:%s:ref' % mref.id] = mref.measure_changed.add(
+            lambda _: self.__measure_changed(mref))
         self._add_measure_listeners(mref)
 
         self._update_measure_range(mref.index, mref.index + 1)
@@ -379,38 +379,6 @@ class MeasuredTrackConnector(TrackConnector):
 
 class MeasuredTrack(pmodel.MeasuredTrack, Track):  # pylint: disable=abstract-method
     measure_cls = None  # type: Type[Measure]
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.__listeners = {}  # type: Dict[str, core.Listener]
-
-    def setup(self) -> None:
-        super().setup()
-
-        for mref in self.measure_list:
-            self.__add_measure(mref)
-
-        self.listeners.add('measure_list', self.__measure_list_changed)
-
-    def __measure_list_changed(self, change: model.PropertyChange) -> None:
-        if isinstance(change, model.PropertyListInsert):
-            self.__add_measure(change.new_value)
-        elif isinstance(change, model.PropertyListDelete):
-            self.__remove_measure(change.old_value)
-        else:
-            raise TypeError("Unsupported change type %s" % type(change))
-
-    def __add_measure(self, mref: pmodel.MeasureReference) -> None:
-        self.__listeners['measure:%s:ref' % mref.id] = mref.listeners.add(
-            'measure', lambda *_: self.__measure_changed(mref))
-        self.listeners.call('duration_changed')
-
-    def __remove_measure(self, mref: pmodel.MeasureReference) -> None:
-        self.__listeners.pop('measure:%s:ref' % mref.id).remove()
-        self.listeners.call('duration_changed')
-
-    def __measure_changed(self, mref: pmodel.MeasureReference) -> None:
-        self.listeners.call('duration_changed')
 
     def append_measure(self) -> None:
         self.insert_measure(-1)

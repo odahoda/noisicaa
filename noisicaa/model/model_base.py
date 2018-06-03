@@ -95,14 +95,16 @@ class ObjectRemoved(ObjectChange):
     pass
 
 
-class PropertyChange(Mutation):
-    def __init__(self, prop_name: str) -> None:
+class PropertyChange(Generic[VALUE], Mutation):
+    def __init__(self, obj: 'ObjectBase', prop_name: str) -> None:
+        self.obj = obj
         self.prop_name = prop_name
 
 
-class PropertyValueChange(PropertyChange):
-    def __init__(self, prop_name: str, old_value: Any, new_value: Any) -> None:
-        super().__init__(prop_name)
+class PropertyValueChange(Generic[VALUE], PropertyChange[VALUE]):
+    def __init__(
+            self, obj: 'ObjectBase', prop_name: str, old_value: VALUE, new_value: VALUE) -> None:
+        super().__init__(obj, prop_name)
         self.old_value = old_value
         self.new_value = new_value
 
@@ -110,13 +112,13 @@ class PropertyValueChange(PropertyChange):
         return self._fmt(old=self.old_value, new=self.new_value)
 
 
-class PropertyListChange(PropertyChange):
+class PropertyListChange(Generic[VALUE], PropertyChange[VALUE]):
     pass
 
 
-class PropertyListInsert(PropertyListChange):
-    def __init__(self, prop_name: str, index: int, new_value: Any) -> None:
-        super().__init__(prop_name)
+class PropertyListInsert(Generic[VALUE], PropertyListChange[VALUE]):
+    def __init__(self, obj: 'ObjectBase', prop_name: str, index: int, new_value: VALUE) -> None:
+        super().__init__(obj, prop_name)
         self.index = index
         self.new_value = new_value
 
@@ -124,9 +126,9 @@ class PropertyListInsert(PropertyListChange):
         return self._fmt(index=self.index, new=self.new_value)
 
 
-class PropertyListDelete(PropertyListChange):
-    def __init__(self, prop_name: str, index: int, old_value: Any) -> None:
-        super().__init__(prop_name)
+class PropertyListDelete(Generic[VALUE], PropertyListChange[VALUE]):
+    def __init__(self, obj: 'ObjectBase', prop_name: str, index: int, old_value: VALUE) -> None:
+        super().__init__(obj, prop_name)
         self.index = index
         self.old_value = old_value
 
@@ -269,13 +271,15 @@ class SimpleList(Generic[VALUE], BaseList[VALUE]):
 
         self._pb.insert(idx, value)
         if not self._instance.in_setup:
-            self._instance.property_changed(PropertyListInsert(self._prop_name, idx, value))
+            self._instance.property_changed(PropertyListInsert(
+                self._instance, self._prop_name, idx, value))
 
     def delete(self, idx: int) -> None:
         old_value = self._pb[idx]
         del self._pb[idx]
         if not self._instance.in_setup:
-            self._instance.property_changed(PropertyListDelete(self._prop_name, idx, old_value))
+            self._instance.property_changed(PropertyListDelete(
+                self._instance, self._prop_name, idx, old_value))
 
 
 class WrappedProtoList(BaseList[PROTOVAL]):
@@ -301,13 +305,15 @@ class WrappedProtoList(BaseList[PROTOVAL]):
             self._pb[m].CopyFrom(self._pb[m - 1])
         self._pb[idx].CopyFrom(value.to_proto())
         if not self._instance.in_setup:
-            self._instance.property_changed(PropertyListInsert(self._prop_name, idx, value))
+            self._instance.property_changed(
+                PropertyListInsert(self._instance, self._prop_name, idx, value))
 
     def delete(self, idx: int) -> None:
         old_value = self.__ptype.from_proto(self._pb[idx])
         del self._pb[idx]
         if not self._instance.in_setup:
-            self._instance.property_changed(PropertyListDelete(self._prop_name, idx, old_value))
+            self._instance.property_changed(
+                PropertyListDelete(self._instance, self._prop_name, idx, old_value))
 
 
 class ObjectList(Generic[OBJECT], BaseList[OBJECT]):
@@ -340,7 +346,8 @@ class ObjectList(Generic[OBJECT], BaseList[OBJECT]):
         for i in range(idx, len(self._pb)):
             self.__pool[self._pb[i]].set_index(i)
         if not self._instance.in_setup:
-            self._instance.property_changed(PropertyListInsert(self._prop_name, idx, obj))
+            self._instance.property_changed(
+                PropertyListInsert(self._instance, self._prop_name, idx, obj))
 
     def delete(self, idx: int) -> None:
         old_child = self.__pool[self._pb[idx]]
@@ -350,7 +357,8 @@ class ObjectList(Generic[OBJECT], BaseList[OBJECT]):
         for i in range(idx, len(self._pb)):
             self.__pool[self._pb[i]].set_index(i)
         if not self._instance.in_setup:
-            self._instance.property_changed(PropertyListDelete(self._prop_name, idx, old_child))
+            self._instance.property_changed(
+                PropertyListDelete(self._instance, self._prop_name, idx, old_child))
 
 
 class PropertyBase(object):
@@ -402,7 +410,7 @@ class Property(Generic[VALUE], PropertyBase):
             setattr(pb, self.name, value)
 
         if value != old_value and not instance.in_setup:
-            instance.property_changed(PropertyValueChange(self.name, old_value, value))
+            instance.property_changed(PropertyValueChange(instance, self.name, old_value, value))
 
 
 class ProtoProperty(Generic[PROTO], PropertyBase):
@@ -442,7 +450,7 @@ class ProtoProperty(Generic[PROTO], PropertyBase):
             getattr(pb, self.name).CopyFrom(value)
 
         if value != old_value and not instance.in_setup:
-            instance.property_changed(PropertyValueChange(self.name, old_value, value))
+            instance.property_changed(PropertyValueChange(instance, self.name, old_value, value))
 
 
 class WrappedProtoProperty(Generic[PROTOVAL], PropertyBase):
@@ -483,7 +491,7 @@ class WrappedProtoProperty(Generic[PROTOVAL], PropertyBase):
             getattr(pb, self.name).CopyFrom(value.to_proto())
 
         if value != old_value and not instance.in_setup:
-            instance.property_changed(PropertyValueChange(self.name, old_value, value))
+            instance.property_changed(PropertyValueChange(instance, self.name, old_value, value))
 
 
 class ListProperty(Generic[VALUE], PropertyBase):
@@ -563,7 +571,7 @@ class ObjectProperty(Generic[OBJECT], PropertyBase):
             setattr(pb, self.name, value.id)
 
         if not instance.in_setup:
-            instance.property_changed(PropertyValueChange(self.name, old_value, value))
+            instance.property_changed(PropertyValueChange(instance, self.name, old_value, value))
 
 
 class ObjectReferenceProperty(Generic[OBJECT], PropertyBase):
@@ -607,7 +615,7 @@ class ObjectReferenceProperty(Generic[OBJECT], PropertyBase):
             setattr(pb, self.name, value.id)
 
         if not instance.in_setup:
-            instance.property_changed(PropertyValueChange(self.name, old_value, value))
+            instance.property_changed(PropertyValueChange(instance, self.name, old_value, value))
 
 
 class ObjectListProperty(Generic[OBJECT], PropertyBase):

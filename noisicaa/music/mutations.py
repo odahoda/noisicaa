@@ -186,7 +186,7 @@ class MutationCollector(object):
 
     def start(self) -> None:
         assert self.__listener is None
-        self.__listener = self.__pool.listeners.add('model_changes', self.__handle_model_change)
+        self.__listener = self.__pool.model_changed.add(self.__handle_model_change)
 
     def stop(self) -> None:
         assert self.__listener is not None
@@ -196,14 +196,14 @@ class MutationCollector(object):
     def clear(self) -> None:
         self.__proto.Clear()
 
-    def __handle_model_change(self, obj: model.ObjectBase, change: model.PropertyChange) -> None:
+    def __handle_model_change(self, change: model.PropertyChange) -> None:
         if isinstance(change, model.PropertyValueChange):
             old_slot_id = self.__add_slot(change.old_value)
             new_slot_id = self.__add_slot(change.new_value)
 
             self.__add_operation(mutations_pb2.MutationList.Op(
                 set_property=mutations_pb2.MutationList.SetProperty(
-                    obj_id=obj.id,
+                    obj_id=change.obj.id,
                     prop_name=change.prop_name,
                     old_slot=old_slot_id,
                     new_slot=new_slot_id)))
@@ -212,7 +212,7 @@ class MutationCollector(object):
             slot_id = self.__add_slot(change.new_value)
             self.__add_operation(mutations_pb2.MutationList.Op(
                 list_insert=mutations_pb2.MutationList.ListInsert(
-                    obj_id=obj.id,
+                    obj_id=change.obj.id,
                     prop_name=change.prop_name,
                     index=change.index,
                     slot=slot_id)))
@@ -221,7 +221,7 @@ class MutationCollector(object):
             slot_id = self.__add_slot(change.old_value)
             self.__add_operation(mutations_pb2.MutationList.Op(
                 list_delete=mutations_pb2.MutationList.ListDelete(
-                    obj_id=obj.id,
+                    obj_id=change.obj.id,
                     prop_name=change.prop_name,
                     index=change.index,
                     slot=slot_id)))

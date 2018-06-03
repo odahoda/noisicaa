@@ -21,11 +21,13 @@
 # @end:license
 
 import fractions
-from typing import cast, Any, Iterator, Sequence, List, Union  # pylint: disable=unused-import
+import logging
+from typing import cast, Any, Dict, Iterator, Sequence, List, Union  # pylint: disable=unused-import
 
 from google.protobuf import message as protobuf  # pylint: disable=unused-import
 
 from noisicaa.core.typing_extra import down_cast
+from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import instrument_db
@@ -38,8 +40,15 @@ from . import pos2f
 from . import model_base
 from . import project_pb2
 
+logger = logging.getLogger(__name__)
+
 
 class ObjectBase(model_base.ObjectBase):
+    def property_changed(self, change: model_base.PropertyChange) -> None:
+        super().property_changed(change)
+        callback = getattr(self, change.prop_name + '_changed')
+        callback.call(change)
+
     @property
     def parent(self) -> 'ObjectBase':
         return cast(ObjectBase, super().parent)
@@ -73,6 +82,11 @@ class Sample(ProjectChild):
 
         path = model_base.Property(str)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.path_changed = core.Callback[model_base.PropertyChange[str]]()
+
 
 class PipelineGraphControlValue(ProjectChild):
     class Spec(model_base.ObjectSpec):
@@ -81,6 +95,12 @@ class PipelineGraphControlValue(ProjectChild):
 
         name = model_base.Property(str)
         value = model_base.ProtoProperty(project_pb2.ControlValue)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.name_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.value_changed = core.Callback[model_base.PropertyChange[project_pb2.ControlValue]]()
 
 
 class BasePipelineGraphNode(ProjectChild):
@@ -91,6 +111,16 @@ class BasePipelineGraphNode(ProjectChild):
         graph_pos = model_base.WrappedProtoProperty(pos2f.Pos2F)
         control_values = model_base.ObjectListProperty(PipelineGraphControlValue)
         plugin_state = model_base.ProtoProperty(audioproc.PluginState, allow_none=True)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.name_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.graph_pos_changed = core.Callback[model_base.PropertyChange[pos2f.Pos2F]]()
+        self.control_values_changed = \
+            core.Callback[model_base.PropertyListChange[PipelineGraphControlValue]]()
+        self.plugin_state_changed = \
+            core.Callback[model_base.PropertyChange[audioproc.PluginState]]()
 
     @property
     def removable(self) -> bool:
@@ -111,6 +141,18 @@ class Track(ProjectChild):
         gain = model_base.Property(float, default=0.0)
         pan = model_base.Property(float, default=0.0)
         mixer_node = model_base.ObjectReferenceProperty(BasePipelineGraphNode, allow_none=True)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.name_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.visible_changed = core.Callback[model_base.PropertyChange[bool]]()
+        self.muted_changed = core.Callback[model_base.PropertyChange[bool]]()
+        self.gain_changed = core.Callback[model_base.PropertyChange[float]]()
+        self.pan_changed = core.Callback[model_base.PropertyChange[float]]()
+        self.mixer_node_changed = core.Callback[model_base.PropertyChange[BasePipelineGraphNode]]()
+
+        self.duration_changed = core.Callback[None]()
 
     @property
     def duration(self) -> audioproc.MusicalDuration:
@@ -143,6 +185,11 @@ class MeasureReference(ProjectChild):
 
         measure = model_base.ObjectReferenceProperty(Measure)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.measure_changed = core.Callback[model_base.PropertyChange[Measure]]()
+
     @property
     def measure(self) -> Measure:
         return self.get_property_value('measure')
@@ -167,6 +214,42 @@ class MeasuredTrack(Track):
         measure_list = model_base.ObjectListProperty(MeasureReference)
         measure_heap = model_base.ObjectListProperty(Measure)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.__listeners = {}  # type: Dict[str, core.Listener]
+
+        self.measure_list_changed = core.Callback[model_base.PropertyListChange[MeasureReference]]()
+        self.measure_heap_changed = core.Callback[model_base.PropertyListChange[Measure]]()
+
+    def setup(self) -> None:
+        super().setup()
+
+        for mref in self.measure_list:
+            self.__add_measure(mref)
+
+        self.measure_list_changed.add(self.__measure_list_changed)
+
+    def __measure_list_changed(self, change: model_base.PropertyChange) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
+            self.__add_measure(change.new_value)
+        elif isinstance(change, model_base.PropertyListDelete):
+            self.__remove_measure(change.old_value)
+        else:
+            raise TypeError("Unsupported change type %s" % type(change))
+
+    def __add_measure(self, mref: MeasureReference) -> None:
+        self.__listeners['measure:%s:ref' % mref.id] = mref.measure_changed.add(
+            lambda *_: self.__measure_changed(mref))
+        self.duration_changed.call()
+
+    def __remove_measure(self, mref: MeasureReference) -> None:
+        self.__listeners.pop('measure:%s:ref' % mref.id).remove()
+        self.duration_changed.call()
+
+    def __measure_changed(self, mref: MeasureReference) -> None:
+        self.duration_changed.call()
+
     @property
     def measure_list(self) -> Sequence[MeasureReference]:
         return self.get_property_value('measure_list')
@@ -190,6 +273,15 @@ class Note(ProjectChild):
             default=audioproc.MusicalDuration(1, 4))
         dots = model_base.Property(int, default=0)
         tuplet = model_base.Property(int, default=0)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.pitches_changed = core.Callback[model_base.PropertyListChange[pitch_lib.Pitch]]()
+        self.base_duration_changed = \
+            core.Callback[model_base.PropertyChange[audioproc.MusicalDuration]]()
+        self.dots_changed = core.Callback[model_base.PropertyChange[int]]()
+        self.tuplet_changed = core.Callback[model_base.PropertyChange[int]]()
 
     @property
     def pitches(self) -> Sequence[pitch_lib.Pitch]:
@@ -240,6 +332,11 @@ class Note(ProjectChild):
             duration *= fractions.Fraction(4, 5)
         return audioproc.MusicalDuration(duration)
 
+    def property_changed(self, change: model_base.PropertyChange) -> None:
+        super().property_changed(change)
+        if self.measure is not None:
+            self.measure.content_changed.call()
+
 
 class TrackGroup(Track):
     class Spec(model_base.ObjectSpec):
@@ -247,6 +344,36 @@ class TrackGroup(Track):
         proto_ext = project_pb2.track_group  # type: ignore
 
         tracks = model_base.ObjectListProperty(Track)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.__listeners = {}  # type: Dict[str, core.Listener]
+
+        self.tracks_changed = core.Callback[model_base.PropertyListChange[Track]]()
+
+    def setup(self) -> None:
+        super().setup()
+        for track in self.tracks:
+            self.__add_track(track)
+        self.tracks_changed.add(self.__tracks_changed)
+
+    def __tracks_changed(self, change: model_base.PropertyListChange) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
+            self.__add_track(change.new_value)
+        elif isinstance(change, model_base.PropertyListDelete):
+            self.__remove_track(change.old_value)
+        else:
+            raise TypeError("Unsupported change type %s" % type(change))
+
+    def __add_track(self, track: Track) -> None:
+        self.__listeners['%s:duration_changed' % track.id] = track.duration_changed.add(
+            self.duration_changed.call)
+        self.duration_changed.call()
+
+    def __remove_track(self, track: Track) -> None:
+        self.__listeners.pop('%s:duration_changed' % track.id).remove()
+        self.duration_changed.call()
 
     @property
     def tracks(self) -> Sequence[Track]:
@@ -285,6 +412,12 @@ class PropertyMeasure(Measure):
             time_signature_lib.TimeSignature,
             default=time_signature_lib.TimeSignature(4, 4))
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.time_signature_changed = \
+            core.Callback[model_base.PropertyChange[time_signature_lib.TimeSignature]]()
+
     @property
     def time_signature(self) -> time_signature_lib.TimeSignature:
         return self.get_property_value('time_signature')
@@ -301,6 +434,11 @@ class PipelineGraphNode(BasePipelineGraphNode):
         proto_ext = project_pb2.pipeline_graph_node  # type: ignore
 
         node_uri = model_base.Property(str)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.node_uri_changed = core.Callback[model_base.PropertyChange[str]]()
 
     @property
     def node_uri(self) -> str:
@@ -335,6 +473,11 @@ class TrackMixerPipelineGraphNode(BasePipelineGraphNode):
 
         track = model_base.ObjectReferenceProperty(Track)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.track_changed = core.Callback[model_base.PropertyChange[Track]]()
+
     @property
     def removable(self) -> bool:
         return False
@@ -350,6 +493,11 @@ class InstrumentPipelineGraphNode(BasePipelineGraphNode):
         proto_ext = project_pb2.instrument_pipeline_graph_node  # type: ignore
 
         track = model_base.ObjectReferenceProperty(Track)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.track_changed = core.Callback[model_base.PropertyChange[Track]]()
 
     @property
     def track(self) -> Track:
@@ -373,6 +521,11 @@ class PianoRollPipelineGraphNode(BasePipelineGraphNode):
 
         track = model_base.ObjectReferenceProperty(Track)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.track_changed = core.Callback[model_base.PropertyChange[Track]]()
+
     @property
     def removable(self) -> bool:
         return False
@@ -393,6 +546,21 @@ class ScoreMeasure(Measure):
             default=key_signature_lib.KeySignature('C major'))
         notes = model_base.ObjectListProperty(Note)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.clef_changed = core.Callback[model_base.PropertyChange[clef_lib.Clef]]()
+        self.key_signature_changed = \
+            core.Callback[model_base.PropertyChange[key_signature_lib.KeySignature]]()
+        self.notes_changed = core.Callback[model_base.PropertyListChange[Note]]()
+
+        self.content_changed = core.Callback[None]()
+
+    def setup(self) -> None:
+        super().setup()
+
+        self.notes_changed.add(lambda _: self.content_changed.call())
+
     @property
     def time_signature(self) -> time_signature_lib.TimeSignature:
         return self.project.get_time_signature(self.index)
@@ -410,6 +578,16 @@ class ScoreTrack(MeasuredTrack):
         event_source_node = model_base.ObjectReferenceProperty(
             PianoRollPipelineGraphNode, allow_none=True)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.instrument_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.transpose_octaves_changed = core.Callback[model_base.PropertyChange[int]]()
+        self.instrument_node_changed = \
+            core.Callback[model_base.PropertyChange[InstrumentPipelineGraphNode]]()
+        self.event_source_node_changed = \
+            core.Callback[model_base.PropertyChange[PianoRollPipelineGraphNode]]()
+
     @property
     def instrument(self) -> str:
         return self.get_property_value('instrument')
@@ -423,9 +601,21 @@ class Beat(ProjectChild):
         time = model_base.ProtoProperty(musical_time_pb2.MusicalDuration)
         velocity = model_base.Property(int)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.time_changed = \
+            core.Callback[model_base.PropertyChange[musical_time_pb2.MusicalDuration]]()
+        self.velocity_changed = core.Callback[model_base.PropertyChange[int]]()
+
     @property
     def measure(self) -> 'BeatMeasure':
         return cast(BeatMeasure, self.parent)
+
+    def property_changed(self, change: model_base.PropertyChange) -> None:
+        super().property_changed(change)
+        if self.measure is not None:
+            self.measure.content_changed.call()
 
 
 class BeatMeasure(Measure):
@@ -434,6 +624,17 @@ class BeatMeasure(Measure):
         proto_ext = project_pb2.beat_measure  # type: ignore
 
         beats = model_base.ObjectListProperty(Beat)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.beats_changed = core.Callback[model_base.PropertyListChange[Beat]]()
+
+        self.content_changed = core.Callback[None]()
+
+    def setup(self) -> None:
+        super().setup()
+        self.beats_changed.add(lambda _: self.content_changed.call())
 
     @property
     def time_signature(self) -> time_signature_lib.TimeSignature:
@@ -452,6 +653,16 @@ class BeatTrack(MeasuredTrack):
         event_source_node = model_base.ObjectReferenceProperty(
             PianoRollPipelineGraphNode, allow_none=True)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.instrument_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.pitch_changed = core.Callback[model_base.PropertyChange[pitch_lib.Pitch]]()
+        self.instrument_node_changed = \
+            core.Callback[model_base.PropertyChange[InstrumentPipelineGraphNode]]()
+        self.event_source_node_changed = \
+            core.Callback[model_base.PropertyChange[PianoRollPipelineGraphNode]]()
+
     @property
     def instrument(self) -> str:
         return self.get_property_value('instrument')
@@ -463,6 +674,11 @@ class CVGeneratorPipelineGraphNode(BasePipelineGraphNode):
         proto_ext = project_pb2.cvgenerator_pipeline_graph_node  # type: ignore
 
         track = model_base.ObjectReferenceProperty(Track)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.track_changed = core.Callback[model_base.PropertyChange[Track]]()
 
     @property
     def removable(self) -> bool:
@@ -481,6 +697,12 @@ class ControlPoint(ProjectChild):
         time = model_base.WrappedProtoProperty(audioproc.MusicalTime)
         value = model_base.Property(float)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.time_changed = core.Callback[model_base.PropertyChange[audioproc.MusicalTime]]()
+        self.value_changed = core.Callback[model_base.PropertyChange[float]]()
+
 
 class ControlTrack(Track):
     class Spec(model_base.ObjectSpec):
@@ -491,6 +713,13 @@ class ControlTrack(Track):
         generator_node = model_base.ObjectReferenceProperty(
             CVGeneratorPipelineGraphNode, allow_none=True)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.points_changed = core.Callback[model_base.PropertyListChange[ControlPoint]]()
+        self.generator_node_changed = \
+            core.Callback[model_base.PropertyChange[CVGeneratorPipelineGraphNode]]()
+
 
 class SampleScriptPipelineGraphNode(BasePipelineGraphNode):
     class Spec(model_base.ObjectSpec):
@@ -498,6 +727,11 @@ class SampleScriptPipelineGraphNode(BasePipelineGraphNode):
         proto_ext = project_pb2.sample_script_pipeline_graph_node  # type: ignore
 
         track = model_base.ObjectReferenceProperty(Track)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.track_changed = core.Callback[model_base.PropertyChange[Track]]()
 
     @property
     def removable(self) -> bool:
@@ -516,6 +750,12 @@ class SampleRef(ProjectChild):
         time = model_base.WrappedProtoProperty(audioproc.MusicalTime)
         sample = model_base.ObjectReferenceProperty(Sample)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.time_changed = core.Callback[model_base.PropertyChange[audioproc.MusicalTime]]()
+        self.sample_changed = core.Callback[model_base.PropertyChange[Sample]]()
+
 
 class SampleTrack(Track):
     class Spec(model_base.ObjectSpec):
@@ -525,6 +765,13 @@ class SampleTrack(Track):
         samples = model_base.ObjectListProperty(SampleRef)
         sample_script_node = model_base.ObjectReferenceProperty(
             SampleScriptPipelineGraphNode, allow_none=True)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.samples_changed = core.Callback[model_base.PropertyListChange[SampleRef]]()
+        self.sample_script_node_changed = \
+            core.Callback[model_base.PropertyChange[SampleScriptPipelineGraphNode]]()
 
 
 class PipelineGraphConnection(ProjectChild):
@@ -537,6 +784,14 @@ class PipelineGraphConnection(ProjectChild):
         dest_node = model_base.ObjectReferenceProperty(BasePipelineGraphNode)
         dest_port = model_base.Property(str)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.source_node_changed = core.Callback[model_base.PropertyChange[BasePipelineGraphNode]]()
+        self.source_port_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.dest_node_changed = core.Callback[model_base.PropertyChange[BasePipelineGraphNode]]()
+        self.dest_port_changed = core.Callback[model_base.PropertyChange[str]]()
+
 
 class Metadata(ProjectChild):
     class Spec(model_base.ObjectSpec):
@@ -547,6 +802,14 @@ class Metadata(ProjectChild):
         license = model_base.Property(str, allow_none=True)
         copyright = model_base.Property(str, allow_none=True)
         created = model_base.Property(int, allow_none=True)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.author_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.license_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.copyright_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.created_changed = core.Callback[model_base.PropertyChange[int]]()
 
 
 class Project(ObjectBase):
@@ -562,6 +825,62 @@ class Project(ObjectBase):
         samples = model_base.ObjectListProperty(Sample)
         bpm = model_base.Property(int, default=120)
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.__master_group_listener = None  # type: core.Listener
+        self.__duration = None  # type: audioproc.MusicalDuration
+
+        self.master_group_changed = core.Callback[model_base.PropertyChange[MasterTrackGroup]]()
+        self.metadata_changed = core.Callback[model_base.PropertyChange[Metadata]]()
+        self.property_track_changed = core.Callback[model_base.PropertyChange[PropertyTrack]]()
+        self.pipeline_graph_nodes_changed = \
+            core.Callback[model_base.PropertyListChange[BasePipelineGraphNode]]()
+        self.pipeline_graph_connections_changed = \
+            core.Callback[model_base.PropertyListChange[PipelineGraphConnection]]()
+        self.samples_changed = core.Callback[model_base.PropertyListChange[Sample]]()
+        self.bpm_changed = core.Callback[model_base.PropertyChange[int]]()
+
+        self.duration_changed = \
+            core.Callback[model_base.PropertyChange[audioproc.MusicalDuration]]()
+        self.pipeline_mutation = core.Callback[audioproc.Mutation]()
+
+    def setup(self) -> None:
+        super().setup()
+        self.master_group_changed.add(self.__on_master_group_changed)
+
+        try:
+            master_group = self.master_group
+        except model_base.ValueNotSetError:
+            pass
+        else:
+            self.__master_group_listener = master_group.duration_changed.add(
+                self.__update_duration)
+            self.__update_duration()
+
+    def __update_duration(self, _: None = None) -> None:
+        try:
+            new_duration = self.master_group.duration
+        except model_base.ValueNotSetError:
+            return
+
+        if self.__duration is None or new_duration != self.__duration:
+            old_duration = self.__duration
+            self.__duration = new_duration
+            self.duration_changed.call(
+                model_base.PropertyValueChange(self, 'duration', old_duration, new_duration))
+
+    def __on_master_group_changed(
+            self, change: model_base.PropertyValueChange[MasterTrackGroup]) -> None:
+        if self.__master_group_listener is not None:
+            self.__master_group_listener.remove()
+            self.__master_group_listener = None
+
+        if change.new_value is not None:
+            self.__master_group_listener = change.new_value.duration_changed.add(
+                self.__update_duration)
+            self.__update_duration()
+
     @property
     def master_group(self) -> MasterTrackGroup:
         return self.get_property_value('master_group')
@@ -575,16 +894,16 @@ class Project(ObjectBase):
         return self.get_property_value('bpm')
 
     @property
+    def duration(self) -> audioproc.MusicalDuration:
+        return self.__duration
+
+    @property
     def project(self) -> 'Project':
         return self
 
     @property
     def attached_to_project(self) -> bool:
         return True
-
-    @property
-    def duration(self) -> audioproc.MusicalDuration:
-        return self.master_group.duration
 
     @property
     def all_tracks(self) -> Sequence[Track]:

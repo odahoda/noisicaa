@@ -32,6 +32,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core  # pylint: disable=unused-import
 from noisicaa import music
+from noisicaa import model
 from noisicaa.ui import tools
 from . import base_track_item
 
@@ -222,8 +223,8 @@ class ControlPoint(object):
             self.__track_item.valueToY(self.__point.value))
 
         self.__listeners = [
-            self.__point.listeners.add('time', self.onTimeChanged),
-            self.__point.listeners.add('value', self.onValueChanged),
+            self.__point.time_changed.add(self.onTimeChanged),
+            self.__point.value_changed.add(self.onValueChanged),
         ]
 
     def close(self) -> None:
@@ -231,17 +232,16 @@ class ControlPoint(object):
             listener.remove()
         self.__listeners.clear()
 
-    def onTimeChanged(
-            self, old_time: audioproc.MusicalTime, new_time: audioproc.MusicalTime) -> None:
+    def onTimeChanged(self, change: model.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
-            self.__track_item.timeToX(new_time),
+            self.__track_item.timeToX(change.new_value),
             self.__pos.y())
         self.__track_item.rectChanged.emit(self.__track_item.viewRect())
 
-    def onValueChanged(self, old_value: float, new_value: float) -> None:
+    def onValueChanged(self, change: model.PropertyValueChange[float]) -> None:
         self.__pos = QtCore.QPoint(
             self.__pos.x(),
-            self.__track_item.valueToY(new_value))
+            self.__track_item.valueToY(change.new_value))
         self.__track_item.rectChanged.emit(self.__track_item.viewRect())
 
     @property
@@ -289,8 +289,7 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
         for point in self.track.points:
             self.addPoint(len(self.points), point)
 
-        self.__listeners.append(self.track.listeners.add(
-            'points', self.onPointsChanged))
+        self.__listeners.append(self.track.points_changed.add(self.onPointsChanged))
 
         self.updateSize()
 
@@ -356,19 +355,17 @@ class ControlTrackEditorItem(base_track_item.BaseTrackEditorItem):
         cpoint.close()
         self.rectChanged.emit(self.viewRect())
 
-    def onPointsChanged(self, action: str, *args: Any) -> None:
-        if action == 'insert':
-            insert_index, point = args
-            self.addPoint(insert_index, point)
+    def onPointsChanged(self, change: model.PropertyListChange[music.ControlPoint]) -> None:
+        if isinstance(change, model.PropertyListInsert):
+            self.addPoint(change.index, change.new_value)
             self.updateHighlightedPoint()
 
-        elif action == 'delete':
-            remove_index, point = args
-            self.removePoint(remove_index, point)
+        elif isinstance(change, model.PropertyListDelete):
+            self.removePoint(change.index, change.old_value)
             self.updateHighlightedPoint()
 
         else:
-            raise ValueError("Unknown action %r" % action)
+            raise TypeError(type(change))
 
     def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
         if self.__playback_time is not None:

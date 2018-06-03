@@ -28,8 +28,10 @@ from noisicaa.audioproc.public import player_state_pb2
 
 
 cdef class PyPlayer(object):
-    def __init__(self, PyHostSystem host_system):
-        self.listeners = core.CallbackRegistry()
+    def __init__(self, PyHostSystem host_system, str realm):
+        self.__realm = realm
+        self.player_state_changed = core.Callback()
+
         self.__player_ptr.reset(new Player(host_system.get(), self._state_callback, <PyObject*>self))
         self.__player = self.__player_ptr.get()
 
@@ -67,7 +69,8 @@ cdef class PyPlayer(object):
         try:
             state_pb = player_state_pb2.PlayerState()
             state_pb.ParseFromString(state_serialized)
-            self.listeners.call('player_state', state_pb)
+            state_pb.realm = self.__realm
+            self.player_state_changed.call(state_pb)
 
         finally:
             PyErr_Restore(exc_type, exc_value, exc_trackback)

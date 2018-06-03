@@ -39,7 +39,8 @@ class AudioProcClientBase(object):
         self.event_loop = event_loop
         self.server = server
 
-        self.listeners = None  # type: core.CallbackRegistry
+        self.pipeline_status = None  # type: core.Callback[Dict[str, Any]]
+        self.player_state_changed = None  # type: core.Callback[player_state_pb2.PlayerState]
 
     @property
     def address(self) -> str:
@@ -113,7 +114,7 @@ class AudioProcClientBase(object):
     async def set_backend_parameters(self, **parameters: Any) -> None:
         raise NotImplementedError
 
-    async def update_player_state(self, realm: str, state: player_state_pb2.PlayerState) -> None:
+    async def update_player_state(self, state: player_state_pb2.PlayerState) -> None:
         raise NotImplementedError
 
     async def send_message(self, msg: Any) -> None:
@@ -134,7 +135,9 @@ class AudioProcClientMixin(AudioProcClientBase):
         super().__init__(*args, **kwargs)
         self._stub = None  # type: ipc.Stub
         self._session_id = None  # type: str
-        self.listeners = core.CallbackRegistry()
+
+        self.pipeline_status = core.Callback[Dict[str, Any]]()
+        self.player_state_changed = core.Callback[player_state_pb2.PlayerState]()
 
     @property
     def address(self) -> str:
@@ -237,8 +240,8 @@ class AudioProcClientMixin(AudioProcClientBase):
     async def set_backend_parameters(self, **parameters: Any) -> None:
         await self._stub.call('SET_BACKEND_PARAMETERS', self._session_id, parameters)
 
-    async def update_player_state(self, realm: str, state: player_state_pb2.PlayerState) -> None:
-        await self._stub.call('UPDATE_PLAYER_STATE', self._session_id, realm, state)
+    async def update_player_state(self, state: player_state_pb2.PlayerState) -> None:
+        await self._stub.call('UPDATE_PLAYER_STATE', self._session_id, state)
 
     # TODO: msg is a capnp message, and capnp's import magic doesn't work with mypy.
     async def send_message(self, msg: Any) -> None:
@@ -257,7 +260,7 @@ class AudioProcClientMixin(AudioProcClientBase):
         logger.info("Mutation received: %s", mutation)
 
     def handle_pipeline_status(self, status: Dict[str, Any]) -> None:
-        self.listeners.call('pipeline_status', status)
+        self.pipeline_status.call(status)
 
-    def handle_player_state(self, realm: str, state: player_state_pb2.PlayerState) -> None:
-        self.listeners.call('player_state', realm, state)
+    def handle_player_state(self, state: player_state_pb2.PlayerState) -> None:
+        self.player_state_changed.call(state)

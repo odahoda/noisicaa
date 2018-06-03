@@ -32,39 +32,11 @@ logger = logging.getLogger(__name__)
 
 
 class TrackGroup(pmodel.TrackGroup, base_track.Track):
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.__listeners = {}  # type: Dict[str, core.Listener]
-
     def create(self, *, num_measures: Optional[int] = None, **kwargs: Any) -> None:
         super().create(**kwargs)
 
-    def setup(self) -> None:
-        super().setup()
-        for track in self.tracks:
-            self.__add_track(track)
-        self.listeners.add('tracks', self.__tracks_changed)
-
     def create_track_connector(self, **kwargs: Any) -> base_track.TrackConnector:
         raise RuntimeError("No track connector for TrackGroup")
-
-    def __tracks_changed(self, change: model.PropertyChange) -> None:
-        if isinstance(change, model.PropertyListInsert):
-            self.__add_track(change.new_value)
-        elif isinstance(change, model.PropertyListDelete):
-            self.__remove_track(change.old_value)
-        else:
-            raise TypeError("Unsupported change type %s" % type(change))
-
-    def __add_track(self, track: pmodel.Track) -> None:
-        self.__listeners['%s:duration_changed' % track.id] = track.listeners.add(
-            'duration_changed', lambda: self.listeners.call('duration_changed'))
-        self.listeners.call('duration_changed')
-
-    def __remove_track(self, track: pmodel.Track) -> None:
-        self.__listeners.pop('%s:duration_changed' % track.id).remove()
-        self.listeners.call('duration_changed')
 
     @property
     def default_mixer_name(self) -> str:

@@ -2,10 +2,6 @@
 
 * runtests: warn if selector did not match any tests                                     :TESTING:
 * what is the proper type for target in noisicaa.ui.tools?                               :CLEANUP:
-* typesafe callbacks                                                                     :CLEANUP:
-- remove core.CallbackRegistry
-- instead declare all callbacks as explicit class members in __init__
-  self.foo_changed = core.Callback[T]()
 * solve cyclic import dependencies from ui_base                                          :CLEANUP:
 - ui_base needs EditorApp, EditorWindow, ProjectView - which need ui_base
 - ui_base defines interfaces for those classes (and possibly more)
@@ -433,13 +429,6 @@ to the backend.
 
 * Base class for processor_*_test.pyx                                                    :CLEANUP:
 - setUp()/tearDown() to handle all the boilerplate (HostData, TimeMapper, ...).
-
-* Switch UI to use PropertyChange instances for listeners                                :CLEANUP:
-- make it more like music
-- fix ObjectProxy.property_changed
-  - this method still needed for other reasons, or can the listener be called directly?
-- remove duplicate code related to duration tracking from ui/model.py, base_track.py,
-  track_group.py and move it to music/model.py.
 
 * Handle crashes of audio process gracefully again.                                           :FR:
 - audio process refuses to restart, because fifo file already exists.

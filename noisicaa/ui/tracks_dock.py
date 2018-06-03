@@ -33,6 +33,7 @@ from PyQt5 import QtWidgets
 from noisicaa import core  # pylint: disable=unused-import
 from noisicaa.constants import DATA_DIR
 from noisicaa import music
+from noisicaa import model
 from . import dock_widget
 from . import ui_base
 
@@ -79,15 +80,14 @@ class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractItemModel):
                 item.children.append(self._buildItem(child_track, item))
 
             item.listeners.append(
-                track.listeners.add(
-                    'tracks',
-                    functools.partial(self.onGroupChanged, item)))
+                track.tracks_changed.add(functools.partial(self.onGroupChanged, item)))
 
-        for prop in ('name', 'muted', 'visible'):
-            item.listeners.append(
-                track.listeners.add(
-                    prop,
-                    functools.partial(self.onTrackChanged, item, prop)))
+        item.listeners.append(
+            track.name_changed.add(functools.partial(self.onTrackChanged, item, 'name')))
+        item.listeners.append(
+            track.muted_changed.add(functools.partial(self.onTrackChanged, item, 'muted')))
+        item.listeners.append(
+            track.visible_changed.add(functools.partial(self.onTrackChanged, item, 'visible')))
 
         return item
 
@@ -97,25 +97,24 @@ class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractItemModel):
                 listener.remove()
         self._root_item = None
 
-    def onGroupChanged(self, group: TracksModelItem, action: str, *args: Any) -> None:
+    def onGroupChanged(self, group: TracksModelItem, change: model.PropertyListChange) -> None:
         group_index = self.indexForItem(group)
-        if action == 'insert':
-            index, child = args
-            self.beginInsertRows(group_index, index, index)
-            group.children.insert(index, self._buildItem(child, group))
+        if isinstance(change, model.PropertyListInsert):
+            self.beginInsertRows(group_index, change.index, change.index)
+            group.children.insert(change.index, self._buildItem(change.new_value, group))
             self.endInsertRows()
-        elif action == 'delete':
-            index, child = args
-            self.beginRemoveRows(group_index, index, index)
-            del group.children[index]
+        elif isinstance(change, model.PropertyListDelete):
+            self.beginRemoveRows(group_index, change.index, change.index)
+            del group.children[change.index]
             self.endRemoveRows()
         else:
-            raise ValueError(action)
+            raise TypeError(type(change))
 
-    def onTrackChanged(self, item: TracksModelItem, prop: str, old: Any, new: Any) -> None:
+    def onTrackChanged(
+            self, item: TracksModelItem, prop: str, change: model.PropertyValueChange) -> None:
         track = item.track
         logger.info(
-            "Value of %s on track %s: %s->%s", prop, track.id, old, new)
+            "Value of %s on track %s: %s->%s", prop, track.id, change.old_value, change.new_value)
         self.dataChanged.emit(
             self.indexForItem(item, column=0),
             self.indexForItem(item, column=self.COLUMNS - 1),
@@ -140,8 +139,7 @@ class TracksModel(ui_base.ProjectMixin, QtCore.QAbstractItemModel):
         if item.parent is None:
             return self.createIndex(0, column, item)
         else:
-            return self.createIndex(
-                item.parent.children.index(item), column, item)
+            return self.createIndex(item.parent.children.index(item), column, item)
 
     def rowCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
         if parent.column() > 0:  # pragma: no coverage
@@ -366,9 +364,9 @@ class TrackList(QtWidgets.QTreeView):
         self._delegate = TrackItemDelegate()
         self.setItemDelegate(self._delegate)
 
-    def setModel(self, model: QtCore.QAbstractItemModel) -> None:
-        super().setModel(model)
-        if model is not None:
+    def setModel(self, tracks_model: QtCore.QAbstractItemModel) -> None:
+        super().setModel(tracks_model)
+        if tracks_model is not None:
             self.expandAll()
             self.header().resizeSection(1, self.sizeHintForColumn(1))
             self.header().swapSections(0, 1)
@@ -377,15 +375,15 @@ class TrackList(QtWidgets.QTreeView):
         index = self.indexAt(event.pos())
         if index.isValid() and index.column() == 1:
             rect = self.visualRect(index)
-            model = self.model()
+            tracks_model = self.model()
             if self._delegate.showIconRect(rect).contains(event.pos()):
-                model.setData(
-                    index, not model.data(index, TracksModel.VisibleRole),
+                tracks_model.setData(
+                    index, not tracks_model.data(index, TracksModel.VisibleRole),
                     TracksModel.VisibleRole)
                 event.accept()
             elif self._delegate.playIconRect(rect).contains(event.pos()):
-                model.setData(
-                    index, not model.data(index, TracksModel.MuteRole),
+                tracks_model.setData(
+                    index, not tracks_model.data(index, TracksModel.MuteRole),
                     TracksModel.MuteRole)
                 event.accept()
 

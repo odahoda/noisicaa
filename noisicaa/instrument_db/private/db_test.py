@@ -26,6 +26,7 @@ import os.path
 
 from noisidev import unittest
 from noisicaa import constants
+from noisicaa import instrument_db
 from . import db
 
 logger = logging.getLogger(__name__)
@@ -34,13 +35,13 @@ logger = logging.getLogger(__name__)
 class InstrumentDBTest(unittest.AsyncTestCase):
     async def test_scan(self):
         complete = asyncio.Event(loop=self.loop)
-        def state_listener(state, *args):
-            if state == 'complete':
+        def state_listener(state):
+            if state.state == instrument_db.ScanState.COMPLETED:
                 complete.set()
-            logger.info("state=%s args=%s", state, args)
+            logger.info("state=%s", state)
 
         instdb = db.InstrumentDB(self.loop, '/tmp')
-        instdb.listeners.add('scan-state', state_listener)
+        instdb.scan_state_handlers.add(state_listener)
         try:
             instdb.setup()
 
