@@ -34,7 +34,7 @@ from . import piano
 
 class PianoTest(uitest.UITestCase):
     def setup_testcase(self):
-        self.app.sequencer.add_port(
+        self.sequencer.add_port(
             devices.PortInfo(
                 devices.ClientInfo(1, "test"),
                 1, "test", {'read'}, {'midi_generic'}))

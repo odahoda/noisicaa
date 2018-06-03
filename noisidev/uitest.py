@@ -34,8 +34,9 @@ from noisicaa.constants import TEST_OPTS
 from noisicaa import runtime_settings as runtime_settings_lib
 from noisicaa import core
 from noisicaa import music
-from noisicaa.ui import editor_app
+from noisicaa import devices
 from noisicaa.ui import selection_set
+from noisicaa.ui import ui_base
 from . import qttest
 from . import unittest_mixins
 
@@ -166,15 +167,21 @@ class MockProcess(core.ProcessBase):
         self.project = None
 
 
-class MockApp(editor_app.EditorApp):
-    def createSequencer(self):
-        return MockSequencer()
-
-    async def createAudioProcProcess(self):
-        pass
-
-    async def createEditorWindow(self):
-        pass
+class MockApp(ui_base.AbstractEditorApp):
+    def __init__(self):
+        self.win = None  # type: AbstractEditorWindow
+        self.audioproc_client = None  # type: audioproc.AudioProcClientMixin
+        self.process = None  # type: core.ProcessBase
+        self.settings = None  # type: QtCore.QSettings
+        self.pipeline_perf_monitor = None  # type: AbstractPipelinePerfMonitor
+        self.stat_monitor = None  # type: AbstractStatMonitor
+        self.runtime_settings = None  # type: runtime_settings_lib.RuntimeSettings
+        self.show_edit_areas_action = None  # type: QtWidgets.QAction
+        self.midi_hub = None  # type: devices.MidiHub
+        self.node_db = None  # type: node_db_lib.NodeDBClient
+        self.instrument_db = None  # type: instrument_db_lib.InstrumentDBClient
+        self.default_style = None  # type: str
+        self.qt_app = None  # type: QtWidgets.QApplication
 
 
 class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
@@ -182,6 +189,8 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         super().__init__(*args, **kwargs)
 
         self.process = None
+        self.sequencer = None
+        self.midi_hub = None
         self.app = None
         self.context = None
 
@@ -196,16 +205,18 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
             tmp_dir=TEST_OPTS.TMP_DIR)
         await self.process.setup()
 
-        self.app = MockApp(
-            qt_app=self.qt_app,
-            process=self.process,
-            paths=[],
-            runtime_settings=runtime_settings_lib.RuntimeSettings(),
-            settings=MockSettings())
-        self.app.process = self.process
-        await self.app.setup()
-
         self.selection_set = selection_set.SelectionSet()
+
+        self.sequencer = MockSequencer()
+        self.midi_hub = devices.MidiHub(self.sequencer)
+        self.midi_hub.start()
+
+        self.app = MockApp()
+        self.app.qt_app = self.qt_app
+        self.app.process = self.process
+        self.app.runtime_settings = runtime_settings_lib.RuntimeSettings()
+        self.app.settings = MockSettings()
+        self.app.midi_hub = self.midi_hub
 
         self.session_data = {}  # type: Dict[str, Any]
 
@@ -214,8 +225,8 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.context = TestContext(testcase=self)
 
     async def cleanup_testcase(self):
-        if self.app is not None:
-            await self.app.cleanup()
+        if self.midi_hub is not None:
+            self.midi_hub.stop()
 
         if self.process is not None:
             await self.process.cleanup()
