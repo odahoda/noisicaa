@@ -333,6 +333,21 @@ class DisplayManager(object):
             atexit.unregister(self.__xvfb_process.kill)
 
 
+class TestResult(unittest.TextTestResult):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.successes = set()
+
+    def addSuccess(self, case):
+        super().addSuccess(case)
+        self.successes.add(case.id())
+
+    def addSkip(self, case, reason):
+        super().addSkip(case, reason)
+        self.successes.add(case.id())
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('selectors', type=str, nargs='*')
@@ -543,7 +558,12 @@ def main(argv):
         if runit:
             flat_suite.addTest(case)
 
-    runner = unittest.TextTestRunner(verbosity=2, failfast=args.fail_fast)
+    all_case_ids = set(case.id() for case in flat_suite)
+
+    runner = unittest.TextTestRunner(
+        resultclass=TestResult,
+        verbosity=2,
+        failfast=args.fail_fast)
     with DisplayManager(args.display):
         try:
             unittest.installHandler()
@@ -552,8 +572,8 @@ def main(argv):
             unittest.removeHandler()
 
     with open('/tmp/noisicaa-failed-tests.txt', 'w', encoding='utf-8') as fp:
-        for case, _ in result.errors + result.failures:
-            fp.write(case.id() + '\n')
+        for case_id in sorted(all_case_ids - result.successes):
+            fp.write(case_id + '\n')
 
     pylint_collector.print_report()
     mypy_collector.print_report()
