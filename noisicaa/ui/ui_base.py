@@ -45,8 +45,7 @@ class CommonContext(object):
 
     @property
     def qt_app(self) -> QtWidgets.QApplication:
-        # TODO: this should be an attribute of EditorApp, not itself...
-        return self.__app  # type: ignore
+        return self.__app.qt_app
 
     @property
     def app(self) -> 'AbstractEditorApp':
@@ -248,6 +247,7 @@ class AbstractEditorApp(object):
     node_db = None  # type: node_db_lib.NodeDBClient
     instrument_db = None  # type: instrument_db_lib.InstrumentDBClient
     default_style = None  # type: str
+    qt_app = None  # type: QtWidgets.QApplication
 
     def quit(self, exit_code: int = 0) -> None:
         raise NotImplementedError

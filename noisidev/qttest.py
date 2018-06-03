@@ -46,18 +46,14 @@ class QtTestCase(unittest.AsyncTestCase):
             return
 
         if cls.qt_app is None:
-            cls.qt_app = cls.createQApplication()
+            cls.qt_app = QtWidgets.QApplication(['unittest'])
+            cls.qt_app.setQuitOnLastWindowClosed(False)
+
         asyncio.set_event_loop(quamash.QEventLoop(cls.qt_app))
 
     @classmethod
     def tearDownClass(cls):
         asyncio.set_event_loop(None)
-
-    @classmethod
-    def createQApplication(cls):
-        app = QtWidgets.QApplication(['unittest'])
-        app.setQuitOnLastWindowClosed(False)
-        return app
 
     def setup_testcase(self):
         if not constants.TEST_OPTS.ALLOW_UI:

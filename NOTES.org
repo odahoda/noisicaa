@@ -1,12 +1,7 @@
 # -*- org-tags-column: -98 -*-
 
-NEXT: make qtapp attribute of EditorApp
-
 * runtests: warn if selector did not match any tests                                     :TESTING:
 * what is the proper type for target in noisicaa.ui.tools?                               :CLEANUP:
-* refactor noisicaa.ui.editor_app                                                        :CLEANUP:
-- some better way to make it testable than this BaseEditorApp/EditorApp split.
-- perhaps don't subclass QApplication, just be a QObject with a reference to the QApplication?
 * refactor noisicaa.ui.editor_window                                                     :CLEANUP:
 - just an empty shell that hosts project views
 - menubar, toolbar, etc are owned by ProjectView

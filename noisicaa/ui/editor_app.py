@@ -77,7 +77,7 @@ class AudioProcClientImpl(audioproc.AudioProcClientBase):  # pylint: disable=abs
         pass
 
 class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
-    def __init__(self, app: 'BaseEditorApp', *args: Any, **kwargs: Any) -> None:
+    def __init__(self, app: 'EditorApp', *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.__app = app
 
@@ -85,17 +85,29 @@ class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
         self.__app.onPipelineStatus(status)
 
 
-class BaseEditorApp(ui_base.AbstractEditorApp):  # pylint: disable=abstract-method
+class QApplication(QtWidgets.QApplication):
+    def __init__(self) -> None:
+        super().__init__(['noisicaä'])
+
+        self.setQuitOnLastWindowClosed(False)
+
+
+class EditorApp(ui_base.AbstractEditorApp):
     def __init__(
             self, *,
+            qt_app: QtWidgets.QApplication,
             process: core.ProcessBase,
+            paths: Sequence[str],
             runtime_settings: runtime_settings_lib.RuntimeSettings,
             settings: Optional[QtCore.QSettings] = None
     ) -> None:
         self.__context = ui_base.CommonContext(app=self)
 
-        self.process = process
+        super().__init__()
 
+        self.paths = paths
+        self.qt_app = qt_app
+        self.process = process
         self.runtime_settings = runtime_settings
 
         if settings is None:
@@ -113,14 +125,22 @@ class BaseEditorApp(ui_base.AbstractEditorApp):  # pylint: disable=abstract-meth
         self.audioproc_process = None  # type: str
         self.node_db = None  # type: node_db.NodeDBClient
         self.instrument_db = None  # type: instrument_db.InstrumentDBClient
-
         self.__clipboard = None  # type: Any
+        self.__old_excepthook = None  # type: Callable[[Type[BaseException], BaseException, types.TracebackType], None]
+        self.win = None  # type: EditorWindow
+        self.pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
+        self.stat_monitor = None  # type: stat_monitor.StatMonitor
+        self.default_style = None  # type: str
 
     @property
     def context(self) -> ui_base.CommonContext:
         return self.__context
 
     async def setup(self) -> None:
+        logger.info("Installing custom excepthook.")
+        self.__old_excepthook = sys.excepthook
+        sys.excepthook = ExceptHook(self)  # type: ignore
+
         await self.createNodeDB()
         await self.createInstrumentDB()
 
@@ -133,7 +153,7 @@ class BaseEditorApp(ui_base.AbstractEditorApp):  # pylint: disable=abstract-meth
         self.midi_hub.start()
 
         # TODO: 'self' is not a QObject in this context.
-        self.show_edit_areas_action = QtWidgets.QAction("Show Edit Areas", self)  # type: ignore
+        self.show_edit_areas_action = QtWidgets.QAction("Show Edit Areas", self.qt_app)
         self.show_edit_areas_action.setCheckable(True)
         self.show_edit_areas_action.triggered.connect(self.onShowEditAreasChanged)
         self.show_edit_areas_action.setChecked(
@@ -141,123 +161,12 @@ class BaseEditorApp(ui_base.AbstractEditorApp):  # pylint: disable=abstract-meth
 
         await self.createAudioProcProcess()
 
-    async def cleanup(self) -> None:
-        logger.info("Cleaning up.")
-
-        if self.project_registry is not None:
-            await self.project_registry.close_all()
-            self.project_registry = None
-
-        if self.audioproc_client is not None:
-            await self.audioproc_client.disconnect(shutdown=True)
-            await self.audioproc_client.cleanup()
-            self.audioproc_client = None
-
-        if self.instrument_db is not None:
-            await self.instrument_db.disconnect(shutdown=True)
-            await self.instrument_db.cleanup()
-            self.instrument_db = None
-
-        if self.node_db is not None:
-            await self.node_db.disconnect(shutdown=True)
-            await self.node_db.cleanup()
-            self.node_db = None
-
-        if self.midi_hub is not None:
-            self.midi_hub.stop()
-            self.midi_hub = None
-
-        if self.sequencer is not None:
-            self.sequencer.close()
-            self.sequencer = None
-
-    def quit(self, exit_code: int = 0) -> None:
-        # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
-        #   fix that without a cyclic import.
-        self.process.quit(exit_code)  # type: ignore
-
-    def createSequencer(self) -> devices.AlsaSequencer:
-        return None
-
-    def createMidiHub(self) -> devices.MidiHub:
-        return devices.MidiHub(self.sequencer)
-
-    async def createAudioProcProcess(self) -> None:
-        pass
-
-    async def createNodeDB(self) -> None:
-        node_db_address = await self.process.manager.call('CREATE_NODE_DB_PROCESS')
-
-        self.node_db = node_db.NodeDBClient(self.process.event_loop, self.process.server)
-        await self.node_db.setup()
-        await self.node_db.connect(node_db_address)
-
-    async def createInstrumentDB(self) -> None:
-        instrument_db_address = await self.process.manager.call(
-            'CREATE_INSTRUMENT_DB_PROCESS')
-
-        self.instrument_db = instrument_db.InstrumentDBClient(
-            self.process.event_loop, self.process.server)
-        await self.instrument_db.setup()
-        await self.instrument_db.connect(instrument_db_address)
-
-    def dumpSettings(self) -> None:
-        for key in self.settings.allKeys():
-            value = self.settings.value(key)
-            if isinstance(value, (bytes, QtCore.QByteArray)):
-                value = '[%d bytes]' % len(value)
-            logger.info('%s: %s', key, value)
-
-    def onShowEditAreasChanged(self) -> None:
-        self.settings.setValue(
-            'dev/show_edit_areas', int(self.show_edit_areas_action.isChecked()))
-
-    @property
-    def showEditAreas(self) -> bool:
-        return (self.runtime_settings.dev_mode
-                and self.show_edit_areas_action.isChecked())
-
-    def onPipelineStatus(self, status: Dict[str, Any]) -> None:
-        pass
-
-    def setClipboardContent(self, content: Any) -> None:
-        logger.info(
-            "Setting clipboard contents to: %s", pprint.pformat(content))
-        self.__clipboard = content
-
-    def clipboardContent(self) -> Any:
-        return self.__clipboard
-
-
-class EditorApp(BaseEditorApp, QtWidgets.QApplication):
-    def __init__(self, *, paths: Sequence[str], **kwargs: Any) -> None:
-        QtWidgets.QApplication.__init__(self, ['noisicaä'])
-        BaseEditorApp.__init__(self, **kwargs)
-
-        self.paths = paths
-
-        self._old_excepthook = None  # type: Callable[[Type[BaseException], BaseException, types.TracebackType], None]
-
-        self.win = None  # type: EditorWindow
-        self.pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
-        self.stat_monitor = None  # type: stat_monitor.StatMonitor
-        self.default_style = None  # type: str
-
-        self.setQuitOnLastWindowClosed(False)
-
-    async def setup(self) -> None:
-        logger.info("Installing custom excepthook.")
-        self._old_excepthook = sys.excepthook
-        sys.excepthook = ExceptHook(self)  # type: ignore
-
-        await super().setup()
-
-        self.default_style = self.style().objectName()
+        self.default_style = self.qt_app.style().objectName()
 
         style_name = self.settings.value('appearance/qtStyle', '')
         if style_name:
             # TODO: something's wrong with the QtWidgets stubs...
-            self.setStyle(QtWidgets.QStyleFactory.create(style_name))  # type: ignore
+            self.qt_app.setStyle(QtWidgets.QStyleFactory.create(style_name))  # type: ignore
 
         logger.info("Creating PipelinePerfMonitor.")
         self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(context=self.context)
@@ -265,10 +174,7 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
         logger.info("Creating StatMonitor.")
         self.stat_monitor = stat_monitor.StatMonitor(context=self.context)
 
-        logger.info("Creating EditorWindow.")
-        self.win = EditorWindow(context=self.context)
-        await self.win.setup()
-        self.win.show()
+        await self.createEditorWindow()
 
         if self.paths:
             logger.info("Starting with projects from cmdline.")
@@ -301,10 +207,40 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
         self.settings.sync()
         self.dumpSettings()
 
-        await super().cleanup()
+        if self.project_registry is not None:
+            await self.project_registry.close_all()
+            self.project_registry = None
+
+        if self.audioproc_client is not None:
+            await self.audioproc_client.disconnect(shutdown=True)
+            await self.audioproc_client.cleanup()
+            self.audioproc_client = None
+
+        if self.instrument_db is not None:
+            await self.instrument_db.disconnect(shutdown=True)
+            await self.instrument_db.cleanup()
+            self.instrument_db = None
+
+        if self.node_db is not None:
+            await self.node_db.disconnect(shutdown=True)
+            await self.node_db.cleanup()
+            self.node_db = None
+
+        if self.midi_hub is not None:
+            self.midi_hub.stop()
+            self.midi_hub = None
+
+        if self.sequencer is not None:
+            self.sequencer.close()
+            self.sequencer = None
 
         logger.info("Remove custom excepthook.")
-        sys.excepthook = self._old_excepthook  # type: ignore
+        sys.excepthook = self.__old_excepthook  # type: ignore
+
+    def quit(self, exit_code: int = 0) -> None:
+        # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
+        #   fix that without a cyclic import.
+        self.process.quit(exit_code)  # type: ignore
 
     def createSequencer(self) -> devices.AlsaSequencer:
         # Do other clients handle non-ASCII names?
@@ -312,6 +248,9 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
         # and the console interprets it as UTF-8), 'aconnectgui' shows the
         # encoded bytes.
         return devices.AlsaSequencer('noisicaä')
+
+    def createMidiHub(self) -> devices.MidiHub:
+        return devices.MidiHub(self.sequencer)
 
     async def createAudioProcProcess(self) -> None:
         self.audioproc_process = await self.process.manager.call(
@@ -332,11 +271,57 @@ class EditorApp(BaseEditorApp, QtWidgets.QApplication):
             self.settings.value('audio/backend', 'portaudio'),
         )
 
+    async def createNodeDB(self) -> None:
+        node_db_address = await self.process.manager.call('CREATE_NODE_DB_PROCESS')
+
+        self.node_db = node_db.NodeDBClient(self.process.event_loop, self.process.server)
+        await self.node_db.setup()
+        await self.node_db.connect(node_db_address)
+
+    async def createInstrumentDB(self) -> None:
+        instrument_db_address = await self.process.manager.call(
+            'CREATE_INSTRUMENT_DB_PROCESS')
+
+        self.instrument_db = instrument_db.InstrumentDBClient(
+            self.process.event_loop, self.process.server)
+        await self.instrument_db.setup()
+        await self.instrument_db.connect(instrument_db_address)
+
+    async def createEditorWindow(self) -> None:
+        logger.info("Creating EditorWindow.")
+        self.win = EditorWindow(context=self.context)
+        await self.win.setup()
+        self.win.show()
+
+    def dumpSettings(self) -> None:
+        for key in self.settings.allKeys():
+            value = self.settings.value(key)
+            if isinstance(value, (bytes, QtCore.QByteArray)):
+                value = '[%d bytes]' % len(value)
+            logger.info('%s: %s', key, value)
+
+    def onShowEditAreasChanged(self) -> None:
+        self.settings.setValue(
+            'dev/show_edit_areas', int(self.show_edit_areas_action.isChecked()))
+
+    @property
+    def showEditAreas(self) -> bool:
+        return (self.runtime_settings.dev_mode
+                and self.show_edit_areas_action.isChecked())
+
     def onPipelineStatus(self, status: Dict[str, Any]) -> None:
         if 'perf_data' in status:
             if self.pipeline_perf_monitor is not None:
                 self.pipeline_perf_monitor.addPerfData(
                     status['perf_data'])
+
+    def setClipboardContent(self, content: Any) -> None:
+        logger.info(
+            "Setting clipboard contents to: %s", pprint.pformat(content))
+        self.__clipboard = content
+
+    def clipboardContent(self) -> Any:
+        return self.__clipboard
 
     async def createProject(self, path: str) -> None:
         project_connection = self.project_registry.add_project(path)

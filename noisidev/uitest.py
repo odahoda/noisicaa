@@ -131,16 +131,33 @@ class MockSequencer(object):
 
 class MockSettings(object):
     def __init__(self):
-        self._data = {}  # type: Dict[str, Any]
+        self.__data = {}  # type: Dict[str, Any]
+        self.__grp = None  # type: str
 
-    def value(self, key, default):
-        return self._data.get(key, default)
+    def value(self, key, default=None):
+        if self.__grp:
+            key = self.__grp + '/' + key
+        return self.__data.get(key, default)
 
     def setValue(self, key, value):
-        self._data[key] = value
+        if self.__grp:
+            key = self.__grp + '/' + key
+        self.__data[key] = value
 
     def allKeys(self):
-        return list(self._data.keys())
+        assert self.__grp is None
+        return list(self.__data.keys())
+
+    def sync(self):
+        pass
+
+    def beginGroup(self, grp):
+        assert self.__grp is None
+        self.__grp = grp
+
+    def endGroup(self):
+        assert self.__grp is not None
+        self.__grp = None
 
 
 class MockProcess(core.ProcessBase):
@@ -149,18 +166,15 @@ class MockProcess(core.ProcessBase):
         self.project = None
 
 
-class MockApp(editor_app.BaseEditorApp, QtWidgets.QApplication):
-    def __init__(self):
-        QtWidgets.QApplication.__init__(self, ['noisicaä-test'])
-        editor_app.BaseEditorApp.__init__(  # type: ignore
-            self,
-            process=None,
-            runtime_settings=runtime_settings_lib.RuntimeSettings(),
-            settings=MockSettings()
-        )
-
+class MockApp(editor_app.EditorApp):
     def createSequencer(self):
         return MockSequencer()
+
+    async def createAudioProcProcess(self):
+        pass
+
+    async def createEditorWindow(self):
+        pass
 
 
 class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
@@ -170,10 +184,6 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.process = None
         self.app = None
         self.context = None
-
-    @classmethod
-    def createQApplication(cls):
-        return MockApp()
 
     async def setup_testcase(self):
         self.setup_node_db_process(inline=True)
@@ -186,7 +196,12 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
             tmp_dir=TEST_OPTS.TMP_DIR)
         await self.process.setup()
 
-        self.app = self.qt_app
+        self.app = MockApp(
+            qt_app=self.qt_app,
+            process=self.process,
+            paths=[],
+            runtime_settings=runtime_settings_lib.RuntimeSettings(),
+            settings=MockSettings())
         self.app.process = self.process
         await self.app.setup()
 

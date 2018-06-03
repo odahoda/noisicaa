@@ -26,6 +26,7 @@ import logging
 import signal
 from typing import Any, Optional, Sequence  # pylint: disable=unused-import
 
+from PyQt5 import QtWidgets  # pylint: disable=unused-import
 import quamash
 
 from noisicaa import core
@@ -44,16 +45,17 @@ class UISubprocess(core.SubprocessMixin, core.ProcessBase):
     ) -> None:
         super().__init__(**kwargs)
 
+        self.runtime_settings = runtime_settings
+        self.paths = paths
+
         self._shutting_down = None  # type: asyncio.Event
         self.exit_code = None  # type: Optional[int]
-
-        self.app = editor_app.EditorApp(
-            process=self,
-            runtime_settings=runtime_settings,
-            paths=paths)
+        self.qt_app = None  # type: QtWidgets.QApplication
+        self.app = None  # type: editor_app.EditorApp
 
     def create_event_loop(self) -> asyncio.AbstractEventLoop:
-        return quamash.QEventLoop(self.app)
+        self.qt_app = editor_app.QApplication()
+        return quamash.QEventLoop(self.qt_app)
 
     async def setup(self) -> None:
         self._shutting_down = asyncio.Event(loop=self.event_loop)
@@ -61,10 +63,19 @@ class UISubprocess(core.SubprocessMixin, core.ProcessBase):
             self.event_loop.add_signal_handler(
                 sig, functools.partial(self.handle_signal, sig))
         await super().setup()
+
+        self.app = editor_app.EditorApp(
+            qt_app=self.qt_app,
+            process=self,
+            runtime_settings=self.runtime_settings,
+            paths=self.paths)
         await self.app.setup()
 
     async def cleanup(self) -> None:
-        await self.app.cleanup()
+        if self.app is not None:
+            await self.app.cleanup()
+            self.app = None
+
         await super().cleanup()
 
     async def run(self) -> int:
