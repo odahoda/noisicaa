@@ -24,7 +24,6 @@ import fractions
 import logging
 import os.path
 import uuid
-from typing import Dict  # pylint: disable=unused-import
 
 from noisidev import unittest
 from noisidev import unittest_mixins

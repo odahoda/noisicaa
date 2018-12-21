@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import cast, Any, Optional, Union, Sequence, Dict, List, Tuple, Type  # pylint: disable=unused-import
+from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

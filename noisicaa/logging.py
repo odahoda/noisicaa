@@ -24,7 +24,7 @@ import sys
 import logging.handlers
 from logging import *  # pylint: disable=W0614,W0401
 import queue
-from typing import Any, Dict, Optional, List, Tuple, Type  # pylint: disable=unused-import
+from typing import Any, Dict, Optional, List, Tuple
 
 from . import runtime_settings as runtime_settings_lib
 

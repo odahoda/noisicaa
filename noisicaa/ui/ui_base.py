@@ -23,20 +23,23 @@
 import asyncio
 import functools
 import io
+import typing
 from typing import Any, Optional, Dict, Tuple, Callable, Awaitable
 
-from PyQt5 import QtCore  # pylint: disable=unused-import
+from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa import core
-from noisicaa import instrument_db as instrument_db_lib  # pylint: disable=unused-import
-from noisicaa import node_db as node_db_lib  # pylint: disable=unused-import
-from noisicaa import devices  # pylint: disable=unused-import
-from noisicaa import runtime_settings as runtime_settings_lib  # pylint: disable=unused-import
+from noisicaa import devices
 from . import selection_set as selection_set_lib
 from . import project_registry
+
+if typing.TYPE_CHECKING:
+    from noisicaa import instrument_db as instrument_db_lib
+    from noisicaa import node_db as node_db_lib
+    from noisicaa import runtime_settings as runtime_settings_lib
 
 
 class CommonContext(object):

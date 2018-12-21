@@ -23,11 +23,11 @@
 import contextlib
 import copy
 import logging
-from typing import Any, Iterable, List, Tuple, Generator  # pylint: disable=unused-import
+from typing import Any, Generator
 
 from noisicaa import audioproc
 from noisicaa import model
-from noisicaa import core  # pylint: disable=unused-import
+from noisicaa import core
 from . import pmodel
 from . import mutations_pb2
 

@@ -22,7 +22,7 @@
 
 import threading
 from unittest import mock
-from typing import Dict, Iterable  # pylint: disable=unused-import
+from typing import Dict, Iterable
 
 from noisidev import unittest
 from . import libalsa

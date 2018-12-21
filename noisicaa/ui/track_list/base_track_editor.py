@@ -22,7 +22,7 @@
 
 import fractions
 import logging
-from typing import Any, Optional, Union, Dict, List, Type  # pylint: disable=unused-import
+from typing import Any, Type
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

@@ -22,7 +22,7 @@
 
 import logging
 import textwrap
-from typing import cast, Any, Optional, Iterator, List  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Iterator
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

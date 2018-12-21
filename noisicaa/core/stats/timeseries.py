@@ -22,7 +22,7 @@
 
 import collections
 import logging
-from typing import List, MutableMapping, MutableSequence, Union  # pylint: disable=unused-import
+from typing import List, MutableMapping, MutableSequence, Union
 
 from . import stats
 

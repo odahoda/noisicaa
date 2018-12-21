@@ -22,7 +22,7 @@
 
 import itertools
 import logging
-from typing import cast, Any, Optional, Iterator, Dict, Tuple, Type  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Iterator, Dict, Type
 
 from google.protobuf import message as protobuf
 

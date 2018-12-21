@@ -28,7 +28,7 @@ import pprint
 import random
 import textwrap
 import uuid
-from typing import cast, Any, Optional, Iterator, List, Tuple  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Iterator, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

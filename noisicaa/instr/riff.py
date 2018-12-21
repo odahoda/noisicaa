@@ -24,7 +24,7 @@ import os.path
 import io
 import logging
 import struct
-from typing import List, IO  # pylint: disable=unused-import
+from typing import List, IO
 
 logger = logging.getLogger(__name__)
 

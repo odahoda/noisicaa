@@ -22,7 +22,7 @@
 
 import logging
 import os.path
-from typing import cast, Any, Optional, Dict, List, Set  # pylint: disable=unused-import
+from typing import cast, Any
 
 from PyQt5 import QtSvg  # type: ignore
 from PyQt5 import QtWidgets

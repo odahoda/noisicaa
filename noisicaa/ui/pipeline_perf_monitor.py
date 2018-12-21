@@ -22,7 +22,7 @@
 
 import math
 import time
-from typing import Any, List  # pylint: disable=unused-import
+from typing import Any, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

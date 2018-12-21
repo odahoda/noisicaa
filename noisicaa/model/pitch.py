@@ -21,7 +21,7 @@
 # @end:license
 
 import re
-from typing import Optional, Union, Dict, List, Set, Tuple  # pylint: disable=unused-import
+from typing import Optional, Union, Dict, List, Set, Tuple
 
 from google.protobuf import message as protobuf
 

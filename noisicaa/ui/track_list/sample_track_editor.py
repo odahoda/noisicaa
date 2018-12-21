@@ -23,7 +23,7 @@
 import fractions
 import functools
 import logging
-from typing import Any, List, Tuple  # pylint: disable=unused-import
+from typing import Any, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -32,7 +32,7 @@ from PyQt5 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa import core  # pylint: disable=unused-import
+from noisicaa import core
 from noisicaa import music
 from noisicaa import model
 from noisicaa.model import project_pb2
@@ -251,7 +251,7 @@ class SampleItem(object):
             painter.drawText(3, 20, "Broken")
 
         elif status == 'highres':
-            samples, = args
+            samples, = args  # pylint: disable=unbalanced-tuple-unpacking
             ycenter = self.height() // 2
 
             if self.__highlighted:
@@ -271,7 +271,7 @@ class SampleItem(object):
                 p_y = y
 
         elif status == 'rms':
-            samples, = args
+            samples, = args  # pylint: disable=unbalanced-tuple-unpacking
             ycenter = self.height() // 2
 
             if self.__highlighted:

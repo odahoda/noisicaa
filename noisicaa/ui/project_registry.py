@@ -23,7 +23,7 @@
 import asyncio
 import logging
 import os.path
-from typing import Dict  # pylint: disable=unused-import
+from typing import Dict
 
 from PyQt5 import QtCore
 

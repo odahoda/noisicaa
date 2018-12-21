@@ -22,7 +22,7 @@
 
 import fractions
 import logging
-from typing import cast, Any, Optional, Union, Sequence, Dict, List, Tuple, Type  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Union, Dict, List, Type
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -31,7 +31,7 @@ from PyQt5 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa import core  # pylint: disable=unused-import
+from noisicaa import core
 from noisicaa import music
 from noisicaa import model
 from noisicaa.ui import ui_base

@@ -29,7 +29,6 @@ import importlib
 import logging
 import os
 import pickle
-import resource  # pylint: disable=unused-import
 import select
 import shutil
 import signal
@@ -39,9 +38,8 @@ import tempfile
 import threading
 import time
 import traceback
-from typing import (  # pylint: disable=unused-import
-    cast, Any, Optional, Callable, Iterator, Dict, List, Set, Tuple
-)
+import typing
+from typing import cast, Any, Optional, Callable, Iterator, Dict, List, Set, Tuple
 
 import eventfd
 
@@ -49,6 +47,9 @@ from . import ipc
 from . import stats
 from . import stacktrace
 from .logging import init_pylogging
+
+if typing.TYPE_CHECKING:
+    import resource
 
 logger = logging.getLogger(__name__)
 

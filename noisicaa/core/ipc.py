@@ -30,7 +30,7 @@ import pickle
 import pprint
 import time
 import traceback
-from typing import cast, Any, Optional, Dict, Callable  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Dict, Callable
 import uuid
 
 from . import stats

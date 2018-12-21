@@ -23,7 +23,7 @@
 import fractions
 import logging
 import time as time_lib
-from typing import cast, Any, Optional, Union, Sequence, Dict, List, Tuple, Type  # pylint: disable=unused-import
+from typing import Any, Optional, Dict
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

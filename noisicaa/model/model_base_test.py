@@ -21,9 +21,7 @@
 # @end:license
 
 import collections
-from typing import cast, Any, Optional, Type, Iterator, Dict, List, Tuple  # pylint: disable=unused-import
-
-from google.protobuf import message as protobuf  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Type, Iterator, List, Tuple
 
 from noisidev import unittest
 from noisicaa import core

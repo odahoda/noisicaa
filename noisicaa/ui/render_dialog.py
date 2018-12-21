@@ -24,7 +24,7 @@ import asyncio
 import enum
 import logging
 import os.path
-from typing import Any, Optional, Callable, Iterable, BinaryIO, Tuple  # pylint: disable=unused-import
+from typing import Any, Optional, Callable, Iterable, BinaryIO, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

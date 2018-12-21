@@ -29,7 +29,7 @@ import queue
 import sys
 import threading
 import time
-from typing import Any, Callable, Dict, List, Set, Iterable  # pylint: disable=unused-import
+from typing import Any, Callable, Dict, List, Set, Iterable
 
 from noisicaa import core
 from noisicaa import instrument_db

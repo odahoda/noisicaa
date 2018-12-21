@@ -186,7 +186,7 @@ class BuiltinPyTests(unittest.TestCase):
         ]
 
         reporter = PylintReporter()
-        PylintRunner(args, reporter=reporter, exit=False)
+        PylintRunner(args, reporter=reporter, do_exit=False)
 
         messages = list(reporter.messages)
         if messages:

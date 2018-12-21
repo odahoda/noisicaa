@@ -22,14 +22,14 @@
 
 import logging
 import time
-from typing import cast, Any, List, Set  # pylint: disable=unused-import
+from typing import cast, Any, List, Set
 
 from noisicaa import constants
 from noisicaa import core
 
 from .private import db
 from . import process_base
-from . import mutations as mutations_lib  # pylint: disable=unused-import
+from . import mutations as mutations_lib
 
 logger = logging.getLogger(__name__)
 

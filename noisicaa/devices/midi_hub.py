@@ -23,7 +23,7 @@
 import logging
 import select
 import threading
-from typing import Any, Iterator, Callable, Dict, Tuple  # pylint: disable=unused-import
+from typing import Any, Iterator, Callable, Dict, Tuple
 
 from noisicaa import core
 from . import libalsa

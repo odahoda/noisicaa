@@ -22,7 +22,7 @@
 
 import functools
 import logging
-from typing import cast, Any, Optional, Dict, List, Set  # pylint: disable=unused-import
+from typing import Any, Optional, Dict, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

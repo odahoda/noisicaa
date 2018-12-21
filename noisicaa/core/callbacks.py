@@ -24,7 +24,7 @@ import collections
 import logging
 import random
 import threading
-from typing import Any, Dict, Callable, List, Optional, Generic, TypeVar  # pylint: disable=unused-import
+from typing import Any, Dict, Callable, Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 

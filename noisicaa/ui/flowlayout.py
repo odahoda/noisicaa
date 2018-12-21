@@ -23,7 +23,7 @@
 # mypy: loose
 
 import functools
-from typing import List  # pylint: disable=unused-import
+from typing import List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

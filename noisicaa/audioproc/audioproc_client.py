@@ -20,7 +20,7 @@
 #
 # @end:license
 
-import asyncio  # pylint: disable=unused-import
+import asyncio
 import logging
 from typing import Any, Dict, Optional, Set, Tuple
 

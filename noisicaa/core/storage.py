@@ -30,7 +30,7 @@ import time
 import struct
 import queue
 import threading
-from typing import cast, Any, Dict, List, Set, Tuple, IO  # pylint: disable=unused-import
+from typing import cast, Dict, List, Set, Tuple, IO
 
 from mypy_extensions import TypedDict
 import portalocker

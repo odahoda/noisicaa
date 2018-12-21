@@ -22,14 +22,14 @@
 
 import logging
 import random
-from typing import Any, Optional, Callable, Iterator, Dict, List, Type  # pylint: disable=unused-import
+from typing import Any, Optional, Callable, Iterator, Dict, List, Type
 
 from google.protobuf import message as protobuf
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
-from noisicaa import core  # pylint: disable=unused-import
+from noisicaa import core
 from . import pipeline_graph
 from . import pmodel
 from . import commands

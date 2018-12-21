@@ -24,9 +24,9 @@ import functools
 import asyncio
 import logging
 import signal
-from typing import Any, Optional, Sequence  # pylint: disable=unused-import
+from typing import Any, Optional, Sequence
 
-from PyQt5 import QtWidgets  # pylint: disable=unused-import
+from PyQt5 import QtWidgets
 import quamash
 
 from noisicaa import core

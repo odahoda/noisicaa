@@ -22,7 +22,7 @@
 
 import fractions
 import logging
-from typing import Any, List, Tuple  # pylint: disable=unused-import
+from typing import Any, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -30,7 +30,7 @@ from PyQt5 import QtGui
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa import core  # pylint: disable=unused-import
+from noisicaa import core
 from noisicaa import music
 from noisicaa import model
 from . import base_track_editor

@@ -22,7 +22,7 @@
 
 import logging
 import operator
-from typing import cast, Any, Dict, Tuple, Type, Callable, Generic, TypeVar  # pylint: disable=unused-import
+from typing import cast, Any, Dict, Tuple, Type, Callable, TypeVar
 
 from PyQt5 import QtCore
 

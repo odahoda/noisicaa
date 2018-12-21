@@ -25,9 +25,7 @@ from fractions import Fraction
 import getpass
 import logging
 import socket
-from typing import (  # pylint: disable=unused-import
-    cast, Any, Optional, Dict, Tuple, Callable, Iterable, Iterator, Sequence, Type, TypeVar
-)
+from typing import cast, Any, Dict, Tuple, Callable, Sequence, TypeVar
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc

@@ -21,7 +21,7 @@
 # @end:license
 
 import math
-from typing import cast, Optional, Union, Dict  # pylint: disable=unused-import
+from typing import cast, Optional, Union, Dict
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -30,7 +30,7 @@ from PyQt5 import QtWidgets
 
 from noisicaa import devices
 from noisicaa import model
-from noisicaa import core  # pylint: disable=unused-import
+from noisicaa import core
 from . import qled
 
 

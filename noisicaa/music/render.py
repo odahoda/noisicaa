@@ -29,7 +29,7 @@ import os
 import os.path
 import time
 import uuid
-from typing import cast, Any, Union, Callable, Awaitable, List, Tuple, Text  # pylint: disable=unused-import
+from typing import cast, Any, Union, Callable, Awaitable, List, Tuple, Text
 
 
 from noisicaa.core.typing_extra import down_cast
@@ -161,8 +161,8 @@ class Encoder(object):
             render_settings_pb2.RenderSettings.MP3: Mp3Encoder,
             render_settings_pb2.RenderSettings.FAIL__TEST_ONLY__: FailingEncoder,
         }
-        cls = cls_map[settings.output_format]
-        return cls(settings=settings, **kwargs)
+        encoder_cls = cls_map[settings.output_format]
+        return encoder_cls(settings=settings, **kwargs)
 
     def get_writer(self) -> asyncio.StreamWriter:
         raise NotImplementedError

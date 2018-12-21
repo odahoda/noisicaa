@@ -26,7 +26,7 @@ import io
 import logging
 import os.path
 from xml.etree import ElementTree
-from typing import Dict, Tuple  # pylint: disable=unused-import
+from typing import Dict, Tuple
 
 from PyQt5 import QtCore
 # TODO: add stubs for PyQt5.QtSvg

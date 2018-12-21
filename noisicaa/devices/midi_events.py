@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import Any, Dict  # pylint: disable=unused-import
+from typing import Any
 
 
 class MidiEvent(object):

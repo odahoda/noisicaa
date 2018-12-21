@@ -22,9 +22,7 @@
 
 import fractions
 import logging
-from typing import cast, Any, Dict, Set, Iterator, Sequence, List, Union  # pylint: disable=unused-import
-
-from google.protobuf import message as protobuf  # pylint: disable=unused-import
+from typing import cast, Any, Dict, Set, Sequence, List, Union
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import core

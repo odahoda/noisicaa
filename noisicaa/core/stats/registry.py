@@ -23,7 +23,7 @@
 import logging
 import threading
 import time
-from typing import Dict, List, Tuple, Type, TypeVar  # pylint: disable=unused-import
+from typing import Dict, List, Tuple, Type, TypeVar
 
 import psutil
 

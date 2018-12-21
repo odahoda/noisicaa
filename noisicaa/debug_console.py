@@ -27,8 +27,8 @@ import os
 import signal
 import textwrap
 import unicodedata
-from typing import (  # pylint: disable=unused-import
-    Any, Optional, Awaitable, Callable, Iterable, Iterator, Dict, List, Set, Tuple, Union
+from typing import (
+    Any, Optional, Awaitable, Callable, Iterable, Iterator, Dict, List, Tuple, Union
 )
 
 import psutil

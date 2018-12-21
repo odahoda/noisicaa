@@ -26,7 +26,8 @@ import functools
 import logging
 import os
 import threading
-from typing import Any, Dict, Tuple  # pylint: disable=unused-import
+import typing
+from typing import Any, Dict, Tuple
 import uuid
 import warnings
 
@@ -50,7 +51,9 @@ from noisicaa import node_db
 from noisicaa.audioproc.public import plugin_state_pb2
 from . import plugin_host_pb2
 from . import plugin_host
-from . import plugin_ui_host  # pylint: disable=unused-import
+
+if typing.TYPE_CHECKING:
+    from . import plugin_ui_host
 
 logger = logging.getLogger(__name__)
 

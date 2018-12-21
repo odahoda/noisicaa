@@ -24,7 +24,7 @@ import copy
 import logging
 import os.path
 import uuid
-from typing import Dict, Tuple  # pylint: disable=unused-import
+from typing import Dict, Tuple
 
 import async_generator
 from google.protobuf import message as protobuf
@@ -32,8 +32,8 @@ from google.protobuf import message as protobuf
 from noisidev import unittest
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
-from noisicaa import model  # pylint: disable=unused-import
-from noisicaa.model import model_base_pb2  # pylint: disable=unused-import
+from noisicaa import model
+from noisicaa.model import model_base_pb2
 from . import project_client
 from . import commands_pb2
 

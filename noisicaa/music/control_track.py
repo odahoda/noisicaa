@@ -22,14 +22,14 @@
 
 import logging
 import random
-from typing import cast, Any, Dict, Optional, Iterator  # pylint: disable=unused-import
+from typing import cast, Any, Dict, Optional, Iterator
 
 from google.protobuf import message as protobuf
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
-from noisicaa import core  # pylint: disable=unused-import
+from noisicaa import core
 from . import pmodel
 from . import base_track
 from . import commands

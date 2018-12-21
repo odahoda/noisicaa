@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Iterable  # pylint: disable=unused-import
+from typing import Iterable
 
 from noisicaa import instrument_db
 from noisicaa.instr import soundfont

@@ -25,7 +25,7 @@
 import contextlib
 from fractions import Fraction
 from unittest import mock
-from typing import List, Set  # pylint: disable=unused-import
+from typing import List, Set
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

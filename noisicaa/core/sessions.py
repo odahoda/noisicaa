@@ -24,7 +24,7 @@ import asyncio
 import functools
 import io
 import logging
-from typing import Any, List, Dict, Type  # pylint: disable=unused-import
+from typing import Any, List, Dict, Type
 import uuid
 
 from . import ipc

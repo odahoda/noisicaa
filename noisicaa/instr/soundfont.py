@@ -22,7 +22,7 @@
 
 import logging
 import struct
-from typing import List, Set, Tuple, IO  # pylint: disable=unused-import
+from typing import List, Set, Tuple, IO
 
 from . import riff
 

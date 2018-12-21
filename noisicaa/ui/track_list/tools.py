@@ -23,7 +23,7 @@
 import logging
 import enum
 import os.path
-from typing import Any, List, Dict, Iterator  # pylint: disable=unused-import
+from typing import Any, List, Dict, Iterator
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

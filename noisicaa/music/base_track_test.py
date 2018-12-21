@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Type  # pylint: disable=unused-import
+from typing import Type
 
 from noisidev import unittest
 from . import commands_pb2

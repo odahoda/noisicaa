@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, List, Tuple  # pylint: disable=unused-import
+from typing import Any, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

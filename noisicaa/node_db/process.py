@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import cast, Any, Set, Dict, List  # pylint: disable=unused-import
+from typing import cast, Any, Set
 
 from noisicaa import core
 from .private import db

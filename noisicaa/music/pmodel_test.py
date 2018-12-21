@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import Type  # pylint: disable=unused-import
+from typing import Type
 
 from noisidev import unittest
 from noisicaa import audioproc

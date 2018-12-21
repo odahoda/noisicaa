@@ -26,7 +26,8 @@ import logging
 import os
 import os.path
 import pickle
-from typing import cast, Any, Optional, Iterator, Sequence, Type, Dict, List, Tuple, TypeVar  # pylint: disable=unused-import
+import typing
+from typing import cast, Any, Optional, Type, Dict, Tuple, TypeVar
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -39,8 +40,10 @@ from . import commands
 from . import commands_pb2
 from . import player as player_lib
 from . import render
-from . import pmodel  # pylint: disable=unused-import
 from . import render_settings_pb2
+
+if typing.TYPE_CHECKING:
+    from . import pmodel
 
 logger = logging.getLogger(__name__)
 

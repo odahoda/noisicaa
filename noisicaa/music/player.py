@@ -24,7 +24,7 @@ import asyncio
 import concurrent.futures
 import logging
 import uuid
-from typing import cast, Any, Optional, Iterator, Dict, Tuple  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Iterator, Dict, Tuple
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -32,7 +32,7 @@ from noisicaa import audioproc
 from noisicaa import model
 
 from . import pmodel
-from . import base_track  # pylint: disable=unused-import
+from . import base_track
 
 logger = logging.getLogger(__name__)
 

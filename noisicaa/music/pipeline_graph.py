@@ -23,7 +23,7 @@
 #import io
 import logging
 #from xml.etree import ElementTree
-from typing import cast, Any, Optional, Union, Iterator, List  # pylint: disable=unused-import
+from typing import Any, Optional, Iterator, List
 
 from google.protobuf import message as protobuf
 

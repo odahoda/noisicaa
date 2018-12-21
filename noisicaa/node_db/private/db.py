@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Iterator, Dict  # pylint: disable=unused-import
+from typing import Iterator, Dict
 
 from noisicaa import node_db
 

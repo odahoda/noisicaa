@@ -26,7 +26,7 @@ import pprint
 import sys
 import traceback
 import types
-from typing import Any, Optional, Callable, Sequence, Dict, Type  # pylint: disable=unused-import
+from typing import Any, Optional, Callable, Sequence, Dict, Type
 
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets

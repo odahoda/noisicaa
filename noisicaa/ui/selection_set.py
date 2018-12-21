@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Iterator, Set  # pylint: disable=unused-import
+from typing import Iterator, Set
 
 logger = logging.getLogger(__name__)
 

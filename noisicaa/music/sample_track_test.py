@@ -21,7 +21,7 @@
 # @end:license
 
 import os.path
-from typing import List  # pylint: disable=unused-import
+from typing import List
 
 from noisidev import unittest
 from noisidev import unittest_mixins

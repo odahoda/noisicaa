@@ -23,7 +23,7 @@
 import logging
 import os
 import os.path
-from typing import Dict, Iterable, Any  # pylint: disable=unused-import
+from typing import Dict, Iterable, Any
 
 from noisicaa import instrument_db
 from noisicaa.instr import wave

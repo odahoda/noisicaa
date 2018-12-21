@@ -21,12 +21,12 @@
 # @end:license
 
 import logging
-from typing import Any, Dict, List, Optional, Set  # pylint: disable=unused-import
+from typing import Any, Dict, List, Optional, Set
 
 import toposort
 
 from noisicaa import core
-from noisicaa.core import ipc  # pylint: disable=unused-import
+from noisicaa.core import ipc
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import host_system as host_system_lib

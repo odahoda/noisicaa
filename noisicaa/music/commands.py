@@ -22,9 +22,7 @@
 
 import logging
 import time
-from typing import (  # pylint: disable=unused-import
-    cast, Any, Optional, Generator, Dict, List, Tuple, Type
-)
+from typing import Any, Dict, Type
 
 from google.protobuf import message as protobuf
 

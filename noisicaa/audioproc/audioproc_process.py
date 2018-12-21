@@ -24,7 +24,7 @@ import functools
 import logging
 import sys
 import uuid
-from typing import cast, Any, Optional, Dict, List, Set, Tuple  # pylint: disable=unused-import
+from typing import cast, Any, Optional, Dict, List, Set, Tuple
 
 import posix_ipc
 

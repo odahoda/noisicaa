@@ -26,7 +26,7 @@ import uuid
 
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
-from noisicaa import model  # pylint: disable=unused-import
+from noisicaa import model
 from . import project_client
 
 logger = logging.getLogger(__name__)

@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Dict  # pylint: disable=unused-import
+from typing import Dict
 
 from noisidev import unittest
 from noisicaa.constants import TEST_OPTS

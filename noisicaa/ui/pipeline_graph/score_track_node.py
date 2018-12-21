@@ -21,12 +21,12 @@
 # @end:license
 
 import logging
-from typing import cast, Any, Optional, Dict, List, Set  # pylint: disable=unused-import
+from typing import Any, Dict
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
-from noisicaa import core  # pylint: disable=unused-import
+from noisicaa import core
 from noisicaa import model
 from noisicaa import music
 from noisicaa.ui import ui_base

@@ -22,7 +22,7 @@
 
 import asyncio
 import logging
-from typing import Dict, Iterable, Set, Tuple  # pylint: disable=unused-import
+from typing import Dict, Iterable, Set, Tuple
 
 from noisicaa import core
 from noisicaa.core import ipc
