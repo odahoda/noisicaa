@@ -82,8 +82,9 @@ PIP_DEPS = {
         PKG('py-cpuinfo'),
         PKG('pyfakefs'),
         PKG('pylint==2.2.2'),
-        PKG('mypy==0.610'),
+        PKG('mypy==0.650'),
         PKG('mypy-extensions'),
+        PKG('PyGObject-stubs'),
     ],
     'vmtests': [
         PKG('paramiko'),

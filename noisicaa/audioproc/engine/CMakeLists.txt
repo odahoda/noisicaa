@@ -22,6 +22,7 @@ add_python_package(
   backend.pyi
   backend_test.py
   block_context.pyi
+  buffers.pyi
   buffer_arena.pyi
   engine_perftest.py
   engine_test.py

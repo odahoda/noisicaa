@@ -233,8 +233,7 @@ class BuiltinPyTests(unittest.TestCase):
             mypy_argv,
             cwd=LIBDIR,
             env={
-                'MYPYPATH': ':'.join(
-                    [SITE_PACKAGES_DIR, os.path.join(ROOTDIR, '3rdparty', 'typeshed')]),
+                'MYPYPATH': os.path.join(ROOTDIR, '3rdparty', 'typeshed'),
                 'VIRTUAL_ENV': os.environ['VIRTUAL_ENV'],
             },
             stdout=subprocess.PIPE,
@@ -243,6 +242,7 @@ class BuiltinPyTests(unittest.TestCase):
 
         if proc.stderr:
             sys.stderr.buffer.write(proc.stderr)
+            self.fail("mypy is unhappy.")
 
         messages = []
         for line in proc.stdout.decode('utf-8').splitlines(False):

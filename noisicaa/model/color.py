@@ -36,7 +36,8 @@ class Color(model_base.ProtoValue):
         self.__a = self.__context.create_decimal_from_float(a)
 
     def to_proto(self) -> project_pb2.Color:
-        return project_pb2.Color(r=self.__r, g=self.__g, b=self.__b, a=self.__a)
+        return project_pb2.Color(
+            r=float(self.__r), g=float(self.__g), b=float(self.__b), a=float(self.__a))
 
     @classmethod
     def from_proto(cls, pb: protobuf.Message) -> 'Color':

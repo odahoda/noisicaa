@@ -29,7 +29,7 @@ import os.path
 import struct
 import io
 import logging
-from typing import Any, Optional, Type, Iterator, Dict, Tuple
+from typing import cast, Any, Optional, Type, Iterator, Dict, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +124,7 @@ class File(object):
             content = fp.read()
 
             if 'Checksum' in message:
-                should_checksum = message['Checksum'].split(';')[0]
+                should_checksum = cast(str, message['Checksum']).split(';')[0]
                 checksum_type = message.get_param('type', None, 'Checksum')
                 if checksum_type is None:
                     raise BadFileFormatError("Checksum type not specified")
@@ -141,11 +141,11 @@ class File(object):
 
             file_info = FileInfo()
             file_info.content_type = message.get_content_type()
-            file_info.encoding = message.get_param('charset', 'ascii')
+            file_info.encoding = cast(str, message.get_param('charset', 'ascii'))
             if 'Version' in message:
-                file_info.version = int(message['Version'])
+                file_info.version = int(cast(str, message['Version']))
             if 'File-Type' in message:
-                file_info.filetype = message['File-Type']
+                file_info.filetype = cast(str, message['File-Type'])
 
             return file_info, content
 
@@ -375,7 +375,7 @@ class MimeLogFile(object):
         content = data[headers_length:]
 
         if 'Checksum' in message:
-            should_checksum = message['Checksum'].split(';')[0]
+            should_checksum = cast(str, message['Checksum']).split(';')[0]
             checksum_type = message.get_param('type', None, 'Checksum')
             if checksum_type is None:
                 raise BadFileFormatError("Checksum type not specified")
@@ -391,6 +391,6 @@ class MimeLogFile(object):
                     "Checksum mismatch (%s != %s)"
                     % (have_checksum, should_checksum))
 
-        encoding = message.get_param('charset', 'ascii')
+        encoding = cast(str, message.get_param('charset', 'ascii'))
 
         return content.decode(encoding), message, entry_type

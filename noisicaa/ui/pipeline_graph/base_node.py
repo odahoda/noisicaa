@@ -27,7 +27,7 @@ from typing import cast, Any, Optional, Dict, List
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
-from PyQt5 import QtSvg  # type: ignore
+from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
 from noisicaa import model

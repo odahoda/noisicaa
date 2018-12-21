@@ -18,6 +18,8 @@
 #
 # @end:license
 
+from typing import cast
+
 import logging
 import os
 import os.path
@@ -142,7 +144,7 @@ class ProcessorPluginTest(
             os.close(fd)
 
             logger.info("Set plugin condition...")
-            cond_type = buffer_mgr.type('plugin_cond')
+            cond_type = cast(buffers.PyPluginCondBuffer, buffer_mgr.type('plugin_cond'))
             cond_buf = buffer_mgr['plugin_cond']
             cond_type.set_cond(cond_buf)
 

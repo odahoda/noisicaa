@@ -40,8 +40,7 @@ with warnings.catch_warnings():
     # So let's cross fingers that is keeps working and suppress that warning.
     warnings.filterwarnings('ignore', r"You have imported the Gtk 2\.0 module")
     gi.require_version("Gtk", "2.0")
-    # pylint: disable=unused-import
-    from gi.repository import Gtk  # type: ignore
+    from gi.repository import Gtk  # pylint: disable=unused-import
 
 from noisicaa import core
 from noisicaa.core import ipc

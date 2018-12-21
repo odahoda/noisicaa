@@ -29,8 +29,7 @@ from xml.etree import ElementTree
 from typing import Dict, Tuple
 
 from PyQt5 import QtCore
-# TODO: add stubs for PyQt5.QtSvg
-from PyQt5 import QtSvg  # type: ignore
+from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
 from noisicaa.constants import DATA_DIR

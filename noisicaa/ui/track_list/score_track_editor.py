@@ -27,8 +27,7 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
-# TODO: add stubs for QtSvg
-from PyQt5 import QtSvg  # type: ignore
+from PyQt5 import QtSvg
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import core

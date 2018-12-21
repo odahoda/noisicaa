@@ -202,7 +202,7 @@ class BaseList(Generic[VALUE], MutableSequence[VALUE]):
     def __getitem__(self, idx: int) -> VALUE:
         pass  # pragma: no coverage
     @overload
-    def __getitem__(self, idx: slice) -> Sequence[VALUE]:
+    def __getitem__(self, idx: slice) -> MutableSequence[VALUE]:
         pass  # pragma: no coverage
     def __getitem__(self, idx: Union[int, slice]) -> Any:
         if isinstance(idx, int):

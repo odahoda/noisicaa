@@ -24,7 +24,7 @@ import logging
 import os.path
 from typing import cast, Any
 
-from PyQt5 import QtSvg  # type: ignore
+from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
 from noisicaa.constants import DATA_DIR
