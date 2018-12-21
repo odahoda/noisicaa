@@ -22,7 +22,7 @@
 
 import logging
 import random
-from typing import cast, Any, Dict, Optional  # pylint: disable=unused-import
+from typing import cast, Any, Dict, Optional, Iterator  # pylint: disable=unused-import
 
 from google.protobuf import message as protobuf
 
@@ -32,7 +32,6 @@ from noisicaa import model
 from noisicaa import core  # pylint: disable=unused-import
 from . import pmodel
 from . import base_track
-from . import pipeline_graph
 from . import commands
 from . import commands_pb2
 
@@ -123,10 +122,10 @@ class ControlPoint(pmodel.ControlPoint):
 class ControlTrackConnector(base_track.TrackConnector):
     _track = None  # type: ControlTrack
 
-    def __init__(self, *, node_id: str, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__node_id = node_id
+        self.__node_id = self._track.pipeline_node_id
         self.__listeners = {}  # type: Dict[str, core.Listener]
         self.__point_ids = {}  # type: Dict[int, int]
 
@@ -202,36 +201,15 @@ class ControlTrackConnector(base_track.TrackConnector):
 
 class ControlTrack(pmodel.ControlTrack, base_track.Track):
     def create_track_connector(self, **kwargs: Any) -> ControlTrackConnector:
-        return ControlTrackConnector(
-            track=self,
-            node_id=self.generator_name,
-            **kwargs)
+        return ControlTrackConnector(track=self, **kwargs)
 
-    @property
-    def mixer_name(self) -> str:
-        return self.parent_audio_sink_name
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
+        yield audioproc.AddNode(
+            description=self.description,
+            id=self.pipeline_node_id,
+            name=self.name)
 
-    @property
-    def mixer_node(self) -> pmodel.BasePipelineGraphNode:
-        return self.parent_audio_sink_node
+        yield from self.get_initial_parameter_mutations()
 
-    @mixer_node.setter
-    def mixer_node(self, value: pmodel.TrackMixerPipelineGraphNode) -> None:
-        raise RuntimeError
-
-    @property
-    def generator_name(self) -> str:
-        return '%016x-generator' % self.id
-
-    def add_pipeline_nodes(self) -> None:
-        generator_node = self._pool.create(
-            pipeline_graph.CVGeneratorPipelineGraphNode,
-            name="Control Value",
-            graph_pos=self.parent_audio_sink_node.graph_pos - model.Pos2F(200, 0),
-            track=self)
-        self.project.add_pipeline_graph_node(generator_node)
-        self.generator_node = generator_node
-
-    def remove_pipeline_nodes(self) -> None:
-        self.project.remove_pipeline_graph_node(self.generator_node)
-        self.generator_node = None
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
+        yield audioproc.RemoveNode(self.pipeline_node_id)

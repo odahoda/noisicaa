@@ -31,9 +31,9 @@ from . import commands_test
 logger = logging.getLogger(__name__)
 
 
-class PipelineGraphTest(commands_test.CommandsTestBase):
+class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
     async def test_basic(self):
-        mixer_node = self.project.master_group.mixer_node
+        audio_out = self.project.audio_out_node
 
         node_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
@@ -47,7 +47,7 @@ class PipelineGraphTest(commands_test.CommandsTestBase):
             target=self.project.id,
             add_pipeline_graph_connection=commands_pb2.AddPipelineGraphConnection(
                 source_node_id=node_id, source_port_name='out:left',
-                dest_node_id=mixer_node.id, dest_port_name='in:left')))
+                dest_node_id=audio_out.id, dest_port_name='in:left')))
         conn1 = self.pool[conn1_id]
         self.assertIs(conn1, self.project.pipeline_graph_connections[conn1.index])
 
@@ -55,7 +55,7 @@ class PipelineGraphTest(commands_test.CommandsTestBase):
             target=self.project.id,
             add_pipeline_graph_connection=commands_pb2.AddPipelineGraphConnection(
                 source_node_id=node_id, source_port_name='out:right',
-                dest_node_id=mixer_node.id, dest_port_name='in:right')))
+                dest_node_id=audio_out.id, dest_port_name='in:right')))
         conn2 = self.pool[conn2_id]
         self.assertIs(conn2, self.project.pipeline_graph_connections[conn2.index])
 
@@ -75,7 +75,7 @@ class PipelineGraphTest(commands_test.CommandsTestBase):
         self.assertNotIn(conn1, self.project.pipeline_graph_connections)
         self.assertNotIn(conn2, self.project.pipeline_graph_connections)
 
-    async def test_set_pipeline_graph_node_pos(self):
+    async def test_change_graph_pos(self):
         node_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
             add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
@@ -85,7 +85,7 @@ class PipelineGraphTest(commands_test.CommandsTestBase):
 
         await self.client.send_command(commands_pb2.Command(
             target=node.id,
-            set_pipeline_graph_node_pos=commands_pb2.SetPipelineGraphNodePos(
+            change_pipeline_graph_node=commands_pb2.ChangePipelineGraphNode(
                 graph_pos=model.Pos2F(100, 300).to_proto())))
         self.assertEqual(node.graph_pos, model.Pos2F(100, 300))
 

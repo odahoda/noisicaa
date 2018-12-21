@@ -48,10 +48,6 @@ add_python_package(
   sample_track_test.py
   score_track.py
   score_track_test.py
-  property_track.py
-  property_track_test.py
-  track_group.py
-  track_group_test.py
 )
 
 add_cython_module(rms CXX)

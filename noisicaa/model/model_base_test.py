@@ -66,12 +66,12 @@ class Proto(model_base.ProtoValue):
 
 
 class GrandChild(model_base.ObjectBase):
-    class Spec(model_base.ObjectSpec):
+    class GrandChildSpec(model_base.ObjectSpec):
         proto_type = 'grand_child'
 
 
 class Child(model_base.ObjectBase):
-    class Spec(model_base.ObjectSpec):
+    class ChildSpec(model_base.ObjectSpec):
         proto_type = 'child'
         proto_ext = model_base_test_pb2.child  # type: ignore
         child = model_base.ObjectProperty(GrandChild)
@@ -103,7 +103,7 @@ class Child(model_base.ObjectBase):
 
 
 class Root(model_base.ObjectBase):
-    class Spec(model_base.ObjectSpec):
+    class RootSpec(model_base.ObjectSpec):
         proto_type = 'root'
         proto_ext = model_base_test_pb2.root  # type: ignore
 
@@ -280,8 +280,8 @@ class ObjectTest(unittest.TestCase):
         obj.setup()
         obj.setup_complete()
 
-        self.assertIs(obj.get_property('id'), model_base.ObjectBase.Spec.id)
-        self.assertIs(obj.get_property('string_value'), Root.Spec.string_value)
+        self.assertIs(obj.get_property('id'), model_base.ObjectBase.ObjectBaseSpec.id)
+        self.assertIs(obj.get_property('string_value'), Root.RootSpec.string_value)
 
         with self.assertRaises(AttributeError):
             obj.get_property('does_not_exist')

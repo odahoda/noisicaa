@@ -125,7 +125,6 @@ class ProjectIntegrationTest(unittest_mixins.ProcessManagerMixin, unittest.Async
         path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
         await client.create(path)
         project = client.project
-        self.assertEqual(len(project.master_group.tracks), 0)
         return project, project._pool, path
 
     async def open_project(
@@ -160,9 +159,8 @@ class ProjectIntegrationTest(unittest_mixins.ProcessManagerMixin, unittest.Async
             await self.send_command(
                 client, pool,
                 target=project.id,
-                add_track=commands_pb2.AddTrack(
-                    track_type='score',
-                    parent_group_id=project.master_group.id))
+                add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
+                    uri='builtin://score_track'))
             #track1 = project.master_group.tracks[insert_index]
 
             # Disconnect from and shutdown process, without calling close().

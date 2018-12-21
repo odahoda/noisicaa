@@ -23,7 +23,7 @@
 import fractions
 import logging
 import random
-from typing import cast, Any, List, Optional, Dict  # pylint: disable=unused-import
+from typing import cast, Any, List, Optional, Dict, Iterator  # pylint: disable=unused-import
 
 from google.protobuf import message as protobuf
 
@@ -34,7 +34,6 @@ from noisicaa import core  # pylint: disable=unused-import
 from noisicaa.bindings import sndfile
 from . import pmodel
 from . import base_track
-from . import pipeline_graph
 from . import commands
 from . import commands_pb2
 from . import rms
@@ -171,10 +170,10 @@ class SampleRef(pmodel.SampleRef):
 class SampleTrackConnector(base_track.TrackConnector):
     _track = None  # type: SampleTrack
 
-    def __init__(self, *, node_id: str, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__node_id = node_id
+        self.__node_id = self._track.pipeline_node_id
         self.__listeners = {}  # type: Dict[str, core.Listener]
         self.__sample_ids = {}  # type: Dict[int, int]
 
@@ -250,38 +249,15 @@ class SampleTrackConnector(base_track.TrackConnector):
 
 class SampleTrack(pmodel.SampleTrack, base_track.Track):
     def create_track_connector(self, **kwargs: Any) -> SampleTrackConnector:
-        return SampleTrackConnector(
-            track=self,
-            node_id=self.sample_script_name,
-            **kwargs)
+        return SampleTrackConnector(track=self, **kwargs)
 
-    @property
-    def sample_script_name(self) -> str:
-        return '%016x-samplescript' % self.id
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
+        yield audioproc.AddNode(
+            description=self.description,
+            id=self.pipeline_node_id,
+            name=self.name)
 
-    def add_pipeline_nodes(self) -> None:
-        super().add_pipeline_nodes()
+        yield from self.get_initial_parameter_mutations()
 
-        mixer_node = self.mixer_node
-
-        sample_script_node = self._pool.create(
-            pipeline_graph.SampleScriptPipelineGraphNode,
-            name="Sample Script",
-            graph_pos=mixer_node.graph_pos - model.Pos2F(200, 0),
-            track=self)
-        self.project.add_pipeline_graph_node(sample_script_node)
-        self.sample_script_node = sample_script_node
-
-        self.project.add_pipeline_graph_connection(self._pool.create(
-            pipeline_graph.PipelineGraphConnection,
-            source_node=sample_script_node, source_port='out:left',
-            dest_node=mixer_node, dest_port='in:left'))
-        self.project.add_pipeline_graph_connection(self._pool.create(
-            pipeline_graph.PipelineGraphConnection,
-            source_node=sample_script_node, source_port='out:right',
-            dest_node=mixer_node, dest_port='in:right'))
-
-    def remove_pipeline_nodes(self) -> None:
-        self.project.remove_pipeline_graph_node(self.sample_script_node)
-        self.sample_script_node = None
-        super().remove_pipeline_nodes()
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
+        yield audioproc.RemoveNode(self.pipeline_node_id)

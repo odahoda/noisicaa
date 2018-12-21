@@ -39,6 +39,8 @@ from .time_signature import TimeSignature
 from .clef import Clef
 from .pitch import Pitch, NOTE_TO_MIDI
 from .pos2f import Pos2F
+from .sizef import SizeF
+from .color import Color
 from .project import (
     ObjectBase,
     ProjectChild,
@@ -47,32 +49,24 @@ from .project import (
     Beat,
     BeatMeasure,
     BeatTrack,
-    CVGeneratorPipelineGraphNode,
     ControlPoint,
     ControlTrack,
     InstrumentPipelineGraphNode,
-    MasterTrackGroup,
     Measure,
     MeasureReference,
     MeasuredTrack,
     Metadata,
     Note,
-    PianoRollPipelineGraphNode,
     PipelineGraphConnection,
     PipelineGraphControlValue,
     PipelineGraphNode,
     Project,
-    PropertyMeasure,
-    PropertyTrack,
     Sample,
     SampleRef,
-    SampleScriptPipelineGraphNode,
     SampleTrack,
     ScoreMeasure,
     ScoreTrack,
     Track,
-    TrackGroup,
-    TrackMixerPipelineGraphNode,
 )
 from .model_base_pb2 import (
     ObjectTree,

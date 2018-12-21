@@ -38,7 +38,6 @@ from . import mutations_pb2
 from . import commands
 from . import commands_pb2
 from . import player as player_lib
-from . import score_track
 from . import render
 from . import pmodel  # pylint: disable=unused-import
 from . import render_settings_pb2
@@ -84,7 +83,8 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
     def handle_pipeline_status(self, status: Dict[str, Any]) -> None:
         if 'node_state' in status:
-            node_id, state = status['node_state']
+            logger.error(status['node_state'])
+            _, node_id, state = status['node_state']
             if 'broken' in state:
                 self.set_value('pipeline_graph_node/%s/broken' % node_id, state['broken'])
 
@@ -242,10 +242,6 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
 
     def _create_blank_project(self, project_cls: Type[PROJECT]) -> PROJECT:
         project = self.__pool.create(project_cls, node_db=self.node_db)
-        project.add_track(
-            project.master_group, 0,
-            self.__pool.create(score_track.ScoreTrack, name="Track 1"))
-        logger.info("...")
         return project
 
     async def __close_project(self) -> None:

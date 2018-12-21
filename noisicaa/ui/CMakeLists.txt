@@ -19,7 +19,6 @@
 # @end:license
 
 add_python_package(
-  dock_widget.py
   editor_app.py
   editor_window.py
   flowlayout.py
@@ -30,10 +29,8 @@ add_python_package(
   mute_button.py
   piano.py
   piano_test.py
-  pipeline_graph_view.py
-  pipeline_graph_view_test.py
   pipeline_perf_monitor.py
-  project_properties_dock.py
+  player_state.py
   project_registry.py
   project_view.py
   project_view_test.py
@@ -44,17 +41,14 @@ add_python_package(
   selection_set.py
   session_helpers.py
   settings.py
+  slots.py
   stat_monitor.py
   svg_symbol_filetest.py
   svg_symbol.py
   svg_symbol_test.py
-  tool_dock.py
-  tools.py
-  track_properties_dock.py
-  tracks_dock.py
-  tracks_dock_test.py
   ui_base.py
   ui_process.py
 )
 
-add_subdirectory(track_items)
+add_subdirectory(track_list)
+add_subdirectory(pipeline_graph)

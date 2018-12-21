@@ -55,7 +55,7 @@ class ProcessorSampleScriptTest(
     def setup_testcase(self):
         self.host_system.set_block_size(4096)
 
-        plugin_uri = 'builtin://sample_script'
+        plugin_uri = 'builtin://sample_track'
         node_description = self.node_db[plugin_uri]
 
         self.proc = processor.PyProcessor('test_node', self.host_system, node_description)

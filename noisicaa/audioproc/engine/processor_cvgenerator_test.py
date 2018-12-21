@@ -49,7 +49,7 @@ class ProcessorCVGeneratorTest(
     def setup_testcase(self):
         self.host_system.set_block_size(4096)
 
-        plugin_uri = 'builtin://cvgenerator'
+        plugin_uri = 'builtin://control_track'
         node_description = self.node_db[plugin_uri]
 
         self.proc = processor.PyProcessor('test_node', self.host_system, node_description)

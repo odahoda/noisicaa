@@ -22,63 +22,26 @@
 
 import logging
 
+from noisidev import unittest
 from noisicaa import audioproc
 from noisicaa import model
 from . import project_client
 from . import commands_pb2
-from . import commands_test
+from . import base_track_test
 
 logger = logging.getLogger(__name__)
 
 
-class BeatTrackTest(commands_test.CommandsTestBase):
-    async def test_add_remove(self):
-        insert_index = await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='beat',
-                parent_group_id=self.project.master_group.id)))
-        self.assertEqual(insert_index, 0)
-
-        track = self.project.master_group.tracks[insert_index]
-        self.assertIsInstance(track, project_client.BeatTrack)
-
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            remove_track=commands_pb2.RemoveTrack(
-                track_id=track.id)))
-        self.assertEqual(len(self.project.master_group.tracks), 0)
-
-    async def _add_track(self):
-        insert_index = await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='beat',
-                parent_group_id=self.project.master_group.id)))
-        return self.project.master_group.tracks[insert_index]
-
-    async def test_set_num_measures(self):
-        track = await self._add_track()
-
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            set_num_measures=commands_pb2.SetNumMeasures(
-                num_measures=10)))
-        self.assertEqual(len(track.measure_list), 10)
-        self.assertEqual(self.project.duration, audioproc.MusicalDuration(10 * 4, 4))
-
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            set_num_measures=commands_pb2.SetNumMeasures(
-                num_measures=5)))
-        self.assertEqual(len(track.measure_list), 5)
+class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
+    node_uri = 'builtin://beat_track'
+    track_cls = project_client.BeatTrack
 
     async def test_insert_measure(self):
         track = await self._add_track()
         self.assertEqual(len(track.measure_list), 1)
 
         await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
+            target=track.id,
             insert_measure=commands_pb2.InsertMeasure(
                 pos=0,
                 tracks=[track.id])))
@@ -89,7 +52,7 @@ class BeatTrackTest(commands_test.CommandsTestBase):
         self.assertEqual(len(track.measure_list), 1)
 
         await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
+            target=track.id,
             insert_measure=commands_pb2.InsertMeasure(
                 tracks=[])))
         self.assertEqual(len(track.measure_list), 2)
@@ -99,7 +62,7 @@ class BeatTrackTest(commands_test.CommandsTestBase):
         self.assertEqual(len(track.measure_list), 1)
 
         await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
+            target=track.id,
             remove_measure=commands_pb2.RemoveMeasure(
                 pos=0,
                 tracks=[])))
@@ -115,16 +78,6 @@ class BeatTrackTest(commands_test.CommandsTestBase):
             clear_measures=commands_pb2.ClearMeasures(
                 measure_ids=[track.measure_list[0].id])))
         self.assertIsNot(old_measure, track.measure_list[0].measure)
-
-    async def test_set_beat_track_instrument(self):
-        track = await self._add_track()
-
-        await self.client.send_command(commands_pb2.Command(
-            target=track.id,
-            set_beat_track_instrument=commands_pb2.SetBeatTrackInstrument(
-                instrument='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=2')))
-        self.assertEqual(
-            track.instrument, 'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=2')
 
     async def test_set_beat_track_pitch(self):
         track = await self._add_track()

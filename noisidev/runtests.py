@@ -233,7 +233,8 @@ class BuiltinPyTests(unittest.TestCase):
             mypy_argv,
             cwd=LIBDIR,
             env={
-                'MYPYPATH': ':'.join([SITE_PACKAGES_DIR, os.path.join(ROOTDIR, '3rdparty', 'typeshed')]),
+                'MYPYPATH': ':'.join(
+                    [SITE_PACKAGES_DIR, os.path.join(ROOTDIR, '3rdparty', 'typeshed')]),
                 'VIRTUAL_ENV': os.environ['VIRTUAL_ENV'],
             },
             stdout=subprocess.PIPE,

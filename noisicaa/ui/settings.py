@@ -56,7 +56,8 @@ class SettingsDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.setLayout(layout)
 
-        self.setVisible(bool(self.app.settings.value('dialog/settings/visible', False)))
+        # TODO: somehow always ends up being shown...
+        #self.setVisible(bool(self.app.settings.value('dialog/settings/visible', False)))
         self.restoreGeometry(self.app.settings.value('dialog/settings/geometry', b''))
         self.tabs.setCurrentIndex(int(self.app.settings.value('dialog/settings/page', 0)))
 

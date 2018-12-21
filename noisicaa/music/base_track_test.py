@@ -21,142 +21,61 @@
 # @end:license
 
 import logging
+from typing import Type  # pylint: disable=unused-import
 
 from noisidev import unittest
 from . import commands_pb2
 from . import commands_test
+from . import project_client
 
 logger = logging.getLogger(__name__)
 
 
-class BaseTrackTest(commands_test.CommandsTestBase):
-    async def test_move_track(self):
-        await self.client.send_command(commands_pb2.Command(
+class TrackTestMixin(commands_test.CommandsTestMixin):
+    node_uri = None  # type: str
+    track_cls = None  # type: Type[project_client.Track]
+
+    async def test_add_remove(self) -> None:
+        node_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='score',
-                parent_group_id=self.project.master_group.id)))
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='score',
-                parent_group_id=self.project.master_group.id)))
-        track1 = self.project.master_group.tracks[0]
-        track2 = self.project.master_group.tracks[1]
+            add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
+                uri=self.node_uri)))
+        node = self.pool[node_id]
+        assert isinstance(node, self.track_cls)
 
         await self.client.send_command(commands_pb2.Command(
-            target=track1.id,
-            move_track=commands_pb2.MoveTrack(
-                direction=1)))
-        self.assertEqual(track1.index, 1)
-        self.assertEqual(track2.index, 0)
-
-    async def test_reparent_track(self):
-        await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='score',
-                parent_group_id=self.project.master_group.id)))
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='group',
-                parent_group_id=self.project.master_group.id)))
-        track = self.project.master_group.tracks[0]
-        grp = self.project.master_group.tracks[1]
+            remove_pipeline_graph_node=commands_pb2.RemovePipelineGraphNode(
+                node_id=node.id)))
 
+    async def _add_track(self) -> project_client.Track:
+        node_id = await self.client.send_command(commands_pb2.Command(
+            target=self.project.id,
+            add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
+                uri=self.node_uri)))
+        return self.pool[node_id]
+
+
+class BaseTrackTest(TrackTestMixin, unittest.AsyncTestCase):
+    node_uri = 'builtin://score_track'
+    track_cls = project_client.ScoreTrack
+
+    async def test_update_track_visible(self):
+        track = await self._add_track()
+
+        self.assertTrue(track.visible)
         await self.client.send_command(commands_pb2.Command(
             target=track.id,
-            reparent_track=commands_pb2.ReparentTrack(
-                new_parent=grp.id,
-                index=0)))
-        self.assertEqual(len(self.project.master_group.tracks), 1)
-        self.assertEqual(len(grp.tracks), 1)
-        self.assertIs(track.parent, grp)
-
-    async def test_update_track_properties_name(self):
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='score',
-                parent_group_id=self.project.master_group.id)))
-        track = self.project.master_group.tracks[0]
-
-        await self.client.send_command(commands_pb2.Command(
-            target=track.id,
-            update_track_properties=commands_pb2.UpdateTrackProperties(
-                name='Lead')))
-        self.assertEqual(track.name, 'Lead')
-
-    async def test_update_track_properties_visible(self):
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='score',
-                parent_group_id=self.project.master_group.id)))
-        track = self.project.master_group.tracks[0]
-
-        await self.client.send_command(commands_pb2.Command(
-            target=track.id,
-            update_track_properties=commands_pb2.UpdateTrackProperties(
+            update_track=commands_pb2.UpdateTrack(
                 visible=False)))
         self.assertFalse(track.visible)
 
-    @unittest.skip("Implementation broken")
-    async def test_update_track_properties_muted(self):
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='score',
-                parent_group_id=self.project.master_group.id)))
-        track = self.project.master_group.tracks[0]
+    async def test_update_track_list_position(self):
+        track = await self._add_track()
 
+        self.assertEqual(track.list_position, 0)
         await self.client.send_command(commands_pb2.Command(
             target=track.id,
-            update_track_properties=commands_pb2.UpdateTrackProperties(
-                muted=True)))
-        self.assertTrue(track.muted)
-
-    @unittest.skip("Implementation broken")
-    async def test_update_track_properties_gain(self):
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='score',
-                parent_group_id=self.project.master_group.id)))
-        track = self.project.master_group.tracks[0]
-
-        await self.client.send_command(commands_pb2.Command(
-            target=track.id,
-            update_track_properties=commands_pb2.UpdateTrackProperties(
-                gain=-4.0)))
-        self.assertAlmostEqual(track.gain, -4.0)
-
-    @unittest.skip("Implementation broken")
-    async def test_update_track_properties_pan(self):
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='score',
-                parent_group_id=self.project.master_group.id)))
-        track = self.project.master_group.tracks[0]
-
-        await self.client.send_command(commands_pb2.Command(
-            target=track.id,
-            update_track_properties=commands_pb2.UpdateTrackProperties(
-                pan=-0.7)))
-        self.assertAlmostEqual(track.pan, -0.7)
-
-    async def test_update_track_properties_transport_octaves(self):
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='score',
-                parent_group_id=self.project.master_group.id)))
-        track = self.project.master_group.tracks[0]
-
-        await self.client.send_command(commands_pb2.Command(
-            target=track.id,
-            update_track_properties=commands_pb2.UpdateTrackProperties(
-                transpose_octaves=1)))
-        self.assertEqual(track.transpose_octaves, 1)
+            update_track=commands_pb2.UpdateTrack(
+                list_position=2)))
+        self.assertEqual(track.list_position, 2)

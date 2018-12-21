@@ -31,6 +31,7 @@ from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
 from . import project
 from . import player
+from . import score_track
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,10 @@ class PlayerTest(unittest.AsyncTestCase):
             realm='player')
         try:
             await p.setup()
+
+            track1 = self.pool.create(score_track.ScoreTrack, name="Track 1")
+            self.project.add_pipeline_graph_node(track1)
+
 
         finally:
             await p.cleanup()

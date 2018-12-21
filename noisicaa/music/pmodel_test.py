@@ -36,8 +36,6 @@ class ModelTest(unittest.TestCase):
     def setup_testcase(self):
         self.pool = pmodel.Pool()
         self.pool.register_class(pmodel.Project)
-        self.pool.register_class(pmodel.TrackGroup)
-        self.pool.register_class(pmodel.MasterTrackGroup)
         self.pool.register_class(pmodel.MeasureReference)
         self.pool.register_class(pmodel.ScoreMeasure)
         self.pool.register_class(pmodel.ScoreTrack)
@@ -48,18 +46,12 @@ class ModelTest(unittest.TestCase):
         self.pool.register_class(pmodel.SampleTrack)
         self.pool.register_class(pmodel.ControlPoint)
         self.pool.register_class(pmodel.ControlTrack)
-        self.pool.register_class(pmodel.PropertyMeasure)
-        self.pool.register_class(pmodel.PropertyTrack)
         self.pool.register_class(pmodel.Metadata)
         self.pool.register_class(pmodel.Sample)
         self.pool.register_class(pmodel.Note)
         self.pool.register_class(pmodel.PipelineGraphConnection)
         self.pool.register_class(pmodel.PipelineGraphNode)
         self.pool.register_class(pmodel.InstrumentPipelineGraphNode)
-        self.pool.register_class(pmodel.TrackMixerPipelineGraphNode)
-        self.pool.register_class(pmodel.SampleScriptPipelineGraphNode)
-        self.pool.register_class(pmodel.CVGeneratorPipelineGraphNode)
-        self.pool.register_class(pmodel.PianoRollPipelineGraphNode)
         self.pool.register_class(pmodel.AudioOutPipelineGraphNode)
         self.pool.register_class(pmodel.PipelineGraphControlValue)
 
@@ -71,26 +63,12 @@ class ProjectTest(ModelTest):
         pr.bpm = 140
         self.assertEqual(pr.bpm, 140)
 
-    def test_master_group(self):
-        pr = self.pool.create(pmodel.Project)
-        with self.assertRaises(ValueError):
-            pr.master_group  # pylint: disable=pointless-statement
-        pr.master_group = self.pool.create(pmodel.MasterTrackGroup)
-        self.assertIsInstance(pr.master_group, pmodel.MasterTrackGroup)
-
     def test_metadata(self):
         pr = self.pool.create(pmodel.Project)
         with self.assertRaises(ValueError):
             pr.metadata  # pylint: disable=pointless-statement
         pr.metadata = self.pool.create(pmodel.Metadata)
         self.assertIsInstance(pr.metadata, pmodel.Metadata)
-
-    def test_property_track(self):
-        pr = self.pool.create(pmodel.Project)
-        with self.assertRaises(ValueError):
-            pr.property_track  # pylint: disable=pointless-statement
-        pr.property_track = self.pool.create(pmodel.PropertyTrack)
-        self.assertIsInstance(pr.property_track, pmodel.PropertyTrack)
 
     def test_samples(self):
         pr = self.pool.create(pmodel.Project)
@@ -177,6 +155,18 @@ class BasePipelineGraphNodeMixin(object):
         node.graph_pos = model.Pos2F(12, 14)
         self.assertEqual(node.graph_pos, model.Pos2F(12, 14))
 
+    def test_graph_size(self):
+        node = self.pool.create(self.cls)
+
+        node.graph_size = model.SizeF(20, 32)
+        self.assertEqual(node.graph_size, model.SizeF(20, 32))
+
+    def test_graph_color(self):
+        node = self.pool.create(self.cls)
+
+        node.graph_color = model.Color(0.5, 0.4, 0.3, 0.1)
+        self.assertEqual(node.graph_color, model.Color(0.5, 0.4, 0.3, 0.1))
+
     def test_plugin_state(self):
         node = self.pool.create(self.cls)
 
@@ -205,53 +195,8 @@ class InstrumentPipelineGraphNodeTest(BasePipelineGraphNodeMixin, ModelTest):
     def test_instrument_pipeline_graph_node(self):
         node = self.pool.create(self.cls)
 
-        track = self.pool.create(pmodel.ScoreTrack)
-        node.track = track
-        self.assertIs(node.track, track)
-
-
-class SampleScriptPipelineGraphNodeTest(BasePipelineGraphNodeMixin, ModelTest):
-    cls = pmodel.SampleScriptPipelineGraphNode
-
-    def test_sample_script_pipeline_graph_node(self):
-        node = self.pool.create(self.cls)
-
-        track = self.pool.create(pmodel.ScoreTrack)
-        node.track = track
-        self.assertIs(node.track, track)
-
-
-class PianoRollPipelineGraphNodeTest(BasePipelineGraphNodeMixin, ModelTest):
-    cls = pmodel.PianoRollPipelineGraphNode
-
-    def test_pianoroll_pipeline_graph_node(self):
-        node = self.pool.create(self.cls)
-
-        track = self.pool.create(pmodel.ScoreTrack)
-        node.track = track
-        self.assertIs(node.track, track)
-
-
-class CVGeneratorPipelineGraphNodeTest(BasePipelineGraphNodeMixin, ModelTest):
-    cls = pmodel.CVGeneratorPipelineGraphNode
-
-    def test_cvgenerator_pipeline_graph_node(self):
-        node = self.pool.create(self.cls)
-
-        track = self.pool.create(pmodel.ScoreTrack)
-        node.track = track
-        self.assertIs(node.track, track)
-
-
-class TrackMixerPipelineGraphNodeTest(BasePipelineGraphNodeMixin, ModelTest):
-    cls = pmodel.TrackMixerPipelineGraphNode
-
-    def test_track_mixer_pipeline_graph_node(self):
-        node = self.pool.create(self.cls)
-
-        track = self.pool.create(pmodel.ScoreTrack)
-        node.track = track
-        self.assertIs(node.track, track)
+        node.instrument_uri = 'sf2:/path.sf2?bank=1&preset=3'
+        self.assertEqual(node.instrument_uri, 'sf2:/path.sf2?bank=1&preset=3')
 
 
 class PipelineGraphNodeTest(BasePipelineGraphNodeMixin, ModelTest):
@@ -280,49 +225,8 @@ class PipelineGraphControlValueTest(ModelTest):
             model.ControlValue(value=12, generation=1))
 
 
-class TrackMixin(object):
+class TrackMixin(BasePipelineGraphNodeMixin):
     cls = None  # type: Type[pmodel.Track]
-
-    def test_name(self):
-        track = self.pool.create(self.cls)
-
-        track.name = 'track 1'
-        self.assertEqual(track.name, 'track 1')
-
-    def test_visible(self):
-        track = self.pool.create(self.cls)
-
-        self.assertTrue(track.visible)
-        track.visible = False
-        self.assertFalse(track.visible)
-
-    def test_muted(self):
-        track = self.pool.create(self.cls)
-
-        self.assertFalse(track.muted)
-        track.muted = True
-        self.assertTrue(track.muted)
-
-    def test_gain(self):
-        track = self.pool.create(self.cls)
-
-        self.assertEqual(track.gain, 0.0)
-        track.gain = 1.0
-        self.assertEqual(track.gain, 1.0)
-
-    def test_pan(self):
-        track = self.pool.create(self.cls)
-
-        self.assertEqual(track.pan, 0.0)
-        track.pan = 1.0
-        self.assertEqual(track.pan, 1.0)
-
-    def test_track_mixer_node(self):
-        track = self.pool.create(self.cls)
-
-        node = self.pool.create(pmodel.TrackMixerPipelineGraphNode)
-        track.mixer_node = node
-        self.assertIs(track.mixer_node, node)
 
 
 class MeasuredTrackMixin(TrackMixin):
@@ -354,13 +258,6 @@ class SampleTrackTest(TrackMixin, ModelTest):
         track.samples.append(smpl)
         self.assertIs(track.samples[0], smpl)
 
-    def test_sample_script_node(self):
-        track = self.pool.create(self.cls)
-
-        node = self.pool.create(pmodel.SampleScriptPipelineGraphNode)
-        track.sample_script_node = node
-        self.assertIs(track.sample_script_node, node)
-
 
 class SampleRefTest(ModelTest):
     def test_time(self):
@@ -381,32 +278,12 @@ class ScoreTrackTest(MeasuredTrackMixin, ModelTest):
     cls = pmodel.ScoreTrack
     measure_cls = pmodel.ScoreMeasure
 
-    def test_instrument(self):
-        track = self.pool.create(self.cls)
-
-        track.instrument = 'piano'
-        self.assertEqual(track.instrument, 'piano')
-
-    def test_transport_octaves(self):
+    def test_transpose_octaves(self):
         track = self.pool.create(self.cls)
 
         self.assertEqual(track.transpose_octaves, 0)
         track.transpose_octaves = -2
         self.assertEqual(track.transpose_octaves, -2)
-
-    def test_instrument_node(self):
-        track = self.pool.create(self.cls)
-
-        node = self.pool.create(pmodel.InstrumentPipelineGraphNode)
-        track.instrument_node = node
-        self.assertIs(track.instrument_node, node)
-
-    def test_event_source_node(self):
-        track = self.pool.create(self.cls)
-
-        node = self.pool.create(pmodel.PianoRollPipelineGraphNode)
-        track.event_source_node = node
-        self.assertIs(track.event_source_node, node)
 
 
 class ScoreMeasureTest(ModelTest):
@@ -424,6 +301,13 @@ class ScoreMeasureTest(ModelTest):
         measure.key_signature = model.KeySignature('F minor')
         self.assertEqual(measure.key_signature, model.KeySignature('F minor'))
 
+    def test_time_signature(self):
+        measure = self.pool.create(pmodel.ScoreMeasure)
+
+        self.assertEqual(measure.time_signature, model.TimeSignature(4, 4))
+        measure.time_signature = model.TimeSignature(3, 4)
+        self.assertEqual(measure.time_signature, model.TimeSignature(3, 4))
+
     def test_notes(self):
         measure = self.pool.create(pmodel.ScoreMeasure)
 
@@ -436,31 +320,11 @@ class BeatTrackTest(MeasuredTrackMixin, ModelTest):
     cls = pmodel.BeatTrack
     measure_cls = pmodel.BeatMeasure
 
-    def test_instrument(self):
-        track = self.pool.create(self.cls)
-
-        track.instrument = 'piano'
-        self.assertEqual(track.instrument, 'piano')
-
     def test_pitch(self):
         track = self.pool.create(self.cls)
 
         track.pitch = model.Pitch('F4')
         self.assertEqual(track.pitch, model.Pitch('F4'))
-
-    def test_instrument_node(self):
-        track = self.pool.create(self.cls)
-
-        node = self.pool.create(pmodel.InstrumentPipelineGraphNode)
-        track.instrument_node = node
-        self.assertIs(track.instrument_node, node)
-
-    def test_event_source_node(self):
-        track = self.pool.create(self.cls)
-
-        node = self.pool.create(pmodel.PianoRollPipelineGraphNode)
-        track.event_source_node = node
-        self.assertIs(track.event_source_node, node)
 
 
 class BeatMeasureTest(ModelTest):
@@ -497,26 +361,6 @@ class ControlTrackTest(TrackMixin, ModelTest):
         track.points.append(pnt)
         self.assertIs(track.points[0], pnt)
 
-    def test_generator_node(self):
-        track = self.pool.create(self.cls)
-
-        node = self.pool.create(pmodel.CVGeneratorPipelineGraphNode)
-        track.generator_node = node
-        self.assertIs(track.generator_node, node)
-
-
-class PropertyTrackTest(TrackMixin, ModelTest):
-    cls = pmodel.PropertyTrack
-
-
-class PropertyMeasureTest(ModelTest):
-    def test_time_signature(self):
-        measure = self.pool.create(pmodel.PropertyMeasure)
-
-        self.assertEqual(measure.time_signature, model.TimeSignature(4, 4))
-        measure.time_signature = model.TimeSignature(3, 4)
-        self.assertEqual(measure.time_signature, model.TimeSignature(3, 4))
-
 
 class MeasureReferenceTest(ModelTest):
     def test_measure(self):
@@ -525,38 +369,6 @@ class MeasureReferenceTest(ModelTest):
         measure = self.pool.create(pmodel.ScoreMeasure)
         ref.measure = measure
         self.assertIs(ref.measure, measure)
-
-
-class TrackGroupTest(TrackMixin, ModelTest):
-    cls = pmodel.TrackGroup
-
-    def test_tracks(self):
-        grp = self.pool.create(self.cls)
-
-        child = self.pool.create(pmodel.SampleTrack)
-        grp.tracks.append(child)
-        self.assertIs(grp.tracks[0], child)
-
-
-class MasterTrackGroupTest(ModelTest):
-    def test_master_track_group(self):
-        grp = self.pool.create(pmodel.MasterTrackGroup)
-        self.assertEqual(len(grp.tracks), 0)
-
-        grp.tracks.append(self.pool.create(pmodel.ScoreTrack))
-        grp.tracks.append(self.pool.create(pmodel.BeatTrack))
-        self.assertEqual(len(grp.tracks), 2)
-        self.assertIsInstance(grp.tracks[0], pmodel.ScoreTrack)
-        self.assertIsInstance(grp.tracks[1], pmodel.BeatTrack)
-
-        del grp.tracks[0]
-        self.assertEqual(len(grp.tracks), 1)
-        self.assertIsInstance(grp.tracks[0], pmodel.BeatTrack)
-
-        grp.tracks.insert(0, self.pool.create(pmodel.ScoreTrack))
-        self.assertEqual(len(grp.tracks), 2)
-        self.assertIsInstance(grp.tracks[0], pmodel.ScoreTrack)
-        self.assertIsInstance(grp.tracks[1], pmodel.BeatTrack)
 
 
 class NoteTest(ModelTest):

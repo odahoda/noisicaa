@@ -78,8 +78,9 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
         self.gantt_view.setDragMode(QtWidgets.QGraphicsView.ScrollHandDrag)
         self.setCentralWidget(self.gantt_view)
 
-        self.setVisible(
-            bool(self.app.settings.value('dialog/pipeline_perf_monitor/visible', False)))
+        # TODO: somehow always ends up being shown...
+        #self.setVisible(
+        #    bool(self.app.settings.value('dialog/pipeline_perf_monitor/visible', False)))
         self.restoreGeometry(
             self.app.settings.value('dialog/pipeline_perf_monitor/geometry', b''))
 

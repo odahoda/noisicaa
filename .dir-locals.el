@@ -5,6 +5,9 @@
 ;   - correct indentation for arg list continuation
 
 ((nil . (
+         ; Projetile
+         (projectile-project-test-cmd . "bin/runtests")
+
          ; Uses spaces for indentation.
          (indent-tabs-mode . nil)
 

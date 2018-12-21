@@ -22,11 +22,13 @@ add_python_package(
   model_base.py
   model_base_test.py
   clef.py
+  color.py
   key_signature.py
   key_signature_test.py
   pos2f.py
   pitch.py
   pitch_test.py
+  sizef.py
   time_signature.py
   time_signature_test.py
   project.py

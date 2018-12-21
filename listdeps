@@ -81,8 +81,8 @@ PIP_DEPS = {
         PKG('mox3'),
         PKG('py-cpuinfo'),
         PKG('pyfakefs'),
-        PKG('pylint'),
-        PKG('mypy'),
+        PKG('pylint==1.9.3'),
+        PKG('mypy==0.610'),
         PKG('mypy-extensions'),
     ],
     'vmtests': [
@@ -127,13 +127,11 @@ SYS_DEPS = {
         PKG('libboost-dev', 'ubuntu', '<17.10'),
         PKG('flex', 'ubuntu', '<17.10'),
         PKG('bison', 'ubuntu', '<17.10'),
-        PKG('cmake', 'ubuntu', '<17.10'),
         PKG('csound', 'ubuntu', '>=17.10'),
         PKG('libcsound64-dev', 'ubuntu', '>=17.10'),
 
         # capnp
         PKG('capnproto'),
-        PKG('libcapnp-0.5.3'),
         PKG('libcapnp-dev'),
 
         # protocol buffers

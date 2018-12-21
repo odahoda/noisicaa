@@ -35,6 +35,7 @@ from noisicaa import runtime_settings as runtime_settings_lib
 from noisicaa import core
 from noisicaa import music
 from noisicaa import devices
+from noisicaa import node_db
 from noisicaa.ui import selection_set
 from noisicaa.ui import ui_base
 from . import qttest
@@ -189,6 +190,7 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         super().__init__(*args, **kwargs)
 
         self.process = None
+        self.node_db_client = None
         self.sequencer = None
         self.midi_hub = None
         self.app = None
@@ -205,6 +207,11 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
             tmp_dir=TEST_OPTS.TMP_DIR)
         await self.process.setup()
 
+        node_db_address = await self.process_manager_client.call('CREATE_NODE_DB_PROCESS')
+        self.node_db_client = node_db.NodeDBClient(self.loop, self.process.server)
+        await self.node_db_client.setup()
+        await self.node_db_client.connect(node_db_address)
+
         self.selection_set = selection_set.SelectionSet()
 
         self.sequencer = MockSequencer()
@@ -217,6 +224,7 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.app.runtime_settings = runtime_settings_lib.RuntimeSettings()
         self.app.settings = MockSettings()
         self.app.midi_hub = self.midi_hub
+        self.app.node_db = self.node_db_client
 
         self.session_data = {}  # type: Dict[str, Any]
 
@@ -230,6 +238,10 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
 
         if self.process is not None:
             await self.process.cleanup()
+
+        if self.node_db_client is not None:
+            await self.node_db_client.disconnect(shutdown=True)
+            await self.node_db_client.cleanup()
 
 
 class ProjectMixin(UITestCase):
@@ -245,7 +257,7 @@ class ProjectMixin(UITestCase):
         process_address = await self.process_manager_client.call(
             'CREATE_PROJECT_PROCESS', 'test-project')
         self.project_client = music.ProjectClient(
-            event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
+            event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR, node_db=self.node_db_client)
         await self.project_client.setup()
         await self.project_client.connect(process_address)
 

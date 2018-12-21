@@ -90,13 +90,12 @@ class ProjectClientTest(ProjectClientTestBase):
     async def test_call_command(self):
         await self.client.create_inmemory()
         project = self.client.project
-        num_tracks = len(project.master_group.tracks)
+        num_nodes = len(project.pipeline_graph_nodes)
         await self.client.send_command(commands_pb2.Command(
             target=project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='score',
-                parent_group_id=project.master_group.id)))
-        self.assertEqual(len(project.master_group.tracks), num_tracks + 1)
+            add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
+                uri='builtin://score_track')))
+        self.assertEqual(len(project.pipeline_graph_nodes), num_nodes + 1)
 
 
 class RenderTest(ProjectClientTestBase):

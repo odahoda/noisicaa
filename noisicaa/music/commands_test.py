@@ -24,7 +24,6 @@ import logging
 import os.path
 import uuid
 
-from noisidev import unittest
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
 from noisicaa import model  # pylint: disable=unused-import
@@ -33,7 +32,7 @@ from . import project_client
 logger = logging.getLogger(__name__)
 
 
-class CommandsTestBase(unittest_mixins.ProcessManagerMixin, unittest.AsyncTestCase):
+class CommandsTestMixin(unittest_mixins.ProcessManagerMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -57,7 +56,6 @@ class CommandsTestBase(unittest_mixins.ProcessManagerMixin, unittest.AsyncTestCa
         await self.client.create(path)
         self.project = self.client.project
         self.pool = self.project._pool
-        self.assertEqual(len(self.project.master_group.tracks), 0)
 
         logger.info("Testcase setup complete")
 

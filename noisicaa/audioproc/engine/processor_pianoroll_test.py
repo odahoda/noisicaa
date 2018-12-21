@@ -47,7 +47,7 @@ class ProcessorPianoRollTestMixin(
     def setup_testcase(self):
         self.host_system.set_block_size(2 * 44100)
 
-        plugin_uri = 'builtin://pianoroll'
+        plugin_uri = 'builtin://score_track'
         node_description = self.node_db[plugin_uri]
 
         self.proc = processor.PyProcessor('test_node', self.host_system, node_description)

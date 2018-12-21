@@ -33,8 +33,6 @@ from noisicaa import model
 from noisicaa import node_db as node_db_lib
 from . import pmodel
 from . import pipeline_graph
-from . import property_track
-from . import track_group
 from . import commands
 from . import commands_pb2
 from . import score_track
@@ -58,122 +56,23 @@ class UpdateProjectProperties(commands.Command):
 commands.Command.register_command(UpdateProjectProperties)
 
 
-class AddTrack(commands.Command):
-    proto_type = 'add_track'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> int:
-        pb = down_cast(commands_pb2.AddTrack, pb)
-
-        parent_group = pool[pb.parent_group_id]
-        assert parent_group.is_child_of(project)
-        assert isinstance(parent_group, track_group.TrackGroup)
-
-        if pb.insert_index == -1:
-            insert_index = len(parent_group.tracks)
-        else:
-            insert_index = pb.insert_index
-            assert 0 <= insert_index <= len(parent_group.tracks)
-
-        track_name = "Track %d" % (len(parent_group.tracks) + 1)
-        track_cls_map = {
-            'score': score_track.ScoreTrack,
-            'beat': beat_track.BeatTrack,
-            'control': control_track.ControlTrack,
-            'sample': sample_track.SampleTrack,
-            'group': track_group.TrackGroup,
-        }
-        track_cls = track_cls_map[pb.track_type]
-
-        kwargs = {}
-        if issubclass(track_cls, pmodel.MeasuredTrack):
-            num_measures = 1
-            for track in parent_group.walk_tracks():
-                if isinstance(track, pmodel.MeasuredTrack):
-                    num_measures = max(num_measures, len(track.measure_list))
-            kwargs['num_measures'] = num_measures
-
-        track = pool.create(track_cls, name=track_name, **kwargs)
-
-        project.add_track(parent_group, insert_index, track)
-
-        return insert_index
-
-commands.Command.register_command(AddTrack)
-
-
-class RemoveTrack(commands.Command):
-    proto_type = 'remove_track'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.RemoveTrack, pb)
-
-        track = cast(pmodel.Track, pool[pb.track_id])
-        assert track.is_child_of(project)
-        parent_group = cast(pmodel.TrackGroup, track.parent)
-
-        project.remove_track(parent_group, track)
-
-commands.Command.register_command(RemoveTrack)
-
-
-class InsertMeasure(commands.Command):
-    proto_type = 'insert_measure'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.InsertMeasure, pb)
-
-        if not pb.tracks:
-            cast(property_track.PropertyTrack, project.property_track).insert_measure(pb.pos)
-        else:
-            cast(property_track.PropertyTrack, project.property_track).append_measure()
-
-        for track in project.master_group.walk_tracks():
-            if not isinstance(track, base_track.MeasuredTrack):
-                continue
-
-            if not pb.tracks or track.id in pb.tracks:
-                track.insert_measure(pb.pos)
-            else:
-                track.append_measure()
-
-commands.Command.register_command(InsertMeasure)
-
-
-class RemoveMeasure(commands.Command):
-    proto_type = 'remove_measure'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.RemoveMeasure, pb)
-
-        if not pb.tracks:
-            cast(property_track.PropertyTrack, project.property_track).remove_measure(pb.pos)
-
-        for idx, track in enumerate(project.master_group.tracks):
-            track = cast(base_track.MeasuredTrack, track)
-            if not pb.tracks or idx in pb.tracks:
-                track.remove_measure(pb.pos)
-                if pb.tracks:
-                    track.append_measure()
-
-commands.Command.register_command(RemoveMeasure)
-
-
 class SetNumMeasures(commands.Command):
     proto_type = 'set_num_measures'
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.SetNumMeasures, pb)
 
-        for track in project.all_tracks:
-            if not isinstance(track, pmodel.MeasuredTrack):
-                continue
-            track = cast(base_track.MeasuredTrack, track)
+        raise NotImplementedError
+        # for track in project.all_tracks:
+        #     if not isinstance(track, pmodel.MeasuredTrack):
+        #         continue
+        #     track = cast(base_track.MeasuredTrack, track)
 
-            while len(track.measure_list) < pb.num_measures:
-                track.append_measure()
+        #     while len(track.measure_list) < pb.num_measures:
+        #         track.append_measure()
 
-            while len(track.measure_list) > pb.num_measures:
-                track.remove_measure(len(track.measure_list) - 1)
+        #     while len(track.measure_list) > pb.num_measures:
+        #         track.remove_measure(len(track.measure_list) - 1)
 
 commands.Command.register_command(SetNumMeasures)
 
@@ -252,11 +151,26 @@ class AddPipelineGraphNode(commands.Command):
 
         node_desc = project.get_node_description(pb.uri)
 
-        node = pool.create(
-            pipeline_graph.PipelineGraphNode,
-            name=node_desc.display_name,
-            node_uri=pb.uri,
-            graph_pos=model.Pos2F.from_proto(pb.graph_pos))
+        kwargs = {
+            'name': pb.name or node_desc.display_name,
+            'graph_pos': model.Pos2F.from_proto(pb.graph_pos),
+            'graph_size': model.SizeF.from_proto(pb.graph_size),
+            'graph_color': model.Color.from_proto(pb.graph_color),
+        }
+
+        track_cls_map = {
+            'builtin://score_track': score_track.ScoreTrack,
+            'builtin://beat_track': beat_track.BeatTrack,
+            'builtin://control_track': control_track.ControlTrack,
+            'builtin://sample_track': sample_track.SampleTrack,
+        }  # type: Dict[str, Type[pipeline_graph.BasePipelineGraphNode]]
+        try:
+            node_cls = track_cls_map[pb.uri]
+        except KeyError:
+            node_cls = pipeline_graph.PipelineGraphNode
+            kwargs['node_uri'] = pb.uri
+
+        node = pool.create(node_cls, id=None, **kwargs)
         project.add_pipeline_graph_node(node)
         return node.id
 
@@ -325,14 +239,11 @@ class BaseProject(pmodel.Project):
         super().create(**kwargs)
         self.node_db = node_db
         self.metadata = self._pool.create(Metadata)
-        self.master_group = self._pool.create(track_group.MasterTrackGroup, name="Master")
-        self.property_track = self._pool.create(property_track.PropertyTrack, name="Time")
 
         audio_out_node = self._pool.create(
             pipeline_graph.AudioOutPipelineGraphNode,
             name="Audio Out", graph_pos=model.Pos2F(200, 0))
         self.add_pipeline_graph_node(audio_out_node)
-        self.master_group.add_pipeline_nodes()
 
     def close(self) -> None:
         pass
@@ -348,25 +259,8 @@ class BaseProject(pmodel.Project):
         logger.info("Executed command %s (%d operations)", cmd, cmd.num_log_ops)
         return result
 
-    def add_track(
-            self, parent_group: pmodel.TrackGroup, insert_index: int, track: pmodel.Track) -> None:
-        parent_group.tracks.insert(insert_index, track)
-        track.add_pipeline_nodes()
-
-    def remove_track(self, parent_group: pmodel.TrackGroup, track: pmodel.Track) -> None:
-        track.remove_pipeline_nodes()
-        del parent_group.tracks[track.index]
-
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.pipeline_mutation.call(mutation)
-
-    @property
-    def audio_out_node(self) -> pmodel.AudioOutPipelineGraphNode:
-        for node in self.pipeline_graph_nodes:
-            if isinstance(node, pipeline_graph.AudioOutPipelineGraphNode):
-                return node
-
-        raise ValueError("No audio out node found.")
 
     def add_pipeline_graph_node(self, node: pmodel.BasePipelineGraphNode) -> None:
         self.pipeline_graph_nodes.append(node)
@@ -590,21 +484,13 @@ class Pool(pmodel.Pool):
         self.register_class(control_track.ControlPoint)
         self.register_class(control_track.ControlTrack)
         self.register_class(pipeline_graph.AudioOutPipelineGraphNode)
-        self.register_class(pipeline_graph.CVGeneratorPipelineGraphNode)
         self.register_class(pipeline_graph.InstrumentPipelineGraphNode)
-        self.register_class(pipeline_graph.PianoRollPipelineGraphNode)
         self.register_class(pipeline_graph.PipelineGraphConnection)
         self.register_class(pipeline_graph.PipelineGraphControlValue)
         self.register_class(pipeline_graph.PipelineGraphNode)
-        self.register_class(pipeline_graph.SampleScriptPipelineGraphNode)
-        self.register_class(pipeline_graph.TrackMixerPipelineGraphNode)
-        self.register_class(property_track.PropertyMeasure)
-        self.register_class(property_track.PropertyTrack)
         self.register_class(sample_track.Sample)
         self.register_class(sample_track.SampleRef)
         self.register_class(sample_track.SampleTrack)
         self.register_class(score_track.Note)
         self.register_class(score_track.ScoreMeasure)
         self.register_class(score_track.ScoreTrack)
-        self.register_class(track_group.MasterTrackGroup)
-        self.register_class(track_group.TrackGroup)

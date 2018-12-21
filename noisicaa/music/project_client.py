@@ -53,38 +53,68 @@ class ProjectChild(model.ProjectChild, ObjectBase):
         return down_cast(Project, super().project)
 
 
-class Track(ProjectChild, model.Track, ObjectBase):
+class PipelineGraphControlValue(ProjectChild, model.PipelineGraphControlValue, ObjectBase):
     @property
     def name(self) -> str:
         return self.get_property_value('name')
 
     @property
+    def value(self) -> model.ControlValue:
+        return self.get_property_value('value')
+
+
+class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBase):  # pylint: disable=abstract-method
+    @property
+    def name(self) -> str:
+        return self.get_property_value('name')
+
+    @property
+    def graph_pos(self) -> model.Pos2F:
+        return self.get_property_value('graph_pos')
+
+    @property
+    def graph_size(self) -> model.SizeF:
+        return self.get_property_value('graph_size')
+
+    @property
+    def graph_color(self) -> model.Color:
+        return self.get_property_value('graph_color')
+
+    @property
+    def control_values(self) -> Sequence[PipelineGraphControlValue]:
+        return self.get_property_value('control_values')
+
+    @property
+    def plugin_state(self) -> audioproc.PluginState:
+        return self.get_property_value('plugin_state')
+
+
+
+class PipelineGraphNode(BasePipelineGraphNode, model.PipelineGraphNode, ObjectBase):
+    @property
+    def node_uri(self) -> str:
+        return self.get_property_value('node_uri')
+
+
+class AudioOutPipelineGraphNode(
+        BasePipelineGraphNode, model.AudioOutPipelineGraphNode, ObjectBase):
+    pass
+
+
+class Track(BasePipelineGraphNode, model.Track, ObjectBase):  # pylint: disable=abstract-method
+    @property
     def visible(self) -> bool:
         return self.get_property_value('visible')
 
     @property
-    def muted(self) -> bool:
-        return self.get_property_value('muted')
-
-    @property
-    def gain(self) -> float:
-        return self.get_property_value('gain')
-
-    @property
-    def pan(self) -> float:
-        return self.get_property_value('pan')
-
-    @property
-    def mixer_node(self) -> 'BasePipelineGraphNode':
-        return self.get_property_value('mixer_node')
-
-    def walk_tracks(self, groups: bool = False, tracks: bool = True) -> Iterator['Track']:
-        for track in super().walk_tracks(groups, tracks):
-            yield down_cast(Track, track)
+    def list_position(self) -> int:
+        return self.get_property_value('list_position')
 
 
 class Measure(ProjectChild, model.Measure, ObjectBase):
-    pass
+    @property
+    def time_signature(self) -> model.TimeSignature:
+        return self.get_property_value('time_signature')
 
 
 class MeasureReference(ProjectChild, model.MeasureReference, ObjectBase):
@@ -93,7 +123,7 @@ class MeasureReference(ProjectChild, model.MeasureReference, ObjectBase):
         return self.get_property_value('measure')
 
 
-class MeasuredTrack(Track, model.MeasuredTrack, ObjectBase):
+class MeasuredTrack(Track, model.MeasuredTrack, ObjectBase):  # pylint: disable=abstract-method
     @property
     def measure_list(self) -> Sequence[MeasureReference]:
         return self.get_property_value('measure_list')
@@ -101,6 +131,22 @@ class MeasuredTrack(Track, model.MeasuredTrack, ObjectBase):
     @property
     def measure_heap(self) -> Sequence[Measure]:
         return self.get_property_value('measure_heap')
+
+
+class ControlPoint(ProjectChild, model.ControlPoint, ObjectBase):
+    @property
+    def time(self) -> audioproc.MusicalTime:
+        return self.get_property_value('time')
+
+    @property
+    def value(self) -> float:
+        return self.get_property_value('value')
+
+
+class ControlTrack(Track, model.ControlTrack):
+    @property
+    def points(self) -> Sequence[ControlPoint]:
+        return self.get_property_value('points')
 
 
 class Note(ProjectChild, model.Note, ObjectBase):
@@ -125,16 +171,6 @@ class Note(ProjectChild, model.Note, ObjectBase):
         return down_cast(ScoreMeasure, super().measure)
 
 
-class TrackGroup(Track, model.TrackGroup, ObjectBase):
-    @property
-    def tracks(self) -> Sequence[Track]:
-        return self.get_property_value('tracks')
-
-
-class MasterTrackGroup(TrackGroup, model.MasterTrackGroup, ObjectBase):
-    pass
-
-
 class ScoreMeasure(Measure, model.ScoreMeasure, ObjectBase):
     @property
     def clef(self) -> model.Clef:
@@ -155,20 +191,8 @@ class ScoreMeasure(Measure, model.ScoreMeasure, ObjectBase):
 
 class ScoreTrack(MeasuredTrack, model.ScoreTrack, ObjectBase):
     @property
-    def instrument(self) -> str:
-        return self.get_property_value('instrument')
-
-    @property
     def transpose_octaves(self) -> int:
         return self.get_property_value('transpose_octaves')
-
-    @property
-    def instrument_node(self) -> 'InstrumentPipelineGraphNode':
-        return self.get_property_value('instrument_node')
-
-    @property
-    def event_source_node(self) -> 'PianoRollPipelineGraphNode':
-        return self.get_property_value('event_source_node')
 
 
 class Beat(ProjectChild, model.Beat, ObjectBase):
@@ -193,50 +217,8 @@ class BeatMeasure(Measure, model.BeatMeasure, ObjectBase):
 
 class BeatTrack(MeasuredTrack, model.BeatTrack, ObjectBase):
     @property
-    def instrument(self) -> str:
-        return self.get_property_value('instrument')
-
-    @property
     def pitch(self) -> model.Pitch:
         return self.get_property_value('pitch')
-
-    @property
-    def instrument_node(self) -> 'InstrumentPipelineGraphNode':
-        return self.get_property_value('instrument_node')
-
-    @property
-    def event_source_node(self) -> 'PianoRollPipelineGraphNode':
-        return self.get_property_value('event_source_node')
-
-
-class PropertyMeasure(Measure, model.PropertyMeasure, ObjectBase):
-    @property
-    def time_signature(self) -> model.TimeSignature:
-        return self.get_property_value('time_signature')
-
-
-class PropertyTrack(MeasuredTrack, model.PropertyTrack):
-    pass
-
-
-class ControlPoint(ProjectChild, model.ControlPoint, ObjectBase):
-    @property
-    def time(self) -> audioproc.MusicalTime:
-        return self.get_property_value('time')
-
-    @property
-    def value(self) -> float:
-        return self.get_property_value('value')
-
-
-class ControlTrack(Track, model.ControlTrack):
-    @property
-    def points(self) -> Sequence[ControlPoint]:
-        return self.get_property_value('points')
-
-    @property
-    def generator_node(self) -> 'CVGeneratorPipelineGraphNode':
-        return self.get_property_value('generator_node')
 
 
 class SampleRef(ProjectChild, model.SampleRef, ObjectBase):
@@ -254,85 +236,12 @@ class SampleTrack(Track, model.SampleTrack, ObjectBase):
     def samples(self) -> Sequence[SampleRef]:
         return self.get_property_value('samples')
 
-    @property
-    def sample_script_node(self) -> 'SampleScriptPipelineGraphNode':
-        return self.get_property_value('sample_script_node')
-
-
-
-class PipelineGraphControlValue(ProjectChild, model.PipelineGraphControlValue, ObjectBase):
-    @property
-    def name(self) -> str:
-        return self.get_property_value('name')
-
-    @property
-    def value(self) -> model.ControlValue:
-        return self.get_property_value('value')
-
-
-class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBase):  # pylint: disable=abstract-method
-    @property
-    def name(self) -> str:
-        return self.get_property_value('name')
-
-    @property
-    def graph_pos(self) -> model.Pos2F:
-        return self.get_property_value('graph_pos')
-
-    @property
-    def control_values(self) -> Sequence[PipelineGraphControlValue]:
-        return self.get_property_value('control_values')
-
-    @property
-    def plugin_state(self) -> audioproc.PluginState:
-        return self.get_property_value('plugin_state')
-
-
-
-class PipelineGraphNode(BasePipelineGraphNode, model.PipelineGraphNode, ObjectBase):
-    @property
-    def node_uri(self) -> str:
-        return self.get_property_value('node_uri')
-
-
-class AudioOutPipelineGraphNode(
-        BasePipelineGraphNode, model.AudioOutPipelineGraphNode, ObjectBase):
-    pass
-
-
-class TrackMixerPipelineGraphNode(
-        BasePipelineGraphNode, model.TrackMixerPipelineGraphNode, ObjectBase):
-    @property
-    def track(self) -> Track:
-        return self.get_property_value('track')
-
-
-class PianoRollPipelineGraphNode(
-        BasePipelineGraphNode, model.PianoRollPipelineGraphNode, ObjectBase):
-    @property
-    def track(self) -> Track:
-        return self.get_property_value('track')
-
-
-class CVGeneratorPipelineGraphNode(
-        BasePipelineGraphNode, model.CVGeneratorPipelineGraphNode, ObjectBase):
-    @property
-    def track(self) -> Track:
-        return self.get_property_value('track')
-
-
-class SampleScriptPipelineGraphNode(
-        BasePipelineGraphNode, model.SampleScriptPipelineGraphNode, ObjectBase):
-    @property
-    def track(self) -> Track:
-        return self.get_property_value('track')
-
 
 class InstrumentPipelineGraphNode(
         BasePipelineGraphNode, model.InstrumentPipelineGraphNode, ObjectBase):
     @property
-    def track(self) -> Track:
-        return self.get_property_value('track')
+    def instrument_uri(self) -> str:
+        return self.get_property_value('instrument_uri')
 
 
 class PipelineGraphConnection(ProjectChild, model.PipelineGraphConnection, ObjectBase):
@@ -385,16 +294,8 @@ class Project(model.Project, ObjectBase):
         self.__time_mapper = None  # type: audioproc.TimeMapper
 
     @property
-    def master_group(self) -> MasterTrackGroup:
-        return self.get_property_value('master_group')
-
-    @property
     def metadata(self) -> Metadata:
         return self.get_property_value('metadata')
-
-    @property
-    def property_track(self) -> PropertyTrack:
-        return self.get_property_value('property_track')
 
     @property
     def pipeline_graph_nodes(self) -> Sequence[BasePipelineGraphNode]:
@@ -411,10 +312,6 @@ class Project(model.Project, ObjectBase):
     @property
     def bpm(self) -> int:
         return self.get_property_value('bpm')
-
-    @property
-    def all_tracks(self) -> Sequence[Track]:
-        return cast(Sequence[Track], super().all_tracks)
 
     @property
     def project(self) -> 'Project':
@@ -440,8 +337,6 @@ class Pool(model.Pool[ObjectBase]):
         super().__init__()
 
         self.register_class(Project)
-        self.register_class(TrackGroup)
-        self.register_class(MasterTrackGroup)
         self.register_class(MeasureReference)
         self.register_class(ScoreMeasure)
         self.register_class(ScoreTrack)
@@ -452,18 +347,12 @@ class Pool(model.Pool[ObjectBase]):
         self.register_class(SampleTrack)
         self.register_class(ControlPoint)
         self.register_class(ControlTrack)
-        self.register_class(PropertyMeasure)
-        self.register_class(PropertyTrack)
         self.register_class(Metadata)
         self.register_class(Sample)
         self.register_class(Note)
         self.register_class(PipelineGraphConnection)
         self.register_class(PipelineGraphNode)
         self.register_class(InstrumentPipelineGraphNode)
-        self.register_class(TrackMixerPipelineGraphNode)
-        self.register_class(SampleScriptPipelineGraphNode)
-        self.register_class(CVGeneratorPipelineGraphNode)
-        self.register_class(PianoRollPipelineGraphNode)
         self.register_class(AudioOutPipelineGraphNode)
         self.register_class(PipelineGraphControlValue)
 
@@ -535,6 +424,9 @@ class ProjectClient(object):
 
             await self._stub.close()
             self._stub = None
+
+    def get_object(self, obj_id: int) -> ObjectBase:
+        return self.__pool[obj_id]
 
     def handle_project_mutations(self, mutations: mutations_pb2.MutationList) -> None:
         mutation_list = mutations_lib.MutationList(self.__pool, mutations)

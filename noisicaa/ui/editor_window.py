@@ -37,7 +37,6 @@ from .project_view import ProjectView
 from . import ui_base
 from . import instrument_library
 from . import qprogressindicator
-from . import dock_widget  # pylint: disable=unused-import
 from . import project_registry
 
 logger = logging.getLogger(__name__)
@@ -55,7 +54,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self._docks = []  # type: List[dock_widget.DockWidget]
         self._settings_dialog = SettingsDialog(parent=self, context=self.context)
 
         self._instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
@@ -184,6 +182,10 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         self._set_num_measures_action.setStatusTip("Set the number of measures in the project")
         self._set_num_measures_action.triggered.connect(self.onSetNumMeasures)
 
+        self._set_bpm_action = QtWidgets.QAction("Set BPM", self)
+        self._set_bpm_action.setStatusTip("Set the project's beats per second")
+        self._set_bpm_action.triggered.connect(self.onSetBPM)
+
         self._restart_action = QtWidgets.QAction("Restart", self)
         self._restart_action.setShortcut("F5")
         self._restart_action.setShortcutContext(Qt.ApplicationShortcut)
@@ -302,7 +304,8 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         self._edit_menu.addAction(self._paste_action)
         self._edit_menu.addAction(self._paste_as_link_action)
         self._project_menu.addSeparator()
-        self._edit_menu.addAction(self._set_num_measures_action)
+        #self._edit_menu.addAction(self._set_num_measures_action)
+        self._edit_menu.addAction(self._set_bpm_action)
 
         self._view_menu = menu_bar.addMenu("View")
 
@@ -330,8 +333,8 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         self.toolbar.addAction(self._player_loop_action)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self._player_move_to_start_action)
-        self.toolbar.addAction(self._player_move_to_prev_action)
-        self.toolbar.addAction(self._player_move_to_next_action)
+        #self.toolbar.addAction(self._player_move_to_prev_action)
+        #self.toolbar.addAction(self._player_move_to_next_action)
         self.toolbar.addAction(self._player_move_to_end_action)
 
         self.addToolBar(Qt.TopToolBarArea, self.toolbar)
@@ -557,6 +560,10 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     def onSetNumMeasures(self) -> None:
         view = self._project_tabs.currentWidget()
         view.onSetNumMeasures()
+
+    def onSetBPM(self) -> None:
+        view = self._project_tabs.currentWidget()
+        view.onSetBPM()
 
     def onPlayingChanged(self, playing: bool) -> None:
         if playing:

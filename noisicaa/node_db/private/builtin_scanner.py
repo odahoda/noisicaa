@@ -76,8 +76,35 @@ class Builtins(object):
         ]
     )
 
-    SampleScriptDescription = node_db.NodeDescription(
-        display_name='Sample Script',
+    EventSourceDescription = node_db.NodeDescription(
+        display_name='Events',
+        type=node_db.NodeDescription.EVENT_SOURCE,
+        ports=[
+            node_db.PortDescription(
+                name='out',
+                direction=node_db.PortDescription.OUTPUT,
+                type=node_db.PortDescription.EVENTS,
+            ),
+        ]
+    )
+
+    ControlTrackDescription = node_db.NodeDescription(
+        display_name='Control Track',
+        type=node_db.NodeDescription.PROCESSOR,
+        processor=node_db.ProcessorDescription(
+            type=node_db.ProcessorDescription.CV_GENERATOR,
+        ),
+        ports=[
+            node_db.PortDescription(
+                name='out',
+                direction=node_db.PortDescription.OUTPUT,
+                type=node_db.PortDescription.ARATE_CONTROL,
+            ),
+        ]
+    )
+
+    SampleTrackDescription = node_db.NodeDescription(
+        display_name='Sample Track',
         type=node_db.NodeDescription.PROCESSOR,
         processor=node_db.ProcessorDescription(
             type=node_db.ProcessorDescription.SAMPLE_SCRIPT,
@@ -96,9 +123,12 @@ class Builtins(object):
         ]
     )
 
-    EventSourceDescription = node_db.NodeDescription(
-        display_name='Events',
-        type=node_db.NodeDescription.EVENT_SOURCE,
+    BeatTrackDescription = node_db.NodeDescription(
+        display_name='Beat Track',
+        type=node_db.NodeDescription.PROCESSOR,
+        processor=node_db.ProcessorDescription(
+            type=node_db.ProcessorDescription.PIANOROLL,
+        ),
         ports=[
             node_db.PortDescription(
                 name='out',
@@ -108,23 +138,8 @@ class Builtins(object):
         ]
     )
 
-    CVGeneratorDescription = node_db.NodeDescription(
-        display_name='Control Value',
-        type=node_db.NodeDescription.PROCESSOR,
-        processor=node_db.ProcessorDescription(
-            type=node_db.ProcessorDescription.CV_GENERATOR,
-        ),
-        ports=[
-            node_db.PortDescription(
-                name='out',
-                direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.ARATE_CONTROL,
-            ),
-        ]
-    )
-
-    PianoRollDescription = node_db.NodeDescription(
-        display_name='Piano Roll',
+    ScoreTrackDescription = node_db.NodeDescription(
+        display_name='Score Track',
         type=node_db.NodeDescription.PROCESSOR,
         processor=node_db.ProcessorDescription(
             type=node_db.ProcessorDescription.PIANOROLL,
@@ -286,10 +301,11 @@ class Builtins(object):
 class BuiltinScanner(scanner.Scanner):
     def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
         yield ('builtin://track_mixer', Builtins.TrackMixerDescription)
-        yield ('builtin://sample_script', Builtins.SampleScriptDescription)
         yield ('builtin://event_source', Builtins.EventSourceDescription)
-        yield ('builtin://cvgenerator', Builtins.CVGeneratorDescription)
-        yield ('builtin://pianoroll', Builtins.PianoRollDescription)
+        yield ('builtin://control_track', Builtins.ControlTrackDescription)
+        yield ('builtin://sample_track', Builtins.SampleTrackDescription)
+        yield ('builtin://beat_track', Builtins.BeatTrackDescription)
+        yield ('builtin://score_track', Builtins.ScoreTrackDescription)
         yield ('builtin://sink', Builtins.RealmSinkDescription)
         yield ('builtin://child_realm', Builtins.ChildRealmDescription)
         yield ('builtin://fluidsynth', Builtins.FluidSynthDescription)

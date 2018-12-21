@@ -28,7 +28,7 @@ message ObjectBase {
   required string type = 1;
   required uint64 id = 2;
 
-  extensions 1000 to max;
+  extensions 100000 to max;
 }
 
 message ObjectTree {

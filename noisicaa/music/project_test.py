@@ -32,7 +32,7 @@ from noisicaa.core import fileutil
 from noisicaa.core import storage
 from noisicaa import model
 from . import project
-from . import track_group
+from . import score_track
 from . import commands_pb2
 from . import commands_test
 
@@ -52,12 +52,13 @@ class BaseProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTest
 
     def test_deserialize(self):
         p = self.pool.create(project.BaseProject, node_db=self.node_db)
-        p.master_group.tracks.append(self.pool.create(track_group.TrackGroup, name='Sub Group'))
+        p.pipeline_graph_nodes.append(self.pool.create(score_track.ScoreTrack, name='Track 1'))
+        num_nodes = len(p.pipeline_graph_nodes)
         serialized = p.serialize()
 
         pool2 = project.Pool()
         p2 = cast(project.BaseProject, pool2.deserialize_tree(serialized))
-        self.assertEqual(len(p2.master_group.tracks), 1)
+        self.assertEqual(len(p2.pipeline_graph_nodes), num_nodes)
 
 
 class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
@@ -95,13 +96,12 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
             pool=self.pool,
             node_db=self.node_db)
         try:
-            self.assertEqual(len(p.master_group.tracks), 0)
             p.dispatch_command_proto(commands_pb2.Command(
                 target=p.id,
-                add_track=commands_pb2.AddTrack(
-                    track_type='score',
-                    parent_group_id=p.master_group.id)))
-            track_id = p.master_group.tracks[-1].id
+                add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
+                    uri='builtin://score_track')))
+            num_nodes = len(p.pipeline_graph_nodes)
+            track_id = p.pipeline_graph_nodes[-1].id
         finally:
             p.close()
 
@@ -111,8 +111,8 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
             pool=pool,
             node_db=self.node_db)
         try:
-            self.assertEqual(len(p.master_group.tracks), 1)
-            self.assertEqual(p.master_group.tracks[-1].id, track_id)
+            self.assertEqual(len(p.pipeline_graph_nodes), num_nodes)
+            self.assertEqual(p.pipeline_graph_nodes[-1].id, track_id)
         finally:
             p.close()
 
@@ -130,7 +130,7 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
 
 
-class ProjectPropertiesTest(commands_test.CommandsTestBase):
+class ProjectPropertiesTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
     async def test_bpm(self):
         await self.client.send_command(commands_pb2.Command(
             target=self.project.id,

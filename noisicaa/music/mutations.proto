@@ -89,6 +89,8 @@ message MutationList {
       TimeSignature time_signature = 105;
       Clef clef = 106;
       Pos2F pos2f = 107;
+      SizeF sizef = 109;
+      Color color = 110;
       ControlValue control_value = 108;
     }
   }

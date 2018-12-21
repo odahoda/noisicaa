@@ -83,6 +83,10 @@ class MutationList(object):
             return model.Clef.from_proto(slot.clef)
         elif vtype == 'pos2f':
             return model.Pos2F.from_proto(slot.pos2f)
+        elif vtype == 'sizef':
+            return model.SizeF.from_proto(slot.sizef)
+        elif vtype == 'color':
+            return model.Color.from_proto(slot.color)
         elif vtype == 'control_value':
             return copy.deepcopy(slot.control_value)
 
@@ -273,6 +277,10 @@ class MutationCollector(object):
             slot.clef.CopyFrom(value.to_proto())
         elif isinstance(value, model.Pos2F):
             slot.pos2f.CopyFrom(value.to_proto())
+        elif isinstance(value, model.SizeF):
+            slot.sizef.CopyFrom(value.to_proto())
+        elif isinstance(value, model.Color):
+            slot.color.CopyFrom(value.to_proto())
         elif isinstance(value, model.ControlValue):
             slot.control_value.CopyFrom(value)
 

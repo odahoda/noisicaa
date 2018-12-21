@@ -28,23 +28,23 @@ from noisidev import demo_project
 from noisicaa import audioproc
 from . import project
 from . import control_track
-from . import commands_test
 from . import commands_pb2
 from . import project_client
+from . import base_track_test
 
 
 class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
     async def setup_testcase(self):
         self.pool = project.Pool()
 
-        self.project = demo_project.basic(self.pool, project.BaseProject, node_db=self.node_db)
+        self.project = demo_project.empty(self.pool, project.BaseProject, node_db=self.node_db)
         self.track = self.pool.create(control_track.ControlTrack, name='test')
-        self.project.master_group.tracks.append(self.track)
+        self.project.pipeline_graph_nodes.append(self.track)
 
         self.messages = []  # type: List[str]
 
     def message_cb(self, msg):
-        self.assertEqual(msg.node_id, self.track.generator_name)
+        self.assertEqual(int(msg.node_id, 16), self.track.id)
         # TODO: track the messages themselves and inspect their contents as well.
         self.messages.append(msg.WhichOneof('msg'))
 
@@ -117,31 +117,9 @@ class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestC
             connector.close()
 
 
-class ControlTrackTest(commands_test.CommandsTestBase):
-    async def test_add_remove(self):
-        insert_index = await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='control',
-                parent_group_id=self.project.master_group.id)))
-        self.assertEqual(insert_index, 0)
-
-        track = self.project.master_group.tracks[insert_index]
-        self.assertIsInstance(track, project_client.ControlTrack)
-
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            remove_track=commands_pb2.RemoveTrack(
-                track_id=track.id)))
-        self.assertEqual(len(self.project.master_group.tracks), 0)
-
-    async def _add_track(self):
-        insert_index = await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            add_track=commands_pb2.AddTrack(
-                track_type='control',
-                parent_group_id=self.project.master_group.id)))
-        return self.project.master_group.tracks[insert_index]
+class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
+    node_uri = 'builtin://control_track'
+    track_cls = project_client.ControlTrack
 
     async def test_add_control_point(self):
         track = await self._add_track()

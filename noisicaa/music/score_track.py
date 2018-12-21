@@ -30,26 +30,10 @@ from noisicaa import audioproc
 from noisicaa import model
 from . import base_track
 from . import pmodel
-from . import pipeline_graph
 from . import commands
 from . import commands_pb2
 
 logger = logging.getLogger(__name__)
-
-
-class SetInstrument(commands.Command):
-    proto_type = 'set_instrument'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.SetInstrument, pb)
-        track = down_cast(pmodel.ScoreTrack, pool[self.proto.command.target])
-
-        track.instrument = pb.instrument
-
-        for mutation in track.instrument_node.get_update_mutations():
-            project.handle_pipeline_mutation(mutation)
-
-commands.Command.register_command(SetInstrument)
 
 
 class ChangeNote(commands.Command):
@@ -291,15 +275,8 @@ class ScoreTrackConnector(base_track.MeasuredTrackConnector):
 class ScoreTrack(pmodel.ScoreTrack, base_track.MeasuredTrack):
     measure_cls = ScoreMeasure
 
-    def create(
-            self, *, instrument: Optional[str] = None, num_measures: int = 1, **kwargs: Any
-    ) -> None:
+    def create(self, *, num_measures: int = 1, **kwargs: Any) -> None:
         super().create(**kwargs)
-
-        if instrument is None:
-            self.instrument = 'sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0'
-        else:
-            self.instrument = instrument
 
         for _ in range(num_measures):
             self.append_measure()
@@ -317,55 +294,15 @@ class ScoreTrack(pmodel.ScoreTrack, base_track.MeasuredTrack):
     def create_track_connector(self, **kwargs: Any) -> ScoreTrackConnector:
         return ScoreTrackConnector(
             track=self,
-            node_id=self.event_source_name,
             **kwargs)
 
-    @property
-    def event_source_name(self) -> str:
-        return '%016x-events' % self.id
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
+        yield audioproc.AddNode(
+            description=self.description,
+            id=self.pipeline_node_id,
+            name=self.name)
 
-    @property
-    def instr_name(self) -> str:
-        return '%016x-instr' % self.id
+        yield from self.get_initial_parameter_mutations()
 
-    def add_pipeline_nodes(self) -> None:
-        super().add_pipeline_nodes()
-
-        mixer_node = self.mixer_node
-
-        instrument_node = self._pool.create(
-            pipeline_graph.InstrumentPipelineGraphNode,
-            name="Track Instrument",
-            graph_pos=mixer_node.graph_pos - model.Pos2F(200, 0),
-            track=self)
-        self.project.add_pipeline_graph_node(instrument_node)
-        self.instrument_node = instrument_node
-
-        self.project.add_pipeline_graph_connection(self._pool.create(
-            pipeline_graph.PipelineGraphConnection,
-            source_node=instrument_node, source_port='out:left',
-            dest_node=self.mixer_node, dest_port='in:left'))
-        self.project.add_pipeline_graph_connection(self._pool.create(
-            pipeline_graph.PipelineGraphConnection,
-            source_node=instrument_node, source_port='out:right',
-            dest_node=self.mixer_node, dest_port='in:right'))
-
-        event_source_node = self._pool.create(
-            pipeline_graph.PianoRollPipelineGraphNode,
-            name="Track Events",
-            graph_pos=instrument_node.graph_pos - model.Pos2F(200, 0),
-            track=self)
-        self.project.add_pipeline_graph_node(event_source_node)
-        self.event_source_node = event_source_node
-
-        self.project.add_pipeline_graph_connection(self._pool.create(
-            pipeline_graph.PipelineGraphConnection,
-            source_node=event_source_node, source_port='out',
-            dest_node=instrument_node, dest_port='in'))
-
-    def remove_pipeline_nodes(self) -> None:
-        self.project.remove_pipeline_graph_node(self.event_source_node)
-        self.event_source_node = None
-        self.project.remove_pipeline_graph_node(self.instrument_node)
-        self.instrument_node = None
-        super().remove_pipeline_nodes()
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
+        yield audioproc.RemoveNode(self.pipeline_node_id)

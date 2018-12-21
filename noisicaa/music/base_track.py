@@ -30,62 +30,12 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import core  # pylint: disable=unused-import
-from . import pmodel
 from . import pipeline_graph
+from . import pmodel
 from . import commands
 from . import commands_pb2
 
 logger = logging.getLogger(__name__)
-
-
-class MoveTrack(commands.Command):
-    proto_type = 'move_track'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.MoveTrack, pb)
-        track = down_cast(pmodel.Track, pool[self.proto.command.target])
-
-        assert not track.is_master_group
-        parent = down_cast(pmodel.TrackGroup, track.parent)
-
-        if pb.direction == 0:
-            raise ValueError("No direction given.")
-
-        if pb.direction < 0:
-            if track.index == 0:
-                raise ValueError("Can't move first track up.")
-            new_pos = track.index - 1
-            del parent.tracks[track.index]
-            parent.tracks.insert(new_pos, track)
-
-        elif pb.direction > 0:
-            if track.index == len(parent.tracks) - 1:
-                raise ValueError("Can't move last track down.")
-            new_pos = track.index + 1
-            del parent.tracks[track.index]
-            parent.tracks.insert(new_pos, track)
-
-commands.Command.register_command(MoveTrack)
-
-
-class ReparentTrack(commands.Command):
-    proto_type = 'reparent_track'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.ReparentTrack, pb)
-        track = down_cast(pmodel.Track, pool[self.proto.command.target])
-
-        old_parent = down_cast(pmodel.TrackGroup, track.parent)
-        new_parent = down_cast(pmodel.TrackGroup, pool[pb.new_parent])
-        assert new_parent.is_child_of(track.project)
-        assert isinstance(new_parent, pmodel.TrackGroup)
-
-        assert 0 <= pb.index <= len(new_parent.tracks)
-
-        del old_parent.tracks[track.index]
-        new_parent.tracks.insert(pb.index, track)
-
-commands.Command.register_command(ReparentTrack)
 
 
 class UpdateTrackProperties(commands.Command):
@@ -95,30 +45,50 @@ class UpdateTrackProperties(commands.Command):
         pb = down_cast(commands_pb2.UpdateTrackProperties, pb)
         track = down_cast(pmodel.Track, pool[self.proto.command.target])
 
-        if pb.HasField('name'):
-            track.name = pb.name
-
-        if pb.HasField('visible'):
-            track.visible = pb.visible
-
-        # TODO: broken, needs to increment generation
-        # if pb.HasField('muted'):
-        #     track.muted = pb.muted
-        #     track.mixer_node.set_control_value('muted', float(pb.muted))
-
-        # if pb.HasField('gain'):
-        #     track.gain = pb.gain
-        #     track.mixer_node.set_control_value('gain', pb.gain)
-
-        # if pb.HasField('pan'):
-        #     track.pan = pb.pan
-        #     track.mixer_node.set_control_value('pan', pb.pan)
-
         if pb.HasField('transpose_octaves'):
             assert isinstance(track, pmodel.ScoreTrack)
             track.transpose_octaves = pb.transpose_octaves
 
 commands.Command.register_command(UpdateTrackProperties)
+
+
+class UpdateTrack(commands.Command):
+    proto_type = 'update_track'
+
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.UpdateTrack, pb)
+        track = down_cast(pmodel.Track, pool[self.proto.command.target])
+
+        if pb.HasField('visible'):
+            track.visible = pb.visible
+
+        if pb.HasField('list_position'):
+            track.list_position = pb.list_position
+
+commands.Command.register_command(UpdateTrack)
+
+
+class InsertMeasure(commands.Command):
+    proto_type = 'insert_measure'
+
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.InsertMeasure, pb)
+        track = down_cast(pmodel.MeasuredTrack, pool[self.proto.command.target])
+
+        track.insert_measure(pb.pos)
+
+commands.Command.register_command(InsertMeasure)
+
+
+class RemoveMeasure(commands.Command):
+    proto_type = 'remove_measure'
+
+    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+        pb = down_cast(commands_pb2.RemoveMeasure, pb)
+        track = down_cast(pmodel.MeasuredTrack, pool[self.proto.command.target])
+        track.remove_measure(pb.pos)
+
+commands.Command.register_command(RemoveMeasure)
 
 
 class TrackConnector(pmodel.TrackConnector):
@@ -154,64 +124,13 @@ class TrackConnector(pmodel.TrackConnector):
         pass
 
 
-class Track(pmodel.Track):  # pylint: disable=abstract-method
-    def create(self, *, name: Optional[str] = None, **kwargs: Any) -> None:
-        super().create(**kwargs)
-        if name is not None:
-            self.name = name
-
-    @property
-    def parent_audio_sink_name(self) -> str:
-        return down_cast(Track, self.parent).mixer_name
-
-    @property
-    def parent_audio_sink_node(self) -> pmodel.BasePipelineGraphNode:
-        return down_cast(Track, self.parent).mixer_node
-
+class Track(pmodel.Track, pipeline_graph.BasePipelineGraphNode):  # pylint: disable=abstract-method
     # TODO: the following are common to MeasuredTrack and TrackGroup, but not really
     # generic for all track types.
 
     @property
-    def mixer_name(self) -> str:
-        return '%s-track-mixer' % self.id
-
-    @property
     def relative_position_to_parent_audio_out(self) -> model.Pos2F:
         return model.Pos2F(-200, self.index * 100)
-
-    @property
-    def default_mixer_name(self) -> str:
-        return "Track Mixer"
-
-    def add_pipeline_nodes(self) -> None:
-        parent_audio_sink_node = self.parent_audio_sink_node
-
-        project = down_cast(pmodel.Project, self.project)
-
-        mixer_node = self._pool.create(
-            pipeline_graph.TrackMixerPipelineGraphNode,
-            name=self.default_mixer_name,
-            graph_pos=parent_audio_sink_node.graph_pos + self.relative_position_to_parent_audio_out,
-            track=self)
-        project.add_pipeline_graph_node(mixer_node)
-        self.mixer_node = mixer_node
-
-        conn = self._pool.create(
-            pipeline_graph.PipelineGraphConnection,
-            source_node=mixer_node, source_port='out:left',
-            dest_node=parent_audio_sink_node, dest_port='in:left')
-        project.add_pipeline_graph_connection(conn)
-
-        conn = self._pool.create(
-            pipeline_graph.PipelineGraphConnection,
-            source_node=mixer_node, source_port='out:right',
-            dest_node=parent_audio_sink_node, dest_port='in:right')
-        project.add_pipeline_graph_connection(conn)
-
-    def remove_pipeline_nodes(self) -> None:
-        project = down_cast(pmodel.Project, self.project)
-        project.remove_pipeline_graph_node(self.mixer_node)
-        self.mixer_node = None
 
 
 class Measure(pmodel.Measure):
@@ -262,12 +181,12 @@ class PianoRollInterval(object):
 class MeasuredTrackConnector(TrackConnector):
     _track = None  # type: MeasuredTrack
 
-    def __init__(self, *, node_id: str, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self._listeners = {}  # type: Dict[str, core.Listener]
 
-        self.__node_id = node_id
+        self.__node_id = self._track.pipeline_node_id
         self.__measure_events = {}  # type: Dict[int, List[PianoRollInterval]]
 
     def _init_internal(self) -> None:

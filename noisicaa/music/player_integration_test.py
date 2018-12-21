@@ -32,7 +32,6 @@ import os.path
 from noisidev import unittest
 from noisidev import unittest_mixins
 from noisidev import demo_project
-from noisidev import perf_stats
 from noisicaa.constants import TEST_OPTS
 from noisicaa import core
 from noisicaa import audioproc
@@ -74,6 +73,7 @@ class CallbackServer(ipc.Server):
             log_level=logging.DEBUG)
 
     async def handle_player_update(self, player_id, kwargs):
+        logging.info("XXX %s %s", player_id, kwargs)
         self.player_status_calls.put_nowait(kwargs)
 
     async def wait_for(self, name, value=UNSET):
@@ -130,9 +130,12 @@ class PlayerTest(
         await self.audioproc_client_main.setup()
         await self.audioproc_client_main.connect(
             self.audioproc_address_main, flags={'perf_data'})
+        await self.audioproc_client_main.create_realm(name='root', enable_player=True)
         await self.audioproc_client_main.set_backend(TEST_OPTS.PLAYBACK_BACKEND)
 
-        self.project = demo_project.complex(project.BaseProject, node_db=self.node_db_client)
+        self.pool = project.Pool()
+        self.project = demo_project.complex(
+            self.pool, project.BaseProject, node_db=self.node_db_client)
 
         logger.info("Testcase setup complete.")
 
@@ -148,39 +151,42 @@ class PlayerTest(
 
     @contextlib.contextmanager
     def track_frame_stats(self, testname):
-        frame_times = []
+        yield
+        return
 
-        def log_stats(spans, parent_id, indent):
-            for span in spans:
-                if span.parentId == parent_id:
-                    logger.debug(
-                        "%-40s: %10.3fµs",
-                        '  ' * indent + span.name,
-                        (span.endTimeNSec - span.startTimeNSec) / 1000.0)
-                    log_stats(spans, span.id, indent+1)
+        # frame_times = []
 
-        def cb(status):
-            perf_data = status.get('perf_data', None)
-            if perf_data:
-                topspan = perf_data.spans[0]
-                assert topspan.parentId == 0
-                assert topspan.name == 'frame'
-                duration = (topspan.endTimeNSec - topspan.startTimeNSec) / 1000.0
-                frame_times.append(duration)
-                log_stats(sorted(perf_data.spans, key=lambda s: s.startTimeNSec), 0, 0)
+        # def log_stats(spans, parent_id, indent):
+        #     for span in spans:
+        #         if span.parentId == parent_id:
+        #             logger.debug(
+        #                 "%-40s: %10.3fµs",
+        #                 '  ' * indent + span.name,
+        #                 (span.endTimeNSec - span.startTimeNSec) / 1000.0)
+        #             log_stats(spans, span.id, indent+1)
 
-        listener = self.audioproc_client_main.listeners.add('pipeline_status', cb)
-        try:
-            yield
+        # def cb(status):
+        #     perf_data = status.get('perf_data', None)
+        #     if perf_data:
+        #         topspan = perf_data.spans[0]
+        #         assert topspan.parentId == 0
+        #         assert topspan.name == 'frame'
+        #         duration = (topspan.endTimeNSec - topspan.startTimeNSec) / 1000.0
+        #         frame_times.append(duration)
+        #         log_stats(sorted(perf_data.spans, key=lambda s: s.startTimeNSec), 0, 0)
 
-            perf_stats.write_frame_stats(
-                os.path.splitext(os.path.basename(__file__))[0],
-                testname, frame_times)
+        # listener = self.audioproc_client_main.listeners.add('pipeline_status', cb)
+        # try:
+        #     yield
 
-        finally:
-            listener.remove()
+        #     perf_stats.write_frame_stats(
+        #         os.path.splitext(os.path.basename(__file__))[0],
+        #         testname, frame_times)
 
-    @unittest.skip("TODO: async status updates are flaky")
+        # finally:
+        #     listener.remove()
+
+    #@unittest.skip("TODO: async status updates are flaky")
     @unittest.tag('integration')
     async def test_playback_demo(self):
         p = player.Player(
@@ -195,12 +201,10 @@ class PlayerTest(
             logger.info("Player setup complete.")
 
             logger.info("Wait until audioproc is ready...")
-            self.assertEqual(
-                await self.callback_server.wait_for('pipeline_state'),
-                'starting')
-            self.assertEqual(
-                await self.callback_server.wait_for('pipeline_state'),
-                'running')
+            # self.assertEqual(
+            #     await self.callback_server.wait_for('pipeline_state'), 'starting')
+            # self.assertEqual(
+            #     await self.callback_server.wait_for('pipeline_state'), 'running')
 
             with self.track_frame_stats('playback_demo'):
                 logger.info("Start playback...")

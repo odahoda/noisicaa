@@ -654,8 +654,16 @@ class ObjectBase(object):
     # Do not complain about 'id' arguments.
     # pylint: disable=redefined-builtin
 
-    class Spec(ObjectSpec):
+    class ObjectBaseSpec(ObjectSpec):
         id = Property(int)
+
+    @classmethod
+    def get_spec(cls) -> Type[ObjectSpec]:
+        for spec in cls.__dict__.values():
+            if isinstance(spec, type) and issubclass(spec, ObjectSpec):
+                return spec
+
+        return None
 
     def __init__(self, *, pb: model_base_pb2.ObjectBase, pool: AbstractPool) -> None:
         self.__proto = pb
@@ -663,10 +671,13 @@ class ObjectBase(object):
 
         self.__properties = {}  # type: Dict[str, PropertyBase]
         for cls in self.__class__.__mro__:
-            if not issubclass(cls, ObjectBase) or 'Spec' not in cls.__dict__:
+            if not issubclass(cls, ObjectBase):
                 continue  # pragma: no coverage
-            spec = cls.__dict__['Spec']
-            assert isinstance(spec, type) and issubclass(spec, ObjectSpec)
+
+            spec = cast(Type[ObjectBase], cls).get_spec()
+            if spec is None:
+                continue
+
             for prop_name, prop in spec.__dict__.items():
                 if isinstance(prop, PropertyBase):
                     self.__properties[prop_name] = prop
@@ -699,7 +710,7 @@ class ObjectBase(object):
 
     @property
     def id(self) -> int:
-        return ObjectBase.Spec.id.get_value(self, self.__proto, self._pool)
+        return ObjectBase.ObjectBaseSpec.id.get_value(self, self.__proto, self._pool)
 
     def __str__(self) -> str:
         return '<%s id=%s>' % (type(self).__name__, self.id)
@@ -851,10 +862,27 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
         self.__obj_map = {}  # type: Dict[int, POOLOBJECTBASE]
         self.__class_map = {}  # type: Dict[str, Type[POOLOBJECTBASE]]
 
+    def __get_proto_type(self, cls: Type) -> str:
+        proto_type = None
+        for c in cls.__mro__:
+            if not issubclass(c, ObjectBase):
+                continue  # pragma: no coverage
+
+            spec = cast(Type[ObjectBase], c).get_spec()
+            if spec is None:
+                continue
+
+            if spec.proto_type is not None:
+                assert proto_type is None, (cls.__name__, c.__name__)
+                proto_type = spec.proto_type
+
+        return proto_type
+
     def register_class(self, cls: Type[POOLOBJECTBASE]) -> None:
-        assert cls.Spec.proto_type is not None
-        assert cls.Spec.proto_type not in self.__class_map
-        self.__class_map[cls.Spec.proto_type] = cls
+        proto_type = self.__get_proto_type(cls)
+        assert proto_type is not None, cls.__name__
+        assert proto_type not in self.__class_map
+        self.__class_map[proto_type] = cls
 
     def object_added(self, obj: POOLOBJECTBASE) -> None:
         pass
@@ -902,10 +930,11 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
 
     def create(
             self, cls: Type[OBJECT], id: Optional[int] = None, **kwargs: Any) -> OBJECT:
-        assert cls.Spec.proto_type in self.__class_map, cls.__name__
+        proto_type = self.__get_proto_type(cls)
+        assert proto_type in self.__class_map, cls.__name__
         if id is None:
             id = random.getrandbits(64)
-        pb = model_base_pb2.ObjectBase(id=id, type=cls.Spec.proto_type)
+        pb = model_base_pb2.ObjectBase(id=id, type=proto_type)
         obj = cast(POOLOBJECTBASE, cls(pb=pb, pool=self))
         self.__obj_map[id] = obj
         obj.create(**kwargs)  # type: ignore

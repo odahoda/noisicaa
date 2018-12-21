@@ -32,7 +32,6 @@ from noisicaa import audioproc
 from noisicaa import model
 
 from . import pmodel
-from . import track_group
 from . import base_track  # pylint: disable=unused-import
 
 logger = logging.getLogger(__name__)
@@ -89,10 +88,12 @@ class Player(object):
             duration=self.project.duration)
 
         messages = audioproc.ProcessorMessageList()
-        messages.messages.extend(self.add_track(self.project.master_group))
-        await self.audioproc_client.send_node_messages(
-            self.realm, messages)
+        for node in self.project.pipeline_graph_nodes:
+            messages.messages.extend(self.add_node(node))
+        await self.audioproc_client.send_node_messages(self.realm, messages)
 
+        self.__listeners['project:nodes'] = self.project.pipeline_graph_nodes_changed.add(
+            self.__on_project_nodes_changed)
         self.__listeners['project:bpm'] = self.project.bpm_changed.add(
             self.__on_project_bpm_changed)
         self.__listeners['project:duration'] = self.project.duration_changed.add(
@@ -163,36 +164,28 @@ class Player(object):
         if exc is not None:
             logger.error("PLAYER_STATUS failed with exception: %s", exc)
 
-    def tracks_changed(self, change: model.PropertyChange) -> None:
+    def __on_project_nodes_changed(self, change: model.PropertyChange) -> None:
         if isinstance(change, model.PropertyListInsert):
             messages = audioproc.ProcessorMessageList()
-            messages.messages.extend(self.add_track(change.new_value))
+            messages.messages.extend(self.add_node(change.new_value))
             self.send_node_messages(messages)
 
         elif isinstance(change, model.PropertyListDelete):
-            self.remove_track(change.old_value)
+            self.remove_node(change.old_value)
         else:
             raise TypeError("Unsupported change type %s" % type(change))
 
-    def add_track(self, track: pmodel.Track) -> Iterator[audioproc.ProcessorMessage]:
-        for t in track.walk_tracks(groups=True, tracks=True):
-            if isinstance(t, track_group.TrackGroup):
-                self.__listeners['track_group:%s' % t.id] = t.tracks_changed.add(
-                    self.tracks_changed)
-            else:
-                assert isinstance(t, base_track.Track)
-                connector = cast(
-                    base_track.TrackConnector,
-                    t.create_track_connector(message_cb=self.send_node_message))
-                yield from connector.init()
-                self.track_connectors[t.id] = connector
+    def add_node(self, node: pmodel.BasePipelineGraphNode) -> Iterator[audioproc.ProcessorMessage]:
+        if isinstance(node, base_track.Track):
+            connector = cast(
+                base_track.TrackConnector,
+                node.create_track_connector(message_cb=self.send_node_message))
+            yield from connector.init()
+            self.track_connectors[node.id] = connector
 
-    def remove_track(self, track: pmodel.Track) -> None:
-        for t in track.walk_tracks(groups=True, tracks=True):
-            if isinstance(t, pmodel.TrackGroup):
-                self.__listeners.pop('track_group:%s' % t.id).remove()
-            else:
-                self.track_connectors.pop(t.id).close()
+    def remove_node(self, node: pmodel.BasePipelineGraphNode) -> None:
+        if isinstance(node, base_track.Track):
+            self.track_connectors.pop(node.id).close()
 
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.event_loop.create_task(self.publish_pipeline_mutation(mutation))

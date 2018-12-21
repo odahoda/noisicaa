@@ -29,17 +29,12 @@ import "noisicaa/audioproc/public/plugin_state.proto";
 import "noisicaa/model/model_base.proto";
 
 message Track {
-  optional string name = 1;
-
-  optional bool visible = 2;
-  optional bool muted = 3;
-  optional float gain = 4;
-  optional float pan = 5;
-
-  optional uint64 mixer_node = 6;
+  optional bool visible = 1;
+  optional uint32 list_position = 2;
 }
 
 message Measure {
+  optional TimeSignature time_signature = 1;
 }
 
 message MeasureReference {
@@ -58,13 +53,6 @@ message Note {
   optional uint32 tuplet = 4;
 }
 
-message TrackGroup {
-  repeated uint64 tracks = 1;
-}
-
-message MasterTrackGroup {
-}
-
 message ScoreMeasure {
   optional Clef clef = 1;
   optional KeySignature key_signature = 2;
@@ -72,11 +60,7 @@ message ScoreMeasure {
 }
 
 message ScoreTrack {
-  optional string instrument = 1;
-  optional int32 transpose_octaves = 2;
-
-  optional uint64 instrument_node = 3;
-  optional uint64 event_source_node = 4;
+  optional int32 transpose_octaves = 1;
 }
 
 message Beat {
@@ -89,18 +73,7 @@ message BeatMeasure {
 }
 
 message BeatTrack {
-  optional string instrument = 1;
-  optional Pitch pitch = 2;
-
-  optional uint64 instrument_node = 3;
-  optional uint64 event_source_node = 4;
-}
-
-message PropertyMeasure {
-  optional TimeSignature time_signature = 1;
-}
-
-message PropertyTrack {
+  optional Pitch pitch = 1;
 }
 
 message ControlPoint {
@@ -110,8 +83,7 @@ message ControlPoint {
 
 message ControlTrack {
   repeated uint64 points = 1;
-  optional uint64 generator_node = 2;
-      }
+}
 
 message SampleRef {
   optional MusicalTime time = 1;
@@ -120,7 +92,6 @@ message SampleRef {
 
 message SampleTrack {
   repeated uint64 samples = 1;
-  optional uint64 sample_script_node = 2;
 }
 
 message PipelineGraphControlValue {
@@ -131,6 +102,8 @@ message PipelineGraphControlValue {
 message BasePipelineGraphNode {
   optional string name = 1;
   optional Pos2F graph_pos = 2;
+  optional SizeF graph_size = 5;
+  optional Color graph_color = 6;
   repeated uint64 control_values = 3;
   optional PluginState plugin_state = 4;
 }
@@ -142,24 +115,8 @@ message PipelineGraphNode {
 message AudioOutPipelineGraphNode {
 }
 
-message TrackMixerPipelineGraphNode {
-  optional uint64 track = 1;
-}
-
-message PianoRollPipelineGraphNode {
-  optional uint64 track = 1;
-}
-
-message CVGeneratorPipelineGraphNode {
-  optional uint64 track = 1;
-}
-
-message SampleScriptPipelineGraphNode {
-  optional uint64 track = 1;
-}
-
 message InstrumentPipelineGraphNode {
-  optional uint64 track = 1;
+  optional string instrument_uri = 1;
 }
 
 message PipelineGraphConnection {
@@ -171,7 +128,7 @@ message PipelineGraphConnection {
 
 message Sample {
   optional string path = 1;
-      }
+}
 
 message Metadata {
   optional string author = 1;
@@ -182,46 +139,52 @@ message Metadata {
 
 message Project {
   optional uint64 metadata = 1;
-  optional uint64 master_group = 2;
-  optional uint64 property_track = 3;
-  repeated uint64 pipeline_graph_nodes = 4;
-  repeated uint64 pipeline_graph_connections = 5;
-  repeated uint64 samples = 6;
-  optional uint32 bpm = 7;
+  optional uint32 bpm = 2;
+  repeated uint64 pipeline_graph_nodes = 3;
+  repeated uint64 pipeline_graph_connections = 4;
+  repeated uint64 samples = 5;
 }
 
 extend ObjectBase {
-  optional Track track = 1000;
-  optional Measure measure = 1001;
-  optional MeasureReference measure_reference = 1002;
-  optional MeasuredTrack measured_track = 1003;
-  optional Note note = 1004;
-  optional TrackGroup track_group = 1005;
-  optional MasterTrackGroup master_track_group = 1006;
-  optional ScoreMeasure score_measure = 1007;
-  optional ScoreTrack score_track = 1008;
-  optional Beat beat = 1009;
-  optional BeatMeasure beat_measure = 1010;
-  optional BeatTrack beat_track = 1011;
-  optional PropertyMeasure property_measure = 1012;
-  optional PropertyTrack property_track = 1013;
-  optional ControlPoint control_point = 1014;
-  optional ControlTrack control_track = 1015;
-  optional SampleRef sample_ref = 1016;
-  optional SampleTrack sample_track = 1017;
-  optional PipelineGraphControlValue pipeline_graph_control_value = 1018;
-  optional BasePipelineGraphNode base_pipeline_graph_node = 1019;
-  optional PipelineGraphNode pipeline_graph_node = 1020;
-  optional AudioOutPipelineGraphNode audio_out_pipeline_graph_node = 1021;
-  optional TrackMixerPipelineGraphNode track_mixer_pipeline_graph_node = 1022;
-  optional PianoRollPipelineGraphNode pianoroll_pipeline_graph_node = 1023;
-  optional CVGeneratorPipelineGraphNode cvgenerator_pipeline_graph_node = 1024;
-  optional SampleScriptPipelineGraphNode sample_script_pipeline_graph_node = 1025;
-  optional InstrumentPipelineGraphNode instrument_pipeline_graph_node = 1026;
-  optional PipelineGraphConnection pipeline_graph_connection = 1027;
-  optional Sample sample = 1028;
-  optional Metadata metadata = 1029;
-  optional Project project = 1030;
+  // Project (1xxxxx)
+  optional Project project = 100000;
+  optional Metadata metadata = 100001;
+
+  // Samples (2xxxxx)
+  optional Sample sample = 200000;
+
+  // Pipeline graph (3xxxxx)
+  optional PipelineGraphControlValue pipeline_graph_control_value = 300000;
+  optional PipelineGraphConnection pipeline_graph_connection = 300001;
+
+  optional BasePipelineGraphNode base_pipeline_graph_node = 301000;
+  optional PipelineGraphNode pipeline_graph_node = 302000;
+  optional AudioOutPipelineGraphNode audio_out_pipeline_graph_node = 303000;
+  optional InstrumentPipelineGraphNode instrument_pipeline_graph_node = 304000;
+
+  // Tracks (4xxxxx)
+  optional Track track = 400000;
+  optional MeasuredTrack measured_track = 400100;
+  optional Measure measure = 400101;
+  optional MeasureReference measure_reference = 400102;
+
+  // Score track (401xxx)
+  optional ScoreTrack score_track = 401000;
+  optional ScoreMeasure score_measure = 401001;
+  optional Note note = 401002;
+
+  // Beat track (402xxx)
+  optional BeatTrack beat_track = 402000;
+  optional BeatMeasure beat_measure = 402001;
+  optional Beat beat = 402002;
+
+  // Control track (403xxx)
+  optional ControlTrack control_track = 403000;
+  optional ControlPoint control_point = 403001;
+
+  // Sample track (404xxx)
+  optional SampleTrack sample_track = 404000;
+  optional SampleRef sample_ref = 404001;
 }
 
 message Pitch {
@@ -256,6 +219,18 @@ message Clef {
 message Pos2F {
   required float x = 1;
   required float y = 2;
+}
+
+message SizeF {
+  required float width = 1;
+  required float height = 2;
+}
+
+message Color {
+  required float r = 1;
+  required float g = 2;
+  required float b = 3;
+  required float a = 4 [default=1.0];
 }
 
 message ControlValue {
