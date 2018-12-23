@@ -32,6 +32,7 @@ from noisicaa.constants import TEST_OPTS
 from noisicaa.core import ipc
 
 from . import audioproc_client
+from .public import engine_notification_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +166,7 @@ class AudioProcClientTest(
                 for node_state_change in msg.node_state_changes:
                     if (node_state_change.realm == 'root'
                             and node_state_change.node_id == 'test'
-                            and node_state_change.state == 'BROKEN'):
+                            and node_state_change.state == engine_notification_pb2.NodeStateChange.BROKEN):
                         is_broken.set()
             client.engine_notifications.add(engine_notification)
 
