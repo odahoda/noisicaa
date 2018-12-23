@@ -22,6 +22,7 @@
 
 import functools
 import logging
+import typing
 from typing import cast, Any, Optional, Dict, List
 
 from PyQt5.QtCore import Qt
@@ -38,6 +39,9 @@ from noisicaa.ui import ui_base
 
 from . import node_widget
 from . import plugin_ui
+
+if typing.TYPE_CHECKING:
+    from noisicaa import core
 
 logger = logging.getLogger(__name__)
 

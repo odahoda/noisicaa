@@ -22,6 +22,7 @@
 
 import math
 import time
+import typing
 from typing import Any, List
 
 from PyQt5.QtCore import Qt
@@ -32,6 +33,9 @@ from PyQt5 import QtWidgets
 # pylint/mypy don't understand capnp modules.
 from noisicaa.core import perf_stats_capnp  # type: ignore  # pylint: disable=no-name-in-module
 from . import ui_base
+
+if typing.TYPE_CHECKING:
+    from noisicaa import core
 
 
 class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
@@ -84,7 +88,7 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
         self.restoreGeometry(
             self.app.settings.value('dialog/pipeline_perf_monitor/geometry', b''))
 
-        self.__perf_stats_listener = None
+        self.__perf_stats_listener = None  # type: core.Listener[perf_stats_capnp.PerfStats]
 
     def storeState(self) -> None:
         s = self.app.settings

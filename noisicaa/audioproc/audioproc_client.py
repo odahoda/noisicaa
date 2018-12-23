@@ -22,7 +22,7 @@
 
 import asyncio
 import logging
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Any, Optional, Set, Tuple
 
 from noisicaa import core
 # pylint/mypy don't understand capnp modules.

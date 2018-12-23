@@ -26,7 +26,7 @@ import pprint
 import sys
 import traceback
 import types
-from typing import Any, Optional, Callable, Sequence, Dict, Type
+from typing import Any, Optional, Callable, Sequence, Type
 
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
@@ -310,6 +310,7 @@ class EditorApp(ui_base.AbstractEditorApp):
     def __handleEngineNotification(self, msg: audioproc.EngineNotification) -> None:
         pass
 
+    # pylint: disable=line-too-long
     # def onPlayerStatus(self, player_state: audioproc.PlayerState):
     #     if pipeline_disabled:
     #         dialog = QtWidgets.QMessageBox(self)
@@ -340,6 +341,7 @@ class EditorApp(ui_base.AbstractEditorApp):
     #     elif dialog.clickedButton() == undo_and_restart_button:
     #         await self.project_client.undo()
     #         await self.project_client.restart_player_pipeline(self.__player_id)
+    # pylint: enable=line-too-long
 
     def setClipboardContent(self, content: Any) -> None:
         logger.info(

@@ -56,7 +56,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
         self.session_data = {}  # type: Dict[str, Any]
         self.session_data_path = None  # type: str
-        self.__players = {}  # type: Dict[str, Tuple[core.Listener, player_lib.Player]]
+        self.__players = {}  # type: Dict[str, player_lib.Player]
 
     async def cleanup(self) -> None:
         await self.clear_players()

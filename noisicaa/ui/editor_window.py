@@ -22,6 +22,7 @@
 
 import logging
 import textwrap
+import typing
 from typing import cast, Any, Optional, Iterator
 
 from PyQt5.QtCore import Qt
@@ -40,6 +41,9 @@ from . import instrument_library
 from . import qprogressindicator
 from . import project_registry
 from . import load_history
+
+if typing.TYPE_CHECKING:
+    from noisicaa import core
 
 logger = logging.getLogger(__name__)
 
@@ -369,7 +373,7 @@ class EditorWindow(ui_base.AbstractEditorWindow):
 
         self._settings_dialog.storeState()
 
-    def __engineStateChanged(self, engine_state: audioproc.EngineStateChange):
+    def __engineStateChanged(self, engine_state: audioproc.EngineStateChange) -> None:
         show_status, show_load = False, False
         if engine_state.state == audioproc.EngineStateChange.SETUP:
             self.pipeline_status.setText("Starting engine...")

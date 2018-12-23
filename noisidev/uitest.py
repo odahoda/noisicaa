@@ -32,6 +32,7 @@ import asynctest
 
 from noisicaa.constants import TEST_OPTS
 from noisicaa import runtime_settings as runtime_settings_lib
+from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
 from noisicaa import devices
@@ -51,6 +52,10 @@ class TestContext(object):
     @property
     def app(self):
         return self.__testcase.app
+
+    @property
+    def audioproc_client(self):
+        return self.__testcase.app.audioproc_client
 
     @property
     def window(self):
@@ -103,6 +108,12 @@ class TestContext(object):
 
     def add_session_listener(self, key, listener):
         raise NotImplementedError
+
+
+class MockAudioProcClient(audioproc.AudioProcClientBase):  # pylint: disable=abstract-method
+    def __init__(self):
+        super().__init__(None, None)
+        self.node_state_changed = core.CallbackMap[str, audioproc.NodeStateChange]()
 
 
 class MockSequencer(object):
@@ -225,6 +236,7 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.app.settings = MockSettings()
         self.app.midi_hub = self.midi_hub
         self.app.node_db = self.node_db_client
+        self.app.audioproc_client = MockAudioProcClient()
 
         self.session_data = {}  # type: Dict[str, Any]
 

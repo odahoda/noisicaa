@@ -22,7 +22,7 @@
 
 import logging
 import uuid
-from typing import Any, Optional, Tuple
+from typing import Any, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore

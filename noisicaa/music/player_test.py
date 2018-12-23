@@ -25,7 +25,6 @@ import asyncio
 import logging
 
 from noisidev import unittest
-from noisicaa import core
 from noisicaa import audioproc
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
@@ -39,8 +38,6 @@ logger = logging.getLogger(__name__)
 class MockAudioProcClient(audioproc.AudioProcClientBase):  # pylint: disable=abstract-method
     def __init__(self):
         super().__init__(None, None)
-        self.player_state_changed = core.Callback()
-        self.pipeline_status = core.Callback()
 
     async def setup(self):
         pass

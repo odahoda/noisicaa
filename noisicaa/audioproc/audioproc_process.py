@@ -26,7 +26,7 @@ import logging
 import sys
 import time
 import uuid
-from typing import cast, Any, Optional, Dict, List, Set, Tuple
+from typing import cast, Any, Optional, Dict, Set, Tuple
 
 import posix_ipc
 
@@ -57,7 +57,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
         self.__notification_available = None  # type: asyncio.Event
         self.__pending_notification = engine_notification_pb2.EngineNotification()
 
-    async def setup(self):
+    async def setup(self) -> None:
         await super().setup()
 
         self.__shutdown = False
@@ -65,7 +65,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
         self.__notification_pusher_task = self.event_loop.create_task(
             self.__notification_pusher())
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         if self.__notification_pusher_task is not None:
             self.__shutdown = True
             self.__notification_available.set()
@@ -75,7 +75,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
         await super().cleanup()
 
-    async def __notification_pusher(self):
+    async def __notification_pusher(self) -> None:
         while True:
             await self.__notification_available.wait()
             self.__notification_available.clear()
