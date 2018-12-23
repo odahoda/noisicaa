@@ -97,8 +97,8 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
     async def setup(self) -> None:
         self.__player_id, player_realm = await self.project_client.create_player(
             audioproc_address=self.audioproc_client.address)
-        self.__player_status_listener = self.project_client.add_player_status_listener(
-            self.__player_id, self.onPlayerStatus)
+        self.__player_status_listener = self.audioproc_client.player_state_changed.add(
+            player_realm, self.__player_state.updateFromProto)
 
         self.__track_list.setPlayerID(self.__player_id)
         self.__player_state.setPlayerID(self.__player_id)
@@ -159,47 +159,6 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
 
     async def deletePluginUI(self, node_id: str) -> None:
         await self.project_client.delete_plugin_ui(self.__player_id, node_id)
-
-    def onPlayerStatus(
-            self, player_state: Optional[audioproc.PlayerState] = None,
-            pipeline_state: Optional[str] = None, pipeline_disabled: Optional[bool] = None,
-            **kwargs: Any) -> None:
-        if player_state is not None and self.__playback_pos_mode == 'follow':
-            self.__player_state.updateFromProto(player_state)
-
-        if pipeline_state is not None:
-            self.editor_window.pipeline_status.setText(pipeline_state)
-            logger.info("pipeline state: %s", pipeline_state)
-
-        if pipeline_disabled:
-            dialog = QtWidgets.QMessageBox(self)
-            dialog.setIcon(QtWidgets.QMessageBox.Critical)
-            dialog.setWindowTitle("noisicaa - Crash")
-            dialog.setText(
-                "The audio pipeline has been disabled, because it is repeatedly crashing.")
-            quit_button = dialog.addButton("Quit", QtWidgets.QMessageBox.DestructiveRole)
-            undo_and_restart_button = dialog.addButton(
-                "Undo last command and restart pipeline", QtWidgets.QMessageBox.ActionRole)
-            restart_button = dialog.addButton("Restart pipeline", QtWidgets.QMessageBox.AcceptRole)
-            dialog.setDefaultButton(restart_button)
-            dialog.finished.connect(lambda _: self.call_async(
-                self.onPipelineDisabledDialogFinished(
-                    dialog, quit_button, undo_and_restart_button, restart_button)))
-            dialog.show()
-
-    async def onPipelineDisabledDialogFinished(
-            self, dialog: QtWidgets.QMessageBox, quit_button: QtWidgets.QAbstractButton,
-            undo_and_restart_button: QtWidgets.QAbstractButton,
-            restart_button: QtWidgets.QAbstractButton) -> None:
-        if dialog.clickedButton() == quit_button:
-            self.app.quit()
-
-        elif dialog.clickedButton() == restart_button:
-            await self.project_client.restart_player_pipeline(self.__player_id)
-
-        elif dialog.clickedButton() == undo_and_restart_button:
-            await self.project_client.undo()
-            await self.project_client.restart_player_pipeline(self.__player_id)
 
     def onPlayerMoveTo(self, where: str) -> None:
         if self.__player_id is None:

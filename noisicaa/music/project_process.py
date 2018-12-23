@@ -56,40 +56,25 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
         self.session_data = {}  # type: Dict[str, Any]
         self.session_data_path = None  # type: str
-        self._players = {}  # type: Dict[str, Tuple[core.Listener, player_lib.Player]]
+        self.__players = {}  # type: Dict[str, Tuple[core.Listener, player_lib.Player]]
 
     async def cleanup(self) -> None:
-        for listener, p in self._players.values():
-            listener.remove()
-            await p.cleanup()
-        self._players.clear()
-
+        await self.clear_players()
         await super().cleanup()
 
     def get_player(self, player_id: str) -> player_lib.Player:
-        return self._players[player_id][1]
+        return self.__players[player_id]
 
     def add_player(self, player: player_lib.Player) -> None:
-        listener = player.pipeline_status.add(self.handle_pipeline_status)
-        self._players[player.id] = (listener, player)
+        self.__players[player.id] = player
 
     def remove_player(self, player: player_lib.Player) -> None:
-        listener = self._players[player.id][0]
-        listener.remove()
-        del self._players[player.id]
+        del self.__players[player.id]
 
     async def clear_players(self) -> None:
-        for listener, player in self._players.values():
+        for player in self.__players.values():
             await player.cleanup()
-            listener.remove()
-        self._players.clear()
-
-    def handle_pipeline_status(self, status: Dict[str, Any]) -> None:
-        if 'node_state' in status:
-            logger.error(status['node_state'])
-            _, node_id, state = status['node_state']
-            if 'broken' in state:
-                self.set_value('pipeline_graph_node/%s/broken' % node_id, state['broken'])
+        self.__players.clear()
 
     async def publish_mutations(self, mutations: mutations_pb2.MutationList) -> None:
         assert self.callback_alive

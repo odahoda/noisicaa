@@ -21,6 +21,7 @@
 add_python_package()
 
 set(LIB_SRCS
+  engine_notification.pb.cc
   musical_time.cpp
   musical_time.pb.cc
   player_state.pb.cc
@@ -42,6 +43,8 @@ cpp_proto(plugin_state.proto)
 py_proto(plugin_state.proto)
 cpp_proto(processor_message.proto)
 py_proto(processor_message.proto)
+cpp_proto(engine_notification.proto)
+py_proto(engine_notification.proto)
 
 add_library(noisicaa-audioproc-public SHARED ${LIB_SRCS})
 target_compile_options(noisicaa-audioproc-public PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)

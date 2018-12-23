@@ -370,7 +370,6 @@ class ProjectClient(object):
         self._session_data = None  # type: Dict[str, Any]
         self.__pool = None  # type: Pool
         self.project = None  # type: Project
-        self.__player_status_listeners = core.CallbackMap[str, Any]()
         self.__session_data_listeners = core.CallbackMap[str, Any]()
 
     def __set_project(self, root_id: int) -> None:
@@ -384,9 +383,6 @@ class ProjectClient(object):
             'PROJECT_MUTATIONS', self.handle_project_mutations)
         self.server.add_command_handler(
             'PROJECT_CLOSED', self.handle_project_closed)
-        self.server.add_command_handler(
-            'PLAYER_STATUS', self.handle_player_status,
-            log_level=-1)
         self.server.add_command_handler(
             'SESSION_DATA_MUTATION', self.handle_session_data_mutation)
 
@@ -497,13 +493,6 @@ class ProjectClient(object):
 
     async def restart_player_pipeline(self, player_id: str) -> None:
         await self._stub.call('RESTART_PLAYER_PIPELINE', self._session_id, player_id)
-
-    def add_player_status_listener(
-            self, player_id: str, func: Callable[..., None]) -> core.Listener:
-        return self.__player_status_listeners.add(player_id, func)
-
-    async def handle_player_status(self, player_id: str, args: Dict[str, Any]) -> None:
-        self.__player_status_listeners.call(player_id, **args)
 
     async def dump(self) -> None:
         await self._stub.call('DUMP', self._session_id)

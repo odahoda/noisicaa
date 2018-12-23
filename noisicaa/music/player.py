@@ -52,9 +52,6 @@ class Player(object):
         self.audioproc_client = audioproc_client
         self.realm = realm
 
-        self.player_state_changed = core.Callback[audioproc.PlayerState]()
-        self.pipeline_status = core.Callback[Dict[str, Any]]()
-
         self.__listeners = {}  # type: Dict[str, core.Listener]
 
         self.id = uuid.uuid4().hex
@@ -73,10 +70,6 @@ class Player(object):
 
         self.__listeners['pipeline_mutations'] = self.project.pipeline_mutation.add(
             self.handle_pipeline_mutation)
-        self.__listeners['player_state'] = self.audioproc_client.player_state_changed.add(
-            self.__handle_player_state)
-        self.__listeners['pipeline_status'] = self.audioproc_client.pipeline_status.add(
-            self.pipeline_status.call)
 
         logger.info("Populating realm with project state...")
         for mutation in self.project.get_add_mutations():
@@ -144,25 +137,6 @@ class Player(object):
         exc = callback_task.exception()
         if exc is not None:
             logger.error("UPDATE_PROJECT_PROPERTIES failed with exception: %s", exc)
-
-    def __handle_player_state(self, state: audioproc.PlayerState) -> None:
-        self.player_state_changed.call(state)
-        self.publish_status_async(player_state=state)
-
-    def publish_status_async(self, **kwargs: Any) -> None:
-        if self.callback_stub is None:
-            return
-
-        callback_task = asyncio.run_coroutine_threadsafe(
-            self.callback_stub.call('PLAYER_STATUS', self.id, kwargs),
-            self.event_loop)
-        callback_task.add_done_callback(self.publish_status_done)
-
-    def publish_status_done(self, callback_task: concurrent.futures.Future) -> None:
-        assert callback_task.done()
-        exc = callback_task.exception()
-        if exc is not None:
-            logger.error("PLAYER_STATUS failed with exception: %s", exc)
 
     def __on_project_nodes_changed(self, change: model.PropertyChange) -> None:
         if isinstance(change, model.PropertyListInsert):

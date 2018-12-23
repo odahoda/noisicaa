@@ -265,8 +265,7 @@ cdef class PyRealm(object):
         try:
 
             node_id = bytes(c_node_id).decode('utf-8')
-            state = processor.State(c_state)
-            self.node_state_changed.call(node_id, state.name)
+            self.node_state_changed.call(node_id, c_state)
 
         finally:
             PyErr_Restore(exc_type, exc_value, exc_trackback)

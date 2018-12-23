@@ -471,24 +471,26 @@ class Renderer(object):
         self.__datastream_transport = transport
         self.__datastream_protocol = cast(DataStreamProtocol, protocol)
 
-    def __handle_player_state(self, state: audioproc.PlayerState) -> None:
-        assert state.HasField('playing')
-        assert state.HasField('current_time')
+    def __handle_engine_notification(self, msg: audioproc.EngineNotification) -> None:
+        if msg.HasField('player_state'):
+            state = msg.player_state
+            assert state.HasField('playing')
+            assert state.HasField('current_time')
 
-        if self.__playing:
-            self.__current_time = audioproc.MusicalTime.from_proto(state.current_time)
+            if self.__playing:
+                self.__current_time = audioproc.MusicalTime.from_proto(state.current_time)
 
-        if not self.__playing and state.playing:
-            assert not self.__player_started.is_set()
-            self.__player_started.set()
+            if not self.__playing and state.playing:
+                assert not self.__player_started.is_set()
+                self.__player_started.set()
 
-        if self.__playing and not state.playing:
-            assert not self.__player_finished.is_set()
-            self.__player_finished.set()
+            if self.__playing and not state.playing:
+                assert not self.__player_finished.is_set()
+                self.__player_finished.set()
 
-        self.__playing = state.playing
+            self.__playing = state.playing
 
-        self.__player_state_changed.set()
+            self.__player_state_changed.set()
 
     async def __progress_pump_main(self) -> None:
         self.__next_progress_update = (fractions.Fraction(0), time.time())
@@ -532,6 +534,8 @@ class Renderer(object):
             sample_rate=self.__render_settings.sample_rate)
 
         self.__audioproc_client = AudioProcClient(self.__event_loop, self.__tmp_dir)
+        self.__audioproc_client.engine_notifications.add(self.__handle_engine_notification)
+
         await self.__audioproc_client.setup()
         await self.__audioproc_client.connect(self.__audioproc_address)
 
@@ -544,7 +548,6 @@ class Renderer(object):
             event_loop=self.__event_loop,
             audioproc_client=self.__audioproc_client,
             realm='root')
-        self.__player.player_state_changed.add(self.__handle_player_state)
         await self.__player.setup()
 
     async def run(self) -> None:

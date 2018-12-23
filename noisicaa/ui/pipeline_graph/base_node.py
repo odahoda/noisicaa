@@ -30,6 +30,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
+from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import music
 from noisicaa import node_db
@@ -398,6 +399,8 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
         self.props = NodeProps()
 
+        self.__listeners = []  # type: List[core.Listener]
+
         self.__node = node
 
         self.__plugin_ui = None  # type: Optional[plugin_ui.PluginUI]
@@ -450,11 +453,20 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
         self.__drag_rect = QtCore.QRectF()
 
-        self.__name_listener = self.__node.name_changed.add(self.__nameChanged)
-        self.__graph_pos_listener = self.__node.graph_pos_changed.add(self.__graphRectChanged)
-        self.__graph_size_listener = self.__node.graph_size_changed.add(self.__graphRectChanged)
-        self.__graph_color_listener = self.__node.graph_color_changed.add(
-            lambda *_: self.__updateState())
+        self.__listeners.append(
+            self.__node.name_changed.add(self.__nameChanged))
+        self.__listeners.append(
+            self.__node.graph_pos_changed.add(self.__graphRectChanged))
+        self.__listeners.append(
+            self.__node.graph_size_changed.add(self.__graphRectChanged))
+        self.__listeners.append(
+            self.__node.graph_color_changed.add(lambda *_: self.__updateState()))
+
+        self.__state = None  # type: audioproc.NodeStateChange.State
+
+        self.__listeners.append(
+            self.audioproc_client.node_state_changed.add(
+                '%08x' % self.__node.id, self.__stateChanged))
 
         self.__updateState()
 
@@ -478,7 +490,10 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             port.setup()
 
     def cleanup(self) -> None:
-        self.__graph_pos_listener.remove()
+        for listener in self.__listeners:
+            listener.remove()
+        self.__listeners.clear()
+
         for port in self.__ports.values():
             port.cleanup()
         self.__ports.clear()
@@ -577,6 +592,11 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
     def boundingRect(self) -> QtCore.QRectF:
         return self.__box.boundingRect()
 
+    def __stateChanged(self, state_change: audioproc.NodeStateChange) -> None:
+        if state_change.HasField('state'):
+            self.__state = state_change.state
+            self.__updateState()
+
     def __updateState(self) -> None:
         if self.__selected or self.__hovered:
             opacity = 1.0
@@ -588,7 +608,14 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             if not port.highlighted():
                 port.setOpacity(opacity)
 
-        if self.__selected:
+        if self.__state == audioproc.NodeStateChange.BROKEN:
+            pen = QtGui.QPen()
+            pen.setColor(Qt.black)
+            pen.setWidth(2)
+            self.__box.setPen(pen)
+            self.__box.setBrush(QtGui.QColor(255, 0, 0))
+
+        elif self.__selected:
             pen = QtGui.QPen()
             pen.setColor(QtGui.QColor(80, 80, 200))
             pen.setWidth(2)

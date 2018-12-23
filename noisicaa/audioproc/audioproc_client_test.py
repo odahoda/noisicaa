@@ -160,13 +160,14 @@ class AudioProcClientTest(
         async with self.create_process(inline_plugin_host=False) as client:
             is_broken = asyncio.Event(loop=self.loop)
 
-            def pipeline_status(status):
-                logger.info("pipeline_status(%s)", status)
-                if 'node_state' in status:
-                    realm, node_id, node_state = status['node_state']
-                    if realm == 'root' and node_id == 'test' and node_state == 'BROKEN':
+            def engine_notification(msg):
+                logger.info("engine_notification:\n%s", msg)
+                for node_state_change in msg.node_state_changes:
+                    if (node_state_change.realm == 'root'
+                            and node_state_change.node_id == 'test'
+                            and node_state_change.state == 'BROKEN'):
                         is_broken.set()
-            client.pipeline_status.add(pipeline_status)
+            client.engine_notifications.add(engine_notification)
 
             await client.set_backend('null')
 

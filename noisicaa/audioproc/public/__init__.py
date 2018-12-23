@@ -18,6 +18,11 @@
 #
 # @end:license
 
+from .engine_notification_pb2 import (
+    NodeStateChange,
+    EngineStateChange,
+    EngineNotification,
+)
 from .musical_time import (
     PyMusicalDuration as MusicalDuration,
     PyMusicalTime as MusicalTime,

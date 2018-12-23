@@ -32,6 +32,9 @@ from .mutations import (
     SetPluginState,
 )
 from .public import (
+    NodeStateChange,
+    EngineStateChange,
+    EngineNotification,
     MusicalDuration,
     MusicalTime,
     PluginState,

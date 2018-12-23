@@ -77,12 +77,7 @@ class AudioProcClientImpl(audioproc.AudioProcClientBase):  # pylint: disable=abs
         pass
 
 class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
-    def __init__(self, app: 'EditorApp', *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.__app = app
-
-    def handle_pipeline_status(self, status: Dict[str, Any]) -> None:
-        self.__app.onPipelineStatus(status)
+    pass
 
 
 class QApplication(QtWidgets.QApplication):
@@ -131,6 +126,8 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
         self.stat_monitor = None  # type: stat_monitor.StatMonitor
         self.default_style = None  # type: str
+
+        self.__player_state_listeners = core.CallbackMap[str, audioproc.EngineNotification]()
 
     @property
     def context(self) -> ui_base.CommonContext:
@@ -260,7 +257,8 @@ class EditorApp(ui_base.AbstractEditorApp):
         )
 
         self.audioproc_client = AudioProcClient(
-            self, self.process.event_loop, self.process.server)
+            self.process.event_loop, self.process.server)
+        self.audioproc_client.engine_notifications.add(self.__handleEngineNotification)
         await self.audioproc_client.setup()
         await self.audioproc_client.connect(
             self.audioproc_process, {'perf_data'})
@@ -309,11 +307,39 @@ class EditorApp(ui_base.AbstractEditorApp):
         return (self.runtime_settings.dev_mode
                 and self.show_edit_areas_action.isChecked())
 
-    def onPipelineStatus(self, status: Dict[str, Any]) -> None:
-        if 'perf_data' in status:
-            if self.pipeline_perf_monitor is not None:
-                self.pipeline_perf_monitor.addPerfData(
-                    status['perf_data'])
+    def __handleEngineNotification(self, msg: audioproc.EngineNotification) -> None:
+        pass
+
+    # def onPlayerStatus(self, player_state: audioproc.PlayerState):
+    #     if pipeline_disabled:
+    #         dialog = QtWidgets.QMessageBox(self)
+    #         dialog.setIcon(QtWidgets.QMessageBox.Critical)
+    #         dialog.setWindowTitle("noisicaa - Crash")
+    #         dialog.setText(
+    #             "The audio pipeline has been disabled, because it is repeatedly crashing.")
+    #         quit_button = dialog.addButton("Quit", QtWidgets.QMessageBox.DestructiveRole)
+    #         undo_and_restart_button = dialog.addButton(
+    #             "Undo last command and restart pipeline", QtWidgets.QMessageBox.ActionRole)
+    #         restart_button = dialog.addButton("Restart pipeline", QtWidgets.QMessageBox.AcceptRole)
+    #         dialog.setDefaultButton(restart_button)
+    #         dialog.finished.connect(lambda _: self.call_async(
+    #             self.onPipelineDisabledDialogFinished(
+    #                 dialog, quit_button, undo_and_restart_button, restart_button)))
+    #         dialog.show()
+
+    # async def onPipelineDisabledDialogFinished(
+    #         self, dialog: QtWidgets.QMessageBox, quit_button: QtWidgets.QAbstractButton,
+    #         undo_and_restart_button: QtWidgets.QAbstractButton,
+    #         restart_button: QtWidgets.QAbstractButton) -> None:
+    #     if dialog.clickedButton() == quit_button:
+    #         self.app.quit()
+
+    #     elif dialog.clickedButton() == restart_button:
+    #         await self.project_client.restart_player_pipeline(self.__player_id)
+
+    #     elif dialog.clickedButton() == undo_and_restart_button:
+    #         await self.project_client.undo()
+    #         await self.project_client.restart_player_pipeline(self.__player_id)
 
     def setClipboardContent(self, content: Any) -> None:
         logger.info(

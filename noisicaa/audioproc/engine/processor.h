@@ -51,12 +51,13 @@ class ProcessorMessage;
 class ProcessorParameters;
 }
 
+// Keep this in sync with engine_notification.proto > NodeStateChange
 enum ProcessorState {
-  INACTIVE,
-  SETUP,
-  RUNNING,
-  BROKEN,
-  CLEANUP,
+  INACTIVE = 1,
+  SETUP = 2,
+  RUNNING = 3,
+  BROKEN = 4,
+  CLEANUP = 5,
 };
 
 class Processor : public RefCounted {

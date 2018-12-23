@@ -30,6 +30,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import constants
+from noisicaa import audioproc
 from noisicaa import music
 from ..exceptions import RestartAppException, RestartAppCleanException
 from .settings import SettingsDialog
@@ -38,6 +39,7 @@ from . import ui_base
 from . import instrument_library
 from . import qprogressindicator
 from . import project_registry
+from . import load_history
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,8 @@ class EditorWindow(ui_base.AbstractEditorWindow):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+
+        self.__engine_state_listener = None  # type: core.Listener[audioproc.EngineStateChange]
 
         self._settings_dialog = SettingsDialog(parent=self, context=self.context)
 
@@ -95,10 +99,17 @@ class EditorWindow(ui_base.AbstractEditorWindow):
             self.app.settings.value('mainwindow/state', b''))
 
     async def setup(self) -> None:
+        self.__engine_state_listener = self.audioproc_client.engine_state_changed.add(
+            self.__engineStateChanged)
+
         await self._instrument_library_dialog.setup()
 
     async def cleanup(self) -> None:
         await self._instrument_library_dialog.cleanup()
+
+        if self.__engine_state_listener is not None:
+            self.__engine_state_listener.remove()
+            self.__engine_state_listener = None
 
         self.hide()
 
@@ -342,9 +353,9 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     def createStatusBar(self) -> None:
         self.statusbar = QtWidgets.QStatusBar()
 
-        # self.pipeline_load = LoadHistoryWidget(100, 30)
-        # self.pipeline_load.setToolTip("Load of the playback engine.")
-        # self.statusbar.addPermanentWidget(self.pipeline_load)
+        self.pipeline_load = load_history.LoadHistoryWidget(100, 30)
+        self.pipeline_load.setToolTip("Load of the playback engine.")
+        self.statusbar.addPermanentWidget(self.pipeline_load)
 
         self.pipeline_status = QtWidgets.QLabel()
         self.statusbar.addPermanentWidget(self.pipeline_status)
@@ -357,6 +368,28 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         self.app.settings.setValue('mainwindow/state', self.saveState())
 
         self._settings_dialog.storeState()
+
+    def __engineStateChanged(self, engine_state: audioproc.EngineStateChange):
+        show_status, show_load = False, False
+        if engine_state.state == audioproc.EngineStateChange.SETUP:
+            self.pipeline_status.setText("Starting engine...")
+            show_status = True
+        elif engine_state.state == audioproc.EngineStateChange.CLEANUP:
+            self.pipeline_status.setText("Stopping engine...")
+            show_status = True
+        elif engine_state.state == audioproc.EngineStateChange.RUNNING:
+            if engine_state.HasField('load'):
+                self.pipeline_load.addValue(engine_state.load)
+                show_load = True
+            else:
+                self.pipeline_status.setText("Engine running")
+                show_status = True
+        elif engine_state.state == audioproc.EngineStateChange.STOPPED:
+            self.pipeline_status.setText("Engine stopped")
+            show_status = True
+
+        self.pipeline_status.setVisible(show_status)
+        self.pipeline_load.setVisible(show_load)
 
     def setInfoMessage(self, msg: str) -> None:
         self.statusbar.showMessage(msg)

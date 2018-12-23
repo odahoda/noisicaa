@@ -39,6 +39,7 @@ from noisicaa.bindings import lv2
 from noisicaa.core import ipc
 from noisicaa.core.status cimport check
 from noisicaa.core.perf_stats cimport PyPerfStats
+from noisicaa.audioproc.public import engine_notification_pb2
 from noisicaa.audioproc.public import musical_time
 from noisicaa.audioproc.public import player_state_pb2
 from . cimport realm as realm_lib
@@ -71,9 +72,7 @@ class Engine(object):
             self, *,
             host_system, event_loop, manager, server_address,
             shm=None, profile_path=None):
-        self.player_state_changed = core.Callback()
-        self.node_state_changed = core.Callback()
-        self.perf_data = core.Callback()
+        self.notifications = core.Callback()
 
         self.__host_system = host_system
         self.__event_loop = event_loop
@@ -106,7 +105,14 @@ class Engine(object):
         # TODO: reimplement
         pass
 
+    def __set_state(self, state: engine_notification_pb2.EngineStateChange.State) -> None:
+        self.notifications.call(engine_notification_pb2.EngineNotification(
+            engine_state_changes=[engine_notification_pb2.EngineStateChange(
+                state=state)]))
+
     async def setup(self, *, start_thread=True):
+        self.__set_state(engine_notification_pb2.EngineStateChange.SETUP)
+
         self.__engine_started = threading.Event()
         self.__engine_exit = threading.Event()
         if start_thread:
@@ -119,8 +125,11 @@ class Engine(object):
             self.__maintenance_task = self.__event_loop.create_task(self.__maintenance_task_main())
 
         logger.info("Engine up and running.")
+        self.__set_state(engine_notification_pb2.EngineStateChange.RUNNING)
 
     async def cleanup(self):
+        self.__set_state(engine_notification_pb2.EngineStateChange.CLEANUP)
+
         if self.__backend is not None:
             logger.info("Stopping backend...")
             self.__backend.stop()
@@ -162,6 +171,8 @@ class Engine(object):
         for listener in self.__realm_listeners.values():
             listener.remove()
         self.__realm_listeners.clear()
+
+        self.__set_state(engine_notification_pb2.EngineStateChange.STOPPED)
 
     def add_notification_listener(self, node_id, func):
         return self.__notification_listeners.add(node_id, func)
@@ -205,7 +216,10 @@ class Engine(object):
         if enable_player:
             logger.info("Enabling player...")
             player = PyPlayer(self.__host_system, name)
-            player.player_state_changed.add(self.player_state_changed.call)
+            player.player_state_changed.add(
+                lambda state: self.notifications.call(
+                    engine_notification_pb2.EngineNotification(
+                        player_state=state)))
 
         else:
             logger.info("Player disabled.")
@@ -220,7 +234,12 @@ class Engine(object):
             callback_address=callback_address)
         self.__realms[name] = realm
         self.__realm_listeners['%s:node_state_changed' % name] = realm.node_state_changed.add(
-            functools.partial(self.node_state_changed.call, name))
+            lambda node_id, state: self.notifications.call(engine_notification_pb2.EngineNotification(
+                node_state_changes=[engine_notification_pb2.NodeStateChange(
+                    realm=name,
+                    node_id=node_id,
+                    state=state)])))
+
         if parent is None:
             self.__root_realm = realm
         else:
@@ -251,6 +270,7 @@ class Engine(object):
 
         if reinit:
             logger.info("Reinitializing engine...")
+            self.__set_state(engine_notification_pb2.EngineStateChange.CLEANUP)
 
             if self.__backend is not None:
                 logger.info("Stopping backend...")
@@ -293,6 +313,7 @@ class Engine(object):
             self.__host_system.cleanup()
 
             logger.info("Engine stopped, changing host parameters...")
+            self.__set_state(engine_notification_pb2.EngineStateChange.STOPPED)
 
             if block_size is not None:
                 self.__host_system.set_block_size(block_size)
@@ -300,6 +321,7 @@ class Engine(object):
                 self.__host_system.set_sample_rate(sample_rate)
 
             logger.info("Restarting engine...")
+            self.__set_state(engine_notification_pb2.EngineStateChange.SETUP)
 
             logger.info("Restarting host system...")
             self.__host_system.setup()
@@ -326,6 +348,7 @@ class Engine(object):
             self.__maintenance_task = self.__event_loop.create_task(self.__maintenance_task_main())
 
             logger.info("Engine reinitialized.")
+            self.__set_state(engine_notification_pb2.EngineStateChange.RUNNING)
 
     def set_backend(self, name, **parameters):
         assert self.__root_realm is not None
@@ -384,72 +407,88 @@ class Engine(object):
         cdef message_queue.Message* msg
         cdef realm_lib.PyProgram program
         cdef PyBlockContext ctxt
+        cdef double last_loop_time = -1.0
 
         while True:
-            if self.__engine_exit.is_set():
-                logger.info("Exiting engine mainloop.")
-                break
+            notification = engine_notification_pb2.EngineNotification()
+            try:
+                if self.__engine_exit.is_set():
+                    logger.info("Exiting engine mainloop.")
+                    break
 
-            if backend is None:
-                if self.__backend_ready.wait(0.1):
-                    self.__backend_ready.clear()
-                    assert self.__backend is not None
-                    backend = self.__backend
-                else:
+                if backend is None:
+                    if self.__backend_ready.wait(0.1):
+                        self.__backend_ready.clear()
+                        assert self.__backend is not None
+                        backend = self.__backend
+                    else:
+                        continue
+
+                elif backend.released():
+                    backend = None
+                    self.__backend_released.set()
                     continue
 
-            elif backend.released():
-                backend = None
-                self.__backend_released.set()
-                continue
+                if backend.stopped():
+                    logger.info("Backend stopped, exiting engine mainloop.")
+                    break
 
-            if backend.stopped():
-                logger.info("Backend stopped, exiting engine mainloop.")
-                break
+                ctxt = self.__root_realm.block_context
 
-            ctxt = self.__root_realm.block_context
+                if len(ctxt.perf) > 0:
+                    notification.perf_stats = ctxt.perf.serialize().to_bytes_packed()
+                ctxt.perf.reset()
 
-            if len(ctxt.perf) > 0:
-                self.perf_data.call(ctxt.perf.serialize())
-            ctxt.perf.reset()
+                program = self.__root_realm.get_active_program()
+                if program is None:
+                    time.sleep(0.1)
+                    continue
 
-            program = self.__root_realm.get_active_program()
-            if program is None:
-                time.sleep(0.1)
-                continue
+                backend.begin_block(ctxt)
+                try:
+                    self.__root_realm.process_block(program)
 
-            backend.begin_block(ctxt)
-            try:
-                self.__root_realm.process_block(program)
+                    for channel in ('left', 'right'):
+                        sink_buf = self.__root_realm.get_buffer(
+                            'sink:in:' + channel, buffers.PyFloatAudioBlockBuffer())
+                        backend.output(ctxt, channel, sink_buf)
 
-                for channel in ('left', 'right'):
-                    sink_buf = self.__root_realm.get_buffer(
-                        'sink:in:' + channel, buffers.PyFloatAudioBlockBuffer())
-                    backend.output(ctxt, channel, sink_buf)
+                    if last_loop_time >= 0:
+                        loop_time = time.perf_counter() - last_loop_time
+                        block_time = float(self.__host_system.block_size) / self.__host_system.sample_rate
+                        load = loop_time / block_time
+                        notification.engine_state_changes.add(
+                            state=engine_notification_pb2.EngineStateChange.RUNNING,
+                            load=load)
+
+                finally:
+                    backend.end_block(ctxt)
+
+                last_loop_time = time.perf_counter()
+
+                out_messages = ctxt.get().out_messages.get()
+                msg = out_messages.first()
+                while not out_messages.is_end(msg):
+                    if msg.type == message_queue.MessageType.SOUND_FILE_COMPLETE:
+                        node_id = bytes((<message_queue.SoundFileCompleteMessage*>msg).node_id).decode('utf-8')
+                        self.__notification_listeners.call(node_id, msg.type)
+
+                    elif msg.type == message_queue.MessageType.PORT_RMS:
+                        node_id = bytes(
+                            (<message_queue.PortRMSMessage*>msg).node_id).decode('utf-8')
+                        port_index = (<message_queue.PortRMSMessage*>msg).port_index
+                        rms = (<message_queue.PortRMSMessage*>msg).rms
+
+                        logger.debug("%s:%d = %f", node_id, port_index, rms)
+
+                    else:
+                        logger.debug("out message %d", msg.type)
+
+                    msg = out_messages.next(msg)
+                out_messages.clear()
 
             finally:
-                backend.end_block(ctxt)
-
-            out_messages = ctxt.get().out_messages.get()
-            msg = out_messages.first()
-            while not out_messages.is_end(msg):
-                if msg.type == message_queue.MessageType.SOUND_FILE_COMPLETE:
-                    node_id = bytes((<message_queue.SoundFileCompleteMessage*>msg).node_id).decode('utf-8')
-                    self.__notification_listeners.call(node_id, msg.type)
-
-                elif msg.type == message_queue.MessageType.PORT_RMS:
-                    node_id = bytes(
-                        (<message_queue.PortRMSMessage*>msg).node_id).decode('utf-8')
-                    port_index = (<message_queue.PortRMSMessage*>msg).port_index
-                    rms = (<message_queue.PortRMSMessage*>msg).rms
-
-                    logger.debug("%s:%d = %f", node_id, port_index, rms)
-
-                else:
-                    logger.debug("out message %d", msg.type)
-
-                msg = out_messages.next(msg)
-            out_messages.clear()
+                self.notifications.call(notification)
 
     async def __maintenance_task_main(self):
         while True:

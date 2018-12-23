@@ -84,6 +84,8 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
         self.restoreGeometry(
             self.app.settings.value('dialog/pipeline_perf_monitor/geometry', b''))
 
+        self.__perf_stats_listener = None
+
     def storeState(self) -> None:
         s = self.app.settings
         s.beginGroup('dialog/pipeline_perf_monitor')
@@ -93,9 +95,16 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
 
     def showEvent(self, event: QtGui.QShowEvent) -> None:
         self.visibilityChanged.emit(True)
+        if self.__perf_stats_listener is None:
+            self.__perf_stats_listener = self.audioproc_client.perf_stats.add(self.addPerfData)
+
         super().showEvent(event)
 
     def hideEvent(self, event: QtGui.QHideEvent) -> None:
+        if self.__perf_stats_listener is not None:
+            self.__perf_stats_listener.remove()
+            self.__perf_stats_listener = None
+
         self.visibilityChanged.emit(False)
         super().hideEvent(event)
 

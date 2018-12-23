@@ -20,9 +20,11 @@
 #
 # @end:license
 
+import asyncio
 import functools
 import logging
 import sys
+import time
 import uuid
 from typing import cast, Any, Optional, Dict, List, Set, Tuple
 
@@ -32,6 +34,7 @@ from noisicaa import core
 from noisicaa import node_db
 from noisicaa import lv2
 from noisicaa import host_system
+from .public import engine_notification_pb2
 from .public import player_state_pb2
 from .public import processor_message_pb2
 from . import engine
@@ -41,64 +44,67 @@ logger = logging.getLogger(__name__)
 
 
 class Session(core.CallbackSessionMixin, core.SessionBase):
+    async_connect = False
+
     def __init__(self, client_address: str, flags: Set, **kwargs: Any) -> None:
         super().__init__(callback_address=client_address, **kwargs)
 
         self.__flags = flags or set()
-        self.__pending_mutations = []  # type: List[mutations.Mutation]
         self.owned_realms = set()  # type: Set[str]
 
-    # async def setup(self):
-    #     await super().setup()
+        self.__shutdown = False
+        self.__notification_pusher_task = None  # type: asyncio.Task
+        self.__notification_available = None  # type: asyncio.Event
+        self.__pending_notification = engine_notification_pb2.EngineNotification()
 
-        # Send initial mutations to build up the current pipeline
-        # state.
-        # TODO: reanimate
-        #     for node in self.__engine.nodes:
-        #         mutation = mutations.AddNode(node)
-        #         session.publish_mutation(mutation)
-        #     for node in self.__engine.nodes:
-        #         for port in node.inputs.values():
-        #             for upstream_port in port.inputs:
-        #                 mutation = mutations.ConnectPorts(
-        #                     upstream_port, port)
-        #                 session.publish_mutation(mutation)
+    async def setup(self):
+        await super().setup()
+
+        self.__shutdown = False
+        self.__notification_available = asyncio.Event(loop=self.event_loop)
+        self.__notification_pusher_task = self.event_loop.create_task(
+            self.__notification_pusher())
+
+    async def cleanup(self):
+        if self.__notification_pusher_task is not None:
+            self.__shutdown = True
+            self.__notification_available.set()
+            await self.__notification_pusher_task
+            self.__notification_pusher_task.result()
+            self.__notification_pusher_task = None
+
+        await super().cleanup()
+
+    async def __notification_pusher(self):
+        while True:
+            await self.__notification_available.wait()
+            self.__notification_available.clear()
+            next_notification = time.time() + 1.0/50
+
+            if self.__shutdown:
+                return
+
+            if not self.callback_alive:
+                continue
+
+            notification = self.__pending_notification
+            self.__pending_notification = engine_notification_pb2.EngineNotification()
+            await self.callback('ENGINE_NOTIFICATION', notification)
+
+            delay = next_notification - time.time()
+            if delay > 0:
+                await asyncio.sleep(delay, loop=self.event_loop)
 
     def callback_connected(self) -> None:
-        while self.__pending_mutations:
-            self.publish_mutation(self.__pending_mutations.pop(0))
+        pass
 
-    def publish_mutation(self, mutation: mutations.Mutation) -> None:
-        if not self.callback_alive:
-            self.__pending_mutations.append(mutation)
-            return
-
-        self.async_callback('PIPELINE_MUTATION', mutation)
-
-    def publish_player_state(self, state: player_state_pb2.PlayerState) -> None:
-        if state.realm not in self.owned_realms:
-            return
-
-        if not self.callback_alive:
-            return
-
-        self.async_callback('PLAYER_STATE', state)
-
-    def publish_status(self, status: Dict[str, Any]) -> None:
-        if not self.callback_alive:
-            return
-
-        status = dict(status)
-
-        if 'perf_data' not in self.__flags and 'perf_data' in status:
-            del status['perf_data']
-
-        if status:
-            self.async_callback('PIPELINE_STATUS', status)
+    def publish_engine_notification(self, msg: engine_notification_pb2.EngineNotification) -> None:
+        # TODO: filter out message for not owned realms
+        self.__pending_notification.MergeFrom(msg)
+        self.__notification_available.set()
 
 
 class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
-
     session_cls = Session
 
     def __init__(
@@ -161,9 +167,9 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             host_system=self.__host_system,
             shm=self.shm,
             profile_path=self.profile_path)
-        self.__engine.perf_data.add(self.perf_data_callback)
-        self.__engine.node_state_changed.add(self.node_state_callback)
-        self.__engine.player_state_changed.add(self.player_state_callback)
+        self.__engine.notifications.add(
+            lambda msg: self.event_loop.call_soon_threadsafe(
+                functools.partial(self.__handle_engine_notification, msg)))
 
         await self.__engine.setup()
 
@@ -191,17 +197,9 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
 
         await super().cleanup()
 
-    def publish_mutation(self, mutation: mutations.Mutation) -> None:
+    def __handle_engine_notification(self, msg: engine_notification_pb2.EngineNotification) -> None:
         for session in self.sessions:
-            cast(Session, session).publish_mutation(mutation)
-
-    def publish_status(self, **kwargs: Any) -> None:
-        for session in self.sessions:
-            cast(Session, session).publish_status(kwargs)
-
-    def publish_player_state(self, state: player_state_pb2.PlayerState) -> None:
-        for session in self.sessions:
-            cast(Session, session).publish_player_state(state)
+            cast(Session, session).publish_engine_notification(msg)
 
     async def __handle_create_realm(
             self, session_id: str, name: str, parent: str, enable_player: bool,
@@ -315,21 +313,6 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         self.get_session(session_id)
         realm = self.__engine.get_realm(realm_name)
         realm.update_project_properties(**properties)
-
-    def perf_data_callback(self, perf_data: core.PerfStats) -> None:
-        self.event_loop.call_soon_threadsafe(
-            functools.partial(
-                self.publish_status, perf_data=perf_data))
-
-    def node_state_callback(self, realm: str, node_id: str, state: engine.ProcessorState) -> None:
-        logger.info('%s %s', node_id, state)
-        self.event_loop.call_soon_threadsafe(
-            functools.partial(
-                self.publish_status, node_state=(realm, node_id, state)))
-
-    def player_state_callback(self, state: player_state_pb2.PlayerState) -> None:
-        self.event_loop.call_soon_threadsafe(
-            functools.partial(self.publish_player_state, state))
 
     async def handle_play_file(self, session_id: str, path: str) -> str:
         self.get_session(session_id)

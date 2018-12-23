@@ -25,8 +25,11 @@ import logging
 from typing import Any, Dict, Optional, Set, Tuple
 
 from noisicaa import core
+# pylint/mypy don't understand capnp modules.
+from noisicaa.core import perf_stats_capnp  # type: ignore  # pylint: disable=no-name-in-module
 from noisicaa.core import ipc
 from noisicaa import node_db
+from .public import engine_notification_pb2
 from .public import player_state_pb2
 from .public import processor_message_pb2
 from . import mutations
@@ -39,8 +42,11 @@ class AudioProcClientBase(object):
         self.event_loop = event_loop
         self.server = server
 
-        self.pipeline_status = None  # type: core.Callback[Dict[str, Any]]
-        self.player_state_changed = None  # type: core.Callback[player_state_pb2.PlayerState]
+        self.engine_notifications = None  # type: core.Callback[engine_notification_pb2.EngineNotification]
+        self.engine_state_changed = None  # type: core.Callback[engine_notification_pb2.EngineStateChange]
+        self.player_state_changed = None  # type: core.CallbackMap[str, player_state_pb2.PlayerState]
+        self.node_state_changed = None  # type: core.CallbackMap[str, engine_notification_pb2.NodeStateChange]
+        self.perf_stats = None  # type: core.Callback[object]
 
     @property
     def address(self) -> str:
@@ -136,8 +142,11 @@ class AudioProcClientMixin(AudioProcClientBase):
         self._stub = None  # type: ipc.Stub
         self._session_id = None  # type: str
 
-        self.pipeline_status = core.Callback[Dict[str, Any]]()
-        self.player_state_changed = core.Callback[player_state_pb2.PlayerState]()
+        self.engine_notifications = core.Callback[engine_notification_pb2.EngineNotification]()
+        self.engine_state_changed = core.Callback[engine_notification_pb2.EngineStateChange]()
+        self.player_state_changed = core.CallbackMap[str, player_state_pb2.PlayerState]()
+        self.node_state_changed = core.CallbackMap[str, engine_notification_pb2.NodeStateChange]()
+        self.perf_stats = core.Callback[object]()
 
     @property
     def address(self) -> str:
@@ -146,17 +155,11 @@ class AudioProcClientMixin(AudioProcClientBase):
     async def setup(self) -> None:
         await super().setup()
         self.server.add_command_handler(
-            'PIPELINE_MUTATION', self.handle_pipeline_mutation)
-        self.server.add_command_handler(
-            'PLAYER_STATE', self.handle_player_state, log_level=-1)
-        self.server.add_command_handler(
-            'PIPELINE_STATUS', self.handle_pipeline_status, log_level=-1)
+            'ENGINE_NOTIFICATION', self.__handle_engine_notification, log_level=logging.DEBUG)
 
     async def cleanup(self) -> None:
         await self.disconnect()
-        self.server.remove_command_handler('PIPELINE_MUTATION')
-        self.server.remove_command_handler('PLAYER_STATE')
-        self.server.remove_command_handler('PIPELINE_STATUS')
+        self.server.remove_command_handler('ENGINE_NOTIFICATION')
         await super().cleanup()
 
     async def connect(self, address: str, flags: Optional[Set[str]] = None) -> None:
@@ -180,6 +183,23 @@ class AudioProcClientMixin(AudioProcClientBase):
 
             await self._stub.close()
             self._stub = None
+
+    async def __handle_engine_notification(
+            self, msg: engine_notification_pb2.EngineNotification) -> None:
+        self.engine_notifications.call(msg)
+
+        if msg.HasField('player_state'):
+            player_state = msg.player_state
+            self.player_state_changed.call(player_state.realm, player_state)
+
+        for node_state_change in msg.node_state_changes:
+            self.node_state_changed.call(node_state_change.node_id, node_state_change)
+
+        for engine_state_change in msg.engine_state_changes:
+            self.engine_state_changed.call(engine_state_change)
+
+        if msg.HasField('perf_stats'):
+            self.perf_stats.call(perf_stats_capnp.PerfStats.from_bytes_packed(msg.perf_stats))
 
     async def shutdown(self) -> None:
         await self._stub.call('SHUTDOWN')
@@ -255,12 +275,3 @@ class AudioProcClientMixin(AudioProcClientBase):
 
     async def update_project_properties(self, realm: str, **kwargs: Any) -> None:
         return await self._stub.call('UPDATE_PROJECT_PROPERTIES', self._session_id, realm, kwargs)
-
-    def handle_pipeline_mutation(self, mutation: mutations.Mutation) -> None:
-        logger.info("Mutation received: %s", mutation)
-
-    def handle_pipeline_status(self, status: Dict[str, Any]) -> None:
-        self.pipeline_status.call(status)
-
-    def handle_player_state(self, state: player_state_pb2.PlayerState) -> None:
-        self.player_state_changed.call(state)
