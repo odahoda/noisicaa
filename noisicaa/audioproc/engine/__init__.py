@@ -18,7 +18,9 @@
 #
 # @end:license
 
-from .engine import Engine
+from .engine import (
+    PyEngine as Engine
+)
 from .spec import (
     PySpec as Spec
 )

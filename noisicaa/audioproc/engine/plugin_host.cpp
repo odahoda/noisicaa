@@ -35,6 +35,7 @@
 #include "noisicaa/audioproc/engine/plugin_host.h"
 #include "noisicaa/audioproc/engine/plugin_host_lv2.h"
 #include "noisicaa/audioproc/engine/plugin_host_ladspa.h"
+#include "noisicaa/audioproc/engine/realtime.h"
 
 namespace noisicaa {
 
@@ -117,6 +118,8 @@ Status PluginHost::set_state(const pb::PluginState& state) {
 
 Status PluginHost::main_loop(int pipe_fd) {
   _logger->info("Entering main loop...");
+
+  RETURN_IF_ERROR(set_thread_to_rt_priority(_logger));
 
   enum State { READ_COMMAND, READ_MEMMAP_SIZE, READ_MEMMAP };
   State state = READ_COMMAND;

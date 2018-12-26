@@ -25,8 +25,6 @@ import logging
 from typing import Any, Optional, Set, Tuple
 
 from noisicaa import core
-# pylint/mypy don't understand capnp modules.
-from noisicaa.core import perf_stats_capnp  # type: ignore  # pylint: disable=no-name-in-module
 from noisicaa.core import ipc
 from noisicaa import node_db
 from .public import engine_notification_pb2
@@ -46,7 +44,8 @@ class AudioProcClientBase(object):
         self.engine_state_changed = None  # type: core.Callback[engine_notification_pb2.EngineStateChange]
         self.player_state_changed = None  # type: core.CallbackMap[str, player_state_pb2.PlayerState]
         self.node_state_changed = None  # type: core.CallbackMap[str, engine_notification_pb2.NodeStateChange]
-        self.perf_stats = None  # type: core.Callback[object]
+        self.node_messages = None  # type: core.CallbackMap[str, bytes]
+        self.perf_stats = None  # type: core.Callback[core.PerfStats]
 
     @property
     def address(self) -> str:
@@ -126,7 +125,7 @@ class AudioProcClientBase(object):
     async def send_message(self, msg: Any) -> None:
         raise NotImplementedError
 
-    async def play_file(self, path: str) -> str:
+    async def play_file(self, path: str) -> None:
         raise NotImplementedError
 
     async def dump(self) -> None:
@@ -146,7 +145,8 @@ class AudioProcClientMixin(AudioProcClientBase):
         self.engine_state_changed = core.Callback[engine_notification_pb2.EngineStateChange]()
         self.player_state_changed = core.CallbackMap[str, player_state_pb2.PlayerState]()
         self.node_state_changed = core.CallbackMap[str, engine_notification_pb2.NodeStateChange]()
-        self.perf_stats = core.Callback[object]()
+        self.node_messages = core.CallbackMap[str, bytes]()
+        self.perf_stats = core.Callback[core.PerfStats]()
 
     @property
     def address(self) -> str:
@@ -195,11 +195,16 @@ class AudioProcClientMixin(AudioProcClientBase):
         for node_state_change in msg.node_state_changes:
             self.node_state_changed.call(node_state_change.node_id, node_state_change)
 
+        for node_message in msg.node_messages:
+            self.node_messages.call(node_message.node_id, node_message.atom)
+
         for engine_state_change in msg.engine_state_changes:
             self.engine_state_changed.call(engine_state_change)
 
         if msg.HasField('perf_stats'):
-            self.perf_stats.call(perf_stats_capnp.PerfStats.from_bytes_packed(msg.perf_stats))
+            perf_stats = core.PerfStats()
+            perf_stats.deserialize(msg.perf_stats)
+            self.perf_stats.call(perf_stats)
 
     async def shutdown(self) -> None:
         await self._stub.call('SHUTDOWN')
@@ -267,11 +272,14 @@ class AudioProcClientMixin(AudioProcClientBase):
     async def send_message(self, msg: Any) -> None:
         return await self._stub.call('SEND_MESSAGE', self._session_id, msg.to_bytes())
 
-    async def play_file(self, path: str) -> str:
-        return await self._stub.call('PLAY_FILE', self._session_id, path)
+    async def play_file(self, path: str) -> None:
+        await self._stub.call('PLAY_FILE', self._session_id, path)
 
     async def dump(self) -> None:
         await self._stub.call('DUMP', self._session_id)
+
+    async def profile_audio_thread(self, duration: int) -> bytes:
+        return await self._stub.call('PROFILE_AUDIO_THREAD', self._session_id, duration)
 
     async def update_project_properties(self, realm: str, **kwargs: Any) -> None:
         return await self._stub.call('UPDATE_PROJECT_PROPERTIES', self._session_id, realm, kwargs)

@@ -18,6 +18,10 @@
 #
 # @end:license
 
+from .atom import (
+    wrap_atom,
+    Atom,
+)
 from .urid_mapper import (
     PyURIDMapper as URIDMapper,
     PyDynamicURIDMapper as DynamicURIDMapper,

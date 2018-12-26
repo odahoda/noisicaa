@@ -166,7 +166,8 @@ class PluginHost(plugin_host.PyPluginHost):
 
     def __main(self) -> None:
         try:
-            self.main_loop(self.__pipe_fd)
+            with core.RTSafeLogging():
+                self.main_loop(self.__pipe_fd)
         except core.ConnectionClosed as exc:
             logger.warning("Plugin pipe %s closed: %s", self.__pipe_path, exc)
             self.__thread_result.set_result(False)

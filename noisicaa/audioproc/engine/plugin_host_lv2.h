@@ -31,10 +31,10 @@
 #include <vector>
 #include "lilv/lilv.h"
 #include "lv2/lv2plug.in/ns/ext/state/state.h"
+#include "noisicaa/core/pump.h"
 #include "noisicaa/core/slots.h"
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/engine/plugin_host.h"
-#include "noisicaa/audioproc/engine/pump.h"
 
 namespace noisicaa {
 

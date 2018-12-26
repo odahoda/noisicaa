@@ -45,30 +45,28 @@ class PerfStatsTest(unittest.TestCase):
                 pf.fake_time += 1
             pf.fake_time += 1
 
-        msg = pf.serialize()
-        self.assertEqual(msg.spans[0].name, '1')
-        self.assertEqual(msg.spans[0].parentId, 0)
-        self.assertEqual(msg.spans[0].startTimeNSec, 0)
-        self.assertEqual(msg.spans[0].endTimeNSec, 5)
-        self.assertEqual(msg.spans[1].name, '2')
-        self.assertEqual(msg.spans[1].parentId, msg.spans[0].id)
-        self.assertEqual(msg.spans[1].startTimeNSec, 1)
-        self.assertEqual(msg.spans[1].endTimeNSec, 2)
-        self.assertEqual(msg.spans[2].name, '3')
-        self.assertEqual(msg.spans[2].parentId, msg.spans[0].id)
-        self.assertEqual(msg.spans[2].startTimeNSec, 3)
-        self.assertEqual(msg.spans[2].endTimeNSec, 4)
+        self.assertEqual(pf.spans[0].name, '1')
+        self.assertEqual(pf.spans[0].parent_id, 0)
+        self.assertEqual(pf.spans[0].start_time_nsec, 0)
+        self.assertEqual(pf.spans[0].end_time_nsec, 5)
+        self.assertEqual(pf.spans[1].name, '2')
+        self.assertEqual(pf.spans[1].parent_id, pf.spans[0].id)
+        self.assertEqual(pf.spans[1].start_time_nsec, 1)
+        self.assertEqual(pf.spans[1].end_time_nsec, 2)
+        self.assertEqual(pf.spans[2].name, '3')
+        self.assertEqual(pf.spans[2].parent_id, pf.spans[0].id)
+        self.assertEqual(pf.spans[2].start_time_nsec, 3)
+        self.assertEqual(pf.spans[2].end_time_nsec, 4)
 
     def test_track_with_parent(self):
         pf = TestPerfStats()
         with pf.track('1', 23):
             pf.fake_time += 1
 
-        msg = pf.serialize()
-        self.assertEqual(msg.spans[0].name, '1')
-        self.assertEqual(msg.spans[0].parentId, 23)
-        self.assertEqual(msg.spans[0].startTimeNSec, 0)
-        self.assertEqual(msg.spans[0].endTimeNSec, 1)
+        self.assertEqual(pf.spans[0].name, '1')
+        self.assertEqual(pf.spans[0].parent_id, 23)
+        self.assertEqual(pf.spans[0].start_time_nsec, 0)
+        self.assertEqual(pf.spans[0].end_time_nsec, 1)
 
     def test_current_span_id(self):
         pf = TestPerfStats()
@@ -77,9 +75,7 @@ class PerfStatsTest(unittest.TestCase):
             span_id = pf.current_span_id
             self.assertGreater(span_id, 0)
         self.assertEqual(pf.current_span_id, 0)
-
-        msg = pf.serialize()
-        self.assertEqual(span_id, msg.spans[0].id)
+        self.assertEqual(span_id, pf.spans[0].id)
 
     def test_add_spans(self):
         pf1 = TestPerfStats()
@@ -91,15 +87,13 @@ class PerfStatsTest(unittest.TestCase):
             with pf2.track('2'):
                 pf2.fake_time += 1
             pf1.fake_time += 1
-            pf1.add_spans(pf2.serialize())
+            pf1.add_spans(pf2)
 
-
-        msg = pf1.serialize()
-        self.assertEqual(msg.spans[0].name, '1')
-        self.assertEqual(msg.spans[0].parentId, 0)
-        self.assertEqual(msg.spans[0].startTimeNSec, 0)
-        self.assertEqual(msg.spans[0].endTimeNSec, 2)
-        self.assertEqual(msg.spans[1].name, '2')
-        self.assertEqual(msg.spans[1].parentId, msg.spans[0].id)
-        self.assertEqual(msg.spans[1].startTimeNSec, 1)
-        self.assertEqual(msg.spans[1].endTimeNSec, 2)
+        self.assertEqual(pf1.spans[0].name, '1')
+        self.assertEqual(pf1.spans[0].parent_id, 0)
+        self.assertEqual(pf1.spans[0].start_time_nsec, 0)
+        self.assertEqual(pf1.spans[0].end_time_nsec, 2)
+        self.assertEqual(pf1.spans[1].name, '2')
+        self.assertEqual(pf1.spans[1].parent_id, pf1.spans[0].id)
+        self.assertEqual(pf1.spans[1].start_time_nsec, 1)
+        self.assertEqual(pf1.spans[1].end_time_nsec, 2)

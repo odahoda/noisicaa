@@ -175,6 +175,7 @@ class Editor(object):
         proc = await self.manager.start_subprocess(
             'audioproc<%s>' % name,
             'noisicaa.audioproc.audioproc_process.AudioProcSubprocess',
+            enable_rt_checker=True,
             **kwargs)
         return proc.address
 

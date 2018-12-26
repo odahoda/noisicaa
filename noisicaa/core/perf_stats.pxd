@@ -22,6 +22,7 @@ from cpython.ref cimport PyObject
 from libc.stdint cimport uint64_t
 from libcpp.functional cimport function
 from libcpp.memory cimport unique_ptr
+from libcpp.string cimport string
 
 cdef extern from "noisicaa/core/perf_stats.h" namespace "noisicaa" nogil:
     cppclass PerfStats:
@@ -45,6 +46,10 @@ cdef extern from "noisicaa/core/perf_stats.h" namespace "noisicaa" nogil:
         uint64_t current_span_id() const
         int num_spans() const
         Span span(int idx) const
+
+        size_t serialized_size() const
+        void serialize_to(char* buf) const
+        void deserialize(const string& data)
 
 
 cdef class PyPerfStats(object):

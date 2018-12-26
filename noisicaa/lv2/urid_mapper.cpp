@@ -52,6 +52,7 @@ StaticURIDMapper::StaticURIDMapper() {
   _rmap[urid++] = "http://lv2plug.in/ns/ext/buf-size#minBlockLength";
   _rmap[urid++] = "http://lv2plug.in/ns/ext/buf-size#maxBlockLength";
   _rmap[urid++] = "http://lv2plug.in/ns/ext/buf-size#sequenceSize";
+  _rmap[urid++] = "http://noisicaa.odahoda.de/lv2/core#portRMS";
   assert(urid == _num_urids);
 
   urid = _first_urid;

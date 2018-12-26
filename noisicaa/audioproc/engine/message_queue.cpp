@@ -21,6 +21,7 @@
  */
 
 #include "noisicaa/audioproc/engine/message_queue.h"
+#include "noisicaa/audioproc/engine/rtcheck.h"
 
 namespace noisicaa {
 
@@ -31,14 +32,21 @@ MessageQueue::MessageQueue()
 
 MessageQueue::~MessageQueue() {}
 
-Status MessageQueue::push(const Message* msg) {
-  if (_end + msg->size > _buf_size) {
-    resize(max(2 * _buf_size, _end + msg->size));
+Message* MessageQueue::allocate(size_t size) {
+  size = 4 * ((size + 3) / 4);
+
+  if (_end + size > _buf_size) {
+    resize(max(2 * _buf_size, _end + size));
   }
 
-  memmove(_buf.get() + _end, msg, msg->size);
-  _end += 4 * ((msg->size + 3) / 4);
+  Message* msg = (Message*)(_buf.get() + _end);
+  _end += size;
+  return msg;
+}
 
+Status MessageQueue::push(const Message* msg) {
+  Message* buf = allocate(msg->size);
+  memmove(buf, msg, msg->size);
   return Status::Ok();
 }
 
@@ -47,7 +55,12 @@ void MessageQueue::clear() {
 }
 
 void MessageQueue::resize(size_t size) {
+  // TODO: make this more efficient (e.g. manage buffer in segments and just add segments without
+  // moving existing data).
+  RTUnsafe rtu;
+
   unique_ptr<char> buf(new char[size]);
+  _buf_size = size;
   memmove(buf.get(), _buf.get(), _end);
   _buf.reset(buf.release());
 }

@@ -24,6 +24,7 @@
 #include "noisicaa/host_system/host_system.h"
 #include "noisicaa/audioproc/engine/backend_portaudio.h"
 #include "noisicaa/audioproc/engine/realm.h"
+#include "noisicaa/audioproc/engine/rtcheck.h"
 
 namespace noisicaa {
 
@@ -146,6 +147,8 @@ Status PortAudioBackend::begin_block(BlockContext* ctxt) {
 Status PortAudioBackend::end_block(BlockContext* ctxt) {
   ctxt->perf->end_span();
   assert(ctxt->perf->current_span_id() == 0);
+
+  RTUnsafe rtu;  // portaudio does malloc in Pa_WriteStream.
 
   PaError err = Pa_WriteStream(_stream, _samples, _host_system->block_size());
   if (err == paOutputUnderflowed) {

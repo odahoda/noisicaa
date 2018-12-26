@@ -26,6 +26,7 @@
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/host_system/host_system.h"
 #include "noisicaa/audioproc/engine/processor_csound.h"
+#include "noisicaa/audioproc/engine/rtcheck.h"
 
 namespace noisicaa {
 
@@ -388,7 +389,11 @@ Status ProcessorCSoundBase::process_block_internal(BlockContext* ctxt, TimeMappe
       }
     }
 
-    int rc = csoundPerformKsmps(instance->csnd);
+    int rc;
+    {
+      RTUnsafe rtu;  // csound might do RT unsafe stuff internally.
+      rc = csoundPerformKsmps(instance->csnd);
+    }
     if (rc < 0) {
       return ERROR_STATUS("Csound performance failed (code %d)", rc);
     }

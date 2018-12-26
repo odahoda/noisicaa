@@ -40,6 +40,11 @@ message NodeStateChange {
   required State state = 3;
 }
 
+message NodeMessage {
+  required string node_id = 1;
+  required bytes atom = 2;
+}
+
 message EngineStateChange {
   enum State {
     STOPPED = 1;
@@ -52,8 +57,9 @@ message EngineStateChange {
 }
 
 message EngineNotification {
-  optional PlayerState player_state = 1;
-  repeated NodeStateChange node_state_changes = 2;
-  repeated EngineStateChange engine_state_changes = 3;
-  optional bytes perf_stats = 4;
+  repeated EngineStateChange engine_state_changes = 1;
+  optional bytes perf_stats = 2;
+  optional PlayerState player_state = 3;
+  repeated NodeStateChange node_state_changes = 4;
+  repeated NodeMessage node_messages = 5;
 }

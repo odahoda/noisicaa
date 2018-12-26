@@ -53,7 +53,6 @@ StatusOr<Backend*> Backend::create(
 
 Status Backend::setup(Realm* realm) {
   _realm = realm;
-  _stopped = false;
   return Status::Ok();
 }
 

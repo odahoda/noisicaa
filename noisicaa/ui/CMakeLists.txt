@@ -19,6 +19,7 @@
 # @end:license
 
 add_python_package(
+  audio_thread_profiler.py
   editor_app.py
   editor_window.py
   flowlayout.py

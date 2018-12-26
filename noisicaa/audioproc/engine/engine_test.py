@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import asyncio
 import logging
 
 import async_generator
@@ -36,13 +37,13 @@ class EngineTest(unittest_engine_mixins.HostSystemMixin, unittest.AsyncTestCase)
 
     @async_generator.asynccontextmanager
     @async_generator.async_generator
-    async def create_engine(self, *, start_thread=False, backend='null'):
-        engine = engine_lib.Engine(
+    async def create_engine(self, *, backend='null'):
+        engine = engine_lib.PyEngine(
             host_system=self.host_system, event_loop=self.loop, manager=None, server_address=None)
         try:
-            await engine.setup(start_thread=start_thread)
+            await engine.setup()
             await engine.create_realm(name='root', parent=None)
-            engine.set_backend(backend)
+            await engine.set_backend(backend)
 
             await async_generator.yield_(engine)
 
@@ -50,13 +51,13 @@ class EngineTest(unittest_engine_mixins.HostSystemMixin, unittest.AsyncTestCase)
             await engine.cleanup()
 
     async def test_engine_thread(self):
-        async with self.create_engine(start_thread=True):
+        async with self.create_engine():
             # TODO: wait for thread processing (listen for some notification).
-            pass
+            await asyncio.sleep(1, loop=self.loop)
 
     async def test_set_host_parameters(self):
         self.host_system.set_block_size(1024)
-        async with self.create_engine(start_thread=True) as engine:
+        async with self.create_engine() as engine:
             await engine.set_host_parameters(block_size=2048)
 
             # TODO: verify that the right things happened...

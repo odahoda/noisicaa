@@ -20,6 +20,10 @@
 #
 # @end:license
 
+from libcpp.string cimport string
+from cpython.ref cimport PyObject
+from cpython.exc cimport PyErr_Fetch, PyErr_Restore
+
 import asyncio
 import enum
 import functools
@@ -30,7 +34,6 @@ import random
 import sys
 import threading
 import time
-import cProfile
 
 import toposort
 
@@ -39,10 +42,11 @@ from noisicaa.bindings import lv2
 from noisicaa.core import ipc
 from noisicaa.core.status cimport check
 from noisicaa.core.perf_stats cimport PyPerfStats
+from noisicaa.host_system.host_system cimport PyHostSystem
 from noisicaa.audioproc.public import engine_notification_pb2
 from noisicaa.audioproc.public import musical_time
 from noisicaa.audioproc.public import player_state_pb2
-from . cimport realm as realm_lib
+from .realm cimport PyRealm
 from .spec cimport PySpec
 from .block_context cimport PyBlockContext
 from .backend cimport PyBackend, PyBackendSettings
@@ -67,19 +71,24 @@ class DuplicateRootRealm(Error):
     pass
 
 
-class Engine(object):
+cdef class PyEngine(object):
+    cdef dict __dict__
+    cdef unique_ptr[Engine] __engine_ptr
+    cdef Engine* __engine
+    cdef PyHostSystem __host_system
+    cdef PyRealm __root_realm
+
     def __init__(
             self, *,
-            host_system, event_loop, manager, server_address,
-            shm=None, profile_path=None):
+            PyHostSystem host_system, event_loop, manager, server_address, shm=None):
         self.notifications = core.Callback()
 
+        self.__engine = NULL
         self.__host_system = host_system
         self.__event_loop = event_loop
         self.__manager = manager
         self.__server_address = server_address
         self.__shm = shm
-        self.__profile_path = profile_path
 
         self.__realms = {}
         self.__root_realm = None
@@ -91,15 +100,12 @@ class Engine(object):
 
         self.__engine_thread = None
         self.__engine_started = None
-        self.__engine_exit = None
 
         self.__maintenance_task = None
         self.__plugin_host = None
 
         self.__bpm = 120
         self.__duration = musical_time.PyMusicalDuration(2, 1)
-
-        self.__notification_listeners = core.CallbackMap()
 
     def dump(self):
         # TODO: reimplement
@@ -110,41 +116,19 @@ class Engine(object):
             engine_state_changes=[engine_notification_pb2.EngineStateChange(
                 state=state)]))
 
-    async def setup(self, *, start_thread=True):
+    async def setup(self, *):
         self.__set_state(engine_notification_pb2.EngineStateChange.SETUP)
 
-        self.__engine_started = threading.Event()
-        self.__engine_exit = threading.Event()
-        if start_thread:
-            self.__engine_thread = threading.Thread(target=self.engine_main)
-            self.__engine_thread.start()
-            logger.info("Starting engine thread (%s)...", self.__engine_thread.ident)
-            self.__engine_started.wait()
-
-            logger.info("Starting maintenance task...")
-            self.__maintenance_task = self.__event_loop.create_task(self.__maintenance_task_main())
-
-        logger.info("Engine up and running.")
-        self.__set_state(engine_notification_pb2.EngineStateChange.RUNNING)
+        self.__engine_ptr.reset(new Engine(
+            self.__host_system.get(), self.__notification_callback, <PyObject*>self))
+        self.__engine = self.__engine_ptr.get()
+        with nogil:
+            check(self.__engine.setup())
 
     async def cleanup(self):
         self.__set_state(engine_notification_pb2.EngineStateChange.CLEANUP)
 
-        if self.__backend is not None:
-            logger.info("Stopping backend...")
-            self.__backend.stop()
-
-        if self.__maintenance_task is not None:
-            logger.info("Shutting down maintenance task...")
-            self.__maintenance_task.cancel()
-            self.__maintenance_task = None
-
-        if self.__engine_thread is not None:  # pragma: no branch
-            logger.info("Shutting down engine thread...")
-            self.__engine_exit.set()
-            self.__engine_thread.join()
-            self.__engine_thread = None
-            logger.info("Engine thread stopped.")
+        await self.stop_engine()
 
         if self.__backend is not None:
             self.__backend.cleanup()
@@ -160,9 +144,6 @@ class Engine(object):
             self.__plugin_host = None
             logger.info("Plugin host process stopped.")
 
-        self.__engine_started = None
-        self.__engine_exit = None
-
         for realm in self.__realms.values():
             await realm.cleanup()
         self.__realms.clear()
@@ -172,10 +153,42 @@ class Engine(object):
             listener.remove()
         self.__realm_listeners.clear()
 
+        if self.__engine != NULL:
+            with nogil:
+                self.__engine.cleanup()
+            self.__engine_ptr.release()
+            self.__engine = NULL
+
         self.__set_state(engine_notification_pb2.EngineStateChange.STOPPED)
 
-    def add_notification_listener(self, node_id, func):
-        return self.__notification_listeners.add(node_id, func)
+    async def start_engine(self):
+        assert self.__root_realm is not None
+        assert self.__backend is not None
+
+        self.__engine_started = threading.Event()
+
+        self.__engine_thread = threading.Thread(target=self.engine_main)
+        self.__engine_thread.start()
+        logger.info("Starting engine thread (%s)...", self.__engine_thread.ident)
+        self.__engine_started.wait()
+
+        logger.info("Starting maintenance task...")
+        self.__maintenance_task = self.__event_loop.create_task(self.__maintenance_task_main())
+
+    async def stop_engine(self):
+        if self.__maintenance_task is not None:
+            logger.info("Shutting down maintenance task...")
+            self.__maintenance_task.cancel()
+            self.__maintenance_task = None
+
+        if self.__engine_thread is not None:  # pragma: no branch
+            logger.info("Shutting down engine thread...")
+            self.__engine.exit_loop()
+            self.__engine_thread.join()
+            self.__engine_thread = None
+            logger.info("Engine thread stopped.")
+
+        self.__engine_started = None
 
     async def get_plugin_host(self):
         if self.__plugin_host is None:
@@ -191,7 +204,7 @@ class Engine(object):
     async def delete_plugin_ui(self, realm, node_id):
         return await self.__plugin_host.call('DELETE_UI', realm, node_id)
 
-    def get_realm(self, name: str) -> realm_lib.PyRealm:
+    def get_realm(self, name: str) -> PyRealm:
         try:
             return self.__realms[name]
         except KeyError as exc:
@@ -200,7 +213,7 @@ class Engine(object):
     async def create_realm(
             self, *,
             name: str, parent: str, enable_player: bool = False, callback_address: str = None
-    ) -> realm_lib.PyRealm:
+    ) -> PyRealm:
         if name in self.__realms:
             raise DuplicateRealmName("Realm '%s' already exists" % name)
 
@@ -216,16 +229,12 @@ class Engine(object):
         if enable_player:
             logger.info("Enabling player...")
             player = PyPlayer(self.__host_system, name)
-            player.player_state_changed.add(
-                lambda state: self.notifications.call(
-                    engine_notification_pb2.EngineNotification(
-                        player_state=state)))
 
         else:
             logger.info("Player disabled.")
             player = None
 
-        realm = realm_lib.PyRealm(
+        cdef PyRealm realm = PyRealm(
             engine=self,
             name=name,
             parent=parent_realm,
@@ -272,23 +281,7 @@ class Engine(object):
             logger.info("Reinitializing engine...")
             self.__set_state(engine_notification_pb2.EngineStateChange.CLEANUP)
 
-            if self.__backend is not None:
-                logger.info("Stopping backend...")
-                self.__backend.stop()
-
-            if self.__maintenance_task is not None:
-                logger.info("Shutting down maintenance task...")
-                self.__maintenance_task.cancel()
-                self.__maintenance_task = None
-
-            if self.__engine_thread is not None:  # pragma: no branch
-                logger.info("Shutting down engine thread...")
-                self.__engine_exit.set()
-                self.__engine_thread.join()
-                self.__engine_thread = None
-                logger.info("Engine thread stopped.")
-            self.__engine_started = None
-            self.__engine_exit = None
+            await self.stop_engine()
 
             if self.__backend is not None:
                 self.__backend.cleanup()
@@ -337,34 +330,35 @@ class Engine(object):
                 self.__backend.setup(self.__root_realm)
                 self.__backend_ready.set()
 
-            self.__engine_started = threading.Event()
-            self.__engine_exit = threading.Event()
-            self.__engine_thread = threading.Thread(target=self.engine_main)
-            self.__engine_thread.start()
-            logger.info("Starting engine thread (%s)...", self.__engine_thread.ident)
-            self.__engine_started.wait()
-
-            logger.info("Starting maintenance task...")
-            self.__maintenance_task = self.__event_loop.create_task(self.__maintenance_task_main())
+            await self.start_engine()
 
             logger.info("Engine reinitialized.")
             self.__set_state(engine_notification_pb2.EngineStateChange.RUNNING)
 
-    def set_backend(self, name, **parameters):
+    async def set_backend(self, name, **parameters):
         assert self.__root_realm is not None
 
         if self.__backend is not None:
-            self.__backend.release()
-            self.__backend_released.wait()
-            self.__backend_released.clear()
+            self.__set_state(engine_notification_pb2.EngineStateChange.CLEANUP)
+
+            await self.stop_engine()
 
             self.__backend.cleanup()
             self.__backend = None
+
+            self.__set_state(engine_notification_pb2.EngineStateChange.SETUP)
 
         settings = PyBackendSettings(**parameters)
         self.__backend = PyBackend(self.__host_system, name, settings)
         self.__backend.setup(self.__root_realm)
         self.__backend_ready.set()
+
+        logger.info("Backend '%s' ready.", name)
+
+        await self.start_engine()
+
+        logger.info("Engine up and running.")
+        self.__set_state(engine_notification_pb2.EngineStateChange.RUNNING)
 
     def set_backend_parameters(self):
         if self.__backend is not None:
@@ -374,22 +368,39 @@ class Engine(object):
         if self.__backend is not None:
             self.__backend.send_message(msg)
 
+    @staticmethod
+    cdef void __notification_callback(void* c_self, const string& notification_serialized) with gil:
+        self = <object><PyObject*>c_self
+
+        # Have to stash away any active exception, because otherwise exception handling
+        # might get confused.
+        # See https://github.com/cython/cython/issues/1877
+        cdef PyObject* exc_type
+        cdef PyObject* exc_value
+        cdef PyObject* exc_trackback
+        PyErr_Fetch(&exc_type, &exc_value, &exc_trackback)
+        try:
+            notification = engine_notification_pb2.EngineNotification()
+            notification.ParseFromString(notification_serialized)
+            self.notifications.call(notification)
+
+        finally:
+            PyErr_Restore(exc_type, exc_value, exc_trackback)
+
     def engine_main(self):
-        profiler = None
+        cdef PyBackend backend = self.__backend
+        cdef PyRealm realm = self.__root_realm
+
         try:
             logger.info("Starting engine...")
 
-            self.__engine_started.set()
+            with core.RTSafeLogging():
+                check(self.__engine.setup_thread())
 
-            if self.__profile_path:
-                profiler = cProfile.Profile()
-                profiler.enable()
-            try:
-                self.engine_loop()
-            finally:
-                if profiler is not None:
-                    profiler.disable()
-                    profiler.dump_stats(self.__profile_path)
+                self.__engine_started.set()
+                with nogil:
+                    check(self.__engine.loop(realm.get(), backend.get()))
+
 
         except:  # pragma: no coverage  # pylint: disable=bare-except
             sys.stdout.flush()
@@ -400,95 +411,6 @@ class Engine(object):
 
         finally:
             logger.info("Engine finished.")
-
-    def engine_loop(self):
-        backend = None
-        cdef message_queue.MessageQueue* out_messages
-        cdef message_queue.Message* msg
-        cdef realm_lib.PyProgram program
-        cdef PyBlockContext ctxt
-        cdef double last_loop_time = -1.0
-
-        while True:
-            notification = engine_notification_pb2.EngineNotification()
-            try:
-                if self.__engine_exit.is_set():
-                    logger.info("Exiting engine mainloop.")
-                    break
-
-                if backend is None:
-                    if self.__backend_ready.wait(0.1):
-                        self.__backend_ready.clear()
-                        assert self.__backend is not None
-                        backend = self.__backend
-                    else:
-                        continue
-
-                elif backend.released():
-                    backend = None
-                    self.__backend_released.set()
-                    continue
-
-                if backend.stopped():
-                    logger.info("Backend stopped, exiting engine mainloop.")
-                    break
-
-                ctxt = self.__root_realm.block_context
-
-                if len(ctxt.perf) > 0:
-                    notification.perf_stats = ctxt.perf.serialize().to_bytes_packed()
-                ctxt.perf.reset()
-
-                program = self.__root_realm.get_active_program()
-                if program is None:
-                    time.sleep(0.1)
-                    continue
-
-                backend.begin_block(ctxt)
-                try:
-                    self.__root_realm.process_block(program)
-
-                    for channel in ('left', 'right'):
-                        sink_buf = self.__root_realm.get_buffer(
-                            'sink:in:' + channel, buffers.PyFloatAudioBlockBuffer())
-                        backend.output(ctxt, channel, sink_buf)
-
-                    if last_loop_time >= 0:
-                        loop_time = time.perf_counter() - last_loop_time
-                        block_time = float(self.__host_system.block_size) / self.__host_system.sample_rate
-                        load = loop_time / block_time
-                        notification.engine_state_changes.add(
-                            state=engine_notification_pb2.EngineStateChange.RUNNING,
-                            load=load)
-
-                finally:
-                    backend.end_block(ctxt)
-
-                last_loop_time = time.perf_counter()
-
-                out_messages = ctxt.get().out_messages.get()
-                msg = out_messages.first()
-                while not out_messages.is_end(msg):
-                    if msg.type == message_queue.MessageType.SOUND_FILE_COMPLETE:
-                        node_id = bytes((<message_queue.SoundFileCompleteMessage*>msg).node_id).decode('utf-8')
-                        self.__notification_listeners.call(node_id, msg.type)
-
-                    elif msg.type == message_queue.MessageType.PORT_RMS:
-                        node_id = bytes(
-                            (<message_queue.PortRMSMessage*>msg).node_id).decode('utf-8')
-                        port_index = (<message_queue.PortRMSMessage*>msg).port_index
-                        rms = (<message_queue.PortRMSMessage*>msg).rms
-
-                        logger.debug("%s:%d = %f", node_id, port_index, rms)
-
-                    else:
-                        logger.debug("out message %d", msg.type)
-
-                    msg = out_messages.next(msg)
-                out_messages.clear()
-
-            finally:
-                self.notifications.call(notification)
 
     async def __maintenance_task_main(self):
         while True:

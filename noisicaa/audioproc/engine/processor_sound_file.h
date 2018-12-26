@@ -28,6 +28,9 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
+
+#include "lv2/lv2plug.in/ns/ext/urid/urid.h"
+
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/engine/buffers.h"
 #include "noisicaa/audioproc/engine/processor.h"
@@ -58,6 +61,8 @@ private:
   bool _playing;
   uint32_t _pos;
   BufferPtr _buf[2];
+
+  LV2_URID _sound_file_complete_urid;
 };
 
 }  // namespace noisicaa

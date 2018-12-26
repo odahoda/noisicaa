@@ -19,7 +19,6 @@
 # @end:license
 
 from libc.stdint cimport uint32_t
-from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 
@@ -46,12 +45,6 @@ cdef extern from "noisicaa/audioproc/engine/backend.h" namespace "noisicaa" nogi
         Status begin_block(BlockContext* ctxt)
         Status end_block(BlockContext* ctxt)
         Status output(BlockContext* ctxt, const string& channel, BufferPtr samples)
-
-        void stop()
-        bool stopped() const
-
-        void release()
-        bool released() const
 
 
 cdef class PyBackendSettings(object):

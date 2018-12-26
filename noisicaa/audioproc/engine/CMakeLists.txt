@@ -47,6 +47,7 @@ add_python_package(
   processor_sample_script_test.py
   processor_sound_file_test.py
   processor_track_mixer_test.py
+  profile.pyi
   realm.pyi
   realm_test.py
   spec.pyi
@@ -62,6 +63,7 @@ set(LIB_SRCS
   buffers.cpp
   control_value.cpp
   double_buffered_state_manager.cpp
+  engine.cpp
   misc.cpp
   message_queue.cpp
   opcodes.cpp
@@ -86,6 +88,8 @@ set(LIB_SRCS
   processor_pianoroll.cpp
   processor_cvgenerator.cpp
   processor_sample_script.cpp
+  profile.cpp
+  realtime.cpp
   spec.cpp
   realm.cpp
 )
@@ -113,6 +117,8 @@ target_link_libraries(noisicaa-audioproc-engine PRIVATE noisicaa-audioproc-publi
 target_link_libraries(noisicaa-audioproc-engine PRIVATE capnp)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE pthread)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE rt)
+target_link_libraries(noisicaa-audioproc-engine PRIVATE profiler)
+target_link_libraries(noisicaa-audioproc-engine PRIVATE rtcheck)
 target_include_directories(noisicaa-audioproc-engine PUBLIC ${LIBLILV_INCLUDE_DIRS})
 target_link_libraries(noisicaa-audioproc-engine PRIVATE ${LIBLILV_LIBRARIES})
 target_include_directories(noisicaa-audioproc-engine PRIVATE ${LIBCSOUND_INCLUDE_DIRS})
@@ -166,12 +172,16 @@ target_link_libraries(${plugin_host.so} PRIVATE noisicaa-audioproc-engine)
 
 add_cython_module(plugin_ui_host CXX)
 target_link_libraries(${plugin_ui_host.so} PRIVATE noisicaa-audioproc-engine)
+target_link_libraries(${plugin_ui_host.so} PRIVATE noisicaa-core)
 
 add_cython_module(realm CXX)
 target_link_libraries(${realm.so} PRIVATE noisicaa-audioproc-engine)
 
 add_cython_module(player CXX)
 target_link_libraries(${player.so} PRIVATE noisicaa-audioproc-engine)
+
+add_cython_module(profile CXX)
+target_link_libraries(${profile.so} PRIVATE noisicaa-audioproc-engine)
 
 foreach(TEST_SRC ${TEST_SRCS})
   string(REGEX REPLACE "\.pyx$" "" TEST_MOD ${TEST_SRC})
@@ -180,3 +190,12 @@ foreach(TEST_SRC ${TEST_SRCS})
   target_include_directories(${${TEST_MOD}.so} PRIVATE ${LIBLILV_INCLUDE_DIRS})
   target_link_libraries(${${TEST_MOD}.so} PRIVATE ${LIBLILV_LIBRARIES})
 endforeach(TEST_SRC)
+
+add_library(rtcheck SHARED rtcheck.c)
+
+add_custom_target(librtcheck_preload ALL DEPENDS librtcheck_preload.so)
+add_custom_command(
+  OUTPUT librtcheck_preload.so
+  COMMAND gcc -std=c11 -Wall -Werror -pedantic ${CMAKE_CURRENT_LIST_DIR}/rtcheck_preload.c -fPIC -shared -o librtcheck_preload.so -lc -ldl -L${CMAKE_CURRENT_BINARY_DIR} -lrtcheck
+  DEPENDS ${CMAKE_CURRENT_LIST_DIR}/rtcheck_preload.c rtcheck
+)

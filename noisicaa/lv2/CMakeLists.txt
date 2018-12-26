@@ -33,6 +33,9 @@ add_library(noisicaa-lv2 SHARED ${LIB_SRCS})
 target_link_libraries(noisicaa-lv2 PRIVATE noisicaa-core)
 target_link_libraries(noisicaa-lv2 PRIVATE noisicaa-host_system)
 
+add_cython_module(atom CXX)
+target_link_libraries(${atom.so} PRIVATE noisicaa-lv2)
+
 add_cython_module(urid_mapper CXX)
 target_link_libraries(${urid_mapper.so} PRIVATE noisicaa-lv2)
 

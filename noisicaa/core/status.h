@@ -25,8 +25,8 @@
 #ifndef _NOISICAA_CORE_STATUS_H
 #define _NOISICAA_CORE_STATUS_H
 
-#include <string>
 #include <assert.h>
+#include <stddef.h>
 
 namespace noisicaa {
 
@@ -42,25 +42,33 @@ public:
     TIMEOUT,
   };
 
+  static const size_t MaxMessageLength = 1024;
+
   Status()
     : _code(Code::ERROR),
       _file("<undefined>"),
       _line(-1),
-      _message("Uninitialized status") {
+      _message(-2) {
   }
 
-  Status(Code code, const char* file, int line, const string& message)
+  Status(Code code, const char* file, int line, const char* message)
     : _code(code),
       _file(file),
       _line(line),
-      _message(message) {
+      _message(allocate_message(message)) {
   }
 
   Status(const Status& s)
     : _code(s._code),
       _file(s._file),
       _line(s._line),
-      _message(s._message) {
+      _message(allocate_message(s.message())) {
+  }
+
+  ~Status() {
+    if (_message >= 0) {
+      _messages[_message][0] = 0;
+    }
   }
 
   Code code() const { return _code; }
@@ -70,12 +78,9 @@ public:
   bool is_connection_closed() const { return _code == Code::CONNECTION_CLOSED; }
   bool is_timeout() const { return _code == Code::TIMEOUT; }
   bool is_os_error() const { return _code == Code::OS_ERROR; }
-  string message() const { return _message; }
+  const char* message() const;
 
   static Status Ok() { return Status(Code::OK, nullptr, 0, ""); }
-  static Status Error(const char* file, int line, const string& message) {
-    return Status(Code::ERROR, file, line, message);
-  }
   static Status Error(const char* file, int line, const char* fmt, ...);
   static Status ConnectionClosed(const char* file, int line) {
     return Status(Code::CONNECTION_CLOSED, file, line, "Connection closed");
@@ -83,14 +88,17 @@ public:
   static Status Timeout(const char* file, int line) {
     return Status(Code::TIMEOUT, file, line, "Timeout");
   }
-  static Status OSError(const char* file, int line, const string& message);
   static Status OSError(const char* file, int line, const char* fmt, ...);
 
 private:
   Code _code;
   const char* _file;
   int _line;
-  string _message;
+
+  int _message;
+  static const int NumMessageSlots = 10;
+  static thread_local char _messages[NumMessageSlots][MaxMessageLength];
+  static int allocate_message(const char* msg);
 };
 
 #define ERROR_STATUS(...) Status::Error(__FILE__, __LINE__, __VA_ARGS__)

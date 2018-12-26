@@ -35,15 +35,17 @@ cdef extern from "noisicaa/audioproc/engine/block_context.h" namespace "noisicaa
 
     cppclass BlockContext:
         uint32_t sample_pos
-        vector[SampleTime] time_map
+        unique_ptr[SampleTime] time_map
+        void alloc_time_map(uint32_t block_size)
         unique_ptr[PerfStats] perf
-        unique_ptr[MessageQueue] out_messages
+        MessageQueue* out_messages
         BufferArena* buffer_arena
 
 
 cdef class PyBlockContext(object):
     cdef unique_ptr[BlockContext] __ptr
     cdef BlockContext* __ctxt
+    cdef unique_ptr[MessageQueue] __out_messages
     cdef PyPerfStats __perf
 
     @staticmethod

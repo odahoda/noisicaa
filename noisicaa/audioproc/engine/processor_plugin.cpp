@@ -34,6 +34,7 @@
 #include "noisicaa/audioproc/engine/buffer_arena.h"
 #include "noisicaa/audioproc/engine/processor.pb.h"
 #include "noisicaa/audioproc/engine/processor_plugin.h"
+#include "noisicaa/audioproc/engine/rtcheck.h"
 
 namespace noisicaa {
 
@@ -65,6 +66,8 @@ Status ProcessorPlugin::connect_port_internal(
     BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
   assert(buf >= ctxt->buffer_arena->address());
   assert(buf < ctxt->buffer_arena->address() + ctxt->buffer_arena->size());
+
+  RTUnsafe rtu;  // TODO: preallocation _buffer_map as array in setup
   _buffer_map[port_idx] = buf - ctxt->buffer_arena->address();
 
   _update_memmap = true;
@@ -79,8 +82,10 @@ Status ProcessorPlugin::process_block_internal(BlockContext* ctxt, TimeMapper* t
     return Status::Ok();
   }
 
-  auto timeout = chrono::microseconds(
-      1000000 * _host_system->block_size() / _host_system->sample_rate());
+  RTUnsafe rtu;  // We're doing IO in a (hopefully) RT safe way.
+
+  auto timeout = chrono::seconds(2);
+    //chrono::microseconds(1000000 * _host_system->block_size() / _host_system->sample_rate());
 
   deadline_t deadline = chrono::high_resolution_clock::now() + timeout;
   auto deadline_nsec = chrono::duration_cast<chrono::nanoseconds>(

@@ -18,24 +18,39 @@
 #
 # @end:license
 
+from libcpp cimport bool
+
+from noisicaa.audioproc.public.musical_time cimport MusicalTime
+
 cdef extern from "noisicaa/audioproc/engine/message_queue.h" namespace "noisicaa" nogil:
     enum MessageType:
-        SOUND_FILE_COMPLETE
-        PORT_RMS
+        ENGINE_LOAD
+        PERF_STATS
+        PLAYER_STATE
+        NODE_MESSAGE
 
     cppclass Message:
         MessageType type
         size_t size
 
+    cppclass EngineLoadMessage(Message):
+        double load
+
+    cppclass PerfStatsMessage(Message):
+        size_t length
+        char perf_stats[]
+
+    cppclass PlayerStateMessage(Message):
+        char realm[256]
+        bool playing
+        MusicalTime current_time
+        bool loop_enabled
+        MusicalTime loop_start_time
+        MusicalTime loop_end_time
+
     cppclass NodeMessage(Message):
         char node_id[256]
-
-    cppclass SoundFileCompleteMessage(NodeMessage):
-        pass
-
-    cppclass PortRMSMessage(NodeMessage):
-        int port_index
-        float rms
+        void* atom()
 
     cppclass MessageQueue:
         void clear()

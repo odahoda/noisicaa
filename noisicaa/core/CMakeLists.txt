@@ -57,13 +57,10 @@ set(LIB_SRCS
   status.cpp
   stacktrace.cpp
   message.capnp.c++
-  perf_stats.capnp.c++
 )
 
 add_cpp_capnp(message.capnp)
 add_py_capnp(message.capnp)
-add_cpp_capnp(perf_stats.capnp)
-add_py_capnp(perf_stats.capnp)
 
 add_library(noisicaa-core SHARED ${LIB_SRCS})
 target_link_libraries(noisicaa-core PRIVATE pthread)

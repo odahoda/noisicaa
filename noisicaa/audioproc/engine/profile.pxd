@@ -18,16 +18,12 @@
 #
 # @end:license
 
-@0xf5d957e90b340908;
+from libcpp.string cimport string
 
-struct Span {
-  id @0 :UInt64;
-  name @1 :Text;
-  parentId @2 :UInt64;
-  startTimeNSec @3 :UInt64;
-  endTimeNSec @4 :UInt64;
-}
+from noisicaa.core.status cimport Status
 
-struct PerfStats {
-  spans @0 :List(Span);
-}
+
+cdef extern from "noisicaa/audioproc/engine/profile.h" namespace "noisicaa" nogil:
+    void enable_profiling_in_thread()
+    Status start_profiler(const string& path)
+    Status stop_profiler()

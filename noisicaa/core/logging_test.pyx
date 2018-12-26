@@ -18,10 +18,13 @@
 #
 # @end:license
 
+import threading
+
 from cpython.ref cimport PyObject
 from libcpp.memory cimport unique_ptr
 
 from noisidev import unittest
+from .status cimport check
 from .logging cimport *
 from .logging import *
 
@@ -59,3 +62,49 @@ class TestLogging(unittest.TestCase):
              (b"noisicaa.core.logger_test.callback", LogLevel.INFO, b"informational 2"),
              (b"noisicaa.core.logger_test.callback", LogLevel.WARNING, b"warning 3"),
              (b"noisicaa.core.logger_test.callback", LogLevel.ERROR, b"error 4")])
+
+    def test_rtsafe_sink(self):
+        cdef unique_ptr[LoggerRegistry] registry_ptr
+        registry_ptr.reset(new LoggerRegistry())
+        cdef LoggerRegistry* registry = registry_ptr.get()
+
+        cdef unique_ptr[Logger] logger_ptr
+        logger_ptr.reset(new Logger(b"noisicaa.core.logger_test.callback", registry))
+        cdef Logger* logger = logger_ptr.get()
+
+        msgs = []
+        def cb(logger, level, msg):
+            msgs.append((logger, level, msg))
+
+        def thread_main():
+            cdef RTSafePyLogSink* sink
+            long_string = b"a very long string" * 100
+            cdef char* c_long_string = long_string
+            with nogil:
+                sink = new RTSafePyLogSink(<PyObject*>cb, cb_proxy)
+                try:
+                    check(sink.setup())
+                    registry.set_threadlocal_sink(sink)
+
+                    logger.debug("debug %d", 1)
+                    logger.info("informational %d", 2)
+                    logger.warning("warning %d", 3)
+                    logger.error("error %d", 4)
+                    logger.info(c_long_string)
+
+                finally:
+                    registry.set_threadlocal_sink(NULL)
+                    sink.cleanup()
+                    del sink
+
+        thread = threading.Thread(target=thread_main)
+        thread.start()
+        thread.join()
+
+        self.assertEqual(
+            msgs,
+            [(b"noisicaa.core.logger_test.callback", LogLevel.DEBUG, b"debug 1"),
+             (b"noisicaa.core.logger_test.callback", LogLevel.INFO, b"informational 2"),
+             (b"noisicaa.core.logger_test.callback", LogLevel.WARNING, b"warning 3"),
+             (b"noisicaa.core.logger_test.callback", LogLevel.ERROR, b"error 4"),
+             (b"noisicaa.core.logger_test.callback", LogLevel.INFO, b"a very long string" * 100)])

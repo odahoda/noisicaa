@@ -59,8 +59,10 @@ class ProcessorPianoRollTestMixin(
 
         self.ctxt = block_context.PyBlockContext()
 
+        self.ctxt.clear_time_map(self.host_system.block_size)
         for s in range(self.host_system.block_size):
-            self.ctxt.append_sample_time(
+            self.ctxt.set_sample_time(
+                s,
                 musical_time.PyMusicalTime(2 * s, 44100),
                 musical_time.PyMusicalTime(2 * (s + 1), 44100))
 

@@ -22,44 +22,56 @@
  * @end:license
  */
 
-#ifndef _NOISICAA_AUDIOPROC_ENGINE_PUMP_H
-#define _NOISICAA_AUDIOPROC_ENGINE_PUMP_H
+#ifndef _NOISICAA_AUDIOPROC_ENGINE_ENGINE_H
+#define _NOISICAA_AUDIOPROC_ENGINE_ENGINE_H
 
+#include <atomic>
+#include <chrono>
 #include <condition_variable>
-#include <functional>
-#include <memory>
 #include <mutex>
 #include <thread>
-#include "noisicaa/core/fifo_queue.h"
+
+#include "noisicaa/core/logging.h"
 #include "noisicaa/core/status.h"
+#include "noisicaa/host_system/host_system.h"
+#include "noisicaa/audioproc/engine/backend.h"
+#include "noisicaa/audioproc/engine/message_queue.h"
+#include "noisicaa/audioproc/engine/realm.h"
 
 namespace noisicaa {
 
 using namespace std;
 
-class Logger;
-
-template<typename T>
-class Pump {
+class Engine {
 public:
-  Pump(Logger* logger, function<void(T)> callback);
+  Engine(HostSystem* host_system, void (*callback)(void*, const string&), void* userdata);
+  virtual ~Engine();
 
   Status setup();
   void cleanup();
 
-  void push(const T& item);
+  Status setup_thread();
+  void exit_loop();
+  Status loop(Realm* realm, Backend* backend);
 
 private:
-  void thread_main();
-
+  HostSystem* _host_system;
   Logger* _logger;
-  function<void(T)> _callback;
+  void (*_callback)(void*, const string&);
+  void *_userdata;
 
-  unique_ptr<thread> _thread;
+  bool _exit_loop;
+
+  unique_ptr<thread> _queue_pump;
   bool _stop = false;
   mutex _cond_mutex;
   condition_variable _cond;
-  FifoQueue<T, 128> _queue;
+  void queue_pump_main();
+
+  atomic<MessageQueue*> _next_message_queue;
+  atomic<MessageQueue*> _current_message_queue;
+  atomic<MessageQueue*> _old_message_queue;
+
 };
 
 }  // namespace noisicaa

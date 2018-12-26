@@ -18,6 +18,9 @@
 #
 # @end:license
 
+from noisicaa.core.status cimport Status
+
+
 cdef extern from "noisicaa/core/logging.h" namespace "noisicaa" nogil:
     enum LogLevel:
         DEBUG
@@ -44,6 +47,15 @@ cdef extern from "noisicaa/core/logging.h" namespace "noisicaa" nogil:
         PyLogSink(void* handle, callback_t callback)
         void emit(const char* logger, LogLevel level, const char* msg)
 
+    cppclass RTSafePyLogSink(LogSink):
+        ctypedef void (*callback_t)(void*, const char*, LogLevel, const char*)
+
+        Status setup()
+        void cleanup()
+
+        RTSafePyLogSink(void* handle, callback_t callback)
+        void emit(const char* logger, LogLevel level, const char* msg)
+
     cppclass LoggerRegistry:
         @staticmethod
         LoggerRegistry* get_registry()
@@ -51,3 +63,4 @@ cdef extern from "noisicaa/core/logging.h" namespace "noisicaa" nogil:
         Logger* get_logger(const char* name)
 
         void set_sink(LogSink* sink)
+        void set_threadlocal_sink(LogSink* sink)

@@ -21,7 +21,12 @@
 from cpython.ref cimport PyObject
 from cpython.exc cimport PyErr_Fetch, PyErr_Restore
 from libc.stdio cimport fprintf, stderr
+
+import contextlib
 import logging
+
+from noisicaa.core.status cimport check
+
 
 cdef void pylogging_cb(
     void* handle, const char* c_logger_name, LogLevel c_level, const char* c_msg) with gil:
@@ -54,3 +59,22 @@ cdef void pylogging_cb(
 def init_pylogging():
     cdef LogSink* sink = new PyLogSink(NULL, pylogging_cb)
     LoggerRegistry.get_registry().set_sink(sink)
+
+
+@contextlib.contextmanager
+def RTSafeLogging():
+    cdef LoggerRegistry* registry = LoggerRegistry.get_registry()
+
+    cdef RTSafePyLogSink* sink = new RTSafePyLogSink(NULL, pylogging_cb)
+    try:
+        with nogil:
+            check(sink.setup())
+            registry.set_threadlocal_sink(sink)
+
+        yield
+
+    finally:
+        with nogil:
+            registry.set_threadlocal_sink(NULL)
+            sink.cleanup()
+            del sink

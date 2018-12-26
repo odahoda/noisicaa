@@ -20,7 +20,9 @@
  * @end:license
  */
 
+#include "stdlib.h"
 #include <chrono>
+#include <memory>
 #include <random>
 #include "noisicaa/core/perf_stats.h"
 
@@ -81,6 +83,35 @@ uint64_t PerfStats::get_time_nsec() const {
   auto epoch = ns.time_since_epoch();
   auto value = chrono::duration_cast<std::chrono::nanoseconds>(epoch);
   return value.count();
+}
+
+size_t PerfStats::serialized_size() const {
+  return sizeof(size_t) + _spans.size() * sizeof(Span);
+}
+
+void PerfStats::serialize_to(char* buf) const {
+  char* p = buf;
+  *((size_t*)p) = _spans.size();
+  p += sizeof(size_t);
+  for (const auto& span : _spans) {
+    *((Span*)p) = span;
+    p += sizeof(Span);
+  }
+
+  assert(p - buf == serialized_size());
+}
+
+void PerfStats::deserialize(const string& data) {
+  assert(_spans.size() == 0);
+
+  const char* p = data.c_str();
+  size_t num_spans = *((size_t*)p);
+  p += sizeof(size_t);
+  assert(data.size() == sizeof(size_t) + num_spans * sizeof(Span));
+  for (size_t i = 0 ; i < num_spans ; ++i) {
+    _spans.emplace_back(*((Span*)p));
+    p += sizeof(Span);
+  }
 }
 
 }  // namespace noisicaa

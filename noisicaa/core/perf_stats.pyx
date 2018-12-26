@@ -27,9 +27,6 @@ import random
 import threading
 import time
 
-import capnp
-
-from . import perf_stats_capnp
 
 cdef extern from "<functional>" namespace "std" nogil:
     # Ugly hack, because cython does not support variadic templates.
@@ -116,16 +113,13 @@ cdef class PyPerfStats(object):
         self.__stats.reset()
 
     def serialize(self):
-        msg = perf_stats_capnp.PerfStats.new_message()
-        msg.init('spans', len(self))
-        for idx, span in enumerate(self):
-            s = msg.spans[idx]
-            s.id = span.id
-            s.name = span.name
-            s.parentId = span.parent_id
-            s.startTimeNSec = span.start_time_nsec
-            s.endTimeNSec = span.end_time_nsec
-        return msg
+        buf = bytearray(self.__stats.serialized_size())
+        self.__stats.serialize_to(buf)
+        return bytes(buf)
+
+    def deserialize(self, bytes data):
+        self.__stats.reset()
+        self.__stats.deserialize(data)
 
     def start_span(self, name, parent_id=None):
         name = name.encode('utf-8')
@@ -150,10 +144,10 @@ cdef class PyPerfStats(object):
         for s in msg.spans:
             span.id = s.id
             strncpy(span.name, s.name.encode('utf-8'), 128)
-            if s.parentId == 0:
+            if s.parent_id == 0:
                 span.parent_id = self.current_span_id
             else:
-                span.parent_id = s.parentId
-            span.start_time_nsec = s.startTimeNSec
-            span.end_time_nsec = s.endTimeNSec
+                span.parent_id = s.parent_id
+            span.start_time_nsec = s.start_time_nsec
+            span.end_time_nsec = s.end_time_nsec
             self.__stats.append_span(span)

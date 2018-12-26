@@ -90,8 +90,10 @@ Status RendererBackend::end_block(BlockContext* ctxt) {
   const float* right_in = (float*)_samples[1].get();
   float* out = _outbuf.get();
   int num_samples = 0;
-  for (const auto& stime : ctxt->time_map) {
-    if (stime.start_time >= MusicalTime(0)) {
+  SampleTime* stime = ctxt->time_map.get();
+  SampleTime* stime_end = ctxt->time_map.get() + _host_system->block_size();
+  while (stime < stime_end) {
+    if (stime->start_time >= MusicalTime(0)) {
       *out++ = *left_in;
       *out++ = *right_in;
       ++num_samples;
@@ -99,6 +101,7 @@ Status RendererBackend::end_block(BlockContext* ctxt) {
 
     ++left_in;
     ++right_in;
+    ++stime;
   }
 
   if (num_samples > 0) {

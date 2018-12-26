@@ -25,11 +25,11 @@
 #ifndef _NOISICAA_AUDIOPROC_ENGINE_BLOCK_CONTEXT_H
 #define _NOISICAA_AUDIOPROC_ENGINE_BLOCK_CONTEXT_H
 
+#include <stdint.h>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
-#include <stdint.h>
 #include "noisicaa/core/message.capnp.h"
 #include "noisicaa/audioproc/public/musical_time.h"
 #include "noisicaa/audioproc/engine/buffers.h"
@@ -54,7 +54,8 @@ struct BlockContext {
 
   unique_ptr<PerfStats> perf;
 
-  vector<SampleTime> time_map;
+  unique_ptr<SampleTime> time_map;
+  void alloc_time_map(uint32_t block_size);
 
   BufferArena* buffer_arena;
 
@@ -67,7 +68,7 @@ struct BlockContext {
   // TODO: Use MessageQueue
   vector<string> in_messages;
 
-  unique_ptr<MessageQueue> out_messages;
+  MessageQueue* out_messages;
 };
 
 }  // namespace noisicaa

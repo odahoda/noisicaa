@@ -22,7 +22,8 @@
  * @end:license
  */
 
-#include "noisicaa/audioproc/engine/pump.h"
+#include "noisicaa/core/logging.h"
+#include "noisicaa/core/pump.h"
 
 namespace noisicaa {
 
@@ -57,7 +58,9 @@ void Pump<T>::cleanup() {
 
 template<typename T>
 void Pump<T>::thread_main() {
-  _logger->info("Pump thread started.");
+  if (_logger != nullptr) {
+    _logger->info("Pump thread started.");
+  }
   unique_lock<mutex> lock(_cond_mutex);
   while (true) {
     _cond.wait_for(lock, chrono::milliseconds(500));
@@ -71,7 +74,9 @@ void Pump<T>::thread_main() {
       break;
     }
   }
-  _logger->info("Pump thread stopped.");
+  if (_logger != nullptr) {
+    _logger->info("Pump thread stopped.");
+  }
 }
 
 template<typename T>

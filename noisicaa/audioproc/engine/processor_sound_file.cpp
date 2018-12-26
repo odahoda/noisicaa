@@ -22,11 +22,14 @@
 
 #include <dlfcn.h>
 #include <stdint.h>
+
+#include "lv2/lv2plug.in/ns/ext/atom/forge.h"
 #include "sndfile.h"
 extern "C" {
 #include "libswresample/swresample.h"
 #include "libavutil/channel_layout.h"
 }
+
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/host_system/host_system.h"
 #include "noisicaa/audioproc/engine/message_queue.h"
@@ -47,6 +50,9 @@ Status ProcessorSoundFile::setup_internal() {
   if (!_desc.has_sound_file()) {
     return ERROR_STATUS("NodeDescription misses sound_file field.");
   }
+
+  _sound_file_complete_urid = _host_system->lv2->map(
+      "http://noisicaa.odahoda.de/lv2/processor_sound_file#complete");
 
   StatusOr<AudioFile*> stor_audio_file = _host_system->audio_file->load_audio_file(
       _desc.sound_file().sound_file_path());
@@ -95,8 +101,15 @@ Status ProcessorSoundFile::process_block_internal(BlockContext* ctxt, TimeMapper
         if (_playing) {
           _playing = false;
 
-          SoundFileCompleteMessage msg(node_id());
-          ctxt->out_messages->push(&msg);
+          uint8_t buf[100];
+          LV2_Atom_Forge forge;
+          lv2_atom_forge_init(&forge, &_host_system->lv2->urid_map);
+
+          lv2_atom_forge_set_buffer(&forge, buf, sizeof(buf));
+
+          lv2_atom_forge_atom(&forge, 0, _sound_file_complete_urid);
+
+          NodeMessage::push(ctxt->out_messages, node_id(), (LV2_Atom*)buf);
         }
 
         *l_out++ = 0.0;

@@ -71,8 +71,10 @@ class ProcessorSampleScriptTest(
 
         self.ctxt = block_context.PyBlockContext()
 
+        self.ctxt.clear_time_map(self.host_system.block_size)
         for s in range(self.host_system.block_size):
-            self.ctxt.append_sample_time(
+            self.ctxt.set_sample_time(
+                s,
                 musical_time.PyMusicalTime(s, 44100),
                 musical_time.PyMusicalTime(s + 1, 44100))
 
@@ -167,12 +169,12 @@ class ProcessorSampleScriptTest(
                 sample_path=self.sample1_path))
         self.proc.handle_message(msg)
 
-        self.ctxt.clear_time_map()
+        self.ctxt.clear_time_map(self.host_system.block_size)
         it = self.time_mapper.find(musical_time.PyMusicalTime(1, 16))
         prev_mtime = next(it)
-        for _ in range(self.host_system.block_size):
+        for s in range(self.host_system.block_size):
             mtime = next(it)
-            self.ctxt.append_sample_time(prev_mtime, mtime)
+            self.ctxt.set_sample_time(s, prev_mtime, mtime)
             prev_mtime = mtime
 
         self.proc.process_block(self.ctxt, self.time_mapper)

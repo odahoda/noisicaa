@@ -56,6 +56,8 @@ class RealmTest(
 
             if parent is not None:
                 parent.child_realms[name] = realm
+            else:
+                realm.block_context.create_out_messages()
 
             await async_generator.yield_(realm)
 

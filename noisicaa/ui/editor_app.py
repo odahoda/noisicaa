@@ -41,6 +41,7 @@ from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
 
+from . import audio_thread_profiler
 from . import project_registry
 from . import pipeline_perf_monitor
 from . import stat_monitor
@@ -116,6 +117,8 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.sequencer = None  # type: devices.AlsaSequencer
         self.midi_hub = None  # type: devices.MidiHub
         self.show_edit_areas_action = None  # type: QtWidgets.QAction
+        self.__audio_thread_profiler = None  # type: audio_thread_profiler.AudioThreadProfiler
+        self.profile_audio_thread_action = None  # type: QtWidgets.QAction
         self.audioproc_client = None  # type: AudioProcClient
         self.audioproc_process = None  # type: str
         self.node_db = None  # type: node_db.NodeDBClient
@@ -156,6 +159,11 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.show_edit_areas_action.setChecked(
             bool(self.settings.value('dev/show_edit_areas', '0')))
 
+        self.__audio_thread_profiler = audio_thread_profiler.AudioThreadProfiler(
+            context=self.context)
+        self.profile_audio_thread_action = QtWidgets.QAction("Profile Audio Thread", self.qt_app)
+        self.profile_audio_thread_action.triggered.connect(self.onProfileAudioThread)
+
         await self.createAudioProcProcess()
 
         self.default_style = self.qt_app.style().objectName()
@@ -195,6 +203,10 @@ class EditorApp(ui_base.AbstractEditorApp):
         if self.pipeline_perf_monitor is not None:
             self.pipeline_perf_monitor.storeState()
             self.pipeline_perf_monitor = None
+
+        if self.__audio_thread_profiler is not None:
+            self.__audio_thread_profiler.hide()
+            self.__audio_thread_profiler = None
 
         if self.win is not None:
             self.win.storeState()
@@ -307,7 +319,18 @@ class EditorApp(ui_base.AbstractEditorApp):
         return (self.runtime_settings.dev_mode
                 and self.show_edit_areas_action.isChecked())
 
+    def onProfileAudioThread(self) -> None:
+        self.__audio_thread_profiler.show()
+        self.__audio_thread_profiler.raise_()
+        self.__audio_thread_profiler.activateWindow()
+
     def __handleEngineNotification(self, msg: audioproc.EngineNotification) -> None:
+        # from noisicaa.bindings.lv2 import atom
+        # from noisicaa.bindings.lv2 import urid
+        # for node_message in msg.node_messages:
+        #     #logger.error(node_message)
+        #     msg = atom.wrap_atom(urid.static_mapper, node_message.atom)
+        #     logger.error(node_message.node_id, msg.type_urid)
         pass
 
     # pylint: disable=line-too-long

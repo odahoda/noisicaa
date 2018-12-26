@@ -334,6 +334,7 @@ class EditorWindow(ui_base.AbstractEditorWindow):
             self._dev_menu.addAction(self.app.show_edit_areas_action)
             self._dev_menu.addAction(self._show_pipeline_perf_monitor_action)
             self._dev_menu.addAction(self._show_stat_monitor_action)
+            self._dev_menu.addAction(self.app.profile_audio_thread_action)
 
         menu_bar.addSeparator()
 

@@ -47,10 +47,7 @@ cdef extern from "noisicaa/audioproc/engine/player.h" namespace "noisicaa" nogil
         MusicalTime loop_end_time
 
     cppclass Player:
-        Player(
-            HostSystem* host_system,
-            void (*state_callback)(void*, const string&),
-            void* userdata)
+        Player(const string& realm_name, HostSystem* host_system)
 
         Status setup()
         void cleanup()
@@ -62,10 +59,6 @@ cdef class PyPlayer(object):
     cdef unique_ptr[Player] __player_ptr
     cdef Player* __player
     cdef str __realm
-    cdef readonly object player_state_changed
 
     cdef Player* get(self) nogil
     cdef Player* release(self) nogil
-
-    @staticmethod
-    cdef void _state_callback(void* c_self, const string& state_serialized) with gil

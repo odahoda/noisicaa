@@ -83,26 +83,6 @@ cdef class PyBackend(object):
             with nogil:
                 backend.cleanup()
 
-    def stop(self):
-        with nogil:
-            self.__backend.stop()
-
-    def stopped(self):
-        cdef bool c_result
-        with nogil:
-            c_result = self.__backend.stopped()
-        return c_result
-
-    def release(self):
-        with nogil:
-            self.__backend.release()
-
-    def released(self):
-        cdef bool c_result
-        with nogil:
-            c_result = self.__backend.released()
-        return c_result
-
     def send_message(self, bytes msg):
         cdef string c_msg = msg
         with nogil:

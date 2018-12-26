@@ -23,7 +23,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "noisicaa/core/logging.h"
+#include "noisicaa/core/pump.inl.h"
 
 namespace noisicaa {
 
@@ -56,10 +58,80 @@ void PyLogSink::emit(const char* logger, LogLevel level, const char* msg) {
   _callback(_handle, logger, level, msg);
 }
 
+RTSafePyLogSink::RTSafePyLogSink(void* handle, callback_t callback)
+  : _handle(handle),
+    _callback(callback),
+    _pump(nullptr, bind(&RTSafePyLogSink::consume, this, placeholders::_1)) {}
+
+Status RTSafePyLogSink::setup() {
+  RETURN_IF_ERROR(_pump.setup());
+  return Status::Ok();
+}
+
+void RTSafePyLogSink::cleanup() {
+  _pump.cleanup();
+}
+
+void RTSafePyLogSink::emit(const char* logger, LogLevel level, const char* msg) {
+  Block block;
+
+  size_t length = strlen(msg);
+  if (length == 0) {
+    return;
+  }
+
+  LogRecordHeader* header = (LogRecordHeader*)block.data;
+  header->magic = 0x87b6c23a;
+  header->seq = _seq++;
+  header->level = level;
+  strcpy(header->logger, logger);
+  header->length = min(length, 1024 - sizeof(LogRecordHeader));
+  memcpy(block.data + sizeof(LogRecordHeader), msg, header->length);
+  msg += header->length;
+  length -= header->length;
+  header->continued = (length > 0);
+  _pump.push(block);
+
+  while (length > 0) {
+    LogRecordContinuation* cont = (LogRecordContinuation*)block.data;
+    cont->magic = 0x9f2d8e43;
+    cont->seq = _seq++;
+    cont->length = min(length, 1024 - sizeof(LogRecordContinuation));
+    memcpy(block.data + sizeof(LogRecordContinuation), msg, cont->length);
+    msg += cont->length;
+    length -= cont->length;
+    cont->continued = (length > 0);
+    _pump.push(block);
+  }
+}
+
+void RTSafePyLogSink::consume(Block block) {
+  if (_msg.size() == 0) {
+    LogRecordHeader* header = (LogRecordHeader*)block.data;
+    assert(header->magic == 0x87b6c23a);
+    _record.seq = header->seq;
+    _record.level = header->level;
+    strcpy(_record.logger, header->logger);
+    _record.continued = header->continued;
+    _msg = string(block.data + sizeof(LogRecordHeader), header->length);
+  } else {
+    LogRecordContinuation* cont = (LogRecordContinuation*)block.data;
+    assert(cont->magic == 0x9f2d8e43);
+    _record.seq = cont->seq;
+    _record.continued = cont->continued;
+    _msg += string(block.data + sizeof(LogRecordContinuation), cont->length);
+  }
+
+  if (!_record.continued) {
+    _callback(_handle, _record.logger, _record.level, _msg.c_str());
+    _msg = "";
+  }
+}
+
 Logger::Logger(const char* name, LoggerRegistry* registry)
   : _registry(registry) {
-  assert(strlen(name) < NAME_LENGTH - 1);
-  strncpy(_name, name, NAME_LENGTH);
+  assert(strlen(name) < MaxLoggerNameLength - 1);
+  strncpy(_name, name, MaxLoggerNameLength);
 }
 
 void Logger::vlog(LogLevel level, const char* fmt, va_list args) {
@@ -106,6 +178,7 @@ void Logger::error(const char* fmt, ...) {
 LoggerRegistry::LoggerRegistry() {}
 
 LoggerRegistry* LoggerRegistry::_instance = nullptr;
+thread_local LogSink* LoggerRegistry::_local_sink = nullptr;
 
 LoggerRegistry* LoggerRegistry::get_registry() {
   // TODO: make this thread safe
@@ -133,6 +206,10 @@ Logger* LoggerRegistry::_get_logger(const char *name) {
 
 void LoggerRegistry::set_sink(LogSink* sink) {
   _sink.reset(sink);
+}
+
+void LoggerRegistry::set_threadlocal_sink(LogSink* sink) {
+  _local_sink = sink;
 }
 
 bool LoggerRegistry::cmp_cstr::operator()(const char *a, const char *b) {

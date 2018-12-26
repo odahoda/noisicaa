@@ -360,6 +360,7 @@ def main(argv):
     parser.add_argument('--coverage', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--write-perf-stats', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--profile', nargs='?', type=bool_arg, const=True, default=False)
+    parser.add_argument('--rtcheck', type=bool_arg, default=True)
     parser.add_argument('--gdb', nargs='?', type=bool_arg, const=True, default=False)
     parser.add_argument('--rebuild', nargs='?', type=bool_arg, const=True, default=True)
     parser.add_argument('--pedantic', nargs='?', type=bool_arg, const=True, default=False)
@@ -418,6 +419,28 @@ def main(argv):
 
         print(' '.join(subargv))
         os.execv(subargv[0], subargv)
+
+    if args.rtcheck:
+        subargv = [sys.executable, '-m', 'noisidev.runtests']
+        for arg, value in sorted(args.__dict__.items()):
+            arg = arg.replace('_', '-')
+            if arg == 'selectors':
+                continue
+            elif arg == 'rtcheck':
+                subargv.append('--%s=%s' % (arg, False))
+            elif value != parser.get_default(arg):
+                subargv.append('--%s=%s' % (arg, value))
+
+        if args.selectors:
+            subargv.append('--')
+            subargv.extend(args.selectors)
+
+        env = dict(**os.environ)
+        env['LD_PRELOAD'] = ':'.join([
+            os.path.join(LIBDIR, 'noisicaa', 'audioproc', 'engine', 'librtcheck.so'),
+            os.path.join(LIBDIR, 'noisicaa', 'audioproc', 'engine', 'librtcheck_preload.so')])
+        print('LD_PRELOAD=' + env['LD_PRELOAD'])
+        os.execve(subargv[0], subargv, env)
 
     root_logger = logging.getLogger()
     for handler in root_logger.handlers:

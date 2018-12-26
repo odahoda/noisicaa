@@ -136,7 +136,7 @@ Status Processor::setup() {
   set_state(ProcessorState::SETUP);
   Status status = setup_internal();
   if (status.is_error()) {
-    _logger->info("Processor %llx: Setup failed: %s", id(), status.message().c_str());
+    _logger->info("Processor %llx: Setup failed: %s", id(), status.message());
     set_state(ProcessorState::BROKEN);
   } else {
     _logger->info("Processor %llx: Setup complete.", id());
@@ -197,7 +197,7 @@ void Processor::connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr bu
     Status status = connect_port_internal(ctxt, port_idx, buf);
     if (status.is_error()) {
       _logger->error(
-          "Processor %llx: connect_port(%u) failed: %s", id(), port_idx, status.message().c_str());
+          "Processor %llx: connect_port(%u) failed: %s", id(), port_idx, status.message());
       set_state(ProcessorState::BROKEN);
     }
   }
@@ -207,7 +207,7 @@ void Processor::process_block(BlockContext* ctxt, TimeMapper* time_mapper) {
   if (state() == ProcessorState::RUNNING) {
     Status status = process_block_internal(ctxt, time_mapper);
     if (status.is_error()) {
-      _logger->error("Processor %llx: process_block() failed: %s", id(), status.message().c_str());
+      _logger->error("Processor %llx: process_block() failed: %s", id(), status.message());
       set_state(ProcessorState::BROKEN);
     }
   }

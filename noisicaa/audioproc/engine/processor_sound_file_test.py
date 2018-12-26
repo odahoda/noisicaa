@@ -66,8 +66,9 @@ class ProcessorSoundFileTestMixin(
             self.assertTrue(any(v != 0.0 for v in audio_l_out))
             self.assertTrue(any(v != 0.0 for v in audio_r_out))
 
+            # TODO: parse and verify the NodeMessage.
             for msg in ctxt.out_messages:
-                if msg.type == 'SOUND_FILE_COMPLETE':
+                if msg.type == 4:
                     done = True
 
         proc.cleanup()

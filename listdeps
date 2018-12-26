@@ -102,6 +102,8 @@ SYS_DEPS = {
 
         # encoding
         PKG('ffmpeg'),
+
+        PKG('libgoogle-perftools4'),
     ],
     'build': [
         # qt4
@@ -152,6 +154,9 @@ SYS_DEPS = {
         # libavutil
         PKG('libavutil-dev'),
 
+        # profiling
+        PKG('libgoogle-perftools-dev'),
+
         # other...
         PKG('cmake'),
         PKG('python3-dev'),
@@ -166,6 +171,7 @@ SYS_DEPS = {
         PKG('swh-plugins'),
         PKG('gdb'),
         PKG('xvfb'),
+        PKG('google-perftools'),
     ],
     'vmtests': [
         PKG('virtualbox'),

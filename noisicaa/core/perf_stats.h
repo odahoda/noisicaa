@@ -81,6 +81,10 @@ public:
   int num_spans() const { return _spans.size(); }
   Span span(int idx) const { return _spans[idx]; }
 
+  size_t serialized_size() const;
+  void serialize_to(char* buf) const;
+  void deserialize(const string& data);
+
 private:
   clock_func_t _clock;
   uint64_t get_time_nsec() const;

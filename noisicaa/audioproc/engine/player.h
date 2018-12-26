@@ -25,15 +25,12 @@
 #ifndef _NOISICAA_AUDIOPROC_ENGINE_PLAYER_H
 #define _NOISICAA_AUDIOPROC_ENGINE_PLAYER_H
 
-#include <condition_variable>
-#include <memory>
-#include <mutex>
-#include <thread>
-#include "noisicaa/core/fifo_queue.h"
+#include <string>
+
 #include "noisicaa/core/status.h"
+#include "noisicaa/core/fifo_queue.h"
 #include "noisicaa/audioproc/public/musical_time.h"
 #include "noisicaa/audioproc/public/time_mapper.h"
-#include "noisicaa/audioproc/engine/pump.h"
 
 namespace noisicaa {
 
@@ -72,19 +69,9 @@ public:
   MusicalTime loop_end_time = MusicalTime(-1, 1);
 };
 
-class PlayerStatePump: public Pump<PlayerState> {
-public:
-  PlayerStatePump(Logger* logger, void (*callback)(void*, const string&), void* userdata);
-
-private:
-  void proxy_callback(const PlayerState&item);
-  void (*_callback)(void*, const string&);
-  void *_userdata;
-};
-
 class Player {
 public:
-  Player(HostSystem* host_system, void (*state_callback)(void*, const string&), void* userdata);
+  Player(const string& realm_name, HostSystem* host_system);
   virtual ~Player();
 
   virtual Status setup();
@@ -96,13 +83,13 @@ public:
 
 private:
   Logger* _logger;
+  const string _realm_name;
   HostSystem* _host_system;
 
   TimeMapper::iterator _tmap_it;
 
   PlayerState _state;
   FifoQueue<PlayerStateMutation, 128> _mutation_queue;
-  PlayerStatePump _state_pump;
 };
 
 }  // namespace noisicaa

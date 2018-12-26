@@ -246,6 +246,7 @@ class AbstractEditorApp(object):
     stat_monitor = None  # type: AbstractStatMonitor
     runtime_settings = None  # type: runtime_settings_lib.RuntimeSettings
     show_edit_areas_action = None  # type: QtWidgets.QAction
+    profile_audio_thread_action = None  # type: QtWidgets.QAction
     midi_hub = None  # type: devices.MidiHub
     node_db = None  # type: node_db_lib.NodeDBClient
     instrument_db = None  # type: instrument_db_lib.InstrumentDBClient

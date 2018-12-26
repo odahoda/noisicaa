@@ -22,7 +22,6 @@
 
 import math
 import time
-import typing
 from typing import Any, List
 
 from PyQt5.QtCore import Qt
@@ -30,12 +29,8 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-# pylint/mypy don't understand capnp modules.
-from noisicaa.core import perf_stats_capnp  # type: ignore  # pylint: disable=no-name-in-module
+from noisicaa import core
 from . import ui_base
-
-if typing.TYPE_CHECKING:
-    from noisicaa import core
 
 
 class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
@@ -44,9 +39,9 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.history = []  # type: List[perf_stats_capnp.PerfStats]
+        self.history = []  # type: List[core.PerfStats]
         self.realtime = True
-        self.current_spans = None  # type: perf_stats_capnp.PerfStats
+        self.current_spans = None  # type: core.PerfStats
         self.max_fps = 20
         self.last_update = None  # type: float
         self.max_time_nsec = 100000000
@@ -88,7 +83,7 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
         self.restoreGeometry(
             self.app.settings.value('dialog/pipeline_perf_monitor/geometry', b''))
 
-        self.__perf_stats_listener = None  # type: core.Listener[perf_stats_capnp.PerfStats]
+        self.__perf_stats_listener = None  # type: core.Listener[core.PerfStats]
 
     def storeState(self) -> None:
         s = self.app.settings
@@ -131,7 +126,7 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
             self.time_scale //= 2
         self.updateGanttScene(self.current_spans)
 
-    def updateGanttScene(self, perf_data: perf_stats_capnp.PerfStats) -> None:
+    def updateGanttScene(self, perf_data: core.PerfStats) -> None:
         if perf_data is None:
             return
         self.current_spans = perf_data
@@ -140,12 +135,12 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
 
         self.gantt_scene.clear()
 
-        spans = sorted(perf_data.spans, key=lambda span: span.startTimeNSec)
+        spans = sorted(perf_data.spans, key=lambda span: span.start_time_nsec)
 
         if spans:
             self.max_time_nsec = max(
                 99 * self.max_time_nsec // 100,
-                max(span.endTimeNSec - spans[0].startTimeNSec
+                max(span.end_time_nsec - spans[0].start_time_nsec
                     for span in spans))
 
         scale = self.time_scale / 1e9
@@ -185,7 +180,7 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
         if not spans:
             return
 
-        timebase = spans[0].startTimeNSec
+        timebase = spans[0].start_time_nsec
         y = 20
         for span in spans:
             label = QtWidgets.QGraphicsTextItem()
@@ -194,8 +189,8 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
             label.setPos(0, y - 4)
             self.gantt_scene.addItem(label)
 
-            x = loffset + scale * (span.startTimeNSec - timebase)
-            w = max(1, scale * (span.endTimeNSec - span.startTimeNSec))
+            x = loffset + scale * (span.start_time_nsec - timebase)
+            w = max(1, scale * (span.end_time_nsec - span.start_time_nsec))
 
             bar = QtWidgets.QGraphicsRectItem()
             bar.setRect(x, y, w, 14)
@@ -207,7 +202,7 @@ class PipelinePerfMonitor(ui_base.AbstractPipelinePerfMonitor):
         self.gantt_view.setSceneRect(
             -10, -10, loffset + scale * max_time_nsec + 20, y + 20)
 
-    def addPerfData(self, perf_data: perf_stats_capnp.PerfStats) -> None:
+    def addPerfData(self, perf_data: core.PerfStats) -> None:
         self.history.append(perf_data)
         num_purge = len(self.history) - 10000
         if num_purge > 0:

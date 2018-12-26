@@ -61,12 +61,6 @@ public:
   virtual Status end_block(BlockContext* ctxt) = 0;
   virtual Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) = 0;
 
-  void stop() { _stopped = true; }
-  bool stopped() const { return _stopped; }
-
-  void release() { _released = true; }
-  bool released() const { return _released; }
-
 protected:
   Backend(HostSystem* host_system, const char* logger_name, const BackendSettings& settings);
 
@@ -74,8 +68,6 @@ protected:
   Logger* _logger;
   BackendSettings _settings;
   Realm* _realm = nullptr;
-  bool _stopped = false;
-  bool _released = false;
 
   mutex _msg_queue_mutex;
   vector<string> _msg_queue;

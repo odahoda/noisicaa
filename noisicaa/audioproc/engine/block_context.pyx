@@ -28,9 +28,11 @@ cdef class PyBlockContext(object):
         self.__ptr.reset(new BlockContext())
         self.__ctxt = self.__ptr.get()
 
+        self.__out_messages.reset(new MessageQueue())
+
         self.__perf = PyPerfStats()
         self.__ctxt.perf.reset(self.__perf.release())
-        self.__ctxt.out_messages.reset(new MessageQueue())
+        self.__ctxt.out_messages = self.__out_messages.get()
 
         if buffer_arena is not None:
             self.__ctxt.buffer_arena = buffer_arena.get()
@@ -56,14 +58,17 @@ cdef class PyBlockContext(object):
     def sample_pos(self, value):
         self.__ctxt.sample_pos = <uint32_t>value
 
-    def clear_time_map(self):
-        self.__ctxt.time_map.clear()
+    def create_out_messages(self):
+        # TODO: This leaks the MessageQueue instance (but only in unittests)...
+        self.__ctxt.out_messages = new MessageQueue()
 
-    def append_sample_time(self, PyMusicalTime start_time, PyMusicalTime end_time):
-        cdef SampleTime stime
+    def clear_time_map(self, int block_size):
+        self.__ctxt.alloc_time_map(block_size)
+
+    def set_sample_time(self, int idx, PyMusicalTime start_time, PyMusicalTime end_time):
+        cdef SampleTime* stime = self.__ctxt.time_map.get() + idx
         stime.start_time = start_time.get()
         stime.end_time = end_time.get()
-        self.__ctxt.time_map.push_back(stime)
 
     @property
     def perf(self):
@@ -71,7 +76,7 @@ cdef class PyBlockContext(object):
 
     @property
     def out_messages(self):
-        cdef message_queue.MessageQueue* queue = self.__ctxt.out_messages.get()
+        cdef message_queue.MessageQueue* queue = self.__ctxt.out_messages
         cdef message_queue.Message* msg = queue.first()
         while not queue.is_end(msg):
             yield message_queue.PyMessage.create(msg)

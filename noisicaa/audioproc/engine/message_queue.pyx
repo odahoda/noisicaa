@@ -30,9 +30,7 @@ cdef class PyMessage(object):
 
     @property
     def type(self):
-        return {
-            SOUND_FILE_COMPLETE: 'SOUND_FILE_COMPLETE',
-        }[self.__msg.type]
+        return self.__msg.type
 
     @property
     def size(self):

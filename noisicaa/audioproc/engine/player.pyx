@@ -18,21 +18,15 @@
 #
 # @end:license
 
-from cpython.ref cimport PyObject
-from cpython.exc cimport PyErr_Fetch, PyErr_Restore
-
-from noisicaa import core
 from noisicaa.core.status cimport check
 from noisicaa.host_system.host_system cimport PyHostSystem
-from noisicaa.audioproc.public import player_state_pb2
 
 
 cdef class PyPlayer(object):
     def __init__(self, PyHostSystem host_system, str realm):
         self.__realm = realm
-        self.player_state_changed = core.Callback()
 
-        self.__player_ptr.reset(new Player(host_system.get(), self._state_callback, <PyObject*>self))
+        self.__player_ptr.reset(new Player(realm.encode('utf-8'), host_system.get()))
         self.__player = self.__player_ptr.get()
 
     cdef Player* get(self) nogil:
@@ -54,24 +48,3 @@ cdef class PyPlayer(object):
 
     def update_state(self, state):
         self.__player.update_state(state.SerializeToString())
-
-    @staticmethod
-    cdef void _state_callback(void* c_self, const string& state_serialized) with gil:
-        cdef PyPlayer self = <object><PyObject*>c_self
-
-        # Have to stash away any active exception, because otherwise exception handling
-        # might get confused.
-        # See https://github.com/cython/cython/issues/1877
-        cdef PyObject* exc_type
-        cdef PyObject* exc_value
-        cdef PyObject* exc_trackback
-        PyErr_Fetch(&exc_type, &exc_value, &exc_trackback)
-        try:
-            state_pb = player_state_pb2.PlayerState()
-            state_pb.ParseFromString(state_serialized)
-            state_pb.realm = self.__realm
-            self.player_state_changed.call(state_pb)
-
-        finally:
-            PyErr_Restore(exc_type, exc_value, exc_trackback)
-

@@ -22,11 +22,11 @@
 
 #include "noisicaa/core/logging.h"
 #include "noisicaa/core/perf_stats.h"
+#include "noisicaa/core/pump.inl.h"
 #include "noisicaa/core/slots.inl.h"
 #include "noisicaa/lv2/feature_manager.h"
 #include "noisicaa/host_system/host_system.h"
 #include "noisicaa/audioproc/public/plugin_state.pb.h"
-#include "noisicaa/audioproc/engine/pump.inl.h"
 #include "noisicaa/audioproc/engine/plugin_ui_host_lv2.h"
 #include "noisicaa/audioproc/engine/plugin_host_lv2.h"
 

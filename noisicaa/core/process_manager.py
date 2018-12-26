@@ -507,7 +507,13 @@ class ProcessManager(object):
 
         return proc
 
-    async def start_subprocess(self, name: str, entry: str, **kwargs: Any) -> 'SubprocessHandle':
+    async def start_subprocess(
+            self,
+            name: str,
+            entry: str,
+            enable_rt_checker: bool = False,
+            **kwargs: Any
+    ) -> 'SubprocessHandle':
         proc = SubprocessHandle(self._event_loop, name)
 
         # Open pipes without O_CLOEXEC, so they survive the exec() call.
@@ -567,6 +573,14 @@ class ProcessManager(object):
 
                 env = dict(**os.environ)
                 env['PYTHONPATH'] = ':'.join(p for p in sys.path if p)
+                if enable_rt_checker:
+                    env['LD_PRELOAD'] = ':'.join([
+                        os.path.abspath(os.path.join(
+                            os.path.dirname(__file__), '..',
+                            'audioproc', 'engine', 'librtcheck.so')),
+                        os.path.abspath(os.path.join(
+                            os.path.dirname(__file__), '..',
+                            'audioproc', 'engine', 'librtcheck_preload.so'))])
 
                 os.chdir('/tmp')
                 os.execve(cmdline[0], cmdline, env)

@@ -22,34 +22,17 @@
 
 #include <functional>
 #include "noisicaa/core/logging.h"
-#include "noisicaa/audioproc/public/time_mapper.h"
+#include "noisicaa/host_system/host_system.h"
 #include "noisicaa/audioproc/public/player_state.pb.h"
+#include "noisicaa/audioproc/public/time_mapper.h"
 #include "noisicaa/audioproc/engine/block_context.h"
 #include "noisicaa/audioproc/engine/misc.h"
-#include "noisicaa/host_system/host_system.h"
 #include "noisicaa/audioproc/engine/double_buffered_state_manager.inl.h"
-#include "noisicaa/audioproc/engine/pump.inl.h"
+#include "noisicaa/audioproc/engine/message_queue.h"
 #include "noisicaa/audioproc/engine/player.h"
+#include "noisicaa/audioproc/engine/rtcheck.h"
 
 namespace noisicaa {
-
-PlayerStatePump::PlayerStatePump(
-    Logger* logger, void (*callback)(void*, const string&), void* userdata)
-  : Pump<PlayerState>(logger, bind(&PlayerStatePump::proxy_callback, this, placeholders::_1)),
-    _callback(callback),
-    _userdata(userdata) {}
-
-void PlayerStatePump::proxy_callback(const PlayerState& state) {
-  pb::PlayerState state_pb;
-  state_pb.set_playing(state.playing);
-  state.current_time.set_proto(state_pb.mutable_current_time());
-  state_pb.set_loop_enabled(state.loop_enabled);
-  state.loop_start_time.set_proto(state_pb.mutable_loop_start_time());
-  state.loop_end_time.set_proto(state_pb.mutable_loop_end_time());
-  string state_serialized;
-  assert(state_pb.SerializeToString(&state_serialized));
-  _callback(_userdata, state_serialized);
-}
 
 string PlayerStateMutation::to_string() const {
   string s = "PlayerStateMutation(";
@@ -93,11 +76,10 @@ string PlayerStateMutation::to_string() const {
   return s;
 }
 
-Player::Player(
-    HostSystem* host_system, void (*state_callback)(void*, const string&), void* userdata)
+Player::Player(const string& realm_name, HostSystem* host_system)
   : _logger(LoggerRegistry::get_logger("noisicaa.audioproc.engine.player")),
-    _host_system(host_system),
-    _state_pump(_logger, state_callback, userdata) {}
+    _realm_name(realm_name),
+    _host_system(host_system) {}
 
 Player::~Player() {
   cleanup();
@@ -105,12 +87,10 @@ Player::~Player() {
 
 Status Player::setup() {
   _logger->info("Setting up player...");
-  RETURN_IF_ERROR(_state_pump.setup());
   return Status::Ok();
 }
 
 void Player::cleanup() {
-  _state_pump.cleanup();
   _logger->info("Player cleaned up.");
 }
 
@@ -169,8 +149,8 @@ void Player::fill_time_map(TimeMapper* time_mapper, BlockContext* ctxt) {
     }
   }
 
-  ctxt->time_map.resize(_host_system->block_size());
-  uint32_t i = 0;
+  SampleTime* stime = ctxt->time_map.get();
+  SampleTime* stime_end = ctxt->time_map.get() + _host_system->block_size();
 
   if (_state.playing) {
     if (!_tmap_it.valid() || !_tmap_it.is_owned_by(time_mapper) ) {
@@ -184,7 +164,7 @@ void Player::fill_time_map(TimeMapper* time_mapper, BlockContext* ctxt) {
       (_state.loop_enabled && _state.loop_end_time >= MusicalTime(0, 1))
       ? _state.loop_end_time : time_mapper->end_time();
 
-    for (auto& stime : ctxt->time_map) {
+    while (stime < stime_end) {
       if (_state.current_time >= loop_end_time) {
         if (!_state.loop_enabled) {
           _state.current_time = loop_end_time;
@@ -201,9 +181,7 @@ void Player::fill_time_map(TimeMapper* time_mapper, BlockContext* ctxt) {
       _state.current_time = min(*_tmap_it, loop_end_time);
       assert(_state.current_time > prev_time);
 
-      stime = SampleTime{ prev_time, _state.current_time };
-
-      ++i;
+      *stime++ = SampleTime{ prev_time, _state.current_time };
     }
 
     if (!_state.playing) {
@@ -211,12 +189,18 @@ void Player::fill_time_map(TimeMapper* time_mapper, BlockContext* ctxt) {
     }
   }
 
-  while (i < _host_system->block_size()) {
-    ctxt->time_map[i] = SampleTime{ MusicalTime(-1, 1), MusicalTime(0, 1) };
-    ++i;
+  while (stime < stime_end) {
+    *stime++ = SampleTime{ MusicalTime(-1, 1), MusicalTime(0, 1) };
   }
 
-  _state_pump.push(_state);
+  PlayerStateMessage::push(
+      ctxt->out_messages,
+      _realm_name,
+      _state.playing,
+      _state.current_time,
+      _state.loop_enabled,
+      _state.loop_start_time,
+      _state.loop_end_time);
 }
 
 }  // namespace noisicaa

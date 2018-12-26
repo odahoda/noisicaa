@@ -31,7 +31,6 @@
 #include "noisicaa/core/logging.h"
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/core/status.h"
-#include "noisicaa/core/scope_guard.h"
 #include "noisicaa/host_system/host_system.h"
 #include "noisicaa/audioproc/public/time_mapper.h"
 #include "noisicaa/audioproc/engine/opcodes.h"
@@ -43,6 +42,7 @@
 #include "noisicaa/audioproc/engine/control_value.h"
 #include "noisicaa/audioproc/engine/message_queue.h"
 #include "noisicaa/audioproc/engine/realm.h"
+#include "noisicaa/audioproc/engine/rtcheck.h"
 
 namespace noisicaa {
 
@@ -120,8 +120,8 @@ Realm::Realm(const string& name, HostSystem* host_system, Player* player)
     _next_program(nullptr),
     _current_program(nullptr),
     _old_program(nullptr) {
-  char logger_name[Logger::NAME_LENGTH];
-  snprintf(logger_name, Logger::NAME_LENGTH, "noisicaa.audioproc.engine.realm[%s]", name.c_str());
+  char logger_name[MaxLoggerNameLength];
+  snprintf(logger_name, MaxLoggerNameLength, "noisicaa.audioproc.engine.realm[%s]", name.c_str());
   _logger = LoggerRegistry::get_logger(logger_name);
 }
 
@@ -132,7 +132,12 @@ Realm::~Realm() {
 Status Realm::setup() {
   _block_context.reset(new BlockContext());
   _block_context->perf.reset(new PerfStats());
-  _block_context->out_messages.reset(new MessageQueue());
+
+  _block_context->time_map.reset(new SampleTime[_host_system->block_size()]);
+  SampleTime* it = _block_context->time_map.get();
+  for (uint32_t i = 0 ; i < _host_system->block_size() ; ++it, ++i) {
+      *it = SampleTime{ MusicalTime(-1, 1), MusicalTime(0, 1) };
+    }
 
   return Status::Ok();
 }
@@ -441,15 +446,6 @@ Status Realm::process_block(Program* program) {
     PerfTracker tracker(_block_context->perf.get(), "fill_time_map");
 
     _player->fill_time_map(program->time_mapper.get(), _block_context.get());
-  } else {
-    PerfTracker tracker(_block_context->perf.get(), "clear_time_map");
-
-    for (auto& it : _block_context->time_map) {
-      it = SampleTime{ MusicalTime(-1, 1), MusicalTime(0, 1) };
-    }
-    _block_context->time_map.resize(
-        _host_system->block_size(),
-        SampleTime{ MusicalTime(-1, 1), MusicalTime(0, 1) });
   }
 
   const Spec* spec = program->spec.get();

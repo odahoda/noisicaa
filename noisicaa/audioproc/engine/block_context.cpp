@@ -28,4 +28,8 @@ namespace noisicaa {
 
 BlockContext::~BlockContext() {}
 
+void BlockContext::alloc_time_map(uint32_t block_size) {
+  time_map.reset(new SampleTime[block_size]);
+}
+
 }  // namespace noisicaa

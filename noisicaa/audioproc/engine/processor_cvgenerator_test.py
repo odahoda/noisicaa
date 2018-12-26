@@ -61,8 +61,10 @@ class ProcessorCVGeneratorTest(
 
         self.ctxt = block_context.PyBlockContext()
 
+        self.ctxt.clear_time_map(self.host_system.block_size)
         for s in range(self.host_system.block_size):
-            self.ctxt.append_sample_time(
+            self.ctxt.set_sample_time(
+                s,
                 musical_time.PyMusicalTime(s, 44100),
                 musical_time.PyMusicalTime(s + 1, 44100))
 

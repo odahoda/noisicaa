@@ -122,10 +122,9 @@ Status ProcessorCVGenerator::process_block_internal(BlockContext* ctxt, TimeMapp
   assert(_out_buffer != nullptr);
   float* out_ptr = (float*)_out_buffer;
 
-  for (uint32_t sample = 0 ; sample < _host_system->block_size() ; ++sample) {
-    const SampleTime& stime = ctxt->time_map[sample];
-
-    if (stime.start_time.numerator() < 0) {
+  SampleTime* stime = ctxt->time_map.get();
+  for (uint32_t sample = 0 ; sample < _host_system->block_size() ; ++sample, ++stime) {
+    if (stime->start_time.numerator() < 0) {
       // playback turned off
       recipe->offset = -1;
       *out_ptr++ = 0.0;
@@ -136,7 +135,7 @@ Status ProcessorCVGenerator::process_block_internal(BlockContext* ctxt, TimeMapp
     if (recipe->control_points.size() == 0) {
       value = 0.0;
     } else {
-      if (recipe->offset < 0 || recipe->current_time != stime.start_time) {
+      if (recipe->offset < 0 || recipe->current_time != stime->start_time) {
         // Seek to new time.
 
         // TODO: We could to better than a sequential search.
@@ -146,7 +145,7 @@ Status ProcessorCVGenerator::process_block_internal(BlockContext* ctxt, TimeMapp
         while ((size_t)recipe->offset < recipe->control_points.size()) {
           const ControlPoint& cp = recipe->control_points[recipe->offset];
 
-          if (cp.time >= stime.start_time) {
+          if (cp.time >= stime->start_time) {
             break;
           }
 
@@ -163,7 +162,7 @@ Status ProcessorCVGenerator::process_block_internal(BlockContext* ctxt, TimeMapp
         const ControlPoint& cp1 = recipe->control_points[recipe->offset - 1];
         const ControlPoint& cp2 = recipe->control_points[recipe->offset];
         value = cp1.value + (cp2.value - cp1.value) * (
-            (stime.start_time - cp1.time) / (cp2.time - cp1.time)).to_float();
+            (stime->start_time - cp1.time) / (cp2.time - cp1.time)).to_float();
       } else {
         // After last control point.
         const ControlPoint& cp = recipe->control_points[recipe->control_points.size() - 1];
@@ -174,8 +173,8 @@ Status ProcessorCVGenerator::process_block_internal(BlockContext* ctxt, TimeMapp
       // they are so close together that they all fall into the same sample.
       while ((size_t)recipe->offset < recipe->control_points.size()) {
         const ControlPoint& cp = recipe->control_points[recipe->offset];
-        assert(cp.time >= stime.start_time);
-        if (cp.time >= stime.end_time) {
+        assert(cp.time >= stime->start_time);
+        if (cp.time >= stime->end_time) {
           // no more events at this sample.
           break;
         }
@@ -186,7 +185,7 @@ Status ProcessorCVGenerator::process_block_internal(BlockContext* ctxt, TimeMapp
 
     *out_ptr++ = value;
 
-    recipe->current_time = stime.end_time;
+    recipe->current_time = stime->end_time;
   }
 
   return Status::Ok();

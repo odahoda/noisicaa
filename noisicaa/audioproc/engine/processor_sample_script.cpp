@@ -73,7 +73,7 @@ void SampleScript::apply_mutation(pb::ProcessorMessage* msg) {
     } else {
       _logger->warning(
           "Failed to load audio file '%s': %s",
-          m.sample_path().c_str(), stor_audio_file.message().c_str());
+          m.sample_path().c_str(), stor_audio_file.message());
     }
     break;
   }
@@ -148,10 +148,9 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
   assert(_out_buffers[1] != nullptr);
   float* out_r_ptr = (float*)_out_buffers[1];
 
-  for (uint32_t sample_pos = 0 ; sample_pos < _host_system->block_size() ; ++sample_pos) {
-    const SampleTime& stime = ctxt->time_map[sample_pos];
-
-    if (stime.start_time.numerator() < 0) {
+  SampleTime* stime = ctxt->time_map.get();
+  for (uint32_t sample_pos = 0 ; sample_pos < _host_system->block_size() ; ++sample_pos, ++stime) {
+    if (stime->start_time.numerator() < 0) {
       // playback turned off
       script->offset = -1;
       *out_l_ptr++ = 0.0;
@@ -165,7 +164,7 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
       lvalue = 0.0;
       rvalue = 0.0;
     } else {
-      if (script->offset < 0 || script->current_time != stime.start_time) {
+      if (script->offset < 0 || script->current_time != stime->start_time) {
         // seek to new time.
 
         // TODO: We could to better than a sequential search.
@@ -179,14 +178,14 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
               time_mapper->musical_to_sample_time(sample.time)
               + sample.audio_file->num_samples());
 
-          if (sample.time <= stime.start_time && sample_end_time >= stime.end_time) {
+          if (sample.time <= stime->start_time && sample_end_time >= stime->end_time) {
             // We seeked into an audio file.
             script->current_audio_file = sample.audio_file;
-            script->file_offset = time_mapper->musical_to_sample_time(stime.start_time)
+            script->file_offset = time_mapper->musical_to_sample_time(stime->start_time)
               - time_mapper->musical_to_sample_time(sample.time);
             ++script->offset;
             break;
-          } else if (sample.time >= stime.start_time) {
+          } else if (sample.time >= stime->start_time) {
             // We seeked into some empty space before an audio file.
             script->current_audio_file = nullptr;
             break;
@@ -198,8 +197,8 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
 
       if ((size_t)script->offset < script->samples.size()) {
         const Sample& sample = script->samples[script->offset];
-        assert(sample.time >= stime.start_time);
-        if (sample.time < stime.end_time) {
+        assert(sample.time >= stime->start_time);
+        if (sample.time < stime->end_time) {
           // Next audio file start playing.
           script->current_audio_file = sample.audio_file;
           script->file_offset = 0;
@@ -233,8 +232,8 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
       // they are so close together that they all fall into the same sample.
       while ((size_t)script->offset < script->samples.size()) {
         const Sample& sample = script->samples[script->offset];
-        assert(sample.time >= stime.start_time);
-        if (sample.time >= stime.end_time) {
+        assert(sample.time >= stime->start_time);
+        if (sample.time >= stime->end_time) {
           // no more audio files at this sample.
           break;
         }
@@ -246,7 +245,7 @@ Status ProcessorSampleScript::process_block_internal(BlockContext* ctxt, TimeMap
     *out_l_ptr++ = lvalue;
     *out_r_ptr++ = rvalue;
 
-    script->current_time = stime.end_time;
+    script->current_time = stime->end_time;
   }
 
   return Status::Ok();

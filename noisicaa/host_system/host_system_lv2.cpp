@@ -73,6 +73,7 @@ Status LV2SubSystem::setup() {
   urid.atom_urid = map("http://lv2plug.in/ns/ext/atom#URID");
   urid.atom_vector = map("http://lv2plug.in/ns/ext/atom#Vector");
   urid.atom_event = map("http://lv2plug.in/ns/ext/atom#Event");
+  urid.core_portrms = map("http://noisicaa.odahoda.de/lv2/core#portRMS");
 
   return Status::Ok();
 }

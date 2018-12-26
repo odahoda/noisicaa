@@ -28,6 +28,7 @@ from noisicaa.core.status cimport check
 from noisicaa.audioproc.public.time_mapper cimport PyTimeMapper
 from noisicaa.host_system.host_system cimport PyHostSystem
 from .block_context cimport PyBlockContext
+from . cimport rtcheck
 
 
 class State(enum.Enum):
@@ -84,14 +85,26 @@ cdef class PyProcessor(object):
         cdef uint32_t c_port_index = port_index
         cdef BufferPtr c_data = &data[0]
         with nogil:
-            self.__processor.connect_port(ctxt.get(), c_port_index, c_data)
+            rtcheck.reset_rt_checker_violations()
+            rtcheck.enable_rt_checker(1)
+            try:
+                self.__processor.connect_port(ctxt.get(), c_port_index, c_data)
+            finally:
+                rtcheck.enable_rt_checker(0)
+        assert rtcheck.rt_checker_violations() == 0
 
     def process_block(self, PyBlockContext ctxt, PyTimeMapper time_mapper):
         cdef TimeMapper* c_time_mapper = NULL
         if time_mapper is not None:
             c_time_mapper = time_mapper.get()
         with nogil:
-            self.__processor.process_block(ctxt.get(), c_time_mapper)
+            rtcheck.reset_rt_checker_violations()
+            rtcheck.enable_rt_checker(1)
+            try:
+                self.__processor.process_block(ctxt.get(), c_time_mapper)
+            finally:
+                rtcheck.enable_rt_checker(0)
+        assert rtcheck.rt_checker_violations() == 0
 
     def handle_message(self, msg):
         cdef string msg_serialized = msg.SerializeToString()

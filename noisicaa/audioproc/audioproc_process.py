@@ -23,6 +23,7 @@
 import asyncio
 import functools
 import logging
+import subprocess
 import sys
 import time
 import uuid
@@ -37,6 +38,7 @@ from noisicaa import host_system
 from .public import engine_notification_pb2
 from .public import player_state_pb2
 from .public import processor_message_pb2
+from .engine import profile
 from . import engine
 from . import mutations
 
@@ -109,12 +111,12 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
 
     def __init__(
             self, *,
-            shm: Optional[str] = None, profile_path: Optional[str] = None,
-            block_size: Optional[int] = None, sample_rate: Optional[int] = None,
+            shm: Optional[str] = None,
+            block_size: Optional[int] = None,
+            sample_rate: Optional[int] = None,
             **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.shm_name = shm
-        self.profile_path = profile_path
         self.shm = None  # type: Optional[posix_ipc.SharedMemory]
         self.__urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.__block_size = block_size
@@ -142,6 +144,7 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         self.server.add_command_handler('CREATE_PLUGIN_UI', self.handle_create_plugin_ui)
         self.server.add_command_handler('DELETE_PLUGIN_UI', self.handle_delete_plugin_ui)
         self.server.add_command_handler('DUMP', self.handle_dump)
+        self.server.add_command_handler('PROFILE_AUDIO_THREAD', self.handle_profile_audio_thread)
 
         if self.shm_name is not None:
             self.shm = posix_ipc.SharedMemory(self.shm_name)
@@ -165,8 +168,7 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             manager=self.manager,
             server_address=self.server.address,
             host_system=self.__host_system,
-            shm=self.shm,
-            profile_path=self.profile_path)
+            shm=self.shm)
         self.__engine.notifications.add(
             lambda msg: self.event_loop.call_soon_threadsafe(
                 functools.partial(self.__handle_engine_notification, msg)))
@@ -290,9 +292,10 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         self.get_session(session_id)
         await self.__engine.set_host_parameters(**parameters)
 
-    def handle_set_backend(self, session_id: str, name: str, parameters: Dict[str, Any]) -> None:
+    async def handle_set_backend(
+            self, session_id: str, name: str, parameters: Dict[str, Any]) -> None:
         self.get_session(session_id)
-        self.__engine.set_backend(name, **parameters)
+        await self.__engine.set_backend(name, **parameters)
 
     def handle_set_backend_parameters(self, session_id: str, parameters: Dict[str, Any]) -> None:
         self.get_session(session_id)
@@ -314,7 +317,7 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         realm = self.__engine.get_realm(realm_name)
         realm.update_project_properties(**properties)
 
-    async def handle_play_file(self, session_id: str, path: str) -> str:
+    async def handle_play_file(self, session_id: str, path: str) -> None:
         self.get_session(session_id)
 
         realm = self.__engine.get_realm('root')
@@ -335,17 +338,22 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         sink.inputs['in:right'].connect(node.outputs['out:right'])
         realm.update_spec()
 
-        self.__engine.add_notification_listener(
-            node.id,
-            functools.partial(self.play_file_done, node_id=node.id))
+        sound_file_complete_urid = self.__urid_mapper.map(
+            "http://noisicaa.odahoda.de/lv2/processor_sound_file#complete")
 
-        return node.id
+        complete = asyncio.Event(loop=self.event_loop)
 
-    def play_file_done(self, msg_type: str, *, node_id: str) -> None:
-        realm = self.__engine.get_realm('root')
+        def handle_notification(notification: engine_notification_pb2.EngineNotification) -> None:
+            for node_message in notification.node_messages:
+                if node_message.node_id == node.id:
+                    msg = lv2.wrap_atom(self.__urid_mapper, node_message.atom)
+                    if msg.type_urid == sound_file_complete_urid:
+                        complete.set()
 
-        node = realm.graph.find_node(node_id)
-        sink = realm.graph.find_node('sink')
+        listener = self.__engine.notifications.add(handle_notification)
+        await complete.wait()
+        listener.remove()
+
         sink.inputs['in:left'].disconnect(node.outputs['out:left'])
         sink.inputs['in:right'].disconnect(node.outputs['out:right'])
         realm.graph.remove_node(node)
@@ -362,6 +370,40 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
 
     def handle_dump(self, session_id: str) -> None:
         self.__engine.dump()
+
+    async def handle_profile_audio_thread(self, session_id: str, duration: int) -> bytes:
+        self.get_session(session_id)
+
+        path = '/tmp/audio.prof'
+        logger.warning("Starting profile of the audio thread...")
+        profile.start(path)
+        await asyncio.sleep(duration, loop=self.event_loop)
+        profile.stop()
+        logger.warning("Audio thread profile complete. Data written to '%s'.", path)
+
+        argv = ['/usr/bin/google-pprof', '--dot', sys.executable, path]
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            loop=self.event_loop)
+        dot, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            logger.warning(stderr)
+            raise RuntimeError(
+                "Command '%s' failed with return code %d" % (' '.join(argv), proc.returncode))
+
+        argv = ['/usr/bin/dot', '-Tsvg']
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            loop=self.event_loop)
+        svg, stderr = await proc.communicate(dot)
+        if proc.returncode != 0:
+            logger.warning(stderr)
+            raise RuntimeError(
+                "Command '%s' failed with return code %d" % (' '.join(argv), proc.returncode))
+
+        return svg
 
 
 class AudioProcSubprocess(core.SubprocessMixin, AudioProcProcess):

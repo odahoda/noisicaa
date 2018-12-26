@@ -22,8 +22,11 @@
 
 #include <math.h>
 #include <stdlib.h>
+
 #include "capnp/pretty-print.h"
 #include "capnp/serialize.h"
+#include "lv2/lv2plug.in/ns/ext/atom/atom.h"
+
 #include "noisicaa/core/message.capnp.h"
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/audioproc/engine/opcodes.h"
@@ -181,8 +184,20 @@ Status run_POST_RMS(BlockContext* ctxt, ProgramState* state, const vector<OpArg>
 
   float rms = sqrtf(sum / state->host_system->block_size());
 
-  PortRMSMessage msg = PortRMSMessage(node_id, port_index, rms);
-  ctxt->out_messages->push(&msg);
+  uint8_t atom[100];
+  LV2_Atom_Forge forge;
+  lv2_atom_forge_init(&forge, &state->host_system->lv2->urid_map);
+  lv2_atom_forge_set_buffer(&forge, atom, sizeof(atom));
+
+  LV2_Atom_Forge_Frame frame;
+  lv2_atom_forge_push(
+      &forge, &frame,
+      lv2_atom_forge_atom(&forge, 0, state->host_system->lv2->urid.core_portrms));
+  lv2_atom_forge_int(&forge, port_index);
+  lv2_atom_forge_float(&forge, rms);
+  lv2_atom_forge_pop(&forge, &frame);
+
+  NodeMessage::push(ctxt->out_messages, node_id, (LV2_Atom*)atom);
 
   return Status::Ok();
 }
@@ -302,15 +317,11 @@ Status run_CALL_CHILD_REALM(BlockContext* ctxt, ProgramState* state, const vecto
   Program* program = stor_program.result();
   if (program != nullptr) {
     PerfStats* perf = realm->block_context()->perf.get();
-
     perf->reset();
-    RETURN_IF_ERROR(realm->process_block(program));
 
-    MessageQueue* queue = realm->block_context()->out_messages.get();
-    for (Message* msg = queue->first() ; !queue->is_end(msg) ; msg = queue->next(msg)) {
-      ctxt->out_messages->push(msg);
-    }
-    queue->clear();
+    realm->block_context()->out_messages = ctxt->out_messages;
+    RETURN_IF_ERROR(realm->process_block(program));
+    realm->block_context()->out_messages = nullptr;
 
     for (int i = 0 ; i < perf->num_spans() ; ++i) {
       PerfStats::Span span = perf->span(i);

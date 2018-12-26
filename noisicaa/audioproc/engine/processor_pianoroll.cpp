@@ -198,10 +198,9 @@ Status ProcessorPianoRoll::process_block_internal(BlockContext* ctxt, TimeMapper
 
   lv2_atom_forge_sequence_head(&forge, &frame, _host_system->lv2->urid.atom_frame_time);
 
-  for (uint32_t sample = 0 ; sample < _host_system->block_size() ; ++sample) {
-    const SampleTime& stime = ctxt->time_map[sample];
-
-    if (stime.start_time.numerator() < 0) {
+  SampleTime* stime = ctxt->time_map.get();
+  for (uint32_t sample = 0 ; sample < _host_system->block_size() ; ++sample, ++stime) {
+    if (stime->start_time.numerator() < 0) {
       // playback turned off
 
       pianoroll->offset = -1;
@@ -215,7 +214,7 @@ Status ProcessorPianoRoll::process_block_internal(BlockContext* ctxt, TimeMapper
       continue;
     }
 
-    if (pianoroll->offset < 0 || pianoroll->current_time != stime.start_time) {
+    if (pianoroll->offset < 0 || pianoroll->current_time != stime->start_time) {
       // Seek to new time.
 
       // TODO: We could to better than a sequential search.
@@ -232,7 +231,7 @@ Status ProcessorPianoRoll::process_block_internal(BlockContext* ctxt, TimeMapper
       while ((size_t)pianoroll->offset < pianoroll->events.size()) {
         const PianoRollEvent& event = pianoroll->events[pianoroll->offset];
 
-        if (event.time >= stime.start_time) {
+        if (event.time >= stime->start_time) {
           break;
         }
 
@@ -254,8 +253,8 @@ Status ProcessorPianoRoll::process_block_internal(BlockContext* ctxt, TimeMapper
 
     while ((size_t)pianoroll->offset < pianoroll->events.size()) {
       const PianoRollEvent& event = pianoroll->events[pianoroll->offset];
-      assert(event.time >= stime.start_time);
-      if (event.time >= stime.end_time) {
+      assert(event.time >= stime->start_time);
+      if (event.time >= stime->end_time) {
         // no more events at this sample.
         break;
       }
@@ -272,7 +271,7 @@ Status ProcessorPianoRoll::process_block_internal(BlockContext* ctxt, TimeMapper
       ++pianoroll->offset;
     }
 
-    pianoroll->current_time = stime.end_time;
+    pianoroll->current_time = stime->end_time;
   }
 
   lv2_atom_forge_pop(&forge, &frame);
