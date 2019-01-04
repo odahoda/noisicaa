@@ -43,60 +43,60 @@ Engine::Engine(HostSystem* host_system, void (*callback)(void*, const string&), 
     _logger(LoggerRegistry::get_logger("noisicaa.audioproc.engine.engine")),
     _callback(callback),
     _userdata(userdata),
-    _queue_pump(nullptr),
-    _next_message_queue(new MessageQueue()),
-    _current_message_queue(nullptr),
-    _old_message_queue(new MessageQueue()) {}
+    _out_messages_pump(nullptr),
+    _next_out_messages(new MessageQueue()),
+    _current_out_messages(nullptr),
+    _old_out_messages(new MessageQueue()) {}
 
 Engine::~Engine() {}
 
 Status Engine::setup() {
   _stop = false;
-  _queue_pump.reset(new thread(&Engine::queue_pump_main, this));
+  _out_messages_pump.reset(new thread(&Engine::out_messages_pump_main, this));
 
   return Status::Ok();
 }
 
 void Engine::cleanup() {
-  if (_queue_pump.get() != nullptr) {
-    _logger->info("Stopping queue pump...");
+  if (_out_messages_pump.get() != nullptr) {
+    _logger->info("Stopping out_messages pump...");
     {
       lock_guard<mutex> lock(_cond_mutex);
       _stop = true;
       _cond.notify_all();
     }
 
-    _queue_pump->join();
-    _queue_pump.reset();
-    _logger->info("Queue pump stopped.");
+    _out_messages_pump->join();
+    _out_messages_pump.reset();
+    _logger->info("out_messages pump stopped.");
   }
 
-  MessageQueue* message_queue = _next_message_queue.exchange(nullptr);
-  if (message_queue != nullptr) {
-    delete message_queue;
+  MessageQueue* out_messages = _next_out_messages.exchange(nullptr);
+  if (out_messages != nullptr) {
+    delete out_messages;
   }
-  message_queue = _current_message_queue.exchange(nullptr);
-  if (message_queue != nullptr) {
-    delete message_queue;
+  out_messages = _current_out_messages.exchange(nullptr);
+  if (out_messages != nullptr) {
+    delete out_messages;
   }
-  message_queue = _old_message_queue.exchange(nullptr);
-  if (message_queue != nullptr) {
-    delete message_queue;
+  out_messages = _old_out_messages.exchange(nullptr);
+  if (out_messages != nullptr) {
+    delete out_messages;
   }
 }
 
-void Engine::queue_pump_main() {
+void Engine::out_messages_pump_main() {
   unique_lock<mutex> lock(_cond_mutex);
   while (true) {
     _cond.wait_for(lock, chrono::milliseconds(500));
 
-    MessageQueue* queue = _old_message_queue.exchange(nullptr);
-    if (queue != nullptr) {
-      if (!queue->empty()) {
+    MessageQueue* out_messages = _old_out_messages.exchange(nullptr);
+    if (out_messages != nullptr) {
+      if (!out_messages->empty()) {
         pb::EngineNotification notification;
 
-        Message* msg = queue->first();
-        while (!queue->is_end(msg)) {
+        Message* msg = out_messages->first();
+        while (!out_messages->is_end(msg)) {
           switch (msg->type) {
 
           case MessageType::ENGINE_LOAD: {
@@ -139,18 +139,18 @@ void Engine::queue_pump_main() {
           }
           }
 
-          msg = queue->next(msg);
+          msg = out_messages->next(msg);
         }
-        queue->clear();
+        out_messages->clear();
 
         string notification_serialized;
         assert(notification.SerializeToString(&notification_serialized));
         _callback(_userdata, notification_serialized);
       }
 
-      queue = _next_message_queue.exchange(queue);
-      if (queue != nullptr) {
-        assert(_old_message_queue.exchange(queue) == nullptr);
+      out_messages = _next_out_messages.exchange(out_messages);
+      if (out_messages != nullptr) {
+        assert(_old_out_messages.exchange(out_messages) == nullptr);
       }
     }
 
@@ -195,19 +195,19 @@ Status Engine::loop(Realm* realm, Backend* backend) {
       continue;
     }
 
-    MessageQueue* current_queue = _next_message_queue.exchange(nullptr);
-    if (current_queue != nullptr) {
-      assert(current_queue->empty());
-      MessageQueue* old = _current_message_queue.exchange(nullptr);
+    MessageQueue* out_messages = _next_out_messages.exchange(nullptr);
+    if (out_messages != nullptr) {
+      assert(out_messages->empty());
+      MessageQueue* old = _current_out_messages.exchange(nullptr);
       if (old != nullptr) {
-        assert(_old_message_queue.exchange(old) == nullptr);
+        assert(_old_out_messages.exchange(old) == nullptr);
         _cond.notify_all();
       }
     } else {
-      current_queue = _current_message_queue.exchange(nullptr);
-      assert(current_queue != nullptr);
+      out_messages = _current_out_messages.exchange(nullptr);
+      assert(out_messages != nullptr);
     }
-    ctxt->out_messages = current_queue;
+    ctxt->out_messages = out_messages;
 
     if (ctxt->perf->num_spans() > 0) {
       PerfStatsMessage::push(ctxt->out_messages, *ctxt->perf);
@@ -250,7 +250,7 @@ Status Engine::loop(Realm* realm, Backend* backend) {
     last_loop_time = chrono::high_resolution_clock::now();
 
     ctxt->out_messages = nullptr;
-    assert(_current_message_queue.exchange(current_queue) == nullptr);
+    assert(_current_out_messages.exchange(out_messages) == nullptr);
   }
 
   return Status::Ok();

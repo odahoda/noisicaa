@@ -22,7 +22,6 @@ from .client import InstrumentDBClient
 from .instrument_description import (
     InstrumentDescription,
     Property,
-    parse_uri,
 )
 from .mutations import (
     Mutation,

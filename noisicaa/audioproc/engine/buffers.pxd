@@ -21,7 +21,6 @@
 from libcpp.memory cimport unique_ptr
 from libc.stdint cimport uint8_t, uint32_t
 
-from noisicaa.bindings.lv2 cimport urid
 from noisicaa.core.status cimport Status
 from noisicaa.host_system.host_system cimport HostSystem
 

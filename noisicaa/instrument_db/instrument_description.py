@@ -22,9 +22,7 @@
 
 import enum
 import urllib.parse
-from typing import Callable, Dict, Any
-
-from noisicaa import node_db
+from typing import Dict, Any
 
 
 class Property(enum.Enum):
@@ -62,29 +60,3 @@ class InstrumentDescription(object):
     @property
     def format(self) -> str:
         return urllib.parse.urlparse(self.uri).scheme
-
-
-def parse_uri(
-        uri: str,
-        get_node_description: Callable[[str], node_db.NodeDescription]) -> node_db.NodeDescription:
-    fmt, _, path, _, query, _ = urllib.parse.urlparse(uri)
-    path = urllib.parse.unquote(path)
-    if query:
-        args = dict(urllib.parse.parse_qsl(query, strict_parsing=True))
-    else:
-        args = {}
-
-    if fmt == 'sf2':
-        desc = get_node_description('builtin://fluidsynth')
-        desc.fluidsynth.soundfont_path = path
-        desc.fluidsynth.bank = int(args['bank'])
-        desc.fluidsynth.preset = int(args['preset'])
-        return desc
-
-    elif fmt == 'sample':
-        desc = get_node_description('builtin://sample_player')
-        desc.sample_player.sample_path = path
-        return desc
-
-    else:
-        raise ValueError(fmt)

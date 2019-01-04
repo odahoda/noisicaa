@@ -40,13 +40,12 @@ add_python_package(
   processor_test.py
   processor_csound_test.py
   processor_cvgenerator_test.py
-  processor_fluidsynth_test.py
   processor_pianoroll_test.py
   processor_plugin_test.py
-  processor_sample_player_test.py
+  processor_instrument_test.py
   processor_sample_script_test.py
   processor_sound_file_test.py
-  processor_track_mixer_test.py
+  processor_mixer_test.py
   profile.pyi
   realm.pyi
   realm_test.py
@@ -62,8 +61,10 @@ set(LIB_SRCS
   buffer_arena.cpp
   buffers.cpp
   control_value.cpp
+  csound_util.cpp
   double_buffered_state_manager.cpp
   engine.cpp
+  fluidsynth_util.cpp
   misc.cpp
   message_queue.cpp
   opcodes.cpp
@@ -80,11 +81,10 @@ set(LIB_SRCS
   processor_csound_base.cpp
   processor_csound.cpp
   processor_custom_csound.cpp
-  processor_fluidsynth.cpp
   processor_plugin.cpp
-  processor_sample_player.cpp
+  processor_instrument.cpp
   processor_sound_file.cpp
-  processor_track_mixer.cpp
+  processor_mixer.cpp
   processor_pianoroll.cpp
   processor_cvgenerator.cpp
   processor_sample_script.cpp
@@ -114,7 +114,6 @@ target_link_libraries(noisicaa-audioproc-engine PRIVATE noisicaa-host_system)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE noisicaa-lv2)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE noisicaa-node_db)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE noisicaa-audioproc-public)
-target_link_libraries(noisicaa-audioproc-engine PRIVATE capnp)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE pthread)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE rt)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE profiler)

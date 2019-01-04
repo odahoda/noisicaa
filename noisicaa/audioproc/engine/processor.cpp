@@ -33,11 +33,10 @@
 #include "noisicaa/audioproc/engine/processor_null.h"
 #include "noisicaa/audioproc/engine/processor_csound.h"
 #include "noisicaa/audioproc/engine/processor_custom_csound.h"
-#include "noisicaa/audioproc/engine/processor_sample_player.h"
-#include "noisicaa/audioproc/engine/processor_fluidsynth.h"
+#include "noisicaa/audioproc/engine/processor_instrument.h"
 #include "noisicaa/audioproc/engine/processor_plugin.h"
 #include "noisicaa/audioproc/engine/processor_sound_file.h"
-#include "noisicaa/audioproc/engine/processor_track_mixer.h"
+#include "noisicaa/audioproc/engine/processor_mixer.h"
 #include "noisicaa/audioproc/engine/processor_pianoroll.h"
 #include "noisicaa/audioproc/engine/processor_cvgenerator.h"
 #include "noisicaa/audioproc/engine/processor_sample_script.h"
@@ -75,21 +74,18 @@ StatusOr<Processor*> Processor::create(
   case pb::ProcessorDescription::CUSTOM_CSOUND:
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorCustomCSound(node_id, host_system, desc);
-  case pb::ProcessorDescription::FLUIDSYNTH:
-    assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorFluidSynth(node_id, host_system, desc);
   case pb::ProcessorDescription::PLUGIN:
     assert(desc.type() == pb::NodeDescription::PLUGIN);
     return new ProcessorPlugin(node_id, host_system, desc);
-  case pb::ProcessorDescription::SAMPLE_PLAYER:
+  case pb::ProcessorDescription::INSTRUMENT:
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorSamplePlayer(node_id, host_system, desc);
+    return new ProcessorInstrument(node_id, host_system, desc);
   case pb::ProcessorDescription::SOUND_FILE:
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorSoundFile(node_id, host_system, desc);
-  case pb::ProcessorDescription::TRACK_MIXER:
+  case pb::ProcessorDescription::MIXER:
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorTrackMixer(node_id, host_system, desc);
+    return new ProcessorMixer(node_id, host_system, desc);
   case pb::ProcessorDescription::PIANOROLL:
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorPianoRoll(node_id, host_system, desc);

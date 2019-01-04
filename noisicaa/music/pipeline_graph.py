@@ -23,16 +23,16 @@
 #import io
 import logging
 #from xml.etree import ElementTree
-from typing import Any, Optional, Iterator, List
+from typing import Any, Optional, Iterator, Callable
 
 from google.protobuf import message as protobuf
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa import instrument_db
 from noisicaa import node_db
 from noisicaa import model
 from . import pmodel
+from . import node_connector
 from . import commands
 from . import commands_pb2
 
@@ -186,6 +186,11 @@ class BasePipelineGraphNode(pmodel.BasePipelineGraphNode):  # pylint: disable=ab
             self.project.handle_pipeline_mutation(
                 audioproc.SetPluginState(self.pipeline_node_id, plugin_state))
 
+    def create_node_connector(
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
+    ) -> node_connector.NodeConnector:
+        return None
+
 
 class PipelineGraphNode(pmodel.PipelineGraphNode, BasePipelineGraphNode):
     def create(self, *, node_uri: Optional[str] = None, **kwargs: Any) -> None:
@@ -245,39 +250,6 @@ class AudioOutPipelineGraphNode(pmodel.AudioOutPipelineGraphNode, BasePipelineGr
     def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
         # Nothing to do, predefined node of the pipeline.
         yield from []
-
-
-class InstrumentPipelineGraphNode(pmodel.InstrumentPipelineGraphNode, BasePipelineGraphNode):
-    def create(self, *, instrument_uri: Optional[str] = None, **kwargs: Any) -> None:
-        super().create(**kwargs)
-
-        self.instrument_uri = instrument_uri
-
-    def get_update_mutations(self) -> Iterator[audioproc.Mutation]:
-        connections = []  # type: List[pmodel.PipelineGraphConnection]
-        for connection in self.project.pipeline_graph_connections:
-            if connection.source_node is self or connection.dest_node is self:
-                connections.append(connection)
-
-        for connection in connections:
-            yield from connection.get_remove_mutations()
-        yield from self.get_remove_mutations()
-        yield from self.get_add_mutations()
-        for connection in connections:
-            yield from connection.get_add_mutations()
-
-    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
-        node_description = instrument_db.parse_uri(
-            self.instrument_uri, self.project.get_node_description)
-        yield audioproc.AddNode(
-            description=node_description,
-            id=self.pipeline_node_id,
-            name=self.name)
-
-        yield from self.get_initial_parameter_mutations()
-
-    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
-        yield audioproc.RemoveNode(self.pipeline_node_id)
 
 
 class PipelineGraphConnection(pmodel.PipelineGraphConnection):

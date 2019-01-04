@@ -23,7 +23,7 @@
 import functools
 import logging
 import typing
-from typing import cast, Any, Optional, Dict, List
+from typing import cast, Any, Optional, Dict, List, Iterable
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -36,9 +36,6 @@ from noisicaa import model
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
-
-from . import node_widget
-from . import plugin_ui
 
 if typing.TYPE_CHECKING:
     from noisicaa import core
@@ -407,8 +404,6 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
         self.__node = node
 
-        self.__plugin_ui = None  # type: Optional[plugin_ui.PluginUI]
-
         self.__box = Box(self)
 
         if icon is not None:
@@ -441,12 +436,31 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         self.__title_edit_proxy = QtWidgets.QGraphicsProxyWidget(self)
         self.__title_edit_proxy.setWidget(self.__title_edit)
 
-        self.__body = self.createBodyWidget()
-        self.__body.setAutoFillBackground(False)
-        self.__body.setAttribute(Qt.WA_NoSystemBackground, True)
+        self.__title_widgets_proxy = None
+        self.__title_widgets_container = None
+        title_widgets = list(self.titleWidgets())
+        if title_widgets:
+            self.__title_widgets_container = QtWidgets.QWidget()
+            self.__title_widgets_container.setAutoFillBackground(False)
+            self.__title_widgets_container.setAttribute(Qt.WA_NoSystemBackground, True)
 
-        self.__body_proxy = QtWidgets.QGraphicsProxyWidget(self)
-        self.__body_proxy.setWidget(self.__body)
+            layout = QtWidgets.QHBoxLayout()
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(1)
+            for widget in title_widgets:
+                layout.addWidget(widget)
+            self.__title_widgets_container.setLayout(layout)
+
+            self.__title_widgets_proxy = QtWidgets.QGraphicsProxyWidget(self)
+            self.__title_widgets_proxy.setWidget(self.__title_widgets_container)
+
+        self.__body_proxy = None  # type: QtWidgets.QGraphicsProxyWidget
+        self.__body = self.createBodyWidget()
+        if self.__body is not None:
+            self.__body.setAutoFillBackground(False)
+            self.__body.setAttribute(Qt.WA_NoSystemBackground, True)
+            self.__body_proxy = QtWidgets.QGraphicsProxyWidget(self)
+            self.__body_proxy.setWidget(self.__body)
 
         self.__transform = QtGui.QTransform()
         self.__canvas_rect = self.__transform.mapRect(self.contentRect())
@@ -487,7 +501,15 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         self.props.canvasRectChanged.emit(self.canvasRect())
 
     def createBodyWidget(self) -> QtWidgets.QWidget:
-        return node_widget.NodeWidget(node=self.__node, context=self.context)
+        return None
+
+    def titleWidgets(self) -> Iterable[QtWidgets.QWidget]:
+        if self.__node.removable:
+            remove_button = QtWidgets.QToolButton()
+            remove_button.setAutoRaise(True)
+            remove_button.setIcon(QtGui.QIcon.fromTheme('window-close'))
+            remove_button.clicked.connect(self.onRemove)
+            yield remove_button
 
     def setup(self) -> None:
         for port in self.__ports.values():
@@ -501,8 +523,6 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         for port in self.__ports.values():
             port.cleanup()
         self.__ports.clear()
-        if self.__plugin_ui is not None:
-            self.__plugin_ui.cleanup()
 
     def node(self) -> music.BasePipelineGraphNode:
         return self.__node
@@ -676,10 +696,27 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
             self.__title_edit_proxy.setVisible(False)
 
+        if self.__title_widgets_proxy is not None:
+            if (h > self.__title_widgets_container.height() + 2
+                    and w > self.__title_widgets_container.width() + 40
+                    and not self.__rename_node):
+                self.__title_widgets_proxy.setVisible(True)
+                self.__title_widgets_proxy.setPos(
+                    w - self.__title_widgets_container.width() - 4, 2)
+
+                title_h = self.__title_widgets_container.height() + 4
+            else:
+                self.__title_widgets_proxy.setVisible(False)
+
         if h > 20 and not self.__rename_node:
             self.__title.setVisible(True)
-            self.__title.setPos(8, 0)
-            self.__title.setWidth(w - 16)
+            self.__title.setPos(8, (title_h - 2 - self.__title.boundingRect().height()) / 2)
+
+            if self.__title_widgets_proxy is not None and self.__title_widgets_proxy.isVisible():
+                self.__title.setWidth(self.__title_widgets_proxy.pos().x() - 8)
+            else:
+                self.__title.setWidth(w - 16)
+
         else:
             self.__title.setVisible(False)
 
@@ -687,24 +724,33 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             if self.__title.isVisible():
                 icon_y = 24
             else:
-                icon_y = 0
+                icon_y = 3
             self.__icon.setRect(QtCore.QRectF(3, icon_y, w - 6, h - icon_y - 6))
 
-        bsize = self.__body_proxy.minimumSize()
-        if h > bsize.height() + (title_h + 4) and w > bsize.width() + 8:
-            self.__body_proxy.setVisible(True)
-            self.__body_proxy.setPos(4, title_h)
-            self.__body_proxy.resize(w - 8, h - (title_h + 4))
+        if self.__body_proxy is not None:
+            bsize = self.__body_proxy.minimumSize()
+            if h > bsize.height() + (title_h + 4) and w > bsize.width() + 8:
+                self.__body_proxy.setVisible(True)
+                self.__body_proxy.setPos(4, title_h)
+                self.__body_proxy.resize(w - 8, h - (title_h + 4))
 
-        else:
-            self.__body_proxy.setVisible(False)
+            else:
+                self.__body_proxy.setVisible(False)
 
         if self.__title_edit_proxy.isVisible():
-            self.__drag_rect = QtCore.QRectF(0, 0, 0, 0)
-        elif self.__body_proxy.isVisible():
-            self.__drag_rect = QtCore.QRectF(0, 0, w, title_h)
+            drag_rect_width, drag_rect_height = 0.0, 0.0
         else:
-            self.__drag_rect = QtCore.QRectF(0, 0, w, h)
+            if self.__body_proxy is not None and self.__body_proxy.isVisible():
+                drag_rect_height = title_h
+            else:
+                drag_rect_height = h
+
+            if self.__title_widgets_proxy is not None and self.__title_widgets_proxy.isVisible():
+                drag_rect_width = self.__title_widgets_proxy.pos().x()
+            else:
+                drag_rect_width = w
+
+        self.__drag_rect = QtCore.QRectF(0, 0, drag_rect_width, drag_rect_height)
 
     def paint(
             self, painter: QtGui.QPainter, option: QtWidgets.QStyleOptionGraphicsItem,
@@ -732,10 +778,6 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             remove = menu.addAction("Remove")
             remove.triggered.connect(self.onRemove)
 
-        if self.__node.description.has_ui:
-            show_ui = menu.addAction("Show UI")
-            show_ui.triggered.connect(self.onShowUI)
-
         color_menu = menu.addMenu("Set color")
         color_action = SelectColorAction(color_menu)
         color_action.colorSelected.connect(self.onSetColor)
@@ -746,14 +788,6 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             target=self.__node.parent.id,
             remove_pipeline_graph_node=music.RemovePipelineGraphNode(
                 node_id=self.__node.id)))
-
-    def onShowUI(self) -> None:
-        if self.__plugin_ui is not None:
-            self.__plugin_ui.show()
-            self.__plugin_ui.raise_()
-            self.__plugin_ui.activateWindow()
-        else:
-            self.__plugin_ui = plugin_ui.PluginUI(node=self.__node, context=self.context)
 
     def onSetColor(self, color: model.Color) -> None:
         if color != self.__node.graph_color:

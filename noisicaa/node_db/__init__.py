@@ -26,12 +26,11 @@ from .node_description_pb2 import (
     LV2Description,
     LadspaDescription,
     CSoundDescription,
-    FluidSynthDescription,
-    SamplePlayerDescription,
     SoundFileDescription,
     PluginDescription,
     FloatValueDescription,
     PortDescription,
+    NodeUIDescription,
     NodeDescription,
 )
 from .private.builtin_scanner import Builtins

@@ -60,6 +60,7 @@ class LadspaScanner(scanner.Scanner):
                         desc.supported = True
                         desc.display_name = descriptor.name
                         desc.type = node_db.NodeDescription.PLUGIN
+                        desc.node_ui.type = node_db.NodeUIDescription.PLUGIN
                         desc.processor.type = node_db.ProcessorDescription.PLUGIN
                         desc.plugin.type = node_db.PluginDescription.LADSPA
                         desc.has_ui = False

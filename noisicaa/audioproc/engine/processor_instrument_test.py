@@ -25,26 +25,31 @@ from noisidev import unittest
 from noisidev import unittest_mixins
 from noisidev import unittest_engine_mixins
 from noisidev import unittest_engine_utils
-from noisicaa.bindings.lv2 import atom
-from noisicaa.bindings.lv2 import urid
+from noisicaa import lv2
+from noisicaa.audioproc.public import instrument_spec_pb2
+from noisicaa.audioproc.public import processor_message_pb2
 from . import block_context
 from . import buffers
 from . import processor
 
 
-class ProcessorSamplePlayerTestMixin(
+class ProcessorInstrumentTestMixin(
         unittest_engine_mixins.HostSystemMixin,
         unittest_mixins.NodeDBMixin,
         unittest.TestCase):
-    def test_sample_player(self):
-        plugin_uri = 'builtin://sample_player'
-        node_desc = self.node_db[plugin_uri]
 
-        node_desc.sample_player.sample_path = os.fsencode(
-            os.path.join(unittest.TESTDATA_DIR, 'snare.wav'))
+    def playback_test(self, instrument_spec):
+        plugin_uri = 'builtin://instrument'
+        node_desc = self.node_db[plugin_uri]
 
         proc = processor.PyProcessor('test_node', self.host_system, node_desc)
         proc.setup()
+
+        msg = processor_message_pb2.ProcessorMessage(
+            node_id='test_node',
+            change_instrument=processor_message_pb2.ProcessorMessage.ChangeInstrument(
+                instrument_spec=instrument_spec))
+        proc.handle_message(msg)
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
@@ -59,15 +64,17 @@ class ProcessorSamplePlayerTestMixin(
         proc.connect_port(ctxt, 1, buffer_mgr.data('out:left'))
         proc.connect_port(ctxt, 2, buffer_mgr.data('out:right'))
 
+        urid_mapper = lv2.DynamicURIDMapper()
+
         # run once empty to give csound some chance to initialize the ftable
-        forge = atom.AtomForge(urid.static_mapper)
+        forge = lv2.AtomForge(urid_mapper)
         forge.set_buffer(buffer_mgr.data('in'), 10240)
         with forge.sequence():
             pass
 
         proc.process_block(ctxt, None)  # TODO: pass time_mapper
 
-        forge = atom.AtomForge(urid.static_mapper)
+        forge = lv2.AtomForge(urid_mapper)
         forge.set_buffer(buffer_mgr.data('in'), 10240)
         with forge.sequence():
             forge.write_midi_event(0, bytes([0x90, 60, 100]), 3)
@@ -81,3 +88,17 @@ class ProcessorSamplePlayerTestMixin(
 
         self.assertTrue(any(v != 0.0 for v in audio_l_out))
         self.assertTrue(any(v != 0.0 for v in audio_r_out))
+
+    def test_sample(self):
+        self.playback_test(
+            instrument_spec_pb2.InstrumentSpec(
+                sample=instrument_spec_pb2.SampleInstrumentSpec(
+                    path=os.path.join(unittest.TESTDATA_DIR, 'snare.wav'))))
+
+    def test_sf2(self):
+        self.playback_test(
+            instrument_spec_pb2.InstrumentSpec(
+                sf2=instrument_spec_pb2.SF2InstrumentSpec(
+                    path=os.path.join(unittest.TESTDATA_DIR, 'sf2test.sf2'),
+                    bank=0,
+                    preset=0)))

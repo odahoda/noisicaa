@@ -214,6 +214,13 @@ cdef class PyRealm(object):
         plugin_host = await self.get_plugin_host()
         await plugin_host.call('SET_PLUGIN_STATE', self.__name, node, state)
 
+    def set_session_values(self, values):
+        for key, value in values.items():
+            if key.startswith('node/'):
+                _, node_id, node_key = key.split('/', 3)
+                node = self.__graph.find_node(node_id)
+                node.set_session_value(node_key, value)
+
     def send_node_message(self, msg):
         node = self.__graph.find_node(msg.node_id)
         assert isinstance(node, graph.ProcessorNode), type(node).__name__

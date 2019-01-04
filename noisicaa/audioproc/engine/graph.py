@@ -25,11 +25,11 @@ from typing import Any, Dict, List, Optional, Set
 
 import toposort
 
-from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import host_system as host_system_lib
+from noisicaa.audioproc.public import processor_message_pb2
 from . import control_value
 from . import processor as processor_lib
 from . import processor_pb2
@@ -249,7 +249,6 @@ class Node(object):
             node_db.NodeDescription.PLUGIN: PluginNode,
             node_db.NodeDescription.REALM_SINK: RealmSinkNode,
             node_db.NodeDescription.CHILD_REALM: ChildRealmNode,
-            node_db.NodeDescription.EVENT_SOURCE: EventSourceNode,
         }
 
         try:
@@ -345,6 +344,9 @@ class Node(object):
         """
         logger.info("%s: cleanup()", self.name)
 
+    def set_session_value(self, key: str, value: Any) -> None:
+        pass
+
     @property
     def control_values(self) -> List[control_value.PyControlValue]:
         return [v for _, v in sorted(self.__control_values.items())]
@@ -397,6 +399,14 @@ class ProcessorNode(Node):
                 self.__processor.cleanup()
 
         await super().cleanup(deref)
+
+    def set_session_value(self, key: str, value: Any) -> None:
+        if key == 'muted':
+            self.__processor.handle_message(processor_message_pb2.ProcessorMessage(
+                node_id=self.id,
+                mute_node=processor_message_pb2.ProcessorMessage.MuteNode(muted=value)))
+
+        super().set_session_value(key, value)
 
     def add_to_spec_pre(self, spec: spec_lib.PySpec) -> None:
         super().add_to_spec_pre(spec)
@@ -480,21 +490,6 @@ class ChildRealmNode(Node):
             'CALL_CHILD_REALM',
             self.__child_realm,
             self.outputs['out:left'].buf_name, self.outputs['out:right'].buf_name)
-
-
-class EventSourceNode(Node):
-    def __init__(self, *, track_id: int, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.__track_id = track_id
-
-    def add_to_spec_pre(self, spec: spec_lib.PySpec) -> None:
-        super().add_to_spec_pre(spec)
-
-        spec.append_opcode(
-            'FETCH_MESSAGES',
-            core.build_labelset({core.MessageKey.trackId: self.__track_id}).to_bytes(),
-            self.outputs['out'].buf_name)
 
 
 class Graph(object):

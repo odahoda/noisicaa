@@ -18,30 +18,21 @@
 #
 # @end:license
 
-@0xb5afa1e45874d1ef;
+import asyncio
+from typing import Iterator, Tuple
 
-using Cxx = import "/capnp/c++.capnp";
-$Cxx.namespace("noisicaa::capnp");
 
-enum Key {
-  trackId @0;
-}
+class PyURIDMapper(object):
+    def map(self, uri: str) -> int: ...
+    def unmap(self, urid: int) -> str: ...
 
-struct Label {
-  key @0 :Key;
-  value @1 :UInt64;
-}
 
-struct Labelset {
-  labels @0 :List(Label);
-}
+class PyDynamicURIDMapper(PyURIDMapper):
+    def known(self, uri: str) -> bool: ...
+    def list(self) -> Iterator[Tuple[str, int]]: ...
 
-enum Type {
-  atom @0;
-}
 
-struct Message {
-  labelset @0 :Labelset;
-  type @1 :Type;
-  data @2 :Data;
-}
+class PyProxyURIDMapper(PyURIDMapper):
+    def __init__(self, *, tmp_dir: str, server_address: str) -> None: ...
+    async def setup(self, event_loop: asyncio.AbstractEventLoop) -> None: ...
+    async def cleanup(self, event_loop: asyncio.AbstractEventLoop) -> None: ...

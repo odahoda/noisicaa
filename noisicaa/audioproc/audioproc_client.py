@@ -22,7 +22,7 @@
 
 import asyncio
 import logging
-from typing import Any, Optional, Set, Tuple
+from typing import Any, Optional, Set, Tuple, Dict
 
 from noisicaa import core
 from noisicaa.core import ipc
@@ -119,10 +119,10 @@ class AudioProcClientBase(object):
     async def set_backend_parameters(self, **parameters: Any) -> None:
         raise NotImplementedError
 
-    async def update_player_state(self, state: player_state_pb2.PlayerState) -> None:
+    async def set_session_values(self, realm: str, values: Dict[str, Any]) -> None:
         raise NotImplementedError
 
-    async def send_message(self, msg: Any) -> None:
+    async def update_player_state(self, state: player_state_pb2.PlayerState) -> None:
         raise NotImplementedError
 
     async def play_file(self, path: str) -> None:
@@ -265,12 +265,11 @@ class AudioProcClientMixin(AudioProcClientBase):
     async def set_backend_parameters(self, **parameters: Any) -> None:
         await self._stub.call('SET_BACKEND_PARAMETERS', self._session_id, parameters)
 
+    async def set_session_values(self, realm: str, values: Dict[str, Any]) -> None:
+        await self._stub.call('SET_SESSION_VALUES', self._session_id, realm, values)
+
     async def update_player_state(self, state: player_state_pb2.PlayerState) -> None:
         await self._stub.call('UPDATE_PLAYER_STATE', self._session_id, state)
-
-    # TODO: msg is a capnp message, and capnp's import magic doesn't work with mypy.
-    async def send_message(self, msg: Any) -> None:
-        return await self._stub.call('SEND_MESSAGE', self._session_id, msg.to_bytes())
 
     async def play_file(self, path: str) -> None:
         await self._stub.call('PLAY_FILE', self._session_id, path)

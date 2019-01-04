@@ -20,9 +20,13 @@
 
 add_python_package(
   audio_thread_profiler.py
+  control_value_connector.py
+  control_value_dial.py
+  dynamic_layout.py
   editor_app.py
   editor_window.py
   flowlayout.py
+  gain_slider.py
   instrument_library.py
   instrument_library_test.py
   load_history.py
@@ -49,6 +53,7 @@ add_python_package(
   svg_symbol_test.py
   ui_base.py
   ui_process.py
+  vumeter.py
 )
 
 add_subdirectory(track_list)

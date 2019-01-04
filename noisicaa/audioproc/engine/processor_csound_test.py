@@ -24,8 +24,7 @@ from noisidev import unittest
 from noisidev import unittest_mixins
 from noisidev import unittest_engine_mixins
 from noisidev import unittest_engine_utils
-from noisicaa.bindings.lv2 import atom
-from noisicaa.bindings.lv2 import urid
+from noisicaa import lv2
 from noisicaa import node_db
 from . import block_context
 from . import buffers
@@ -160,7 +159,8 @@ class ProcessorCsoundTestMixin(
         proc.connect_port(ctxt, 0, buffer_mgr.data('in'))
         proc.connect_port(ctxt, 1, buffer_mgr.data('out'))
 
-        forge = atom.AtomForge(urid.static_mapper)
+        urid_mapper = lv2.DynamicURIDMapper()
+        forge = lv2.AtomForge(urid_mapper)
         forge.set_buffer(buffer_mgr.data('in'), 10240)
         with forge.sequence():
             forge.write_midi_event(0, bytes([0x90, 60, 100]), 3)

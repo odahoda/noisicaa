@@ -26,23 +26,23 @@ from libc cimport string
 import logging
 import operator
 
-from .lv2.core cimport (
+from noisicaa.lv2.core cimport (
     Feature,
     LV2_Feature,
 )
-from .lv2.urid cimport (
+from noisicaa.lv2.urid cimport (
     LV2_URID_Map,
     LV2_URID_Unmap,
     URID_Map_Feature,
     URID_Unmap_Feature,
-    DynamicURIDMapper,
+    # DynamicURIDMapper,
 )
-from .lv2.options cimport Options_Feature
-from .lv2.bufsize cimport (
+from noisicaa.lv2.options cimport Options_Feature
+from noisicaa.lv2.bufsize cimport (
     BufSize_BoundedBlockLength_Feature,
     BufSize_PowerOf2BlockLength_Feature,
 )
-from .lv2.worker cimport Worker_Feature
+from noisicaa.lv2.worker cimport Worker_Feature
 
 
 logger = logging.getLogger(__name__)
@@ -979,7 +979,7 @@ cdef class World(object):
         self.world = NULL
 
     def __init__(self):
-        self.urid_mapper = DynamicURIDMapper()
+        # self.urid_mapper = DynamicURIDMapper()
 
         self.world = lilv_world_new()
         assert self.world != NULL

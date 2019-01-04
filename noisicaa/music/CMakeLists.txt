@@ -27,7 +27,9 @@ add_python_package(
   commands_test.py
   control_track.py
   control_track_test.py
+  instrument.py
   mutations.py
+  node_connector.py
   pipeline_graph.py
   pipeline_graph_test.py
   player.py

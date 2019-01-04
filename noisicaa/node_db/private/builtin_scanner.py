@@ -31,11 +31,14 @@ logger = logging.getLogger(__name__)
 
 
 class Builtins(object):
-    TrackMixerDescription = node_db.NodeDescription(
+    MixerDescription = node_db.NodeDescription(
         display_name='Mixer',
         type=node_db.NodeDescription.PROCESSOR,
+        node_ui=node_db.NodeUIDescription(
+            type=node_db.NodeUIDescription.MIXER,
+        ),
         processor=node_db.ProcessorDescription(
-            type=node_db.ProcessorDescription.TRACK_MIXER,
+            type=node_db.ProcessorDescription.MIXER,
         ),
         ports=[
             node_db.PortDescription(
@@ -62,28 +65,37 @@ class Builtins(object):
                 name='gain',
                 direction=node_db.PortDescription.INPUT,
                 type=node_db.PortDescription.KRATE_CONTROL,
-            ),
-            node_db.PortDescription(
-                name='muted',
-                direction=node_db.PortDescription.INPUT,
-                type=node_db.PortDescription.KRATE_CONTROL,
+                float_value=node_db.FloatValueDescription(
+                    default=0.0,
+                    min=-50.0,
+                    max=20.0),
             ),
             node_db.PortDescription(
                 name='pan',
                 direction=node_db.PortDescription.INPUT,
                 type=node_db.PortDescription.KRATE_CONTROL,
+                float_value=node_db.FloatValueDescription(
+                    default=0.0,
+                    min=-1.0,
+                    max=1.0),
             ),
-        ]
-    )
-
-    EventSourceDescription = node_db.NodeDescription(
-        display_name='Events',
-        type=node_db.NodeDescription.EVENT_SOURCE,
-        ports=[
             node_db.PortDescription(
-                name='out',
-                direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.EVENTS,
+                name='lp_cutoff',
+                direction=node_db.PortDescription.INPUT,
+                type=node_db.PortDescription.KRATE_CONTROL,
+                float_value=node_db.FloatValueDescription(
+                    default=20000.0,
+                    min=1.0,
+                    max=20000.0),
+            ),
+            node_db.PortDescription(
+                name='hp_cutoff',
+                direction=node_db.PortDescription.INPUT,
+                type=node_db.PortDescription.KRATE_CONTROL,
+                float_value=node_db.FloatValueDescription(
+                    default=1.0,
+                    min=1.0,
+                    max=20000.0),
             ),
         ]
     )
@@ -91,6 +103,9 @@ class Builtins(object):
     ControlTrackDescription = node_db.NodeDescription(
         display_name='Control Track',
         type=node_db.NodeDescription.PROCESSOR,
+        node_ui=node_db.NodeUIDescription(
+            type=node_db.NodeUIDescription.CONTROL_TRACK,
+        ),
         processor=node_db.ProcessorDescription(
             type=node_db.ProcessorDescription.CV_GENERATOR,
         ),
@@ -106,6 +121,9 @@ class Builtins(object):
     SampleTrackDescription = node_db.NodeDescription(
         display_name='Sample Track',
         type=node_db.NodeDescription.PROCESSOR,
+        node_ui=node_db.NodeUIDescription(
+            type=node_db.NodeUIDescription.SAMPLE_TRACK,
+        ),
         processor=node_db.ProcessorDescription(
             type=node_db.ProcessorDescription.SAMPLE_SCRIPT,
         ),
@@ -126,6 +144,9 @@ class Builtins(object):
     BeatTrackDescription = node_db.NodeDescription(
         display_name='Beat Track',
         type=node_db.NodeDescription.PROCESSOR,
+        node_ui=node_db.NodeUIDescription(
+            type=node_db.NodeUIDescription.BEAT_TRACK,
+        ),
         processor=node_db.ProcessorDescription(
             type=node_db.ProcessorDescription.PIANOROLL,
         ),
@@ -141,6 +162,9 @@ class Builtins(object):
     ScoreTrackDescription = node_db.NodeDescription(
         display_name='Score Track',
         type=node_db.NodeDescription.PROCESSOR,
+        node_ui=node_db.NodeUIDescription(
+            type=node_db.NodeUIDescription.SCORE_TRACK,
+        ),
         processor=node_db.ProcessorDescription(
             type=node_db.ProcessorDescription.PIANOROLL,
         ),
@@ -187,56 +211,6 @@ class Builtins(object):
         ]
     )
 
-    FluidSynthDescription = node_db.NodeDescription(
-        display_name='FluidSynth',
-        type=node_db.NodeDescription.PROCESSOR,
-        processor=node_db.ProcessorDescription(
-            type=node_db.ProcessorDescription.FLUIDSYNTH,
-        ),
-        ports=[
-            node_db.PortDescription(
-                name='in',
-                direction=node_db.PortDescription.INPUT,
-                type=node_db.PortDescription.EVENTS,
-            ),
-            node_db.PortDescription(
-                name='out:left',
-                direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.AUDIO,
-            ),
-            node_db.PortDescription(
-                name='out:right',
-                direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.AUDIO,
-            ),
-        ]
-    )
-
-    SamplePlayerDescription = node_db.NodeDescription(
-        display_name='Sampler',
-        type=node_db.NodeDescription.PROCESSOR,
-        processor=node_db.ProcessorDescription(
-            type=node_db.ProcessorDescription.SAMPLE_PLAYER,
-        ),
-        ports=[
-            node_db.PortDescription(
-                name='in',
-                direction=node_db.PortDescription.INPUT,
-                type=node_db.PortDescription.EVENTS,
-            ),
-            node_db.PortDescription(
-                name='out:left',
-                direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.AUDIO,
-            ),
-            node_db.PortDescription(
-                name='out:right',
-                direction=node_db.PortDescription.OUTPUT,
-                type=node_db.PortDescription.AUDIO,
-            ),
-        ]
-    )
-
     SoundFileDescription = node_db.NodeDescription(
         display_name='Sound Player',
         type=node_db.NodeDescription.PROCESSOR,
@@ -244,6 +218,34 @@ class Builtins(object):
             type=node_db.ProcessorDescription.SOUND_FILE,
         ),
         ports=[
+            node_db.PortDescription(
+                name='out:left',
+                direction=node_db.PortDescription.OUTPUT,
+                type=node_db.PortDescription.AUDIO,
+            ),
+            node_db.PortDescription(
+                name='out:right',
+                direction=node_db.PortDescription.OUTPUT,
+                type=node_db.PortDescription.AUDIO,
+            ),
+        ]
+    )
+
+    InstrumentDescription = node_db.NodeDescription(
+        display_name='Instrument',
+        type=node_db.NodeDescription.PROCESSOR,
+        node_ui=node_db.NodeUIDescription(
+            type=node_db.NodeUIDescription.INSTRUMENT,
+        ),
+        processor=node_db.ProcessorDescription(
+            type=node_db.ProcessorDescription.INSTRUMENT,
+        ),
+        ports=[
+            node_db.PortDescription(
+                name='in',
+                direction=node_db.PortDescription.INPUT,
+                type=node_db.PortDescription.EVENTS,
+            ),
             node_db.PortDescription(
                 name='out:left',
                 direction=node_db.PortDescription.OUTPUT,
@@ -300,15 +302,13 @@ class Builtins(object):
 
 class BuiltinScanner(scanner.Scanner):
     def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
-        yield ('builtin://track_mixer', Builtins.TrackMixerDescription)
-        yield ('builtin://event_source', Builtins.EventSourceDescription)
+        yield ('builtin://mixer', Builtins.MixerDescription)
         yield ('builtin://control_track', Builtins.ControlTrackDescription)
         yield ('builtin://sample_track', Builtins.SampleTrackDescription)
         yield ('builtin://beat_track', Builtins.BeatTrackDescription)
         yield ('builtin://score_track', Builtins.ScoreTrackDescription)
         yield ('builtin://sink', Builtins.RealmSinkDescription)
         yield ('builtin://child_realm', Builtins.ChildRealmDescription)
-        yield ('builtin://fluidsynth', Builtins.FluidSynthDescription)
-        yield ('builtin://sample_player', Builtins.SamplePlayerDescription)
         yield ('builtin://custom_csound', Builtins.CustomCSoundDescription)
         yield ('builtin://sound_file', Builtins.SoundFileDescription)
+        yield ('builtin://instrument', Builtins.InstrumentDescription)

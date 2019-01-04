@@ -60,7 +60,6 @@ PIP_DEPS = {
         PKG('protobuf'),
         PKG('psutil'),
         PKG('pyaudio'),
-        PKG('pycapnp'),
         PKG('quamash'),
         PKG('toposort'),
         PKG('urwid'),
@@ -132,10 +131,6 @@ SYS_DEPS = {
         PKG('bison', 'ubuntu', '<17.10'),
         PKG('csound', 'ubuntu', '>=17.10'),
         PKG('libcsound64-dev', 'ubuntu', '>=17.10'),
-
-        # capnp
-        PKG('capnproto'),
-        PKG('libcapnp-dev'),
 
         # protocol buffers
         PKG('autoconf', 'ubuntu', '<17.10'),

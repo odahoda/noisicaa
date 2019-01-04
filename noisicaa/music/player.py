@@ -30,9 +30,8 @@ from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa import audioproc
 from noisicaa import model
-
 from . import pmodel
-from . import base_track
+from . import node_connector
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ class Player(object):
 
         self.callback_stub = None  # type: ipc.Stub
 
-        self.track_connectors = {}  # type: Dict[int, base_track.TrackConnector]
+        self.__node_connectors = {}  # type: Dict[int, node_connector.NodeConnector]
 
     async def setup(self) -> None:
         logger.info("Setting up player instance %s..", self.id)
@@ -106,9 +105,9 @@ class Player(object):
             await self.callback_stub.close()
             self.callback_stub = None
 
-        for connector in self.track_connectors.values():
+        for connector in self.__node_connectors.values():
             connector.close()
-        self.track_connectors.clear()
+        self.__node_connectors.clear()
 
         logger.info("Player instance %s cleanup complete.", self.id)
 
@@ -149,17 +148,20 @@ class Player(object):
         else:
             raise TypeError("Unsupported change type %s" % type(change))
 
+    async def set_session_values(self, values: Dict[str, Any]) -> None:
+        await self.audioproc_client.set_session_values(self.realm, values)
+
     def add_node(self, node: pmodel.BasePipelineGraphNode) -> Iterator[audioproc.ProcessorMessage]:
-        if isinstance(node, base_track.Track):
-            connector = cast(
-                base_track.TrackConnector,
-                node.create_track_connector(message_cb=self.send_node_message))
+        connector = cast(
+            node_connector.NodeConnector,
+            node.create_node_connector(message_cb=self.send_node_message))
+        if connector is not None:
             yield from connector.init()
-            self.track_connectors[node.id] = connector
+            self.__node_connectors[node.id] = connector
 
     def remove_node(self, node: pmodel.BasePipelineGraphNode) -> None:
-        if isinstance(node, base_track.Track):
-            self.track_connectors.pop(node.id).close()
+        if node.id in self.__node_connectors:
+            self.__node_connectors.pop(node.id).close()
 
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.event_loop.create_task(self.publish_pipeline_mutation(mutation))
@@ -192,10 +194,6 @@ class Player(object):
         state.realm = self.realm
 
         await self.audioproc_client.update_player_state(state)
-
-    def send_message(self, msg: Any) -> None:
-        # TODO: reimplement this.
-        pass
 
     async def create_plugin_ui(self, node_id: str) -> Tuple[int, Tuple[int, int]]:
         return await self.audioproc_client.create_plugin_ui(self.realm, node_id)

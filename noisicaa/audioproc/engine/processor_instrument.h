@@ -22,16 +22,13 @@
  * @end:license
  */
 
-#ifndef _NOISICAA_AUDIOPROC_ENGINE_PROCESSOR_FLUIDSYNTH_H
-#define _NOISICAA_AUDIOPROC_ENGINE_PROCESSOR_FLUIDSYNTH_H
+#ifndef _NOISICAA_AUDIOPROC_ENGINE_PROCESSOR_INSTRUMENT_H
+#define _NOISICAA_AUDIOPROC_ENGINE_PROCESSOR_INSTRUMENT_H
 
-#include <string>
+#include <atomic>
+#include <memory>
 #include <vector>
-#include <stdint.h>
-#include "fluidsynth.h"
-#include "lv2/lv2plug.in/ns/ext/urid/urid.h"
 #include "noisicaa/core/status.h"
-#include "noisicaa/audioproc/engine/buffers.h"
 #include "noisicaa/audioproc/engine/processor.h"
 
 namespace noisicaa {
@@ -39,25 +36,38 @@ namespace noisicaa {
 using namespace std;
 
 class HostSystem;
-class BlockContext;
+class CSoundUtil;
+class FluidSynthUtil;
 
-class ProcessorFluidSynth : public Processor {
+namespace pb {
+class InstrumentSpec;
+}
+
+class ProcessorInstrument : public Processor {
 public:
-  ProcessorFluidSynth(
+  ProcessorInstrument(
       const string& node_id, HostSystem* host_system, const pb::NodeDescription& desc);
-  ~ProcessorFluidSynth() override;
 
 protected:
   Status setup_internal() override;
   void cleanup_internal() override;
+  Status handle_message_internal(pb::ProcessorMessage* msg) override;
   Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 private:
-  BufferPtr _buffers[3];
+  Status change_instrument(const pb::InstrumentSpec& spec);
 
-  fluid_settings_t* _settings = nullptr;
-  fluid_synth_t* _synth = nullptr;
+  vector<BufferPtr> _buffers;
+
+  struct Instrument {
+    unique_ptr<FluidSynthUtil> fluidsynth;
+    unique_ptr<CSoundUtil> csound;
+  };
+
+  atomic<Instrument*> _next_instrument;
+  atomic<Instrument*> _current_instrument;
+  atomic<Instrument*> _old_instrument;
 };
 
 }  // namespace noisicaa

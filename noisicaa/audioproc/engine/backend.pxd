@@ -41,7 +41,6 @@ cdef extern from "noisicaa/audioproc/engine/backend.h" namespace "noisicaa" nogi
 
         Status setup(Realm* realm)
         void cleanup()
-        Status send_message(const string& msg)
         Status begin_block(BlockContext* ctxt)
         Status end_block(BlockContext* ctxt)
         Status output(BlockContext* ctxt, const string& channel, BufferPtr samples)

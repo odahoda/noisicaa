@@ -51,7 +51,7 @@ class ModelTest(unittest.TestCase):
         self.pool.register_class(pmodel.Note)
         self.pool.register_class(pmodel.PipelineGraphConnection)
         self.pool.register_class(pmodel.PipelineGraphNode)
-        self.pool.register_class(pmodel.InstrumentPipelineGraphNode)
+        self.pool.register_class(pmodel.Instrument)
         self.pool.register_class(pmodel.AudioOutPipelineGraphNode)
         self.pool.register_class(pmodel.PipelineGraphControlValue)
 
@@ -189,10 +189,10 @@ class BasePipelineGraphNodeMixin(object):
         self.assertIs(node.control_values[0], cv1)
 
 
-class InstrumentPipelineGraphNodeTest(BasePipelineGraphNodeMixin, ModelTest):
-    cls = pmodel.InstrumentPipelineGraphNode
+class InstrumentTest(BasePipelineGraphNodeMixin, ModelTest):
+    cls = pmodel.Instrument
 
-    def test_instrument_pipeline_graph_node(self):
+    def test_instrument(self):
         node = self.pool.create(self.cls)
 
         node.instrument_uri = 'sf2:/path.sf2?bank=1&preset=3'

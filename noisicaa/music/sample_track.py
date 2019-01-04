@@ -23,7 +23,7 @@
 import fractions
 import logging
 import random
-from typing import Any, List, Optional, Dict, Iterator
+from typing import Any, List, Optional, Dict, Iterator, Callable
 
 from google.protobuf import message as protobuf
 
@@ -33,6 +33,7 @@ from noisicaa import model
 from noisicaa import core
 from noisicaa.bindings import sndfile
 from . import pmodel
+from . import node_connector
 from . import base_track
 from . import commands
 from . import commands_pb2
@@ -167,21 +168,21 @@ class SampleRef(pmodel.SampleRef):
         self.sample = sample
 
 
-class SampleTrackConnector(base_track.TrackConnector):
-    _track = None  # type: SampleTrack
+class SampleTrackConnector(node_connector.NodeConnector):
+    _node = None  # type: SampleTrack
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__node_id = self._track.pipeline_node_id
+        self.__node_id = self._node.pipeline_node_id
         self.__listeners = {}  # type: Dict[str, core.Listener]
         self.__sample_ids = {}  # type: Dict[int, int]
 
     def _init_internal(self) -> None:
-        for sample_ref in self._track.samples:
+        for sample_ref in self._node.samples:
             self.__add_sample(sample_ref)
 
-        self.__listeners['samples'] = self._track.samples_changed.add(
+        self.__listeners['samples'] = self._node.samples_changed.add(
             self.__samples_list_changed)
 
     def close(self) -> None:
@@ -248,8 +249,10 @@ class SampleTrackConnector(base_track.TrackConnector):
 
 
 class SampleTrack(pmodel.SampleTrack, base_track.Track):
-    def create_track_connector(self, **kwargs: Any) -> SampleTrackConnector:
-        return SampleTrackConnector(track=self, **kwargs)
+    def create_node_connector(
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
+    ) -> SampleTrackConnector:
+        return SampleTrackConnector(node=self, message_cb=message_cb)
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.AddNode(

@@ -83,11 +83,6 @@ cdef class PyBackend(object):
             with nogil:
                 backend.cleanup()
 
-    def send_message(self, bytes msg):
-        cdef string c_msg = msg
-        with nogil:
-            check(self.__backend.send_message(c_msg))
-
     def begin_block(self, block_context.PyBlockContext ctxt):
         with nogil:
             check(self.__backend.begin_block(ctxt.get()))

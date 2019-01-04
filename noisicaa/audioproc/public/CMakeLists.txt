@@ -22,6 +22,7 @@ add_python_package()
 
 set(LIB_SRCS
   engine_notification.pb.cc
+  instrument_spec.pb.cc
   musical_time.cpp
   musical_time.pb.cc
   player_state.pb.cc
@@ -35,6 +36,8 @@ set(TEST_SRCS
   time_mapper_test.pyx
 )
 
+cpp_proto(instrument_spec.proto)
+py_proto(instrument_spec.proto)
 cpp_proto(musical_time.proto)
 py_proto(musical_time.proto)
 cpp_proto(player_state.proto)

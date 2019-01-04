@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, Optional, Iterator
+from typing import Any, Optional, Iterator, Callable
 
 from google.protobuf import message as protobuf
 
@@ -108,10 +108,10 @@ class BeatMeasure(pmodel.BeatMeasure, base_track.Measure):
 
 
 class BeatTrackConnector(base_track.MeasuredTrackConnector):
-    _track = None  # type: BeatTrack
+    _node = None  # type: BeatTrack
 
     def _add_track_listeners(self) -> None:
-        self._listeners['pitch'] = self._track.pitch_changed.add(self.__pitch_changed)
+        self._listeners['pitch'] = self._node.pitch_changed.add(self.__pitch_changed)
 
     def _add_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
         measure = down_cast(pmodel.BeatMeasure, mref.measure)
@@ -129,11 +129,11 @@ class BeatTrackConnector(base_track.MeasuredTrackConnector):
             beat_time = time + beat.time
             event = base_track.PianoRollInterval(
                 beat_time, beat_time + audioproc.MusicalDuration(1, 4),
-                self._track.pitch, 127)
+                self._node.pitch, 127)
             yield event
 
     def __pitch_changed(self, change: model.PropertyChange) -> None:
-        self._update_measure_range(0, len(self._track.measure_list))
+        self._update_measure_range(0, len(self._node.measure_list))
 
     def __measure_beats_changed(self, mref: pmodel.MeasureReference) -> None:
         self._update_measure_range(mref.index, mref.index + 1)
@@ -156,9 +156,9 @@ class BeatTrack(pmodel.BeatTrack, base_track.MeasuredTrack):
         for _ in range(num_measures):
             self.append_measure()
 
-    def create_track_connector(self, **kwargs: Any) -> BeatTrackConnector:
-        return BeatTrackConnector(track=self, **kwargs)
-
+    def create_node_connector(
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None]) -> BeatTrackConnector:
+        return BeatTrackConnector(node=self, message_cb=message_cb)
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.AddNode(

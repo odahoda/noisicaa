@@ -51,7 +51,7 @@ from .project import (
     BeatTrack,
     ControlPoint,
     ControlTrack,
-    InstrumentPipelineGraphNode,
+    Instrument,
     Measure,
     MeasureReference,
     MeasuredTrack,

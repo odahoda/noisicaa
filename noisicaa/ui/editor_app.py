@@ -36,6 +36,7 @@ from noisicaa import instrument_db
 from noisicaa import node_db
 from noisicaa import devices
 from noisicaa import core
+from noisicaa import lv2
 from noisicaa import runtime_settings as runtime_settings_lib
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
@@ -123,6 +124,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.audioproc_process = None  # type: str
         self.node_db = None  # type: node_db.NodeDBClient
         self.instrument_db = None  # type: instrument_db.InstrumentDBClient
+        self.urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.__clipboard = None  # type: Any
         self.__old_excepthook = None  # type: Callable[[Type[BaseException], BaseException, types.TracebackType], None]
         self.win = None  # type: EditorWindow
@@ -143,6 +145,7 @@ class EditorApp(ui_base.AbstractEditorApp):
 
         await self.createNodeDB()
         await self.createInstrumentDB()
+        await self.createURIDMapper()
 
         self.project_registry = project_registry.ProjectRegistry(
             self.process.event_loop, self.process.tmp_dir, self.process.manager, self.node_db)
@@ -225,6 +228,10 @@ class EditorApp(ui_base.AbstractEditorApp):
             await self.audioproc_client.cleanup()
             self.audioproc_client = None
 
+        if self.urid_mapper is not None:
+            await self.urid_mapper.cleanup(self.process.event_loop)
+            self.urid_mapper = None
+
         if self.instrument_db is not None:
             await self.instrument_db.disconnect(shutdown=True)
             await self.instrument_db.cleanup()
@@ -296,6 +303,14 @@ class EditorApp(ui_base.AbstractEditorApp):
             self.process.event_loop, self.process.server)
         await self.instrument_db.setup()
         await self.instrument_db.connect(instrument_db_address)
+
+    async def createURIDMapper(self) -> None:
+        urid_mapper_address = await self.process.manager.call('CREATE_URID_MAPPER_PROCESS')
+
+        self.urid_mapper = lv2.ProxyURIDMapper(
+            server_address=urid_mapper_address,
+            tmp_dir=self.process.tmp_dir)
+        await self.urid_mapper.setup(self.process.event_loop)
 
     async def createEditorWindow(self) -> None:
         logger.info("Creating EditorWindow.")

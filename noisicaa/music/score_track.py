@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Optional, Any, Iterable, Iterator
+from typing import Optional, Any, Iterable, Iterator, Callable
 
 from google.protobuf import message as protobuf
 
@@ -237,10 +237,10 @@ class ScoreMeasure(pmodel.ScoreMeasure, base_track.Measure):
 
 
 class ScoreTrackConnector(base_track.MeasuredTrackConnector):
-    _track = None  # type: ScoreTrack
+    _node = None  # type: ScoreTrack
 
     def _add_track_listeners(self) -> None:
-        self._listeners['transpose_octaves'] = self._track.transpose_octaves_changed.add(
+        self._listeners['transpose_octaves'] = self._node.transpose_octaves_changed.add(
             self.__transpose_octaves_changed)
 
     def _add_measure_listeners(self, mref: pmodel.MeasureReference) -> None:
@@ -258,7 +258,7 @@ class ScoreTrackConnector(base_track.MeasuredTrackConnector):
         for note in measure.notes:
             if not note.is_rest:
                 for pitch in note.pitches:
-                    pitch = pitch.transposed(octaves=self._track.transpose_octaves)
+                    pitch = pitch.transposed(octaves=self._node.transpose_octaves)
                     event = base_track.PianoRollInterval(
                         time, time + note.duration, pitch, 127)
                     yield event
@@ -266,7 +266,7 @@ class ScoreTrackConnector(base_track.MeasuredTrackConnector):
             time += note.duration
 
     def __transpose_octaves_changed(self, change: model.PropertyChange) -> None:
-        self._update_measure_range(0, len(self._track.measure_list))
+        self._update_measure_range(0, len(self._node.measure_list))
 
     def __measure_notes_changed(self, mref: pmodel.MeasureReference) -> None:
         self._update_measure_range(mref.index, mref.index + 1)
@@ -291,10 +291,10 @@ class ScoreTrack(pmodel.ScoreTrack, base_track.MeasuredTrack):
 
         return measure
 
-    def create_track_connector(self, **kwargs: Any) -> ScoreTrackConnector:
-        return ScoreTrackConnector(
-            track=self,
-            **kwargs)
+    def create_node_connector(
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
+    ) -> ScoreTrackConnector:
+        return ScoreTrackConnector(node=self, message_cb=message_cb)
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.AddNode(

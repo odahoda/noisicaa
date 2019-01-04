@@ -18,6 +18,6 @@
 #
 # @end:license
 
-from .lv2 import urid
+from noisicaa import lv2
 
-def atom_to_turtle(mapper: urid.URIDMapper, atom: bytes) -> str: ...
+def atom_to_turtle(mapper: lv2.URIDMapper, atom: bytes) -> str: ...

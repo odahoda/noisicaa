@@ -22,12 +22,17 @@
 
 syntax = "proto2";
 
+import "noisicaa/audioproc/public/instrument_spec.proto";
 import "noisicaa/audioproc/public/musical_time.proto";
 
 package noisicaa.pb;
 
 message ProcessorMessage {
   required string node_id = 1;
+
+  message MuteNode {
+    required bool muted = 1;
+  }
 
   message PianoRollAddInterval {
     required uint64 id = 1;
@@ -61,13 +66,19 @@ message ProcessorMessage {
     required uint64 id = 1;
   }
 
+  message ChangeInstrument {
+    required InstrumentSpec instrument_spec = 1;
+  }
+
   oneof msg {
+    MuteNode mute_node = 8;
     PianoRollAddInterval pianoroll_add_interval = 2;
     PianoRollRemoveInterval pianoroll_remove_interval = 3;
     CVGeneratorAddControlPoint cvgenerator_add_control_point = 4;
     CVGeneratorRemoveControlPoint cvgenerator_remove_control_point = 5;
     SampleScriptAddSample sample_script_add_sample = 6;
     SampleScriptRemoveSample sample_script_remove_sample = 7;
+    ChangeInstrument change_instrument = 9;
   }
 }
 

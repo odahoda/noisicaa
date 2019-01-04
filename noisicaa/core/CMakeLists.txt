@@ -28,8 +28,6 @@ add_python_package(
   ipc.py
   ipc_test.py
   logging.pyi
-  message.py
-  message_test.py
   perf_stats_test.py
   process_manager.py
   process_manager_test.py
@@ -56,11 +54,7 @@ set(LIB_SRCS
   refcount.cpp
   status.cpp
   stacktrace.cpp
-  message.capnp.c++
 )
-
-add_cpp_capnp(message.capnp)
-add_py_capnp(message.capnp)
 
 add_library(noisicaa-core SHARED ${LIB_SRCS})
 target_link_libraries(noisicaa-core PRIVATE pthread)

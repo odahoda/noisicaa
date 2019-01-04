@@ -90,6 +90,10 @@ message RemovePipelineGraphConnection {
   optional uint64 connection_id = 1;
 }
 
+message UpdateInstrument {
+  optional string instrument_uri = 1;
+}
+
 message SetTimeSignature {
   repeated uint64 measure_ids = 1;
   optional uint32 upper = 2;
@@ -268,6 +272,7 @@ message Command {
     PipelineGraphNodeToPreset pipeline_graph_node_to_preset = 141;
     PipelineGraphNodeFromPreset pipeline_graph_node_from_preset = 142;
     UpdateTrack update_track = 143;
+    UpdateInstrument update_instrument = 144;
   }
 }
 

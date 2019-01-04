@@ -115,7 +115,7 @@ message PipelineGraphNode {
 message AudioOutPipelineGraphNode {
 }
 
-message InstrumentPipelineGraphNode {
+message Instrument {
   optional string instrument_uri = 1;
 }
 
@@ -160,7 +160,7 @@ extend ObjectBase {
   optional BasePipelineGraphNode base_pipeline_graph_node = 301000;
   optional PipelineGraphNode pipeline_graph_node = 302000;
   optional AudioOutPipelineGraphNode audio_out_pipeline_graph_node = 303000;
-  optional InstrumentPipelineGraphNode instrument_pipeline_graph_node = 304000;
+  optional Instrument instrument = 304000;
 
   // Tracks (4xxxxx)
   optional Track track = 400000;

@@ -19,6 +19,8 @@
 # @end:license
 
 add_python_package(
+  atom_test.py
+  urid_mapper.pyi
   urid_mapper_test.py
   urid_mapper_process.py
   urid_mapper_process_test.py
@@ -32,6 +34,21 @@ set(LIB_SRCS
 add_library(noisicaa-lv2 SHARED ${LIB_SRCS})
 target_link_libraries(noisicaa-lv2 PRIVATE noisicaa-core)
 target_link_libraries(noisicaa-lv2 PRIVATE noisicaa-host_system)
+
+add_cython_module(core CXX)
+target_link_libraries(${core.so} PRIVATE noisicaa-lv2)
+
+add_cython_module(urid CXX)
+target_link_libraries(${urid.so} PRIVATE noisicaa-lv2)
+
+add_cython_module(options CXX)
+target_link_libraries(${options.so} PRIVATE noisicaa-lv2)
+
+add_cython_module(bufsize CXX)
+target_link_libraries(${bufsize.so} PRIVATE noisicaa-lv2)
+
+add_cython_module(worker CXX)
+target_link_libraries(${worker.so} PRIVATE noisicaa-lv2)
 
 add_cython_module(atom CXX)
 target_link_libraries(${atom.so} PRIVATE noisicaa-lv2)

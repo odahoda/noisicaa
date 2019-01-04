@@ -21,11 +21,12 @@
 from libc.stdint cimport uint8_t
 from libc cimport stdlib
 
-from .lv2.urid cimport URID_Map_Feature, URID_Unmap_Feature, URIDMapper
-from .lv2.atom cimport LV2_Atom
+from noisicaa.lv2.urid cimport URID_Map_Feature, URID_Unmap_Feature
+from noisicaa.lv2.urid_mapper cimport PyURIDMapper
+from noisicaa.lv2.atom cimport LV2_Atom
 
 
-def atom_to_turtle(URIDMapper mapper, const uint8_t* atom):
+def atom_to_turtle(PyURIDMapper mapper, const uint8_t* atom):
     cdef URID_Map_Feature map = URID_Map_Feature(mapper)
     cdef URID_Unmap_Feature unmap = URID_Unmap_Feature(mapper)
 

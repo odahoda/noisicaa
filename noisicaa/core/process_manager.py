@@ -121,10 +121,12 @@ class LogAdapter(asyncio.Protocol):
 
                 self._state = 'header'
 
+
 class ChildLogHandler(logging.Handler):
     def __init__(self, log_fd: int) -> None:
         super().__init__()
-        self._log_fd = log_fd
+        self.__log_fd = log_fd
+        self.__lock = threading.Lock()
 
     def handle(self, record: logging.LogRecord) -> None:
         record_attrs = {
@@ -144,9 +146,10 @@ class ChildLogHandler(logging.Handler):
         msg += struct.pack('>L', len(serialized_record))
         msg += serialized_record
 
-        while msg:
-            written = os.write(self._log_fd, msg)
-            msg = msg[written:]
+        with self.__lock:
+            while msg:
+                written = os.write(self.__log_fd, msg)
+                msg = msg[written:]
 
     def emit(self, record: logging.LogRecord) -> None:
         pass

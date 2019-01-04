@@ -134,7 +134,7 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         self.server.add_command_handler('SET_BACKEND', self.handle_set_backend)
         self.server.add_command_handler(
             'SET_BACKEND_PARAMETERS', self.handle_set_backend_parameters)
-        self.server.add_command_handler('SEND_MESSAGE', self.handle_send_message)
+        self.server.add_command_handler('SET_SESSION_VALUES', self.handle_set_session_values)
         self.server.add_command_handler('PLAY_FILE', self.handle_play_file)
         self.server.add_command_handler('PIPELINE_MUTATION', self.handle_pipeline_mutation)
         self.server.add_command_handler('SEND_NODE_MESSAGES', self.handle_send_node_messages)
@@ -301,9 +301,11 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         self.get_session(session_id)
         self.__engine.set_backend_parameters(**parameters)
 
-    def handle_send_message(self, session_id: str, msg: bytes) -> None:
+    def handle_set_session_values(
+            self, session_id: str, realm_name: str, values: Dict[str, Any]) -> None:
         self.get_session(session_id)
-        self.__engine.send_message(msg)
+        realm = self.__engine.get_realm(realm_name)
+        realm.set_session_values(values)
 
     def handle_update_player_state(
             self, session_id: str, state: player_state_pb2.PlayerState) -> None:

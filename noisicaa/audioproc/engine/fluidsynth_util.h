@@ -22,26 +22,39 @@
  * @end:license
  */
 
-#ifndef _NOISICAA_AUDIOPROC_ENGINE_PROCESSOR_TRACK_MIXER_H
-#define _NOISICAA_AUDIOPROC_ENGINE_PROCESSOR_TRACK_MIXER_H
+#ifndef _NOISICAA_AUDIOPROC_ENGINE_FLUIDSYNTH_UTIL_H
+#define _NOISICAA_AUDIOPROC_ENGINE_FLUIDSYNTH_UTIL_H
 
+#include <stdint.h>
+#include <string>
+#include <vector>
+#include "fluidsynth.h"
 #include "noisicaa/core/status.h"
-#include "noisicaa/audioproc/engine/processor_csound_base.h"
+#include "noisicaa/audioproc/engine/buffers.h"
 
 namespace noisicaa {
 
 using namespace std;
 
+class Logger;
 class HostSystem;
+class BlockContext;
+class TimeMapper;
 
-class ProcessorTrackMixer : public ProcessorCSoundBase {
+class FluidSynthUtil {
 public:
-  ProcessorTrackMixer(
-      const string& node_id, HostSystem* host_system, const pb::NodeDescription& desc);
+  FluidSynthUtil(HostSystem* host_system);
+  ~FluidSynthUtil();
 
-protected:
-  Status setup_internal() override;
-  void cleanup_internal() override;
+  Status setup(const string& path, uint32_t bank, uint32_t preset);
+  Status process_block(BlockContext* ctxt, TimeMapper* time_mapper, vector<BufferPtr>& buffers);
+
+private:
+  Logger* _logger;
+  HostSystem* _host_system;
+
+  fluid_settings_t* _settings = nullptr;
+  fluid_synth_t* _synth = nullptr;
 };
 
 }  // namespace noisicaa

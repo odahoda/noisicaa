@@ -21,6 +21,7 @@
 # @end:license
 
 import fractions
+import functools
 import logging
 from typing import cast, Any, Dict, Set, Sequence, List, Union
 
@@ -28,7 +29,6 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
-from noisicaa import instrument_db
 from noisicaa.audioproc.public import musical_time_pb2
 from . import pitch as pitch_lib
 from . import clef as clef_lib
@@ -102,6 +102,113 @@ class PipelineGraphControlValue(ProjectChild):
         self.name_changed = core.Callback[model_base.PropertyChange[str]]()
         self.value_changed = core.Callback[model_base.PropertyChange[project_pb2.ControlValue]]()
 
+    @property
+    def name(self) -> str:
+        return self.get_property_value('name')
+
+    @property
+    def value(self) -> project_pb2.ControlValue:
+        return self.get_property_value('value')
+
+
+class ControlValueMap(object):
+    def __init__(self, node: 'BasePipelineGraphNode') -> None:
+        self.__node = node
+
+        self.__initialized = False
+        self.__control_values = {}  # type: Dict[str, project_pb2.ControlValue]
+        self.__control_value_listeners = []  # type: List[core.Listener]
+        self.__control_values_listener = None # type: core.Listener
+
+        self.control_value_changed = core.CallbackMap[str, model_base.PropertyValueChange]()
+
+    def value(self, name: str) -> float:
+        return self.__control_values[name].value
+
+    def generation(self, name: str) -> int:
+        return self.__control_values[name].generation
+
+    def init(self) -> None:
+        if self.__initialized:
+            return
+
+        for port in self.__node.description.ports:
+            if (port.direction == node_db.PortDescription.INPUT
+                    and port.type == node_db.PortDescription.KRATE_CONTROL):
+                self.__control_values[port.name] = project_pb2.ControlValue(
+                    value=port.float_value.default, generation=1)
+
+        for control_value in self.__node.control_values:
+            self.__control_values[control_value.name] = control_value.value
+
+            self.__control_value_listeners.append(
+                control_value.value_changed.add(
+                    functools.partial(self.__control_value_changed, control_value.name)))
+
+        self.__control_values_listener = self.__node.control_values_changed.add(
+            self.__control_values_changed)
+
+        self.__initialized = True
+
+    def cleanup(self) -> None:
+        for listener in self.__control_value_listeners:
+            listener.remove()
+        self.__control_value_listeners.clear()
+
+        if self.__control_values_listener is not None:
+            self.__control_values_listener.remove()
+            self.__control_values_listener = None
+
+    def __control_values_changed(
+            self, change: model_base.PropertyListChange[PipelineGraphControlValue]) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
+            control_value = change.new_value
+
+            self.control_value_changed.call(
+                control_value.name,
+                model_base.PropertyValueChange(
+                    self.__node, control_value.name,
+                    self.__control_values[control_value.name], control_value.value))
+            self.__control_values[control_value.name] = control_value.value
+
+            self.__control_value_listeners.insert(
+                change.index,
+                control_value.value_changed.add(
+                    functools.partial(self.__control_value_changed, control_value.name)))
+
+        elif isinstance(change, model_base.PropertyListDelete):
+            control_value = change.old_value
+
+            for port in self.__node.description.ports:
+                if port.name == control_value.name:
+                    default_value = project_pb2.ControlValue(
+                        value=port.float_value.default, generation=1)
+                    self.control_value_changed.call(
+                        control_value.name,
+                        model_base.PropertyValueChange(
+                            self.__node, control_value.name,
+                            self.__control_values[control_value.name], default_value))
+                    self.__control_values[control_value.name] = default_value
+                    break
+
+            listener = self.__control_value_listeners.pop(change.index)
+            listener.remove()
+
+        else:
+            raise TypeError(type(change))
+
+    def __control_value_changed(
+            self,
+            control_value_name: str,
+            change: model_base.PropertyValueChange[project_pb2.ControlValue]
+    ) -> None:
+        self.control_value_changed.call(
+            control_value_name,
+            model_base.PropertyValueChange(
+                self.__node, control_value_name,
+                self.__control_values[control_value_name], change.new_value))
+        self.__control_values[control_value_name] = change.new_value
+
 
 class BasePipelineGraphNode(ProjectChild):
     class BasePipelineGraphNodeSpec(model_base.ObjectSpec):
@@ -126,6 +233,12 @@ class BasePipelineGraphNode(ProjectChild):
             core.Callback[model_base.PropertyListChange[PipelineGraphControlValue]]()
         self.plugin_state_changed = \
             core.Callback[model_base.PropertyChange[audioproc.PluginState]]()
+
+        self.control_value_map = ControlValueMap(self)
+
+    @property
+    def control_values(self) -> Sequence[PipelineGraphControlValue]:
+        return self.get_property_value('control_values')
 
     @property
     def removable(self) -> bool:
@@ -200,12 +313,12 @@ class AudioOutPipelineGraphNode(BasePipelineGraphNode):
         return node_db.Builtins.RealmSinkDescription
 
 
-class InstrumentPipelineGraphNode(BasePipelineGraphNode):
-    class InstrumentPipelineGraphNodeSpec(model_base.ObjectSpec):
-        proto_type = 'instrument_pipeline_graph_node'
-        proto_ext = project_pb2.instrument_pipeline_graph_node  # type: ignore
+class Instrument(BasePipelineGraphNode):
+    class InstrumentNodeSpec(model_base.ObjectSpec):
+        proto_type = 'instrument'
+        proto_ext = project_pb2.instrument  # type: ignore
 
-        instrument_uri = model_base.Property(str)
+        instrument_uri = model_base.Property(str, allow_none=True)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -214,8 +327,7 @@ class InstrumentPipelineGraphNode(BasePipelineGraphNode):
 
     @property
     def description(self) -> node_db.NodeDescription:
-        return instrument_db.parse_uri(
-            self.get_property_value('instrument_uri'), self.project.get_node_description)
+        return node_db.Builtins.InstrumentDescription
 
 
 class Track(BasePipelineGraphNode):  # pylint: disable=abstract-method

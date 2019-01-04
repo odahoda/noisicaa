@@ -37,6 +37,10 @@ cdef class PyHostSystem(object):
         return self.__host_system
 
     @property
+    def urid_mapper(self):
+        return self.__urid_mapper
+
+    @property
     def block_size(self):
         return self.__host_system.block_size()
 

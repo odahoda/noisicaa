@@ -30,11 +30,9 @@ from PyQt5 import QtWidgets
 from PyQt5 import QtSvg
 
 from noisicaa.core.typing_extra import down_cast
-from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import music
-from noisicaa.bindings import lv2
 from noisicaa.ui import svg_symbol
 from . import tools
 from . import measured_track_editor
@@ -1159,26 +1157,29 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
         self.playNoteOff()
 
         if self.playerState().playerID():
-            self.call_async(
-                self.project_client.player_send_message(
-                    self.playerState().playerID(),
-                    core.build_message(
-                        {core.MessageKey.trackId: self.track.id},
-                        core.MessageType.atom,
-                        lv2.AtomForge.build_midi_noteon(0, pitch.midi_note, 127))))
+            # TODO: reimplement
+            # self.call_async(
+            #     self.project_client.player_send_message(
+            #         self.playerState().playerID(),
+            #         core.build_message(
+            #             {core.MessageKey.trackId: self.track.id},
+            #             core.MessageType.atom,
+            #             lv2.AtomForge.build_midi_noteon(0, pitch.midi_note, 127))))
 
             self.__play_last_pitch = pitch
 
     def playNoteOff(self) -> None:
         if self.__play_last_pitch is not None:
             if self.playerState().playerID():
-                self.call_async(
-                    self.project_client.player_send_message(
-                        self.playerState().playerID(),
-                        core.build_message(
-                            {core.MessageKey.trackId: self.track.id},
-                            core.MessageType.atom,
-                            lv2.AtomForge.build_midi_noteoff(
-                                0, self.__play_last_pitch.midi_note))))
+                pass
+                # TODO: reimplement
+                # self.call_async(
+                #     self.project_client.player_send_message(
+                #         self.playerState().playerID(),
+                #         core.build_message(
+                #             {core.MessageKey.trackId: self.track.id},
+                #             core.MessageType.atom,
+                #             lv2.AtomForge.build_midi_noteoff(
+                #                 0, self.__play_last_pitch.midi_note))))
 
             self.__play_last_pitch = None

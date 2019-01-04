@@ -23,8 +23,10 @@ add_python_package(
   base_node_test.py
   canvas.py
   canvas_test.py
-  node_widget.py
-  plugin_ui.py
+  generic_node.py
+  instrument_node.py
+  mixer_node.py
+  plugin_node.py
   score_track_node.py
   toolbox.py
   track_node.py

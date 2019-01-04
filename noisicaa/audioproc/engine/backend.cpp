@@ -20,8 +20,6 @@
  * @end:license
  */
 
-#include "capnp/serialize.h"
-#include "noisicaa/core/message.capnp.h"
 #include "noisicaa/audioproc/engine/backend.h"
 #include "noisicaa/audioproc/engine/backend_null.h"
 #include "noisicaa/audioproc/engine/backend_portaudio.h"
@@ -57,12 +55,6 @@ Status Backend::setup(Realm* realm) {
 }
 
 void Backend::cleanup() {
-}
-
-Status Backend::send_message(const string& msg_bytes) {
-  lock_guard<mutex> lock(_msg_queue_mutex);
-  _msg_queue.emplace_back(msg_bytes);
-  return Status::Ok();
 }
 
 }  // namespace noisicaa

@@ -22,7 +22,7 @@
 
 import logging
 import random
-from typing import Any, Optional, Callable, Iterator, Dict, List, Type
+from typing import Any, Optional, Iterator, Dict, List, Type
 
 from google.protobuf import message as protobuf
 
@@ -30,6 +30,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import core
+from . import node_connector
 from . import pipeline_graph
 from . import pmodel
 from . import commands
@@ -91,39 +92,6 @@ class RemoveMeasure(commands.Command):
 commands.Command.register_command(RemoveMeasure)
 
 
-class TrackConnector(pmodel.TrackConnector):
-    def __init__(
-            self, *, track: 'Track', message_cb: Callable[[audioproc.ProcessorMessage], None]
-    ) -> None:
-        super().__init__()
-
-        self._track = track
-        self.__message_cb = message_cb
-
-        self.__initializing = True
-        self.__initial_messages = []  # type: List[audioproc.ProcessorMessage]
-
-    def init(self) -> List[audioproc.ProcessorMessage]:
-        assert self.__initializing
-        self._init_internal()
-        self.__initializing = False
-        messages = self.__initial_messages
-        self.__initial_messages = None
-        return messages
-
-    def _init_internal(self) -> None:
-        raise NotImplementedError
-
-    def _emit_message(self, msg: audioproc.ProcessorMessage) -> None:
-        if self.__initializing:
-            self.__initial_messages.append(msg)
-        else:
-            self.__message_cb(msg)
-
-    def close(self) -> None:
-        pass
-
-
 class Track(pmodel.Track, pipeline_graph.BasePipelineGraphNode):  # pylint: disable=abstract-method
     # TODO: the following are common to MeasuredTrack and TrackGroup, but not really
     # generic for all track types.
@@ -178,24 +146,24 @@ class PianoRollInterval(object):
                 id=self.id))
 
 
-class MeasuredTrackConnector(TrackConnector):
-    _track = None  # type: MeasuredTrack
+class MeasuredTrackConnector(node_connector.NodeConnector):
+    _node = None  # type: MeasuredTrack
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self._listeners = {}  # type: Dict[str, core.Listener]
 
-        self.__node_id = self._track.pipeline_node_id
+        self.__node_id = self._node.pipeline_node_id
         self.__measure_events = {}  # type: Dict[int, List[PianoRollInterval]]
 
     def _init_internal(self) -> None:
         time = audioproc.MusicalTime()
-        for mref in self._track.measure_list:
+        for mref in self._node.measure_list:
             self.__add_measure(time, mref)
             time += mref.measure.duration
 
-        self._listeners['measure_list'] = self._track.measure_list_changed.add(
+        self._listeners['measure_list'] = self._node.measure_list_changed.add(
             self.__measure_list_changed)
         self._add_track_listeners()
 
@@ -238,7 +206,7 @@ class MeasuredTrackConnector(TrackConnector):
     def _update_measure_range(
             self, begin: audioproc.MusicalTime, end: audioproc.MusicalTime) -> None:
         time = audioproc.MusicalTime()
-        for mref in self._track.measure_list:
+        for mref in self._node.measure_list:
             if mref.index >= end:
                 break
 
@@ -250,7 +218,7 @@ class MeasuredTrackConnector(TrackConnector):
     def __measure_list_changed(self, change: model.PropertyChange) -> None:
         if isinstance(change, model.PropertyListInsert):
             time = audioproc.MusicalTime()
-            for mref in self._track.measure_list:
+            for mref in self._node.measure_list:
                 if mref.index == change.new_value.index:
                     assert mref is change.new_value
                     self.__add_measure(time, mref)

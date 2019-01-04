@@ -40,6 +40,7 @@ if typing.TYPE_CHECKING:
     from noisicaa import instrument_db as instrument_db_lib
     from noisicaa import node_db as node_db_lib
     from noisicaa import runtime_settings as runtime_settings_lib
+    from noisicaa import lv2
 
 
 class CommonContext(object):
@@ -250,6 +251,7 @@ class AbstractEditorApp(object):
     midi_hub = None  # type: devices.MidiHub
     node_db = None  # type: node_db_lib.NodeDBClient
     instrument_db = None  # type: instrument_db_lib.InstrumentDBClient
+    urid_mapper = None  # type: lv2.ProxyURIDMapper
     default_style = None  # type: str
     qt_app = None  # type: QtWidgets.QApplication
 

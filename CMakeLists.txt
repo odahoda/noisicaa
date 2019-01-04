@@ -101,25 +101,6 @@ macro(add_cython_module mod lang)
   set(${mod}.so ${pkg_target}.${mod})
 endmacro(add_cython_module)
 
-macro(add_py_capnp src)
-  add_custom_command(
-    OUTPUT ${src}
-    COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/${src} ${src}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
-    )
-  file(RELATIVE_PATH pkg_path ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
-  string(REGEX REPLACE "/" "." pkg_target ${pkg_path})
-  add_custom_target(${pkg_target}.${src} ALL DEPENDS ${src})
-endmacro(add_py_capnp)
-
-macro(add_cpp_capnp src)
-  add_custom_command(
-    OUTPUT ${src}.c++ ${src}.h
-    COMMAND capnp compile --verbose --import-path=${CMAKE_SOURCE_DIR} --output=c++:${CMAKE_BINARY_DIR} --src-prefix=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
-  )
-endmacro(add_cpp_capnp)
-
 macro(py_proto src)
   string(REGEX REPLACE "\\.proto$" "" base ${src})
   add_custom_command(

@@ -25,8 +25,8 @@ import sys
 
 from noisidev import unittest
 from noisidev cimport unittest_engine_mixins
-from noisicaa.bindings.lv2 cimport atom
-from noisicaa.bindings.lv2 import urid
+#from noisicaa.bindings.lv2 cimport atom
+#from noisicaa.bindings.lv2 import urid
 from noisicaa.core.status cimport check
 #from .buffers cimport *
 

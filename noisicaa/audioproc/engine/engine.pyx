@@ -38,7 +38,6 @@ import time
 import toposort
 
 from noisicaa import core
-from noisicaa.bindings import lv2
 from noisicaa.core import ipc
 from noisicaa.core.status cimport check
 from noisicaa.core.perf_stats cimport PyPerfStats
@@ -363,10 +362,6 @@ cdef class PyEngine(object):
     def set_backend_parameters(self):
         if self.__backend is not None:
             pass
-
-    def send_message(self, msg):
-        if self.__backend is not None:
-            self.__backend.send_message(msg)
 
     @staticmethod
     cdef void __notification_callback(void* c_self, const string& notification_serialized) with gil:

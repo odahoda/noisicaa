@@ -36,12 +36,6 @@ from .callbacks import (
 from .perf_stats import (
     PyPerfStats as PerfStats,
 )
-from .message import (
-    build_labelset,
-    build_message,
-    MessageType,
-    MessageKey,
-)
 from .logging import (
     init_pylogging,
     RTSafeLogging,

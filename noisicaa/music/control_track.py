@@ -22,7 +22,7 @@
 
 import logging
 import random
-from typing import cast, Any, Dict, Optional, Iterator
+from typing import cast, Any, Dict, Optional, Iterator, Callable
 
 from google.protobuf import message as protobuf
 
@@ -31,6 +31,7 @@ from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import core
 from . import pmodel
+from . import node_connector
 from . import base_track
 from . import commands
 from . import commands_pb2
@@ -119,21 +120,21 @@ class ControlPoint(pmodel.ControlPoint):
         self.value = value
 
 
-class ControlTrackConnector(base_track.TrackConnector):
-    _track = None  # type: ControlTrack
+class ControlTrackConnector(node_connector.NodeConnector):
+    _node = None  # type: ControlTrack
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__node_id = self._track.pipeline_node_id
+        self.__node_id = self._node.pipeline_node_id
         self.__listeners = {}  # type: Dict[str, core.Listener]
         self.__point_ids = {}  # type: Dict[int, int]
 
     def _init_internal(self) -> None:
-        for point in self._track.points:
+        for point in self._node.points:
             self.__add_point(point)
 
-        self.__listeners['points'] = self._track.points_changed.add(
+        self.__listeners['points'] = self._node.points_changed.add(
             self.__points_list_changed)
 
     def close(self) -> None:
@@ -200,8 +201,10 @@ class ControlTrackConnector(base_track.TrackConnector):
 
 
 class ControlTrack(pmodel.ControlTrack, base_track.Track):
-    def create_track_connector(self, **kwargs: Any) -> ControlTrackConnector:
-        return ControlTrackConnector(track=self, **kwargs)
+    def create_node_connector(
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
+    ) -> ControlTrackConnector:
+        return ControlTrackConnector(node=self, message_cb=message_cb)
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.AddNode(

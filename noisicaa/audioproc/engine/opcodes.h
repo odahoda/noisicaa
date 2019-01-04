@@ -51,7 +51,6 @@ enum OpCode {
   SET_FLOAT,
 
   // I/O
-  FETCH_MESSAGES,
   FETCH_CONTROL_VALUE,
   POST_RMS,
 

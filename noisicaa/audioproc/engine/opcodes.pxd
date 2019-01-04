@@ -35,7 +35,6 @@ cdef extern from "noisicaa/audioproc/engine/opcodes.h" namespace "noisicaa" nogi
         MIX
         MUL
         SET_FLOAT
-        FETCH_MESSAGES
         FETCH_CONTROL_VALUE
         POST_RMS
         NOISE

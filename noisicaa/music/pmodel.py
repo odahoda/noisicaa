@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import Any, Optional, Iterator, MutableSequence
+from typing import Optional, Iterator, MutableSequence, Callable
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -45,7 +45,7 @@ class ProjectChild(model.ProjectChild, ObjectBase):
         return down_cast(Project, super().project)
 
 
-class TrackConnector(object):
+class NodeConnector(object):
     pass
 
 
@@ -131,6 +131,10 @@ class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBas
     def set_plugin_state(self, plugin_state: audioproc.PluginState) -> None:
         raise NotImplementedError
 
+    def create_node_connector(
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None]) -> NodeConnector:
+        raise NotImplementedError
+
 
 
 class PipelineGraphNode(BasePipelineGraphNode, model.PipelineGraphNode, ObjectBase):
@@ -170,9 +174,6 @@ class Track(BasePipelineGraphNode, model.Track, ObjectBase):
     @list_position.setter
     def list_position(self, value: int) -> None:
         self.set_property_value('list_position', value)
-
-    def create_track_connector(self, **kwargs: Any) -> TrackConnector:
-        raise NotImplementedError
 
 
 class Measure(ProjectChild, model.Measure, ObjectBase):
@@ -376,8 +377,7 @@ class SampleTrack(Track, model.SampleTrack, ObjectBase):
         return self.get_property_value('samples')
 
 
-class InstrumentPipelineGraphNode(
-        BasePipelineGraphNode, model.InstrumentPipelineGraphNode, ObjectBase):
+class Instrument(BasePipelineGraphNode, model.Instrument, ObjectBase):
     @property
     def instrument_uri(self) -> str:
         return self.get_property_value('instrument_uri')

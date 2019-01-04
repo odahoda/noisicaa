@@ -38,6 +38,11 @@ from .plugin_state_pb2 import (
     PluginStateLV2,
     PluginStateLV2Property,
 )
+from .instrument_spec_pb2 import (
+    InstrumentSpec,
+    SampleInstrumentSpec,
+    SF2InstrumentSpec,
+)
 from .processor_message_pb2 import (
     ProcessorMessage,
     ProcessorMessageList,

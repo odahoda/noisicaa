@@ -22,8 +22,7 @@ from noisidev import unittest
 from noisidev import unittest_mixins
 from noisidev import unittest_engine_mixins
 from noisidev import unittest_engine_utils
-from noisicaa.bindings.lv2 import atom
-from noisicaa.bindings.lv2 import urid
+from noisicaa import lv2
 from noisicaa.audioproc.public import musical_time
 from noisicaa.audioproc.public import processor_message_pb2
 from . import block_context
@@ -73,9 +72,9 @@ class ProcessorPianoRollTestMixin(
             self.proc.cleanup()
 
     def get_output(self):
-        seq = atom.wrap_atom(urid.static_mapper, self.outbuf)
-        self.assertIsInstance(seq, atom.Sequence)
-        return [(event.frames, [b for b in event.atom.data[0:3]]) for event in seq.events]
+        seq = lv2.wrap_atom(lv2.DynamicURIDMapper(), self.outbuf)
+        self.assertEqual(seq.type_uri, 'http://lv2plug.in/ns/ext/atom#Sequence')
+        return [(event.frames, [b for b in event.atom.data[0:3]]) for event in seq.sequence]
 
     def test_empty(self):
         self.proc.process_block(self.ctxt, None)  # TODO: pass time_mapper

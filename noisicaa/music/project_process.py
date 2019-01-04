@@ -65,8 +65,9 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
     def get_player(self, player_id: str) -> player_lib.Player:
         return self.__players[player_id]
 
-    def add_player(self, player: player_lib.Player) -> None:
+    async def add_player(self, player: player_lib.Player) -> None:
         self.__players[player.id] = player
+        await player.set_session_values(self.session_data)
 
     def remove_player(self, player: player_lib.Player) -> None:
         del self.__players[player.id]
@@ -99,10 +100,10 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
         await self.callback('SESSION_DATA_MUTATION', self.session_data)
 
-    def set_value(self, key: str, value: Any, from_client: bool = False) -> None:
-        self.set_values({key: value}, from_client=from_client)
+    async def set_value(self, key: str, value: Any, from_client: bool = False) -> None:
+        await self.set_values({key: value}, from_client=from_client)
 
-    def set_values(self, data: Dict[str, Any], from_client: bool = False) -> None:
+    async def set_values(self, data: Dict[str, Any], from_client: bool = False) -> None:
         assert self.session_data_path is not None
 
         changes = {}
@@ -115,6 +116,8 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
             return
 
         self.session_data.update(changes)
+        for player in self.__players.values():
+            await player.set_session_values(changes)
 
         if self.session_data_path is not None:
             with open(os.path.join(self.session_data_path, 'checkpoint'), 'wb') as fp:
@@ -173,7 +176,6 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
         self.server.add_command_handler('UPDATE_PLAYER_STATE', self.handle_update_player_state)
         self.server.add_command_handler('CONTROL_VALUE_CHANGE', self.handle_control_value_change)
         self.server.add_command_handler('PLUGIN_STATE_CHANGE', self.handle_plugin_state_change)
-        self.server.add_command_handler('PLAYER_SEND_MESSAGE', self.handle_player_send_message)
         self.server.add_command_handler(
             'RESTART_PLAYER_PIPELINE', self.handle_restart_player_pipeline)
         self.server.add_command_handler('DUMP', self.handle_dump)
@@ -365,7 +367,7 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
             realm=realm_name)
         await player.setup()
 
-        session.add_player(player)
+        await session.add_player(player)
 
         return player.id, player.realm
 
@@ -400,12 +402,6 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
         p = session.get_player(player_id)
         await p.update_state(state)
 
-    async def handle_player_send_message(
-            self, session_id: str, player_id: str, msg: Any) -> None:
-        session = cast(Session, self.get_session(session_id))
-        p = session.get_player(player_id)
-        p.send_message(msg)
-
     async def handle_restart_player_pipeline(self, session_id: str, player_id: str) -> None:
         raise RuntimeError("Not implemented")
         # session = cast(Session, self.get_session(session_id))
@@ -437,7 +433,7 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
             self, session_id: str, data: Dict[str, Any]) -> None:
         assert self.project is not None
         session = cast(Session, self.get_session(session_id))
-        session.set_values(data, from_client=True)
+        await session.set_values(data, from_client=True)
 
     async def handle_control_value_change(
             self, realm: str, node_id: int, port_name: str, value: float, generation: int) -> None:

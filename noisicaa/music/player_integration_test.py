@@ -33,11 +33,9 @@ from noisidev import unittest
 from noisidev import unittest_mixins
 from noisidev import demo_project
 from noisicaa.constants import TEST_OPTS
-from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa.audioproc import audioproc_client
-from noisicaa.bindings import lv2
 from noisicaa.core import ipc
 
 from . import project
@@ -216,45 +214,6 @@ class PlayerTest(
 
                 await self.callback_server.wait_for_player_state('playing', False)
                 logger.info("Playback finished.")
-
-        except:
-            logger.exception("")
-            raise
-
-        finally:
-            await p.cleanup()
-
-    @unittest.skip("TODO: async status updates are flaky")
-    @unittest.tag('integration')
-    async def test_send_message(self):
-        p = player.Player(
-            project=self.project,
-            callback_address=self.callback_server.address,
-            event_loop=self.loop,
-            audioproc_client=self.audioproc_client_main,
-            realm='root')
-        try:
-            await p.setup()
-
-            logger.info("Wait until audioproc is ready...")
-            self.assertEqual(
-                await self.callback_server.wait_for('pipeline_state'),
-                'starting')
-            self.assertEqual(
-                await self.callback_server.wait_for('pipeline_state'),
-                'running')
-            logger.info("audioproc is ready...")
-
-            await asyncio.sleep(0.2, loop=self.loop)
-
-            logger.info("Send messsage...")
-            p.send_message(core.build_message(
-                {core.MessageKey.trackId: self.project.master_group.tracks[0].id},
-                core.MessageType.atom,
-                lv2.AtomForge.build_midi_noteon(0, 65, 127)).to_bytes())
-
-            # TODO: wait for player ready (node setup complete).
-            await asyncio.sleep(1, loop=self.loop)
 
         except:
             logger.exception("")

@@ -52,13 +52,7 @@ class ProjectChild(model.ProjectChild, ObjectBase):
 
 
 class PipelineGraphControlValue(ProjectChild, model.PipelineGraphControlValue, ObjectBase):
-    @property
-    def name(self) -> str:
-        return self.get_property_value('name')
-
-    @property
-    def value(self) -> model.ControlValue:
-        return self.get_property_value('value')
+    pass
 
 
 class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBase):  # pylint: disable=abstract-method
@@ -77,10 +71,6 @@ class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBas
     @property
     def graph_color(self) -> model.Color:
         return self.get_property_value('graph_color')
-
-    @property
-    def control_values(self) -> Sequence[PipelineGraphControlValue]:
-        return self.get_property_value('control_values')
 
     @property
     def plugin_state(self) -> audioproc.PluginState:
@@ -235,8 +225,7 @@ class SampleTrack(Track, model.SampleTrack, ObjectBase):
         return self.get_property_value('samples')
 
 
-class InstrumentPipelineGraphNode(
-        BasePipelineGraphNode, model.InstrumentPipelineGraphNode, ObjectBase):
+class Instrument(BasePipelineGraphNode, model.Instrument, ObjectBase):
     @property
     def instrument_uri(self) -> str:
         return self.get_property_value('instrument_uri')
@@ -350,7 +339,7 @@ class Pool(model.Pool[ObjectBase]):
         self.register_class(Note)
         self.register_class(PipelineGraphConnection)
         self.register_class(PipelineGraphNode)
-        self.register_class(InstrumentPipelineGraphNode)
+        self.register_class(Instrument)
         self.register_class(AudioOutPipelineGraphNode)
         self.register_class(PipelineGraphControlValue)
 
@@ -488,9 +477,6 @@ class ProjectClient(object):
     async def update_player_state(self, player_id: str, state: audioproc.PlayerState) -> None:
         await self._stub.call('UPDATE_PLAYER_STATE', self._session_id, player_id, state)
 
-    async def player_send_message(self, player_id: str, msg: Any) -> None:
-        await self._stub.call('PLAYER_SEND_MESSAGE', self._session_id, player_id, msg.to_bytes())
-
     async def restart_player_pipeline(self, player_id: str) -> None:
         await self._stub.call('RESTART_PLAYER_PIPELINE', self._session_id, player_id)
 
@@ -511,6 +497,9 @@ class ProjectClient(object):
             if key not in self._session_data or self._session_data[key] != value:
                 self._session_data[key] = value
                 self.__session_data_listeners.call(key, value)
+
+    def set_session_value(self, key: str, value: Any) -> None:
+        self.set_session_values({key: value})
 
     def set_session_values(self, data: Dict[str, Any]) -> None:
         assert isinstance(data, dict), data

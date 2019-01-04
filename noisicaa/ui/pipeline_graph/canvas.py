@@ -36,9 +36,26 @@ from noisicaa.ui import slots
 from . import base_node
 from . import track_node
 from . import score_track_node
+from . import generic_node
+from . import plugin_node
+from . import mixer_node
+from . import instrument_node
 from . import toolbox
 
 logger = logging.getLogger(__name__)
+
+
+node_cls_map = {
+    node_db.NodeUIDescription.NO_UI: base_node.Node,
+    node_db.NodeUIDescription.GENERIC: generic_node.GenericNode,
+    node_db.NodeUIDescription.PLUGIN: plugin_node.PluginNode,
+    node_db.NodeUIDescription.MIXER: mixer_node.MixerNode,
+    node_db.NodeUIDescription.CONTROL_TRACK: track_node.TrackNode,
+    node_db.NodeUIDescription.SAMPLE_TRACK: track_node.TrackNode,
+    node_db.NodeUIDescription.SCORE_TRACK: score_track_node.ScoreTrackNode,
+    node_db.NodeUIDescription.BEAT_TRACK: track_node.TrackNode,
+    node_db.NodeUIDescription.INSTRUMENT: instrument_node.InstrumentNode,
+}  # type: Dict[node_db.NodeUIDescription.Type, Type[base_node.Node]]
 
 
 # Something is odd with the QWidgetAction class. The usual way to use the
@@ -237,14 +254,7 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         self.__layoutContent()
 
     def __addNode(self, node: music.BasePipelineGraphNode, index: int) -> base_node.Node:
-        node_cls = None  # type: Type[base_node.Node]
-        if isinstance(node, music.ScoreTrack):
-            node_cls = score_track_node.ScoreTrackNode
-        elif isinstance(node, music.Track):
-            node_cls = track_node.TrackNode
-        else:
-            node_cls = base_node.Node
-
+        node_cls = node_cls_map[node.description.node_ui.type]
         item = node_cls(node=node, context=self.context)
         item.props.contentRectChanged.connect(lambda _: self.__updateContentRect())
         self.addItem(item)

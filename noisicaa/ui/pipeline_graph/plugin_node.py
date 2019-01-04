@@ -22,7 +22,7 @@
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
@@ -31,6 +31,8 @@ from PyQt5 import QtWidgets
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import qprogressindicator
+
+from . import generic_node
 
 logger = logging.getLogger(__name__)
 
@@ -183,3 +185,31 @@ class PluginUI(ui_base.ProjectMixin, QtWidgets.QWidget):
                 self.show()
                 self.raise_()
                 self.activateWindow()
+
+
+class PluginNode(generic_node.GenericNode):
+    def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+        super().__init__(node=node, **kwargs)
+
+        self.__plugin_ui = None  # type: Optional[PluginUI]
+
+    def cleanup(self) -> None:
+        if self.__plugin_ui is not None:
+            self.__plugin_ui.cleanup()
+
+        super().cleanup()
+
+    def buildContextMenu(self, menu: QtWidgets.QMenu) -> None:
+        if self.node().description.has_ui:
+            show_ui = menu.addAction("Show UI")
+            show_ui.triggered.connect(self.onShowUI)
+
+        super().buildContextMenu(menu)
+
+    def onShowUI(self) -> None:
+        if self.__plugin_ui is not None:
+            self.__plugin_ui.show()
+            self.__plugin_ui.raise_()
+            self.__plugin_ui.activateWindow()
+        else:
+            self.__plugin_ui = PluginUI(node=self.node(), context=self.context)

@@ -32,7 +32,7 @@ cdef char* allocstr(str s):
 cdef class Options_Feature(Feature):
     uri = 'http://lv2plug.in/ns/ext/options#options'
 
-    def __cinit__(self, URIDMapper mapper):
+    def __cinit__(self, PyURIDMapper mapper):
         self.mapper = mapper
 
         self.sample_rate = 44100

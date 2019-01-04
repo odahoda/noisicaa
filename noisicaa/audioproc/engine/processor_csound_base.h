@@ -29,9 +29,6 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
-#include "csound/csound.h"
-#include "lv2/lv2plug.in/ns/ext/atom/forge.h"
-#include "lv2/lv2plug.in/ns/ext/urid/urid.h"
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/engine/buffers.h"
 #include "noisicaa/audioproc/engine/processor.h"
@@ -42,7 +39,7 @@ using namespace std;
 
 class HostSystem;
 class BlockContext;
-
+class CSoundUtil;
 class ProcessorCSoundBase : public Processor {
 public:
   ProcessorCSoundBase(
@@ -58,41 +55,12 @@ protected:
 
   Status set_code(const string& orchestra, const string& score);
 
-private:
-  static void _log_cb(CSOUND* csnd, int attr, const char* fmt, va_list args);
-  void _log_cb(int attr, const char* fmt, va_list args);
-  char _log_buf[10240];
-
-  class Instance {
-  public:
-    Instance(Logger* logger);
-    ~Instance();
-
-    Instance(const Instance&) = delete;
-    Instance(Instance&&) = delete;
-    Instance& operator=(const Instance&) = delete;
-    Instance& operator=(Instance&&) = delete;
-
-    CSOUND* csnd = nullptr;
-    vector<MYFLT*> channel_ptr;
-    vector<int*> channel_lock;
-
-  private:
-    Logger* _logger;
-  };
-
-  struct EventInputPort {
-    LV2_Atom_Sequence* seq;
-    LV2_Atom_Event* event;
-    int instr;
-  };
-
   vector<BufferPtr> _buffers;
-  vector<EventInputPort> _event_input_ports;
 
-  atomic<Instance*> _next_instance;
-  atomic<Instance*> _current_instance;
-  atomic<Instance*> _old_instance;
+private:
+  atomic<CSoundUtil*> _next_instance;
+  atomic<CSoundUtil*> _current_instance;
+  atomic<CSoundUtil*> _old_instance;
 };
 
 }  // namespace noisicaa

@@ -21,7 +21,7 @@
 from cpython.ref cimport PyObject
 from libc.stdint cimport uint32_t, int32_t, int64_t, uint8_t, intptr_t
 
-from .lv2.urid cimport LV2_URID_Map, LV2_URID_Unmap
+from noisicaa.lv2.urid cimport LV2_URID_Map, LV2_URID_Unmap
 
 cdef extern from "stdbool.h" nogil:
     ctypedef bint bool

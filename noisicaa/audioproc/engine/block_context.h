@@ -30,7 +30,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "noisicaa/core/message.capnp.h"
 #include "noisicaa/audioproc/public/musical_time.h"
 #include "noisicaa/audioproc/engine/buffers.h"
 
@@ -64,9 +63,6 @@ struct BlockContext {
     const BufferPtr data;
   };
   map<string, Buffer> buffers;
-
-  // TODO: Use MessageQueue
-  vector<string> in_messages;
 
   MessageQueue* out_messages;
 };

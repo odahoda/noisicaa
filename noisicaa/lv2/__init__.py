@@ -21,6 +21,7 @@
 from .atom import (
     wrap_atom,
     Atom,
+    AtomForge,
 )
 from .urid_mapper import (
     PyURIDMapper as URIDMapper,

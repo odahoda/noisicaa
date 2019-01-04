@@ -44,5 +44,3 @@ target_link_libraries(${sndfile.so} PRIVATE ${LIBSNDFILE_LIBRARIES})
 add_cython_module(sratom CXX)
 target_include_directories(${sratom.so} PRIVATE ${LIBSRATOM_INCLUDE_DIRS})
 target_link_libraries(${sratom.so} PRIVATE ${LIBSRATOM_LIBRARIES})
-
-add_subdirectory(lv2)

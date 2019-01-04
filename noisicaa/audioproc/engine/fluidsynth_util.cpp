@@ -20,30 +20,40 @@
  * @end:license
  */
 
-#include "noisicaa/core/perf_stats.h"
-#include "noisicaa/audioproc/engine/processor_fluidsynth.h"
+#include "noisicaa/core/logging.h"
+#include "noisicaa/audioproc/engine/fluidsynth_util.h"
 #include "noisicaa/host_system/host_system.h"
 
 namespace noisicaa {
 
-ProcessorFluidSynth::ProcessorFluidSynth(
-    const string& node_id, HostSystem* host_system, const pb::NodeDescription& desc)
-  : Processor(node_id, "noisicaa.audioproc.engine.processor.fluidsynth", host_system, desc) {}
+FluidSynthUtil::FluidSynthUtil(HostSystem* host_system)
+  : _logger(LoggerRegistry::get_logger("noisicaa.audioproc.engine.fluidsynth_util")),
+    _host_system(host_system) {}
 
-ProcessorFluidSynth::~ProcessorFluidSynth() {}
+FluidSynthUtil::~FluidSynthUtil() {
+  if (_synth != nullptr) {
+        //     self.__synth.system_reset()
+        //     if self.__sfont is not None:
+        //         # TODO: This call spits out a ton of "CRITICAL **:
+        //         # fluid_synth_sfont_unref: assertion 'sfont_info != NULL' failed"
+        //         # messages on STDERR
+        //         self.__synth.remove_sfont(self.__sfont)
+        //         self.__sfont = None
 
-Status ProcessorFluidSynth::setup_internal() {
-  RETURN_IF_ERROR(Processor::setup_internal());
-
-  if (!_desc.has_fluidsynth()) {
-    return ERROR_STATUS("NodeDescription misses fluidsynth field.");
+    delete_fluid_synth(_synth);
+    _synth = nullptr;
   }
 
-  const pb::FluidSynthDescription& fluid_desc = _desc.fluidsynth();
+  if (_settings != nullptr) {
+    delete_fluid_settings(_settings);
+    _settings = nullptr;
+  }
+}
 
+Status FluidSynthUtil::setup(const string& path, uint32_t bank, uint32_t preset) {
   _logger->info(
-      "Setting up fluidsynth processor for %s, bank=%d, preset=%d",
-      fluid_desc.soundfont_path().c_str(), fluid_desc.bank(), fluid_desc.preset());
+      "Setting up fluidsynth util for %s, bank=%d, preset=%d",
+      path.c_str(), bank, preset);
 
   _settings = new_fluid_settings();
   if (_settings == nullptr) {
@@ -67,7 +77,7 @@ Status ProcessorFluidSynth::setup_internal() {
     return ERROR_STATUS("Failed to create fluid synth object.");
   }
 
-  int sfid = fluid_synth_sfload(_synth, fluid_desc.soundfont_path().c_str(), true);
+  int sfid = fluid_synth_sfload(_synth, path.c_str(), true);
   if (sfid == FLUID_FAILED) {
     // TODO: error message?
     return ERROR_STATUS("Failed to load soundfont.");
@@ -95,7 +105,7 @@ Status ProcessorFluidSynth::setup_internal() {
     return ERROR_STATUS("System reset failed.");
   }
 
-  rc = fluid_synth_program_select(_synth, 0, sfid, fluid_desc.bank(), fluid_desc.preset());
+  rc = fluid_synth_program_select(_synth, 0, sfid, bank, preset);
   if (rc == FLUID_FAILED) {
     // TODO: error message?
     return ERROR_STATUS("Program select failed.");
@@ -104,47 +114,19 @@ Status ProcessorFluidSynth::setup_internal() {
   return Status::Ok();
 }
 
-void ProcessorFluidSynth::cleanup_internal() {
-  if (_synth != nullptr) {
-        //     self.__synth.system_reset()
-        //     if self.__sfont is not None:
-        //         # TODO: This call spits out a ton of "CRITICAL **:
-        //         # fluid_synth_sfont_unref: assertion 'sfont_info != NULL' failed"
-        //         # messages on STDERR
-        //         self.__synth.remove_sfont(self.__sfont)
-        //         self.__sfont = None
+Status FluidSynthUtil::process_block(
+    BlockContext* ctxt, TimeMapper* time_mapper, vector<BufferPtr>& buffers) {
+  assert(buffers.size() == 3);
 
-    delete_fluid_synth(_synth);
-    _synth = nullptr;
-  }
-
-  if (_settings != nullptr) {
-    delete_fluid_settings(_settings);
-    _settings = nullptr;
-  }
-
-  Processor::cleanup_internal();
-}
-
-Status ProcessorFluidSynth::connect_port_internal(
-    BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
-  assert(port_idx < 3);
-  _buffers[port_idx] = buf;
-  return Status::Ok();
-}
-
-Status ProcessorFluidSynth::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
-  PerfTracker tracker(ctxt->perf.get(), "fluidsynth");
-
-  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
+  LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)buffers[0];
   if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS("Excepted sequence in port 'in', got %d.", seq->atom.type);
   }
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
 
   uint32_t segment_start = 0;
-  float* out_left = (float*)_buffers[1];
-  float* out_right = (float*)_buffers[2];
+  float* out_left = (float*)buffers[1];
+  float* out_right = (float*)buffers[2];
   while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)) {
     if (event->body.type == _host_system->lv2->urid.midi_event) {
       uint32_t esample_pos;
@@ -152,7 +134,8 @@ Status ProcessorFluidSynth::process_block_internal(BlockContext* ctxt, TimeMappe
       if (event->time.frames != -1) {
         if (event->time.frames < 0 || event->time.frames >= _host_system->block_size()) {
           return ERROR_STATUS(
-               "Event timestamp %d out of bounds [0,%d]", event->time.frames, _host_system->block_size());
+               "Event timestamp %d out of bounds [0,%d]",
+               event->time.frames, _host_system->block_size());
         }
 
         esample_pos = event->time.frames;

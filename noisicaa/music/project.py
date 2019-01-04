@@ -33,6 +33,7 @@ from noisicaa import model
 from noisicaa import node_db as node_db_lib
 from . import pmodel
 from . import pipeline_graph
+from . import instrument
 from . import commands
 from . import commands_pb2
 from . import score_track
@@ -163,6 +164,7 @@ class AddPipelineGraphNode(commands.Command):
             'builtin://beat_track': beat_track.BeatTrack,
             'builtin://control_track': control_track.ControlTrack,
             'builtin://sample_track': sample_track.SampleTrack,
+            'builtin://instrument': instrument.Instrument,
         }  # type: Dict[str, Type[pipeline_graph.BasePipelineGraphNode]]
         try:
             node_cls = track_cls_map[pb.uri]
@@ -484,7 +486,7 @@ class Pool(pmodel.Pool):
         self.register_class(control_track.ControlPoint)
         self.register_class(control_track.ControlTrack)
         self.register_class(pipeline_graph.AudioOutPipelineGraphNode)
-        self.register_class(pipeline_graph.InstrumentPipelineGraphNode)
+        self.register_class(instrument.Instrument)
         self.register_class(pipeline_graph.PipelineGraphConnection)
         self.register_class(pipeline_graph.PipelineGraphControlValue)
         self.register_class(pipeline_graph.PipelineGraphNode)

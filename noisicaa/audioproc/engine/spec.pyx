@@ -40,7 +40,6 @@ opcode_map = {
     'MIX':                 OpCode.MIX,
     'MUL':                 OpCode.MUL,
     'SET_FLOAT':           OpCode.SET_FLOAT,
-    'FETCH_MESSAGES':      OpCode.FETCH_MESSAGES,
     'FETCH_CONTROL_VALUE': OpCode.FETCH_CONTROL_VALUE,
     'POST_RMS':            OpCode.POST_RMS,
     'NOISE':               OpCode.NOISE,

@@ -29,14 +29,14 @@ from libc.stdint cimport uint32_t
 # import operator
 # import numpy
 
-from .lv2.core cimport (
+from noisicaa.lv2.core cimport (
     Feature,
     LV2_Feature,
 )
-from .lv2.urid cimport (
+from noisicaa.lv2.urid cimport (
     LV2_URID_Map,
     LV2_URID_Unmap,
-    URIDMapper,
+#     URIDMapper,
 #     URID_Map_Feature,
 #     URID_Unmap_Feature,
 )
@@ -471,4 +471,4 @@ cdef class World(object):
     cdef LilvWorld* world
     cdef readonly Namespaces ns
 
-    cdef readonly URIDMapper urid_mapper
+#    cdef readonly URIDMapper urid_mapper

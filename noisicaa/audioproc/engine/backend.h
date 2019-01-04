@@ -25,9 +25,7 @@
 #ifndef _NOISICAA_AUDIOPROC_ENGINE_BACKEND_H
 #define _NOISICAA_AUDIOPROC_ENGINE_BACKEND_H
 
-#include <mutex>
 #include <string>
-#include <vector>
 #include "noisicaa/core/logging.h"
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/engine/buffers.h"
@@ -55,8 +53,6 @@ public:
   virtual Status setup(Realm* realm);
   virtual void cleanup();
 
-  Status send_message(const string& msg);
-
   virtual Status begin_block(BlockContext* ctxt) = 0;
   virtual Status end_block(BlockContext* ctxt) = 0;
   virtual Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) = 0;
@@ -68,9 +64,6 @@ protected:
   Logger* _logger;
   BackendSettings _settings;
   Realm* _realm = nullptr;
-
-  mutex _msg_queue_mutex;
-  vector<string> _msg_queue;
 };
 
 }  // namespace noisicaa

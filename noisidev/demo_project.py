@@ -36,6 +36,7 @@ from noisicaa.music import (
     sample_track,
     beat_track,
     control_track,
+    instrument,
     pipeline_graph,
 )
 from noisicaa import instrument_db
@@ -57,7 +58,7 @@ def basic(pool, cls, **kwargs):
     audio_out = project.audio_out_node
 
     track1_instr = pool.create(
-        pipeline_graph.InstrumentPipelineGraphNode,
+        instrument.Instrument,
         name="Track 1 - Instrument",
         instrument_uri='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0')
     project.add_pipeline_graph_node(track1_instr)
@@ -124,7 +125,7 @@ def basic(pool, cls, **kwargs):
 
 
     track2_instr = pool.create(
-        pipeline_graph.InstrumentPipelineGraphNode,
+        instrument.Instrument,
         name="Track 2 - Instrument",
         instrument_uri='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=73')
     project.add_pipeline_graph_node(track2_instr)
@@ -192,7 +193,7 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
         dest_node=audio_out, dest_port='in:right'))
 
     track1_instr = pool.create(
-        pipeline_graph.InstrumentPipelineGraphNode,
+        instrument.Instrument,
         name="Track 1 - Instrument",
         instrument_uri='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0')
     project.add_pipeline_graph_node(track1_instr)
@@ -260,7 +261,7 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
         dest_node=reverb_node, dest_port='in:right'))
 
     track2_instr = pool.create(
-        pipeline_graph.InstrumentPipelineGraphNode,
+        instrument.Instrument,
         name="Track 2 - Instrument",
         instrument_uri='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=118')  # Synth Drum
     project.add_pipeline_graph_node(track2_instr)

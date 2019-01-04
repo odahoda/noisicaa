@@ -25,7 +25,6 @@ import struct
 
 from noisidev import unittest
 from . cimport lilv
-from . import lv2
 from . import sratom
 
 logger = logging.getLogger(__name__)

@@ -21,7 +21,8 @@
 from libc.stdint cimport uint32_t, int32_t, int64_t, uint8_t, intptr_t
 
 from .core cimport Feature, LV2_Handle
-from .urid cimport LV2_URID, URIDMapper
+from .urid cimport LV2_URID
+from .urid_mapper cimport PyURIDMapper
 
 
 cdef extern from "lv2/lv2plug.in/ns/ext/options/options.h" nogil:
@@ -98,7 +99,7 @@ cdef extern from "lv2/lv2plug.in/ns/ext/options/options.h" nogil:
 
 
 cdef class Options_Feature(Feature):
-    cdef URIDMapper mapper
+    cdef PyURIDMapper mapper
     cdef LV2_Options_Option[5] options
 
     cdef float sample_rate

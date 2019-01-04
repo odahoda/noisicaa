@@ -28,6 +28,8 @@ from noisidev import unittest_mixins
 from noisidev import unittest_engine_mixins
 from noisicaa import constants
 from noisicaa import node_db
+from noisicaa.audioproc.public import instrument_spec_pb2
+from noisicaa.audioproc.public import processor_message_pb2
 from .spec import PySpec
 from .realm import PyRealm
 from .backend import PyBackend, PyBackendSettings
@@ -75,16 +77,21 @@ class RealmTest(
                 PyBackendSettings(time_scale=0.0))
             backend.setup(realm)
 
-            fluidsynth_desc = self.node_db['builtin://fluidsynth']
-            fluidsynth_desc.fluidsynth.soundfont_path = os.fsencode(
-                os.path.join(unittest.TESTDATA_DIR, 'sf2test.sf2'))
-            fluidsynth_desc.fluidsynth.bank = 0
-            fluidsynth_desc.fluidsynth.preset = 0
+            instrument_desc = self.node_db['builtin://instrument']
+            instrument_proc = PyProcessor('fluid', self.host_system, instrument_desc)
+            instrument_proc.setup()
 
-            fluidsynth_proc = PyProcessor('fluid', self.host_system, fluidsynth_desc)
-            fluidsynth_proc.setup()
+            msg = processor_message_pb2.ProcessorMessage(
+                node_id='fluid',
+                change_instrument=processor_message_pb2.ProcessorMessage.ChangeInstrument(
+                    instrument_spec=instrument_spec_pb2.InstrumentSpec(
+                        sf2=instrument_spec_pb2.SF2InstrumentSpec(
+                            path=os.path.join(unittest.TESTDATA_DIR, 'sf2test.sf2'),
+                            bank=0,
+                            preset=0))))
+            instrument_proc.handle_message(msg)
 
-            realm.add_active_processor(fluidsynth_proc)
+            realm.add_active_processor(instrument_proc)
 
             spec = PySpec()
             spec.append_buffer('noise_out', buffers.PyFloatAudioBlockBuffer())
@@ -93,7 +100,7 @@ class RealmTest(
             spec.append_buffer('fluid_out_right', buffers.PyFloatAudioBlockBuffer())
             spec.append_buffer('sink:in:left', buffers.PyFloatAudioBlockBuffer())
             spec.append_buffer('sink:in:right', buffers.PyFloatAudioBlockBuffer())
-            spec.append_processor(fluidsynth_proc)
+            spec.append_processor(instrument_proc)
             spec.append_opcode('CLEAR', 'sink:in:left')
             spec.append_opcode('CLEAR', 'sink:in:right')
             spec.append_opcode('NOISE', 'noise_out')
@@ -101,10 +108,10 @@ class RealmTest(
             spec.append_opcode('MIX', 'noise_out', 'sink:in:left')
             spec.append_opcode('MIX', 'noise_out', 'sink:in:right')
             spec.append_opcode('MIDI_MONKEY', 'fluid_in', 0.1)
-            spec.append_opcode('CONNECT_PORT', fluidsynth_proc, 0, 'fluid_in')
-            spec.append_opcode('CONNECT_PORT', fluidsynth_proc, 1, 'fluid_out_left')
-            spec.append_opcode('CONNECT_PORT', fluidsynth_proc, 2, 'fluid_out_right')
-            spec.append_opcode('CALL', fluidsynth_proc)
+            spec.append_opcode('CONNECT_PORT', instrument_proc, 0, 'fluid_in')
+            spec.append_opcode('CONNECT_PORT', instrument_proc, 1, 'fluid_out_left')
+            spec.append_opcode('CONNECT_PORT', instrument_proc, 2, 'fluid_out_right')
+            spec.append_opcode('CALL', instrument_proc)
             spec.append_opcode('MIX', 'fluid_out_left', 'sink:in:left')
             spec.append_opcode('MIX', 'fluid_out_right', 'sink:in:right')
             realm.set_spec(spec)
@@ -301,7 +308,7 @@ class RealmTest(
             mixer = graph_lib.Node.create(
                 id='mixer',
                 host_system=self.host_system,
-                description=node_db.Builtins.TrackMixerDescription)
+                description=node_db.Builtins.MixerDescription)
             graph.add_node(mixer)
             await realm.setup_node(mixer)
             realm.update_spec()

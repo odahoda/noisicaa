@@ -62,15 +62,15 @@ private:
 
   bool _exit_loop;
 
-  unique_ptr<thread> _queue_pump;
+  unique_ptr<thread> _out_messages_pump;
   bool _stop = false;
   mutex _cond_mutex;
   condition_variable _cond;
-  void queue_pump_main();
+  void out_messages_pump_main();
 
-  atomic<MessageQueue*> _next_message_queue;
-  atomic<MessageQueue*> _current_message_queue;
-  atomic<MessageQueue*> _old_message_queue;
+  atomic<MessageQueue*> _next_out_messages;
+  atomic<MessageQueue*> _current_out_messages;
+  atomic<MessageQueue*> _old_out_messages;
 
 };
 

@@ -34,11 +34,10 @@ message ProcessorDescription {
     NULLPROC = 1;
     CSOUND = 2;
     CUSTOM_CSOUND = 3;
-    FLUIDSYNTH = 4;
     PLUGIN = 5;
-    SAMPLE_PLAYER = 6;
+    INSTRUMENT = 6;
     SOUND_FILE = 7;
-    TRACK_MIXER = 8;
+    MIXER = 8;
     PIANOROLL = 9;
     CV_GENERATOR = 10;
     SAMPLE_SCRIPT = 11;
@@ -79,16 +78,6 @@ message LadspaDescription {
 message CSoundDescription {
   required string orchestra = 1;
   required string score = 2;
-}
-
-message FluidSynthDescription {
-  required string soundfont_path = 1;
-  required uint32 bank = 2;
-  required uint32 preset = 3;
-}
-
-message SamplePlayerDescription {
-  required string sample_path = 1;
 }
 
 message SoundFileDescription {
@@ -135,6 +124,21 @@ message PortDescription {
   optional string bypass_port = 9;
 }
 
+message NodeUIDescription {
+  enum Type {
+    NO_UI = 1;
+    GENERIC = 2;
+    PLUGIN = 3;
+    MIXER = 4;
+    CONTROL_TRACK = 5;
+    SAMPLE_TRACK = 6;
+    SCORE_TRACK = 7;
+    BEAT_TRACK = 8;
+    INSTRUMENT = 9;
+  }
+  required Type type = 1 [default = NO_UI];
+}
+
 message NodeDescription {
   optional bool supported = 1 [default = true];
   optional NotSupportedReasons not_supported_reasons = 2;
@@ -145,7 +149,6 @@ message NodeDescription {
     PLUGIN = 3;
     REALM_SINK = 4;
     CHILD_REALM = 5;
-    EVENT_SOURCE = 6;
   }
   required Type type = 3;
 
@@ -155,12 +158,12 @@ message NodeDescription {
 
   repeated PortDescription ports = 6;
 
+  optional NodeUIDescription node_ui = 7;
+
   optional ProcessorDescription processor = 100;
 
   // Processor types
   optional CSoundDescription csound = 200;
-  optional FluidSynthDescription fluidsynth = 201;
-  optional SamplePlayerDescription sample_player = 202;
   optional SoundFileDescription sound_file = 203;
   optional PluginDescription plugin = 204;
 

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+python setup.py build
+export PYTHONPATH=build/
+export LD_LIBRARY_PATH=$VIRTUAL_ENV/lib
+exec python playground/widget_test.py

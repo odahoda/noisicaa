@@ -23,11 +23,8 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include "capnp/pretty-print.h"
-#include "capnp/serialize.h"
 #include "lv2/lv2plug.in/ns/ext/atom/atom.h"
 
-#include "noisicaa/core/message.capnp.h"
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/audioproc/engine/opcodes.h"
 #include "noisicaa/host_system/host_system.h"
@@ -84,68 +81,6 @@ Status run_SET_FLOAT(BlockContext* ctxt, ProgramState* state, const vector<OpArg
   Buffer* buf = state->program->buffers[idx].get();
   float* data = (float*)buf->data();
   *data = value;
-  return Status::Ok();
-}
-
-Status run_FETCH_MESSAGES(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
-  string labelset_bytes = args[0].string_value();
-  int buf_idx = args[1].int_value();
-
-  kj::ArrayPtr<::capnp::word> words(
-      (::capnp::word*)labelset_bytes.c_str(),
-      labelset_bytes.size() / sizeof(::capnp::word));
-  ::capnp::FlatArrayMessageReader message_reader(words);
-  capnp::Labelset::Reader labelset(message_reader.getRoot<capnp::Labelset>());
-
-  Buffer* buf = state->program->buffers[buf_idx].get();
-
-  LV2_Atom_Forge forge;
-  lv2_atom_forge_init(&forge, &state->host_system->lv2->urid_map);
-
-  LV2_Atom_Forge_Frame frame;
-  lv2_atom_forge_set_buffer(&forge, buf->data(), buf->size());
-
-  lv2_atom_forge_sequence_head(&forge, &frame, state->host_system->lv2->urid.atom_frame_time);
-
-  for (const auto& msg_bytes : ctxt->in_messages) {
-    kj::ArrayPtr<::capnp::word> words(
-        (::capnp::word*)msg_bytes.c_str(),
-        msg_bytes.size() / sizeof(::capnp::word));
-    ::capnp::FlatArrayMessageReader reader(words);
-    capnp::Message::Reader msg(reader.getRoot<capnp::Message>());
-
-    if (msg.getType() != capnp::Type::ATOM) {
-      continue;
-    }
-
-    // All labels in labelset must match some label in msg.labelset.
-    bool matched = false;
-    for (const auto& label_a : labelset.getLabels()) {
-      matched = false;
-      for (const auto& label_b : msg.getLabelset().getLabels()) {
-        if (label_b.getKey() == label_a.getKey() && label_b.getValue() == label_a.getValue()) {
-          matched = true;
-          break;
-        }
-      }
-
-      if (!matched) {
-        break;
-      }
-    }
-
-    if (!matched) {
-      continue;
-    }
-
-    lv2_atom_forge_frame_time(&forge, 0);
-    ::capnp::Data::Reader data = msg.getData();
-    lv2_atom_forge_write(&forge, data.begin(), data.size());
-  }
-
-  lv2_atom_forge_pop(&forge, &frame);
-  // TODO: clear remainder of buf.
-
   return Status::Ok();
 }
 
@@ -369,7 +304,6 @@ struct OpSpec opspecs[NUM_OPCODES] = {
   { OpCode::SET_FLOAT, "SET_FLOAT", "bf", nullptr, run_SET_FLOAT },
 
   // I/O
-  { OpCode::FETCH_MESSAGES, "FETCH_MESSAGES", "sb", nullptr, run_FETCH_MESSAGES },
   { OpCode::FETCH_CONTROL_VALUE, "FETCH_CONTROL_VALUE", "cb", nullptr, run_FETCH_CONTROL_VALUE },
   { OpCode::POST_RMS, "POST_RMS", "sib", nullptr, run_POST_RMS },
 
