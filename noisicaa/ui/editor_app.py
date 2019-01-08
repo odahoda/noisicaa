@@ -26,7 +26,7 @@ import pprint
 import sys
 import traceback
 import types
-from typing import Any, Optional, Callable, Sequence, Type
+from typing import Any, Optional, Dict, Callable, Sequence, Type
 
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
@@ -131,6 +131,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
         self.stat_monitor = None  # type: stat_monitor.StatMonitor
         self.default_style = None  # type: str
+        self.node_messages = core.CallbackMap[str, Dict[str, Any]]()
 
         self.__player_state_listeners = core.CallbackMap[str, audioproc.EngineNotification]()
 
@@ -340,13 +341,10 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.__audio_thread_profiler.activateWindow()
 
     def __handleEngineNotification(self, msg: audioproc.EngineNotification) -> None:
-        # from noisicaa.bindings.lv2 import atom
-        # from noisicaa.bindings.lv2 import urid
-        # for node_message in msg.node_messages:
-        #     #logger.error(node_message)
-        #     msg = atom.wrap_atom(urid.static_mapper, node_message.atom)
-        #     logger.error(node_message.node_id, msg.type_urid)
-        pass
+        for node_message_pb in msg.node_messages:
+            msg_atom = node_message_pb.atom
+            node_message = lv2.wrap_atom(self.urid_mapper, msg_atom).as_object
+            self.node_messages.call(node_message_pb.node_id, node_message)
 
     # pylint: disable=line-too-long
     # def onPlayerStatus(self, player_state: audioproc.PlayerState):

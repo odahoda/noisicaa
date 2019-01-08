@@ -151,6 +151,18 @@ class BasePipelineGraphNode(pmodel.BasePipelineGraphNode):  # pylint: disable=ab
     def pipeline_node_id(self) -> str:
         return '%016x' % self.id
 
+    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
+        yield audioproc.AddNode(
+            description=self.description,
+            id=self.pipeline_node_id,
+            name=self.name,
+            initial_state=self.plugin_state)
+
+        yield from self.get_initial_parameter_mutations()
+
+    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
+        yield audioproc.RemoveNode(self.pipeline_node_id)
+
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
         for port in self.description.ports:
             if (port.direction == node_db.PortDescription.INPUT
@@ -224,18 +236,6 @@ class PipelineGraphNode(pmodel.PipelineGraphNode, BasePipelineGraphNode):
         #     raise node_db.PresetLoadError(
         #         "Mismatching node_uri (Expected %s, got %s)."
         #         % (self.node_uri, preset.node_uri))
-
-    def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
-        yield audioproc.AddNode(
-            description=self.description,
-            id=self.pipeline_node_id,
-            name=self.name,
-            initial_state=self.plugin_state)
-
-        yield from self.get_initial_parameter_mutations()
-
-    def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
-        yield audioproc.RemoveNode(self.pipeline_node_id)
 
 
 class AudioOutPipelineGraphNode(pmodel.AudioOutPipelineGraphNode, BasePipelineGraphNode):

@@ -25,8 +25,10 @@
 namespace noisicaa {
 
 ProcessorNull::ProcessorNull(
-    const string& node_id, HostSystem* host_system, const pb::NodeDescription& desc)
-  : Processor(node_id, "noisicaa.audioproc.engine.processor.null", host_system, desc) {}
+    const string& realm_name, const string& node_id, HostSystem* host_system,
+    const pb::NodeDescription& desc)
+  : Processor(
+      realm_name, node_id, "noisicaa.audioproc.engine.processor.null", host_system, desc) {}
 ProcessorNull::~ProcessorNull() {}
 
 Status ProcessorNull::setup_internal() {

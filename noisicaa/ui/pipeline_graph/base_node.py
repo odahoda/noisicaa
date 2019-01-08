@@ -36,6 +36,7 @@ from noisicaa import model
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
+from noisicaa.ui import mute_button
 
 if typing.TYPE_CHECKING:
     from noisicaa import core
@@ -400,6 +401,7 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
         self.props = NodeProps()
 
+        self.__session_prefix = 'node/%016x/' % node.id
         self.__listeners = []  # type: List[core.Listener]
 
         self.__node = node
@@ -504,6 +506,18 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         return None
 
     def titleWidgets(self) -> Iterable[QtWidgets.QWidget]:
+        if self.__node.description.node_ui.muteable:
+            muted_button = mute_button.MuteButton()
+            muted_button.toggled.connect(
+                lambda muted: self.project_client.set_session_value(
+                    self.__session_prefix + 'muted', muted))
+            muted_button.setChecked(
+                self.project_client.get_session_value(
+                    self.__session_prefix + 'muted', False))
+            self.project_client.add_session_data_listener(
+                self.__session_prefix + 'muted', muted_button.setChecked)
+            yield muted_button
+
         if self.__node.removable:
             remove_button = QtWidgets.QToolButton()
             remove_button.setAutoRaise(True)
@@ -786,6 +800,7 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
     def onRemove(self) -> None:
         self.send_command_async(music.Command(
             target=self.__node.parent.id,
+            command='remove_pipeline_graph_node',
             remove_pipeline_graph_node=music.RemovePipelineGraphNode(
                 node_id=self.__node.id)))
 
@@ -793,6 +808,7 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         if color != self.__node.graph_color:
             self.send_command_async(music.Command(
                 target=self.__node.id,
+                command='change_pipeline_graph_node',
                 change_pipeline_graph_node=music.ChangePipelineGraphNode(
                     graph_color=color.to_proto())))
 
@@ -807,6 +823,7 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             self.__title.setText(self.__node.name)
             self.send_command_async(music.Command(
                 target=self.__node.id,
+                command='change_pipeline_graph_node',
                 change_pipeline_graph_node=music.ChangePipelineGraphNode(
                     name=new_name)))
 

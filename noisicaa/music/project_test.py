@@ -31,8 +31,8 @@ from noisidev import unittest_mixins
 from noisicaa.core import fileutil
 from noisicaa.core import storage
 from noisicaa import model
+from noisicaa.builtin_nodes.score_track import server_impl as score_track
 from . import project
-from . import score_track
 from . import commands_pb2
 from . import commands_test
 
@@ -98,8 +98,9 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
         try:
             p.dispatch_command_proto(commands_pb2.Command(
                 target=p.id,
+                command='add_pipeline_graph_node',
                 add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
-                    uri='builtin://score_track')))
+                    uri='builtin://score-track')))
             num_nodes = len(p.pipeline_graph_nodes)
             track_id = p.pipeline_graph_nodes[-1].id
         finally:
@@ -134,6 +135,7 @@ class ProjectPropertiesTest(commands_test.CommandsTestMixin, unittest.AsyncTestC
     async def test_bpm(self):
         await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='update_project_properties',
             update_project_properties=commands_pb2.UpdateProjectProperties(
                 bpm=97)))
         self.assertEqual(self.project.bpm, 97)

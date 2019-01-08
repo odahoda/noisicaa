@@ -42,7 +42,8 @@ cdef extern from "noisicaa/audioproc/engine/processor.h" namespace "noisicaa" no
     cppclass Processor(RefCounted):
         @staticmethod
         StatusOr[Processor*] create(
-            const string& node_id, HostSystem* host_system, const string& desc_serialized)
+            const string& realm_name, const string& node_id, HostSystem* host_system,
+            const string& desc_serialized)
 
         uint64_t id() const
         const string& node_id() const

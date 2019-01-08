@@ -1,0 +1,77 @@
+/*
+ * @begin:license
+ *
+ * Copyright (c) 2015-2018, Benjamin Niemann <pink@odahoda.de>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * @end:license
+ */
+
+syntax = "proto2";
+
+import "noisicaa/audioproc/public/musical_time.proto";
+import "noisicaa/model/project.proto";
+
+package noisicaa.pb;
+
+message ChangeNote {
+  optional uint32 idx = 1;
+  optional string pitch = 2;
+  optional MusicalDuration duration = 3;
+  optional uint32 dots = 4;
+  optional uint32 tuplet = 5;
+}
+
+message InsertNote {
+  optional uint32 idx = 1;
+  optional string pitch = 2;
+  optional MusicalDuration duration = 3;
+}
+
+message DeleteNote {
+  optional uint32 idx = 1;
+}
+
+message AddPitch {
+  optional uint32 idx = 1;
+  optional string pitch = 2;
+}
+
+message RemovePitch {
+  optional uint32 idx = 1;
+  optional uint32 pitch_idx = 2;
+}
+
+message SetClef {
+  repeated uint64 measure_ids = 1;
+  optional Clef clef = 2;
+}
+
+message SetKeySignature {
+  repeated uint64 measure_ids = 1;
+  optional KeySignature key_signature = 2;
+}
+
+message SetAccidental {
+  optional uint32 idx = 1;
+  optional uint32 pitch_idx = 2;
+  optional string accidental = 3;
+}
+
+message TransposeNotes {
+  repeated uint64 note_ids = 1;
+  optional int32 half_notes = 2;
+}

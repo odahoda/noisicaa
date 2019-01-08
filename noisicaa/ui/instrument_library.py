@@ -36,7 +36,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import instrument_db
-from noisicaa import node_db
 from noisicaa import core
 from noisicaa import model
 
@@ -520,7 +519,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.__pipeline_mixer_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
             'root',
-            description=node_db.Builtins.MixerDescription,
+            description=self.app.node_db.get_node_description('builtin://mixer'),
             id=self.__pipeline_mixer_id,
             name='library-mixer')
         await self.audioproc_client.connect_ports(

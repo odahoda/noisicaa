@@ -31,16 +31,13 @@ from noisicaa.core import storage as storage_lib
 from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import node_db as node_db_lib
+from noisicaa.builtin_nodes import server_registry
 from . import pmodel
 from . import pipeline_graph
-from . import instrument
 from . import commands
 from . import commands_pb2
-from . import score_track
-from . import beat_track
-from . import control_track
-from . import sample_track
 from . import base_track
+from . import samples
 
 logger = logging.getLogger(__name__)
 
@@ -159,15 +156,8 @@ class AddPipelineGraphNode(commands.Command):
             'graph_color': model.Color.from_proto(pb.graph_color),
         }
 
-        track_cls_map = {
-            'builtin://score_track': score_track.ScoreTrack,
-            'builtin://beat_track': beat_track.BeatTrack,
-            'builtin://control_track': control_track.ControlTrack,
-            'builtin://sample_track': sample_track.SampleTrack,
-            'builtin://instrument': instrument.Instrument,
-        }  # type: Dict[str, Type[pipeline_graph.BasePipelineGraphNode]]
         try:
-            node_cls = track_cls_map[pb.uri]
+            node_cls = server_registry.node_cls_map[pb.uri]
         except KeyError:
             node_cls = pipeline_graph.PipelineGraphNode
             kwargs['node_uri'] = pb.uri
@@ -265,9 +255,9 @@ class BaseProject(pmodel.Project):
         self.pipeline_mutation.call(mutation)
 
     def add_pipeline_graph_node(self, node: pmodel.BasePipelineGraphNode) -> None:
-        self.pipeline_graph_nodes.append(node)
         for mutation in node.get_add_mutations():
             self.handle_pipeline_mutation(mutation)
+        self.pipeline_graph_nodes.append(node)
 
     def remove_pipeline_graph_node(self, node: pmodel.BasePipelineGraphNode) -> None:
         delete_connections = set()
@@ -394,6 +384,7 @@ class Project(BaseProject):
         storage = storage_lib.ProjectStorage.create(path)
 
         project = pool.create(cls, storage=storage, node_db=node_db)
+        pool.set_root(project)
 
         # Write initial checkpoint of an empty project.
         project.create_checkpoint()
@@ -479,20 +470,11 @@ class Pool(pmodel.Pool):
             self.register_class(Project)
 
         self.register_class(Metadata)
+        self.register_class(samples.Sample)
         self.register_class(base_track.MeasureReference)
-        self.register_class(beat_track.Beat)
-        self.register_class(beat_track.BeatMeasure)
-        self.register_class(beat_track.BeatTrack)
-        self.register_class(control_track.ControlPoint)
-        self.register_class(control_track.ControlTrack)
         self.register_class(pipeline_graph.AudioOutPipelineGraphNode)
-        self.register_class(instrument.Instrument)
         self.register_class(pipeline_graph.PipelineGraphConnection)
         self.register_class(pipeline_graph.PipelineGraphControlValue)
         self.register_class(pipeline_graph.PipelineGraphNode)
-        self.register_class(sample_track.Sample)
-        self.register_class(sample_track.SampleRef)
-        self.register_class(sample_track.SampleTrack)
-        self.register_class(score_track.Note)
-        self.register_class(score_track.ScoreMeasure)
-        self.register_class(score_track.ScoreTrack)
+
+        server_registry.register_classes(self)

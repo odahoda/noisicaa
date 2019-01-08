@@ -119,18 +119,22 @@ Status run_POST_RMS(BlockContext* ctxt, ProgramState* state, const vector<OpArg>
 
   float rms = sqrtf(sum / state->host_system->block_size());
 
-  uint8_t atom[100];
+  uint8_t atom[200];
   LV2_Atom_Forge forge;
   lv2_atom_forge_init(&forge, &state->host_system->lv2->urid_map);
   lv2_atom_forge_set_buffer(&forge, atom, sizeof(atom));
 
-  LV2_Atom_Forge_Frame frame;
-  lv2_atom_forge_push(
-      &forge, &frame,
-      lv2_atom_forge_atom(&forge, 0, state->host_system->lv2->urid.core_portrms));
+  LV2_Atom_Forge_Frame oframe;
+  lv2_atom_forge_object(&forge, &oframe, state->host_system->lv2->urid.core_nodemsg, 0);
+
+  lv2_atom_forge_key(&forge, state->host_system->lv2->urid.core_portrms);
+  LV2_Atom_Forge_Frame tframe;
+  lv2_atom_forge_tuple(&forge, &tframe);
   lv2_atom_forge_int(&forge, port_index);
   lv2_atom_forge_float(&forge, rms);
-  lv2_atom_forge_pop(&forge, &frame);
+  lv2_atom_forge_pop(&forge, &tframe);
+
+  lv2_atom_forge_pop(&forge, &oframe);
 
   NodeMessage::push(ctxt->out_messages, node_id, (LV2_Atom*)atom);
 

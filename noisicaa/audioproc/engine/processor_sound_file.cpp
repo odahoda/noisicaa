@@ -39,8 +39,10 @@ extern "C" {
 namespace noisicaa {
 
 ProcessorSoundFile::ProcessorSoundFile(
-    const string& node_id, HostSystem* host_system, const pb::NodeDescription& desc)
-  : Processor(node_id, "noisicaa.audioproc.engine.processor.sound_file", host_system, desc) {}
+    const string& realm_name, const string& node_id, HostSystem* host_system,
+    const pb::NodeDescription& desc)
+  : Processor(
+      realm_name, node_id, "noisicaa.audioproc.engine.processor.sound_file", host_system, desc) {}
 
 ProcessorSoundFile::~ProcessorSoundFile() {}
 

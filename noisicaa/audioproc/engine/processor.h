@@ -25,6 +25,7 @@
 #ifndef _NOISICAA_AUDIOPROC_ENGINE_PROCESSOR_H
 #define _NOISICAA_AUDIOPROC_ENGINE_PROCESSOR_H
 
+#include <atomic>
 #include <map>
 #include <memory>
 #include <string>
@@ -47,6 +48,7 @@ class HostSystem;
 class NotificationQueue;
 class TimeMapper;
 namespace pb {
+class EngineNotification;
 class ProcessorMessage;
 class ProcessorParameters;
 }
@@ -63,14 +65,17 @@ enum ProcessorState {
 class Processor : public RefCounted {
 public:
   Processor(
-      const string& node_id, const char* logger_name, HostSystem* host_system,
+      const string& realm_name, const string& node_id, const char* logger_name,
+      HostSystem* host_system,
       const pb::NodeDescription& desc);
   virtual ~Processor();
 
   static StatusOr<Processor*> create(
-      const string& node_id, HostSystem* host_system, const string& desc_serialized);
+      const string& realm_name, const string& node_id, HostSystem* host_system,
+      const string& desc_serialized);
 
   uint64_t id() const { return _id; }
+  const string& realm_name() const { return _realm_name; }
   const string& node_id() const { return _node_id; }
   ProcessorState state() const { return _state; }
   static const char* state_name(ProcessorState state);
@@ -84,7 +89,7 @@ public:
   void connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf);
   void process_block(BlockContext* ctxt, TimeMapper* time_mapper);
 
-  Slot<ProcessorState> state_changed;
+  Slot<pb::EngineNotification> notifications;
 
 protected:
   void set_state(ProcessorState state);
@@ -96,14 +101,17 @@ protected:
   virtual Status set_parameters_internal(const pb::ProcessorParameters& parameters);
   virtual Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) = 0;
   virtual Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) = 0;
+  virtual Status post_process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper);
 
   void clear_all_outputs();
 
   Logger* _logger;
   HostSystem* _host_system;
   uint64_t _id;
+  string _realm_name;
   string _node_id;
   pb::NodeDescription _desc;
+  atomic<bool> _muted;
 
 private:
   static uint64_t new_id();

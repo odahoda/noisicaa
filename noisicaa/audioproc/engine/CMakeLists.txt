@@ -39,13 +39,8 @@ add_python_package(
   processor.pyi
   processor_test.py
   processor_csound_test.py
-  processor_cvgenerator_test.py
-  processor_pianoroll_test.py
   processor_plugin_test.py
-  processor_instrument_test.py
-  processor_sample_script_test.py
   processor_sound_file_test.py
-  processor_mixer_test.py
   profile.pyi
   realm.pyi
   realm_test.py
@@ -80,14 +75,8 @@ set(LIB_SRCS
   processor_null.cpp
   processor_csound_base.cpp
   processor_csound.cpp
-  processor_custom_csound.cpp
   processor_plugin.cpp
-  processor_instrument.cpp
   processor_sound_file.cpp
-  processor_mixer.cpp
-  processor_pianoroll.cpp
-  processor_cvgenerator.cpp
-  processor_sample_script.cpp
   profile.cpp
   realtime.cpp
   spec.cpp
@@ -118,6 +107,7 @@ target_link_libraries(noisicaa-audioproc-engine PRIVATE pthread)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE rt)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE profiler)
 target_link_libraries(noisicaa-audioproc-engine PRIVATE rtcheck)
+target_link_libraries(noisicaa-audioproc-engine PRIVATE noisicaa-builtin_nodes-processors)
 target_include_directories(noisicaa-audioproc-engine PUBLIC ${LIBLILV_INCLUDE_DIRS})
 target_link_libraries(noisicaa-audioproc-engine PRIVATE ${LIBLILV_LIBRARIES})
 target_include_directories(noisicaa-audioproc-engine PRIVATE ${LIBCSOUND_INCLUDE_DIRS})

@@ -33,29 +33,22 @@ from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
 from noisicaa.ui import slots
+from noisicaa.builtin_nodes import ui_registry
 from . import base_node
-from . import track_node
-from . import score_track_node
 from . import generic_node
 from . import plugin_node
-from . import mixer_node
-from . import instrument_node
 from . import toolbox
 
 logger = logging.getLogger(__name__)
 
 
 node_cls_map = {
-    node_db.NodeUIDescription.NO_UI: base_node.Node,
-    node_db.NodeUIDescription.GENERIC: generic_node.GenericNode,
-    node_db.NodeUIDescription.PLUGIN: plugin_node.PluginNode,
-    node_db.NodeUIDescription.MIXER: mixer_node.MixerNode,
-    node_db.NodeUIDescription.CONTROL_TRACK: track_node.TrackNode,
-    node_db.NodeUIDescription.SAMPLE_TRACK: track_node.TrackNode,
-    node_db.NodeUIDescription.SCORE_TRACK: score_track_node.ScoreTrackNode,
-    node_db.NodeUIDescription.BEAT_TRACK: track_node.TrackNode,
-    node_db.NodeUIDescription.INSTRUMENT: instrument_node.InstrumentNode,
-}  # type: Dict[node_db.NodeUIDescription.Type, Type[base_node.Node]]
+    'builtin://no-ui': base_node.Node,
+    'builtin://generic': generic_node.GenericNode,
+    'builtin://plugin': plugin_node.PluginNode,
+}  # type: Dict[str, Type[base_node.Node]]
+
+node_cls_map.update(ui_registry.node_ui_cls_map)
 
 
 # Something is odd with the QWidgetAction class. The usual way to use the
@@ -118,6 +111,8 @@ class SelectNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__list.itemDoubleClicked.connect(self.__itemDoubleClicked)
 
         for uri, node_desc in self.app.node_db.nodes:
+            if node_desc.internal:
+                continue
             list_item = QtWidgets.QListWidgetItem()
             list_item.setText(node_desc.display_name)
             list_item.setData(Qt.UserRole, uri)
@@ -423,6 +418,7 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         if not already_exists:
             self.send_command_async(music.Command(
                 target=self.project.id,
+                command='add_pipeline_graph_connection',
                 add_pipeline_graph_connection=music.AddPipelineGraphConnection(
                     source_node_id=src_node.id(),
                     source_port_name=src_port.name(),
@@ -440,6 +436,7 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
     def insertNode(self, uri: str, pos: QtCore.QPointF) -> None:
         self.send_command_async(music.Command(
             target=self.project.id,
+            command='add_pipeline_graph_node',
             add_pipeline_graph_node=music.AddPipelineGraphNode(
                 uri=uri,
                 graph_pos=model.Pos2F(pos.x(), pos.y()).to_proto(),
@@ -1106,6 +1103,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                     if new_graph_pos != node.graph_pos():
                         self.send_command_async(music.Command(
                             target=node.id(),
+                            command='change_pipeline_graph_node',
                             change_pipeline_graph_node=music.ChangePipelineGraphNode(
                                 graph_pos=new_graph_pos.to_proto())))
 
@@ -1172,6 +1170,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                         or new_graph_size != state.node.graph_size()):
                     self.send_command_async(music.Command(
                         target=state.node.id(),
+                        command='change_pipeline_graph_node',
                         change_pipeline_graph_node=music.ChangePipelineGraphNode(
                             graph_pos=new_graph_pos.to_proto(),
                             graph_size=new_graph_size.to_proto())))
@@ -1324,6 +1323,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                     # drop connection
                     self.send_command_async(music.Command(
                         target=self.project.id,
+                        command='remove_pipeline_graph_connection',
                         remove_pipeline_graph_connection=music.RemovePipelineGraphConnection(
                             connection_id=state.orig_connection.id())))
 
@@ -1336,6 +1336,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                     # change
                     self.send_command_async(music.Command(
                         target=self.project.id,
+                        command='remove_pipeline_graph_connection',
                         remove_pipeline_graph_connection=music.RemovePipelineGraphConnection(
                             connection_id=state.orig_connection.id())))
 

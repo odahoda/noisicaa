@@ -35,6 +35,7 @@ from noisicaa.constants import TEST_OPTS
 from noisicaa import model
 from noisicaa.model import model_base_pb2
 from . import project_client
+from . import project_client_model
 from . import commands_pb2
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ class ProjectIntegrationTest(unittest_mixins.ProcessManagerMixin, unittest.Async
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.project = None  # type: project_client.Project
+        self.project = None  # type: project_client_model.Project
         self.pool = None  # type: model.Pool
 
     async def setup_testcase(self):
@@ -121,14 +122,14 @@ class ProjectIntegrationTest(unittest_mixins.ProcessManagerMixin, unittest.Async
             await client.cleanup()
 
     async def create_project(
-            self, client) -> Tuple[project_client.Project, project_client.Pool, str]:
+            self, client) -> Tuple[project_client_model.Project, project_client.Pool, str]:
         path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
         await client.create(path)
         project = client.project
         return project, project._pool, path
 
     async def open_project(
-            self, client, path) -> Tuple[project_client.Project, project_client.Pool]:
+            self, client, path) -> Tuple[project_client_model.Project, project_client.Pool]:
         await client.open(path)
         project = client.project
         return project, project._pool
@@ -159,8 +160,9 @@ class ProjectIntegrationTest(unittest_mixins.ProcessManagerMixin, unittest.Async
             await self.send_command(
                 client, pool,
                 target=project.id,
+                command='add_pipeline_graph_node',
                 add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
-                    uri='builtin://score_track'))
+                    uri='builtin://score-track'))
             #track1 = project.master_group.tracks[insert_index]
 
             # Disconnect from and shutdown process, without calling close().

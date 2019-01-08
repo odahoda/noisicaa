@@ -74,6 +74,7 @@ Status LV2SubSystem::setup() {
   urid.atom_vector = map("http://lv2plug.in/ns/ext/atom#Vector");
   urid.atom_event = map("http://lv2plug.in/ns/ext/atom#Event");
   urid.core_portrms = map("http://noisicaa.odahoda.de/lv2/core#portRMS");
+  urid.core_nodemsg = map("http://noisicaa.odahoda.de/lv2/core#node-message");
 
   return Status::Ok();
 }

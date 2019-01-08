@@ -232,6 +232,7 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
 
     def _create_blank_project(self, project_cls: Type[PROJECT]) -> PROJECT:
         project = self.__pool.create(project_cls, node_db=self.node_db)
+        self.__pool.set_root(project)
         return project
 
     async def __close_project(self) -> None:
@@ -453,6 +454,7 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
 
         cmd = commands.Command.create(commands_pb2.Command(
             target=node.id,
+            command='set_pipeline_graph_control_value',
             set_pipeline_graph_control_value=commands_pb2.SetPipelineGraphControlValue(
                 port_name=port_name,
                 float_value=value,
@@ -479,6 +481,7 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
 
         cmd = commands.Command.create(commands_pb2.Command(
             target=node.id,
+            command='set_pipeline_graph_plugin_state',
             set_pipeline_graph_plugin_state=commands_pb2.SetPipelineGraphPluginState(
                 plugin_state=state)))
 

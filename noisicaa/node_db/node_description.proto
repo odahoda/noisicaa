@@ -30,19 +30,7 @@ message NotSupportedReasons {
 }
 
 message ProcessorDescription {
-  enum Type {
-    NULLPROC = 1;
-    CSOUND = 2;
-    CUSTOM_CSOUND = 3;
-    PLUGIN = 5;
-    INSTRUMENT = 6;
-    SOUND_FILE = 7;
-    MIXER = 8;
-    PIANOROLL = 9;
-    CV_GENERATOR = 10;
-    SAMPLE_SCRIPT = 11;
-  }
-  required Type type = 1;
+  required string type = 1;
 }
 
 message LV2Feature {
@@ -125,18 +113,8 @@ message PortDescription {
 }
 
 message NodeUIDescription {
-  enum Type {
-    NO_UI = 1;
-    GENERIC = 2;
-    PLUGIN = 3;
-    MIXER = 4;
-    CONTROL_TRACK = 5;
-    SAMPLE_TRACK = 6;
-    SCORE_TRACK = 7;
-    BEAT_TRACK = 8;
-    INSTRUMENT = 9;
-  }
-  required Type type = 1 [default = NO_UI];
+  required string type = 1 [default = "builtin://no-ui"];
+  optional bool muteable = 2 [default = true];
 }
 
 message NodeDescription {
@@ -153,6 +131,7 @@ message NodeDescription {
   required Type type = 3;
 
   optional string display_name = 4;
+  optional bool internal = 8 [default = false];
 
   optional bool has_ui = 5 [default = false];
 

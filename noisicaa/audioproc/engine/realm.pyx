@@ -30,6 +30,7 @@ from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa.core.status cimport check
 from noisicaa.host_system.host_system cimport PyHostSystem
+from noisicaa.audioproc.public import engine_notification_pb2
 from .player cimport PyPlayer
 from .spec cimport PySpec
 from .processor cimport PyProcessor
@@ -59,7 +60,7 @@ cdef class PyRealm(object):
             PyHostSystem host_system,
             PyPlayer player,
             str callback_address):
-        self.node_state_changed = core.Callback()
+        self.notifications = core.Callback()
 
         self.__engine = engine
         self.__name = name
@@ -81,8 +82,8 @@ cdef class PyRealm(object):
         self.__realm = new Realm(c_name, host_system.get(), c_player)
         self.__realm.incref()
 
-        self.__realm.set_processor_state_changed_callback(
-            self._processor_state_changed_callback, <PyObject*>self)
+        self.__realm.set_notification_callback(
+            self.__notification_callback, <PyObject*>self)
 
         self.__sink = graph.Node.create(
             host_system=self.__host_system,
@@ -258,8 +259,8 @@ cdef class PyRealm(object):
             check(self.__realm.run_maintenance())
 
     @staticmethod
-    cdef void _processor_state_changed_callback(
-        void* c_self, const string& c_node_id, ProcessorState c_state) with gil:
+    cdef void __notification_callback(
+        void* c_self, const string& notification_serialized) with gil:
         cdef PyRealm self = <object><PyObject*>c_self
 
         # Have to stash away any active exception, because otherwise exception handling
@@ -270,9 +271,9 @@ cdef class PyRealm(object):
         cdef PyObject* exc_trackback
         PyErr_Fetch(&exc_type, &exc_value, &exc_trackback)
         try:
-
-            node_id = bytes(c_node_id).decode('utf-8')
-            self.node_state_changed.call(node_id, c_state)
+            notification = engine_notification_pb2.EngineNotification()
+            notification.ParseFromString(notification_serialized)
+            self.notifications.call(notification)
 
         finally:
             PyErr_Restore(exc_type, exc_value, exc_trackback)

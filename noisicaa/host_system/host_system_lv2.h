@@ -78,6 +78,7 @@ public:
     LV2_URID atom_vector;
     LV2_URID atom_event;
     LV2_URID core_portrms;
+    LV2_URID core_nodemsg;
   } urid;
 
 private:

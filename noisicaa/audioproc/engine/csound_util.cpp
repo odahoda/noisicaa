@@ -31,9 +31,10 @@
 
 namespace noisicaa {
 
-CSoundUtil::CSoundUtil(HostSystem* host_system)
+CSoundUtil::CSoundUtil(HostSystem* host_system, function<void(LogLevel, const char*)> log_func)
   : _logger(LoggerRegistry::get_logger("noisicaa.audioproc.engine.csound_util")),
-    _host_system(host_system) {}
+    _host_system(host_system),
+    _log_func(log_func) {}
 
 CSoundUtil::~CSoundUtil() {
   if (_csnd != nullptr) {
@@ -75,7 +76,7 @@ void CSoundUtil::_log_cb(int attr, const char* fmt, va_list args) {
     }
 
     *eol = 0;
-    _logger->log(level, "%s", _log_buf);
+    _log_func(level, _log_buf);
 
     memmove(_log_buf, eol + 1, strlen(eol + 1) + 1);
   }
@@ -246,6 +247,7 @@ Status CSoundUtil::process_block(
                   /* p5: velocity */ (MYFLT)midi[2],
                 };
                 //_logger->info("i %f %f %f %f %f", p[0], p[1], p[2], p[3], p[4]);
+                RTUnsafe rtu;  // csound might do RT unsafe stuff internally.
                 int rc = csoundScoreEvent(_csnd, 'i', p, 5);
                 if (rc < 0) {
                   return ERROR_STATUS("csoundScoreEvent failed (code %d).", rc);
@@ -257,6 +259,7 @@ Status CSoundUtil::process_block(
                   /* p3: duration */ 0.0,
                 };
                 //_logger->info("i %f %f %f", p[0], p[1], p[2]);
+                RTUnsafe rtu;  // csound might do RT unsafe stuff internally.
                 int rc = csoundScoreEvent(_csnd, 'i', p, 3);
                 if (rc < 0) {
                   return ERROR_STATUS("csoundScoreEvent failed (code %d).", rc);

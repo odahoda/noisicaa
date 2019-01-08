@@ -54,8 +54,8 @@ class LV2Scanner(scanner.Scanner):
             desc = node_db.NodeDescription()
             desc.supported = True
             desc.type = node_db.NodeDescription.PLUGIN
-            desc.node_ui.type = node_db.NodeUIDescription.PLUGIN
-            desc.processor.type = node_db.ProcessorDescription.PLUGIN
+            desc.node_ui.type = 'builtin://plugin'
+            desc.processor.type = 'builtin://plugin'
             desc.plugin.type = node_db.PluginDescription.LV2
             desc.display_name = str(plugin.get_name())
 

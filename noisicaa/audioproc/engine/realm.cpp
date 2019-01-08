@@ -32,6 +32,7 @@
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/core/status.h"
 #include "noisicaa/host_system/host_system.h"
+#include "noisicaa/audioproc/public/engine_notification.pb.h"
 #include "noisicaa/audioproc/public/time_mapper.h"
 #include "noisicaa/audioproc/engine/opcodes.h"
 #include "noisicaa/audioproc/engine/block_context.h"
@@ -83,20 +84,33 @@ Status Program::setup(Realm* realm, HostSystem* host_system, const Spec* s) {
   return Status::Ok();
 }
 
-ActiveProcessor::ActiveProcessor(Processor* processor, Slot<ProcessorState>::Callback state_callback)
+ActiveProcessor::ActiveProcessor(
+    Processor* processor, Slot<pb::EngineNotification>::Callback notification_callback)
   : processor(processor),
-    state_changed_listener(processor->state_changed.connect(state_callback)),
+    notification_listener(processor->notifications.connect(notification_callback)),
     ref_count(0) {
   processor->incref();
   // Emit correct state.
   // TODO: When we have async processor setup, remove this, as the notifications will come from
   // the background thread.
-  state_callback(processor->state());
+
+  pb::EngineNotification notification;
+  auto nsc = notification.add_node_state_changes();
+  nsc->set_realm(processor->realm_name());
+  nsc->set_node_id(processor->node_id());
+  switch (processor->state()) {
+  case ProcessorState::INACTIVE: nsc->set_state(pb::NodeStateChange::INACTIVE); break;
+  case ProcessorState::SETUP:    nsc->set_state(pb::NodeStateChange::SETUP); break;
+  case ProcessorState::RUNNING:  nsc->set_state(pb::NodeStateChange::RUNNING); break;
+  case ProcessorState::BROKEN:   nsc->set_state(pb::NodeStateChange::BROKEN); break;
+  case ProcessorState::CLEANUP:  nsc->set_state(pb::NodeStateChange::CLEANUP); break;
+  }
+  notification_callback(notification);
 }
 
 ActiveProcessor::~ActiveProcessor() {
   processor->decref();
-  processor->state_changed.disconnect(state_changed_listener);
+  processor->notifications.disconnect(notification_listener);
 }
 
 ActiveControlValue::ActiveControlValue(ControlValue* cv)
@@ -195,23 +209,24 @@ Status Realm::add_processor(Processor* processor) {
 
   ActiveProcessor* active_processor = new ActiveProcessor(
       processor,
-      std::bind(&Realm::processor_state_changed_proxy, this, processor, placeholders::_1));
+      std::bind(&Realm::notification_proxy, this, placeholders::_1));
 
   _processors.emplace(processor->id(), unique_ptr<ActiveProcessor>(active_processor));
   return Status::Ok();
 }
 
-void Realm::set_processor_state_changed_callback(
-    void (*callback)(void*, const string&, ProcessorState), void* userdata) {
-  assert(_processor_state_changed_callback == nullptr);
-  _processor_state_changed_callback = callback;
-  _processor_state_changed_userdata = userdata;
+void Realm::set_notification_callback(
+    void (*callback)(void*, const string&), void* userdata) {
+  assert(_notification_callback == nullptr);
+  _notification_callback = callback;
+  _notification_userdata = userdata;
 }
 
-void Realm::processor_state_changed_proxy(Processor* processor, ProcessorState state) {
-  _logger->info("Processor %llx state change: %s", processor->id(), Processor::state_name(state));
-  if (_processor_state_changed_callback != nullptr) {
-    _processor_state_changed_callback(_processor_state_changed_userdata, processor->node_id(), state);
+void Realm::notification_proxy(const pb::EngineNotification& notification) {
+  if (_notification_callback != nullptr) {
+    string notification_serialized;
+    assert(notification.SerializeToString(&notification_serialized));
+    _notification_callback(_notification_userdata, notification_serialized);
   }
 }
 

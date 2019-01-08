@@ -28,9 +28,9 @@ from noisidev import unittest
 from noisicaa import audioproc
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
+from noisicaa.builtin_nodes.score_track import server_impl as score_track
 from . import project
 from . import player
-from . import score_track
 
 logger = logging.getLogger(__name__)
 

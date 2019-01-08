@@ -19,8 +19,12 @@
 # @end:license
 
 from .model_base import (
+    ObjectSpec,
+
     PropertyBase,
     Property, ListProperty,
+    ProtoProperty,
+    WrappedProtoProperty, WrappedProtoListProperty,
     ObjectProperty, ObjectReferenceProperty, ObjectListProperty,
 
     Mutation,
@@ -46,26 +50,15 @@ from .project import (
     ProjectChild,
     AudioOutPipelineGraphNode,
     BasePipelineGraphNode,
-    Beat,
-    BeatMeasure,
-    BeatTrack,
-    ControlPoint,
-    ControlTrack,
-    Instrument,
     Measure,
     MeasureReference,
     MeasuredTrack,
     Metadata,
-    Note,
     PipelineGraphConnection,
     PipelineGraphControlValue,
     PipelineGraphNode,
     Project,
     Sample,
-    SampleRef,
-    SampleTrack,
-    ScoreMeasure,
-    ScoreTrack,
     Track,
 )
 from .model_base_pb2 import (

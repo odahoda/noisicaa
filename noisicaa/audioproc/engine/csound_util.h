@@ -26,12 +26,14 @@
 #define _NOISICAA_AUDIOPROC_ENGINE_CSOUND_UTIL_H
 
 #include <atomic>
+#include <functional>
 #include <string>
 #include <vector>
 #include <stdint.h>
 #include "csound/csound.h"
 #include "lv2/lv2plug.in/ns/ext/atom/forge.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
+#include "noisicaa/core/logging.h"
 #include "noisicaa/core/status.h"
 #include "noisicaa/node_db/node_description.pb.h"
 #include "noisicaa/audioproc/engine/buffers.h"
@@ -40,14 +42,13 @@ namespace noisicaa {
 
 using namespace std;
 
-class Logger;
 class HostSystem;
 class BlockContext;
 class TimeMapper;
 
 class CSoundUtil {
 public:
-  CSoundUtil(HostSystem* host_system);
+  CSoundUtil(HostSystem* host_system, function<void(LogLevel, const char*)> log_func);
   ~CSoundUtil();
 
   struct PortSpec {
@@ -62,6 +63,7 @@ public:
 private:
   Logger* _logger;
   HostSystem* _host_system;
+  function<void(LogLevel, const char*)> _log_func;
 
   static void _log_cb(CSOUND* csnd, int attr, const char* fmt, va_list args);
   void _log_cb(int attr, const char* fmt, va_list args);

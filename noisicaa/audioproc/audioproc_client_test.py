@@ -84,7 +84,7 @@ class AudioProcClientTest(
                 ),
             ],
             processor=node_db.ProcessorDescription(
-                type=node_db.ProcessorDescription.NULLPROC,
+                type='builtin://null',
             ),
         )
 

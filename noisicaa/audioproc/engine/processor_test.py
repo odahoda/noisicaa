@@ -34,11 +34,11 @@ class ProcessorTest(
             type=node_db.NodeDescription.PROCESSOR,
             ports=[],
             processor=node_db.ProcessorDescription(
-                type=node_db.ProcessorDescription.NULLPROC,
+                type='builtin://null',
             ),
         )
 
-        proc1 = processor.PyProcessor('test_node_1', self.host_system, node_description)
-        proc2 = processor.PyProcessor('test_node_2', self.host_system, node_description)
+        proc1 = processor.PyProcessor('realm', 'test_node_1', self.host_system, node_description)
+        proc2 = processor.PyProcessor('realm', 'test_node_2', self.host_system, node_description)
 
         self.assertNotEqual(proc1.id, proc2.id)

@@ -40,7 +40,9 @@ class State(enum.Enum):
 
 
 cdef class PyProcessor(object):
-    def __init__(self, node_id, PyHostSystem host_system, node_description):
+    def __init__(self, realm_name, node_id, PyHostSystem host_system, node_description):
+        if isinstance(realm_name, str):
+            realm_name = realm_name.encode('utf-8')
         if isinstance(node_id, str):
             node_id = node_id.encode('utf-8')
         assert isinstance(node_id, bytes)
@@ -48,7 +50,7 @@ cdef class PyProcessor(object):
         self.__desc = node_description
 
         cdef StatusOr[Processor*] stor_processor = Processor.create(
-            node_id, host_system.get(), self.__desc.SerializeToString())
+            realm_name, node_id, host_system.get(), self.__desc.SerializeToString())
         check(stor_processor)
         self.__processor = stor_processor.result()
         self.__processor.incref()
@@ -104,7 +106,8 @@ cdef class PyProcessor(object):
                 self.__processor.process_block(ctxt.get(), c_time_mapper)
             finally:
                 rtcheck.enable_rt_checker(0)
-        assert rtcheck.rt_checker_violations() == 0
+        assert rtcheck.rt_checker_violations() == 0, \
+          "%d RT violation(s) seen" % rtcheck.rt_checker_violations()
 
     def handle_message(self, msg):
         cdef string msg_serialized = msg.SerializeToString()

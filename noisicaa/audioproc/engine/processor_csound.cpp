@@ -25,8 +25,10 @@
 namespace noisicaa {
 
 ProcessorCSound::ProcessorCSound(
-    const string& node_id, HostSystem *host_system, const pb::NodeDescription& desc)
-  : ProcessorCSoundBase(node_id, "noisicaa.audioproc.engine.processor.csound", host_system, desc) {}
+    const string& realm_name, const string& node_id, HostSystem *host_system,
+    const pb::NodeDescription& desc)
+  : ProcessorCSoundBase(
+      realm_name, node_id, "noisicaa.audioproc.engine.processor.csound", host_system, desc) {}
 
 Status ProcessorCSound::setup_internal() {
   RETURN_IF_ERROR(ProcessorCSoundBase::setup_internal());

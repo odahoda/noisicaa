@@ -51,6 +51,8 @@ py_proto(engine_notification.proto)
 
 add_library(noisicaa-audioproc-public SHARED ${LIB_SRCS})
 target_compile_options(noisicaa-audioproc-public PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
+set_source_files_properties(
+  processor_message.pb.cc PROPERTIES COMPILE_FLAGS -Wno-misleading-indentation)
 target_link_libraries(noisicaa-audioproc-public PRIVATE noisicaa-core)
 target_include_directories(noisicaa-audioproc-public PRIVATE ${LIBPROTOBUF_INCLUDE_DIRS})
 target_link_libraries(noisicaa-audioproc-public PRIVATE ${LIBPROTOBUF_LIBRARIES})

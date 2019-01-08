@@ -46,7 +46,8 @@ class AudioFile;
 class ProcessorSoundFile : public Processor {
 public:
   ProcessorSoundFile(
-      const string& node_id, HostSystem* host_system, const pb::NodeDescription& desc);
+      const string& realm_name, const string& node_id, HostSystem* host_system,
+      const pb::NodeDescription& desc);
   ~ProcessorSoundFile() override;
 
 protected:

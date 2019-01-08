@@ -37,7 +37,9 @@ class HostSystem;
 
 class ProcessorNull : public Processor {
 public:
-  ProcessorNull(const string& node_id, HostSystem* host_system, const pb::NodeDescription& desc);
+  ProcessorNull(
+      const string& realm_name, const string& node_id, HostSystem* host_system,
+      const pb::NodeDescription& desc);
   ~ProcessorNull() override;
 
 protected:

@@ -32,13 +32,13 @@ from noisicaa.model import (
     Pitch,
 )
 from noisicaa.music import (
-    score_track,
-    sample_track,
-    beat_track,
-    control_track,
-    instrument,
     pipeline_graph,
 )
+from noisicaa.builtin_nodes.score_track import server_impl as score_track
+from noisicaa.builtin_nodes.beat_track import server_impl as beat_track
+from noisicaa.builtin_nodes.control_track import server_impl as control_track
+from noisicaa.builtin_nodes.sample_track import server_impl as sample_track
+from noisicaa.builtin_nodes.instrument import server_impl as instrument
 from noisicaa import instrument_db
 
 Note = score_track.Note

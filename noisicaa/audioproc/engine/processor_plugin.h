@@ -42,7 +42,9 @@ class HostSystem;
 
 class ProcessorPlugin : public Processor {
 public:
-  ProcessorPlugin(const string& node_id, HostSystem* host_system, const pb::NodeDescription& desc);
+  ProcessorPlugin(
+      const string& realm_name, const string& node_id, HostSystem* host_system,
+      const pb::NodeDescription& desc);
 
 protected:
   Status setup_internal() override;

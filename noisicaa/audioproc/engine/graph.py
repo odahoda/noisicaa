@@ -367,18 +367,14 @@ class Node(object):
                     spec.append_opcode('MIX', upstream_port.buf_name, port.buf_name)
 
     def add_to_spec_post(self, spec: spec_lib.PySpec) -> None:
-        for port_idx, port in enumerate(self.ports):
-            if isinstance(port, AudioOutputPort):
-                spec.append_opcode('POST_RMS', self.id, port_idx, port.buf_name)
-            elif isinstance(port, EventOutputPort):
-                spec.append_opcode('LOG_ATOM', port.buf_name)
+        pass
 
 
 class ProcessorNode(Node):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__processor = processor_lib.PyProcessor(self.id, self._host_system, self.description)
+        self.__processor = None  # type: processor_lib.PyProcessor
 
     @property
     def processor(self) -> processor_lib.PyProcessor:
@@ -388,6 +384,8 @@ class ProcessorNode(Node):
     async def setup(self) -> None:
         await super().setup()
 
+        self.__processor = processor_lib.PyProcessor(
+            self.realm.name, self.id, self._host_system, self.description)
         self.__processor.setup()
         self.realm.add_active_processor(self.__processor)
 
@@ -463,11 +461,6 @@ class PluginNode(ProcessorNode):
 class RealmSinkNode(Node):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(id='sink', **kwargs)
-
-    def add_to_spec_pre(self, spec: spec_lib.PySpec) -> None:
-        super().add_to_spec_pre(spec)
-        spec.append_opcode('POST_RMS', self.id, 0, self.inputs['in:left'].buf_name)
-        spec.append_opcode('POST_RMS', self.id, 1, self.inputs['in:right'].buf_name)
 
 
 class ChildRealmNode(Node):

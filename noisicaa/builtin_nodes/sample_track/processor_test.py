@@ -1,0 +1,174 @@
+# @begin:license
+#
+# Copyright (c) 2015-2018, Benjamin Niemann <pink@odahoda.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# @end:license
+
+import math
+import os
+import os.path
+
+from noisidev import unittest
+from noisidev import unittest_mixins
+from noisidev import unittest_engine_mixins
+from noisidev import unittest_engine_utils
+from noisicaa.audioproc.public import musical_time
+from noisicaa.audioproc.public import time_mapper
+from noisicaa.audioproc.engine import block_context
+from noisicaa.audioproc.engine import buffers
+from noisicaa.audioproc.engine import processor
+from . import processor_messages
+
+
+class ProcessorSampleScriptTest(
+        unittest_engine_mixins.HostSystemMixin,
+        unittest_mixins.NodeDBMixin,
+        unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.proc = None
+        self.arena = None
+        self.buffer_mgr = None
+        self.time_mapper = None
+        self.ctxt = None
+        self.outrbuf = None
+        self.outlbuf = None
+
+        self.sample1_path = os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')
+        self.sample2_path = os.path.join(unittest.TESTDATA_DIR, 'kick-gettinglaid.wav')
+
+    def setup_testcase(self):
+        self.host_system.set_block_size(4096)
+
+        plugin_uri = 'builtin://sample-track'
+        node_description = self.node_db[plugin_uri]
+
+        self.proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_description)
+        self.proc.setup()
+
+        self.buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
+
+        self.outlbuf = self.buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlockBuffer())
+        self.outrbuf = self.buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlockBuffer())
+
+        self.time_mapper = time_mapper.PyTimeMapper(self.host_system.sample_rate)
+        self.time_mapper.setup()
+
+        self.ctxt = block_context.PyBlockContext()
+
+        self.ctxt.clear_time_map(self.host_system.block_size)
+        for s in range(self.host_system.block_size):
+            self.ctxt.set_sample_time(
+                s,
+                musical_time.PyMusicalTime(s, 44100),
+                musical_time.PyMusicalTime(s + 1, 44100))
+
+        self.proc.connect_port(self.ctxt, 0, self.buffer_mgr.data('out:left'))
+        self.proc.connect_port(self.ctxt, 1, self.buffer_mgr.data('out:right'))
+
+    def cleanup_testcase(self):
+        if self.time_mapper is not None:
+            self.time_mapper.cleanup()
+            self.time_mapper = None
+
+        if self.proc is not None:
+            self.proc.cleanup()
+            self.proc = None
+
+    def test_empty(self):
+        self.proc.process_block(self.ctxt, self.time_mapper)
+
+        self.assertTrue(all(v == 0.0 for v in self.outlbuf))
+
+    def test_single_sample(self):
+        msg = processor_messages.add_sample(
+            node_id='123',
+            id=0x0001,
+            time=musical_time.PyMusicalTime(2048, 44100),
+            sample_path=self.sample1_path)
+        self.proc.handle_message(msg)
+
+        self.proc.process_block(self.ctxt, self.time_mapper)
+
+        self.assertTrue(all(math.isclose(v, 0.0) for v in self.outlbuf[:2048]))
+        self.assertTrue(any(not math.isclose(v, 0.0) for v in self.outlbuf[2048:]))
+
+    def test_two_samples(self):
+        msg = processor_messages.add_sample(
+            node_id='123',
+            id=0x0001,
+            time=musical_time.PyMusicalTime(1024, 44100),
+            sample_path=self.sample1_path)
+        self.proc.handle_message(msg)
+
+        msg = processor_messages.add_sample(
+            node_id='123',
+            id=0x0002,
+            time=musical_time.PyMusicalTime(3072, 44100),
+            sample_path=self.sample2_path)
+        self.proc.handle_message(msg)
+
+        self.proc.process_block(self.ctxt, self.time_mapper)
+
+        self.assertTrue(all(math.isclose(v, 0.0) for v in self.outlbuf[:1024]))
+        self.assertTrue(any(not math.isclose(v, 0.0) for v in self.outlbuf[1024:]))
+
+    def test_remove_sample(self):
+        msg = processor_messages.add_sample(
+            node_id='123',
+            id=0x0001,
+            time=musical_time.PyMusicalTime(2048, 44100),
+            sample_path=self.sample1_path)
+        self.proc.handle_message(msg)
+
+        msg = processor_messages.add_sample(
+            node_id='123',
+            id=0x0002,
+            time=musical_time.PyMusicalTime(1024, 44100),
+            sample_path=self.sample2_path)
+        self.proc.handle_message(msg)
+
+        msg = processor_messages.remove_sample(
+            node_id='123',
+            id=0x0002)
+        self.proc.handle_message(msg)
+
+        self.proc.process_block(self.ctxt, self.time_mapper)
+
+        self.assertTrue(all(math.isclose(v, 0.0) for v in self.outlbuf[:2048]))
+        self.assertTrue(any(not math.isclose(v, 0.0) for v in self.outlbuf[2048:]))
+
+    def test_seek_into_sample(self):
+        msg = processor_messages.add_sample(
+            node_id='123',
+            id=0x0001,
+            time=musical_time.PyMusicalTime(0, 1),
+            sample_path=self.sample1_path)
+        self.proc.handle_message(msg)
+
+        self.ctxt.clear_time_map(self.host_system.block_size)
+        it = self.time_mapper.find(musical_time.PyMusicalTime(1, 16))
+        prev_mtime = next(it)
+        for s in range(self.host_system.block_size):
+            mtime = next(it)
+            self.ctxt.set_sample_time(s, prev_mtime, mtime)
+            prev_mtime = mtime
+
+        self.proc.process_block(self.ctxt, self.time_mapper)
+
+        self.assertTrue(any(not math.isclose(v, 0.0) for v in self.outlbuf))

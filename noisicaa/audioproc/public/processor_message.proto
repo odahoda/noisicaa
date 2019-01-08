@@ -22,9 +22,6 @@
 
 syntax = "proto2";
 
-import "noisicaa/audioproc/public/instrument_spec.proto";
-import "noisicaa/audioproc/public/musical_time.proto";
-
 package noisicaa.pb;
 
 message ProcessorMessage {
@@ -34,52 +31,9 @@ message ProcessorMessage {
     required bool muted = 1;
   }
 
-  message PianoRollAddInterval {
-    required uint64 id = 1;
-    required MusicalTime start_time = 2;
-    required MusicalTime end_time = 3;
-    required uint32 pitch = 4;
-    required uint32 velocity = 5;
-  }
+  optional MuteNode mute_node = 8;
 
-  message PianoRollRemoveInterval {
-    required uint64 id = 1;
-  }
-
-  message CVGeneratorAddControlPoint {
-    required uint64 id = 1;
-    required MusicalTime time = 2;
-    required float value = 3;
-  }
-
-  message CVGeneratorRemoveControlPoint {
-    required uint64 id = 1;
-  }
-
-  message SampleScriptAddSample {
-    required uint64 id = 1;
-    required MusicalTime time = 2;
-    required string sample_path = 3;
-  }
-
-  message SampleScriptRemoveSample {
-    required uint64 id = 1;
-  }
-
-  message ChangeInstrument {
-    required InstrumentSpec instrument_spec = 1;
-  }
-
-  oneof msg {
-    MuteNode mute_node = 8;
-    PianoRollAddInterval pianoroll_add_interval = 2;
-    PianoRollRemoveInterval pianoroll_remove_interval = 3;
-    CVGeneratorAddControlPoint cvgenerator_add_control_point = 4;
-    CVGeneratorRemoveControlPoint cvgenerator_remove_control_point = 5;
-    SampleScriptAddSample sample_script_add_sample = 6;
-    SampleScriptRemoveSample sample_script_remove_sample = 7;
-    ChangeInstrument change_instrument = 9;
-  }
+  extensions 100000 to max;
 }
 
 message ProcessorMessageList {

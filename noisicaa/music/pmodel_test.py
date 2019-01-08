@@ -20,11 +20,13 @@
 #
 # @end:license
 
-from typing import Type
+from typing import Any, Dict, Type
 
 from noisidev import unittest
 from noisicaa import audioproc
 from noisicaa import model
+from noisicaa.builtin_nodes import server_registry
+from noisicaa.builtin_nodes.score_track import server_impl as score_track
 from . import pmodel
 
 
@@ -37,23 +39,13 @@ class ModelTest(unittest.TestCase):
         self.pool = pmodel.Pool()
         self.pool.register_class(pmodel.Project)
         self.pool.register_class(pmodel.MeasureReference)
-        self.pool.register_class(pmodel.ScoreMeasure)
-        self.pool.register_class(pmodel.ScoreTrack)
-        self.pool.register_class(pmodel.Beat)
-        self.pool.register_class(pmodel.BeatMeasure)
-        self.pool.register_class(pmodel.BeatTrack)
-        self.pool.register_class(pmodel.SampleRef)
-        self.pool.register_class(pmodel.SampleTrack)
-        self.pool.register_class(pmodel.ControlPoint)
-        self.pool.register_class(pmodel.ControlTrack)
         self.pool.register_class(pmodel.Metadata)
         self.pool.register_class(pmodel.Sample)
-        self.pool.register_class(pmodel.Note)
         self.pool.register_class(pmodel.PipelineGraphConnection)
         self.pool.register_class(pmodel.PipelineGraphNode)
-        self.pool.register_class(pmodel.Instrument)
         self.pool.register_class(pmodel.AudioOutPipelineGraphNode)
         self.pool.register_class(pmodel.PipelineGraphControlValue)
+        server_registry.register_classes(self.pool)
 
 
 class ProjectTest(ModelTest):
@@ -142,33 +134,34 @@ class PipelineGraphConnectionTest(ModelTest):
 
 class BasePipelineGraphNodeMixin(object):
     cls = None  # type: Type[pmodel.BasePipelineGraphNode]
+    create_args = {}  # type: Dict[str, Any]
 
     def test_name(self):
-        node = self.pool.create(self.cls)
+        node = self.pool.create(self.cls, **self.create_args)
 
         node.name = 'n1'
         self.assertEqual(node.name, 'n1')
 
     def test_graph_pos(self):
-        node = self.pool.create(self.cls)
+        node = self.pool.create(self.cls, **self.create_args)
 
         node.graph_pos = model.Pos2F(12, 14)
         self.assertEqual(node.graph_pos, model.Pos2F(12, 14))
 
     def test_graph_size(self):
-        node = self.pool.create(self.cls)
+        node = self.pool.create(self.cls, **self.create_args)
 
         node.graph_size = model.SizeF(20, 32)
         self.assertEqual(node.graph_size, model.SizeF(20, 32))
 
     def test_graph_color(self):
-        node = self.pool.create(self.cls)
+        node = self.pool.create(self.cls, **self.create_args)
 
         node.graph_color = model.Color(0.5, 0.4, 0.3, 0.1)
         self.assertEqual(node.graph_color, model.Color(0.5, 0.4, 0.3, 0.1))
 
     def test_plugin_state(self):
-        node = self.pool.create(self.cls)
+        node = self.pool.create(self.cls, **self.create_args)
 
         plugin_state = audioproc.PluginState(
             lv2=audioproc.PluginStateLV2(
@@ -182,21 +175,11 @@ class BasePipelineGraphNodeMixin(object):
         self.assertEqual(node.plugin_state, plugin_state)
 
     def test_control_values(self):
-        node = self.pool.create(self.cls)
+        node = self.pool.create(self.cls, **self.create_args)
 
         cv1 = self.pool.create(pmodel.PipelineGraphControlValue)
         node.control_values.append(cv1)
         self.assertIs(node.control_values[0], cv1)
-
-
-class InstrumentTest(BasePipelineGraphNodeMixin, ModelTest):
-    cls = pmodel.Instrument
-
-    def test_instrument(self):
-        node = self.pool.create(self.cls)
-
-        node.instrument_uri = 'sf2:/path.sf2?bank=1&preset=3'
-        self.assertEqual(node.instrument_uri, 'sf2:/path.sf2?bank=1&preset=3')
 
 
 class PipelineGraphNodeTest(BasePipelineGraphNodeMixin, ModelTest):
@@ -234,177 +217,27 @@ class MeasuredTrackMixin(TrackMixin):
     measure_cls = None  # type: Type[pmodel.Measure]
 
     def test_measure_list(self):
-        track = self.pool.create(self.cls)
+        track = self.pool.create(self.cls, **self.create_args)
 
         ref = self.pool.create(pmodel.MeasureReference)
         track.measure_list.append(ref)
-        self.assertIs(track.measure_list[0], ref)
+        self.assertIs(track.measure_list[-1], ref)
 
     def test_measure_heap(self):
-        track = self.pool.create(self.cls)
+        track = self.pool.create(self.cls, **self.create_args)
 
         measure = self.pool.create(self.measure_cls)
         track.measure_heap.append(measure)
-        self.assertIs(track.measure_heap[0], measure)
-
-
-class SampleTrackTest(TrackMixin, ModelTest):
-    cls = pmodel.SampleTrack
-
-    def test_samples(self):
-        track = self.pool.create(self.cls)
-
-        smpl = self.pool.create(pmodel.SampleRef)
-        track.samples.append(smpl)
-        self.assertIs(track.samples[0], smpl)
-
-
-class SampleRefTest(ModelTest):
-    def test_time(self):
-        ref = self.pool.create(pmodel.SampleRef)
-
-        ref.time = audioproc.MusicalTime(1, 4)
-        self.assertEqual(ref.time, audioproc.MusicalTime(1, 4))
-
-    def test_sample(self):
-        ref = self.pool.create(pmodel.SampleRef)
-
-        smpl = self.pool.create(pmodel.Sample)
-        ref.sample = smpl
-        self.assertIs(ref.sample, smpl)
-
-
-class ScoreTrackTest(MeasuredTrackMixin, ModelTest):
-    cls = pmodel.ScoreTrack
-    measure_cls = pmodel.ScoreMeasure
-
-    def test_transpose_octaves(self):
-        track = self.pool.create(self.cls)
-
-        self.assertEqual(track.transpose_octaves, 0)
-        track.transpose_octaves = -2
-        self.assertEqual(track.transpose_octaves, -2)
-
-
-class ScoreMeasureTest(ModelTest):
-    def test_clef(self):
-        measure = self.pool.create(pmodel.ScoreMeasure)
-
-        self.assertEqual(measure.clef, model.Clef.Treble)
-        measure.clef = model.Clef.Tenor
-        self.assertEqual(measure.clef, model.Clef.Tenor)
-
-    def test_key_signature(self):
-        measure = self.pool.create(pmodel.ScoreMeasure)
-
-        self.assertEqual(measure.key_signature, model.KeySignature('C major'))
-        measure.key_signature = model.KeySignature('F minor')
-        self.assertEqual(measure.key_signature, model.KeySignature('F minor'))
-
-    def test_time_signature(self):
-        measure = self.pool.create(pmodel.ScoreMeasure)
-
-        self.assertEqual(measure.time_signature, model.TimeSignature(4, 4))
-        measure.time_signature = model.TimeSignature(3, 4)
-        self.assertEqual(measure.time_signature, model.TimeSignature(3, 4))
-
-    def test_notes(self):
-        measure = self.pool.create(pmodel.ScoreMeasure)
-
-        note = self.pool.create(pmodel.Note)
-        measure.notes.append(note)
-        self.assertIs(measure.notes[0], note)
-
-
-class BeatTrackTest(MeasuredTrackMixin, ModelTest):
-    cls = pmodel.BeatTrack
-    measure_cls = pmodel.BeatMeasure
-
-    def test_pitch(self):
-        track = self.pool.create(self.cls)
-
-        track.pitch = model.Pitch('F4')
-        self.assertEqual(track.pitch, model.Pitch('F4'))
-
-
-class BeatMeasureTest(ModelTest):
-    def test_beats(self):
-        measure = self.pool.create(pmodel.BeatMeasure)
-
-        beat = self.pool.create(pmodel.Beat)
-        measure.beats.append(beat)
-        self.assertIs(measure.beats[0], beat)
-
-
-class BeatTest(ModelTest):
-    def test_time(self):
-        beat = self.pool.create(pmodel.Beat)
-
-        beat.time = audioproc.MusicalDuration(1, 4)
-        self.assertEqual(beat.time, audioproc.MusicalDuration(1, 4))
-
-    def test_velocity(self):
-        beat = self.pool.create(pmodel.Beat)
-
-        beat.velocity = 120
-        self.assertEqual(beat.velocity, 120)
-
-
-
-class ControlTrackTest(TrackMixin, ModelTest):
-    cls = pmodel.ControlTrack
-
-    def test_points(self):
-        track = self.pool.create(self.cls)
-
-        pnt = self.pool.create(pmodel.ControlPoint)
-        track.points.append(pnt)
-        self.assertIs(track.points[0], pnt)
+        self.assertIs(track.measure_heap[-1], measure)
 
 
 class MeasureReferenceTest(ModelTest):
     def test_measure(self):
         ref = self.pool.create(pmodel.MeasureReference)
 
-        measure = self.pool.create(pmodel.ScoreMeasure)
+        measure = self.pool.create(score_track.ScoreMeasure)
         ref.measure = measure
         self.assertIs(ref.measure, measure)
-
-
-class NoteTest(ModelTest):
-    def test_pitches(self):
-        note = self.pool.create(pmodel.Note)
-        self.assertEqual(len(note.pitches), 0)
-
-        note.pitches.append(model.Pitch('C4'))
-        note.pitches.append(model.Pitch('D4'))
-        note.pitches.append(model.Pitch('E4'))
-        note.pitches.append(model.Pitch('F4'))
-        del note.pitches[2]
-        note.pitches.insert(1, model.Pitch('G4'))
-        self.assertEqual(
-            note.pitches,
-            [model.Pitch('C4'), model.Pitch('G4'), model.Pitch('D4'), model.Pitch('F4')])
-
-    def test_base_duration(self):
-        note = self.pool.create(pmodel.Note)
-
-        note.base_duration = audioproc.MusicalDuration(1, 2)
-        self.assertEqual(note.base_duration, audioproc.MusicalDuration(1, 2))
-
-    def test_dots(self):
-        note = self.pool.create(pmodel.Note)
-
-        self.assertEqual(note.dots, 0)
-        note.dots = 2
-        self.assertEqual(note.dots, 2)
-
-    def test_tuplet(self):
-        note = self.pool.create(pmodel.Note)
-
-        self.assertEqual(note.tuplet, 0)
-        note.tuplet = 3
-        self.assertEqual(note.tuplet, 3)
 
 
 class SampleTest(ModelTest):

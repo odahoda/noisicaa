@@ -36,23 +36,13 @@ from noisicaa import music
 from noisicaa import model
 from noisicaa.ui import ui_base
 from noisicaa.ui import player_state as player_state_lib
+from noisicaa.builtin_nodes import ui_registry
 from . import time_view_mixin
 from . import base_track_editor
 from . import measured_track_editor
-from . import beat_track_editor
-from . import control_track_editor
-from . import score_track_editor
-from . import sample_track_editor
 from . import tools
 
 logger = logging.getLogger(__name__)
-
-track_editor_map = {
-    'ScoreTrack': score_track_editor.ScoreTrackEditor,
-    'BeatTrack': beat_track_editor.BeatTrackEditor,
-    'ControlTrack': control_track_editor.ControlTrackEditor,
-    'SampleTrack': sample_track_editor.SampleTrackEditor,
-}  # type: Dict[str, Type[base_track_editor.BaseTrackEditor]]
 
 
 class AsyncSetupBase(object):
@@ -198,7 +188,7 @@ class Editor(
             raise TypeError(type(change))
 
     def createTrack(self, track: music.Track) -> base_track_editor.BaseTrackEditor:
-        track_editor_cls = track_editor_map[type(track).__name__]
+        track_editor_cls = ui_registry.track_editor_cls_map[type(track).__name__]
         track_editor = track_editor_cls(
             track=track,
             player_state=self.__player_state,
@@ -316,6 +306,7 @@ class Editor(
 
         self.send_command_async(music.Command(
             target=self.project.id,
+            command='clear_measures',
             clear_measures=music.ClearMeasures(
                 measure_ids=[
                     mref.id for mref in sorted(
@@ -339,6 +330,7 @@ class Editor(
 
             self.send_command_async(music.Command(
                 target=self.project.id,
+                command='paste_measures',
                 paste_measures=music.PasteMeasures(
                     mode=mode,
                     src_objs=[copy['data'] for copy in clipboard['data']],

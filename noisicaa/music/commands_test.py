@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import typing
 import logging
 import os.path
 import uuid
@@ -29,6 +30,9 @@ from noisicaa.constants import TEST_OPTS
 from noisicaa import model
 from . import project_client
 
+if typing.TYPE_CHECKING:
+    from . import project_client_model
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,7 +41,7 @@ class CommandsTestMixin(unittest_mixins.ProcessManagerMixin):
         super().__init__(*args, **kwargs)
 
         self.client = None  # type: project_client.ProjectClient
-        self.project = None  # type: project_client.Project
+        self.project = None  # type: project_client_model.Project
         self.pool = None  # type: model.Pool
 
     async def setup_testcase(self):

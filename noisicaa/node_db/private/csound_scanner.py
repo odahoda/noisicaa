@@ -53,9 +53,9 @@ class CSoundScanner(scanner.Scanner):
 
                 desc = node_db.NodeDescription()
                 desc.supported = True
-                desc.node_ui.type = node_db.NodeUIDescription.PLUGIN
+                desc.node_ui.type = 'builtin://plugin'
                 desc.type = node_db.NodeDescription.PROCESSOR
-                desc.processor.type = node_db.ProcessorDescription.CSOUND
+                desc.processor.type = 'builtin://csound'
 
                 desc.display_name = ''.join(root.find('display-name').itertext())
 

@@ -66,6 +66,7 @@ class ControlValueConnector(ui_base.ProjectMixin, slots.SlotContainer, QtCore.QO
             self.__generation += 1
             self.send_command_async(music.Command(
                 target=self.__node.id,
+                command='set_pipeline_graph_control_value',
                 set_pipeline_graph_control_value=music.SetPipelineGraphControlValue(
                     port_name=self.__name,
                     float_value=value,

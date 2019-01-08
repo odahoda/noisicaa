@@ -1,0 +1,59 @@
+/*
+ * @begin:license
+ *
+ * Copyright (c) 2015-2018, Benjamin Niemann <pink@odahoda.de>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * @end:license
+ */
+
+syntax = "proto2";
+
+package noisicaa.pb;
+
+import "noisicaa/model/model_base.proto";
+import "noisicaa/builtin_nodes/score_track/model.proto";
+import "noisicaa/builtin_nodes/beat_track/model.proto";
+import "noisicaa/builtin_nodes/control_track/model.proto";
+import "noisicaa/builtin_nodes/sample_track/model.proto";
+import "noisicaa/builtin_nodes/instrument/model.proto";
+import "noisicaa/builtin_nodes/custom_csound/model.proto";
+
+extend ObjectBase {
+  // Score track (401xxx)
+  optional ScoreTrack score_track = 401000;
+  optional ScoreMeasure score_measure = 401001;
+  optional Note note = 401002;
+
+  // Beat track (402xxx)
+  optional BeatTrack beat_track = 402000;
+  optional BeatMeasure beat_measure = 402001;
+  optional Beat beat = 402002;
+
+  // Control track (403xxx)
+  optional ControlTrack control_track = 403000;
+  optional ControlPoint control_point = 403001;
+
+  // Sample track (404xxx)
+  optional SampleTrack sample_track = 404000;
+  optional SampleRef sample_ref = 404001;
+
+  // Instrument (405xxx)
+  optional Instrument instrument = 405000;
+
+  // Instrument (407xxx)
+  optional CustomCSound custom_csound = 407000;
+}

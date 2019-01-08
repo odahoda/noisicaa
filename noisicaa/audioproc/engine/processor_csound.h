@@ -36,7 +36,9 @@ class HostSystem;
 
 class ProcessorCSound : public ProcessorCSoundBase {
 public:
-  ProcessorCSound(const string& node_id, HostSystem* host_system, const pb::NodeDescription& desc);
+  ProcessorCSound(
+      const string& realm_name, const string& node_id, HostSystem* host_system,
+      const pb::NodeDescription& desc);
 
 protected:
   Status setup_internal() override;

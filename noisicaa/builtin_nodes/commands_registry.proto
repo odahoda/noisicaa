@@ -1,0 +1,69 @@
+/*
+ * @begin:license
+ *
+ * Copyright (c) 2015-2018, Benjamin Niemann <pink@odahoda.de>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * @end:license
+ */
+
+syntax = "proto2";
+
+import "noisicaa/music/commands.proto";
+import "noisicaa/builtin_nodes/score_track/commands.proto";
+import "noisicaa/builtin_nodes/beat_track/commands.proto";
+import "noisicaa/builtin_nodes/control_track/commands.proto";
+import "noisicaa/builtin_nodes/sample_track/commands.proto";
+import "noisicaa/builtin_nodes/instrument/commands.proto";
+import "noisicaa/builtin_nodes/custom_csound/commands.proto";
+
+package noisicaa.pb;
+
+extend Command {
+  // Score track (401xxx)
+  optional ChangeNote change_note = 401000;
+  optional InsertNote insert_note = 401001;
+  optional DeleteNote delete_note = 401002;
+  optional AddPitch add_pitch = 401003;
+  optional RemovePitch remove_pitch = 401004;
+  optional SetClef set_clef = 401005;
+  optional SetKeySignature set_key_signature = 401006;
+  optional SetAccidental set_accidental = 401007;
+  optional TransposeNotes transpose_notes = 401008;
+
+  // Beat track (402xxx)
+  optional SetBeatTrackPitch set_beat_track_pitch = 402000;
+  optional SetBeatVelocity set_beat_velocity = 402001;
+  optional AddBeat add_beat = 402002;
+  optional RemoveBeat remove_beat = 402003;
+
+  // Control track (403xxx)
+  optional AddControlPoint add_control_point = 403000;
+  optional RemoveControlPoint remove_control_point = 403001;
+  optional MoveControlPoint move_control_point = 403002;
+
+  // Sample track (404xxx)
+  optional AddSample add_sample = 404000;
+  optional RemoveSample remove_sample = 404001;
+  optional MoveSample move_sample = 404002;
+  optional RenderSample render_sample = 404003;
+
+  // Instrument (405xxx)
+  optional UpdateInstrument update_instrument = 405000;
+
+  // Instrument (407xxx)
+  optional UpdateCustomCSound update_custom_csound = 407000;
+}

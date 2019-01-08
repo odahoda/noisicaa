@@ -241,12 +241,8 @@ cdef class PyEngine(object):
             player=player,
             callback_address=callback_address)
         self.__realms[name] = realm
-        self.__realm_listeners['%s:node_state_changed' % name] = realm.node_state_changed.add(
-            lambda node_id, state: self.notifications.call(engine_notification_pb2.EngineNotification(
-                node_state_changes=[engine_notification_pb2.NodeStateChange(
-                    realm=name,
-                    node_id=node_id,
-                    state=state)])))
+        self.__realm_listeners['%s:notifications' % name] = realm.notifications.add(
+            self.notifications.call)
 
         if parent is None:
             self.__root_realm = realm
@@ -263,7 +259,7 @@ cdef class PyEngine(object):
         if realm.parent is not None:
             realm.parent.child_realms.pop(name)
         del self.__realms[name]
-        self.__realm_listeners.pop('%s:node_state_changed' % name).remove()
+        self.__realm_listeners.pop('%s:notifications' % name).remove()
         await realm.cleanup()
 
     def get_buffer(self, name, type):

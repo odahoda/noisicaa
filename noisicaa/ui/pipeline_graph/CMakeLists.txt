@@ -24,10 +24,7 @@ add_python_package(
   canvas.py
   canvas_test.py
   generic_node.py
-  instrument_node.py
-  mixer_node.py
   plugin_node.py
-  score_track_node.py
   toolbox.py
   track_node.py
   view.py

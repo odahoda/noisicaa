@@ -55,7 +55,7 @@ public:
 
 private:
   static const LV2_URID _first_urid = 100;
-  static const int _num_urids = 26;
+  static const int _num_urids = 27;
 
   struct cmp_cstr {
     bool operator()(const char *a, const char *b) {

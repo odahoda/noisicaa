@@ -39,8 +39,10 @@
 namespace noisicaa {
 
 ProcessorPlugin::ProcessorPlugin(
-    const string& node_id, HostSystem* host_system, const pb::NodeDescription& desc)
-  : Processor(node_id, "noisicaa.audioproc.engine.processor.plugin", host_system, desc) {}
+    const string& realm_name, const string& node_id, HostSystem* host_system,
+    const pb::NodeDescription& desc)
+  : Processor(
+      realm_name, node_id, "noisicaa.audioproc.engine.processor.plugin", host_system, desc) {}
 
 Status ProcessorPlugin::setup_internal() {
   return Processor::setup_internal();

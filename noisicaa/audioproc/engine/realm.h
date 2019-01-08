@@ -51,6 +51,10 @@ class TimeMapper;
 class BufferArena;
 class Realm;
 
+namespace pb {
+class EngineNotification;
+}
+
 class Program {
 public:
   Program(Logger* logger, uint32_t version);
@@ -78,11 +82,11 @@ struct ProgramState {
 };
 
 struct ActiveProcessor {
-  ActiveProcessor(Processor* processor, Slot<ProcessorState>::Callback state_callback);
+  ActiveProcessor(Processor* processor, Slot<pb::EngineNotification>::Callback notification_callback);
   ~ActiveProcessor();
 
   Processor* processor;
-  Slot<ProcessorState>::Listener state_changed_listener;
+  Slot<pb::EngineNotification>::Listener notification_listener;
   int ref_count;
 };
 
@@ -113,8 +117,8 @@ public:
 
   void clear_programs();
 
-  void set_processor_state_changed_callback(
-      void (*callback)(void*, const string&, ProcessorState), void* userdata);
+  void set_notification_callback(
+      void (*callback)(void*, const string&), void* userdata);
 
   Status add_processor(Processor* processor);
   Status add_control_value(ControlValue* cv);
@@ -140,9 +144,9 @@ private:
   void activate_program(Program* program);
   void deactivate_program(Program* program);
 
-  void processor_state_changed_proxy(Processor* processor, ProcessorState state);
-  void (*_processor_state_changed_callback)(void*, const string&, ProcessorState) = nullptr;
-  void* _processor_state_changed_userdata = nullptr;
+  void notification_proxy(const pb::EngineNotification& notification);
+  void (*_notification_callback)(void*, const string&) = nullptr;
+  void* _notification_userdata = nullptr;
 
   string _name;
   Logger* _logger = nullptr;

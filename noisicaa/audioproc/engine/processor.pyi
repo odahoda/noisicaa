@@ -37,7 +37,7 @@ class State(enum.Enum):
 
 class PyProcessor(object):
     def __init__(
-            self, node_id: str, host_system: host_system_lib.HostSystem,
+            self, realm_name: str, node_id: str, host_system: host_system_lib.HostSystem,
             node_description: node_db.NodeDescription) -> None: ...
     @property
     def id(self) -> int: ...

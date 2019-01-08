@@ -37,6 +37,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
 
         node_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='add_pipeline_graph_node',
             add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
                 uri='builtin://csound/reverb',
                 graph_pos=model.Pos2F(200, 100).to_proto())))
@@ -45,6 +46,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
 
         conn1_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='add_pipeline_graph_connection',
             add_pipeline_graph_connection=commands_pb2.AddPipelineGraphConnection(
                 source_node_id=node_id, source_port_name='out:left',
                 dest_node_id=audio_out.id, dest_port_name='in:left')))
@@ -53,6 +55,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
 
         conn2_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='add_pipeline_graph_connection',
             add_pipeline_graph_connection=commands_pb2.AddPipelineGraphConnection(
                 source_node_id=node_id, source_port_name='out:right',
                 dest_node_id=audio_out.id, dest_port_name='in:right')))
@@ -61,6 +64,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
 
         await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='remove_pipeline_graph_connection',
             remove_pipeline_graph_connection=commands_pb2.RemovePipelineGraphConnection(
                 connection_id=conn1.id)))
         self.assertNotIn(conn1, self.project.pipeline_graph_connections)
@@ -68,6 +72,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
 
         await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='remove_pipeline_graph_node',
             remove_pipeline_graph_node=commands_pb2.RemovePipelineGraphNode(
                 node_id=node.id)))
         self.assertNotIn(node, self.project.pipeline_graph_nodes)
@@ -78,6 +83,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
     async def test_change_graph_pos(self):
         node_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='add_pipeline_graph_node',
             add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
                 uri='builtin://csound/reverb',
                 graph_pos=model.Pos2F(200, 100).to_proto())))
@@ -85,6 +91,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
 
         await self.client.send_command(commands_pb2.Command(
             target=node.id,
+            command='change_pipeline_graph_node',
             change_pipeline_graph_node=commands_pb2.ChangePipelineGraphNode(
                 graph_pos=model.Pos2F(100, 300).to_proto())))
         self.assertEqual(node.graph_pos, model.Pos2F(100, 300))
@@ -92,6 +99,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
     async def test_set_pipeline_graph_control_value(self):
         node_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='add_pipeline_graph_node',
             add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
                 uri='builtin://csound/reverb',
                 graph_pos=model.Pos2F(200, 100).to_proto())))
@@ -99,6 +107,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
 
         await self.client.send_command(commands_pb2.Command(
             target=node.id,
+            command='set_pipeline_graph_control_value',
             set_pipeline_graph_control_value=commands_pb2.SetPipelineGraphControlValue(
                 port_name='feedback',
                 float_value=0.6,
@@ -107,6 +116,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
     async def test_set_pipeline_graph_plugin_state(self):
         node_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='add_pipeline_graph_node',
             add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
                 uri='builtin://csound/reverb',
                 graph_pos=model.Pos2F(200, 100).to_proto())))
@@ -121,6 +131,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
                         value='lalila'.encode('utf-8'))]))
         await self.client.send_command(commands_pb2.Command(
             target=node.id,
+            command='set_pipeline_graph_plugin_state',
             set_pipeline_graph_plugin_state=commands_pb2.SetPipelineGraphPluginState(
                 plugin_state=plugin_state)))
         self.assertEqual(node.plugin_state, plugin_state)
@@ -129,6 +140,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
     async def test_pipeline_graph_node_to_preset(self):
         node_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='add_pipeline_graph_node',
             add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
                 uri='builtin://csound/reverb',
                 graph_pos=model.Pos2F(200, 100).to_proto())))
@@ -136,6 +148,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
 
         preset = await self.client.send_command(commands_pb2.Command(
             target=node.id,
+            command='pipeline_graph_node_to_preset',
             pipeline_graph_node_to_preset=commands_pb2.PipelineGraphNodeToPreset()))
         self.assertIsInstance(preset, bytes)
 
@@ -143,6 +156,7 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
     async def test_pipeline_graph_node_from_preset(self):
         node_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,
+            command='add_pipeline_graph_node',
             add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
                 uri='builtin://csound/reverb',
                 graph_pos=model.Pos2F(200, 100).to_proto())))
@@ -150,9 +164,11 @@ class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
 
         preset = await self.client.send_command(commands_pb2.Command(
             target=node.id,
+            command='pipeline_graph_node_to_preset',
             pipeline_graph_node_to_preset=commands_pb2.PipelineGraphNodeToPreset()))
 
         await self.client.send_command(commands_pb2.Command(
             target=node.id,
+            command='pipeline_graph_node_from_preset',
             pipeline_graph_node_from_preset=commands_pb2.PipelineGraphNodeFromPreset(
                 preset=preset)))

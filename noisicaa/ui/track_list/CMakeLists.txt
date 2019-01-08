@@ -21,16 +21,8 @@
 add_python_package(
   base_track_editor.py
   base_track_editor_test.py
-  beat_track_editor.py
-  beat_track_editor_test.py
-  control_track_editor.py
-  control_track_editor_test.py
   editor.py
   measured_track_editor.py
-  sample_track_editor.py
-  sample_track_editor_test.py
-  score_track_editor.py
-  score_track_editor_test.py
   time_line.py
   time_view_mixin.py
   toolbox.py

@@ -38,6 +38,7 @@ class NoteTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
         node_id = await self.project_client.send_command(music.Command(
             target=self.project.id,
+            command='add_pipeline_graph_node',
             add_pipeline_graph_node=music.AddPipelineGraphNode(
                 uri='ladspa://passthru.so/passthru',
                 graph_pos=model.Pos2F(200, 100).to_proto(),

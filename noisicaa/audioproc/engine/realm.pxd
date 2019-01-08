@@ -45,8 +45,8 @@ cdef extern from "noisicaa/audioproc/engine/realm.h" namespace "noisicaa" nogil:
         Status setup()
         void cleanup()
         void clear_programs()
-        void set_processor_state_changed_callback(
-            void (*callback)(void*, const string&, ProcessorState), void* userdata);
+        void set_notification_callback(
+            void (*callback)(void*, const string&), void* userdata);
         Status add_processor(Processor* processor)
         Status add_control_value(ControlValue* cv)
         Status add_child_realm(Realm* cv)
@@ -76,5 +76,5 @@ cdef class PyRealm(object):
     cdef Realm* get(self) nogil
 
     @staticmethod
-    cdef void _processor_state_changed_callback(
-        void* c_self, const string& node_id, ProcessorState state) with gil
+    cdef void __notification_callback(
+        void* c_self, const string& notification_serialized) with gil

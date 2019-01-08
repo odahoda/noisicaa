@@ -47,6 +47,16 @@ POOLOBJECTBASE = TypeVar('POOLOBJECTBASE', bound='ObjectBase')
 
 
 class AbstractPool(Generic[POOLOBJECTBASE], MutableMapping[int, POOLOBJECTBASE]):
+    def register_class(self, cls: Type[POOLOBJECTBASE]) -> None:
+        raise NotImplementedError  # pragma: no coverage
+
+    def set_root(self, obj: POOLOBJECTBASE) -> None:
+        raise NotImplementedError  # pragma: no coverage
+
+    @property
+    def root(self) -> POOLOBJECTBASE:
+        raise NotImplementedError  # pragma: no coverage
+
     @property
     def objects(self) -> Iterator[POOLOBJECTBASE]:
         raise NotImplementedError  # pragma: no coverage
@@ -861,6 +871,7 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
 
         self.__obj_map = {}  # type: Dict[int, POOLOBJECTBASE]
         self.__class_map = {}  # type: Dict[str, Type[POOLOBJECTBASE]]
+        self.__root_obj = None  # type: POOLOBJECTBASE
 
     def __get_proto_type(self, cls: Type) -> str:
         proto_type = None
@@ -883,6 +894,15 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
         assert proto_type is not None, cls.__name__
         assert proto_type not in self.__class_map
         self.__class_map[proto_type] = cls
+
+    def set_root(self, obj: POOLOBJECTBASE) -> None:
+        assert self.__root_obj is None
+        self.__root_obj = obj
+
+    @property
+    def root(self) -> POOLOBJECTBASE:
+        assert self.__root_obj is not None
+        return self.__root_obj
 
     def object_added(self, obj: POOLOBJECTBASE) -> None:
         pass
@@ -970,6 +990,7 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
     def deserialize_tree(self, objtree: model_base_pb2.ObjectTree) -> POOLOBJECTBASE:
         for oproto in objtree.objects:
             self.deserialize(oproto)
+        self.set_root(self.__obj_map[objtree.root])
         return self.__obj_map[objtree.root]
 
     def clone_tree(self, objtree: model_base_pb2.ObjectTree) -> POOLOBJECTBASE:

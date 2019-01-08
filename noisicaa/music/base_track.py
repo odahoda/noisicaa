@@ -30,6 +30,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import core
+from noisicaa.builtin_nodes.pianoroll import processor_messages as pianoroll
 from . import node_connector
 from . import pipeline_graph
 from . import pmodel
@@ -47,8 +48,8 @@ class UpdateTrackProperties(commands.Command):
         track = down_cast(pmodel.Track, pool[self.proto.command.target])
 
         if pb.HasField('transpose_octaves'):
-            assert isinstance(track, pmodel.ScoreTrack)
-            track.transpose_octaves = pb.transpose_octaves
+            #assert isinstance(track, pmodel.ScoreTrack)
+            track.transpose_octaves = pb.transpose_octaves  # type: ignore
 
 commands.Command.register_command(UpdateTrackProperties)
 
@@ -130,20 +131,18 @@ class PianoRollInterval(object):
     __repr__ = __str__
 
     def create_add_message(self, node_id: str) -> audioproc.ProcessorMessage:
-        return audioproc.ProcessorMessage(
+        return pianoroll.add_interval(
             node_id=node_id,
-            pianoroll_add_interval=audioproc.ProcessorMessage.PianoRollAddInterval(
-                id=self.id,
-                start_time=self.begin.to_proto(),
-                end_time=self.end.to_proto(),
-                pitch=self.pitch.midi_note,
-                velocity=self.velocity))
+            id=self.id,
+            start_time=self.begin,
+            end_time=self.end,
+            pitch=self.pitch.midi_note,
+            velocity=self.velocity)
 
     def create_remove_message(self, node_id: str) -> audioproc.ProcessorMessage:
-        return audioproc.ProcessorMessage(
+        return pianoroll.remove_interval(
             node_id=node_id,
-            pianoroll_remove_interval=audioproc.ProcessorMessage.PianoRollRemoveInterval(
-                id=self.id))
+            id=self.id)
 
 
 class MeasuredTrackConnector(node_connector.NodeConnector):

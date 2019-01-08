@@ -56,7 +56,7 @@ class ProcessorCsoundTestMixin(
                 ),
             ],
             processor=node_db.ProcessorDescription(
-                type=node_db.ProcessorDescription.CSOUND,
+                type='builtin://csound',
             ),
             csound=node_db.CSoundDescription(
                 orchestra=textwrap.dedent("""\
@@ -77,7 +77,7 @@ class ProcessorCsoundTestMixin(
             ),
         )
 
-        proc = processor.PyProcessor('test_node', self.host_system, node_description)
+        proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_description)
         proc.setup()
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
@@ -120,7 +120,7 @@ class ProcessorCsoundTestMixin(
                 ),
             ],
             processor=node_db.ProcessorDescription(
-                type=node_db.ProcessorDescription.CSOUND,
+                type='builtin://csound',
             ),
             csound=node_db.CSoundDescription(
                 orchestra=textwrap.dedent("""\
@@ -145,7 +145,7 @@ class ProcessorCsoundTestMixin(
             ),
         )
 
-        proc = processor.PyProcessor('test_node', self.host_system, node_description)
+        proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_description)
         proc.setup()
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)

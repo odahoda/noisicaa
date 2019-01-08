@@ -228,12 +228,14 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
     def onInsertMeasure(self) -> None:
         self.send_command_async(music.Command(
             target=self.track.id,
+            command='insert_measure',
             insert_measure=music.InsertMeasure(
                 pos=self.measure_reference.index)))
 
     def onRemoveMeasure(self) -> None:
         self.send_command_async(music.Command(
             target=self.track.id,
+            command='remove_measure',
             remove_measure=music.RemoveMeasure(
                 pos=self.measure_reference.index)))
 
@@ -397,6 +399,7 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
             if measure_editor.clickRect().contains(evt.pos() - measure_editor.topLeft()):
                 self.send_command_async(music.Command(
                     target=target.track.id,
+                    command='insert_measure',
                     insert_measure=music.InsertMeasure(pos=-1)))
                 evt.accept()
                 return
@@ -687,12 +690,14 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
     def onInsertMeasure(self) -> None:
         self.send_command_async(music.Command(
             target=self.track.id,
+            command='insert_measure',
             insert_measure=music.InsertMeasure(
                 pos=self.measure_reference.index)))
 
     def onRemoveMeasure(self) -> None:
         self.send_command_async(music.Command(
             target=self.project.id,
+            command='remove_measure',
             remove_measure=music.RemoveMeasure(
                 tracks=[self.track.index],
                 pos=self.measure_reference.index)))

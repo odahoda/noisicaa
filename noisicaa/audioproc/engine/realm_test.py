@@ -29,7 +29,7 @@ from noisidev import unittest_engine_mixins
 from noisicaa import constants
 from noisicaa import node_db
 from noisicaa.audioproc.public import instrument_spec_pb2
-from noisicaa.audioproc.public import processor_message_pb2
+from noisicaa.builtin_nodes.instrument import processor_messages as instrument
 from .spec import PySpec
 from .realm import PyRealm
 from .backend import PyBackend, PyBackendSettings
@@ -78,18 +78,16 @@ class RealmTest(
             backend.setup(realm)
 
             instrument_desc = self.node_db['builtin://instrument']
-            instrument_proc = PyProcessor('fluid', self.host_system, instrument_desc)
+            instrument_proc = PyProcessor(realm.name, 'fluid', self.host_system, instrument_desc)
             instrument_proc.setup()
 
-            msg = processor_message_pb2.ProcessorMessage(
-                node_id='fluid',
-                change_instrument=processor_message_pb2.ProcessorMessage.ChangeInstrument(
-                    instrument_spec=instrument_spec_pb2.InstrumentSpec(
-                        sf2=instrument_spec_pb2.SF2InstrumentSpec(
-                            path=os.path.join(unittest.TESTDATA_DIR, 'sf2test.sf2'),
-                            bank=0,
-                            preset=0))))
-            instrument_proc.handle_message(msg)
+            instrument_proc.handle_message(instrument.change_instrument(
+                'fluid',
+                instrument_spec_pb2.InstrumentSpec(
+                    sf2=instrument_spec_pb2.SF2InstrumentSpec(
+                        path=os.path.join(unittest.TESTDATA_DIR, 'sf2test.sf2'),
+                        bank=0,
+                        preset=0))))
 
             realm.add_active_processor(instrument_proc)
 
@@ -156,7 +154,7 @@ class RealmTest(
             node_description = node_db.NodeDescription(
                 type=node_db.NodeDescription.PROCESSOR,
                 processor=node_db.ProcessorDescription(
-                    type=node_db.ProcessorDescription.NULLPROC,
+                    type='builtin://null',
                 ),
                 ports=[
                     node_db.PortDescription(
@@ -177,7 +175,7 @@ class RealmTest(
                 ]
             )
 
-            processor = PyProcessor('amp', self.host_system, node_description)
+            processor = PyProcessor(realm.name, 'amp', self.host_system, node_description)
             processor.setup()
             realm.add_active_processor(processor)
 
@@ -308,7 +306,7 @@ class RealmTest(
             mixer = graph_lib.Node.create(
                 id='mixer',
                 host_system=self.host_system,
-                description=node_db.Builtins.MixerDescription)
+                description=self.node_db.get_node_description('builtin://mixer'))
             graph.add_node(mixer)
             await realm.setup_node(mixer)
             realm.update_spec()

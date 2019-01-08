@@ -74,6 +74,17 @@ class AtomTest(unittest.TestCase):
     def setUp(self):
         self.mapper = urid_mapper.PyDynamicURIDMapper()
 
+    def test_as_object(self):
+        buf = (
+            b'8\x00\x00\x00n\x00\x00\x00\xe8\x03\x00\x00\x00\x00\x00\x00}\x00\x00\x00\x00'
+            b'\x00\x00\x00 \x00\x00\x00t\x00\x00\x00\x04\x00\x00\x00k\x00\x00\x00\x02\x00'
+            b'\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00j\x00\x00\x00\x00\x00\x00\x00\x00'
+            b'\x00\x00\x00')
+        o = atom.wrap_atom(self.mapper, buf)
+        self.assertEqual(
+            o.as_object,
+            {'http://noisicaa.odahoda.de/lv2/core#portRMS': (2, 0.0)})
+
     # def test_sequence(self):
     #     buf = bytearray(1024)
     #     forge = atom.AtomForge(self.mapper)

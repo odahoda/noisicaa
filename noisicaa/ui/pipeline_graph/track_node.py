@@ -21,15 +21,11 @@
 # @end:license
 
 import logging
-import os.path
 from typing import cast, Any
 
-from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
-from noisicaa.constants import DATA_DIR
 from noisicaa import music
-
 from . import base_node
 
 logger = logging.getLogger(__name__)
@@ -37,18 +33,7 @@ logger = logging.getLogger(__name__)
 
 class TrackNode(base_node.Node):
     def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
-        if isinstance(node, music.ScoreTrack):
-            icon = QtSvg.QSvgRenderer(os.path.join(DATA_DIR, 'icons', 'track-type-score.svg'))
-        elif isinstance(node, music.BeatTrack):
-            icon = QtSvg.QSvgRenderer(os.path.join(DATA_DIR, 'icons', 'track-type-beat.svg'))
-        elif isinstance(node, music.ControlTrack):
-            icon = QtSvg.QSvgRenderer(os.path.join(DATA_DIR, 'icons', 'track-type-control.svg'))
-        elif isinstance(node, music.SampleTrack):
-            icon = QtSvg.QSvgRenderer(os.path.join(DATA_DIR, 'icons', 'track-type-sample.svg'))
-        else:
-            raise ValueError(type(node))
-
-        super().__init__(node=node, icon=icon, **kwargs)
+        super().__init__(node=node, **kwargs)
 
         self.__track = cast(music.Track, node)
 
@@ -67,5 +52,6 @@ class TrackNode(base_node.Node):
 
         self.send_command_async(music.Command(
             target=self.__track.id,
+            command='update_track',
             update_track=music.UpdateTrack(
                 visible=visible)))

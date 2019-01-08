@@ -41,7 +41,7 @@ class ProcessorSoundFileTestMixin(
         node_desc.sound_file.sound_file_path = os.fsencode(
             os.path.join(unittest.TESTDATA_DIR, 'snare.wav'))
 
-        proc = processor.PyProcessor('test_node', self.host_system, node_desc)
+        proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
         proc.setup()
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)

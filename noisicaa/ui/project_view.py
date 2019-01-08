@@ -38,7 +38,7 @@ from . import ui_base
 from . import render_dialog
 from . import selection_set
 from . import project_registry
-from . import track_list
+from .track_list import view as track_list_view
 from . import player_state as player_state_lib
 from .track_list import measured_track_editor
 
@@ -70,7 +70,7 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
         self.__player_state.playingChanged.connect(self.playingChanged)
         self.__player_state.loopEnabledChanged.connect(self.loopEnabledChanged)
 
-        self.__track_list = track_list.TrackListView(
+        self.__track_list = track_list_view.TrackListView(
             project_view=self, player_state=self.__player_state,
             parent=self, context=self.context)
 
@@ -271,5 +271,6 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
         dialog.setWindowTitle("noisicaa - Set BPM")
         dialog.accepted.connect(lambda: self.send_command_async(music.Command(
             target=self.project.id,
+            command='update_project_properties',
             update_project_properties=music.UpdateProjectProperties(bpm=dialog.intValue()))))
         dialog.show()

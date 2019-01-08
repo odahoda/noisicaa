@@ -32,9 +32,9 @@
 namespace noisicaa {
 
 ProcessorCSoundBase::ProcessorCSoundBase(
-    const string& node_id, const char* logger_name, HostSystem* host_system,
-    const pb::NodeDescription& desc)
-  : Processor(node_id, logger_name, host_system, desc),
+    const string& realm_name, const string& node_id, const char* logger_name,
+    HostSystem* host_system, const pb::NodeDescription& desc)
+  : Processor(realm_name, node_id, logger_name, host_system, desc),
     _next_instance(nullptr),
     _current_instance(nullptr),
     _old_instance(nullptr) {}
@@ -55,7 +55,10 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
   }
 
   // Create the next instance.
-  unique_ptr<CSoundUtil> instance(new CSoundUtil(_host_system));
+  unique_ptr<CSoundUtil> instance(
+      new CSoundUtil(
+          _host_system,
+          bind(&ProcessorCSoundBase::handle_csound_log, this, placeholders::_1, placeholders::_2)));
 
   vector<CSoundUtil::PortSpec> ports;
   for (const auto& port : _desc.ports()) {
@@ -134,6 +137,10 @@ Status ProcessorCSoundBase::process_block_internal(BlockContext* ctxt, TimeMappe
   }
 
   return instance->process_block(ctxt, time_mapper, _buffers);
+}
+
+void ProcessorCSoundBase::handle_csound_log(LogLevel level, const char* msg) {
+  _logger->log(level, "%s", msg);
 }
 
 }

@@ -27,36 +27,36 @@
 
 #include "noisicaa/core/slots.inl.h"
 #include "noisicaa/host_system/host_system.h"
+#include "noisicaa/audioproc/public/engine_notification.pb.h"
+#include "noisicaa/audioproc/engine/rtcheck.h"
 #include "noisicaa/audioproc/public/processor_message.pb.h"
 #include "noisicaa/audioproc/engine/processor.pb.h"
 #include "noisicaa/audioproc/engine/processor.h"
 #include "noisicaa/audioproc/engine/processor_null.h"
 #include "noisicaa/audioproc/engine/processor_csound.h"
-#include "noisicaa/audioproc/engine/processor_custom_csound.h"
-#include "noisicaa/audioproc/engine/processor_instrument.h"
 #include "noisicaa/audioproc/engine/processor_plugin.h"
 #include "noisicaa/audioproc/engine/processor_sound_file.h"
-#include "noisicaa/audioproc/engine/processor_mixer.h"
-#include "noisicaa/audioproc/engine/processor_pianoroll.h"
-#include "noisicaa/audioproc/engine/processor_cvgenerator.h"
-#include "noisicaa/audioproc/engine/processor_sample_script.h"
+#include "noisicaa/builtin_nodes/processor_registry.h"
 
 namespace noisicaa {
 
 Processor::Processor(
-    const string& node_id, const char* logger_name, HostSystem* host_system,
-    const pb::NodeDescription& desc)
+    const string& realm_name, const string& node_id, const char* logger_name,
+    HostSystem* host_system, const pb::NodeDescription& desc)
   : _logger(LoggerRegistry::get_logger(logger_name)),
     _host_system(host_system),
     _id(Processor::new_id()),
+    _realm_name(realm_name),
     _node_id(node_id),
     _desc(desc),
+    _muted(false),
     _state(ProcessorState::INACTIVE) {}
 
 Processor::~Processor() {}
 
 StatusOr<Processor*> Processor::create(
-    const string& node_id, HostSystem* host_system, const string& desc_serialized) {
+    const string& realm_name, const string& node_id, HostSystem* host_system,
+    const string& desc_serialized) {
   pb::NodeDescription desc;
   if (!desc.ParseFromString(desc_serialized)) {
     return ERROR_STATUS("Failed to parse NodeDescription proto.");
@@ -64,40 +64,20 @@ StatusOr<Processor*> Processor::create(
 
   assert(desc.has_processor());
 
-  switch (desc.processor().type()) {
-  case pb::ProcessorDescription::NULLPROC:
+  if (desc.processor().type() == "builtin://null") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorNull(node_id, host_system, desc);
-  case pb::ProcessorDescription::CSOUND:
+    return new ProcessorNull(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://csound") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorCSound(node_id, host_system, desc);
-  case pb::ProcessorDescription::CUSTOM_CSOUND:
-    assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorCustomCSound(node_id, host_system, desc);
-  case pb::ProcessorDescription::PLUGIN:
+    return new ProcessorCSound(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://plugin") {
     assert(desc.type() == pb::NodeDescription::PLUGIN);
-    return new ProcessorPlugin(node_id, host_system, desc);
-  case pb::ProcessorDescription::INSTRUMENT:
+    return new ProcessorPlugin(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://sound-file") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorInstrument(node_id, host_system, desc);
-  case pb::ProcessorDescription::SOUND_FILE:
-    assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorSoundFile(node_id, host_system, desc);
-  case pb::ProcessorDescription::MIXER:
-    assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorMixer(node_id, host_system, desc);
-  case pb::ProcessorDescription::PIANOROLL:
-    assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorPianoRoll(node_id, host_system, desc);
-  case pb::ProcessorDescription::CV_GENERATOR:
-    assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorCVGenerator(node_id, host_system, desc);
-  case pb::ProcessorDescription::SAMPLE_SCRIPT:
-    assert(desc.type() == pb::NodeDescription::PROCESSOR);
-    return new ProcessorSampleScript(node_id, host_system, desc);
-
-  default:
-    return ERROR_STATUS("Invalid processor type %d", desc.processor().type());
+    return new ProcessorSoundFile(realm_name, node_id, host_system, desc);
+  } else {
+    return create_processor(realm_name, node_id, host_system, desc);
   }
 }
 
@@ -124,7 +104,19 @@ void Processor::set_state(ProcessorState state) {
 
   _logger->info("Processor %llx: State %s -> %s", id(), state_name(_state), state_name(state));
   _state = state;
-  state_changed.emit(_state);
+
+  pb::EngineNotification notification;
+  auto nsc = notification.add_node_state_changes();
+  nsc->set_realm(_realm_name);
+  nsc->set_node_id(_node_id);
+  switch (_state) {
+  case ProcessorState::INACTIVE: nsc->set_state(pb::NodeStateChange::INACTIVE); break;
+  case ProcessorState::SETUP:    nsc->set_state(pb::NodeStateChange::SETUP); break;
+  case ProcessorState::RUNNING:  nsc->set_state(pb::NodeStateChange::RUNNING); break;
+  case ProcessorState::BROKEN:   nsc->set_state(pb::NodeStateChange::BROKEN); break;
+  case ProcessorState::CLEANUP:  nsc->set_state(pb::NodeStateChange::CLEANUP); break;
+  }
+  notifications.emit(notification);
 }
 
 Status Processor::setup() {
@@ -169,7 +161,13 @@ Status Processor::handle_message(const string& msg_serialized) {
 
 Status Processor::handle_message_internal(pb::ProcessorMessage* msg) {
   unique_ptr<pb::ProcessorMessage> msg_ptr(msg);
-  return ERROR_STATUS("Processor %llx: Unhandled message.", id());
+
+  if (msg->has_mute_node()) {
+    _muted.exchange(msg->mute_node().muted());
+    return Status::Ok();
+  }
+
+ return ERROR_STATUS("Processor %llx: Unhandled message.", id());
 }
 
 Status Processor::set_parameters(const string& parameters_serialized) {
@@ -194,6 +192,7 @@ void Processor::connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr bu
     if (status.is_error()) {
       _logger->error(
           "Processor %llx: connect_port(%u) failed: %s", id(), port_idx, status.message());
+      RTUnsafe rtu;  // We just crashed... doesn't matter we're now calling unsafe callbacks.
       set_state(ProcessorState::BROKEN);
     }
   }
@@ -204,14 +203,28 @@ void Processor::process_block(BlockContext* ctxt, TimeMapper* time_mapper) {
     Status status = process_block_internal(ctxt, time_mapper);
     if (status.is_error()) {
       _logger->error("Processor %llx: process_block() failed: %s", id(), status.message());
+      RTUnsafe rtu;  // We just crashed... doesn't matter we're now calling unsafe callbacks.
       set_state(ProcessorState::BROKEN);
     }
   }
 
-  if (state() != ProcessorState::RUNNING) {
-    // Processor is broken, just clear all outputs.
+  if (state() != ProcessorState::RUNNING || _muted.load()) {
+    // Processor is muted or broken, just clear all outputs.
     clear_all_outputs();
   }
+
+  if (state() == ProcessorState::RUNNING) {
+    Status status = post_process_block_internal(ctxt, time_mapper);
+    if (status.is_error()) {
+      _logger->error("Processor %llx: post_process_block() failed: %s", id(), status.message());
+      RTUnsafe rtu;  // We just crashed... doesn't matter we're now calling unsafe callbacks.
+      set_state(ProcessorState::BROKEN);
+    }
+  }
+}
+
+Status Processor::post_process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
+  return Status::Ok();
 }
 
 void Processor::clear_all_outputs() {

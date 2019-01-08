@@ -20,19 +20,14 @@
 #
 # @end:license
 
-import fractions
 import functools
 import logging
-from typing import cast, Any, Dict, Set, Sequence, List, Union
+from typing import cast, Any, Dict, Set, Sequence, List
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
-from noisicaa.audioproc.public import musical_time_pb2
-from . import pitch as pitch_lib
-from . import clef as clef_lib
-from . import key_signature as key_signature_lib
 from . import time_signature as time_signature_lib
 from . import pos2f
 from . import sizef
@@ -55,7 +50,7 @@ class ObjectBase(model_base.ObjectBase):
 
     @property
     def project(self) -> 'Project':
-        raise NotImplementedError
+        return cast(Project, self._pool.root)
 
     @property
     def attached_to_project(self) -> bool:
@@ -63,11 +58,6 @@ class ObjectBase(model_base.ObjectBase):
 
 
 class ProjectChild(ObjectBase):
-    @property
-    def project(self) -> 'Project':
-        assert self.is_attached
-        return cast(Union[ProjectChild, Project], self.parent).project
-
     @property
     def attached_to_project(self) -> bool:
         if not self.is_attached:
@@ -313,23 +303,6 @@ class AudioOutPipelineGraphNode(BasePipelineGraphNode):
         return node_db.Builtins.RealmSinkDescription
 
 
-class Instrument(BasePipelineGraphNode):
-    class InstrumentNodeSpec(model_base.ObjectSpec):
-        proto_type = 'instrument'
-        proto_ext = project_pb2.instrument  # type: ignore
-
-        instrument_uri = model_base.Property(str, allow_none=True)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.instrument_uri_changed = core.Callback[model_base.PropertyChange[str]]()
-
-    @property
-    def description(self) -> node_db.NodeDescription:
-        return node_db.Builtins.InstrumentDescription
-
-
 class Track(BasePipelineGraphNode):  # pylint: disable=abstract-method
     class TrackSpec(model_base.ObjectSpec):
         proto_ext = project_pb2.track  # type: ignore
@@ -457,251 +430,6 @@ class MeasuredTrack(Track):  # pylint: disable=abstract-method
         return duration
 
 
-class Note(ProjectChild):
-    class NoteSpec(model_base.ObjectSpec):
-        proto_type = 'note'
-        proto_ext = project_pb2.note  # type: ignore
-
-        pitches = model_base.WrappedProtoListProperty(pitch_lib.Pitch)
-        base_duration = model_base.WrappedProtoProperty(
-            audioproc.MusicalDuration,
-            default=audioproc.MusicalDuration(1, 4))
-        dots = model_base.Property(int, default=0)
-        tuplet = model_base.Property(int, default=0)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.pitches_changed = core.Callback[model_base.PropertyListChange[pitch_lib.Pitch]]()
-        self.base_duration_changed = \
-            core.Callback[model_base.PropertyChange[audioproc.MusicalDuration]]()
-        self.dots_changed = core.Callback[model_base.PropertyChange[int]]()
-        self.tuplet_changed = core.Callback[model_base.PropertyChange[int]]()
-
-    @property
-    def pitches(self) -> Sequence[pitch_lib.Pitch]:
-        return self.get_property_value('pitches')
-
-    @property
-    def base_duration(self) -> audioproc.MusicalDuration:
-        return self.get_property_value('base_duration')
-
-    @property
-    def dots(self) -> int:
-        return self.get_property_value('dots')
-
-    @property
-    def tuplet(self) -> int:
-        return self.get_property_value('tuplet')
-
-    @property
-    def measure(self) -> 'ScoreMeasure':
-        return cast(ScoreMeasure, self.parent)
-
-    @property
-    def is_rest(self) -> bool:
-        pitches = self.pitches
-        return len(pitches) == 1 and pitches[0].is_rest
-
-    @property
-    def max_allowed_dots(self) -> int:
-        base_duration = self.base_duration
-        if base_duration <= audioproc.MusicalDuration(1, 32):
-            return 0
-        if base_duration <= audioproc.MusicalDuration(1, 16):
-            return 1
-        if base_duration <= audioproc.MusicalDuration(1, 8):
-            return 2
-        return 3
-
-    @property
-    def duration(self) -> audioproc.MusicalDuration:
-        duration = self.base_duration
-        dots = self.dots
-        tuplet = self.tuplet
-        for _ in range(dots):
-            duration *= fractions.Fraction(3, 2)
-        if tuplet == 3:
-            duration *= fractions.Fraction(2, 3)
-        elif tuplet == 5:
-            duration *= fractions.Fraction(4, 5)
-        return audioproc.MusicalDuration(duration)
-
-    def property_changed(self, change: model_base.PropertyChange) -> None:
-        super().property_changed(change)
-        if self.measure is not None:
-            self.measure.content_changed.call()
-
-
-class ScoreMeasure(Measure):
-    class ScoreMeasureSpec(model_base.ObjectSpec):
-        proto_type = 'score_measure'
-        proto_ext = project_pb2.score_measure  # type: ignore
-
-        clef = model_base.WrappedProtoProperty(clef_lib.Clef, default=clef_lib.Clef.Treble)
-        key_signature = model_base.WrappedProtoProperty(
-            key_signature_lib.KeySignature,
-            default=key_signature_lib.KeySignature('C major'))
-        notes = model_base.ObjectListProperty(Note)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.clef_changed = core.Callback[model_base.PropertyChange[clef_lib.Clef]]()
-        self.key_signature_changed = \
-            core.Callback[model_base.PropertyChange[key_signature_lib.KeySignature]]()
-        self.notes_changed = core.Callback[model_base.PropertyListChange[Note]]()
-
-        self.content_changed = core.Callback[None]()
-
-    def setup(self) -> None:
-        super().setup()
-
-        self.notes_changed.add(lambda _: self.content_changed.call())
-
-
-class ScoreTrack(MeasuredTrack):
-    class ScoreTrackSpec(model_base.ObjectSpec):
-        proto_type = 'score_track'
-        proto_ext = project_pb2.score_track  # type: ignore
-
-        transpose_octaves = model_base.Property(int, default=0)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.transpose_octaves_changed = core.Callback[model_base.PropertyChange[int]]()
-
-    @property
-    def description(self) -> node_db.NodeDescription:
-        return node_db.Builtins.ScoreTrackDescription
-
-
-class Beat(ProjectChild):
-    class BeatSpec(model_base.ObjectSpec):
-        proto_type = 'beat'
-        proto_ext = project_pb2.beat  # type: ignore
-
-        time = model_base.ProtoProperty(musical_time_pb2.MusicalDuration)
-        velocity = model_base.Property(int)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.time_changed = \
-            core.Callback[model_base.PropertyChange[musical_time_pb2.MusicalDuration]]()
-        self.velocity_changed = core.Callback[model_base.PropertyChange[int]]()
-
-    @property
-    def measure(self) -> 'BeatMeasure':
-        return cast(BeatMeasure, self.parent)
-
-    def property_changed(self, change: model_base.PropertyChange) -> None:
-        super().property_changed(change)
-        if self.measure is not None:
-            self.measure.content_changed.call()
-
-
-class BeatMeasure(Measure):
-    class BeatMeasureSpec(model_base.ObjectSpec):
-        proto_type = 'beat_measure'
-        proto_ext = project_pb2.beat_measure  # type: ignore
-
-        beats = model_base.ObjectListProperty(Beat)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.beats_changed = core.Callback[model_base.PropertyListChange[Beat]]()
-
-        self.content_changed = core.Callback[None]()
-
-    def setup(self) -> None:
-        super().setup()
-        self.beats_changed.add(lambda _: self.content_changed.call())
-
-
-class BeatTrack(MeasuredTrack):
-    class BeatTrackSpec(model_base.ObjectSpec):
-        proto_type = 'beat_track'
-        proto_ext = project_pb2.beat_track  # type: ignore
-
-        pitch = model_base.WrappedProtoProperty(pitch_lib.Pitch)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.pitch_changed = core.Callback[model_base.PropertyChange[pitch_lib.Pitch]]()
-
-    @property
-    def description(self) -> node_db.NodeDescription:
-        return node_db.Builtins.BeatTrackDescription
-
-
-class ControlPoint(ProjectChild):
-    class ControlPointSpec(model_base.ObjectSpec):
-        proto_type = 'control_point'
-        proto_ext = project_pb2.control_point  # type: ignore
-
-        time = model_base.WrappedProtoProperty(audioproc.MusicalTime)
-        value = model_base.Property(float)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.time_changed = core.Callback[model_base.PropertyChange[audioproc.MusicalTime]]()
-        self.value_changed = core.Callback[model_base.PropertyChange[float]]()
-
-
-class ControlTrack(Track):
-    class ControlTrackSpec(model_base.ObjectSpec):
-        proto_type = 'control_track'
-        proto_ext = project_pb2.control_track  # type: ignore
-
-        points = model_base.ObjectListProperty(ControlPoint)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.points_changed = core.Callback[model_base.PropertyListChange[ControlPoint]]()
-
-    @property
-    def description(self) -> node_db.NodeDescription:
-        return node_db.Builtins.ControlTrackDescription
-
-
-class SampleRef(ProjectChild):
-    class SampleRefSpec(model_base.ObjectSpec):
-        proto_type = 'sample_ref'
-        proto_ext = project_pb2.sample_ref  # type: ignore
-
-        time = model_base.WrappedProtoProperty(audioproc.MusicalTime)
-        sample = model_base.ObjectReferenceProperty(Sample)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.time_changed = core.Callback[model_base.PropertyChange[audioproc.MusicalTime]]()
-        self.sample_changed = core.Callback[model_base.PropertyChange[Sample]]()
-
-
-class SampleTrack(Track):
-    class SampleTrackSpec(model_base.ObjectSpec):
-        proto_type = 'sample_track'
-        proto_ext = project_pb2.sample_track  # type: ignore
-
-        samples = model_base.ObjectListProperty(SampleRef)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.samples_changed = core.Callback[model_base.PropertyListChange[SampleRef]]()
-
-    @property
-    def description(self) -> node_db.NodeDescription:
-        return node_db.Builtins.SampleTrackDescription
-
-
 class Metadata(ProjectChild):
     class MetadataSpec(model_base.ObjectSpec):
         proto_type = 'metadata'
@@ -754,10 +482,6 @@ class Project(ObjectBase):
     @property
     def duration(self) -> audioproc.MusicalDuration:
         return audioproc.MusicalDuration(2 * 120, 4)  # 2min * 120bpm
-
-    @property
-    def project(self) -> 'Project':
-        return self
 
     @property
     def attached_to_project(self) -> bool:

@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 class Command(object):
     proto_type = None  # type: str
+    proto_ext = None  # type: int
     command_classes = {}  # type: Dict[str, Type[Command]]
 
     VERSION = 1
@@ -56,9 +57,8 @@ class Command(object):
 
     @classmethod
     def create(cls, proto: commands_pb2.Command) -> 'Command':
-        proto_type = proto.WhichOneof('command')
-        assert proto_type in cls.command_classes, proto_type
-        cmd_cls = cls.command_classes[proto_type]
+        assert proto.command in cls.command_classes, proto
+        cmd_cls = cls.command_classes[proto.command]
         cmd = cmd_cls.__new__(cmd_cls)
         cmd.proto = commands_pb2.ExecutedCommand(
             command=proto,
@@ -76,9 +76,8 @@ class Command(object):
         if cmd_proto.version not in cls.SUPPORTED_VERSIONS:
             raise ValueError("Version %s not supported." % cmd_proto.version)
 
-        proto_type = cmd_proto.command.WhichOneof('command')
-        assert proto_type in cls.command_classes, proto_type
-        cmd_cls = cls.command_classes[proto_type]
+        assert cmd_proto.command.command in cls.command_classes, cmd_proto.command
+        cmd_cls = cls.command_classes[cmd_proto.command.command]
         cmd = cmd_cls.__new__(cmd_cls)
         cmd.proto = cmd_proto
         return cmd
@@ -100,8 +99,12 @@ class Command(object):
     def apply(self, project: pmodel.Project, pool: pmodel.Pool) -> Any:
         assert self.proto.status == commands_pb2.ExecutedCommand.NOT_APPLIED
 
-        assert self.proto.command.HasField(self.proto_type)
-        pb = getattr(self.proto.command, self.proto_type)
+        if self.proto_ext is not None:
+            assert self.proto.command.HasExtension(self.proto_ext), self.proto.command
+            pb = self.proto.command.Extensions[self.proto_ext]  # type: ignore
+        else:
+            assert self.proto.command.HasField(self.proto_type), self.proto.command
+            pb = getattr(self.proto.command, self.proto_type)
 
         collector = mutations.MutationCollector(pool, self.proto.log)
         with collector.collect():

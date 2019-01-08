@@ -86,7 +86,7 @@ class ProcessorPluginTest(
             plugin_spec.node_description.CopyFrom(node_desc)
             pipe_address = await plugin_host.call('CREATE_PLUGIN', plugin_spec)
 
-            proc = processor.PyProcessor('test_node', self.host_system, node_desc)
+            proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
             proc.setup()
             proc.set_parameters(
                 processor_pb2.ProcessorParameters(
@@ -155,7 +155,7 @@ class ProcessorPluginTest(
         try:
             fake_host_ready.wait()
 
-            proc = processor.PyProcessor('test_node', self.host_system, node_desc)
+            proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
             proc.setup()
             proc.set_parameters(
                 processor_pb2.ProcessorParameters(
@@ -219,7 +219,7 @@ class ProcessorPluginTest(
         try:
             fake_host_ready.wait()
 
-            proc = processor.PyProcessor('test_node', self.host_system, node_desc)
+            proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
             proc.setup()
             proc.set_parameters(
                 processor_pb2.ProcessorParameters(

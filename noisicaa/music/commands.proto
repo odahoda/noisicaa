@@ -22,7 +22,6 @@
 
 syntax = "proto2";
 
-import "noisicaa/audioproc/public/musical_time.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
 import "noisicaa/model/model_base.proto";
 import "noisicaa/model/project.proto";
@@ -90,120 +89,10 @@ message RemovePipelineGraphConnection {
   optional uint64 connection_id = 1;
 }
 
-message UpdateInstrument {
-  optional string instrument_uri = 1;
-}
-
 message SetTimeSignature {
   repeated uint64 measure_ids = 1;
   optional uint32 upper = 2;
   optional uint32 lower = 3;
-}
-
-message SetInstrument {
-  optional string instrument = 1;
-}
-
-message ChangeNote {
-  optional uint32 idx = 1;
-  optional string pitch = 2;
-  optional MusicalDuration duration = 3;
-  optional uint32 dots = 4;
-  optional uint32 tuplet = 5;
-}
-
-message InsertNote {
-  optional uint32 idx = 1;
-  optional string pitch = 2;
-  optional MusicalDuration duration = 3;
-}
-
-message DeleteNote {
-  optional uint32 idx = 1;
-}
-
-message AddPitch {
-  optional uint32 idx = 1;
-  optional string pitch = 2;
-}
-
-message RemovePitch {
-  optional uint32 idx = 1;
-  optional uint32 pitch_idx = 2;
-}
-
-message SetClef {
-  repeated uint64 measure_ids = 1;
-  optional Clef clef = 2;
-}
-
-message SetKeySignature {
-  repeated uint64 measure_ids = 1;
-  optional KeySignature key_signature = 2;
-}
-
-message SetAccidental {
-  optional uint32 idx = 1;
-  optional uint32 pitch_idx = 2;
-  optional string accidental = 3;
-}
-
-message TransposeNotes {
-  repeated uint64 note_ids = 1;
-  optional int32 half_notes = 2;
-}
-
-message AddControlPoint {
-  optional MusicalTime time = 1;
-  optional float value = 2;
-}
-
-message RemoveControlPoint {
-  optional uint64 point_id = 1;
-}
-
-message MoveControlPoint {
-  optional uint64 point_id = 1;
-  optional MusicalTime time = 2;
-  optional float value = 3;
-}
-
-message AddSample {
-  optional MusicalTime time = 1;
-  optional string path = 2;
-}
-
-message RemoveSample {
-  optional uint64 sample_id = 1;
-}
-
-message MoveSample {
-  optional uint64 sample_id = 1;
-  optional MusicalTime time = 2;
-}
-
-message RenderSample {
-  optional Fraction scale_x = 1;
-}
-
-message SetBeatTrackInstrument {
-  optional string instrument = 1;
-}
-
-message SetBeatTrackPitch {
-  optional Pitch pitch = 1;
-}
-
-message SetBeatVelocity {
-  optional uint32 velocity = 1;
-}
-
-message AddBeat {
-  optional MusicalDuration time = 1;
-}
-
-message RemoveBeat {
-  optional uint64 beat_id = 1;
 }
 
 message ChangePipelineGraphNode {
@@ -233,47 +122,28 @@ message PipelineGraphNodeFromPreset {
 message Command {
   optional uint64 target = 1;
 
-  oneof command {
-    UpdateProjectProperties update_project_properties = 100;
-    InsertMeasure insert_measure = 103;
-    RemoveMeasure remove_measure = 104;
-    UpdateTrackProperties update_track_properties = 107;
-    SetNumMeasures set_num_measures = 108;
-    ClearMeasures clear_measures = 109;
-    PasteMeasures paste_measures = 110;
-    AddPipelineGraphNode add_pipeline_graph_node = 111;
-    RemovePipelineGraphNode remove_pipeline_graph_node = 112;
-    AddPipelineGraphConnection add_pipeline_graph_connection = 113;
-    RemovePipelineGraphConnection remove_pipeline_graph_connection = 114;
-    SetTimeSignature set_time_signature = 115;
-    ChangeNote change_note = 117;
-    InsertNote insert_note = 118;
-    DeleteNote delete_note = 119;
-    AddPitch add_pitch = 120;
-    RemovePitch remove_pitch = 121;
-    SetClef set_clef = 122;
-    SetKeySignature set_key_signature = 123;
-    SetAccidental set_accidental = 124;
-    TransposeNotes transpose_notes = 125;
-    AddControlPoint add_control_point = 126;
-    RemoveControlPoint remove_control_point = 127;
-    MoveControlPoint move_control_point = 128;
-    AddSample add_sample = 129;
-    RemoveSample remove_sample = 130;
-    MoveSample move_sample = 131;
-    RenderSample render_sample = 132;
-    SetBeatTrackPitch set_beat_track_pitch = 134;
-    SetBeatVelocity set_beat_velocity = 135;
-    AddBeat add_beat = 136;
-    RemoveBeat remove_beat = 137;
-    ChangePipelineGraphNode change_pipeline_graph_node = 138;
-    SetPipelineGraphControlValue set_pipeline_graph_control_value = 139;
-    SetPipelineGraphPluginState set_pipeline_graph_plugin_state = 140;
-    PipelineGraphNodeToPreset pipeline_graph_node_to_preset = 141;
-    PipelineGraphNodeFromPreset pipeline_graph_node_from_preset = 142;
-    UpdateTrack update_track = 143;
-    UpdateInstrument update_instrument = 144;
-  }
+  required string command = 2;
+
+  optional UpdateProjectProperties update_project_properties = 100;
+  optional InsertMeasure insert_measure = 103;
+  optional RemoveMeasure remove_measure = 104;
+  optional UpdateTrackProperties update_track_properties = 107;
+  optional SetNumMeasures set_num_measures = 108;
+  optional ClearMeasures clear_measures = 109;
+  optional PasteMeasures paste_measures = 110;
+  optional AddPipelineGraphNode add_pipeline_graph_node = 111;
+  optional RemovePipelineGraphNode remove_pipeline_graph_node = 112;
+  optional AddPipelineGraphConnection add_pipeline_graph_connection = 113;
+  optional RemovePipelineGraphConnection remove_pipeline_graph_connection = 114;
+  optional SetTimeSignature set_time_signature = 115;
+  optional ChangePipelineGraphNode change_pipeline_graph_node = 138;
+  optional SetPipelineGraphControlValue set_pipeline_graph_control_value = 139;
+  optional SetPipelineGraphPluginState set_pipeline_graph_plugin_state = 140;
+  optional PipelineGraphNodeToPreset pipeline_graph_node_to_preset = 141;
+  optional PipelineGraphNodeFromPreset pipeline_graph_node_from_preset = 142;
+  optional UpdateTrack update_track = 143;
+
+  extensions 100000 to max;
 }
 
 message ExecutedCommand {

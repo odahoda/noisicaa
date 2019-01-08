@@ -30,6 +30,7 @@ from noisidev import unittest_mixins
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
 from . import project_client
+from . import project_client_model
 from . import render_settings_pb2
 from . import commands_pb2
 
@@ -73,7 +74,7 @@ class ProjectClientTest(ProjectClientTestBase):
     async def test_basic(self):
         await self.client.create_inmemory()
         project = self.client.project
-        self.assertIsInstance(project.metadata, project_client.Metadata)
+        self.assertIsInstance(project.metadata, project_client_model.Metadata)
 
     async def test_create_close_open(self):
         path = self.get_project_path()
@@ -92,8 +93,9 @@ class ProjectClientTest(ProjectClientTestBase):
         num_nodes = len(project.pipeline_graph_nodes)
         await self.client.send_command(commands_pb2.Command(
             target=project.id,
+            command='add_pipeline_graph_node',
             add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
-                uri='builtin://score_track')))
+                uri='builtin://score-track')))
         self.assertEqual(len(project.pipeline_graph_nodes), num_nodes + 1)
 
 

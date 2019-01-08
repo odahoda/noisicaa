@@ -25,6 +25,7 @@ from noisicaa.core import ipc
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import host_system as host_system_lib
+from noisicaa.audioproc.public import engine_notification_pb2
 from . import player as player_lib
 from . import spec as spec_lib
 from . import processor
@@ -45,7 +46,7 @@ class PyProgram(object):
 
 
 class PyRealm(object):
-    node_state_changed = ...  # type: core.Callback[str]
+    notifications = ...  # type: core.Callback[engine_notification_pb2.EngineNotification]
     child_realms = ...  # type: Dict[str, PyRealm]
 
     def __init__(

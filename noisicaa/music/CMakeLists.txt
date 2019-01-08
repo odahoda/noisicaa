@@ -21,13 +21,8 @@
 add_python_package(
   base_track.py
   base_track_test.py
-  beat_track.py
-  beat_track_test.py
   commands.py
   commands_test.py
-  control_track.py
-  control_track_test.py
-  instrument.py
   mutations.py
   node_connector.py
   pipeline_graph.py
@@ -38,6 +33,7 @@ add_python_package(
   pmodel.py
   pmodel_test.py
   project_client.py
+  project_client_model.py
   project_client_test.py
   project_integration_test.py
   project_process.py
@@ -46,10 +42,7 @@ add_python_package(
   render.py
   render_test.py
   rms.pyi
-  sample_track.py
-  sample_track_test.py
-  score_track.py
-  score_track_test.py
+  samples.py
 )
 
 add_cython_module(rms CXX)

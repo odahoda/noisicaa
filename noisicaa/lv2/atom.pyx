@@ -77,12 +77,42 @@ cdef class Atom(object):
         return bytes(d[:sizeof(LV2_Atom) + self.size])
 
     @property
+    def as_object(self):
+        type_uri = self.type_uri
+        if type_uri == 'http://lv2plug.in/ns/ext/atom#Object':
+            d = {}
+            for key, value in self.items():
+                d[self.mapper.unmap(key)] = value.as_object
+            return d
+
+        elif type_uri == 'http://lv2plug.in/ns/ext/atom#Tuple':
+            return tuple(t.as_object for t in self.tuple)
+
+        elif type_uri == 'http://lv2plug.in/ns/ext/atom#Float':
+            return self.float
+
+        elif type_uri == 'http://lv2plug.in/ns/ext/atom#Int':
+            return self.int
+
+        elif type_uri == 'http://lv2plug.in/ns/ext/atom#String':
+            return self.str
+
+        else:
+            raise ValueError(type_uri)
+
+    @property
     def int(self):
         return int((<LV2_Atom_Int*>self.atom).body)
 
     @property
     def float(self):
         return float((<LV2_Atom_Float*>self.atom).body)
+
+    @property
+    def str(self):
+        cdef LV2_Atom_String* s = <LV2_Atom_String*>self.atom
+        cdef uint8_t* body = (<uint8_t*>s) + sizeof(LV2_Atom_String)
+        return bytes(body[:s.atom.size-1]).decode('utf-8')
 
     @property
     def tuple(self):
@@ -104,6 +134,23 @@ cdef class Atom(object):
         while not lv2_atom_sequence_is_end(&seq.body, seq.atom.size, event):
             yield Event(event.time.frames, Atom.wrap(self.mapper, <uint8_t*>&event.body))
             event = lv2_atom_sequence_next(event)
+
+    @property
+    def object_urid(self):
+        cdef LV2_Atom_Object* obj = <LV2_Atom_Object*>self.atom
+        return obj.body.id
+
+    @property
+    def object_uri(self):
+        return self.mapper.unmap(self.object_urid)
+
+    def items(self):
+        cdef LV2_Atom_Object* obj = <LV2_Atom_Object*>self.atom
+
+        cdef LV2_Atom_Property_Body* it = lv2_atom_object_begin(&obj.body)
+        while not lv2_atom_object_is_end(&obj.body, obj.atom.size, it):
+            yield (it.key, Atom.wrap(self.mapper, <uint8_t*>&it.value))
+            it = lv2_atom_object_next(it)
 
 
 def wrap_atom(mapper, buf):

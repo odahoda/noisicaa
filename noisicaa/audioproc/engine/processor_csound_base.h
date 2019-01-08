@@ -43,8 +43,8 @@ class CSoundUtil;
 class ProcessorCSoundBase : public Processor {
 public:
   ProcessorCSoundBase(
-      const string& node_id, const char* logger_name, HostSystem* host_system,
-      const pb::NodeDescription& desc);
+      const string& realm_name, const string& node_id, const char* logger_name,
+      HostSystem* host_system, const pb::NodeDescription& desc);
   ~ProcessorCSoundBase() override;
 
 protected:
@@ -52,6 +52,7 @@ protected:
   void cleanup_internal() override;
   Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
+  virtual void handle_csound_log(LogLevel log_level, const char* msg);
 
   Status set_code(const string& orchestra, const string& score);
 
