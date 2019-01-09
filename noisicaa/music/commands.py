@@ -22,6 +22,7 @@
 
 import logging
 import time
+import typing
 from typing import Any, Dict, Type
 
 from google.protobuf import message as protobuf
@@ -30,12 +31,15 @@ from . import commands_pb2
 from . import mutations
 from . import pmodel
 
+if typing.TYPE_CHECKING:
+    from google.protobuf import descriptor as protobuf_descriptor
+
 logger = logging.getLogger(__name__)
 
 
 class Command(object):
     proto_type = None  # type: str
-    proto_ext = None  # type: int
+    proto_ext = None  # type: protobuf_descriptor.FieldDescriptor
     command_classes = {}  # type: Dict[str, Type[Command]]
 
     VERSION = 1
@@ -101,7 +105,7 @@ class Command(object):
 
         if self.proto_ext is not None:
             assert self.proto.command.HasExtension(self.proto_ext), self.proto.command
-            pb = self.proto.command.Extensions[self.proto_ext]  # type: ignore
+            pb = self.proto.command.Extensions[self.proto_ext]
         else:
             assert self.proto.command.HasField(self.proto_type), self.proto.command
             pb = getattr(self.proto.command, self.proto_type)

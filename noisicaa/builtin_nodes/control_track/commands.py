@@ -27,7 +27,7 @@ from noisicaa.builtin_nodes import commands_registry_pb2
 def add_control_point(
         node_id: int, *, time: audioproc.MusicalTime, value: float) -> music.Command:
     cmd = music.Command(target=node_id, command='add_control_point')
-    pb = cmd.Extensions[commands_registry_pb2.add_control_point]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.add_control_point]
     pb.time.CopyFrom(time.to_proto())
     pb.value = value
     return cmd
@@ -35,7 +35,7 @@ def add_control_point(
 def remove_control_point(
         node_id: int, *, point_id: int) -> music.Command:
     cmd = music.Command(target=node_id, command='remove_control_point')
-    pb = cmd.Extensions[commands_registry_pb2.remove_control_point]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.remove_control_point]
     pb.point_id = point_id
     return cmd
 
@@ -43,7 +43,7 @@ def move_control_point(
         node_id: int, *, point_id: int, time: audioproc.MusicalTime = None, value: float = None
 ) -> music.Command:
     cmd = music.Command(target=node_id, command='move_control_point')
-    pb = cmd.Extensions[commands_registry_pb2.move_control_point]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.move_control_point]
     pb.point_id = point_id
     if time is not None:
         pb.time.CopyFrom(time.to_proto())

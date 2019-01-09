@@ -71,7 +71,7 @@ class GrandChild(model_base.ObjectBase):
 class Child(model_base.ObjectBase):
     class ChildSpec(model_base.ObjectSpec):
         proto_type = 'child'
-        proto_ext = model_base_test_pb2.child  # type: ignore
+        proto_ext = model_base_test_pb2.child
         child = model_base.ObjectProperty(GrandChild)
         value = model_base.Property(str, allow_none=True)
 
@@ -103,7 +103,7 @@ class Child(model_base.ObjectBase):
 class Root(model_base.ObjectBase):
     class RootSpec(model_base.ObjectSpec):
         proto_type = 'root'
-        proto_ext = model_base_test_pb2.root  # type: ignore
+        proto_ext = model_base_test_pb2.root
 
         string_value = model_base.Property(str)
         int_value = model_base.Property(int, allow_none=True)
@@ -491,7 +491,7 @@ class PropertyTest(unittest.TestCase):
         self.obj.create()
         self.obj.setup()
         self.obj.setup_complete()
-        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]  # type: ignore
+        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]
 
     def test_changes(self):
         changes = PropertyChangeCollector(self.obj, 'string_value')
@@ -559,7 +559,7 @@ class ProtoPropertyTest(unittest.TestCase):
         self.obj.create()
         self.obj.setup()
         self.obj.setup_complete()
-        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]  # type: ignore
+        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]
 
     def test_changes(self):
         changes = PropertyChangeCollector(self.obj, 'proto_value')
@@ -635,7 +635,7 @@ class WrappedProtoPropertyTest(unittest.TestCase):
         self.obj.create()
         self.obj.setup()
         self.obj.setup_complete()
-        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]  # type: ignore
+        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]
 
     def test_changes(self):
         changes = PropertyChangeCollector(self.obj, 'proto_value')
@@ -703,7 +703,7 @@ class ObjectPropertyTest(unittest.TestCase):
         self.obj.create()
         self.obj.setup()
         self.obj.setup_complete()
-        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]  # type: ignore
+        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]
 
         self.child = Child(pb=model_base_pb2.ObjectBase(id=123), pool=self.pool)
         self.child.create()
@@ -796,7 +796,7 @@ class ListPropertyTest(unittest.TestCase):
         self.obj.create()
         self.obj.setup()
         self.obj.setup_complete()
-        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]  # type: ignore
+        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]
 
     def test_set_value(self):
         prop = model_base.ListProperty(str)
@@ -818,7 +818,7 @@ class WrappedProtoListPropertyTest(unittest.TestCase):
         self.obj.create()
         self.obj.setup()
         self.obj.setup_complete()
-        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]  # type: ignore
+        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]
 
     def test_set_value(self):
         prop = model_base.WrappedProtoListProperty(Proto)
@@ -840,7 +840,7 @@ class ObjectListPropertyTest(unittest.TestCase):
         self.obj.create()
         self.obj.setup()
         self.obj.setup_complete()
-        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]  # type: ignore
+        self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]
 
     def test_set_value(self):
         prop = model_base.ObjectListProperty(Child)
@@ -1056,7 +1056,7 @@ class SimpleListTest(ListMixin, unittest.TestCase):
         obj.create()
         obj.setup()
         obj.setup_complete()
-        pb = obj.proto.Extensions[model_base_test_pb2.root]  # type: ignore
+        pb = obj.proto.Extensions[model_base_test_pb2.root]
         return model_base.SimpleList(obj, 'string_list', pb.string_list, str)
 
     def create_elements(self):
@@ -1078,7 +1078,7 @@ class WrappedProtoListTest(ListMixin, unittest.TestCase):
         obj.create()
         obj.setup()
         obj.setup_complete()
-        pb = obj.proto.Extensions[model_base_test_pb2.root]  # type: ignore
+        pb = obj.proto.Extensions[model_base_test_pb2.root]
         return model_base.WrappedProtoList(obj, 'proto_list', pb.proto_list, Proto)
 
     def create_elements(self):
@@ -1109,7 +1109,7 @@ class ObjectListTest(ListMixin, unittest.TestCase):
         obj.create()
         obj.setup()
         obj.setup_complete()
-        pb = obj.proto.Extensions[model_base_test_pb2.root]  # type: ignore
+        pb = obj.proto.Extensions[model_base_test_pb2.root]
         return model_base.ObjectList(obj, 'child_list', pb.child_list, Child, self.pool)
 
     def create_elements(self):

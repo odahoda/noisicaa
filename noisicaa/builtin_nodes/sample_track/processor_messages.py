@@ -30,7 +30,7 @@ def add_sample(
         sample_path: str
 ) -> audioproc.ProcessorMessage:
     msg = audioproc.ProcessorMessage(node_id=node_id)
-    pb = msg.Extensions[processor_message_registry_pb2.sample_script_add_sample]  # type: ignore
+    pb = msg.Extensions[processor_message_registry_pb2.sample_script_add_sample]
     pb.id = id
     pb.time.CopyFrom(time.to_proto())
     pb.sample_path = sample_path
@@ -41,6 +41,6 @@ def remove_sample(
         id: int  # pylint: disable=redefined-builtin
 ) -> audioproc.ProcessorMessage:
     msg = audioproc.ProcessorMessage(node_id=node_id)
-    pb = msg.Extensions[processor_message_registry_pb2.sample_script_remove_sample]  # type: ignore
+    pb = msg.Extensions[processor_message_registry_pb2.sample_script_remove_sample]
     pb.id = id
     return msg

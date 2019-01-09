@@ -23,6 +23,7 @@
 import copy
 import random
 import sys
+import typing
 from typing import (
     cast, overload,
     Any, Optional, Union,
@@ -32,6 +33,9 @@ from google.protobuf import message as protobuf
 from google.protobuf.internal import containers as protobuf_containers
 
 from . import model_base_pb2
+
+if typing.TYPE_CHECKING:
+    from google.protobuf import descriptor as protobuf_descriptor
 
 
 def _checktype(o: Any, t: Type) -> None:
@@ -657,7 +661,7 @@ class ObjectSpecMeta(type):
 
 class ObjectSpec(object, metaclass=ObjectSpecMeta):
     proto_type = None  # type: str
-    proto_ext = None
+    proto_ext = None  # type: protobuf_descriptor.FieldDescriptor
 
 
 class ObjectBase(object):

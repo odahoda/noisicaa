@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 class UpdateInstrument(commands.Command):
     proto_type = 'update_instrument'
-    proto_ext = commands_registry_pb2.update_instrument  # type: ignore
+    proto_ext = commands_registry_pb2.update_instrument
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.UpdateInstrument, pb)

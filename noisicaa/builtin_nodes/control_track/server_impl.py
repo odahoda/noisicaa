@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 class AddControlPoint(commands.Command):
     proto_type = 'add_control_point'
-    proto_ext = commands_registry_pb2.add_control_point  # type: ignore
+    proto_ext = commands_registry_pb2.add_control_point
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.AddControlPoint, pb)
@@ -68,7 +68,7 @@ commands.Command.register_command(AddControlPoint)
 
 class RemoveControlPoint(commands.Command):
     proto_type = 'remove_control_point'
-    proto_ext = commands_registry_pb2.remove_control_point  # type: ignore
+    proto_ext = commands_registry_pb2.remove_control_point
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.RemoveControlPoint, pb)
@@ -84,7 +84,7 @@ commands.Command.register_command(RemoveControlPoint)
 
 class MoveControlPoint(commands.Command):
     proto_type = 'move_control_point'
-    proto_ext = commands_registry_pb2.move_control_point  # type: ignore
+    proto_ext = commands_registry_pb2.move_control_point
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.MoveControlPoint, pb)

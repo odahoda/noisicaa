@@ -26,6 +26,6 @@ from noisicaa.builtin_nodes import processor_message_registry_pb2
 def change_instrument(
         node_id: str, instrument_spec: audioproc.InstrumentSpec) -> audioproc.ProcessorMessage:
     msg = audioproc.ProcessorMessage(node_id=node_id)
-    (msg.Extensions[processor_message_registry_pb2.change_instrument]  # type: ignore
+    (msg.Extensions[processor_message_registry_pb2.change_instrument]
      .instrument_spec.CopyFrom(instrument_spec))
     return msg

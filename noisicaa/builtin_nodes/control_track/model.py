@@ -33,7 +33,7 @@ from . import node_description
 class ControlPoint(model.ProjectChild):
     class ControlPointSpec(model.ObjectSpec):
         proto_type = 'control_point'
-        proto_ext = model_registry_pb2.control_point  # type: ignore
+        proto_ext = model_registry_pb2.control_point
 
         time = model.WrappedProtoProperty(audioproc.MusicalTime)
         value = model.Property(float)
@@ -48,7 +48,7 @@ class ControlPoint(model.ProjectChild):
 class ControlTrack(model.Track):
     class ControlTrackSpec(model.ObjectSpec):
         proto_type = 'control_track'
-        proto_ext = model_registry_pb2.control_track  # type: ignore
+        proto_ext = model_registry_pb2.control_track
 
         points = model.ObjectListProperty(ControlPoint)
 

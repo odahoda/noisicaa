@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 class SetBeatTrackPitch(commands.Command):
     proto_type = 'set_beat_track_pitch'
-    proto_ext = commands_registry_pb2.set_beat_track_pitch  # type: ignore
+    proto_ext = commands_registry_pb2.set_beat_track_pitch
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.SetBeatTrackPitch, pb)
@@ -53,7 +53,7 @@ commands.Command.register_command(SetBeatTrackPitch)
 
 class SetBeatVelocity(commands.Command):
     proto_type = 'set_beat_velocity'
-    proto_ext = commands_registry_pb2.set_beat_velocity  # type: ignore
+    proto_ext = commands_registry_pb2.set_beat_velocity
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.SetBeatVelocity, pb)
@@ -66,7 +66,7 @@ commands.Command.register_command(SetBeatVelocity)
 
 class AddBeat(commands.Command):
     proto_type = 'add_beat'
-    proto_ext = commands_registry_pb2.add_beat  # type: ignore
+    proto_ext = commands_registry_pb2.add_beat
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.AddBeat, pb)
@@ -84,7 +84,7 @@ commands.Command.register_command(AddBeat)
 
 class RemoveBeat(commands.Command):
     proto_type = 'remove_beat'
-    proto_ext = commands_registry_pb2.remove_beat  # type: ignore
+    proto_ext = commands_registry_pb2.remove_beat
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.RemoveBeat, pb)

@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 class AddSample(commands.Command):
     proto_type = 'add_sample'
-    proto_ext = commands_registry_pb2.add_sample  # type: ignore
+    proto_ext = commands_registry_pb2.add_sample
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.AddSample, pb)
@@ -68,7 +68,7 @@ commands.Command.register_command(AddSample)
 
 class RemoveSample(commands.Command):
     proto_type = 'remove_sample'
-    proto_ext = commands_registry_pb2.remove_sample  # type: ignore
+    proto_ext = commands_registry_pb2.remove_sample
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.RemoveSample, pb)
@@ -84,7 +84,7 @@ commands.Command.register_command(RemoveSample)
 
 class MoveSample(commands.Command):
     proto_type = 'move_sample'
-    proto_ext = commands_registry_pb2.move_sample  # type: ignore
+    proto_ext = commands_registry_pb2.move_sample
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.MoveSample, pb)
@@ -100,7 +100,7 @@ commands.Command.register_command(MoveSample)
 
 class RenderSample(commands.Command):
     proto_type = 'render_sample'
-    proto_ext = commands_registry_pb2.render_sample  # type: ignore
+    proto_ext = commands_registry_pb2.render_sample
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> List[Any]:
         pb = down_cast(commands_pb2.RenderSample, pb)

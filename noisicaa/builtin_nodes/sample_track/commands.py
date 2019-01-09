@@ -29,7 +29,7 @@ from noisicaa.builtin_nodes import commands_registry_pb2
 def add_sample(
         node_id: int, *, time: audioproc.MusicalTime, path: str) -> music.Command:
     cmd = music.Command(target=node_id, command='add_sample')
-    pb = cmd.Extensions[commands_registry_pb2.add_sample]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.add_sample]
     pb.time.CopyFrom(time.to_proto())
     pb.path = path
     return cmd
@@ -37,7 +37,7 @@ def add_sample(
 def remove_sample(
         node_id: int, *, sample_id: int) -> music.Command:
     cmd = music.Command(target=node_id, command='remove_sample')
-    pb = cmd.Extensions[commands_registry_pb2.remove_sample]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.remove_sample]
     pb.sample_id = sample_id
     return cmd
 
@@ -45,7 +45,7 @@ def move_sample(
         node_id: int, *, sample_id: int, time: audioproc.MusicalTime
 ) -> music.Command:
     cmd = music.Command(target=node_id, command='move_sample')
-    pb = cmd.Extensions[commands_registry_pb2.move_sample]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.move_sample]
     pb.sample_id = sample_id
     pb.time.CopyFrom(time.to_proto())
     return cmd
@@ -54,7 +54,7 @@ def render_sample(
         sample_id: int, *, scale_x: fractions.Fraction
 ) -> music.Command:
     cmd = music.Command(target=sample_id, command='render_sample')
-    pb = cmd.Extensions[commands_registry_pb2.render_sample]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.render_sample]
     pb.scale_x.numerator = scale_x.numerator
     pb.scale_x.denominator = scale_x.denominator
     return cmd

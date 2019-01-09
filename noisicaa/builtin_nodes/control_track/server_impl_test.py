@@ -43,9 +43,9 @@ class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestC
         self.messages = []  # type: List[str]
 
     def WhichOneof(self, msg):
-        if msg.HasExtension(processor_message_registry_pb2.cvgenerator_add_control_point):  # type: ignore
+        if msg.HasExtension(processor_message_registry_pb2.cvgenerator_add_control_point):
             return 'cvgenerator_add_control_point'
-        if msg.HasExtension(processor_message_registry_pb2.cvgenerator_remove_control_point):  # type: ignore
+        if msg.HasExtension(processor_message_registry_pb2.cvgenerator_remove_control_point):
             return 'cvgenerator_remove_control_point'
         raise ValueError(msg)
 

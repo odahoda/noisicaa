@@ -34,7 +34,7 @@ from . import node_description
 class Note(model.ProjectChild):
     class NoteSpec(model.ObjectSpec):
         proto_type = 'note'
-        proto_ext = model_registry_pb2.note  # type: ignore
+        proto_ext = model_registry_pb2.note
 
         pitches = model.WrappedProtoListProperty(model.Pitch)
         base_duration = model.WrappedProtoProperty(
@@ -110,7 +110,7 @@ class Note(model.ProjectChild):
 class ScoreMeasure(model.Measure):
     class ScoreMeasureSpec(model.ObjectSpec):
         proto_type = 'score_measure'
-        proto_ext = model_registry_pb2.score_measure  # type: ignore
+        proto_ext = model_registry_pb2.score_measure
 
         clef = model.WrappedProtoProperty(model.Clef, default=model.Clef.Treble)
         key_signature = model.WrappedProtoProperty(
@@ -137,7 +137,7 @@ class ScoreMeasure(model.Measure):
 class ScoreTrack(model.MeasuredTrack):
     class ScoreTrackSpec(model.ObjectSpec):
         proto_type = 'score_track'
-        proto_ext = model_registry_pb2.score_track  # type: ignore
+        proto_ext = model_registry_pb2.score_track
 
         transpose_octaves = model.Property(int, default=0)
 

@@ -26,7 +26,7 @@ from noisicaa.builtin_nodes import commands_registry_pb2
 def update(
         node_id: int, *, orchestra: str = None, score: str = None) -> music.Command:
     cmd = music.Command(target=node_id, command='update_custom_csound')
-    pb = cmd.Extensions[commands_registry_pb2.update_custom_csound]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.update_custom_csound]
     if orchestra is not None:
         pb.orchestra = orchestra
     if score is not None:

@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 class UpdateCustomCSound(commands.Command):
     proto_type = 'update_custom_csound'
-    proto_ext = commands_registry_pb2.update_custom_csound  # type: ignore
+    proto_ext = commands_registry_pb2.update_custom_csound
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.UpdateCustomCSound, pb)

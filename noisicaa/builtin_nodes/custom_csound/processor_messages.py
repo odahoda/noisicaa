@@ -26,7 +26,7 @@ from noisicaa.builtin_nodes import processor_message_registry_pb2
 def set_script(
         node_id: str, orchestra: str, score: str) -> audioproc.ProcessorMessage:
     msg = audioproc.ProcessorMessage(node_id=node_id)
-    pb = msg.Extensions[processor_message_registry_pb2.custom_csound_set_script]  # type: ignore
+    pb = msg.Extensions[processor_message_registry_pb2.custom_csound_set_script]
     pb.orchestra = orchestra
     pb.score = score
     return msg

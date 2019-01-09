@@ -33,7 +33,7 @@ from . import node_description
 class Beat(model.ProjectChild):
     class BeatSpec(model.ObjectSpec):
         proto_type = 'beat'
-        proto_ext = model_registry_pb2.beat  # type: ignore
+        proto_ext = model_registry_pb2.beat
 
         time = model.ProtoProperty(musical_time_pb2.MusicalDuration)
         velocity = model.Property(int)
@@ -58,7 +58,7 @@ class Beat(model.ProjectChild):
 class BeatMeasure(model.Measure):
     class BeatMeasureSpec(model.ObjectSpec):
         proto_type = 'beat_measure'
-        proto_ext = model_registry_pb2.beat_measure  # type: ignore
+        proto_ext = model_registry_pb2.beat_measure
 
         beats = model.ObjectListProperty(Beat)
 
@@ -77,7 +77,7 @@ class BeatMeasure(model.Measure):
 class BeatTrack(model.MeasuredTrack):
     class BeatTrackSpec(model.ObjectSpec):
         proto_type = 'beat_track'
-        proto_ext = model_registry_pb2.beat_track  # type: ignore
+        proto_ext = model_registry_pb2.beat_track
 
         pitch = model.WrappedProtoProperty(model.Pitch)
 

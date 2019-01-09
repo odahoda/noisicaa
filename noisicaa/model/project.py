@@ -68,7 +68,7 @@ class ProjectChild(ObjectBase):
 class Sample(ProjectChild):
     class SampleSpec(model_base.ObjectSpec):
         proto_type = 'sample'
-        proto_ext = project_pb2.sample  # type: ignore
+        proto_ext = project_pb2.sample
 
         path = model_base.Property(str)
 
@@ -81,7 +81,7 @@ class Sample(ProjectChild):
 class PipelineGraphControlValue(ProjectChild):
     class PipelineGraphControlValueSpec(model_base.ObjectSpec):
         proto_type = 'pipeline_graph_control_value'
-        proto_ext = project_pb2.pipeline_graph_control_value  # type: ignore
+        proto_ext = project_pb2.pipeline_graph_control_value
 
         name = model_base.Property(str)
         value = model_base.ProtoProperty(project_pb2.ControlValue)
@@ -202,7 +202,7 @@ class ControlValueMap(object):
 
 class BasePipelineGraphNode(ProjectChild):
     class BasePipelineGraphNodeSpec(model_base.ObjectSpec):
-        proto_ext = project_pb2.base_pipeline_graph_node  # type: ignore
+        proto_ext = project_pb2.base_pipeline_graph_node
 
         name = model_base.Property(str)
         graph_pos = model_base.WrappedProtoProperty(pos2f.Pos2F)
@@ -253,7 +253,7 @@ class BasePipelineGraphNode(ProjectChild):
 class PipelineGraphConnection(ProjectChild):
     class PipelineGraphConnectionSpec(model_base.ObjectSpec):
         proto_type = 'pipeline_graph_connection'
-        proto_ext = project_pb2.pipeline_graph_connection  # type: ignore
+        proto_ext = project_pb2.pipeline_graph_connection
 
         source_node = model_base.ObjectReferenceProperty(BasePipelineGraphNode)
         source_port = model_base.Property(str)
@@ -272,7 +272,7 @@ class PipelineGraphConnection(ProjectChild):
 class PipelineGraphNode(BasePipelineGraphNode):
     class PipelineGraphNodeSpec(model_base.ObjectSpec):
         proto_type = 'pipeline_graph_node'
-        proto_ext = project_pb2.pipeline_graph_node  # type: ignore
+        proto_ext = project_pb2.pipeline_graph_node
 
         node_uri = model_base.Property(str)
 
@@ -305,7 +305,7 @@ class AudioOutPipelineGraphNode(BasePipelineGraphNode):
 
 class Track(BasePipelineGraphNode):  # pylint: disable=abstract-method
     class TrackSpec(model_base.ObjectSpec):
-        proto_ext = project_pb2.track  # type: ignore
+        proto_ext = project_pb2.track
 
         visible = model_base.Property(bool, default=True)
         list_position = model_base.Property(int, default=0)
@@ -324,7 +324,7 @@ class Track(BasePipelineGraphNode):  # pylint: disable=abstract-method
 
 class Measure(ProjectChild):
     class MeasureSpec(model_base.ObjectSpec):
-        proto_ext = project_pb2.measure  # type: ignore
+        proto_ext = project_pb2.measure
 
         time_signature = model_base.WrappedProtoProperty(
             time_signature_lib.TimeSignature,
@@ -349,7 +349,7 @@ class Measure(ProjectChild):
 class MeasureReference(ProjectChild):
     class MeasureReferenceSpec(model_base.ObjectSpec):
         proto_type = 'measure_reference'
-        proto_ext = project_pb2.measure_reference  # type: ignore
+        proto_ext = project_pb2.measure_reference
 
         measure = model_base.ObjectReferenceProperty(Measure)
 
@@ -377,7 +377,7 @@ class MeasureReference(ProjectChild):
 
 class MeasuredTrack(Track):  # pylint: disable=abstract-method
     class MeasuredSpec(model_base.ObjectSpec):
-        proto_ext = project_pb2.measured_track  # type: ignore
+        proto_ext = project_pb2.measured_track
 
         measure_list = model_base.ObjectListProperty(MeasureReference)
         measure_heap = model_base.ObjectListProperty(Measure)
@@ -433,7 +433,7 @@ class MeasuredTrack(Track):  # pylint: disable=abstract-method
 class Metadata(ProjectChild):
     class MetadataSpec(model_base.ObjectSpec):
         proto_type = 'metadata'
-        proto_ext = project_pb2.metadata  # type: ignore
+        proto_ext = project_pb2.metadata
 
         author = model_base.Property(str, allow_none=True)
         license = model_base.Property(str, allow_none=True)
@@ -452,7 +452,7 @@ class Metadata(ProjectChild):
 class Project(ObjectBase):
     class ProjectSpec(model_base.ObjectSpec):
         proto_type = 'project'
-        proto_ext = project_pb2.project  # type: ignore
+        proto_ext = project_pb2.project
 
         metadata = model_base.ObjectProperty(Metadata)
         pipeline_graph_nodes = model_base.ObjectListProperty(BasePipelineGraphNode)

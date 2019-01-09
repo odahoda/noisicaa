@@ -32,7 +32,7 @@ from . import node_description
 class Instrument(model.BasePipelineGraphNode):
     class InstrumentNodeSpec(model.ObjectSpec):
         proto_type = 'instrument'
-        proto_ext = model_registry_pb2.instrument  # type: ignore
+        proto_ext = model_registry_pb2.instrument
 
         instrument_uri = model.Property(str, allow_none=True)
 

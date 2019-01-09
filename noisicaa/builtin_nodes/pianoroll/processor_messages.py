@@ -32,7 +32,7 @@ def add_interval(
         velocity: int,
 ) -> audioproc.ProcessorMessage:
     msg = audioproc.ProcessorMessage(node_id=node_id)
-    pb = msg.Extensions[processor_message_registry_pb2.pianoroll_add_interval]  # type: ignore
+    pb = msg.Extensions[processor_message_registry_pb2.pianoroll_add_interval]
     pb.id = id
     pb.start_time.CopyFrom(start_time.to_proto())
     pb.end_time.CopyFrom(end_time.to_proto())
@@ -45,6 +45,6 @@ def remove_interval(
         id: int  # pylint: disable=redefined-builtin
 ) -> audioproc.ProcessorMessage:
     msg = audioproc.ProcessorMessage(node_id=node_id)
-    pb = msg.Extensions[processor_message_registry_pb2.pianoroll_remove_interval]  # type: ignore
+    pb = msg.Extensions[processor_message_registry_pb2.pianoroll_remove_interval]
     pb.id = id
     return msg

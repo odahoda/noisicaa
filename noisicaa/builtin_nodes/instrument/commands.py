@@ -26,6 +26,6 @@ from noisicaa.builtin_nodes import commands_registry_pb2
 def update_instrument(
         node_id: int, *, instrument_uri: str = None) -> music.Command:
     cmd = music.Command(target=node_id, command='update_instrument')
-    pb = cmd.Extensions[commands_registry_pb2.update_instrument]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.update_instrument]
     pb.instrument_uri = instrument_uri
     return cmd

@@ -54,9 +54,9 @@ class SampleTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCa
         self.messages = []  # type: List[str]
 
     def WhichOneof(self, msg):
-        if msg.HasExtension(processor_message_registry_pb2.sample_script_add_sample):  # type: ignore
+        if msg.HasExtension(processor_message_registry_pb2.sample_script_add_sample):
             return 'sample_script_add_sample'
-        if msg.HasExtension(processor_message_registry_pb2.sample_script_remove_sample):  # type: ignore
+        if msg.HasExtension(processor_message_registry_pb2.sample_script_remove_sample):
             return 'sample_script_remove_sample'
         raise ValueError(msg)
 

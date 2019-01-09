@@ -28,27 +28,27 @@ from noisicaa.builtin_nodes import commands_registry_pb2
 def set_beat_track_pitch(
         node_id: int, *, pitch: model.Pitch) -> music.Command:
     cmd = music.Command(target=node_id, command='set_beat_track_pitch')
-    pb = cmd.Extensions[commands_registry_pb2.set_beat_track_pitch]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.set_beat_track_pitch]
     pb.pitch.CopyFrom(pitch.to_proto())
     return cmd
 
 def set_beat_velocity(
         node_id: int, *, velocity: int) -> music.Command:
     cmd = music.Command(target=node_id, command='set_beat_velocity')
-    pb = cmd.Extensions[commands_registry_pb2.set_beat_velocity]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.set_beat_velocity]
     pb.velocity = velocity
     return cmd
 
 def add_beat(
         node_id: int, *, time: audioproc.MusicalTime) -> music.Command:
     cmd = music.Command(target=node_id, command='add_beat')
-    pb = cmd.Extensions[commands_registry_pb2.add_beat]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.add_beat]
     pb.time.CopyFrom(time.to_proto())
     return cmd
 
 def remove_beat(
         node_id: int, *, beat_id: int) -> music.Command:
     cmd = music.Command(target=node_id, command='remove_beat')
-    pb = cmd.Extensions[commands_registry_pb2.remove_beat]  # type: ignore
+    pb = cmd.Extensions[commands_registry_pb2.remove_beat]
     pb.beat_id = beat_id
     return cmd

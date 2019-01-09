@@ -30,7 +30,7 @@ def add_control_point(
         value: float
 ) -> audioproc.ProcessorMessage:
     msg = audioproc.ProcessorMessage(node_id=node_id)
-    pb = msg.Extensions[processor_message_registry_pb2.cvgenerator_add_control_point]  # type: ignore
+    pb = msg.Extensions[processor_message_registry_pb2.cvgenerator_add_control_point]
     pb.id = id
     pb.time.CopyFrom(time.to_proto())
     pb.value = value
@@ -41,6 +41,6 @@ def remove_control_point(
         id: int  # pylint: disable=redefined-builtin
 ) -> audioproc.ProcessorMessage:
     msg = audioproc.ProcessorMessage(node_id=node_id)
-    pb = msg.Extensions[processor_message_registry_pb2.cvgenerator_remove_control_point]  # type: ignore
+    pb = msg.Extensions[processor_message_registry_pb2.cvgenerator_remove_control_point]
     pb.id = id
     return msg

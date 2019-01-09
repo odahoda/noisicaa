@@ -32,7 +32,7 @@ from . import node_description
 class CustomCSound(model.BasePipelineGraphNode):
     class CustomCSoundSpec(model.ObjectSpec):
         proto_type = 'custom_csound'
-        proto_ext = model_registry_pb2.custom_csound  # type: ignore
+        proto_ext = model_registry_pb2.custom_csound
 
         orchestra = model.Property(str, allow_none=True)
         score = model.Property(str, allow_none=True)

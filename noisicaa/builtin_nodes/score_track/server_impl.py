@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 class ChangeNote(commands.Command):
     proto_type = 'change_note'
-    proto_ext = commands_registry_pb2.change_note  # type: ignore
+    proto_ext = commands_registry_pb2.change_note
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.ChangeNote, pb)
@@ -70,7 +70,7 @@ commands.Command.register_command(ChangeNote)
 
 class InsertNote(commands.Command):
     proto_type = 'insert_note'
-    proto_ext = commands_registry_pb2.insert_note  # type: ignore
+    proto_ext = commands_registry_pb2.insert_note
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.InsertNote, pb)
@@ -88,7 +88,7 @@ commands.Command.register_command(InsertNote)
 
 class DeleteNote(commands.Command):
     proto_type = 'delete_note'
-    proto_ext = commands_registry_pb2.delete_note  # type: ignore
+    proto_ext = commands_registry_pb2.delete_note
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.DeleteNote, pb)
@@ -102,7 +102,7 @@ commands.Command.register_command(DeleteNote)
 
 class AddPitch(commands.Command):
     proto_type = 'add_pitch'
-    proto_ext = commands_registry_pb2.add_pitch  # type: ignore
+    proto_ext = commands_registry_pb2.add_pitch
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.AddPitch, pb)
@@ -119,7 +119,7 @@ commands.Command.register_command(AddPitch)
 
 class RemovePitch(commands.Command):
     proto_type = 'remove_pitch'
-    proto_ext = commands_registry_pb2.remove_pitch  # type: ignore
+    proto_ext = commands_registry_pb2.remove_pitch
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.RemovePitch, pb)
@@ -135,7 +135,7 @@ commands.Command.register_command(RemovePitch)
 
 class SetClef(commands.Command):
     proto_type = 'set_clef'
-    proto_ext = commands_registry_pb2.set_clef  # type: ignore
+    proto_ext = commands_registry_pb2.set_clef
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.SetClef, pb)
@@ -151,7 +151,7 @@ commands.Command.register_command(SetClef)
 
 class SetKeySignature(commands.Command):
     proto_type = 'set_key_signature'
-    proto_ext = commands_registry_pb2.set_key_signature  # type: ignore
+    proto_ext = commands_registry_pb2.set_key_signature
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.SetKeySignature, pb)
@@ -167,7 +167,7 @@ commands.Command.register_command(SetKeySignature)
 
 class SetAccidental(commands.Command):
     proto_type = 'set_accidental'
-    proto_ext = commands_registry_pb2.set_accidental  # type: ignore
+    proto_ext = commands_registry_pb2.set_accidental
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.SetAccidental, pb)
@@ -184,7 +184,7 @@ commands.Command.register_command(SetAccidental)
 
 class TransposeNotes(commands.Command):
     proto_type = 'transpose_notes'
-    proto_ext = commands_registry_pb2.transpose_notes  # type: ignore
+    proto_ext = commands_registry_pb2.transpose_notes
 
     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
         pb = down_cast(commands_pb2.TransposeNotes, pb)

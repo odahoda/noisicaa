@@ -33,7 +33,7 @@ from . import node_description
 class SampleRef(model.ProjectChild):
     class SampleRefSpec(model.ObjectSpec):
         proto_type = 'sample_ref'
-        proto_ext = model_registry_pb2.sample_ref  # type: ignore
+        proto_ext = model_registry_pb2.sample_ref
 
         time = model.WrappedProtoProperty(audioproc.MusicalTime)
         sample = model.ObjectReferenceProperty(model.Sample)
@@ -48,7 +48,7 @@ class SampleRef(model.ProjectChild):
 class SampleTrack(model.Track):
     class SampleTrackSpec(model.ObjectSpec):
         proto_type = 'sample_track'
-        proto_ext = model_registry_pb2.sample_track  # type: ignore
+        proto_ext = model_registry_pb2.sample_track
 
         samples = model.ObjectListProperty(SampleRef)
 
