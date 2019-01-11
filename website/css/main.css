@@ -1,0 +1,128 @@
+@import url("reset.css");
+@import url("pygment.css");
+@import url("typogrify.css");
+
+html, body, #page {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: #f4f4f4;
+  font-family: Georgia, "Times New Roman", Times, serif;
+}
+
+
+#header {
+  padding: 0.4em 1em;
+  font-size: 2em;
+  background-color: #fff0ff;
+  border-bottom: 1px solid #000;
+}
+
+#page {
+  min-height: 100%
+  color: #000;
+}
+
+#main-menu {
+  margin: 0.5em 0;
+  padding: 0;
+  text-align: center;
+}
+
+#main-menu li {
+  display: inline;
+  margin: 0 0.2em;
+  padding: 0;
+}
+
+#main-menu a {
+  margin: 0 1px;
+  padding: 0 0.4em;
+}
+
+#content {
+  padding: 0 1em 2em;
+  line-height: 1.6em;
+}
+
+#content h1, #content h2, #content h3, #content h4, #content h5, #content h6 {
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  line-height:  100%;
+  margin: 0.8em 0 0.4em 0;
+  padding: 0;
+}
+
+#content h1 {
+  font-size: 1.96em;
+  text-indent: -2em;
+  padding: 0.1em 0 0 2.2em;
+}
+
+#content h2 {
+  font-size: 1.4em;
+  text-indent: -2em;
+  padding: 0.1em 0 0 2.2em;
+}
+
+#content h3 {
+  font-size: 1.3em;
+  font-weight: bold;
+}
+
+#content p {
+  margin: 0 0 0.4em 0;
+  padding: 0;
+  word-spacing: 0.1em;
+  text-indent: 2em;
+}
+
+#content ul p, #content h3 + p {
+  text-indent: 0;
+}
+
+#content ul {
+    list-style: disc outside none;
+    margin-left: 2em;
+}
+
+.imprint {
+  margin: 1em 2em;
+}
+
+.imprint .name {
+  font-weight: bold;
+}
+
+#content .imprint dt {
+  font-weight: normal;
+}
+
+#footer {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  border-top: 1px solid #606060;
+  padding: 0.2em 0;
+  background-color: #f0f0ff;
+  color: #606060;
+  font-size: 0.8em;
+}
+
+#footer p {
+  margin: 0.2em 0 0;
+  text-align: center;
+}
+
+#footer a:link,
+#footer a:visited,
+#footer a:active {
+  color: #606060;
+}
+
+#footer a:hover {
+  color: #600060;
+}

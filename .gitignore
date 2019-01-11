@@ -6,3 +6,5 @@ __pycache__/
 *~
 .nobackup
 /.venv
+/website/_build/
+/website/_serve/

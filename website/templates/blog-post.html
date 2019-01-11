@@ -1,0 +1,19 @@
+{% extends "blog-base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block blog_content %}
+<h2>{{ title }}</h2>
+{{ content }}
+
+<div class="blog-post-footer">
+<p>Posted: {{ post.date.strftime('%Y-%m-%d') }}</p>
+</div>
+
+{% if post.prev_post %}
+<a class="blog-prev-post" href="{{ post.prev_post.url }}">&lt;&lt;&lt; {{ post.prev_post.title }}</a>
+{% endif %}
+
+{% if post.next_post %}
+<a class="blog-next-post" href="{{ post.next_post.url }}">{{ post.next_post.title }} &gt;&gt;&gt;</a>
+{% endif %}
+
+{% endblock %}

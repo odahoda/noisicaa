@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block css %}
+{{ super() }}
+
+<style type="text/css">
+  #blog-nav {
+    border: 1px solid #000;
+    background-color: #fff;
+    display: block;
+    float: right;
+    padding: 0.2em 1em 0.2em 0.4em;
+    margin: 0 0em 1em 1em;
+    min-width: 10em;
+    line-height: 1.3em;
+    font-size: 0.9em;
+  }
+
+  #blog-nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  #blog-nav li {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .blog-post-footer {
+    font-size: 0.9em;
+    font-style: italic;
+  }
+
+  .blog-prev-post {
+    display: inline-block;
+    float: left;
+    margin-left: 2em;
+  }
+
+  .blog-next-post {
+    display: inline-block;
+    float: right;
+    margin-right: 2em;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav id="blog-nav">
+  <ul>
+    <li><a href="/blog/archive">Archive</a></li>
+  </ul>
+
+  <br/>
+  <strong>Recent posts</strong>
+  <ul>
+    {% for post in posts[-10:] | reverse %}
+    <li><a href="{{ post.url }}">{{ post.title }}</a></li>
+    {% endfor %}
+  </ul>
+</nav>
+
+{% block blog_content %}{% endblock %}
+{% endblock %}
