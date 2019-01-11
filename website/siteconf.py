@@ -1,3 +1,5 @@
+import hashlib
+
 import odasite
 import odasite.blog
 
@@ -6,7 +8,9 @@ class Site(odasite.Site):
         ignore = ['*~', '.#*', '*.pyc', 'README.md']
         self.add_collector(odasite.FileCollector('.', ignore=ignore))
 
-        default_context = {}
+        default_context = {
+            'staticfile': self.__staticfile,
+        }
 
         jinja2_engine = odasite.Jinja2Engine(
             site=self,
@@ -34,3 +38,9 @@ class Site(odasite.Site):
             host='odahoda.de',
             user='pink',
             directory='/srv/clients/odahoda/de.odahoda.noisicaa/htdocs/'))
+
+    def __staticfile(self, path):
+        h = hashlib.md5()
+        with open(self.basedir / path, 'rb') as fp:
+            h.update(fp.read())
+        return '/%s?v=%s' % (path, h.hexdigest())

@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <title>noisicaä - {% block title %}{%endblock%}</title>
   {% block css %}
-  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="{{ staticfile('css/main.css') }}" />
   {% endblock %}
 
   <!--[if lt IE 9]>
-  <script src="/js/html5shiv.js"></script>
+  <script src="{{ staticfile('js/html5shiv.js') }}"></script>
   <![endif]-->
 
   {% if __INTERNAL_BUILD_VERSION %}
