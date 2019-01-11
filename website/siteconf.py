@@ -26,7 +26,7 @@ class BlogPost(odasite.blog.BlogPost):
             old_content = old_content[idx+2:]
 
             if cmd == 'img':
-                content += '<a href="/img/{name}" onclick="javascript:alert(\'yo\')"><img src="/img/{name}" style="max-width: 80%; width: 30em;"></a>'.format(name=body)
+                content += '<a href="/img/{name}"><img src="/img/{name}" style="max-width: 80%; width: 30em;"></a>'.format(name=body)
             else:
                 raise ValueError(cmd)
 
