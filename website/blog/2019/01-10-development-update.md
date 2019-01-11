@@ -1,4 +1,4 @@
-Title: development update
+Title: Development update
 Date: 2019-01-10
 
 Development made had a small hiatus in second half of 2018, but in

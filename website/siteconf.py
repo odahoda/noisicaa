@@ -23,7 +23,7 @@ class Site(odasite.Site):
 
         self.add_classifier(odasite.Classifier(
             odasite.StaticFile,
-            'css/*', 'js/*',
+            'css/*', 'img/*', 'js/*',
             'robots.txt'))
         self.add_classifier(odasite.Classifier(
             odasite.MarkdownFile, '*.md',
