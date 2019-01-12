@@ -53,6 +53,9 @@ class Site(odasite.Site):
             index_renderer=jinja2_engine.get_renderer('blog-index.html'),
             archive_renderer=jinja2_engine.get_renderer('blog-archive.html'),
             post_class=BlogPost,
+            feed_config=odasite.blog.FeedConfig(
+                site_url='https://noisicaa.odahoda.de',
+                feed_title='noisicaä blog'),
         )
         blog.setup(self)
 
