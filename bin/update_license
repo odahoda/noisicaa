@@ -3,7 +3,7 @@
 
 # @begin:license
 #
-# Copyright (c) 2015-2018, Benjamin Niemann <pink@odahoda.de>
+# Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ import textwrap
 
 DEFAULT_TYPEMAP = {
     '*.py': 'text/x-python',
+    '*.pyi': 'text/x-python',
     '*.pyx': 'text/x-python',
     '*.pxd': 'text/x-python',
     '*.cpp': 'text/x-c++',
@@ -83,6 +84,7 @@ SKIP_FILES = [
     '*.readme',
     '*.wav',
     '*.abc',
+    'mypy.ini',
     'pylintrc',
 ]
 
