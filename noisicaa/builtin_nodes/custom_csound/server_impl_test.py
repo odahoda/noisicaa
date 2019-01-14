@@ -31,7 +31,7 @@ from . import server_impl
 from . import processor_messages
 
 
-class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
+class ConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
     async def setup_testcase(self):
         self.pool = project.Pool()
         self.node = self.pool.create(server_impl.CustomCSound, name='test')

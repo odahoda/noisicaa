@@ -112,10 +112,6 @@ class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBas
     def plugin_state(self, value: audioproc.PluginState) -> None:
         self.set_property_value('plugin_state', value)
 
-    @property
-    def pipeline_node_id(self) -> str:
-        raise NotImplementedError
-
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         raise NotImplementedError
 
@@ -153,8 +149,8 @@ class PipelineGraphNode(BasePipelineGraphNode, model.PipelineGraphNode, ObjectBa
         raise NotImplementedError
 
 
-class AudioOutPipelineGraphNode(
-        BasePipelineGraphNode, model.AudioOutPipelineGraphNode, ObjectBase):
+class SystemOutPipelineGraphNode(
+        BasePipelineGraphNode, model.SystemOutPipelineGraphNode, ObjectBase):
     pass
 
 
@@ -342,8 +338,8 @@ class Project(model.Project, ObjectBase):
         raise NotImplementedError  # pragma: no coverage
 
     @property
-    def audio_out_node(self) -> AudioOutPipelineGraphNode:
-        return down_cast(AudioOutPipelineGraphNode, super().audio_out_node)
+    def system_out_node(self) -> SystemOutPipelineGraphNode:
+        return down_cast(SystemOutPipelineGraphNode, super().system_out_node)
 
     def add_pipeline_graph_node(self, node: BasePipelineGraphNode) -> None:
         raise NotImplementedError  # pragma: no coverage

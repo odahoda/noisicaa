@@ -57,7 +57,7 @@ cdef extern from "noisicaa/audioproc/engine/realm.h" namespace "noisicaa" nogil:
         StatusOr[Program*] get_active_program()
         Status process_block(Program* program)
         Status run_maintenance()
-        Buffer* get_buffer(const string& name)
+        Buffer* get_buffer(const char* name)
         BlockContext* block_context()
 
 

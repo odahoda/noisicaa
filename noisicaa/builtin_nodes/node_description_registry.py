@@ -30,6 +30,7 @@ from .sample_track.node_description import SampleTrackDescription
 from .instrument.node_description import InstrumentDescription
 from .mixer.node_description import MixerDescription
 from .custom_csound.node_description import CustomCSoundDescription
+from .midi_source.node_description import MidiSourceDescription
 
 
 def node_descriptions() -> Iterator[Tuple[str, node_db.NodeDescription]]:
@@ -40,3 +41,4 @@ def node_descriptions() -> Iterator[Tuple[str, node_db.NodeDescription]]:
     yield ('builtin://instrument', InstrumentDescription)
     yield ('builtin://mixer', MixerDescription)
     yield ('builtin://custom-csound', CustomCSoundDescription)
+    yield ('builtin://midi-source', MidiSourceDescription)

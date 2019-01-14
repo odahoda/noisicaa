@@ -482,7 +482,8 @@ class ChildRealmNode(Node):
         spec.append_opcode(
             'CALL_CHILD_REALM',
             self.__child_realm,
-            self.outputs['out:left'].buf_name, self.outputs['out:right'].buf_name)
+            self.outputs['out:left'].buf_name,
+            self.outputs['out:right'].buf_name)
 
 
 class Graph(object):

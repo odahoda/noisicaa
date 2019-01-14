@@ -32,11 +32,11 @@ from PyQt5 import QtWidgets
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa import core
-from noisicaa import devices
 from . import selection_set as selection_set_lib
 from . import project_registry
 
 if typing.TYPE_CHECKING:
+    from . import device_list
     from noisicaa import instrument_db as instrument_db_lib
     from noisicaa import node_db as node_db_lib
     from noisicaa import runtime_settings as runtime_settings_lib
@@ -225,6 +225,9 @@ class AbstractProjectView(ProjectMixin):
     async def deletePluginUI(self, node_id: str) -> None:
         raise NotImplementedError
 
+    async def sendNodeMessage(self, msg: audioproc.ProcessorMessage) -> None:
+        raise NotImplementedError
+
 
 class AbstractEditorWindow(CommonMixin, QtWidgets.QMainWindow):
     pipeline_status = None  # type: QtWidgets.QLabel
@@ -248,13 +251,13 @@ class AbstractEditorApp(object):
     runtime_settings = None  # type: runtime_settings_lib.RuntimeSettings
     show_edit_areas_action = None  # type: QtWidgets.QAction
     profile_audio_thread_action = None  # type: QtWidgets.QAction
-    midi_hub = None  # type: devices.MidiHub
     node_db = None  # type: node_db_lib.NodeDBClient
     instrument_db = None  # type: instrument_db_lib.InstrumentDBClient
     urid_mapper = None  # type: lv2.ProxyURIDMapper
     default_style = None  # type: str
     qt_app = None  # type: QtWidgets.QApplication
     node_messages = None  # type: core.CallbackMap[str, Dict[str, Any]]
+    devices = None  # type: device_list.DeviceList
 
     def quit(self, exit_code: int = 0) -> None:
         raise NotImplementedError

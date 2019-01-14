@@ -147,10 +147,6 @@ class BasePipelineGraphNode(pmodel.BasePipelineGraphNode):  # pylint: disable=ab
         self.graph_size = graph_size
         self.graph_color = graph_color
 
-    @property
-    def pipeline_node_id(self) -> str:
-        return '%016x' % self.id
-
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.AddNode(
             description=self.description,
@@ -238,11 +234,7 @@ class PipelineGraphNode(pmodel.PipelineGraphNode, BasePipelineGraphNode):
         #         % (self.node_uri, preset.node_uri))
 
 
-class AudioOutPipelineGraphNode(pmodel.AudioOutPipelineGraphNode, BasePipelineGraphNode):
-    @property
-    def pipeline_node_id(self) -> str:
-        return 'sink'
-
+class SystemOutPipelineGraphNode(pmodel.SystemOutPipelineGraphNode, BasePipelineGraphNode):
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         # Nothing to do, predefined node of the pipeline.
         yield from []

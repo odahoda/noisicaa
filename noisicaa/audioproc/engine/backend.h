@@ -27,6 +27,7 @@
 
 #include <string>
 #include "noisicaa/core/logging.h"
+#include "noisicaa/core/slots.h"
 #include "noisicaa/core/status.h"
 #include "noisicaa/audioproc/engine/buffers.h"
 
@@ -37,6 +38,9 @@ using namespace std;
 class BlockContext;
 class Realm;
 class HostSystem;
+namespace pb {
+class EngineNotification;
+}
 
 struct BackendSettings {
   string datastream_address;
@@ -45,24 +49,39 @@ struct BackendSettings {
 
 class Backend {
 public:
+  enum Channel {
+    AUDIO_LEFT = 1,
+    AUDIO_RIGHT = 2,
+    EVENTS = 3,
+  };
+
   virtual ~Backend();
 
+  Slot<pb::EngineNotification> notifications;
+
   static StatusOr<Backend*> create(
-      HostSystem* host_system, const string& name, const BackendSettings& settings);
+      HostSystem* host_system, const string& name, const BackendSettings& settings,
+      void (*callback)(void*, const string&), void* userdata);
 
   virtual Status setup(Realm* realm);
   virtual void cleanup();
 
   virtual Status begin_block(BlockContext* ctxt) = 0;
   virtual Status end_block(BlockContext* ctxt) = 0;
-  virtual Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) = 0;
+  virtual Status output(BlockContext* ctxt, Channel channel, BufferPtr buffer) = 0;
 
 protected:
-  Backend(HostSystem* host_system, const char* logger_name, const BackendSettings& settings);
+  Backend(
+      HostSystem* host_system, const char* logger_name, const BackendSettings& settings,
+      void (*callback)(void*, const string&), void* userdata);
+
+  void notification_proxy(const pb::EngineNotification& notification);
 
   HostSystem* _host_system;
   Logger* _logger;
   BackendSettings _settings;
+  void (*_callback)(void*, const string&);
+  void *_userdata;
   Realm* _realm = nullptr;
 };
 

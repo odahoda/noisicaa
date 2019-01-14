@@ -24,6 +24,7 @@ from libcpp.vector cimport vector
 
 from noisicaa.core.perf_stats cimport PyPerfStats, PerfStats
 from noisicaa.audioproc.public.musical_time cimport MusicalTime
+from noisicaa.lv2.atom cimport LV2_Atom_Sequence
 from .message_queue cimport MessageQueue
 from .buffer_arena cimport BufferArena
 
@@ -40,6 +41,7 @@ cdef extern from "noisicaa/audioproc/engine/block_context.h" namespace "noisicaa
         unique_ptr[PerfStats] perf
         MessageQueue* out_messages
         BufferArena* buffer_arena
+        LV2_Atom_Sequence* input_events
 
 
 cdef class PyBlockContext(object):

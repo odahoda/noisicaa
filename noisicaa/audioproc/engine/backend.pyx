@@ -19,9 +19,13 @@
 # @end:license
 
 from libc.stdint cimport uint8_t
+from cpython.ref cimport PyObject
+from cpython.exc cimport PyErr_Fetch, PyErr_Restore
 
+from noisicaa import core
 from noisicaa.core.status cimport check
 from noisicaa.host_system.host_system cimport PyHostSystem
+from noisicaa.audioproc.public import engine_notification_pb2
 from . cimport block_context
 from . cimport buffers
 
@@ -59,17 +63,40 @@ cdef class PyBackendSettings(object):
 
 cdef class PyBackend(object):
     def __init__(self, PyHostSystem host_system, name, PyBackendSettings settings):
+        self.notifications = core.Callback()
+
         if isinstance(name, str):
             name = name.encode('ascii')
         assert isinstance(name, bytes)
 
-        cdef StatusOr[Backend*] backend = Backend.create(host_system.get(), name, settings.get())
+        cdef StatusOr[Backend*] backend = Backend.create(
+            host_system.get(), name, settings.get(),
+            self.__notification_callback, <PyObject*>self)
         check(backend)
         self.__backend_ptr.reset(backend.result())
         self.__backend = self.__backend_ptr.get()
 
     cdef Backend* get(self) nogil:
         return self.__backend
+
+    @staticmethod
+    cdef void __notification_callback(void* c_self, const string& notification_serialized) with gil:
+        self = <object><PyObject*>c_self
+
+        # Have to stash away any active exception, because otherwise exception handling
+        # might get confused.
+        # See https://github.com/cython/cython/issues/1877
+        cdef PyObject* exc_type
+        cdef PyObject* exc_value
+        cdef PyObject* exc_trackback
+        PyErr_Fetch(&exc_type, &exc_value, &exc_trackback)
+        try:
+            notification = engine_notification_pb2.EngineNotification()
+            notification.ParseFromString(notification_serialized)
+            self.notifications.call(notification)
+
+        finally:
+            PyErr_Restore(exc_type, exc_value, exc_trackback)
 
     def setup(self, PyRealm realm):
         cdef Realm* c_realm = realm.get()
@@ -93,6 +120,14 @@ cdef class PyBackend(object):
 
     def output(self, block_context.PyBlockContext ctxt, str channel, float[:] samples):
         cdef buffers.BufferPtr c_samples = <BufferPtr>&samples[0]
-        cdef string c_channel = channel.encode('utf-8')
+        cdef Backend.Channel c_channel
+        if channel == 'left':
+            c_channel = Backend.Channel.AUDIO_LEFT
+        elif channel == 'right':
+            c_channel = Backend.Channel.AUDIO_RIGHT
+        elif channel == 'events':
+            c_channel = Backend.Channel.EVENTS
+        else:
+            raise ValueError(channel)
         with nogil:
             check(self.__backend.output(ctxt.get(), c_channel, c_samples))

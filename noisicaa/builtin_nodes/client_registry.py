@@ -27,6 +27,7 @@ from .control_track.client_impl import ControlPoint, ControlTrack
 from .sample_track.client_impl import SampleRef, SampleTrack
 from .instrument.client_impl import Instrument
 from .custom_csound.client_impl import CustomCSound
+from .midi_source.client_impl import MidiSource
 
 
 def register_classes(pool: model.AbstractPool) -> None:
@@ -42,3 +43,4 @@ def register_classes(pool: model.AbstractPool) -> None:
     pool.register_class(SampleTrack)
     pool.register_class(Instrument)
     pool.register_class(CustomCSound)
+    pool.register_class(MidiSource)

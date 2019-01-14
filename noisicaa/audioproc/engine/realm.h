@@ -138,7 +138,7 @@ public:
   Status run_maintenance();
 
   StatusOr<BufferArena*> get_buffer_arena(uint32_t size);
-  Buffer* get_buffer(const string& name);
+  Buffer* get_buffer(const char* name);
 
 private:
   void activate_program(Program* program);

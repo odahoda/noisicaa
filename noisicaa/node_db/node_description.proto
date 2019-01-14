@@ -125,6 +125,7 @@ message NodeDescription {
     OTHER = 1;
     PROCESSOR = 2;
     PLUGIN = 3;
+    REALM_SOURCE = 6;
     REALM_SINK = 4;
     CHILD_REALM = 5;
   }

@@ -47,4 +47,6 @@ from .public import (
     ProcessorMessageList,
     PlayerState,
     TimeMapper,
+    DeviceDescription,
+    DevicePortDescription,
 )

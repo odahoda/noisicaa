@@ -22,6 +22,7 @@ add_python_package(
   audio_thread_profiler.py
   control_value_connector.py
   control_value_dial.py
+  device_list.py
   dynamic_layout.py
   editor_app.py
   editor_window.py

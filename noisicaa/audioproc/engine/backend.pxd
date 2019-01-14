@@ -35,15 +35,21 @@ cdef extern from "noisicaa/audioproc/engine/backend.h" namespace "noisicaa" nogi
         float time_scale
 
     cppclass Backend:
+        enum Channel:
+            AUDIO_LEFT "noisicaa::Backend::AUDIO_LEFT"
+            AUDIO_RIGHT "noisicaa::Backend::AUDIO_RIGHT"
+            EVENTS "noisicaa::Backend::EVENTS"
+
         @staticmethod
         StatusOr[Backend*] create(
-            HostSystem* host_system, const string& name, const BackendSettings& settings)
+            HostSystem* host_system, const string& name, const BackendSettings& settings,
+        void (*callback)(void*, const string&), void* userdata)
 
         Status setup(Realm* realm)
         void cleanup()
         Status begin_block(BlockContext* ctxt)
         Status end_block(BlockContext* ctxt)
-        Status output(BlockContext* ctxt, const string& channel, BufferPtr samples)
+        Status output(BlockContext* ctxt, Channel channel, BufferPtr samples)
 
 
 cdef class PyBackendSettings(object):
@@ -55,5 +61,8 @@ cdef class PyBackendSettings(object):
 cdef class PyBackend(object):
     cdef unique_ptr[Backend] __backend_ptr
     cdef Backend* __backend
+    cdef readonly object notifications
 
     cdef Backend* get(self) nogil
+    @staticmethod
+    cdef void __notification_callback(void* c_self, const string& notification_serialized) with gil

@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -17,14 +19,3 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # @end:license
-
-add_python_package(
-  libalsa.pyi
-  libalsa_test.py
-  midi_events.py
-  midi_hub.py
-  midi_hub_test.py
-)
-
-add_cython_module(libalsa C)
-target_link_libraries(${libalsa.so} PRIVATE asound)

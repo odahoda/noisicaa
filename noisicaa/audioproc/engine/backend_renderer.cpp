@@ -36,8 +36,11 @@ extern "C" {
 
 namespace noisicaa {
 
-RendererBackend::RendererBackend(HostSystem* host_system, const BackendSettings& settings)
-  : Backend(host_system, "noisicaa.audioproc.engine.backend.renderer", settings) {}
+RendererBackend::RendererBackend(
+    HostSystem* host_system, const BackendSettings& settings,
+    void (*callback)(void*, const string&), void *userdata)
+  : Backend(
+      host_system, "noisicaa.audioproc.engine.backend.renderer", settings, callback, userdata) {}
 
 RendererBackend::~RendererBackend() {}
 
@@ -138,21 +141,19 @@ Status RendererBackend::end_block(BlockContext* ctxt) {
   return Status::Ok();
 }
 
-Status RendererBackend::output(BlockContext* ctxt, const string& channel, BufferPtr samples) {
+Status RendererBackend::output(BlockContext* ctxt, Channel channel, BufferPtr buffer) {
   int c;
-  if (channel == "left") {
-    c = 0;
-  } else if (channel == "right") {
-    c = 1;
-  } else {
-    return ERROR_STATUS("Invalid channel %s", channel.c_str());
+  switch (channel) {
+  case AUDIO_LEFT:  c = 0; break;
+  case AUDIO_RIGHT: c = 1; break;
+  default: return ERROR_STATUS("Invalid channel %d", channel);
   }
 
   if (_channel_written[c]) {
-    return ERROR_STATUS("Channel %s written multiple times.", channel.c_str());
+    return ERROR_STATUS("Channel %d written multiple times.", c);
   }
   _channel_written[c] = true;
-  memmove(_samples[c].get(), samples, _host_system->block_size() * sizeof(float));
+  memmove(_samples[c].get(), buffer, _host_system->block_size() * sizeof(float));
 
   return Status::Ok();
 }

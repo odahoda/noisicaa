@@ -55,7 +55,7 @@ def basic(pool, cls, **kwargs):
     project = pool.create(cls, **kwargs)
     project.bpm = 140
 
-    audio_out = project.audio_out_node
+    audio_out = project.system_out_node
 
     track1_instr = pool.create(
         instrument.Instrument,
@@ -171,7 +171,7 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
     project = pool.create(cls, **kwargs)
     project.bpm = 140
 
-    audio_out = project.audio_out_node
+    audio_out = project.system_out_node
 
     ## track 1
     # score_track -> instrument -> eq -> out

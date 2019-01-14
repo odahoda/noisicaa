@@ -48,7 +48,7 @@ from .color import Color
 from .project import (
     ObjectBase,
     ProjectChild,
-    AudioOutPipelineGraphNode,
+    SystemOutPipelineGraphNode,
     BasePipelineGraphNode,
     Measure,
     MeasureReference,

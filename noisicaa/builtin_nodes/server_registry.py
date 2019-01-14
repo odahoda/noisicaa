@@ -30,6 +30,7 @@ from .control_track.server_impl import ControlPoint, ControlTrack
 from .sample_track.server_impl import SampleRef, SampleTrack
 from .instrument.server_impl import Instrument
 from .custom_csound.server_impl import CustomCSound
+from .midi_source.server_impl import MidiSource
 
 
 node_cls_map = {
@@ -39,6 +40,7 @@ node_cls_map = {
     'builtin://sample-track': SampleTrack,
     'builtin://instrument': Instrument,
     'builtin://custom-csound': CustomCSound,
+    'builtin://midi-source': MidiSource,
 }  # type: Dict[str, Type[pipeline_graph.BasePipelineGraphNode]]
 
 
@@ -55,3 +57,4 @@ def register_classes(pool: model.AbstractPool) -> None:
     pool.register_class(SampleTrack)
     pool.register_class(Instrument)
     pool.register_class(CustomCSound)
+    pool.register_class(MidiSource)

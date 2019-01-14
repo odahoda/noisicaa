@@ -27,6 +27,8 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <condition_variable>
+#include <mutex>
 
 namespace noisicaa {
 
@@ -108,6 +110,7 @@ private:
 
 #define RETURN_IF_ERROR(STATUS) do { Status __s = STATUS; if (__s.is_error()) { return __s; } } while (false)
 #define RETURN_IF_PTHREAD_ERROR(STATUS) do { int __s = STATUS; if (__s == ETIMEDOUT) { return TIMEOUT_STATUS(); } else if (__s != 0) { return OSERROR_STATUS("pthread function failed"); } } while (false)
+#define RETURN_IF_ALSA_ERROR(STATUS) do { int __s = STATUS; if (__s < 0) { return ERROR_STATUS("ALSA error %d: %s", __s, snd_strerror(__s)); } } while (false)
 
 template<class T> class StatusOr : public Status {
 public:
@@ -131,6 +134,28 @@ public:
 
 private:
   T _result;
+};
+
+class StatusSignal {
+public:
+  StatusSignal() {}
+
+  Status wait() {
+    unique_lock<mutex> lock(_cond_mutex);
+    _cond.wait(lock);
+    return _status;
+  }
+
+  void set(Status status) {
+    lock_guard<mutex> lock(_cond_mutex);
+    _status = status;
+    _cond.notify_all();
+  }
+
+private:
+  Status _status;
+  condition_variable _cond;
+  mutex _cond_mutex;
 };
 
 }  // namespace noisicaa

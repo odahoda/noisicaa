@@ -63,7 +63,7 @@ message PipelineGraphNode {
   optional string node_uri = 1;
 }
 
-message AudioOutPipelineGraphNode {
+message SystemOutPipelineGraphNode {
 }
 
 message PipelineGraphConnection {
@@ -106,7 +106,7 @@ extend ObjectBase {
 
   optional BasePipelineGraphNode base_pipeline_graph_node = 301000;
   optional PipelineGraphNode pipeline_graph_node = 302000;
-  optional AudioOutPipelineGraphNode audio_out_pipeline_graph_node = 303000;
+  optional SystemOutPipelineGraphNode system_out_pipeline_graph_node = 303000;
 
   // Tracks (4xxxxx)
   optional Track track = 400000;

@@ -49,7 +49,7 @@ cdef extern from "noisicaa/audioproc/engine/spec.h" namespace "noisicaa" nogil:
         Status append_buffer(const string& name, BufferType* type)
         int num_buffers() const
         const BufferType* get_buffer(int idx) const
-        StatusOr[int] get_buffer_idx(const string& name) const
+        StatusOr[int] get_buffer_idx(const char* name) const
 
         Status append_control_value(ControlValue* cv)
         int num_control_values() const

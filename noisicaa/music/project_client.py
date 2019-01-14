@@ -52,7 +52,7 @@ class Pool(model.Pool[project_client_model.ObjectBase]):
         self.register_class(project_client_model.Sample)
         self.register_class(project_client_model.PipelineGraphConnection)
         self.register_class(project_client_model.PipelineGraphNode)
-        self.register_class(project_client_model.AudioOutPipelineGraphNode)
+        self.register_class(project_client_model.SystemOutPipelineGraphNode)
         self.register_class(project_client_model.PipelineGraphControlValue)
         client_registry.register_classes(self)
 

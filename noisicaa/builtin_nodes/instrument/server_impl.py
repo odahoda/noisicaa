@@ -21,7 +21,6 @@
 # @end:license
 
 import logging
-import urllib.parse
 import typing
 from typing import Any, Optional, Dict, Callable
 
@@ -29,6 +28,7 @@ from google.protobuf import message as protobuf
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
+from noisicaa import instrument_db
 from noisicaa.music import pipeline_graph
 from noisicaa.music import node_connector
 from noisicaa.music import pmodel
@@ -58,10 +58,6 @@ class UpdateInstrument(commands.Command):
 commands.Command.register_command(UpdateInstrument)
 
 
-class InvalidInstrumentURI(Exception):
-    pass
-
-
 class InstrumentConnector(node_connector.NodeConnector):
     _node = None  # type: Instrument
 
@@ -86,40 +82,13 @@ class InstrumentConnector(node_connector.NodeConnector):
 
     def __change_instrument(self, instrument_uri: str) -> None:
         try:
-            if not instrument_uri:
-                raise InvalidInstrumentURI("Empty URI")
-
-            fmt, _, path, _, query, _ = urllib.parse.urlparse(instrument_uri)
-            if not path:
-                raise InvalidInstrumentURI("Missing path")
-
-            path = urllib.parse.unquote(path)
-
-            if query:
-                args = dict(urllib.parse.parse_qsl(query, strict_parsing=True))
-            else:
-                args = {}
-
-            if fmt == 'sf2':
-                instrument_spec = audioproc.InstrumentSpec(
-                    sf2=audioproc.SF2InstrumentSpec(
-                        path=path,
-                        bank=int(args.get('bank', 0)),
-                        preset=int(args.get('preset', 0))))
-
-            elif fmt == 'sample':
-                instrument_spec = audioproc.InstrumentSpec(
-                    sample=audioproc.SampleInstrumentSpec(
-                        path=path))
-
-            else:
-                raise InvalidInstrumentURI("Unknown scheme '%s'" % fmt)
-
-            self._emit_message(processor_messages.change_instrument(
-                self.__node_id, instrument_spec))
-
-        except InvalidInstrumentURI as exc:
+            instrument_spec = instrument_db.create_instrument_spec(instrument_uri)
+        except instrument_db.InvalidInstrumentURI as exc:
             logger.error("Invalid instrument URI '%s': %s", instrument_uri, exc)
+            return
+
+        self._emit_message(processor_messages.change_instrument(
+            self.__node_id, instrument_spec))
 
 
 class Instrument(model.Instrument, pipeline_graph.BasePipelineGraphNode):

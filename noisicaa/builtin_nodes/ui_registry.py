@@ -34,6 +34,7 @@ from .sample_track.track_ui import SampleTrackEditor
 from .instrument.node_ui import InstrumentNode
 from .mixer.node_ui import MixerNode
 from .custom_csound.node_ui import CustomCSoundNode
+from .midi_source.node_ui import MidiSourceNode
 
 if typing.TYPE_CHECKING:
     from noisicaa.ui.pipeline_graph import base_node
@@ -48,6 +49,7 @@ node_ui_cls_map = {
     'builtin://instrument': InstrumentNode,
     'builtin://mixer': MixerNode,
     'builtin://custom-csound': CustomCSoundNode,
+    'builtin://midi-source': MidiSourceNode,
 }  # type: Dict[str, Type[base_node.Node]]
 
 track_editor_cls_map = {

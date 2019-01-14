@@ -258,6 +258,7 @@ Status run_CALL_CHILD_REALM(BlockContext* ctxt, ProgramState* state, const vecto
     PerfStats* perf = realm->block_context()->perf.get();
     perf->reset();
 
+    realm->block_context()->input_events = ctxt->input_events;
     realm->block_context()->out_messages = ctxt->out_messages;
     RETURN_IF_ERROR(realm->process_block(program));
     realm->block_context()->out_messages = nullptr;

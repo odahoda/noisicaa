@@ -47,3 +47,7 @@ from .processor_message_pb2 import (
     ProcessorMessage,
     ProcessorMessageList,
 )
+from .devices_pb2 import (
+    DeviceDescription,
+    DevicePortDescription,
+)

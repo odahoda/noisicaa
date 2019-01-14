@@ -29,8 +29,10 @@
 
 namespace noisicaa {
 
-NullBackend::NullBackend(HostSystem* host_system, const BackendSettings& settings)
-  : Backend(host_system, "noisicaa.audioproc.engine.backend.null", settings) {}
+NullBackend::NullBackend(
+    HostSystem* host_system, const BackendSettings& settings,
+    void (*callback)(void*, const string&), void *userdata)
+  : Backend(host_system, "noisicaa.audioproc.engine.backend.null", settings, callback, userdata) {}
 
 NullBackend::~NullBackend() {}
 
@@ -68,7 +70,7 @@ Status NullBackend::end_block(BlockContext* ctxt) {
   return Status::Ok();
 }
 
-Status NullBackend::output(BlockContext* ctxt, const string& channel, BufferPtr samples) {
+Status NullBackend::output(BlockContext* ctxt, Channel channel, BufferPtr buffer) {
   return Status::Ok();
 }
 

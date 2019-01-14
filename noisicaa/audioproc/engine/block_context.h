@@ -30,6 +30,9 @@
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "lv2/lv2plug.in/ns/ext/atom/atom.h"
+
 #include "noisicaa/audioproc/public/musical_time.h"
 #include "noisicaa/audioproc/engine/buffers.h"
 
@@ -57,13 +60,7 @@ struct BlockContext {
   void alloc_time_map(uint32_t block_size);
 
   BufferArena* buffer_arena;
-
-  struct Buffer {
-    size_t size;
-    const BufferPtr data;
-  };
-  map<string, Buffer> buffers;
-
+  LV2_Atom_Sequence* input_events;
   MessageQueue* out_messages;
 };
 

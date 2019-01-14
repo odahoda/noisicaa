@@ -199,8 +199,18 @@ cdef class AtomForge(object):
         yield
         lv2_atom_forge_pop(&self.forge, &frame)
 
+    @contextlib.contextmanager
+    def tuple(self):
+        cdef LV2_Atom_Forge_Frame frame
+        lv2_atom_forge_tuple(&self.forge, &frame)
+        yield
+        lv2_atom_forge_pop(&self.forge, &frame)
+
     def write_key(self, LV2_URID key):
         lv2_atom_forge_key(&self.forge, key)
+
+    def write_frame_time(self, uint32_t time):
+        lv2_atom_forge_frame_time(&self.forge, time)
 
     def write_raw_event(self, uint32_t time, const uint8_t* atom, uint32_t length):
         lv2_atom_forge_frame_time(&self.forge, time)

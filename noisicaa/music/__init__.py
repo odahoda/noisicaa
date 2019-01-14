@@ -31,7 +31,7 @@ from .project_client_model import (
     PipelineGraphControlValue,
     BasePipelineGraphNode,
     PipelineGraphNode,
-    AudioOutPipelineGraphNode,
+    SystemOutPipelineGraphNode,
     PipelineGraphConnection,
     Sample,
     Metadata,

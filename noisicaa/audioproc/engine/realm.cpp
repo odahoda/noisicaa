@@ -381,7 +381,7 @@ Status Realm::set_spec(const Spec* s) {
   return Status::Ok();
 }
 
-Buffer* Realm::get_buffer(const string& name) {
+Buffer* Realm::get_buffer(const char* name) {
   Program* program = _current_program.load();
   if (program == nullptr) {
     return nullptr;

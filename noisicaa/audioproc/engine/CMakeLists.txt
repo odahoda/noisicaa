@@ -48,6 +48,7 @@ add_python_package(
 )
 
 set(LIB_SRCS
+  alsa_device_manager.cpp
   backend.cpp
   backend_null.cpp
   backend_portaudio.cpp

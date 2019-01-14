@@ -28,6 +28,7 @@ import "noisicaa/builtin_nodes/sample_track/processor_messages.proto";
 import "noisicaa/builtin_nodes/instrument/processor_messages.proto";
 import "noisicaa/builtin_nodes/pianoroll/processor_messages.proto";
 import "noisicaa/builtin_nodes/custom_csound/processor_messages.proto";
+import "noisicaa/builtin_nodes/midi_source/processor_messages.proto";
 
 package noisicaa.pb;
 
@@ -49,4 +50,8 @@ extend ProcessorMessage {
 
   // Custom CSound (407xxx)
   optional CustomCSoundSetScript custom_csound_set_script = 407000;
+
+  // Midi Source (408xxx)
+  optional MidiSourceUpdate midi_source_update = 408000;
+  optional MidiSourceEvent midi_source_event = 408001;
 }

@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -18,6 +20,23 @@
 #
 # @end:license
 
-from .midi_hub import MidiHub
-from .midi_events import MidiEvent, NoteOnEvent, NoteOffEvent, ControlChangeEvent
-from .libalsa import AlsaSequencer, PortInfo, ClientInfo
+from noisicaa import node_db
+
+
+MidiSourceDescription = node_db.NodeDescription(
+    display_name='MIDI source',
+    type=node_db.NodeDescription.PROCESSOR,
+    node_ui=node_db.NodeUIDescription(
+        type='builtin://midi-source',
+    ),
+    processor=node_db.ProcessorDescription(
+        type='builtin://midi-source',
+    ),
+    ports=[
+        node_db.PortDescription(
+            name='out',
+            direction=node_db.PortDescription.OUTPUT,
+            type=node_db.PortDescription.EVENTS,
+        ),
+    ]
+)

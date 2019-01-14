@@ -29,6 +29,7 @@ import "noisicaa/builtin_nodes/control_track/commands.proto";
 import "noisicaa/builtin_nodes/sample_track/commands.proto";
 import "noisicaa/builtin_nodes/instrument/commands.proto";
 import "noisicaa/builtin_nodes/custom_csound/commands.proto";
+import "noisicaa/builtin_nodes/midi_source/commands.proto";
 
 package noisicaa.pb;
 
@@ -64,6 +65,9 @@ extend Command {
   // Instrument (405xxx)
   optional UpdateInstrument update_instrument = 405000;
 
-  // Instrument (407xxx)
+  // Custom CSound (407xxx)
   optional UpdateCustomCSound update_custom_csound = 407000;
+
+  // MIDI source (408xxx)
+  optional UpdateMidiSource update_midi_source = 408000;
 }

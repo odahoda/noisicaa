@@ -37,6 +37,7 @@ target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE 
 target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-instrument-processor_messages)
 target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-pianoroll-processor_messages)
 target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-custom_csound-processor_messages)
+target_link_libraries(noisicaa-builtin_nodes-processor_message_registry PRIVATE noisicaa-builtin_nodes-midi_source-processor_messages)
 
 add_library(noisicaa-builtin_nodes-processors SHARED processor_registry.cpp)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-control_track-processor)
@@ -45,6 +46,7 @@ target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-pianoroll-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-mixer-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-custom_csound-processor)
+target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_source-processor)
 
 add_subdirectory(score_track)
 add_subdirectory(beat_track)
@@ -54,3 +56,4 @@ add_subdirectory(instrument)
 add_subdirectory(pianoroll)
 add_subdirectory(mixer)
 add_subdirectory(custom_csound)
+add_subdirectory(midi_source)

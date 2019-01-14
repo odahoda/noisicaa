@@ -37,7 +37,9 @@ class Realm;
 
 class NullBackend : public Backend {
  public:
-  NullBackend(HostSystem* host_system, const BackendSettings& settings);
+  NullBackend(
+      HostSystem* host_system, const BackendSettings& settings,
+      void (*callback)(void*, const string&), void* userdata);
   ~NullBackend() override;
 
   Status setup(Realm* realm) override;
@@ -45,7 +47,7 @@ class NullBackend : public Backend {
 
   Status begin_block(BlockContext* ctxt) override;
   Status end_block(BlockContext* ctxt) override;
-  Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) override;
+  Status output(BlockContext* ctxt, Channel channel, BufferPtr buffer) override;
 
 private:
   chrono::time_point<std::chrono::high_resolution_clock> _block_start;

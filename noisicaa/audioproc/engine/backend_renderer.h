@@ -37,7 +37,9 @@ class Realm;
 
 class RendererBackend : public Backend {
 public:
-  RendererBackend(HostSystem* host_system, const BackendSettings& settings);
+  RendererBackend(
+      HostSystem* host_system, const BackendSettings& settings,
+      void (*callback)(void*, const string&), void* userdata);
   ~RendererBackend() override;
 
   Status setup(Realm* realm) override;
@@ -45,7 +47,7 @@ public:
 
   Status begin_block(BlockContext* ctxt) override;
   Status end_block(BlockContext* ctxt) override;
-  Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) override;
+  Status output(BlockContext* ctxt, Channel channel, BufferPtr buffer) override;
 
  private:
   unique_ptr<BufferData> _samples[2];

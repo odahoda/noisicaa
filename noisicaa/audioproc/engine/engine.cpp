@@ -214,6 +214,8 @@ Status Engine::loop(Realm* realm, Backend* backend) {
     }
     ctxt->perf->reset();
 
+    ctxt->input_events = nullptr;
+
     RETURN_IF_ERROR(backend->begin_block(ctxt));
     auto auto_end_block = scopeGuard([this, backend, ctxt]() {
         Status status = backend->end_block(ctxt);
@@ -228,12 +230,12 @@ Status Engine::loop(Realm* realm, Backend* backend) {
 
     Buffer* buf = realm->get_buffer("sink:in:left");
     if(buf != nullptr) {
-      RETURN_IF_ERROR(backend->output(ctxt, "left", buf->data()));
+      RETURN_IF_ERROR(backend->output(ctxt, Backend::Channel::AUDIO_LEFT, buf->data()));
     }
 
     buf = realm->get_buffer("sink:in:right");
     if(buf != nullptr) {
-      RETURN_IF_ERROR(backend->output(ctxt, "right", buf->data()));
+      RETURN_IF_ERROR(backend->output(ctxt, Backend::Channel::AUDIO_RIGHT, buf->data()));
     }
 
     if (last_loop_time > chrono::high_resolution_clock::time_point::min()) {

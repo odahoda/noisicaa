@@ -37,8 +37,10 @@ from PyQt5 import QtWidgets
 
 from noisicaa import instrument_db
 from noisicaa import core
+from noisicaa import audioproc
 from noisicaa import model
-
+from noisicaa.builtin_nodes.instrument import processor_messages as instrument
+from noisicaa.builtin_nodes.midi_source import processor_messages as midi_source
 from . import piano
 from . import qprogressindicator
 from . import ui_base
@@ -386,9 +388,8 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.__instrument_lock = asyncio.Lock(loop=self.event_loop)
 
         self.__track_id = random.getrandbits(64)
-        self.__pipeline_mixer_id = None  # type: str
-        self.__pipeline_instrument_id = None  # type: str
-        self.__pipeline_event_source_id = None  # type: str
+        self.__instrument_id = None  # type: str
+        self.__midi_source_id = None  # type: str
 
         self.__instrument_mutation_listener = None  # type: core.Listener
 
@@ -455,7 +456,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         layout.addStretch(1)
 
-        self.piano = piano.PianoWidget(self, self.app.midi_hub)
+        self.piano = piano.PianoWidget(self)
         self.piano.setEnabled(False)
         self.piano.noteOn.connect(self.onNoteOn)
         self.piano.noteOff.connect(self.onNoteOff)
@@ -516,18 +517,29 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.__instrument_mutation_listener = self.app.instrument_db.mutation_handlers.add(
             self.handleInstrumentMutation)
 
-        self.__pipeline_mixer_id = uuid.uuid4().hex
+        self.__instrument_id = uuid.uuid4().hex
         await self.audioproc_client.add_node(
             'root',
-            description=self.app.node_db.get_node_description('builtin://mixer'),
-            id=self.__pipeline_mixer_id,
-            name='library-mixer')
+            description=self.app.node_db.get_node_description('builtin://instrument'),
+            id=self.__instrument_id)
         await self.audioproc_client.connect_ports(
             'root',
-            self.__pipeline_mixer_id, 'out:left', 'sink', 'in:left')
+            self.__instrument_id, 'out:left', 'sink', 'in:left')
         await self.audioproc_client.connect_ports(
             'root',
-            self.__pipeline_mixer_id, 'out:right', 'sink', 'in:right')
+            self.__instrument_id, 'out:right', 'sink', 'in:right')
+
+        self.__midi_source_id = uuid.uuid4().hex
+        await self.audioproc_client.add_node(
+            'root',
+            description=self.app.node_db.get_node_description('builtin://midi-source'),
+            id=self.__midi_source_id)
+        await self.sendNodeMessage(midi_source.update(
+            self.__midi_source_id, device_uri='null://'))
+
+        await self.audioproc_client.connect_ports(
+            'root',
+            self.__midi_source_id, 'out', self.__instrument_id, 'in')
 
         self.__instrument_loader_task = self.event_loop.create_task(
             self.__instrumentLoader())
@@ -541,21 +553,28 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                 self.__instrument_loader_task.cancel()
                 self.__instrument_loader_task = None
 
-            if self.__pipeline_instrument_id is not None:
-                assert self.__pipeline_mixer_id is not None
-                await self.removeInstrumentFromPipeline()
+            if self.__instrument_id is not None:
+                await self.audioproc_client.disconnect_ports(
+                    'root',
+                    self.__instrument_id, 'out:left', 'sink', 'in:left')
+                await self.audioproc_client.disconnect_ports(
+                    'root',
+                    self.__instrument_id, 'out:right', 'sink', 'in:right')
 
-            if self.__pipeline_mixer_id is not None:
-                await self.audioproc_client.disconnect_ports(
-                    'root',
-                    self.__pipeline_mixer_id, 'out:left', 'sink', 'in:left')
-                await self.audioproc_client.disconnect_ports(
-                    'root',
-                    self.__pipeline_mixer_id, 'out:right', 'sink', 'in:right')
+                if self.__midi_source_id is not None:
+                    await self.audioproc_client.disconnect_ports(
+                        'root',
+                        self.__midi_source_id, 'out', self.__instrument_id, 'in')
+
+            if self.__midi_source_id is not None:
                 await self.audioproc_client.remove_node(
-                    'root',
-                    self.__pipeline_mixer_id)
-                self.__pipeline_mixer_id = None
+                    'root', self.__midi_source_id)
+                self.__midi_source_id = None
+
+            if self.__instrument_id is not None:
+                await self.audioproc_client.remove_node(
+                    'root', self.__instrument_id)
+                self.__instrument_id = None
 
         if self.__instrument_mutation_listener is not None:
             self.__instrument_mutation_listener.remove()
@@ -567,61 +586,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
             self.__model.addInstrument(mutation.description)
         else:
             raise TypeError(type(mutation))
-
-    async def addInstrumentToPipeline(self, uri: str) -> None:
-        assert self.__pipeline_instrument_id is None
-
-        # node_description = instrument_db.parse_uri(uri, self.app.node_db.get_node_description)
-        # self.__pipeline_instrument_id = uuid.uuid4().hex
-        # await self.audioproc_client.add_node(
-        #     'root',
-        #     description=node_description,
-        #     id=self.__pipeline_instrument_id)
-        # await self.audioproc_client.connect_ports(
-        #     'root',
-        #     self.__pipeline_instrument_id, 'out:left',
-        #     self.__pipeline_mixer_id, 'in:left')
-        # await self.audioproc_client.connect_ports(
-        #     'root',
-        #     self.__pipeline_instrument_id, 'out:right',
-        #     self.__pipeline_mixer_id, 'in:right')
-
-        # self.__pipeline_event_source_id = uuid.uuid4().hex
-        # await self.audioproc_client.add_node(
-        #     'root',
-        #     description=node_db.Builtins.EventSourceDescription,
-        #     id=self.__pipeline_event_source_id,
-        #     track_id=self.__track_id)
-        # await self.audioproc_client.connect_ports(
-        #     'root',
-        #     self.__pipeline_event_source_id, 'out',
-        #     self.__pipeline_instrument_id, 'in')
-
-    async def removeInstrumentFromPipeline(self) -> None:
-        if self.__pipeline_instrument_id is None:
-            return
-
-        # await self.audioproc_client.disconnect_ports(
-        #     'root',
-        #     self.__pipeline_event_source_id, 'out',
-        #     self.__pipeline_instrument_id, 'in')
-        # await self.audioproc_client.remove_node(
-        #     'root',
-        #     self.__pipeline_event_source_id)
-        # self.__pipeline_event_source_id = None
-
-        await self.audioproc_client.disconnect_ports(
-            'root',
-            self.__pipeline_instrument_id, 'out:left',
-            self.__pipeline_mixer_id, 'in:left')
-        await self.audioproc_client.disconnect_ports(
-            'root',
-            self.__pipeline_instrument_id, 'out:right',
-            self.__pipeline_mixer_id, 'in:right')
-        await self.audioproc_client.remove_node(
-            'root',
-            self.__pipeline_instrument_id)
-        self.__pipeline_instrument_id = None
 
     async def __instrumentLoader(self) -> None:
         while True:
@@ -636,8 +600,6 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                 self.piano.setEnabled(False)
                 self.spinner.setVisible(True)
 
-                await self.removeInstrumentFromPipeline()
-
                 self.instrument_name.setText(description.display_name)
                 self.instrument_data.setPlainText(textwrap.dedent("""\
                     uri: {uri}
@@ -646,7 +608,13 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                         uri=description.uri,
                         properties=pprint.pformat(description.properties))))
 
-                await self.addInstrumentToPipeline(description.uri)
+                try:
+                    instrument_spec = instrument_db.create_instrument_spec(description.uri)
+                except instrument_db.InvalidInstrumentURI as exc:
+                    logger.error("Invalid instrument URI '%s': %s", description.uri, exc)
+                else:
+                    await self.sendNodeMessage(instrument.change_instrument(
+                        self.__instrument_id, instrument_spec))
 
                 self.piano.setEnabled(True)
                 self.spinner.setVisible(False)
@@ -684,24 +652,18 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
     def keyReleaseEvent(self, event: QtGui.QKeyEvent) -> None:
         self.piano.keyReleaseEvent(event)
 
-    def onNoteOn(self, note: model.Pitch, velocity: int) -> None:
-        pass
-        # TODO: reimplement
-        # if self.__pipeline_event_source_id is not None:
-        #     self.call_async(
-        #         self.audioproc_client.send_message(
-        #             core.build_message(
-        #                 {core.MessageKey.trackId: self.__track_id},
-        #                 core.MessageType.atom,
-        #                 lv2.AtomForge.build_midi_noteon(0, note.midi_note, velocity))))
+    async def sendNodeMessage(self, msg: audioproc.ProcessorMessage) -> None:
+        await self.audioproc_client.send_node_messages(
+            'root', audioproc.ProcessorMessageList(messages=[msg]))
 
-    def onNoteOff(self, note: model.Pitch) -> None:
-        if self.__pipeline_event_source_id is not None:
-            pass
-            # TODO: reimplement
-            # self.call_async(
-            #     self.audioproc_client.send_message(
-            #         core.build_message(
-            #             {core.MessageKey.trackId: self.__track_id},
-            #             core.MessageType.atom,
-            #             lv2.AtomForge.build_midi_noteoff(0, note.midi_note))))
+    def onNoteOn(self, pitch: model.Pitch) -> None:
+        if self.__midi_source_id is not None:
+            self.call_async(self.sendNodeMessage(
+                midi_source.note_on_event(
+                    self.__midi_source_id, 0, pitch.midi_note, 100)))
+
+    def onNoteOff(self, pitch: model.Pitch) -> None:
+        if self.__midi_source_id is not None:
+            self.call_async(self.sendNodeMessage(
+                midi_source.note_off_event(
+                    self.__midi_source_id, 0, pitch.midi_note)))

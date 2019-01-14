@@ -231,6 +231,10 @@ class BasePipelineGraphNode(ProjectChild):
         return self.get_property_value('control_values')
 
     @property
+    def pipeline_node_id(self) -> str:
+        return '%016x' % self.id
+
+    @property
     def removable(self) -> bool:
         return True
 
@@ -290,9 +294,13 @@ class PipelineGraphNode(BasePipelineGraphNode):
         return self.project.get_node_description(self.node_uri)
 
 
-class AudioOutPipelineGraphNode(BasePipelineGraphNode):
-    class AudioOutPipelineGraphNodeSpec(model_base.ObjectSpec):
-        proto_type = 'audio_out_pipeline_graph_node'
+class SystemOutPipelineGraphNode(BasePipelineGraphNode):
+    class SystemOutPipelineGraphNodeSpec(model_base.ObjectSpec):
+        proto_type = 'system_out_pipeline_graph_node'
+
+    @property
+    def pipeline_node_id(self) -> str:
+        return 'sink'
 
     @property
     def removable(self) -> bool:
@@ -491,12 +499,12 @@ class Project(ObjectBase):
         return self.bpm
 
     @property
-    def audio_out_node(self) -> AudioOutPipelineGraphNode:
+    def system_out_node(self) -> SystemOutPipelineGraphNode:
         for node in self.get_property_value('pipeline_graph_nodes'):
-            if isinstance(node, AudioOutPipelineGraphNode):
+            if isinstance(node, SystemOutPipelineGraphNode):
                 return node
 
-        raise ValueError("No audio out node found.")
+        raise ValueError("No system out node found.")
 
     def get_node_description(self, uri: str) -> node_db.NodeDescription:
         raise NotImplementedError

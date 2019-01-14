@@ -32,6 +32,10 @@ Spec::Spec() {
 }
 
 Spec::~Spec() {
+  for(const auto& it : _buffer_map) {
+    delete it.first;
+  }
+  _buffer_map.clear();
 }
 
 Status Spec::append_opcode(OpCode opcode, ...) {
@@ -91,17 +95,19 @@ Status Spec::append_opcode_args(OpCode opcode, const vector<OpArg>& args) {
 }
 
 Status Spec::append_buffer(const string& name, BufferType* type) {
-  _buffer_map[name] = _buffers.size();
+  char* name_c = new char[name.size() + 1];
+  strcpy(name_c, name.c_str());
+  _buffer_map[name_c] = _buffers.size();
   _buffers.emplace_back(type);
   return Status::Ok();
 }
 
-StatusOr<int> Spec::get_buffer_idx(const string& name) const {
+StatusOr<int> Spec::get_buffer_idx(const char* name) const {
   auto it = _buffer_map.find(name);
   if (it != _buffer_map.end()) {
     return it->second;
   }
-  return ERROR_STATUS("Invalid buffer name %s", name.c_str());
+  return ERROR_STATUS("Invalid buffer name %s", name);
 }
 
 Status Spec::append_control_value(ControlValue* cv) {

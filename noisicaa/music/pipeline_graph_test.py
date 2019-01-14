@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 class PipelineGraphTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
     async def test_basic(self):
-        audio_out = self.project.audio_out_node
+        audio_out = self.project.system_out_node
 
         node_id = await self.client.send_command(commands_pb2.Command(
             target=self.project.id,

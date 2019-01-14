@@ -43,7 +43,7 @@ class ModelTest(unittest.TestCase):
         self.pool.register_class(pmodel.Sample)
         self.pool.register_class(pmodel.PipelineGraphConnection)
         self.pool.register_class(pmodel.PipelineGraphNode)
-        self.pool.register_class(pmodel.AudioOutPipelineGraphNode)
+        self.pool.register_class(pmodel.SystemOutPipelineGraphNode)
         self.pool.register_class(pmodel.PipelineGraphControlValue)
         server_registry.register_classes(self.pool)
 

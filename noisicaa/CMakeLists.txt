@@ -32,7 +32,6 @@ add_python_package(
 add_subdirectory(audioproc)
 add_subdirectory(bindings)
 add_subdirectory(core)
-add_subdirectory(devices)
 add_subdirectory(host_system)
 add_subdirectory(instr)
 add_subdirectory(instrument_db)

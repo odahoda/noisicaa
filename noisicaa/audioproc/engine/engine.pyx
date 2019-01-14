@@ -93,9 +93,7 @@ cdef class PyEngine(object):
         self.__root_realm = None
         self.__realm_listeners = {}
         self.__backend = None
-
-        self.__backend_ready = threading.Event()
-        self.__backend_released = threading.Event()
+        self.__backend_listeners = {}
 
         self.__engine_thread = None
         self.__engine_started = None
@@ -128,10 +126,7 @@ cdef class PyEngine(object):
         self.__set_state(engine_notification_pb2.EngineStateChange.CLEANUP)
 
         await self.stop_engine()
-
-        if self.__backend is not None:
-            self.__backend.cleanup()
-            self.__backend = None
+        self.stop_backend()
 
         if self.__plugin_host is not None:
             logger.info("Shutting down plugin host process...")
@@ -159,6 +154,15 @@ cdef class PyEngine(object):
             self.__engine = NULL
 
         self.__set_state(engine_notification_pb2.EngineStateChange.STOPPED)
+
+    def stop_backend(self):
+        if self.__backend is not None:
+            self.__backend.cleanup()
+            self.__backend = None
+
+        for listener in self.__backend_listeners.values():
+            listener.remove()
+        self.__backend_listeners.clear()
 
     async def start_engine(self):
         assert self.__root_realm is not None
@@ -323,7 +327,6 @@ cdef class PyEngine(object):
             if self.__backend is not None:
                 logger.info("Restarting backend...")
                 self.__backend.setup(self.__root_realm)
-                self.__backend_ready.set()
 
             await self.start_engine()
 
@@ -337,16 +340,15 @@ cdef class PyEngine(object):
             self.__set_state(engine_notification_pb2.EngineStateChange.CLEANUP)
 
             await self.stop_engine()
-
-            self.__backend.cleanup()
-            self.__backend = None
+            self.stop_backend()
 
             self.__set_state(engine_notification_pb2.EngineStateChange.SETUP)
 
         settings = PyBackendSettings(**parameters)
         self.__backend = PyBackend(self.__host_system, name, settings)
+        self.__backend_listeners['notifications'] = self.__backend.notifications.add(
+            self.notifications.call)
         self.__backend.setup(self.__root_realm)
-        self.__backend_ready.set()
 
         logger.info("Backend '%s' ready.", name)
 

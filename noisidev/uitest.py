@@ -35,7 +35,6 @@ from noisicaa import runtime_settings as runtime_settings_lib
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
-from noisicaa import devices
 from noisicaa import node_db
 from noisicaa.ui import selection_set
 from noisicaa.ui import ui_base
@@ -116,32 +115,6 @@ class MockAudioProcClient(audioproc.AudioProcClientBase):  # pylint: disable=abs
         self.node_state_changed = core.CallbackMap[str, audioproc.NodeStateChange]()
 
 
-class MockSequencer(object):
-    def __init__(self):
-        self._ports = []  # type: List[devices.PortInfo]
-
-    def add_port(self, port_info):
-        self._ports.append(port_info)
-
-    def list_all_ports(self):
-        yield from self._ports
-
-    def get_pollin_fds(self):
-        return []
-
-    def connect(self, port_info):
-        pass
-
-    def disconnect(self, port_info):
-        pass
-
-    def close(self):
-        pass
-
-    def get_event(self):
-        return None
-
-
 class MockSettings(object):
     def __init__(self):
         self.__data = {}  # type: Dict[str, Any]
@@ -189,7 +162,6 @@ class MockApp(ui_base.AbstractEditorApp):
         self.stat_monitor = None  # type: AbstractStatMonitor
         self.runtime_settings = None  # type: runtime_settings_lib.RuntimeSettings
         self.show_edit_areas_action = None  # type: QtWidgets.QAction
-        self.midi_hub = None  # type: devices.MidiHub
         self.node_db = None  # type: node_db_lib.NodeDBClient
         self.instrument_db = None  # type: instrument_db_lib.InstrumentDBClient
         self.default_style = None  # type: str
@@ -202,8 +174,6 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
 
         self.process = None
         self.node_db_client = None
-        self.sequencer = None
-        self.midi_hub = None
         self.app = None
         self.context = None
 
@@ -225,16 +195,11 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
 
         self.selection_set = selection_set.SelectionSet()
 
-        self.sequencer = MockSequencer()
-        self.midi_hub = devices.MidiHub(self.sequencer)
-        self.midi_hub.start()
-
         self.app = MockApp()
         self.app.qt_app = self.qt_app
         self.app.process = self.process
         self.app.runtime_settings = runtime_settings_lib.RuntimeSettings()
         self.app.settings = MockSettings()
-        self.app.midi_hub = self.midi_hub
         self.app.node_db = self.node_db_client
         self.app.audioproc_client = MockAudioProcClient()
 
@@ -245,9 +210,6 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.context = TestContext(testcase=self)
 
     async def cleanup_testcase(self):
-        if self.midi_hub is not None:
-            self.midi_hub.stop()
-
         if self.process is not None:
             await self.process.cleanup()
 

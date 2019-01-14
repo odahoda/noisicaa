@@ -232,10 +232,10 @@ class BaseProject(pmodel.Project):
         self.node_db = node_db
         self.metadata = self._pool.create(Metadata)
 
-        audio_out_node = self._pool.create(
-            pipeline_graph.AudioOutPipelineGraphNode,
-            name="Audio Out", graph_pos=model.Pos2F(200, 0))
-        self.add_pipeline_graph_node(audio_out_node)
+        system_out_node = self._pool.create(
+            pipeline_graph.SystemOutPipelineGraphNode,
+            name="System Out", graph_pos=model.Pos2F(200, 0))
+        self.add_pipeline_graph_node(system_out_node)
 
     def close(self) -> None:
         pass
@@ -472,7 +472,7 @@ class Pool(pmodel.Pool):
         self.register_class(Metadata)
         self.register_class(samples.Sample)
         self.register_class(base_track.MeasureReference)
-        self.register_class(pipeline_graph.AudioOutPipelineGraphNode)
+        self.register_class(pipeline_graph.SystemOutPipelineGraphNode)
         self.register_class(pipeline_graph.PipelineGraphConnection)
         self.register_class(pipeline_graph.PipelineGraphControlValue)
         self.register_class(pipeline_graph.PipelineGraphNode)

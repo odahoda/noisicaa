@@ -27,6 +27,7 @@
 #include "noisicaa/builtin_nodes/pianoroll/processor.h"
 #include "noisicaa/builtin_nodes/mixer/processor.h"
 #include "noisicaa/builtin_nodes/custom_csound/processor.h"
+#include "noisicaa/builtin_nodes/midi_source/processor.h"
 
 namespace noisicaa {
 
@@ -53,6 +54,9 @@ StatusOr<Processor*> create_processor(
   } else if (desc.processor().type() == "builtin://custom-csound") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorCustomCSound(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://midi-source") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorMidiSource(realm_name, node_id, host_system, desc);
   }
 
   return ERROR_STATUS("Invalid processor type %d", desc.processor().type());

@@ -20,6 +20,7 @@
  * @end:license
  */
 
+#include "noisicaa/audioproc/public/engine_notification.pb.h"
 #include "noisicaa/audioproc/engine/backend.h"
 #include "noisicaa/audioproc/engine/backend_null.h"
 #include "noisicaa/audioproc/engine/backend_portaudio.h"
@@ -27,26 +28,41 @@
 
 namespace noisicaa {
 
-Backend::Backend(HostSystem* host_system, const char* logger_name, const BackendSettings& settings)
+Backend::Backend(
+    HostSystem* host_system, const char* logger_name, const BackendSettings& settings,
+    void (*callback)(void*, const string&), void *userdata)
   : _host_system(host_system),
     _logger(LoggerRegistry::get_logger(logger_name)),
-    _settings(settings) {}
+    _settings(settings),
+    _callback(callback),
+    _userdata(userdata) {
+  notifications.connect(std::bind(&Backend::notification_proxy, this, placeholders::_1));
+}
 
 Backend::~Backend() {
   cleanup();
 }
 
 StatusOr<Backend*> Backend::create(
-    HostSystem* host_system, const string& name, const BackendSettings& settings) {
+    HostSystem* host_system, const string& name, const BackendSettings& settings,
+    void (*callback)(void*, const string&), void* userdata) {
   if (name == "portaudio") {
-    return new PortAudioBackend(host_system, settings);
+    return new PortAudioBackend(host_system, settings, callback, userdata);
   } else if (name == "null") {
-    return new NullBackend(host_system, settings);
+    return new NullBackend(host_system, settings, callback, userdata);
   } else if (name == "renderer") {
-    return new RendererBackend(host_system, settings);
+    return new RendererBackend(host_system, settings, callback, userdata);
   }
 
   return ERROR_STATUS("Invalid backend name '%s'", name.c_str());
+}
+
+void Backend::notification_proxy(const pb::EngineNotification& notification) {
+  if (_callback != nullptr) {
+    string notification_serialized;
+    assert(notification.SerializeToString(&notification_serialized));
+    _callback(_userdata, notification_serialized);
+  }
 }
 
 Status Backend::setup(Realm* realm) {

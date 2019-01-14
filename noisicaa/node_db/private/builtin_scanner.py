@@ -59,6 +59,11 @@ class Builtins(object):
         type=node_db.NodeDescription.CHILD_REALM,
         ports=[
             node_db.PortDescription(
+                name='in:events',
+                direction=node_db.PortDescription.INPUT,
+                type=node_db.PortDescription.EVENTS,
+            ),
+            node_db.PortDescription(
                 name='out:left',
                 direction=node_db.PortDescription.OUTPUT,
                 type=node_db.PortDescription.AUDIO,

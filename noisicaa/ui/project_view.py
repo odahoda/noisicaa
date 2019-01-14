@@ -62,6 +62,7 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
         super().__init__(parent=None, context=context, **kwargs)
 
         self.__player_id = None  # type: str
+        self.__player_realm = None  # type: str
         self.__player_node_id = None  # type: str
         self.__player_status_listener = None  # type: core.Listener
         self.__playback_pos_mode = 'follow'
@@ -95,10 +96,10 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
         self.setLayout(layout)
 
     async def setup(self) -> None:
-        self.__player_id, player_realm = await self.project_client.create_player(
+        self.__player_id, self.__player_realm = await self.project_client.create_player(
             audioproc_address=self.audioproc_client.address)
         self.__player_status_listener = self.audioproc_client.player_state_changed.add(
-            player_realm, self.__player_state.updateFromProto)
+            self.__player_realm, self.__player_state.updateFromProto)
 
         self.__track_list.setPlayerID(self.__player_id)
         self.__player_state.setPlayerID(self.__player_id)
@@ -116,8 +117,8 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
         await self.audioproc_client.add_node(
             'root',
             id=self.__player_node_id,
-            child_realm=player_realm,
-            description=node_db.Builtins.ChildRealmDescription,)
+            child_realm=self.__player_realm,
+            description=node_db.Builtins.ChildRealmDescription)
         await self.audioproc_client.connect_ports(
             'root', self.__player_node_id, 'out:left', 'sink', 'in:left')
         await self.audioproc_client.connect_ports(
@@ -141,6 +142,7 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
             self.__track_list.setPlayerID(None)
             await self.project_client.delete_player(self.__player_id)
             self.__player_id = None
+            self.__player_realm = None
 
         self.__track_list.close()
 
@@ -159,6 +161,10 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
 
     async def deletePluginUI(self, node_id: str) -> None:
         await self.project_client.delete_plugin_ui(self.__player_id, node_id)
+
+    async def sendNodeMessage(self, msg: audioproc.ProcessorMessage) -> None:
+        await self.audioproc_client.send_node_messages(
+            self.__player_realm, audioproc.ProcessorMessageList(messages=[msg]))
 
     def onPlayerMoveTo(self, where: str) -> None:
         if self.__player_id is None:

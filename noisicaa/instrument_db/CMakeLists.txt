@@ -25,6 +25,7 @@ add_python_package(
   mutations.py
   process_base.py
   process.py
+  utils.py
 )
 
 py_proto(instrument_db.proto)

@@ -18,6 +18,7 @@
 #
 # @end:license
 
+from libc.stdint cimport uint8_t
 from noisicaa.audioproc.public.musical_time cimport PyMusicalTime
 from .buffer_arena cimport PyBufferArena
 from . cimport message_queue
@@ -69,6 +70,9 @@ cdef class PyBlockContext(object):
         cdef SampleTime* stime = self.__ctxt.time_map.get() + idx
         stime.start_time = start_time.get()
         stime.end_time = end_time.get()
+
+    def set_input_events(self, uint8_t* buf):
+        self.__ctxt.input_events = <LV2_Atom_Sequence*>buf
 
     @property
     def perf(self):

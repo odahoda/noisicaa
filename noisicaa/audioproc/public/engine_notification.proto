@@ -23,6 +23,7 @@
 syntax = "proto2";
 
 import "noisicaa/audioproc/public/player_state.proto";
+import "noisicaa/audioproc/public/devices.proto";
 
 package noisicaa.pb;
 
@@ -56,10 +57,18 @@ message EngineStateChange {
   optional float load = 2;
 }
 
+message DeviceManagerMessage {
+  oneof action {
+    DeviceDescription added = 1;
+    DeviceDescription removed = 2;
+  }
+}
+
 message EngineNotification {
   repeated EngineStateChange engine_state_changes = 1;
   optional bytes perf_stats = 2;
   optional PlayerState player_state = 3;
   repeated NodeStateChange node_state_changes = 4;
   repeated NodeMessage node_messages = 5;
+  repeated DeviceManagerMessage device_manager_messages = 6;
 }

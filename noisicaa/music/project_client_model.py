@@ -71,8 +71,8 @@ class PipelineGraphNode(BasePipelineGraphNode, model.PipelineGraphNode, ObjectBa
         return self.get_property_value('node_uri')
 
 
-class AudioOutPipelineGraphNode(
-        BasePipelineGraphNode, model.AudioOutPipelineGraphNode, ObjectBase):
+class SystemOutPipelineGraphNode(
+        BasePipelineGraphNode, model.SystemOutPipelineGraphNode, ObjectBase):
     pass
 
 

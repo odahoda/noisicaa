@@ -151,8 +151,7 @@ cdef class PyRealm(object):
 
     def get_buffer(self, str name, PyBufferType type):
         cdef bytes b_name = name.encode('ascii')
-        cdef string c_name = b_name
-        cdef Buffer* buf = self.__realm.get_buffer(c_name)
+        cdef Buffer* buf = self.__realm.get_buffer(b_name)
         assert buf != NULL, name
         cdef int size = type.get().size(self.__host_system.get())
         return memoryview(<uint8_t[:size]>buf.data()).cast(type.view_type)

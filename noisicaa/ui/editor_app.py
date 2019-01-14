@@ -34,7 +34,6 @@ from PyQt5 import QtWidgets
 from noisicaa import audioproc
 from noisicaa import instrument_db
 from noisicaa import node_db
-from noisicaa import devices
 from noisicaa import core
 from noisicaa import lv2
 from noisicaa import runtime_settings as runtime_settings_lib
@@ -43,6 +42,7 @@ from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .editor_window import EditorWindow
 
 from . import audio_thread_profiler
+from . import device_list
 from . import project_registry
 from . import pipeline_perf_monitor
 from . import stat_monitor
@@ -115,8 +115,6 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.dumpSettings()
 
         self.project_registry = None  # type: project_registry.ProjectRegistry
-        self.sequencer = None  # type: devices.AlsaSequencer
-        self.midi_hub = None  # type: devices.MidiHub
         self.show_edit_areas_action = None  # type: QtWidgets.QAction
         self.__audio_thread_profiler = None  # type: audio_thread_profiler.AudioThreadProfiler
         self.profile_audio_thread_action = None  # type: QtWidgets.QAction
@@ -132,6 +130,8 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.stat_monitor = None  # type: stat_monitor.StatMonitor
         self.default_style = None  # type: str
         self.node_messages = core.CallbackMap[str, Dict[str, Any]]()
+
+        self.devices = None  # type: device_list.DeviceList
 
         self.__player_state_listeners = core.CallbackMap[str, audioproc.EngineNotification]()
 
@@ -151,10 +151,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.project_registry = project_registry.ProjectRegistry(
             self.process.event_loop, self.process.tmp_dir, self.process.manager, self.node_db)
 
-        self.sequencer = self.createSequencer()
-
-        self.midi_hub = self.createMidiHub()
-        self.midi_hub.start()
+        self.devices = device_list.DeviceList()
 
         # TODO: 'self' is not a QObject in this context.
         self.show_edit_areas_action = QtWidgets.QAction("Show Edit Areas", self.qt_app)
@@ -243,14 +240,6 @@ class EditorApp(ui_base.AbstractEditorApp):
             await self.node_db.cleanup()
             self.node_db = None
 
-        if self.midi_hub is not None:
-            self.midi_hub.stop()
-            self.midi_hub = None
-
-        if self.sequencer is not None:
-            self.sequencer.close()
-            self.sequencer = None
-
         logger.info("Remove custom excepthook.")
         sys.excepthook = self.__old_excepthook  # type: ignore
 
@@ -258,16 +247,6 @@ class EditorApp(ui_base.AbstractEditorApp):
         # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
         #   fix that without a cyclic import.
         self.process.quit(exit_code)  # type: ignore
-
-    def createSequencer(self) -> devices.AlsaSequencer:
-        # Do other clients handle non-ASCII names?
-        # 'aconnect' seems to work (or just spits out whatever bytes it gets
-        # and the console interprets it as UTF-8), 'aconnectgui' shows the
-        # encoded bytes.
-        return devices.AlsaSequencer('noisicaä')
-
-    def createMidiHub(self) -> devices.MidiHub:
-        return devices.MidiHub(self.sequencer)
 
     async def createAudioProcProcess(self) -> None:
         self.audioproc_process = await self.process.manager.call(
@@ -345,6 +324,15 @@ class EditorApp(ui_base.AbstractEditorApp):
             msg_atom = node_message_pb.atom
             node_message = lv2.wrap_atom(self.urid_mapper, msg_atom).as_object
             self.node_messages.call(node_message_pb.node_id, node_message)
+
+        for device_manager_message in msg.device_manager_messages:
+            action = device_manager_message.WhichOneof('action')
+            if action == 'added':
+                self.devices.addDevice(device_manager_message.added)
+            elif action == 'removed':
+                self.devices.removeDevice(device_manager_message.removed)
+            else:
+                raise ValueError(action)
 
     # pylint: disable=line-too-long
     # def onPlayerStatus(self, player_state: audioproc.PlayerState):

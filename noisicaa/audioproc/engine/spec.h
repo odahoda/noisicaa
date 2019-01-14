@@ -71,7 +71,7 @@ public:
   Status append_buffer(const string& name, BufferType* type);
   int num_buffers() const { return _buffers.size(); }
   const BufferType* get_buffer(int idx) const { return _buffers[idx].get(); }
-  StatusOr<int> get_buffer_idx(const string& name) const;
+  StatusOr<int> get_buffer_idx(const char* name) const;
 
   Status append_control_value(ControlValue* cv);
   int num_control_values() const { return _control_values.size(); }
@@ -89,6 +89,12 @@ public:
   StatusOr<int> get_child_realm_idx(const Realm* child_realms);
 
 private:
+  struct cmp_cstr {
+    bool operator()(const char* a, const char* b) const {
+      return strcmp(a, b) < 0;
+    }
+  };
+
   uint32_t _bpm = 120;
   MusicalDuration _duration = MusicalDuration(2, 1);
 
@@ -98,7 +104,7 @@ private:
   map<uint64_t, int> _processor_map;
 
   vector<unique_ptr<const BufferType>> _buffers;
-  map<string, int> _buffer_map;
+  map<const char*, int, cmp_cstr> _buffer_map;
 
   vector<ControlValue*> _control_values;
   map<string, int> _control_value_map;

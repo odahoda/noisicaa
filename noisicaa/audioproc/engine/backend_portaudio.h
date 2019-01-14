@@ -25,8 +25,12 @@
 #ifndef _NOISICAA_AUDIOPROC_ENGINE_BACKEND_PORTAUDIO_H
 #define _NOISICAA_AUDIOPROC_ENGINE_BACKEND_PORTAUDIO_H
 
+#include <atomic>
+#include <memory>
+#include <thread>
 #include <string>
 #include <stdint.h>
+#include "alsa/asoundlib.h"
 #include "portaudio.h"
 #include "noisicaa/audioproc/engine/backend.h"
 #include "noisicaa/audioproc/engine/buffers.h"
@@ -37,7 +41,9 @@ class Realm;
 
 class PortAudioBackend : public Backend {
 public:
-  PortAudioBackend(HostSystem* host_system, const BackendSettings& settings);
+  PortAudioBackend(
+      HostSystem* host_system, const BackendSettings& settings,
+      void (*callback)(void*, const string&), void* userdata);
   ~PortAudioBackend() override;
 
   Status setup(Realm* realm) override;
@@ -45,7 +51,7 @@ public:
 
   Status begin_block(BlockContext* ctxt) override;
   Status end_block(BlockContext* ctxt) override;
-  Status output(BlockContext* ctxt, const string& channel, BufferPtr samples) override;
+  Status output(BlockContext* ctxt, Channel channel, BufferPtr samples) override;
 
  private:
   Status setup_stream();
@@ -54,6 +60,15 @@ public:
   bool _initialized;
   PaStream* _stream;
   BufferPtr _samples[2];
+
+  snd_seq_t* _seq;
+  int _client_id;
+  int _input_port_id;
+  BufferPtr _events;
+
+  unique_ptr<thread> _device_thread;
+  atomic<bool> _device_thread_stop;
+  void device_thread_main(StatusSignal* status);
 };
 
 }  // namespace noisicaa
