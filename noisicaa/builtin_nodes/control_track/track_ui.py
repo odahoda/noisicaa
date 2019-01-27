@@ -90,9 +90,8 @@ class EditControlPointsTool(tools.ToolBase):
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
                 and target.highlightedPoint() is not None):
-            self.send_command_async(commands.remove_control_point(
-                target.track.id,
-                point_id=target.highlightedPoint().point_id))
+            self.send_command_async(commands.delete_control_point(
+                target.highlightedPoint().point))
 
             evt.accept()
             return
@@ -163,11 +162,10 @@ class EditControlPointsTool(tools.ToolBase):
             else:
                 new_value = None
 
-            self.send_command_async(commands.move_control_point(
-                target.track.id,
-                point_id=target.highlightedPoint().point_id,
-                time=new_time,
-                value=new_value))
+            self.send_command_async(commands.update_control_point(
+                target.highlightedPoint().point,
+                set_time=new_time,
+                set_value=new_value))
 
             evt.accept()
             return
@@ -187,14 +185,13 @@ class EditControlPointsTool(tools.ToolBase):
             time = target.xToTime(evt.pos().x())
             for point in target.track.points:
                 if point.time == time:
-                    self.send_command_async(commands.move_control_point(
-                        target.track.id,
-                        point_id=point.id,
-                        value=target.yToValue(evt.pos().y())))
+                    self.send_command_async(commands.update_control_point(
+                        point,
+                        set_value=target.yToValue(evt.pos().y())))
                     break
             else:
-                self.send_command_async(commands.add_control_point(
-                    target.track.id,
+                self.send_command_async(commands.create_control_point(
+                    target.track,
                     time=target.xToTime(evt.pos().x()),
                     value=target.yToValue(evt.pos().y())))
 
@@ -245,6 +242,10 @@ class ControlPoint(object):
     @property
     def index(self) -> int:
         return self.__point.index
+
+    @property
+    def point(self) -> client_impl.ControlPoint:
+        return self.__point
 
     @property
     def point_id(self) -> int:

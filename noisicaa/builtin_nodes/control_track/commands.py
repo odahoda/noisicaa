@@ -23,29 +23,37 @@
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
+from . import client_impl
 
-def add_control_point(
-        node_id: int, *, time: audioproc.MusicalTime, value: float) -> music.Command:
-    cmd = music.Command(target=node_id, command='add_control_point')
-    pb = cmd.Extensions[commands_registry_pb2.add_control_point]
+
+def create_control_point(
+        track: client_impl.ControlTrack, *,
+        time: audioproc.MusicalTime,
+        value: float
+) -> music.Command:
+    cmd = music.Command(command='create_control_point')
+    pb = cmd.Extensions[commands_registry_pb2.create_control_point]
+    pb.track_id = track.id
     pb.time.CopyFrom(time.to_proto())
     pb.value = value
     return cmd
 
-def remove_control_point(
-        node_id: int, *, point_id: int) -> music.Command:
-    cmd = music.Command(target=node_id, command='remove_control_point')
-    pb = cmd.Extensions[commands_registry_pb2.remove_control_point]
-    pb.point_id = point_id
+def update_control_point(
+        point: client_impl.ControlPoint, *,
+        set_time: audioproc.MusicalTime = None,
+        set_value: float = None
+) -> music.Command:
+    cmd = music.Command(command='update_control_point')
+    pb = cmd.Extensions[commands_registry_pb2.update_control_point]
+    pb.point_id = point.id
+    if set_time is not None:
+        pb.set_time.CopyFrom(set_time.to_proto())
+    if set_value is not None:
+        pb.set_value = set_value
     return cmd
 
-def move_control_point(
-        node_id: int, *, point_id: int, time: audioproc.MusicalTime = None, value: float = None
-) -> music.Command:
-    cmd = music.Command(target=node_id, command='move_control_point')
-    pb = cmd.Extensions[commands_registry_pb2.move_control_point]
-    pb.point_id = point_id
-    if time is not None:
-        pb.time.CopyFrom(time.to_proto())
-    pb.value = value
+def delete_control_point(point: client_impl.ControlPoint) -> music.Command:
+    cmd = music.Command(command='delete_control_point')
+    pb = cmd.Extensions[commands_registry_pb2.delete_control_point]
+    pb.point_id = point.id
     return cmd

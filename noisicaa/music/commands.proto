@@ -29,30 +29,70 @@ import "noisicaa/music/mutations.proto";
 
 package noisicaa.pb;
 
-message UpdateProjectProperties {
-  optional uint32 bpm = 1;
+message UpdateProject {
+  optional uint32 set_bpm = 1;
 }
 
-message InsertMeasure {
-  repeated uint64 tracks = 1;
+message CreateNode {
+  optional string uri = 1;
+  optional string name = 2;
+  optional Pos2F graph_pos = 3;
+  optional SizeF graph_size = 4;
+  optional Color graph_color = 5;
+}
+
+message UpdateNode {
+  required uint64 node_id = 1;
+
+  optional string set_name = 2;
+  optional Pos2F set_graph_pos = 3;
+  optional SizeF set_graph_size = 4;
+  optional Color set_graph_color = 5;
+
+  optional ControlValue set_control_value = 6;
+  optional PluginState set_plugin_state = 7;
+  optional bytes load_from_preset = 8;
+}
+
+message DeleteNode {
+  required uint64 node_id = 1;
+}
+
+message CreateNodeConnection {
+  optional uint64 source_node_id = 1;
+  optional string source_port_name = 2;
+  optional uint64 dest_node_id = 3;
+  optional string dest_port_name = 4;
+}
+
+message DeleteNodeConnection {
+  required uint64 connection_id = 1;
+}
+
+message UpdateTrack {
+  required uint64 track_id = 1;
+  optional bool set_visible = 2;
+  optional uint32 set_list_position = 3;
+}
+
+message UpdateMeasuredTrack {
+  required uint64 track_id = 1;
+}
+
+message CreateMeasure {
+  required uint64 track_id = 1;
   optional int32 pos = 2;
 }
 
-message RemoveMeasure {
-  repeated uint64 tracks = 1;
-  optional int32 pos = 2;
+message UpdateMeasure {
+  required uint64 measure_id = 1;
+
+  optional bool clear = 2;
+  optional TimeSignature set_time_signature = 3;
 }
 
-message UpdateTrackProperties {
-  optional int32 transpose_octaves = 1;
-}
-
-message SetNumMeasures {
-  optional uint32 num_measures = 1;
-}
-
-message ClearMeasures {
-  repeated uint64 measure_ids = 1;
+message DeleteMeasure {
+  required uint64 measure_id = 1;
 }
 
 message PasteMeasures {
@@ -61,93 +101,38 @@ message PasteMeasures {
   repeated uint64 target_ids = 3;
 }
 
-message UpdateTrack {
-  optional bool visible = 1;
-  optional uint32 list_position = 2;
-}
-
-message AddPipelineGraphNode {
-  optional string uri = 1;
-  optional string name = 2;
-  optional Pos2F graph_pos = 3;
-  optional SizeF graph_size = 4;
-  optional Color graph_color = 5;
-}
-
-message RemovePipelineGraphNode {
-  optional uint64 node_id = 1;
-}
-
-message AddPipelineGraphConnection {
-  optional uint64 source_node_id = 1;
-  optional string source_port_name = 2;
-  optional uint64 dest_node_id = 3;
-  optional string dest_port_name = 4;
-}
-
-message RemovePipelineGraphConnection {
-  optional uint64 connection_id = 1;
-}
-
-message SetTimeSignature {
-  repeated uint64 measure_ids = 1;
-  optional uint32 upper = 2;
-  optional uint32 lower = 3;
-}
-
-message ChangePipelineGraphNode {
-  optional Pos2F graph_pos = 1;
-  optional SizeF graph_size = 2;
-  optional Color graph_color = 4;
-  optional string name = 3;
-}
-
-message SetPipelineGraphControlValue {
-  optional string port_name = 1;
-  optional float float_value = 2;
-  optional int32 generation = 3;
-}
-
-message SetPipelineGraphPluginState {
-  optional PluginState plugin_state = 1;
-}
-
-message PipelineGraphNodeToPreset {
-}
-
-message PipelineGraphNodeFromPreset {
-  optional bytes preset = 1;
-}
-
 message Command {
-  optional uint64 target = 1;
+  required string command = 1;
 
-  required string command = 2;
+  // Project (1xxxxx)
+  optional UpdateProject update_project = 100000;
 
-  optional UpdateProjectProperties update_project_properties = 100;
-  optional InsertMeasure insert_measure = 103;
-  optional RemoveMeasure remove_measure = 104;
-  optional UpdateTrackProperties update_track_properties = 107;
-  optional SetNumMeasures set_num_measures = 108;
-  optional ClearMeasures clear_measures = 109;
-  optional PasteMeasures paste_measures = 110;
-  optional AddPipelineGraphNode add_pipeline_graph_node = 111;
-  optional RemovePipelineGraphNode remove_pipeline_graph_node = 112;
-  optional AddPipelineGraphConnection add_pipeline_graph_connection = 113;
-  optional RemovePipelineGraphConnection remove_pipeline_graph_connection = 114;
-  optional SetTimeSignature set_time_signature = 115;
-  optional ChangePipelineGraphNode change_pipeline_graph_node = 138;
-  optional SetPipelineGraphControlValue set_pipeline_graph_control_value = 139;
-  optional SetPipelineGraphPluginState set_pipeline_graph_plugin_state = 140;
-  optional PipelineGraphNodeToPreset pipeline_graph_node_to_preset = 141;
-  optional PipelineGraphNodeFromPreset pipeline_graph_node_from_preset = 142;
-  optional UpdateTrack update_track = 143;
+  // Pipeline graph (3xxxxx)
+  optional CreateNode create_node = 300000;
+  optional UpdateNode update_node = 300001;
+  optional DeleteNode delete_node = 300002;
 
-  extensions 100000 to max;
+  optional CreateNodeConnection create_node_connection = 301000;
+  optional DeleteNodeConnection delete_node_connection = 301001;
+
+  // Tracks (400xxx)
+  optional UpdateTrack update_track = 400000;
+
+  optional UpdateMeasuredTrack update_measured_track = 400100;
+  optional CreateMeasure create_measure = 400200;
+  optional UpdateMeasure update_measure = 400201;
+  optional DeleteMeasure delete_measure = 400202;
+  optional PasteMeasures paste_measures = 400203;
+
+  extensions 401000 to max;
+}
+
+message CommandSequence {
+  repeated Command commands = 1;
 }
 
 message ExecutedCommand {
-  optional Command command = 1;
+  repeated Command commands = 1;
 
   enum Status {
     NOT_APPLIED = 1;

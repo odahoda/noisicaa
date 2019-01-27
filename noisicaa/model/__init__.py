@@ -34,7 +34,7 @@ from .model_base import (
     PropertyChange,
     PropertyValueChange,
     PropertyListChange,
-    PropertyListInsert, PropertyListDelete,
+    PropertyListInsert, PropertyListDelete, PropertyListSet,
 
     AbstractPool, Pool,
 )
@@ -45,25 +45,22 @@ from .pitch import Pitch, NOTE_TO_MIDI
 from .pos2f import Pos2F
 from .sizef import SizeF
 from .color import Color
+from .control_value import ControlValue
 from .project import (
     ObjectBase,
     ProjectChild,
-    SystemOutPipelineGraphNode,
-    BasePipelineGraphNode,
+    SystemOutNode,
+    BaseNode,
     Measure,
     MeasureReference,
     MeasuredTrack,
     Metadata,
-    PipelineGraphConnection,
-    PipelineGraphControlValue,
-    PipelineGraphNode,
+    NodeConnection,
+    Node,
     Project,
     Sample,
     Track,
 )
 from .model_base_pb2 import (
     ObjectTree,
-)
-from .project_pb2 import (
-    ControlValue,
 )

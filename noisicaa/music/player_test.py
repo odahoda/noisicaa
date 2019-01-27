@@ -97,7 +97,7 @@ class PlayerTest(unittest.AsyncTestCase):
             await p.setup()
 
             track1 = self.pool.create(score_track.ScoreTrack, name="Track 1")
-            self.project.add_pipeline_graph_node(track1)
+            self.project.add_node(track1)
 
 
         finally:

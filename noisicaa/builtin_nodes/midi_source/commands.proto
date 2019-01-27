@@ -25,6 +25,7 @@ syntax = "proto2";
 package noisicaa.pb;
 
 message UpdateMidiSource {
-  optional string device_uri = 1;
-  optional int32 channel_filter = 2;
+  required uint64 node_id = 1;
+  optional string set_device_uri = 2;
+  optional int32 set_channel_filter = 3;
 }

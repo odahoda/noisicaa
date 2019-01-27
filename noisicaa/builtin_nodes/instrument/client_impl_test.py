@@ -30,11 +30,8 @@ from . import commands
 class InstrumentTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
 
     async def _add_node(self) -> client_impl.Instrument:
-        node_id = await self.client.send_command(music.Command(
-            target=self.project.id,
-            command='add_pipeline_graph_node',
-            add_pipeline_graph_node=music.AddPipelineGraphNode(
-                uri='builtin://instrument')))
+        node_id = await self.client.send_command(music.create_node(
+            'builtin://instrument'))
         return self.pool[node_id]
 
     async def test_add_node(self):
@@ -44,6 +41,6 @@ class InstrumentTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
     async def test_change_instrument_uri(self):
         node = await self._add_node()
 
-        await self.client.send_command(commands.update_instrument(
-            node.id, instrument_uri='blabla'))
+        await self.client.send_command(commands.update(
+            node, set_instrument_uri='blabla'))
         self.assertEqual(node.instrument_uri, 'blabla')

@@ -32,7 +32,7 @@ from noisicaa.model import (
     Pitch,
 )
 from noisicaa.music import (
-    pipeline_graph,
+    graph,
 )
 from noisicaa.builtin_nodes.score_track import server_impl as score_track
 from noisicaa.builtin_nodes.beat_track import server_impl as beat_track
@@ -61,15 +61,15 @@ def basic(pool, cls, **kwargs):
         instrument.Instrument,
         name="Track 1 - Instrument",
         instrument_uri='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0')
-    project.add_pipeline_graph_node(track1_instr)
+    project.add_node(track1_instr)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track1_instr, source_port='out:left',
         dest_node=audio_out, dest_port='in:left'))
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track1_instr, source_port='out:right',
         dest_node=audio_out, dest_port='in:right'))
 
@@ -77,10 +77,10 @@ def basic(pool, cls, **kwargs):
         score_track.ScoreTrack,
         name="Track 1 - Events",
         num_measures=5)
-    project.add_pipeline_graph_node(track1)
+    project.add_node(track1)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track1, source_port='out',
         dest_node=track1_instr, dest_port='in'))
 
@@ -128,15 +128,15 @@ def basic(pool, cls, **kwargs):
         instrument.Instrument,
         name="Track 2 - Instrument",
         instrument_uri='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=73')
-    project.add_pipeline_graph_node(track2_instr)
+    project.add_node(track2_instr)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track2_instr, source_port='out:left',
         dest_node=audio_out, dest_port='in:left'))
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track2_instr, source_port='out:right',
         dest_node=audio_out, dest_port='in:right'))
 
@@ -144,10 +144,10 @@ def basic(pool, cls, **kwargs):
         score_track.ScoreTrack,
         name="Track 2 - Events",
         num_measures=5)
-    project.add_pipeline_graph_node(track2)
+    project.add_node(track2)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track2, source_port='out',
         dest_node=track2_instr, dest_port='in'))
 
@@ -177,18 +177,18 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
     # score_track -> instrument -> eq -> out
 
     eq_node_uri = 'ladspa://dj_eq_1901.so/dj_eq'
-    eq_node = pool.create(pipeline_graph.PipelineGraphNode, name='EQ', node_uri=eq_node_uri)
-    project.add_pipeline_graph_node(eq_node)
+    eq_node = pool.create(graph.Node, name='EQ', node_uri=eq_node_uri)
+    project.add_node(eq_node)
     eq_node.set_control_value('Lo gain (dB)', -40.0, 1)
     eq_node.set_control_value('Mid gain (dB)', 0.0, 1)
     eq_node.set_control_value('Hi gain (dB)', 5.0, 1)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=eq_node, source_port='Output L',
         dest_node=audio_out, dest_port='in:left'))
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=eq_node, source_port='Output R',
         dest_node=audio_out, dest_port='in:right'))
 
@@ -196,14 +196,14 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
         instrument.Instrument,
         name="Track 1 - Instrument",
         instrument_uri='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=0')
-    project.add_pipeline_graph_node(track1_instr)
+    project.add_node(track1_instr)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track1_instr, source_port='out:left',
         dest_node=eq_node, dest_port='Input L'))
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track1_instr, source_port='out:right',
         dest_node=eq_node, dest_port='Input R'))
 
@@ -211,10 +211,10 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
         score_track.ScoreTrack,
         name="Track 1",
         num_measures=4)
-    project.add_pipeline_graph_node(track1)
+    project.add_node(track1)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track1, source_port='out',
         dest_node=track1_instr, dest_port='in'))
 
@@ -231,32 +231,30 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
     # beat_track -> instrument -> delay -> reverb -> out
 
     reverb_node_uri = 'builtin://csound/reverb'
-    reverb_node = pool.create(
-        pipeline_graph.PipelineGraphNode, name='Reverb',node_uri=reverb_node_uri)
-    project.add_pipeline_graph_node(reverb_node)
+    reverb_node = pool.create(graph.Node, name='Reverb', node_uri=reverb_node_uri)
+    project.add_node(reverb_node)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=reverb_node, source_port='out:left',
         dest_node=audio_out, dest_port='in:left'))
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=reverb_node, source_port='out:right',
         dest_node=audio_out, dest_port='in:right'))
 
     delay_node_uri = 'http://drobilla.net/plugins/mda/Delay'
-    delay_node = pool.create(
-        pipeline_graph.PipelineGraphNode, name='Delay', node_uri=delay_node_uri)
-    project.add_pipeline_graph_node(delay_node)
+    delay_node = pool.create(graph.Node, name='Delay', node_uri=delay_node_uri)
+    project.add_node(delay_node)
     delay_node.set_control_value('l_delay', 0.3, 1)
     delay_node.set_control_value('r_delay', 0.31, 1)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=delay_node, source_port='left_out',
         dest_node=reverb_node, dest_port='in:left'))
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=delay_node, source_port='right_out',
         dest_node=reverb_node, dest_port='in:right'))
 
@@ -264,14 +262,14 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
         instrument.Instrument,
         name="Track 2 - Instrument",
         instrument_uri='sf2:/usr/share/sounds/sf2/FluidR3_GM.sf2?bank=0&preset=118')  # Synth Drum
-    project.add_pipeline_graph_node(track2_instr)
+    project.add_node(track2_instr)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track2_instr, source_port='out:left',
         dest_node=delay_node, dest_port='left_in'))
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track2_instr, source_port='out:right',
         dest_node=delay_node, dest_port='right_in'))
 
@@ -280,10 +278,10 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
         name="Track 2",
         num_measures=4)
     track2.pitch = Pitch('C4')
-    project.add_pipeline_graph_node(track2)
+    project.add_node(track2)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track1, source_port='out',
         dest_node=track1_instr, dest_port='in'))
 
@@ -302,14 +300,14 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
     # sample_track -> out
 
     track3 = pool.create(sample_track.SampleTrack, name="Track 3")
-    project.add_pipeline_graph_node(track3)
+    project.add_node(track3)
 
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track3, source_port='out:left',
         dest_node=audio_out, dest_port='in:left'))
-    project.add_pipeline_graph_connection(pool.create(
-        pipeline_graph.PipelineGraphConnection,
+    project.add_node_connection(pool.create(
+        graph.NodeConnection,
         source_node=track3, source_port='out:right',
         dest_node=audio_out, dest_port='in:right'))
 
@@ -325,7 +323,7 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
 
     ## track 4
     # track4 = pool.create(control_track.ControlTrack, name="Track 4")
-    # project.add_pipeline_graph_node(track4)
+    # project.add_node(track4)
 
     # track4.points.append(
     #     pool.create(control_track.ControlPoint, time=MusicalTime(0, 4), value=1.0))
@@ -334,8 +332,8 @@ def complex(pool, cls, **kwargs):  # pylint: disable=redefined-builtin
     # track4.points.append(
     #     pool.create(control_track.ControlPoint, time=MusicalTime(8, 4), value=1.0))
 
-    # project.add_pipeline_graph_connection(
-    #     pipeline_graph.PipelineGraphConnection(
+    # project.add_node_connection(
+    #     graph.NodeConnection(
     #         source_node=track4.generator_node, source_port='out',
     #         dest_node=filter_node, dest_port='ctrl'))
 

@@ -24,13 +24,10 @@ import logging
 import typing
 from typing import Any, Optional, Dict, Callable
 
-from google.protobuf import message as protobuf
-
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa.music import pipeline_graph
+from noisicaa.music import graph
 from noisicaa.music import node_connector
-from noisicaa.music import pmodel
 from noisicaa.music import commands
 from noisicaa.builtin_nodes import commands_registry_pb2
 from . import commands_pb2
@@ -47,17 +44,15 @@ class UpdateCustomCSound(commands.Command):
     proto_type = 'update_custom_csound'
     proto_ext = commands_registry_pb2.update_custom_csound
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.UpdateCustomCSound, pb)
-        node = down_cast(CustomCSound, pool[self.proto.command.target])
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateCustomCSound, self.pb)
+        node = down_cast(CustomCSound, self.pool[pb.node_id])
 
-        if pb.HasField('orchestra'):
-            node.orchestra = pb.orchestra
+        if pb.HasField('set_orchestra'):
+            node.orchestra = pb.set_orchestra
 
-        if pb.HasField('score'):
-            node.score = pb.score
-
-commands.Command.register_command(UpdateCustomCSound)
+        if pb.HasField('set_score'):
+            node.score = pb.set_score
 
 
 class Connector(node_connector.NodeConnector):
@@ -91,7 +86,7 @@ class Connector(node_connector.NodeConnector):
             score=score or ''))
 
 
-class CustomCSound(model.CustomCSound, pipeline_graph.BasePipelineGraphNode):
+class CustomCSound(model.CustomCSound, graph.BaseNode):
     def create(
             self, *,
             orchestra: Optional[str] = None,

@@ -23,7 +23,7 @@
 import logging
 import time
 import typing
-from typing import Any, Dict, Type
+from typing import Any, Dict, Tuple, Type
 
 from google.protobuf import message as protobuf
 
@@ -37,11 +37,49 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class ClientError(Exception):
+    pass
+
+
+class CommandRegistry(object):
+    def __init__(self) -> None:
+        self.__classes = {}  # type: Dict[str, Type[Command]]
+
+    def register(self, cls: Type['Command']) -> None:
+        assert cls.proto_type not in self.__classes
+        self.__classes[cls.proto_type] = cls
+
+    def create(self, proto: commands_pb2.Command, pool: pmodel.Pool) -> 'Command':
+        assert proto.command in self.__classes, proto
+        cls = self.__classes[proto.command]
+        return cls(proto, pool)
+
+
 class Command(object):
     proto_type = None  # type: str
     proto_ext = None  # type: protobuf_descriptor.FieldDescriptor
-    command_classes = {}  # type: Dict[str, Type[Command]]
 
+    def __init__(self, proto: commands_pb2.Command, pool: pmodel.Pool) -> None:
+        self.__proto = proto
+        self.pool = pool
+
+    @property
+    def pb(self) -> protobuf.Message:
+        if self.proto_ext is not None:
+            assert self.__proto.HasExtension(self.proto_ext), self.__proto
+            return self.__proto.Extensions[self.proto_ext]
+        else:
+            assert self.__proto.HasField(self.proto_type), self.__proto
+            return getattr(self.__proto, self.proto_type)
+
+    def validate(self) -> None:
+        pass
+
+    def run(self) -> Any:
+        raise NotImplementedError
+
+
+class CommandSequence(object):
     VERSION = 1
     SUPPORTED_VERSIONS = [1]
 
@@ -49,23 +87,46 @@ class Command(object):
     proto = None  # type: commands_pb2.ExecutedCommand
 
     def __init__(self) -> None:
-        raise RuntimeError("Use Command.create() or Command.deserialize() to create instance.")
+        raise RuntimeError(
+            "Use CommandSequence.create() or CommandSequence.deserialize() to create instance.")
 
     def __str__(self) -> str:
         return str(self.proto)
 
-    @classmethod
-    def register_command(cls, cmd_cls: Type['Command']) -> None:
-        assert cmd_cls.proto_type not in cls.command_classes
-        cls.command_classes[cmd_cls.proto_type] = cmd_cls
+    @property
+    def command_names(self) -> str:
+        parts = []
+
+        name = None
+        count = 0
+        for cmd in self.proto.commands:
+            if cmd.command == name:
+                count += 1
+                continue
+            if name is not None:
+                assert count > 0
+                if count > 1:
+                    parts.append('%d*%s' % (count, name))
+                else:
+                    parts.append(name)
+
+            name = cmd.command
+            count += 1
+
+        if name is not None:
+            assert count > 0
+            if count > 1:
+                parts.append('%d*%s' % (count, name))
+            else:
+                parts.append(name)
+
+        return '[%s]' % ', '.join(parts)
 
     @classmethod
-    def create(cls, proto: commands_pb2.Command) -> 'Command':
-        assert proto.command in cls.command_classes, proto
-        cmd_cls = cls.command_classes[proto.command]
-        cmd = cmd_cls.__new__(cmd_cls)
+    def create(cls, proto: commands_pb2.CommandSequence) -> 'CommandSequence':
+        cmd = cls.__new__(cls)
         cmd.proto = commands_pb2.ExecutedCommand(
-            command=proto,
+            commands=proto.commands,
             status=commands_pb2.ExecutedCommand.NOT_APPLIED,
             create_timestamp=int(time.time()),
             version=cls.VERSION,
@@ -73,16 +134,14 @@ class Command(object):
         return cmd
 
     @classmethod
-    def deserialize(cls, data: bytes) -> 'Command':
+    def deserialize(cls, data: bytes) -> 'CommandSequence':
         cmd_proto = commands_pb2.ExecutedCommand()
         cmd_proto.MergeFromString(data)
 
         if cmd_proto.version not in cls.SUPPORTED_VERSIONS:
             raise ValueError("Version %s not supported." % cmd_proto.version)
 
-        assert cmd_proto.command.command in cls.command_classes, cmd_proto.command
-        cmd_cls = cls.command_classes[cmd_proto.command.command]
-        cmd = cmd_cls.__new__(cmd_cls)
+        cmd = cls.__new__(cls)
         cmd.proto = cmd_proto
         return cmd
 
@@ -93,41 +152,81 @@ class Command(object):
     def is_noop(self) -> bool:
         return len(self.proto.log.ops) == 0
 
+    def try_merge_with(self, other: 'CommandSequence') -> bool:
+        k = None  # type: Tuple[Any, ...]
+
+        property_changes_a = {}  # type: Dict[Tuple[Any, ...], int]
+        for op in self.proto.log.ops:
+            if op.WhichOneof('op') == 'set_property':
+                k = (op.set_property.obj_id, op.set_property.prop_name)
+                property_changes_a[k] = op.set_property.new_slot
+            elif op.WhichOneof('op') == 'list_set':
+                k = (op.list_set.obj_id, op.list_set.prop_name, op.list_set.index)
+                property_changes_a[k] = op.list_set.new_slot
+            else:
+                return False
+
+        property_changes_b = {}  # type: Dict[Tuple[Any, ...], int]
+        for op in other.proto.log.ops:
+            if op.WhichOneof('op') == 'set_property':
+                k = (op.set_property.obj_id, op.set_property.prop_name)
+                property_changes_b[k] = op.set_property.new_slot
+            elif op.WhichOneof('op') == 'list_set':
+                k = (op.list_set.obj_id, op.list_set.prop_name, op.list_set.index)
+                property_changes_b[k] = op.list_set.new_slot
+            else:
+                return False
+
+        if set(property_changes_a.keys()) != set(property_changes_b.keys()):
+            return False
+
+        self.proto.commands.extend(other.proto.commands)
+        for k, slot_idx_a in property_changes_b.items():
+            slot_a = self.proto.log.slots[slot_idx_a]
+            slot_b = other.proto.log.slots[property_changes_b[k]]
+            assert slot_a.WhichOneof('value') == slot_b.WhichOneof('value'), (slot_a, slot_b)
+            self.proto.log.slots[slot_idx_a].CopyFrom(slot_b)
+
+        return True
+
     @property
     def num_log_ops(self) -> int:
         return len(self.proto.log.ops)
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> Any:
-        raise NotImplementedError
-
-    def apply(self, project: pmodel.Project, pool: pmodel.Pool) -> Any:
+    def apply(self, registry: CommandRegistry, pool: pmodel.Pool) -> Any:
         assert self.proto.status == commands_pb2.ExecutedCommand.NOT_APPLIED
 
-        if self.proto_ext is not None:
-            assert self.proto.command.HasExtension(self.proto_ext), self.proto.command
-            pb = self.proto.command.Extensions[self.proto_ext]
-        else:
-            assert self.proto.command.HasField(self.proto_type), self.proto.command
-            pb = getattr(self.proto.command, self.proto_type)
+        results = []
 
         collector = mutations.MutationCollector(pool, self.proto.log)
         with collector.collect():
             try:
-                result = self.run(project, pool, pb)
+                commands = [registry.create(cmd_proto, pool) for cmd_proto in self.proto.commands]
+
+                try:
+                    for cmd in commands:
+                        cmd.validate()
+
+                except Exception as exc:
+                    raise ClientError(exc)
+
+                for cmd in commands:
+                    results.append(cmd.run())
+
             except:
                 self.proto.status = commands_pb2.ExecutedCommand.FAILED
                 raise
 
         self.proto.status = commands_pb2.ExecutedCommand.APPLIED
-        return result
+        return results
 
-    def redo(self, project: pmodel.Project, pool: pmodel.Pool) -> None:
+    def redo(self, pool: pmodel.Pool) -> None:
         assert self.proto.status == commands_pb2.ExecutedCommand.APPLIED
 
         mutation_list = mutations.MutationList(pool, self.proto.log)
         mutation_list.apply_forward()
 
-    def undo(self, project: pmodel.Project, pool: pmodel.Pool) -> None:
+    def undo(self, pool: pmodel.Pool) -> None:
         assert self.proto.status == commands_pb2.ExecutedCommand.APPLIED
 
         mutation_list = mutations.MutationList(pool, self.proto.log)

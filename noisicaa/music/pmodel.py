@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import Optional, Iterator, MutableSequence, Callable
+from typing import cast, Optional, Iterator, MutableSequence, Callable
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -49,25 +49,7 @@ class NodeConnector(object):
     pass
 
 
-class PipelineGraphControlValue(ProjectChild, model.PipelineGraphControlValue, ObjectBase):
-    @property
-    def name(self) -> str:
-        return self.get_property_value('name')
-
-    @name.setter
-    def name(self, value: str) -> None:
-        self.set_property_value('name', value)
-
-    @property
-    def value(self) -> model.ControlValue:
-        return self.get_property_value('value')
-
-    @value.setter
-    def value(self, value: model.ControlValue) -> None:
-        self.set_property_value('value', value)
-
-
-class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBase):
+class BaseNode(ProjectChild, model.BaseNode, ObjectBase):
     @property
     def name(self) -> str:
         return self.get_property_value('name')
@@ -101,7 +83,7 @@ class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBas
         self.set_property_value('graph_color', value)
 
     @property
-    def control_values(self) -> MutableSequence[PipelineGraphControlValue]:
+    def control_values(self) -> MutableSequence[model.ControlValue]:
         return self.get_property_value('control_values')
 
     @property
@@ -133,7 +115,7 @@ class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBas
 
 
 
-class PipelineGraphNode(BasePipelineGraphNode, model.PipelineGraphNode, ObjectBase):
+class Node(BaseNode, model.Node, ObjectBase):
     @property
     def node_uri(self) -> str:
         return self.get_property_value('node_uri')
@@ -149,12 +131,11 @@ class PipelineGraphNode(BasePipelineGraphNode, model.PipelineGraphNode, ObjectBa
         raise NotImplementedError
 
 
-class SystemOutPipelineGraphNode(
-        BasePipelineGraphNode, model.SystemOutPipelineGraphNode, ObjectBase):
+class SystemOutNode(BaseNode, model.SystemOutNode, ObjectBase):
     pass
 
 
-class Track(BasePipelineGraphNode, model.Track, ObjectBase):
+class Track(BaseNode, model.Track, ObjectBase):
     @property
     def visible(self) -> bool:
         return self.get_property_value('visible')
@@ -191,6 +172,10 @@ class MeasureReference(ProjectChild, model.MeasureReference, ObjectBase):
     def measure(self, value: Measure) -> None:
         self.set_property_value('measure', value)
 
+    @property
+    def track(self) -> 'MeasuredTrack':
+        return cast(MeasuredTrack, super().track)
+
 
 class MeasuredTrack(Track, model.MeasuredTrack, ObjectBase):
     @property
@@ -217,13 +202,13 @@ class MeasuredTrack(Track, model.MeasuredTrack, ObjectBase):
         raise NotImplementedError
 
 
-class PipelineGraphConnection(ProjectChild, model.PipelineGraphConnection, ObjectBase):
+class NodeConnection(ProjectChild, model.NodeConnection, ObjectBase):
     @property
-    def source_node(self) -> BasePipelineGraphNode:
+    def source_node(self) -> BaseNode:
         return self.get_property_value('source_node')
 
     @source_node.setter
-    def source_node(self, value: BasePipelineGraphNode) -> None:
+    def source_node(self, value: BaseNode) -> None:
         self.set_property_value('source_node', value)
 
     @property
@@ -235,11 +220,11 @@ class PipelineGraphConnection(ProjectChild, model.PipelineGraphConnection, Objec
         self.set_property_value('source_port', value)
 
     @property
-    def dest_node(self) -> BasePipelineGraphNode:
+    def dest_node(self) -> BaseNode:
         return self.get_property_value('dest_node')
 
     @dest_node.setter
-    def dest_node(self, value: BasePipelineGraphNode) -> None:
+    def dest_node(self, value: BaseNode) -> None:
         self.set_property_value('dest_node', value)
 
     @property
@@ -311,12 +296,12 @@ class Project(model.Project, ObjectBase):
         self.set_property_value('metadata', value)
 
     @property
-    def pipeline_graph_nodes(self) -> MutableSequence[BasePipelineGraphNode]:
-        return self.get_property_value('pipeline_graph_nodes')
+    def nodes(self) -> MutableSequence[BaseNode]:
+        return self.get_property_value('nodes')
 
     @property
-    def pipeline_graph_connections(self) -> MutableSequence[PipelineGraphConnection]:
-        return self.get_property_value('pipeline_graph_connections')
+    def node_connections(self) -> MutableSequence[NodeConnection]:
+        return self.get_property_value('node_connections')
 
     @property
     def samples(self) -> MutableSequence[Sample]:
@@ -338,19 +323,19 @@ class Project(model.Project, ObjectBase):
         raise NotImplementedError  # pragma: no coverage
 
     @property
-    def system_out_node(self) -> SystemOutPipelineGraphNode:
-        return down_cast(SystemOutPipelineGraphNode, super().system_out_node)
+    def system_out_node(self) -> SystemOutNode:
+        return down_cast(SystemOutNode, super().system_out_node)
 
-    def add_pipeline_graph_node(self, node: BasePipelineGraphNode) -> None:
+    def add_node(self, node: BaseNode) -> None:
         raise NotImplementedError  # pragma: no coverage
 
-    def remove_pipeline_graph_node(self, node: BasePipelineGraphNode) -> None:
+    def remove_node(self, node: BaseNode) -> None:
         raise NotImplementedError  # pragma: no coverage
 
-    def add_pipeline_graph_connection(self, connection: PipelineGraphConnection) -> None:
+    def add_node_connection(self, connection: NodeConnection) -> None:
         raise NotImplementedError  # pragma: no coverage
 
-    def remove_pipeline_graph_connection(self, connection: PipelineGraphConnection) -> None:
+    def remove_node_connection(self, connection: NodeConnection) -> None:
         raise NotImplementedError  # pragma: no coverage
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
@@ -365,6 +350,10 @@ class Pool(model.Pool[ObjectBase]):
         super().__init__()
 
         self.model_changed = core.Callback[model.Mutation]()
+
+    @property
+    def project(self) -> Project:
+        return down_cast(Project, self.root)
 
     def object_added(self, obj: model.ObjectBase) -> None:
         self.model_changed.call(model.ObjectAdded(obj))

@@ -23,8 +23,8 @@
 import logging
 from typing import Type
 
-from . import commands_pb2
 from . import commands_test
+from . import project_client
 from . import project_client_model
 
 logger = logging.getLogger(__name__)
@@ -35,26 +35,16 @@ class TrackTestMixin(commands_test.CommandsTestMixin):
     track_cls = None  # type: Type[project_client_model.Track]
 
     async def test_add_remove(self) -> None:
-        node_id = await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            command='add_pipeline_graph_node',
-            add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
-                uri=self.node_uri)))
+        node_id = await self.client.send_command(project_client.create_node(
+            self.node_uri))
         node = self.pool[node_id]
         assert isinstance(node, self.track_cls)
 
-        await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            command='remove_pipeline_graph_node',
-            remove_pipeline_graph_node=commands_pb2.RemovePipelineGraphNode(
-                node_id=node.id)))
+        await self.client.send_command(project_client.delete_node(node))
 
     async def _add_track(self) -> project_client_model.Track:
-        node_id = await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            command='add_pipeline_graph_node',
-            add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
-                uri=self.node_uri)))
+        node_id = await self.client.send_command(project_client.create_node(
+            self.node_uri))
         return self.pool[node_id]
 
 

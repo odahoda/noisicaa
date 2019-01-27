@@ -25,7 +25,7 @@ from . import model
 
 
 class Instrument(
-        project_client_model.BasePipelineGraphNode,
+        project_client_model.BaseNode,
         model.Instrument,
         project_client_model.ObjectBase):
     @property

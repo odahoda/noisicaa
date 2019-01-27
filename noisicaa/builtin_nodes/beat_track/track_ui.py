@@ -61,14 +61,12 @@ class EditBeatsTool(measured_track_editor.MeasuredToolBase):
 
             for beat in target.measure.beats:
                 if beat.time == click_time:
-                    self.send_command_async(commands.remove_beat(
-                        target.measure.id,
-                        beat_id=beat.id))
+                    self.send_command_async(commands.delete_beat(beat))
                     evt.accept()
                     return
 
-            self.send_command_async(commands.add_beat(
-                target.measure.id,
+            self.send_command_async(commands.create_beat(
+                target.measure,
                 time=click_time))
             target.track_editor.playNoteOn(target.track.pitch)
             evt.accept()
@@ -89,9 +87,9 @@ class EditBeatsTool(measured_track_editor.MeasuredToolBase):
 
             for beat in target.measure.beats:
                 if beat.time == click_time:
-                    self.send_command_async(commands.set_beat_velocity(
-                        beat.id,
-                        velocity=max(0, min(127, beat.velocity + vel_delta))))
+                    self.send_command_async(commands.update_beat(
+                        beat,
+                        set_velocity=max(0, min(127, beat.velocity + vel_delta))))
                     evt.accept()
                     return
 

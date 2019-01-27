@@ -25,7 +25,7 @@ from . import model
 
 
 class CustomCSound(
-        project_client_model.BasePipelineGraphNode,
+        project_client_model.BaseNode,
         model.CustomCSound,
         project_client_model.ObjectBase):
     @property

@@ -32,7 +32,6 @@ from PyQt5 import QtSvg
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
-from noisicaa import music
 from noisicaa.ui import svg_symbol
 from noisicaa.ui.track_list import tools
 from noisicaa.ui.track_list import measured_track_editor
@@ -162,29 +161,26 @@ class InsertNoteTool(ScoreToolBase):
                         if len(target.measure.notes[idx].pitches) > 1:
                             for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                                 if p.stave_line == stave_line:
-                                    cmd = commands.remove_pitch(
-                                        target.measure.id,
-                                        idx=idx,
-                                        pitch_idx=pitch_idx)
+                                    cmd = commands.update_note(
+                                        target.measure.notes[idx],
+                                        remove_pitch=pitch_idx)
                                     break
                         else:
                             cmd = commands.delete_note(
-                                target.measure.id,
-                                idx=idx)
+                                target.measure.notes[idx])
                 else:
                     if overwrite:
                         for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                             if p.stave_line == stave_line:
                                 break
                         else:
-                            cmd = commands.add_pitch(
-                                target.measure.id,
-                                idx=idx,
-                                pitch=model.Pitch(pitch))
+                            cmd = commands.update_note(
+                                target.measure.notes[idx],
+                                add_pitch=model.Pitch(pitch))
                             target.track_editor.playNoteOn(model.Pitch(pitch))
                     else:
-                        cmd = commands.insert_note(
-                            target.measure.id,
+                        cmd = commands.create_note(
+                            target.measure,
                             idx=idx,
                             pitch=model.Pitch(pitch),
                             duration=duration)
@@ -270,11 +266,9 @@ class ModifyNoteTool(ScoreToolBase):
                 for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                     if accidental in p.valid_accidentals:
                         if p.stave_line == stave_line:
-                            self.send_command_async(commands.set_accidental(
-                                target.measure.id,
-                                idx=idx,
-                                accidental=accidental,
-                                pitch_idx=pitch_idx))
+                            self.send_command_async(commands.update_note(
+                                target.measure.notes[idx],
+                                set_accidental=(pitch_idx, accidental)))
                             evt.accept()
                             return
 
@@ -289,44 +283,38 @@ class ModifyNoteTool(ScoreToolBase):
                 if self.type == tools.ToolType.DURATION_DOT:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.dots > 0:
-                            cmd = commands.change_note(
-                                target.measure.id,
-                                idx=idx,
-                                dots=note.dots - 1)
+                            cmd = commands.update_note(
+                                target.measure.notes[idx],
+                                set_dots=note.dots - 1)
                     else:
                         if note.dots < note.max_allowed_dots:
-                            cmd = commands.change_note(
-                                target.measure.id,
-                                idx=idx,
-                                dots=note.dots + 1)
+                            cmd = commands.update_note(
+                                target.measure.notes[idx],
+                                set_dots=note.dots + 1)
 
                 elif self.type == tools.ToolType.DURATION_TRIPLET:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            cmd = commands.change_note(
-                                target.measure.id,
-                                idx=idx,
-                                tuplet=0)
+                            cmd = commands.update_note(
+                                target.measure.notes[idx],
+                                set_tuplet=0)
                     else:
                         if note.tuplet != 3:
-                            cmd = commands.change_note(
-                                target.measure.id,
-                                idx=idx,
-                                tuplet=3)
+                            cmd = commands.update_note(
+                                target.measure.notes[idx],
+                                set_tuplet=3)
 
                 elif self.type == tools.ToolType.DURATION_QUINTUPLET:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            cmd = commands.change_note(
-                                target.measure.id,
-                                idx=idx,
-                                tuplet=0)
+                            cmd = commands.update_note(
+                                target.measure.notes[idx],
+                                set_tuplet=0)
                     else:
                         if note.tuplet != 5:
-                            cmd = commands.change_note(
-                                target.measure.id,
-                                idx=idx,
-                                tuplet=5)
+                            cmd = commands.update_note(
+                                target.measure.notes[idx],
+                                set_tuplet=5)
 
                 if cmd is not None:
                     self.send_command_async(cmd)
@@ -1031,56 +1019,43 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
 
         key_signature_menu = menu.addMenu("Set key signature")
         key_signatures = [
-            'C major',
-            'A minor',
-            'G major',
-            'E minor',
-            'D major',
-            'B minor',
-            'A major',
-            'F# minor',
-            'E major',
-            'C# minor',
-            'B major',
-            'G# minor',
-            'F# major',
-            'D# minor',
-            'C# major',
-            'A# minor',
-            'F major',
-            'D minor',
-            'Bb major',
-            'G minor',
-            'Eb major',
-            'C minor',
-            'Ab major',
-            'F minor',
-            'Db major',
-            'Bb minor',
-            'Gb major',
-            'Eb minor',
-            'Cb major',
-            'Ab minor',
+            model.KeySignature('C major'),
+            model.KeySignature('A minor'),
+            model.KeySignature('G major'),
+            model.KeySignature('E minor'),
+            model.KeySignature('D major'),
+            model.KeySignature('B minor'),
+            model.KeySignature('A major'),
+            model.KeySignature('F# minor'),
+            model.KeySignature('E major'),
+            model.KeySignature('C# minor'),
+            model.KeySignature('B major'),
+            model.KeySignature('G# minor'),
+            model.KeySignature('F# major'),
+            model.KeySignature('D# minor'),
+            model.KeySignature('C# major'),
+            model.KeySignature('A# minor'),
+            model.KeySignature('F major'),
+            model.KeySignature('D minor'),
+            model.KeySignature('Bb major'),
+            model.KeySignature('G minor'),
+            model.KeySignature('Eb major'),
+            model.KeySignature('C minor'),
+            model.KeySignature('Ab major'),
+            model.KeySignature('F minor'),
+            model.KeySignature('Db major'),
+            model.KeySignature('Bb minor'),
+            model.KeySignature('Gb major'),
+            model.KeySignature('Eb minor'),
+            model.KeySignature('Cb major'),
+            model.KeySignature('Ab minor'),
         ]
         for key_signature in key_signatures:
-            key_signature_action = QtWidgets.QAction(key_signature, menu)
+            key_signature_action = QtWidgets.QAction(key_signature.name, menu)
             key_signature_action.setEnabled(enable_measure_actions)
             key_signature_action.triggered.connect(
                 lambda _, sig=key_signature: self.onSetKeySignature(affected_measure_editors, sig))
             key_signature_menu.addAction(key_signature_action)
-
-        time_signature_menu = menu.addMenu("Set time signature")
-        time_signatures = [
-            (4, 4),
-            (3, 4),
-        ]
-        for upper, lower in time_signatures:
-            time_signature_action = QtWidgets.QAction("%d/%d" % (upper, lower), menu)
-            time_signature_action.setEnabled(enable_measure_actions)
-            time_signature_action.triggered.connect(
-                lambda _, upper=upper, lower=lower: (
-                    self.onSetTimeSignature(affected_measure_editors, upper, lower)))
-            time_signature_menu.addAction(time_signature_action)
 
         transpose_menu = menu.addMenu("Transpose")
 
@@ -1118,42 +1093,32 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
 
     def onSetClef(
             self, affected_measure_editors: List[ScoreMeasureEditor], clef: model.Clef) -> None:
-        self.send_command_async(commands.set_clef(
-            self.track.id,
-            measure_ids=[meditor.measure.id for meditor in affected_measure_editors],
-            clef=clef.value))
+        seq = []
+        for meditor in affected_measure_editors:
+            seq.append(commands.update_measure(
+                meditor.measure,
+                set_clef=clef))
+        self.send_commands_async(*seq)
 
     def onSetKeySignature(
             self, affected_measure_editors: List[ScoreMeasureEditor],
             key_signature: model.KeySignature) -> None:
-        self.send_command_async(commands.set_key_signature(
-            self.track.id,
-            measure_ids=[meditor.measure.id for meditor in affected_measure_editors],
-            key_signature=key_signature))
-
-    def onSetTimeSignature(
-            self, affected_measure_editors: List[ScoreMeasureEditor], upper: int, lower: int
-    ) -> None:
-        self.send_command_async(music.Command(
-            target=self.property_track.id,
-            command='set_time_signature',
-            set_time_signature=music.SetTimeSignature(
-                measure_ids=[
-                    self.property_track.measure_list[meditor.measure_reference.index].measure.id
-                    for meditor in affected_measure_editors],
-                upper=upper, lower=lower)))
+        seq = []
+        for meditor in affected_measure_editors:
+            seq.append(commands.update_measure(
+                meditor.measure,
+                set_key_signature=key_signature))
+        self.send_commands_async(*seq)
 
     def onTranspose(
             self, affected_measure_editors: List[ScoreMeasureEditor], half_notes: int) -> None:
-        note_ids = set()
+        seq = []
         for meditor in affected_measure_editors:
             for note in meditor.measure.notes:
-                note_ids.add(note.id)
-
-        self.send_command_async(commands.transpose_notes(
-            self.track.id,
-            note_ids=list(note_ids),
-            half_notes=half_notes))
+                seq.append(commands.update_note(
+                    note,
+                    transpose=half_notes))
+        self.send_commands_async(*seq)
 
     def playNoteOn(self, pitch: model.Pitch) -> None:
         self.playNoteOff()

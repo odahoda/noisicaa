@@ -20,12 +20,8 @@
 #
 # @end:license
 
-#import io
 import logging
-#from xml.etree import ElementTree
-from typing import Any, Optional, Iterator, Callable
-
-from google.protobuf import message as protobuf
+from typing import cast, Any, Optional, Iterator, Callable
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -39,6 +35,132 @@ from . import commands_pb2
 logger = logging.getLogger(__name__)
 
 
+class CreateNode(commands.Command):
+    proto_type = 'create_node'
+
+    def validate(self) -> None:
+        pb = down_cast(commands_pb2.CreateNode, self.pb)
+
+        # Ensure the requested URI is valid.
+        self.pool.project.get_node_description(pb.uri)
+
+    def run(self) -> int:
+        pb = down_cast(commands_pb2.CreateNode, self.pb)
+
+        node_desc = self.pool.project.get_node_description(pb.uri)
+
+        kwargs = {
+            'name': pb.name or node_desc.display_name,
+            'graph_pos': model.Pos2F.from_proto(pb.graph_pos),
+            'graph_size': model.SizeF.from_proto(pb.graph_size),
+            'graph_color': model.Color.from_proto(pb.graph_color),
+        }
+
+        # Defered import to work around cyclic import.
+        from noisicaa.builtin_nodes import server_registry
+        try:
+            node_cls = server_registry.node_cls_map[pb.uri]
+        except KeyError:
+            node_cls = Node
+            kwargs['node_uri'] = pb.uri
+
+        node = self.pool.create(node_cls, id=None, **kwargs)
+        self.pool.project.add_node(node)
+        return node.id
+
+
+class DeleteNode(commands.Command):
+    proto_type = 'delete_node'
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.DeleteNode, self.pb)
+
+        node = down_cast(pmodel.BaseNode, self.pool[pb.node_id])
+        assert node.is_child_of(self.pool.project)
+
+        self.pool.project.remove_node(node)
+
+
+class CreateNodeConnection(commands.Command):
+    proto_type = 'create_node_connection'
+
+    def run(self) -> int:
+        pb = down_cast(commands_pb2.CreateNodeConnection, self.pb)
+
+        source_node = down_cast(pmodel.BaseNode, self.pool[pb.source_node_id])
+        assert source_node.is_child_of(self.pool.project)
+        dest_node = down_cast(pmodel.BaseNode, self.pool[pb.dest_node_id])
+        assert dest_node.is_child_of(self.pool.project)
+
+        connection = self.pool.create(
+            NodeConnection,
+            source_node=source_node, source_port=pb.source_port_name,
+            dest_node=dest_node, dest_port=pb.dest_port_name)
+        self.pool.project.add_node_connection(connection)
+        return connection.id
+
+
+class DeleteNodeConnection(commands.Command):
+    proto_type = 'delete_node_connection'
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.DeleteNodeConnection, self.pb)
+
+        connection = cast(pmodel.NodeConnection, self.pool[pb.connection_id])
+        assert connection.is_child_of(self.pool.project)
+
+        self.pool.project.remove_node_connection(connection)
+
+
+class UpdateNode(commands.Command):
+    proto_type = 'update_node'
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateNode, self.pb)
+        node = down_cast(pmodel.BaseNode, self.pool[pb.node_id])
+
+        if pb.HasField('set_graph_pos'):
+            node.graph_pos = model.Pos2F.from_proto(pb.set_graph_pos)
+
+        if pb.HasField('set_graph_size'):
+            node.graph_size = model.SizeF.from_proto(pb.set_graph_size)
+
+        if pb.HasField('set_graph_color'):
+            node.graph_color = model.Color.from_proto(pb.set_graph_color)
+
+        if pb.HasField('set_name'):
+            node.name = pb.set_name
+
+        if pb.HasField('set_plugin_state'):
+            node.set_plugin_state(pb.set_plugin_state)
+
+        if pb.HasField('set_control_value'):
+            node.set_control_value(
+                pb.set_control_value.name,
+                pb.set_control_value.value,
+                pb.set_control_value.generation)
+
+
+# class NodeToPreset(commands.Command):
+#     proto_type = 'node_to_preset'
+
+#     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> bytes:
+#         pb = down_cast(commands_pb2.NodeToPreset, pb)
+#         node = down_cast(pmodel.Node, pool[self.proto.command.target])
+
+#         return node.to_preset()
+
+
+# class NodeFromPreset(commands.Command):
+#     proto_type = 'node_from_preset'
+
+#     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+#         pb = down_cast(commands_pb2.NodeFromPreset, pb)
+#         node = down_cast(pmodel.Node, pool[self.proto.command.target])
+
+#         node.from_preset(pb.preset)
+
+
 class PresetLoadError(Exception):
     pass
 
@@ -46,93 +168,7 @@ class NotAPresetError(PresetLoadError):
     pass
 
 
-class ChangePipelineGraphNode(commands.Command):
-    proto_type = 'change_pipeline_graph_node'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.ChangePipelineGraphNode, pb)
-        node = down_cast(pmodel.BasePipelineGraphNode, pool[self.proto.command.target])
-
-        if pb.HasField('graph_pos'):
-            node.graph_pos = model.Pos2F.from_proto(pb.graph_pos)
-
-        if pb.HasField('graph_size'):
-            node.graph_size = model.SizeF.from_proto(pb.graph_size)
-
-        if pb.HasField('graph_color'):
-            node.graph_color = model.Color.from_proto(pb.graph_color)
-
-        if pb.HasField('name'):
-            node.name = pb.name
-
-commands.Command.register_command(ChangePipelineGraphNode)
-
-
-class SetPipelineGraphControlValue(commands.Command):
-    proto_type = 'set_pipeline_graph_control_value'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.SetPipelineGraphControlValue, pb)
-        node = down_cast(pmodel.BasePipelineGraphNode, pool[self.proto.command.target])
-
-        port = node_db.get_port(node.description, pb.port_name)
-        assert port.direction == node_db.PortDescription.INPUT
-        assert port.type == node_db.PortDescription.KRATE_CONTROL
-
-        node.set_control_value(port.name, pb.float_value, pb.generation)
-
-commands.Command.register_command(SetPipelineGraphControlValue)
-
-
-class SetPipelineGraphPluginState(commands.Command):
-    proto_type = 'set_pipeline_graph_plugin_state'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.SetPipelineGraphPluginState, pb)
-        node = down_cast(pmodel.BasePipelineGraphNode, pool[self.proto.command.target])
-
-        node.set_plugin_state(pb.plugin_state)
-
-commands.Command.register_command(SetPipelineGraphPluginState)
-
-
-class PipelineGraphNodeToPreset(commands.Command):
-    proto_type = 'pipeline_graph_node_to_preset'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> bytes:
-        pb = down_cast(commands_pb2.PipelineGraphNodeToPreset, pb)
-        node = down_cast(pmodel.PipelineGraphNode, pool[self.proto.command.target])
-
-        return node.to_preset()
-
-commands.Command.register_command(PipelineGraphNodeToPreset)
-
-
-class PipelineGraphNodeFromPreset(commands.Command):
-    proto_type = 'pipeline_graph_node_from_preset'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.PipelineGraphNodeFromPreset, pb)
-        node = down_cast(pmodel.PipelineGraphNode, pool[self.proto.command.target])
-
-        node.from_preset(pb.preset)
-
-commands.Command.register_command(PipelineGraphNodeFromPreset)
-
-
-class PipelineGraphControlValue(pmodel.PipelineGraphControlValue):
-    def create(
-            self, *,
-            name: Optional[str] = None,
-            value: Optional[float] = None, generation: Optional[int] = None,
-            **kwargs: Any) -> None:
-        super().create(**kwargs)
-
-        self.name = name
-        self.value = model.ControlValue(value=value, generation=generation)
-
-
-class BasePipelineGraphNode(pmodel.BasePipelineGraphNode):  # pylint: disable=abstract-method
+class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
     def create(
             self, *,
             name: Optional[str] = None,
@@ -167,25 +203,23 @@ class BasePipelineGraphNode(pmodel.BasePipelineGraphNode):  # pylint: disable=ab
                     if cv.name == port.name:
                         yield audioproc.SetControlValue(
                             '%s:%s' % (self.pipeline_node_id, cv.name),
-                            cv.value.value, cv.value.generation)
+                            cv.value, cv.generation)
 
-    def set_control_value(self, port_name: str, value: float, generation: int) -> None:
-        for control_value in self.control_values:
-            if control_value.name == port_name:
-                if generation < control_value.value.generation:
+    def set_control_value(self, name: str, value: float, generation: int) -> None:
+        for idx, control_value in enumerate(self.control_values):
+            if control_value.name == name:
+                if generation < control_value.generation:
                     return
-                control_value.value = model.ControlValue(value=value, generation=generation)
+                self.control_values[idx] = model.ControlValue(
+                    name=name, value=value, generation=generation)
                 break
         else:
-            self.control_values.append(self._pool.create(
-                PipelineGraphControlValue,
-                name=port_name, value=value, generation=generation))
+            self.control_values.append(model.ControlValue(
+                name=name, value=value, generation=generation))
 
         if self.attached_to_project:
-            self.project.handle_pipeline_mutation(
-                audioproc.SetControlValue(
-                    '%s:%s' % (self.pipeline_node_id, port_name),
-                    value, generation))
+            self.project.handle_pipeline_mutation(audioproc.SetControlValue(
+                '%s:%s' % (self.pipeline_node_id, name), value, generation))
 
     def set_plugin_state(self, plugin_state: audioproc.PluginState) -> None:
         self.plugin_state = plugin_state
@@ -200,7 +234,7 @@ class BasePipelineGraphNode(pmodel.BasePipelineGraphNode):  # pylint: disable=ab
         return None
 
 
-class PipelineGraphNode(pmodel.PipelineGraphNode, BasePipelineGraphNode):
+class Node(pmodel.Node, BaseNode):
     def create(self, *, node_uri: Optional[str] = None, **kwargs: Any) -> None:
         super().create(**kwargs)
 
@@ -234,7 +268,7 @@ class PipelineGraphNode(pmodel.PipelineGraphNode, BasePipelineGraphNode):
         #         % (self.node_uri, preset.node_uri))
 
 
-class SystemOutPipelineGraphNode(pmodel.SystemOutPipelineGraphNode, BasePipelineGraphNode):
+class SystemOutNode(pmodel.SystemOutNode, BaseNode):
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         # Nothing to do, predefined node of the pipeline.
         yield from []
@@ -244,12 +278,12 @@ class SystemOutPipelineGraphNode(pmodel.SystemOutPipelineGraphNode, BasePipeline
         yield from []
 
 
-class PipelineGraphConnection(pmodel.PipelineGraphConnection):
+class NodeConnection(pmodel.NodeConnection):
     def create(
             self, *,
-            source_node: Optional[BasePipelineGraphNode] = None,
+            source_node: Optional[BaseNode] = None,
             source_port: Optional[str] = None,
-            dest_node: Optional[BasePipelineGraphNode] = None,
+            dest_node: Optional[BaseNode] = None,
             dest_port: Optional[str] = None,
             **kwargs: Any) -> None:
         super().create(**kwargs)

@@ -45,28 +45,23 @@ message MeasuredTrack {
   repeated uint64 measure_heap = 2;
 }
 
-message PipelineGraphControlValue {
-  optional string name = 1;
-  optional ControlValue value = 2;
-}
-
-message BasePipelineGraphNode {
+message BaseNode {
   optional string name = 1;
   optional Pos2F graph_pos = 2;
   optional SizeF graph_size = 5;
   optional Color graph_color = 6;
-  repeated uint64 control_values = 3;
+  repeated ControlValue control_values = 3;
   optional PluginState plugin_state = 4;
 }
 
-message PipelineGraphNode {
+message Node {
   optional string node_uri = 1;
 }
 
-message SystemOutPipelineGraphNode {
+message SystemOutNode {
 }
 
-message PipelineGraphConnection {
+message NodeConnection {
   optional uint64 source_node = 1;
   optional string source_port = 2;
   optional uint64 dest_node = 3;
@@ -87,8 +82,8 @@ message Metadata {
 message Project {
   optional uint64 metadata = 1;
   optional uint32 bpm = 2;
-  repeated uint64 pipeline_graph_nodes = 3;
-  repeated uint64 pipeline_graph_connections = 4;
+  repeated uint64 nodes = 3;
+  repeated uint64 node_connections = 4;
   repeated uint64 samples = 5;
 }
 
@@ -101,14 +96,13 @@ extend ObjectBase {
   optional Sample sample = 200000;
 
   // Pipeline graph (3xxxxx)
-  optional PipelineGraphControlValue pipeline_graph_control_value = 300000;
-  optional PipelineGraphConnection pipeline_graph_connection = 300001;
+  optional NodeConnection node_connection = 300000;
 
-  optional BasePipelineGraphNode base_pipeline_graph_node = 301000;
-  optional PipelineGraphNode pipeline_graph_node = 302000;
-  optional SystemOutPipelineGraphNode system_out_pipeline_graph_node = 303000;
+  optional BaseNode base_node = 301000;
+  optional Node node = 302000;
+  optional SystemOutNode system_out_node = 303000;
 
-  // Tracks (4xxxxx)
+  // Tracks (400xxx)
   optional Track track = 400000;
   optional MeasuredTrack measured_track = 400100;
   optional Measure measure = 400101;
@@ -162,8 +156,9 @@ message Color {
 }
 
 message ControlValue {
-  optional float value = 1;
-  optional uint64 generation = 2;
+  optional string name = 1;
+  optional float value = 2;
+  optional uint64 generation = 3;
 }
 
 message Fraction {

@@ -24,14 +24,11 @@ import logging
 import typing
 from typing import Any, Optional, Dict, Callable
 
-from google.protobuf import message as protobuf
-
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import instrument_db
-from noisicaa.music import pipeline_graph
+from noisicaa.music import graph
 from noisicaa.music import node_connector
-from noisicaa.music import pmodel
 from noisicaa.music import commands
 from noisicaa.builtin_nodes import commands_registry_pb2
 from . import commands_pb2
@@ -48,14 +45,12 @@ class UpdateInstrument(commands.Command):
     proto_type = 'update_instrument'
     proto_ext = commands_registry_pb2.update_instrument
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.UpdateInstrument, pb)
-        node = down_cast(Instrument, pool[self.proto.command.target])
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateInstrument, self.pb)
+        node = down_cast(Instrument, self.pool[pb.node_id])
 
-        if pb.HasField('instrument_uri'):
-            node.instrument_uri = pb.instrument_uri
-
-commands.Command.register_command(UpdateInstrument)
+        if pb.HasField('set_instrument_uri'):
+            node.instrument_uri = pb.set_instrument_uri
 
 
 class InstrumentConnector(node_connector.NodeConnector):
@@ -91,7 +86,7 @@ class InstrumentConnector(node_connector.NodeConnector):
             self.__node_id, instrument_spec))
 
 
-class Instrument(model.Instrument, pipeline_graph.BasePipelineGraphNode):
+class Instrument(model.Instrument, graph.BaseNode):
     def create(self, *, instrument_uri: Optional[str] = None, **kwargs: Any) -> None:
         super().create(**kwargs)
 

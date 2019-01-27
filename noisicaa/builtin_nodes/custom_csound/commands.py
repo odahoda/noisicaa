@@ -22,13 +22,19 @@
 
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
+from . import client_impl
+
 
 def update(
-        node_id: int, *, orchestra: str = None, score: str = None) -> music.Command:
-    cmd = music.Command(target=node_id, command='update_custom_csound')
+        node: client_impl.CustomCSound, *,
+        set_orchestra: str = None,
+        set_score: str = None
+) -> music.Command:
+    cmd = music.Command(command='update_custom_csound')
     pb = cmd.Extensions[commands_registry_pb2.update_custom_csound]
-    if orchestra is not None:
-        pb.orchestra = orchestra
-    if score is not None:
-        pb.score = score
+    pb.node_id = node.id
+    if set_orchestra is not None:
+        pb.set_orchestra = set_orchestra
+    if set_score is not None:
+        pb.set_score = set_score
     return cmd

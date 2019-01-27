@@ -25,7 +25,7 @@ from fractions import Fraction
 import getpass
 import logging
 import socket
-from typing import cast, Any, Dict, Tuple, Callable, TypeVar
+from typing import cast, Any, Dict, List, Tuple, Sequence, Callable, TypeVar
 
 from noisicaa import audioproc
 from noisicaa import core
@@ -42,6 +42,155 @@ from . import project_client_model
 logger = logging.getLogger(__name__)
 
 
+def update_project(
+        *,
+        set_bpm: int = None
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='update_project',
+        update_project=commands_pb2.UpdateProject(
+            set_bpm=set_bpm))
+
+
+def create_node(
+        uri: str,
+        *,
+        name: str = None,
+        graph_pos: model.Pos2F = None,
+        graph_size: model.SizeF = None,
+        graph_color: model.Color = None,
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='create_node',
+        create_node=commands_pb2.CreateNode(
+            uri=uri,
+            name=name,
+            graph_pos=graph_pos.to_proto() if graph_pos is not None else None,
+            graph_size=graph_size.to_proto() if graph_size is not None else None,
+            graph_color=graph_color.to_proto() if graph_color is not None else None))
+
+
+def update_node(
+        node: project_client_model.BaseNode,
+        *,
+        set_name: str = None,
+        set_graph_pos: model.Pos2F = None,
+        set_graph_size: model.SizeF = None,
+        set_graph_color: model.Color = None,
+        set_control_value: model.ControlValue = None,
+        set_plugin_state: audioproc.PluginState = None,
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='update_node',
+        update_node=commands_pb2.UpdateNode(
+            node_id=node.id,
+            set_name=set_name,
+            set_graph_pos=set_graph_pos.to_proto() if set_graph_pos is not None else None,
+            set_graph_size=set_graph_size.to_proto() if set_graph_size is not None else None,
+            set_graph_color=set_graph_color.to_proto() if set_graph_color is not None else None,
+            set_control_value=(
+                set_control_value.to_proto() if set_control_value is not None else None),
+            set_plugin_state=set_plugin_state))
+
+
+def delete_node(
+        node: project_client_model.BaseNode,
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='delete_node',
+        delete_node=commands_pb2.DeleteNode(
+            node_id=node.id))
+
+
+def create_node_connection(
+        *,
+        source_node: project_client_model.BaseNode,
+        source_port: str,
+        dest_node: project_client_model.BaseNode,
+        dest_port: str,
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='create_node_connection',
+        create_node_connection=commands_pb2.CreateNodeConnection(
+            source_node_id=source_node.id,
+            source_port_name=source_port,
+            dest_node_id=dest_node.id,
+            dest_port_name=dest_port))
+
+
+def delete_node_connection(
+        conn: project_client_model.NodeConnection,
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='delete_node_connection',
+        delete_node_connection=commands_pb2.DeleteNodeConnection(
+            connection_id=conn.id))
+
+def update_track(
+        track: project_client_model.Track,
+        *,
+        set_visible: bool = None,
+        set_list_position: int = None,
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='update_track',
+        update_track=commands_pb2.UpdateTrack(
+            track_id=track.id,
+            set_visible=set_visible,
+            set_list_position=set_list_position,
+        ))
+
+
+def create_measure(
+        track: project_client_model.MeasuredTrack,
+        pos: int,
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='create_measure',
+        create_measure=commands_pb2.CreateMeasure(
+            track_id=track.id,
+            pos=pos,
+        ))
+
+
+def update_measure(
+        measure: project_client_model.MeasureReference,
+        *,
+        clear: bool = None,
+        set_time_signature: model.TimeSignature = None,
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='update_measure',
+        update_measure=commands_pb2.UpdateMeasure(
+            measure_id=measure.id,
+            clear=clear,
+            set_time_signature=(
+                set_time_signature.to_proto() if set_time_signature is not None else None),
+        ))
+
+
+def delete_measure(
+        measure: project_client_model.MeasureReference,
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='delete_measure',
+        delete_measure=commands_pb2.DeleteMeasure(
+            measure_id=measure.id))
+
+
+def paste_measures(
+        mode: str,
+        src_objs: Sequence[model.ObjectTree],
+        target_ids: Sequence[int],
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='paste_measures',
+        paste_measures=commands_pb2.PasteMeasures(
+            mode=mode,
+            src_objs=src_objs,
+            target_ids=target_ids))
+
+
 class Pool(model.Pool[project_client_model.ObjectBase]):
     def __init__(self) -> None:
         super().__init__()
@@ -50,10 +199,9 @@ class Pool(model.Pool[project_client_model.ObjectBase]):
         self.register_class(project_client_model.MeasureReference)
         self.register_class(project_client_model.Metadata)
         self.register_class(project_client_model.Sample)
-        self.register_class(project_client_model.PipelineGraphConnection)
-        self.register_class(project_client_model.PipelineGraphNode)
-        self.register_class(project_client_model.SystemOutPipelineGraphNode)
-        self.register_class(project_client_model.PipelineGraphControlValue)
+        self.register_class(project_client_model.NodeConnection)
+        self.register_class(project_client_model.Node)
+        self.register_class(project_client_model.SystemOutNode)
         client_registry.register_classes(self)
 
 
@@ -159,9 +307,22 @@ class ProjectClient(object):
 
     async def send_command(self, command: commands_pb2.Command) -> Any:
         assert self.project is not None
-        result = await self._stub.call('COMMAND', command)
-        logger.info("Command %s completed with result=%r", command.command, result)
-        return result
+        results = await self.send_command_sequence(
+            commands_pb2.CommandSequence(commands=[command]))
+        assert len(results) == 1
+        return results[0]
+
+    async def send_commands(self, *commands: commands_pb2.Command) -> List[Any]:
+        return await self.send_command_sequence(
+            commands_pb2.CommandSequence(commands=commands))
+
+    async def send_command_sequence(self, sequence: commands_pb2.CommandSequence) -> List[Any]:
+        assert self.project is not None
+        results = await self._stub.call('COMMAND_SEQUENCE', sequence)
+        logger.info(
+            "Command sequence [%s] completed with results=%r",
+            ', '.join(command.command for command in sequence.commands), results)
+        return results
 
     async def undo(self) -> None:
         assert self.project is not None

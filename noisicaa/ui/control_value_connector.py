@@ -39,7 +39,7 @@ class ControlValueConnector(ui_base.ProjectMixin, slots.SlotContainer, QtCore.QO
 
     def __init__(
             self, *,
-            node: music.BasePipelineGraphNode,
+            node: music.BaseNode,
             name: str,
             **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -64,12 +64,11 @@ class ControlValueConnector(ui_base.ProjectMixin, slots.SlotContainer, QtCore.QO
     def __onValueEdited(self, value: float) -> None:
         if value != self.__node.control_value_map.value(self.__name):
             self.__generation += 1
-            self.send_command_async(music.Command(
-                target=self.__node.id,
-                command='set_pipeline_graph_control_value',
-                set_pipeline_graph_control_value=music.SetPipelineGraphControlValue(
-                    port_name=self.__name,
-                    float_value=value,
+            self.send_command_async(music.update_node(
+                self.__node,
+                set_control_value=model.ControlValue(
+                    name=self.__name,
+                    value=value,
                     generation=self.__generation)))
 
     def __onValueChanged(

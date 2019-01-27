@@ -35,13 +35,13 @@ from noisicaa.ui import control_value_connector
 from noisicaa.ui import control_value_dial
 from noisicaa.ui import gain_slider
 from noisicaa.ui import dynamic_layout
-from noisicaa.ui.pipeline_graph import base_node
+from noisicaa.ui.graph import base_node
 
 logger = logging.getLogger(__name__)
 
 
 class MixerNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
-    def __init__(self, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
@@ -248,7 +248,7 @@ class MixerNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
 
 
 class MixerNode(base_node.Node):
-    def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         self.__widget = None  # type: MixerNodeWidget
 
         super().__init__(node=node, **kwargs)

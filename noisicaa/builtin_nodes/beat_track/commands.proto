@@ -27,18 +27,22 @@ import "noisicaa/model/project.proto";
 
 package noisicaa.pb;
 
-message SetBeatTrackPitch {
-  optional Pitch pitch = 1;
+message UpdateBeatTrack {
+  required uint64 track_id = 1;
+  optional Pitch set_pitch = 2;
 }
 
-message SetBeatVelocity {
-  optional uint32 velocity = 1;
+message CreateBeat {
+  required uint64 measure_id = 1;
+  optional MusicalDuration time = 2;
+  optional uint32 velocity = 3;
 }
 
-message AddBeat {
-  optional MusicalDuration time = 1;
+message UpdateBeat {
+  required uint64 beat_id = 1;
+  optional uint32 set_velocity = 2;
 }
 
-message RemoveBeat {
+message DeleteBeat {
   optional uint64 beat_id = 1;
 }

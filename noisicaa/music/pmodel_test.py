@@ -41,10 +41,9 @@ class ModelTest(unittest.TestCase):
         self.pool.register_class(pmodel.MeasureReference)
         self.pool.register_class(pmodel.Metadata)
         self.pool.register_class(pmodel.Sample)
-        self.pool.register_class(pmodel.PipelineGraphConnection)
-        self.pool.register_class(pmodel.PipelineGraphNode)
-        self.pool.register_class(pmodel.SystemOutPipelineGraphNode)
-        self.pool.register_class(pmodel.PipelineGraphControlValue)
+        self.pool.register_class(pmodel.NodeConnection)
+        self.pool.register_class(pmodel.Node)
+        self.pool.register_class(pmodel.SystemOutNode)
         server_registry.register_classes(self.pool)
 
 
@@ -67,15 +66,15 @@ class ProjectTest(ModelTest):
         self.assertEqual(len(pr.samples), 0)
         pr.samples.append(self.pool.create(pmodel.Sample))
 
-    def test_pipeline_graph_nodes(self):
+    def test_nodes(self):
         pr = self.pool.create(pmodel.Project)
-        self.assertEqual(len(pr.pipeline_graph_nodes), 0)
-        pr.pipeline_graph_nodes.append(self.pool.create(pmodel.PipelineGraphNode))
+        self.assertEqual(len(pr.nodes), 0)
+        pr.nodes.append(self.pool.create(pmodel.Node))
 
-    def test_pipeline_graph_connections(self):
+    def test_node_connections(self):
         pr = self.pool.create(pmodel.Project)
-        self.assertEqual(len(pr.pipeline_graph_connections), 0)
-        pr.pipeline_graph_connections.append(self.pool.create(pmodel.PipelineGraphConnection))
+        self.assertEqual(len(pr.node_connections), 0)
+        pr.node_connections.append(self.pool.create(pmodel.NodeConnection))
 
 
 class MetadataTest(ModelTest):
@@ -104,36 +103,36 @@ class MetadataTest(ModelTest):
         self.assertEqual(md.created, 2018)
 
 
-class PipelineGraphConnectionTest(ModelTest):
+class NodeConnectionTest(ModelTest):
     def test_source_node(self):
-        conn = self.pool.create(pmodel.PipelineGraphConnection)
+        conn = self.pool.create(pmodel.NodeConnection)
 
-        n1 = self.pool.create(pmodel.PipelineGraphNode)
+        n1 = self.pool.create(pmodel.Node)
         conn.source_node = n1
         self.assertIs(conn.source_node, n1)
 
     def test_source_port(self):
-        conn = self.pool.create(pmodel.PipelineGraphConnection)
+        conn = self.pool.create(pmodel.NodeConnection)
 
         conn.source_port = 'p1'
         self.assertEqual(conn.source_port, 'p1')
 
     def test_dest_node(self):
-        conn = self.pool.create(pmodel.PipelineGraphConnection)
+        conn = self.pool.create(pmodel.NodeConnection)
 
-        n2 = self.pool.create(pmodel.PipelineGraphNode)
+        n2 = self.pool.create(pmodel.Node)
         conn.dest_node = n2
         self.assertIs(conn.dest_node, n2)
 
     def test_dest_port(self):
-        conn = self.pool.create(pmodel.PipelineGraphConnection)
+        conn = self.pool.create(pmodel.NodeConnection)
 
         conn.dest_port = 'p2'
         self.assertEqual(conn.dest_port, 'p2')
 
 
-class BasePipelineGraphNodeMixin(object):
-    cls = None  # type: Type[pmodel.BasePipelineGraphNode]
+class BaseNodeMixin(object):
+    cls = None  # type: Type[pmodel.BaseNode]
     create_args = {}  # type: Dict[str, Any]
 
     def test_name(self):
@@ -177,38 +176,21 @@ class BasePipelineGraphNodeMixin(object):
     def test_control_values(self):
         node = self.pool.create(self.cls, **self.create_args)
 
-        cv1 = self.pool.create(pmodel.PipelineGraphControlValue)
-        node.control_values.append(cv1)
-        self.assertIs(node.control_values[0], cv1)
+        node.control_values.append(model.ControlValue('foo', 0.5, 1))
+        self.assertEqual(node.control_values[0], model.ControlValue('foo', 0.5, 1))
 
 
-class PipelineGraphNodeTest(BasePipelineGraphNodeMixin, ModelTest):
-    cls = pmodel.PipelineGraphNode
+class NodeTest(BaseNodeMixin, ModelTest):
+    cls = pmodel.Node
 
-    def test_pipeline_graph_node(self):
+    def test_node(self):
         node = self.pool.create(self.cls)
 
         node.node_uri = 'uri://some/name'
         self.assertEqual(node.node_uri, 'uri://some/name')
 
 
-class PipelineGraphControlValueTest(ModelTest):
-    def test_name(self):
-        cv = self.pool.create(pmodel.PipelineGraphControlValue)
-
-        cv.name = 'gain'
-        self.assertEqual(cv.name, 'gain')
-
-    def test_value(self):
-        cv = self.pool.create(pmodel.PipelineGraphControlValue)
-
-        cv.value = model.ControlValue(value=12, generation=1)
-        self.assertEqual(
-            cv.value,
-            model.ControlValue(value=12, generation=1))
-
-
-class TrackMixin(BasePipelineGraphNodeMixin):
+class TrackMixin(BaseNodeMixin):
     cls = None  # type: Type[pmodel.Track]
 
 

@@ -22,10 +22,14 @@
 
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
+from . import client_impl
 
-def update_instrument(
-        node_id: int, *, instrument_uri: str = None) -> music.Command:
-    cmd = music.Command(target=node_id, command='update_instrument')
+
+def update(
+        node: client_impl.Instrument, *, set_instrument_uri: str = None) -> music.Command:
+    cmd = music.Command(command='update_instrument')
     pb = cmd.Extensions[commands_registry_pb2.update_instrument]
-    pb.instrument_uri = instrument_uri
+    pb.node_id = node.id
+    if set_instrument_uri is not None:
+        pb.set_instrument_uri = set_instrument_uri
     return cmd

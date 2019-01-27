@@ -389,7 +389,7 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
     def __init__(
             self, *,
-            node: music.BasePipelineGraphNode,
+            node: music.BaseNode,
             icon: Optional[QtSvg.QSvgRenderer] = None,
             **kwargs: Any
     ) -> None:
@@ -538,7 +538,7 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             port.cleanup()
         self.__ports.clear()
 
-    def node(self) -> music.BasePipelineGraphNode:
+    def node(self) -> music.BaseNode:
         return self.__node
 
     def id(self) -> int:
@@ -553,7 +553,7 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
     def graph_size(self) -> model.SizeF:
         return self.__node.graph_size
 
-    def upstream_nodes(self) -> List[model.BasePipelineGraphNode]:
+    def upstream_nodes(self) -> List[model.BaseNode]:
         return self.__node.upstream_nodes()
 
     def selected(self) -> bool:
@@ -798,19 +798,13 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         color_menu.addAction(color_action)
 
     def onRemove(self) -> None:
-        self.send_command_async(music.Command(
-            target=self.__node.parent.id,
-            command='remove_pipeline_graph_node',
-            remove_pipeline_graph_node=music.RemovePipelineGraphNode(
-                node_id=self.__node.id)))
+        self.send_command_async(music.delete_node(self.__node))
 
     def onSetColor(self, color: model.Color) -> None:
         if color != self.__node.graph_color:
-            self.send_command_async(music.Command(
-                target=self.__node.id,
-                command='change_pipeline_graph_node',
-                change_pipeline_graph_node=music.ChangePipelineGraphNode(
-                    graph_color=color.to_proto())))
+            self.send_command_async(music.update_node(
+                self.__node,
+                set_graph_color=color))
 
     def renameNode(self) -> None:
         self.__rename_node = True
@@ -821,11 +815,9 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         new_name = self.__title_edit.text()
         if new_name != self.__node.name:
             self.__title.setText(self.__node.name)
-            self.send_command_async(music.Command(
-                target=self.__node.id,
-                command='change_pipeline_graph_node',
-                change_pipeline_graph_node=music.ChangePipelineGraphNode(
-                    name=new_name)))
+            self.send_command_async(music.update_node(
+                self.__node,
+                set_name=new_name))
 
         self.__rename_node = False
         self.__layout()
@@ -834,7 +826,7 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 class Connection(ui_base.ProjectMixin, QtWidgets.QGraphicsPathItem):
     def __init__(
             self, *,
-            connection: music.PipelineGraphConnection,
+            connection: music.NodeConnection,
             src_node: Node,
             dest_node: Node,
             **kwargs: Any) -> None:
@@ -853,6 +845,9 @@ class Connection(ui_base.ProjectMixin, QtWidgets.QGraphicsPathItem):
 
     def cleanup(self) -> None:
         pass
+
+    def connection(self) -> music.NodeConnection:
+        return self.__connection
 
     def id(self) -> int:
         return self.__connection.id

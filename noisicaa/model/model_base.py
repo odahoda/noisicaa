@@ -150,6 +150,20 @@ class PropertyListDelete(Generic[VALUE], PropertyListChange[VALUE]):
         return self._fmt(index=self.index, old=self.old_value)
 
 
+class PropertyListSet(Generic[VALUE], PropertyListChange[VALUE]):
+    def __init__(
+            self, obj: 'ObjectBase', prop_name: str, index: int,
+            old_value: VALUE, new_value: VALUE
+    ) -> None:
+        super().__init__(obj, prop_name)
+        self.index = index
+        self.old_value = old_value
+        self.new_value = new_value
+
+    def __str__(self) -> str:
+        return self._fmt(index=self.index, old=self.old_value, new=self.new_value)
+
+
 # TODO: use a protocol instead of a base class
 #   Then I can use MusicalTime without hassle
 class ProtoValue(object):
@@ -236,12 +250,10 @@ class BaseList(Generic[VALUE], MutableSequence[VALUE]):
         pass  # pragma: no coverage
     def __setitem__(self, idx: Union[int, slice], value: Union[VALUE, Iterable[VALUE]]) -> None:
         if isinstance(idx, int):
-            self.delete(idx)
-            self.insert(idx, cast(VALUE, value))
+            self.set(idx, cast(VALUE, value))
         else:
             for i, v in zip(self.__range(idx), cast(Iterable[VALUE], value)):
-                self.delete(i)
-                self.insert(i, v)
+                self.set(i, v)
 
     @overload
     def __delitem__(self, idx: int) -> None:
@@ -259,7 +271,10 @@ class BaseList(Generic[VALUE], MutableSequence[VALUE]):
     def get(self, idx: int) -> VALUE:
         raise NotImplementedError(type(self).__name__)  # pragma: no coverage
 
-    def insert(self, idx: int, obj: VALUE) -> None:
+    def set(self, idx: int, value: VALUE) -> None:
+        raise NotImplementedError(type(self).__name__)  # pragma: no coverage
+
+    def insert(self, idx: int, value: VALUE) -> None:
         raise NotImplementedError(type(self).__name__)  # pragma: no coverage
 
     def delete(self, idx: int) -> None:
@@ -278,6 +293,16 @@ class SimpleList(Generic[VALUE], BaseList[VALUE]):
 
     def get(self, idx: int) -> VALUE:
         return self._pb[idx]
+
+    def set(self, idx: int, value: VALUE) -> None:
+        if idx < 0 or idx > len(self._pb):
+            raise IndexError("Index %d out of bounds [0:%d]" % (idx, len(self._pb)))
+
+        old_value = self._pb[idx]
+        self._pb[idx] = value
+        if not self._instance.in_setup:
+            self._instance.property_changed(PropertyListSet(
+                self._instance, self._prop_name, idx, old_value, value))
 
     def insert(self, idx: int, value: VALUE) -> None:
         if idx < 0 or idx > len(self._pb):
@@ -308,6 +333,17 @@ class WrappedProtoList(BaseList[PROTOVAL]):
 
     def get(self, idx: int) -> PROTOVAL:
         return cast(PROTOVAL, self.__ptype.from_proto(self._pb[idx]))
+
+    def set(self, idx: int, value: PROTOVAL) -> None:
+        _checktype(value, self.__ptype)
+        if idx < 0 or idx > len(self._pb):
+            raise IndexError("Index %d out of bounds [0:%d]" % (idx, len(self._pb)))
+
+        old_value = self.__ptype.from_proto(self._pb[idx])
+        self._pb[idx].CopyFrom(value.to_proto())
+        if not self._instance.in_setup:
+            self._instance.property_changed(PropertyListSet(
+                self._instance, self._prop_name, idx, old_value, value))
 
     def insert(self, idx: int, value: PROTOVAL) -> None:
         _checktype(value, self.__ptype)
@@ -348,6 +384,10 @@ class ObjectList(Generic[OBJECT], BaseList[OBJECT]):
         except KeyError:
             raise InvalidReferenceError(
                 "%s.%s[%s]" % (type(self._instance).__name__, self._prop_name, idx))
+
+    def set(self, idx: int, value: OBJECT) -> None:
+        self.delete(idx)
+        self.insert(idx, value)
 
     def insert(self, idx: int, obj: OBJECT) -> None:
         _checktype(obj, self.__otype)

@@ -24,8 +24,6 @@ import logging
 import random
 from typing import cast, Any, Dict, MutableSequence, Optional, Callable
 
-from google.protobuf import message as protobuf
-
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
@@ -42,13 +40,13 @@ from . import processor_messages
 logger = logging.getLogger(__name__)
 
 
-class AddControlPoint(commands.Command):
-    proto_type = 'add_control_point'
-    proto_ext = commands_registry_pb2.add_control_point
+class CreateControlPoint(commands.Command):
+    proto_type = 'create_control_point'
+    proto_ext = commands_registry_pb2.create_control_point
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.AddControlPoint, pb)
-        track = down_cast(ControlTrack, pool[self.proto.command.target])
+    def run(self) -> int:
+        pb = down_cast(commands_pb2.CreateControlPoint, self.pb)
+        track = down_cast(ControlTrack, self.pool[pb.track_id])
 
         insert_time = audioproc.MusicalTime.from_proto(pb.time)
         for insert_index, point in enumerate(track.points):
@@ -59,42 +57,21 @@ class AddControlPoint(commands.Command):
         else:
             insert_index = len(track.points)
 
-        track.points.insert(
-            insert_index,
-            pool.create(ControlPoint, time=insert_time, value=pb.value))
-
-commands.Command.register_command(AddControlPoint)
+        control_point = self.pool.create(ControlPoint, time=insert_time, value=pb.value)
+        track.points.insert(insert_index, control_point)
+        return control_point.id
 
 
-class RemoveControlPoint(commands.Command):
-    proto_type = 'remove_control_point'
-    proto_ext = commands_registry_pb2.remove_control_point
+class UpdateControlPoint(commands.Command):
+    proto_type = 'update_control_point'
+    proto_ext = commands_registry_pb2.update_control_point
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.RemoveControlPoint, pb)
-        track = down_cast(ControlTrack, pool[self.proto.command.target])
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateControlPoint, self.pb)
+        point = down_cast(ControlPoint, self.pool[pb.point_id])
 
-        point = down_cast(ControlPoint, pool[pb.point_id])
-        assert point.is_child_of(track)
-
-        del track.points[point.index]
-
-commands.Command.register_command(RemoveControlPoint)
-
-
-class MoveControlPoint(commands.Command):
-    proto_type = 'move_control_point'
-    proto_ext = commands_registry_pb2.move_control_point
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.MoveControlPoint, pb)
-        track = down_cast(ControlTrack, pool[self.proto.command.target])
-
-        point = down_cast(ControlPoint, pool[pb.point_id])
-        assert point.is_child_of(track)
-
-        if pb.HasField('time'):
-            new_time = audioproc.MusicalTime.from_proto(pb.time)
+        if pb.HasField('set_time'):
+            new_time = audioproc.MusicalTime.from_proto(pb.set_time)
             if not point.is_first:
                 if new_time <= cast(ControlPoint, point.prev_sibling).time:
                     raise ValueError("Control point out of order.")
@@ -108,11 +85,21 @@ class MoveControlPoint(commands.Command):
 
             point.time = new_time
 
-        if pb.HasField('value'):
+        if pb.HasField('set_value'):
             # TODO: check that value is in valid range.
-            point.value = pb.value
+            point.value = pb.set_value
 
-commands.Command.register_command(MoveControlPoint)
+
+class DeleteControlPoint(commands.Command):
+    proto_type = 'delete_control_point'
+    proto_ext = commands_registry_pb2.delete_control_point
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.DeleteControlPoint, self.pb)
+        point = down_cast(ControlPoint, self.pool[pb.point_id])
+        track = down_cast(ControlTrack, point.parent)
+
+        del track.points[point.index]
 
 
 class ControlTrackConnector(node_connector.NodeConnector):

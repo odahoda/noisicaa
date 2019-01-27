@@ -63,7 +63,7 @@ class ConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
             connector.close()
 
 
-class CustomCSoundTest(pmodel_test.BasePipelineGraphNodeMixin, pmodel_test.ModelTest):
+class CustomCSoundTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
     cls = server_impl.CustomCSound
     create_args = {'name': 'test'}
 

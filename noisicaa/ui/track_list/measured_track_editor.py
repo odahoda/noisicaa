@@ -226,18 +226,11 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
         menu.addAction(remove_measure_action)
 
     def onInsertMeasure(self) -> None:
-        self.send_command_async(music.Command(
-            target=self.track.id,
-            command='insert_measure',
-            insert_measure=music.InsertMeasure(
-                pos=self.measure_reference.index)))
+        self.send_command_async(music.create_measure(
+            self.track, pos=self.measure_reference.index))
 
     def onRemoveMeasure(self) -> None:
-        self.send_command_async(music.Command(
-            target=self.track.id,
-            command='remove_measure',
-            remove_measure=music.RemoveMeasure(
-                pos=self.measure_reference.index)))
+        self.send_command_async(music.delete_measure(self.measure_reference))
 
     def setSelected(self, selected: bool) -> None:
         if selected != self.__selected:
@@ -397,10 +390,8 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
 
         elif isinstance(measure_editor, Appendix):
             if measure_editor.clickRect().contains(evt.pos() - measure_editor.topLeft()):
-                self.send_command_async(music.Command(
-                    target=target.track.id,
-                    command='insert_measure',
-                    insert_measure=music.InsertMeasure(pos=-1)))
+                self.send_command_async(music.create_measure(
+                    target.track, pos=-1))
                 evt.accept()
                 return
 
@@ -682,25 +673,54 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
     def buildContextMenu(self, menu: QtWidgets.QMenu, pos: QtCore.QPoint) -> None:
         super().buildContextMenu(menu, pos)
 
+        affected_measure_editors = []  # type: List[Editor]
+        if not self.selection_set.empty():
+            affected_measure_editors.extend(
+                down_cast(MeasureEditor, seditor) for seditor in self.selection_set)
+        else:
+            meditor = self.measureEditorAt(pos)
+            if isinstance(meditor, MeasureEditor):
+                affected_measure_editors.append(meditor)
+
+        enable_measure_actions = bool(affected_measure_editors)
+
+        time_signature_menu = menu.addMenu("Set time signature")
+        time_signatures = [
+            model.TimeSignature(4, 4),
+            model.TimeSignature(3, 4),
+        ]
+        for time_signature in time_signatures:
+            time_signature_action = QtWidgets.QAction(
+                "%d/%d" % (time_signature.upper, time_signature.lower),
+                menu)
+            time_signature_action.setEnabled(enable_measure_actions)
+            time_signature_action.triggered.connect(
+                lambda _, time_signature=time_signature: (
+                    self.onSetTimeSignature(affected_measure_editors, time_signature)))
+            time_signature_menu.addAction(time_signature_action)
+
         measure_editor = self.measureEditorAt(pos)
         if measure_editor is not None:
             measure_editor.buildContextMenu(
                 menu, pos - measure_editor.topLeft())
 
+    def onSetTimeSignature(
+            self, affected_measure_editors: List[MeasureEditor], time_signature: model.TimeSignature
+    ) -> None:
+        seq = []
+        for meditor in affected_measure_editors:
+            seq.append(music.update_measure(
+                meditor.measure_reference,
+                set_time_signature=time_signature))
+
+        self.send_commands_async(*seq)
+
     def onInsertMeasure(self) -> None:
-        self.send_command_async(music.Command(
-            target=self.track.id,
-            command='insert_measure',
-            insert_measure=music.InsertMeasure(
-                pos=self.measure_reference.index)))
+        self.send_command_async(music.create_measure(
+            self.track, pos=self.measure_reference.index))
 
     def onRemoveMeasure(self) -> None:
-        self.send_command_async(music.Command(
-            target=self.project.id,
-            command='remove_measure',
-            remove_measure=music.RemoveMeasure(
-                tracks=[self.track.index],
-                pos=self.measure_reference.index)))
+        self.send_command_async(music.delete_measure(self.measure_reference))
 
     def setHoverMeasureEditor(
             self, measure_editor: Optional[BaseMeasureEditor],

@@ -200,11 +200,11 @@ class Server(object):
                 server_name=self.name,
                 server_id=self.id))
 
-        self.logger.info("Creating server on socket %s", self.address)
+        self.logger.info("%s: Creating server on socket %s", self.id, self.address)
         self.__server = await self.event_loop.create_unix_server(
             functools.partial(ServerProtocol, self.event_loop, self),
             path=self.address)
-        self.logger.info("Listening on socket %s", self.address)
+        self.logger.info("%s: Listening on socket %s", self.id, self.address)
 
     async def cleanup(self) -> None:
         if self.__server is not None:
@@ -215,7 +215,7 @@ class Server(object):
                 os.unlink(self.address)
 
             self.__server = None
-            self.logger.info("Server closed")
+            self.logger.info("%s: Server closed", self.id)
 
         if self.stat_bytes_sent is not None:
             self.stat_bytes_sent.unregister()
@@ -434,7 +434,8 @@ class Stub(object):
                 response_container.set(self.CLOSE_SENTINEL)
                 continue
 
-            logger.debug("sending %s to %s...", cmd.decode('utf-8'), self.__server_address)
+            logger.debug(
+                "%s: sending %s to %s...", self.id, cmd.decode('utf-8'), self.__server_address)
             start_time = time.time()
             self.__transport.write(b'CALL %s %d\n' % (cmd, len(payload)))
             if payload:
@@ -442,8 +443,9 @@ class Stub(object):
 
             response = await self.__protocol.response_queue.get()
             logger.debug(
-                "%s to %s finished in %.2fmsec",
-                cmd.decode('utf-8'), self.__server_address, 1000 * (time.time() - start_time))
+                "%s: %s to %s finished in %.2fmsec",
+                self.id, cmd.decode('utf-8'), self.__server_address,
+                1000 * (time.time() - start_time))
             response_container.set(response)
 
         cancelled_task.cancel()

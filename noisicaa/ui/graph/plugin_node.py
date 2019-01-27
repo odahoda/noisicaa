@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 class PluginUI(ui_base.ProjectMixin, QtWidgets.QWidget):
-    def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.setParent(self.editor_window)
@@ -188,7 +188,7 @@ class PluginUI(ui_base.ProjectMixin, QtWidgets.QWidget):
 
 
 class PluginNode(generic_node.GenericNode):
-    def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(node=node, **kwargs)
 
         self.__plugin_ui = None  # type: Optional[PluginUI]

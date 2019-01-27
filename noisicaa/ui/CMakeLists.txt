@@ -58,4 +58,4 @@ add_python_package(
 )
 
 add_subdirectory(track_list)
-add_subdirectory(pipeline_graph)
+add_subdirectory(graph)

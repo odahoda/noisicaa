@@ -24,7 +24,7 @@ import asyncio
 import functools
 import io
 import typing
-from typing import Any, Optional, Dict, Tuple, Callable, Awaitable
+from typing import Any, Optional, Dict, List, Tuple, Callable, Awaitable
 
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
@@ -161,6 +161,10 @@ class ProjectContext(CommonContext):
             self, cmd: music.Command, callback: Optional[Callable[[Any], None]]) -> None:
         self.call_async(self.project_client.send_command(cmd), callback=callback)
 
+    def send_commands_async(
+            self, *cmd: music.Command, callback: Optional[Callable[[List[Any]], None]]) -> None:
+        self.call_async(self.project_client.send_commands(*cmd), callback=callback)
+
     def set_session_value(self, key: str, value: Any) -> None:
         self.project_client.set_session_values({key: value})
 
@@ -202,8 +206,13 @@ class ProjectMixin(CommonMixin):
         return self._context.project_client
 
     def send_command_async(
-            self, cmd: music.Command, callback: Optional[Callable[[Any], None]] = None) -> None:
-        self._context.send_command_async(cmd, callback)
+            self, command: music.Command, callback: Optional[Callable[[Any], None]] = None) -> None:
+        self._context.send_command_async(command, callback=callback)
+
+    def send_commands_async(
+            self, *commands: music.Command, callback: Optional[Callable[[List[Any]], None]] = None
+    ) -> None:
+        self._context.send_commands_async(*commands, callback=callback)
 
     def set_session_value(self, key: str, value: Any) -> None:
         self._context.set_session_value(key, value)

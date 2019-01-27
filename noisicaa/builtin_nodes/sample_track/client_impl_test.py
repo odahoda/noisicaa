@@ -34,48 +34,46 @@ class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://sample-track'
     track_cls = client_impl.SampleTrack
 
-    async def test_add_sample(self):
+    async def test_create_sample(self):
         track = await self._add_track()
 
-        await self.client.send_command(commands.add_sample(
-            track.id,
+        await self.client.send_command(commands.create_sample(
+            track,
             time=audioproc.MusicalTime(1, 4),
             path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')))
         self.assertEqual(track.samples[0].time, audioproc.MusicalTime(1, 4))
 
-    async def test_remove_sample(self):
+    async def test_delete_sample(self):
         track = await self._add_track()
-        await self.client.send_command(commands.add_sample(
-            track.id,
+        await self.client.send_command(commands.create_sample(
+            track,
             time=audioproc.MusicalTime(1, 4),
             path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')))
 
-        await self.client.send_command(commands.remove_sample(
-            track.id,
-            sample_id=track.samples[0].id))
+        await self.client.send_command(commands.delete_sample(
+            track.samples[0]))
         self.assertEqual(len(track.samples), 0)
 
-    async def test_move_sample(self):
+    async def test_sample_set_time(self):
         track = await self._add_track()
-        await self.client.send_command(commands.add_sample(
-            track.id,
+        await self.client.send_command(commands.create_sample(
+            track,
             time=audioproc.MusicalTime(1, 4),
             path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')))
 
-        await self.client.send_command(commands.move_sample(
-            track.id,
-            sample_id=track.samples[0].id,
-            time=audioproc.MusicalTime(3, 4)))
+        await self.client.send_command(commands.update_sample(
+            track.samples[0],
+            set_time=audioproc.MusicalTime(3, 4)))
         self.assertEqual(track.samples[0].time, audioproc.MusicalTime(3, 4))
 
     async def test_render_sample(self):
         track = await self._add_track()
-        await self.client.send_command(commands.add_sample(
-            track.id,
+        await self.client.send_command(commands.create_sample(
+            track,
             time=audioproc.MusicalTime(1, 4),
             path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')))
 
         samples = await self.client.send_command(commands.render_sample(
-            track.samples[0].id,
+            track.samples[0],
             scale_x=fractions.Fraction(100, 1)))
         self.assertEqual(samples[0], 'rms')

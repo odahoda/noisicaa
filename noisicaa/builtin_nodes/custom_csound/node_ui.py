@@ -32,7 +32,7 @@ from noisicaa import core
 from noisicaa import model
 from noisicaa import music
 from noisicaa.ui import ui_base
-from noisicaa.ui.pipeline_graph import generic_node
+from noisicaa.ui.graph import generic_node
 from . import client_impl
 from . import commands
 
@@ -108,9 +108,9 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
 
         self.send_command_async(
             commands.update(
-                self.__node.id,
-                orchestra=self.__orchestra,
-                score=self.__score),
+                self.__node,
+                set_orchestra=self.__orchestra,
+                set_score=self.__score),
             callback=self.__applyDone)
 
     def __applyDone(self, result: Any) -> None:
@@ -137,7 +137,7 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
 
 
 class CustomCSoundNode(generic_node.GenericNode):
-    def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(node=node, **kwargs)
 
         assert isinstance(node, client_impl.CustomCSound), type(node).__name__

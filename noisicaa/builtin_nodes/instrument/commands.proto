@@ -25,5 +25,6 @@ syntax = "proto2";
 package noisicaa.pb;
 
 message UpdateInstrument {
-  optional string instrument_uri = 1;
+  required uint64 node_id = 1;
+  optional string set_instrument_uri = 2;
 }

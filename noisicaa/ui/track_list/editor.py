@@ -87,10 +87,10 @@ class Editor(
         self.__tracks = []  # type: List[base_track_editor.BaseTrackEditor]
         self.__track_map = {}  # type: Dict[int, base_track_editor.BaseTrackEditor]
 
-        for node in self.project.pipeline_graph_nodes:
+        for node in self.project.nodes:
             self.__addNode(node)
 
-        self.__listeners['project:nodes'] = self.project.pipeline_graph_nodes_changed.add(
+        self.__listeners['project:nodes'] = self.project.nodes_changed.add(
             self.__onNodesChanged)
 
         for idx, track_editor in enumerate(self.__tracks):
@@ -154,7 +154,7 @@ class Editor(
 
         self.currentTrackChanged.emit(self.__current_track)
 
-    def __addNode(self, node: music.BasePipelineGraphNode) -> None:
+    def __addNode(self, node: music.BaseNode) -> None:
         if isinstance(node, music.Track):
             track_editor = self.createTrack(node)
             self.__tracks.append(track_editor)
@@ -163,7 +163,7 @@ class Editor(
                 lambda *_: self.updateTracks())
             self.updateTracks()
 
-    def __removeNode(self, node: music.BasePipelineGraphNode) -> None:
+    def __removeNode(self, node: music.BaseNode) -> None:
         if isinstance(node, music.Track):
             self.__listeners.pop('track:%s:visible' % node.id).remove()
 
@@ -177,7 +177,7 @@ class Editor(
             self.updateTracks()
 
     def __onNodesChanged(
-            self, change: model.PropertyListChange[music.BasePipelineGraphNode]) -> None:
+            self, change: model.PropertyListChange[music.BaseNode]) -> None:
         if isinstance(change, model.PropertyListInsert):
             self.__addNode(change.new_value)
 
@@ -304,15 +304,14 @@ class Editor(
         if self.selection_set.empty():
             return
 
-        self.send_command_async(music.Command(
-            target=self.project.id,
-            command='clear_measures',
-            clear_measures=music.ClearMeasures(
-                measure_ids=[
-                    mref.id for mref in sorted(
-                        (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
-                         for measure_editor in self.selection_set),
-                        key=lambda mref: mref.index)])))
+        commands = [
+            music.update_measure(mref, clear=True)
+            for mref in sorted(
+                (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
+                 for measure_editor in self.selection_set),
+                key=lambda mref: mref.index)
+        ]
+        self.send_commands_async(*commands)
 
     def onPaste(self, *, mode: str) -> None:
         assert mode in ('overwrite', 'link')
@@ -327,14 +326,10 @@ class Editor(
                     (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
                      for measure_editor in self.selection_set),
                     key=lambda mref: mref.index)]
-
-            self.send_command_async(music.Command(
-                target=self.project.id,
-                command='paste_measures',
-                paste_measures=music.PasteMeasures(
-                    mode=mode,
-                    src_objs=[copy['data'] for copy in clipboard['data']],
-                    target_ids=target_ids)))
+            self.send_command_async(music.paste_measures(
+                mode=mode,
+                src_objs=[copy['data'] for copy in clipboard['data']],
+                target_ids=target_ids))
 
         else:
             raise ValueError(clipboard['type'])

@@ -30,27 +30,24 @@ from . import commands
 class MidiSourceTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
 
     async def _add_node(self) -> client_impl.MidiSource:
-        node_id = await self.client.send_command(music.Command(
-            target=self.project.id,
-            command='add_pipeline_graph_node',
-            add_pipeline_graph_node=music.AddPipelineGraphNode(
-                uri='builtin://midi-source')))
+        node_id = await self.client.send_command(music.create_node(
+            'builtin://midi-source'))
         return self.pool[node_id]
 
     async def test_add_node(self):
         node = await self._add_node()
         self.assertIsInstance(node, client_impl.MidiSource)
 
-    async def test_change_device_uri(self):
+    async def test_set_device_uri(self):
         node = await self._add_node()
 
         await self.client.send_command(commands.update(
-            node.id, device_uri='blabla'))
+            node, set_device_uri='blabla'))
         self.assertEqual(node.device_uri, 'blabla')
 
-    async def test_change_channel_filter(self):
+    async def test_set_channel_filter(self):
         node = await self._add_node()
 
         await self.client.send_command(commands.update(
-            node.id, channel_filter=2))
+            node, set_channel_filter=2))
         self.assertEqual(node.channel_filter, 2)

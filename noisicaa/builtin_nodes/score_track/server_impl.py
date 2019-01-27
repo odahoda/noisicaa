@@ -23,8 +23,6 @@
 import logging
 from typing import Any, MutableSequence, Optional, Iterator, Iterable, Callable
 
-from google.protobuf import message as protobuf
-
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
@@ -38,168 +36,106 @@ from . import model as score_track_model
 logger = logging.getLogger(__name__)
 
 
-class ChangeNote(commands.Command):
-    proto_type = 'change_note'
-    proto_ext = commands_registry_pb2.change_note
+class UpdateScoreTrack(commands.Command):
+    proto_type = 'update_score_track'
+    proto_ext = commands_registry_pb2.update_score_track
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.ChangeNote, pb)
-        measure = down_cast(ScoreMeasure, pool[self.proto.command.target])
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateScoreTrack, self.pb)
+        track = down_cast(ScoreTrack, self.pool[pb.track_id])
 
-        assert 0 <= pb.idx < len(measure.notes)
-        note = measure.notes[pb.idx]
-
-        if pb.HasField('pitch'):
-            note.pitches[0] = model.Pitch(pb.pitch)
-
-        if pb.HasField('duration'):
-            note.base_duration = audioproc.MusicalDuration.from_proto(pb.duration)
-
-        if pb.HasField('dots'):
-            if pb.dots > note.max_allowed_dots:
-                raise ValueError("Too many dots on note")
-            note.dots = pb.dots
-
-        if pb.HasField('tuplet'):
-            if pb.tuplet not in (0, 3, 5):
-                raise ValueError("Invalid tuplet type")
-            note.tuplet = pb.tuplet
-
-commands.Command.register_command(ChangeNote)
+        if pb.HasField('set_transpose_octaves'):
+            track.transpose_octaves = pb.set_transpose_octaves
 
 
-class InsertNote(commands.Command):
-    proto_type = 'insert_note'
-    proto_ext = commands_registry_pb2.insert_note
+class UpdateScoreMeasure(commands.Command):
+    proto_type = 'update_score_measure'
+    proto_ext = commands_registry_pb2.update_score_measure
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.InsertNote, pb)
-        measure = down_cast(ScoreMeasure, pool[self.proto.command.target])
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateScoreMeasure, self.pb)
+        measure = down_cast(ScoreMeasure, self.pool[pb.measure_id])
+
+        if pb.HasField('set_clef'):
+            measure.clef = model.Clef.from_proto(pb.set_clef)
+
+        if pb.HasField('set_key_signature'):
+            measure.key_signature = model.KeySignature.from_proto(pb.set_key_signature)
+
+
+class CreateNote(commands.Command):
+    proto_type = 'create_note'
+    proto_ext = commands_registry_pb2.create_note
+
+    def run(self) -> int:
+        pb = down_cast(commands_pb2.CreateNote, self.pb)
+        measure = down_cast(ScoreMeasure, self.pool[pb.measure_id])
 
         assert 0 <= pb.idx <= len(measure.notes)
-        note = pool.create(
+        note = self.pool.create(
             Note,
-            pitches=[model.Pitch(pb.pitch)],
+            pitches=[model.Pitch.from_proto(pb.pitch)],
             base_duration=audioproc.MusicalDuration.from_proto(pb.duration))
         measure.notes.insert(pb.idx, note)
 
-commands.Command.register_command(InsertNote)
+        return note.id
+
+
+class UpdateNote(commands.Command):
+    proto_type = 'update_note'
+    proto_ext = commands_registry_pb2.update_note
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateNote, self.pb)
+        note = down_cast(Note, self.pool[pb.note_id])
+
+        if pb.HasField('set_pitch'):
+            note.pitches[0] = model.Pitch.from_proto(pb.set_pitch)
+
+        if pb.HasField('add_pitch'):
+            pitch = model.Pitch.from_proto(pb.add_pitch)
+            if pitch not in note.pitches:
+                note.pitches.append(pitch)
+
+        if pb.HasField('remove_pitch'):
+            assert 0 <= pb.remove_pitch < len(note.pitches)
+            del note.pitches[pb.remove_pitch]
+
+        if pb.HasField('set_duration'):
+            note.base_duration = audioproc.MusicalDuration.from_proto(pb.set_duration)
+
+        if pb.HasField('set_dots'):
+            if pb.set_dots > note.max_allowed_dots:
+                raise ValueError("Too many dots on note")
+            note.dots = pb.set_dots
+
+        if pb.HasField('set_tuplet'):
+            if pb.set_tuplet not in (0, 3, 5):
+                raise ValueError("Invalid tuplet type")
+            note.tuplet = pb.set_tuplet
+
+        if pb.HasField('set_accidental'):
+            assert 0 <= pb.set_accidental.pitch_idx < len(note.pitches)
+            note.pitches[pb.set_accidental.pitch_idx] = (
+                note.pitches[pb.set_accidental.pitch_idx].add_accidental(
+                    pb.set_accidental.accidental))
+
+        if pb.HasField('transpose'):
+            for pidx, pitch in enumerate(note.pitches):
+                note.pitches[pidx] = pitch.transposed(
+                    half_notes=pb.transpose % 12,
+                    octaves=pb.transpose // 12)
 
 
 class DeleteNote(commands.Command):
     proto_type = 'delete_note'
     proto_ext = commands_registry_pb2.delete_note
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.DeleteNote, pb)
-        measure = down_cast(ScoreMeasure, pool[self.proto.command.target])
-
-        assert 0 <= pb.idx < len(measure.notes)
-        del measure.notes[pb.idx]
-
-commands.Command.register_command(DeleteNote)
-
-
-class AddPitch(commands.Command):
-    proto_type = 'add_pitch'
-    proto_ext = commands_registry_pb2.add_pitch
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.AddPitch, pb)
-        measure = down_cast(ScoreMeasure, pool[self.proto.command.target])
-
-        assert 0 <= pb.idx < len(measure.notes)
-        note = measure.notes[pb.idx]
-        pitch = model.Pitch(pb.pitch)
-        if pitch not in note.pitches:
-            note.pitches.append(pitch)
-
-commands.Command.register_command(AddPitch)
-
-
-class RemovePitch(commands.Command):
-    proto_type = 'remove_pitch'
-    proto_ext = commands_registry_pb2.remove_pitch
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.RemovePitch, pb)
-        measure = down_cast(ScoreMeasure, pool[self.proto.command.target])
-
-        assert 0 <= pb.idx < len(measure.notes)
-        note = measure.notes[pb.idx]
-        assert 0 <= pb.pitch_idx < len(note.pitches)
-        del note.pitches[pb.pitch_idx]
-
-commands.Command.register_command(RemovePitch)
-
-
-class SetClef(commands.Command):
-    proto_type = 'set_clef'
-    proto_ext = commands_registry_pb2.set_clef
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.SetClef, pb)
-        track = down_cast(ScoreTrack, pool[self.proto.command.target])
-
-        for measure_id in pb.measure_ids:
-            measure = down_cast(ScoreMeasure, pool[measure_id])
-            assert measure.is_child_of(track)
-            measure.clef = model.Clef.from_proto(pb.clef)
-
-commands.Command.register_command(SetClef)
-
-
-class SetKeySignature(commands.Command):
-    proto_type = 'set_key_signature'
-    proto_ext = commands_registry_pb2.set_key_signature
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.SetKeySignature, pb)
-        track = down_cast(ScoreTrack, pool[self.proto.command.target])
-
-        for measure_id in pb.measure_ids:
-            measure = down_cast(ScoreMeasure, pool[measure_id])
-            assert measure.is_child_of(track)
-            measure.key_signature = model.KeySignature.from_proto(pb.key_signature)
-
-commands.Command.register_command(SetKeySignature)
-
-
-class SetAccidental(commands.Command):
-    proto_type = 'set_accidental'
-    proto_ext = commands_registry_pb2.set_accidental
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.SetAccidental, pb)
-        measure = down_cast(ScoreMeasure, pool[self.proto.command.target])
-
-        assert 0 <= pb.idx < len(measure.notes)
-        note = measure.notes[pb.idx]
-        assert 0 <= pb.pitch_idx < len(note.pitches)
-
-        note.pitches[pb.pitch_idx] = note.pitches[pb.pitch_idx].add_accidental(pb.accidental)
-
-commands.Command.register_command(SetAccidental)
-
-
-class TransposeNotes(commands.Command):
-    proto_type = 'transpose_notes'
-    proto_ext = commands_registry_pb2.transpose_notes
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.TransposeNotes, pb)
-        track = down_cast(ScoreTrack, pool[self.proto.command.target])
-
-        for note_id in pb.note_ids:
-            note = down_cast(Note, pool[note_id])
-            assert note.is_child_of(track)
-
-            for pidx, pitch in enumerate(note.pitches):
-                note.pitches[pidx] = pitch.transposed(
-                    half_notes=pb.half_notes % 12,
-                    octaves=pb.half_notes // 12)
-
-commands.Command.register_command(TransposeNotes)
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.DeleteNote, self.pb)
+        note = down_cast(Note, self.pool[pb.note_id])
+        measure = note.measure
+        del measure.notes[note.index]
 
 
 class Note(pmodel.ProjectChild, score_track_model.Note, pmodel.ObjectBase):

@@ -27,20 +27,22 @@ import "noisicaa/model/project.proto";
 
 package noisicaa.pb;
 
-message AddSample {
-  optional MusicalTime time = 1;
-  optional string path = 2;
-}
-
-message RemoveSample {
-  optional uint64 sample_id = 1;
-}
-
-message MoveSample {
-  optional uint64 sample_id = 1;
+message CreateSample {
+  required uint64 track_id = 1;
   optional MusicalTime time = 2;
+  optional string path = 3;
+}
+
+message UpdateSample {
+  required uint64 sample_id = 1;
+  optional MusicalTime set_time = 2;
+}
+
+message DeleteSample {
+  required uint64 sample_id = 1;
 }
 
 message RenderSample {
-  optional Fraction scale_x = 1;
+  required uint64 sample_id = 1;
+  optional Fraction scale_x = 2;
 }

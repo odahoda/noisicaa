@@ -20,102 +20,89 @@
 #
 # @end:license
 
-from typing import Sequence
+from typing import Tuple
 
 from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
+from . import client_impl
 
-def change_note(
-        track_id: int, *,
-        idx: int,
-        pitch: model.Pitch = None,
-        duration: audioproc.MusicalDuration = None,
-        dots: int = None,
-        tuplet: int = None
+
+def update(
+        track: client_impl.ScoreTrack, *,
+        set_transpose_octaves: int = None
 ) -> music.Command:
-    cmd = music.Command(target=track_id, command='change_note')
-    pb = cmd.Extensions[commands_registry_pb2.change_note]
-    pb.idx = idx
-    if pitch is not None:
-        pb.pitch = str(pitch)
-    if duration is not None:
-        pb.duration.CopyFrom(duration.to_proto())
-    if dots is not None:
-        pb.dots = dots
-    if tuplet is not None:
-        pb.tuplet = tuplet
+    cmd = music.Command(command='update_score_track')
+    pb = cmd.Extensions[commands_registry_pb2.update_score_track]
+    pb.track_id = track.id
+    if set_transpose_octaves is not None:
+        pb.set_transpose_octaves = set_transpose_octaves
     return cmd
 
-def insert_note(
-        track_id: int, *, idx: int, pitch: model.Pitch, duration: audioproc.MusicalDuration
+def update_measure(
+        measure: client_impl.ScoreMeasure, *,
+        set_clef: model.Clef = None,
+        set_key_signature: model.KeySignature = None
 ) -> music.Command:
-    cmd = music.Command(target=track_id, command='insert_note')
-    pb = cmd.Extensions[commands_registry_pb2.insert_note]
+    cmd = music.Command(command='update_score_measure')
+    pb = cmd.Extensions[commands_registry_pb2.update_score_measure]
+    pb.measure_id = measure.id
+    if set_clef is not None:
+        pb.set_clef.CopyFrom(set_clef.to_proto())
+    if set_key_signature is not None:
+        pb.set_key_signature.CopyFrom(set_key_signature.to_proto())
+    return cmd
+
+def create_note(
+        measure: client_impl.ScoreMeasure, *,
+        idx: int,
+        pitch: model.Pitch,
+        duration: audioproc.MusicalDuration
+) -> music.Command:
+    cmd = music.Command(command='create_note')
+    pb = cmd.Extensions[commands_registry_pb2.create_note]
+    pb.measure_id = measure.id
     pb.idx = idx
-    pb.pitch = str(pitch)
+    pb.pitch.CopyFrom(pitch.to_proto())
     pb.duration.CopyFrom(duration.to_proto())
     return cmd
 
-def delete_note(
-        track_id: int, *, idx: int) -> music.Command:
-    cmd = music.Command(target=track_id, command='delete_note')
+def update_note(
+        note: client_impl.Note, *,
+        set_pitch: model.Pitch = None,
+        add_pitch: model.Pitch = None,
+        remove_pitch: int = None,
+        set_duration: audioproc.MusicalDuration = None,
+        set_dots: int = None,
+        set_tuplet: int = None,
+        set_accidental: Tuple[int, str] = None,
+        transpose: int = None,
+) -> music.Command:
+    cmd = music.Command(command='update_note')
+    pb = cmd.Extensions[commands_registry_pb2.update_note]
+    pb.note_id = note.id
+    if set_pitch is not None:
+        pb.set_pitch.CopyFrom(set_pitch.to_proto())
+    if add_pitch is not None:
+        pb.add_pitch.CopyFrom(add_pitch.to_proto())
+    if remove_pitch is not None:
+        pb.remove_pitch = remove_pitch
+    if set_duration is not None:
+        pb.set_duration.CopyFrom(set_duration.to_proto())
+    if set_dots is not None:
+        pb.set_dots = set_dots
+    if set_tuplet is not None:
+        pb.set_tuplet = set_tuplet
+    if set_accidental is not None:
+        pb.set_accidental.pitch_idx = set_accidental[0]
+        pb.set_accidental.accidental = set_accidental[1]
+    if transpose is not None:
+        pb.transpose = transpose
+    return cmd
+
+def delete_note(note: client_impl.Note) -> music.Command:
+    cmd = music.Command(command='delete_note')
     pb = cmd.Extensions[commands_registry_pb2.delete_note]
-    pb.idx = idx
-    return cmd
-
-def add_pitch(
-        track_id: int, *, idx: int, pitch: model.Pitch) -> music.Command:
-    cmd = music.Command(target=track_id, command='add_pitch')
-    pb = cmd.Extensions[commands_registry_pb2.add_pitch]
-    pb.idx = idx
-    pb.pitch = str(pitch)
-    return cmd
-
-def remove_pitch(
-        track_id: int, *, idx: int, pitch_idx: int) -> music.Command:
-    cmd = music.Command(target=track_id, command='remove_pitch')
-    pb = cmd.Extensions[commands_registry_pb2.remove_pitch]
-    pb.idx = idx
-    pb.pitch_idx = pitch_idx
-    return cmd
-
-def set_clef(
-        track_id: int, *,
-        measure_ids: Sequence[int],
-        clef: model.Clef
-) -> music.Command:
-    cmd = music.Command(target=track_id, command='set_clef')
-    pb = cmd.Extensions[commands_registry_pb2.set_clef]
-    pb.measure_ids[:] = measure_ids
-    pb.clef.CopyFrom(clef.to_proto())
-    return cmd
-
-def set_key_signature(
-        track_id: int, *,
-        measure_ids: Sequence[int],
-        key_signature: model.KeySignature
-) -> music.Command:
-    cmd = music.Command(target=track_id, command='set_key_signature')
-    pb = cmd.Extensions[commands_registry_pb2.set_key_signature]
-    pb.measure_ids[:] = measure_ids
-    pb.key_signature.CopyFrom(key_signature.to_proto())
-    return cmd
-
-def set_accidental(
-        track_id: int, *, idx: int, pitch_idx: int, accidental: str) -> music.Command:
-    cmd = music.Command(target=track_id, command='set_accidental')
-    pb = cmd.Extensions[commands_registry_pb2.set_accidental]
-    pb.idx = idx
-    pb.pitch_idx = pitch_idx
-    pb.accidental = accidental
-    return cmd
-
-def transpose_notes(
-        track_id: int, *, note_ids: Sequence[int], half_notes: int) -> music.Command:
-    cmd = music.Command(target=track_id, command='transpose_notes')
-    pb = cmd.Extensions[commands_registry_pb2.transpose_notes]
-    pb.note_ids[:] = note_ids
-    pb.half_notes = half_notes
+    pb.note_id = note.id
     return cmd

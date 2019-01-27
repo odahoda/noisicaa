@@ -24,7 +24,7 @@ from noisicaa.music import pmodel_test
 from . import server_impl
 
 
-class InstrumentTest(pmodel_test.BasePipelineGraphNodeMixin, pmodel_test.ModelTest):
+class InstrumentTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
     cls = server_impl.Instrument
     create_args = {'name': 'test'}
 

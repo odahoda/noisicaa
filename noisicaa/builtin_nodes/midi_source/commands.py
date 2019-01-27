@@ -22,13 +22,19 @@
 
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
+from . import client_impl
+
 
 def update(
-        node_id: int, *, device_uri: str = None, channel_filter: int = None) -> music.Command:
-    cmd = music.Command(target=node_id, command='update_midi_source')
+        node: client_impl.MidiSource, *,
+        set_device_uri: str = None,
+        set_channel_filter: int = None
+) -> music.Command:
+    cmd = music.Command(command='update_midi_source')
     pb = cmd.Extensions[commands_registry_pb2.update_midi_source]
-    if device_uri is not None:
-        pb.device_uri = device_uri
-    if channel_filter is not None:
-        pb.channel_filter = channel_filter
+    pb.node_id = node.id
+    if set_device_uri is not None:
+        pb.set_device_uri = set_device_uri
+    if set_channel_filter is not None:
+        pb.set_channel_filter = set_channel_filter
     return cmd

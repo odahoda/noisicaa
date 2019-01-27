@@ -38,7 +38,7 @@ class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestC
 
         self.project = demo_project.empty(self.pool, project.BaseProject, node_db=self.node_db)
         self.track = self.pool.create(server_impl.ControlTrack, name='test')
-        self.project.pipeline_graph_nodes.append(self.track)
+        self.project.nodes.append(self.track)
 
         self.messages = []  # type: List[str]
 

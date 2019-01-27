@@ -32,7 +32,6 @@ from noisicaa.constants import TEST_OPTS
 from . import project_client
 from . import project_client_model
 from . import render_settings_pb2
-from . import commands_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -90,13 +89,16 @@ class ProjectClientTest(ProjectClientTestBase):
     async def test_call_command(self):
         await self.client.create_inmemory()
         project = self.client.project
-        num_nodes = len(project.pipeline_graph_nodes)
-        await self.client.send_command(commands_pb2.Command(
-            target=project.id,
-            command='add_pipeline_graph_node',
-            add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
-                uri='builtin://score-track')))
-        self.assertEqual(len(project.pipeline_graph_nodes), num_nodes + 1)
+        num_nodes = len(project.nodes)
+        await self.client.send_command(project_client.create_node(
+            'builtin://score-track'))
+        self.assertEqual(len(project.nodes), num_nodes + 1)
+
+    async def test_client_error(self):
+        await self.client.create_inmemory()
+        with self.assertRaises(ipc.RemoteException):
+            await self.client.send_command(project_client.create_node(
+                'does-not-exist'))
 
 
 class RenderTest(ProjectClientTestBase):

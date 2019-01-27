@@ -29,7 +29,7 @@ from noisicaa.builtin_nodes import model_registry_pb2
 from . import node_description
 
 
-class MidiSource(model.BasePipelineGraphNode):
+class MidiSource(model.BaseNode):
     class MidiSourceSpec(model.ObjectSpec):
         proto_type = 'midi_source'
         proto_ext = model_registry_pb2.midi_source

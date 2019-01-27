@@ -199,6 +199,10 @@ class PropertyChangeCollector(object):
             else:
                 new_value = change.new_value
             self.changes.append(('insert', change.index, new_value))
+        elif isinstance(change, model_base.PropertyListSet):
+            assert not isinstance(change.old_value, model_base.ObjectBase)
+            assert not isinstance(change.new_value, model_base.ObjectBase)
+            self.changes.append(('set', change.index, change.old_value, change.new_value))
         else:
             raise TypeError(type(change).__name__)
 
@@ -900,6 +904,8 @@ class ObjectListPropertyTest(unittest.TestCase):
 
 
 class ListMixin(object):
+    SUPPORTS_LIST_SET = True
+
     def create_list(self):
         raise NotImplementedError
 
@@ -953,10 +959,15 @@ class ListMixin(object):
 
         changes = PropertyChangeCollector(lst._instance, lst._prop_name)
         lst[0] = e2
-        self.assertEqual(
-            changes.changes,
-            [('delete', 0, value_or_id(e1)),
-             ('insert', 0, value_or_id(e2))])
+        if self.SUPPORTS_LIST_SET:
+            self.assertEqual(
+                changes.changes,
+                [('set', 0, value_or_id(e1), value_or_id(e2))])
+        else:
+            self.assertEqual(
+                changes.changes,
+                [('delete', 0, value_or_id(e1)),
+                 ('insert', 0, value_or_id(e2))])
 
         changes = PropertyChangeCollector(lst._instance, lst._prop_name)
         lst.insert(0, e3)
@@ -1095,6 +1106,8 @@ class WrappedProtoListTest(ListMixin, unittest.TestCase):
 
 
 class ObjectListTest(ListMixin, unittest.TestCase):
+    SUPPORTS_LIST_SET = False
+
     def setup_testcase(self):
         self.pool = Pool()
         for i in range(5):

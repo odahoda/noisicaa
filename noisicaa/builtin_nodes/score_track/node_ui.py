@@ -33,8 +33,9 @@ from noisicaa import model
 from noisicaa import music
 from noisicaa.constants import DATA_DIR
 from noisicaa.ui import ui_base
-from noisicaa.ui.pipeline_graph import track_node
+from noisicaa.ui.graph import track_node
 from . import client_impl
+from . import commands
 
 logger = logging.getLogger(__name__)
 
@@ -81,15 +82,13 @@ class ScoreTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def onTransposeOctavesEdited(self, transpose_octaves: int) -> None:
         if transpose_octaves != self.__track.transpose_octaves:
-            self.send_command_async(music.Command(
-                target=self.__track.id,
-                command='update_track_properties',
-                update_track_properties=music.UpdateTrackProperties(
-                    transpose_octaves=transpose_octaves)))
+            self.send_command_async(commands.update(
+                self.__track,
+                set_transpose_octaves=transpose_octaves))
 
 
 class ScoreTrackNode(track_node.TrackNode):
-    def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         assert isinstance(node, client_impl.ScoreTrack)
         self.__widget = None  # type: ScoreTrackWidget
         self.__track = node  # type: client_impl.ScoreTrack

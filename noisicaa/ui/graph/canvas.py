@@ -220,22 +220,22 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         self.__connections = []  # type: List[base_node.Connection]
         self.__connection_map = {}  # type: Dict[int, base_node.Connection]
 
-        for index, node in enumerate(self.project.pipeline_graph_nodes):
+        for index, node in enumerate(self.project.nodes):
             self.__addNode(node, index)
-        for index, connection in enumerate(self.project.pipeline_graph_connections):
+        for index, connection in enumerate(self.project.node_connections):
             self.__addConnection(connection, index)
 
-        self.__pipeline_graph_nodes_listener = self.project.pipeline_graph_nodes_changed.add(
-            self.__pipelineGraphNodesChange)
-        self.__pipeline_graph_connections_listener = (
-            self.project.pipeline_graph_connections_changed.add(
-                self.__pipelineGraphConnectionsChange))
+        self.__nodes_listener = self.project.nodes_changed.add(
+            self.__nodesChange)
+        self.__nodeh_connections_listener = (
+            self.project.node_connections_changed.add(
+                self.__nodeConnectionsChange))
 
         self.__updateContentRect()
         self.__layoutContent()
 
-    def __pipelineGraphNodesChange(
-            self, change: model.PropertyListChange[music.BasePipelineGraphNode]) -> None:
+    def __nodesChange(
+            self, change: model.PropertyListChange[music.BaseNode]) -> None:
         if isinstance(change, model.PropertyListInsert):
             self.__addNode(change.new_value, change.index)
 
@@ -248,7 +248,7 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         self.__updateContentRect()
         self.__layoutContent()
 
-    def __addNode(self, node: music.BasePipelineGraphNode, index: int) -> base_node.Node:
+    def __addNode(self, node: music.BaseNode, index: int) -> base_node.Node:
         node_cls = node_cls_map[node.description.node_ui.type]
         item = node_cls(node=node, context=self.context)
         item.props.contentRectChanged.connect(lambda _: self.__updateContentRect())
@@ -258,15 +258,15 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         item.setup()
         return item
 
-    def __removeNode(self, node: music.BasePipelineGraphNode, index: int) -> None:
+    def __removeNode(self, node: music.BaseNode, index: int) -> None:
         item = self.__nodes[index]
         item.cleanup()
         del self.__nodes[index]
         del self.__node_map[node.id]
         self.removeItem(item)
 
-    def __pipelineGraphConnectionsChange(
-            self, change: model.PropertyListChange[music.PipelineGraphConnection]) -> None:
+    def __nodeConnectionsChange(
+            self, change: model.PropertyListChange[music.NodeConnection]) -> None:
         if isinstance(change, model.PropertyListInsert):
             self.__addConnection(change.new_value, change.index)
 
@@ -277,7 +277,7 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
             raise TypeError(type(change))
 
     def __addConnection(
-            self, connection: music.PipelineGraphConnection, index: int) -> base_node.Connection:
+            self, connection: music.NodeConnection, index: int) -> base_node.Connection:
         item = base_node.Connection(
             connection=connection,
             src_node=self.__node_map[connection.source_node.id],
@@ -289,7 +289,7 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         return item
 
     def __removeConnection(
-            self, connection: music.PipelineGraphConnection, index: int) -> None:
+            self, connection: music.NodeConnection, index: int) -> None:
         item = self.__connections[index]
         item.cleanup()
         del self.__connections[index]
@@ -413,17 +413,14 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
              and conn.source_port == src_port.name()
              and conn.dest_node.id == dest_node.id()
              and conn.dest_port == dest_port.name())
-            for conn in self.project.pipeline_graph_connections)
+            for conn in self.project.node_connections)
 
         if not already_exists:
-            self.send_command_async(music.Command(
-                target=self.project.id,
-                command='add_pipeline_graph_connection',
-                add_pipeline_graph_connection=music.AddPipelineGraphConnection(
-                    source_node_id=src_node.id(),
-                    source_port_name=src_port.name(),
-                    dest_node_id=dest_node.id(),
-                    dest_port_name=dest_port.name())))
+            self.send_command_async(music.create_node_connection(
+                source_node=src_node.node(),
+                source_port=src_port.name(),
+                dest_node=dest_node.node(),
+                dest_port=dest_port.name()))
 
     def selectAllNodes(self) -> None:
         for node in self.__nodes:
@@ -434,14 +431,11 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
             node.setSelected(False)
 
     def insertNode(self, uri: str, pos: QtCore.QPointF) -> None:
-        self.send_command_async(music.Command(
-            target=self.project.id,
-            command='add_pipeline_graph_node',
-            add_pipeline_graph_node=music.AddPipelineGraphNode(
-                uri=uri,
-                graph_pos=model.Pos2F(pos.x(), pos.y()).to_proto(),
-                graph_size=model.SizeF(200, 100).to_proto(),
-                graph_color=model.Color(0.8, 0.8, 0.8).to_proto())))
+        self.send_command_async(music.create_node(
+            uri,
+            graph_pos=model.Pos2F(pos.x(), pos.y()),
+            graph_size=model.SizeF(200, 100),
+            graph_color=model.Color(0.8, 0.8, 0.8)))
 
 
 class Zoom(object):
@@ -1097,16 +1091,16 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             mevent = cast(QtGui.QMouseEvent, event)
 
             if mevent.button() == Qt.LeftButton:
+                commands = []
                 for node in state.nodes:
                     content_pos = self.__scene.sceneToContentPoint(node.canvasTopLeft())
                     new_graph_pos = model.Pos2F(content_pos.x(), content_pos.y())
                     if new_graph_pos != node.graph_pos():
-                        self.send_command_async(music.Command(
-                            target=node.id(),
-                            command='change_pipeline_graph_node',
-                            change_pipeline_graph_node=music.ChangePipelineGraphNode(
-                                graph_pos=new_graph_pos.to_proto())))
+                        commands.append(music.update_node(
+                            node.node(),
+                            set_graph_pos=new_graph_pos))
 
+                self.send_commands_async(*commands)
                 self.__current_state = None
                 event.accept()
                 return
@@ -1168,12 +1162,10 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                 new_graph_size = model.SizeF(content_rect.width(), content_rect.height())
                 if (new_graph_pos != state.node.graph_pos()
                         or new_graph_size != state.node.graph_size()):
-                    self.send_command_async(music.Command(
-                        target=state.node.id(),
-                        command='change_pipeline_graph_node',
-                        change_pipeline_graph_node=music.ChangePipelineGraphNode(
-                            graph_pos=new_graph_pos.to_proto(),
-                            graph_size=new_graph_size.to_proto())))
+                    self.send_command_async(music.update_node(
+                        state.node.node(),
+                        set_graph_pos=new_graph_pos,
+                        set_graph_size=new_graph_size))
 
                 self.__current_state = None
                 event.accept()
@@ -1321,11 +1313,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             if mevent.button() == Qt.LeftButton:
                 if state.dest_port is None:
                     # drop connection
-                    self.send_command_async(music.Command(
-                        target=self.project.id,
-                        command='remove_pipeline_graph_connection',
-                        remove_pipeline_graph_connection=music.RemovePipelineGraphConnection(
-                            connection_id=state.orig_connection.id())))
+                    self.send_command_async(music.delete_node_connection(
+                        state.orig_connection.connection()))
 
                 elif (state.dest_port is state.orig_connection.dest_port()
                       or state.dest_port is state.orig_connection.src_port()):
@@ -1334,11 +1323,9 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
 
                 elif state.dest_port is not None:
                     # change
-                    self.send_command_async(music.Command(
-                        target=self.project.id,
-                        command='remove_pipeline_graph_connection',
-                        remove_pipeline_graph_connection=music.RemovePipelineGraphConnection(
-                            connection_id=state.orig_connection.id())))
+                    # TODO: this should be a sequence [delete, create]
+                    self.send_command_async(music.delete_node_connection(
+                        state.orig_connection.connection()))
 
                     self.__scene.connectPorts(state.src_port, state.dest_port)
 

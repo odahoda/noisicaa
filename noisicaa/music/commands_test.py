@@ -36,7 +36,7 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class CommandsTestMixin(unittest_mixins.ProcessManagerMixin):
+class CommandsTestMixin(unittest_mixins.NodeDBMixin, unittest_mixins.ProcessManagerMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -52,7 +52,7 @@ class CommandsTestMixin(unittest_mixins.ProcessManagerMixin):
             'CREATE_PROJECT_PROCESS', 'test-project')
 
         self.client = project_client.ProjectClient(
-            event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
+            event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR, node_db=self.node_db)
         await self.client.setup()
         await self.client.connect(project_address)
 

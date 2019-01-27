@@ -24,31 +24,42 @@ from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
+from . import client_impl
 
-def set_beat_track_pitch(
-        node_id: int, *, pitch: model.Pitch) -> music.Command:
-    cmd = music.Command(target=node_id, command='set_beat_track_pitch')
-    pb = cmd.Extensions[commands_registry_pb2.set_beat_track_pitch]
-    pb.pitch.CopyFrom(pitch.to_proto())
+
+def update(
+        track: client_impl.BeatTrack, *, set_pitch: model.Pitch = None) -> music.Command:
+    cmd = music.Command(command='update_beat_track')
+    pb = cmd.Extensions[commands_registry_pb2.update_beat_track]
+    pb.track_id = track.id
+    if set_pitch is not None:
+        pb.set_pitch.CopyFrom(set_pitch.to_proto())
     return cmd
 
-def set_beat_velocity(
-        node_id: int, *, velocity: int) -> music.Command:
-    cmd = music.Command(target=node_id, command='set_beat_velocity')
-    pb = cmd.Extensions[commands_registry_pb2.set_beat_velocity]
-    pb.velocity = velocity
-    return cmd
-
-def add_beat(
-        node_id: int, *, time: audioproc.MusicalTime) -> music.Command:
-    cmd = music.Command(target=node_id, command='add_beat')
-    pb = cmd.Extensions[commands_registry_pb2.add_beat]
+def create_beat(
+        measure: client_impl.BeatMeasure, *,
+        time: audioproc.MusicalTime,
+        velocity: int = None
+) -> music.Command:
+    cmd = music.Command(command='create_beat')
+    pb = cmd.Extensions[commands_registry_pb2.create_beat]
+    pb.measure_id = measure.id
     pb.time.CopyFrom(time.to_proto())
+    if velocity is not None:
+        pb.velocity = velocity
     return cmd
 
-def remove_beat(
-        node_id: int, *, beat_id: int) -> music.Command:
-    cmd = music.Command(target=node_id, command='remove_beat')
-    pb = cmd.Extensions[commands_registry_pb2.remove_beat]
-    pb.beat_id = beat_id
+def update_beat(
+        beat: client_impl.Beat, *, set_velocity: int = None) -> music.Command:
+    cmd = music.Command(command='update_beat')
+    pb = cmd.Extensions[commands_registry_pb2.update_beat]
+    pb.beat_id = beat.id
+    if set_velocity is not None:
+        pb.set_velocity = set_velocity
+    return cmd
+
+def delete_beat(beat: client_impl.Beat) -> music.Command:
+    cmd = music.Command(command='delete_beat')
+    pb = cmd.Extensions[commands_registry_pb2.delete_beat]
+    pb.beat_id = beat.id
     return cmd

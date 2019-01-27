@@ -38,7 +38,7 @@ class ScoreTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCas
 
     def test_foo(self):
         pr = demo_project.basic(self.pool, project.BaseProject, node_db=self.node_db)
-        tr = pr.pipeline_graph_nodes[-1]
+        tr = pr.nodes[-1]
 
         messages = []  # type: List[str]
 

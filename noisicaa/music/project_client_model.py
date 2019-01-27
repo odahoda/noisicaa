@@ -38,11 +38,7 @@ class ProjectChild(model.ProjectChild, ObjectBase):
         return down_cast(Project, super().project)
 
 
-class PipelineGraphControlValue(ProjectChild, model.PipelineGraphControlValue, ObjectBase):
-    pass
-
-
-class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBase):  # pylint: disable=abstract-method
+class BaseNode(ProjectChild, model.BaseNode, ObjectBase):  # pylint: disable=abstract-method
     @property
     def name(self) -> str:
         return self.get_property_value('name')
@@ -65,18 +61,17 @@ class BasePipelineGraphNode(ProjectChild, model.BasePipelineGraphNode, ObjectBas
 
 
 
-class PipelineGraphNode(BasePipelineGraphNode, model.PipelineGraphNode, ObjectBase):
+class Node(BaseNode, model.Node, ObjectBase):
     @property
     def node_uri(self) -> str:
         return self.get_property_value('node_uri')
 
 
-class SystemOutPipelineGraphNode(
-        BasePipelineGraphNode, model.SystemOutPipelineGraphNode, ObjectBase):
+class SystemOutNode(BaseNode, model.SystemOutNode, ObjectBase):
     pass
 
 
-class Track(BasePipelineGraphNode, model.Track, ObjectBase):  # pylint: disable=abstract-method
+class Track(BaseNode, model.Track, ObjectBase):  # pylint: disable=abstract-method
     @property
     def visible(self) -> bool:
         return self.get_property_value('visible')
@@ -108,9 +103,9 @@ class MeasuredTrack(Track, model.MeasuredTrack, ObjectBase):  # pylint: disable=
         return self.get_property_value('measure_heap')
 
 
-class PipelineGraphConnection(ProjectChild, model.PipelineGraphConnection, ObjectBase):
+class NodeConnection(ProjectChild, model.NodeConnection, ObjectBase):
     @property
-    def source_node(self) -> BasePipelineGraphNode:
+    def source_node(self) -> BaseNode:
         return self.get_property_value('source_node')
 
     @property
@@ -118,7 +113,7 @@ class PipelineGraphConnection(ProjectChild, model.PipelineGraphConnection, Objec
         return self.get_property_value('source_port')
 
     @property
-    def dest_node(self) -> BasePipelineGraphNode:
+    def dest_node(self) -> BaseNode:
         return self.get_property_value('dest_node')
 
     @property
@@ -162,12 +157,12 @@ class Project(model.Project, ObjectBase):
         return self.get_property_value('metadata')
 
     @property
-    def pipeline_graph_nodes(self) -> Sequence[BasePipelineGraphNode]:
-        return self.get_property_value('pipeline_graph_nodes')
+    def nodes(self) -> Sequence[BaseNode]:
+        return self.get_property_value('nodes')
 
     @property
-    def pipeline_graph_connections(self) -> Sequence[PipelineGraphConnection]:
-        return self.get_property_value('pipeline_graph_connections')
+    def node_connections(self) -> Sequence[NodeConnection]:
+        return self.get_property_value('node_connections')
 
     @property
     def samples(self) -> Sequence[Sample]:

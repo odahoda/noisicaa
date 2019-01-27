@@ -23,38 +23,61 @@
 from typing import Dict, Type
 
 from noisicaa import model
-from noisicaa.music import pipeline_graph
-from .score_track.server_impl import Note, ScoreMeasure, ScoreTrack
-from .beat_track.server_impl import Beat, BeatMeasure, BeatTrack
-from .control_track.server_impl import ControlPoint, ControlTrack
-from .sample_track.server_impl import SampleRef, SampleTrack
-from .instrument.server_impl import Instrument
-from .custom_csound.server_impl import CustomCSound
-from .midi_source.server_impl import MidiSource
+from noisicaa.music import commands
+from noisicaa.music import graph
+from .score_track import server_impl as score_track
+from .beat_track import server_impl as beat_track
+from .control_track import server_impl as control_track
+from .sample_track import server_impl as sample_track
+from .instrument import server_impl as instrument
+from .custom_csound import server_impl as custom_csound
+from .midi_source import server_impl as midi_source
 
 
 node_cls_map = {
-    'builtin://score-track': ScoreTrack,
-    'builtin://beat-track': BeatTrack,
-    'builtin://control-track': ControlTrack,
-    'builtin://sample-track': SampleTrack,
-    'builtin://instrument': Instrument,
-    'builtin://custom-csound': CustomCSound,
-    'builtin://midi-source': MidiSource,
-}  # type: Dict[str, Type[pipeline_graph.BasePipelineGraphNode]]
+    'builtin://score-track': score_track.ScoreTrack,
+    'builtin://beat-track': beat_track.BeatTrack,
+    'builtin://control-track': control_track.ControlTrack,
+    'builtin://sample-track': sample_track.SampleTrack,
+    'builtin://instrument': instrument.Instrument,
+    'builtin://custom-csound': custom_csound.CustomCSound,
+    'builtin://midi-source': midi_source.MidiSource,
+}  # type: Dict[str, Type[graph.BaseNode]]
 
 
 def register_classes(pool: model.AbstractPool) -> None:
-    pool.register_class(Note)
-    pool.register_class(ScoreMeasure)
-    pool.register_class(ScoreTrack)
-    pool.register_class(Beat)
-    pool.register_class(BeatMeasure)
-    pool.register_class(BeatTrack)
-    pool.register_class(ControlPoint)
-    pool.register_class(ControlTrack)
-    pool.register_class(SampleRef)
-    pool.register_class(SampleTrack)
-    pool.register_class(Instrument)
-    pool.register_class(CustomCSound)
-    pool.register_class(MidiSource)
+    pool.register_class(score_track.Note)
+    pool.register_class(score_track.ScoreMeasure)
+    pool.register_class(score_track.ScoreTrack)
+    pool.register_class(beat_track.Beat)
+    pool.register_class(beat_track.BeatMeasure)
+    pool.register_class(beat_track.BeatTrack)
+    pool.register_class(control_track.ControlPoint)
+    pool.register_class(control_track.ControlTrack)
+    pool.register_class(sample_track.SampleRef)
+    pool.register_class(sample_track.SampleTrack)
+    pool.register_class(instrument.Instrument)
+    pool.register_class(custom_csound.CustomCSound)
+    pool.register_class(midi_source.MidiSource)
+
+
+def register_commands(registry: commands.CommandRegistry) -> None:
+    registry.register(score_track.UpdateScoreTrack)
+    registry.register(score_track.UpdateScoreMeasure)
+    registry.register(score_track.CreateNote)
+    registry.register(score_track.UpdateNote)
+    registry.register(score_track.DeleteNote)
+    registry.register(beat_track.UpdateBeatTrack)
+    registry.register(beat_track.CreateBeat)
+    registry.register(beat_track.UpdateBeat)
+    registry.register(beat_track.DeleteBeat)
+    registry.register(control_track.CreateControlPoint)
+    registry.register(control_track.UpdateControlPoint)
+    registry.register(control_track.DeleteControlPoint)
+    registry.register(sample_track.CreateSample)
+    registry.register(sample_track.DeleteSample)
+    registry.register(sample_track.UpdateSample)
+    registry.register(sample_track.RenderSample)
+    registry.register(instrument.UpdateInstrument)
+    registry.register(custom_csound.UpdateCustomCSound)
+    registry.register(midi_source.UpdateMidiSource)

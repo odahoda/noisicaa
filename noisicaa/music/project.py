@@ -20,11 +20,9 @@
 #
 # @end:license
 
-import itertools
 import logging
-from typing import cast, Any, Optional, Iterator, Dict, Type
-
-from google.protobuf import message as protobuf
+import time
+from typing import cast, Any, Optional, Iterator, Type
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa.core import storage as storage_lib
@@ -33,7 +31,7 @@ from noisicaa import model
 from noisicaa import node_db as node_db_lib
 from noisicaa.builtin_nodes import server_registry
 from . import pmodel
-from . import pipeline_graph
+from . import graph
 from . import commands
 from . import commands_pb2
 from . import base_track
@@ -42,180 +40,33 @@ from . import samples
 logger = logging.getLogger(__name__)
 
 
-class UpdateProjectProperties(commands.Command):
-    proto_type = 'update_project_properties'
+class UpdateProject(commands.Command):
+    proto_type = 'update_project'
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.UpdateProjectProperties, pb)
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateProject, self.pb)
 
-        if pb.HasField('bpm'):
-            project.bpm = pb.bpm
-
-commands.Command.register_command(UpdateProjectProperties)
+        if pb.HasField('set_bpm'):
+            self.pool.project.bpm = pb.set_bpm
 
 
-class SetNumMeasures(commands.Command):
-    proto_type = 'set_num_measures'
+# class SetNumMeasures(commands.Command):
+#     proto_type = 'set_num_measures'
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.SetNumMeasures, pb)
+#     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
+#         pb = down_cast(commands_pb2.SetNumMeasures, pb)
 
-        raise NotImplementedError
-        # for track in project.all_tracks:
-        #     if not isinstance(track, pmodel.MeasuredTrack):
-        #         continue
-        #     track = cast(base_track.MeasuredTrack, track)
+#         raise NotImplementedError
+#         # for track in project.all_tracks:
+#         #     if not isinstance(track, pmodel.MeasuredTrack):
+#         #         continue
+#         #     track = cast(base_track.MeasuredTrack, track)
 
-        #     while len(track.measure_list) < pb.num_measures:
-        #         track.append_measure()
+#         #     while len(track.measure_list) < pb.num_measures:
+#         #         track.append_measure()
 
-        #     while len(track.measure_list) > pb.num_measures:
-        #         track.remove_measure(len(track.measure_list) - 1)
-
-commands.Command.register_command(SetNumMeasures)
-
-
-class ClearMeasures(commands.Command):
-    proto_type = 'clear_measures'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.ClearMeasures, pb)
-
-        measure_references = [
-            cast(base_track.MeasureReference, pool[obj_id])
-            for obj_id in pb.measure_ids]
-        assert all(isinstance(obj, base_track.MeasureReference) for obj in measure_references)
-
-        affected_track_ids = set(obj.track.id for obj in measure_references)
-
-        for mref in measure_references:
-            track = cast(base_track.MeasuredTrack, mref.track)
-            measure = track.create_empty_measure(mref.measure)
-            track.measure_heap.append(measure)
-            mref.measure = measure
-
-        for track_id in affected_track_ids:
-            cast(base_track.MeasuredTrack, pool[track_id]).garbage_collect_measures()
-
-commands.Command.register_command(ClearMeasures)
-
-
-class PasteMeasures(commands.Command):
-    proto_type = 'paste_measures'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.PasteMeasures, pb)
-
-        target_measures = [
-            cast(pmodel.MeasureReference, pool[obj_id])
-            for obj_id in pb.target_ids]
-        assert all(isinstance(obj, pmodel.MeasureReference) for obj in target_measures)
-
-        affected_track_ids = set(obj.track.id for obj in target_measures)
-        assert len(affected_track_ids) == 1
-
-        if pb.mode == 'link':
-            for target, src_proto in zip(target_measures, itertools.cycle(pb.src_objs)):
-                src = down_cast(pmodel.Measure, pool[src_proto.root])
-                assert src.is_child_of(target.track)
-                target.measure = src
-
-        elif pb.mode == 'overwrite':
-            measure_map = {}  # type: Dict[int, pmodel.Measure]
-            for target, src_proto in zip(target_measures, itertools.cycle(pb.src_objs)):
-                try:
-                    measure = measure_map[src_proto.root]
-                except KeyError:
-                    measure = down_cast(pmodel.Measure, pool.clone_tree(src_proto))
-                    measure_map[src_proto.root] = measure
-                    cast(pmodel.MeasuredTrack, target.track).measure_heap.append(measure)
-
-                target.measure = measure
-
-        else:
-            raise ValueError(pb.mode)
-
-        for track_id in affected_track_ids:
-            cast(pmodel.MeasuredTrack, pool[track_id]).garbage_collect_measures()
-
-commands.Command.register_command(PasteMeasures)
-
-
-class AddPipelineGraphNode(commands.Command):
-    proto_type = 'add_pipeline_graph_node'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> int:
-        pb = down_cast(commands_pb2.AddPipelineGraphNode, pb)
-
-        node_desc = project.get_node_description(pb.uri)
-
-        kwargs = {
-            'name': pb.name or node_desc.display_name,
-            'graph_pos': model.Pos2F.from_proto(pb.graph_pos),
-            'graph_size': model.SizeF.from_proto(pb.graph_size),
-            'graph_color': model.Color.from_proto(pb.graph_color),
-        }
-
-        try:
-            node_cls = server_registry.node_cls_map[pb.uri]
-        except KeyError:
-            node_cls = pipeline_graph.PipelineGraphNode
-            kwargs['node_uri'] = pb.uri
-
-        node = pool.create(node_cls, id=None, **kwargs)
-        project.add_pipeline_graph_node(node)
-        return node.id
-
-commands.Command.register_command(AddPipelineGraphNode)
-
-
-class RemovePipelineGraphNode(commands.Command):
-    proto_type = 'remove_pipeline_graph_node'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.RemovePipelineGraphNode, pb)
-
-        node = down_cast(pmodel.BasePipelineGraphNode, pool[pb.node_id])
-        assert node.is_child_of(project)
-
-        project.remove_pipeline_graph_node(node)
-
-commands.Command.register_command(RemovePipelineGraphNode)
-
-
-class AddPipelineGraphConnection(commands.Command):
-    proto_type = 'add_pipeline_graph_connection'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> int:
-        pb = down_cast(commands_pb2.AddPipelineGraphConnection, pb)
-
-        source_node = down_cast(pmodel.BasePipelineGraphNode, pool[pb.source_node_id])
-        assert source_node.is_child_of(project)
-        dest_node = down_cast(pmodel.BasePipelineGraphNode, pool[pb.dest_node_id])
-        assert dest_node.is_child_of(project)
-
-        connection = pool.create(
-            pipeline_graph.PipelineGraphConnection,
-            source_node=source_node, source_port=pb.source_port_name,
-            dest_node=dest_node, dest_port=pb.dest_port_name)
-        project.add_pipeline_graph_connection(connection)
-        return connection.id
-
-commands.Command.register_command(AddPipelineGraphConnection)
-
-
-class RemovePipelineGraphConnection(commands.Command):
-    proto_type = 'remove_pipeline_graph_connection'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.RemovePipelineGraphConnection, pb)
-
-        connection = cast(pmodel.PipelineGraphConnection, pool[pb.connection_id])
-        assert connection.is_child_of(project)
-
-        project.remove_pipeline_graph_connection(connection)
-
-commands.Command.register_command(RemovePipelineGraphConnection)
+#         #     while len(track.measure_list) > pb.num_measures:
+#         #         track.remove_measure(len(track.measure_list) - 1)
 
 
 class Metadata(pmodel.Metadata):
@@ -227,15 +78,36 @@ class BaseProject(pmodel.Project):
         super().__init__(**kwargs)
         self.node_db = None  # type: node_db_lib.NodeDBClient
 
-    def create(self, *, node_db: Optional[node_db_lib.NodeDBClient] = None, **kwargs: Any) -> None:
+        self.command_registry = commands.CommandRegistry()
+        self.command_registry.register(UpdateProject)
+        self.command_registry.register(graph.CreateNode)
+        self.command_registry.register(graph.DeleteNode)
+        self.command_registry.register(graph.CreateNodeConnection)
+        self.command_registry.register(graph.DeleteNodeConnection)
+        self.command_registry.register(graph.UpdateNode)
+        self.command_registry.register(base_track.UpdateTrack)
+        self.command_registry.register(base_track.CreateMeasure)
+        self.command_registry.register(base_track.UpdateMeasure)
+        self.command_registry.register(base_track.DeleteMeasure)
+        self.command_registry.register(base_track.PasteMeasures)
+
+        server_registry.register_commands(self.command_registry)
+
+
+    def create(
+            self, *,
+            node_db: Optional[node_db_lib.NodeDBClient] = None,
+            **kwargs: Any
+    ) -> None:
         super().create(**kwargs)
         self.node_db = node_db
+
         self.metadata = self._pool.create(Metadata)
 
         system_out_node = self._pool.create(
-            pipeline_graph.SystemOutPipelineGraphNode,
+            graph.SystemOutNode,
             name="System Out", graph_pos=model.Pos2F(200, 0))
-        self.add_pipeline_graph_node(system_out_node)
+        self.add_node(system_out_node)
 
     def close(self) -> None:
         pass
@@ -243,59 +115,59 @@ class BaseProject(pmodel.Project):
     def get_node_description(self, uri: str) -> node_db_lib.NodeDescription:
         return self.node_db.get_node_description(uri)
 
-    def dispatch_command_proto(self, proto: commands_pb2.Command) -> Any:
-        return self.dispatch_command(commands.Command.create(proto))
+    def dispatch_command_sequence_proto(self, proto: commands_pb2.CommandSequence) -> Any:
+        return self.dispatch_command_sequence(commands.CommandSequence.create(proto))
 
-    def dispatch_command(self, cmd: commands.Command) -> Any:
-        result = cmd.apply(self, self._pool)
-        logger.info("Executed command %s (%d operations)", cmd, cmd.num_log_ops)
+    def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> Any:
+        result = sequence.apply(self.command_registry, self._pool)
+        logger.info(
+            "Executed command sequence %s (%d operations)",
+            sequence.command_names, sequence.num_log_ops)
         return result
 
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.pipeline_mutation.call(mutation)
 
-    def add_pipeline_graph_node(self, node: pmodel.BasePipelineGraphNode) -> None:
+    def add_node(self, node: pmodel.BaseNode) -> None:
         for mutation in node.get_add_mutations():
             self.handle_pipeline_mutation(mutation)
-        self.pipeline_graph_nodes.append(node)
+        self.nodes.append(node)
 
-    def remove_pipeline_graph_node(self, node: pmodel.BasePipelineGraphNode) -> None:
+    def remove_node(self, node: pmodel.BaseNode) -> None:
         delete_connections = set()
-        for cidx, connection in enumerate(
-                self.pipeline_graph_connections):
+        for cidx, connection in enumerate(self.node_connections):
             if connection.source_node is node:
                 delete_connections.add(cidx)
             if connection.dest_node is node:
                 delete_connections.add(cidx)
         for cidx in sorted(delete_connections, reverse=True):
-            self.remove_pipeline_graph_connection(
-                self.pipeline_graph_connections[cidx])
+            self.remove_node_connection(self.node_connections[cidx])
 
         for mutation in node.get_remove_mutations():
             self.handle_pipeline_mutation(mutation)
 
-        del self.pipeline_graph_nodes[node.index]
+        del self.nodes[node.index]
 
-    def add_pipeline_graph_connection(self, connection: pmodel.PipelineGraphConnection) -> None:
-        self.pipeline_graph_connections.append(connection)
+    def add_node_connection(self, connection: pmodel.NodeConnection) -> None:
+        self.node_connections.append(connection)
         for mutation in connection.get_add_mutations():
             self.handle_pipeline_mutation(mutation)
 
-    def remove_pipeline_graph_connection(self, connection: pmodel.PipelineGraphConnection) -> None:
+    def remove_node_connection(self, connection: pmodel.NodeConnection) -> None:
         for mutation in connection.get_remove_mutations():
             self.handle_pipeline_mutation(mutation)
-        del self.pipeline_graph_connections[connection.index]
+        del self.node_connections[connection.index]
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
-        for node in self.pipeline_graph_nodes:
+        for node in self.nodes:
             yield from node.get_add_mutations()
-        for connection in self.pipeline_graph_connections:
+        for connection in self.node_connections:
             yield from connection.get_add_mutations()
 
     def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
-        for connection in self.pipeline_graph_connections:
+        for connection in self.node_connections:
             yield from connection.get_remove_mutations()
-        for node in self.pipeline_graph_nodes:
+        for node in self.nodes:
             yield from node.get_remove_mutations()
 
 
@@ -303,29 +175,31 @@ class Project(BaseProject):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.storage = None  # type: storage_lib.ProjectStorage
+        self.__storage = None  # type: storage_lib.ProjectStorage
+        self.__latest_command_sequence = None  # type: commands.CommandSequence
+        self.__latest_command_time = None  # type: float
 
     def create(
             self, *, storage: Optional[storage_lib.ProjectStorage] = None, **kwargs: Any
     ) -> None:
         super().create(**kwargs)
 
-        self.storage = storage
+        self.__storage = storage
 
     @property
     def closed(self) -> bool:
-        return self.storage is None
+        return self.__storage is None
 
     @property
     def path(self) -> Optional[str]:
-        if self.storage:
-            return self.storage.path
+        if self.__storage:
+            return self.__storage.path
         return None
 
     @property
     def data_dir(self) -> Optional[str]:
-        if self.storage:
-            return self.storage.data_dir
+        if self.__storage:
+            return self.__storage.data_dir
         return None
 
     @classmethod
@@ -347,7 +221,7 @@ class Project(BaseProject):
         assert isinstance(project, Project)
 
         project.node_db = node_db
-        project.storage = storage
+        project.__storage = storage
 
         def validate_node(parent: Optional[pmodel.ObjectBase], node: pmodel.ObjectBase) -> None:
             assert node.parent is parent
@@ -359,16 +233,16 @@ class Project(BaseProject):
         validate_node(None, project)
 
         for action, log_number in actions:
-            cmd_data = storage.get_log_entry(log_number)
-            cmd = commands.Command.deserialize(cmd_data)
+            sequence_data = storage.get_log_entry(log_number)
+            sequence = commands.CommandSequence.deserialize(sequence_data)
             logger.info(
-                "Replay action %s of command %s (%d operations)",
-                action.name, cmd, cmd.num_log_ops)
+                "Replay action %s of command sequence %s (%d operations)",
+                action.name, sequence.command_names, sequence.num_log_ops)
 
             if action == storage_lib.ACTION_FORWARD:
-                cmd.redo(project, pool)
+                sequence.redo(pool)
             elif action == storage_lib.ACTION_BACKWARD:
-                cmd.undo(project, pool)
+                sequence.undo(pool)
             else:
                 raise ValueError("Unsupported action %s" % action)
 
@@ -392,9 +266,11 @@ class Project(BaseProject):
         return project
 
     def close(self) -> None:
-        if self.storage is not None:
-            self.storage.close()
-            self.storage = None
+        self.__flush_commands()
+
+        if self.__storage is not None:
+            self.__storage.close()
+            self.__storage = None
 
         self.reset_state()
 
@@ -402,24 +278,34 @@ class Project(BaseProject):
 
     def create_checkpoint(self) -> None:
         checkpoint_serialized = self.serialize_object(self)
-        self.storage.add_checkpoint(checkpoint_serialized)
+        self.__storage.add_checkpoint(checkpoint_serialized)
 
     def serialize_object(self, obj: model.ObjectBase) -> bytes:
         proto = obj.serialize()
         return proto.SerializeToString()
 
-    def dispatch_command(self, cmd: commands.Command) -> Any:
+    def __flush_commands(self) -> None:
+        if self.__latest_command_sequence is not None:
+            self.__storage.append_log_entry(self.__latest_command_sequence.serialize())
+            self.__latest_command_sequence = None
+
+        if self.__storage.logs_since_last_checkpoint > 1000:
+            self.create_checkpoint()
+
+    def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> Any:
         if self.closed:
             raise RuntimeError(
-                "Command %s executed on closed project." % cmd)
+                "Command sequence %s executed on closed project." % sequence.command_names)
 
-        result = super().dispatch_command(cmd)
+        result = super().dispatch_command_sequence(sequence)
 
-        if not cmd.is_noop:
-            self.storage.append_log_entry(cmd.serialize())
-
-            if self.storage.logs_since_last_checkpoint > 1000:
-                self.create_checkpoint()
+        if not sequence.is_noop:
+            if (self.__latest_command_sequence is None
+                    or time.time() - self.__latest_command_time > 4
+                    or not self.__latest_command_sequence.try_merge_with(sequence)):
+                self.__flush_commands()
+                self.__latest_command_sequence = sequence
+                self.__latest_command_time = time.time()
 
         return result
 
@@ -427,37 +313,45 @@ class Project(BaseProject):
         if self.closed:
             raise RuntimeError("Undo executed on closed project.")
 
-        if self.storage.can_undo:
-            action, cmd_data = self.storage.get_log_entry_to_undo()
-            cmd = commands.Command.deserialize(cmd_data)
-            logger.info("Undo command %s (%d operations)", cmd, cmd.num_log_ops)
+        self.__flush_commands()
+
+        if self.__storage.can_undo:
+            action, sequence_data = self.__storage.get_log_entry_to_undo()
+            sequence = commands.CommandSequence.deserialize(sequence_data)
+            logger.info(
+                "Undo command sequence %s (%d operations)",
+                sequence.command_names, sequence.num_log_ops)
 
             if action == storage_lib.ACTION_FORWARD:
-                cmd.redo(self, self._pool)
+                sequence.redo(self._pool)
             elif action == storage_lib.ACTION_BACKWARD:
-                cmd.undo(self, self._pool)
+                sequence.undo(self._pool)
             else:
                 raise ValueError("Unsupported action %s" % action)
 
-            self.storage.undo()
+            self.__storage.undo()
 
     def redo(self) -> None:
         if self.closed:
             raise RuntimeError("Redo executed on closed project.")
 
-        if self.storage.can_redo:
-            action, cmd_data = self.storage.get_log_entry_to_redo()
-            cmd = commands.Command.deserialize(cmd_data)
-            logger.info("Redo command %s (%d operations)", cmd, cmd.num_log_ops)
+        self.__flush_commands()
+
+        if self.__storage.can_redo:
+            action, sequence_data = self.__storage.get_log_entry_to_redo()
+            sequence = commands.CommandSequence.deserialize(sequence_data)
+            logger.info(
+                "Redo command sequence %s (%d operations)",
+                sequence.command_names, sequence.num_log_ops)
 
             if action == storage_lib.ACTION_FORWARD:
-                cmd.redo(self, self._pool)
+                sequence.redo(self._pool)
             elif action == storage_lib.ACTION_BACKWARD:
-                cmd.undo(self, self._pool)
+                sequence.undo(self._pool)
             else:
                 raise ValueError("Unsupported action %s" % action)
 
-            self.storage.redo()
+            self.__storage.redo()
 
 
 class Pool(pmodel.Pool):
@@ -472,9 +366,8 @@ class Pool(pmodel.Pool):
         self.register_class(Metadata)
         self.register_class(samples.Sample)
         self.register_class(base_track.MeasureReference)
-        self.register_class(pipeline_graph.SystemOutPipelineGraphNode)
-        self.register_class(pipeline_graph.PipelineGraphConnection)
-        self.register_class(pipeline_graph.PipelineGraphControlValue)
-        self.register_class(pipeline_graph.PipelineGraphNode)
+        self.register_class(graph.SystemOutNode)
+        self.register_class(graph.NodeConnection)
+        self.register_class(graph.Node)
 
         server_registry.register_classes(self)

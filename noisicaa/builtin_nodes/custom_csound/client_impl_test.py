@@ -30,11 +30,8 @@ from . import commands
 class CustomCSoundTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
 
     async def _add_node(self) -> client_impl.CustomCSound:
-        node_id = await self.client.send_command(music.Command(
-            target=self.project.id,
-            command='add_pipeline_graph_node',
-            add_pipeline_graph_node=music.AddPipelineGraphNode(
-                uri='builtin://custom-csound')))
+        node_id = await self.client.send_command(music.create_node(
+            'builtin://custom-csound'))
         return self.pool[node_id]
 
     async def test_add_node(self):
@@ -45,12 +42,12 @@ class CustomCSoundTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
         node = await self._add_node()
 
         await self.client.send_command(commands.update(
-            node.id, orchestra='blabla'))
+            node, set_orchestra='blabla'))
         self.assertEqual(node.orchestra, 'blabla')
 
     async def test_update_score(self):
         node = await self._add_node()
 
         await self.client.send_command(commands.update(
-            node.id, score='blabla'))
+            node, set_score='blabla'))
         self.assertEqual(node.score, 'blabla')

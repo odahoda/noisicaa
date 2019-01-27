@@ -23,6 +23,7 @@ add_python_package(
   model_base_test.py
   clef.py
   color.py
+  control_value.py
   key_signature.py
   key_signature_test.py
   pos2f.py

@@ -24,6 +24,6 @@ from noisidev import uitest
 from . import view
 
 
-class PipelineGraphTest(uitest.ProjectMixin, uitest.UITestCase):
+class GraphTest(uitest.ProjectMixin, uitest.UITestCase):
     def test_init(self):
-        view.PipelineGraphView(context=self.context)
+        view.GraphView(context=self.context)

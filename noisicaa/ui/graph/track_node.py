@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class TrackNode(base_node.Node):
-    def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(node=node, **kwargs)
 
         self.__track = cast(music.Track, node)
@@ -50,8 +50,6 @@ class TrackNode(base_node.Node):
         if visible == self.__track.visible:
             return
 
-        self.send_command_async(music.Command(
-            target=self.__track.id,
-            command='update_track',
-            update_track=music.UpdateTrack(
-                visible=visible)))
+        self.send_command_async(music.update_track(
+            self.__track,
+            set_visible=visible))

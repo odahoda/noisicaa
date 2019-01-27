@@ -33,7 +33,7 @@ from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import node_db
 from noisicaa import music
-from . import pipeline_graph
+from . import graph
 from . import ui_base
 from . import render_dialog
 from . import selection_set
@@ -75,20 +75,17 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
             project_view=self, player_state=self.__player_state,
             parent=self, context=self.context)
 
-        self.__pipeline_graph = pipeline_graph.PipelineGraphView(
-            parent=self, context=self.context)
+        self.__graph = graph.GraphView(parent=self, context=self.context)
 
-        self.__track_list.currentTrackChanged.connect(
-            self.__pipeline_graph.setCurrentTrack)
-        self.__pipeline_graph.currentTrackChanged.connect(
-            self.__track_list.setCurrentTrack)
+        self.__track_list.currentTrackChanged.connect(self.__graph.setCurrentTrack)
+        self.__graph.currentTrackChanged.connect(self.__track_list.setCurrentTrack)
 
         splitter = QtWidgets.QSplitter(self)
         splitter.setOrientation(Qt.Vertical)
         splitter.setHandleWidth(10)
         splitter.addWidget(self.__track_list)
         splitter.setCollapsible(0, False)
-        splitter.addWidget(self.__pipeline_graph)
+        splitter.addWidget(self.__graph)
 
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -275,8 +272,6 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
         dialog.setIntValue(self.project.bpm)
         dialog.setLabelText("BPM:")
         dialog.setWindowTitle("noisicaa - Set BPM")
-        dialog.accepted.connect(lambda: self.send_command_async(music.Command(
-            target=self.project.id,
-            command='update_project_properties',
-            update_project_properties=music.UpdateProjectProperties(bpm=dialog.intValue()))))
+        dialog.accepted.connect(lambda: self.send_command_async(music.update_project(
+            set_bpm=dialog.intValue())))
         dialog.show()

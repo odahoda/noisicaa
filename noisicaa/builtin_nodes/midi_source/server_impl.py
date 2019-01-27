@@ -24,13 +24,10 @@ import logging
 import typing
 from typing import Any, Optional, Dict, Callable
 
-from google.protobuf import message as protobuf
-
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa.music import pipeline_graph
+from noisicaa.music import graph
 from noisicaa.music import node_connector
-from noisicaa.music import pmodel
 from noisicaa.music import commands
 from noisicaa.builtin_nodes import commands_registry_pb2
 from . import commands_pb2
@@ -47,17 +44,15 @@ class UpdateMidiSource(commands.Command):
     proto_type = 'update_midi_source'
     proto_ext = commands_registry_pb2.update_midi_source
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.UpdateMidiSource, pb)
-        node = down_cast(MidiSource, pool[self.proto.command.target])
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateMidiSource, self.pb)
+        node = down_cast(MidiSource, self.pool[pb.node_id])
 
-        if pb.HasField('device_uri'):
-            node.device_uri = pb.device_uri
+        if pb.HasField('set_device_uri'):
+            node.device_uri = pb.set_device_uri
 
-        if pb.HasField('channel_filter'):
-            node.channel_filter = pb.channel_filter
-
-commands.Command.register_command(UpdateMidiSource)
+        if pb.HasField('set_channel_filter'):
+            node.channel_filter = pb.set_channel_filter
 
 
 class Connector(node_connector.NodeConnector):
@@ -92,7 +87,7 @@ class Connector(node_connector.NodeConnector):
         super().close()
 
 
-class MidiSource(model.MidiSource, pipeline_graph.BasePipelineGraphNode):
+class MidiSource(model.MidiSource, graph.BaseNode):
     def create(
             self, *,
             device_uri: Optional[str] = '',

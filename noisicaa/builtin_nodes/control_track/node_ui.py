@@ -27,7 +27,7 @@ import os.path
 from PyQt5 import QtSvg
 
 from noisicaa.constants import DATA_DIR
-from noisicaa.ui.pipeline_graph import track_node
+from noisicaa.ui.graph import track_node
 
 logger = logging.getLogger(__name__)
 

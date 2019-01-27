@@ -25,6 +25,7 @@ syntax = "proto2";
 package noisicaa.pb;
 
 message UpdateCustomCSound {
-  optional string orchestra = 1;
-  optional string score = 2;
+  required uint64 node_id = 1;
+  optional string set_orchestra = 2;
+  optional string set_score = 3;
 }

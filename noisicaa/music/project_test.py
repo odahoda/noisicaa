@@ -52,13 +52,13 @@ class BaseProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTest
 
     def test_deserialize(self):
         p = self.pool.create(project.BaseProject, node_db=self.node_db)
-        p.pipeline_graph_nodes.append(self.pool.create(score_track.ScoreTrack, name='Track 1'))
-        num_nodes = len(p.pipeline_graph_nodes)
+        p.nodes.append(self.pool.create(score_track.ScoreTrack, name='Track 1'))
+        num_nodes = len(p.nodes)
         serialized = p.serialize()
 
         pool2 = project.Pool()
         p2 = cast(project.BaseProject, pool2.deserialize_tree(serialized))
-        self.assertEqual(len(p2.pipeline_graph_nodes), num_nodes)
+        self.assertEqual(len(p2.nodes), num_nodes)
 
 
 class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
@@ -96,13 +96,13 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
             pool=self.pool,
             node_db=self.node_db)
         try:
-            p.dispatch_command_proto(commands_pb2.Command(
-                target=p.id,
-                command='add_pipeline_graph_node',
-                add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
-                    uri='builtin://score-track')))
-            num_nodes = len(p.pipeline_graph_nodes)
-            track_id = p.pipeline_graph_nodes[-1].id
+            p.dispatch_command_sequence_proto(commands_pb2.CommandSequence(
+                commands=[commands_pb2.Command(
+                    command='create_node',
+                    create_node=commands_pb2.CreateNode(
+                        uri='builtin://score-track'))]))
+            num_nodes = len(p.nodes)
+            track_id = p.nodes[-1].id
         finally:
             p.close()
 
@@ -112,8 +112,8 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
             pool=pool,
             node_db=self.node_db)
         try:
-            self.assertEqual(len(p.pipeline_graph_nodes), num_nodes)
-            self.assertEqual(p.pipeline_graph_nodes[-1].id, track_id)
+            self.assertEqual(len(p.nodes), num_nodes)
+            self.assertEqual(p.nodes[-1].id, track_id)
         finally:
             p.close()
 
@@ -130,12 +130,35 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
         self.assertTrue(
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
 
+    def test_merge_commands(self):
+        p = project.Project.create_blank(
+            path='/foo.noise',
+            pool=self.pool,
+            node_db=self.node_db)
+        try:
+            old_bpm = p.bpm
+
+            for i in range(old_bpm + 1, old_bpm + 10):
+                p.dispatch_command_sequence_proto(commands_pb2.CommandSequence(
+                    commands=[commands_pb2.Command(
+                        command='update_project',
+                        update_project=commands_pb2.UpdateProject(
+                            set_bpm=i))]))
+
+            p.undo()
+            self.assertEqual(p.bpm, old_bpm)
+
+            p.redo()
+            self.assertEqual(p.bpm, old_bpm + 9)
+
+        finally:
+            p.close()
+
 
 class ProjectPropertiesTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
-    async def test_bpm(self):
+    async def test_set_bpm(self):
         await self.client.send_command(commands_pb2.Command(
-            target=self.project.id,
-            command='update_project_properties',
-            update_project_properties=commands_pb2.UpdateProjectProperties(
-                bpm=97)))
+            command='update_project',
+            update_project=commands_pb2.UpdateProject(
+                set_bpm=97)))
         self.assertEqual(self.project.bpm, 97)

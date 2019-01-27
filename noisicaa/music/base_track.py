@@ -20,11 +20,10 @@
 #
 # @end:license
 
+import itertools
 import logging
 import random
-from typing import Any, Optional, Iterator, Dict, List, Type
-
-from google.protobuf import message as protobuf
+from typing import cast, Any, Optional, Iterator, Dict, List, Type
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -32,7 +31,7 @@ from noisicaa import model
 from noisicaa import core
 from noisicaa.builtin_nodes.pianoroll import processor_messages as pianoroll
 from . import node_connector
-from . import pipeline_graph
+from . import graph
 from . import pmodel
 from . import commands
 from . import commands_pb2
@@ -40,60 +39,101 @@ from . import commands_pb2
 logger = logging.getLogger(__name__)
 
 
-class UpdateTrackProperties(commands.Command):
-    proto_type = 'update_track_properties'
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.UpdateTrackProperties, pb)
-        track = down_cast(pmodel.Track, pool[self.proto.command.target])
-
-        if pb.HasField('transpose_octaves'):
-            #assert isinstance(track, pmodel.ScoreTrack)
-            track.transpose_octaves = pb.transpose_octaves  # type: ignore
-
-commands.Command.register_command(UpdateTrackProperties)
-
-
 class UpdateTrack(commands.Command):
     proto_type = 'update_track'
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.UpdateTrack, pb)
-        track = down_cast(pmodel.Track, pool[self.proto.command.target])
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateTrack, self.pb)
+        track = down_cast(pmodel.Track, self.pool[pb.track_id])
 
-        if pb.HasField('visible'):
-            track.visible = pb.visible
+        if pb.HasField('set_visible'):
+            track.visible = pb.set_visible
 
-        if pb.HasField('list_position'):
-            track.list_position = pb.list_position
-
-commands.Command.register_command(UpdateTrack)
+        if pb.HasField('set_list_position'):
+            track.list_position = pb.set_list_position
 
 
-class InsertMeasure(commands.Command):
-    proto_type = 'insert_measure'
+class CreateMeasure(commands.Command):
+    proto_type = 'create_measure'
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.InsertMeasure, pb)
-        track = down_cast(pmodel.MeasuredTrack, pool[self.proto.command.target])
+    def run(self) -> int:
+        pb = down_cast(commands_pb2.CreateMeasure, self.pb)
+        track = down_cast(pmodel.MeasuredTrack, self.pool[pb.track_id])
 
         track.insert_measure(pb.pos)
 
-commands.Command.register_command(InsertMeasure)
+        return track.measure_list[pb.pos].id
 
 
-class RemoveMeasure(commands.Command):
-    proto_type = 'remove_measure'
+class UpdateMeasure(commands.Command):
+    proto_type = 'update_measure'
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.RemoveMeasure, pb)
-        track = down_cast(pmodel.MeasuredTrack, pool[self.proto.command.target])
-        track.remove_measure(pb.pos)
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateMeasure, self.pb)
+        mref = down_cast(pmodel.MeasureReference, self.pool[pb.measure_id])
+        track = cast(MeasuredTrack, mref.track)
 
-commands.Command.register_command(RemoveMeasure)
+        if pb.HasField('clear'):
+            measure = track.create_empty_measure(mref.measure)
+            track.measure_heap.append(measure)
+            mref.measure = measure
+
+        if pb.HasField('set_time_signature'):
+            mref.measure.time_signature = model.TimeSignature.from_proto(pb.set_time_signature)
+
+        track.garbage_collect_measures()
 
 
-class Track(pmodel.Track, pipeline_graph.BasePipelineGraphNode):  # pylint: disable=abstract-method
+class DeleteMeasure(commands.Command):
+    proto_type = 'delete_measure'
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.DeleteMeasure, self.pb)
+        mref = down_cast(pmodel.MeasureReference, self.pool[pb.measure_id])
+        track = mref.track
+        track.remove_measure(mref.index)
+
+
+class PasteMeasures(commands.Command):
+    proto_type = 'paste_measures'
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.PasteMeasures, self.pb)
+
+        target_measures = [
+            cast(pmodel.MeasureReference, self.pool[obj_id])
+            for obj_id in pb.target_ids]
+        assert all(isinstance(obj, pmodel.MeasureReference) for obj in target_measures)
+
+        affected_track_ids = set(obj.track.id for obj in target_measures)
+        assert len(affected_track_ids) == 1
+
+        if pb.mode == 'link':
+            for target, src_proto in zip(target_measures, itertools.cycle(pb.src_objs)):
+                src = down_cast(pmodel.Measure, self.pool[src_proto.root])
+                assert src.is_child_of(target.track)
+                target.measure = src
+
+        elif pb.mode == 'overwrite':
+            measure_map = {}  # type: Dict[int, pmodel.Measure]
+            for target, src_proto in zip(target_measures, itertools.cycle(pb.src_objs)):
+                try:
+                    measure = measure_map[src_proto.root]
+                except KeyError:
+                    measure = down_cast(pmodel.Measure, self.pool.clone_tree(src_proto))
+                    measure_map[src_proto.root] = measure
+                    cast(pmodel.MeasuredTrack, target.track).measure_heap.append(measure)
+
+                target.measure = measure
+
+        else:
+            raise ValueError(pb.mode)
+
+        for track_id in affected_track_ids:
+            cast(pmodel.MeasuredTrack, self.pool[track_id]).garbage_collect_measures()
+
+
+class Track(pmodel.Track, graph.BaseNode):  # pylint: disable=abstract-method
     # TODO: the following are common to MeasuredTrack and TrackGroup, but not really
     # generic for all track types.
 

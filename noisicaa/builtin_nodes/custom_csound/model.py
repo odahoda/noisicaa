@@ -29,7 +29,7 @@ from noisicaa.builtin_nodes import model_registry_pb2
 from . import node_description
 
 
-class CustomCSound(model.BasePipelineGraphNode):
+class CustomCSound(model.BaseNode):
     class CustomCSoundSpec(model.ObjectSpec):
         proto_type = 'custom_csound'
         proto_ext = model_registry_pb2.custom_csound

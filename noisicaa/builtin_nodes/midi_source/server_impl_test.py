@@ -63,7 +63,7 @@ class ConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
             connector.close()
 
 
-class MidiSourceTest(pmodel_test.BasePipelineGraphNodeMixin, pmodel_test.ModelTest):
+class MidiSourceTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
     cls = server_impl.MidiSource
     create_args = {'name': 'test'}
 

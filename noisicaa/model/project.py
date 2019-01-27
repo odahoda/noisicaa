@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import functools
 import logging
 from typing import cast, Any, Dict, Set, Sequence, List
 
@@ -32,6 +31,7 @@ from . import time_signature as time_signature_lib
 from . import pos2f
 from . import sizef
 from . import color
+from . import control_value
 from . import model_base
 from . import project_pb2
 
@@ -78,35 +78,12 @@ class Sample(ProjectChild):
         self.path_changed = core.Callback[model_base.PropertyChange[str]]()
 
 
-class PipelineGraphControlValue(ProjectChild):
-    class PipelineGraphControlValueSpec(model_base.ObjectSpec):
-        proto_type = 'pipeline_graph_control_value'
-        proto_ext = project_pb2.pipeline_graph_control_value
-
-        name = model_base.Property(str)
-        value = model_base.ProtoProperty(project_pb2.ControlValue)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.name_changed = core.Callback[model_base.PropertyChange[str]]()
-        self.value_changed = core.Callback[model_base.PropertyChange[project_pb2.ControlValue]]()
-
-    @property
-    def name(self) -> str:
-        return self.get_property_value('name')
-
-    @property
-    def value(self) -> project_pb2.ControlValue:
-        return self.get_property_value('value')
-
-
 class ControlValueMap(object):
-    def __init__(self, node: 'BasePipelineGraphNode') -> None:
+    def __init__(self, node: 'BaseNode') -> None:
         self.__node = node
 
         self.__initialized = False
-        self.__control_values = {}  # type: Dict[str, project_pb2.ControlValue]
+        self.__control_values = {}  # type: Dict[str, control_value.ControlValue]
         self.__control_value_listeners = []  # type: List[core.Listener]
         self.__control_values_listener = None # type: core.Listener
 
@@ -125,15 +102,11 @@ class ControlValueMap(object):
         for port in self.__node.description.ports:
             if (port.direction == node_db.PortDescription.INPUT
                     and port.type == node_db.PortDescription.KRATE_CONTROL):
-                self.__control_values[port.name] = project_pb2.ControlValue(
-                    value=port.float_value.default, generation=1)
+                self.__control_values[port.name] = control_value.ControlValue(
+                    name=port.name, value=port.float_value.default, generation=1)
 
-        for control_value in self.__node.control_values:
-            self.__control_values[control_value.name] = control_value.value
-
-            self.__control_value_listeners.append(
-                control_value.value_changed.add(
-                    functools.partial(self.__control_value_changed, control_value.name)))
+        for cv in self.__node.control_values:
+            self.__control_values[cv.name] = cv
 
         self.__control_values_listener = self.__node.control_values_changed.add(
             self.__control_values_changed)
@@ -141,75 +114,49 @@ class ControlValueMap(object):
         self.__initialized = True
 
     def cleanup(self) -> None:
-        for listener in self.__control_value_listeners:
-            listener.remove()
-        self.__control_value_listeners.clear()
-
         if self.__control_values_listener is not None:
             self.__control_values_listener.remove()
             self.__control_values_listener = None
 
     def __control_values_changed(
-            self, change: model_base.PropertyListChange[PipelineGraphControlValue]) -> None:
+            self, change: model_base.PropertyListChange[control_value.ControlValue]) -> None:
         if isinstance(change, model_base.PropertyListInsert):
-            control_value = change.new_value
+            new_value = change.new_value
+            old_value = self.__control_values[new_value.name]
 
             self.control_value_changed.call(
-                control_value.name,
+                new_value.name,
                 model_base.PropertyValueChange(
-                    self.__node, control_value.name,
-                    self.__control_values[control_value.name], control_value.value))
-            self.__control_values[control_value.name] = control_value.value
-
-            self.__control_value_listeners.insert(
-                change.index,
-                control_value.value_changed.add(
-                    functools.partial(self.__control_value_changed, control_value.name)))
+                    self.__node, new_value.name, old_value, new_value))
+            self.__control_values[new_value.name] = new_value
 
         elif isinstance(change, model_base.PropertyListDelete):
-            control_value = change.old_value
+            pass
 
-            for port in self.__node.description.ports:
-                if port.name == control_value.name:
-                    default_value = project_pb2.ControlValue(
-                        value=port.float_value.default, generation=1)
-                    self.control_value_changed.call(
-                        control_value.name,
-                        model_base.PropertyValueChange(
-                            self.__node, control_value.name,
-                            self.__control_values[control_value.name], default_value))
-                    self.__control_values[control_value.name] = default_value
-                    break
+        elif isinstance(change, model_base.PropertyListSet):
+            new_value = change.new_value
+            old_value = self.__control_values[new_value.name]
 
-            listener = self.__control_value_listeners.pop(change.index)
-            listener.remove()
+            self.control_value_changed.call(
+                new_value.name,
+                model_base.PropertyValueChange(
+                    self.__node, new_value.name, old_value, new_value))
+            self.__control_values[new_value.name] = new_value
 
         else:
             raise TypeError(type(change))
 
-    def __control_value_changed(
-            self,
-            control_value_name: str,
-            change: model_base.PropertyValueChange[project_pb2.ControlValue]
-    ) -> None:
-        self.control_value_changed.call(
-            control_value_name,
-            model_base.PropertyValueChange(
-                self.__node, control_value_name,
-                self.__control_values[control_value_name], change.new_value))
-        self.__control_values[control_value_name] = change.new_value
 
-
-class BasePipelineGraphNode(ProjectChild):
-    class BasePipelineGraphNodeSpec(model_base.ObjectSpec):
-        proto_ext = project_pb2.base_pipeline_graph_node
+class BaseNode(ProjectChild):
+    class BaseNodeSpec(model_base.ObjectSpec):
+        proto_ext = project_pb2.base_node
 
         name = model_base.Property(str)
         graph_pos = model_base.WrappedProtoProperty(pos2f.Pos2F)
         graph_size = model_base.WrappedProtoProperty(sizef.SizeF)
         graph_color = model_base.WrappedProtoProperty(
             color.Color, default=color.Color(0.8, 0.8, 0.8, 1.0))
-        control_values = model_base.ObjectListProperty(PipelineGraphControlValue)
+        control_values = model_base.WrappedProtoListProperty(control_value.ControlValue)
         plugin_state = model_base.ProtoProperty(audioproc.PluginState, allow_none=True)
 
     def __init__(self, **kwargs: Any) -> None:
@@ -220,14 +167,14 @@ class BasePipelineGraphNode(ProjectChild):
         self.graph_size_changed = core.Callback[model_base.PropertyChange[sizef.SizeF]]()
         self.graph_color_changed = core.Callback[model_base.PropertyChange[color.Color]]()
         self.control_values_changed = \
-            core.Callback[model_base.PropertyListChange[PipelineGraphControlValue]]()
+            core.Callback[model_base.PropertyListChange[control_value.ControlValue]]()
         self.plugin_state_changed = \
             core.Callback[model_base.PropertyChange[audioproc.PluginState]]()
 
         self.control_value_map = ControlValueMap(self)
 
     @property
-    def control_values(self) -> Sequence[PipelineGraphControlValue]:
+    def control_values(self) -> Sequence[control_value.ControlValue]:
         return self.get_property_value('control_values')
 
     @property
@@ -242,41 +189,41 @@ class BasePipelineGraphNode(ProjectChild):
     def description(self) -> node_db.NodeDescription:
         raise NotImplementedError
 
-    def upstream_nodes(self) -> List['BasePipelineGraphNode']:
+    def upstream_nodes(self) -> List['BaseNode']:
         node_ids = set()  # type: Set[int]
         self.__upstream_nodes(node_ids)
         return [self._pool[node_id] for node_id in sorted(node_ids)]
 
     def __upstream_nodes(self, seen: Set[int]) -> None:
-        for connection in self.project.get_property_value('pipeline_graph_connections'):
+        for connection in self.project.get_property_value('node_connections'):
             if connection.dest_node is self and connection.source_node.id not in seen:
                 seen.add(connection.source_node.id)
                 connection.source_node.__upstream_nodes(seen)
 
 
-class PipelineGraphConnection(ProjectChild):
-    class PipelineGraphConnectionSpec(model_base.ObjectSpec):
-        proto_type = 'pipeline_graph_connection'
-        proto_ext = project_pb2.pipeline_graph_connection
+class NodeConnection(ProjectChild):
+    class NodeConnectionSpec(model_base.ObjectSpec):
+        proto_type = 'node_connection'
+        proto_ext = project_pb2.node_connection
 
-        source_node = model_base.ObjectReferenceProperty(BasePipelineGraphNode)
+        source_node = model_base.ObjectReferenceProperty(BaseNode)
         source_port = model_base.Property(str)
-        dest_node = model_base.ObjectReferenceProperty(BasePipelineGraphNode)
+        dest_node = model_base.ObjectReferenceProperty(BaseNode)
         dest_port = model_base.Property(str)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.source_node_changed = core.Callback[model_base.PropertyChange[BasePipelineGraphNode]]()
+        self.source_node_changed = core.Callback[model_base.PropertyChange[BaseNode]]()
         self.source_port_changed = core.Callback[model_base.PropertyChange[str]]()
-        self.dest_node_changed = core.Callback[model_base.PropertyChange[BasePipelineGraphNode]]()
+        self.dest_node_changed = core.Callback[model_base.PropertyChange[BaseNode]]()
         self.dest_port_changed = core.Callback[model_base.PropertyChange[str]]()
 
 
-class PipelineGraphNode(BasePipelineGraphNode):
-    class PipelineGraphNodeSpec(model_base.ObjectSpec):
-        proto_type = 'pipeline_graph_node'
-        proto_ext = project_pb2.pipeline_graph_node
+class Node(BaseNode):
+    class NodeSpec(model_base.ObjectSpec):
+        proto_type = 'node'
+        proto_ext = project_pb2.node
 
         node_uri = model_base.Property(str)
 
@@ -294,9 +241,9 @@ class PipelineGraphNode(BasePipelineGraphNode):
         return self.project.get_node_description(self.node_uri)
 
 
-class SystemOutPipelineGraphNode(BasePipelineGraphNode):
-    class SystemOutPipelineGraphNodeSpec(model_base.ObjectSpec):
-        proto_type = 'system_out_pipeline_graph_node'
+class SystemOutNode(BaseNode):
+    class SystemOutNodeSpec(model_base.ObjectSpec):
+        proto_type = 'system_out_node'
 
     @property
     def pipeline_node_id(self) -> str:
@@ -311,7 +258,7 @@ class SystemOutPipelineGraphNode(BasePipelineGraphNode):
         return node_db.Builtins.RealmSinkDescription
 
 
-class Track(BasePipelineGraphNode):  # pylint: disable=abstract-method
+class Track(BaseNode):  # pylint: disable=abstract-method
     class TrackSpec(model_base.ObjectSpec):
         proto_ext = project_pb2.track
 
@@ -345,8 +292,8 @@ class Measure(ProjectChild):
             core.Callback[model_base.PropertyChange[time_signature_lib.TimeSignature]]()
 
     @property
-    def track(self) -> Track:
-        return cast(Track, self.parent)
+    def track(self) -> 'MeasuredTrack':
+        return cast(MeasuredTrack, self.parent)
 
     @property
     def duration(self) -> audioproc.MusicalDuration:
@@ -371,8 +318,8 @@ class MeasureReference(ProjectChild):
         return self.get_property_value('measure')
 
     @property
-    def track(self) -> Track:
-        return cast(Track, self.parent)
+    def track(self) -> 'MeasuredTrack':
+        return cast(MeasuredTrack, self.parent)
 
     @property
     def prev_sibling(self) -> 'MeasureReference':
@@ -463,8 +410,8 @@ class Project(ObjectBase):
         proto_ext = project_pb2.project
 
         metadata = model_base.ObjectProperty(Metadata)
-        pipeline_graph_nodes = model_base.ObjectListProperty(BasePipelineGraphNode)
-        pipeline_graph_connections = model_base.ObjectListProperty(PipelineGraphConnection)
+        nodes = model_base.ObjectListProperty(BaseNode)
+        node_connections = model_base.ObjectListProperty(NodeConnection)
         samples = model_base.ObjectListProperty(Sample)
         bpm = model_base.Property(int, default=120)
 
@@ -472,10 +419,9 @@ class Project(ObjectBase):
         super().__init__(**kwargs)
 
         self.metadata_changed = core.Callback[model_base.PropertyChange[Metadata]]()
-        self.pipeline_graph_nodes_changed = \
-            core.Callback[model_base.PropertyListChange[BasePipelineGraphNode]]()
-        self.pipeline_graph_connections_changed = \
-            core.Callback[model_base.PropertyListChange[PipelineGraphConnection]]()
+        self.nodes_changed = core.Callback[model_base.PropertyListChange[BaseNode]]()
+        self.node_connections_changed = \
+            core.Callback[model_base.PropertyListChange[NodeConnection]]()
         self.samples_changed = core.Callback[model_base.PropertyListChange[Sample]]()
         self.bpm_changed = core.Callback[model_base.PropertyChange[int]]()
 
@@ -499,9 +445,9 @@ class Project(ObjectBase):
         return self.bpm
 
     @property
-    def system_out_node(self) -> SystemOutPipelineGraphNode:
-        for node in self.get_property_value('pipeline_graph_nodes'):
-            if isinstance(node, SystemOutPipelineGraphNode):
+    def system_out_node(self) -> SystemOutNode:
+        for node in self.get_property_value('nodes'):
+            if isinstance(node, SystemOutNode):
                 return node
 
         raise ValueError("No system out node found.")

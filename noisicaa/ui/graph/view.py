@@ -48,7 +48,7 @@ class Frame(QtWidgets.QFrame):
         self.__layout.addWidget(widget, 1)
 
 
-class PipelineGraphView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QWidget):
+class GraphView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QWidget):
     currentTrack, setCurrentTrack, currentTrackChanged = slots.slot(
         music.Track, 'currentTrack')
 

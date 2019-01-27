@@ -88,7 +88,7 @@ class MutationList(object):
         elif vtype == 'color':
             return model.Color.from_proto(slot.color)
         elif vtype == 'control_value':
-            return copy.deepcopy(slot.control_value)
+            return model.ControlValue.from_proto(slot.control_value)
 
         else:
             raise TypeError(vtype)
@@ -118,6 +118,15 @@ class MutationList(object):
                 lst = getattr(o, op.list_delete.prop_name)
                 _assert_equal(lst[op.list_delete.index], old_value)
                 del lst[op.list_delete.index]
+
+            elif op_type == 'list_set':
+                o = self.__pool[op.list_set.obj_id]
+                old_value = self.get_slot(op.list_set.old_slot)
+                new_value = self.get_slot(op.list_set.new_slot)
+
+                lst = getattr(o, op.list_set.prop_name)
+                _assert_equal(lst[op.list_set.index], old_value)
+                lst.set(op.list_set.index, new_value)
 
             elif op_type == 'add_object':
                 self.__pool.deserialize(op.add_object.object)
@@ -156,6 +165,15 @@ class MutationList(object):
 
                 lst = getattr(o, op.list_delete.prop_name)
                 lst.insert(op.list_delete.index, old_value)
+
+            elif op_type == 'list_set':
+                o = self.__pool[op.list_set.obj_id]
+                old_value = self.get_slot(op.list_set.old_slot)
+                new_value = self.get_slot(op.list_set.new_slot)
+
+                lst = getattr(o, op.list_set.prop_name)
+                _assert_equal(lst[op.list_set.index], new_value)
+                lst.set(op.list_set.index, old_value)
 
             elif op_type == 'add_object':
                 o = self.__pool[op.add_object.object.id]
@@ -230,6 +248,17 @@ class MutationCollector(object):
                     index=change.index,
                     slot=slot_id)))
 
+        elif isinstance(change, model.PropertyListSet):
+            old_slot_id = self.__add_slot(change.old_value)
+            new_slot_id = self.__add_slot(change.new_value)
+            self.__add_operation(mutations_pb2.MutationList.Op(
+                list_set=mutations_pb2.MutationList.ListSet(
+                    obj_id=change.obj.id,
+                    prop_name=change.prop_name,
+                    index=change.index,
+                    old_slot=old_slot_id,
+                    new_slot=new_slot_id)))
+
         elif isinstance(change, model.ObjectAdded):
             self.__add_operation(mutations_pb2.MutationList.Op(
                 add_object=mutations_pb2.MutationList.AddObject(
@@ -282,7 +311,7 @@ class MutationCollector(object):
         elif isinstance(value, model.Color):
             slot.color.CopyFrom(value.to_proto())
         elif isinstance(value, model.ControlValue):
-            slot.control_value.CopyFrom(value)
+            slot.control_value.CopyFrom(value.to_proto())
 
         else:
             raise TypeError(type(value))

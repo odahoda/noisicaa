@@ -20,4 +20,4 @@
 #
 # @end:license
 
-from .view import PipelineGraphView
+from .view import GraphView

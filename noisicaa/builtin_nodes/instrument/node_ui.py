@@ -32,7 +32,7 @@ from noisicaa import model
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import instrument_library
-from noisicaa.ui.pipeline_graph import base_node
+from noisicaa.ui.graph import base_node
 from . import client_impl
 from . import commands
 
@@ -94,8 +94,8 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __instrumentURIEdited(self, instrument_uri: str) -> None:
         if instrument_uri != self.__node.instrument_uri:
-            self.send_command_async(commands.update_instrument(
-                self.__node.id, instrument_uri=instrument_uri))
+            self.send_command_async(commands.update(
+                self.__node, set_instrument_uri=instrument_uri))
 
     async def __selectInstrument(self) -> None:
         dialog = instrument_library.InstrumentLibraryDialog(
@@ -118,7 +118,7 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
 
 class InstrumentNode(base_node.Node):
-    def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         assert isinstance(node, client_impl.Instrument), type(node).__name__
         self.__widget = None  # type: InstrumentNodeWidget
         self.__node = node  # type: client_impl.Instrument

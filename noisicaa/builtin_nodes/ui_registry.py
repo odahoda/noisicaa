@@ -37,7 +37,7 @@ from .custom_csound.node_ui import CustomCSoundNode
 from .midi_source.node_ui import MidiSourceNode
 
 if typing.TYPE_CHECKING:
-    from noisicaa.ui.pipeline_graph import base_node
+    from noisicaa.ui.graph import base_node
     from noisicaa.ui.track_list import base_track_editor
 
 

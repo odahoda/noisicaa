@@ -25,7 +25,7 @@ from . import model
 
 
 class MidiSource(
-        project_client_model.BasePipelineGraphNode,
+        project_client_model.BaseNode,
         model.MidiSource,
         project_client_model.ObjectBase):
     @property

@@ -35,31 +35,27 @@ package noisicaa.pb;
 
 extend Command {
   // Score track (401xxx)
-  optional ChangeNote change_note = 401000;
-  optional InsertNote insert_note = 401001;
-  optional DeleteNote delete_note = 401002;
-  optional AddPitch add_pitch = 401003;
-  optional RemovePitch remove_pitch = 401004;
-  optional SetClef set_clef = 401005;
-  optional SetKeySignature set_key_signature = 401006;
-  optional SetAccidental set_accidental = 401007;
-  optional TransposeNotes transpose_notes = 401008;
+  optional UpdateScoreTrack update_score_track = 401000;
+  optional UpdateScoreMeasure update_score_measure = 401001;
+  optional CreateNote create_note = 401002;
+  optional UpdateNote update_note = 401003;
+  optional DeleteNote delete_note = 401004;
 
   // Beat track (402xxx)
-  optional SetBeatTrackPitch set_beat_track_pitch = 402000;
-  optional SetBeatVelocity set_beat_velocity = 402001;
-  optional AddBeat add_beat = 402002;
-  optional RemoveBeat remove_beat = 402003;
+  optional UpdateBeatTrack update_beat_track = 402000;
+  optional CreateBeat create_beat = 402001;
+  optional UpdateBeat update_beat = 402002;
+  optional DeleteBeat delete_beat = 402003;
 
   // Control track (403xxx)
-  optional AddControlPoint add_control_point = 403000;
-  optional RemoveControlPoint remove_control_point = 403001;
-  optional MoveControlPoint move_control_point = 403002;
+  optional CreateControlPoint create_control_point = 403000;
+  optional UpdateControlPoint update_control_point = 403001;
+  optional DeleteControlPoint delete_control_point = 403002;
 
   // Sample track (404xxx)
-  optional AddSample add_sample = 404000;
-  optional RemoveSample remove_sample = 404001;
-  optional MoveSample move_sample = 404002;
+  optional CreateSample create_sample = 404000;
+  optional UpdateSample update_sample = 404001;
+  optional DeleteSample delete_sample = 404002;
   optional RenderSample render_sample = 404003;
 
   // Instrument (405xxx)

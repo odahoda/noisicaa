@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class NodeConnector(pmodel.NodeConnector):
     def __init__(
             self, *,
-            node: pmodel.BasePipelineGraphNode,
+            node: pmodel.BaseNode,
             message_cb: Callable[[audioproc.ProcessorMessage], None]
     ) -> None:
         super().__init__()

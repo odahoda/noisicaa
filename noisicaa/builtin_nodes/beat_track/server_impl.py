@@ -23,8 +23,6 @@
 import logging
 from typing import Any, MutableSequence, Optional, Iterator, Callable
 
-from google.protobuf import message as protobuf
-
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
@@ -38,63 +36,63 @@ from . import model as beat_track_model
 logger = logging.getLogger(__name__)
 
 
-class SetBeatTrackPitch(commands.Command):
-    proto_type = 'set_beat_track_pitch'
-    proto_ext = commands_registry_pb2.set_beat_track_pitch
+class UpdateBeatTrack(commands.Command):
+    proto_type = 'update_beat_track'
+    proto_ext = commands_registry_pb2.update_beat_track
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.SetBeatTrackPitch, pb)
-        track = down_cast(BeatTrack, pool[self.proto.command.target])
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateBeatTrack, self.pb)
+        track = down_cast(BeatTrack, self.pool[pb.track_id])
 
-        track.pitch = model.Pitch.from_proto(pb.pitch)
-
-commands.Command.register_command(SetBeatTrackPitch)
-
-
-class SetBeatVelocity(commands.Command):
-    proto_type = 'set_beat_velocity'
-    proto_ext = commands_registry_pb2.set_beat_velocity
-
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.SetBeatVelocity, pb)
-        beat = down_cast(Beat, pool[self.proto.command.target])
-
-        beat.velocity = pb.velocity
-
-commands.Command.register_command(SetBeatVelocity)
+        if pb.HasField('set_pitch'):
+            track.pitch = model.Pitch.from_proto(pb.set_pitch)
 
 
-class AddBeat(commands.Command):
-    proto_type = 'add_beat'
-    proto_ext = commands_registry_pb2.add_beat
+class CreateBeat(commands.Command):
+    proto_type = 'create_beat'
+    proto_ext = commands_registry_pb2.create_beat
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.AddBeat, pb)
-        measure = down_cast(BeatMeasure, pool[self.proto.command.target])
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.CreateBeat, self.pb)
+        measure = down_cast(BeatMeasure, self.pool[pb.measure_id])
 
-        beat = pool.create(
+        time = audioproc.MusicalDuration.from_proto(pb.time)
+        assert audioproc.MusicalDuration(0, 1) <= time < measure.duration
+
+        if pb.HasField('velocity'):
+            velocity = pb.velocity
+        else:
+            velocity = 100
+
+        beat = self.pool.create(
             Beat,
-            time=audioproc.MusicalDuration.from_proto(pb.time),
-            velocity=100)
-        assert audioproc.MusicalDuration(0, 1) <= beat.time < measure.duration
+            time=time,
+            velocity=velocity)
         measure.beats.append(beat)
 
-commands.Command.register_command(AddBeat)
+
+class UpdateBeat(commands.Command):
+    proto_type = 'update_beat'
+    proto_ext = commands_registry_pb2.update_beat
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateBeat, self.pb)
+        beat = down_cast(Beat, self.pool[pb.beat_id])
+
+        if pb.HasField('set_velocity'):
+            beat.velocity = pb.set_velocity
 
 
-class RemoveBeat(commands.Command):
-    proto_type = 'remove_beat'
-    proto_ext = commands_registry_pb2.remove_beat
+class DeleteBeat(commands.Command):
+    proto_type = 'delete_beat'
+    proto_ext = commands_registry_pb2.delete_beat
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.RemoveBeat, pb)
-        measure = down_cast(BeatMeasure, pool[self.proto.command.target])
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.DeleteBeat, self.pb)
+        beat = down_cast(Beat, self.pool[pb.beat_id])
 
-        beat = down_cast(Beat, pool[pb.beat_id])
-        assert beat.is_child_of(measure)
+        measure = beat.measure
         del measure.beats[beat.index]
-
-commands.Command.register_command(RemoveBeat)
 
 
 class Beat(pmodel.ProjectChild, beat_track_model.Beat, pmodel.ObjectBase):

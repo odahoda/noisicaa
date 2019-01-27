@@ -25,36 +25,41 @@ import fractions
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
+from . import client_impl
 
-def add_sample(
-        node_id: int, *, time: audioproc.MusicalTime, path: str) -> music.Command:
-    cmd = music.Command(target=node_id, command='add_sample')
-    pb = cmd.Extensions[commands_registry_pb2.add_sample]
+
+def create_sample(
+        track: client_impl.SampleTrack, *, time: audioproc.MusicalTime, path: str) -> music.Command:
+    cmd = music.Command(command='create_sample')
+    pb = cmd.Extensions[commands_registry_pb2.create_sample]
+    pb.track_id = track.id
     pb.time.CopyFrom(time.to_proto())
     pb.path = path
     return cmd
 
-def remove_sample(
-        node_id: int, *, sample_id: int) -> music.Command:
-    cmd = music.Command(target=node_id, command='remove_sample')
-    pb = cmd.Extensions[commands_registry_pb2.remove_sample]
-    pb.sample_id = sample_id
+def update_sample(
+        sample: client_impl.SampleRef, set_time: audioproc.MusicalTime
+) -> music.Command:
+    cmd = music.Command(command='update_sample')
+    pb = cmd.Extensions[commands_registry_pb2.update_sample]
+    pb.sample_id = sample.id
+    if set_time is not None:
+        pb.set_time.CopyFrom(set_time.to_proto())
     return cmd
 
-def move_sample(
-        node_id: int, *, sample_id: int, time: audioproc.MusicalTime
-) -> music.Command:
-    cmd = music.Command(target=node_id, command='move_sample')
-    pb = cmd.Extensions[commands_registry_pb2.move_sample]
-    pb.sample_id = sample_id
-    pb.time.CopyFrom(time.to_proto())
+def delete_sample(
+        sample: client_impl.SampleRef) -> music.Command:
+    cmd = music.Command(command='delete_sample')
+    pb = cmd.Extensions[commands_registry_pb2.delete_sample]
+    pb.sample_id = sample.id
     return cmd
 
 def render_sample(
-        sample_id: int, *, scale_x: fractions.Fraction
+        sample: client_impl.SampleRef, *, scale_x: fractions.Fraction
 ) -> music.Command:
-    cmd = music.Command(target=sample_id, command='render_sample')
+    cmd = music.Command(command='render_sample')
     pb = cmd.Extensions[commands_registry_pb2.render_sample]
+    pb.sample_id = sample.id
     pb.scale_x.numerator = scale_x.numerator
     pb.scale_x.denominator = scale_x.denominator
     return cmd

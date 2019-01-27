@@ -29,7 +29,7 @@ from noisicaa.builtin_nodes import model_registry_pb2
 from . import node_description
 
 
-class Instrument(model.BasePipelineGraphNode):
+class Instrument(model.BaseNode):
     class InstrumentNodeSpec(model.ObjectSpec):
         proto_type = 'instrument'
         proto_ext = model_registry_pb2.instrument

@@ -33,6 +33,7 @@ from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa import audioproc
 from noisicaa import node_db
+from noisicaa import model
 from . import project as project_lib
 from . import mutations as mutations_lib
 from . import mutations_pb2
@@ -166,7 +167,7 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
         self.server.add_command_handler('CREATE_INMEMORY', self.handle_create_inmemory)
         self.server.add_command_handler('OPEN', self.handle_open)
         self.server.add_command_handler('CLOSE', self.handle_close)
-        self.server.add_command_handler('COMMAND', self.handle_command)
+        self.server.add_command_handler('COMMAND_SEQUENCE', self.handle_command_sequence)
         self.server.add_command_handler('UNDO', self.handle_undo)
         self.server.add_command_handler('REDO', self.handle_redo)
         self.server.add_command_handler('CREATE_PLAYER', self.handle_create_player)
@@ -306,14 +307,23 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
     async def handle_close(self) -> None:
         await self.__close_project()
 
-    async def handle_command(self, command: commands_pb2.Command) -> Any:
+    async def handle_command_sequence(self, sequence: commands_pb2.CommandSequence) -> Any:
         assert self.project is not None
 
         # This block must be atomic, no 'awaits'!
-        assert self.__mutation_collector.num_ops == 0
-        result = self.project.dispatch_command_proto(command)
-        mutations = copy.deepcopy(self.__pending_mutations)
-        self.__mutation_collector.clear()
+        try:
+            assert self.__mutation_collector.num_ops == 0
+            result = self.project.dispatch_command_sequence_proto(sequence)
+            mutations = copy.deepcopy(self.__pending_mutations)
+            self.__mutation_collector.clear()
+        except commands.ClientError:
+            raise
+        except Exception:
+            logger.exception("Exception while handling command sequence\n%s", sequence)
+            # TODO: The process should shutdown, because it might now be in an inconsistent state.
+            # But for reasons to be determined, this ends up in a deadlock.
+            # await self.shutdown()
+            raise
 
         await self.publish_mutations(mutations)
 
@@ -445,24 +455,26 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
             realm, node_id, port_name, value, generation)
 
         node = None
-        for node in self.project.pipeline_graph_nodes:
+        for node in self.project.nodes:
             if node.pipeline_node_id == node_id:
                 break
 
         else:
             raise ValueError("Invalid node_id '%s'" % node_id)
 
-        cmd = commands.Command.create(commands_pb2.Command(
-            target=node.id,
-            command='set_pipeline_graph_control_value',
-            set_pipeline_graph_control_value=commands_pb2.SetPipelineGraphControlValue(
-                port_name=port_name,
-                float_value=value,
-                generation=generation)))
+        seq = commands_pb2.CommandSequence(
+            commands=[commands_pb2.Command(
+                command='update_node',
+                update_node=commands_pb2.UpdateNode(
+                    node_id=node.id,
+                    set_control_value=model.ControlValue(
+                        name=port_name,
+                        value=value,
+                        generation=generation).to_proto()))])
 
         # This block must be atomic, no 'awaits'!
         assert self.__mutation_collector.num_ops == 0
-        self.project.dispatch_command(cmd)
+        self.project.dispatch_command_sequence_proto(seq)
         mutations = copy.deepcopy(self.__pending_mutations)
         self.__mutation_collector.clear()
 
@@ -473,21 +485,22 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
         assert self.project is not None
 
         node = None
-        for node in self.project.pipeline_graph_nodes:
+        for node in self.project.nodes:
             if node.pipeline_node_id == node_id:
                 break
         else:
             raise ValueError("Invalid node_id '%s'" % node_id)
 
-        cmd = commands.Command.create(commands_pb2.Command(
-            target=node.id,
-            command='set_pipeline_graph_plugin_state',
-            set_pipeline_graph_plugin_state=commands_pb2.SetPipelineGraphPluginState(
-                plugin_state=state)))
+        seq = commands_pb2.CommandSequence(
+            commands=[commands_pb2.Command(
+                command='update_node',
+                update_node=commands_pb2.UpdateNode(
+                    node_id=node.id,
+                    set_plugin_state=state))])
 
         # This block must be atomic, no 'awaits'!
         assert self.__mutation_collector.num_ops == 0
-        self.project.dispatch_command(cmd)
+        self.project.dispatch_command_sequence_proto(seq)
         mutations = copy.deepcopy(self.__pending_mutations)
         self.__mutation_collector.clear()
 

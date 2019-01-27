@@ -25,8 +25,8 @@ add_python_package(
   commands_test.py
   mutations.py
   node_connector.py
-  pipeline_graph.py
-  pipeline_graph_test.py
+  graph.py
+  graph_test.py
   player.py
   player_integration_test.py
   player_test.py

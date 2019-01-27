@@ -73,9 +73,8 @@ class EditSamplesTool(tools.ToolBase):
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
                 and target.highlightedSample() is not None):
-            self.send_command_async(commands.remove_sample(
-                target.track.id,
-                sample_id=target.highlightedSample().sample_id))
+            self.send_command_async(commands.delete_sample(
+                target.highlightedSample().sample))
 
             evt.accept()
             return
@@ -117,10 +116,9 @@ class EditSamplesTool(tools.ToolBase):
             pos = self.__moving_sample.pos()
             self.__moving_sample = None
 
-            self.send_command_async(commands.move_sample(
-                target.track.id,
-                sample_id=target.highlightedSample().sample_id,
-                time=target.xToTime(pos.x())))
+            self.send_command_async(commands.update_sample(
+                target.highlightedSample().sample,
+                set_time=target.xToTime(pos.x())))
 
             evt.accept()
             return
@@ -155,6 +153,10 @@ class SampleItem(object):
         for listener in self.__listeners:
             listener.remove()
         self.__listeners.clear()
+
+    @property
+    def sample(self) -> client_impl.SampleRef:
+        return self.__sample
 
     @property
     def sample_id(self) -> int:
@@ -225,7 +227,7 @@ class SampleItem(object):
                 scale_x = self.scaleX()
                 self.__track_editor.send_command_async(
                     commands.render_sample(
-                        self.__sample.id,
+                        self.__sample,
                         scale_x=scale_x),
                     callback=self.renderSample)
                 self.__render_result = ('waiting', )
@@ -416,8 +418,8 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         if not path:
             return
 
-        self.send_command_async(commands.add_sample(
-            self.track.id, time=time, path=path))
+        self.send_command_async(commands.create_sample(
+            self.track, time=time, path=path))
 
     def leaveEvent(self, evt: QtCore.QEvent) -> None:
         self.__mouse_pos = None

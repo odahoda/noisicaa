@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 class ControlValueWidget(control_value_connector.ControlValueConnector):
     def __init__(
             self, *,
-            node: music.BasePipelineGraphNode, port: node_db.PortDescription,
+            node: music.BaseNode, port: node_db.PortDescription,
             parent: Optional[QtWidgets.QWidget],
             **kwargs: Any) -> None:
         super().__init__(node=node, name=port.name, **kwargs)
@@ -71,7 +71,7 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
 
 
 class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
-    def __init__(self, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
@@ -136,7 +136,7 @@ class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
     #     self.send_command_async(
     #         music.Command(
     #             target=self.__node.id,
-    #             pipeline_graph_node_to_preset=music.PipelineGraphNodeToPreset()),
+    #             node_to_preset=music.NodeToPreset()),
     #         callback=self.onPresetSaveDone)
 
     # def onPresetSaveDone(self, preset: bytes) -> None:
@@ -167,7 +167,7 @@ class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
 
     #     await self.project_client.send_command(music.Command(
     #         target=self.__node.id,
-    #         pipeline_graph_node_from_preset=music.PipelineGraphNodeFromPreset(
+    #         node_from_preset=music.NodeFromPreset(
     #             preset=preset)))
 
     # def onPresetExport(self) -> None:
@@ -189,14 +189,14 @@ class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
 
     #     preset = await self.project_client.send_command(music.Command(
     #         target=self.__node.id,
-    #         pipeline_graph_node_to_preset=music.PipelineGraphNodeToPreset()))
+    #         node_to_preset=music.NodeToPreset()))
 
     #     with open(path, 'wb') as fp:
     #         fp.write(preset)
 
 
 class GenericNode(base_node.Node):
-    def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(node=node, **kwargs)
 
     def createBodyWidget(self) -> QtWidgets.QWidget:

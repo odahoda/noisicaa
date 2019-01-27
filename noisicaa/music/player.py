@@ -80,11 +80,11 @@ class Player(object):
             duration=self.project.duration)
 
         messages = audioproc.ProcessorMessageList()
-        for node in self.project.pipeline_graph_nodes:
+        for node in self.project.nodes:
             messages.messages.extend(self.add_node(node))
         await self.audioproc_client.send_node_messages(self.realm, messages)
 
-        self.__listeners['project:nodes'] = self.project.pipeline_graph_nodes_changed.add(
+        self.__listeners['project:nodes'] = self.project.nodes_changed.add(
             self.__on_project_nodes_changed)
         self.__listeners['project:bpm'] = self.project.bpm_changed.add(
             self.__on_project_bpm_changed)
@@ -151,7 +151,7 @@ class Player(object):
     async def set_session_values(self, values: Dict[str, Any]) -> None:
         await self.audioproc_client.set_session_values(self.realm, values)
 
-    def add_node(self, node: pmodel.BasePipelineGraphNode) -> Iterator[audioproc.ProcessorMessage]:
+    def add_node(self, node: pmodel.BaseNode) -> Iterator[audioproc.ProcessorMessage]:
         connector = cast(
             node_connector.NodeConnector,
             node.create_node_connector(message_cb=self.send_node_message))
@@ -159,7 +159,7 @@ class Player(object):
             yield from connector.init()
             self.__node_connectors[node.id] = connector
 
-    def remove_node(self, node: pmodel.BasePipelineGraphNode) -> None:
+    def remove_node(self, node: pmodel.BaseNode) -> None:
         if node.id in self.__node_connectors:
             self.__node_connectors.pop(node.id).close()
 

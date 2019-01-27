@@ -152,16 +152,15 @@ class ProjectIntegrationTest(unittest_mixins.ProcessManagerMixin, unittest.Async
     async def test_script1(self):
         # Create a new process, connect to it and create a blank project.
         async with self.create_client() as client:
-            project, pool, path = await self.create_project(client)
+            _, pool, path = await self.create_project(client)
             #snapshot_blank = self.create_pool_snapshot(pool)
 
             # Create track1 (ScoreTrack)
             #insert_index =
             await self.send_command(
                 client, pool,
-                target=project.id,
-                command='add_pipeline_graph_node',
-                add_pipeline_graph_node=commands_pb2.AddPipelineGraphNode(
+                command='create_node',
+                create_node=commands_pb2.CreateNode(
                     uri='builtin://score-track'))
             #track1 = project.master_group.tracks[insert_index]
 
@@ -169,7 +168,7 @@ class ProjectIntegrationTest(unittest_mixins.ProcessManagerMixin, unittest.Async
             snapshot_before_disconnect = self.create_pool_snapshot(pool)
 
         async with self.create_client() as client:
-            project, pool = await self.open_project(client, path)
+            _, pool = await self.open_project(client, path)
             self.assertSnapshotsEqual(self.create_pool_snapshot(pool), snapshot_before_disconnect)
 
             await client.close()

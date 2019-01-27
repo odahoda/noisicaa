@@ -34,36 +34,49 @@ class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     async def test_add_control_point(self):
         track = await self._add_track()
 
-        await self.client.send_command(commands.add_control_point(
-            track.id,
+        point_id = await self.client.send_command(commands.create_control_point(
+            track,
             time=audioproc.MusicalTime(1, 4),
             value=0.7))
-        self.assertEqual(track.points[0].time, audioproc.MusicalTime(1, 4))
-        self.assertAlmostEqual(track.points[0].value, 0.7)
+        point = self.pool[point_id]
+        self.assertEqual(len(track.points), 1)
+        self.assertIs(track.points[0], point)
+        self.assertEqual(point.time, audioproc.MusicalTime(1, 4))
+        self.assertAlmostEqual(point.value, 0.7)
 
-    async def test_remove_control_point(self):
+    async def test_delete_control_point(self):
         track = await self._add_track()
-        await self.client.send_command(commands.add_control_point(
-            track.id,
+        point_id = await self.client.send_command(commands.create_control_point(
+            track,
             time=audioproc.MusicalTime(1, 4),
             value=0.7))
+        point = self.pool[point_id]
 
-        await self.client.send_command(commands.remove_control_point(
-            track.id,
-            point_id=track.points[0].id))
+        await self.client.send_command(commands.delete_control_point(point))
         self.assertEqual(len(track.points), 0)
 
-    async def test_move_control_point(self):
+    async def test_control_point_set_time(self):
         track = await self._add_track()
-        await self.client.send_command(commands.add_control_point(
-            track.id,
+        point_id = await self.client.send_command(commands.create_control_point(
+            track,
             time=audioproc.MusicalTime(1, 4),
             value=0.7))
+        point = self.pool[point_id]
 
-        await self.client.send_command(commands.move_control_point(
-            track.id,
-            point_id=track.points[0].id,
-            time=audioproc.MusicalTime(3, 4),
-            value=0.6))
-        self.assertEqual(track.points[0].time, audioproc.MusicalTime(3, 4))
-        self.assertAlmostEqual(track.points[0].value, 0.6)
+        await self.client.send_command(commands.update_control_point(
+            point,
+            set_time=audioproc.MusicalTime(3, 4)))
+        self.assertEqual(point.time, audioproc.MusicalTime(3, 4))
+
+    async def test_control_point_set_value(self):
+        track = await self._add_track()
+        point_id = await self.client.send_command(commands.create_control_point(
+            track,
+            time=audioproc.MusicalTime(1, 4),
+            value=0.7))
+        point = self.pool[point_id]
+
+        await self.client.send_command(commands.update_control_point(
+            point,
+            set_value=0.6))
+        self.assertAlmostEqual(point.value, 0.6)

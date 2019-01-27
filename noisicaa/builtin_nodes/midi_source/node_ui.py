@@ -33,7 +33,7 @@ from noisicaa.ui import device_list
 from noisicaa.ui import dynamic_layout
 from noisicaa.ui import piano
 from noisicaa.ui import ui_base
-from noisicaa.ui.pipeline_graph import base_node
+from noisicaa.ui.graph import base_node
 from . import client_impl
 from . import commands
 from . import processor_messages
@@ -97,7 +97,7 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
     def __deviceURIEdited(self, uri: str) -> None:
         if uri != self.__node.device_uri:
             self.send_command_async(commands.update(
-                self.__node.id, device_uri=uri))
+                self.__node, set_device_uri=uri))
 
     def __channelFilterChanged(self, change: model.PropertyValueChange[int]) -> None:
         for idx in range(self.__channel_filter.count()):
@@ -108,7 +108,7 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         channel_filter = self.__channel_filter.currentData()
         if channel_filter != self.__node.channel_filter:
             self.send_command_async(commands.update(
-                self.__node.id, channel_filter=channel_filter))
+                self.__node, set_channel_filter=channel_filter))
 
     def __noteOn(self, pitch: model.Pitch) -> None:
         if self.__node.channel_filter >= 0:
@@ -132,7 +132,7 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
 
 
 class MidiSourceNode(base_node.Node):
-    def __init__(self, *, node: music.BasePipelineGraphNode, **kwargs: Any) -> None:
+    def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         assert isinstance(node, client_impl.MidiSource), type(node).__name__
         self.__widget = None  # type: MidiSourceNodeWidget
         self.__node = node  # type: client_impl.MidiSource

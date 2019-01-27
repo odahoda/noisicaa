@@ -25,8 +25,6 @@ import logging
 import random
 from typing import Any, List, Dict, MutableSequence, Optional, Callable
 
-from google.protobuf import message as protobuf
-
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
@@ -46,65 +44,57 @@ from . import processor_messages
 logger = logging.getLogger(__name__)
 
 
-class AddSample(commands.Command):
-    proto_type = 'add_sample'
-    proto_ext = commands_registry_pb2.add_sample
+class CreateSample(commands.Command):
+    proto_type = 'create_sample'
+    proto_ext = commands_registry_pb2.create_sample
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.AddSample, pb)
-        track = down_cast(SampleTrack, pool[self.proto.command.target])
+    def run(self) -> int:
+        pb = down_cast(commands_pb2.CreateSample, self.pb)
+        track = down_cast(SampleTrack, self.pool[pb.track_id])
 
-        smpl = pool.create(samples.Sample, path=pb.path)
-        project.samples.append(smpl)
+        smpl = self.pool.create(samples.Sample, path=pb.path)
+        self.pool.project.samples.append(smpl)
 
-        smpl_ref = pool.create(
+        smpl_ref = self.pool.create(
             SampleRef,
             time=audioproc.MusicalTime.from_proto(pb.time),
             sample=smpl)
         track.samples.append(smpl_ref)
 
-commands.Command.register_command(AddSample)
+        return smpl_ref.id
 
 
-class RemoveSample(commands.Command):
-    proto_type = 'remove_sample'
-    proto_ext = commands_registry_pb2.remove_sample
+class DeleteSample(commands.Command):
+    proto_type = 'delete_sample'
+    proto_ext = commands_registry_pb2.delete_sample
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.RemoveSample, pb)
-        track = down_cast(SampleTrack, pool[self.proto.command.target])
-
-        smpl_ref = down_cast(SampleRef, pool[pb.sample_id])
-        assert smpl_ref.is_child_of(track)
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.DeleteSample, self.pb)
+        smpl_ref = down_cast(SampleRef, self.pool[pb.sample_id])
+        track = down_cast(SampleTrack, smpl_ref.parent)
 
         del track.samples[smpl_ref.index]
 
-commands.Command.register_command(RemoveSample)
 
+class UpdateSample(commands.Command):
+    proto_type = 'update_sample'
+    proto_ext = commands_registry_pb2.update_sample
 
-class MoveSample(commands.Command):
-    proto_type = 'move_sample'
-    proto_ext = commands_registry_pb2.move_sample
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateSample, self.pb)
+        smpl_ref = down_cast(SampleRef, self.pool[pb.sample_id])
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-        pb = down_cast(commands_pb2.MoveSample, pb)
-        track = down_cast(SampleTrack, pool[self.proto.command.target])
-
-        smpl_ref = down_cast(SampleRef, pool[pb.sample_id])
-        assert smpl_ref.is_child_of(track)
-
-        smpl_ref.time = audioproc.MusicalTime.from_proto(pb.time)
-
-commands.Command.register_command(MoveSample)
+        if pb.HasField('set_time'):
+            smpl_ref.time = audioproc.MusicalTime.from_proto(pb.set_time)
 
 
 class RenderSample(commands.Command):
     proto_type = 'render_sample'
     proto_ext = commands_registry_pb2.render_sample
 
-    def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> List[Any]:
-        pb = down_cast(commands_pb2.RenderSample, pb)
-        sample_ref = down_cast(SampleRef, pool[self.proto.command.target])
+    def run(self) -> List[Any]:
+        pb = down_cast(commands_pb2.RenderSample, self.pb)
+        sample_ref = down_cast(SampleRef, self.pool[pb.sample_id])
         sample = down_cast(samples.Sample, sample_ref.sample)
 
         try:
@@ -142,8 +132,6 @@ class RenderSample(commands.Command):
 
         else:
             return ['broken']
-
-commands.Command.register_command(RenderSample)
 
 
 class SampleTrackConnector(node_connector.NodeConnector):
