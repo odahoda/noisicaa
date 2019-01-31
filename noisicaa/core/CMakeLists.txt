@@ -47,6 +47,7 @@ add_cython_module(logging_test CXX)
 target_link_libraries(${logging_test.so} PRIVATE noisicaa-core)
 
 py_proto(storage.proto)
+py_proto(ipc_test.proto)
 
 set(LIB_SRCS
   logging.cpp

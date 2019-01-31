@@ -84,6 +84,11 @@ PIP_DEPS = {
         PKG('mypy==0.650'),
         PKG('mypy-extensions'),
         PKG('PyGObject-stubs'),
+
+        # For indicator-cpufreq
+        PKG('dbus-python'),
+        PKG('bzr+lp:python-distutils-extra#egg=python-distutils-extra'),
+        PKG('bzr+lp:indicator-cpufreq#egg=indicator-cpufreq'),
     ],
     'vmtests': [
         PKG('paramiko'),
@@ -167,6 +172,10 @@ SYS_DEPS = {
         PKG('gdb'),
         PKG('xvfb'),
         PKG('google-perftools'),
+
+        # For indicator-cpufreq
+        PKG('bzr'),
+        PKG('intltool'),
     ],
     'vmtests': [
         PKG('virtualbox'),
