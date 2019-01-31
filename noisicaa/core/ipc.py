@@ -166,7 +166,7 @@ class Server(object):
         return self.__server is None
 
     def add_command_handler(
-            self, cmd: str, handler: Callable[..., Any], log_level: Optional[int] = None) -> None:
+            self, cmd: str, handler: Callable[..., Any], log_level: Optional[int] = -1) -> None:
         assert cmd not in self.__command_handlers
         self.__command_handlers[cmd] = handler
         if log_level is not None:
