@@ -71,7 +71,7 @@ PIP_DEPS = {
         PKG('pkgconfig'),
         PKG('pyyaml'),
         # TODO: get my changes upstream and use regular mypy-protobuf package from pip.
-        PKG('git+https://github.com/odahoda/mypy-protobuf.git#subdirectory=python'),
+        PKG('git+https://github.com/odahoda/mypy-protobuf.git#egg=mypy-protobuf&subdirectory=python'),
     ],
     'dev': [
         PKG('asynctest'),
