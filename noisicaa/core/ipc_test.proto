@@ -27,6 +27,7 @@ package noisicaa.pb;
 import "noisicaa/audioproc/public/musical_time.proto";
 
 message TestRequest {
+  optional int32 num = 2;
   repeated MusicalTime t = 1;
 }
 

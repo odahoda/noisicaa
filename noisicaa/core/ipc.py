@@ -30,8 +30,10 @@ import pickle
 import pprint
 import time
 import traceback
-from typing import cast, Any, Optional, Dict, Callable
+from typing import cast, Any, Optional, Dict, Tuple, Callable, Type
 import uuid
+
+from google.protobuf import message as protobuf
 
 from . import stats
 
@@ -155,7 +157,7 @@ class Server(object):
         self.__next_connection_id = 0
         self.__server = None  # type: asyncio.AbstractServer
 
-        self.__command_handlers = {}  # type: Dict[str, Callable]
+        self.__command_handlers = {}  # type: Dict[str, Tuple[Callable, Type[protobuf.Message], Type[protobuf.Message]]
         self.__command_log_levels = {}  # type: Dict[str, int]
 
         self.stat_bytes_sent = None  # type: stats.Counter
@@ -166,9 +168,16 @@ class Server(object):
         return self.__server is None
 
     def add_command_handler(
-            self, cmd: str, handler: Callable[..., Any], log_level: Optional[int] = -1) -> None:
+            self,
+            cmd: str,
+            handler: Callable[..., Any],
+            request_cls: Type[protobuf.Message] = None,
+            response_cls: Type[protobuf.Message] = None,
+            *,
+            log_level: Optional[int] = -1
+    ) -> None:
         assert cmd not in self.__command_handlers
-        self.__command_handlers[cmd] = handler
+        self.__command_handlers[cmd] = (handler, request_cls, response_cls)
         if log_level is not None:
             self.__command_log_levels[cmd] = log_level
 
@@ -245,28 +254,43 @@ class Server(object):
 
     async def handle_command(self, command: str, payload: bytes) -> bytes:
         try:
-            handler = self.__command_handlers[command]
+            handler, request_cls, response_cls = self.__command_handlers[command]
 
-            args, kwargs = self.deserialize(payload)
+            if request_cls is not None:
+                request = request_cls()
+                request.ParseFromString(payload)
+                response = response_cls()
 
-            log_level = self.__command_log_levels.get(command, logging.INFO)
-            if log_level >= 0:
-                logger.log(
-                    log_level,
-                    "%s(%s%s)",
-                    command,
-                    ', '.join(str(a) for a in args),
-                    ''.join(', %s=%r' % (k, v)
-                            for k, v in sorted(kwargs.items())))
+                if asyncio.iscoroutinefunction(handler):
+                    await handler(request, response)
+                else:
+                    handler(request, response)
 
-            if asyncio.iscoroutinefunction(handler):
-                result = await handler(*args, **kwargs)
+                return b'OK:' + response.SerializeToString()
+
             else:
-                result = handler(*args, **kwargs)
-            if result is not None:
-                return b'OK:' + self.serialize(result)
-            else:
-                return b'OK'
+                args, kwargs = self.deserialize(payload)
+
+                log_level = self.__command_log_levels.get(command, logging.INFO)
+                if log_level >= 0:
+                    logger.log(
+                        log_level,
+                        "%s(%s%s)",
+                        command,
+                        ', '.join(str(a) for a in args),
+                        ''.join(', %s=%r' % (k, v)
+                                for k, v in sorted(kwargs.items())))
+
+                if asyncio.iscoroutinefunction(handler):
+                    result = await handler(*args, **kwargs)
+                else:
+                    result = handler(*args, **kwargs)
+
+                if result is not None:
+                    return b'OK:' + self.serialize(result)
+                else:
+                    return b'OK'
+
         except Exception:  # pylint: disable=broad-except
             return b'EXC:' + str(traceback.format_exc()).encode('utf-8')
 
@@ -473,6 +497,24 @@ class Stub(object):
             raise RemoteException(self.__server_address, response[4:].decode('utf-8'))
         else:
             raise InvalidResponseError(response)
+
+    async def proto_call(
+            self, cmd: str, request: protobuf.Message, response: protobuf.Message
+    ) -> None:
+        payload = request.SerializeToString()
+
+        response_container = ResponseContainer(self.__event_loop)
+        self.__command_queue.put_nowait((cmd.encode('ascii'), payload, response_container))
+        serialized_response = await response_container.wait()
+
+        if serialized_response is self.CLOSE_SENTINEL:
+            raise ConnectionClosed(self.id)
+        elif serialized_response.startswith(b'OK:'):
+            response.ParseFromString(serialized_response[3:])
+        elif serialized_response.startswith(b'EXC:'):
+            raise RemoteException(self.__server_address, serialized_response[4:].decode('utf-8'))
+        else:
+            raise InvalidResponseError(serialized_response)
 
     def call_sync(self, cmd: str, payload: bytes = b'') -> Any:
         return self.__event_loop.run_until_complete(self.call(cmd, payload))

@@ -74,17 +74,32 @@ class IPCTest(unittest.AsyncTestCase):
             async with ipc.Stub(self.loop, server.address) as stub:
                 self.assertEqual(await stub.call('foo', 3), 4)
 
+    async def test_proto_message(self):
+        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
+            async def handler(request, response):
+                response.num = request.num + 1
+            server.add_command_handler(
+                'foo', handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
+
+            async with ipc.Stub(self.loop, server.address) as stub:
+                request = ipc_test_pb2.TestRequest()
+                request.num = 3
+                response = ipc_test_pb2.TestResponse()
+                await stub.proto_call('foo', request, response)
+                self.assertEqual(response.num, 4)
+
 
 class TestSubprocess(process_manager.SubprocessMixin, process_manager.ProcessBase):
     async def run(self):
         quit_event = asyncio.Event(loop=self.event_loop)
 
-        self.server.add_command_handler('foo', self.msg_handler)
+        self.server.add_command_handler(
+            'foo', self.msg_handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
         self.server.add_command_handler('quit', quit_event.set)
         await quit_event.wait()
 
-    async def msg_handler(self, msg):
-        return ipc_test_pb2.TestResponse(num=2)
+    async def msg_handler(self, request, response):
+        response.num = 2
 
 
 class IPCPerfTest(unittest.AsyncTestCase):
@@ -126,7 +141,8 @@ class IPCPerfTest(unittest.AsyncTestCase):
             wt0 = time.perf_counter()
             ct0 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID)
             for _ in range(num_requests):
-                await self.stub.call('foo', request)
+                response = ipc_test_pb2.TestResponse()
+                await self.stub.proto_call('foo', request, response)
             wt = time.perf_counter() - wt0
             ct = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID) - ct0
             passes.append((wt, ct))
