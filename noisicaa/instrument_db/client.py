@@ -74,7 +74,10 @@ class InstrumentDBClient(object):
 
         if self.__stub is not None:
             if shutdown:
-                await self.shutdown()
+                try:
+                    await self.shutdown()
+                except ipc.ConnectionClosed:
+                    pass
 
             await self.__stub.close()
             self.__stub = None

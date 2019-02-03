@@ -179,7 +179,10 @@ class AudioProcClientMixin(AudioProcClientBase):
 
         if self._stub is not None:
             if shutdown:
-                await self.shutdown()
+                try:
+                    await self.shutdown()
+                except ipc.ConnectionClosed:
+                    pass
 
             await self._stub.close()
             self._stub = None
