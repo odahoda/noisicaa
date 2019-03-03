@@ -32,6 +32,7 @@ from indicator_cpufreq import cpufreq
 from noisidev import unittest
 from noisicaa.constants import TEST_OPTS
 from . import process_manager
+from . import empty_message_pb2
 from . import ipc
 from . import ipc_test_pb2
 
@@ -39,6 +40,7 @@ from . import ipc_test_pb2
 class IPCTest(unittest.AsyncTestCase):
     async def test_ping(self):
         async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
+            await server.add_endpoint(ipc.ServerEndpoint('main'))
             async with ipc.Stub(self.loop, server.address) as stub:
                 await stub.ping()
                 await stub.ping()
@@ -47,55 +49,168 @@ class IPCTest(unittest.AsyncTestCase):
             async with ipc.Stub(self.loop, server.address) as stub:
                 await stub.ping()
 
-    async def test_command(self):
-        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
-            server.add_command_handler('foo', lambda: None)
-            server.add_command_handler('bar', lambda: 'yo')
-            server.add_command_handler('gnurz', lambda a: a + 1)
-
-            async with ipc.Stub(self.loop, server.address) as stub:
-                self.assertIsNone(await stub.call('foo'))
-                self.assertEqual(await stub.call('bar'), 'yo')
-                self.assertEqual(await stub.call('gnurz', 3), 4)
-
-    async def test_remote_exception(self):
-        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
-            server.add_command_handler('foo', lambda: 1/0)
-            async with ipc.Stub(self.loop, server.address) as stub:
-                with self.assertRaises(ipc.RemoteException):
-                    await stub.call('foo')
-
-    async def test_async_handler(self):
-        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
-            async def handler(arg):
-                return arg + 1
-            server.add_command_handler('foo', handler)
-
-            async with ipc.Stub(self.loop, server.address) as stub:
-                self.assertEqual(await stub.call('foo', 3), 4)
-
-    async def test_proto_message(self):
+    async def test_good_message(self):
         async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
             async def handler(request, response):
                 response.num = request.num + 1
-            server.add_command_handler(
+            endpoint = ipc.ServerEndpoint('main')
+            endpoint.add_handler(
                 'foo', handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
+            await server.add_endpoint(endpoint)
 
             async with ipc.Stub(self.loop, server.address) as stub:
                 request = ipc_test_pb2.TestRequest()
                 request.num = 3
                 response = ipc_test_pb2.TestResponse()
-                await stub.proto_call('foo', request, response)
+                await stub.call('foo', request, response)
                 self.assertEqual(response.num, 4)
+
+    async def test_endpoint(self):
+        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
+            endpoint = ipc.ServerEndpoint('bar')
+
+            async def handler(request, response):
+                response.num = request.num + 1
+            endpoint.add_handler(
+                'foo', handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
+            endpoint_address = await server.add_endpoint(endpoint)
+
+            async with ipc.Stub(self.loop, endpoint_address) as stub:
+                request = ipc_test_pb2.TestRequest()
+                request.num = 3
+                response = ipc_test_pb2.TestResponse()
+                await stub.call('foo', request, response)
+                self.assertEqual(response.num, 4)
+
+    async def test_session(self):
+        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
+            endpoint = ipc.ServerEndpointWithSessions('bar', ipc.Session)
+
+            async def handler(session, request, response):
+                self.assertIsInstance(session, ipc.Session)
+                response.num = request.num + 1
+            endpoint.add_handler(
+                'foo', handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
+            endpoint_address = await server.add_endpoint(endpoint)
+
+            async with ipc.Stub(self.loop, endpoint_address) as stub:
+                self.assertTrue(stub.session_id is not None)
+                request = ipc_test_pb2.TestRequest()
+                request.num = 3
+                response = ipc_test_pb2.TestResponse()
+                await stub.call('foo', request, response)
+                self.assertEqual(response.num, 4)
+
+    async def test_remote_exception(self):
+        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
+            endpoint = ipc.ServerEndpoint('main')
+            def handler(request, response):
+                raise RuntimeError("boom")
+            endpoint.add_handler(
+                'foo', handler,
+                ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
+            await server.add_endpoint(endpoint)
+
+            async with ipc.Stub(self.loop, server.address) as stub:
+                with self.assertRaises(ipc.RemoteException):
+                    await stub.call('foo')
+
+    async def test_unknown_command(self):
+        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
+            await server.add_endpoint(ipc.ServerEndpoint('main'))
+            async with ipc.Stub(self.loop, server.address) as stub:
+                with self.assertRaises(ipc.RemoteException):
+                    await stub.call('foo')
+
+    async def test_close_server(self):
+        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
+            endpoint = ipc.ServerEndpoint('main')
+            async def handler(request, response):
+                self.loop.create_task(server.cleanup())
+                await asyncio.sleep(0.1)
+                response.num = request.num + 1
+            endpoint.add_handler(
+                'foo', handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
+            await server.add_endpoint(endpoint)
+
+            async with ipc.Stub(self.loop, server.address) as stub:
+                request = ipc_test_pb2.TestRequest()
+                request.num = 3
+                response = ipc_test_pb2.TestResponse()
+                await stub.call('foo', request, response)
+                self.assertEqual(response.num, 4)
+
+    async def test_server_dies(self):
+        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
+            endpoint = ipc.ServerEndpoint('main')
+            async def handler(request, response):
+                response.num = request.num + 1
+            endpoint.add_handler(
+                'foo', handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
+            await server.add_endpoint(endpoint)
+
+            async with ipc.Stub(self.loop, server.address) as stub:
+                request = ipc_test_pb2.TestRequest()
+                request.num = 3
+                response = ipc_test_pb2.TestResponse()
+                await stub.call('foo', request, response)
+                self.assertEqual(response.num, 4)
+
+                await server.cleanup()
+
+                with self.assertRaises(ipc.ConnectionClosed):
+                    response = ipc_test_pb2.TestResponse()
+                    await stub.call('foo', request, response)
+
+    async def test_concurrent_requests(self):
+        async with ipc.Server(self.loop, name='test', socket_dir=TEST_OPTS.TMP_DIR) as server:
+            pending = [0]
+
+            async def handler(request, response):
+                pending[0] += 1
+                while True:
+                    if pending[0] > 3:
+                        break
+                    await asyncio.sleep(0.1)
+
+                response.num = request.num + 1
+
+            endpoint = ipc.ServerEndpoint('main')
+            endpoint.add_handler(
+                'foo', handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
+            await server.add_endpoint(endpoint)
+
+            async with ipc.Stub(self.loop, server.address) as stub:
+                tasks = []
+                responses = []
+                for i in range(4):
+                    request = ipc_test_pb2.TestRequest()
+                    request.num = 3 + 2 * i
+                    response = ipc_test_pb2.TestResponse()
+                    tasks.append(self.loop.create_task(stub.call('foo', request, response)))
+                    responses.append(response)
+
+                done_tasks, pending_tasks = await asyncio.wait(tasks, timeout=5, loop=self.loop)
+                self.assertEqual(len(done_tasks), 4)
+                self.assertEqual(len(pending_tasks), 0)
+                for task in tasks:
+                    await task
+                for i, response in enumerate(responses):
+                    self.assertEqual(response.num, 4 + 2 * i)
 
 
 class TestSubprocess(process_manager.SubprocessMixin, process_manager.ProcessBase):
     async def run(self):
         quit_event = asyncio.Event(loop=self.event_loop)
 
-        self.server.add_command_handler(
+        endpoint = ipc.ServerEndpoint('main')
+        endpoint.add_handler(
             'foo', self.msg_handler, ipc_test_pb2.TestRequest, ipc_test_pb2.TestResponse)
-        self.server.add_command_handler('quit', quit_event.set)
+        endpoint.add_handler(
+            'quit', lambda request, response: quit_event.set(),
+            empty_message_pb2.EmptyMessage, empty_message_pb2.EmptyMessage)
+        await self.server.add_endpoint(endpoint)
+
         await quit_event.wait()
 
     async def msg_handler(self, request, response):
@@ -142,7 +257,7 @@ class IPCPerfTest(unittest.AsyncTestCase):
             ct0 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID)
             for _ in range(num_requests):
                 response = ipc_test_pb2.TestResponse()
-                await self.stub.proto_call('foo', request, response)
+                await self.stub.call('foo', request, response)
             wt = time.perf_counter() - wt0
             ct = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID) - ct0
             passes.append((wt, ct))

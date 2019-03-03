@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import Iterator, Tuple
+from typing import Iterator
 from noisicaa import node_db
 
 
@@ -28,5 +28,5 @@ class Scanner(object):
     def __init__(self) -> None:
         pass
 
-    def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
+    def scan(self) -> Iterator[node_db.NodeDescription]:
         raise NotImplementedError

@@ -28,6 +28,7 @@ import uuid
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
 from noisicaa import model
+from noisicaa import editor_main_pb2
 from . import project_client
 
 if typing.TYPE_CHECKING:
@@ -36,10 +37,14 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class CommandsTestMixin(unittest_mixins.NodeDBMixin, unittest_mixins.ProcessManagerMixin):
+class CommandsTestMixin(
+        unittest_mixins.ServerMixin,
+        unittest_mixins.NodeDBMixin,
+        unittest_mixins.ProcessManagerMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.project_address = None  # type: str
         self.client = None  # type: project_client.ProjectClient
         self.project = None  # type: project_client_model.Project
         self.pool = None  # type: model.Pool
@@ -48,13 +53,18 @@ class CommandsTestMixin(unittest_mixins.NodeDBMixin, unittest_mixins.ProcessMana
         self.setup_node_db_process(inline=True)
         self.setup_project_process(inline=True)
 
-        project_address = await self.process_manager_client.call(
-            'CREATE_PROJECT_PROCESS', 'test-project')
+        create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(
+            uri='test-project')
+        create_project_process_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_PROJECT_PROCESS',
+            create_project_process_request, create_project_process_response)
+        self.project_address = create_project_process_response.address
 
         self.client = project_client.ProjectClient(
-            event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR, node_db=self.node_db)
+            event_loop=self.loop, server=self.server, node_db=self.node_db)
         await self.client.setup()
-        await self.client.connect(project_address)
+        await self.client.connect(self.project_address)
 
         path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
         await self.client.create(path)
@@ -68,5 +78,10 @@ class CommandsTestMixin(unittest_mixins.NodeDBMixin, unittest_mixins.ProcessMana
 
         if self.client is not None:
             await self.client.close()
-            await self.client.disconnect(shutdown=True)
             await self.client.cleanup()
+
+        if self.project_address is not None:
+            await self.process_manager_client.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.project_address))

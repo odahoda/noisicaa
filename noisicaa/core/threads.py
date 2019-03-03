@@ -24,6 +24,7 @@ import asyncio
 import concurrent.futures
 import logging
 import threading
+import traceback
 from typing import Callable, Awaitable, Any
 
 logger = logging.getLogger(__name__)
@@ -71,8 +72,8 @@ class Thread(object):
             result = self.__target()
         except Exception as exc:  # pylint: disable=broad-except
             logger.info(
-                "Thread %08x finished with an exception: %s: %s",
-                self.ident, type(exc).__name__, exc)
+                "Thread %08x finished with an exception:\n%s",
+                self.ident, traceback.format_exc())
             self.__thread_done.set_exception(exc)
         else:
             logger.info("Thread %08x finished successfully", self.ident)

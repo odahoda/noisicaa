@@ -22,54 +22,67 @@
 
 import asyncio
 import logging
-from typing import cast, Any, Dict
+from typing import cast, Any
 
 from noisicaa import core
+from noisicaa.core import ipc
+from . import urid_mapper_pb2
 from . import urid_mapper
 
 logger = logging.getLogger(__name__)
 
 
-class Session(core.CallbackSessionMixin, core.SessionBase):
+class Session(ipc.CallbackSessionMixin, ipc.Session):
     async_connect = False
 
-    def __init__(self, client_address: str, **kwargs: Any) -> None:
-        super().__init__(callback_address=client_address, **kwargs)
-
-    async def publish_new_uri(self, uris: Dict[str, int]) -> None:
+    async def publish_new_uri(self, uris: urid_mapper_pb2.NewURIsRequest) -> None:
         assert self.callback_alive
         await self.callback('NEW_URIS', uris)
 
 
-class URIDMapperProcess(core.SessionHandlerMixin, core.ProcessBase):
-    session_cls = Session
-
+class URIDMapperProcess(core.ProcessBase):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
+        self.__main_endpoint = None  # type: ipc.ServerEndpointWithSessions[Session]
         self.__mapper = urid_mapper.PyDynamicURIDMapper()
 
     async def setup(self) -> None:
         await super().setup()
 
-        self.server.add_command_handler('MAP', self.handle_map)
-        self.server.add_command_handler('SHUTDOWN', self.shutdown)
+        self.__main_endpoint = ipc.ServerEndpointWithSessions(
+            'main', Session,
+            session_started=self.__session_started)
+        self.__main_endpoint.add_handler(
+            'MAP', self.__handle_map,
+            urid_mapper_pb2.MapRequest, urid_mapper_pb2.MapResponse)
+        await self.server.add_endpoint(self.__main_endpoint)
 
-    async def session_started(self, session: core.SessionBase) -> None:
-        initial_uris = dict(self.__mapper.list())
-        if initial_uris:
-            await cast(Session, session).publish_new_uri(initial_uris)
+    async def __session_started(self, session: Session) -> None:
+        initial_uris = urid_mapper_pb2.NewURIsRequest()
+        for uri, urid in self.__mapper.list():
+            initial_uris.mappings.add(uri=uri, urid=urid)
+        if initial_uris.mappings:
+            await session.publish_new_uri(initial_uris)
 
-    async def handle_map(self, uri: str) -> int:
-        publish = not self.__mapper.known(uri)
-        urid = self.__mapper.map(uri)
+    async def __handle_map(
+            self,
+            session: Session,
+            request: urid_mapper_pb2.MapRequest,
+            response: urid_mapper_pb2.MapResponse
+    ) -> None:
+        publish = not self.__mapper.known(request.uri)
+        urid = self.__mapper.map(request.uri)
         if publish:
-            tasks = []
-            for session in self.sessions:
-                tasks.append(cast(Session, session).publish_new_uri({uri: urid}))
+            new_uris = urid_mapper_pb2.NewURIsRequest()
+            new_uris.mappings.add(uri=request.uri, urid=urid)
 
+            tasks = []
+            for session in self.__main_endpoint.sessions:
+                tasks.append(cast(Session, session).publish_new_uri(new_uris))
             await asyncio.wait(tasks, loop=self.event_loop)
-        return urid
+
+        response.urid = urid
 
 
 class URIDMapperSubprocess(core.SubprocessMixin, URIDMapperProcess):

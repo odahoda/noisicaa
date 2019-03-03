@@ -56,13 +56,11 @@ class UpdateTrack(commands.Command):
 class CreateMeasure(commands.Command):
     proto_type = 'create_measure'
 
-    def run(self) -> int:
+    def run(self) -> None:
         pb = down_cast(commands_pb2.CreateMeasure, self.pb)
         track = down_cast(pmodel.MeasuredTrack, self.pool[pb.track_id])
 
         track.insert_measure(pb.pos)
-
-        return track.measure_list[pb.pos].id
 
 
 class UpdateMeasure(commands.Command):

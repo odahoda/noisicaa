@@ -23,10 +23,8 @@ from .process_manager import (
     ProcessBase,
     SubprocessMixin,
 )
-from .sessions import (
-    SessionHandlerMixin,
-    SessionBase,
-    CallbackSessionMixin,
+from .ipc_pb2 import (
+    StartSessionRequest,
 )
 from .callbacks import (
     CallbackMap,

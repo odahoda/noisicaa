@@ -20,6 +20,8 @@
 #
 # @end:license
 
+from typing import cast
+
 from noisidev import unittest
 from noisicaa.music import commands_test
 from noisicaa import music
@@ -30,9 +32,9 @@ from . import commands
 class InstrumentTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
 
     async def _add_node(self) -> client_impl.Instrument:
-        node_id = await self.client.send_command(music.create_node(
+        await self.client.send_command(music.create_node(
             'builtin://instrument'))
-        return self.pool[node_id]
+        return cast(client_impl.Instrument, self.project.nodes[-1])
 
     async def test_add_node(self):
         node = await self._add_node()

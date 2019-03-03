@@ -24,9 +24,7 @@ import asyncio
 import bisect
 import logging
 import pathlib
-import pprint
 import random
-import textwrap
 import uuid
 from typing import cast, Any, Optional, Iterator, List, Tuple
 
@@ -145,7 +143,7 @@ class LibraryModel(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         parent = self.__root_item  # type: AbstractFolder
         parent_index = self.indexForItem(parent)
 
-        if description.format == 'sf2':
+        if description.format == instrument_db.InstrumentDescription.SF2:
             folder_path = pathlib.Path(description.path)
         else:
             folder_path = pathlib.Path(description.path).parent
@@ -582,8 +580,8 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
     def handleInstrumentMutation(self, mutation: instrument_db.Mutation) -> None:
         logger.info("Mutation received: %s", mutation)
-        if isinstance(mutation, instrument_db.AddInstrumentDescription):
-            self.__model.addInstrument(mutation.description)
+        if mutation.WhichOneof('type') == 'add_instrument':
+            self.__model.addInstrument(mutation.add_instrument)
         else:
             raise TypeError(type(mutation))
 
@@ -601,12 +599,7 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
                 self.spinner.setVisible(True)
 
                 self.instrument_name.setText(description.display_name)
-                self.instrument_data.setPlainText(textwrap.dedent("""\
-                    uri: {uri}
-                    properties: {properties}
-                    """.format(
-                        uri=description.uri,
-                        properties=pprint.pformat(description.properties))))
+                self.instrument_data.setPlainText(str(description))
 
                 try:
                     instrument_spec = instrument_db.create_instrument_spec(description.uri)

@@ -33,7 +33,6 @@ add_python_package(
   process_manager_test.py
   recordfile.py
   recordfile_test.py
-  sessions.py
   stacktrace.pyi
   stats_test.py
   storage.py
@@ -46,8 +45,13 @@ add_python_package(
 add_cython_module(logging_test CXX)
 target_link_libraries(${logging_test.so} PRIVATE noisicaa-core)
 
+py_proto(empty_message.proto)
 py_proto(storage.proto)
+py_proto(ipc.proto)
+py_proto(process_manager.proto)
 py_proto(ipc_test.proto)
+py_proto(proto_types.proto)
+py_proto(session_data.proto)
 
 set(LIB_SRCS
   logging.cpp

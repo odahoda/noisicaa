@@ -24,6 +24,7 @@ from noisicaa import node_db
 
 
 MixerDescription = node_db.NodeDescription(
+    uri='builtin://mixer',
     display_name='Mixer',
     type=node_db.NodeDescription.PROCESSOR,
     node_ui=node_db.NodeUIDescription(

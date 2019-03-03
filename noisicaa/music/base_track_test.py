@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Type
+from typing import cast, Type
 
 from . import commands_test
 from . import project_client
@@ -35,17 +35,17 @@ class TrackTestMixin(commands_test.CommandsTestMixin):
     track_cls = None  # type: Type[project_client_model.Track]
 
     async def test_add_remove(self) -> None:
-        node_id = await self.client.send_command(project_client.create_node(
+        await self.client.send_command(project_client.create_node(
             self.node_uri))
-        node = self.pool[node_id]
+        node = self.project.nodes[-1]
         assert isinstance(node, self.track_cls)
 
         await self.client.send_command(project_client.delete_node(node))
 
     async def _add_track(self) -> project_client_model.Track:
-        node_id = await self.client.send_command(project_client.create_node(
+        await self.client.send_command(project_client.create_node(
             self.node_uri))
-        return self.pool[node_id]
+        return cast(project_client_model.Track, self.project.nodes[-1])
 
 
 # class BaseTrackTest(TrackTestMixin, unittest.AsyncTestCase):

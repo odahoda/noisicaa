@@ -20,6 +20,7 @@
 
 add_python_package(
   builtin_scanner.py
+  builtin_scanner_test.py
   csound_scanner.py
   csound_scanner_test.py
   db.py

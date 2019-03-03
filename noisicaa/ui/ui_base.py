@@ -24,7 +24,7 @@ import asyncio
 import functools
 import io
 import typing
-from typing import Any, Optional, Dict, List, Tuple, Callable, Awaitable
+from typing import Any, Optional, Dict, Tuple, Callable, Awaitable
 
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
@@ -60,7 +60,7 @@ class CommonContext(object):
         return self.__app.win
 
     @property
-    def audioproc_client(self) -> audioproc.AudioProcClientMixin:
+    def audioproc_client(self) -> audioproc.AbstractAudioProcClient:
         return self.__app.audioproc_client
 
     @property
@@ -113,7 +113,7 @@ class CommonMixin(object):
         return self._context.editor_window
 
     @property
-    def audioproc_client(self) -> audioproc.AudioProcClientMixin:
+    def audioproc_client(self) -> audioproc.AbstractAudioProcClient:
         return self._context.audioproc_client
 
     @property
@@ -157,13 +157,11 @@ class ProjectContext(CommonContext):
     def project_client(self) -> music.ProjectClient:
         return self.__project_connection.client
 
-    def send_command_async(
-            self, cmd: music.Command, callback: Optional[Callable[[Any], None]]) -> None:
-        self.call_async(self.project_client.send_command(cmd), callback=callback)
+    def send_command_async(self, cmd: music.Command) -> None:
+        self.call_async(self.project_client.send_command(cmd))
 
-    def send_commands_async(
-            self, *cmd: music.Command, callback: Optional[Callable[[List[Any]], None]]) -> None:
-        self.call_async(self.project_client.send_commands(*cmd), callback=callback)
+    def send_commands_async(self, *cmd: music.Command) -> None:
+        self.call_async(self.project_client.send_commands(*cmd))
 
     def set_session_value(self, key: str, value: Any) -> None:
         self.project_client.set_session_values({key: value})
@@ -205,14 +203,11 @@ class ProjectMixin(CommonMixin):
     def project_client(self) -> music.ProjectClient:
         return self._context.project_client
 
-    def send_command_async(
-            self, command: music.Command, callback: Optional[Callable[[Any], None]] = None) -> None:
-        self._context.send_command_async(command, callback=callback)
+    def send_command_async(self, command: music.Command) -> None:
+        self._context.send_command_async(command)
 
-    def send_commands_async(
-            self, *commands: music.Command, callback: Optional[Callable[[List[Any]], None]] = None
-    ) -> None:
-        self._context.send_commands_async(*commands, callback=callback)
+    def send_commands_async(self, *commands: music.Command) -> None:
+        self._context.send_commands_async(*commands)
 
     def set_session_value(self, key: str, value: Any) -> None:
         self._context.set_session_value(key, value)
@@ -252,7 +247,7 @@ class AbstractStatMonitor(CommonMixin, QtWidgets.QMainWindow):
 
 class AbstractEditorApp(object):
     win = None  # type: AbstractEditorWindow
-    audioproc_client = None  # type: audioproc.AudioProcClientMixin
+    audioproc_client = None  # type: audioproc.AbstractAudioProcClient
     process = None  # type: core.ProcessBase
     settings = None  # type: QtCore.QSettings
     pipeline_perf_monitor = None  # type: AbstractPipelinePerfMonitor

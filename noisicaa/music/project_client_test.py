@@ -27,19 +27,26 @@ import uuid
 
 from noisidev import unittest
 from noisidev import unittest_mixins
+from noisicaa import editor_main_pb2
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
 from . import project_client
 from . import project_client_model
+from . import project_process_pb2
 from . import render_settings_pb2
 
 logger = logging.getLogger(__name__)
 
 
-class ProjectClientTestBase(unittest_mixins.ProcessManagerMixin, unittest.AsyncTestCase):
+class ProjectClientTestBase(
+        unittest_mixins.ServerMixin,
+        unittest_mixins.ProcessManagerMixin,
+        unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.project_address = None
         self.client = None
 
     async def setup_testcase(self):
@@ -52,21 +59,32 @@ class ProjectClientTestBase(unittest_mixins.ProcessManagerMixin, unittest.AsyncT
 
     async def connect_project_client(self):
         if self.client is not None:
-            await self.client.disconnect(shutdown=True)
+            await self.client.disconnect()
             await self.client.cleanup()
 
-        project_address = await self.process_manager_client.call(
-            'CREATE_PROJECT_PROCESS', 'test-project')
+        create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(
+            uri='test-project')
+        create_project_process_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_PROJECT_PROCESS',
+            create_project_process_request, create_project_process_response)
+        project_address = create_project_process_response.address
 
         self.client = project_client.ProjectClient(
-            event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
+            event_loop=self.loop, server=self.server)
         await self.client.setup()
         await self.client.connect(project_address)
 
     async def cleanup_testcase(self):
         if self.client is not None:
-            await self.client.disconnect(shutdown=True)
+            await self.client.disconnect()
             await self.client.cleanup()
+
+        if self.project_address is not None:
+            await self.process_manager_client.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.project_address))
 
 
 class ProjectClientTest(ProjectClientTestBase):
@@ -100,12 +118,17 @@ class ProjectClientTest(ProjectClientTestBase):
             await self.client.send_command(project_client.create_node(
                 'does-not-exist'))
 
+    async def test_server_error(self):
+        await self.client.create_inmemory()
+        with self.assertRaises(ipc.ConnectionClosed):
+            await self.client.send_command(project_client.crash())
+
 
 class RenderTest(ProjectClientTestBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.cb_server = None
+        self.cb_endpoint_address = None
         self.current_state = None
         self.current_progress = fractions.Fraction(0)
         self.bytes_received = 0
@@ -114,22 +137,20 @@ class RenderTest(ProjectClientTestBase):
         self.handle_progress = self._handle_progress
         self.handle_data = self._handle_data
 
-    def _handle_state(self, state):
-        self.assertIsInstance(state, str)
-        self.assertNotEqual(state, self.current_state)
-        self.current_state = state
+    def _handle_state(self, request, response):
+        self.assertNotEqual(request.state, self.current_state)
+        self.current_state = request.state
 
-    def _handle_progress(self, progress):
+    def _handle_progress(self, request, response):
+        progress = fractions.Fraction(request.numerator, request.denominator)
         self.assertEqual(self.current_state, 'render')
-        self.assertIsInstance(progress, fractions.Fraction)
         self.assertGreaterEqual(progress, self.current_progress)
         self.current_progress = progress
-        return False
+        response.abort = False
 
-    def _handle_data(self, data):
-        self.assertIsInstance(data, bytes)
-        self.bytes_received += len(data)
-        return True, ''
+    def _handle_data(self, request, response):
+        self.bytes_received += len(request.data)
+        response.status = True
 
     async def setup_testcase(self):
         self.setup_urid_mapper_process(inline=True)
@@ -138,27 +159,32 @@ class RenderTest(ProjectClientTestBase):
         await self.client.create_inmemory()
 
         # pylint: disable=unnecessary-lambda
-        self.cb_server = ipc.Server(self.loop, 'render_cb', socket_dir=TEST_OPTS.TMP_DIR)
-        self.cb_server.add_command_handler('STATE', lambda *a: self.handle_state(*a))
-        self.cb_server.add_command_handler('PROGRESS', lambda *a: self.handle_progress(*a))
-        self.cb_server.add_command_handler(
-            'DATA', lambda *a: self.handle_data(*a), log_level=logging.DEBUG)
-        await self.cb_server.setup()
+        cb_endpoint = ipc.ServerEndpoint('render_cb')
+        cb_endpoint.add_handler(
+            'STATE', lambda request, response: self.handle_state(request, response),
+            project_process_pb2.RenderStateRequest, empty_message_pb2.EmptyMessage)
+        cb_endpoint.add_handler(
+            'PROGRESS', lambda request, response: self.handle_progress(request, response),
+            project_process_pb2.RenderProgressRequest, project_process_pb2.RenderProgressResponse)
+        cb_endpoint.add_handler(
+            'DATA', lambda request, response: self.handle_data(request, response),
+            project_process_pb2.RenderDataRequest, project_process_pb2.RenderDataResponse)
+        self.cb_endpoint_address = await self.server.add_endpoint(cb_endpoint)
 
     async def cleanup_testcase(self):
-        if self.cb_server is not None:
-            await self.cb_server.cleanup()
+        if self.cb_endpoint_address is not None:
+            await self.server.remove_endpoint('render_cb')
 
     async def test_success(self):
         header = bytearray()
 
-        def handle_data(data):
+        def handle_data(request, response):
             if len(header) < 4:
-                header.extend(data)
-            return self._handle_data(data)
+                header.extend(request.data)
+            self._handle_data(request, response)
         self.handle_data = handle_data
 
-        await self.client.render(self.cb_server.address, render_settings_pb2.RenderSettings())
+        await self.client.render(self.cb_endpoint_address, render_settings_pb2.RenderSettings())
 
         logger.info("Received %d encoded bytes", self.bytes_received)
 
@@ -171,21 +197,22 @@ class RenderTest(ProjectClientTestBase):
         settings = render_settings_pb2.RenderSettings()
         settings.output_format = render_settings_pb2.RenderSettings.FAIL__TEST_ONLY__
 
-        await self.client.render(self.cb_server.address, settings)
+        await self.client.render(self.cb_endpoint_address, settings)
 
         logger.info("Received %d encoded bytes", self.bytes_received)
 
         self.assertEqual(self.current_state, 'failed')
 
     async def test_write_fails(self):
-        def handle_data(data):
-            self._handle_data(data)
+        def handle_data(request, response):
+            self._handle_data(request, response)
             if self.bytes_received > 0:
-                return False, "Disk full"
-            return True, ""
+                response.status = False
+                response.msg = "Disk full"
+                return
         self.handle_data = handle_data
 
-        await self.client.render(self.cb_server.address, render_settings_pb2.RenderSettings())
+        await self.client.render(self.cb_endpoint_address, render_settings_pb2.RenderSettings())
 
         logger.info("Received %d encoded bytes", self.bytes_received)
 
@@ -193,12 +220,11 @@ class RenderTest(ProjectClientTestBase):
         self.assertGreater(self.bytes_received, 0)
 
     async def test_aborted(self):
-        def handle_progress(progress):
-            if progress > 0:
-                return True
-            return False
+        def handle_progress(request, response):
+            progress = fractions.Fraction(request.numerator, request.denominator)
+            response.abort = (progress > 0)
         self.handle_progress = handle_progress
 
-        await self.client.render(self.cb_server.address, render_settings_pb2.RenderSettings())
+        await self.client.render(self.cb_endpoint_address, render_settings_pb2.RenderSettings())
 
         self.assertEqual(self.current_state, 'failed')

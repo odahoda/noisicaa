@@ -20,8 +20,6 @@
 #
 # @end:license
 
-import fractions
-
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
@@ -52,14 +50,4 @@ def delete_sample(
     cmd = music.Command(command='delete_sample')
     pb = cmd.Extensions[commands_registry_pb2.delete_sample]
     pb.sample_id = sample.id
-    return cmd
-
-def render_sample(
-        sample: client_impl.SampleRef, *, scale_x: fractions.Fraction
-) -> music.Command:
-    cmd = music.Command(command='render_sample')
-    pb = cmd.Extensions[commands_registry_pb2.render_sample]
-    pb.sample_id = sample.id
-    pb.scale_x.numerator = scale_x.numerator
-    pb.scale_x.denominator = scale_x.denominator
     return cmd

@@ -43,10 +43,14 @@ with warnings.catch_warnings():
     from gi.repository import Gtk  # pylint: disable=unused-import
 
 from noisicaa import core
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa import lv2
 from noisicaa import host_system as host_system_lib
 from noisicaa import node_db
+from noisicaa import editor_main_pb2
+from noisicaa.audioproc import audioproc_pb2
+from noisicaa.audioproc.public import control_value_pb2
 from noisicaa.audioproc.public import plugin_state_pb2
 from . import plugin_host_pb2
 from . import plugin_host
@@ -137,10 +141,12 @@ class PluginHost(plugin_host.PyPluginHost):
 
     async def cleanup(self) -> None:  # type: ignore
         if self.__state_fetcher_task:
-            if self.__state_fetcher_task.done():
-                self.__state_fetcher_task.result()
-            else:
+            if not self.__state_fetcher_task.done():
                 self.__state_fetcher_task.cancel()
+            try:
+                await self.__state_fetcher_task
+            except asyncio.CancelledError:
+                pass
             self.__state_fetcher_task = None
 
         if self.__thread is not None:
@@ -187,7 +193,8 @@ class PluginHost(plugin_host.PyPluginHost):
                 await asyncio.shield(
                     self.__callback_stub.call(
                         'PLUGIN_STATE_CHANGE',
-                        self.__realm, self.__node_id, self.__state),
+                        audioproc_pb2.PluginStateChange(
+                            realm=self.__realm, node_id=self.__node_id, state=self.__state)),
                     loop=self.__event_loop)
 
 
@@ -204,15 +211,29 @@ class PluginHostProcess(core.ProcessBase):
     async def setup(self) -> None:
         await super().setup()
 
-        self.server.add_command_handler('SHUTDOWN', self.shutdown)
-        self.server.add_command_handler('CREATE_PLUGIN', self.__handle_create_plugin)
-        self.server.add_command_handler('DELETE_PLUGIN', self.__handle_delete_plugin)
-        self.server.add_command_handler('CREATE_UI', self.__handle_create_ui)
-        self.server.add_command_handler('DELETE_UI', self.__handle_delete_ui)
-        self.server.add_command_handler('SET_PLUGIN_STATE', self.__handle_set_plugin_state)
+        endpoint = ipc.ServerEndpoint('main')
+        endpoint.add_handler(
+            'CREATE_PLUGIN', self.__handle_create_plugin,
+            plugin_host_pb2.CreatePluginRequest, plugin_host_pb2.CreatePluginResponse)
+        endpoint.add_handler(
+            'DELETE_PLUGIN', self.__handle_delete_plugin,
+            plugin_host_pb2.DeletePluginRequest, empty_message_pb2.EmptyMessage)
+        endpoint.add_handler(
+            'CREATE_UI', self.__handle_create_ui,
+            plugin_host_pb2.CreatePluginUIRequest, plugin_host_pb2.CreatePluginUIResponse)
+        endpoint.add_handler(
+            'DELETE_UI', self.__handle_delete_ui,
+            plugin_host_pb2.DeletePluginUIRequest, empty_message_pb2.EmptyMessage)
+        endpoint.add_handler(
+            'SET_PLUGIN_STATE', self.__handle_set_plugin_state,
+            plugin_host_pb2.SetPluginStateRequest, empty_message_pb2.EmptyMessage)
+        await self.server.add_endpoint(endpoint)
 
         logger.info("Setting up URID mapper...")
-        urid_mapper_address = await self.manager.call('CREATE_URID_MAPPER_PROCESS')
+        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
+        await self.manager.call(
+            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
+        urid_mapper_address = create_urid_mapper_response.address
 
         self.__urid_mapper = lv2.ProxyURIDMapper(
             server_address=urid_mapper_address,
@@ -243,13 +264,17 @@ class PluginHostProcess(core.ProcessBase):
         await super().cleanup()
 
     async def __handle_create_plugin(
-            self, spec: plugin_host_pb2.PluginInstanceSpec, callback_address: str = None) -> str:
-        key = (spec.realm, spec.node_id)
+            self,
+            request: plugin_host_pb2.CreatePluginRequest,
+            response: plugin_host_pb2.CreatePluginResponse
+    ) -> None:
+        key = (request.spec.realm, request.spec.node_id)
         assert key not in self.__plugins
 
         plugin = PluginHost(
-            spec=spec,
-            callback_address=callback_address,
+            spec=request.spec,
+            callback_address=(
+                request.callback_address if request.HasField('callback_address') else None),
             event_loop=self.event_loop,
             host_system=self.__host_system,
             tmp_dir=self.tmp_dir)
@@ -257,10 +282,14 @@ class PluginHostProcess(core.ProcessBase):
 
         self.__plugins[key] = plugin
 
-        return plugin.pipe_path
+        response.pipe_path = plugin.pipe_path
 
-    async def __handle_delete_plugin(self, realm: str, node_id: str) -> None:
-        key = (realm, node_id)
+    async def __handle_delete_plugin(
+            self,
+            request: plugin_host_pb2.DeletePluginRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        key = (request.realm, request.node_id)
         assert key in self.__plugins
 
         ui_host = self.__uis.pop(key, None)
@@ -270,8 +299,12 @@ class PluginHostProcess(core.ProcessBase):
         plugin = self.__plugins.pop(key)
         await plugin.cleanup()
 
-    async def __handle_create_ui(self, realm: str, node_id: str) -> Tuple[int, Tuple[int, int]]:
-        key = (realm, node_id)
+    async def __handle_create_ui(
+            self,
+            request: plugin_host_pb2.CreatePluginUIRequest,
+            response: plugin_host_pb2.CreatePluginUIResponse
+    ) -> None:
+        key = (request.realm, request.node_id)
         assert key not in self.__uis
 
         plugin = self.__plugins[key]
@@ -283,18 +316,27 @@ class PluginHostProcess(core.ProcessBase):
 
         self.__uis[key] = ui_host
 
-        return (ui_host.wid, ui_host.size)
+        response.wid = ui_host.wid
+        response.width = ui_host.size[0]
+        response.height = ui_host.size[1]
 
-    async def __handle_delete_ui(self, realm: str, node_id: str) -> None:
-        key = (realm, node_id)
+    async def __handle_delete_ui(
+            self,
+            request: plugin_host_pb2.DeletePluginUIRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        key = (request.realm, request.node_id)
         ui_host = self.__uis.pop(key)
         ui_host.cleanup()
 
     async def __handle_set_plugin_state(
-            self, realm: str, node_id: str, state: plugin_state_pb2.PluginState) -> None:
-        key = (realm, node_id)
+            self,
+            request: plugin_host_pb2.SetPluginStateRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        key = (request.realm, request.node_id)
         plugin = self.__plugins[key]
-        plugin.set_state(state)
+        plugin.set_state(request.state)
 
     def __control_value_change(
             self, plugin: PluginHost, port_index: int, value: float, generation: int
@@ -303,7 +345,13 @@ class PluginHostProcess(core.ProcessBase):
         task = asyncio.run_coroutine_threadsafe(
             plugin.callback_stub.call(
                 'CONTROL_VALUE_CHANGE',
-                plugin.realm, plugin.node_id, port_desc.name, value, generation),
+                audioproc_pb2.ControlValueChange(
+                    realm=plugin.realm,
+                    node_id=plugin.node_id,
+                    value=control_value_pb2.ControlValue(
+                        name=port_desc.name,
+                        value=value,
+                        generation=generation))),
             loop=self.event_loop)
         task.add_done_callback(self.__control_value_change_done)
 

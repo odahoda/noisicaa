@@ -36,11 +36,11 @@ class NoteTest(uitest.ProjectMixin, uitest.UITestCase):
         self.nitem = None
 
     async def setup_testcase(self):
-        node_id = await self.project_client.send_command(music.create_node(
+        await self.project_client.send_command(music.create_node(
             'ladspa://passthru.so/passthru',
             graph_pos=model.Pos2F(200, 100),
             graph_size=model.SizeF(140, 65)))
-        self.node = self.project_client.get_object(node_id)
+        self.node = self.project.nodes[-1]
 
         self.nitem = base_node.Node(node=self.node, context=self.context)
 

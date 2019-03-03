@@ -36,9 +36,11 @@ from noisidev import unittest_mixins
 from noisidev import unittest_engine_mixins
 from noisidev import qttest
 from noisicaa.constants import TEST_OPTS
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa import node_db
 from noisicaa.audioproc.public import plugin_state_pb2
+from noisicaa.audioproc import audioproc_pb2
 from . import plugin_host_pb2
 from . import plugin_host
 
@@ -54,6 +56,7 @@ class Window(QtWidgets.QMainWindow):
 
 
 class PluginHostProcessTest(
+        unittest_mixins.ServerMixin,
         unittest_mixins.NodeDBMixin,
         unittest_mixins.ProcessManagerMixin,
         unittest_engine_mixins.HostSystemMixin,
@@ -63,7 +66,8 @@ class PluginHostProcessTest(
 
         self.shm = None
         self.shm_data = None
-        self.project_server = None
+        self.cb_endpoint = None
+        self.cb_endpoint_address = None
 
     async def setup_testcase(self):
         self.done = asyncio.Event(loop=self.loop)
@@ -75,17 +79,14 @@ class PluginHostProcessTest(
 
         self.shm_data = mmap.mmap(self.shm.fd, self.shm.size)
 
-        self.project_server = ipc.Server(
-            name='project',
-            event_loop=self.loop,
-            socket_dir=TEST_OPTS.TMP_DIR)
-        await self.project_server.setup()
+        self.cb_endpoint = ipc.ServerEndpoint('project_cb')
+        self.cb_endpoint_address = await self.server.add_endpoint(self.cb_endpoint)
 
         self.setup_urid_mapper_process(inline=False)
 
     async def cleanup_testcase(self):
-        if self.project_server is not None:
-            await self.project_server.cleanup()
+        if self.cb_endpoint_address is not None:
+            await self.server.remove_endpoint('project_cb')
 
         if self.shm_data is not None:
             self.shm_data.close()
@@ -111,7 +112,7 @@ class PluginHostProcessTest(
         return proc, stub
 
     async def test_create_plugin(self):
-        _, stub = await self.create_process(inline=True)
+        proc, stub = await self.create_process(inline=True)
         try:
             plugin_uri = 'http://noisicaa.odahoda.de/plugins/test-ui-gtk2'
             block_size = 256
@@ -120,7 +121,14 @@ class PluginHostProcessTest(
             spec.realm = 'root'
             spec.node_id = '1234'
             spec.node_description.CopyFrom(self.node_db[plugin_uri])
-            pipe_path = await stub.call('CREATE_PLUGIN', spec, self.project_server.address)
+
+            create_plugin_request = plugin_host_pb2.CreatePluginRequest(
+                spec=spec,
+                callback_address=self.cb_endpoint_address)
+            create_plugin_response = plugin_host_pb2.CreatePluginResponse()
+            await stub.call(
+                'CREATE_PLUGIN', create_plugin_request, create_plugin_response)
+            pipe_path = create_plugin_response.pipe_path
 
             pipe = open(pipe_path, 'wb', buffering=0)
 
@@ -179,25 +187,29 @@ class PluginHostProcessTest(
 
             pipe.close()
 
-            await stub.call('DELETE_PLUGIN', 'root', '1234')
+            await stub.call(
+                'DELETE_PLUGIN',
+                plugin_host_pb2.DeletePluginRequest(realm='root', node_id='1234'))
 
         finally:
-            await stub.call('SHUTDOWN')
             await stub.close()
+            await proc.shutdown()
 
     async def test_save_state(self):
         self.host_system.set_block_size(256)
 
         done = asyncio.Event(loop=self.loop)
 
-        def plugin_state_change(realm, node_id, state):
-            self.assertEqual(realm, 'root')
-            self.assertEqual(node_id, '1234')
-            self.assertIsInstance(state, plugin_state_pb2.PluginState)
+        def plugin_state_change(request, response):
+            self.assertEqual(request.realm, 'root')
+            self.assertEqual(request.node_id, '1234')
+            self.assertIsInstance(request.state, plugin_state_pb2.PluginState)
             done.set()
-        self.project_server.add_command_handler('PLUGIN_STATE_CHANGE', plugin_state_change)
+        self.cb_endpoint.add_handler(
+            'PLUGIN_STATE_CHANGE', plugin_state_change,
+            audioproc_pb2.PluginStateChange, empty_message_pb2.EmptyMessage)
 
-        _, stub = await self.create_process(inline=True)
+        proc, stub = await self.create_process(inline=True)
         try:
             plugin_uri = 'http://noisicaa.odahoda.de/plugins/test-state'
             node_desc = self.node_db[plugin_uri]
@@ -206,16 +218,25 @@ class PluginHostProcessTest(
             spec.realm = 'root'
             spec.node_id = '1234'
             spec.node_description.CopyFrom(node_desc)
-            pipe_path = await stub.call('CREATE_PLUGIN', spec, self.project_server.address)
+
+            create_plugin_request = plugin_host_pb2.CreatePluginRequest(
+                spec=spec,
+                callback_address=self.cb_endpoint_address)
+            create_plugin_response = plugin_host_pb2.CreatePluginResponse()
+            await stub.call(
+                'CREATE_PLUGIN', create_plugin_request, create_plugin_response)
+            pipe_path = create_plugin_response.pipe_path
 
             with open(pipe_path, 'wb', buffering=0):
                 await asyncio.wait_for(done.wait(), 10, loop=self.loop)
 
-            await stub.call('DELETE_PLUGIN', 'root', '1234')
+            await stub.call(
+                'DELETE_PLUGIN',
+                plugin_host_pb2.DeletePluginRequest(realm='root', node_id='1234'))
 
         finally:
-            await stub.call('SHUTDOWN')
             await stub.close()
+            await proc.shutdown()
 
     @unittest.skipUnless(TEST_OPTS.ALLOW_UI, "Requires UI")
     async def test_create_ui(self):
@@ -224,16 +245,17 @@ class PluginHostProcessTest(
         win = Window()
         win.closed.connect(done.set)
 
-        def control_value_change(realm, node_id, port_name, value, generation):
-            self.assertEqual(realm, 'root')
-            self.assertEqual(node_id, '1234')
-            self.assertEqual(port_name, 'ctrl')
-            self.assertIsInstance(value, float)
-            if value >= 1.0:
+        def control_value_change(request, response):
+            self.assertEqual(request.realm, 'root')
+            self.assertEqual(request.node_id, '1234')
+            self.assertEqual(request.value.name, 'ctrl')
+            if request.value.value >= 1.0:
                 done.set()
-        self.project_server.add_command_handler('CONTROL_VALUE_CHANGE', control_value_change)
+        self.cb_endpoint.add_handler(
+            'CONTROL_VALUE_CHANGE', control_value_change,
+            audioproc_pb2.ControlValueChange, empty_message_pb2.EmptyMessage)
 
-        _, stub = await self.create_process(inline=False)
+        proc, stub = await self.create_process(inline=False)
         try:
             plugin_uri = 'http://noisicaa.odahoda.de/plugins/test-ui-gtk2'
 
@@ -241,11 +263,23 @@ class PluginHostProcessTest(
             spec.realm = 'root'
             spec.node_id = '1234'
             spec.node_description.CopyFrom(self.node_db[plugin_uri])
-            await stub.call('CREATE_PLUGIN', spec, self.project_server.address)
 
-            wid, size = await stub.call('CREATE_UI', 'root', '1234')
+            create_plugin_request = plugin_host_pb2.CreatePluginRequest(
+                spec=spec,
+                callback_address=self.cb_endpoint_address)
+            create_plugin_response = plugin_host_pb2.CreatePluginResponse()
+            await stub.call(
+                'CREATE_PLUGIN', create_plugin_request, create_plugin_response)
 
-            proxy_win = QtGui.QWindow.fromWinId(wid)
+            create_ui_request = plugin_host_pb2.CreatePluginUIRequest(
+                realm='root', node_id='1234')
+            create_ui_response = plugin_host_pb2.CreatePluginUIResponse()
+            await stub.call('CREATE_UI', create_ui_request, create_ui_response)
+            wid = create_ui_response.wid
+            size = (create_ui_response.width, create_ui_response.height)
+
+            # fromWinId expects some 'voidptr'...
+            proxy_win = QtGui.QWindow.fromWinId(wid)  # type: ignore
             proxy_widget = QtWidgets.QWidget.createWindowContainer(proxy_win, win)
             proxy_widget.setMinimumSize(*size)
             #proxy_widget.setMaximumSize(*size)
@@ -258,10 +292,14 @@ class PluginHostProcessTest(
 
             win.hide()
 
-            await stub.call('DELETE_UI', 'root', '1234')
+            await stub.call(
+                'DELETE_UI',
+                plugin_host_pb2.CreatePluginUIRequest(realm='root', node_id='1234'))
 
-            await stub.call('DELETE_PLUGIN', 'root', '1234')
+            await stub.call(
+                'DELETE_PLUGIN',
+                plugin_host_pb2.DeletePluginRequest(realm='root', node_id='1234'))
 
         finally:
-            await stub.call('SHUTDOWN')
             await stub.close()
+            await proc.shutdown()

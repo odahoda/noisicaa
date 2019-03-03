@@ -30,7 +30,7 @@
 namespace noisicaa {
 
 NullBackend::NullBackend(
-    HostSystem* host_system, const BackendSettings& settings,
+    HostSystem* host_system, const pb::BackendSettings& settings,
     void (*callback)(void*, const string&), void *userdata)
   : Backend(host_system, "noisicaa.audioproc.engine.backend.null", settings, callback, userdata) {}
 
@@ -64,7 +64,7 @@ Status NullBackend::end_block(BlockContext* ctxt) {
       std::chrono::high_resolution_clock::now() - _block_start).count();
   int64_t delay = block_duration - elapsed;
   if (delay > 0) {
-    usleep((useconds_t)(_settings.time_scale * delay));
+    usleep((useconds_t)(_settings.time_scale() * delay));
   }
 
   return Status::Ok();

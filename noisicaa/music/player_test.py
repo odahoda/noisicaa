@@ -21,13 +21,12 @@
 # @end:license
 
 
-import asyncio
 import logging
 
 from noisidev import unittest
+from noisidev import unittest_mixins
 from noisicaa import audioproc
 from noisicaa.core import ipc
-from noisicaa.constants import TEST_OPTS
 from noisicaa.builtin_nodes.score_track import server_impl as score_track
 from . import project
 from . import player
@@ -35,21 +34,12 @@ from . import player
 logger = logging.getLogger(__name__)
 
 
-class MockAudioProcClient(audioproc.AudioProcClientBase):  # pylint: disable=abstract-method
-    def __init__(self):
-        super().__init__(None, None)
-
-    async def setup(self):
-        pass
-
-    async def cleanup(self):
-        pass
-
+class MockAudioProcClient(audioproc.AbstractAudioProcClient):  # pylint: disable=abstract-method
     async def connect(self, address):
         logger.info("Connecting to audioproc client at %s...", address)
 
-    async def disconnect(self, shutdown=False):
-        logger.info("Disconnect audioproc client (shutdown=%s).", shutdown)
+    async def disconnect(self):
+        logger.info("Disconnect audioproc client.")
 
     async def pipeline_mutation(self, realm, mutation):
         assert realm == 'player'
@@ -57,39 +47,26 @@ class MockAudioProcClient(audioproc.AudioProcClientBase):  # pylint: disable=abs
     async def send_node_messages(self, realm, messages):
         assert realm == 'player'
 
-    async def update_project_properties(self, realm, bpm=None, duration=None):
+    async def update_project_properties(self, realm, properties):
         assert realm == 'player'
-        assert bpm is None or isinstance(bpm, int)
-        assert duration is None or isinstance(duration, audioproc.MusicalDuration)
+        assert isinstance(properties, audioproc.ProjectProperties)
 
 
-class PlayerTest(unittest.AsyncTestCase):
+class PlayerTest(unittest_mixins.ServerMixin, unittest.AsyncTestCase):
     async def setup_testcase(self):
         self.pool = project.Pool()
         self.project = self.pool.create(project.BaseProject)
 
-        self.player_status_calls = asyncio.Queue(loop=self.loop)  # type: asyncio.Queue
-        self.callback_server = ipc.Server(self.loop, 'callback', socket_dir=TEST_OPTS.TMP_DIR)
-        self.callback_server.add_command_handler(
-            'PLAYER_STATUS',
-            lambda player_id, kwargs: self.player_status_calls.put_nowait(kwargs))
-        await self.callback_server.setup()
-
-        self.audioproc_server = ipc.Server(self.loop, 'audioproc', socket_dir=TEST_OPTS.TMP_DIR)
-        await self.audioproc_server.setup()
-
-        logger.info("Testcase setup complete.")
+        cb_endpoint = ipc.ServerEndpoint('player_cb')
+        self.cb_endpoint_address = await self.server.add_endpoint(cb_endpoint)
 
     async def cleanup_testcase(self):
-        logger.info("Testcase teardown starts...")
-
-        await self.audioproc_server.cleanup()
-        await self.callback_server.cleanup()
+        await self.server.remove_endpoint('player_cb')
 
     async def test_playback(self):
         p = player.Player(
             project=self.project,
-            callback_address=self.callback_server.address,
+            callback_address=self.cb_endpoint_address,
             event_loop=self.loop,
             audioproc_client=MockAudioProcClient(),
             realm='player')

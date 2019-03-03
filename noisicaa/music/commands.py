@@ -75,7 +75,7 @@ class Command(object):
     def validate(self) -> None:
         pass
 
-    def run(self) -> Any:
+    def run(self) -> None:
         raise NotImplementedError
 
 
@@ -193,10 +193,8 @@ class CommandSequence(object):
     def num_log_ops(self) -> int:
         return len(self.proto.log.ops)
 
-    def apply(self, registry: CommandRegistry, pool: pmodel.Pool) -> Any:
+    def apply(self, registry: CommandRegistry, pool: pmodel.Pool) -> None:
         assert self.proto.status == commands_pb2.ExecutedCommand.NOT_APPLIED
-
-        results = []
 
         collector = mutations.MutationCollector(pool, self.proto.log)
         with collector.collect():
@@ -211,14 +209,13 @@ class CommandSequence(object):
                     raise ClientError(exc)
 
                 for cmd in commands:
-                    results.append(cmd.run())
+                    cmd.run()
 
             except:
                 self.proto.status = commands_pb2.ExecutedCommand.FAILED
                 raise
 
         self.proto.status = commands_pb2.ExecutedCommand.APPLIED
-        return results
 
     def redo(self, pool: pmodel.Pool) -> None:
         assert self.proto.status == commands_pb2.ExecutedCommand.APPLIED

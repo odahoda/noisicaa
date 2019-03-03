@@ -36,6 +36,7 @@ from noisicaa import instrument_db
 from noisicaa import node_db
 from noisicaa import core
 from noisicaa import lv2
+from noisicaa import editor_main_pb2
 from noisicaa import runtime_settings as runtime_settings_lib
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
@@ -69,17 +70,6 @@ class ExceptHook(object):
 
         logger.error("Uncaught exception:\n%s", msg)
         self.app.crashWithMessage("Uncaught exception", msg)
-
-
-class AudioProcClientImpl(audioproc.AudioProcClientBase):  # pylint: disable=abstract-method
-    async def setup(self) -> None:
-        pass
-
-    async def cleanup(self) -> None:
-        pass
-
-class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
-    pass
 
 
 class QApplication(QtWidgets.QApplication):
@@ -118,7 +108,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.show_edit_areas_action = None  # type: QtWidgets.QAction
         self.__audio_thread_profiler = None  # type: audio_thread_profiler.AudioThreadProfiler
         self.profile_audio_thread_action = None  # type: QtWidgets.QAction
-        self.audioproc_client = None  # type: AudioProcClient
+        self.audioproc_client = None  # type: audioproc.AbstractAudioProcClient
         self.audioproc_process = None  # type: str
         self.node_db = None  # type: node_db.NodeDBClient
         self.instrument_db = None  # type: instrument_db.InstrumentDBClient
@@ -149,7 +139,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         await self.createURIDMapper()
 
         self.project_registry = project_registry.ProjectRegistry(
-            self.process.event_loop, self.process.tmp_dir, self.process.manager, self.node_db)
+            self.process.event_loop, self.process.server, self.process.manager, self.node_db)
 
         self.devices = device_list.DeviceList()
 
@@ -222,21 +212,28 @@ class EditorApp(ui_base.AbstractEditorApp):
             self.project_registry = None
 
         if self.audioproc_client is not None:
-            await self.audioproc_client.disconnect(shutdown=True)
+            await self.audioproc_client.disconnect()
             await self.audioproc_client.cleanup()
             self.audioproc_client = None
+
+        if self.audioproc_process is not None:
+            await self.process.manager.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.audioproc_process))
+            self.audioproc_process = None
 
         if self.urid_mapper is not None:
             await self.urid_mapper.cleanup(self.process.event_loop)
             self.urid_mapper = None
 
         if self.instrument_db is not None:
-            await self.instrument_db.disconnect(shutdown=True)
+            await self.instrument_db.disconnect()
             await self.instrument_db.cleanup()
             self.instrument_db = None
 
         if self.node_db is not None:
-            await self.node_db.disconnect(shutdown=True)
+            await self.node_db.disconnect()
             await self.node_db.cleanup()
             self.node_db = None
 
@@ -249,13 +246,17 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.process.quit(exit_code)  # type: ignore
 
     async def createAudioProcProcess(self) -> None:
-        self.audioproc_process = await self.process.manager.call(
-            'CREATE_AUDIOPROC_PROCESS', 'main',
-            block_size=2 ** int(self.settings.value('audio/block_size', 10)),
-            sample_rate=int(self.settings.value('audio/sample_rate', 44100)),
-        )
+        create_audioproc_request = editor_main_pb2.CreateAudioProcProcessRequest(
+            name='main',
+            host_parameters=audioproc.HostParameters(
+                block_size=2 ** int(self.settings.value('audio/block_size', 10)),
+                sample_rate=int(self.settings.value('audio/sample_rate', 44100))))
+        create_audioproc_response = editor_main_pb2.CreateProcessResponse()
+        await self.process.manager.call(
+            'CREATE_AUDIOPROC_PROCESS', create_audioproc_request, create_audioproc_response)
+        self.audioproc_process = create_audioproc_response.address
 
-        self.audioproc_client = AudioProcClient(
+        self.audioproc_client = audioproc.AudioProcClient(
             self.process.event_loop, self.process.server)
         self.audioproc_client.engine_notifications.add(self.__handleEngineNotification)
         await self.audioproc_client.setup()
@@ -269,15 +270,20 @@ class EditorApp(ui_base.AbstractEditorApp):
         )
 
     async def createNodeDB(self) -> None:
-        node_db_address = await self.process.manager.call('CREATE_NODE_DB_PROCESS')
+        create_node_db_response = editor_main_pb2.CreateProcessResponse()
+        await self.process.manager.call(
+            'CREATE_NODE_DB_PROCESS', None, create_node_db_response)
+        node_db_address = create_node_db_response.address
 
         self.node_db = node_db.NodeDBClient(self.process.event_loop, self.process.server)
         await self.node_db.setup()
         await self.node_db.connect(node_db_address)
 
     async def createInstrumentDB(self) -> None:
-        instrument_db_address = await self.process.manager.call(
-            'CREATE_INSTRUMENT_DB_PROCESS')
+        create_instrument_db_response = editor_main_pb2.CreateProcessResponse()
+        await self.process.manager.call(
+            'CREATE_INSTRUMENT_DB_PROCESS', None, create_instrument_db_response)
+        instrument_db_address = create_instrument_db_response.address
 
         self.instrument_db = instrument_db.InstrumentDBClient(
             self.process.event_loop, self.process.server)
@@ -285,7 +291,10 @@ class EditorApp(ui_base.AbstractEditorApp):
         await self.instrument_db.connect(instrument_db_address)
 
     async def createURIDMapper(self) -> None:
-        urid_mapper_address = await self.process.manager.call('CREATE_URID_MAPPER_PROCESS')
+        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
+        await self.process.manager.call(
+            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
+        urid_mapper_address = create_urid_mapper_response.address
 
         self.urid_mapper = lv2.ProxyURIDMapper(
             server_address=urid_mapper_address,

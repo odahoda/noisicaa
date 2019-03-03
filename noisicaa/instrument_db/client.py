@@ -22,12 +22,13 @@
 
 import asyncio
 import logging
-from typing import Dict, Set, List, Iterable
+from typing import Dict, Set, Iterable
 
 from noisicaa import core
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
-from . import mutations
-from . import instrument_description
+from . import instrument_db_pb2
+from . import instrument_description_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -37,62 +38,59 @@ class InstrumentDBClient(object):
         self.event_loop = event_loop
         self.server = server
 
-        self.mutation_handlers = core.Callback[mutations.Mutation]()
+        self.mutation_handlers = core.Callback[instrument_db_pb2.Mutation]()
 
+        self.__cb_endpoint_name = 'instrument_db_cb'  # type: str
+        self.__cb_endpoint_address = None  # type: str
         self.__stub = None  # type: ipc.Stub
-        self.__session_id = None  # type: str
-        self.__instruments = {}  # type: Dict[str, instrument_description.InstrumentDescription]
+        self.__instruments = {}  # type: Dict[str, instrument_description_pb2.InstrumentDescription]
 
     @property
-    def instruments(self) -> Iterable[instrument_description.InstrumentDescription]:
+    def instruments(self) -> Iterable[instrument_description_pb2.InstrumentDescription]:
         return sorted(
             self.__instruments.values(), key=lambda i: i.display_name.lower())
 
-    def get_instrument_description(self, uri: str) -> instrument_description.InstrumentDescription:
+    def get_instrument_description(
+            self, uri: str) -> instrument_description_pb2.InstrumentDescription:
         return self.__instruments[uri]
 
     async def setup(self) -> None:
-        self.server.add_command_handler('INSTRUMENTDB_MUTATIONS', self.__handle_mutation)
+        cb_endpoint = ipc.ServerEndpoint(self.__cb_endpoint_name)
+        cb_endpoint.add_handler(
+            'INSTRUMENTDB_MUTATIONS', self.__handle_mutation,
+            instrument_db_pb2.Mutations, empty_message_pb2.EmptyMessage)
+        self.__cb_endpoint_address = await self.server.add_endpoint(cb_endpoint)
 
     async def cleanup(self) -> None:
-        self.server.remove_command_handler('INSTRUMENTDB_MUTATIONS')
+        await self.disconnect()
+        if self.__cb_endpoint_address is not None:
+            await self.server.remove_endpoint(self.__cb_endpoint_name)
+            self.__cb_endpoint_address = None
 
     async def connect(self, address: str, flags: Set[str] = None) -> None:
         assert self.__stub is None
         self.__stub = ipc.Stub(self.event_loop, address)
-        await self.__stub.connect()
-        self.__session_id = await self.__stub.call(
-            'START_SESSION', self.server.address, flags)
+        await self.__stub.connect(core.StartSessionRequest(
+            callback_address=self.__cb_endpoint_address,
+            flags=flags))
 
-    async def disconnect(self, shutdown: bool = False) -> None:
-        if self.__session_id is not None:
-            try:
-                await self.__stub.call('END_SESSION', self.__session_id)
-            except ipc.ConnectionClosed:
-                logger.info("Connection already closed.")
-            self.__session_id = None
-
+    async def disconnect(self) -> None:
         if self.__stub is not None:
-            if shutdown:
-                try:
-                    await self.shutdown()
-                except ipc.ConnectionClosed:
-                    pass
-
             await self.__stub.close()
             self.__stub = None
 
-    async def shutdown(self) -> None:
-        await self.__stub.call('SHUTDOWN')
-
     async def start_scan(self) -> None:
-        await self.__stub.call('START_SCAN', self.__session_id)
+        await self.__stub.call('START_SCAN')
 
-    def __handle_mutation(self, mutation_list: List[mutations.Mutation]) -> None:
-        for mutation in mutation_list:
+    def __handle_mutation(
+            self,
+            request: instrument_db_pb2.Mutations,
+            response: empty_message_pb2.EmptyMessage,
+    ) -> None:
+        for mutation in request.mutations:
             logger.info("Mutation received: %s", mutation)
-            if isinstance(mutation, mutations.AddInstrumentDescription):
-                self.__instruments[mutation.description.uri] = mutation.description
+            if mutation.WhichOneof('type') == 'add_instrument':
+                self.__instruments[mutation.add_instrument.uri] = mutation.add_instrument
             else:
                 raise ValueError(mutation)
 

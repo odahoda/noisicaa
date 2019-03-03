@@ -21,14 +21,16 @@
 # @end:license
 
 import fractions
+import functools
 import logging
 import random
-from typing import Any, List, Dict, MutableSequence, Optional, Callable
+from typing import Any, Dict, MutableSequence, Optional, Callable
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import core
+from noisicaa.core import ipc
 from noisicaa.bindings import sndfile
 from noisicaa.music import commands
 from noisicaa.music import pmodel
@@ -36,8 +38,10 @@ from noisicaa.music import node_connector
 from noisicaa.music import base_track
 from noisicaa.music import rms
 from noisicaa.music import samples
+from noisicaa.music import project_process_context
 from noisicaa.builtin_nodes import commands_registry_pb2
 from . import commands_pb2
+from . import ipc_pb2
 from . import model as sample_track_model
 from . import processor_messages
 
@@ -48,7 +52,7 @@ class CreateSample(commands.Command):
     proto_type = 'create_sample'
     proto_ext = commands_registry_pb2.create_sample
 
-    def run(self) -> int:
+    def run(self) -> None:
         pb = down_cast(commands_pb2.CreateSample, self.pb)
         track = down_cast(SampleTrack, self.pool[pb.track_id])
 
@@ -60,8 +64,6 @@ class CreateSample(commands.Command):
             time=audioproc.MusicalTime.from_proto(pb.time),
             sample=smpl)
         track.samples.append(smpl_ref)
-
-        return smpl_ref.id
 
 
 class DeleteSample(commands.Command):
@@ -88,50 +90,58 @@ class UpdateSample(commands.Command):
             smpl_ref.time = audioproc.MusicalTime.from_proto(pb.set_time)
 
 
-class RenderSample(commands.Command):
-    proto_type = 'render_sample'
-    proto_ext = commands_registry_pb2.render_sample
+def handle_render_sample(
+        ctxt: project_process_context.ProjectProcessContext,
+        session: ipc.Session,
+        request: ipc_pb2.RenderSampleRequest,
+        response: ipc_pb2.RenderSampleResponse,
+) -> None:
+    sample_ref = down_cast(SampleRef, ctxt.pool[request.sample_id])
+    sample = down_cast(samples.Sample, sample_ref.sample)
 
-    def run(self) -> List[Any]:
-        pb = down_cast(commands_pb2.RenderSample, self.pb)
-        sample_ref = down_cast(SampleRef, self.pool[pb.sample_id])
-        sample = down_cast(samples.Sample, sample_ref.sample)
+    try:
+        smpls = sample.samples
+    except sndfile.Error:
+        response.broken = True
+        return
 
-        try:
-            smpls = sample.samples
-        except sndfile.Error:
-            return ['broken']
+    smpls = sample.samples[..., 0]  # type: ignore
 
-        smpls = sample.samples[..., 0]  # type: ignore
+    tmap = audioproc.TimeMapper(44100)
+    try:
+        tmap.setup(sample.project)
 
-        tmap = audioproc.TimeMapper(44100)
-        try:
-            tmap.setup(sample.project)
+        begin_time = sample_ref.time
+        begin_samplepos = tmap.musical_to_sample_time(begin_time)
+        num_samples = min(tmap.num_samples - begin_samplepos, len(smpls))
+        end_samplepos = begin_samplepos + num_samples
+        end_time = tmap.sample_to_musical_time(end_samplepos)
 
-            begin_time = sample_ref.time
-            begin_samplepos = tmap.musical_to_sample_time(begin_time)
-            num_samples = min(tmap.num_samples - begin_samplepos, len(smpls))
-            end_samplepos = begin_samplepos + num_samples
-            end_time = tmap.sample_to_musical_time(end_samplepos)
+    finally:
+        tmap.cleanup()
 
-        finally:
-            tmap.cleanup()
+    scale_x = fractions.Fraction(request.scale_x.numerator, request.scale_x.denominator)
+    width = int(scale_x * (end_time - begin_time).fraction)
 
-        scale_x = fractions.Fraction(pb.scale_x.numerator, pb.scale_x.denominator)
-        width = int(scale_x * (end_time - begin_time).fraction)
+    if width < num_samples / 10:
+        for p in range(0, width):
+            p_start = p * num_samples // width
+            p_end = (p + 1) * num_samples // width
+            s = smpls[p_start:p_end]
+            response.rms.append(rms.rms(s))
 
-        if width < num_samples / 10:
-            result = []
-            for p in range(0, width):
-                p_start = p * num_samples // width
-                p_end = (p + 1) * num_samples // width
-                s = smpls[p_start:p_end]
-                result.append(rms.rms(s))
+    else:
+        response.broken = True
 
-            return ['rms', result]
 
-        else:
-            return ['broken']
+def register_ipc_handlers(
+        ctxt: project_process_context.ProjectProcessContext,
+        endpoint: ipc.ServerEndpointWithSessions
+) -> None:
+    endpoint.add_handler(
+        'SAMPLE_TRACK_RENDER_SAMPLE',
+        functools.partial(handle_render_sample, ctxt),
+        ipc_pb2.RenderSampleRequest, ipc_pb2.RenderSampleResponse)
 
 
 class SampleTrackConnector(node_connector.NodeConnector):

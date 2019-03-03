@@ -56,7 +56,6 @@ extend Command {
   optional CreateSample create_sample = 404000;
   optional UpdateSample update_sample = 404001;
   optional DeleteSample delete_sample = 404002;
-  optional RenderSample render_sample = 404003;
 
   // Instrument (405xxx)
   optional UpdateInstrument update_instrument = 405000;

@@ -23,7 +23,6 @@
 syntax = "proto2";
 
 import "noisicaa/audioproc/public/musical_time.proto";
-import "noisicaa/model/project.proto";
 
 package noisicaa.pb;
 
@@ -40,9 +39,4 @@ message UpdateSample {
 
 message DeleteSample {
   required uint64 sample_id = 1;
-}
-
-message RenderSample {
-  required uint64 sample_id = 1;
-  optional Fraction scale_x = 2;
 }

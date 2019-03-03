@@ -31,5 +31,6 @@ logger = logging.getLogger(__name__)
 class LadspaScannerTest(unittest.TestCase):
     def test_scan(self):
         scanner = ladspa_scanner.LadspaScanner()
-        for uri, _ in scanner.scan():
-            logger.info(uri)
+        for desc in scanner.scan():
+            logger.info(desc)
+            self.assertTrue(desc.IsInitialized(), desc)

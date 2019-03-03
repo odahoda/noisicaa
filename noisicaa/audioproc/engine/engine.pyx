@@ -38,6 +38,8 @@ import time
 import toposort
 
 from noisicaa import core
+from noisicaa import editor_main_pb2
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.core.status cimport check
 from noisicaa.core.perf_stats cimport PyPerfStats
@@ -45,14 +47,16 @@ from noisicaa.host_system.host_system cimport PyHostSystem
 from noisicaa.audioproc.public import engine_notification_pb2
 from noisicaa.audioproc.public import musical_time
 from noisicaa.audioproc.public import player_state_pb2
+from noisicaa.audioproc.public import backend_settings_pb2
 from .realm cimport PyRealm
 from .spec cimport PySpec
 from .block_context cimport PyBlockContext
-from .backend cimport PyBackend, PyBackendSettings
+from .backend cimport PyBackend
 from . cimport message_queue
 from .player cimport PyPlayer
 from . import buffers
 from . import graph
+from . import plugin_host_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -99,14 +103,11 @@ cdef class PyEngine(object):
         self.__engine_started = None
 
         self.__maintenance_task = None
+        self.__plugin_host_address = None
         self.__plugin_host = None
 
         self.__bpm = 120
         self.__duration = musical_time.PyMusicalDuration(2, 1)
-
-    def dump(self):
-        # TODO: reimplement
-        pass
 
     def __set_state(self, state: engine_notification_pb2.EngineStateChange.State) -> None:
         self.notifications.call(engine_notification_pb2.EngineNotification(
@@ -129,13 +130,16 @@ cdef class PyEngine(object):
         self.stop_backend()
 
         if self.__plugin_host is not None:
-            logger.info("Shutting down plugin host process...")
-            try:
-                await self.__plugin_host.call('SHUTDOWN')
-            except ipc.ConnectionClosed:
-                logger.info("Connection to plugin host process already closed.")
+            logger.info("Disconnecting from plugin host process...")
             await self.__plugin_host.close()
             self.__plugin_host = None
+
+        if self.__plugin_host_address is not None:
+            logger.info("Shutting down plugin host process...")
+            await self.__manager.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.__plugin_host_address))
             logger.info("Plugin host process stopped.")
 
         for realm in self.__realms.values():
@@ -181,7 +185,12 @@ cdef class PyEngine(object):
     async def stop_engine(self):
         if self.__maintenance_task is not None:
             logger.info("Shutting down maintenance task...")
-            self.__maintenance_task.cancel()
+            if not self.__maintenance_task.done():
+                self.__maintenance_task.cancel()
+            try:
+                await self.__maintenance_task
+            except asyncio.CancelledError:
+                pass
             self.__maintenance_task = None
 
         if self.__engine_thread is not None:  # pragma: no branch
@@ -195,17 +204,30 @@ cdef class PyEngine(object):
 
     async def get_plugin_host(self):
         if self.__plugin_host is None:
-            address = await self.__manager.call('CREATE_PLUGIN_HOST_PROCESS')
-            self.__plugin_host = ipc.Stub(self.__event_loop, address)
+            create_plugin_host_response = editor_main_pb2.CreateProcessResponse()
+            await self.__manager.call(
+                'CREATE_PLUGIN_HOST_PROCESS', None, create_plugin_host_response)
+            self.__plugin_host_address = create_plugin_host_response.address
+
+            self.__plugin_host = ipc.Stub(self.__event_loop, self.__plugin_host_address)
             await self.__plugin_host.connect()
 
         return self.__plugin_host
 
     async def create_plugin_ui(self, realm, node_id):
-        return await self.__plugin_host.call('CREATE_UI', realm, node_id)
+        request = plugin_host_pb2.CreatePluginUIRequest(
+            realm=realm,
+            node_id=node_id)
+        response = plugin_host_pb2.CreatePluginUIResponse()
+        await self.__plugin_host.call('CREATE_UI', request, response)
+        return (response.wid, (response.width, response.height))
 
     async def delete_plugin_ui(self, realm, node_id):
-        return await self.__plugin_host.call('DELETE_UI', realm, node_id)
+        await self.__plugin_host.call(
+            'DELETE_UI',
+            plugin_host_pb2.DeletePluginUIRequest(
+                realm=realm,
+                node_id=node_id))
 
     def get_realm(self, name: str) -> PyRealm:
         try:
@@ -269,11 +291,13 @@ cdef class PyEngine(object):
     def get_buffer(self, name, type):
         return self.__root_realm.get_buffer(name, type)
 
-    async def set_host_parameters(self, *, block_size=None, sample_rate=None):
+    async def set_host_parameters(self, parameters):
         reinit = False
-        if block_size is not None and block_size != self.__host_system.block_size:
+        if (parameters.HasField('block_size')
+                and parameters.block_size != self.__host_system.block_size):
             reinit = True
-        if sample_rate is not None and sample_rate != self.__host_system.sample_rate:
+        if (parameters.HasField('sample_rate')
+                and parameters.sample_rate != self.__host_system.sample_rate):
             reinit = True
 
         if reinit:
@@ -292,13 +316,16 @@ cdef class PyEngine(object):
                 realm.clear_programs()
 
             if self.__plugin_host is not None:
-                logger.info("Shutting down plugin host process...")
-                try:
-                    await self.__plugin_host.call('SHUTDOWN')
-                except ipc.ConnectionClosed:
-                    logger.info("Connection to plugin host process already closed.")
+                logger.info("Disconnecting from plugin host process...")
                 await self.__plugin_host.close()
                 self.__plugin_host = None
+
+            if self.__plugin_host_address is not None:
+                logger.info("Shutting down plugin host process...")
+                await self.__manager.call(
+                    'SHUTDOWN_PROCESS',
+                    editor_main_pb2.ShutdownProcessRequest(
+                        address=self.__plugin_host_address))
                 logger.info("Plugin host process stopped.")
 
             logger.info("Shutting down host system...")
@@ -307,10 +334,10 @@ cdef class PyEngine(object):
             logger.info("Engine stopped, changing host parameters...")
             self.__set_state(engine_notification_pb2.EngineStateChange.STOPPED)
 
-            if block_size is not None:
-                self.__host_system.set_block_size(block_size)
-            if sample_rate is not None:
-                self.__host_system.set_sample_rate(sample_rate)
+            if parameters.HasField('block_size'):
+                self.__host_system.set_block_size(parameters.block_size)
+            if parameters.HasField('sample_rate'):
+                self.__host_system.set_sample_rate(parameters.sample_rate)
 
             logger.info("Restarting engine...")
             self.__set_state(engine_notification_pb2.EngineStateChange.SETUP)
@@ -333,7 +360,7 @@ cdef class PyEngine(object):
             logger.info("Engine reinitialized.")
             self.__set_state(engine_notification_pb2.EngineStateChange.RUNNING)
 
-    async def set_backend(self, name, **parameters):
+    async def set_backend(self, name, settings=None):
         assert self.__root_realm is not None
 
         if self.__backend is not None:
@@ -344,7 +371,8 @@ cdef class PyEngine(object):
 
             self.__set_state(engine_notification_pb2.EngineStateChange.SETUP)
 
-        settings = PyBackendSettings(**parameters)
+        if settings is None:
+            settings = backend_settings_pb2.BackendSettings()
         self.__backend = PyBackend(self.__host_system, name, settings)
         self.__backend_listeners['notifications'] = self.__backend.notifications.add(
             self.notifications.call)
@@ -356,10 +384,6 @@ cdef class PyEngine(object):
 
         logger.info("Engine up and running.")
         self.__set_state(engine_notification_pb2.EngineStateChange.RUNNING)
-
-    def set_backend_parameters(self):
-        if self.__backend is not None:
-            pass
 
     @staticmethod
     cdef void __notification_callback(void* c_self, const string& notification_serialized) with gil:

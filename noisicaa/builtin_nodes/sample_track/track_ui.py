@@ -20,10 +20,11 @@
 #
 # @end:license
 
+import asyncio
 import fractions
 import functools
 import logging
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Sequence
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -31,12 +32,14 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
+from noisicaa.core import proto_types_pb2
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import model
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
+from . import ipc_pb2
 from . import client_impl
 from . import commands
 
@@ -194,23 +197,17 @@ class SampleItem(object):
             self.__track_editor.rectChanged.emit(
                 self.rect().translated(self.__track_editor.viewTopLeft()))
 
-    def renderSample(self, render_result: Tuple[Any, ...]) -> None:
-        status, *args = render_result
-        if status == 'waiting':
+    def renderSample(self, response: ipc_pb2.RenderSampleResponse, task: asyncio.Task) -> None:
+        task.result()
+
+        if response.broken:
             self.__width = 50
+            self.__render_result = ('broken',)
 
-        elif status == 'broken':
-            self.__width = 50
+        else:
+            self.__width = len(response.rms)
+            self.__render_result = ('rms', list(response.rms))
 
-        elif status == 'highres':
-            samples, = args
-            self.__width = len(samples)
-
-        elif status == 'rms':
-            samples, = args
-            self.__width = len(samples)
-
-        self.__render_result = render_result
         self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
 
     def purgePaintCaches(self) -> None:
@@ -220,16 +217,23 @@ class SampleItem(object):
         self.__width = 50
 
     def paint(self, painter: QtGui.QPainter, paint_rect: QtCore.QRect) -> None:
-        status, *args = self.__render_result
+        status = self.__render_result[0]
 
         if status in ('init', 'waiting'):
             if status == 'init':
                 scale_x = self.scaleX()
-                self.__track_editor.send_command_async(
-                    commands.render_sample(
-                        self.__sample,
-                        scale_x=scale_x),
-                    callback=self.renderSample)
+
+                request = ipc_pb2.RenderSampleRequest(
+                    sample_id=self.__sample.id,
+                    scale_x=proto_types_pb2.Fraction(
+                        numerator=scale_x.numerator,
+                        denominator=scale_x.denominator))
+                response = ipc_pb2.RenderSampleResponse()
+                task = self.__track_editor.event_loop.create_task(
+                    self.__track_editor.project_client.call(
+                        'SAMPLE_TRACK_RENDER_SAMPLE', request, response))
+                task.add_done_callback(functools.partial(self.renderSample, response))
+
                 self.__render_result = ('waiting', )
 
             painter.fillRect(
@@ -247,28 +251,8 @@ class SampleItem(object):
             painter.setPen(Qt.black)
             painter.drawText(3, 20, "Broken")
 
-        elif status == 'highres':
-            samples, = args  # pylint: disable=unbalanced-tuple-unpacking
-            ycenter = self.height() // 2
-
-            if self.__highlighted:
-                painter.setPen(QtGui.QColor(0, 0, 120))
-            else:
-                painter.setPen(Qt.black)
-
-            painter.drawLine(0, 0, 0, self.height() - 1)
-            painter.drawLine(self.width() - 1, 0, self.width() - 1, self.height() - 1)
-            painter.drawLine(0, ycenter, self.width() - 1, ycenter)
-
-            p_y = None
-            for x, smpl in enumerate(samples):
-                y = max(0, min(self.height() - 1, int(self.height() * (1.0 - smpl) / 2.0)))
-                if x > 0:
-                    painter.drawLine(x - 1, p_y, x, y)
-                p_y = y
-
         elif status == 'rms':
-            samples, = args  # pylint: disable=unbalanced-tuple-unpacking
+            samples = self.__render_result[1]  # type: Sequence[float]
             ycenter = self.height() // 2
 
             if self.__highlighted:

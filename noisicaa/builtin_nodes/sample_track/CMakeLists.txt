@@ -35,6 +35,7 @@ add_python_package(
 
 py_proto(model.proto)
 py_proto(commands.proto)
+py_proto(ipc.proto)
 py_proto(processor_messages.proto)
 cpp_proto(processor_messages.proto)
 

@@ -110,10 +110,7 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
             commands.update(
                 self.__node,
                 set_orchestra=self.__orchestra,
-                set_score=self.__score),
-            callback=self.__applyDone)
-
-    def __applyDone(self, result: Any) -> None:
+                set_score=self.__score))
         self.__apply_action.setEnabled(False)
 
     def __scriptEdited(self) -> None:

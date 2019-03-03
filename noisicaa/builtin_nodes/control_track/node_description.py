@@ -24,6 +24,7 @@ from noisicaa import node_db
 
 
 ControlTrackDescription = node_db.NodeDescription(
+    uri='builtin://control-track',
     display_name='Control Track',
     type=node_db.NodeDescription.PROCESSOR,
     node_ui=node_db.NodeUIDescription(

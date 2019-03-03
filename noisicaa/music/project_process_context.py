@@ -20,15 +20,15 @@
 #
 # @end:license
 
-from noisicaa import core
+import typing
 
+if typing.TYPE_CHECKING:
+    from noisicaa import node_db
+    from . import pmodel
+    from . import project
 
-class NodeDBProcessBase(core.SessionHandlerMixin, core.ProcessBase):
-    async def setup(self) -> None:
-        await super().setup()
-
-        self.server.add_command_handler('SHUTDOWN', self.shutdown)
-        self.server.add_command_handler('START_SCAN', self.handle_start_scan)
-
-    async def handle_start_scan(self, session_id: str) -> None:
-        raise NotImplementedError
+class ProjectProcessContext(object):
+    def __init__(self) -> None:
+        self.node_db = None  # type: node_db.NodeDBClient
+        self.pool = None  # type: pmodel.Pool
+        self.project = None  # type: project.BaseProject

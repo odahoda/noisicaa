@@ -116,6 +116,7 @@ StatusOr<pb::DeviceDescription> ALSADeviceManager::get_device_description(int cl
     pb::DevicePortDescription* port = device.add_ports();
     int port_id = snd_seq_port_info_get_port(pinfo);
     port->set_uri(sprintf("alsa://%d/%d", client_id, port_id));
+    port->set_type(pb::DevicePortDescription::MIDI);
     port->set_display_name(snd_seq_port_info_get_name(pinfo));
 
     if (cap & (SND_SEQ_PORT_CAP_READ | SND_SEQ_PORT_CAP_DUPLEX)) {

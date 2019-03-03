@@ -24,6 +24,7 @@ from noisicaa import node_db
 
 
 MidiSourceDescription = node_db.NodeDescription(
+    uri='builtin://midi-source',
     display_name='MIDI source',
     type=node_db.NodeDescription.PROCESSOR,
     node_ui=node_db.NodeUIDescription(

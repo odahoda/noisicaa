@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import Iterator, Tuple
+from typing import Iterator
 
 from noisicaa import node_db
 from .score_track.node_description import ScoreTrackDescription
@@ -33,12 +33,12 @@ from .custom_csound.node_description import CustomCSoundDescription
 from .midi_source.node_description import MidiSourceDescription
 
 
-def node_descriptions() -> Iterator[Tuple[str, node_db.NodeDescription]]:
-    yield ('builtin://score-track', ScoreTrackDescription)
-    yield ('builtin://beat-track', BeatTrackDescription)
-    yield ('builtin://control-track', ControlTrackDescription)
-    yield ('builtin://sample-track', SampleTrackDescription)
-    yield ('builtin://instrument', InstrumentDescription)
-    yield ('builtin://mixer', MixerDescription)
-    yield ('builtin://custom-csound', CustomCSoundDescription)
-    yield ('builtin://midi-source', MidiSourceDescription)
+def node_descriptions() -> Iterator[node_db.NodeDescription]:
+    yield ScoreTrackDescription
+    yield BeatTrackDescription
+    yield ControlTrackDescription
+    yield SampleTrackDescription
+    yield InstrumentDescription
+    yield MixerDescription
+    yield CustomCSoundDescription
+    yield MidiSourceDescription

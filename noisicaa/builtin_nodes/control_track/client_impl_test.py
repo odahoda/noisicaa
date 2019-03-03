@@ -34,11 +34,11 @@ class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     async def test_add_control_point(self):
         track = await self._add_track()
 
-        point_id = await self.client.send_command(commands.create_control_point(
+        await self.client.send_command(commands.create_control_point(
             track,
             time=audioproc.MusicalTime(1, 4),
             value=0.7))
-        point = self.pool[point_id]
+        point = track.points[-1]
         self.assertEqual(len(track.points), 1)
         self.assertIs(track.points[0], point)
         self.assertEqual(point.time, audioproc.MusicalTime(1, 4))
@@ -46,22 +46,22 @@ class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
     async def test_delete_control_point(self):
         track = await self._add_track()
-        point_id = await self.client.send_command(commands.create_control_point(
+        await self.client.send_command(commands.create_control_point(
             track,
             time=audioproc.MusicalTime(1, 4),
             value=0.7))
-        point = self.pool[point_id]
+        point = track.points[-1]
 
         await self.client.send_command(commands.delete_control_point(point))
         self.assertEqual(len(track.points), 0)
 
     async def test_control_point_set_time(self):
         track = await self._add_track()
-        point_id = await self.client.send_command(commands.create_control_point(
+        await self.client.send_command(commands.create_control_point(
             track,
             time=audioproc.MusicalTime(1, 4),
             value=0.7))
-        point = self.pool[point_id]
+        point = track.points[-1]
 
         await self.client.send_command(commands.update_control_point(
             point,
@@ -70,11 +70,11 @@ class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
     async def test_control_point_set_value(self):
         track = await self._add_track()
-        point_id = await self.client.send_command(commands.create_control_point(
+        await self.client.send_command(commands.create_control_point(
             track,
             time=audioproc.MusicalTime(1, 4),
             value=0.7))
-        point = self.pool[point_id]
+        point = track.points[-1]
 
         await self.client.send_command(commands.update_control_point(
             point,

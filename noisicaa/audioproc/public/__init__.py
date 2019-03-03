@@ -30,6 +30,9 @@ from .musical_time import (
 from .time_mapper import (
     PyTimeMapper as TimeMapper,
 )
+from .control_value_pb2 import (
+    ControlValue,
+)
 from .player_state_pb2 import (
     PlayerState,
 )
@@ -50,4 +53,13 @@ from .processor_message_pb2 import (
 from .devices_pb2 import (
     DeviceDescription,
     DevicePortDescription,
+)
+from .project_properties_pb2 import (
+    ProjectProperties,
+)
+from .backend_settings_pb2 import (
+    BackendSettings,
+)
+from .host_parameters_pb2 import (
+    HostParameters,
 )

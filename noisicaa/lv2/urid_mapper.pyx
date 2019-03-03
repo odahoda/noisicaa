@@ -27,8 +27,10 @@ from cpython.ref cimport PyObject
 from cython.operator cimport dereference, preincrement
 
 from noisicaa import core
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.core.status cimport check
+from . import urid_mapper_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +103,6 @@ cdef class PyProxyURIDMapper(PyURIDMapper):
         self.__event_loop = None
         self.__cb_server = None
         self.__stub = None
-        self.__session_id = None
 
     cdef URIDMapper* get(self):
         return self.__mapper
@@ -135,18 +136,21 @@ cdef class PyProxyURIDMapper(PyURIDMapper):
         cdef PyProxyURIDMapper self = <object>handle
         cdef LV2_URID urid
         try:
+            request = urid_mapper_pb2.MapRequest(uri=uri.decode('utf-8'))
+            response = urid_mapper_pb2.MapResponse()
             fut = asyncio.run_coroutine_threadsafe(
-                self.__stub.call('MAP', uri.decode('utf-8')),
+                self.__stub.call('MAP', request, response),
                 self.__event_loop)
-            return fut.result()
+            fut.result()
+            return response.urid
 
-        except:
-            logger.exception("map_cb(%s) failed with an exception:", bytes(uri))
+        except Exception as exc:
+            logger.exception("map_cb(%s) failed with an exception: %s", bytes(uri), exc)
             return 0
 
-    def __handle_new_uris(self, uris):
-        for uri, urid in uris.items():
-            self.__mapper.insert(uri.encode('utf-8'), urid)
+    def __handle_new_uris(self, request, response):
+        for mapping in request.mappings:
+            self.__mapper.insert(mapping.uri.encode('utf-8'), mapping.urid)
 
     def __client_main(self):
         logger.info("Starting URIDMapper client thread...")
@@ -166,13 +170,18 @@ cdef class PyProxyURIDMapper(PyURIDMapper):
         try:
             logger.info("Creating callback server...")
             self.__cb_server = ipc.Server(self.__event_loop, 'urid-mapper-cb', self.__tmp_dir)
-            self.__cb_server.add_command_handler('NEW_URIS', self.__handle_new_uris)
             await self.__cb_server.setup()
+
+            endpoint = ipc.ServerEndpoint('main')
+            endpoint.add_handler(
+                'NEW_URIS', self.__handle_new_uris,
+                urid_mapper_pb2.NewURIsRequest, empty_message_pb2.EmptyMessage)
+            await self.__cb_server.add_endpoint(endpoint)
 
             logger.info("Connecting to URIDMapper process...")
             self.__stub = ipc.Stub(self.__event_loop, self.__server_address)
-            await self.__stub.connect()
-            self.__session_id = await self.__stub.call('START_SESSION', self.__cb_server.address)
+            await self.__stub.connect(core.StartSessionRequest(
+                callback_address=self.__cb_server.address))
 
             logger.info("URIDMapper client ready...")
             self.__client_thread_ready.set_result(True)
@@ -184,13 +193,6 @@ cdef class PyProxyURIDMapper(PyURIDMapper):
 
         finally:
             logger.info("Cleaning up URIDMapper client...")
-            if self.__session_id is not None:
-                try:
-                    await self.__stub.call('END_SESSION', self.__session_id)
-                except ipc.ConnectionClosed:
-                    logger.info("Connection already closed.")
-                self.__session_id = None
-
             if self.__stub is not None:
                 await self.__stub.close()
                 self.__stub = None

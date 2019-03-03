@@ -32,6 +32,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import music
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from . import ui_base
 from . import qprogressindicator
@@ -130,7 +131,6 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.__settings = music.RenderSettings()
 
         self.__aborted = asyncio.Event(loop=self.event_loop)
-        self.__cb_server = None   # type: ipc.Server
         self.__out_fp = None  # type: BinaryIO
         self.__bytes_written = None  # type: int
         self.__renderer_state = None  # type: str
@@ -673,43 +673,64 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
 
         self.setUIState(State.DONE)
 
-    def __onRendererState(self, state: str) -> None:
-        self.__renderer_state = state
+    def __onRendererState(
+            self,
+            request: music.RenderStateRequest,
+            resposne: empty_message_pb2.EmptyMessage
+    ) -> None:
+        self.__renderer_state = request.state
 
-        if state == 'setup':
+        if request.state == 'setup':
             self.setUIState(State.SETUP)
-        elif state == 'render':
+        elif request.state == 'render':
             self.setUIState(State.RUNNING)
-        elif state == 'cleanup':
+        elif request.state == 'cleanup':
             self.setUIState(State.CLEANUP)
 
-    def __onRendererProgress(self, progress: float) -> bool:
-        self.progress.setValue(int(100 * progress))
-        return self.__aborted.is_set()
+    def __onRendererProgress(
+            self,
+            request: music.RenderProgressRequest,
+            response: music.RenderProgressResponse
+    ) -> None:
+        self.progress.setValue(int(100 * request.numerator / request.denominator))
+        response.abort = self.__aborted.is_set()
 
-    def __onRendererData(self, data: bytes) -> Tuple[bool, str]:
+    def __onRendererData(
+            self,
+            request: music.RenderDataRequest,
+            response: music.RenderDataResponse
+    ) -> None:
         try:
-            self.__out_fp.write(data)
+            self.__out_fp.write(request.data)
         except (IOError, OSError) as exc:
-            return False, str(exc)
+            response.status = False
+            response.msg = str(exc)
+            return
 
-        self.__bytes_written += len(data)
-        return True, ""
+        self.__bytes_written += len(request.data)
+
+        response.status = True
 
     async def __runRenderer(self, path: str) -> None:
         tmp_path = path + '.partial'
+        cb_endpoint_address = None
+
         try:
             self.__out_fp = open(tmp_path, 'wb')
 
-            self.__cb_server = ipc.Server(
-                self.event_loop, 'render_cb', socket_dir=self.app.process.tmp_dir)
-            self.__cb_server.add_command_handler('STATE', self.__onRendererState)
-            self.__cb_server.add_command_handler('PROGRESS', self.__onRendererProgress)
-            self.__cb_server.add_command_handler(
-                'DATA', self.__onRendererData, log_level=logging.DEBUG)
-            await self.__cb_server.setup()
+            cb_endpoint = ipc.ServerEndpoint('render_cb')
+            cb_endpoint.add_handler(
+                'STATE', self.__onRendererState,
+                music.RenderStateRequest, empty_message_pb2.EmptyMessage)
+            cb_endpoint.add_handler(
+                'PROGRESS', self.__onRendererProgress,
+                music.RenderProgressRequest, music.RenderProgressResponse)
+            cb_endpoint.add_handler(
+                'DATA', self.__onRendererData,
+                music.RenderDataRequest, music.RenderDataResponse)
+            cb_endpoint_address = await self.app.process.server.add_endpoint(cb_endpoint)
 
-            await self.project_client.render(self.__cb_server.address, self.__settings)
+            await self.project_client.render(cb_endpoint_address, self.__settings)
 
             assert self.__renderer_state is not None
 
@@ -726,9 +747,8 @@ class RenderDialog(ui_base.ProjectMixin, QtWidgets.QDialog):
             self.__failure_reason = str(exc)
 
         finally:
-            if self.__cb_server is not None:
-                await self.__cb_server.cleanup()
-                self.__cb_server = None
+            if cb_endpoint_address is not None:
+                await self.app.process.server.remove_endpoint('render_cb')
 
             if self.__out_fp is not None:
                 self.__out_fp.close()

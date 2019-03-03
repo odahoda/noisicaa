@@ -22,7 +22,7 @@
 
 from google.protobuf import message as protobuf
 
-from . import project_pb2
+from noisicaa import audioproc
 from . import model_base
 
 
@@ -36,15 +36,15 @@ class ControlValue(model_base.ProtoValue):
         return '<%s %f %d>' % (self.__name, self.__value, self.__generation)
     __repr__ = __str__
 
-    def to_proto(self) -> project_pb2.ControlValue:
-        return project_pb2.ControlValue(
+    def to_proto(self) -> audioproc.ControlValue:
+        return audioproc.ControlValue(
             name=self.__name,
             value=self.__value,
             generation=self.__generation)
 
     @classmethod
     def from_proto(cls, pb: protobuf.Message) -> 'ControlValue':
-        if not isinstance(pb, project_pb2.ControlValue):
+        if not isinstance(pb, audioproc.ControlValue):
             raise TypeError(type(pb).__name__)
         return ControlValue(pb.name, pb.value, pb.generation)
 

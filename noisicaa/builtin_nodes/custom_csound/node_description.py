@@ -24,6 +24,7 @@ from noisicaa import node_db
 
 
 CustomCSoundDescription = node_db.NodeDescription(
+    uri='builtin://custom-csound',
     display_name='Custom CSound',
     type=node_db.NodeDescription.PROCESSOR,
     processor=node_db.ProcessorDescription(

@@ -35,28 +35,13 @@ from noisidev import demo_project
 from noisicaa.constants import TEST_OPTS
 from noisicaa import audioproc
 from noisicaa import node_db
-from noisicaa.audioproc import audioproc_client
+from noisicaa import editor_main_pb2
 from noisicaa.core import ipc
 
 from . import project
 from . import player
 
 logger = logging.getLogger(__name__)
-
-
-class TestAudioProcClientImpl(audioproc_client.AudioProcClientBase):  # pylint: disable=abstract-method
-    def __init__(self, event_loop, name):
-        super().__init__(
-            event_loop, ipc.Server(event_loop, name, socket_dir=TEST_OPTS.TMP_DIR))
-
-    async def setup(self):
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
-
-class TestAudioProcClient(audioproc_client.AudioProcClientMixin, TestAudioProcClientImpl):
-    pass
 
 
 UNSET = object()
@@ -66,9 +51,9 @@ class CallbackServer(ipc.Server):
         super().__init__(event_loop, 'callback', socket_dir=TEST_OPTS.TMP_DIR)
 
         self.player_status_calls = asyncio.Queue(loop=event_loop)
-        self.add_command_handler(
-            'PLAYER_STATUS', self.handle_player_update,
-            log_level=logging.DEBUG)
+        # self['main'].add_handler(
+        #     'PLAYER_STATUS', self.handle_player_update,
+        #     log_level=logging.DEBUG)
 
     async def handle_player_update(self, player_id, kwargs):
         logging.info("XXX %s %s", player_id, kwargs)
@@ -92,6 +77,7 @@ class CallbackServer(ipc.Server):
 
 
 class PlayerTest(
+        unittest_mixins.ServerMixin,
         unittest_mixins.ProcessManagerMixin,
         unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
@@ -116,15 +102,23 @@ class PlayerTest(
         self.callback_server = CallbackServer(self.loop)
         await self.callback_server.setup()
 
-        node_db_address = await self.process_manager_client.call('CREATE_NODE_DB_PROCESS')
+        create_node_db_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_NODE_DB_PROCESS', None, create_node_db_response)
+        node_db_address = create_node_db_response.address
+
         self.node_db_client = node_db.NodeDBClient(self.loop, self.callback_server)
         await self.node_db_client.setup()
         await self.node_db_client.connect(node_db_address)
 
-        self.audioproc_address_main = await self.process_manager_client.call(
-            'CREATE_AUDIOPROC_PROCESS', 'main_process')
+        create_audioproc_request = editor_main_pb2.CreateAudioProcProcessRequest(
+            name='main_process')
+        create_audioproc_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_AUDIOPROC_PROCESS', create_audioproc_request, create_audioproc_response)
+        self.audioproc_address_main = create_audioproc_response.address
 
-        self.audioproc_client_main = TestAudioProcClient(self.loop, 'main_client')
+        self.audioproc_client_main = audioproc.AudioProcClient(self.loop, self.server)
         await self.audioproc_client_main.setup()
         await self.audioproc_client_main.connect(
             self.audioproc_address_main, flags={'perf_data'})

@@ -24,10 +24,11 @@ import asyncio
 import concurrent.futures
 import logging
 import uuid
-from typing import cast, Any, Optional, Iterator, Dict, Tuple
+from typing import cast, Optional, Iterator, Iterable, Dict, Tuple
 
 from noisicaa import core
 from noisicaa.core import ipc
+from noisicaa.core import session_data_pb2
 from noisicaa import audioproc
 from noisicaa import model
 from . import pmodel
@@ -41,7 +42,7 @@ class Player(object):
             self, *,
             project: pmodel.Project,
             event_loop: asyncio.AbstractEventLoop,
-            audioproc_client: audioproc.AudioProcClientBase,
+            audioproc_client: audioproc.AbstractAudioProcClient,
             realm: str,
             callback_address: Optional[str] = None
     ) -> None:
@@ -76,8 +77,9 @@ class Player(object):
 
         await self.audioproc_client.update_project_properties(
             self.realm,
-            bpm=self.project.bpm,
-            duration=self.project.duration)
+            audioproc.ProjectProperties(
+                bpm=self.project.bpm,
+                duration=self.project.duration.to_proto()))
 
         messages = audioproc.ProcessorMessageList()
         for node in self.project.nodes:
@@ -117,7 +119,7 @@ class Player(object):
 
         callback_task = asyncio.run_coroutine_threadsafe(
             self.audioproc_client.update_project_properties(
-                self.realm, bpm=change.new_value),
+                self.realm, audioproc.ProjectProperties(bpm=change.new_value)),
             self.event_loop)
         callback_task.add_done_callback(self.__update_project_properties_done)
 
@@ -127,7 +129,7 @@ class Player(object):
 
         callback_task = asyncio.run_coroutine_threadsafe(
             self.audioproc_client.update_project_properties(
-                self.realm, duration=change.new_value),
+                self.realm, audioproc.ProjectProperties(duration=change.new_value.to_proto())),
             self.event_loop)
         callback_task.add_done_callback(self.__update_project_properties_done)
 
@@ -148,7 +150,7 @@ class Player(object):
         else:
             raise TypeError("Unsupported change type %s" % type(change))
 
-    async def set_session_values(self, values: Dict[str, Any]) -> None:
+    async def set_session_values(self, values: Iterable[session_data_pb2.SessionValue]) -> None:
         await self.audioproc_client.set_session_values(self.realm, values)
 
     def add_node(self, node: pmodel.BaseNode) -> Iterator[audioproc.ProcessorMessage]:

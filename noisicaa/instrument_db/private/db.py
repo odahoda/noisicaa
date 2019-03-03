@@ -29,7 +29,7 @@ import queue
 import sys
 import threading
 import time
-from typing import Any, Callable, Dict, List, Set, Iterable
+from typing import Any, Callable, Dict, List, Set
 
 from noisicaa import core
 from noisicaa import instrument_db
@@ -45,11 +45,11 @@ class ScanAborted(Exception):
 
 
 class InstrumentDB(object):
-    VERSION = 2
+    VERSION = 3
 
     def __init__(self, event_loop: asyncio.AbstractEventLoop, cache_dir: str) -> None:
         self.scan_state_handlers = core.Callback[instrument_db.ScanState]()
-        self.__mutation_listeners = core.Callback[List[instrument_db.Mutation]]()
+        self.__mutation_listeners = core.Callback[instrument_db.Mutations]()
 
         self.__event_loop = event_loop
         self.__cache_dir = cache_dir
@@ -94,7 +94,7 @@ class InstrumentDB(object):
             self.__scan_thread = None
 
     def add_mutations_listener(
-            self, callback: Callable[[List[instrument_db.Mutation]], None]) -> core.Listener:
+            self, callback: Callable[[instrument_db.Mutations], None]) -> core.Listener:
         return self.__mutation_listeners.add(callback)
 
     def __load_cache(self, path: str, default: Dict[str, Any]) -> Dict[str, Any]:
@@ -132,12 +132,11 @@ class InstrumentDB(object):
             self.scan_state_handlers.call, state)
 
     def __add_instruments(self, descriptions: List[instrument_db.InstrumentDescription]) -> None:
+        mutations = instrument_db.Mutations()
         for description in descriptions:
             self.__instruments[description.uri] = description
-
-        self.__mutation_listeners.call(
-            [instrument_db.AddInstrumentDescription(description)
-             for description in descriptions])
+            mutations.mutations.add(add_instrument=description)
+        self.__mutation_listeners.call(mutations)
 
     def __scan_main(self) -> None:
         try:
@@ -243,9 +242,13 @@ class InstrumentDB(object):
         self.__publish_scan_state(instrument_db.ScanState(
             state=instrument_db.ScanState.COMPLETED))
 
-    def initial_mutations(self) -> Iterable[instrument_db.Mutation]:
+    def initial_mutations(self) -> instrument_db.Mutations:
+        mutations = instrument_db.Mutations()
+
         for _, description in sorted(self.__instruments.items()):
-            yield instrument_db.AddInstrumentDescription(description)
+            mutations.mutations.add(add_instrument=description)
+
+        return mutations
 
     def start_scan(self, search_paths: List[str], incremental: bool) -> None:
         self.__scan_commands.put(('SCAN', list(search_paths), incremental))

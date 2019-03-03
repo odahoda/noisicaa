@@ -20,43 +20,17 @@
 #
 # @end:license
 
-import enum
-import urllib.parse
-from typing import Dict, Any
+import logging
+
+from noisidev import unittest
+from . import builtin_scanner
+
+logger = logging.getLogger(__name__)
 
 
-class Property(enum.Enum):
-    # int
-    BitsPerSample = 'bits-per-sample'
-
-    # int
-    NumChannels = 'num-channels'
-
-    SampleFormat = 'sample-format'
-
-    # int, samples per seconds
-    SampleRate = 'sample-rate'
-
-    # int
-    NumSamples = 'num-samples'
-
-    # float, in seconds
-    Duration = 'duration'
-
-
-class InstrumentDescription(object):
-    def __init__(
-            self,
-            uri: str,
-            path: str,
-            display_name: str,
-            properties: Dict[Property, Any],
-    ) -> None:
-        self.uri = uri
-        self.path = path
-        self.display_name = display_name
-        self.properties = properties
-
-    @property
-    def format(self) -> str:
-        return urllib.parse.urlparse(self.uri).scheme
+class BuiltinScannerTest(unittest.TestCase):
+    def test_scan(self):
+        scanner = builtin_scanner.BuiltinScanner()
+        for desc in scanner.scan():
+            logger.info(desc)
+            self.assertTrue(desc.IsInitialized(), desc)

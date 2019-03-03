@@ -25,10 +25,11 @@ from typing import Any, Dict, List, Optional, Set
 
 import toposort
 
-from noisicaa.core import ipc
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import host_system as host_system_lib
+from noisicaa.core import ipc
+from noisicaa.core import session_data_pb2
 from noisicaa.audioproc.public import processor_message_pb2
 from . import control_value
 from . import processor as processor_lib
@@ -344,7 +345,7 @@ class Node(object):
         """
         logger.info("%s: cleanup()", self.name)
 
-    def set_session_value(self, key: str, value: Any) -> None:
+    def set_session_value(self, key: str, value: session_data_pb2.SessionValue) -> None:
         pass
 
     @property
@@ -398,11 +399,12 @@ class ProcessorNode(Node):
 
         await super().cleanup(deref)
 
-    def set_session_value(self, key: str, value: Any) -> None:
+    def set_session_value(self, key: str, value: session_data_pb2.SessionValue) -> None:
         if key == 'muted':
+            assert value.WhichOneof('type') == 'bool_value', value
             self.__processor.handle_message(processor_message_pb2.ProcessorMessage(
                 node_id=self.id,
-                mute_node=processor_message_pb2.ProcessorMessage.MuteNode(muted=value)))
+                mute_node=processor_message_pb2.ProcessorMessage.MuteNode(muted=value.bool_value)))
 
         super().set_session_value(key, value)
 
@@ -435,8 +437,14 @@ class PluginNode(ProcessorNode):
         spec.node_description.CopyFrom(self.description)
         if self.initial_state is not None:
             spec.initial_state.CopyFrom(self.initial_state)
-        self.__plugin_pipe_path = await self.__plugin_host.call(
-            'CREATE_PLUGIN', spec, self.realm.callback_address)
+
+        create_plugin_request = plugin_host_pb2.CreatePluginRequest(
+            spec=spec,
+            callback_address=self.realm.callback_address)
+        create_plugin_response = plugin_host_pb2.CreatePluginResponse()
+        await self.__plugin_host.call(
+            'CREATE_PLUGIN', create_plugin_request, create_plugin_response)
+        self.__plugin_pipe_path = create_plugin_response.pipe_path
 
         self.processor.set_parameters(
             processor_pb2.ProcessorParameters(
@@ -446,7 +454,10 @@ class PluginNode(ProcessorNode):
         await super().cleanup(deref)
 
         if self.__plugin_pipe_path is not None:
-            await self.__plugin_host.call('DELETE_PLUGIN', self.realm.name, self.id)
+            await self.__plugin_host.call(
+                'DELETE_PLUGIN',
+                plugin_host_pb2.DeletePluginRequest(
+                    realm=self.realm.name, node_id=self.id))
             self.__plugin_pipe_path = None
 
         self.__plugin_host = None

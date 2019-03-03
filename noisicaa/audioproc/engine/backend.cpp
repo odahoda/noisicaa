@@ -29,7 +29,7 @@
 namespace noisicaa {
 
 Backend::Backend(
-    HostSystem* host_system, const char* logger_name, const BackendSettings& settings,
+    HostSystem* host_system, const char* logger_name, const pb::BackendSettings& settings,
     void (*callback)(void*, const string&), void *userdata)
   : _host_system(host_system),
     _logger(LoggerRegistry::get_logger(logger_name)),
@@ -44,8 +44,11 @@ Backend::~Backend() {
 }
 
 StatusOr<Backend*> Backend::create(
-    HostSystem* host_system, const string& name, const BackendSettings& settings,
+    HostSystem* host_system, const string& name, const string& serialized_settings,
     void (*callback)(void*, const string&), void* userdata) {
+  pb::BackendSettings settings;
+  assert(settings.ParseFromString(serialized_settings));
+
   if (name == "portaudio") {
     return new PortAudioBackend(host_system, settings, callback, userdata);
   } else if (name == "null") {

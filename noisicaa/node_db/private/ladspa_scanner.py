@@ -23,7 +23,7 @@
 import logging
 import os
 import os.path
-from typing import Iterator, Tuple
+from typing import Iterator
 
 from noisicaa import node_db
 from noisicaa.bindings import ladspa
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 class LadspaScanner(scanner.Scanner):
-    def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
+    def scan(self) -> Iterator[node_db.NodeDescription]:
         # TODO: support configurable searchpaths
         rootdirs = os.environ.get('LADSPA_PATH', '/usr/lib/ladspa')
         for rootdir in rootdirs.split(':'):
@@ -57,6 +57,7 @@ class LadspaScanner(scanner.Scanner):
                         logger.info("Adding LADSPA plugin %s", uri)
 
                         desc = node_db.NodeDescription()
+                        desc.uri = uri
                         desc.supported = True
                         desc.display_name = descriptor.name
                         desc.type = node_db.NodeDescription.PLUGIN
@@ -102,4 +103,4 @@ class LadspaScanner(scanner.Scanner):
                                 if default is not None:
                                     value_desc.default = default
 
-                        yield uri, desc
+                        yield desc

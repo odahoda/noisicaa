@@ -40,12 +40,15 @@ import time
 import traceback
 import typing
 from typing import cast, Any, Optional, Callable, Iterator, Dict, List, Set, Tuple
+import urllib.parse
 
 import eventfd
 
 from . import ipc
 from . import stats
 from . import stacktrace
+from . import empty_message_pb2
+from . import process_manager_pb2
 from .logging import init_pylogging
 
 if typing.TYPE_CHECKING:
@@ -319,7 +322,7 @@ class ChildCollector(object):
                 try:
                     connection.write(b'COLLECT_STATS')
                 except OSError as exc:
-                    logger.warning("Failed to collect stats from PID=%d: %s", pid, exc)
+                    logger.info("Failed to collect stats from PID=%d: %s", pid, exc)
                 else:
                     pending[connection.fd_in] = (t0, pid, connection)
                     poller.register(connection.fd_in)
@@ -341,7 +344,7 @@ class ChildCollector(object):
                         del pending[fd]
 
                     elif evt & select.POLLHUP:
-                        logger.warning("Failed to collect stats from PID=%d", pid)
+                        logger.info("Failed to collect stats from PID=%d", pid)
                         poller.unregister(fd)
                         del pending[fd]
 
@@ -406,13 +409,16 @@ class ProcessManager(object):
             logger.info("Using %s for temp files.", self._tmp_dir)
 
         self._server = ipc.Server(self._event_loop, 'manager', socket_dir=self._tmp_dir)
-
-        self._server.add_command_handler(
-            'STATS_LIST', self.handle_stats_list)
-        self._server.add_command_handler(
-            'STATS_FETCH', self.handle_stats_fetch)
-
         await self._server.setup()
+
+        endpoint = ipc.ServerEndpoint('main')
+        endpoint.add_handler(
+            'STATS_LIST', self.handle_stats_list,
+            empty_message_pb2.EmptyMessage, process_manager_pb2.ListStatsResponse)
+        endpoint.add_handler(
+            'STATS_FETCH', self.handle_stats_fetch,
+            process_manager_pb2.FetchStatsRequest, process_manager_pb2.FetchStatsResponse)
+        await self.server.add_endpoint(endpoint)
 
         if self._child_collector is not None:
             self._child_collector.setup()
@@ -425,10 +431,6 @@ class ProcessManager(object):
 
         if self._server is not None:
             await self._server.cleanup()
-
-            self._server.remove_command_handler('STATS_LIST')
-            self._server.remove_command_handler('STATS_FETCH')
-
             self._server = None
 
         if self._clear_tmp_dir:
@@ -642,6 +644,12 @@ class ProcessManager(object):
 
             return proc
 
+    async def shutdown_process(self, address: str) -> None:
+        for proc in self._processes:
+            if proc.address == address:
+                await proc.shutdown()
+                break
+
     def sigchld_handler(self) -> None:
         logger.info("Received SIGCHLD.")
         self.collect_dead_children()
@@ -658,16 +666,24 @@ class ProcessManager(object):
                 self._child_collector.remove_child(proc.pid)
             self._processes.remove(proc)
 
-    def handle_stats_list(self) -> List[stats.StatName]:
+    def handle_stats_list(
+            self,
+            request: empty_message_pb2.EmptyMessage,
+            response: process_manager_pb2.ListStatsResponse
+    ) -> None:
         if self._stats_collector is None:
             raise RuntimeError("Stats collection not enabled.")
-        return self._stats_collector.list_stats()
+        response.pickle = pickle.dumps(self._stats_collector.list_stats(), -1)
 
     def handle_stats_fetch(
-            self, expressions: Dict[str, stats.Expression]) -> Dict[str, stats.TimeseriesSet]:
+            self,
+            request: process_manager_pb2.FetchStatsRequest,
+            response: process_manager_pb2.FetchStatsResponse
+    ) -> None:
         if self._stats_collector is None:
             raise RuntimeError("Stats collection not enabled.")
-        return self._stats_collector.fetch_stats(expressions)
+        expressions = pickle.loads(request.pickle)  # type: Dict[str, stats.Expression]
+        response.pickle = pickle.dumps(self._stats_collector.fetch_stats(expressions), -1)
 
 
 class ChildConnectionHandler(object):
@@ -740,6 +756,12 @@ class ProcessBase(object):
         self.server = ipc.Server(self.event_loop, self.name, socket_dir=self.tmp_dir)
         await self.server.setup()
 
+        endpoint = ipc.ServerEndpoint('control')
+        endpoint.add_handler(
+            'SHUTDOWN', self.__handle_shutdown,
+            empty_message_pb2.EmptyMessage, empty_message_pb2.EmptyMessage)
+        await self.server.add_endpoint(endpoint)
+
     async def cleanup(self) -> None:
         if self.server is not None:
             await self.server.cleanup()
@@ -753,11 +775,21 @@ class ProcessBase(object):
         return 0
 
     async def shutdown(self) -> None:
-        logger.info("Shutdown received for process '%s'.", self.name)
-        self.__shutting_down.set()
+        self.start_shutdown()
         logger.info("Waiting for shutdown of process '%s' to complete...", self.name)
         await self.__shutdown_complete.wait()
         logger.info("Shutdown of process '%s' complete.", self.name)
+
+    def start_shutdown(self) -> None:
+        self.__shutting_down.set()
+
+    def __handle_shutdown(
+            self,
+            request: empty_message_pb2.EmptyMessage,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        logger.info("Shutdown received for process '%s'.", self.name)
+        self.__shutting_down.set()
 
 
 # mypy complains: Invalid type "asyncio.DefaultEventLoopPolicy"
@@ -888,8 +920,10 @@ class SubprocessMixin(ProcessBase):
             pending_tasks = asyncio.Task.all_tasks(self.event_loop)
             if pending_tasks:
                 logger.info("Waiting for %d tasks to complete...", len(pending_tasks))
-                self.event_loop.run_until_complete(
-                    asyncio.gather(*pending_tasks, loop=self.event_loop))
+                self.event_loop.run_until_complete(asyncio.gather(
+                    *pending_tasks,
+                    loop=self.event_loop,
+                    return_exceptions=True))
             self.event_loop.stop()
             self.event_loop.close()
             logger.info("Event loop closed.")
@@ -963,13 +997,49 @@ class ProcessHandle(object):
     def create_loggers(self) -> None:
         raise NotImplementedError
 
+    async def shutdown(self) -> None:
+        if self.address is not None:
+            p = urllib.parse.urlparse(self.address)
+            control_address = 'ipc://control@%s' % p.path
+
+            try:
+                stub = ipc.Stub(self.event_loop, control_address)
+                try:
+                    await stub.connect()
+                    await stub.call('SHUTDOWN')
+                finally:
+                    await stub.close()
+
+                try:
+                    await self.wait(timeout=5)
+                except asyncio.TimeoutError:
+                    logger.info("Process '%s' did not terminate after SHUTDOWN", self.name)
+                else:
+                    return
+
+            except ipc.Error as exc:
+                logger.info("Failed to send SHUTDOWN to '%s': %s", self.name, exc)
+
+        for sig in [signal.SIGTERM, signal.SIGKILL]:
+            try:
+                self.kill(sig)
+            except OSError:
+                pass
+            else:
+                try:
+                    await self.wait(timeout=5)
+                except asyncio.TimeoutError:
+                    logger.info("Process '%s', did not shutdown after %s", self.name, sig.name)
+                else:
+                    return
+
     def kill(self, sig: signal.Signals) -> None:  # pylint: disable=no-member
         raise NotImplementedError
 
     def try_collect(self) -> bool:
         raise NotImplementedError
 
-    async def wait(self) -> None:
+    async def wait(self, *, timeout: float = None) -> None:
         raise NotImplementedError
 
 
@@ -1018,8 +1088,8 @@ class InlineProcessHandle(ProcessHandle):
 
         return True
 
-    async def wait(self) -> None:
-        self.returncode = await asyncio.wait_for(self.task, None, loop=self.event_loop) or 0
+    async def wait(self, *, timeout: float = None) -> None:
+        self.returncode = await asyncio.wait_for(self.task, timeout, loop=self.event_loop) or 0
 
     async def cleanup(self) -> None:
         await self.process.cleanup()
@@ -1126,8 +1196,8 @@ class SubprocessHandle(ProcessHandle):
 
         return True
 
-    async def wait(self) -> None:
-        await self.term_event.wait()
+    async def wait(self, *, timeout: float = None) -> None:
+        await asyncio.wait_for(self.term_event.wait(), timeout, loop=self.event_loop)
 
     async def setup_std_handlers(self, stdout_fd: int, stderr_fd: int, logger_fd: int) -> None:
         _, protocol = await self.event_loop.connect_read_pipe(

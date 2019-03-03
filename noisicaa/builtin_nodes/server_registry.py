@@ -23,8 +23,10 @@
 from typing import Dict, Type
 
 from noisicaa import model
+from noisicaa.core import ipc
 from noisicaa.music import commands
 from noisicaa.music import graph
+from noisicaa.music import project_process_context
 from .score_track import server_impl as score_track
 from .beat_track import server_impl as beat_track
 from .control_track import server_impl as control_track
@@ -77,7 +79,13 @@ def register_commands(registry: commands.CommandRegistry) -> None:
     registry.register(sample_track.CreateSample)
     registry.register(sample_track.DeleteSample)
     registry.register(sample_track.UpdateSample)
-    registry.register(sample_track.RenderSample)
     registry.register(instrument.UpdateInstrument)
     registry.register(custom_csound.UpdateCustomCSound)
     registry.register(midi_source.UpdateMidiSource)
+
+
+def register_ipc_handlers(
+        ctxt: project_process_context.ProjectProcessContext,
+        endpoint: ipc.ServerEndpointWithSessions
+) -> None:
+    sample_track.register_ipc_handlers(ctxt, endpoint)

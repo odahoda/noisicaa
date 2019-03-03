@@ -29,10 +29,11 @@ from noisidev import unittest_engine_mixins
 from noisicaa import constants
 from noisicaa import node_db
 from noisicaa.audioproc.public import instrument_spec_pb2
+from noisicaa.audioproc.public import backend_settings_pb2
 from noisicaa.builtin_nodes.instrument import processor_messages as instrument
 from .spec import PySpec
 from .realm import PyRealm
-from .backend import PyBackend, PyBackendSettings
+from .backend import PyBackend
 from .processor import PyProcessor
 from . import buffers
 from . import graph as graph_lib
@@ -74,7 +75,7 @@ class RealmTest(
             backend = PyBackend(
                 self.host_system,
                 constants.TEST_OPTS.PLAYBACK_BACKEND.encode('ascii'),
-                PyBackendSettings(time_scale=0.0))
+                backend_settings_pb2.BackendSettings(time_scale=0.0))
             backend.setup(realm)
 
             instrument_desc = self.node_db['builtin://instrument']
@@ -152,6 +153,7 @@ class RealmTest(
         self.host_system.set_block_size(256)
         async with self.create_realm() as realm:
             node_description = node_db.NodeDescription(
+                uri='test://test',
                 type=node_db.NodeDescription.PROCESSOR,
                 processor=node_db.ProcessorDescription(
                     type='builtin://null',

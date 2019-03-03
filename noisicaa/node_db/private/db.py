@@ -54,10 +54,10 @@ class NodeDB(object):
             lv2_scanner.LV2Scanner(),
         ]
         for scanner in scanners:
-            for uri, node_description in scanner.scan():
-                logger.debug("%s:\n%s", uri, node_description)
-                assert uri not in self.__nodes
-                self.__nodes[uri] = node_description
+            for node_description in scanner.scan():
+                logger.debug("%s", node_description)
+                assert node_description.uri not in self.__nodes
+                self.__nodes[node_description.uri] = node_description
 
         # scanner = preset_scanner.PresetScanner(self.__nodes)
         # presets = {}
@@ -70,8 +70,8 @@ class NodeDB(object):
         pass
 
     def initial_mutations(self) -> Iterator[node_db.Mutation]:
-        for uri, node_description in sorted(self.__nodes.items()):
-            yield node_db.AddNodeDescription(uri, node_description)
+        for _, node_description in sorted(self.__nodes.items()):
+            yield node_db.Mutation(add_node=node_description)
 
     def start_scan(self) -> None:
         pass

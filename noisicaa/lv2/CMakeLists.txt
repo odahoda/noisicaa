@@ -31,6 +31,8 @@ set(LIB_SRCS
   feature_manager.cpp
 )
 
+py_proto(urid_mapper.proto)
+
 add_library(noisicaa-lv2 SHARED ${LIB_SRCS})
 target_link_libraries(noisicaa-lv2 PRIVATE noisicaa-core)
 target_link_libraries(noisicaa-lv2 PRIVATE noisicaa-host_system)

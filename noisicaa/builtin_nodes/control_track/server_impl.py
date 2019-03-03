@@ -44,7 +44,7 @@ class CreateControlPoint(commands.Command):
     proto_type = 'create_control_point'
     proto_ext = commands_registry_pb2.create_control_point
 
-    def run(self) -> int:
+    def run(self) -> None:
         pb = down_cast(commands_pb2.CreateControlPoint, self.pb)
         track = down_cast(ControlTrack, self.pool[pb.track_id])
 
@@ -59,7 +59,6 @@ class CreateControlPoint(commands.Command):
 
         control_point = self.pool.create(ControlPoint, time=insert_time, value=pb.value)
         track.points.insert(insert_index, control_point)
-        return control_point.id
 
 
 class UpdateControlPoint(commands.Command):

@@ -24,15 +24,20 @@ import asyncio
 from fractions import Fraction
 import getpass
 import logging
+import random
 import socket
-from typing import cast, Any, Dict, List, Tuple, Sequence, Callable, TypeVar
+from typing import cast, Any, Dict, Tuple, Sequence, Callable, TypeVar
+
+from google.protobuf import message as protobuf
 
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import model
 from noisicaa import node_db as node_db_lib
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.builtin_nodes import client_registry
+from . import project_process_pb2
 from . import mutations as mutations_lib
 from . import mutations_pb2
 from . import render_settings_pb2
@@ -40,6 +45,12 @@ from . import commands_pb2
 from . import project_client_model
 
 logger = logging.getLogger(__name__)
+
+
+def crash() -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='crash',
+        crash=empty_message_pb2.EmptyMessage())
 
 
 def update_project(
@@ -209,17 +220,21 @@ class ProjectClient(object):
     def __init__(
             self, *,
             event_loop: asyncio.AbstractEventLoop,
-            tmp_dir: str,
+            server: ipc.Server,
             node_db: node_db_lib.NodeDBClient = None) -> None:
         super().__init__()
         self.event_loop = event_loop
-        self.server = ipc.Server(self.event_loop, 'client', socket_dir=tmp_dir)
+        self.__server = server
         self._node_db = node_db
+
         self._stub = None  # type: ipc.Stub
-        self._session_id = None  # type: str
         self._session_data = None  # type: Dict[str, Any]
         self.__pool = None  # type: Pool
         self.__session_data_listeners = core.CallbackMap[str, Any]()
+        self.__closed = None  # type: bool
+
+        self.__cb_endpoint_name = 'project-%016x' % random.getrandbits(63)
+        self.__cb_endpoint_address = None  # type: str
 
     @property
     def project(self) -> project_client_model.Project:
@@ -231,101 +246,117 @@ class ProjectClient(object):
         project.init(self._node_db)
 
     async def setup(self) -> None:
-        await self.server.setup()
-        self.server.add_command_handler(
-            'PROJECT_MUTATIONS', self.handle_project_mutations)
-        self.server.add_command_handler(
-            'PROJECT_CLOSED', self.handle_project_closed)
-        self.server.add_command_handler(
-            'SESSION_DATA_MUTATION', self.handle_session_data_mutation)
+        cb_endpoint = ipc.ServerEndpoint(self.__cb_endpoint_name)
+        cb_endpoint.add_handler(
+            'PROJECT_MUTATIONS', self.handle_project_mutations,
+            mutations_pb2.MutationList, empty_message_pb2.EmptyMessage)
+        cb_endpoint.add_handler(
+            'PROJECT_CLOSED', self.handle_project_closed,
+            empty_message_pb2.EmptyMessage, empty_message_pb2.EmptyMessage)
+        cb_endpoint.add_handler(
+            'SESSION_DATA_MUTATION', self.handle_session_data_mutation,
+            project_process_pb2.SessionDataMutation, empty_message_pb2.EmptyMessage)
+
+        self.__cb_endpoint_address = await self.__server.add_endpoint(cb_endpoint)
 
     async def cleanup(self) -> None:
         await self.disconnect()
-        await self.server.cleanup()
+
+        if self.__cb_endpoint_address is not None:
+            await self.__server.remove_endpoint(self.__cb_endpoint_name)
+            self.__cb_endpoint_address = None
 
     async def connect(self, address: str) -> None:
         assert self._stub is None
-        self._stub = ipc.Stub(self.event_loop, address)
-        await self._stub.connect()
 
         self.__pool = Pool()
         self._session_data = {}
-        session_name = '%s.%s' % (getpass.getuser(), socket.getfqdn())
-        self._session_id = await self._stub.call('START_SESSION', self.server.address, session_name)
-        root_id = await self._stub.call('GET_ROOT_ID', self._session_id)
-        if root_id is not None:
+        self.__closed = False
+
+        self._stub = ipc.Stub(self.event_loop, address)
+        await self._stub.connect(core.StartSessionRequest(
+            callback_address=self.__cb_endpoint_address,
+            session_name='%s.%s' % (getpass.getuser(), socket.getfqdn())))
+
+        get_root_id_response = project_process_pb2.ProjectId()
+        await self._stub.call('GET_ROOT_ID', None, get_root_id_response)
+        if get_root_id_response.HasField('project_id'):
             # Connected to a loaded project.
-            self.__set_project(root_id)
+            self.__set_project(get_root_id_response.project_id)
 
-    async def disconnect(self, shutdown: bool = False) -> None:
-        if self._session_id is not None:
-            try:
-                await self._stub.call('END_SESSION', self._session_id)
-            except ipc.ConnectionClosed:
-                logger.info("Connection already closed.")
-            self._session_id = None
-
+    async def disconnect(self) -> None:
         if self._stub is not None:
-            if shutdown:
-                try:
-                    await self.shutdown()
-                except ipc.ConnectionClosed:
-                    pass
-
             await self._stub.close()
             self._stub = None
 
     def get_object(self, obj_id: int) -> project_client_model.ObjectBase:
         return self.__pool[obj_id]
 
-    def handle_project_mutations(self, mutations: mutations_pb2.MutationList) -> None:
-        mutation_list = mutations_lib.MutationList(self.__pool, mutations)
+    def handle_project_mutations(
+            self,
+            request: mutations_pb2.MutationList,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        mutation_list = mutations_lib.MutationList(self.__pool, request)
         mutation_list.apply_forward()
 
-    def handle_project_closed(self) -> None:
+    def handle_project_closed(
+            self,
+            request: empty_message_pb2.EmptyMessage,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
         logger.info("Project closed received.")
+        self.__closed = True
 
-    async def shutdown(self) -> None:
-        await self._stub.call('SHUTDOWN')
-
-    async def test(self) -> None:
-        await self._stub.call('TEST')
+    async def call(
+            self, cmd: str, request: protobuf.Message = None, response: protobuf.Message = None
+    ) -> None:
+        await self._stub.call(cmd, request, response)
 
     async def create(self, path: str) -> None:
-        root_id = await self._stub.call('CREATE', self._session_id, path)
-        self.__set_project(root_id)
+        request = project_process_pb2.CreateRequest(
+            path=path)
+        response = project_process_pb2.ProjectId()
+        await self._stub.call('CREATE', request, response)
+        assert response.HasField('project_id')
+        self.__set_project(response.project_id)
 
     async def create_inmemory(self) -> None:
-        root_id = await self._stub.call('CREATE_INMEMORY', self._session_id)
-        self.__set_project(root_id)
+        response = project_process_pb2.ProjectId()
+        await self._stub.call('CREATE_INMEMORY', None, response)
+        assert response.HasField('project_id')
+        self.__set_project(response.project_id)
 
     async def open(self, path: str) -> None:
-        root_id = await self._stub.call('OPEN', self._session_id, path)
-        self.__set_project(root_id)
+        request = project_process_pb2.OpenRequest(
+            path=path)
+        response = project_process_pb2.ProjectId()
+        await self._stub.call('OPEN', request, response)
+        assert response.HasField('project_id')
+        self.__set_project(response.project_id)
 
     async def close(self) -> None:
         assert self.__pool is not None
         await self._stub.call('CLOSE')
         self.__pool = None
 
-    async def send_command(self, command: commands_pb2.Command) -> Any:
+    async def send_command(self, command: commands_pb2.Command) -> None:
         assert self.project is not None
-        results = await self.send_command_sequence(
+        await self.send_command_sequence(
             commands_pb2.CommandSequence(commands=[command]))
-        assert len(results) == 1
-        return results[0]
 
-    async def send_commands(self, *commands: commands_pb2.Command) -> List[Any]:
-        return await self.send_command_sequence(
+    async def send_commands(self, *commands: commands_pb2.Command) -> None:
+        await self.send_command_sequence(
             commands_pb2.CommandSequence(commands=commands))
 
-    async def send_command_sequence(self, sequence: commands_pb2.CommandSequence) -> List[Any]:
+    async def send_command_sequence(self, sequence: commands_pb2.CommandSequence) -> None:
         assert self.project is not None
-        results = await self._stub.call('COMMAND_SEQUENCE', sequence)
-        logger.info(
-            "Command sequence [%s] completed with results=%r",
-            ', '.join(command.command for command in sequence.commands), results)
-        return results
+        try:
+            await self._stub.call('COMMAND_SEQUENCE', sequence)
+        except ipc.RemoteException:
+            if self.__closed:
+                raise ipc.ConnectionClosed("Project closed while executing command.")
+            raise
 
     async def undo(self) -> None:
         assert self.project is not None
@@ -336,40 +367,92 @@ class ProjectClient(object):
         await self._stub.call('REDO')
 
     async def create_player(self, *, audioproc_address: str) -> Tuple[str, str]:
-        return await self._stub.call(
-            'CREATE_PLAYER', self._session_id,
-            client_address=self.server.address,
-            audioproc_address=audioproc_address)
+        response = project_process_pb2.CreatePlayerResponse()
+        await self._stub.call(
+            'CREATE_PLAYER',
+            project_process_pb2.CreatePlayerRequest(
+                client_address=self.__cb_endpoint_address,
+                audioproc_address=audioproc_address),
+            response)
+        return (response.id, response.realm)
 
     async def delete_player(self, player_id: str) -> None:
-        await self._stub.call('DELETE_PLAYER', self._session_id, player_id)
+        await self._stub.call(
+            'DELETE_PLAYER',
+            project_process_pb2.DeletePlayerRequest(
+                player_id=player_id))
 
     async def create_plugin_ui(self, player_id: str, node_id: str) -> Tuple[int, Tuple[int, int]]:
-        return await self._stub.call('CREATE_PLUGIN_UI', self._session_id, player_id, node_id)
+        response = project_process_pb2.CreatePluginUIResponse()
+        await self._stub.call(
+            'CREATE_PLUGIN_UI',
+            project_process_pb2.CreatePluginUIRequest(
+                player_id=player_id,
+                node_id=node_id),
+            response)
+        return (response.wid, (response.width, response.height))
 
     async def delete_plugin_ui(self, player_id: str, node_id: str) -> None:
-        await self._stub.call('DELETE_PLUGIN_UI', self._session_id, player_id, node_id)
+        await self._stub.call(
+            'DELETE_PLUGIN_UI',
+            project_process_pb2.DeletePluginUIRequest(
+                player_id=player_id,
+                node_id=node_id))
 
     async def update_player_state(self, player_id: str, state: audioproc.PlayerState) -> None:
-        await self._stub.call('UPDATE_PLAYER_STATE', self._session_id, player_id, state)
-
-    async def restart_player_pipeline(self, player_id: str) -> None:
-        await self._stub.call('RESTART_PLAYER_PIPELINE', self._session_id, player_id)
+        await self._stub.call(
+            'UPDATE_PLAYER_STATE',
+            project_process_pb2.UpdatePlayerStateRequest(
+                player_id=player_id,
+                state=state))
 
     async def dump(self) -> None:
-        await self._stub.call('DUMP', self._session_id)
+        await self._stub.call('DUMP')
 
     async def render(
             self, callback_address: str, render_settings: render_settings_pb2.RenderSettings
     ) -> None:
-        await self._stub.call('RENDER', self._session_id, callback_address, render_settings)
+        await self._stub.call(
+            'RENDER',
+            project_process_pb2.RenderRequest(
+                callback_address=callback_address,
+                settings=render_settings))
 
     def add_session_data_listener(
             self, key: str, func: Callable[[Any], None]) -> core.Listener:
         return self.__session_data_listeners.add(key, func)
 
-    async def handle_session_data_mutation(self, data: Dict[str, Any]) -> None:
-        for key, value in data.items():
+    async def handle_session_data_mutation(
+            self,
+            request: project_process_pb2.SessionDataMutation,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        for session_value in request.session_values:
+            key = session_value.name
+            value = None  # type: Any
+
+            value_type = session_value.WhichOneof('type')
+            if value_type == 'string_value':
+                value = session_value.string_value
+            elif value_type == 'bytes_value':
+                value = session_value.bytes_value
+            elif value_type == 'bool_value':
+                value = session_value.bool_value
+            elif value_type == 'int_value':
+                value = session_value.int_value
+            elif value_type == 'double_value':
+                value = session_value.double_value
+            elif value_type == 'fraction_value':
+                value = Fraction(
+                    session_value.fraction_value.numerator,
+                    session_value.fraction_value.denominator)
+            elif value_type == 'musical_time_value':
+                value = audioproc.MusicalTime.from_proto(session_value.musical_time_value)
+            elif value_type == 'musical_duration_value':
+                value = audioproc.MusicalDuration.from_proto(session_value.musical_time_value)
+            else:
+                raise ValueError(session_value)
+
             if key not in self._session_data or self._session_data[key] != value:
                 self._session_data[key] = value
                 self.__session_data_listeners.call(key, value)
@@ -378,17 +461,35 @@ class ProjectClient(object):
         self.set_session_values({key: value})
 
     def set_session_values(self, data: Dict[str, Any]) -> None:
+        request = project_process_pb2.SetSessionValuesRequest()
         assert isinstance(data, dict), data
         for key, value in data.items():
-            assert isinstance(key, str), key
-            assert isinstance(
-                value,
-                (str, bytes, bool, int, float, Fraction, audioproc.MusicalTime,
-                 audioproc.MusicalDuration)), value
+            session_value = request.session_values.add()
+            session_value.name = key
+            if isinstance(value, str):
+                session_value.string_value = value
+            elif isinstance(value, bytes):
+                session_value.bytes_value = value
+            elif isinstance(value, bool):
+                session_value.bool_value = value
+            elif isinstance(value, int):
+                session_value.int_value = value
+            elif isinstance(value, float):
+                session_value.double_value = value
+            elif isinstance(value, Fraction):
+                session_value.fraction_value.numerator = value.numerator
+                session_value.fraction_value.denominator = value.denominator
+            elif isinstance(value, audioproc.MusicalTime):
+                session_value.musical_time_value.numerator = value.numerator
+                session_value.musical_time_value.denominator = value.denominator
+            elif isinstance(value, audioproc.MusicalDuration):
+                session_value.musical_time_value.numerator = value.numerator
+                session_value.musical_time_value.denominator = value.denominator
+            else:
+                raise ValueError("%s: %s" % (key, type(value)))
 
         self._session_data.update(data)
-        self.event_loop.create_task(
-            self._stub.call('SET_SESSION_VALUES', self._session_id, data))
+        self.event_loop.create_task(self._stub.call('SET_SESSION_VALUES', request))
 
     T = TypeVar('T')
     def get_session_value(self, key: str, default: T) -> T:  # pylint: disable=undefined-variable

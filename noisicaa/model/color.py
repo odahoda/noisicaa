@@ -23,7 +23,7 @@
 import decimal
 from google.protobuf import message as protobuf
 
-from . import project_pb2
+from noisicaa.core import proto_types_pb2
 from . import model_base
 
 
@@ -35,13 +35,13 @@ class Color(model_base.ProtoValue):
         self.__b = self.__context.create_decimal_from_float(b)
         self.__a = self.__context.create_decimal_from_float(a)
 
-    def to_proto(self) -> project_pb2.Color:
-        return project_pb2.Color(
+    def to_proto(self) -> proto_types_pb2.Color:
+        return proto_types_pb2.Color(
             r=float(self.__r), g=float(self.__g), b=float(self.__b), a=float(self.__a))
 
     @classmethod
     def from_proto(cls, pb: protobuf.Message) -> 'Color':
-        if not isinstance(pb, project_pb2.Color):
+        if not isinstance(pb, proto_types_pb2.Color):
             raise TypeError(type(pb).__name__)
         return Color(pb.r, pb.g, pb.b, pb.a)
 

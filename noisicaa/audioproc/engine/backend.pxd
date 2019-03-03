@@ -30,10 +30,6 @@ from .block_context cimport BlockContext
 
 
 cdef extern from "noisicaa/audioproc/engine/backend.h" namespace "noisicaa" nogil:
-    struct BackendSettings:
-        string datastream_address
-        float time_scale
-
     cppclass Backend:
         enum Channel:
             AUDIO_LEFT "noisicaa::Backend::AUDIO_LEFT"
@@ -42,7 +38,7 @@ cdef extern from "noisicaa/audioproc/engine/backend.h" namespace "noisicaa" nogi
 
         @staticmethod
         StatusOr[Backend*] create(
-            HostSystem* host_system, const string& name, const BackendSettings& settings,
+            HostSystem* host_system, const string& name, const string& settings,
         void (*callback)(void*, const string&), void* userdata)
 
         Status setup(Realm* realm)
@@ -50,12 +46,6 @@ cdef extern from "noisicaa/audioproc/engine/backend.h" namespace "noisicaa" nogi
         Status begin_block(BlockContext* ctxt)
         Status end_block(BlockContext* ctxt)
         Status output(BlockContext* ctxt, Channel channel, BufferPtr samples)
-
-
-cdef class PyBackendSettings(object):
-    cdef BackendSettings __settings
-
-    cdef BackendSettings get(self)
 
 
 cdef class PyBackend(object):

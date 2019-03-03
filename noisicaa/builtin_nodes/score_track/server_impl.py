@@ -67,7 +67,7 @@ class CreateNote(commands.Command):
     proto_type = 'create_note'
     proto_ext = commands_registry_pb2.create_note
 
-    def run(self) -> int:
+    def run(self) -> None:
         pb = down_cast(commands_pb2.CreateNote, self.pb)
         measure = down_cast(ScoreMeasure, self.pool[pb.measure_id])
 
@@ -77,8 +77,6 @@ class CreateNote(commands.Command):
             pitches=[model.Pitch.from_proto(pb.pitch)],
             base_duration=audioproc.MusicalDuration.from_proto(pb.duration))
         measure.notes.insert(pb.idx, note)
-
-        return note.id
 
 
 class UpdateNote(commands.Command):

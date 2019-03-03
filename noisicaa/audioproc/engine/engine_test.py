@@ -27,6 +27,7 @@ import async_generator
 
 from noisidev import unittest
 from noisidev import unittest_engine_mixins
+from noisicaa import audioproc
 from . import engine as engine_lib
 from . import realm
 
@@ -58,7 +59,8 @@ class EngineTest(unittest_engine_mixins.HostSystemMixin, unittest.AsyncTestCase)
     async def test_set_host_parameters(self):
         self.host_system.set_block_size(1024)
         async with self.create_engine() as engine:
-            await engine.set_host_parameters(block_size=2048)
+            await engine.set_host_parameters(
+                audioproc.HostParameters(block_size=2048))
 
             # TODO: verify that the right things happened...
 

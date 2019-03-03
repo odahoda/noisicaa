@@ -118,8 +118,10 @@ message NodeUIDescription {
 }
 
 message NodeDescription {
-  optional bool supported = 1 [default = true];
-  optional NotSupportedReasons not_supported_reasons = 2;
+  required string uri = 1;
+
+  optional bool supported = 2 [default = true];
+  optional NotSupportedReasons not_supported_reasons = 3;
 
   enum Type {
     OTHER = 1;
@@ -129,16 +131,16 @@ message NodeDescription {
     REALM_SINK = 4;
     CHILD_REALM = 5;
   }
-  required Type type = 3;
+  required Type type = 4;
 
-  optional string display_name = 4;
-  optional bool internal = 8 [default = false];
+  optional string display_name = 5;
+  optional bool internal = 6 [default = false];
 
-  optional bool has_ui = 5 [default = false];
+  optional bool has_ui = 7 [default = false];
 
-  repeated PortDescription ports = 6;
+  repeated PortDescription ports = 8;
 
-  optional NodeUIDescription node_ui = 7;
+  optional NodeUIDescription node_ui = 9;
 
   optional ProcessorDescription processor = 100;
 

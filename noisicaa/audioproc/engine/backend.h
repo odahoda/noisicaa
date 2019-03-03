@@ -29,6 +29,7 @@
 #include "noisicaa/core/logging.h"
 #include "noisicaa/core/slots.h"
 #include "noisicaa/core/status.h"
+#include "noisicaa/audioproc/public/backend_settings.pb.h"
 #include "noisicaa/audioproc/engine/buffers.h"
 
 namespace noisicaa {
@@ -41,11 +42,6 @@ class HostSystem;
 namespace pb {
 class EngineNotification;
 }
-
-struct BackendSettings {
-  string datastream_address;
-  float time_scale;
-};
 
 class Backend {
 public:
@@ -60,7 +56,7 @@ public:
   Slot<pb::EngineNotification> notifications;
 
   static StatusOr<Backend*> create(
-      HostSystem* host_system, const string& name, const BackendSettings& settings,
+      HostSystem* host_system, const string& name, const string& settings,
       void (*callback)(void*, const string&), void* userdata);
 
   virtual Status setup(Realm* realm);
@@ -72,14 +68,14 @@ public:
 
 protected:
   Backend(
-      HostSystem* host_system, const char* logger_name, const BackendSettings& settings,
+      HostSystem* host_system, const char* logger_name, const pb::BackendSettings& settings,
       void (*callback)(void*, const string&), void* userdata);
 
   void notification_proxy(const pb::EngineNotification& notification);
 
   HostSystem* _host_system;
   Logger* _logger;
-  BackendSettings _settings;
+  pb::BackendSettings _settings;
   void (*_callback)(void*, const string&);
   void *_userdata;
   Realm* _realm = nullptr;

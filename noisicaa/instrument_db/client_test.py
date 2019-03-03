@@ -20,17 +20,15 @@
 #
 # @end:license
 
-import asyncio
-
 from noisidev import unittest
-from noisicaa.core import ipc
+from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
 
 from . import process
 from . import client
 
 
-class InstrumentDBClientTest(unittest.AsyncTestCase):
+class InstrumentDBClientTest(unittest_mixins.ServerMixin, unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -45,23 +43,18 @@ class InstrumentDBClientTest(unittest.AsyncTestCase):
         await self.process.setup()
         self.process_task = self.loop.create_task(self.process.run())
 
-        self.client_server = ipc.Server(self.loop, 'client', socket_dir=TEST_OPTS.TMP_DIR)
-        await self.client_server.setup()
-
-        self.client = client.InstrumentDBClient(self.loop, self.client_server)
+        self.client = client.InstrumentDBClient(self.loop, self.server)
         await self.client.setup()
         await self.client.connect(self.process.server.address)
 
     async def cleanup_testcase(self):
         if self.client is not None:
-            await self.client.disconnect(shutdown=True)
             await self.client.cleanup()
-        if self.client_server is not None:
-            await self.client_server.cleanup()
+
         if self.process is not None:
             if self.process_task is not None:
                 await self.process.shutdown()
-                await asyncio.wait_for(self.process_task, None, loop=self.loop)
+                await self.process_task
             await self.process.cleanup()
 
     async def test_start_scan(self):

@@ -26,13 +26,16 @@ import functools
 import signal
 import sys
 import time
-from typing import Any, List
+from typing import Dict, List
 
 from .constants import EXIT_SUCCESS, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .runtime_settings import RuntimeSettings
+from .core import process_manager
+from .core import init_pylogging
+from .core import empty_message_pb2
 from . import logging
 from . import debug_console
-from .core import process_manager, init_pylogging
+from . import editor_main_pb2
 
 
 class Editor(object):
@@ -63,6 +66,9 @@ class Editor(object):
         self.urid_mapper_process = None  # type: process_manager.ProcessHandle
         self.urid_mapper_process_lock = asyncio.Lock(loop=self.event_loop)
 
+        self.project_processes = {}  # type: Dict[str, process_manager.ProcessHandle]
+        self.project_processes_lock = asyncio.Lock(loop=self.event_loop)
+
     def run(self) -> int:
         for sig in (signal.SIGINT, signal.SIGTERM):
             self.event_loop.add_signal_handler(
@@ -86,23 +92,29 @@ class Editor(object):
                 await dbg.setup()
 
             try:
-                self.manager.server.add_command_handler(
-                    'CREATE_PROJECT_PROCESS', self.handle_create_project_process)
-                self.manager.server.add_command_handler(
-                    'CREATE_AUDIOPROC_PROCESS',
-                    self.handle_create_audioproc_process)
-                self.manager.server.add_command_handler(
-                    'CREATE_NODE_DB_PROCESS',
-                    self.handle_create_node_db_process)
-                self.manager.server.add_command_handler(
-                    'CREATE_INSTRUMENT_DB_PROCESS',
-                    self.handle_create_instrument_db_process)
-                self.manager.server.add_command_handler(
-                    'CREATE_URID_MAPPER_PROCESS',
-                    self.handle_create_urid_mapper_process)
-                self.manager.server.add_command_handler(
-                    'CREATE_PLUGIN_HOST_PROCESS',
-                    self.handle_create_plugin_host_process)
+                self.manager.server['main'].add_handler(
+                    'CREATE_PROJECT_PROCESS', self.handle_create_project_process,
+                    editor_main_pb2.CreateProjectProcessRequest,
+                    editor_main_pb2.CreateProcessResponse)
+                self.manager.server['main'].add_handler(
+                    'CREATE_AUDIOPROC_PROCESS', self.handle_create_audioproc_process,
+                    editor_main_pb2.CreateAudioProcProcessRequest,
+                    editor_main_pb2.CreateProcessResponse)
+                self.manager.server['main'].add_handler(
+                    'CREATE_NODE_DB_PROCESS', self.handle_create_node_db_process,
+                    empty_message_pb2.EmptyMessage, editor_main_pb2.CreateProcessResponse)
+                self.manager.server['main'].add_handler(
+                    'CREATE_INSTRUMENT_DB_PROCESS', self.handle_create_instrument_db_process,
+                    empty_message_pb2.EmptyMessage, editor_main_pb2.CreateProcessResponse)
+                self.manager.server['main'].add_handler(
+                    'CREATE_URID_MAPPER_PROCESS', self.handle_create_urid_mapper_process,
+                    empty_message_pb2.EmptyMessage, editor_main_pb2.CreateProcessResponse)
+                self.manager.server['main'].add_handler(
+                    'CREATE_PLUGIN_HOST_PROCESS', self.handle_create_plugin_host_process,
+                    empty_message_pb2.EmptyMessage, editor_main_pb2.CreateProcessResponse)
+                self.manager.server['main'].add_handler(
+                    'SHUTDOWN_PROCESS', self.handle_shutdown_process,
+                    editor_main_pb2.ShutdownProcessRequest, empty_message_pb2.EmptyMessage)
 
                 task = self.event_loop.create_task(self.launch_ui())
                 task.add_done_callback(self.ui_closed)
@@ -110,6 +122,18 @@ class Editor(object):
                 self.logger.info("Shutting down...")
 
             finally:
+                for project_process in self.project_processes.values():
+                    await project_process.shutdown()
+
+                if self.node_db_process is not None:
+                    await self.node_db_process.shutdown()
+
+                if self.instrument_db_process is not None:
+                    await self.instrument_db_process.shutdown()
+
+                if self.urid_mapper_process is not None:
+                    await self.urid_mapper_process.shutdown()
+
                 if dbg is not None:
                     await dbg.cleanup()
 
@@ -162,56 +186,102 @@ class Editor(object):
             self.returncode = task.result()
         self.stop_event.set()
 
-    async def handle_create_project_process(self, uri: str) -> str:
-        # TODO: keep map of uri->proc, only create processes for new
-        # URIs.
-        proc = await self.manager.start_subprocess(
-            'project', 'noisicaa.music.project_process.ProjectSubprocess')
-        return proc.address
+    async def handle_create_project_process(
+            self,
+            request: editor_main_pb2.CreateProjectProcessRequest,
+            response: editor_main_pb2.CreateProcessResponse
+    ) -> None:
+        async with self.project_processes_lock:
+            try:
+                proc = self.project_processes[request.uri]
+            except KeyError:
+                proc = self.project_processes[request.uri] = await self.manager.start_subprocess(
+                    'project', 'noisicaa.music.project_process.ProjectSubprocess')
 
-    async def handle_create_audioproc_process(self, name: str, **kwargs: Any) -> str:
+        response.address = proc.address
+
+    async def handle_create_audioproc_process(
+            self,
+            request: editor_main_pb2.CreateAudioProcProcessRequest,
+            response: editor_main_pb2.CreateProcessResponse
+    ) -> None:
         # TODO: keep map of name->proc, only create processes for new
         # names.
         proc = await self.manager.start_subprocess(
-            'audioproc<%s>' % name,
+            'audioproc<%s>' % request.name,
             'noisicaa.audioproc.audioproc_process.AudioProcSubprocess',
             enable_rt_checker=True,
-            **kwargs)
-        return proc.address
+            block_size=(
+                request.host_parameters.block_size
+                if request.host_parameters.HasField('block_size')
+                else None),
+            sample_rate=(
+                request.host_parameters.sample_rate
+                if request.host_parameters.HasField('sample_rate')
+                else None))
+        response.address = proc.address
 
-    async def handle_create_node_db_process(self) -> str:
+    async def handle_create_node_db_process(
+            self,
+            request: empty_message_pb2.EmptyMessage,
+            response: editor_main_pb2.CreateProcessResponse
+    ) -> None:
         async with self.node_db_process_lock:
             if self.node_db_process is None:
                 self.node_db_process = await self.manager.start_subprocess(
                     'node_db',
                     'noisicaa.node_db.process.NodeDBSubprocess')
 
-        return self.node_db_process.address
+        response.address = self.node_db_process.address
 
-    async def handle_create_instrument_db_process(self) -> str:
+    async def handle_create_instrument_db_process(
+            self,
+            request: empty_message_pb2.EmptyMessage,
+            response: editor_main_pb2.CreateProcessResponse
+    ) -> None:
         async with self.instrument_db_process_lock:
             if self.instrument_db_process is None:
                 self.instrument_db_process = await self.manager.start_subprocess(
                     'instrument_db',
                     'noisicaa.instrument_db.process.InstrumentDBSubprocess')
 
-        return self.instrument_db_process.address
+        response.address = self.instrument_db_process.address
 
-    async def handle_create_urid_mapper_process(self) -> str:
+    async def handle_create_urid_mapper_process(
+            self,
+            request: empty_message_pb2.EmptyMessage,
+            response: editor_main_pb2.CreateProcessResponse
+    ) -> None:
         async with self.urid_mapper_process_lock:
             if self.urid_mapper_process is None:
                 self.urid_mapper_process = await self.manager.start_subprocess(
                     'urid_mapper',
                     'noisicaa.lv2.urid_mapper_process.URIDMapperSubprocess')
 
-        return self.urid_mapper_process.address
+        response.address = self.urid_mapper_process.address
 
-    async def handle_create_plugin_host_process(self, **kwargs: Any) -> str:
+    async def handle_create_plugin_host_process(
+            self,
+            request: empty_message_pb2.EmptyMessage,
+            response: editor_main_pb2.CreateProcessResponse
+    ) -> None:
         proc = await self.manager.start_subprocess(
             'plugin',
-            'noisicaa.audioproc.engine.plugin_host_process.PluginHostSubprocess',
-            **kwargs)
-        return proc.address
+            'noisicaa.audioproc.engine.plugin_host_process.PluginHostSubprocess')
+        response.address = proc.address
+
+    async def handle_shutdown_process(
+            self,
+            request: editor_main_pb2.ShutdownProcessRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        await self.manager.shutdown_process(request.address)
+
+        async with self.project_processes_lock:
+            for uri, proc in self.project_processes.items():
+                if proc.address == request.address:
+                    del self.project_processes[uri]
+                    break
 
 
 class Main(object):

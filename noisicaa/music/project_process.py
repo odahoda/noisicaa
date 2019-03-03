@@ -25,15 +25,19 @@ import copy
 import logging
 import os
 import os.path
-import pickle
 import typing
-from typing import cast, Any, Optional, Type, Dict, Tuple, TypeVar
+from typing import Any, Type, Dict, Iterable, TypeVar
 
 from noisicaa import core
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
+from noisicaa.core import session_data_pb2
 from noisicaa import audioproc
 from noisicaa import node_db
-from noisicaa import model
+from noisicaa import editor_main_pb2
+from noisicaa.builtin_nodes import server_registry
+from . import project_process_pb2
+from . import project_process_context
 from . import project as project_lib
 from . import mutations as mutations_lib
 from . import mutations_pb2
@@ -41,7 +45,6 @@ from . import commands
 from . import commands_pb2
 from . import player as player_lib
 from . import render
-from . import render_settings_pb2
 
 if typing.TYPE_CHECKING:
     from . import pmodel
@@ -49,13 +52,21 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class Session(core.CallbackSessionMixin, core.SessionBase):
-    def __init__(self, client_address: str, session_name: str, **kwargs: Any) -> None:
-        super().__init__(callback_address=client_address, **kwargs)
+class Session(ipc.CallbackSessionMixin, ipc.Session):
+    async_connect = False
 
-        self.session_name = session_name
+    def __init__(
+            self,
+            session_id: int,
+            start_session_request: core.StartSessionRequest,
+            event_loop: asyncio.AbstractEventLoop
+    ) -> None:
+        super().__init__(session_id, start_session_request, event_loop)
 
-        self.session_data = {}  # type: Dict[str, Any]
+        assert start_session_request.HasField('session_name')
+        self.session_name = start_session_request.session_name
+
+        self.session_data = {}  # type: Dict[str, session_data_pb2.SessionValue]
         self.session_data_path = None  # type: str
         self.__players = {}  # type: Dict[str, player_lib.Player]
 
@@ -68,7 +79,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
     async def add_player(self, player: player_lib.Player) -> None:
         self.__players[player.id] = player
-        await player.set_session_values(self.session_data)
+        await player.set_session_values(self.session_data.values())
 
     def remove_player(self, player: player_lib.Player) -> None:
         del self.__players[player.id]
@@ -96,127 +107,165 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
             checkpoint_path = os.path.join(self.session_data_path, 'checkpoint')
             if os.path.isfile(checkpoint_path):
+                checkpoint = session_data_pb2.SessionDataCheckpoint()
                 with open(checkpoint_path, 'rb') as fp:
-                    self.session_data = pickle.load(fp)
+                    success = checkpoint.ParseFromString(fp.read())
+                    assert success
 
-        await self.callback('SESSION_DATA_MUTATION', self.session_data)
+                for session_value in checkpoint.session_values:
+                    self.session_data[session_value.name] = session_value
 
-    async def set_value(self, key: str, value: Any, from_client: bool = False) -> None:
-        await self.set_values({key: value}, from_client=from_client)
+        await self.callback(
+            'SESSION_DATA_MUTATION',
+            project_process_pb2.SessionDataMutation(session_values=self.session_data.values()))
 
-    async def set_values(self, data: Dict[str, Any], from_client: bool = False) -> None:
+    async def set_values(
+            self, session_values: Iterable[session_data_pb2.SessionValue],
+            from_client: bool = False
+    ) -> None:
         assert self.session_data_path is not None
 
         changes = {}
-        for key, value in data.items():
-            if key in self.session_data and self.session_data[key] == value:
+        for session_value in session_values:
+            if (session_value.name in self.session_data
+                    and self.session_data[session_value.name] == session_value):
                 continue
-            changes[key] = value
+            changes[session_value.name] = session_value
 
         if not changes:
             return
 
         self.session_data.update(changes)
         for player in self.__players.values():
-            await player.set_session_values(changes)
+            await player.set_session_values(changes.values())
 
         if self.session_data_path is not None:
+            checkpoint = session_data_pb2.SessionDataCheckpoint(
+                session_values=self.session_data.values())
             with open(os.path.join(self.session_data_path, 'checkpoint'), 'wb') as fp:
-                pickle.dump(self.session_data, fp)
+                fp.write(checkpoint.SerializeToString())
 
         if not from_client:
-            self.async_callback('SESSION_DATA_MUTATION', data)
-
-
-class AudioProcClientImpl(audioproc.AudioProcClientBase):  # pylint: disable=abstract-method
-    def __init__(self, event_loop: asyncio.AbstractEventLoop, name: str, tmp_dir: str) -> None:
-        super().__init__(event_loop, ipc.Server(event_loop, name, socket_dir=tmp_dir))
-
-    async def setup(self) -> None:
-        await self.server.setup()
-
-    async def cleanup(self) -> None:
-        await self.server.cleanup()
-
-class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
-    pass
+            self.async_callback(
+                'SESSION_DATA_MUTATION',
+                project_process_pb2.SessionDataMutation(session_values=session_values))
 
 
 PROJECT = TypeVar('PROJECT', bound=project_lib.BaseProject)
 
-class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
-    session_cls = Session
-
+class ProjectProcess(core.ProcessBase):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self._shutting_down = None
 
-        self.node_db = None  # type: node_db.NodeDBClient
-        self.__pool = None  # type: pmodel.Pool
-        self.project = None  # type: project_lib.BaseProject
+        self.__main_endpoint = None  # type: ipc.ServerEndpointWithSessions[Session]
+        self.__ctxt = project_process_context.ProjectProcessContext()
         self.__pending_mutations = mutations_pb2.MutationList()
         self.__mutation_collector = None  # type: mutations_lib.MutationCollector
 
     async def setup(self) -> None:
         await super().setup()
 
-        self.server.add_command_handler('SHUTDOWN', self.shutdown)
-        self.server.add_command_handler('GET_ROOT_ID', self.handle_get_root_id)
-        self.server.add_command_handler('CREATE', self.handle_create)
-        self.server.add_command_handler('CREATE_INMEMORY', self.handle_create_inmemory)
-        self.server.add_command_handler('OPEN', self.handle_open)
-        self.server.add_command_handler('CLOSE', self.handle_close)
-        self.server.add_command_handler('COMMAND_SEQUENCE', self.handle_command_sequence)
-        self.server.add_command_handler('UNDO', self.handle_undo)
-        self.server.add_command_handler('REDO', self.handle_redo)
-        self.server.add_command_handler('CREATE_PLAYER', self.handle_create_player)
-        self.server.add_command_handler('DELETE_PLAYER', self.handle_delete_player)
-        self.server.add_command_handler('CREATE_PLUGIN_UI', self.handle_create_plugin_ui)
-        self.server.add_command_handler('DELETE_PLUGIN_UI', self.handle_delete_plugin_ui)
-        self.server.add_command_handler('UPDATE_PLAYER_STATE', self.handle_update_player_state)
-        self.server.add_command_handler('CONTROL_VALUE_CHANGE', self.handle_control_value_change)
-        self.server.add_command_handler('PLUGIN_STATE_CHANGE', self.handle_plugin_state_change)
-        self.server.add_command_handler(
-            'RESTART_PLAYER_PIPELINE', self.handle_restart_player_pipeline)
-        self.server.add_command_handler('DUMP', self.handle_dump)
-        self.server.add_command_handler('RENDER', self.handle_render)
-        self.server.add_command_handler('SET_SESSION_VALUES', self.handle_set_session_values)
+        self.__main_endpoint = ipc.ServerEndpointWithSessions(
+            'main', Session,
+            session_started=self.__session_started)
+        self.__main_endpoint.add_handler(
+            'GET_ROOT_ID', self.__handle_get_root_id,
+            empty_message_pb2.EmptyMessage, project_process_pb2.ProjectId)
+        self.__main_endpoint.add_handler(
+            'CREATE', self.__handle_create,
+            project_process_pb2.CreateRequest, project_process_pb2.ProjectId)
+        self.__main_endpoint.add_handler(
+            'CREATE_INMEMORY', self.__handle_create_inmemory,
+            empty_message_pb2.EmptyMessage, project_process_pb2.ProjectId)
+        self.__main_endpoint.add_handler(
+            'OPEN', self.__handle_open,
+            project_process_pb2.OpenRequest, project_process_pb2.ProjectId)
+        self.__main_endpoint.add_handler(
+            'CLOSE', self.__handle_close,
+            empty_message_pb2.EmptyMessage, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'COMMAND_SEQUENCE', self.__handle_command_sequence,
+            commands_pb2.CommandSequence, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'UNDO', self.__handle_undo,
+            empty_message_pb2.EmptyMessage, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'REDO', self.__handle_redo,
+            empty_message_pb2.EmptyMessage, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'CREATE_PLAYER', self.__handle_create_player,
+            project_process_pb2.CreatePlayerRequest, project_process_pb2.CreatePlayerResponse)
+        self.__main_endpoint.add_handler(
+            'DELETE_PLAYER', self.__handle_delete_player,
+            project_process_pb2.DeletePlayerRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'CREATE_PLUGIN_UI', self.__handle_create_plugin_ui,
+            project_process_pb2.CreatePluginUIRequest, project_process_pb2.CreatePluginUIResponse)
+        self.__main_endpoint.add_handler(
+            'DELETE_PLUGIN_UI', self.__handle_delete_plugin_ui,
+            project_process_pb2.DeletePluginUIRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'UPDATE_PLAYER_STATE', self.__handle_update_player_state,
+            project_process_pb2.UpdatePlayerStateRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'DUMP', self.__handle_dump,
+            empty_message_pb2.EmptyMessage, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'RENDER', self.__handle_render,
+            project_process_pb2.RenderRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'SET_SESSION_VALUES', self.__handle_set_session_values,
+            project_process_pb2.SetSessionValuesRequest, empty_message_pb2.EmptyMessage)
+        server_registry.register_ipc_handlers(self.__ctxt, self.__main_endpoint)
+        await self.server.add_endpoint(self.__main_endpoint)
 
-        node_db_address = await self.manager.call('CREATE_NODE_DB_PROCESS')
-        self.node_db = node_db.NodeDBClient(self.event_loop, self.server)
-        await self.node_db.setup()
-        await self.node_db.connect(node_db_address)
+        cb_endpoint = ipc.ServerEndpoint('project_cb')
+        cb_endpoint.add_handler(
+            'CONTROL_VALUE_CHANGE', self.__handle_control_value_change,
+            audioproc.ControlValueChange, empty_message_pb2.EmptyMessage)
+        cb_endpoint.add_handler(
+            'PLUGIN_STATE_CHANGE', self.__handle_plugin_state_change,
+            audioproc.PluginStateChange, empty_message_pb2.EmptyMessage)
+        await self.server.add_endpoint(cb_endpoint)
+
+        create_node_db_response = editor_main_pb2.CreateProcessResponse()
+        await self.manager.call(
+            'CREATE_NODE_DB_PROCESS', None, create_node_db_response)
+        node_db_address = create_node_db_response.address
+
+        self.__ctxt.node_db = node_db.NodeDBClient(self.event_loop, self.server)
+        await self.__ctxt.node_db.setup()
+        await self.__ctxt.node_db.connect(node_db_address)
 
     async def cleanup(self) -> None:
-        if self.project is not None:
+        if self.__ctxt.project is not None:
             await self.__close_project()
 
-        if self.node_db is not None:
-            await self.node_db.cleanup()
-            self.node_db = None
+        if self.__ctxt.node_db is not None:
+            await self.__ctxt.node_db.cleanup()
+            self.__ctxt.node_db = None
 
         await super().cleanup()
 
     async def publish_mutations(self, mutations: mutations_pb2.MutationList) -> None:
         tasks = []
-        for session in self.sessions:
-            session = cast(Session, session)
+        for session in self.__main_endpoint.sessions:
             tasks.append(self.event_loop.create_task(session.publish_mutations(mutations)))
         done, pending = await asyncio.wait(tasks, loop=self.event_loop)
         assert not pending
         for task in done:
             task.result()
 
-    async def session_started(self, session: core.SessionBase) -> None:
-        session = cast(Session, session)
-        if self.project is not None:
+    async def __session_started(self, session: Session) -> None:
+        if self.__ctxt.project is not None:
             await session.publish_mutations(self.get_initial_mutations())
 
     def get_initial_mutations(self) -> mutations_pb2.MutationList:
         mutation_list = mutations_pb2.MutationList()
 
-        for obj in self.project.walk_object_tree():
+        for obj in self.__ctxt.project.walk_object_tree():
             op = mutation_list.ops.add()
             op.add_object.object.CopyFrom(obj.proto)
 
@@ -225,154 +274,189 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
     async def send_initial_mutations(self) -> None:
         await self.publish_mutations(self.get_initial_mutations())
 
-    def handle_get_root_id(self, session_id: str) -> Optional[int]:
-        self.get_session(session_id)
-        if self.project is not None:
-            return self.project.id
-        return None
+    def __handle_get_root_id(
+            self,
+            session: Session,
+            request: empty_message_pb2.EmptyMessage,
+            response: project_process_pb2.ProjectId,
+    ) -> None:
+        if self.__ctxt.project is not None:
+            response.project_id = self.__ctxt.project.id
 
     def _create_blank_project(self, project_cls: Type[PROJECT]) -> PROJECT:
-        project = self.__pool.create(project_cls, node_db=self.node_db)
-        self.__pool.set_root(project)
+        project = self.__ctxt.pool.create(project_cls, node_db=self.__ctxt.node_db)
+        self.__ctxt.pool.set_root(project)
         return project
 
     async def __close_project(self) -> None:
-        assert self.project is not None
+        assert self.__ctxt.project is not None
 
         tasks = []
-        for session in self.sessions:
-            session = cast(Session, session)
+        for session in self.__main_endpoint.sessions:
             tasks.append(self.event_loop.create_task(session.callback('PROJECT_CLOSED')))
             tasks.append(self.event_loop.create_task(session.clear_players()))
         if tasks:
             done, pending = await asyncio.wait(tasks, loop=self.event_loop)
             assert not pending
             for task in done:
-                task.result()
+                try:
+                    task.result()
+                except ipc.ConnectionClosed:
+                    pass
 
         if self.__mutation_collector is not None:
             self.__mutation_collector.stop()
             self.__mutation_collector = None
 
-        self.project.close()
+        self.__ctxt.project.close()
 
-        self.project = None
-        self.__pool = None
+        self.__ctxt.project = None
+        self.__ctxt.pool = None
 
-    async def handle_create(self, session_id: str, path: str) -> int:
-        session = cast(Session, self.get_session(session_id))
-        assert self.project is None
+    async def __handle_create(
+            self,
+            session: Session,
+            request: project_process_pb2.CreateRequest,
+            response: project_process_pb2.ProjectId,
+    ) -> None:
+        assert self.__ctxt.project is None
 
-        self.__pool = project_lib.Pool(project_cls=project_lib.Project)
-        self.project = project_lib.Project.create_blank(
-            path=path,
-            pool=self.__pool,
-            node_db=self.node_db)
+        self.__ctxt.pool = project_lib.Pool(project_cls=project_lib.Project)
+        self.__ctxt.project = project_lib.Project.create_blank(
+            path=request.path,
+            pool=self.__ctxt.pool,
+            node_db=self.__ctxt.node_db)
         await self.send_initial_mutations()
         self.__mutation_collector = mutations_lib.MutationCollector(
-            self.__pool, self.__pending_mutations)
+            self.__ctxt.pool, self.__pending_mutations)
         self.__mutation_collector.start()
-        await session.init_session_data(self.project.data_dir)
-        return self.project.id
+        await session.init_session_data(self.__ctxt.project.data_dir)
+        response.project_id = self.__ctxt.project.id
 
-    async def handle_create_inmemory(self, session_id: str) -> int:
-        session = cast(Session, self.get_session(session_id))
-        assert self.project is None
+    async def __handle_create_inmemory(
+            self,
+            session: Session,
+            request: empty_message_pb2.EmptyMessage,
+            response: project_process_pb2.ProjectId,
+    ) -> None:
+        assert self.__ctxt.project is None
 
-        self.__pool = project_lib.Pool()
-        self.project = self._create_blank_project(project_lib.BaseProject)
+        self.__ctxt.pool = project_lib.Pool()
+        self.__ctxt.project = self._create_blank_project(project_lib.BaseProject)
         await self.send_initial_mutations()
         self.__mutation_collector = mutations_lib.MutationCollector(
-            self.__pool, self.__pending_mutations)
+            self.__ctxt.pool, self.__pending_mutations)
         self.__mutation_collector.start()
         await session.init_session_data(None)
-        return self.project.id
+        response.project_id = self.__ctxt.project.id
 
-    async def handle_open(self, session_id: str, path: str) -> int:
-        session = cast(Session, self.get_session(session_id))
-        assert self.project is None
+    async def __handle_open(
+            self,
+            session: Session,
+            request: project_process_pb2.OpenRequest,
+            response: project_process_pb2.ProjectId,
+    ) -> None:
+        assert self.__ctxt.project is None
 
-        self.__pool = project_lib.Pool(project_cls=project_lib.Project)
-        self.project = project_lib.Project.open(
-            path=path,
-            pool=self.__pool,
-            node_db=self.node_db)
+        self.__ctxt.pool = project_lib.Pool(project_cls=project_lib.Project)
+        self.__ctxt.project = project_lib.Project.open(
+            path=request.path,
+            pool=self.__ctxt.pool,
+            node_db=self.__ctxt.node_db)
         await self.send_initial_mutations()
         self.__mutation_collector = mutations_lib.MutationCollector(
-            self.__pool, self.__pending_mutations)
+            self.__ctxt.pool, self.__pending_mutations)
         self.__mutation_collector.start()
-        await session.init_session_data(self.project.data_dir)
-        return self.project.id
+        await session.init_session_data(self.__ctxt.project.data_dir)
+        response.project_id = self.__ctxt.project.id
 
-    async def handle_close(self) -> None:
+    async def __handle_close(
+            self,
+            session: Session,
+            request: empty_message_pb2.EmptyMessage,
+            response: empty_message_pb2.EmptyMessage,
+    ) -> None:
         await self.__close_project()
 
-    async def handle_command_sequence(self, sequence: commands_pb2.CommandSequence) -> Any:
-        assert self.project is not None
+    async def __handle_command_sequence(
+            self,
+            session: Session,
+            request: commands_pb2.CommandSequence,
+            response: empty_message_pb2.EmptyMessage,
+    ) -> Any:
+        assert self.__ctxt.project is not None
 
-        # This block must be atomic, no 'awaits'!
         try:
+            # This block must be atomic, no 'awaits'!
             assert self.__mutation_collector.num_ops == 0
-            result = self.project.dispatch_command_sequence_proto(sequence)
+            self.__ctxt.project.dispatch_command_sequence_proto(request)
             mutations = copy.deepcopy(self.__pending_mutations)
             self.__mutation_collector.clear()
         except commands.ClientError:
             raise
         except Exception:
-            logger.exception("Exception while handling command sequence\n%s", sequence)
-            # TODO: The process should shutdown, because it might now be in an inconsistent state.
-            # But for reasons to be determined, this ends up in a deadlock.
-            # await self.shutdown()
-            raise
+            logger.exception("Exception while handling command sequence\n%s", request)
+            self.start_shutdown()
+            raise ipc.CloseConnection
 
         await self.publish_mutations(mutations)
 
-        return result
-
-    async def handle_undo(self) -> None:
-        assert isinstance(self.project, project_lib.Project)
+    async def __handle_undo(
+            self,
+            session: Session,
+            request: empty_message_pb2.EmptyMessage,
+            response: empty_message_pb2.EmptyMessage,
+    ) -> None:
+        assert isinstance(self.__ctxt.project, project_lib.Project)
 
         # This block must be atomic, no 'awaits'!
         assert self.__mutation_collector.num_ops == 0
-        self.project.undo()
+        self.__ctxt.project.undo()
         mutations = copy.deepcopy(self.__pending_mutations)
         self.__mutation_collector.clear()
 
         await self.publish_mutations(mutations)
 
-    async def handle_redo(self) -> None:
-        assert isinstance(self.project, project_lib.Project)
+    async def __handle_redo(
+            self,
+            session: Session,
+            request: empty_message_pb2.EmptyMessage,
+            response: empty_message_pb2.EmptyMessage,
+    ) -> None:
+        assert isinstance(self.__ctxt.project, project_lib.Project)
 
         # This block must be atomic, no 'awaits'!
         assert self.__mutation_collector.num_ops == 0
-        self.project.redo()
+        self.__ctxt.project.redo()
         mutations = copy.deepcopy(self.__pending_mutations)
         self.__mutation_collector.clear()
 
         await self.publish_mutations(mutations)
 
-    async def handle_create_player(
-            self, session_id: str, *, client_address: str, audioproc_address: str
-    ) -> Tuple[str, str]:
-        session = cast(Session, self.get_session(session_id))
-        assert self.project is not None
+    async def __handle_create_player(
+            self,
+            session: Session,
+            request: project_process_pb2.CreatePlayerRequest,
+            response: project_process_pb2.CreatePlayerResponse
+    ) -> None:
+        assert self.__ctxt.project is not None
 
         logger.info("Creating audioproc client...")
-        audioproc_client = AudioProcClient(self.event_loop, 'player', self.tmp_dir)
+        audioproc_client = audioproc.AudioProcClient(self.event_loop, self.server)
         await audioproc_client.setup()
 
         logger.info("Connecting audioproc client...")
-        await audioproc_client.connect(audioproc_address)
+        await audioproc_client.connect(request.audioproc_address)
 
-        realm_name = 'project:%s' % self.project.id
+        realm_name = 'project:%s' % self.__ctxt.project.id
         logger.info("Creating realm '%s'...", realm_name)
         await audioproc_client.create_realm(
             name=realm_name, parent='root',
-            enable_player=True, callback_address=self.server.address)
+            enable_player=True, callback_address=self.server.endpoint_address('project_cb'))
 
         player = player_lib.Player(
-            project=self.project,
-            callback_address=client_address,
+            project=self.__ctxt.project,
+            callback_address=request.client_address,
             event_loop=self.event_loop,
             audioproc_client=audioproc_client,
             realm=realm_name)
@@ -380,11 +464,16 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
 
         await session.add_player(player)
 
-        return player.id, player.realm
+        response.id = player.id
+        response.realm = player.realm
 
-    async def handle_delete_player(self, session_id: str, player_id: str) -> None:
-        session = cast(Session, self.get_session(session_id))
-        p = session.get_player(player_id)
+    async def __handle_delete_player(
+            self,
+            session: Session,
+            request: project_process_pb2.DeletePlayerRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        p = session.get_player(request.player_id)
         await p.cleanup()
 
         if p.audioproc_client is not None:
@@ -396,111 +485,132 @@ class ProjectProcess(core.SessionHandlerMixin, core.ProcessBase):
 
         session.remove_player(p)
 
-    async def handle_create_plugin_ui(
-            self, session_id: str, player_id: str, node_id: str) -> Tuple[int, Tuple[int, int]]:
-        session = cast(Session, self.get_session(session_id))
-        p = session.get_player(player_id)
-        return await p.create_plugin_ui(node_id)
+    async def __handle_create_plugin_ui(
+            self,
+            session: Session,
+            request: project_process_pb2.CreatePluginUIRequest,
+            response: project_process_pb2.CreatePluginUIResponse
+    ) -> None:
+        p = session.get_player(request.player_id)
+        wid, (width, height) = await p.create_plugin_ui(request.node_id)
+        response.wid = wid
+        response.width = width
+        response.height = height
 
-    async def handle_delete_plugin_ui(self, session_id: str, player_id: str, node_id: str) -> None:
-        session = cast(Session, self.get_session(session_id))
-        p = session.get_player(player_id)
-        await p.delete_plugin_ui(node_id)
+    async def __handle_delete_plugin_ui(
+            self,
+            session: Session,
+            request: project_process_pb2.DeletePluginUIRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        p = session.get_player(request.player_id)
+        await p.delete_plugin_ui(request.node_id)
 
-    async def handle_update_player_state(
-            self, session_id: str, player_id: str, state: audioproc.PlayerState) -> None:
-        session = cast(Session, self.get_session(session_id))
-        p = session.get_player(player_id)
-        await p.update_state(state)
+    async def __handle_update_player_state(
+            self,
+            session: Session,
+            request: project_process_pb2.UpdatePlayerStateRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        p = session.get_player(request.player_id)
+        await p.update_state(request.state)
 
-    async def handle_restart_player_pipeline(self, session_id: str, player_id: str) -> None:
-        raise RuntimeError("Not implemented")
-        # session = cast(Session, self.get_session(session_id))
-        # p = session.get_player(player_id)
-        # p.restart_pipeline()
+    async def __handle_dump(
+            self,
+            session: Session,
+            request: empty_message_pb2.EmptyMessage,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        assert isinstance(self.__ctxt.project, project_lib.Project)
+        logger.info("%s", self.__ctxt.project.proto)
 
-    async def handle_dump(self, session_id: str) -> None:
-        assert isinstance(self.project, project_lib.Project)
-        self.get_session(session_id)
-        logger.info("%s", self.project.proto)
-
-    async def handle_render(
-            self, session_id: str, callback_address: str,
-            render_settings: render_settings_pb2.RenderSettings) -> None:
-        assert self.project is not None
-        self.get_session(session_id)
+    async def __handle_render(
+            self,
+            session: Session,
+            request: project_process_pb2.RenderRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        assert self.__ctxt.project is not None
 
         renderer = render.Renderer(
-            project=self.project,
+            project=self.__ctxt.project,
             tmp_dir=self.tmp_dir,
+            server=self.server,
             manager=self.manager,
             event_loop=self.event_loop,
-            callback_address=callback_address,
-            render_settings=render_settings,
+            callback_address=request.callback_address,
+            render_settings=request.settings,
         )
         await renderer.run()
 
-    async def handle_set_session_values(
-            self, session_id: str, data: Dict[str, Any]) -> None:
-        assert self.project is not None
-        session = cast(Session, self.get_session(session_id))
-        await session.set_values(data, from_client=True)
+    async def __handle_set_session_values(
+            self,
+            session: Session,
+            request: project_process_pb2.SetSessionValuesRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        assert self.__ctxt.project is not None
+        await session.set_values(request.session_values, from_client=True)
 
-    async def handle_control_value_change(
-            self, realm: str, node_id: int, port_name: str, value: float, generation: int) -> None:
-        assert self.project is not None
+    async def __handle_control_value_change(
+            self,
+            request: audioproc.ControlValueChange,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        assert self.__ctxt.project is not None
 
         logger.info(
             "control_value_change(%s, %s, %s, %f, %d)",
-            realm, node_id, port_name, value, generation)
+            request.realm, request.node_id,
+            request.value.name, request.value.value, request.value.generation)
 
         node = None
-        for node in self.project.nodes:
-            if node.pipeline_node_id == node_id:
+        for node in self.__ctxt.project.nodes:
+            if node.pipeline_node_id == request.node_id:
                 break
 
         else:
-            raise ValueError("Invalid node_id '%s'" % node_id)
+            raise ValueError("Invalid node_id '%s'" % request.node_id)
 
         seq = commands_pb2.CommandSequence(
             commands=[commands_pb2.Command(
                 command='update_node',
                 update_node=commands_pb2.UpdateNode(
                     node_id=node.id,
-                    set_control_value=model.ControlValue(
-                        name=port_name,
-                        value=value,
-                        generation=generation).to_proto()))])
+                    set_control_value=request.value))])
 
         # This block must be atomic, no 'awaits'!
         assert self.__mutation_collector.num_ops == 0
-        self.project.dispatch_command_sequence_proto(seq)
+        self.__ctxt.project.dispatch_command_sequence_proto(seq)
         mutations = copy.deepcopy(self.__pending_mutations)
         self.__mutation_collector.clear()
 
         await self.publish_mutations(mutations)
 
-    async def handle_plugin_state_change(
-            self, realm: str, node_id: int, state: audioproc.PluginState) -> None:
-        assert self.project is not None
+    async def __handle_plugin_state_change(
+            self,
+            request: audioproc.PluginStateChange,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        assert self.__ctxt.project is not None
 
         node = None
-        for node in self.project.nodes:
-            if node.pipeline_node_id == node_id:
+        for node in self.__ctxt.project.nodes:
+            if node.pipeline_node_id == request.node_id:
                 break
         else:
-            raise ValueError("Invalid node_id '%s'" % node_id)
+            raise ValueError("Invalid node_id '%s'" % request.node_id)
 
         seq = commands_pb2.CommandSequence(
             commands=[commands_pb2.Command(
                 command='update_node',
                 update_node=commands_pb2.UpdateNode(
                     node_id=node.id,
-                    set_plugin_state=state))])
+                    set_plugin_state=request.state))])
 
         # This block must be atomic, no 'awaits'!
         assert self.__mutation_collector.num_ops == 0
-        self.project.dispatch_command_sequence_proto(seq)
+        self.__ctxt.project.dispatch_command_sequence_proto(seq)
         mutations = copy.deepcopy(self.__pending_mutations)
         self.__mutation_collector.clear()
 

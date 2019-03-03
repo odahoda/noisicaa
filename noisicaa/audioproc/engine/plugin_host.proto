@@ -33,3 +33,39 @@ message PluginInstanceSpec {
   required NodeDescription node_description = 3;
   optional PluginState initial_state = 4;
 }
+
+message CreatePluginRequest {
+  required PluginInstanceSpec spec = 1;
+  optional string callback_address = 2;
+}
+
+message CreatePluginResponse {
+  required string pipe_path = 1;
+}
+
+message DeletePluginRequest {
+  required string realm = 1;
+  required string node_id = 2;
+}
+
+message CreatePluginUIRequest {
+  required string realm = 1;
+  required string node_id = 2;
+}
+
+message CreatePluginUIResponse {
+  required uint32 wid = 1;
+  required uint32 width = 2;
+  required uint32 height = 3;
+}
+
+message DeletePluginUIRequest {
+  required string realm = 1;
+  required string node_id = 2;
+}
+
+message SetPluginStateRequest {
+  required string realm = 1;
+  required string node_id = 2;
+  required PluginState state = 3;
+}

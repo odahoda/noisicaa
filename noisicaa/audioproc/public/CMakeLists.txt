@@ -21,14 +21,18 @@
 add_python_package()
 
 set(LIB_SRCS
+  backend_settings.pb.cc
+  control_value.pb.cc
   devices.pb.cc
   engine_notification.pb.cc
+  host_parameters.pb.cc
   instrument_spec.pb.cc
   musical_time.cpp
   musical_time.pb.cc
   player_state.pb.cc
   plugin_state.pb.cc
   processor_message.pb.cc
+  project_properties.pb.cc
   time_mapper.cpp
 )
 
@@ -37,6 +41,8 @@ set(TEST_SRCS
   time_mapper_test.pyx
 )
 
+cpp_proto(backend_settings.proto)
+py_proto(backend_settings.proto)
 cpp_proto(instrument_spec.proto)
 py_proto(instrument_spec.proto)
 cpp_proto(musical_time.proto)
@@ -51,6 +57,12 @@ cpp_proto(engine_notification.proto)
 py_proto(engine_notification.proto)
 cpp_proto(devices.proto)
 py_proto(devices.proto)
+cpp_proto(control_value.proto)
+py_proto(control_value.proto)
+cpp_proto(host_parameters.proto)
+py_proto(host_parameters.proto)
+cpp_proto(project_properties.proto)
+py_proto(project_properties.proto)
 
 add_library(noisicaa-audioproc-public SHARED ${LIB_SRCS})
 target_compile_options(noisicaa-audioproc-public PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)

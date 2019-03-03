@@ -28,6 +28,7 @@ from typing import Dict
 from PyQt5 import QtCore
 
 from noisicaa import music
+from noisicaa import editor_main_pb2
 from noisicaa.core import ipc
 from noisicaa import node_db as node_db_lib
 
@@ -37,10 +38,11 @@ logger = logging.getLogger(__name__)
 class Project(object):
     def __init__(
             self, path: str, event_loop: asyncio.AbstractEventLoop,
-            tmp_dir: str, process_manager: ipc.Stub, node_db: node_db_lib.NodeDBClient) -> None:
+            server: ipc.Server, process_manager: ipc.Stub, node_db: node_db_lib.NodeDBClient
+    ) -> None:
         self.path = path
         self.event_loop = event_loop
-        self.tmp_dir = tmp_dir
+        self.server = server
         self.process_manager = process_manager
         self.node_db = node_db
 
@@ -52,11 +54,17 @@ class Project(object):
         return os.path.basename(self.path)
 
     async def create_process(self) -> None:
-        self.process_address = await self.process_manager.call(
-            'CREATE_PROJECT_PROCESS', self.path)
+        create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(
+            uri=self.path)
+        create_project_process_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager.call(
+            'CREATE_PROJECT_PROCESS',
+            create_project_process_request, create_project_process_response)
+        self.process_address = create_project_process_response.address
+
         self.client = music.ProjectClient(
             event_loop=self.event_loop,
-            tmp_dir=self.tmp_dir,
+            server=self.server,
             node_db=self.node_db)
         await self.client.setup()
         await self.client.connect(self.process_address)
@@ -70,29 +78,36 @@ class Project(object):
         await self.client.create(self.path)
 
     async def close(self) -> None:
-        await self.client.close()
-        await self.client.disconnect(shutdown=True)
-        await self.client.cleanup()
-        self.client = None
+        if self.client is not None:
+            await self.client.close()
+            await self.client.disconnect()
+            await self.client.cleanup()
+            self.client = None
 
+        if self.process_address is not None:
+            await self.process_manager.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.process_address))
+            self.process_address = None
 
 class ProjectRegistry(QtCore.QObject):
     projectListChanged = QtCore.pyqtSignal()
 
     def __init__(
-            self, event_loop: asyncio.AbstractEventLoop, tmp_dir: str,
+            self, event_loop: asyncio.AbstractEventLoop, server: ipc.Server,
             process_manager: ipc.Stub, node_db: node_db_lib.NodeDBClient) -> None:
         super().__init__()
 
         self.event_loop = event_loop
-        self.tmp_dir = tmp_dir
+        self.server = server
         self.process_manager = process_manager
         self.node_db = node_db
         self.projects = {}  # type: Dict[str, Project]
 
     def add_project(self, path: str) -> Project:
         project = Project(
-            path, self.event_loop, self.tmp_dir, self.process_manager, self.node_db)
+            path, self.event_loop, self.server, self.process_manager, self.node_db)
         self.projects[path] = project
         self.projectListChanged.emit()
         return project

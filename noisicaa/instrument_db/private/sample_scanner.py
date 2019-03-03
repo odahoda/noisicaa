@@ -23,7 +23,7 @@
 import logging
 import os
 import os.path
-from typing import Dict, Iterable, Any
+from typing import Iterable
 
 from noisicaa import instrument_db
 from noisicaa.instr import wave
@@ -49,22 +49,22 @@ class SampleScanner(scanner.Scanner):
             logger.error("Failed to parse WAVE file %s: %s", path, exc)
             return
 
-        properties = {}  # type: Dict[instrument_db.Property, Any]
-        if parsed.bits_per_sample is not None:
-            properties[instrument_db.Property.BitsPerSample] = parsed.bits_per_sample
-        if parsed.channels is not None:
-            properties[instrument_db.Property.NumChannels] = parsed.channels
-        if parsed.sample_rate is not None:
-            properties[instrument_db.Property.SampleRate] = parsed.sample_rate
-        if parsed.num_samples is not None:
-            properties[instrument_db.Property.NumSamples] = parsed.num_samples
-        if parsed.num_samples is not None and parsed.sample_rate is not None:
-            properties[instrument_db.Property.Duration] = parsed.num_samples / parsed.sample_rate
-
         description = instrument_db.InstrumentDescription(
             uri=uri,
+            format=instrument_db.InstrumentDescription.SAMPLE,
             path=path,
-            display_name=os.path.basename(path)[:-4],
-            properties=properties)
+            display_name=os.path.basename(path)[:-4])
+
+        if parsed.bits_per_sample is not None:
+            description.bits_per_sample = parsed.bits_per_sample
+        if parsed.channels is not None:
+            description.num_channels = parsed.channels
+        if parsed.sample_rate is not None:
+            description.sample_rate = parsed.sample_rate
+        if parsed.num_samples is not None:
+            description.num_samples = parsed.num_samples
+        if parsed.num_samples is not None and parsed.sample_rate is not None:
+            description.duration = parsed.num_samples / parsed.sample_rate
+
 
         yield description

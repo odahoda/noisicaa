@@ -70,10 +70,8 @@ class ProcessorPluginTest(
         try:
             await async_generator.yield_(stub)
         finally:
-            await stub.call('SHUTDOWN')
             await stub.close()
-
-            await proc.wait()
+            await proc.shutdown()
 
     async def test_plugin(self):
         async with self.create_process() as plugin_host:
@@ -84,7 +82,12 @@ class ProcessorPluginTest(
             plugin_spec.realm = 'root'
             plugin_spec.node_id = '1234'
             plugin_spec.node_description.CopyFrom(node_desc)
-            pipe_address = await plugin_host.call('CREATE_PLUGIN', plugin_spec)
+
+            create_plugin_request = plugin_host_pb2.CreatePluginRequest(spec=plugin_spec)
+            create_plugin_response = plugin_host_pb2.CreatePluginResponse()
+            await plugin_host.call(
+                'CREATE_PLUGIN', create_plugin_request, create_plugin_response)
+            pipe_address = create_plugin_response.pipe_path
 
             proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
             proc.setup()
@@ -117,7 +120,10 @@ class ProcessorPluginTest(
 
             proc.cleanup()
 
-            await plugin_host.call('DELETE_PLUGIN', plugin_spec.realm, plugin_spec.node_id)
+            await plugin_host.call(
+                'DELETE_PLUGIN',
+                plugin_host_pb2.DeletePluginRequest(
+                    realm=plugin_spec.realm, node_id=plugin_spec.node_id))
 
     async def test_pipe_closed(self):
         plugin_uri = 'http://noisicaa.odahoda.de/plugins/test-passthru'

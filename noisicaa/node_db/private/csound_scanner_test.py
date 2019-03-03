@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 class CSoundScannerTest(unittest.TestCase):
-    def test_load_csound_nodes(self):
+    def test_scan(self):
         scanner = csound_scanner.CSoundScanner()
-        for uri, _ in scanner.scan():
-            logging.info(uri)
+        for desc in scanner.scan():
+            logging.info(desc)
+            self.assertTrue(desc.IsInitialized(), desc)

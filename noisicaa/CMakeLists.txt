@@ -29,6 +29,8 @@ add_python_package(
   utils.py
 )
 
+py_proto(editor_main.proto)
+
 add_subdirectory(audioproc)
 add_subdirectory(bindings)
 add_subdirectory(core)

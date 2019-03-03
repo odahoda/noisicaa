@@ -35,7 +35,7 @@
 namespace noisicaa {
 
 PortAudioBackend::PortAudioBackend(
-    HostSystem* host_system, const BackendSettings& settings,
+    HostSystem* host_system, const pb::BackendSettings& settings,
     void (*callback)(void*, const string&), void *userdata)
   : Backend(host_system, "noisicaa.audioproc.engine.backend.portaudio", settings, callback, userdata),
     _initialized(false),

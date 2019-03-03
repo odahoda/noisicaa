@@ -28,8 +28,6 @@ import async_generator
 from noisidev import unittest
 from noisidev import unittest_mixins
 from noisicaa import node_db
-from noisicaa.constants import TEST_OPTS
-from noisicaa.core import ipc
 
 from . import audioproc_client
 from .public import engine_notification_pb2
@@ -37,22 +35,8 @@ from .public import engine_notification_pb2
 logger = logging.getLogger(__name__)
 
 
-class TestClientImpl(audioproc_client.AudioProcClientBase):  # pylint: disable=abstract-method
-    def __init__(self, event_loop):
-        super().__init__(event_loop, ipc.Server(event_loop, 'client', TEST_OPTS.TMP_DIR))
-
-    async def setup(self):
-        await self.server.setup()
-
-    async def cleanup(self):
-        await self.server.cleanup()
-
-
-class TestClient(audioproc_client.AudioProcClientMixin, TestClientImpl):
-    pass
-
-
 class AudioProcClientTest(
+        unittest_mixins.ServerMixin,
         unittest_mixins.NodeDBMixin,
         unittest_mixins.ProcessManagerMixin,
         unittest.AsyncTestCase):
@@ -60,6 +44,7 @@ class AudioProcClientTest(
         super().__init__(*args, **kwargs)
 
         self.passthru_description = node_db.NodeDescription(
+            uri='test://passthru',
             type=node_db.NodeDescription.PROCESSOR,
             ports=[
                 node_db.PortDescription(
@@ -103,7 +88,7 @@ class AudioProcClientTest(
                 name='audioproc',
                 entry='noisicaa.audioproc.audioproc_process.AudioProcSubprocess')
 
-        client = TestClient(self.loop)
+        client = audioproc_client.AudioProcClient(self.loop, self.server)
         await client.setup()
         await client.connect(proc.address)
         try:
@@ -111,10 +96,10 @@ class AudioProcClientTest(
 
             await async_generator.yield_(client)
         finally:
-            await client.disconnect(shutdown=True)
+            await client.disconnect()
             await client.cleanup()
 
-            await proc.wait()
+            await proc.shutdown()
 
     async def test_realms(self):
         async with self.create_process(inline_plugin_host=False) as client:

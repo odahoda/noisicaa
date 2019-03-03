@@ -22,7 +22,20 @@
 
 syntax = "proto2";
 
-package noisicaa.pb;
+import "noisicaa/instrument_db/instrument_description.proto";
+
+package noisicaa.instrument_db.pb;
+
+message Mutation {
+  oneof type {
+    noisicaa.pb.InstrumentDescription add_instrument = 1;
+    string remove_instrument = 2;
+  }
+}
+
+message Mutations {
+  repeated Mutation mutations = 1;
+}
 
 message ScanState {
   enum State {

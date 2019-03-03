@@ -36,6 +36,7 @@ from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
 from noisicaa import node_db
+from noisicaa import editor_main_pb2
 from noisicaa.ui import selection_set
 from noisicaa.ui import ui_base
 from . import qttest
@@ -109,9 +110,9 @@ class TestContext(object):
         raise NotImplementedError
 
 
-class MockAudioProcClient(audioproc.AudioProcClientBase):  # pylint: disable=abstract-method
+class MockAudioProcClient(audioproc.AbstractAudioProcClient):  # pylint: disable=abstract-method
     def __init__(self):
-        super().__init__(None, None)
+        super().__init__()
         self.node_state_changed = core.CallbackMap[str, audioproc.NodeStateChange]()
 
 
@@ -155,7 +156,7 @@ class MockProcess(core.ProcessBase):
 class MockApp(ui_base.AbstractEditorApp):
     def __init__(self):
         self.win = None  # type: AbstractEditorWindow
-        self.audioproc_client = None  # type: audioproc.AudioProcClientMixin
+        self.audioproc_client = None  # type: audioproc.AbstractAudioProcClient
         self.process = None  # type: core.ProcessBase
         self.settings = None  # type: QtCore.QSettings
         self.pipeline_perf_monitor = None  # type: AbstractPipelinePerfMonitor
@@ -173,6 +174,7 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         super().__init__(*args, **kwargs)
 
         self.process = None
+        self.node_db_address = None
         self.node_db_client = None
         self.app = None
         self.context = None
@@ -188,10 +190,14 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
             tmp_dir=TEST_OPTS.TMP_DIR)
         await self.process.setup()
 
-        node_db_address = await self.process_manager_client.call('CREATE_NODE_DB_PROCESS')
+        create_node_db_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_NODE_DB_PROCESS', None, create_node_db_response)
+        self.node_db_address = create_node_db_response.address
+
         self.node_db_client = node_db.NodeDBClient(self.loop, self.process.server)
         await self.node_db_client.setup()
-        await self.node_db_client.connect(node_db_address)
+        await self.node_db_client.connect(self.node_db_address)
 
         self.selection_set = selection_set.SelectionSet()
 
@@ -210,38 +216,56 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.context = TestContext(testcase=self)
 
     async def cleanup_testcase(self):
+        if self.node_db_client is not None:
+            await self.node_db_client.disconnect()
+            await self.node_db_client.cleanup()
+
+        if self.node_db_address is not None:
+            await self.process_manager_client.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.node_db_address))
+
         if self.process is not None:
             await self.process.cleanup()
 
-        if self.node_db_client is not None:
-            await self.node_db_client.disconnect(shutdown=True)
-            await self.node_db_client.cleanup()
 
-
-class ProjectMixin(UITestCase):
+class ProjectMixin(unittest_mixins.ServerMixin, UITestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.project_address = None
         self.project_client = None
         self.project = None
 
     async def setup_testcase(self):
         self.setup_project_process(inline=True)
 
-        process_address = await self.process_manager_client.call(
-            'CREATE_PROJECT_PROCESS', 'test-project')
+        create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(
+            uri='test-project')
+        create_project_process_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_PROJECT_PROCESS',
+            create_project_process_request, create_project_process_response)
+        self.project_address = create_project_process_response.address
+
         self.project_client = music.ProjectClient(
-            event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR, node_db=self.node_db_client)
+            event_loop=self.loop, server=self.server, node_db=self.node_db_client)
         await self.project_client.setup()
-        await self.project_client.connect(process_address)
+        await self.project_client.connect(self.project_address)
 
         path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
         await self.project_client.create(path)
 
         self.project = self.project_client.project
 
-
     async def cleanup_testcase(self):
-       if self.project_client is not None:
-           await self.project_client.disconnect(shutdown=True)
-           await self.project_client.cleanup()
+        if self.project_client is not None:
+            await self.project_client.disconnect()
+            await self.project_client.cleanup()
+
+        if self.project_address is not None:
+            await self.process_manager_client.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.project_address))

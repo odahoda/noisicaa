@@ -20,12 +20,13 @@
 #
 # @end:license
 
-import fractions
 import os.path
 
 from noisidev import unittest
 from noisicaa import audioproc
+from noisicaa.core import proto_types_pb2
 from noisicaa.music import base_track_test
+from . import ipc_pb2
 from . import client_impl
 from . import commands
 
@@ -73,7 +74,10 @@ class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
             time=audioproc.MusicalTime(1, 4),
             path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')))
 
-        samples = await self.client.send_command(commands.render_sample(
-            track.samples[0],
-            scale_x=fractions.Fraction(100, 1)))
-        self.assertEqual(samples[0], 'rms')
+        request = ipc_pb2.RenderSampleRequest(
+            sample_id=track.samples[0].id,
+            scale_x=proto_types_pb2.Fraction(numerator=100, denominator=1))
+        response = ipc_pb2.RenderSampleResponse()
+        await self.client.call('SAMPLE_TRACK_RENDER_SAMPLE', request, response)
+        self.assertFalse(response.broken)
+        self.assertGreater(len(response.rms), 0)

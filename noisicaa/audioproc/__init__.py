@@ -18,11 +18,9 @@
 #
 # @end:license
 
-from .audioproc_client import (
-    AudioProcClientBase,
-    AudioProcClientMixin,
-)
-from .mutations import (
+from .audioproc_pb2 import (
+    ControlValueChange,
+    PluginStateChange,
     Mutation,
     AddNode,
     RemoveNode,
@@ -30,6 +28,10 @@ from .mutations import (
     DisconnectPorts,
     SetControlValue,
     SetPluginState,
+)
+from .audioproc_client import (
+    AbstractAudioProcClient,
+    AudioProcClient,
 )
 from .public import (
     NodeStateChange,
@@ -49,4 +51,8 @@ from .public import (
     TimeMapper,
     DeviceDescription,
     DevicePortDescription,
+    ControlValue,
+    ProjectProperties,
+    BackendSettings,
+    HostParameters,
 )

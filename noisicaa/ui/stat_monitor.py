@@ -23,6 +23,7 @@
 # mypy: loose
 
 import functools
+import pickle
 import uuid
 from typing import List
 
@@ -32,6 +33,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa.core import stats
+from noisicaa.core import process_manager_pb2
 
 from . import ui_base
 
@@ -273,11 +275,15 @@ class StatMonitor(ui_base.AbstractStatMonitor):
             graph.id(): graph.compiled_expression()
             for graph in self.__stat_graphs
             if graph.is_valid()}
+        request = process_manager_pb2.FetchStatsRequest(
+            pickle=pickle.dumps(expressions, -1))
+        response = process_manager_pb2.FetchStatsResponse()
         self.call_async(
-            self.app.process.manager.call('STATS_FETCH', expressions),
-            callback=self.onStatsFetched)
+            self.app.process.manager.call('STATS_FETCH', request, response),
+            callback=functools.partial(self.onStatsFetched, response))
 
-    def onStatsFetched(self, result):
+    def onStatsFetched(self, response, _):
+        result = pickle.loads(response.pickle)
         for graph in self.__stat_graphs:
             graph.setTimeseriesSet(result.get(graph.id(), None))
 

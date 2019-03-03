@@ -21,24 +21,16 @@
 from typing import List, Optional, Union
 
 from noisicaa import host_system as host_system_lib
+from noisicaa.audioproc.public import backend_settings_pb2
 from . import block_context
 from . import buffers
 from . import realm as realm_lib
 
 
-class PyBackendSettings(object):
-    datastream_address = ...  # type: str
-    time_scale = ...  # type: float
-
-    def __init__(
-            self, *, datastream_address: Optional[float] = None, time_scale: Optional[float] = None
-    ) -> None: ...
-
-
 class PyBackend(object):
     def __init__(
             self, host_system: host_system_lib.HostSystem, name: Union[str, bytes],
-            settings: PyBackendSettings) -> None: ...
+            settings: backend_settings_pb2.BackendSettings) -> None: ...
     def setup(self, realm: realm_lib.PyRealm) -> None: ...
     def cleanup(self) -> None: ...
     def stop(self) -> None: ...

@@ -24,6 +24,8 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
+import "noisicaa/core/proto_types.proto";
+import "noisicaa/audioproc/public/control_value.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
 import "noisicaa/model/model_base.proto";
 
@@ -136,32 +138,4 @@ message Clef {
   }
 
   optional Type type = 1;
-}
-
-message Pos2F {
-  required float x = 1;
-  required float y = 2;
-}
-
-message SizeF {
-  required float width = 1;
-  required float height = 2;
-}
-
-message Color {
-  required float r = 1;
-  required float g = 2;
-  required float b = 3;
-  required float a = 4 [default=1.0];
-}
-
-message ControlValue {
-  optional string name = 1;
-  optional float value = 2;
-  optional uint64 generation = 3;
-}
-
-message Fraction {
-  optional int64 numerator = 1;
-  optional int64 denominator = 2;
 }

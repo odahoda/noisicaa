@@ -28,6 +28,7 @@ from libc.string cimport memmove
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
+from noisicaa.core import empty_message_pb2
 from noisicaa.core.status cimport check
 from noisicaa.host_system.host_system cimport PyHostSystem
 from noisicaa.audioproc.public import engine_notification_pb2
@@ -39,6 +40,7 @@ from .block_context cimport PyBlockContext
 from .buffers cimport Buffer, PyBufferType
 from . import processor
 from . import graph
+from . import plugin_host_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -212,14 +214,18 @@ cdef class PyRealm(object):
 
     async def set_plugin_state(self, node, state):
         plugin_host = await self.get_plugin_host()
-        await plugin_host.call('SET_PLUGIN_STATE', self.__name, node, state)
+        await plugin_host.call(
+            'SET_PLUGIN_STATE',
+            plugin_host_pb2.SetPluginStateRequest(
+                realm=self.__name, node_id=node, state=state))
 
-    def set_session_values(self, values):
-        for key, value in values.items():
+    def set_session_values(self, session_values):
+        for session_value in session_values:
+            key = session_value.name
             if key.startswith('node/'):
                 _, node_id, node_key = key.split('/', 3)
                 node = self.__graph.find_node(node_id)
-                node.set_session_value(node_key, value)
+                node.set_session_value(node_key, session_value)
 
     def send_node_message(self, msg):
         node = self.__graph.find_node(msg.node_id)
@@ -231,12 +237,12 @@ cdef class PyRealm(object):
         with nogil:
             check(self.__realm.send_processor_message(c_processor_id, c_msg))
 
-    def update_project_properties(self, *, bpm=None, duration=None):
-        if bpm is not None:
-            self.__bpm = bpm
+    def update_project_properties(self, properties: audioproc.ProjectProperties):
+        if properties.HasField('bpm'):
+            self.__bpm = properties.bpm
 
-        if duration is not None:
-            self.__duration = duration
+        if properties.HasField('duration'):
+            self.__duration = audioproc.MusicalDuration.from_proto(properties.duration)
 
         self.update_spec()
 

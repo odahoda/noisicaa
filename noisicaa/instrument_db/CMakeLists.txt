@@ -21,13 +21,11 @@
 add_python_package(
   client.py
   client_test.py
-  instrument_description.py
-  mutations.py
-  process_base.py
   process.py
   utils.py
 )
 
 py_proto(instrument_db.proto)
+py_proto(instrument_description.proto)
 
 add_subdirectory(private)

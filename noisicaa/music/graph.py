@@ -44,7 +44,7 @@ class CreateNode(commands.Command):
         # Ensure the requested URI is valid.
         self.pool.project.get_node_description(pb.uri)
 
-    def run(self) -> int:
+    def run(self) -> None:
         pb = down_cast(commands_pb2.CreateNode, self.pb)
 
         node_desc = self.pool.project.get_node_description(pb.uri)
@@ -66,7 +66,6 @@ class CreateNode(commands.Command):
 
         node = self.pool.create(node_cls, id=None, **kwargs)
         self.pool.project.add_node(node)
-        return node.id
 
 
 class DeleteNode(commands.Command):
@@ -84,7 +83,7 @@ class DeleteNode(commands.Command):
 class CreateNodeConnection(commands.Command):
     proto_type = 'create_node_connection'
 
-    def run(self) -> int:
+    def run(self) -> None:
         pb = down_cast(commands_pb2.CreateNodeConnection, self.pb)
 
         source_node = down_cast(pmodel.BaseNode, self.pool[pb.source_node_id])
@@ -97,7 +96,6 @@ class CreateNodeConnection(commands.Command):
             source_node=source_node, source_port=pb.source_port_name,
             dest_node=dest_node, dest_port=pb.dest_port_name)
         self.pool.project.add_node_connection(connection)
-        return connection.id
 
 
 class DeleteNodeConnection(commands.Command):
@@ -184,16 +182,18 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
         self.graph_color = graph_color
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
-        yield audioproc.AddNode(
-            description=self.description,
-            id=self.pipeline_node_id,
-            name=self.name,
-            initial_state=self.plugin_state)
+        yield audioproc.Mutation(
+            add_node=audioproc.AddNode(
+                description=self.description,
+                id=self.pipeline_node_id,
+                name=self.name,
+                initial_state=self.plugin_state))
 
         yield from self.get_initial_parameter_mutations()
 
     def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
-        yield audioproc.RemoveNode(self.pipeline_node_id)
+        yield audioproc.Mutation(
+            remove_node=audioproc.RemoveNode(id=self.pipeline_node_id))
 
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
         for port in self.description.ports:
@@ -201,9 +201,11 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
                     and port.type == node_db.PortDescription.KRATE_CONTROL):
                 for cv in self.control_values:
                     if cv.name == port.name:
-                        yield audioproc.SetControlValue(
-                            '%s:%s' % (self.pipeline_node_id, cv.name),
-                            cv.value, cv.generation)
+                        yield audioproc.Mutation(
+                            set_control_value=audioproc.SetControlValue(
+                                name='%s:%s' % (self.pipeline_node_id, cv.name),
+                                value=cv.value,
+                                generation=cv.generation))
 
     def set_control_value(self, name: str, value: float, generation: int) -> None:
         for idx, control_value in enumerate(self.control_values):
@@ -218,15 +220,22 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
                 name=name, value=value, generation=generation))
 
         if self.attached_to_project:
-            self.project.handle_pipeline_mutation(audioproc.SetControlValue(
-                '%s:%s' % (self.pipeline_node_id, name), value, generation))
+            self.project.handle_pipeline_mutation(
+                audioproc.Mutation(
+                    set_control_value=audioproc.SetControlValue(
+                        name='%s:%s' % (self.pipeline_node_id, name),
+                        value=value,
+                        generation=generation)))
 
     def set_plugin_state(self, plugin_state: audioproc.PluginState) -> None:
         self.plugin_state = plugin_state
 
         if self.attached_to_project:
             self.project.handle_pipeline_mutation(
-                audioproc.SetPluginState(self.pipeline_node_id, plugin_state))
+                audioproc.Mutation(
+                    set_plugin_state=audioproc.SetPluginState(
+                        node_id=self.pipeline_node_id,
+                        state=plugin_state)))
 
     def create_node_connector(
             self, message_cb: Callable[[audioproc.ProcessorMessage], None]
@@ -294,11 +303,17 @@ class NodeConnection(pmodel.NodeConnection):
         self.dest_port = dest_port
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
-        yield audioproc.ConnectPorts(
-            self.source_node.pipeline_node_id, self.source_port,
-            self.dest_node.pipeline_node_id, self.dest_port)
+        yield audioproc.Mutation(
+            connect_ports=audioproc.ConnectPorts(
+                src_node_id=self.source_node.pipeline_node_id,
+                src_port=self.source_port,
+                dest_node_id=self.dest_node.pipeline_node_id,
+                dest_port=self.dest_port))
 
     def get_remove_mutations(self) -> Iterator[audioproc.Mutation]:
-        yield audioproc.DisconnectPorts(
-            self.source_node.pipeline_node_id, self.source_port,
-            self.dest_node.pipeline_node_id, self.dest_port)
+        yield audioproc.Mutation(
+            disconnect_ports=audioproc.DisconnectPorts(
+                src_node_id=self.source_node.pipeline_node_id,
+                src_port=self.source_port,
+                dest_node_id=self.dest_node.pipeline_node_id,
+                dest_port=self.dest_port))

@@ -35,28 +35,16 @@ from typing import cast, Any, Union, Callable, Awaitable, List, Tuple, Text
 from noisicaa.core.typing_extra import down_cast
 from noisicaa.core import ipc
 from noisicaa import audioproc
+from noisicaa import editor_main_pb2
 from . import player
 from . import render_settings_pb2
 from . import pmodel
+from . import project_process_pb2
 
 logger = logging.getLogger(__name__)
 
 
 class RendererFailed(Exception):
-    pass
-
-
-class AudioProcClientImpl(audioproc.AudioProcClientBase):  # pylint: disable=abstract-method
-    def __init__(self, event_loop: asyncio.AbstractEventLoop, tmp_dir: str) -> None:
-        super().__init__(event_loop, ipc.Server(event_loop, 'render', tmp_dir))
-
-    async def setup(self) -> None:
-        await self.server.setup()
-
-    async def cleanup(self) -> None:
-        await self.server.cleanup()
-
-class AudioProcClient(audioproc.AudioProcClientMixin, AudioProcClientImpl):
     pass
 
 
@@ -374,6 +362,7 @@ class Renderer(object):
             callback_address: str,
             render_settings: render_settings_pb2.RenderSettings,
             tmp_dir: str,
+            server: ipc.Server,
             manager: ipc.Stub,
             event_loop: asyncio.AbstractEventLoop
     ) -> None:
@@ -381,6 +370,7 @@ class Renderer(object):
         self.__callback_address = callback_address
         self.__render_settings = render_settings
         self.__tmp_dir = tmp_dir
+        self.__server = server
         self.__manager = manager
         self.__event_loop = event_loop
 
@@ -400,7 +390,7 @@ class Renderer(object):
         self.__current_time = None  # type: audioproc.MusicalTime
         self.__duration = self.__project.duration
         self.__audioproc_address = None  # type: str
-        self.__audioproc_client = None  # type: AudioProcClient
+        self.__audioproc_client = None  # type: audioproc.AbstractAudioProcClient
         self.__player = None  # type: player.Player
         self.__next_progress_update = None  # type: Tuple[fractions.Fraction, float]
         self.__progress_pump_task = None  # type: asyncio.Task
@@ -437,9 +427,11 @@ class Renderer(object):
                 if data is None:
                     logger.info("Shutting down data pump.")
                     break
-                status, msg = await self.__callback.call('DATA', data)
-                if not status:
-                    self.__fail(msg)
+                response = project_process_pb2.RenderDataResponse()
+                await self.__callback.call(
+                    'DATA', project_process_pb2.RenderDataRequest(data=data), response)
+                if not response.status:
+                    self.__fail(response.msg)
 
     async def __setup_data_pump(self) -> None:
         self.__data_queue = asyncio.Queue(loop=self.__event_loop)
@@ -510,9 +502,14 @@ class Renderer(object):
                 now = time.time()
                 if (progress >= self.__next_progress_update[0]
                         or now >= self.__next_progress_update[1]):
-                    aborted = await self.__callback.call('PROGRESS', progress)
-                    assert isinstance(aborted, bool)
-                    if aborted:
+                    response = project_process_pb2.RenderProgressResponse()
+                    await self.__callback.call(
+                        'PROGRESS',
+                        project_process_pb2.RenderProgressRequest(
+                            numerator=progress.numerator,
+                            denominator=progress.denominator),
+                        response)
+                    if response.abort:
                         self.__fail("Aborted.")
                     self.__next_progress_update = (
                         progress + fractions.Fraction(0.05), now + 0.1)
@@ -528,12 +525,17 @@ class Renderer(object):
         self.__current_time = audioproc.MusicalTime()
         self.__duration = self.__project.duration
 
-        self.__audioproc_address = await self.__manager.call(
-            'CREATE_AUDIOPROC_PROCESS', 'render',
-            block_size=self.__render_settings.block_size,
-            sample_rate=self.__render_settings.sample_rate)
+        create_audioproc_request = editor_main_pb2.CreateAudioProcProcessRequest(
+            name='render',
+            host_parameters=audioproc.HostParameters(
+                block_size=self.__render_settings.block_size,
+                sample_rate=self.__render_settings.sample_rate))
+        create_audioproc_response = editor_main_pb2.CreateProcessResponse()
+        await self.__manager.call(
+            'CREATE_AUDIOPROC_PROCESS', create_audioproc_request, create_audioproc_response)
+        self.__audioproc_address = create_audioproc_response.address
 
-        self.__audioproc_client = AudioProcClient(self.__event_loop, self.__tmp_dir)
+        self.__audioproc_client = audioproc.AudioProcClient(self.__event_loop, self.__server)
         self.__audioproc_client.engine_notifications.add(self.__handle_engine_notification)
 
         await self.__audioproc_client.setup()
@@ -541,7 +543,8 @@ class Renderer(object):
 
         await self.__audioproc_client.create_realm(name='root', enable_player=True)
         await self.__audioproc_client.set_backend(
-            'renderer', datastream_address=self.__datastream_address)
+            'renderer',
+            audioproc.BackendSettings(datastream_address=self.__datastream_address))
 
         self.__player = player.Player(
             project=self.__project,
@@ -553,17 +556,23 @@ class Renderer(object):
     async def run(self) -> None:
         try:
             await self.__setup_callback_stub()
-            await self.__callback.call('STATE', 'setup')
+            await self.__callback.call(
+                'STATE', project_process_pb2.RenderStateRequest(state='setup'))
 
             await self.__setup_data_pump()
             await self.__setup_encoder_process()
             await self.__setup_datastream_pipe()
             await self.__setup_player()
 
-            await self.__callback.call('STATE', 'render')
-            aborted = await self.__callback.call('PROGRESS', fractions.Fraction(0))
-            assert isinstance(aborted, bool)
-            if aborted:
+            await self.__callback.call(
+                'STATE', project_process_pb2.RenderStateRequest(state='render'))
+
+            response = project_process_pb2.RenderProgressResponse()
+            await self.__callback.call(
+                'PROGRESS',
+                project_process_pb2.RenderProgressRequest(numerator=0, denominator=1),
+                response)
+            if response.abort:
                 self.__fail("Aborted.")
 
             await self.__player.update_state(audioproc.PlayerState(
@@ -588,16 +597,22 @@ class Renderer(object):
             self.__data_queue.put_nowait(None)
             await asyncio.wait([self.__data_pump_task], loop=self.__event_loop)
 
-            await self.__callback.call('PROGRESS', fractions.Fraction(1))
-            await self.__callback.call('STATE', 'cleanup')
+            await self.__callback.call(
+                'PROGRESS',
+                project_process_pb2.RenderProgressRequest(numerator=1, denominator=1),
+                project_process_pb2.RenderProgressResponse())
+            await self.__callback.call(
+                'STATE', project_process_pb2.RenderStateRequest(state='cleanup'))
 
             await self.__player.cleanup()
             self.__player = None
 
-            await self.__callback.call('STATE', 'complete')
+            await self.__callback.call(
+                'STATE', project_process_pb2.RenderStateRequest(state='complete'))
 
         except RendererFailed:
-            await self.__callback.call('STATE', 'failed')
+            await self.__callback.call(
+                'STATE', project_process_pb2.RenderStateRequest(state='failed'))
 
         finally:
             await self.__cleanup()
@@ -614,10 +629,18 @@ class Renderer(object):
             self.__player = None
 
         if self.__audioproc_client is not None:
-            logger.info("Shutting down audio process...")
-            await self.__audioproc_client.disconnect(shutdown=True)
+            logger.info("Disconnecting from audio process...")
+            await self.__audioproc_client.disconnect()
             await self.__audioproc_client.cleanup()
             self.__audioproc_client = None
+
+        if self.__audioproc_address is not None:
+            logger.info("Shutting down audio process...")
+            await self.__manager.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.__audioproc_address))
+            self.__audioproc_address = None
 
         if self.__encoder is not None:
             logger.info("Shutting down encoder...")

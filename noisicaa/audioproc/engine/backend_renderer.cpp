@@ -37,7 +37,7 @@ extern "C" {
 namespace noisicaa {
 
 RendererBackend::RendererBackend(
-    HostSystem* host_system, const BackendSettings& settings,
+    HostSystem* host_system, const pb::BackendSettings& settings,
     void (*callback)(void*, const string&), void *userdata)
   : Backend(
       host_system, "noisicaa.audioproc.engine.backend.renderer", settings, callback, userdata) {}
@@ -48,14 +48,15 @@ Status RendererBackend::setup(Realm* realm) {
   Status status = Backend::setup(realm);
   RETURN_IF_ERROR(status);
 
-  if (_settings.datastream_address.size() == 0) {
+  if (_settings.has_datastream_address() == 0) {
     return ERROR_STATUS("datastream_address not set.");
   }
 
-  _logger->info("Writing data stream to %s", _settings.datastream_address.c_str());
-  _datastream = open(_settings.datastream_address.c_str(), O_RDWR);
+  const char* datastream_address = _settings.datastream_address().c_str();
+  _logger->info("Writing data stream to %s", datastream_address);
+  _datastream = open(datastream_address, O_RDWR);
   if (_datastream < 0) {
-    return OSERROR_STATUS("Failed to open %s", _settings.datastream_address.c_str());
+    return OSERROR_STATUS("Failed to open %s", datastream_address);
   }
 
   for (int c = 0 ; c < 2 ; ++c) {

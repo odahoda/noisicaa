@@ -27,31 +27,39 @@ import subprocess
 import sys
 import time
 import uuid
-from typing import cast, Any, Optional, Dict, Set, Tuple
+from typing import Any, Optional, Dict, Set
 
 import posix_ipc
 
 from noisicaa import core
+from noisicaa.core import empty_message_pb2
+from noisicaa.core import ipc
 from noisicaa import node_db
 from noisicaa import lv2
 from noisicaa import host_system
+from noisicaa import editor_main_pb2
 from .public import engine_notification_pb2
+from .public import host_parameters_pb2
 from .public import player_state_pb2
-from .public import processor_message_pb2
 from .engine import profile
 from . import engine
-from . import mutations
+from . import audioproc_pb2
 
 logger = logging.getLogger(__name__)
 
 
-class Session(core.CallbackSessionMixin, core.SessionBase):
+class Session(ipc.CallbackSessionMixin, ipc.Session):
     async_connect = False
 
-    def __init__(self, client_address: str, flags: Set, **kwargs: Any) -> None:
-        super().__init__(callback_address=client_address, **kwargs)
+    def __init__(
+            self,
+            session_id: int,
+            start_session_request: core.StartSessionRequest,
+            event_loop: asyncio.AbstractEventLoop
+    ) -> None:
+        super().__init__(session_id, start_session_request, event_loop)
 
-        self.__flags = flags or set()
+        self.__flags = set(start_session_request.flags)
         self.owned_realms = set()  # type: Set[str]
 
         self.__shutdown = False
@@ -63,8 +71,8 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
         await super().setup()
 
         self.__shutdown = False
-        self.__notification_available = asyncio.Event(loop=self.event_loop)
-        self.__notification_pusher_task = self.event_loop.create_task(
+        self.__notification_available = asyncio.Event(loop=self._event_loop)
+        self.__notification_pusher_task = self._event_loop.create_task(
             self.__notification_pusher())
 
     async def cleanup(self) -> None:
@@ -95,7 +103,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
 
             delay = next_notification - time.time()
             if delay > 0:
-                await asyncio.sleep(delay, loop=self.event_loop)
+                await asyncio.sleep(delay, loop=self._event_loop)
 
     def callback_connected(self) -> None:
         pass
@@ -106,9 +114,7 @@ class Session(core.CallbackSessionMixin, core.SessionBase):
         self.__notification_available.set()
 
 
-class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
-    session_cls = Session
-
+class AudioProcProcess(core.ProcessBase):
     def __init__(
             self, *,
             shm: Optional[str] = None,
@@ -118,6 +124,8 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         super().__init__(**kwargs)
         self.shm_name = shm
         self.shm = None  # type: Optional[posix_ipc.SharedMemory]
+
+        self.__main_endpoint = None  # type: ipc.ServerEndpointWithSessions[Session]
         self.__urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.__block_size = block_size
         self.__sample_rate = sample_rate
@@ -127,29 +135,55 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
     async def setup(self) -> None:
         await super().setup()
 
-        self.server.add_command_handler('SHUTDOWN', self.shutdown)
-        self.server.add_command_handler('CREATE_REALM', self.__handle_create_realm)
-        self.server.add_command_handler('DELETE_REALM', self.__handle_delete_realm)
-        self.server.add_command_handler('SET_HOST_PARAMETERS', self.handle_set_host_parameters)
-        self.server.add_command_handler('SET_BACKEND', self.handle_set_backend)
-        self.server.add_command_handler(
-            'SET_BACKEND_PARAMETERS', self.handle_set_backend_parameters)
-        self.server.add_command_handler('SET_SESSION_VALUES', self.handle_set_session_values)
-        self.server.add_command_handler('PLAY_FILE', self.handle_play_file)
-        self.server.add_command_handler('PIPELINE_MUTATION', self.handle_pipeline_mutation)
-        self.server.add_command_handler('SEND_NODE_MESSAGES', self.handle_send_node_messages)
-        self.server.add_command_handler('UPDATE_PLAYER_STATE', self.handle_update_player_state)
-        self.server.add_command_handler(
-            'UPDATE_PROJECT_PROPERTIES', self.handle_update_project_properties)
-        self.server.add_command_handler('CREATE_PLUGIN_UI', self.handle_create_plugin_ui)
-        self.server.add_command_handler('DELETE_PLUGIN_UI', self.handle_delete_plugin_ui)
-        self.server.add_command_handler('DUMP', self.handle_dump)
-        self.server.add_command_handler('PROFILE_AUDIO_THREAD', self.handle_profile_audio_thread)
+        self.__main_endpoint = ipc.ServerEndpointWithSessions('main', Session)
+        self.__main_endpoint.add_handler(
+            'CREATE_REALM', self.__handle_create_realm,
+            audioproc_pb2.CreateRealmRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'DELETE_REALM', self.__handle_delete_realm,
+            audioproc_pb2.DeleteRealmRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'SET_HOST_PARAMETERS', self.__handle_set_host_parameters,
+            host_parameters_pb2.HostParameters, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'SET_BACKEND', self.__handle_set_backend,
+            audioproc_pb2.SetBackendRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'SET_SESSION_VALUES', self.__handle_set_session_values,
+            audioproc_pb2.SetSessionValuesRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'PLAY_FILE', self.__handle_play_file,
+            audioproc_pb2.PlayFileRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'PIPELINE_MUTATION', self.__handle_pipeline_mutation,
+            audioproc_pb2.PipelineMutationRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'SEND_NODE_MESSAGES', self.__handle_send_node_messages,
+            audioproc_pb2.SendNodeMessagesRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'UPDATE_PLAYER_STATE', self.__handle_update_player_state,
+            player_state_pb2.PlayerState, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'UPDATE_PROJECT_PROPERTIES', self.__handle_update_project_properties,
+            audioproc_pb2.UpdateProjectPropertiesRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'CREATE_PLUGIN_UI', self.__handle_create_plugin_ui,
+            audioproc_pb2.CreatePluginUIRequest, audioproc_pb2.CreatePluginUIResponse)
+        self.__main_endpoint.add_handler(
+            'DELETE_PLUGIN_UI', self.__handle_delete_plugin_ui,
+            audioproc_pb2.DeletePluginUIRequest, empty_message_pb2.EmptyMessage)
+        self.__main_endpoint.add_handler(
+            'PROFILE_AUDIO_THREAD', self.__handle_profile_audio_thread,
+            audioproc_pb2.ProfileAudioThreadRequest, audioproc_pb2.ProfileAudioThreadResponse)
+        await self.server.add_endpoint(self.__main_endpoint)
 
         if self.shm_name is not None:
             self.shm = posix_ipc.SharedMemory(self.shm_name)
 
-        urid_mapper_address = await self.manager.call('CREATE_URID_MAPPER_PROCESS')
+        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
+        await self.manager.call(
+            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
+        urid_mapper_address = create_urid_mapper_response.address
 
         self.__urid_mapper = lv2.ProxyURIDMapper(
             server_address=urid_mapper_address,
@@ -200,133 +234,180 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         await super().cleanup()
 
     def __handle_engine_notification(self, msg: engine_notification_pb2.EngineNotification) -> None:
-        for session in self.sessions:
-            cast(Session, session).publish_engine_notification(msg)
+        for session in self.__main_endpoint.sessions:
+            session.publish_engine_notification(msg)
 
     async def __handle_create_realm(
-            self, session_id: str, name: str, parent: str, enable_player: bool,
-            callback_address: str
+            self,
+            session: Session,
+            request: audioproc_pb2.CreateRealmRequest,
+            response: empty_message_pb2.EmptyMessage,
     ) -> None:
-        session = cast(Session, self.get_session(session_id))
         await self.__engine.create_realm(
-            name=name,
-            parent=parent,
-            enable_player=enable_player,
-            callback_address=callback_address)
-        session.owned_realms.add(name)
+            name=request.name,
+            parent=request.parent if request.HasField('parent') else None,
+            enable_player=request.enable_player,
+            callback_address=(
+                request.callback_address if request.HasField('callback_address') else None))
+        session.owned_realms.add(request.name)
 
-    async def __handle_delete_realm(self, session_id: str, name: str) -> None:
-        session = cast(Session, self.get_session(session_id))
-        assert name in session.owned_realms
-        await self.__engine.delete_realm(name)
-        session.owned_realms.remove(name)
+    async def __handle_delete_realm(
+            self,
+            session: Session,
+            request: audioproc_pb2.DeleteRealmRequest,
+            response: empty_message_pb2.EmptyMessage,
+    ) -> None:
+        assert request.name in session.owned_realms
+        await self.__engine.delete_realm(request.name)
+        session.owned_realms.remove(request.name)
 
-    async def handle_pipeline_mutation(
-            self, session_id: str, realm_name: str, mutation: mutations.Mutation) -> None:
-        self.get_session(session_id)
-        realm = self.__engine.get_realm(realm_name)
+    async def __handle_pipeline_mutation(
+            self,
+            session: Session,
+            request: audioproc_pb2.PipelineMutationRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        realm = self.__engine.get_realm(request.realm)
         graph = realm.graph
 
-        if isinstance(mutation, mutations.AddNode):
-            logger.info("AddNode():\n%s", mutation.description)
+        mutation_type = request.mutation.WhichOneof('type')
+        if mutation_type == 'add_node':
+            add_node = request.mutation.add_node
+            logger.info("AddNode():\n%s", add_node.description)
+            kwargs = {}  # type: Dict[str, Any]
+            if add_node.HasField('name'):
+                kwargs['name'] = add_node.name
+            if add_node.HasField('initial_state'):
+                kwargs['initial_state'] = add_node.initial_state
+            if add_node.HasField('child_realm'):
+                kwargs['child_realm'] = add_node.child_realm
             node = engine.Node.create(
                 host_system=self.__host_system,
-                description=mutation.description,
-                **mutation.args)
+                id=add_node.id,
+                description=add_node.description,
+                **kwargs)
             graph.add_node(node)
             # TODO: schedule setup in a worker thread.
             await realm.setup_node(node)
             realm.update_spec()
 
-        elif isinstance(mutation, mutations.RemoveNode):
-            node = graph.find_node(mutation.node_id)
+        elif mutation_type == 'remove_node':
+            remove_node = request.mutation.remove_node
+            node = graph.find_node(remove_node.id)
             await node.cleanup(deref=True)
             graph.remove_node(node)
             realm.update_spec()
 
-        elif isinstance(mutation, mutations.ConnectPorts):
-            node1 = graph.find_node(mutation.src_node)
+        elif mutation_type == 'connect_ports':
+            connect_ports = request.mutation.connect_ports
+            node1 = graph.find_node(connect_ports.src_node_id)
             try:
-                port1 = node1.outputs[mutation.src_port]
+                port1 = node1.outputs[connect_ports.src_port]
             except KeyError:
                 raise KeyError(
                     "Node %s (%s) has no port %s"
-                    % (node1.id, type(node1).__name__, mutation.src_port)
+                    % (node1.id, type(node1).__name__, connect_ports.src_port)
                 ).with_traceback(sys.exc_info()[2]) from None
 
-            node2 = graph.find_node(mutation.dest_node)
+            node2 = graph.find_node(connect_ports.dest_node_id)
             try:
-                port2 = node2.inputs[mutation.dest_port]
+                port2 = node2.inputs[connect_ports.dest_port]
             except KeyError:
                 raise KeyError(
                     "Node %s (%s) has no port %s"
-                    % (node2.id, type(node2).__name__, mutation.dest_port)
+                    % (node2.id, type(node2).__name__, connect_ports.dest_port)
                 ).with_traceback(sys.exc_info()[2]) from None
             port2.connect(port1)
             realm.update_spec()
 
-        elif isinstance(mutation, mutations.DisconnectPorts):
-            node1 = graph.find_node(mutation.src_node)
-            node2 = graph.find_node(mutation.dest_node)
-            node2.inputs[mutation.dest_port].disconnect(node1.outputs[mutation.src_port])
+        elif mutation_type == 'disconnect_ports':
+            disconnect_ports = request.mutation.disconnect_ports
+            node1 = graph.find_node(disconnect_ports.src_node_id)
+            node2 = graph.find_node(disconnect_ports.dest_node_id)
+            node2.inputs[disconnect_ports.dest_port].disconnect(
+                node1.outputs[disconnect_ports.src_port])
             realm.update_spec()
 
-        elif isinstance(mutation, mutations.SetControlValue):
-            realm.set_control_value(mutation.name, mutation.value, mutation.generation)
+        elif mutation_type == 'set_control_value':
+            set_control_value = request.mutation.set_control_value
+            realm.set_control_value(
+                set_control_value.name,
+                set_control_value.value,
+                set_control_value.generation)
 
-        elif isinstance(mutation, mutations.SetPluginState):
-            await realm.set_plugin_state(mutation.node, mutation.state)
+        elif mutation_type == 'set_plugin_state':
+            set_plugin_state = request.mutation.set_plugin_state
+            await realm.set_plugin_state(
+                set_plugin_state.node_id,
+                set_plugin_state.state)
 
         else:
-            raise ValueError(type(mutation))
+            raise ValueError(request.mutation)
 
-    def handle_send_node_messages(
-            self, session_id: str, realm_name: str,
-            messages: processor_message_pb2.ProcessorMessageList) -> None:
-        self.get_session(session_id)
-        realm = self.__engine.get_realm(realm_name)
-        for msg in messages.messages:
+    def __handle_send_node_messages(
+            self,
+            session: Session,
+            request: audioproc_pb2.SendNodeMessagesRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        realm = self.__engine.get_realm(request.realm)
+        for msg in request.messages:
             realm.send_node_message(msg)
 
-    async def handle_set_host_parameters(self, session_id: str, parameters: Any) -> None:
-        self.get_session(session_id)
-        await self.__engine.set_host_parameters(**parameters)
+    async def __handle_set_host_parameters(
+            self,
+            session: Session,
+            request: host_parameters_pb2.HostParameters,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        await self.__engine.set_host_parameters(request)
 
-    async def handle_set_backend(
-            self, session_id: str, name: str, parameters: Dict[str, Any]) -> None:
-        self.get_session(session_id)
-        await self.__engine.set_backend(name, **parameters)
+    async def __handle_set_backend(
+            self,
+            session: Session,
+            request: audioproc_pb2.SetBackendRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        await self.__engine.set_backend(request.name, request.settings)
 
-    def handle_set_backend_parameters(self, session_id: str, parameters: Dict[str, Any]) -> None:
-        self.get_session(session_id)
-        self.__engine.set_backend_parameters(**parameters)
+    def __handle_set_session_values(
+            self,
+            session: Session,
+            request: audioproc_pb2.SetSessionValuesRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        realm = self.__engine.get_realm(request.realm)
+        realm.set_session_values(request.session_values)
 
-    def handle_set_session_values(
-            self, session_id: str, realm_name: str, values: Dict[str, Any]) -> None:
-        self.get_session(session_id)
-        realm = self.__engine.get_realm(realm_name)
-        realm.set_session_values(values)
+    def __handle_update_player_state(
+            self,
+            session: Session,
+            request: player_state_pb2.PlayerState,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        realm = self.__engine.get_realm(request.realm)
+        realm.player.update_state(request)
 
-    def handle_update_player_state(
-            self, session_id: str, state: player_state_pb2.PlayerState) -> None:
-        self.get_session(session_id)
-        realm = self.__engine.get_realm(state.realm)
-        realm.player.update_state(state)
+    def __handle_update_project_properties(
+            self,
+            session: Session,
+            request: audioproc_pb2.UpdateProjectPropertiesRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        realm = self.__engine.get_realm(request.realm)
+        realm.update_project_properties(request.properties)
 
-    def handle_update_project_properties(
-            self, session_id: str, realm_name: str, properties: Dict[str, Any]) -> None:
-        self.get_session(session_id)
-        realm = self.__engine.get_realm(realm_name)
-        realm.update_project_properties(**properties)
-
-    async def handle_play_file(self, session_id: str, path: str) -> None:
-        self.get_session(session_id)
-
+    async def __handle_play_file(
+            self,
+            session: Session,
+            request: audioproc_pb2.PlayFileRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
         realm = self.__engine.get_realm('root')
 
         node_desc = node_db.NodeDescription()
         node_desc.CopyFrom(node_db.Builtins.SoundFileDescription)
-        node_desc.sound_file.sound_file_path = path
+        node_desc.sound_file.sound_file_path = request.path
 
         node = engine.Node.create(
             host_system=self.__host_system,
@@ -361,25 +442,35 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
         realm.graph.remove_node(node)
         realm.update_spec()
 
-    async def handle_create_plugin_ui(
-            self, session_id: str, realm_name: str, node_id: str) -> Tuple[int, Tuple[int, int]]:
-        self.get_session(session_id)
-        return await self.__engine.create_plugin_ui(realm_name, node_id)
+    async def __handle_create_plugin_ui(
+            self,
+            session: Session,
+            request: audioproc_pb2.CreatePluginUIRequest,
+            response: audioproc_pb2.CreatePluginUIResponse,
+    ) -> None:
+        wid, (width, height) = await self.__engine.create_plugin_ui(request.realm, request.node_id)
+        response.wid = wid
+        response.width = width
+        response.height = height
 
-    async def handle_delete_plugin_ui(self, session_id: str, realm_name: str, node_id: str) -> None:
-        self.get_session(session_id)
-        return await self.__engine.delete_plugin_ui(realm_name, node_id)
+    async def __handle_delete_plugin_ui(
+            self,
+            session: Session,
+            request: audioproc_pb2.DeletePluginUIRequest,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        await self.__engine.delete_plugin_ui(request.realm, request.node_id)
 
-    def handle_dump(self, session_id: str) -> None:
-        self.__engine.dump()
-
-    async def handle_profile_audio_thread(self, session_id: str, duration: int) -> bytes:
-        self.get_session(session_id)
-
+    async def __handle_profile_audio_thread(
+            self,
+            session: Session,
+            request: audioproc_pb2.ProfileAudioThreadRequest,
+            response: audioproc_pb2.ProfileAudioThreadResponse,
+    ) -> None:
         path = '/tmp/audio.prof'
         logger.warning("Starting profile of the audio thread...")
         profile.start(path)
-        await asyncio.sleep(duration, loop=self.event_loop)
+        await asyncio.sleep(request.duration, loop=self.event_loop)
         profile.stop()
         logger.warning("Audio thread profile complete. Data written to '%s'.", path)
 
@@ -405,7 +496,7 @@ class AudioProcProcess(core.SessionHandlerMixin, core.ProcessBase):
             raise RuntimeError(
                 "Command '%s' failed with return code %d" % (' '.join(argv), proc.returncode))
 
-        return svg
+        response.svg = svg
 
 
 class AudioProcSubprocess(core.SubprocessMixin, AudioProcProcess):

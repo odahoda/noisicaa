@@ -31,6 +31,7 @@ class ProcessorTest(
         unittest.TestCase):
     def test_id(self):
         node_description = node_db.NodeDescription(
+            uri='test://test',
             type=node_db.NodeDescription.PROCESSOR,
             ports=[],
             processor=node_db.ProcessorDescription(

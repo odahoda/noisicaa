@@ -24,6 +24,7 @@ from noisicaa import node_db
 
 
 ScoreTrackDescription = node_db.NodeDescription(
+    uri='builtin://score-track',
     display_name='Score Track',
     type=node_db.NodeDescription.PROCESSOR,
     node_ui=node_db.NodeUIDescription(

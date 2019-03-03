@@ -71,7 +71,6 @@ cdef class PyProxyURIDMapper(PyURIDMapper):
     cdef object __client_thread_done
     cdef object __event_loop
     cdef object __stub
-    cdef str __session_id
     cdef object __cb_server
 
     cdef URIDMapper* get(self)

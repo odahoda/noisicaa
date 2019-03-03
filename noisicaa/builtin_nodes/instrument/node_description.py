@@ -24,6 +24,7 @@ from noisicaa import node_db
 
 
 InstrumentDescription = node_db.NodeDescription(
+    uri='builtin://instrument',
     display_name='Instrument',
     type=node_db.NodeDescription.PROCESSOR,
     node_ui=node_db.NodeUIDescription(

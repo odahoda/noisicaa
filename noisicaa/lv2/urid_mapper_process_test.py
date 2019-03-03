@@ -24,58 +24,62 @@ import logging
 from typing import Dict
 
 from noisidev import unittest
-from noisicaa.constants import TEST_OPTS
+from noisidev import unittest_mixins
 from noisicaa import core
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
+from . import urid_mapper_pb2
 
 logger = logging.getLogger(__name__)
 
 
-class PluginUIProcessTest(unittest.AsyncTestCase):
+class PluginUIProcessTest(unittest_mixins.ServerMixin, unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.mgr = None
-        self.cb_server = None
+        self.cb_endpoint_address = None
         self.uris = {}  # type: Dict[str, int]
 
     async def setup_testcase(self):
         self.mgr = core.ProcessManager(event_loop=self.loop)
         await self.mgr.setup()
 
-        self.cb_server = ipc.Server(self.loop, 'urid_cb', TEST_OPTS.TMP_DIR)
-        self.cb_server.add_command_handler('NEW_URIS', self.handle_new_uris)
-        await self.cb_server.setup()
+        cb_endpoint = ipc.ServerEndpoint('urid_cb')
+        cb_endpoint.add_handler(
+            'NEW_URIS', self.handle_new_uris,
+            urid_mapper_pb2.NewURIsRequest, empty_message_pb2.EmptyMessage)
+        self.cb_endpoint_address = await self.server.add_endpoint(cb_endpoint)
 
     async def cleanup_testcase(self):
-        if self.cb_server is not None:
-            await self.cb_server.cleanup()
+        if self.cb_endpoint_address is not None:
+            await self.server.remove_endpoint('urid_cb')
 
         if self.mgr is not None:
             await self.mgr.cleanup()
 
-    def handle_new_uris(self, uris):
-        self.uris.update(uris)
+    def handle_new_uris(self, request, response):
+        for mapping in request.mappings:
+            self.uris[mapping.uri] = mapping.urid
 
     async def create_process(self):
         proc = await self.mgr.start_subprocess(
             'test-urid-mapper', 'noisicaa.lv2.urid_mapper_process.URIDMapperSubprocess')
 
         stub = ipc.Stub(self.loop, proc.address)
-        await stub.connect()
-        return stub
+        await stub.connect(core.StartSessionRequest(
+            callback_address=self.cb_endpoint_address))
+        return proc, stub
 
-    async def test_foo(self):
-        stub = await self.create_process()
+    async def test_map(self):
+        proc, stub = await self.create_process()
         try:
-            session_id = await stub.call('START_SESSION', self.cb_server.address)
-
-            urid = await stub.call('MAP', 'http://www.odahoda.de/')
-            self.assertIsInstance(urid, int)
+            map_request = urid_mapper_pb2.MapRequest(uri='http://www.odahoda.de/')
+            map_response = urid_mapper_pb2.MapResponse()
+            await stub.call('MAP', map_request, map_response)
+            self.assertGreater(map_response.urid, 0)
             self.assertIn('http://www.odahoda.de/', self.uris)
 
-            await stub.call('END_SESSION', session_id)
-
         finally:
-            await stub.call('SHUTDOWN')
             await stub.close()
+            await proc.shutdown()

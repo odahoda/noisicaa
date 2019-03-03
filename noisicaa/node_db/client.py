@@ -25,8 +25,9 @@ import logging
 from typing import Dict, Iterable, Set, Tuple
 
 from noisicaa import core
+from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
-from . import mutations
+from . import node_db_pb2
 from . import node_description_pb2
 
 logger = logging.getLogger(__name__)
@@ -37,10 +38,11 @@ class NodeDBClient(object):
         self.event_loop = event_loop
         self.server = server
 
-        self.mutation_handlers = core.Callback[mutations.Mutation]()
+        self.mutation_handlers = core.Callback[node_db_pb2.Mutation]()
 
+        self.__cb_endpoint_name = 'node_db_cb'
+        self.__cb_endpoint_address = None  # type: str
         self.__stub = None  # type: ipc.Stub
-        self.__session_id = None  # type: str
         self.__nodes = {}  # type: Dict[str, node_description_pb2.NodeDescription]
 
     def get_node_description(self, uri: str) -> node_description_pb2.NodeDescription:
@@ -51,48 +53,46 @@ class NodeDBClient(object):
         return sorted(self.__nodes.items())
 
     async def setup(self) -> None:
-        self.server.add_command_handler('NODEDB_MUTATION', self.__handle_mutation)
+        cb_endpoint = ipc.ServerEndpoint(self.__cb_endpoint_name)
+        cb_endpoint.add_handler(
+            'NODEDB_MUTATION', self.__handle_mutation,
+            node_db_pb2.Mutation, empty_message_pb2.EmptyMessage)
+        self.__cb_endpoint_address = await self.server.add_endpoint(cb_endpoint)
 
     async def cleanup(self) -> None:
         await self.disconnect()
 
+        if self.__cb_endpoint_address is not None:
+            await self.server.remove_endpoint(self.__cb_endpoint_name)
+            self.__cb_endpoint_address = None
+
     async def connect(self, address: str, flags: Set[str] = None) -> None:
         assert self.__stub is None
         self.__stub = ipc.Stub(self.event_loop, address)
-        await self.__stub.connect()
-        self.__session_id = await self.__stub.call(
-            'START_SESSION', self.server.address, flags)
 
-    async def disconnect(self, shutdown: bool = False) -> None:
-        if self.__session_id is not None:
-            try:
-                await self.__stub.call('END_SESSION', self.__session_id)
-            except ipc.ConnectionClosed:
-                logger.info("Connection already closed.")
-            self.__session_id = None
+        request = core.StartSessionRequest(
+            callback_address=self.__cb_endpoint_address,
+            flags=flags)
+        await self.__stub.connect(request)
 
+    async def disconnect(self) -> None:
         if self.__stub is not None:
-            if shutdown:
-                try:
-                    await self.shutdown()
-                except ipc.ConnectionClosed:
-                    pass
-
             await self.__stub.close()
             self.__stub = None
 
-    async def shutdown(self) -> None:
-        await self.__stub.call('SHUTDOWN')
-
     async def start_scan(self) -> None:
-        await self.__stub.call('START_SCAN', self.__session_id)
+        await self.__stub.call('START_SCAN')
 
-    def __handle_mutation(self, mutation: mutations.Mutation) -> None:
-        logger.info("Mutation received: %s", mutation)
-        if isinstance(mutation, mutations.AddNodeDescription):
-            assert mutation.uri not in self.__nodes
-            self.__nodes[mutation.uri] = mutation.description
+    def __handle_mutation(
+            self,
+            request: node_db_pb2.Mutation,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        logger.info("Mutation received: %s", request)
+        if request.WhichOneof('type') == 'add_node':
+            assert request.add_node.uri not in self.__nodes
+            self.__nodes[request.add_node.uri] = request.add_node
         else:
-            raise ValueError(mutation)
+            raise ValueError(request)
 
-        self.mutation_handlers.call(mutation)
+        self.mutation_handlers.call(request)

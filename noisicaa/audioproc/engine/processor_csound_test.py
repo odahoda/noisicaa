@@ -37,6 +37,7 @@ class ProcessorCsoundTestMixin(
         unittest.TestCase):
     def test_csound(self):
         node_description = node_db.NodeDescription(
+            uri='test://test',
             type=node_db.NodeDescription.PROCESSOR,
             ports=[
                 node_db.PortDescription(
@@ -106,6 +107,7 @@ class ProcessorCsoundTestMixin(
 
     def test_event_input_port(self):
         node_description = node_db.NodeDescription(
+            uri='test://test',
             type=node_db.NodeDescription.PROCESSOR,
             ports=[
                 node_db.PortDescription(

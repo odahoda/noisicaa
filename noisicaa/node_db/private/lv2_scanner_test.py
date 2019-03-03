@@ -31,5 +31,6 @@ logger = logging.getLogger(__name__)
 class LV2ScannerTest(unittest.TestCase):
     def test_scan(self):
         scanner = lv2_scanner.LV2Scanner()
-        for uri, _ in scanner.scan():
-            logger.info(uri)
+        for desc in scanner.scan():
+            logger.info(desc)
+            self.assertTrue(desc.IsInitialized(), desc)

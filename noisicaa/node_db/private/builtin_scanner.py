@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Iterator, Tuple
+from typing import Iterator
 
 from noisicaa import node_db
 from noisicaa.builtin_nodes import node_description_registry
@@ -33,10 +33,12 @@ logger = logging.getLogger(__name__)
 
 class Builtins(object):
     RealmSinkDescription = node_db.NodeDescription(
+        uri='builtin://sink',
         display_name='Output',
         internal=True,
         type=node_db.NodeDescription.REALM_SINK,
         node_ui=node_db.NodeUIDescription(
+            type='builtin://no-ui',
             muteable=False,
         ),
         ports=[
@@ -54,6 +56,7 @@ class Builtins(object):
     )
 
     ChildRealmDescription = node_db.NodeDescription(
+        uri='builtin://child_realm',
         display_name='Child',
         internal=True,
         type=node_db.NodeDescription.CHILD_REALM,
@@ -77,6 +80,7 @@ class Builtins(object):
     )
 
     SoundFileDescription = node_db.NodeDescription(
+        uri='builtin://sound_file',
         display_name='Sound Player',
         internal=True,
         type=node_db.NodeDescription.PROCESSOR,
@@ -99,9 +103,9 @@ class Builtins(object):
 
 
 class BuiltinScanner(scanner.Scanner):
-    def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
-        yield ('builtin://sink', Builtins.RealmSinkDescription)
-        yield ('builtin://child_realm', Builtins.ChildRealmDescription)
-        yield ('builtin://sound_file', Builtins.SoundFileDescription)
+    def scan(self) -> Iterator[node_db.NodeDescription]:
+        yield Builtins.RealmSinkDescription
+        yield Builtins.ChildRealmDescription
+        yield Builtins.SoundFileDescription
 
         yield from node_description_registry.node_descriptions()

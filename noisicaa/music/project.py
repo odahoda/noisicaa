@@ -40,6 +40,13 @@ from . import samples
 logger = logging.getLogger(__name__)
 
 
+class Crash(commands.Command):
+    proto_type = 'crash'
+
+    def run(self) -> None:
+        raise RuntimeError('Boom')
+
+
 class UpdateProject(commands.Command):
     proto_type = 'update_project'
 
@@ -79,6 +86,7 @@ class BaseProject(pmodel.Project):
         self.node_db = None  # type: node_db_lib.NodeDBClient
 
         self.command_registry = commands.CommandRegistry()
+        self.command_registry.register(Crash)
         self.command_registry.register(UpdateProject)
         self.command_registry.register(graph.CreateNode)
         self.command_registry.register(graph.DeleteNode)
@@ -115,15 +123,14 @@ class BaseProject(pmodel.Project):
     def get_node_description(self, uri: str) -> node_db_lib.NodeDescription:
         return self.node_db.get_node_description(uri)
 
-    def dispatch_command_sequence_proto(self, proto: commands_pb2.CommandSequence) -> Any:
-        return self.dispatch_command_sequence(commands.CommandSequence.create(proto))
+    def dispatch_command_sequence_proto(self, proto: commands_pb2.CommandSequence) -> None:
+        self.dispatch_command_sequence(commands.CommandSequence.create(proto))
 
-    def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> Any:
-        result = sequence.apply(self.command_registry, self._pool)
+    def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> None:
+        sequence.apply(self.command_registry, self._pool)
         logger.info(
             "Executed command sequence %s (%d operations)",
             sequence.command_names, sequence.num_log_ops)
-        return result
 
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.pipeline_mutation.call(mutation)

@@ -25,7 +25,6 @@ import logging
 from noisidev import unittest
 from noisicaa.constants import TEST_OPTS
 from noisicaa import core
-from noisicaa.core import ipc
 from . import urid_mapper
 
 logger = logging.getLogger(__name__)
@@ -84,11 +83,7 @@ class ProxyURIDMapperTest(unittest.AsyncTestCase):
 
     async def cleanup_testcase(self):
         if self.proc:
-            stub = ipc.Stub(self.loop, self.proc.address)
-            await stub.connect()
-            await stub.call('SHUTDOWN')
-            await stub.close()
-            await self.proc.wait()
+            await self.proc.shutdown()
 
         if self.mgr is not None:
             await self.mgr.cleanup()

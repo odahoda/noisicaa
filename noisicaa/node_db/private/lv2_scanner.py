@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Iterator, Tuple
+from typing import Iterator
 
 from noisicaa import node_db
 from noisicaa import lv2
@@ -41,7 +41,7 @@ supported_uis = {
 
 
 class LV2Scanner(scanner.Scanner):
-    def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
+    def scan(self) -> Iterator[node_db.NodeDescription]:
         world = lilv.World()
         ns = world.ns
         world.load_all()
@@ -52,6 +52,7 @@ class LV2Scanner(scanner.Scanner):
             logger.info("Adding LV2 plugin %s", plugin.get_uri())
 
             desc = node_db.NodeDescription()
+            desc.uri = str(plugin.get_uri())
             desc.supported = True
             desc.type = node_db.NodeDescription.PLUGIN
             desc.node_ui.type = 'builtin://plugin'
@@ -164,4 +165,4 @@ class LV2Scanner(scanner.Scanner):
                     desc.not_supported_reasons)
                 continue
 
-            yield str(plugin.get_uri()), desc
+            yield desc

@@ -24,7 +24,7 @@ import logging
 import os
 import os.path
 from xml.etree import ElementTree
-from typing import Iterator, Tuple
+from typing import Iterator
 
 from noisicaa import constants
 from noisicaa import node_db
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class CSoundScanner(scanner.Scanner):
-    def scan(self) -> Iterator[Tuple[str, node_db.NodeDescription]]:
+    def scan(self) -> Iterator[node_db.NodeDescription]:
         rootdir = os.path.join(constants.DATA_DIR, 'csound')
         for dirpath, _, filenames in os.walk(rootdir):
             for filename in filenames:
@@ -52,6 +52,7 @@ class CSoundScanner(scanner.Scanner):
                 assert root.tag == 'csound'
 
                 desc = node_db.NodeDescription()
+                desc.uri = uri
                 desc.supported = True
                 desc.node_ui.type = 'builtin://plugin'
                 desc.type = node_db.NodeDescription.PROCESSOR
@@ -123,4 +124,4 @@ class CSoundScanner(scanner.Scanner):
                 score = score.strip() + '\n'
                 csound_desc.score = score
 
-                yield uri, desc
+                yield desc

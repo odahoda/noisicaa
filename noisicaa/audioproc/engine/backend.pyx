@@ -32,37 +32,8 @@ from . cimport buffers
 _UNSET = object()
 
 
-cdef class PyBackendSettings(object):
-    def __init__(
-            self, *,
-            datastream_address=_UNSET, time_scale=1.0):
-        if datastream_address is not _UNSET:
-            self.datastream_address = datastream_address
-        if time_scale is not _UNSET:
-            self.time_scale = time_scale
-
-    cdef BackendSettings get(self):
-        return self.__settings
-
-    @property
-    def datastream_address(self):
-        return bytes(self.__settings.datastream_address).decode('utf-8')
-
-    @datastream_address.setter
-    def datastream_address(self, value):
-        self.__settings.datastream_address = value.encode('utf-8')
-
-    @property
-    def time_scale(self):
-        return float(self.__settings.time_scale)
-
-    @time_scale.setter
-    def time_scale(self, value):
-        self.__settings.time_scale = <float>value
-
-
 cdef class PyBackend(object):
-    def __init__(self, PyHostSystem host_system, name, PyBackendSettings settings):
+    def __init__(self, PyHostSystem host_system, name, settings):
         self.notifications = core.Callback()
 
         if isinstance(name, str):
@@ -70,7 +41,7 @@ cdef class PyBackend(object):
         assert isinstance(name, bytes)
 
         cdef StatusOr[Backend*] backend = Backend.create(
-            host_system.get(), name, settings.get(),
+            host_system.get(), name, settings.SerializeToString(),
             self.__notification_callback, <PyObject*>self)
         check(backend)
         self.__backend_ptr.reset(backend.result())

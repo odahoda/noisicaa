@@ -39,12 +39,9 @@ from .private.builtin_scanner import Builtins
 #     PresetError,
 #     PresetLoadError,
 # )
-from .mutations import (
+from .node_db_pb2 import (
     Mutation,
-    AddNodeDescription,
-    RemoveNodeDescription,
 )
-from .process_base import NodeDBProcessBase
 from .utils import (
     get_port,
 )

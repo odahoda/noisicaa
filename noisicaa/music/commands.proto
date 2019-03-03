@@ -22,6 +22,9 @@
 
 syntax = "proto2";
 
+import "noisicaa/core/empty_message.proto";
+import "noisicaa/core/proto_types.proto";
+import "noisicaa/audioproc/public/control_value.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
 import "noisicaa/model/model_base.proto";
 import "noisicaa/model/project.proto";
@@ -106,6 +109,7 @@ message Command {
 
   // Project (1xxxxx)
   optional UpdateProject update_project = 100000;
+  optional EmptyMessage crash = 100001;
 
   // Pipeline graph (3xxxxx)
   optional CreateNode create_node = 300000;

@@ -38,7 +38,7 @@ class Realm;
 class NullBackend : public Backend {
  public:
   NullBackend(
-      HostSystem* host_system, const BackendSettings& settings,
+      HostSystem* host_system, const pb::BackendSettings& settings,
       void (*callback)(void*, const string&), void* userdata);
   ~NullBackend() override;
 

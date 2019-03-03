@@ -24,6 +24,7 @@ from noisicaa import node_db
 
 
 BeatTrackDescription = node_db.NodeDescription(
+    uri='builtin://beat-track',
     display_name='Beat Track',
     type=node_db.NodeDescription.PROCESSOR,
     node_ui=node_db.NodeUIDescription(

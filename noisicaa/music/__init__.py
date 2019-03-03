@@ -57,3 +57,10 @@ from .commands_pb2 import (
     CommandSequence,
     Command,
 )
+from .project_process_pb2 import (
+    RenderProgressRequest,
+    RenderProgressResponse,
+    RenderStateRequest,
+    RenderDataRequest,
+    RenderDataResponse,
+)

@@ -24,6 +24,7 @@ from noisicaa import node_db
 
 
 SampleTrackDescription = node_db.NodeDescription(
+    uri='builtin://sample-track',
     display_name='Sample Track',
     type=node_db.NodeDescription.PROCESSOR,
     node_ui=node_db.NodeUIDescription(

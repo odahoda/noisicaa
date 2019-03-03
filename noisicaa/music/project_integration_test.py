@@ -33,6 +33,7 @@ from noisidev import unittest
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
 from noisicaa import model
+from noisicaa import editor_main_pb2
 from noisicaa.model import model_base_pb2
 from . import project_client
 from . import project_client_model
@@ -41,7 +42,10 @@ from . import commands_pb2
 logger = logging.getLogger(__name__)
 
 
-class ProjectIntegrationTest(unittest_mixins.ProcessManagerMixin, unittest.AsyncTestCase):
+class ProjectIntegrationTest(
+        unittest_mixins.ServerMixin,
+        unittest_mixins.ProcessManagerMixin,
+        unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -107,19 +111,30 @@ class ProjectIntegrationTest(unittest_mixins.ProcessManagerMixin, unittest.Async
     @async_generator.async_generator
     async def create_client(self, create_process=True, process_address=None, shutdown=True):
         if create_process:
-            process_address = await self.process_manager_client.call(
-                'CREATE_PROJECT_PROCESS', 'test-project')
+            create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(
+                uri='test-project')
+            create_project_process_response = editor_main_pb2.CreateProcessResponse()
+            await self.process_manager_client.call(
+                'CREATE_PROJECT_PROCESS',
+                create_project_process_request, create_project_process_response)
+            process_address = create_project_process_response.address
 
         client = project_client.ProjectClient(
-            event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
+            event_loop=self.loop, server=self.server)
         try:
             await client.setup()
             await client.connect(process_address)
 
             await async_generator.yield_(client)
         finally:
-            await client.disconnect(shutdown=shutdown)
+            await client.disconnect()
             await client.cleanup()
+
+            if shutdown:
+                await self.process_manager_client.call(
+                    'SHUTDOWN_PROCESS',
+                    editor_main_pb2.ShutdownProcessRequest(
+                        address=process_address))
 
     async def create_project(
             self, client) -> Tuple[project_client_model.Project, project_client.Pool, str]:

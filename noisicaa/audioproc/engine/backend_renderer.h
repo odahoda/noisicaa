@@ -38,7 +38,7 @@ class Realm;
 class RendererBackend : public Backend {
 public:
   RendererBackend(
-      HostSystem* host_system, const BackendSettings& settings,
+      HostSystem* host_system, const pb::BackendSettings& settings,
       void (*callback)(void*, const string&), void* userdata);
   ~RendererBackend() override;
 

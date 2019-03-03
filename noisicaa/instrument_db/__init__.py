@@ -19,17 +19,12 @@
 # @end:license
 
 from .client import InstrumentDBClient
-from .instrument_description import (
+from .instrument_description_pb2 import (
     InstrumentDescription,
-    Property,
 )
-from .mutations import (
-    Mutation,
-    AddInstrumentDescription,
-    RemoveInstrumentDescription,
-)
-from .process_base import InstrumentDBProcessBase
 from .instrument_db_pb2 import (
+    Mutation,
+    Mutations,
     ScanState,
 )
 from .utils import (

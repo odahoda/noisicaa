@@ -42,7 +42,7 @@ class Realm;
 class PortAudioBackend : public Backend {
 public:
   PortAudioBackend(
-      HostSystem* host_system, const BackendSettings& settings,
+      HostSystem* host_system, const pb::BackendSettings& settings,
       void (*callback)(void*, const string&), void* userdata);
   ~PortAudioBackend() override;
 

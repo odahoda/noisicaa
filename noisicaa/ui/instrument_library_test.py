@@ -35,8 +35,7 @@ class TracksModelTest(uitest.UITestCase):
         return instrument_db.InstrumentDescription(
             uri='wav:' + path,
             path=path,
-            display_name=os.path.splitext(os.path.basename(path))[0],
-            properties={})
+            display_name=os.path.splitext(os.path.basename(path))[0])
 
     async def test_addInstrument(self):
         model = instrument_library.LibraryModel(context=self.context)

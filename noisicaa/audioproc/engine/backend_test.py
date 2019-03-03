@@ -21,9 +21,10 @@
 from noisidev import unittest
 from noisidev import unittest_engine_mixins
 from noisidev import unittest_engine_utils
+from noisicaa.audioproc.public import backend_settings_pb2
 from . import buffers
 from .realm import PyRealm
-from .backend import PyBackend, PyBackendSettings
+from .backend import PyBackend
 from .block_context import PyBlockContext
 
 
@@ -33,7 +34,7 @@ class BackendTest(unittest_engine_mixins.HostSystemMixin, unittest.TestCase):
             name='root', host_system=self.host_system,
             engine=None, parent=None, player=None, callback_address=None)
 
-        backend_settings = PyBackendSettings(time_scale=0)
+        backend_settings = backend_settings_pb2.BackendSettings(time_scale=0)
         backend = PyBackend(self.host_system, 'null', backend_settings)
         backend.setup(realm)
 

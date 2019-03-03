@@ -21,10 +21,8 @@
 add_python_package(
   client.py
   client_test.py
-  mutations.py
   presets.py
   presets_test.py
-  process_base.py
   process.py
   utils.py
 )
@@ -33,6 +31,7 @@ set(LIB_SRCS
   node_description.pb.cc
 )
 
+py_proto(node_db.proto)
 cpp_proto(node_description.proto)
 py_proto(node_description.proto)
 
