@@ -8,6 +8,8 @@
          ; Projetile
          (projectile-project-test-cmd . "bin/runtests")
 
+         (pyvenv-workon . "noisicaa")
+
          ; Uses spaces for indentation.
          (indent-tabs-mode . nil)
 
