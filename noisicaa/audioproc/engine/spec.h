@@ -37,6 +37,7 @@ namespace noisicaa {
 
 using namespace std;
 
+class Logger;
 class Processor;
 class ControlValue;
 class BufferType;
@@ -54,6 +55,8 @@ public:
 
   Spec(const Spec&) = delete;
   Spec operator=(const Spec&) = delete;
+
+  string dump() const;
 
   void set_bpm(uint32_t bpm) { _bpm = bpm; }
   uint32_t bpm() const { return _bpm; }

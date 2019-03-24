@@ -44,6 +44,7 @@ cdef extern from "noisicaa/audioproc/engine/realm.h" namespace "noisicaa" nogil:
 
         Status setup()
         void cleanup()
+        string dump()
         void clear_programs()
         void set_notification_callback(
             void (*callback)(void*, const string&), void* userdata);

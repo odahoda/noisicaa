@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import Any, Sequence
+from typing import cast, Any, List, Sequence
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -59,6 +59,9 @@ class BaseNode(ProjectChild, model.BaseNode, ObjectBase):  # pylint: disable=abs
     def plugin_state(self) -> audioproc.PluginState:
         return self.get_property_value('plugin_state')
 
+    @property
+    def connections(self) -> Sequence['NodeConnection']:
+        return cast(List['NodeConnection'], super().connections)
 
 
 class Node(BaseNode, model.Node, ObjectBase):

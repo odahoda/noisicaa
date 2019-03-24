@@ -27,6 +27,7 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
 from noisicaa import core
+from noisicaa import model
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
@@ -49,25 +50,71 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
         self.__node = node
         self.__port = port
 
-        dial = control_value_dial.ControlValueDial(parent)
-        dial.setRange(port.float_value.min, port.float_value.max)
-        dial.setDefault(port.float_value.default)
-        self.connect(dial.valueChanged, dial.setValue)
+        self.__port_properties_listener = self.__node.port_properties_changed.add(
+            self.__portPropertiesChanged)
+
+        port_properties = self.__node.get_port_properties(self.__port.name)
+
+        self.__dial = control_value_dial.ControlValueDial(parent)
+        self.__dial.setDisabled(port_properties.exposed)
+        self.__dial.setRange(port.float_value.min, port.float_value.max)
+        self.__dial.setDefault(port.float_value.default)
+        self.connect(self.__dial.valueChanged, self.__dial.setValue)
+
+        self.__exposed = QtWidgets.QCheckBox(parent)
+        self.__exposed.setChecked(port_properties.exposed)
+        self.__exposed.toggled.connect(self.__exposedEdited)
 
         self.__widget = QtWidgets.QWidget(parent)
 
         layout = QtWidgets.QHBoxLayout()
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(dial)
+        layout.addWidget(self.__exposed)
+        layout.addWidget(self.__dial)
         layout.addStretch(1)
         self.__widget.setLayout(layout)
+
+    def cleanup(self) -> None:
+        if self.__port_properties_listener is not None:
+            self.__port_properties_listener.remove()
+            self.__port_properties_listener = None
+
+        super().cleanup()
 
     def label(self) -> str:
         return self.__port.display_name + ":"
 
     def widget(self) -> QtWidgets.QWidget:
         return self.__widget
+
+    def __exposedEdited(self, exposed: bool) -> None:
+        port_properties = self.__node.get_port_properties(self.__port.name)
+        if port_properties.exposed == exposed:
+            return
+
+        commands = []  # type: List[music.Command]
+
+        if not exposed:
+            for conn in self.__node.connections:
+                if conn.dest_port == self.__port.name or conn.source_port == self.__port.name:
+                    commands.append(music.delete_node_connection(conn))
+
+        port_properties = model.NodePortProperties(
+            name=self.__port.name,
+            exposed=exposed)
+        commands.append(music.update_node(
+            self.__node,
+            set_port_properties=port_properties))
+
+        self.send_commands_async(*commands)
+
+        self.__dial.setDisabled(exposed)
+
+    def __portPropertiesChanged(self, change: model.PropertyListChange) -> None:
+        port_properties = self.__node.get_port_properties(self.__port.name)
+        self.__exposed.setChecked(port_properties.exposed)
+        self.__dial.setDisabled(port_properties.exposed)
 
 
 class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
@@ -108,7 +155,8 @@ class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
 
         for port in self.__node.description.ports:
             if (port.direction == node_db.PortDescription.INPUT
-                    and port.type == node_db.PortDescription.KRATE_CONTROL):
+                    and port.type in (node_db.PortDescription.KRATE_CONTROL,
+                                      node_db.PortDescription.ARATE_CONTROL)):
                 widget = ControlValueWidget(
                     node=self.__node,
                     port=port,

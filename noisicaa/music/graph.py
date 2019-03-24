@@ -113,6 +113,20 @@ class DeleteNodeConnection(commands.Command):
 class UpdateNode(commands.Command):
     proto_type = 'update_node'
 
+    def validate(self) -> None:
+        pb = down_cast(commands_pb2.UpdateNode, self.pb)
+
+        if pb.node_id not in self.pool:
+            raise ValueError("Unknown node %016x" % pb.node_id)
+
+        node = down_cast(pmodel.BaseNode, self.pool[pb.node_id])
+
+        if pb.HasField('set_port_properties'):
+            if not any(
+                    port_desc.name == pb.set_port_properties.name
+                    for port_desc in node.description.ports):
+                raise ValueError("Invalid port name '%s'" % pb.set_port_properties.name)
+
     def run(self) -> None:
         pb = down_cast(commands_pb2.UpdateNode, self.pb)
         node = down_cast(pmodel.BaseNode, self.pool[pb.node_id])
@@ -137,6 +151,9 @@ class UpdateNode(commands.Command):
                 pb.set_control_value.name,
                 pb.set_control_value.value,
                 pb.set_control_value.generation)
+
+        if pb.HasField('set_port_properties'):
+            node.set_port_properties(pb.set_port_properties)
 
 
 # class NodeToPreset(commands.Command):
@@ -196,9 +213,16 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
             remove_node=audioproc.RemoveNode(id=self.pipeline_node_id))
 
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
+        for props in self.port_properties:
+            yield audioproc.Mutation(
+                set_node_port_properties=audioproc.SetNodePortProperties(
+                    node_id=self.pipeline_node_id,
+                    port_properties=props.to_proto()))
+
         for port in self.description.ports:
             if (port.direction == node_db.PortDescription.INPUT
-                    and port.type == node_db.PortDescription.KRATE_CONTROL):
+                    and (port.type == node_db.PortDescription.KRATE_CONTROL,
+                         port.type == node_db.PortDescription.ARATE_CONTROL)):
                 for cv in self.control_values:
                     if cv.name == port.name:
                         yield audioproc.Mutation(
@@ -236,6 +260,27 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
                     set_plugin_state=audioproc.SetPluginState(
                         node_id=self.pipeline_node_id,
                         state=plugin_state)))
+
+    def set_port_properties(self, port_properties: audioproc.NodePortProperties) -> None:
+        new_props = None  # type: audioproc.NodePortProperties
+
+        for idx, props in enumerate(self.port_properties):
+            if props.name == port_properties.name:
+                new_props = props.to_proto()
+                new_props.MergeFrom(port_properties)
+                self.port_properties[idx] = model.NodePortProperties.from_proto(new_props)
+                break
+        else:
+            new_props = port_properties
+            self.port_properties.append(
+                model.NodePortProperties.from_proto(port_properties))
+
+        if self.attached_to_project:
+            self.project.handle_pipeline_mutation(
+                audioproc.Mutation(
+                    set_node_port_properties=audioproc.SetNodePortProperties(
+                        node_id=self.pipeline_node_id,
+                        port_properties=new_props)))
 
     def create_node_connector(
             self, message_cb: Callable[[audioproc.ProcessorMessage], None]

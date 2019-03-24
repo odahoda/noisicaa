@@ -24,6 +24,7 @@ from cpython.ref cimport PyObject
 from cpython.exc cimport PyErr_Fetch, PyErr_Restore
 from libc.stdint cimport uint8_t, uint32_t
 from libc.string cimport memmove
+from libcpp.string cimport string
 
 from noisicaa import core
 from noisicaa import audioproc
@@ -146,6 +147,12 @@ cdef class PyRealm(object):
                 self.__realm = NULL
 
         logger.info("Realm '%s' cleaned up.", self.name)
+
+    def dump(self):
+        cdef string out
+        with nogil:
+            out = self.__realm.dump()
+        return out.decode('ascii')
 
     def clear_programs(self):
         with nogil:

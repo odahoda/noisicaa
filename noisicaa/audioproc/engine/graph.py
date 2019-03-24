@@ -30,6 +30,7 @@ from noisicaa import node_db
 from noisicaa import host_system as host_system_lib
 from noisicaa.core import ipc
 from noisicaa.core import session_data_pb2
+from noisicaa.audioproc.public import node_port_properties_pb2
 from noisicaa.audioproc.public import processor_message_pb2
 from . import control_value
 from . import processor as processor_lib
@@ -239,6 +240,7 @@ class Node(object):
         self.outputs = {}  # type: Dict[str, OutputPortMixin]
 
         self.__control_values = {}  # type: Dict[str, control_value.PyControlValue]
+        self.__port_properties = {}  # type: Dict[str, node_port_properties_pb2.NodePortProperties]
 
         if self.init_ports_from_description:
             self.init_ports()
@@ -331,7 +333,7 @@ class Node(object):
         logger.info("%s: setup()", self.name)
 
         for port in self.ports:
-            if isinstance(port, KRateControlInputPort):
+            if isinstance(port, (KRateControlInputPort, ARateControlInputPort)):
                 logger.info("Float control value '%s'", port.buf_name)
                 cv = control_value.PyFloatControlValue(
                     port.buf_name, port.description.float_value.default, 1)
@@ -348,6 +350,16 @@ class Node(object):
     def set_session_value(self, key: str, value: session_data_pb2.SessionValue) -> None:
         pass
 
+    def get_port_properties(self, port_name: str) -> node_port_properties_pb2.NodePortProperties:
+        try:
+            return self.__port_properties[port_name]
+        except KeyError:
+            return node_port_properties_pb2.NodePortProperties(name=port_name)
+
+    def set_port_properties(
+            self, port_properties: node_port_properties_pb2.NodePortProperties) -> None:
+        self.__port_properties[port_properties.name] = port_properties
+
     @property
     def control_values(self) -> List[control_value.PyControlValue]:
         return [v for _, v in sorted(self.__control_values.items())]
@@ -357,11 +369,21 @@ class Node(object):
             spec.append_control_value(cv)
 
         for port in self.ports:
+            port_properties = self.get_port_properties(port.name)
+
             spec.append_buffer(port.buf_name, port.get_buf_type())
 
-            if port.buf_name in self.__control_values:
-                spec.append_opcode(
-                    'FETCH_CONTROL_VALUE', self.__control_values[port.buf_name], port.buf_name)
+            if port.buf_name in self.__control_values and not port_properties.exposed:
+                if isinstance(port, KRateControlPortMixin):
+                    spec.append_opcode(
+                        'FETCH_CONTROL_VALUE',
+                        self.__control_values[port.buf_name], port.buf_name)
+                else:
+                    assert isinstance(port, ARateControlPortMixin)
+                    spec.append_opcode(
+                        'FETCH_CONTROL_VALUE_TO_AUDIO',
+                        self.__control_values[port.buf_name], port.buf_name)
+
             elif isinstance(port, InputPortMixin):
                 spec.append_opcode('CLEAR', port.buf_name)
                 for upstream_port in port.inputs:

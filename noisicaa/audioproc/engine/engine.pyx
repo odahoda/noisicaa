@@ -202,6 +202,12 @@ cdef class PyEngine(object):
 
         self.__engine_started = None
 
+    def dump(self):
+        out = ""
+        for _, realm in sorted(self.__realms.items()):
+            out += realm.dump()
+        return out
+
     async def get_plugin_host(self):
         if self.__plugin_host is None:
             create_plugin_host_response = editor_main_pb2.CreateProcessResponse()

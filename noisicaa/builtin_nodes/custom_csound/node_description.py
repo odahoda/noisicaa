@@ -45,10 +45,20 @@ CustomCSoundDescription = node_db.NodeDescription(
             type=node_db.PortDescription.AUDIO,
         ),
         node_db.PortDescription(
-            name='ctrl',
-            display_name='ctrl',
+            name='kctrl',
+            display_name='ctrl (k-rate)',
             direction=node_db.PortDescription.INPUT,
             type=node_db.PortDescription.KRATE_CONTROL,
+            float_value=node_db.FloatValueDescription(
+                min=0.0,
+                max=1.0,
+                default=0.0),
+        ),
+        node_db.PortDescription(
+            name='actrl',
+            display_name='ctrl (a-rate)',
+            direction=node_db.PortDescription.INPUT,
+            type=node_db.PortDescription.ARATE_CONTROL,
             float_value=node_db.FloatValueDescription(
                 min=0.0,
                 max=1.0,

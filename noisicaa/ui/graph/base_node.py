@@ -153,7 +153,7 @@ class SelectColorWidget(QtWidgets.QWidget):
 
 class NodeProps(QtCore.QObject):
     contentRectChanged = QtCore.pyqtSignal(QtCore.QRectF)
-    canvasRectChanged = QtCore.pyqtSignal(QtCore.QRectF)
+    canvasLayoutChanged = QtCore.pyqtSignal()
 
 
 class Title(QtWidgets.QGraphicsSimpleTextItem):
@@ -418,10 +418,6 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         self.__out_ports = []  # type: List[node_db.PortDescription]
 
         for port_desc in self.__node.description.ports:
-            if (port_desc.direction == node_db.PortDescription.INPUT
-                    and port_desc.type == node_db.PortDescription.KRATE_CONTROL):
-                continue
-
             port = Port(port_desc, self)
             self.__ports[port_desc.name] = port
 
@@ -481,6 +477,8 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             self.__node.graph_size_changed.add(self.__graphRectChanged))
         self.__listeners.append(
             self.__node.graph_color_changed.add(lambda *_: self.__updateState()))
+        self.__listeners.append(
+            self.__node.port_properties_changed.add(lambda *_: self.__layout()))
 
         self.__state = None  # type: audioproc.NodeStateChange.State
 
@@ -500,7 +498,6 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         self.__canvas_rect = self.__transform.mapRect(self.contentRect())
         self.__layout()
         self.props.contentRectChanged.emit(self.contentRect())
-        self.props.canvasRectChanged.emit(self.canvasRect())
 
     def createBodyWidget(self) -> QtWidgets.QWidget:
         return None
@@ -584,12 +581,10 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
     def setCanvasTopLeft(self, pos: QtCore.QPointF) -> None:
         self.__canvas_rect.moveTopLeft(pos)
         self.__layout()
-        self.props.canvasRectChanged.emit(self.__canvas_rect)
 
     def setCanvasRect(self, rect: QtCore.QRectF) -> None:
         self.__canvas_rect = rect
         self.__layout()
-        self.props.canvasRectChanged.emit(self.__canvas_rect)
 
     def canvasRect(self) -> QtCore.QRectF:
         return self.__canvas_rect
@@ -598,7 +593,6 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         self.__transform = transform
         self.__canvas_rect = self.__transform.mapRect(self.contentRect())
         self.__layout()
-        self.props.canvasRectChanged.emit(self.__canvas_rect)
 
     def resizeSide(self, pos: QtCore.QPointF) -> Optional[str]:
         t = self.__canvas_rect.top()
@@ -679,11 +673,24 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         path.addRoundedRect(0, 0, w, h, 5, 5)
         self.__box.setPath(path)
 
-        show_ports = (0.5 * h > 10 * max(len(self.__in_ports), len(self.__out_ports)))
-        for idx, desc in enumerate(self.__in_ports):
+        visible_in_ports = []
+        for desc in self.__in_ports:
+            port_properties = self.__node.get_port_properties(desc.name)
+            if (desc.direction == node_db.PortDescription.INPUT
+                    and desc.type in (node_db.PortDescription.KRATE_CONTROL,
+                                      node_db.PortDescription.ARATE_CONTROL)
+                    and not port_properties.exposed):
+                port = self.__ports[desc.name]
+                port.setVisible(False)
+                continue
+
+            visible_in_ports.append(desc)
+
+        show_ports = (0.5 * h > 10 * max(len(visible_in_ports), len(self.__out_ports)))
+        for idx, desc in enumerate(visible_in_ports):
             port = self.__ports[desc.name]
-            if len(self.__in_ports) > 1:
-                y = h * (0.5 * idx / (len(self.__in_ports) - 1) + 0.25)
+            if len(visible_in_ports) > 1:
+                y = h * (0.5 * idx / (len(visible_in_ports) - 1) + 0.25)
             else:
                 y = h * 0.5
             port.setPos(0, y)
@@ -766,6 +773,8 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
         self.__drag_rect = QtCore.QRectF(0, 0, drag_rect_width, drag_rect_height)
 
+        self.props.canvasLayoutChanged.emit()
+
     def paint(
             self, painter: QtGui.QPainter, option: QtWidgets.QStyleOptionGraphicsItem,
             widget: Optional[QtWidgets.QWidget] = None) -> None:
@@ -798,7 +807,11 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         color_menu.addAction(color_action)
 
     def onRemove(self) -> None:
-        self.send_command_async(music.delete_node(self.__node))
+        commands = []
+        for conn in self.__node.connections:
+            commands.append(music.delete_node_connection(conn))
+        commands.append(music.delete_node(self.__node))
+        self.send_commands_async(*commands)
 
     def onSetColor(self, color: model.Color) -> None:
         if color != self.__node.graph_color:
@@ -838,13 +851,23 @@ class Connection(ui_base.ProjectMixin, QtWidgets.QGraphicsPathItem):
 
         self.__highlighted = False
 
-        self.__src_node.props.canvasRectChanged.connect(lambda _: self.__update())
-        self.__dest_node.props.canvasRectChanged.connect(lambda _: self.__update())
+        self.__src_node_canvas_layout_changed_connection = \
+            self.__src_node.props.canvasLayoutChanged.connect(self.__update)
+        self.__dest_node_canvas_layout_changed_connection = \
+            self.__dest_node.props.canvasLayoutChanged.connect(self.__update)
 
         self.__update()
 
     def cleanup(self) -> None:
-        pass
+        if self.__src_node_canvas_layout_changed_connection is not None:
+            self.__src_node.props.canvasLayoutChanged.disconnect(
+                self.__src_node_canvas_layout_changed_connection)
+            self.__src_node_canvas_layout_changed_connection = None
+
+        if self.__dest_node_canvas_layout_changed_connection is not None:
+            self.__dest_node.props.canvasLayoutChanged.disconnect(
+                self.__dest_node_canvas_layout_changed_connection)
+            self.__dest_node_canvas_layout_changed_connection = None
 
     def connection(self) -> music.NodeConnection:
         return self.__connection

@@ -105,6 +105,29 @@ Status run_FETCH_CONTROL_VALUE(BlockContext* ctxt, ProgramState* state, const ve
   }
 }
 
+Status run_FETCH_CONTROL_VALUE_TO_AUDIO(
+    BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
+  int cv_idx = args[0].int_value();
+  int buf_idx = args[1].int_value();
+  ControlValue* cv = state->program->spec->get_control_value(cv_idx);
+  Buffer* buf = state->program->buffers[buf_idx].get();
+
+  switch (cv->type()) {
+  case ControlValueType::FloatCV: {
+    FloatControlValue* fcv = (FloatControlValue*)cv;
+    float* data = (float*)buf->data();
+    for (uint32_t i = 0 ; i < state->host_system->block_size() ; ++i) {
+      *data++ = fcv->value();
+    }
+    return Status::Ok();
+  }
+  case ControlValueType::IntCV:
+    return ERROR_STATUS("IntControlValue not implemented yet.");
+  default:
+    return ERROR_STATUS("Invalid ControlValue type %d.", cv->type());
+  }
+}
+
 Status run_POST_RMS(BlockContext* ctxt, ProgramState* state, const vector<OpArg>& args) {
   const string& node_id = args[0].string_value();
   int port_index = args[1].int_value();
@@ -310,6 +333,7 @@ struct OpSpec opspecs[NUM_OPCODES] = {
 
   // I/O
   { OpCode::FETCH_CONTROL_VALUE, "FETCH_CONTROL_VALUE", "cb", nullptr, run_FETCH_CONTROL_VALUE },
+  { OpCode::FETCH_CONTROL_VALUE_TO_AUDIO, "FETCH_CONTROL_VALUE_TO_AUDIO", "cb", nullptr, run_FETCH_CONTROL_VALUE_TO_AUDIO },
   { OpCode::POST_RMS, "POST_RMS", "sib", nullptr, run_POST_RMS },
 
   // generators

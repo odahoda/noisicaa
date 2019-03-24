@@ -26,6 +26,7 @@ import functools
 import logging
 import os
 import threading
+import traceback
 import typing
 from typing import Any, Dict, Tuple
 import uuid
@@ -183,19 +184,23 @@ class PluginHost(plugin_host.PyPluginHost):
             self.__thread_result.set_result(True)
 
     async def __state_fetcher_main(self) -> None:
-        while True:
-            await asyncio.sleep(1.0, loop=self.__event_loop)
+        try:
+            while True:
+                await asyncio.sleep(1.0, loop=self.__event_loop)
 
-            state = self.get_state()
-            if state != self.__state:
-                self.__state = state
-                logger.info("Plugin state for %s changed:\n%s", self.__node_id, self.__state)
-                await asyncio.shield(
-                    self.__callback_stub.call(
-                        'PLUGIN_STATE_CHANGE',
-                        audioproc_pb2.PluginStateChange(
-                            realm=self.__realm, node_id=self.__node_id, state=self.__state)),
-                    loop=self.__event_loop)
+                state = self.get_state()
+                if state != self.__state:
+                    self.__state = state
+                    logger.info("Plugin state for %s changed:\n%s", self.__node_id, self.__state)
+                    await asyncio.shield(
+                        self.__callback_stub.call(
+                            'PLUGIN_STATE_CHANGE',
+                            audioproc_pb2.PluginStateChange(
+                                realm=self.__realm, node_id=self.__node_id, state=self.__state)),
+                        loop=self.__event_loop)
+
+        except:  # pylint: disable=bare-except
+            logger.error("Exception in state fetcher:\n%s", traceback.format_exc())
 
 
 class PluginHostProcess(core.ProcessBase):

@@ -108,6 +108,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.show_edit_areas_action = None  # type: QtWidgets.QAction
         self.__audio_thread_profiler = None  # type: audio_thread_profiler.AudioThreadProfiler
         self.profile_audio_thread_action = None  # type: QtWidgets.QAction
+        self.dump_audioproc = None  # type: QtWidgets.QAction
         self.audioproc_client = None  # type: audioproc.AbstractAudioProcClient
         self.audioproc_process = None  # type: str
         self.node_db = None  # type: node_db.NodeDBClient
@@ -154,6 +155,9 @@ class EditorApp(ui_base.AbstractEditorApp):
             context=self.context)
         self.profile_audio_thread_action = QtWidgets.QAction("Profile Audio Thread", self.qt_app)
         self.profile_audio_thread_action.triggered.connect(self.onProfileAudioThread)
+
+        self.dump_audioproc = QtWidgets.QAction("Dump AudioProc", self.qt_app)
+        self.dump_audioproc.triggered.connect(self.onDumpAudioProc)
 
         await self.createAudioProcProcess()
 
@@ -327,6 +331,9 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.__audio_thread_profiler.show()
         self.__audio_thread_profiler.raise_()
         self.__audio_thread_profiler.activateWindow()
+
+    def onDumpAudioProc(self) -> None:
+        self.process.event_loop.create_task(self.audioproc_client.dump())
 
     def __handleEngineNotification(self, msg: audioproc.EngineNotification) -> None:
         for node_message_pb in msg.node_messages:

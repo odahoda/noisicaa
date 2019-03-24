@@ -25,6 +25,7 @@ syntax = "proto2";
 import "noisicaa/core/empty_message.proto";
 import "noisicaa/core/proto_types.proto";
 import "noisicaa/audioproc/public/control_value.proto";
+import "noisicaa/audioproc/public/node_port_properties.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
 import "noisicaa/model/model_base.proto";
 import "noisicaa/model/project.proto";
@@ -55,6 +56,7 @@ message UpdateNode {
   optional ControlValue set_control_value = 6;
   optional PluginState set_plugin_state = 7;
   optional bytes load_from_preset = 8;
+  optional NodePortProperties set_port_properties = 9;
 }
 
 message DeleteNode {

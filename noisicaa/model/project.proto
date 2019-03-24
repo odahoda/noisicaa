@@ -26,6 +26,7 @@ package noisicaa.pb;
 
 import "noisicaa/core/proto_types.proto";
 import "noisicaa/audioproc/public/control_value.proto";
+import "noisicaa/audioproc/public/node_port_properties.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
 import "noisicaa/model/model_base.proto";
 
@@ -54,6 +55,7 @@ message BaseNode {
   optional Color graph_color = 6;
   repeated ControlValue control_values = 3;
   optional PluginState plugin_state = 4;
+  repeated NodePortProperties port_properties = 7;
 }
 
 message Node {

@@ -46,6 +46,7 @@ from .pos2f import Pos2F
 from .sizef import SizeF
 from .color import Color
 from .control_value import ControlValue
+from .node_port_properties import NodePortProperties
 from .project import (
     ObjectBase,
     ProjectChild,

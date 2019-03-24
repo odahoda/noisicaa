@@ -100,7 +100,8 @@ class CSoundScanner(scanner.Scanner):
                             port_desc.csound_instr = csound_elem.get('instr')
 
                     if (port_desc.direction == node_db.PortDescription.INPUT
-                            and port_desc.type == node_db.PortDescription.KRATE_CONTROL):
+                            and port_desc.type in (node_db.PortDescription.KRATE_CONTROL,
+                                                   node_db.PortDescription.ARATE_CONTROL)):
                         float_control_elem = port_elem.find('float-control')
                         if float_control_elem is not None:
                             value_desc = port_desc.float_value

@@ -26,5 +26,7 @@ install_files(
   butterhp.csnd
   butterlp.csnd
   delay.csnd
+  lfo-arate.csnd
+  lfo-krate.csnd
   reverb.csnd
 )

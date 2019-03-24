@@ -27,6 +27,7 @@ import "noisicaa/node_db/node_description.proto";
 import "noisicaa/audioproc/public/backend_settings.proto";
 import "noisicaa/audioproc/public/control_value.proto";
 import "noisicaa/audioproc/public/host_parameters.proto";
+import "noisicaa/audioproc/public/node_port_properties.proto";
 import "noisicaa/audioproc/public/player_state.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
 import "noisicaa/audioproc/public/processor_message.proto";
@@ -71,6 +72,11 @@ message SetPluginState {
   required noisicaa.pb.PluginState state = 2;
 }
 
+message SetNodePortProperties {
+  required string node_id = 1;
+  required noisicaa.pb.NodePortProperties port_properties = 2;
+}
+
 message Mutation {
   oneof type {
     AddNode add_node = 1;
@@ -79,6 +85,7 @@ message Mutation {
     DisconnectPorts disconnect_ports = 4;
     SetControlValue set_control_value = 5;
     SetPluginState set_plugin_state = 6;
+    SetNodePortProperties set_node_port_properties = 7;
   }
 }
 

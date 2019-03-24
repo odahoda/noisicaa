@@ -63,3 +63,6 @@ from .backend_settings_pb2 import (
 from .host_parameters_pb2 import (
     HostParameters,
 )
+from .node_port_properties_pb2 import (
+    NodePortProperties,
+)

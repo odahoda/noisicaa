@@ -115,6 +115,7 @@ public:
   Status setup();
   void cleanup() override;
 
+  string dump() const;
   void clear_programs();
 
   void set_notification_callback(

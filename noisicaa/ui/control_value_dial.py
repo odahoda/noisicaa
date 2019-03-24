@@ -109,8 +109,21 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
 
             painter.translate(self.width() / 2, self.height() / 2)
 
+            if self.isEnabled():
+                arc_bg_color = QtGui.QColor(0, 0, 0)
+                arc_fg_color = QtGui.QColor(100, 100, 255)
+                knob_inner_color = QtGui.QColor(0, 0, 0)
+                knob_border_color = QtGui.QColor(255, 255, 255)
+                text_color = QtGui.QColor(0, 0, 0)
+            else:
+                arc_bg_color = QtGui.QColor(80, 80, 80)
+                arc_fg_color = QtGui.QColor(120, 120, 120)
+                knob_inner_color = QtGui.QColor(80, 80, 80)
+                knob_border_color = QtGui.QColor(140, 140, 140)
+                text_color = QtGui.QColor(80, 80, 80)
+
             pen = QtGui.QPen()
-            pen.setColor(Qt.black)
+            pen.setColor(arc_bg_color)
             pen.setWidth(arc_width)
             pen.setCapStyle(Qt.RoundCap)
             painter.setPen(pen)
@@ -120,7 +133,7 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
 
             zero_value = self.normalize(0.0)
             pen = QtGui.QPen()
-            pen.setColor(QtGui.QColor(100, 100, 255))
+            pen.setColor(arc_fg_color)
             pen.setWidth(arc_width - 2)
             pen.setCapStyle(Qt.RoundCap)
             painter.setPen(pen)
@@ -132,9 +145,9 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
                 0.5 * arc_size * math.cos(1.5 * math.pi * value - 1.25 * math.pi),
                 0.5 * arc_size * math.sin(1.5 * math.pi * value - 1.25 * math.pi))
             painter.setPen(Qt.NoPen)
-            painter.setBrush(QtGui.QColor(255, 255, 255))
+            painter.setBrush(knob_border_color)
             painter.drawEllipse(knob_pos, arc_width / 2 + 1, arc_width / 2 + 1)
-            painter.setBrush(Qt.black)
+            painter.setBrush(knob_inner_color)
             painter.drawEllipse(knob_pos, arc_width / 2 - 1, arc_width / 2 - 1)
 
             if size > 40:
@@ -142,7 +155,7 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
                 font.setPixelSize(10)
                 painter.setFont(font)
                 pen = QtGui.QPen()
-                pen.setColor(Qt.black)
+                pen.setColor(text_color)
                 painter.setPen(pen)
                 painter.drawText(
                     QtCore.QRectF(-arc_size / 2, -arc_size / 4, arc_size, arc_size / 2),

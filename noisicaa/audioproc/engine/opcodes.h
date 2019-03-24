@@ -52,6 +52,7 @@ enum OpCode {
 
   // I/O
   FETCH_CONTROL_VALUE,
+  FETCH_CONTROL_VALUE_TO_AUDIO,
   POST_RMS,
 
   // generators

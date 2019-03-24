@@ -49,7 +49,8 @@ class ProcessorCustomCSoundTest(
 
         audio_l_in = self.buffer_mgr.allocate('in:left', buffers.PyFloatAudioBlockBuffer())
         audio_r_in = self.buffer_mgr.allocate('in:right', buffers.PyFloatAudioBlockBuffer())
-        ctrl = self.buffer_mgr.allocate('ctrl', buffers.PyFloatControlValueBuffer())
+        kctrl = self.buffer_mgr.allocate('kctrl', buffers.PyFloatControlValueBuffer())
+        actrl = self.buffer_mgr.allocate('actrl', buffers.PyFloatAudioBlockBuffer())
         self.buffer_mgr.allocate('ev', buffers.PyAtomDataBuffer())
         audio_l_out = self.buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlockBuffer())
         audio_r_out = self.buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlockBuffer())
@@ -59,20 +60,22 @@ class ProcessorCustomCSoundTest(
         forge.set_buffer(self.buffer_mgr.data('ev'), 10240)
         with forge.sequence():
             pass
-        ctrl[0] = 0.0
+        kctrl[0] = 0.0
         for i in range(self.host_system.block_size):
             audio_l_in[i] = 0.0
             audio_r_in[i] = 0.0
             audio_l_out[i] = 0.0
             audio_r_out[i] = 0.0
+            actrl[i] = 0.0
 
 
         proc.connect_port(self.ctxt, 0, self.buffer_mgr.data('in:left'))
         proc.connect_port(self.ctxt, 1, self.buffer_mgr.data('in:right'))
-        proc.connect_port(self.ctxt, 2, self.buffer_mgr.data('ctrl'))
-        proc.connect_port(self.ctxt, 3, self.buffer_mgr.data('ev'))
-        proc.connect_port(self.ctxt, 4, self.buffer_mgr.data('out:left'))
-        proc.connect_port(self.ctxt, 5, self.buffer_mgr.data('out:right'))
+        proc.connect_port(self.ctxt, 2, self.buffer_mgr.data('kctrl'))
+        proc.connect_port(self.ctxt, 3, self.buffer_mgr.data('actrl'))
+        proc.connect_port(self.ctxt, 4, self.buffer_mgr.data('ev'))
+        proc.connect_port(self.ctxt, 5, self.buffer_mgr.data('out:left'))
+        proc.connect_port(self.ctxt, 6, self.buffer_mgr.data('out:right'))
 
         return proc
 
@@ -110,8 +113,8 @@ class ProcessorCustomCSoundTest(
     def test_filter(self):
         orchestra = textwrap.dedent('''\
             instr 1
-              gaOutLeft = gkCtrl * gaInLeft
-              gaOutRight = gkCtrl * gaInRight
+              gaOutLeft = gkKctrl * gaInLeft
+              gaOutRight = gkKctrl * gaInRight
             endin
             ''')
         score = textwrap.dedent('''\
@@ -125,7 +128,7 @@ class ProcessorCustomCSoundTest(
         for i in range(self.host_system.block_size):
             audio_l_in[i] = 1.0
             audio_r_in[i] = 1.0
-        self.buffer_mgr['ctrl'][0] = 0.5
+        self.buffer_mgr['kctrl'][0] = 0.5
 
         proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
 

@@ -25,6 +25,7 @@ import copy
 import logging
 import os
 import os.path
+import traceback
 import typing
 from typing import Any, Type, Dict, Iterable, TypeVar
 
@@ -85,9 +86,11 @@ class Session(ipc.CallbackSessionMixin, ipc.Session):
         del self.__players[player.id]
 
     async def clear_players(self) -> None:
-        for player in self.__players.values():
-            await player.cleanup()
+        players = list(self.__players.values())
         self.__players.clear()
+
+        for player in players:
+            await player.cleanup()
 
     async def publish_mutations(self, mutations: mutations_pb2.MutationList) -> None:
         assert self.callback_alive
@@ -109,8 +112,11 @@ class Session(ipc.CallbackSessionMixin, ipc.Session):
             if os.path.isfile(checkpoint_path):
                 checkpoint = session_data_pb2.SessionDataCheckpoint()
                 with open(checkpoint_path, 'rb') as fp:
-                    success = checkpoint.ParseFromString(fp.read())
-                    assert success
+                    checkpoint_serialized = fp.read()
+
+                # mypy thinks that ParseFromString has no return value. bug in the stubs?
+                bytes_parsed = checkpoint.ParseFromString(checkpoint_serialized)  # type: ignore
+                assert bytes_parsed == len(checkpoint_serialized)
 
                 for session_value in checkpoint.session_values:
                     self.session_data[session_value.name] = session_value
@@ -395,7 +401,9 @@ class ProjectProcess(core.ProcessBase):
         except commands.ClientError:
             raise
         except Exception:
-            logger.exception("Exception while handling command sequence\n%s", request)
+            logger.error(
+                "Exception while handling command sequence\n%s\n%s",
+                request, traceback.format_exc())
             self.start_shutdown()
             raise ipc.CloseConnection
 

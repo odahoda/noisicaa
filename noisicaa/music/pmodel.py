@@ -94,6 +94,10 @@ class BaseNode(ProjectChild, model.BaseNode, ObjectBase):
     def plugin_state(self, value: audioproc.PluginState) -> None:
         self.set_property_value('plugin_state', value)
 
+    @property
+    def port_properties(self) -> MutableSequence[model.NodePortProperties]:
+        return self.get_property_value('port_properties')
+
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         raise NotImplementedError
 
@@ -107,6 +111,9 @@ class BaseNode(ProjectChild, model.BaseNode, ObjectBase):
         raise NotImplementedError
 
     def set_plugin_state(self, plugin_state: audioproc.PluginState) -> None:
+        raise NotImplementedError
+
+    def set_port_properties(self, port_properties: audioproc.NodePortProperties) -> None:
         raise NotImplementedError
 
     def create_node_connector(

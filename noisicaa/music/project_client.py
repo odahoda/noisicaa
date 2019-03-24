@@ -90,6 +90,7 @@ def update_node(
         set_graph_color: model.Color = None,
         set_control_value: model.ControlValue = None,
         set_plugin_state: audioproc.PluginState = None,
+        set_port_properties: model.NodePortProperties = None,
 ) -> commands_pb2.Command:
     return commands_pb2.Command(
         command='update_node',
@@ -101,7 +102,9 @@ def update_node(
             set_graph_color=set_graph_color.to_proto() if set_graph_color is not None else None,
             set_control_value=(
                 set_control_value.to_proto() if set_control_value is not None else None),
-            set_plugin_state=set_plugin_state))
+            set_plugin_state=set_plugin_state,
+            set_port_properties=(
+                set_port_properties.to_proto() if set_port_properties is not None else None)))
 
 
 def delete_node(
@@ -297,6 +300,7 @@ class ProjectClient(object):
             request: mutations_pb2.MutationList,
             response: empty_message_pb2.EmptyMessage
     ) -> None:
+        logger.debug("Received project mutations:\n%s", request)
         mutation_list = mutations_lib.MutationList(self.__pool, request)
         mutation_list.apply_forward()
 

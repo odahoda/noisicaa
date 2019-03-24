@@ -24,6 +24,7 @@ import logging
 from typing import List
 
 from noisidev import unittest
+from noisicaa.core import ipc
 from noisicaa import audioproc
 from noisicaa import model
 from . import commands_test
@@ -131,6 +132,27 @@ class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
             node,
             set_plugin_state=plugin_state))
         self.assertEqual(node.plugin_state, plugin_state)
+
+    async def test_set_port_properties(self):
+        await self.client.send_command(project_client.create_node(
+            'builtin://csound/reverb',
+            graph_pos=model.Pos2F(200, 100)))
+        node = self.project.nodes[-1]
+
+        await self.client.send_command(project_client.update_node(
+            node,
+            set_port_properties=model.NodePortProperties('mix', exposed=True)))
+        self.assertTrue(node.get_port_properties('mix').exposed)
+
+        await self.client.send_command(project_client.update_node(
+            node,
+            set_port_properties=model.NodePortProperties('mix', exposed=False)))
+        self.assertFalse(node.get_port_properties('mix').exposed)
+
+        with self.assertRaises(ipc.RemoteException):
+            await self.client.send_command(project_client.update_node(
+                node,
+                set_port_properties=model.NodePortProperties('holla')))
 
     # @unittest.skip("Implementation broken")
     # async def test_node_to_preset(self):

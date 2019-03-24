@@ -26,6 +26,7 @@ add_python_package(
   control_value.py
   key_signature.py
   key_signature_test.py
+  node_port_properties.py
   pos2f.py
   pitch.py
   pitch_test.py

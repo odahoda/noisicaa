@@ -127,6 +127,7 @@ class BaseProject(pmodel.Project):
         self.dispatch_command_sequence(commands.CommandSequence.create(proto))
 
     def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> None:
+        logger.info("Executing command sequence:\n%s", sequence)
         sequence.apply(self.command_registry, self._pool)
         logger.info(
             "Executed command sequence %s (%d operations)",
@@ -299,12 +300,12 @@ class Project(BaseProject):
         if self.__storage.logs_since_last_checkpoint > 1000:
             self.create_checkpoint()
 
-    def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> Any:
+    def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> None:
         if self.closed:
             raise RuntimeError(
                 "Command sequence %s executed on closed project." % sequence.command_names)
 
-        result = super().dispatch_command_sequence(sequence)
+        super().dispatch_command_sequence(sequence)
 
         if not sequence.is_noop:
             if (self.__latest_command_sequence is None
@@ -313,8 +314,6 @@ class Project(BaseProject):
                 self.__flush_commands()
                 self.__latest_command_sequence = sequence
                 self.__latest_command_time = time.time()
-
-        return result
 
     def undo(self) -> None:
         if self.closed:

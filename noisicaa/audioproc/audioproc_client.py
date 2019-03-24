@@ -131,6 +131,9 @@ class AbstractAudioProcClient(object):
     async def profile_audio_thread(self, duration: int) -> bytes:
         raise NotImplementedError
 
+    async def dump(self) -> None:
+        raise NotImplementedError
+
 
 class AudioProcClient(AbstractAudioProcClient):
     def __init__(self, event_loop: asyncio.AbstractEventLoop, server: ipc.Server) -> None:
@@ -353,3 +356,6 @@ class AudioProcClient(AbstractAudioProcClient):
             audioproc_pb2.UpdateProjectPropertiesRequest(
                 realm=realm,
                 properties=properties))
+
+    async def dump(self) -> None:
+        await self._stub.call('DUMP')

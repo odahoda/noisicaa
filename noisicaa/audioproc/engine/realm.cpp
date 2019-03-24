@@ -178,6 +178,19 @@ void Realm::cleanup() {
   _block_context.reset();
 }
 
+string Realm::dump() const {
+  string out = sprintf("=== Realm %s:\n", _name.c_str());
+
+  Program* program = _current_program.load();
+  if (program != nullptr) {
+    out += program->spec->dump();
+  } else {
+    out += "No current program.\n";
+  }
+
+  return out;
+}
+
 void Realm::clear_programs() {
   Program* program = _next_program.exchange(nullptr);
   if (program != nullptr) {

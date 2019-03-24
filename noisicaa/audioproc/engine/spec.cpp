@@ -21,6 +21,7 @@
  */
 
 #include <stdarg.h>
+#include "noisicaa/core/logging.h"
 #include "noisicaa/audioproc/engine/spec.h"
 #include "noisicaa/audioproc/engine/control_value.h"
 #include "noisicaa/audioproc/engine/processor.h"
@@ -36,6 +37,55 @@ Spec::~Spec() {
     delete it.first;
   }
   _buffer_map.clear();
+}
+
+string Spec::dump() const {
+  string out = "";
+
+  int i = 0;
+  for (const auto& opcode : _opcodes) {
+    const auto& opspec = opspecs[opcode.opcode];
+
+    string args = "";
+    for (size_t a = 0 ; a < opcode.args.size() ; ++a) {
+      const auto& arg = opcode.args[a];
+
+      if (a > 0) {
+        args += ", ";
+      }
+
+      switch (opspec.argspec[a]) {
+      case 'i':
+        args += sprintf("%ld", arg.int_value());
+        break;
+      case 'b': {
+        args += sprintf("#BUF<%d>", arg.int_value());
+        break;
+      }
+      case 'p': {
+        Processor* processor = _processors[arg.int_value()];
+        args += sprintf("#PROC<%016lx>", processor->id());
+        break;
+      }
+      case 'c': {
+        ControlValue* cv = _control_values[arg.int_value()];
+        args += sprintf("#CV<%s>", cv->name().c_str());
+        break;
+      }
+      case 'f':
+        args += sprintf("%f", arg.float_value());
+        break;
+      case 's':
+        args += sprintf("\"%s\"", arg.string_value().c_str());
+        break;
+      }
+    }
+
+    out += sprintf("% 3d %s(%s)\n", i, opspec.name, args.c_str());
+    ++i;
+  }
+
+  return out;
 }
 
 Status Spec::append_opcode(OpCode opcode, ...) {

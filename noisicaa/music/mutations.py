@@ -89,6 +89,8 @@ class MutationList(object):
             return model.Color.from_proto(slot.color)
         elif vtype == 'control_value':
             return model.ControlValue.from_proto(slot.control_value)
+        elif vtype == 'node_port_properties':
+            return model.NodePortProperties.from_proto(slot.node_port_properties)
 
         else:
             raise TypeError(vtype)
@@ -312,6 +314,8 @@ class MutationCollector(object):
             slot.color.CopyFrom(value.to_proto())
         elif isinstance(value, model.ControlValue):
             slot.control_value.CopyFrom(value.to_proto())
+        elif isinstance(value, model.NodePortProperties):
+            slot.node_port_properties.CopyFrom(value.to_proto())
 
         else:
             raise TypeError(type(value))

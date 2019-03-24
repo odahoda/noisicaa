@@ -175,6 +175,9 @@ class AudioProcProcess(core.ProcessBase):
         self.__main_endpoint.add_handler(
             'PROFILE_AUDIO_THREAD', self.__handle_profile_audio_thread,
             audioproc_pb2.ProfileAudioThreadRequest, audioproc_pb2.ProfileAudioThreadResponse)
+        self.__main_endpoint.add_handler(
+            'DUMP', self.__handle_dump,
+            empty_message_pb2.EmptyMessage, empty_message_pb2.EmptyMessage)
         await self.server.add_endpoint(self.__main_endpoint)
 
         if self.shm_name is not None:
@@ -341,6 +344,12 @@ class AudioProcProcess(core.ProcessBase):
                 set_plugin_state.node_id,
                 set_plugin_state.state)
 
+        elif mutation_type == 'set_node_port_properties':
+            set_node_port_properties = request.mutation.set_node_port_properties
+            node = graph.find_node(set_node_port_properties.node_id)
+            node.set_port_properties(set_node_port_properties.port_properties)
+            realm.update_spec()
+
         else:
             raise ValueError(request.mutation)
 
@@ -497,6 +506,17 @@ class AudioProcProcess(core.ProcessBase):
                 "Command '%s' failed with return code %d" % (' '.join(argv), proc.returncode))
 
         response.svg = svg
+
+    async def __handle_dump(
+            self,
+            session: Session,
+            request: empty_message_pb2.EmptyMessage,
+            response: empty_message_pb2.EmptyMessage
+    ) -> None:
+        if self.__engine is not None:
+            logger.error("\n%s", self.__engine.dump())
+        else:
+            logger.error("No engine.")
 
 
 class AudioProcSubprocess(core.SubprocessMixin, AudioProcProcess):

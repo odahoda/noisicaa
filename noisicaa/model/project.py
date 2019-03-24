@@ -32,6 +32,7 @@ from . import pos2f
 from . import sizef
 from . import color
 from . import control_value
+from . import node_port_properties
 from . import model_base
 from . import project_pb2
 
@@ -84,7 +85,6 @@ class ControlValueMap(object):
 
         self.__initialized = False
         self.__control_values = {}  # type: Dict[str, control_value.ControlValue]
-        self.__control_value_listeners = []  # type: List[core.Listener]
         self.__control_values_listener = None # type: core.Listener
 
         self.control_value_changed = core.CallbackMap[str, model_base.PropertyValueChange]()
@@ -101,7 +101,8 @@ class ControlValueMap(object):
 
         for port in self.__node.description.ports:
             if (port.direction == node_db.PortDescription.INPUT
-                    and port.type == node_db.PortDescription.KRATE_CONTROL):
+                    and port.type in (node_db.PortDescription.KRATE_CONTROL,
+                                      node_db.PortDescription.ARATE_CONTROL)):
                 self.__control_values[port.name] = control_value.ControlValue(
                     name=port.name, value=port.float_value.default, generation=1)
 
@@ -158,6 +159,8 @@ class BaseNode(ProjectChild):
             color.Color, default=color.Color(0.8, 0.8, 0.8, 1.0))
         control_values = model_base.WrappedProtoListProperty(control_value.ControlValue)
         plugin_state = model_base.ProtoProperty(audioproc.PluginState, allow_none=True)
+        port_properties = model_base.WrappedProtoListProperty(
+            node_port_properties.NodePortProperties)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -170,12 +173,25 @@ class BaseNode(ProjectChild):
             core.Callback[model_base.PropertyListChange[control_value.ControlValue]]()
         self.plugin_state_changed = \
             core.Callback[model_base.PropertyChange[audioproc.PluginState]]()
+        self.port_properties_changed = \
+            core.Callback[model_base.PropertyListChange[node_port_properties.NodePortProperties]]()
 
         self.control_value_map = ControlValueMap(self)
 
     @property
     def control_values(self) -> Sequence[control_value.ControlValue]:
         return self.get_property_value('control_values')
+
+    @property
+    def port_properties(self) -> Sequence[node_port_properties.NodePortProperties]:
+        return self.get_property_value('port_properties')
+
+    def get_port_properties(self, port_name: str) -> node_port_properties.NodePortProperties:
+        for np in self.port_properties:
+            if np.name == port_name:
+                return np
+
+        return node_port_properties.NodePortProperties(port_name)
 
     @property
     def pipeline_node_id(self) -> str:
@@ -188,6 +204,15 @@ class BaseNode(ProjectChild):
     @property
     def description(self) -> node_db.NodeDescription:
         raise NotImplementedError
+
+    @property
+    def connections(self) -> Sequence['NodeConnection']:
+        result = []
+        for conn in self.project.get_property_value('node_connections'):
+            if conn.source_node is self or conn.dest_node is self:
+                result.append(conn)
+
+        return result
 
     def upstream_nodes(self) -> List['BaseNode']:
         node_ids = set()  # type: Set[int]
