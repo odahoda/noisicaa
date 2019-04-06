@@ -29,6 +29,8 @@ from .audioproc_pb2 import (
     SetControlValue,
     SetPluginState,
     SetNodePortProperties,
+    SetNodeDescription,
+    SetNodeParameters,
 )
 from .audioproc_client import (
     AbstractAudioProcClient,
@@ -57,4 +59,5 @@ from .public import (
     BackendSettings,
     HostParameters,
     NodePortProperties,
+    NodeParameters,
 )

@@ -27,6 +27,7 @@ import "noisicaa/core/proto_types.proto";
 import "noisicaa/audioproc/public/control_value.proto";
 import "noisicaa/audioproc/public/node_port_properties.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
+import "noisicaa/node_db/node_description.proto";
 import "noisicaa/model/model_base.proto";
 import "noisicaa/model/project.proto";
 import "noisicaa/music/mutations.proto";
@@ -61,6 +62,15 @@ message UpdateNode {
 
 message DeleteNode {
   required uint64 node_id = 1;
+}
+
+message UpdatePort {
+  required uint64 port_id = 1;
+
+  optional string set_name = 2;
+  optional string set_display_name = 3;
+  optional PortDescription.Type set_type = 4;
+  optional PortDescription.Direction set_direction = 5;
 }
 
 message CreateNodeConnection {
@@ -120,6 +130,8 @@ message Command {
 
   optional CreateNodeConnection create_node_connection = 301000;
   optional DeleteNodeConnection delete_node_connection = 301001;
+
+  optional UpdatePort update_port = 304000;
 
   // Tracks (400xxx)
   optional UpdateTrack update_track = 400000;

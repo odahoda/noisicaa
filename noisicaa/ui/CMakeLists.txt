@@ -33,6 +33,7 @@ add_python_package(
   load_history.py
   misc.py
   mute_button.py
+  object_list_editor.py
   piano.py
   piano_test.py
   pipeline_perf_monitor.py

@@ -59,6 +59,7 @@ def register_classes(pool: model.AbstractPool) -> None:
     pool.register_class(sample_track.SampleRef)
     pool.register_class(sample_track.SampleTrack)
     pool.register_class(instrument.Instrument)
+    pool.register_class(custom_csound.CustomCSoundPort)
     pool.register_class(custom_csound.CustomCSound)
     pool.register_class(midi_source.MidiSource)
 
@@ -81,6 +82,9 @@ def register_commands(registry: commands.CommandRegistry) -> None:
     registry.register(sample_track.UpdateSample)
     registry.register(instrument.UpdateInstrument)
     registry.register(custom_csound.UpdateCustomCSound)
+    registry.register(custom_csound.CreateCustomCSoundPort)
+    registry.register(custom_csound.UpdateCustomCSoundPort)
+    registry.register(custom_csound.DeleteCustomCSoundPort)
     registry.register(midi_source.UpdateMidiSource)
 
 

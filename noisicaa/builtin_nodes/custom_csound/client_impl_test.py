@@ -53,3 +53,25 @@ class CustomCSoundTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
         await self.client.send_command(commands.update(
             node, set_score='blabla'))
         self.assertEqual(node.score, 'blabla')
+
+    async def test_create_port(self):
+        node = await self._add_node()
+
+        await self.client.send_command(commands.create_port(node, name='foo'))
+        self.assertEqual(len(node.ports), 1)
+
+    async def test_update_port(self):
+        node = await self._add_node()
+        await self.client.send_command(commands.create_port(node, name='foo'))
+        port = node.ports[-1]
+
+        await self.client.send_command(commands.update_port(port, set_csound_name='foo'))
+        self.assertEqual(port.csound_name, 'foo')
+
+    async def test_delete_port(self):
+        node = await self._add_node()
+        await self.client.send_command(commands.create_port(node, name='foo'))
+        port = node.ports[-1]
+
+        await self.client.send_command(commands.delete_port(port))
+        self.assertEqual(len(node.ports), 0)

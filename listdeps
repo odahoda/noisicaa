@@ -57,7 +57,7 @@ PIP_DEPS = {
         PKG('numpy'),
         PKG('portalocker'),
         PKG('posix_ipc'),
-        PKG('protobuf'),
+        PKG('protobuf==3.7.1'),
         PKG('psutil'),
         PKG('pyaudio'),
         PKG('quamash'),
@@ -65,7 +65,7 @@ PIP_DEPS = {
         PKG('urwid'),
     ],
     'build': [
-        PKG('./3rdparty/protoc/', 'ubuntu', '<17.10'),
+        PKG('./3rdparty/protoc/'),
         PKG('cssutils'),
         PKG('cython'),
         PKG('pkgconfig'),
@@ -138,15 +138,13 @@ SYS_DEPS = {
         PKG('libcsound64-dev', 'ubuntu', '>=17.10'),
 
         # protocol buffers
-        PKG('autoconf', 'ubuntu', '<17.10'),
-        PKG('automake', 'ubuntu', '<17.10'),
-        PKG('libtool', 'ubuntu', '<17.10'),
-        PKG('curl', 'ubuntu', '<17.10'),
-        PKG('make', 'ubuntu', '<17.10'),
-        PKG('g++', 'ubuntu', '<17.10'),
-        PKG('unzip', 'ubuntu', '<17.10'),
-        PKG('libprotobuf-dev', 'ubuntu', '>=17.10'),
-        PKG('protobuf-compiler', 'ubuntu', '>=17.10'),
+        PKG('autoconf'),
+        PKG('automake'),
+        PKG('libtool'),
+        PKG('curl'),
+        PKG('make'),
+        PKG('g++'),
+        PKG('unzip'),
 
         # libswresample
         PKG('libswresample-dev'),

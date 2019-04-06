@@ -27,33 +27,12 @@
 #include "noisicaa/core/slots.inl.h"
 #include "noisicaa/host_system/host_system.h"
 #include "noisicaa/audioproc/public/engine_notification.pb.h"
+#include "noisicaa/audioproc/public/node_parameters.pb.h"
 #include "noisicaa/audioproc/engine/message_queue.h"
 #include "noisicaa/audioproc/engine/misc.h"
 #include "noisicaa/builtin_nodes/processor_message_registry.pb.h"
-#include "noisicaa/builtin_nodes/custom_csound/processor_messages.pb.h"
+#include "noisicaa/builtin_nodes/custom_csound/processor.pb.h"
 #include "noisicaa/builtin_nodes/custom_csound/processor.h"
-
-namespace {
-
-using namespace std;
-
-string port_name_to_csound_label(const string &port_name) {
-  string result;
-  bool was_alpha = false;
-  for (const auto& c : port_name) {
-    bool is_alpha = isalpha(c);
-    if (is_alpha && !was_alpha) {
-      result += toupper(c);
-    } else if (is_alpha) {
-      result += c;
-    }
-    was_alpha = is_alpha;
-  }
-
-  return result;
-}
-
-}  // namespace
 
 namespace noisicaa {
 
@@ -76,72 +55,32 @@ void ProcessorCustomCSound::cleanup_internal() {
   ProcessorCSoundBase::cleanup_internal();
 }
 
-Status ProcessorCustomCSound::handle_message_internal(pb::ProcessorMessage* msg) {
-  if (msg->HasExtension(pb::custom_csound_set_script)) {
-    unique_ptr<pb::ProcessorMessage> msg_ptr(msg);
+Status ProcessorCustomCSound::set_parameters_internal(const pb::NodeParameters& parameters) {
+  if (parameters.HasExtension(pb::custom_csound_parameters)) {
+    const auto& p = parameters.GetExtension(pb::custom_csound_parameters);
 
-    const auto& m = msg->GetExtension(pb::custom_csound_set_script);
-
-    string orchestra_preamble = "0dbfs = 1.0\nksmps = 32\nnchnls = 2\n";
-
-    for (int i = 0 ; i < _desc.ports_size() ; ++i) {
-      const auto& port = _desc.ports(i);
-
-      if (port.type() == pb::PortDescription::AUDIO
-          && port.direction() == pb::PortDescription::INPUT) {
-        orchestra_preamble += sprintf(
-            "ga%s chnexport \"%s\", 1\n",
-            port_name_to_csound_label(port.name()).c_str(),
-            port.name().c_str());
-      } else if (port.type() == pb::PortDescription::AUDIO
-                 && port.direction() == pb::PortDescription::OUTPUT) {
-        orchestra_preamble += sprintf(
-            "ga%s chnexport \"%s\", 2\n",
-            port_name_to_csound_label(port.name()).c_str(),
-            port.name().c_str());
-      } else if (port.type() == pb::PortDescription::ARATE_CONTROL
-                 && port.direction() == pb::PortDescription::INPUT) {
-        orchestra_preamble += sprintf(
-            "ga%s chnexport \"%s\", 1\n",
-            port_name_to_csound_label(port.name()).c_str(),
-            port.name().c_str());
-      } else if (port.type() == pb::PortDescription::ARATE_CONTROL
-                 && port.direction() == pb::PortDescription::OUTPUT) {
-        orchestra_preamble += sprintf(
-            "ga%s chnexport \"%s\", 2\n",
-            port_name_to_csound_label(port.name()).c_str(),
-            port.name().c_str());
-      } else if (port.type() == pb::PortDescription::KRATE_CONTROL
-                 && port.direction() == pb::PortDescription::INPUT) {
-        orchestra_preamble += sprintf(
-            "gk%s chnexport \"%s\", 1\n",
-            port_name_to_csound_label(port.name()).c_str(),
-            port.name().c_str());
-      } else if (port.type() == pb::PortDescription::KRATE_CONTROL
-                 && port.direction() == pb::PortDescription::OUTPUT) {
-        orchestra_preamble += sprintf(
-            "gk%s chnexport \"%s\", 2\n",
-            port_name_to_csound_label(port.name()).c_str(),
-            port.name().c_str());
-      } else if (port.type() == pb::PortDescription::EVENTS
-                 && port.direction() == pb::PortDescription::INPUT) {
-      } else {
-        return ERROR_STATUS("Port %s not supported", port.name().c_str());
-      }
-    }
-
-    string orchestra = orchestra_preamble + m.orchestra();
-    _logger->info("Orchestra:\n%s", orchestra.c_str());
-    _logger->info("Score:\n%s", m.score().c_str());
-    Status status = set_code(orchestra, m.score());
+    Status status = set_code(p.orchestra(), p.score());
     if (status.is_error()) {
       _logger->warning("Failed to update script: %s", status.message());
     }
-
-    return Status::Ok();
   }
 
-  return Processor::handle_message_internal(msg);
+  return ProcessorCSoundBase::set_parameters_internal(parameters);
+}
+
+Status ProcessorCustomCSound::set_description_internal(const pb::NodeDescription& desc) {
+  RETURN_IF_ERROR(ProcessorCSoundBase::set_description_internal(desc));
+
+  if (_params.HasExtension(pb::custom_csound_parameters)) {
+    const auto& p = _params.GetExtension(pb::custom_csound_parameters);
+
+    Status status = set_code(p.orchestra(), p.score());
+    if (status.is_error()) {
+      _logger->warning("Failed to update script: %s", status.message());
+    }
+  }
+
+  return Status::Ok();
 }
 
 Status ProcessorCustomCSound::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {

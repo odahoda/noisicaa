@@ -38,3 +38,38 @@ def update(
     if set_score is not None:
         pb.set_score = set_score
     return cmd
+
+
+def create_port(
+        node: client_impl.CustomCSound,
+        name: str,
+        index: int = None,
+) -> music.Command:
+    cmd = music.Command(command='create_custom_csound_port')
+    pb = cmd.Extensions[commands_registry_pb2.create_custom_csound_port]
+    pb.node_id = node.id
+    pb.name = name
+    if index is not None:
+        pb.index = index
+    return cmd
+
+
+def update_port(
+        port: client_impl.CustomCSoundPort, *,
+        set_csound_name: str = None,
+) -> music.Command:
+    cmd = music.Command(command='update_custom_csound_port')
+    pb = cmd.Extensions[commands_registry_pb2.update_custom_csound_port]
+    pb.port_id = port.id
+    if set_csound_name is not None:
+        pb.set_csound_name = set_csound_name
+    return cmd
+
+
+def delete_port(
+        port: client_impl.CustomCSoundPort,
+) -> music.Command:
+    cmd = music.Command(command='delete_custom_csound_port')
+    pb = cmd.Extensions[commands_registry_pb2.delete_custom_csound_port]
+    pb.port_id = port.id
+    return cmd

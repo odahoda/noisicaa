@@ -27,21 +27,17 @@ add_python_package(
   server_impl.py
   server_impl_test.py
   node_ui.py
+  node_ui_test.py
   processor_test.py
-  processor_messages.py
 )
 
 py_proto(model.proto)
 py_proto(commands.proto)
-py_proto(processor_messages.proto)
-cpp_proto(processor_messages.proto)
+py_proto(processor.proto)
+cpp_proto(processor.proto)
 
-add_library(noisicaa-builtin_nodes-custom_csound-processor_messages SHARED processor_messages.pb.cc)
-target_link_libraries(noisicaa-builtin_nodes-custom_csound-processor_messages PRIVATE noisicaa-audioproc-public)
-
-add_library(noisicaa-builtin_nodes-custom_csound-processor SHARED processor.cpp)
+add_library(noisicaa-builtin_nodes-custom_csound-processor SHARED processor.cpp processor.pb.cc)
 target_compile_options(noisicaa-builtin_nodes-custom_csound-processor PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
 target_link_libraries(noisicaa-builtin_nodes-custom_csound-processor PRIVATE noisicaa-audioproc-public)
 target_link_libraries(noisicaa-builtin_nodes-custom_csound-processor PRIVATE noisicaa-host_system)
 target_link_libraries(noisicaa-builtin_nodes-custom_csound-processor PRIVATE noisicaa-builtin_nodes-processor_message_registry)
-target_link_libraries(noisicaa-builtin_nodes-custom_csound-processor PRIVATE noisicaa-builtin_nodes-custom_csound-processor_messages)

@@ -199,6 +199,9 @@ class PluginHost(plugin_host.PyPluginHost):
                                 realm=self.__realm, node_id=self.__node_id, state=self.__state)),
                         loop=self.__event_loop)
 
+        except asyncio.CancelledError:
+            pass
+
         except:  # pylint: disable=bare-except
             logger.error("Exception in state fetcher:\n%s", traceback.format_exc())
 

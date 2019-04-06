@@ -337,6 +337,10 @@ class Port(QtWidgets.QGraphicsPathItem):
         else:
             return self.scenePos() + QtCore.QPointF(10, 0)
 
+    def descriptionChanged(self, port_desc: node_db.PortDescription) -> None:
+        self.__desc = port_desc
+        self.__update()
+
     def __update(self) -> None:
         color = port_colors[self.__desc.type]
 
@@ -414,17 +418,9 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             self.__icon = None
 
         self.__ports = {}  # type: Dict[str, Port]
-        self.__in_ports = []  # type: List[node_db.PortDescription]
-        self.__out_ports = []  # type: List[node_db.PortDescription]
-
         for port_desc in self.__node.description.ports:
             port = Port(port_desc, self)
             self.__ports[port_desc.name] = port
-
-            if port_desc.direction == node_db.PortDescription.INPUT:
-                self.__in_ports.append(port_desc)
-            else:
-                self.__out_ports.append(port_desc)
 
         self.__title = Title(self.__node.name, self)
 
@@ -479,6 +475,8 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             self.__node.graph_color_changed.add(lambda *_: self.__updateState()))
         self.__listeners.append(
             self.__node.port_properties_changed.add(lambda *_: self.__layout()))
+        self.__listeners.append(
+            self.__node.description_changed.add(lambda *_: self.__descriptionChanged()))
 
         self.__state = None  # type: audioproc.NodeStateChange.State
 
@@ -490,6 +488,20 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
     def __str__(self) -> str:
         return '<node name=%r> ' % self.__node.name
+
+    @property
+    def __in_ports(self) -> List[node_db.PortDescription]:
+        return [
+            port_desc for port_desc in self.__node.description.ports
+            if port_desc.direction == node_db.PortDescription.INPUT
+        ]
+
+    @property
+    def __out_ports(self) -> List[node_db.PortDescription]:
+        return [
+            port_desc for port_desc in self.__node.description.ports
+            if port_desc.direction == node_db.PortDescription.OUTPUT
+        ]
 
     def __nameChanged(self, *args: Any) -> None:
         self.__title.setText(self.__node.name)
@@ -623,6 +635,27 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
     def boundingRect(self) -> QtCore.QRectF:
         return self.__box.boundingRect()
+
+    def __descriptionChanged(self) -> None:
+        ports = {}
+        for port_desc in self.__node.description.ports:
+            if port_desc.name not in self.__ports:
+                port = Port(port_desc, self)
+                port.setup()
+            else:
+                port = self.__ports[port_desc.name]
+                port.descriptionChanged(port_desc)
+
+            ports[port_desc.name] = port
+
+        for port_name, port in self.__ports.items():
+            if port_name not in ports:
+                port.cleanup()
+                port.setParentItem(None)
+                self.scene().removeItem(port)
+
+        self.__ports = ports
+        self.__layout()
 
     def __stateChanged(self, state_change: audioproc.NodeStateChange) -> None:
         if state_change.HasField('state'):

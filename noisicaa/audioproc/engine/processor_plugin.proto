@@ -24,9 +24,13 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
-message ProcessorParameters {
-  // ProcessorPlugin
+import "noisicaa/audioproc/public/node_parameters.proto";
 
+message ProcessorPluginParameters {
   // Must only be set while the audio thread is not running.
   optional string plugin_pipe_path = 1;
+}
+
+extend NodeParameters {
+  optional ProcessorPluginParameters processor_plugin_parameters = 100000;
 }

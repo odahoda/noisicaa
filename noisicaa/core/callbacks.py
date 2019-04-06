@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 K = TypeVar('K')
 T = TypeVar('T')
 CallbackFunc = Callable[[T], None]
-RegisterCallback = Callable[[str, int, bool], None]
 
 
 class Listener(Generic[T]):

@@ -25,6 +25,7 @@ syntax = "proto2";
 package noisicaa.pb;
 
 import "noisicaa/core/proto_types.proto";
+import "noisicaa/node_db/node_description.proto";
 import "noisicaa/audioproc/public/control_value.proto";
 import "noisicaa/audioproc/public/node_port_properties.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
@@ -56,6 +57,13 @@ message BaseNode {
   repeated ControlValue control_values = 3;
   optional PluginState plugin_state = 4;
   repeated NodePortProperties port_properties = 7;
+}
+
+message Port {
+  optional string name = 1;
+  optional string display_name = 2;
+  optional PortDescription.Type type = 3;
+  optional PortDescription.Direction direction = 4;
 }
 
 message Node {
@@ -101,10 +109,10 @@ extend ObjectBase {
 
   // Pipeline graph (3xxxxx)
   optional NodeConnection node_connection = 300000;
-
   optional BaseNode base_node = 301000;
   optional Node node = 302000;
   optional SystemOutNode system_out_node = 303000;
+  optional Port port = 304000;
 
   // Tracks (400xxx)
   optional Track track = 400000;

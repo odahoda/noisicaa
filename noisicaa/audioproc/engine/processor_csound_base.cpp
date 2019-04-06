@@ -62,7 +62,13 @@ Status ProcessorCSoundBase::set_code(const string& orchestra, const string& scor
 
   vector<CSoundUtil::PortSpec> ports;
   for (const auto& port : _desc.ports()) {
-    ports.emplace_back(CSoundUtil::PortSpec {port.name(), port.type(), port.direction()});
+    ports.emplace_back(
+        CSoundUtil::PortSpec {
+            port.name(),
+            port.type(),
+            port.direction(),
+            port.csound_name()
+        });
   }
 
   RETURN_IF_ERROR(instance->setup(orchestra, score, ports));

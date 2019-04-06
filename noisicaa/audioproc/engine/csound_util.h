@@ -55,6 +55,7 @@ public:
     string name;
     pb::PortDescription::Type type;
     pb::PortDescription::Direction direction;
+    string csound_name;
   };
 
   Status setup(const string& orchestra, const string& score, const vector<PortSpec>& ports);

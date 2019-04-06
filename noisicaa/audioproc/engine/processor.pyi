@@ -23,8 +23,8 @@ import enum
 from noisicaa import node_db
 from noisicaa import audioproc
 from noisicaa import host_system as host_system_lib
+from noisicaa.audioproc.public import node_parameters_pb2
 from . import block_context
-from . import processor_pb2
 
 
 class State(enum.Enum):
@@ -50,4 +50,5 @@ class PyProcessor(object):
     def process_block(
             self, ctxt: block_context.PyBlockContext, time_mapper: audioproc.TimeMapper) -> None: ...
     def handle_message(self, msg: audioproc.ProcessorMessage) -> None: ...
-    def set_parameters(self, parameters: processor_pb2.ProcessorParameters) -> None: ...
+    def set_parameters(self, parameters: node_parameters_pb2.NodeParameters) -> None: ...
+    def set_description(self, desc: node_db.NodeDescription) -> None: ...

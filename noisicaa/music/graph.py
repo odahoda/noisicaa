@@ -156,6 +156,38 @@ class UpdateNode(commands.Command):
             node.set_port_properties(pb.set_port_properties)
 
 
+class UpdatePort(commands.Command):
+    proto_type = 'update_port'
+
+    def validate(self) -> None:
+        pb = down_cast(commands_pb2.UpdatePort, self.pb)
+
+        if pb.port_id not in self.pool:
+            raise ValueError("Unknown port %016x" % pb.port_id)
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdatePort, self.pb)
+        port = down_cast(pmodel.Port, self.pool[pb.port_id])
+
+        remove_connections = (
+            pb.HasField('set_name')
+            or pb.HasField('set_type')
+            or pb.HasField('set_direction'))
+        if remove_connections:
+            port.remove_connections()
+
+        if pb.HasField('set_name'):
+            port.name = pb.set_name
+
+        if pb.HasField('set_display_name'):
+            port.display_name = pb.set_display_name
+
+        if pb.HasField('set_type'):
+            port.type = pb.set_type
+
+        if pb.HasField('set_direction'):
+            port.direction = pb.set_direction
+
 # class NodeToPreset(commands.Command):
 #     proto_type = 'node_to_preset'
 
@@ -197,6 +229,10 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
         self.graph_pos = graph_pos
         self.graph_size = graph_size
         self.graph_color = graph_color
+
+    def setup(self) -> None:
+        super().setup()
+        self.description_changed.add(self.__description_changed)
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.Mutation(
@@ -282,10 +318,41 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
                         node_id=self.pipeline_node_id,
                         port_properties=new_props)))
 
+    def __description_changed(self, change: model.PropertyChange) -> None:
+        if self.attached_to_project:
+            self.project.handle_pipeline_mutation(audioproc.Mutation(
+                set_node_description=audioproc.SetNodeDescription(
+                    node_id=self.pipeline_node_id,
+                    description=self.description)))
+
     def create_node_connector(
             self, message_cb: Callable[[audioproc.ProcessorMessage], None]
     ) -> node_connector.NodeConnector:
         return None
+
+
+class Port(pmodel.Port):  # pylint: disable=abstract-method
+    def create(
+            self, *,
+            name: Optional[str] = None,
+            display_name: Optional[str] = None,
+            type: Optional[int] = None,  # pylint: disable=redefined-builtin
+            direction: Optional[int] = None,
+            **kwargs: Any) -> None:
+        super().create(**kwargs)
+
+        self.name = name
+        self.display_name = display_name
+        self.type = cast(node_db.PortDescription.Type, type)
+        self.direction = cast(node_db.PortDescription.Direction, direction)
+
+    def remove_connections(self) -> None:
+        node = down_cast(BaseNode, self.parent)
+
+        for conn in node.connections:
+            if (conn.source_node is node and conn.source_port == self.name
+                    or conn.dest_node is node and conn.dest_port == self.name):
+                self.project.remove_node_connection(conn)
 
 
 class Node(pmodel.Node, BaseNode):

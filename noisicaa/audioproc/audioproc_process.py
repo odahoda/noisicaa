@@ -270,6 +270,8 @@ class AudioProcProcess(core.ProcessBase):
             request: audioproc_pb2.PipelineMutationRequest,
             response: empty_message_pb2.EmptyMessage
     ) -> None:
+        logging.info("Pipeline mutation:\n%s", request)
+
         realm = self.__engine.get_realm(request.realm)
         graph = realm.graph
 
@@ -349,6 +351,17 @@ class AudioProcProcess(core.ProcessBase):
             node = graph.find_node(set_node_port_properties.node_id)
             node.set_port_properties(set_node_port_properties.port_properties)
             realm.update_spec()
+
+        elif mutation_type == 'set_node_description':
+            set_node_description = request.mutation.set_node_description
+            node = graph.find_node(set_node_description.node_id)
+            if await node.set_description(set_node_description.description):
+                realm.update_spec()
+
+        elif mutation_type == 'set_node_parameters':
+            set_node_parameters = request.mutation.set_node_parameters
+            node = graph.find_node(set_node_parameters.node_id)
+            node.set_parameters(set_node_parameters.parameters)
 
         else:
             raise ValueError(request.mutation)

@@ -26,7 +26,6 @@ from typing import Any, Optional, List
 from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
-from noisicaa import core
 from noisicaa import model
 from noisicaa import music
 from noisicaa import node_db
@@ -124,25 +123,38 @@ class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__node = node
         self.__node.control_value_map.init()
 
-        self.__listeners = []  # type: List[core.Listener]
         self.__control_value_widgets = []  # type: List[ControlValueWidget]
+        self.__control_value_form = None  # type: QtWidgets.QWidget
 
-        layout = QtWidgets.QVBoxLayout()
-        layout.setSpacing(0)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.__createPropertiesForm(self))
-        self.setLayout(layout)
+        self.__main_layout = QtWidgets.QVBoxLayout()
+        self.__main_layout.setSpacing(0)
+        self.__main_layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(self.__main_layout)
+
+        self.__setupControlValueForm()
+        self.__description_listener = self.__node.description_changed.add(
+            lambda *_: self.__setupControlValueForm())
 
     def cleanup(self) -> None:
         for listener in self.__listeners:
             listener.remove()
         self.__listeners.clear()
 
+        self.__cleanupControlValueForm()
+
+    def __cleanupControlValueForm(self) -> None:
+        if self.__control_value_form is not None:
+            self.__main_layout.removeWidget(self.__control_value_form)
+            self.__control_value_form.setParent(None)
+            self.__control_value_form = None
+
         for widget in self.__control_value_widgets:
             widget.cleanup()
         self.__control_value_widgets.clear()
 
-    def __createPropertiesForm(self, parent: QtWidgets.QWidget) -> QtWidgets.QWidget:
+    def __setupControlValueForm(self) -> None:
+        self.__cleanupControlValueForm()
+
         form = QtWidgets.QWidget()
         form.setAutoFillBackground(False)
         form.setAttribute(Qt.WA_NoSystemBackground, True)
@@ -165,11 +177,13 @@ class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
                 self.__control_value_widgets.append(widget)
                 layout.addRow(widget.label(), widget.widget())
 
-        scroll = QtWidgets.QScrollArea(parent)
+        scroll = QtWidgets.QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QtWidgets.QFrame.NoFrame)
         scroll.setWidget(form)
-        return scroll
+
+        self.__control_value_form = scroll
+        self.__main_layout.addWidget(self.__control_value_form)
 
     # def onPresetEditMetadata(self) -> None:
     #     pass

@@ -20,12 +20,13 @@
 #
 # @end:license
 
-from typing import cast, Optional, Iterator, MutableSequence, Callable
+from typing import cast, Optional, Iterator, MutableSequence, Sequence, Callable
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import model
+from noisicaa import node_db
 
 # All of these classes are abstract.
 # pylint: disable=abstract-method
@@ -98,6 +99,10 @@ class BaseNode(ProjectChild, model.BaseNode, ObjectBase):
     def port_properties(self) -> MutableSequence[model.NodePortProperties]:
         return self.get_property_value('port_properties')
 
+    @property
+    def connections(self) -> Sequence['NodeConnection']:
+        return cast(Sequence['NodeConnection'], super().connections)
+
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         raise NotImplementedError
 
@@ -120,6 +125,42 @@ class BaseNode(ProjectChild, model.BaseNode, ObjectBase):
             self, message_cb: Callable[[audioproc.ProcessorMessage], None]) -> NodeConnector:
         raise NotImplementedError
 
+
+class Port(ProjectChild, model.Port, ObjectBase):
+    @property
+    def name(self) -> str:
+        return self.get_property_value('name')
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self.set_property_value('name', value)
+
+    @property
+    def display_name(self) -> str:
+        return self.get_property_value('display_name')
+
+    @display_name.setter
+    def display_name(self, value: str) -> None:
+        self.set_property_value('display_name', value)
+
+    @property
+    def type(self) -> node_db.PortDescription.Type:
+        return self.get_property_value('type')
+
+    @type.setter
+    def type(self, value: node_db.PortDescription.Type) -> None:
+        self.set_property_value('type', value)
+
+    @property
+    def direction(self) -> node_db.PortDescription.Direction:
+        return self.get_property_value('direction')
+
+    @direction.setter
+    def direction(self, value: node_db.PortDescription.Direction) -> None:
+        self.set_property_value('direction', value)
+
+    def remove_connections(self) -> None:
+        raise NotImplementedError
 
 
 class Node(BaseNode, model.Node, ObjectBase):

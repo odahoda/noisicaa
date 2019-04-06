@@ -33,7 +33,7 @@ from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import node_db
 from noisicaa import music
-from . import graph
+from .graph import view as graph_view
 from . import ui_base
 from . import render_dialog
 from . import selection_set
@@ -75,7 +75,7 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
             project_view=self, player_state=self.__player_state,
             parent=self, context=self.context)
 
-        self.__graph = graph.GraphView(parent=self, context=self.context)
+        self.__graph = graph_view.GraphView(parent=self, context=self.context)
 
         self.__track_list.currentTrackChanged.connect(self.__graph.setCurrentTrack)
         self.__graph.currentTrackChanged.connect(self.__track_list.setCurrentTrack)

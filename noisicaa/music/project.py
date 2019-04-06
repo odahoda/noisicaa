@@ -93,6 +93,7 @@ class BaseProject(pmodel.Project):
         self.command_registry.register(graph.CreateNodeConnection)
         self.command_registry.register(graph.DeleteNodeConnection)
         self.command_registry.register(graph.UpdateNode)
+        self.command_registry.register(graph.UpdatePort)
         self.command_registry.register(base_track.UpdateTrack)
         self.command_registry.register(base_track.CreateMeasure)
         self.command_registry.register(base_track.UpdateMeasure)

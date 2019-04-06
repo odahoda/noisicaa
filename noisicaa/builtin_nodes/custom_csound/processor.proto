@@ -24,7 +24,13 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
-message CustomCSoundSetScript {
-  required string orchestra = 1;
-  required string score = 2;
+import "noisicaa/audioproc/public/node_parameters.proto";
+
+message CustomCSoundParameters {
+  optional string orchestra = 1;
+  optional string score = 2;
+}
+
+extend NodeParameters {
+  optional CustomCSoundParameters custom_csound_parameters = 407000;
 }

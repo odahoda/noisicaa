@@ -31,10 +31,11 @@ from noisicaa import host_system as host_system_lib
 from noisicaa.core import ipc
 from noisicaa.core import session_data_pb2
 from noisicaa.audioproc.public import node_port_properties_pb2
+from noisicaa.audioproc.public import node_parameters_pb2
 from noisicaa.audioproc.public import processor_message_pb2
 from . import control_value
 from . import processor as processor_lib
-from . import processor_pb2
+from . import processor_plugin_pb2
 from . import plugin_host_pb2
 from . import buffers
 from . import spec as spec_lib
@@ -202,10 +203,6 @@ class KRateControlOutputPort(KRateControlPortMixin, OutputPortMixin, Port):
 
 
 class EventInputPort(EventPortMixin, InputPortMixin, Port):
-    def __init__(self, *, csound_instr: str = '1', **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.csound_instr = csound_instr
-
     def check_port(self, port: Port) -> None:
         super().check_port(port)
         if not isinstance(port, EventOutputPort):
@@ -216,9 +213,27 @@ class EventOutputPort(EventPortMixin, OutputPortMixin, Port):
     pass
 
 
-class Node(object):
-    init_ports_from_description = True
+port_cls_map = {
+    (node_db.PortDescription.AUDIO,
+     node_db.PortDescription.INPUT): AudioInputPort,
+    (node_db.PortDescription.AUDIO,
+     node_db.PortDescription.OUTPUT): AudioOutputPort,
+    (node_db.PortDescription.ARATE_CONTROL,
+     node_db.PortDescription.INPUT): ARateControlInputPort,
+    (node_db.PortDescription.ARATE_CONTROL,
+     node_db.PortDescription.OUTPUT): ARateControlOutputPort,
+    (node_db.PortDescription.KRATE_CONTROL,
+     node_db.PortDescription.INPUT): KRateControlInputPort,
+    (node_db.PortDescription.KRATE_CONTROL,
+     node_db.PortDescription.OUTPUT): KRateControlOutputPort,
+    (node_db.PortDescription.EVENTS,
+     node_db.PortDescription.INPUT): EventInputPort,
+    (node_db.PortDescription.EVENTS,
+     node_db.PortDescription.OUTPUT): EventOutputPort,
+}
 
+
+class Node(object):
     def __init__(
             self, *,
             host_system: host_system_lib.HostSystem, description: node_db.NodeDescription,
@@ -228,7 +243,8 @@ class Node(object):
         assert isinstance(description, node_db.NodeDescription), description
 
         self._host_system = host_system
-        self.description = description
+        self.description = node_db.NodeDescription()
+        self.description.CopyFrom(description)
         self.name = name or type(self).__name__
         self.id = id
         self.initial_state = initial_state
@@ -241,9 +257,10 @@ class Node(object):
 
         self.__control_values = {}  # type: Dict[str, control_value.PyControlValue]
         self.__port_properties = {}  # type: Dict[str, node_port_properties_pb2.NodePortProperties]
+        self.__parameters = node_parameters_pb2.NodeParameters()
 
-        if self.init_ports_from_description:
-            self.init_ports()
+        for port_desc in self.description.ports:
+            self.__add_port(self.__create_port(port_desc))
 
     @classmethod
     def create(cls, *, description: node_db.NodeDescription, **kwargs: Any) -> 'Node':
@@ -276,46 +293,28 @@ class Node(object):
     def is_owned_by(self, realm: realm_lib.PyRealm) -> bool:
         return self.__realm is realm
 
-    def init_ports(self) -> None:
-        port_cls_map = {
-            (node_db.PortDescription.AUDIO,
-             node_db.PortDescription.INPUT): AudioInputPort,
-            (node_db.PortDescription.AUDIO,
-             node_db.PortDescription.OUTPUT): AudioOutputPort,
-            (node_db.PortDescription.ARATE_CONTROL,
-             node_db.PortDescription.INPUT): ARateControlInputPort,
-            (node_db.PortDescription.ARATE_CONTROL,
-             node_db.PortDescription.OUTPUT): ARateControlOutputPort,
-            (node_db.PortDescription.KRATE_CONTROL,
-             node_db.PortDescription.INPUT): KRateControlInputPort,
-            (node_db.PortDescription.KRATE_CONTROL,
-             node_db.PortDescription.OUTPUT): KRateControlOutputPort,
-            (node_db.PortDescription.EVENTS,
-             node_db.PortDescription.INPUT): EventInputPort,
-            (node_db.PortDescription.EVENTS,
-             node_db.PortDescription.OUTPUT): EventOutputPort,
-        }
+    def __create_port(self, port_desc: node_db.PortDescription) -> Port:
+        port_cls = port_cls_map[
+            (port_desc.type, port_desc.direction)]
+        kwargs = {}
 
-        for port_desc in self.description.ports:
-            port_cls = port_cls_map[
-                (port_desc.type, port_desc.direction)]
-            kwargs = {}
+        if port_desc.HasField('bypass_port'):
+            kwargs['bypass_port'] = port_desc.bypass_port
+        if port_desc.HasField('drywet_port'):
+            kwargs['drywet_port'] = port_desc.drywet_port
 
-            if port_desc.HasField('bypass_port'):
-                kwargs['bypass_port'] = port_desc.bypass_port
-            if port_desc.HasField('drywet_port'):
-                kwargs['drywet_port'] = port_desc.drywet_port
-            if port_desc.HasField('csound_instr'):
-                kwargs['csound_instr'] = port_desc.csound_instr
+        port = port_cls(description=port_desc, **kwargs)
+        port.owner = self
 
-            port = port_cls(description=port_desc, **kwargs)
-            port.owner = self
+        return port
 
-            self.ports.append(port)
-            if port_desc.direction == node_db.PortDescription.INPUT:
-                self.inputs[port.name] = port
-            else:
-                self.outputs[port.name] = port
+    def __add_port(self, port: Port) -> None:
+        self.ports.append(port)
+        if isinstance(port, InputPortMixin):
+            self.inputs[port.name] = port
+        else:
+            assert isinstance(port, OutputPortMixin)
+            self.outputs[port.name] = port
 
     @property
     def parent_nodes(self) -> List['Node']:
@@ -334,11 +333,12 @@ class Node(object):
 
         for port in self.ports:
             if isinstance(port, (KRateControlInputPort, ARateControlInputPort)):
-                logger.info("Float control value '%s'", port.buf_name)
-                cv = control_value.PyFloatControlValue(
-                    port.buf_name, port.description.float_value.default, 1)
-                self.__control_values[port.buf_name] = cv
-                self.realm.add_active_control_value(cv)
+                if port.buf_name not in self.__control_values:
+                    logger.info("New float control value '%s'", port.buf_name)
+                    cv = control_value.PyFloatControlValue(
+                        port.buf_name, port.description.float_value.default, 1)
+                    self.__control_values[port.buf_name] = cv
+                    self.realm.add_active_control_value(cv)
 
     async def cleanup(self, deref: bool = False) -> None:
         """Clean up the node.
@@ -359,6 +359,67 @@ class Node(object):
     def set_port_properties(
             self, port_properties: node_port_properties_pb2.NodePortProperties) -> None:
         self.__port_properties[port_properties.name] = port_properties
+
+    async def set_description(self, description: node_db.NodeDescription) -> bool:
+        logger.info("%s: set description:\n%s", self.id, description)
+
+        old = {port_desc.name: port_desc for port_desc in self.description.ports}
+        new = {port_desc.name: port_desc for port_desc in description.ports}
+
+        added = {
+            name for name, port_desc in new.items()
+            if name not in old
+        }
+        removed = {
+            name for name, port_desc in old.items()
+            if name not in new
+        }
+        changed = {
+            name for name, port_desc in new.items()
+            if (name in old
+                and (port_desc.type != old[name].type
+                     or port_desc.direction != old[name].direction))
+        }
+
+        if not added and not removed and not changed:
+            self.description.CopyFrom(description)
+            return False
+
+        await self.cleanup()
+
+        logger.info(
+            "%s: Ports changed: added=[%s] changed=[%s] removed=[%s]",
+            self.id,
+            ", ".join(sorted(added)),
+            ", ".join(sorted(changed)),
+            ", ".join(sorted(removed)))
+
+        existing_ports = {port.name: port for port in self.ports}
+        self.ports.clear()
+        self.inputs.clear()
+        self.outputs.clear()
+        for port_desc in description.ports:
+            if port_desc.name in added or port_desc.name in changed:
+                port = self.__create_port(port_desc)
+            else:
+                port = existing_ports[port_desc.name]
+            self.__add_port(port)
+
+        self.description.CopyFrom(description)
+
+        await self.setup()
+
+        return True
+
+    @property
+    def parameters(self) -> node_parameters_pb2.NodeParameters:
+        params = node_parameters_pb2.NodeParameters()
+        params.CopyFrom(self.__parameters)
+        return params
+
+    def set_parameters(self, parameters: node_parameters_pb2.NodeParameters) -> None:
+        logger.info("%s: set parameters:\n%s", self.id, parameters)
+        self.__parameters.MergeFrom(parameters)
 
     @property
     def control_values(self) -> List[control_value.PyControlValue]:
@@ -409,6 +470,7 @@ class ProcessorNode(Node):
 
         self.__processor = processor_lib.PyProcessor(
             self.realm.name, self.id, self._host_system, self.description)
+        self.__processor.set_parameters(self.parameters)
         self.__processor.setup()
         self.realm.add_active_processor(self.__processor)
 
@@ -421,6 +483,11 @@ class ProcessorNode(Node):
 
         await super().cleanup(deref)
 
+    def set_parameters(self, parameters: node_parameters_pb2.NodeParameters) -> None:
+        super().set_parameters(parameters)
+        if self.__processor is not None:
+            self.__processor.set_parameters(parameters)
+
     def set_session_value(self, key: str, value: session_data_pb2.SessionValue) -> None:
         if key == 'muted':
             assert value.WhichOneof('type') == 'bool_value', value
@@ -429,6 +496,12 @@ class ProcessorNode(Node):
                 mute_node=processor_message_pb2.ProcessorMessage.MuteNode(muted=value.bool_value)))
 
         super().set_session_value(key, value)
+
+    async def set_description(self, description: node_db.NodeDescription) -> bool:
+        if not await super().set_description(description):
+            self.__processor.set_description(description)
+            return False
+        return True
 
     def add_to_spec_pre(self, spec: spec_lib.PySpec) -> None:
         super().add_to_spec_pre(spec)
@@ -449,6 +522,13 @@ class PluginNode(ProcessorNode):
         self.__plugin_pipe_path = None  # type: str
 
     async def setup(self) -> None:
+        # Make sure the processor is started without a plugin_pipe_path (i.e. not getting
+        # initialized with an old path from the previous incarnation.
+        params = node_parameters_pb2.NodeParameters()
+        plugin_params = params.Extensions[processor_plugin_pb2.processor_plugin_parameters]
+        plugin_params.plugin_pipe_path = ''
+        self.set_parameters(params)
+
         await super().setup()
 
         self.__plugin_host = await self.realm.get_plugin_host()
@@ -468,9 +548,10 @@ class PluginNode(ProcessorNode):
             'CREATE_PLUGIN', create_plugin_request, create_plugin_response)
         self.__plugin_pipe_path = create_plugin_response.pipe_path
 
-        self.processor.set_parameters(
-            processor_pb2.ProcessorParameters(
-                plugin_pipe_path=self.__plugin_pipe_path))
+        params = node_parameters_pb2.NodeParameters()
+        plugin_params = params.Extensions[processor_plugin_pb2.processor_plugin_parameters]
+        plugin_params.plugin_pipe_path = self.__plugin_pipe_path
+        self.set_parameters(params)
 
     async def cleanup(self, deref: bool = False) -> None:
         await super().cleanup(deref)

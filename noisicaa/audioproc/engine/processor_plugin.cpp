@@ -30,9 +30,10 @@
 #include <pthread.h>
 #include "noisicaa/core/perf_stats.h"
 #include "noisicaa/host_system/host_system.h"
+#include "noisicaa/audioproc/public/node_parameters.pb.h"
 #include "noisicaa/audioproc/engine/plugin_host.h"
 #include "noisicaa/audioproc/engine/buffer_arena.h"
-#include "noisicaa/audioproc/engine/processor.pb.h"
+#include "noisicaa/audioproc/engine/processor_plugin.pb.h"
 #include "noisicaa/audioproc/engine/processor_plugin.h"
 #include "noisicaa/audioproc/engine/rtcheck.h"
 
@@ -55,10 +56,13 @@ void ProcessorPlugin::cleanup_internal() {
   Processor::cleanup_internal();
 }
 
-Status ProcessorPlugin::set_parameters_internal(const pb::ProcessorParameters& parameters) {
-  if (parameters.has_plugin_pipe_path()) {
+Status ProcessorPlugin::set_parameters_internal(const pb::NodeParameters& parameters) {
+  if (parameters.HasExtension(pb::processor_plugin_parameters)) {
+    const auto& p = parameters.GetExtension(pb::processor_plugin_parameters);
     pipe_close();
-    RETURN_IF_ERROR(pipe_open(parameters.plugin_pipe_path()));
+    if (!p.plugin_pipe_path().empty()) {
+      RETURN_IF_ERROR(pipe_open(p.plugin_pipe_path()));
+    }
   }
 
   return Status::Ok();

@@ -118,3 +118,8 @@ cdef class PyProcessor(object):
         cdef string parameters_serialized = parameters.SerializeToString()
         with nogil:
             check(self.__processor.set_parameters(parameters_serialized))
+
+    def set_description(self, desc):
+        cdef string desc_serialized = desc.SerializeToString()
+        with nogil:
+            check(self.__processor.set_description(desc_serialized))

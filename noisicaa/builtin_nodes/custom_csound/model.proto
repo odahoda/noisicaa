@@ -24,7 +24,12 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
+message CustomCSoundPort {
+  optional string csound_name = 1;
+}
+
 message CustomCSound {
   optional string orchestra = 1;
   optional string score = 2;
+  repeated uint64 ports = 3;
 }

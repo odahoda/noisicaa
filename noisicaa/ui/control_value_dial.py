@@ -77,22 +77,28 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
         return self.normalize(self.value())
 
     def normalize(self, value: float) -> float:
-        value = max(self.minimum(), min(value, self.maximum()))
-        if self.logScale():
-            return (
-                math.log(value - self.minimum() + 1)
-                / math.log(self.maximum() - self.minimum() + 1))
-        else:
-            return (value - self.minimum()) / (self.maximum() - self.minimum())
+        try:
+            value = max(self.minimum(), min(value, self.maximum()))
+            if self.logScale():
+                return (
+                    math.log(value - self.minimum() + 1)
+                    / math.log(self.maximum() - self.minimum() + 1))
+            else:
+                return (value - self.minimum()) / (self.maximum() - self.minimum())
+        except ArithmeticError:
+            return self.minimum()
 
     def denormalize(self, value: float) -> float:
-        value = max(0.0, min(value, 1.0))
-        if self.logScale():
-            return (
-                pow(math.e, value * math.log(self.maximum() - self.minimum() + 1))
-                + self.minimum() - 1)
-        else:
-            return (self.maximum() - self.minimum()) * value + self.minimum()
+        try:
+            value = max(0.0, min(value, 1.0))
+            if self.logScale():
+                return (
+                    pow(math.e, value * math.log(self.maximum() - self.minimum() + 1))
+                    + self.minimum() - 1)
+            else:
+                return (self.maximum() - self.minimum()) * value + self.minimum()
+        except ArithmeticError:
+            return self.minimum()
 
     def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
         value = self.normalizedValue()

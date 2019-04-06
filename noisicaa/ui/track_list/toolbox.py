@@ -54,7 +54,7 @@ class Toolbox(ui_base.ProjectMixin, QtWidgets.QWidget):
                 button.setChecked(True)
 
     def setCurrentToolBox(self, tool_box: Optional[tools.ToolBox]) -> None:
-        logger.error("Using tool_box=%s", type(tool_box).__name__)
+        logger.info("Using tool_box=%s", type(tool_box).__name__)
 
         if self.__tool_box is not None:
             self.__tool_box.toolTypeChanged.disconnect(self.__onToolTypeChanged)

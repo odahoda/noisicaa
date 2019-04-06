@@ -44,7 +44,8 @@ public:
 protected:
   Status setup_internal() override;
   void cleanup_internal() override;
-  Status handle_message_internal(pb::ProcessorMessage* msg) override;
+  Status set_parameters_internal(const pb::NodeParameters& parameters);
+  Status set_description_internal(const pb::NodeDescription& desc);
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
   void handle_csound_log(LogLevel level, const char* msg) override;
 

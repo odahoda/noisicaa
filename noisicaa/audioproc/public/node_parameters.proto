@@ -24,23 +24,6 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
-message UpdateCustomCSound {
-  required uint64 node_id = 1;
-  optional string set_orchestra = 2;
-  optional string set_score = 3;
-}
-
-message CreateCustomCSoundPort {
-  required uint64 node_id = 1;
-  required string name = 2;
-  optional uint32 index = 3;
-}
-
-message UpdateCustomCSoundPort {
-  required uint64 port_id = 1;
-  optional string set_csound_name = 2;
-}
-
-message DeleteCustomCSoundPort {
-  required uint64 port_id = 1;
+message NodeParameters {
+  extensions 100000 to max;
 }

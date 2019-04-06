@@ -27,6 +27,7 @@ from typing import Any, Generator
 
 from noisicaa import audioproc
 from noisicaa import model
+from noisicaa import node_db
 from noisicaa import core
 from . import pmodel
 from . import mutations_pb2
@@ -91,6 +92,8 @@ class MutationList(object):
             return model.ControlValue.from_proto(slot.control_value)
         elif vtype == 'node_port_properties':
             return model.NodePortProperties.from_proto(slot.node_port_properties)
+        elif vtype == 'port_description':
+            return copy.deepcopy(slot.port_description)
 
         else:
             raise TypeError(vtype)
@@ -316,6 +319,8 @@ class MutationCollector(object):
             slot.control_value.CopyFrom(value.to_proto())
         elif isinstance(value, model.NodePortProperties):
             slot.node_port_properties.CopyFrom(value.to_proto())
+        elif isinstance(value, node_db.PortDescription):
+            slot.port_description.CopyFrom(value)
 
         else:
             raise TypeError(type(value))

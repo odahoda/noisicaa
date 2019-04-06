@@ -24,11 +24,13 @@ from noisidev import unittest
 from noisidev import unittest_mixins
 from noisidev import unittest_engine_mixins
 from noisidev import unittest_engine_utils
+from noisicaa import node_db
 from noisicaa import lv2
+from noisicaa.audioproc.public import node_parameters_pb2
 from noisicaa.audioproc.engine import block_context
 from noisicaa.audioproc.engine import buffers
 from noisicaa.audioproc.engine import processor
-from . import processor_messages
+from . import processor_pb2
 
 
 class ProcessorCustomCSoundTest(
@@ -41,49 +43,66 @@ class ProcessorCustomCSoundTest(
 
     def create_proc(self, orchestra, score):
         node_desc = self.node_db['builtin://custom-csound']
+        node_desc.ports.add(
+            name='in',
+            type=node_db.PortDescription.AUDIO,
+            direction=node_db.PortDescription.INPUT)
+        node_desc.ports.add(
+            name='out',
+            type=node_db.PortDescription.AUDIO,
+            direction=node_db.PortDescription.OUTPUT)
+        node_desc.ports.add(
+            name='ctrl',
+            type=node_db.PortDescription.KRATE_CONTROL,
+            direction=node_db.PortDescription.INPUT)
+        node_desc.ports.add(
+            name='ev',
+            type=node_db.PortDescription.EVENTS,
+            direction=node_db.PortDescription.INPUT)
 
         proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
         proc.setup()
 
-        proc.handle_message(processor_messages.set_script('test_node', orchestra, score))
+        params = node_parameters_pb2.NodeParameters()
+        csound_params = params.Extensions[processor_pb2.custom_csound_parameters]
+        csound_params.orchestra = orchestra
+        csound_params.score = score
+        proc.set_parameters(params)
 
-        audio_l_in = self.buffer_mgr.allocate('in:left', buffers.PyFloatAudioBlockBuffer())
-        audio_r_in = self.buffer_mgr.allocate('in:right', buffers.PyFloatAudioBlockBuffer())
-        kctrl = self.buffer_mgr.allocate('kctrl', buffers.PyFloatControlValueBuffer())
-        actrl = self.buffer_mgr.allocate('actrl', buffers.PyFloatAudioBlockBuffer())
+        audio_in = self.buffer_mgr.allocate('in', buffers.PyFloatAudioBlockBuffer())
+        ctrl = self.buffer_mgr.allocate('ctrl', buffers.PyFloatControlValueBuffer())
         self.buffer_mgr.allocate('ev', buffers.PyAtomDataBuffer())
-        audio_l_out = self.buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlockBuffer())
-        audio_r_out = self.buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlockBuffer())
+        audio_out = self.buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
 
         # clear all buffers
         forge = lv2.AtomForge(self.urid_mapper)
         forge.set_buffer(self.buffer_mgr.data('ev'), 10240)
         with forge.sequence():
             pass
-        kctrl[0] = 0.0
+        ctrl[0] = 0.0
         for i in range(self.host_system.block_size):
-            audio_l_in[i] = 0.0
-            audio_r_in[i] = 0.0
-            audio_l_out[i] = 0.0
-            audio_r_out[i] = 0.0
-            actrl[i] = 0.0
+            audio_in[i] = 0.0
+            audio_out[i] = 0.0
 
-
-        proc.connect_port(self.ctxt, 0, self.buffer_mgr.data('in:left'))
-        proc.connect_port(self.ctxt, 1, self.buffer_mgr.data('in:right'))
-        proc.connect_port(self.ctxt, 2, self.buffer_mgr.data('kctrl'))
-        proc.connect_port(self.ctxt, 3, self.buffer_mgr.data('actrl'))
-        proc.connect_port(self.ctxt, 4, self.buffer_mgr.data('ev'))
-        proc.connect_port(self.ctxt, 5, self.buffer_mgr.data('out:left'))
-        proc.connect_port(self.ctxt, 6, self.buffer_mgr.data('out:right'))
+        proc.connect_port(self.ctxt, 0, self.buffer_mgr.data('in'))
+        proc.connect_port(self.ctxt, 1, self.buffer_mgr.data('out'))
+        proc.connect_port(self.ctxt, 2, self.buffer_mgr.data('ctrl'))
+        proc.connect_port(self.ctxt, 3, self.buffer_mgr.data('ev'))
 
         return proc
 
     def test_synth(self):
         orchestra = textwrap.dedent('''\
+            0dbfs = 1.0
+            ksmps = 32
+            nchnls = 2
+
+            gaIn chnexport "in", 1
+            gaOut chnexport "out", 2
+            gkCtrl chnexport "ctrl", 1
+
             instr 1
-              gaOutLeft = 1.0
-              gaOutRight = 1.0
+              gaOut = 1.0
             endin
             ''')
         score = textwrap.dedent('''\
@@ -101,20 +120,23 @@ class ProcessorCustomCSoundTest(
 
         # The instrument only gets active with one cycle delay, so the first 32 samples a silence.
         # Turning it off though works instantaneously.
-        audio_l_out = self.buffer_mgr['out:left']
-        self.assertTrue(all(v == 0.0 for v in audio_l_out[:32]))
-        self.assertTrue(all(v == 1.0 for v in audio_l_out[32:64]))
-        self.assertTrue(all(v == 0.0 for v in audio_l_out[64:]))
-        audio_r_out = self.buffer_mgr['out:right']
-        self.assertTrue(all(v == 0.0 for v in audio_r_out[:32]))
-        self.assertTrue(all(v == 1.0 for v in audio_r_out[32:64]))
-        self.assertTrue(all(v == 0.0 for v in audio_r_out[64:]))
+        audio_out = self.buffer_mgr['out']
+        self.assertTrue(all(v == 0.0 for v in audio_out[:32]))
+        self.assertTrue(all(v == 1.0 for v in audio_out[32:64]))
+        self.assertTrue(all(v == 0.0 for v in audio_out[64:]))
 
     def test_filter(self):
         orchestra = textwrap.dedent('''\
+            0dbfs = 1.0
+            ksmps = 32
+            nchnls = 2
+
+            gaIn chnexport "in", 1
+            gaOut chnexport "out", 2
+            gkCtrl chnexport "ctrl", 1
+
             instr 1
-              gaOutLeft = gkKctrl * gaInLeft
-              gaOutRight = gkKctrl * gaInRight
+              gaOut = gkCtrl * gaIn
             endin
             ''')
         score = textwrap.dedent('''\
@@ -123,19 +145,15 @@ class ProcessorCustomCSoundTest(
             ''')
         proc = self.create_proc(orchestra, score)
 
-        audio_l_in = self.buffer_mgr['in:left']
-        audio_r_in = self.buffer_mgr['in:right']
+        audio_in = self.buffer_mgr['in']
         for i in range(self.host_system.block_size):
-            audio_l_in[i] = 1.0
-            audio_r_in[i] = 1.0
-        self.buffer_mgr['kctrl'][0] = 0.5
+            audio_in[i] = 1.0
+            audio_in[i] = 1.0
+        self.buffer_mgr['ctrl'][0] = 0.5
 
         proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
 
         # The instrument only gets active with one cycle delay, so the first 32 samples a silence.
-        audio_l_out = self.buffer_mgr['out:left']
-        self.assertTrue(all(v == 0.0 for v in audio_l_out[:32]))
-        self.assertTrue(all(v == 0.5 for v in audio_l_out[32:]))
-        audio_r_out = self.buffer_mgr['out:right']
-        self.assertTrue(all(v == 0.0 for v in audio_r_out[:32]))
-        self.assertTrue(all(v == 0.5 for v in audio_r_out[32:]))
+        audio_out = self.buffer_mgr['out']
+        self.assertTrue(all(v == 0.0 for v in audio_out[:32]))
+        self.assertTrue(all(v == 0.5 for v in audio_out[32:]))

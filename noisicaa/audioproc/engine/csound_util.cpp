@@ -22,6 +22,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include "noisicaa/core/logging.h"
 #include "noisicaa/core/perf_stats.h"
@@ -188,8 +189,16 @@ Status CSoundUtil::process_block(
         return ERROR_STATUS(
             "Excepted sequence in port '%s', got %d.", port.name.c_str(), seq->atom.type);
       }
+
       LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
-      int instr = 1; // TODO: use port.csound_instr
+
+      char *e = nullptr;
+      int instr = strtol(port.csound_name.c_str(), &e, 10);
+      if (e == port.csound_name.c_str()) {
+        _logger->error("Invalid instrument name '%s'", port.csound_name.c_str());
+        instr = 1;
+      }
+
       _event_input_ports[port_idx] = {seq, event, instr};
     }
   }
@@ -250,7 +259,7 @@ Status CSoundUtil::process_block(
                 RTUnsafe rtu;  // csound might do RT unsafe stuff internally.
                 int rc = csoundScoreEvent(_csnd, 'i', p, 5);
                 if (rc < 0) {
-                  return ERROR_STATUS("csoundScoreEvent failed (code %d).", rc);
+                  _logger->warning("csoundScoreEvent failed (code %d).", rc);
                 }
               } else if ((midi[0] & 0xf0) == 0x80) {
                 MYFLT p[3] = {
@@ -262,7 +271,7 @@ Status CSoundUtil::process_block(
                 RTUnsafe rtu;  // csound might do RT unsafe stuff internally.
                 int rc = csoundScoreEvent(_csnd, 'i', p, 3);
                 if (rc < 0) {
-                  return ERROR_STATUS("csoundScoreEvent failed (code %d).", rc);
+                  _logger->warning("csoundScoreEvent failed (code %d).", rc);
                 }
               } else {
                 _logger->warning("Ignoring unsupported midi event %d.", midi[0] & 0xf0);

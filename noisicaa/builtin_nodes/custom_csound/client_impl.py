@@ -20,18 +20,22 @@
 #
 # @end:license
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa.music import project_client_model
 from . import model
+
+
+class CustomCSoundPort(
+        project_client_model.Port,
+        model.CustomCSoundPort,
+        project_client_model.ObjectBase):
+    @property
+    def node(self) -> 'CustomCSound':
+        return down_cast(CustomCSound, self.parent)
 
 
 class CustomCSound(
         project_client_model.BaseNode,
         model.CustomCSound,
         project_client_model.ObjectBase):
-    @property
-    def orchestra(self) -> str:
-        return self.get_property_value('orchestra')
-
-    @property
-    def score(self) -> str:
-        return self.get_property_value('score')
+    pass

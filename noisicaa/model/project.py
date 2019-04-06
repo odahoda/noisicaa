@@ -40,10 +40,16 @@ logger = logging.getLogger(__name__)
 
 
 class ObjectBase(model_base.ObjectBase):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.object_changed = core.Callback[model_base.PropertyChange]()
+
     def property_changed(self, change: model_base.PropertyChange) -> None:
         super().property_changed(change)
         callback = getattr(self, change.prop_name + '_changed')
         callback.call(change)
+        self.object_changed.call(change)
 
     @property
     def parent(self) -> 'ObjectBase':
@@ -89,22 +95,29 @@ class ControlValueMap(object):
 
         self.control_value_changed = core.CallbackMap[str, model_base.PropertyValueChange]()
 
+    def __get(self, name: str) -> control_value.ControlValue:
+        try:
+            return self.__control_values[name]
+        except KeyError:
+            for port in self.__node.description.ports:
+                if (port.name == name
+                        and port.direction == node_db.PortDescription.INPUT
+                        and port.type in (node_db.PortDescription.KRATE_CONTROL,
+                                          node_db.PortDescription.ARATE_CONTROL)):
+                    return control_value.ControlValue(
+                        name=port.name, value=port.float_value.default, generation=1)
+
+            raise
+
     def value(self, name: str) -> float:
-        return self.__control_values[name].value
+        return self.__get(name).value
 
     def generation(self, name: str) -> int:
-        return self.__control_values[name].generation
+        return self.__get(name).generation
 
     def init(self) -> None:
         if self.__initialized:
             return
-
-        for port in self.__node.description.ports:
-            if (port.direction == node_db.PortDescription.INPUT
-                    and port.type in (node_db.PortDescription.KRATE_CONTROL,
-                                      node_db.PortDescription.ARATE_CONTROL)):
-                self.__control_values[port.name] = control_value.ControlValue(
-                    name=port.name, value=port.float_value.default, generation=1)
 
         for cv in self.__node.control_values:
             self.__control_values[cv.name] = cv
@@ -123,7 +136,7 @@ class ControlValueMap(object):
             self, change: model_base.PropertyListChange[control_value.ControlValue]) -> None:
         if isinstance(change, model_base.PropertyListInsert):
             new_value = change.new_value
-            old_value = self.__control_values[new_value.name]
+            old_value = self.__get(new_value.name)
 
             self.control_value_changed.call(
                 new_value.name,
@@ -136,7 +149,7 @@ class ControlValueMap(object):
 
         elif isinstance(change, model_base.PropertyListSet):
             new_value = change.new_value
-            old_value = self.__control_values[new_value.name]
+            old_value = self.__get(new_value.name)
 
             self.control_value_changed.call(
                 new_value.name,
@@ -175,6 +188,8 @@ class BaseNode(ProjectChild):
             core.Callback[model_base.PropertyChange[audioproc.PluginState]]()
         self.port_properties_changed = \
             core.Callback[model_base.PropertyListChange[node_port_properties.NodePortProperties]]()
+
+        self.description_changed = core.Callback[model_base.PropertyChange]()
 
         self.control_value_map = ControlValueMap(self)
 
@@ -224,6 +239,40 @@ class BaseNode(ProjectChild):
             if connection.dest_node is self and connection.source_node.id not in seen:
                 seen.add(connection.source_node.id)
                 connection.source_node.__upstream_nodes(seen)
+
+
+class Port(ProjectChild):
+    class PortSpec(model_base.ObjectSpec):
+        proto_ext = project_pb2.port
+
+        name = model_base.Property(str)
+        display_name = model_base.Property(str, allow_none=True)
+        type = model_base.Property(node_db.PortDescription.Type)
+        direction = model_base.Property(node_db.PortDescription.Direction)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.name_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.display_name_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.type_changed = core.Callback[model_base.PropertyChange[int]]()
+        self.direction_changed = core.Callback[model_base.PropertyChange[int]]()
+
+    @property
+    def name(self) -> str:
+        return self.get_property_value('name')
+
+    @property
+    def display_name(self) -> str:
+        return self.get_property_value('display_name')
+
+    @property
+    def type(self) -> node_db.PortDescription.Type:
+        return self.get_property_value('type')
+
+    @property
+    def direction(self) -> node_db.PortDescription.Direction:
+        return self.get_property_value('direction')
 
 
 class NodeConnection(ProjectChild):

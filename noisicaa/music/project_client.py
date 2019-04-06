@@ -104,7 +104,8 @@ def update_node(
                 set_control_value.to_proto() if set_control_value is not None else None),
             set_plugin_state=set_plugin_state,
             set_port_properties=(
-                set_port_properties.to_proto() if set_port_properties is not None else None)))
+                set_port_properties.to_proto() if set_port_properties is not None else None),
+        ))
 
 
 def delete_node(
@@ -114,6 +115,25 @@ def delete_node(
         command='delete_node',
         delete_node=commands_pb2.DeleteNode(
             node_id=node.id))
+
+
+def update_port(
+        port: project_client_model.Port,
+        *,
+        set_name: str = None,
+        set_display_name: str = None,
+        set_type: node_db_lib.PortDescription.Type = None,
+        set_direction: node_db_lib.PortDescription.Direction = None,
+) -> commands_pb2.Command:
+    return commands_pb2.Command(
+        command='update_port',
+        update_port=commands_pb2.UpdatePort(
+            port_id=port.id,
+            set_name=set_name,
+            set_display_name=set_display_name,
+            set_type=set_type,
+            set_direction=set_direction,
+        ))
 
 
 def create_node_connection(

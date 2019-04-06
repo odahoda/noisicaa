@@ -22,16 +22,16 @@
 
 import logging
 import typing
-from typing import Any, Optional, Dict, Callable
+from typing import Any, Optional, Iterator, MutableSequence
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
+from noisicaa import node_db
 from noisicaa.music import graph
-from noisicaa.music import node_connector
 from noisicaa.music import commands
 from noisicaa.builtin_nodes import commands_registry_pb2
 from . import commands_pb2
-from . import processor_messages
+from . import processor_pb2
 from . import model
 
 if typing.TYPE_CHECKING:
@@ -55,35 +55,82 @@ class UpdateCustomCSound(commands.Command):
             node.score = pb.set_score
 
 
-class Connector(node_connector.NodeConnector):
-    _node = None  # type: CustomCSound
+class CreateCustomCSoundPort(commands.Command):
+    proto_type = 'create_custom_csound_port'
+    proto_ext = commands_registry_pb2.create_custom_csound_port
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def validate(self) -> None:
+        pb = down_cast(commands_pb2.CreateCustomCSoundPort, self.pb)
 
-        self.__node_id = self._node.pipeline_node_id
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        if pb.node_id not in self.pool:
+            raise ValueError("Unknown node %016x" % pb.node_id)
 
-    def _init_internal(self) -> None:
-        self.__set_script(self._node.orchestra, self._node.score)
+        node = down_cast(CustomCSound, self.pool[pb.node_id])
 
-        self.__listeners['orchestra'] = self._node.orchestra_changed.add(
-            lambda change: self.__set_script(change.new_value, self._node.score))
-        self.__listeners['score'] = self._node.score_changed.add(
-            lambda change: self.__set_script(self._node.orchestra, change.new_value))
+        if pb.HasField('index'):
+            if not 0 <= pb.index <= len(node.ports):
+                raise ValueError("index %d out of bounds [0, %d]" % (pb.index, len(node.ports)))
 
-    def close(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.CreateCustomCSoundPort, self.pb)
+        node = down_cast(CustomCSound, self.pool[pb.node_id])
 
-        super().close()
+        if pb.HasField('index'):
+            index = pb.index
+        else:
+            index = len(node.ports)
 
-    def __set_script(self, orchestra: str, score: str) -> None:
-        self._emit_message(processor_messages.set_script(
-            self.__node_id,
-            orchestra=orchestra or '',
-            score=score or ''))
+        port = self.pool.create(
+            CustomCSoundPort,
+            name=pb.name,
+            csound_name='ga' + pb.name.capitalize(),
+            type=node_db.PortDescription.AUDIO,
+            direction=node_db.PortDescription.OUTPUT)
+        node.ports.insert(index, port)
+
+
+class UpdateCustomCSoundPort(commands.Command):
+    proto_type = 'update_custom_csound_port'
+    proto_ext = commands_registry_pb2.update_custom_csound_port
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateCustomCSoundPort, self.pb)
+        port = down_cast(CustomCSoundPort, self.pool[pb.port_id])
+
+        if pb.HasField('set_csound_name'):
+            port.csound_name = pb.set_csound_name
+
+
+class DeleteCustomCSoundPort(commands.Command):
+    proto_type = 'delete_custom_csound_port'
+    proto_ext = commands_registry_pb2.delete_custom_csound_port
+
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.DeleteCustomCSoundPort, self.pb)
+        port = down_cast(CustomCSoundPort, self.pool[pb.port_id])
+        node = down_cast(CustomCSound, port.parent)
+
+        port.remove_connections()
+        del node.ports[port.index]
+
+
+class CustomCSoundPort(model.CustomCSoundPort, graph.Port):
+    def create(
+            self, *,
+            csound_name: Optional[str] = None,
+            **kwargs: Any
+        ) -> None:
+        super().create(**kwargs)
+
+        self.csound_name = csound_name
+
+    @property
+    def csound_name(self) -> str:
+        return self.get_property_value('csound_name')
+
+    @csound_name.setter
+    def csound_name(self, value: str) -> None:
+        self.set_property_value('csound_name', value)
 
 
 class CustomCSound(model.CustomCSound, graph.BaseNode):
@@ -97,6 +144,31 @@ class CustomCSound(model.CustomCSound, graph.BaseNode):
 
         self.orchestra = orchestra
         self.score = score
+
+    def setup(self) -> None:
+        super().setup()
+        self.orchestra_preamble_changed.add(lambda _: self.__code_changed())
+        self.orchestra_changed.add(lambda _: self.__code_changed())
+        self.score_changed.add(lambda _: self.__code_changed())
+
+    def __get_code_mutation(self) -> audioproc.Mutation:
+        params = audioproc.NodeParameters()
+        csound_params = params.Extensions[processor_pb2.custom_csound_parameters]
+        csound_params.orchestra = self.full_orchestra
+        csound_params.score = self.score or ''
+        return audioproc.Mutation(
+            set_node_parameters=audioproc.SetNodeParameters(
+                node_id=self.pipeline_node_id,
+                parameters=params))
+
+    def __code_changed(self) -> None:
+        if self.attached_to_project:
+            self.project.handle_pipeline_mutation(
+                self.__get_code_mutation())
+
+    def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
+        yield from super().get_initial_parameter_mutations()
+        yield self.__get_code_mutation()
 
     @property
     def orchestra(self) -> str:
@@ -114,7 +186,6 @@ class CustomCSound(model.CustomCSound, graph.BaseNode):
     def score(self, value: str) -> None:
         self.set_property_value('score', value)
 
-    def create_node_connector(
-            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
-    ) -> Connector:
-        return Connector(node=self, message_cb=message_cb)
+    @property
+    def ports(self) -> MutableSequence[CustomCSoundPort]:
+        return self.get_property_value('ports')

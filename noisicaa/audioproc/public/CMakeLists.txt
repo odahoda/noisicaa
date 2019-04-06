@@ -29,6 +29,7 @@ set(LIB_SRCS
   instrument_spec.pb.cc
   musical_time.cpp
   musical_time.pb.cc
+  node_parameters.pb.cc
   node_port_properties.pb.cc
   player_state.pb.cc
   plugin_state.pb.cc
@@ -66,6 +67,8 @@ cpp_proto(project_properties.proto)
 py_proto(project_properties.proto)
 cpp_proto(node_port_properties.proto)
 py_proto(node_port_properties.proto)
+cpp_proto(node_parameters.proto)
+py_proto(node_parameters.proto)
 
 add_library(noisicaa-audioproc-public SHARED ${LIB_SRCS})
 target_compile_options(noisicaa-audioproc-public PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)

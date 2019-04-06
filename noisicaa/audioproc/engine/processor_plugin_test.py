@@ -35,11 +35,12 @@ from noisidev import unittest_engine_mixins
 from noisidev import unittest_engine_utils
 from noisicaa.constants import TEST_OPTS
 from noisicaa.core import ipc
+from noisicaa.audioproc.public import node_parameters_pb2
 from . import plugin_host_pb2
 from . import block_context
 from . import buffers
 from . import processor
-from . import processor_pb2
+from . import processor_plugin_pb2
 from . import buffer_arena
 
 logger = logging.getLogger(__name__)
@@ -91,9 +92,10 @@ class ProcessorPluginTest(
 
             proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
             proc.setup()
-            proc.set_parameters(
-                processor_pb2.ProcessorParameters(
-                    plugin_pipe_path=pipe_address))
+            params = node_parameters_pb2.NodeParameters()
+            plugin_params = params.Extensions[processor_plugin_pb2.processor_plugin_parameters]
+            plugin_params.plugin_pipe_path = pipe_address
+            proc.set_parameters(params)
 
             arena = buffer_arena.PyBufferArena(2**20)
             buffer_mgr = unittest_engine_utils.BufferManager(self.host_system, arena)
@@ -163,9 +165,10 @@ class ProcessorPluginTest(
 
             proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
             proc.setup()
-            proc.set_parameters(
-                processor_pb2.ProcessorParameters(
-                    plugin_pipe_path=pipe_address))
+            params = node_parameters_pb2.NodeParameters()
+            plugin_params = params.Extensions[processor_plugin_pb2.processor_plugin_parameters]
+            plugin_params.plugin_pipe_path = pipe_address
+            proc.set_parameters(params)
 
             ctxt = block_context.PyBlockContext(buffer_arena=arena)
             ctxt.sample_pos = 1024
@@ -227,9 +230,10 @@ class ProcessorPluginTest(
 
             proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
             proc.setup()
-            proc.set_parameters(
-                processor_pb2.ProcessorParameters(
-                    plugin_pipe_path=pipe_address))
+            params = node_parameters_pb2.NodeParameters()
+            plugin_params = params.Extensions[processor_plugin_pb2.processor_plugin_parameters]
+            plugin_params.plugin_pipe_path = pipe_address
+            proc.set_parameters(params)
 
             ctxt = block_context.PyBlockContext(buffer_arena=arena)
             ctxt.sample_pos = 1024

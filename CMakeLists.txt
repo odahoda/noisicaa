@@ -41,7 +41,7 @@ pkg_check_modules(LIBSNDFILE REQUIRED sndfile)
 pkg_check_modules(LIBFLUIDSYNTH REQUIRED fluidsynth>=1.1.6)
 pkg_check_modules(LIBAVUTIL REQUIRED libavutil)
 pkg_check_modules(LIBSWRESAMPLE REQUIRED libswresample)
-pkg_check_modules(LIBPROTOBUF REQUIRED protobuf>=3.0)
+pkg_check_modules(LIBPROTOBUF REQUIRED protobuf>=3.7)
 pkg_check_modules(LIBPORTAUDIO REQUIRED portaudio-2.0>=19)
 pkg_check_modules(LIBUNWIND REQUIRED libunwind-generic>=1.1)
 
@@ -105,7 +105,7 @@ macro(py_proto src)
   string(REGEX REPLACE "\\.proto$" "" base ${src})
   add_custom_command(
     OUTPUT ${base}_pb2.py
-    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib protoc --python_out=${CMAKE_BINARY_DIR} --mypy_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
+    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib $ENV{VIRTUAL_ENV}/bin/protoc --python_out=${CMAKE_BINARY_DIR} --mypy_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
   )
   file(RELATIVE_PATH pkg_path ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
@@ -117,7 +117,7 @@ macro(cpp_proto src)
   string(REGEX REPLACE "\\.proto$" "" base ${src})
   add_custom_command(
     OUTPUT ${base}.pb.cc ${base}.pb.h
-    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib protoc --cpp_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
+    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib $ENV{VIRTUAL_ENV}/bin/protoc --cpp_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
   )
 endmacro(cpp_proto)

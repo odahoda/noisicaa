@@ -175,9 +175,12 @@ endin
     score += "i 1 0 0.01 40 0\n";
 
     vector<CSoundUtil::PortSpec> ports = {
-      CSoundUtil::PortSpec {"in", pb::PortDescription::EVENTS, pb::PortDescription::INPUT},
-      CSoundUtil::PortSpec {"out:left", pb::PortDescription::AUDIO, pb::PortDescription::OUTPUT},
-      CSoundUtil::PortSpec {"out:right", pb::PortDescription::AUDIO, pb::PortDescription::OUTPUT},
+      CSoundUtil::PortSpec {
+        "in", pb::PortDescription::EVENTS, pb::PortDescription::INPUT, "1"},
+      CSoundUtil::PortSpec {
+        "out:left", pb::PortDescription::AUDIO, pb::PortDescription::OUTPUT, "gaOutL"},
+      CSoundUtil::PortSpec {
+        "out:right", pb::PortDescription::AUDIO, pb::PortDescription::OUTPUT, "gaOutR"},
     };
 
     instrument->csound.reset(

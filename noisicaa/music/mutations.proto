@@ -27,6 +27,7 @@ import "noisicaa/audioproc/public/musical_time.proto";
 import "noisicaa/audioproc/public/control_value.proto";
 import "noisicaa/audioproc/public/node_port_properties.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
+import "noisicaa/node_db/node_description.proto";
 import "noisicaa/model/model_base.proto";
 import "noisicaa/model/project.proto";
 
@@ -105,6 +106,7 @@ message MutationList {
       Color color = 110;
       ControlValue control_value = 108;
       NodePortProperties node_port_properties = 111;
+      PortDescription port_description = 112;
     }
   }
   repeated Slot slots = 2;

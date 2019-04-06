@@ -66,3 +66,6 @@ from .host_parameters_pb2 import (
 from .node_port_properties_pb2 import (
     NodePortProperties,
 )
+from .node_parameters_pb2 import (
+    NodeParameters,
+)

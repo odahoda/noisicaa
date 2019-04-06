@@ -53,6 +53,7 @@ cdef extern from "noisicaa/audioproc/engine/processor.h" namespace "noisicaa" no
 
         Status handle_message(const string& msg)
         Status set_parameters(const string& msg)
+        Status set_description(const string& msg)
 
         void connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf)
         void process_block(BlockContext* ctxt, TimeMapper* time_mapper)

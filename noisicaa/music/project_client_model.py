@@ -64,6 +64,10 @@ class BaseNode(ProjectChild, model.BaseNode, ObjectBase):  # pylint: disable=abs
         return cast(List['NodeConnection'], super().connections)
 
 
+class Port(ProjectChild, model.Port, ObjectBase):  # pylint: disable=abstract-method
+    pass
+
+
 class Node(BaseNode, model.Node, ObjectBase):
     @property
     def node_uri(self) -> str:

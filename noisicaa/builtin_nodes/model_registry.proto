@@ -57,6 +57,7 @@ extend ObjectBase {
 
   // Custom CSound (407xxx)
   optional CustomCSound custom_csound = 407000;
+  optional CustomCSoundPort custom_csound_port = 407001;
 
   // MIDI source (408xxx)
   optional MidiSource midi_source = 408000;

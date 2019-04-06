@@ -62,6 +62,9 @@ extend Command {
 
   // Custom CSound (407xxx)
   optional UpdateCustomCSound update_custom_csound = 407000;
+  optional CreateCustomCSoundPort create_custom_csound_port = 407001;
+  optional UpdateCustomCSoundPort update_custom_csound_port = 407002;
+  optional DeleteCustomCSoundPort delete_custom_csound_port = 407003;
 
   // MIDI source (408xxx)
   optional UpdateMidiSource update_midi_source = 408000;

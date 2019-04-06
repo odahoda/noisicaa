@@ -27,7 +27,6 @@ import "noisicaa/builtin_nodes/control_track/processor_messages.proto";
 import "noisicaa/builtin_nodes/sample_track/processor_messages.proto";
 import "noisicaa/builtin_nodes/instrument/processor_messages.proto";
 import "noisicaa/builtin_nodes/pianoroll/processor_messages.proto";
-import "noisicaa/builtin_nodes/custom_csound/processor_messages.proto";
 import "noisicaa/builtin_nodes/midi_source/processor_messages.proto";
 
 package noisicaa.pb;
@@ -47,9 +46,6 @@ extend ProcessorMessage {
   // Pianoroll (406xxx)
   optional PianoRollAddInterval pianoroll_add_interval = 406000;
   optional PianoRollRemoveInterval pianoroll_remove_interval = 406001;
-
-  // Custom CSound (407xxx)
-  optional CustomCSoundSetScript custom_csound_set_script = 407000;
 
   // Midi Source (408xxx)
   optional MidiSourceUpdate midi_source_update = 408000;

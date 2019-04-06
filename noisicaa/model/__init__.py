@@ -52,6 +52,7 @@ from .project import (
     ProjectChild,
     SystemOutNode,
     BaseNode,
+    Port,
     Measure,
     MeasureReference,
     MeasuredTrack,

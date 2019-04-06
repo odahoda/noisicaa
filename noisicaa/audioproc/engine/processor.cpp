@@ -28,9 +28,9 @@
 #include "noisicaa/core/slots.inl.h"
 #include "noisicaa/host_system/host_system.h"
 #include "noisicaa/audioproc/public/engine_notification.pb.h"
+#include "noisicaa/audioproc/public/node_parameters.pb.h"
 #include "noisicaa/audioproc/engine/rtcheck.h"
 #include "noisicaa/audioproc/public/processor_message.pb.h"
-#include "noisicaa/audioproc/engine/processor.pb.h"
 #include "noisicaa/audioproc/engine/processor.h"
 #include "noisicaa/audioproc/engine/processor_null.h"
 #include "noisicaa/audioproc/engine/processor_csound.h"
@@ -171,13 +171,26 @@ Status Processor::handle_message_internal(pb::ProcessorMessage* msg) {
 }
 
 Status Processor::set_parameters(const string& parameters_serialized) {
-  pb::ProcessorParameters parameters;
+  pb::NodeParameters parameters;
   assert(parameters.ParseFromString(parameters_serialized));
   _logger->info("Processor %llx: Set parameters:\n%s", id(), parameters.DebugString().c_str());
   return set_parameters_internal(parameters);
 }
 
-Status Processor::set_parameters_internal(const pb::ProcessorParameters& parameters) {
+Status Processor::set_parameters_internal(const pb::NodeParameters& parameters) {
+  _params.MergeFrom(parameters);
+  return Status::Ok();
+}
+
+Status Processor::set_description(const string& desc_serialized) {
+  pb::NodeDescription desc;
+  assert(desc.ParseFromString(desc_serialized));
+  _logger->info("Processor %llx: Set description:\n%s", id(), desc.DebugString().c_str());
+  return set_description_internal(desc);
+}
+
+Status Processor::set_description_internal(const pb::NodeDescription& desc) {
+  _desc.CopyFrom(desc);
   return Status::Ok();
 }
 

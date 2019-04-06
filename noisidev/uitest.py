@@ -92,10 +92,17 @@ class TestContext(object):
         if callback is not None:
             callback(task.result())
 
-    def send_command_async(self, cmd, callback):
+    def send_command_async(self, cmd):
         self.__testcase.commands.append(cmd)
-        if callback is not None:
-            callback()
+        task = asyncio.Future(loop=self.__testcase.loop)
+        task.set_result(None)
+        return task
+
+    def send_commands_async(self, *cmd):
+        self.__testcase.commands.extend(cmd)
+        task = asyncio.Future(loop=self.__testcase.loop)
+        task.set_result(None)
+        return task
 
     def set_session_value(self, key, value):
         self.__testcase.session_data[key] = value
@@ -208,6 +215,7 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.app.settings = MockSettings()
         self.app.node_db = self.node_db_client
         self.app.audioproc_client = MockAudioProcClient()
+        self.app.node_messages = core.CallbackMap()
 
         self.session_data = {}  # type: Dict[str, Any]
 

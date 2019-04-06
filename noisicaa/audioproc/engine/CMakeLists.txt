@@ -72,11 +72,11 @@ set(LIB_SRCS
   plugin_ui_host.cpp
   plugin_ui_host_lv2.cpp
   processor.cpp
-  processor.pb.cc
   processor_null.cpp
   processor_csound_base.cpp
   processor_csound.cpp
   processor_plugin.cpp
+  processor_plugin.pb.cc
   processor_sound_file.cpp
   profile.cpp
   realtime.cpp
@@ -94,8 +94,8 @@ set(TEST_SRCS
 py_proto(plugin_host.proto)
 cpp_proto(plugin_host.proto)
 
-py_proto(processor.proto)
-cpp_proto(processor.proto)
+py_proto(processor_plugin.proto)
+cpp_proto(processor_plugin.proto)
 
 add_library(noisicaa-audioproc-engine SHARED ${LIB_SRCS})
 target_compile_options(noisicaa-audioproc-engine PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)

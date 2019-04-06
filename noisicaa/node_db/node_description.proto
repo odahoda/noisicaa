@@ -106,7 +106,7 @@ message PortDescription {
   optional string display_name = 4;
 
   optional FloatValueDescription float_value = 5;
-  optional string csound_instr = 6;
+  optional string csound_name = 6;
   optional string drywet_port = 7;
   optional float drywet_default = 8;
   optional string bypass_port = 9;

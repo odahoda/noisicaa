@@ -29,7 +29,7 @@ import sys
 import time
 import zipfile
 
-VERSION = '3.0.2'
+VERSION = '3.7.1'
 FILENAME = 'v%s.zip' % VERSION
 DOWNLOAD_URL = 'https://github.com/google/protobuf/archive/%s' % FILENAME
 

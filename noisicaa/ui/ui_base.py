@@ -69,10 +69,11 @@ class CommonContext(object):
 
     def call_async(
             self, coroutine: Awaitable, callback: Optional[Callable[[Any], None]] = None
-    ) -> None:
+    ) -> asyncio.Task:
         task = self.event_loop.create_task(coroutine)
         task.add_done_callback(
             functools.partial(self.__call_async_cb, callback=callback))
+        return task
 
     def __call_async_cb(
             self, task: asyncio.Task, callback: Optional[Callable[[Any], None]]) -> None:
@@ -121,8 +122,9 @@ class CommonMixin(object):
         return self._context.event_loop
 
     def call_async(
-            self, coroutine: Awaitable, callback: Optional[Callable[[Any], None]] = None) -> None:
-        self._context.call_async(coroutine, callback)
+            self, coroutine: Awaitable, callback: Optional[Callable[[Any], None]] = None
+    ) -> asyncio.Task:
+        return self._context.call_async(coroutine, callback)
 
 
 class ProjectContext(CommonContext):
@@ -157,11 +159,11 @@ class ProjectContext(CommonContext):
     def project_client(self) -> music.ProjectClient:
         return self.__project_connection.client
 
-    def send_command_async(self, cmd: music.Command) -> None:
-        self.call_async(self.project_client.send_command(cmd))
+    def send_command_async(self, cmd: music.Command) -> asyncio.Task:
+        return self.call_async(self.project_client.send_command(cmd))
 
-    def send_commands_async(self, *cmd: music.Command) -> None:
-        self.call_async(self.project_client.send_commands(*cmd))
+    def send_commands_async(self, *cmd: music.Command) -> asyncio.Task:
+        return self.call_async(self.project_client.send_commands(*cmd))
 
     def set_session_value(self, key: str, value: Any) -> None:
         self.project_client.set_session_values({key: value})
@@ -203,11 +205,11 @@ class ProjectMixin(CommonMixin):
     def project_client(self) -> music.ProjectClient:
         return self._context.project_client
 
-    def send_command_async(self, command: music.Command) -> None:
-        self._context.send_command_async(command)
+    def send_command_async(self, command: music.Command) -> asyncio.Task:
+        return self._context.send_command_async(command)
 
-    def send_commands_async(self, *commands: music.Command) -> None:
-        self._context.send_commands_async(*commands)
+    def send_commands_async(self, *commands: music.Command) -> asyncio.Task:
+        return self._context.send_commands_async(*commands)
 
     def set_session_value(self, key: str, value: Any) -> None:
         self._context.set_session_value(key, value)

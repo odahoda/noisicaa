@@ -20,47 +20,8 @@
 #
 # @end:license
 
-from typing import List
-
-from noisidev import unittest
-from noisidev import unittest_mixins
-from noisicaa import audioproc
-from noisicaa.music import project
 from noisicaa.music import pmodel_test
 from . import server_impl
-from . import processor_messages
-
-
-class ConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
-    async def setup_testcase(self):
-        self.pool = project.Pool()
-        self.node = self.pool.create(server_impl.CustomCSound, name='test')
-        self.messages = []  # type: List[audioproc.ProcessorMessage]
-
-    def message_cb(self, msg):
-        self.messages.append(msg)
-
-    def test_messages_on_mutations(self):
-        connector = self.node.create_node_connector(message_cb=self.message_cb)
-        try:
-            self.assertEqual(
-                connector.init(),
-                [processor_messages.set_script(self.node.pipeline_node_id, '', '')])
-
-            self.messages.clear()
-            self.node.orchestra = 'orch'
-            self.assertEqual(
-                self.messages,
-                [processor_messages.set_script(self.node.pipeline_node_id, 'orch', '')])
-
-            self.messages.clear()
-            self.node.score = 'scr'
-            self.assertEqual(
-                self.messages,
-                [processor_messages.set_script(self.node.pipeline_node_id, 'orch', 'scr')])
-
-        finally:
-            connector.close()
 
 
 class CustomCSoundTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):

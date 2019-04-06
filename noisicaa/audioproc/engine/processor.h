@@ -36,6 +36,7 @@
 #include "noisicaa/core/status.h"
 #include "noisicaa/node_db/node_description.pb.h"
 #include "noisicaa/audioproc/public/musical_time.h"
+#include "noisicaa/audioproc/public/node_parameters.pb.h"
 #include "noisicaa/audioproc/engine/buffers.h"
 #include "noisicaa/audioproc/engine/block_context.h"
 #include "noisicaa/audioproc/engine/misc.h"
@@ -50,7 +51,6 @@ class TimeMapper;
 namespace pb {
 class EngineNotification;
 class ProcessorMessage;
-class ProcessorParameters;
 }
 
 // Keep this in sync with engine_notification.proto > NodeStateChange
@@ -85,6 +85,7 @@ public:
 
   Status handle_message(const string& msg_serialized);
   Status set_parameters(const string& parameters_serialized);
+  Status set_description(const string& description_serialized);
 
   void connect_port(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf);
   void process_block(BlockContext* ctxt, TimeMapper* time_mapper);
@@ -98,7 +99,8 @@ protected:
   virtual void cleanup_internal();
 
   virtual Status handle_message_internal(pb::ProcessorMessage* msg);
-  virtual Status set_parameters_internal(const pb::ProcessorParameters& parameters);
+  virtual Status set_parameters_internal(const pb::NodeParameters& parameters);
+  virtual Status set_description_internal(const pb::NodeDescription& description);
   virtual Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) = 0;
   virtual Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) = 0;
   virtual Status post_process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper);
@@ -111,6 +113,7 @@ protected:
   string _realm_name;
   string _node_id;
   pb::NodeDescription _desc;
+  pb::NodeParameters _params;
   atomic<bool> _muted;
 
 private:

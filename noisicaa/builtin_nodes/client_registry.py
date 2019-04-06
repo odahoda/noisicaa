@@ -26,7 +26,7 @@ from .beat_track.client_impl import Beat, BeatMeasure, BeatTrack
 from .control_track.client_impl import ControlPoint, ControlTrack
 from .sample_track.client_impl import SampleRef, SampleTrack
 from .instrument.client_impl import Instrument
-from .custom_csound.client_impl import CustomCSound
+from .custom_csound.client_impl import CustomCSound, CustomCSoundPort
 from .midi_source.client_impl import MidiSource
 
 
@@ -42,5 +42,6 @@ def register_classes(pool: model.AbstractPool) -> None:
     pool.register_class(SampleRef)
     pool.register_class(SampleTrack)
     pool.register_class(Instrument)
+    pool.register_class(CustomCSoundPort)
     pool.register_class(CustomCSound)
     pool.register_class(MidiSource)
