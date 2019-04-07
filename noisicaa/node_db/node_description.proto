@@ -141,6 +141,9 @@ message NodeDescription {
   repeated PortDescription ports = 8;
 
   optional NodeUIDescription node_ui = 9;
+  oneof icon {
+    string builtin_icon = 10;
+  }
 
   optional ProcessorDescription processor = 100;
 

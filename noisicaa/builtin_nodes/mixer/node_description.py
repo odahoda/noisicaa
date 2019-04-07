@@ -30,6 +30,7 @@ MixerDescription = node_db.NodeDescription(
     node_ui=node_db.NodeUIDescription(
         type='builtin://mixer',
     ),
+    builtin_icon = 'node-type-builtin',
     processor=node_db.ProcessorDescription(
         type='builtin://mixer',
     ),

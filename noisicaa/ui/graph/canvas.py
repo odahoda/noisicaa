@@ -21,6 +21,7 @@
 # @end:license
 
 import logging
+import os.path
 from typing import cast, Any, Optional, Iterator, Callable, Type, List, Dict, Set
 
 from PyQt5.QtCore import Qt
@@ -28,6 +29,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import constants
 from noisicaa import model
 from noisicaa import music
 from noisicaa import node_db
@@ -116,6 +118,11 @@ class SelectNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
             list_item = QtWidgets.QListWidgetItem()
             list_item.setText(node_desc.display_name)
             list_item.setData(Qt.UserRole, uri)
+
+            if node_desc.WhichOneof('icon') == 'builtin_icon':
+                list_item.setIcon(QtGui.QIcon(os.path.join(
+                    constants.DATA_DIR, 'icons', '%s.svg' % node_desc.builtin_icon)))
+
             self.__list.addItem(list_item)
 
         self.__filter = NodeFilter(self.__list, self)

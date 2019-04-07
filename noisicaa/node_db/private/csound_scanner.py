@@ -55,6 +55,7 @@ class CSoundScanner(scanner.Scanner):
                 desc.uri = uri
                 desc.supported = True
                 desc.node_ui.type = 'builtin://plugin'
+                desc.builtin_icon = 'node-type-builtin'
                 desc.type = node_db.NodeDescription.PROCESSOR
                 desc.processor.type = 'builtin://csound'
 
