@@ -46,6 +46,7 @@ target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-mixer-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-custom_csound-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_source-processor)
+target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-oscillator-processor)
 
 add_subdirectory(score_track)
 add_subdirectory(beat_track)
@@ -56,3 +57,4 @@ add_subdirectory(pianoroll)
 add_subdirectory(mixer)
 add_subdirectory(custom_csound)
 add_subdirectory(midi_source)
+add_subdirectory(oscillator)
