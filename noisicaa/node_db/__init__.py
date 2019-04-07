@@ -29,6 +29,8 @@ from .node_description_pb2 import (
     SoundFileDescription,
     PluginDescription,
     FloatValueDescription,
+    EnumValueDescription,
+    EnumValueItem,
     PortDescription,
     NodeUIDescription,
     NodeDescription,
