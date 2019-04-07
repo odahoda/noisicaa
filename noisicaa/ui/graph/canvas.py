@@ -110,6 +110,7 @@ class SelectNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__action = action
 
         self.__list = QtWidgets.QListWidget(self)
+        self.__list.currentRowChanged.connect(self.__currentRowChanged)
         self.__list.itemDoubleClicked.connect(self.__itemDoubleClicked)
 
         for uri, node_desc in self.app.node_db.nodes:
@@ -129,12 +130,39 @@ class SelectNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__filter.textChanged.connect(self.__nodeFilterChanged)
         self.__filter.returnPressed.connect(self.__nodeFilterSelect)
 
-        layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
-        layout.setSpacing(0)
-        layout.addWidget(self.__filter)
-        layout.addWidget(self.__list, 1)
-        self.setLayout(layout)
+        self.__info_box = QtWidgets.QWidget(self)
+        self.__info_box.setMinimumWidth(400)
+
+        self.__info_name = QtWidgets.QLabel(self)
+        font = QtGui.QFont(self.__info_name.font())
+        font.setPointSizeF(1.4 * font.pointSizeF())
+        font.setBold(True)
+        self.__info_name.setFont(font)
+
+        self.__info_uri = QtWidgets.QLabel(self)
+
+        l3 = QtWidgets.QVBoxLayout()
+        l3.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+        l3.setSpacing(2)
+        l3.addWidget(self.__info_name)
+        l3.addWidget(self.__info_uri)
+        l3.addStretch(1)
+        self.__info_box.setLayout(l3)
+
+        l1 = QtWidgets.QVBoxLayout()
+        l1.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+        l1.setSpacing(0)
+        l1.addWidget(self.__filter)
+        l1.addWidget(self.__list, 1)
+
+        l2 = QtWidgets.QHBoxLayout()
+        l2.setContentsMargins(QtCore.QMargins(0, 0, 0, 0))
+        l2.setSpacing(0)
+        l2.addLayout(l1, 1)
+        l2.addSpacing(4)
+        l2.addWidget(self.__info_box, 2)
+
+        self.setLayout(l2)
 
     def __nodeFilterChanged(self, text: str) -> None:
         first_visible = None
@@ -154,6 +182,12 @@ class SelectNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__action.nodeSelected.emit(item.data(Qt.UserRole))
         #self.__action.trigger()
         self.__action.triggered.emit()
+
+    def __currentRowChanged(self, row: int) -> None:
+        uri = self.__list.item(row).data(Qt.UserRole)
+        node_desc = self.app.node_db.get_node_description(uri)
+        self.__info_name.setText(node_desc.display_name)
+        self.__info_uri.setText(node_desc.uri)
 
     def __nodeFilterSelect(self) -> None:
         item = self.__list.currentItem()
