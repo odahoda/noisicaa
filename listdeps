@@ -66,6 +66,8 @@ PIP_DEPS = {
     ],
     'build': [
         PKG('./3rdparty/protoc/'),
+        PKG('./3rdparty/faust/'),
+        PKG('./3rdparty/faustlibraries/'),
         PKG('cssutils'),
         PKG('cython'),
         PKG('pkgconfig'),
