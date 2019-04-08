@@ -18,10 +18,13 @@
 #
 # @end:license
 
+import os.path
+
 from noisidev import unittest
 from noisidev import unittest_mixins
 from noisidev import unittest_engine_mixins
 from noisidev import unittest_engine_utils
+from noisicaa import node_db
 from noisicaa.audioproc.engine import block_context
 from noisicaa.audioproc.engine import buffers
 from noisicaa.audioproc.engine import processor
@@ -31,6 +34,9 @@ class ProcessorOscillatorTestMixin(
         unittest_engine_mixins.HostSystemMixin,
         unittest_mixins.NodeDBMixin,
         unittest.TestCase):
+    def test_json(self):
+        node_db.faust_json_to_node_description(os.path.join(os.path.dirname(__file__), 'processor.json'))
+
     def test_oscillator(self):
         plugin_uri = 'builtin://oscillator'
         node_description = self.node_db[plugin_uri]
@@ -40,21 +46,21 @@ class ProcessorOscillatorTestMixin(
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
-        waveform = buffer_mgr.allocate('waveform', buffers.PyFloatAudioBlockBuffer())
         freq = buffer_mgr.allocate('freq', buffers.PyFloatAudioBlockBuffer())
         out = buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
+        waveform = buffer_mgr.allocate('waveform', buffers.PyFloatControlValueBuffer())
 
         ctxt = block_context.PyBlockContext()
         ctxt.sample_pos = 1024
 
-        proc.connect_port(ctxt, 0, buffer_mgr.data('waveform'))
-        proc.connect_port(ctxt, 1, buffer_mgr.data('freq'))
-        proc.connect_port(ctxt, 2, buffer_mgr.data('out'))
+        proc.connect_port(ctxt, 0, buffer_mgr.data('freq'))
+        proc.connect_port(ctxt, 1, buffer_mgr.data('out'))
+        proc.connect_port(ctxt, 2, buffer_mgr.data('waveform'))
 
         for i in range(self.host_system.block_size):
-            waveform[i] = 0.0
             freq[i] = 440
             out[i] = 0.0
+        waveform[0] = 0.0
 
         proc.process_block(ctxt, None)  # TODO: pass time_mapper
         self.assertTrue(any(v != 0.0 for v in out))

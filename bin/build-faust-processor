@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 CLASSNAME=$1
 SRC=$2
 DESTDIR=$3
@@ -29,3 +31,13 @@ sed <noisicaa/audioproc/engine/processor_faust.h.tmpl >${DESTDIR}/${BASE}.h \
   -e "s#<<base>>#${BASE}#g" \
   -e "s#<<className>>#${CLASSNAME}#g" \
   -e "s#<<classNameUpper>>#${CLASSNAME_UPPER}#g"
+
+LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib ${VIRTUAL_ENV}/bin/faust \
+  --import-dir ${VIRTUAL_ENV}/share/faustlibraries/ \
+  --language cpp \
+  -a gen-json.cpp \
+  -o ${DESTDIR}/${BASE}.json_dumper.cpp \
+  ${SRC}
+
+g++ -I${VIRTUAL_ENV}/include -o${DESTDIR}/${BASE}.json_dumper ${DESTDIR}/${BASE}.json_dumper.cpp
+${DESTDIR}/${BASE}.json_dumper >${DESTDIR}/${BASE}.json

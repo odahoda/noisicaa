@@ -35,7 +35,6 @@ from .node_description_pb2 import (
     NodeUIDescription,
     NodeDescription,
 )
-from .private.builtin_scanner import Builtins
 # from .presets import (
 #     Preset,
 #     PresetError,
@@ -47,3 +46,7 @@ from .node_db_pb2 import (
 from .utils import (
     get_port,
 )
+from .faust_parser import (
+    faust_json_to_node_description,
+)
+from .private.builtin_scanner import Builtins

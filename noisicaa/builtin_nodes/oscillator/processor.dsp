@@ -20,10 +20,25 @@
  * @end:license
  */
 
+declare name "Oscillator";
+declare uri "builtin://oscillator";
+declare input0_name "freq";
+declare input0_display_name "Frequency (Hz)";
+declare input0_float_value "1 20000 440";
+declare input0_scale "log";
+declare input0_type "ARATE_CONTROL";
+declare output0_name "out";
+declare output0_display_name "Output";
+declare output0_type "AUDIO";
+
 import("stdfaust.lib");
 
 sine = os.osc;
 sawtooth = os.sawtooth;
 square = os.square;
 
-process = _, (_ <: sine, sawtooth, square) : select3;
+shape = nentry("waveform[display_name:Waveform][style:menu{'Sine':0.0; 'Sawtooth':1.0; 'Square':2.0}]", 0.0, 0.0, 2.0, 1.0);
+
+oscillator(freq) = sine(freq), sawtooth(freq), square(freq) : select3(shape);
+
+process = oscillator;

@@ -56,6 +56,8 @@ protected:
 
 private:
   unique_ptr<FaustDSP> _dsp;
+  unique_ptr<BufferPtr> _buffers;
+  unique_ptr<float*> _controls;
   unique_ptr<float*> _inputs;
   unique_ptr<float*> _outputs;
 };

@@ -60,6 +60,7 @@ PIP_DEPS = {
         PKG('protobuf==3.7.1'),
         PKG('psutil'),
         PKG('pyaudio'),
+        PKG('pyparsing'),
         PKG('quamash'),
         PKG('toposort'),
         PKG('urwid'),

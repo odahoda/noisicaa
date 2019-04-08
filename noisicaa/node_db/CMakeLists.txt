@@ -21,6 +21,8 @@
 add_python_package(
   client.py
   client_test.py
+  faust_parser.py
+  faust_parser_test.py
   presets.py
   presets_test.py
   process.py

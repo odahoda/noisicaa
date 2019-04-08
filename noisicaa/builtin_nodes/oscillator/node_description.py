@@ -20,55 +20,10 @@
 #
 # @end:license
 
+import os.path
+
 from noisicaa import node_db
 
+PROCESSOR_JSON_PATH = os.path.join(os.path.dirname(__file__), 'processor.json')
 
-OscillatorDescription = node_db.NodeDescription(
-    uri='builtin://oscillator',
-    display_name='Oscillator',
-    type=node_db.NodeDescription.PROCESSOR,
-    node_ui=node_db.NodeUIDescription(
-        type='builtin://generic',
-    ),
-    builtin_icon='node-type-builtin',
-    processor=node_db.ProcessorDescription(
-        type='builtin://oscillator',
-    ),
-    ports=[
-        node_db.PortDescription(
-            name='waveform',
-            display_name="Waveform",
-            direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.ARATE_CONTROL,
-            enum_value=node_db.EnumValueDescription(
-                default=0.0,
-                items=[
-                    node_db.EnumValueItem(
-                        name="Sine",
-                        value=0.0),
-                    node_db.EnumValueItem(
-                        name="Sawtooth",
-                        value=1.0),
-                    node_db.EnumValueItem(
-                        name="Square",
-                        value=2.0),
-                ]),
-        ),
-        node_db.PortDescription(
-            name='freq',
-            display_name="Frequency (Hz)",
-            direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.ARATE_CONTROL,
-            float_value=node_db.FloatValueDescription(
-                default=440.0,
-                min=1.0,
-                max=20000.0,
-                scale=node_db.FloatValueDescription.LOG),
-        ),
-        node_db.PortDescription(
-            name='out',
-            direction=node_db.PortDescription.OUTPUT,
-            type=node_db.PortDescription.AUDIO,
-        ),
-    ]
-)
+OscillatorDescription = node_db.faust_json_to_node_description(PROCESSOR_JSON_PATH)
