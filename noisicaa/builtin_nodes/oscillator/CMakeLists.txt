@@ -23,11 +23,9 @@ add_python_package(
   processor_test.py
 )
 
-faust_dsp(processor.dsp)
-add_custom_target(noisicaa-builtin_nodes-oscillator-dsp DEPENDS processor.dsp.cpp)
+faust_dsp(Oscillator processor.dsp)
 
 add_library(noisicaa-builtin_nodes-oscillator-processor SHARED processor.cpp)
-add_dependencies(noisicaa-builtin_nodes-oscillator-processor noisicaa-builtin_nodes-oscillator-dsp)
 target_compile_options(noisicaa-builtin_nodes-oscillator-processor PRIVATE -fPIC -std=c++11 -Wall -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
 target_link_libraries(noisicaa-builtin_nodes-oscillator-processor PRIVATE noisicaa-audioproc-public)
 target_link_libraries(noisicaa-builtin_nodes-oscillator-processor PRIVATE noisicaa-host_system)

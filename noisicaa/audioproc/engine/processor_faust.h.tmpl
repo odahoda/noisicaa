@@ -22,16 +22,16 @@
  * @end:license
  */
 
-#ifndef _NOISICAA_BUILTIN_NODES_OSCILLATOR_PROCESSOR_H
-#define _NOISICAA_BUILTIN_NODES_OSCILLATOR_PROCESSOR_H
+#ifndef _NOISICAA_BUILTIN_NODES_<<classNameUpper>>_PROCESSOR_H
+#define _NOISICAA_BUILTIN_NODES_<<classNameUpper>>_PROCESSOR_H
 
 #include "noisicaa/audioproc/engine/processor_faust.h"
 
 namespace noisicaa {
 
-class ProcessorOscillator : public ProcessorFaust {
+class Processor<<className>> : public ProcessorFaust {
 public:
-  ProcessorOscillator(
+  Processor<<className>>(
       const string& realm_name, const string& node_id, HostSystem* host_system,
       const pb::NodeDescription& desc);
 

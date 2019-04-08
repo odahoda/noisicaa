@@ -138,11 +138,12 @@ macro(render_csound src dest)
   )
 endmacro(render_csound)
 
-macro(faust_dsp src)
+macro(faust_dsp clsName src)
   string(REGEX REPLACE "\\.dsp$" "" base ${src})
   add_custom_command(
-    OUTPUT ${base}.dsp.cpp
-    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib $ENV{VIRTUAL_ENV}/bin/faust --super-class-name noisicaa::FaustDSP --import-dir $ENV{VIRTUAL_ENV}/share/faustlibraries/ -o ${CMAKE_CURRENT_BINARY_DIR}/${base}.dsp.cpp ${CMAKE_CURRENT_LIST_DIR}/${src}
+    OUTPUT ${base}.cpp ${base}.h
+    COMMAND bin/build-faust-processor ${clsName} ${CMAKE_CURRENT_LIST_DIR}/${src} ${CMAKE_CURRENT_BINARY_DIR}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
   )
 endmacro(faust_dsp)

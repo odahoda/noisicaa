@@ -1,0 +1,31 @@
+#!/bin/bash
+
+CLASSNAME=$1
+SRC=$2
+DESTDIR=$3
+
+CLASSNAME_UPPER=$(echo ${CLASSNAME} | tr '[a-z]' '[A-Z]')
+SRCDIR=$(realpath --relative-to=$(pwd) $(dirname ${SRC}))
+BASE=$(basename ${SRC%.dsp})
+
+LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib ${VIRTUAL_ENV}/bin/faust \
+  --import-dir ${VIRTUAL_ENV}/share/faustlibraries/ \
+  --language cpp \
+  --super-class-name noisicaa::FaustDSP \
+  -a noisicaa/audioproc/engine/processor_faust.cpp.tmpl \
+  -o ${DESTDIR}/${BASE}.cpp.tmp \
+  ${SRC}
+
+sed <${DESTDIR}/${BASE}.cpp.tmp >${DESTDIR}/${BASE}.cpp \
+  -e '1,9d'\
+  -e '$d' \
+  -e "s#<<srcDir>>#${SRCDIR}#g" \
+  -e "s#<<base>>#${BASE}#g" \
+  -e "s#<<className>>#${CLASSNAME}#g" \
+  -e "s#<<classNameUpper>>#${CLASSNAME_UPPER}#g"
+
+sed <noisicaa/audioproc/engine/processor_faust.h.tmpl >${DESTDIR}/${BASE}.h \
+  -e "s#<<srcDir>>#${SRCDIR}#g" \
+  -e "s#<<base>>#${BASE}#g" \
+  -e "s#<<className>>#${CLASSNAME}#g" \
+  -e "s#<<classNameUpper>>#${CLASSNAME_UPPER}#g"
