@@ -13,6 +13,7 @@ BASE=$(basename ${SRC%.dsp})
 LD_LIBRARY_PATH=${VIRTUAL_ENV}/lib ${VIRTUAL_ENV}/bin/faust \
   --import-dir ${VIRTUAL_ENV}/share/faustlibraries/ \
   --language cpp \
+  --class-name Processor${CLASSNAME}DSP \
   --super-class-name noisicaa::FaustDSP \
   -a noisicaa/audioproc/engine/processor_faust.cpp.tmpl \
   -o ${DESTDIR}/${BASE}.cpp.tmp \

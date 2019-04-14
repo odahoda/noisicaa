@@ -34,7 +34,7 @@ Processor<<className>>::Processor<<className>>(
   : ProcessorFaust(realm_name, node_id, host_system, desc) {}
 
 FaustDSP* Processor<<className>>::create_dsp() {
-  return new ::mydsp();
+  return new ::Processor<<className>>DSP();
 }
 
 }
