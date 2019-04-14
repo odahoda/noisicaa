@@ -48,6 +48,7 @@ target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_source-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-oscillator-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-vca-processor)
+target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-noise-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-step_sequencer-processor)
 
 add_subdirectory(score_track)
@@ -61,4 +62,5 @@ add_subdirectory(custom_csound)
 add_subdirectory(midi_source)
 add_subdirectory(oscillator)
 add_subdirectory(vca)
+add_subdirectory(noise)
 add_subdirectory(step_sequencer)

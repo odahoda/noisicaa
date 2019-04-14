@@ -30,6 +30,7 @@
 #include "noisicaa/builtin_nodes/midi_source/processor.h"
 #include "noisicaa/builtin_nodes/oscillator/processor.h"
 #include "noisicaa/builtin_nodes/vca/processor.h"
+#include "noisicaa/builtin_nodes/noise/processor.h"
 #include "noisicaa/builtin_nodes/step_sequencer/processor.h"
 
 namespace noisicaa {
@@ -66,6 +67,9 @@ StatusOr<Processor*> create_processor(
   } else if (desc.processor().type() == "builtin://vca") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorVCA(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://noise") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorNoise(realm_name, node_id, host_system, desc);
   } else if (desc.processor().type() == "builtin://step-sequencer") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorStepSequencer(realm_name, node_id, host_system, desc);
