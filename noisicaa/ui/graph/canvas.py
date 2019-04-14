@@ -184,10 +184,15 @@ class SelectNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__action.triggered.emit()
 
     def __currentRowChanged(self, row: int) -> None:
-        uri = self.__list.item(row).data(Qt.UserRole)
-        node_desc = self.app.node_db.get_node_description(uri)
-        self.__info_name.setText(node_desc.display_name)
-        self.__info_uri.setText(node_desc.uri)
+        item = self.__list.item(row)
+        if item is not None:
+            uri = item.data(Qt.UserRole)
+            node_desc = self.app.node_db.get_node_description(uri)
+            self.__info_name.setText(node_desc.display_name)
+            self.__info_uri.setText(node_desc.uri)
+        else:
+            self.__info_name.setText("")
+            self.__info_uri.setText("")
 
     def __nodeFilterSelect(self) -> None:
         item = self.__list.currentItem()
