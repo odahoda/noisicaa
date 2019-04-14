@@ -30,6 +30,7 @@ import "noisicaa/builtin_nodes/sample_track/commands.proto";
 import "noisicaa/builtin_nodes/instrument/commands.proto";
 import "noisicaa/builtin_nodes/custom_csound/commands.proto";
 import "noisicaa/builtin_nodes/midi_source/commands.proto";
+import "noisicaa/builtin_nodes/step_sequencer/commands.proto";
 
 package noisicaa.pb;
 
@@ -68,4 +69,10 @@ extend Command {
 
   // MIDI source (408xxx)
   optional UpdateMidiSource update_midi_source = 408000;
+
+  // Step Sequencer (409xxx)
+  optional UpdateStepSequencer update_step_sequencer = 409000;
+  optional UpdateStepSequencerChannel update_step_sequencer_channel = 409001;
+  optional DeleteStepSequencerChannel delete_step_sequencer_channel = 409002;
+  optional UpdateStepSequencerStep update_step_sequencer_step = 409003;
 }
