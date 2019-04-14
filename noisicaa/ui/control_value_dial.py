@@ -41,12 +41,13 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
     minimum, setMinimum, minimumChanged = slots.slot(float, 'minimum', default=-1.0)
     maximum, setMaximum, maximumChanged = slots.slot(float, 'maximum', default=1.0)
 
-    def __init__(self, parent: Optional[QtWidgets.QWidget]) -> None:
+    def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent=parent)
 
         self.valueChanged.connect(lambda _: self.update())
         self.maximumChanged.connect(lambda _: self.update())
         self.minimumChanged.connect(lambda _: self.update())
+        self.logScaleChanged.connect(lambda _: self.update())
 
         self.__display_func = lambda value: '%.2f' % value
 
@@ -157,16 +158,18 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
             painter.drawEllipse(knob_pos, arc_width / 2 - 1, arc_width / 2 - 1)
 
             if size > 40:
-                font = QtGui.QFont("Arial")
-                font.setPixelSize(10)
-                painter.setFont(font)
-                pen = QtGui.QPen()
-                pen.setColor(text_color)
-                painter.setPen(pen)
-                painter.drawText(
-                    QtCore.QRectF(-arc_size / 2, -arc_size / 4, arc_size, arc_size / 2),
-                    Qt.AlignCenter,
-                    self.__display_func(self.value()))
+                text = self.__display_func(self.value())
+                if text:
+                    font = QtGui.QFont("Arial")
+                    font.setPixelSize(10)
+                    painter.setFont(font)
+                    pen = QtGui.QPen()
+                    pen.setColor(text_color)
+                    painter.setPen(pen)
+                    painter.drawText(
+                        QtCore.QRectF(-arc_size / 2, -arc_size / 4, arc_size, arc_size / 2),
+                        Qt.AlignCenter,
+                        text)
 
         finally:
             painter.end()

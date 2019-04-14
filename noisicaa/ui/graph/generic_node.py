@@ -85,12 +85,12 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
 
         port_properties = self.__node.get_port_properties(self.__port.name)
 
-        if port.WhichOneof('value') == 'float_value':
+        if self.__port.WhichOneof('value') == 'float_value':
             self.__dial = control_value_dial.ControlValueDial(parent)
             self.__dial.setDisabled(port_properties.exposed)
-            self.__dial.setRange(port.float_value.min, port.float_value.max)
-            self.__dial.setDefault(port.float_value.default)
-            if port.float_value.scale == node_db.FloatValueDescription.LOG:
+            self.__dial.setRange(self.__port.float_value.min, self.__port.float_value.max)
+            self.__dial.setDefault(self.__port.float_value.default)
+            if self.__port.float_value.scale == node_db.FloatValueDescription.LOG:
                 self.__dial.setLogScale(True)
             self.connect(self.__dial.valueChanged, self.__dial.setValue)
 
@@ -101,7 +101,7 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
             layout.addWidget(self.__exposed)
             layout.addWidget(self.__dial)
 
-        elif port.WhichOneof('value') == 'enum_value':
+        elif self.__port.WhichOneof('value') == 'enum_value':
             self.__enum = ControlValueEnum(parent=parent)
             for item in self.__port.enum_value.items:
                 self.__enum.addItem(item.name, item.value)
@@ -151,9 +151,10 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
         self.__dial.setDisabled(exposed)
 
     def __portPropertiesChanged(self, change: model.PropertyListChange) -> None:
-        port_properties = self.__node.get_port_properties(self.__port.name)
-        self.__exposed.setChecked(port_properties.exposed)
-        self.__dial.setDisabled(port_properties.exposed)
+        if self.__port.WhichOneof('value') == 'float_value':
+            port_properties = self.__node.get_port_properties(self.__port.name)
+            self.__exposed.setChecked(port_properties.exposed)
+            self.__dial.setDisabled(port_properties.exposed)
 
 
 class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
