@@ -32,6 +32,7 @@ from .mixer.node_description import MixerDescription
 from .custom_csound.node_description import CustomCSoundDescription
 from .midi_source.node_description import MidiSourceDescription
 from .oscillator.node_description import OscillatorDescription
+from .vca.node_description import VCADescription
 
 
 def node_descriptions() -> Iterator[node_db.NodeDescription]:
@@ -44,3 +45,4 @@ def node_descriptions() -> Iterator[node_db.NodeDescription]:
     yield CustomCSoundDescription
     yield MidiSourceDescription
     yield OscillatorDescription
+    yield VCADescription

@@ -29,6 +29,7 @@
 #include "noisicaa/builtin_nodes/custom_csound/processor.h"
 #include "noisicaa/builtin_nodes/midi_source/processor.h"
 #include "noisicaa/builtin_nodes/oscillator/processor.h"
+#include "noisicaa/builtin_nodes/vca/processor.h"
 
 namespace noisicaa {
 
@@ -61,6 +62,9 @@ StatusOr<Processor*> create_processor(
   } else if (desc.processor().type() == "builtin://oscillator") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorOscillator(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://vca") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorVCA(realm_name, node_id, host_system, desc);
   }
 
   return ERROR_STATUS("Invalid processor type %d", desc.processor().type());
