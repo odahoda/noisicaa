@@ -80,7 +80,7 @@ def _list_controls(items):
     for item in items:
         if item['type'] in {'vgroup', 'hgroup', 'tgroup'}:
             yield from _list_controls(item['items'])
-        elif item['type'] in {'nentry'}:
+        elif item['type'] in {'nentry', 'hslider', 'vslider'}:
             yield item
         else:
             raise ValueError("Unsupported UI item type '%s'" % item['type'])
@@ -137,18 +137,21 @@ def faust_json_to_node_description(path: str) -> node_description_pb2.NodeDescri
         for control in _list_controls(faust_desc['ui']):
             control_meta = dict(itertools.chain.from_iterable(m.items() for m in control['meta']))
 
-            port_desc = node_desc.ports.add()
-            port_desc.name = control['label']
-            port_desc.direction = node_description_pb2.PortDescription.INPUT
-            port_desc.type = node_description_pb2.PortDescription.KRATE_CONTROL
-            for key, value in control_meta.items():
-                _set_port_attr(port_desc, key, value)
+            if control['type'] in {'nentry', 'hslider', 'vslider'}:
+                port_desc = node_desc.ports.add()
+                port_desc.name = control['label']
+                port_desc.direction = node_description_pb2.PortDescription.INPUT
+                port_desc.type = node_description_pb2.PortDescription.KRATE_CONTROL
+                for key, value in control_meta.items():
+                    _set_port_attr(port_desc, key, value)
 
-            if port_desc.HasField('enum_value'):
-                port_desc.enum_value.default = float(control['init'])
+                if port_desc.HasField('enum_value'):
+                    port_desc.enum_value.default = float(control['init'])
+                else:
+                    port_desc.float_value.min = float(control['min'])
+                    port_desc.float_value.max = float(control['max'])
+                    port_desc.float_value.default = float(control['init'])
             else:
-                port_desc.float_value.min = float(control['min'])
-                port_desc.float_value.max = float(control['max'])
-                port_desc.float_value.default = float(control['init'])
+                raise AssertionError(control['type'])
 
     return node_desc
