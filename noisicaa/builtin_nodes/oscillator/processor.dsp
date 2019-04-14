@@ -37,7 +37,9 @@ sine = os.osc;
 sawtooth = os.sawtooth;
 square = os.square;
 
-shape = nentry("waveform[display_name:Waveform][style:menu{'Sine':0.0; 'Sawtooth':1.0; 'Square':2.0}]", 0.0, 0.0, 2.0, 1.0);
+shape = nentry(
+	  "waveform[display_name:Waveform][style:menu{'Sine':0.0; 'Sawtooth':1.0; 'Square':2.0}]",
+	  0.0, 0.0, 2.0, 1.0);
 
 oscillator(freq) = sine(freq), sawtooth(freq), square(freq) : select3(shape);
 
