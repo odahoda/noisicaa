@@ -113,7 +113,8 @@ class FauseJsonToNodeDescriptionTest(unittest.TestCase):
         self.assertEqual(ports['freq'].float_value.min, 1.0)
         self.assertEqual(ports['freq'].float_value.max, 20000.0)
         self.assertEqual(ports['freq'].float_value.default, 440.0)
-        self.assertEqual(ports['freq'].float_value.scale, node_description_pb2.FloatValueDescription.LOG)
+        self.assertEqual(
+            ports['freq'].float_value.scale, node_description_pb2.FloatValueDescription.LOG)
         self.assertEqual(ports['waveform'].display_name, "Waveform")
         self.assertEqual(ports['waveform'].type, node_description_pb2.PortDescription.KRATE_CONTROL)
         self.assertEqual(ports['waveform'].direction, node_description_pb2.PortDescription.INPUT)

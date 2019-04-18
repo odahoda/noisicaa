@@ -35,7 +35,8 @@ class ProcessorOscillatorTestMixin(
         unittest_mixins.NodeDBMixin,
         unittest.TestCase):
     def test_json(self):
-        node_db.faust_json_to_node_description(os.path.join(os.path.dirname(__file__), 'processor.json'))
+        node_db.faust_json_to_node_description(
+            os.path.join(os.path.dirname(__file__), 'processor.json'))
 
     def test_oscillator(self):
         plugin_uri = 'builtin://oscillator'

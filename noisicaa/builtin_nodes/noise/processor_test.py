@@ -35,10 +35,11 @@ class ProcessorNoiseTestMixin(
         unittest_mixins.NodeDBMixin,
         unittest.TestCase):
     def test_json(self):
-        node_db.faust_json_to_node_description(os.path.join(os.path.dirname(__file__), 'processor.json'))
+        node_db.faust_json_to_node_description(
+            os.path.join(os.path.dirname(__file__), 'processor.json'))
 
     def test_oscillator(self):
-        plugin_uri = 'builtin://oscillator'
+        plugin_uri = 'builtin://noise'
         node_description = self.node_db[plugin_uri]
 
         proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_description)
@@ -47,7 +48,7 @@ class ProcessorNoiseTestMixin(
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
 
         out = buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
-        type = buffer_mgr.allocate('type', buffers.PyFloatControlValueBuffer())
+        ntype = buffer_mgr.allocate('type', buffers.PyFloatControlValueBuffer())
 
         ctxt = block_context.PyBlockContext()
         ctxt.sample_pos = 1024
@@ -57,7 +58,7 @@ class ProcessorNoiseTestMixin(
 
         for i in range(self.host_system.block_size):
             out[i] = 0.0
-        type[0] = 0.0
+        ntype[0] = 0.0
 
         proc.process_block(ctxt, None)  # TODO: pass time_mapper
         self.assertTrue(any(v != 0.0 for v in out))

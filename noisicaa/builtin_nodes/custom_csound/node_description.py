@@ -33,5 +33,5 @@ CustomCSoundDescription = node_db.NodeDescription(
     node_ui=node_db.NodeUIDescription(
         type='builtin://custom-csound',
     ),
-    builtin_icon = 'node-type-builtin',
+    builtin_icon='node-type-builtin',
 )

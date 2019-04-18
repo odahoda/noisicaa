@@ -30,7 +30,7 @@ ScoreTrackDescription = node_db.NodeDescription(
     node_ui=node_db.NodeUIDescription(
         type='builtin://score-track',
     ),
-    builtin_icon = 'track-type-score',
+    builtin_icon='track-type-score',
     processor=node_db.ProcessorDescription(
         type='builtin://pianoroll',
     ),

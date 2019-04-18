@@ -20,10 +20,10 @@
 #
 # @end:license
 
-import functools
 import itertools
 import json
 import re
+from typing import Any, Dict, Iterable, Iterator
 
 import pyparsing
 
@@ -39,7 +39,7 @@ MENU_ITEM_VALUE = pyparsing.Word('0123456789.')
 MENU_ITEM = pyparsing.Group(MENU_ITEM_LABEL + COLON + MENU_ITEM_VALUE)
 MENU_SPEC = LBRACE + MENU_ITEM + pyparsing.OneOrMore(SEMICOLON + MENU_ITEM) + RBRACE
 
-def _set_port_attr(port_desc, key, value):
+def _set_port_attr(port_desc: node_description_pb2.PortDescription, key: str, value: str) -> None:
     if key == 'name':
         port_desc.name = value
     elif key == 'display_name':
@@ -76,7 +76,7 @@ def _set_port_attr(port_desc, key, value):
         raise ValueError("Unknown meta key '%s'" % key)
 
 
-def _list_controls(items):
+def _list_controls(items: Iterable[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
     for item in items:
         if item['type'] in {'vgroup', 'hgroup', 'tgroup'}:
             yield from _list_controls(item['items'])
@@ -97,7 +97,7 @@ def faust_json_to_node_description(path: str) -> node_description_pb2.NodeDescri
         builtin_icon='node-type-builtin',
     )
 
-    with open(path, 'rb') as fp:
+    with open(path, 'r', encoding='utf-8') as fp:
         faust_desc = json.load(fp)
 
         meta = dict(itertools.chain.from_iterable(m.items() for m in faust_desc['meta']))

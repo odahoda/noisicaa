@@ -33,7 +33,7 @@ SampleTrackDescription = node_db.NodeDescription(
     processor=node_db.ProcessorDescription(
         type='builtin://sample-script',
     ),
-    builtin_icon = 'track-type-sample',
+    builtin_icon='track-type-sample',
     ports=[
         node_db.PortDescription(
             name='out:left',

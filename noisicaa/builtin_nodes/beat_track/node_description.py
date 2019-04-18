@@ -30,7 +30,7 @@ BeatTrackDescription = node_db.NodeDescription(
     node_ui=node_db.NodeUIDescription(
         type='builtin://beat-track',
     ),
-    builtin_icon = 'track-type-beat',
+    builtin_icon='track-type-beat',
     processor=node_db.ProcessorDescription(
         type='builtin://pianoroll',
     ),

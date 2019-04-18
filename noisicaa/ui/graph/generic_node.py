@@ -48,7 +48,7 @@ class ControlValueEnum(slots.SlotContainer, QtWidgets.QComboBox):
         self.valueChanged.connect(lambda _: self.__valueChanged())
         self.currentIndexChanged.connect(lambda _: self.__currentIndexChanged())
 
-    def __valueChanged(self):
+    def __valueChanged(self) -> None:
         closest_idx = None
         closest_dist = None
         for idx in range(self.count()):
@@ -61,7 +61,7 @@ class ControlValueEnum(slots.SlotContainer, QtWidgets.QComboBox):
         if closest_idx is not None:
             self.setCurrentIndex(closest_idx)
 
-    def __currentIndexChanged(self):
+    def __currentIndexChanged(self) -> None:
         self.setValue(self.currentData())
 
 
