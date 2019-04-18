@@ -322,7 +322,7 @@ Status PortAudioBackend::begin_block(BlockContext* ctxt) {
       snprintf(uri, sizeof(uri), "alsa://%d/%d", event->source.client, event->source.port);
 
       uint8_t msg[3];
-      msg[0] = 0xa0 | event->data.control.channel;
+      msg[0] = 0xb0 | event->data.control.channel;
       msg[1] = event->data.control.param;
       msg[2] = event->data.control.value;
 
