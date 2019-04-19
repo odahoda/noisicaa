@@ -32,6 +32,7 @@
 #include "noisicaa/builtin_nodes/vca/processor.h"
 #include "noisicaa/builtin_nodes/noise/processor.h"
 #include "noisicaa/builtin_nodes/step_sequencer/processor.h"
+#include "noisicaa/builtin_nodes/midi_cc_to_cv/processor.h"
 
 namespace noisicaa {
 
@@ -73,6 +74,9 @@ StatusOr<Processor*> create_processor(
   } else if (desc.processor().type() == "builtin://step-sequencer") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorStepSequencer(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://midi-cc-to-cv") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorMidiCCtoCV(realm_name, node_id, host_system, desc);
   }
 
   return ERROR_STATUS("Invalid processor type %d", desc.processor().type());
