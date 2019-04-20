@@ -22,7 +22,7 @@
 
 import logging
 import math
-from typing import Any, Dict, List
+from typing import cast, Any, Dict, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -36,6 +36,7 @@ from noisicaa.ui import ui_base
 from noisicaa.ui.graph import base_node
 from . import client_impl
 from . import commands
+from . import processor_messages
 
 logger = logging.getLogger(__name__)
 
@@ -131,12 +132,50 @@ controller_names = {
 }
 
 
+class LearnButton(QtWidgets.QPushButton):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.setText("L")
+        self.setCheckable(True)
+
+        self.__default_bg = self.palette().color(QtGui.QPalette.Button)
+        self.__timer = QtCore.QTimer()
+        self.__timer.setInterval(250)
+        self.__timer.timeout.connect(self.__blink)
+        self.__blink_state = False
+
+        self.toggled.connect(self.__toggledChanged)
+
+    def __blink(self) -> None:
+        self.__blink_state = not self.__blink_state
+        palette = self.palette()
+        if self.__blink_state:
+            palette.setColor(self.backgroundRole(), QtGui.QColor(0, 255, 0))
+        else:
+            palette.setColor(self.backgroundRole(), self.__default_bg)
+        self.setPalette(palette)
+
+    def __toggledChanged(self, toggled: bool) -> None:
+        if toggled:
+            self.__timer.start()
+
+        else:
+            self.__timer.stop()
+            palette = self.palette()
+            palette.setColor(self.backgroundRole(), self.__default_bg)
+            self.setPalette(palette)
+
+
 class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
     def __init__(self, channel: client_impl.MidiCCtoCVChannel, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__channel = channel
-        self.__listeners = []  # type: List[core.Listener]
+        self.__node = cast(client_impl.MidiCCtoCV, channel.parent)
+
+        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__learning = False
 
         self.__midi_channel = QtWidgets.QComboBox()
         self.__midi_channel.setObjectName('channel[%016x]:midi_channel' % channel.id)
@@ -145,7 +184,8 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
             if ch == self.__channel.midi_channel:
                 self.__midi_channel.setCurrentIndex(self.__midi_channel.count() - 1)
         self.__midi_channel.currentIndexChanged.connect(self.__midiChannelEdited)
-        self.__listeners.append(self.__channel.midi_channel_changed.add(self.__midiChannelChanged))
+        self.__listeners['midi_channel'] = self.__channel.midi_channel_changed.add(
+            self.__midiChannelChanged)
 
         self.__midi_controller = QtWidgets.QComboBox()
         self.__midi_controller.setObjectName('channel[%016x]:midi_controller' % channel.id)
@@ -158,8 +198,17 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
             if ch == self.__channel.midi_controller:
                 self.__midi_controller.setCurrentIndex(self.__midi_controller.count() - 1)
         self.__midi_controller.currentIndexChanged.connect(self.__midiControllerEdited)
-        self.__listeners.append(
-            self.__channel.midi_controller_changed.add(self.__midiControllerChanged))
+        self.__listeners['midi_controller'] = self.__channel.midi_controller_changed.add(
+            self.__midiControllerChanged)
+
+        self.__learn_timeout = QtCore.QTimer()
+        self.__learn_timeout.setInterval(5000)
+        self.__learn_timeout.setSingleShot(True)
+        self.__learn_timeout.timeout.connect(self.__learnStop)
+
+        self.__learn = LearnButton()
+        self.__learn.setObjectName('channel[%016x]:learn' % channel.id)
+        self.__learn.toggled.connect(self.__learnClicked)
 
         self.__min_value = QtWidgets.QLineEdit()
         self.__min_value.setObjectName('channel[%016x]:min_value' % channel.id)
@@ -168,7 +217,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         self.__min_value.setValidator(min_value_validator)
         self.__min_value.setText(fmt_value(self.__channel.min_value))
         self.__min_value.editingFinished.connect(self.__minValueEdited)
-        self.__listeners.append(self.__channel.min_value_changed.add(self.__minValueChanged))
+        self.__listeners['min_value'] = self.__channel.min_value_changed.add(self.__minValueChanged)
 
         self.__max_value = QtWidgets.QLineEdit()
         self.__max_value.setObjectName('channel[%016x]:max_value' % channel.id)
@@ -177,28 +226,84 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         self.__max_value.setValidator(max_value_validator)
         self.__max_value.setText(fmt_value(self.__channel.max_value))
         self.__max_value.editingFinished.connect(self.__maxValueEdited)
-        self.__listeners.append(self.__channel.max_value_changed.add(self.__maxValueChanged))
+        self.__listeners['max_value'] = self.__channel.max_value_changed.add(self.__maxValueChanged)
 
         self.__log_scale = QtWidgets.QCheckBox()
         self.__log_scale.setObjectName('channel[%016x]:log_scale' % channel.id)
         self.__log_scale.setChecked(self.__channel.log_scale)
         self.__log_scale.stateChanged.connect(self.__logScaleEdited)
-        self.__listeners.append(channel.log_scale_changed.add(self.__logScaleChanged))
+        self.__listeners['log_scale'] = channel.log_scale_changed.add(self.__logScaleChanged)
 
     def addToLayout(self, layout: QtWidgets.QGridLayout, row: int) -> None:
         layout.addWidget(self.__midi_channel, row, 0)
         layout.addWidget(self.__midi_controller, row, 1)
-        layout.addWidget(self.__min_value, row, 2)
-        layout.addWidget(self.__max_value, row, 3)
-        layout.addWidget(self.__log_scale, row, 4)
+        layout.addWidget(self.__learn, row, 2)
+        layout.addWidget(self.__min_value, row, 3)
+        layout.addWidget(self.__max_value, row, 4)
+        layout.addWidget(self.__log_scale, row, 5)
 
     def cleanup(self) -> None:
-        pass
+        self.__learnStop()
+        for listener in self.__listeners.values():
+            listener.remove()
+        self.__listeners.clear()
+
+    def __nodeMessage(self, msg: Dict[str, Any]) -> None:
+        learn_urid = 'http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#learn'
+        if learn_urid in msg and self.__learning:
+            midi_channel, midi_controller = msg[learn_urid]
+            idx = self.__midi_channel.findData(midi_channel)
+            if idx >= 0:
+                self.__midi_channel.setCurrentIndex(idx)
+            else:
+                logger.error("MIDI channel %r not found.", midi_channel)
+            idx = self.__midi_controller.findData(midi_controller)
+            if idx >= 0:
+                self.__midi_controller.setCurrentIndex(idx)
+            else:
+                logger.error("MIDI controller %r not found.", midi_controller)
+
+            self.__learn_timeout.start()
+
+    def __learnStart(self) -> None:
+        if self.__learning:
+            return
+        self.__learning = True
+
+        self.__listeners['node-messages'] = self.app.node_messages.add(
+            '%016x' % self.__node.id, self.__nodeMessage)
+
+        self.call_async(self.project_view.sendNodeMessage(
+            processor_messages.learn(self.__node, True)))
+
+        self.__learn.setChecked(True)
+        self.__learn_timeout.start()
+
+    def __learnStop(self) -> None:
+        if not self.__learning:
+            return
+        self.__learning = False
+
+        self.__learn.setChecked(False)
+        self.__learn_timeout.stop()
+
+        self.call_async(self.project_view.sendNodeMessage(
+            processor_messages.learn(self.__node, False)))
+
+        self.__listeners.pop('node-messages').remove()
+
+    def __learnClicked(self, checked: bool) -> None:
+        if checked:
+            self.__learnStart()
+        else:
+            self.__learnStop()
 
     def __midiChannelChanged(self, change: model.PropertyValueChange[int]) -> None:
         idx = self.__midi_channel.findData(change.new_value)
-        if idx > 0:
+        if idx >= 0:
             self.__midi_channel.setCurrentIndex(idx)
+        else:
+            logger.error("MIDI channel %r not found.", change.new_value)
 
     def __midiChannelEdited(self) -> None:
         value = self.__midi_channel.currentData()
@@ -208,8 +313,10 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
 
     def __midiControllerChanged(self, change: model.PropertyValueChange[int]) -> None:
         idx = self.__midi_controller.findData(change.new_value)
-        if idx > 0:
+        if idx >= 0:
             self.__midi_controller.setCurrentIndex(idx)
+        else:
+            logger.error("MIDI controller %r not found.", change.new_value)
 
     def __midiControllerEdited(self) -> None:
         value = self.__midi_controller.currentData()
@@ -263,9 +370,6 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.__listeners['channels'] = self.__node.channels_changed.add(
             self.__channelsChanged)
 
-        self.__listeners['node-messages'] = self.app.node_messages.add(
-            '%016x' % self.__node.id, self.__nodeMessage)
-
         body = QtWidgets.QWidget(self)
         body.setAutoFillBackground(False)
         body.setAttribute(Qt.WA_NoSystemBackground, True)
@@ -301,9 +405,6 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         for channel in self.__channels:
             channel.cleanup()
         self.__channels.clear()
-
-    def __nodeMessage(self, msg: Dict[str, Any]) -> None:
-        pass
 
     def __updateChannels(self) -> None:
         clearLayout(self.__channel_layout)

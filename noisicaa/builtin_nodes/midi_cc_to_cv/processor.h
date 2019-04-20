@@ -54,6 +54,7 @@ public:
 protected:
   Status setup_internal() override;
   void cleanup_internal() override;
+  Status handle_message_internal(pb::ProcessorMessage* msg) override;
   Status set_parameters_internal(const pb::NodeParameters& parameters);
   Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
@@ -61,8 +62,11 @@ protected:
 private:
   Status set_spec(const pb::MidiCCtoCVSpec& spec);
 
+  LV2_URID _learn_urid;
+
   vector<BufferPtr> _buffers;
   float _current_value[128];
+  atomic<uint32_t> _learn;
 
   atomic<pb::MidiCCtoCVSpec*> _next_spec;
   atomic<pb::MidiCCtoCVSpec*> _current_spec;

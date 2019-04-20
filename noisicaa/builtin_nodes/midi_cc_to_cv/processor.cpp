@@ -22,12 +22,17 @@
 
 #include <math.h>
 
+#include "lv2/lv2plug.in/ns/ext/atom/forge.h"
+
 #include "noisicaa/audioproc/engine/misc.h"
 #include "noisicaa/audioproc/public/engine_notification.pb.h"
+#include "noisicaa/audioproc/public/processor_message.pb.h"
 #include "noisicaa/audioproc/engine/message_queue.h"
 #include "noisicaa/host_system/host_system.h"
+#include "noisicaa/builtin_nodes/processor_message_registry.pb.h"
 #include "noisicaa/builtin_nodes/midi_cc_to_cv/processor.h"
 #include "noisicaa/builtin_nodes/midi_cc_to_cv/processor.pb.h"
+#include "noisicaa/builtin_nodes/midi_cc_to_cv/processor_messages.pb.h"
 
 namespace noisicaa {
 
@@ -39,6 +44,8 @@ ProcessorMidiCCtoCV::ProcessorMidiCCtoCV(
     _next_spec(nullptr),
     _current_spec(nullptr),
     _old_spec(nullptr) {
+  _learn_urid = _host_system->lv2->map(
+      "http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#learn");
 }
 
 Status ProcessorMidiCCtoCV::setup_internal() {
@@ -48,6 +55,7 @@ Status ProcessorMidiCCtoCV::setup_internal() {
   for (int idx = 0; idx < 128 ; ++idx) {
     _current_value[idx] = 0.0;
   }
+  _learn = 0;
 
   return Status::Ok();
 }
@@ -69,6 +77,26 @@ void ProcessorMidiCCtoCV::cleanup_internal() {
   _buffers.clear();
 
   Processor::cleanup_internal();
+}
+
+Status ProcessorMidiCCtoCV::handle_message_internal(pb::ProcessorMessage* msg) {
+  unique_ptr<pb::ProcessorMessage> msg_ptr(msg);
+  if (msg->HasExtension(pb::midi_cc_to_cv_learn)) {
+    const pb::MidiCCtoCVLearn& m = msg->GetExtension(pb::midi_cc_to_cv_learn);
+    if (m.enable()) {
+      ++_learn;
+    } else {
+      if (_learn > 0) {
+        --_learn;
+      } else {
+        _logger->error("Unbalanced MidiCCtoCVLearn messages.");
+      }
+    }
+
+    return Status::Ok();
+  }
+
+  return Processor::handle_message_internal(msg_ptr.release());
 }
 
 Status ProcessorMidiCCtoCV::set_parameters_internal(const pb::NodeParameters& parameters) {
@@ -120,6 +148,8 @@ Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMappe
     return Status::Ok();
   }
 
+  bool learn = _learn > 0;
+
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
   if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS(
@@ -140,6 +170,27 @@ Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMappe
               && (midi[0] & 0x0f) == channel_spec.midi_channel()
               && midi[1] == channel_spec.midi_controller()) {
             _current_value[channel_idx] = midi[2] / 127.0;
+          }
+
+          if (learn) {
+            uint8_t atom[200];
+            LV2_Atom_Forge forge;
+            lv2_atom_forge_init(&forge, &_host_system->lv2->urid_map);
+            lv2_atom_forge_set_buffer(&forge, atom, sizeof(atom));
+
+            LV2_Atom_Forge_Frame oframe;
+            lv2_atom_forge_object(&forge, &oframe, _host_system->lv2->urid.core_nodemsg, 0);
+
+            lv2_atom_forge_key(&forge, _learn_urid);
+            LV2_Atom_Forge_Frame tframe;
+            lv2_atom_forge_tuple(&forge, &tframe);
+            lv2_atom_forge_int(&forge, midi[0] & 0x0f);
+            lv2_atom_forge_int(&forge, midi[1]);
+            lv2_atom_forge_pop(&forge, &tframe);
+
+            lv2_atom_forge_pop(&forge, &oframe);
+
+            NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)atom);
           }
         }
       } else {

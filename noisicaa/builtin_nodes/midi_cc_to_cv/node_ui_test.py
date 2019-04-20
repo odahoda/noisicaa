@@ -83,37 +83,42 @@ class MidiCCtoCVNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
         assert editor is not None, editor_name
         return editor
 
-    async def test_channel_set_midi_channel(self):
+    async def test_channel_midi_channel_changed(self):
         await self.project_client.send_command(commands.update_channel(
             self.node.channels[0], set_midi_channel=12))
 
         editor = self._getEditor(QtWidgets.QComboBox, self.node.channels[0], 'midi_channel')
         self.assertEqual(editor.currentData(), 12)
 
-    async def test_channel_set_midi_controller(self):
+    async def test_channel_midi_controller_changed(self):
         await self.project_client.send_command(commands.update_channel(
             self.node.channels[0], set_midi_controller=63))
 
         editor = self._getEditor(QtWidgets.QComboBox, self.node.channels[0], 'midi_controller')
         self.assertEqual(editor.currentData(), 63)
 
-    async def test_channel_set_min_value(self):
+    async def test_channel_min_value_changed(self):
         await self.project_client.send_command(commands.update_channel(
             self.node.channels[0], set_min_value=440.0))
 
         editor = self._getEditor(QtWidgets.QLineEdit, self.node.channels[0], 'min_value')
         self.assertEqual(editor.text(), '440.0')
 
-    async def test_channel_set_max_value(self):
+    async def test_channel_max_value_changed(self):
         await self.project_client.send_command(commands.update_channel(
             self.node.channels[0], set_max_value=880.0))
 
         editor = self._getEditor(QtWidgets.QLineEdit, self.node.channels[0], 'max_value')
         self.assertEqual(editor.text(), '880.0')
 
-    async def test_channel_set_log_scale(self):
+    async def test_channel_log_scale_changed(self):
         await self.project_client.send_command(commands.update_channel(
             self.node.channels[0], set_log_scale=True))
 
         editor = self._getEditor(QtWidgets.QCheckBox, self.node.channels[0], 'log_scale')
         self.assertTrue(editor.isChecked())
+
+    # crashes, because test doesn't have a ProjectView
+    # async def test_channel_learn_clicked(self):
+    #     button = self._getEditor(QtWidgets.QAbstractButton, self.node.channels[0], 'learn')
+    #     button.click()
