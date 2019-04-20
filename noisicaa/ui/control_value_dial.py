@@ -40,6 +40,7 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
     logScale, setLogScale, logScaleChanged = slots.slot(bool, 'logScale', default=False)
     minimum, setMinimum, minimumChanged = slots.slot(float, 'minimum', default=-1.0)
     maximum, setMaximum, maximumChanged = slots.slot(float, 'maximum', default=1.0)
+    readOnly, setReadOnly, readOnlyChanged = slots.slot(bool, 'readOnly', default=False)
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent=parent)
@@ -175,11 +176,11 @@ class ControlValueDial(slots.SlotContainer, QtWidgets.QWidget):
             painter.end()
 
     def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if evt.button() == Qt.LeftButton:
+        if evt.button() == Qt.LeftButton and not self.readOnly():
             self.setValue(self.default())
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if evt.button() == Qt.LeftButton:
+        if evt.button() == Qt.LeftButton and not self.readOnly():
             self.__dragging = True
             self.__drag_pos = self.mapToGlobal(evt.pos())
             evt.accept()
