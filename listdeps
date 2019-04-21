@@ -83,8 +83,8 @@ PIP_DEPS = {
         PKG('mox3'),
         PKG('py-cpuinfo'),
         PKG('pyfakefs'),
-        PKG('pylint==2.2.2'),
-        PKG('mypy==0.650'),
+        PKG('pylint==2.3.1'),
+        PKG('mypy==0.701'),
         PKG('mypy-extensions'),
         PKG('PyGObject-stubs'),
 
