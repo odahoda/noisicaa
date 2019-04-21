@@ -47,6 +47,7 @@ from . import commands
 from . import commands_pb2
 from . import player as player_lib
 from . import render
+from . import session_value_store
 
 if typing.TYPE_CHECKING:
     from . import pmodel
@@ -66,10 +67,9 @@ class Session(ipc.CallbackSessionMixin, ipc.Session):
         super().__init__(session_id, start_session_request, event_loop)
 
         assert start_session_request.HasField('session_name')
-        self.session_name = start_session_request.session_name
+        self.session_values = session_value_store.SessionValueStore(
+            event_loop, start_session_request.session_name)
 
-        self.session_data = {}  # type: Dict[str, session_data_pb2.SessionValue]
-        self.session_data_path = None  # type: str
         self.__players = {}  # type: Dict[str, player_lib.Player]
 
     async def cleanup(self) -> None:
@@ -81,7 +81,6 @@ class Session(ipc.CallbackSessionMixin, ipc.Session):
 
     async def add_player(self, player: player_lib.Player) -> None:
         self.__players[player.id] = player
-        await player.set_session_values(self.session_data.values())
 
     def remove_player(self, player: player_lib.Player) -> None:
         del self.__players[player.id]
@@ -102,55 +101,17 @@ class Session(ipc.CallbackSessionMixin, ipc.Session):
         await self.callback('PROJECT_MUTATIONS', mutations)
 
     async def init_session_data(self, data_dir: str) -> None:
-        self.session_data = {}
-
-        if data_dir is not None:
-            self.session_data_path = os.path.join(data_dir, 'sessions', self.session_name)
-            if not os.path.isdir(self.session_data_path):
-                os.makedirs(self.session_data_path)
-
-            checkpoint_path = os.path.join(self.session_data_path, 'checkpoint')
-            if os.path.isfile(checkpoint_path):
-                checkpoint = session_data_pb2.SessionDataCheckpoint()
-                with open(checkpoint_path, 'rb') as fp:
-                    checkpoint_serialized = fp.read()
-
-                # mypy thinks that ParseFromString has no return value. bug in the stubs?
-                bytes_parsed = checkpoint.ParseFromString(checkpoint_serialized)  # type: ignore
-                assert bytes_parsed == len(checkpoint_serialized)
-
-                for session_value in checkpoint.session_values:
-                    self.session_data[session_value.name] = session_value
+        initial_values = await self.session_values.init(data_dir)
 
         await self.callback(
             'SESSION_DATA_MUTATION',
-            project_process_pb2.SessionDataMutation(session_values=self.session_data.values()))
+            project_process_pb2.SessionDataMutation(session_values=initial_values))
 
     async def set_values(
             self, session_values: Iterable[session_data_pb2.SessionValue],
             from_client: bool = False
     ) -> None:
-        assert self.session_data_path is not None
-
-        changes = {}
-        for session_value in session_values:
-            if (session_value.name in self.session_data
-                    and self.session_data[session_value.name] == session_value):
-                continue
-            changes[session_value.name] = session_value
-
-        if not changes:
-            return
-
-        self.session_data.update(changes)
-        for player in self.__players.values():
-            await player.set_session_values(changes.values())
-
-        if self.session_data_path is not None:
-            checkpoint = session_data_pb2.SessionDataCheckpoint(
-                session_values=self.session_data.values())
-            with open(os.path.join(self.session_data_path, 'checkpoint'), 'wb') as fp:
-                fp.write(checkpoint.SerializeToString())
+        changes = await self.session_values.set_values(session_values)
 
         if not from_client:
             self.async_callback(
@@ -483,7 +444,8 @@ class ProjectProcess(core.ProcessBase):
             callback_address=request.client_address,
             event_loop=self.event_loop,
             audioproc_client=audioproc_client,
-            realm=realm_name)
+            realm=realm_name,
+            session_values=session.session_values)
         await player.setup()
 
         await session.add_player(player)

@@ -108,6 +108,20 @@ class Callback(Generic[T]):
             for listener in self.__listeners.values():
                 listener.callback(*args, **kwargs)  # type: ignore
 
+    async def async_call(self, *args: Any, **kwargs: Any) -> None:
+        """Call all callbacks registered for a given target.
+
+        This method should only be called by the owner of the registry.
+
+        Args:
+          target: The target identifier for which the callbacks should be called.
+          args, kwargs: The arguments passed to all callbacks.
+        """
+
+        with self.__lock:
+            for listener in self.__listeners.values():
+                await listener.callback(*args, **kwargs)  # type: ignore
+
 
 class CallbackMap(Generic[K, T]):
     def __init__(self) -> None:

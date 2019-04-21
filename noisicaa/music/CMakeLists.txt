@@ -44,6 +44,7 @@ add_python_package(
   render_test.py
   rms.pyi
   samples.py
+  session_value_store.py
 )
 
 add_cython_module(rms CXX)
