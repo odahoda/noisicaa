@@ -122,7 +122,10 @@ class BaseNode(ProjectChild, model.BaseNode, ObjectBase):
         raise NotImplementedError
 
     def create_node_connector(
-            self, message_cb: Callable[[audioproc.ProcessorMessage], None]) -> NodeConnector:
+            self,
+            message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
+    ) -> NodeConnector:
         raise NotImplementedError
 
 

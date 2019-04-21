@@ -195,5 +195,9 @@ class BeatTrack(base_track.MeasuredTrack, beat_track_model.BeatTrack, pmodel.Obj
         self.set_property_value('pitch', value)
 
     def create_node_connector(
-            self, message_cb: Callable[[audioproc.ProcessorMessage], None]) -> BeatTrackConnector:
-        return BeatTrackConnector(node=self, message_cb=message_cb)
+            self,
+            message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
+    ) -> BeatTrackConnector:
+        return BeatTrackConnector(
+            node=self, message_cb=message_cb, audioproc_client=audioproc_client)

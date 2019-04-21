@@ -326,7 +326,9 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
                     description=self.description)))
 
     def create_node_connector(
-            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
+            self,
+            message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
     ) -> node_connector.NodeConnector:
         return None
 

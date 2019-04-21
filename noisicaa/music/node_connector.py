@@ -33,12 +33,14 @@ class NodeConnector(pmodel.NodeConnector):
     def __init__(
             self, *,
             node: pmodel.BaseNode,
-            message_cb: Callable[[audioproc.ProcessorMessage], None]
+            message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
     ) -> None:
         super().__init__()
 
         self._node = node
         self.__message_cb = message_cb
+        self._audioproc_client = audioproc_client
 
         self.__initializing = True
         self.__initial_messages = []  # type: List[audioproc.ProcessorMessage]

@@ -101,6 +101,8 @@ class Instrument(model.Instrument, graph.BaseNode):
         self.set_property_value('instrument_uri', value)
 
     def create_node_connector(
-            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
     ) -> InstrumentConnector:
-        return InstrumentConnector(node=self, message_cb=message_cb)
+        return InstrumentConnector(
+            node=self, message_cb=message_cb, audioproc_client=audioproc_client)

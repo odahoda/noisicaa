@@ -115,6 +115,8 @@ class MidiSource(model.MidiSource, graph.BaseNode):
         self.set_property_value('channel_filter', value)
 
     def create_node_connector(
-            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
     ) -> Connector:
-        return Connector(node=self, message_cb=message_cb)
+        return Connector(
+            node=self, message_cb=message_cb, audioproc_client=audioproc_client)

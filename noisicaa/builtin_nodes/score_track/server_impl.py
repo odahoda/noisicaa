@@ -301,6 +301,9 @@ class ScoreTrack(base_track.MeasuredTrack, score_track_model.ScoreTrack, pmodel.
         return measure
 
     def create_node_connector(
-            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
+            self,
+            message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
     ) -> ScoreTrackConnector:
-        return ScoreTrackConnector(node=self, message_cb=message_cb)
+        return ScoreTrackConnector(
+            node=self, message_cb=message_cb, audioproc_client=audioproc_client)
