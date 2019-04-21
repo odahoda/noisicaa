@@ -135,7 +135,7 @@ class MixerNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__float_urid = self.app.urid_mapper.map(
             'http://lv2plug.in/ns/ext/atom#Float')
 
-        self.__node_msg_listener = self.app.node_messages.add(
+        self.__node_msg_listener = self.audioproc_client.node_messages.add(
             '%016x' % self.__node.id, self.__nodeMessage)
 
         self.setMinimumSize(QtCore.QSize(10, 10))

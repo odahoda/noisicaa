@@ -98,7 +98,7 @@ cdef class Atom(object):
             return self.str
 
         else:
-            raise ValueError(type_uri)
+            raise ValueError('%r (%r)' % (type_uri, self.type_urid))
 
     @property
     def int(self):

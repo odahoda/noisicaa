@@ -347,7 +347,7 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.__orchestra = self.__node.orchestra
         self.__score = self.__node.score
 
-        self.__listeners['node-messages'] = self.app.node_messages.add(
+        self.__listeners['node-messages'] = self.audioproc_client.node_messages.add(
             '%016x' % self.__node.id, self.__nodeMessage)
 
         self.setAttribute(Qt.WA_DeleteOnClose, False)

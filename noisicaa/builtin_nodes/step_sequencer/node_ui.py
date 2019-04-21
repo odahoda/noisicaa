@@ -136,7 +136,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
         self.__listeners = {}  # type: Dict[str, core.Listener]
 
-        self.__listeners['node-messages'] = self.app.node_messages.add(
+        self.__listeners['node-messages'] = self.audioproc_client.node_messages.add(
             '%016x' % self.__node.id, self.__nodeMessage)
 
         body = QtWidgets.QWidget(self)

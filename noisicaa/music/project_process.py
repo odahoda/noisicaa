@@ -34,6 +34,7 @@ from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.core import session_data_pb2
 from noisicaa import audioproc
+from noisicaa import lv2
 from noisicaa import node_db
 from noisicaa import editor_main_pb2
 from noisicaa.builtin_nodes import server_registry
@@ -245,6 +246,16 @@ class ProjectProcess(core.ProcessBase):
         await self.__ctxt.node_db.setup()
         await self.__ctxt.node_db.connect(node_db_address)
 
+        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
+        await self.manager.call(
+            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
+        urid_mapper_address = create_urid_mapper_response.address
+
+        self.__ctxt.urid_mapper = lv2.ProxyURIDMapper(
+            server_address=urid_mapper_address,
+            tmp_dir=self.tmp_dir)
+        await self.__ctxt.urid_mapper.setup(self.event_loop)
+
     async def cleanup(self) -> None:
         if self.__ctxt.project is not None:
             await self.__close_project()
@@ -252,6 +263,10 @@ class ProjectProcess(core.ProcessBase):
         if self.__ctxt.node_db is not None:
             await self.__ctxt.node_db.cleanup()
             self.__ctxt.node_db = None
+
+        if self.__ctxt.urid_mapper is not None:
+            await self.__ctxt.urid_mapper.cleanup(self.event_loop)
+            self.__ctxt.urid_mapper = None
 
         await super().cleanup()
 
@@ -450,7 +465,8 @@ class ProjectProcess(core.ProcessBase):
         assert self.__ctxt.project is not None
 
         logger.info("Creating audioproc client...")
-        audioproc_client = audioproc.AudioProcClient(self.event_loop, self.server)
+        audioproc_client = audioproc.AudioProcClient(
+            self.event_loop, self.server, self.__ctxt.urid_mapper)
         await audioproc_client.setup()
 
         logger.info("Connecting audioproc client...")
