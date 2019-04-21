@@ -24,20 +24,24 @@ import collections
 import logging
 import random
 import threading
-from typing import Any, Dict, Callable, Generic, TypeVar
+from typing import Any, Dict, Callable, Awaitable, Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 
 
 K = TypeVar('K')
 T = TypeVar('T')
+CB = TypeVar('CB')
+L = TypeVar('L', bound='BaseListener')
+R = TypeVar('R', bound='BaseCallback')
 CallbackFunc = Callable[[T], None]
+AsyncCallbackFunc = Callable[[T], Awaitable]
 
 
-class Listener(Generic[T]):
+class BaseListener(Generic[T, CB, R]):
     """Opaque container for a callback."""
 
-    def __init__(self, registry: 'Callback[T]', callback: CallbackFunc) -> None:
+    def __init__(self, registry: R, callback: CB) -> None:
         self.__registry = registry
         self.id = random.getrandbits(64)
         self.callback = callback
@@ -46,16 +50,24 @@ class Listener(Generic[T]):
         self.__registry.remove(self)
 
 
-class Callback(Generic[T]):
+class Listener(Generic[T], BaseListener[T, CallbackFunc, 'Callback']):
+    pass
+
+
+class AsyncListener(Generic[T], BaseListener[T, AsyncCallbackFunc, 'AsyncCallback']):
+    pass
+
+
+class BaseCallback(Generic[T, CB, L]):
     def __init__(self) -> None:
         self.__lock = threading.RLock()
-        self.__listeners = collections.OrderedDict()  # type: Dict[int, Listener]
+        self.__listeners = collections.OrderedDict()  # type: Dict[int, L]
 
     def clear(self) -> None:
         with self.__lock:
             self.__listeners.clear()
 
-    def add(self, callback: CallbackFunc) -> Listener[T]:
+    def add(self, callback: CB) -> L:
         """Register a new callback.
 
         Args:
@@ -65,20 +77,17 @@ class Callback(Generic[T]):
           A listener, which should be used to unregister this callback.
         """
 
-        if not callable(callback):
-            raise TypeError(type(callback))
-
-        listener = Listener(self, callback)
+        listener = self._create_listener(callback)
         with self.__lock:
             self.__listeners[listener.id] = listener
 
         return listener
 
-    def add_listener(self, listener: Listener[T]) -> None:
+    def add_listener(self, listener: L) -> None:
         with self.__lock:
             self.__listeners[listener.id] = listener
 
-    def remove(self, listener: Listener[T]) -> None:
+    def remove(self, listener: L) -> None:
         """Remove a callback.
 
         Alternatively you can just call remove() on the listener returned by
@@ -94,7 +103,10 @@ class Callback(Generic[T]):
         with self.__lock:
             del self.__listeners[listener.id]
 
-    def call(self, *args: Any, **kwargs: Any) -> None:
+    def _create_listener(self, callback: CB) -> L:
+        raise NotImplementedError
+
+    def _call_sync(self, *args: Any, **kwargs: Any) -> None:
         """Call all callbacks registered for a given target.
 
         This method should only be called by the owner of the registry.
@@ -108,7 +120,7 @@ class Callback(Generic[T]):
             for listener in self.__listeners.values():
                 listener.callback(*args, **kwargs)  # type: ignore
 
-    async def async_call(self, *args: Any, **kwargs: Any) -> None:
+    async def _call_async(self, *args: Any, **kwargs: Any) -> None:
         """Call all callbacks registered for a given target.
 
         This method should only be called by the owner of the registry.
@@ -121,6 +133,22 @@ class Callback(Generic[T]):
         with self.__lock:
             for listener in self.__listeners.values():
                 await listener.callback(*args, **kwargs)  # type: ignore
+
+
+class Callback(Generic[T], BaseCallback[T, CallbackFunc, Listener[T]]):
+    def _create_listener(self, callback: CallbackFunc) -> Listener[T]:
+        return Listener[T](self, callback)
+
+    def call(self, *args: Any, **kwargs: Any) -> None:
+        self._call_sync(*args, **kwargs)
+
+
+class AsyncCallback(Generic[T], BaseCallback[T, AsyncCallbackFunc, AsyncListener[T]]):
+    def _create_listener(self, callback: AsyncCallbackFunc) -> AsyncListener[T]:
+        return AsyncListener[T](self, callback)
+
+    async def call(self, *args: Any, **kwargs: Any) -> None:
+        await self._call_async(*args, **kwargs)
 
 
 class CallbackMap(Generic[K, T]):

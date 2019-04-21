@@ -23,11 +23,9 @@
 import asyncio
 import copy
 import logging
-import os
-import os.path
 import traceback
 import typing
-from typing import Any, Type, Dict, Iterable, TypeVar
+from typing import Any, Dict, Type, Iterable, TypeVar
 
 from noisicaa import core
 from noisicaa.core import empty_message_pb2
@@ -101,17 +99,17 @@ class Session(ipc.CallbackSessionMixin, ipc.Session):
         await self.callback('PROJECT_MUTATIONS', mutations)
 
     async def init_session_data(self, data_dir: str) -> None:
-        initial_values = await self.session_values.init(data_dir)
+        await self.session_values.init(data_dir)
 
         await self.callback(
             'SESSION_DATA_MUTATION',
-            project_process_pb2.SessionDataMutation(session_values=initial_values))
+            project_process_pb2.SessionDataMutation(session_values=self.session_values.values()))
 
     async def set_values(
             self, session_values: Iterable[session_data_pb2.SessionValue],
             from_client: bool = False
     ) -> None:
-        changes = await self.session_values.set_values(session_values)
+        await self.session_values.set_values(session_values)
 
         if not from_client:
             self.async_callback(
@@ -526,6 +524,7 @@ class ProjectProcess(core.ProcessBase):
             event_loop=self.event_loop,
             callback_address=request.callback_address,
             render_settings=request.settings,
+            urid_mapper=self.__ctxt.urid_mapper,
         )
         await renderer.run()
 

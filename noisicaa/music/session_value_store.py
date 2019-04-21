@@ -40,9 +40,9 @@ class SessionValueStore(object):
         self.__session_data = {}  # type: Dict[str, session_data_pb2.SessionValue]
         self.__session_data_path = None  # type: str
 
-        self.values_changed = core.Callback[List[session_data_pb2.SessionValue]]()
+        self.values_changed = core.AsyncCallback[List[session_data_pb2.SessionValue]]()
 
-    async def init(self, data_dir: str) -> List[session_data_pb2.SessionValue]:
+    async def init(self, data_dir: str) -> None:
         self.__session_data = {}
 
         if data_dir is not None:
@@ -63,16 +63,14 @@ class SessionValueStore(object):
                 for session_value in checkpoint.session_values:
                     self.__session_data[session_value.name] = session_value
 
-        result = list(self.__session_data.values())
-        await self.values_changed.async_call(result)
-        return result
+        await self.values_changed.call(self.values())
 
     def values(self) -> List[session_data_pb2.SessionValue]:
         return list(self.__session_data.values())
 
     async def set_values(
             self, session_values: Iterable[session_data_pb2.SessionValue],
-    ) -> List[session_data_pb2.SessionValue]:
+    ) -> None:
         assert self.__session_data_path is not None
 
         changes = {}
@@ -83,7 +81,7 @@ class SessionValueStore(object):
             changes[session_value.name] = session_value
 
         if not changes:
-            return []
+            return
 
         self.__session_data.update(changes)
 
@@ -92,9 +90,7 @@ class SessionValueStore(object):
         with open(os.path.join(self.__session_data_path, 'checkpoint'), 'wb') as fp:
             fp.write(checkpoint.SerializeToString())
 
-        result = list(changes.values())
-        await self.values_changed.async_call(result)
-        return result
+        await self.values_changed.call(list(changes.values()))
 
     async def set_value(self, session_value: session_data_pb2.SessionValue) -> None:
         await self.set_values([session_value])

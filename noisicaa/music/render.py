@@ -35,11 +35,13 @@ from typing import cast, Any, Union, Callable, Awaitable, List, Tuple, Text
 from noisicaa.core.typing_extra import down_cast
 from noisicaa.core import ipc
 from noisicaa import audioproc
+from noisicaa import lv2
 from noisicaa import editor_main_pb2
 from . import player
 from . import render_settings_pb2
 from . import pmodel
 from . import project_process_pb2
+from . import session_value_store
 
 logger = logging.getLogger(__name__)
 
@@ -364,6 +366,7 @@ class Renderer(object):
             tmp_dir: str,
             server: ipc.Server,
             manager: ipc.Stub,
+            urid_mapper: lv2.URIDMapper,
             event_loop: asyncio.AbstractEventLoop
     ) -> None:
         self.__project = project
@@ -372,6 +375,7 @@ class Renderer(object):
         self.__tmp_dir = tmp_dir
         self.__server = server
         self.__manager = manager
+        self.__urid_mapper = urid_mapper
         self.__event_loop = event_loop
 
         self.__failed = asyncio.Event(loop=self.__event_loop)
@@ -394,6 +398,7 @@ class Renderer(object):
         self.__player = None  # type: player.Player
         self.__next_progress_update = None  # type: Tuple[fractions.Fraction, float]
         self.__progress_pump_task = None  # type: asyncio.Task
+        self.__session_values = None  # type: session_value_store.SessionValueStore
 
     def __fail(self, msg: str) -> None:
         logger.error("Encoding failed: %s", msg)
@@ -535,7 +540,8 @@ class Renderer(object):
             'CREATE_AUDIOPROC_PROCESS', create_audioproc_request, create_audioproc_response)
         self.__audioproc_address = create_audioproc_response.address
 
-        self.__audioproc_client = audioproc.AudioProcClient(self.__event_loop, self.__server)
+        self.__audioproc_client = audioproc.AudioProcClient(
+            self.__event_loop, self.__server, self.__urid_mapper)
         self.__audioproc_client.engine_notifications.add(self.__handle_engine_notification)
 
         await self.__audioproc_client.setup()
@@ -546,10 +552,13 @@ class Renderer(object):
             'renderer',
             audioproc.BackendSettings(datastream_address=self.__datastream_address))
 
+        self.__session_values = session_value_store.SessionValueStore(self.__event_loop, 'render')
+
         self.__player = player.Player(
             project=self.__project,
             event_loop=self.__event_loop,
             audioproc_client=self.__audioproc_client,
+            session_values=self.__session_values,
             realm='root')
         await self.__player.setup()
 

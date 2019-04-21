@@ -55,7 +55,7 @@ class Player(object):
         self.realm = realm
         self.session_values = session_values
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = {}  # type: Dict[str, core.BaseListener]
 
         self.id = uuid.uuid4().hex
 

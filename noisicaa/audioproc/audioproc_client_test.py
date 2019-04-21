@@ -27,8 +27,10 @@ import async_generator
 
 from noisidev import unittest
 from noisidev import unittest_mixins
+from noisicaa.constants import TEST_OPTS
+from noisicaa import lv2
 from noisicaa import node_db
-
+from noisicaa import editor_main_pb2
 from . import audioproc_client
 from .public import engine_notification_pb2
 
@@ -88,7 +90,17 @@ class AudioProcClientTest(
                 name='audioproc',
                 entry='noisicaa.audioproc.audioproc_process.AudioProcSubprocess')
 
-        client = audioproc_client.AudioProcClient(self.loop, self.server)
+        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
+        urid_mapper_address = create_urid_mapper_response.address
+
+        urid_mapper = lv2.ProxyURIDMapper(
+            server_address=urid_mapper_address,
+            tmp_dir=TEST_OPTS.TMP_DIR)
+        await urid_mapper.setup(self.loop)
+
+        client = audioproc_client.AudioProcClient(self.loop, self.server, urid_mapper)
         await client.setup()
         await client.connect(proc.address)
         try:
@@ -98,6 +110,8 @@ class AudioProcClientTest(
         finally:
             await client.disconnect()
             await client.cleanup()
+
+            await urid_mapper.cleanup(self.loop)
 
             await proc.shutdown()
 

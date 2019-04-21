@@ -51,6 +51,7 @@ class CommandsTestMixin(
 
     async def setup_testcase(self):
         self.setup_node_db_process(inline=True)
+        self.setup_urid_mapper_process(inline=True)
         self.setup_project_process(inline=True)
 
         create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(

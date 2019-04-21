@@ -42,7 +42,8 @@ class ScoreTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCas
 
         messages = []  # type: List[str]
 
-        connector = tr.create_node_connector(message_cb=messages.append)
+        connector = tr.create_node_connector(
+            message_cb=messages.append, audioproc_client=None)
         try:
             messages.extend(connector.init())
 

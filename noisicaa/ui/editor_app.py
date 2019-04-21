@@ -26,7 +26,7 @@ import pprint
 import sys
 import traceback
 import types
-from typing import Any, Optional, Dict, Callable, Sequence, Type
+from typing import Any, Optional, Callable, Sequence, Type
 
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets

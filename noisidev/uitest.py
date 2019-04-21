@@ -26,6 +26,7 @@ import inspect
 import logging
 import os.path
 import uuid
+from typing import Any, Dict
 
 from PyQt5 import QtWidgets
 import asynctest
@@ -120,6 +121,7 @@ class TestContext(object):
 class MockAudioProcClient(audioproc.AbstractAudioProcClient):  # pylint: disable=abstract-method
     def __init__(self):
         super().__init__()
+        self.node_messages = core.CallbackMap[str, Dict[str, Any]]()
         self.node_state_changed = core.CallbackMap[str, audioproc.NodeStateChange]()
 
 
@@ -188,6 +190,7 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
 
     async def setup_testcase(self):
         self.setup_node_db_process(inline=True)
+        self.setup_urid_mapper_process(inline=True)
         self.setup_instrument_db_process(inline=True)
 
         self.process = MockProcess(

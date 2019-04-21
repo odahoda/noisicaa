@@ -31,6 +31,6 @@ if typing.TYPE_CHECKING:
 class ProjectProcessContext(object):
     def __init__(self) -> None:
         self.node_db = None  # type: node_db.NodeDBClient
-        self.urid_mapper = None  # type: lv2.URIDMapper
+        self.urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.pool = None  # type: pmodel.Pool
         self.project = None  # type: project.BaseProject

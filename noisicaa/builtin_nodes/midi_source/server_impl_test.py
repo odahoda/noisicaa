@@ -41,7 +41,8 @@ class ConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
         self.messages.append(msg)
 
     def test_messages_on_mutations(self):
-        connector = self.node.create_node_connector(message_cb=self.message_cb)
+        connector = self.node.create_node_connector(
+            message_cb=self.message_cb, audioproc_client=None)
         try:
             self.assertEqual(
                 connector.init(),

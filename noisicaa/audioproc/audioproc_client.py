@@ -226,8 +226,10 @@ class AudioProcClient(AbstractAudioProcClient):
                 perf_stats.deserialize(request.perf_stats)
                 self.perf_stats.call(perf_stats)
 
-        except:
-            logger.error("Exception while processing engine notification:\n%s\n==========\n%s", request, traceback.format_exc())
+        except:  # pylint: disable=bare-except
+            logger.error(
+                "Exception while processing engine notification:\n%s\n==========\n%s",
+                request, traceback.format_exc())
 
     async def create_realm(
             self, *, name: str, parent: Optional[str] = None, enable_player: bool = False,

@@ -25,11 +25,14 @@ import logging
 
 from noisidev import unittest
 from noisidev import unittest_mixins
+from noisicaa.constants import TEST_OPTS
 from noisicaa import audioproc
 from noisicaa.core import ipc
+from noisicaa.core import session_data_pb2
 from noisicaa.builtin_nodes.score_track import server_impl as score_track
 from . import project
 from . import player
+from . import session_value_store
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +54,10 @@ class MockAudioProcClient(audioproc.AbstractAudioProcClient):  # pylint: disable
         assert realm == 'player'
         assert isinstance(properties, audioproc.ProjectProperties)
 
+    async def set_session_values(self, realm, session_values):
+        assert realm == 'player'
+        assert all(isinstance(value, session_data_pb2.SessionValue) for value in session_values)
+
 
 class PlayerTest(unittest_mixins.ServerMixin, unittest.AsyncTestCase):
     async def setup_testcase(self):
@@ -59,6 +66,9 @@ class PlayerTest(unittest_mixins.ServerMixin, unittest.AsyncTestCase):
 
         cb_endpoint = ipc.ServerEndpoint('player_cb')
         self.cb_endpoint_address = await self.server.add_endpoint(cb_endpoint)
+
+        self.session_values = session_value_store.SessionValueStore(self.loop, 'test')
+        await self.session_values.init(TEST_OPTS.TMP_DIR)
 
     async def cleanup_testcase(self):
         await self.server.remove_endpoint('player_cb')
@@ -69,6 +79,7 @@ class PlayerTest(unittest_mixins.ServerMixin, unittest.AsyncTestCase):
             callback_address=self.cb_endpoint_address,
             event_loop=self.loop,
             audioproc_client=MockAudioProcClient(),
+            session_values=self.session_values,
             realm='player')
         try:
             await p.setup()
