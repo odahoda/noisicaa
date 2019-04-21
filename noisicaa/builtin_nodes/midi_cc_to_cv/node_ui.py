@@ -33,6 +33,7 @@ from noisicaa import core
 from noisicaa import model
 from noisicaa import music
 from noisicaa.ui import ui_base
+from noisicaa.ui import control_value_dial
 from noisicaa.ui.graph import base_node
 from . import client_impl
 from . import commands
@@ -234,6 +235,10 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         self.__log_scale.stateChanged.connect(self.__logScaleEdited)
         self.__listeners['log_scale'] = channel.log_scale_changed.add(self.__logScaleChanged)
 
+        self.__current_value = control_value_dial.ControlValueDial()
+        self.__current_value.setRange(0.0, 1.0)
+        self.__current_value.setReadOnly(True)
+
     def addToLayout(self, layout: QtWidgets.QGridLayout, row: int) -> None:
         layout.addWidget(self.__midi_channel, row, 0)
         layout.addWidget(self.__midi_controller, row, 1)
@@ -241,6 +246,10 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         layout.addWidget(self.__min_value, row, 3)
         layout.addWidget(self.__max_value, row, 4)
         layout.addWidget(self.__log_scale, row, 5)
+        layout.addWidget(self.__current_value, row, 6)
+
+    def setCurrentValue(self, value: int) -> None:
+        self.__current_value.setValue(value / 127.0)
 
     def cleanup(self) -> None:
         self.__learnStop()
@@ -270,7 +279,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
             return
         self.__learning = True
 
-        self.__listeners['node-messages'] = self.app.node_messages.add(
+        self.__listeners['node-messages'] = self.audioproc_client.node_messages.add(
             '%016x' % self.__node.id, self.__nodeMessage)
 
         self.call_async(self.project_view.sendNodeMessage(
@@ -367,6 +376,9 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         for idx, channel in enumerate(self.__node.channels):
             self.__addChannel(channel, idx)
 
+        self.__listeners['node-messages'] = self.audioproc_client.node_messages.add(
+            '%016x' % self.__node.id, self.__nodeMessage)
+
         self.__listeners['channels'] = self.__node.channels_changed.add(
             self.__channelsChanged)
 
@@ -405,6 +417,13 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         for channel in self.__channels:
             channel.cleanup()
         self.__channels.clear()
+
+    def __nodeMessage(self, msg: Dict[str, Any]) -> None:
+        cc_urid = 'http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#cc'
+        if cc_urid in msg:
+            channel_idx, value = msg[cc_urid]
+            if channel_idx < len(self.__channels):
+                self.__channels[channel_idx].setCurrentValue(value)
 
     def __updateChannels(self) -> None:
         clearLayout(self.__channel_layout)

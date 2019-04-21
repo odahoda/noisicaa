@@ -29,9 +29,10 @@ import "noisicaa/audioproc/public/node_parameters.proto";
 message MidiCCtoCVChannelSpec {
   required uint32 midi_channel = 1;
   required uint32 midi_controller = 2;
-  required float min_value = 3;
-  required float max_value = 4;
-  required bool log_scale = 5;
+  required uint32 initial_value = 3;
+  required float min_value = 4;
+  required float max_value = 5;
+  required bool log_scale = 6;
 }
 
 message MidiCCtoCVSpec {

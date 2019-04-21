@@ -63,9 +63,10 @@ private:
   Status set_spec(const pb::MidiCCtoCVSpec& spec);
 
   LV2_URID _learn_urid;
+  LV2_URID _cc_urid;
 
   vector<BufferPtr> _buffers;
-  float _current_value[128];
+  int16_t _current_value[128];
   atomic<uint32_t> _learn;
 
   atomic<pb::MidiCCtoCVSpec*> _next_spec;

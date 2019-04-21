@@ -46,6 +46,7 @@ class ProcessorMidiCCtoCVTest(
         channel_spec = spec.channels.add()
         channel_spec.midi_channel = 1
         channel_spec.midi_controller = 12
+        channel_spec.initial_value = 0
         channel_spec.min_value = 1.0
         channel_spec.max_value = 2.0
         channel_spec.log_scale = False

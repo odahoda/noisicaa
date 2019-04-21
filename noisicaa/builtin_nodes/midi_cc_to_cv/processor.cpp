@@ -46,6 +46,8 @@ ProcessorMidiCCtoCV::ProcessorMidiCCtoCV(
     _old_spec(nullptr) {
   _learn_urid = _host_system->lv2->map(
       "http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#learn");
+  _cc_urid = _host_system->lv2->map(
+      "http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#cc");
 }
 
 Status ProcessorMidiCCtoCV::setup_internal() {
@@ -53,7 +55,7 @@ Status ProcessorMidiCCtoCV::setup_internal() {
 
   _buffers.resize(_desc.ports_size());
   for (int idx = 0; idx < 128 ; ++idx) {
-    _current_value[idx] = 0.0;
+    _current_value[idx] = -1;
   }
   _learn = 0;
 
@@ -169,10 +171,8 @@ Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMappe
           if ((midi[0] & 0xf0) == 0xb0
               && (midi[0] & 0x0f) == channel_spec.midi_channel()
               && midi[1] == channel_spec.midi_controller()) {
-            _current_value[channel_idx] = midi[2] / 127.0;
-          }
+            _current_value[channel_idx] = midi[2];
 
-          if (learn) {
             uint8_t atom[200];
             LV2_Atom_Forge forge;
             lv2_atom_forge_init(&forge, &_host_system->lv2->urid_map);
@@ -181,17 +181,38 @@ Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMappe
             LV2_Atom_Forge_Frame oframe;
             lv2_atom_forge_object(&forge, &oframe, _host_system->lv2->urid.core_nodemsg, 0);
 
-            lv2_atom_forge_key(&forge, _learn_urid);
+            lv2_atom_forge_key(&forge, _cc_urid);
             LV2_Atom_Forge_Frame tframe;
             lv2_atom_forge_tuple(&forge, &tframe);
-            lv2_atom_forge_int(&forge, midi[0] & 0x0f);
-            lv2_atom_forge_int(&forge, midi[1]);
+            lv2_atom_forge_int(&forge, channel_idx);
+            lv2_atom_forge_int(&forge, _current_value[channel_idx]);
             lv2_atom_forge_pop(&forge, &tframe);
 
             lv2_atom_forge_pop(&forge, &oframe);
 
             NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)atom);
           }
+        }
+
+        if ((midi[0] & 0xf0) == 0xb0 && learn) {
+          uint8_t atom[200];
+          LV2_Atom_Forge forge;
+          lv2_atom_forge_init(&forge, &_host_system->lv2->urid_map);
+          lv2_atom_forge_set_buffer(&forge, atom, sizeof(atom));
+
+          LV2_Atom_Forge_Frame oframe;
+          lv2_atom_forge_object(&forge, &oframe, _host_system->lv2->urid.core_nodemsg, 0);
+
+          lv2_atom_forge_key(&forge, _learn_urid);
+          LV2_Atom_Forge_Frame tframe;
+          lv2_atom_forge_tuple(&forge, &tframe);
+          lv2_atom_forge_int(&forge, midi[0] & 0x0f);
+          lv2_atom_forge_int(&forge, midi[1]);
+          lv2_atom_forge_pop(&forge, &tframe);
+
+          lv2_atom_forge_pop(&forge, &oframe);
+
+          NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)atom);
         }
       } else {
         _logger->warning("Ignoring event %d in sequence.", atom.type);
@@ -203,8 +224,13 @@ Status ProcessorMidiCCtoCV::process_block_internal(BlockContext* ctxt, TimeMappe
     for (int channel_idx = 0 ; channel_idx < spec->channels_size() ; ++channel_idx) {
       const auto& channel_spec = spec->channels(channel_idx);
       float* out = (float*)_buffers[channel_idx + 1];
-      float current_value = _current_value[channel_idx];
-      out[pos] = (channel_spec.max_value() - channel_spec.min_value()) * current_value + channel_spec.min_value();
+      int16_t current_value = _current_value[channel_idx];
+      if (current_value < 0) {
+        current_value = channel_spec.initial_value();
+      }
+      out[pos] =
+        (channel_spec.max_value() - channel_spec.min_value()) * current_value / 127.0
+        + channel_spec.min_value();
     }
   }
 

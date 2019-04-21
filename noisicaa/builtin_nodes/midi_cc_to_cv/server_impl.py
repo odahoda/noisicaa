@@ -22,12 +22,13 @@
 
 import logging
 import typing
-from typing import Any, Iterator, MutableSequence
+from typing import Any, Iterator, MutableSequence, Callable, Dict
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa.music import graph
 from noisicaa.music import pmodel
+from noisicaa.music import node_connector
 from noisicaa.music import commands
 from noisicaa.builtin_nodes import commands_registry_pb2
 from . import commands_pb2
@@ -108,6 +109,33 @@ class DeleteMidiCCtoCVChannel(commands.Command):
         del node.channels[channel.index]
 
 
+class Connector(node_connector.NodeConnector):
+    _node = None  # type: MidiCCtoCV
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.__node_id = self._node.pipeline_node_id
+        self.__listeners = {}  # type: Dict[str, core.Listener]
+
+    def _init_internal(self) -> None:
+        self.__listeners['node_messages'] = self._audioproc_client.node_messages.add(
+            self.__node_id, self.__node_message)
+
+    def close(self) -> None:
+        for listener in self.__listeners.values():
+            listener.remove()
+        self.__listeners.clear()
+
+        super().close()
+
+    def __node_message(self, msg: Dict[str, Any]) -> None:
+        cc_urid = 'http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#cc'
+        if cc_urid in msg:
+            channel_idx, value = msg[cc_urid]
+            self._node.set_controller_value(channel_idx, value)
+
+
 class MidiCCtoCVChannel(model.MidiCCtoCVChannel, pmodel.ObjectBase):
     def create(
             self, *,
@@ -183,6 +211,10 @@ class MidiCCtoCVChannel(model.MidiCCtoCVChannel, pmodel.ObjectBase):
 
 
 class MidiCCtoCV(model.MidiCCtoCV, graph.BaseNode):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.__controller_values = {}  # type: Dict[int, int]
+
     def create(self, **kwargs: Any) -> None:
         super().create(**kwargs)
 
@@ -208,10 +240,11 @@ class MidiCCtoCV(model.MidiCCtoCV, graph.BaseNode):
     def __get_spec_mutation(self) -> audioproc.Mutation:
         params = audioproc.NodeParameters()
         spec = params.Extensions[processor_pb2.midi_cc_to_cv_spec]
-        for channel in self.channels:
+        for channel_idx, channel in enumerate(self.channels):
             channel_spec = spec.channels.add()
             channel_spec.midi_channel = channel.midi_channel
             channel_spec.midi_controller = channel.midi_controller
+            channel_spec.initial_value = self.__controller_values.get(channel_idx, 0)
             channel_spec.min_value = channel.min_value
             channel_spec.max_value = channel.max_value
             channel_spec.log_scale = channel.log_scale
@@ -224,3 +257,15 @@ class MidiCCtoCV(model.MidiCCtoCV, graph.BaseNode):
     @property
     def channels(self) -> MutableSequence[MidiCCtoCVChannel]:
         return self.get_property_value('channels')
+
+    def create_node_connector(
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
+    ) -> Connector:
+        return Connector(
+            node=self,
+            message_cb=message_cb,
+            audioproc_client=audioproc_client)
+
+    def set_controller_value(self, channel_idx: int, value: int) -> None:
+        self.__controller_values[channel_idx] = value
