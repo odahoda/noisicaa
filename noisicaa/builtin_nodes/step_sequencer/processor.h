@@ -38,8 +38,6 @@ namespace noisicaa {
 using namespace std;
 
 class HostSystem;
-class CSoundUtil;
-class FluidSynthUtil;
 
 namespace pb {
 class StepSequencerSpec;
