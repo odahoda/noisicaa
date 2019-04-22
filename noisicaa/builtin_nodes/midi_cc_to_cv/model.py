@@ -61,7 +61,7 @@ class MidiCCtoCVChannel(model.ProjectChild):
         return self.get_property_value('midi_channel')
 
     @property
-    def midi_controller(self) -> float:
+    def midi_controller(self) -> int:
         return self.get_property_value('midi_controller')
 
     @property

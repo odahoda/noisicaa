@@ -56,84 +56,7 @@ def clearLayout(layout: QtWidgets.QLayout) -> None:
             item.widget().setParent(None)
 
 
-controller_names = {
-    0: "Bank Select",
-    1: "Modulation Wheel or Lever",
-    2: "Breath Controller",
-    4: "Foot Controller",
-    5: "Portamento Time",
-    6: "Data Entry",
-    7: "Channel Volume",
-    8: "Balance",
-    10:	"Pan",
-    11:	"Expression Controller",
-    12:	"Effect Control 1",
-    13:	"Effect Control 2",
-    16:	"General Purpose Controller 1",
-    17:	"General Purpose Controller 2",
-    18:	"General Purpose Controller 3",
-    19:	"General Purpose Controller 4",
-    32:	"Bank Select (LSB)",
-    33:	"Modulation Wheel or Lever (LSB)",
-    34:	"Breath Controller (LSB)",
-    36:	"Foot Controller (LSB)",
-    37:	"Portamento Time (LSB)",
-    38:	"Data Entry (LSB)",
-    39:	"Channel Volume (LSB)",
-    40:	"Balance (LSB)",
-    42:	"Pan (LSB)",
-    43:	"Expression Controller (LSB)",
-    44:	"Effect control 1 (LSB)",
-    45:	"Effect control 2 (LSB)",
-    48:	"General Purpose Controller 1 (LSB)",
-    49:	"General Purpose Controller 2 (LSB)",
-    50:	"General Purpose Controller 3 (LSB)",
-    51:	"General Purpose Controller 4 (LSB)",
-    64:	"Damper Pedal",
-    65:	"Portamento",
-    66:	"Sostenuto",
-    67:	"Soft Pedal",
-    68:	"Legato Footswitch",
-    69:	"Hold 2",
-    70:	"Sound Controller 1",
-    71:	"Sound Controller 2",
-    72:	"Sound Controller 3",
-    73:	"Sound Controller 4",
-    74:	"Sound Controller 5",
-    75:	"Sound Controller 6",
-    76:	"Sound Controller 7",
-    77:	"Sound Controller 8",
-    78:	"Sound Controller 9",
-    79:	"Sound Controller 10",
-    80:	"General Purpose Controller 5",
-    81:	"General Purpose Controller 6",
-    82:	"General Purpose Controller 7",
-    83:	"General Purpose Controller 8",
-    84:	"Portamento Control",
-    88:	"High Resolution Velocity Prefix",
-    91:	"Effects 1 Depth",
-    92:	"Effects 2 Depth",
-    93:	"Effects 3 Depth",
-    94:	"Effects 4 Depth",
-    95:	"Effects 5 Depth",
-    96:	"Data Increment",
-    97:	"Data Decrement)",
-    98:	"Non-Registered Parameter Number (LSB)",
-    99:	"Non-Registered Parameter Number (MSB)",
-    100: "Registered Parameter Number (LSB)",
-    101: "Registered Parameter Number (MSB)",
-    120: "All Sound Off",
-    121: "Reset All Controllers",
-    122: "Local Control On/Off",
-    123: "All Notes Off",
-    124: "Omni Mode Off",
-    125: "Omni Mode On",
-    126: "Mono Mode On",
-    127: "Poly Mode On",
-}
-
-
-class LearnButton(QtWidgets.QPushButton):
+class LearnButton(QtWidgets.QToolButton):
     def __init__(self) -> None:
         super().__init__()
 
@@ -178,27 +101,19 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         self.__listeners = {}  # type: Dict[str, core.Listener]
         self.__learning = False
 
-        self.__midi_channel = QtWidgets.QComboBox()
+        self.__midi_channel = QtWidgets.QSpinBox()
         self.__midi_channel.setObjectName('channel[%016x]:midi_channel' % channel.id)
-        for ch in range(16):
-            self.__midi_channel.addItem('%d' % (ch + 1), ch)
-            if ch == self.__channel.midi_channel:
-                self.__midi_channel.setCurrentIndex(self.__midi_channel.count() - 1)
-        self.__midi_channel.currentIndexChanged.connect(self.__midiChannelEdited)
+        self.__midi_channel.setRange(1, 16)
+        self.__midi_channel.setValue(self.__channel.midi_channel + 1)
+        self.__midi_channel.valueChanged.connect(self.__midiChannelEdited)
         self.__listeners['midi_channel'] = self.__channel.midi_channel_changed.add(
             self.__midiChannelChanged)
 
-        self.__midi_controller = QtWidgets.QComboBox()
+        self.__midi_controller = QtWidgets.QSpinBox()
         self.__midi_controller.setObjectName('channel[%016x]:midi_controller' % channel.id)
-        for ch in range(127):
-            if ch in controller_names:
-                name = '%d: %s' % (ch, controller_names[ch])
-            else:
-                name = '%d' % ch
-            self.__midi_controller.addItem(name, ch)
-            if ch == self.__channel.midi_controller:
-                self.__midi_controller.setCurrentIndex(self.__midi_controller.count() - 1)
-        self.__midi_controller.currentIndexChanged.connect(self.__midiControllerEdited)
+        self.__midi_controller.setRange(0, 127)
+        self.__midi_controller.setValue(self.__channel.midi_controller)
+        self.__midi_controller.valueChanged.connect(self.__midiControllerEdited)
         self.__listeners['midi_controller'] = self.__channel.midi_controller_changed.add(
             self.__midiControllerChanged)
 
@@ -240,13 +155,12 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         self.__current_value.setReadOnly(True)
 
     def addToLayout(self, layout: QtWidgets.QGridLayout, row: int) -> None:
-        layout.addWidget(self.__midi_channel, row, 0)
-        layout.addWidget(self.__midi_controller, row, 1)
-        layout.addWidget(self.__learn, row, 2)
+        layout.addWidget(self.__learn, row, 0)
+        layout.addWidget(self.__midi_channel, row, 1)
+        layout.addWidget(self.__midi_controller, row, 2)
         layout.addWidget(self.__min_value, row, 3)
         layout.addWidget(self.__max_value, row, 4)
-        layout.addWidget(self.__log_scale, row, 5)
-        layout.addWidget(self.__current_value, row, 6)
+        layout.addWidget(self.__current_value, row, 5)
 
     def setCurrentValue(self, value: int) -> None:
         self.__current_value.setValue(value / 127.0)
@@ -261,16 +175,8 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         learn_urid = 'http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#learn'
         if learn_urid in msg and self.__learning:
             midi_channel, midi_controller = msg[learn_urid]
-            idx = self.__midi_channel.findData(midi_channel)
-            if idx >= 0:
-                self.__midi_channel.setCurrentIndex(idx)
-            else:
-                logger.error("MIDI channel %r not found.", midi_channel)
-            idx = self.__midi_controller.findData(midi_controller)
-            if idx >= 0:
-                self.__midi_controller.setCurrentIndex(idx)
-            else:
-                logger.error("MIDI controller %r not found.", midi_controller)
+            self.__midi_channel.setValue(midi_channel + 1)
+            self.__midi_controller.setValue(midi_controller)
 
             self.__learn_timeout.start()
 
@@ -308,27 +214,18 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
             self.__learnStop()
 
     def __midiChannelChanged(self, change: model.PropertyValueChange[int]) -> None:
-        idx = self.__midi_channel.findData(change.new_value)
-        if idx >= 0:
-            self.__midi_channel.setCurrentIndex(idx)
-        else:
-            logger.error("MIDI channel %r not found.", change.new_value)
+        self.__midi_channel.setValue(change.new_value + 1)
 
-    def __midiChannelEdited(self) -> None:
-        value = self.__midi_channel.currentData()
+    def __midiChannelEdited(self, value: int) -> None:
+        value -= 1
         if value != self.__channel.midi_channel:
             self.send_command_async(commands.update_channel(
                 self.__channel, set_midi_channel=value))
 
     def __midiControllerChanged(self, change: model.PropertyValueChange[int]) -> None:
-        idx = self.__midi_controller.findData(change.new_value)
-        if idx >= 0:
-            self.__midi_controller.setCurrentIndex(idx)
-        else:
-            logger.error("MIDI controller %r not found.", change.new_value)
+        self.__midi_controller.setValue(change.new_value)
 
-    def __midiControllerEdited(self) -> None:
-        value = self.__midi_controller.currentData()
+    def __midiControllerEdited(self, value: int) -> None:
         if value != self.__channel.midi_controller:
             self.send_command_async(commands.update_channel(
                 self.__channel, set_midi_controller=value))
@@ -398,6 +295,12 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.__num_channels.valueChanged.connect(self.__numChannelsEdited)
 
         self.__channel_layout = QtWidgets.QGridLayout()
+        self.__channel_layout.setColumnStretch(0, 0)  # learn
+        self.__channel_layout.setColumnStretch(1, 1)  # MIDI channel
+        self.__channel_layout.setColumnStretch(2, 1)  # MIDI controller
+        self.__channel_layout.setColumnStretch(3, 1)  # min value
+        self.__channel_layout.setColumnStretch(4, 1)  # max value
+        self.__channel_layout.setColumnStretch(5, 0)  # current value
         self.__updateChannels()
 
         body_layout = QtWidgets.QVBoxLayout()
@@ -429,6 +332,12 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         clearLayout(self.__channel_layout)
 
         row = 0
+        self.__channel_layout.addWidget(QtWidgets.QLabel("MIDI Channel"), row, 1)
+        self.__channel_layout.addWidget(QtWidgets.QLabel("Controller"), row, 2)
+        self.__channel_layout.addWidget(QtWidgets.QLabel("Min"), row, 3)
+        self.__channel_layout.addWidget(QtWidgets.QLabel("Max"), row, 4)
+        row += 1
+
         for channel_ui in self.__channels:
             channel_ui.addToLayout(self.__channel_layout, row)
             row += 1
