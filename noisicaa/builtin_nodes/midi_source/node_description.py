@@ -30,6 +30,7 @@ MidiSourceDescription = node_db.NodeDescription(
     node_ui=node_db.NodeUIDescription(
         type='builtin://midi-source',
     ),
+    builtin_icon='node-type-builtin',
     processor=node_db.ProcessorDescription(
         type='builtin://midi-source',
     ),

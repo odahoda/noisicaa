@@ -230,7 +230,7 @@ cdef class PyRealm(object):
         for session_value in session_values:
             key = session_value.name
             if key.startswith('node/'):
-                _, node_id, node_key = key.split('/', 3)
+                _, node_id, node_key = key.split('/', 2)
                 node = self.__graph.find_node(node_id)
                 node.set_session_value(node_key, session_value)
 

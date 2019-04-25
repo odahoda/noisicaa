@@ -30,12 +30,39 @@ from noisicaa import model
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
+from noisicaa.ui import slots
 from noisicaa.ui import control_value_dial
 from noisicaa.ui import control_value_connector
 
 from . import base_node
 
 logger = logging.getLogger(__name__)
+
+
+class ControlValueEnum(slots.SlotContainer, QtWidgets.QComboBox):
+    value, setValue, valueChanged = slots.slot(float, 'value', default=0.0)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.valueChanged.connect(lambda _: self.__valueChanged())
+        self.currentIndexChanged.connect(lambda _: self.__currentIndexChanged())
+
+    def __valueChanged(self) -> None:
+        closest_idx = None
+        closest_dist = None
+        for idx in range(self.count()):
+            value = self.itemData(idx)
+            dist = abs(value - self.value())
+            if closest_idx is None or dist < closest_dist:
+                closest_idx = idx
+                closest_dist = dist
+
+        if closest_idx is not None:
+            self.setCurrentIndex(closest_idx)
+
+    def __currentIndexChanged(self) -> None:
+        self.setValue(self.currentData())
 
 
 class ControlValueWidget(control_value_connector.ControlValueConnector):
@@ -52,26 +79,39 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
         self.__port_properties_listener = self.__node.port_properties_changed.add(
             self.__portPropertiesChanged)
 
-        port_properties = self.__node.get_port_properties(self.__port.name)
-
-        self.__dial = control_value_dial.ControlValueDial(parent)
-        self.__dial.setDisabled(port_properties.exposed)
-        self.__dial.setRange(port.float_value.min, port.float_value.max)
-        self.__dial.setDefault(port.float_value.default)
-        self.connect(self.__dial.valueChanged, self.__dial.setValue)
-
-        self.__exposed = QtWidgets.QCheckBox(parent)
-        self.__exposed.setChecked(port_properties.exposed)
-        self.__exposed.toggled.connect(self.__exposedEdited)
-
-        self.__widget = QtWidgets.QWidget(parent)
-
         layout = QtWidgets.QHBoxLayout()
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.__exposed)
-        layout.addWidget(self.__dial)
+
+        port_properties = self.__node.get_port_properties(self.__port.name)
+
+        if self.__port.WhichOneof('value') == 'float_value':
+            self.__dial = control_value_dial.ControlValueDial(parent)
+            self.__dial.setDisabled(port_properties.exposed)
+            self.__dial.setRange(self.__port.float_value.min, self.__port.float_value.max)
+            self.__dial.setDefault(self.__port.float_value.default)
+            if self.__port.float_value.scale == node_db.FloatValueDescription.LOG:
+                self.__dial.setLogScale(True)
+            self.connect(self.__dial.valueChanged, self.__dial.setValue)
+
+            self.__exposed = QtWidgets.QCheckBox(parent)
+            self.__exposed.setChecked(port_properties.exposed)
+            self.__exposed.toggled.connect(self.__exposedEdited)
+
+            layout.addWidget(self.__exposed)
+            layout.addWidget(self.__dial)
+
+        elif self.__port.WhichOneof('value') == 'enum_value':
+            self.__enum = ControlValueEnum(parent=parent)
+            for item in self.__port.enum_value.items:
+                self.__enum.addItem(item.name, item.value)
+            self.connect(self.__enum.valueChanged, self.__enum.setValue)
+
+            layout.addWidget(self.__enum)
+
         layout.addStretch(1)
+
+        self.__widget = QtWidgets.QWidget(parent)
         self.__widget.setLayout(layout)
 
     def cleanup(self) -> None:
@@ -111,9 +151,10 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
         self.__dial.setDisabled(exposed)
 
     def __portPropertiesChanged(self, change: model.PropertyListChange) -> None:
-        port_properties = self.__node.get_port_properties(self.__port.name)
-        self.__exposed.setChecked(port_properties.exposed)
-        self.__dial.setDisabled(port_properties.exposed)
+        if self.__port.WhichOneof('value') == 'float_value':
+            port_properties = self.__node.get_port_properties(self.__port.name)
+            self.__exposed.setChecked(port_properties.exposed)
+            self.__dial.setDisabled(port_properties.exposed)
 
 
 class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):

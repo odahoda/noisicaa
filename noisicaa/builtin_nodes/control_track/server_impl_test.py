@@ -55,7 +55,8 @@ class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestC
         self.messages.append(self.WhichOneof(msg))
 
     def test_messages_on_mutations(self):
-        connector = self.track.create_node_connector(message_cb=self.message_cb)
+        connector = self.track.create_node_connector(
+            message_cb=self.message_cb, audioproc_client=None)
         try:
             self.assertEqual(connector.init(), [])
 
@@ -110,7 +111,8 @@ class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestC
             self.pool.create(
                 server_impl.ControlPoint, time=audioproc.MusicalTime(2, 4), value=0.8))
 
-        connector = self.track.create_node_connector(message_cb=self.message_cb)
+        connector = self.track.create_node_connector(
+            message_cb=self.message_cb, audioproc_client=None)
         try:
             messages = connector.init()
 

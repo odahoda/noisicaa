@@ -73,6 +73,7 @@ set(LIB_SRCS
   plugin_ui_host_lv2.cpp
   processor.cpp
   processor_null.cpp
+  processor_faust.cpp
   processor_csound_base.cpp
   processor_csound.cpp
   processor_plugin.cpp

@@ -34,6 +34,8 @@ from .sample_track import server_impl as sample_track
 from .instrument import server_impl as instrument
 from .custom_csound import server_impl as custom_csound
 from .midi_source import server_impl as midi_source
+from .step_sequencer import server_impl as step_sequencer
+from .midi_cc_to_cv import server_impl as midi_cc_to_cv
 
 
 node_cls_map = {
@@ -44,6 +46,8 @@ node_cls_map = {
     'builtin://instrument': instrument.Instrument,
     'builtin://custom-csound': custom_csound.CustomCSound,
     'builtin://midi-source': midi_source.MidiSource,
+    'builtin://step-sequencer': step_sequencer.StepSequencer,
+    'builtin://midi-cc-to-cv': midi_cc_to_cv.MidiCCtoCV,
 }  # type: Dict[str, Type[graph.BaseNode]]
 
 
@@ -62,6 +66,11 @@ def register_classes(pool: model.AbstractPool) -> None:
     pool.register_class(custom_csound.CustomCSoundPort)
     pool.register_class(custom_csound.CustomCSound)
     pool.register_class(midi_source.MidiSource)
+    pool.register_class(step_sequencer.StepSequencer)
+    pool.register_class(step_sequencer.StepSequencerChannel)
+    pool.register_class(step_sequencer.StepSequencerStep)
+    pool.register_class(midi_cc_to_cv.MidiCCtoCV)
+    pool.register_class(midi_cc_to_cv.MidiCCtoCVChannel)
 
 
 def register_commands(registry: commands.CommandRegistry) -> None:
@@ -86,6 +95,14 @@ def register_commands(registry: commands.CommandRegistry) -> None:
     registry.register(custom_csound.UpdateCustomCSoundPort)
     registry.register(custom_csound.DeleteCustomCSoundPort)
     registry.register(midi_source.UpdateMidiSource)
+    registry.register(step_sequencer.UpdateStepSequencer)
+    registry.register(step_sequencer.UpdateStepSequencerChannel)
+    registry.register(step_sequencer.DeleteStepSequencerChannel)
+    registry.register(step_sequencer.UpdateStepSequencerStep)
+    registry.register(midi_cc_to_cv.UpdateMidiCCtoCV)
+    registry.register(midi_cc_to_cv.CreateMidiCCtoCVChannel)
+    registry.register(midi_cc_to_cv.UpdateMidiCCtoCVChannel)
+    registry.register(midi_cc_to_cv.DeleteMidiCCtoCVChannel)
 
 
 def register_ipc_handlers(

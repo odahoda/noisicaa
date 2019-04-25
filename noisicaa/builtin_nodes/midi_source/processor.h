@@ -37,9 +37,6 @@ namespace noisicaa {
 using namespace std;
 
 class HostSystem;
-namespace pb {
-class MidiSourceUpdate;
-}
 
 class ProcessorMidiSource : public Processor {
 public:

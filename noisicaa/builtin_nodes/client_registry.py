@@ -28,6 +28,8 @@ from .sample_track.client_impl import SampleRef, SampleTrack
 from .instrument.client_impl import Instrument
 from .custom_csound.client_impl import CustomCSound, CustomCSoundPort
 from .midi_source.client_impl import MidiSource
+from .step_sequencer.client_impl import StepSequencer, StepSequencerChannel, StepSequencerStep
+from .midi_cc_to_cv.client_impl import MidiCCtoCV, MidiCCtoCVChannel
 
 
 def register_classes(pool: model.AbstractPool) -> None:
@@ -45,3 +47,8 @@ def register_classes(pool: model.AbstractPool) -> None:
     pool.register_class(CustomCSoundPort)
     pool.register_class(CustomCSound)
     pool.register_class(MidiSource)
+    pool.register_class(StepSequencer)
+    pool.register_class(StepSequencerChannel)
+    pool.register_class(StepSequencerStep)
+    pool.register_class(MidiCCtoCV)
+    pool.register_class(MidiCCtoCVChannel)

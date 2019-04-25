@@ -26,7 +26,7 @@ import pprint
 import sys
 import traceback
 import types
-from typing import Any, Optional, Dict, Callable, Sequence, Type
+from typing import Any, Optional, Callable, Sequence, Type
 
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
@@ -120,7 +120,6 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
         self.stat_monitor = None  # type: stat_monitor.StatMonitor
         self.default_style = None  # type: str
-        self.node_messages = core.CallbackMap[str, Dict[str, Any]]()
 
         self.devices = None  # type: device_list.DeviceList
 
@@ -261,7 +260,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.audioproc_process = create_audioproc_response.address
 
         self.audioproc_client = audioproc.AudioProcClient(
-            self.process.event_loop, self.process.server)
+            self.process.event_loop, self.process.server, self.urid_mapper)
         self.audioproc_client.engine_notifications.add(self.__handleEngineNotification)
         await self.audioproc_client.setup()
         await self.audioproc_client.connect(
@@ -336,11 +335,6 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.process.event_loop.create_task(self.audioproc_client.dump())
 
     def __handleEngineNotification(self, msg: audioproc.EngineNotification) -> None:
-        for node_message_pb in msg.node_messages:
-            msg_atom = node_message_pb.atom
-            node_message = lv2.wrap_atom(self.urid_mapper, msg_atom).as_object
-            self.node_messages.call(node_message_pb.node_id, node_message)
-
         for device_manager_message in msg.device_manager_messages:
             action = device_manager_message.WhichOneof('action')
             if action == 'added':

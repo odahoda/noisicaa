@@ -84,6 +84,22 @@ message FloatValueDescription {
   optional float default = 1;
   optional float min = 2;
   optional float max = 3;
+
+  enum Scale {
+    LINEAR = 1;
+    LOG = 2;
+  }
+  optional Scale scale = 4 [default = LINEAR];
+}
+
+message EnumValueItem {
+  required string name = 1;
+  required float value = 2;
+}
+
+message EnumValueDescription {
+  optional float default = 1;
+  repeated EnumValueItem items = 2;
 }
 
 message PortDescription {
@@ -105,7 +121,11 @@ message PortDescription {
   required string name = 3;
   optional string display_name = 4;
 
-  optional FloatValueDescription float_value = 5;
+  oneof value {
+    FloatValueDescription float_value = 5;
+    EnumValueDescription enum_value = 10;
+  }
+
   optional string csound_name = 6;
   optional string drywet_port = 7;
   optional float drywet_default = 8;
@@ -141,6 +161,9 @@ message NodeDescription {
   repeated PortDescription ports = 8;
 
   optional NodeUIDescription node_ui = 9;
+  oneof icon {
+    string builtin_icon = 10;
+  }
 
   optional ProcessorDescription processor = 100;
 

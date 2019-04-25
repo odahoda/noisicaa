@@ -23,13 +23,15 @@
 import asyncio
 import logging
 import random
-from typing import Any, Optional, Iterable, Set, Tuple
+import traceback
+from typing import Any, Optional, Iterable, Set, Tuple, Dict
 
 from noisicaa import core
 from noisicaa.core import empty_message_pb2
 from noisicaa.core import session_data_pb2
 from noisicaa.core import ipc
 from noisicaa import node_db
+from noisicaa import lv2
 from .public import engine_notification_pb2
 from .public import player_state_pb2
 from .public import processor_message_pb2
@@ -47,7 +49,7 @@ class AbstractAudioProcClient(object):
         self.engine_state_changed = None  # type: core.Callback[engine_notification_pb2.EngineStateChange]
         self.player_state_changed = None  # type: core.CallbackMap[str, player_state_pb2.PlayerState]
         self.node_state_changed = None  # type: core.CallbackMap[str, engine_notification_pb2.NodeStateChange]
-        self.node_messages = None  # type: core.CallbackMap[str, bytes]
+        self.node_messages = None  # type: core.CallbackMap[str, Dict[str, Any]]
         self.perf_stats = None  # type: core.Callback[core.PerfStats]
 
     @property
@@ -136,11 +138,17 @@ class AbstractAudioProcClient(object):
 
 
 class AudioProcClient(AbstractAudioProcClient):
-    def __init__(self, event_loop: asyncio.AbstractEventLoop, server: ipc.Server) -> None:
+    def __init__(
+            self,
+            event_loop: asyncio.AbstractEventLoop,
+            server: ipc.Server,
+            urid_mapper: lv2.URIDMapper,
+    ) -> None:
         super().__init__()
 
         self.event_loop = event_loop
         self.server = server
+        self.urid_mapper = urid_mapper
 
         self._stub = None  # type: ipc.Stub
 
@@ -148,7 +156,7 @@ class AudioProcClient(AbstractAudioProcClient):
         self.engine_state_changed = core.Callback[engine_notification_pb2.EngineStateChange]()
         self.player_state_changed = core.CallbackMap[str, player_state_pb2.PlayerState]()
         self.node_state_changed = core.CallbackMap[str, engine_notification_pb2.NodeStateChange]()
-        self.node_messages = core.CallbackMap[str, bytes]()
+        self.node_messages = core.CallbackMap[str, Dict[str, Any]]()
         self.perf_stats = core.Callback[core.PerfStats]()
 
         self.__cb_endpoint_name = 'audioproc-%016x' % random.getrandbits(63)
@@ -195,25 +203,33 @@ class AudioProcClient(AbstractAudioProcClient):
             request: engine_notification_pb2.EngineNotification,
             response: empty_message_pb2.EmptyMessage
     ) -> None:
-        self.engine_notifications.call(request)
+        try:
+            self.engine_notifications.call(request)
 
-        if request.HasField('player_state'):
-            player_state = request.player_state
-            self.player_state_changed.call(player_state.realm, player_state)
+            if request.HasField('player_state'):
+                player_state = request.player_state
+                self.player_state_changed.call(player_state.realm, player_state)
 
-        for node_state_change in request.node_state_changes:
-            self.node_state_changed.call(node_state_change.node_id, node_state_change)
+            for node_state_change in request.node_state_changes:
+                self.node_state_changed.call(node_state_change.node_id, node_state_change)
 
-        for node_message in request.node_messages:
-            self.node_messages.call(node_message.node_id, node_message.atom)
+            for node_message_pb in request.node_messages:
+                msg_atom = node_message_pb.atom
+                node_message = lv2.wrap_atom(self.urid_mapper, msg_atom).as_object
+                self.node_messages.call(node_message_pb.node_id, node_message)
 
-        for engine_state_change in request.engine_state_changes:
-            self.engine_state_changed.call(engine_state_change)
+            for engine_state_change in request.engine_state_changes:
+                self.engine_state_changed.call(engine_state_change)
 
-        if request.HasField('perf_stats'):
-            perf_stats = core.PerfStats()
-            perf_stats.deserialize(request.perf_stats)
-            self.perf_stats.call(perf_stats)
+            if request.HasField('perf_stats'):
+                perf_stats = core.PerfStats()
+                perf_stats.deserialize(request.perf_stats)
+                self.perf_stats.call(perf_stats)
+
+        except:  # pylint: disable=bare-except
+            logger.error(
+                "Exception while processing engine notification:\n%s\n==========\n%s",
+                request, traceback.format_exc())
 
     async def create_realm(
             self, *, name: str, parent: Optional[str] = None, enable_player: bool = False,

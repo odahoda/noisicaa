@@ -30,6 +30,7 @@ ControlTrackDescription = node_db.NodeDescription(
     node_ui=node_db.NodeUIDescription(
         type='builtin://control-track',
     ),
+    builtin_icon='track-type-control',
     processor=node_db.ProcessorDescription(
         type='builtin://cv-generator',
     ),

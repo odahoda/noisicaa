@@ -33,6 +33,7 @@ from noisicaa import audioproc
 from noisicaa import model
 from . import pmodel
 from . import node_connector
+from . import session_value_store
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ class Player(object):
             event_loop: asyncio.AbstractEventLoop,
             audioproc_client: audioproc.AbstractAudioProcClient,
             realm: str,
+            session_values: session_value_store.SessionValueStore,
             callback_address: Optional[str] = None
     ) -> None:
         self.project = project
@@ -51,8 +53,9 @@ class Player(object):
         self.event_loop = event_loop
         self.audioproc_client = audioproc_client
         self.realm = realm
+        self.session_values = session_values
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = {}  # type: Dict[str, core.BaseListener]
 
         self.id = uuid.uuid4().hex
 
@@ -85,6 +88,10 @@ class Player(object):
         for node in self.project.nodes:
             messages.messages.extend(self.add_node(node))
         await self.audioproc_client.send_node_messages(self.realm, messages)
+
+        await self.set_session_values(self.session_values.values())
+        self.__listeners['session_values'] = self.session_values.values_changed.add(
+            self.set_session_values)
 
         self.__listeners['project:nodes'] = self.project.nodes_changed.add(
             self.__on_project_nodes_changed)
@@ -156,7 +163,8 @@ class Player(object):
     def add_node(self, node: pmodel.BaseNode) -> Iterator[audioproc.ProcessorMessage]:
         connector = cast(
             node_connector.NodeConnector,
-            node.create_node_connector(message_cb=self.send_node_message))
+            node.create_node_connector(
+                message_cb=self.send_node_message, audioproc_client=self.audioproc_client))
         if connector is not None:
             yield from connector.init()
             self.__node_connectors[node.id] = connector

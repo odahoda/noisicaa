@@ -250,6 +250,8 @@ class SampleTrack(base_track.Track, sample_track_model.SampleTrack, pmodel.Objec
         return self.get_property_value('samples')
 
     def create_node_connector(
-            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
     ) -> SampleTrackConnector:
-        return SampleTrackConnector(node=self, message_cb=message_cb)
+        return SampleTrackConnector(
+            node=self, message_cb=message_cb, audioproc_client=audioproc_client)

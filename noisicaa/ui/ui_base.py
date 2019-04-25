@@ -263,7 +263,6 @@ class AbstractEditorApp(object):
     urid_mapper = None  # type: lv2.ProxyURIDMapper
     default_style = None  # type: str
     qt_app = None  # type: QtWidgets.QApplication
-    node_messages = None  # type: core.CallbackMap[str, Dict[str, Any]]
     devices = None  # type: device_list.DeviceList
 
     def quit(self, exit_code: int = 0) -> None:

@@ -206,6 +206,9 @@ class ControlTrack(base_track.Track, control_track_model.ControlTrack, pmodel.Ob
         return self.get_property_value('points')
 
     def create_node_connector(
-            self, message_cb: Callable[[audioproc.ProcessorMessage], None]
+            self,
+            message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
     ) -> ControlTrackConnector:
-        return ControlTrackConnector(node=self, message_cb=message_cb)
+        return ControlTrackConnector(
+            node=self, message_cb=message_cb, audioproc_client=audioproc_client)

@@ -31,6 +31,9 @@ install_files(
   edit-beats.svg
   edit-control-points.svg
   edit-samples.svg
+  node-type-builtin.svg
+  node-type-ladspa.svg
+  node-type-lv2.svg
   note-16th.svg
   note-32th.svg
   note-8th.svg

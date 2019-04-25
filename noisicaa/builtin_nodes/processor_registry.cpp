@@ -28,6 +28,11 @@
 #include "noisicaa/builtin_nodes/mixer/processor.h"
 #include "noisicaa/builtin_nodes/custom_csound/processor.h"
 #include "noisicaa/builtin_nodes/midi_source/processor.h"
+#include "noisicaa/builtin_nodes/oscillator/processor.h"
+#include "noisicaa/builtin_nodes/vca/processor.h"
+#include "noisicaa/builtin_nodes/noise/processor.h"
+#include "noisicaa/builtin_nodes/step_sequencer/processor.h"
+#include "noisicaa/builtin_nodes/midi_cc_to_cv/processor.h"
 
 namespace noisicaa {
 
@@ -57,6 +62,21 @@ StatusOr<Processor*> create_processor(
   } else if (desc.processor().type() == "builtin://midi-source") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorMidiSource(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://oscillator") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorOscillator(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://vca") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorVCA(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://noise") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorNoise(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://step-sequencer") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorStepSequencer(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://midi-cc-to-cv") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorMidiCCtoCV(realm_name, node_id, host_system, desc);
   }
 
   return ERROR_STATUS("Invalid processor type %d", desc.processor().type());
