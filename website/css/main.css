@@ -77,16 +77,18 @@ html, body {
   margin: 0 0 0.4em 0;
   padding: 0;
   word-spacing: 0.1em;
-  text-indent: 2em;
-}
-
-#content ul p, #content h3 + p {
-  text-indent: 0;
 }
 
 #content ul {
-    list-style: disc outside none;
-    margin-left: 2em;
+  list-style: disc outside none;
+  margin: 0 0 0.4em 2em;
+}
+
+#content div.highlight pre {
+  margin: 0 0 0.4em 0;
+  border: 1px solid #000;
+  padding: 0.2em 0.4em;
+  background-color: #f4fff4;
 }
 
 .imprint {
