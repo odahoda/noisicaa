@@ -52,6 +52,7 @@ class ProjectClientTestBase(
     async def setup_testcase(self):
         self.setup_node_db_process(inline=True)
         self.setup_urid_mapper_process(inline=True)
+        self.setup_writer_process(inline=True)
         self.setup_project_process(inline=True)
         await self.connect_project_client()
 

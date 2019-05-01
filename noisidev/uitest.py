@@ -250,6 +250,7 @@ class ProjectMixin(unittest_mixins.ServerMixin, UITestCase):
         self.project = None
 
     async def setup_testcase(self):
+        self.setup_writer_process(inline=True)
         self.setup_project_process(inline=True)
 
         create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(

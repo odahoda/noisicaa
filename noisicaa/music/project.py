@@ -22,10 +22,10 @@
 
 import logging
 import time
-from typing import cast, Any, Optional, Iterator, Type
+from typing import cast, Any, Optional, Tuple, Iterator, Type
 
 from noisicaa.core.typing_extra import down_cast
-from noisicaa.core import storage as storage_lib
+from noisicaa.core import storage
 from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import node_db as node_db_lib
@@ -36,6 +36,7 @@ from . import commands
 from . import commands_pb2
 from . import base_track
 from . import samples
+from . import writer_client
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +119,7 @@ class BaseProject(pmodel.Project):
             name="System Out", graph_pos=model.Pos2F(200, 0))
         self.add_node(system_out_node)
 
-    def close(self) -> None:
+    async def close(self) -> None:
         pass
 
     def get_node_description(self, uri: str) -> node_db_lib.NodeDescription:
@@ -184,45 +185,44 @@ class Project(BaseProject):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__storage = None  # type: storage_lib.ProjectStorage
+        self.__writer = None  # type: writer_client.WriterClient
+        self.__logs_since_last_checkpoint = None  # type: int
         self.__latest_command_sequence = None  # type: commands.CommandSequence
         self.__latest_command_time = None  # type: float
 
     def create(
-            self, *, storage: Optional[storage_lib.ProjectStorage] = None, **kwargs: Any
+            self, *, writer: Optional[writer_client.WriterClient] = None, **kwargs: Any
     ) -> None:
         super().create(**kwargs)
 
-        self.__storage = storage
+        self.__writer = writer
 
     @property
     def closed(self) -> bool:
-        return self.__storage is None
+        return self.__writer is None
 
     @property
     def path(self) -> Optional[str]:
-        if self.__storage:
-            return self.__storage.path
+        if self.__writer is not None:
+            return self.__writer.path
         return None
 
     @property
     def data_dir(self) -> Optional[str]:
-        if self.__storage:
-            return self.__storage.data_dir
+        if self.__writer is not None:
+            return self.__writer.data_dir
         return None
 
     @classmethod
-    def open(
+    async def open(
             cls, *,
             path: str,
             pool: pmodel.Pool,
-            node_db: node_db_lib.NodeDBClient) -> 'Project':
-        storage = storage_lib.ProjectStorage()
-        storage.open(path)
+            writer: writer_client.WriterClient,
+            node_db: node_db_lib.NodeDBClient,
+    ) -> 'Project':
+        checkpoint_serialized, actions = await writer.open(path)
 
-        checkpoint_number, actions = storage.get_restore_info()
-
-        checkpoint_serialized = storage.get_checkpoint(checkpoint_number)
         checkpoint = model.ObjectTree()
         checkpoint.MergeFromString(checkpoint_serialized)
 
@@ -230,7 +230,7 @@ class Project(BaseProject):
         assert isinstance(project, Project)
 
         project.node_db = node_db
-        project.__storage = storage
+        project.__writer = writer
 
         def validate_node(parent: Optional[pmodel.ObjectBase], node: pmodel.ObjectBase) -> None:
             assert node.parent is parent
@@ -241,53 +241,57 @@ class Project(BaseProject):
 
         validate_node(None, project)
 
-        for action, log_number in actions:
-            sequence_data = storage.get_log_entry(log_number)
+        project.__logs_since_last_checkpoint = 0
+        for action, sequence_data in actions:
             sequence = commands.CommandSequence.deserialize(sequence_data)
             logger.info(
                 "Replay action %s of command sequence %s (%d operations)",
                 action.name, sequence.command_names, sequence.num_log_ops)
 
-            if action == storage_lib.ACTION_FORWARD:
+            if action == storage.ACTION_FORWARD:
                 sequence.redo(pool)
-            elif action == storage_lib.ACTION_BACKWARD:
+            elif action == storage.ACTION_BACKWARD:
                 sequence.undo(pool)
             else:
                 raise ValueError("Unsupported action %s" % action)
 
+            project.__logs_since_last_checkpoint += 1
+
         return project
 
     @classmethod
-    def create_blank(
+    async def create_blank(
             cls, *,
             path: str,
             pool: pmodel.Pool,
-            node_db: node_db_lib.NodeDBClient
+            node_db: node_db_lib.NodeDBClient,
+            writer: writer_client.WriterClient,
     ) -> 'Project':
-        storage = storage_lib.ProjectStorage.create(path)
-
-        project = pool.create(cls, storage=storage, node_db=node_db)
+        project = pool.create(cls, writer=writer, node_db=node_db)
         pool.set_root(project)
 
-        # Write initial checkpoint of an empty project.
-        project.create_checkpoint()
+        checkpoint_serialized = project.serialize_object(project)
+        await writer.create(path, checkpoint_serialized)
+        project.__logs_since_last_checkpoint = 0
 
         return project
 
-    def close(self) -> None:
+    async def close(self) -> None:
         self.__flush_commands()
 
-        if self.__storage is not None:
-            self.__storage.close()
-            self.__storage = None
+        if self.__writer is not None:
+            await self.__writer.close()
+            self.__writer = None
 
         self.reset_state()
+        self.__logs_since_last_checkpoint = None
 
-        super().close()
+        await super().close()
 
     def create_checkpoint(self) -> None:
         checkpoint_serialized = self.serialize_object(self)
-        self.__storage.add_checkpoint(checkpoint_serialized)
+        self.__writer.write_checkpoint(checkpoint_serialized)
+        self.__logs_since_last_checkpoint = 0
 
     def serialize_object(self, obj: model.ObjectBase) -> bytes:
         proto = obj.serialize()
@@ -295,10 +299,11 @@ class Project(BaseProject):
 
     def __flush_commands(self) -> None:
         if self.__latest_command_sequence is not None:
-            self.__storage.append_log_entry(self.__latest_command_sequence.serialize())
+            self.__writer.write_log(self.__latest_command_sequence.serialize())
+            self.__logs_since_last_checkpoint += 1
             self.__latest_command_sequence = None
 
-        if self.__storage.logs_since_last_checkpoint > 1000:
+        if self.__logs_since_last_checkpoint > 1000:
             self.create_checkpoint()
 
     def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> None:
@@ -316,49 +321,45 @@ class Project(BaseProject):
                 self.__latest_command_sequence = sequence
                 self.__latest_command_time = time.time()
 
-    def undo(self) -> None:
+    async def fetch_undo(self) -> Optional[Tuple[storage.Action, bytes]]:
         if self.closed:
             raise RuntimeError("Undo executed on closed project.")
 
         self.__flush_commands()
+        return await self.__writer.undo()
 
-        if self.__storage.can_undo:
-            action, sequence_data = self.__storage.get_log_entry_to_undo()
-            sequence = commands.CommandSequence.deserialize(sequence_data)
-            logger.info(
-                "Undo command sequence %s (%d operations)",
-                sequence.command_names, sequence.num_log_ops)
+    def undo(self, action: storage.Action, sequence_data: bytes) -> None:
+        sequence = commands.CommandSequence.deserialize(sequence_data)
+        logger.info(
+            "Undo command sequence %s (%d operations)",
+            sequence.command_names, sequence.num_log_ops)
 
-            if action == storage_lib.ACTION_FORWARD:
-                sequence.redo(self._pool)
-            elif action == storage_lib.ACTION_BACKWARD:
-                sequence.undo(self._pool)
-            else:
-                raise ValueError("Unsupported action %s" % action)
+        if action == storage.ACTION_FORWARD:
+            sequence.redo(self._pool)
+        elif action == storage.ACTION_BACKWARD:
+            sequence.undo(self._pool)
+        else:
+            raise ValueError("Unsupported action %s" % action)
 
-            self.__storage.undo()
-
-    def redo(self) -> None:
+    async def fetch_redo(self) -> Optional[Tuple[storage.Action, bytes]]:
         if self.closed:
             raise RuntimeError("Redo executed on closed project.")
 
         self.__flush_commands()
+        return await self.__writer.redo()
 
-        if self.__storage.can_redo:
-            action, sequence_data = self.__storage.get_log_entry_to_redo()
-            sequence = commands.CommandSequence.deserialize(sequence_data)
-            logger.info(
-                "Redo command sequence %s (%d operations)",
-                sequence.command_names, sequence.num_log_ops)
+    def redo(self, action: storage.Action, sequence_data: bytes) -> None:
+        sequence = commands.CommandSequence.deserialize(sequence_data)
+        logger.info(
+            "Redo command sequence %s (%d operations)",
+            sequence.command_names, sequence.num_log_ops)
 
-            if action == storage_lib.ACTION_FORWARD:
-                sequence.redo(self._pool)
-            elif action == storage_lib.ACTION_BACKWARD:
-                sequence.undo(self._pool)
-            else:
-                raise ValueError("Unsupported action %s" % action)
-
-            self.__storage.redo()
+        if action == storage.ACTION_FORWARD:
+            sequence.redo(self._pool)
+        elif action == storage.ACTION_BACKWARD:
+            sequence.undo(self._pool)
+        else:
+            raise ValueError("Unsupported action %s" % action)
 
 
 class Pool(pmodel.Pool):

@@ -30,11 +30,13 @@ from noisidev import unittest
 from noisidev import unittest_mixins
 from noisicaa.core import fileutil
 from noisicaa.core import storage
+from noisicaa import editor_main_pb2
 from noisicaa import model
 from noisicaa.builtin_nodes.score_track import server_impl as score_track
 from . import project
 from . import commands_pb2
 from . import commands_test
+from . import writer_client
 
 
 class PoolMixin(object):
@@ -42,7 +44,10 @@ class PoolMixin(object):
         self.pool = project.Pool()
 
 
-class BaseProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
+class BaseProjectTest(
+        PoolMixin,
+        unittest_mixins.NodeDBMixin,
+        unittest.AsyncTestCase):
     def test_serialize(self):
         p = self.pool.create(project.BaseProject, node_db=self.node_db)
         serialized = p.serialize()
@@ -61,8 +66,18 @@ class BaseProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTest
         self.assertEqual(len(p2.nodes), num_nodes)
 
 
-class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
-    def setup_testcase(self):
+class ProjectTest(
+        PoolMixin,
+        unittest_mixins.NodeDBMixin,
+        unittest_mixins.ProcessManagerMixin,
+        unittest.AsyncTestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.writer_address = None
+        self.writer_client = None
+
+    async def setup_testcase(self):
         self.stubs = stubout.StubOutForTesting()
         self.addCleanup(self.stubs.SmartUnsetAll)
 
@@ -74,12 +89,36 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
         self.stubs.SmartSet(fileutil, 'os', self.fake_os)
         self.stubs.SmartSet(builtins, 'open', self.fake_open)
 
-    def test_create(self):
-        p = project.Project.create_blank(
+        self.setup_writer_process(inline=True)
+
+        create_process_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_WRITER_PROCESS',
+            None, create_process_response)
+        self.writer_address = create_process_response.address
+
+        self.writer_client = writer_client.WriterClient(event_loop=self.loop)
+        await self.writer_client.setup()
+        await self.writer_client.connect(self.writer_address)
+
+    async def cleanup_testcase(self):
+        if self.writer_client is not None:
+            await self.writer_client.disconnect()
+            await self.writer_client.cleanup()
+
+        if self.writer_address is not None:
+            await self.process_manager_client.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.writer_address))
+
+    async def test_create(self):
+        p = await project.Project.create_blank(
             path='/foo.noise',
             pool=self.pool,
+            writer=self.writer_client,
             node_db=self.node_db)
-        p.close()
+        await p.close()
 
         self.assertTrue(self.fake_os.path.isfile('/foo.noise'))
         self.assertTrue(self.fake_os.path.isdir('/foo.data'))
@@ -90,10 +129,11 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
         self.assertEqual(file_info.filetype, 'project-header')
         self.assertIsInstance(contents, dict)
 
-    def test_open_and_replay(self):
-        p = project.Project.create_blank(
+    async def test_open_and_replay(self):
+        p = await project.Project.create_blank(
             path='/foo.noise',
             pool=self.pool,
+            writer=self.writer_client,
             node_db=self.node_db)
         try:
             p.dispatch_command_sequence_proto(commands_pb2.CommandSequence(
@@ -104,36 +144,39 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
             num_nodes = len(p.nodes)
             track_id = p.nodes[-1].id
         finally:
-            p.close()
+            await p.close()
 
         pool = project.Pool(project_cls=project.Project)
-        p = project.Project.open(
+        p = await project.Project.open(
             path='/foo.noise',
             pool=pool,
+            writer=self.writer_client,
             node_db=self.node_db)
         try:
             self.assertEqual(len(p.nodes), num_nodes)
             self.assertEqual(p.nodes[-1].id, track_id)
         finally:
-            p.close()
+            await p.close()
 
-    def test_create_checkpoint(self):
-        p = project.Project.create_blank(
+    async def test_create_checkpoint(self):
+        p = await project.Project.create_blank(
             path='/foo.noise',
             pool=self.pool,
+            writer=self.writer_client,
             node_db=self.node_db)
         try:
             p.create_checkpoint()
         finally:
-            p.close()
+            await p.close()
 
         self.assertTrue(
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
 
-    def test_merge_commands(self):
-        p = project.Project.create_blank(
+    async def test_merge_commands(self):
+        p = await project.Project.create_blank(
             path='/foo.noise',
             pool=self.pool,
+            writer=self.writer_client,
             node_db=self.node_db)
         try:
             old_bpm = p.bpm
@@ -145,14 +188,14 @@ class ProjectTest(PoolMixin, unittest_mixins.NodeDBMixin, unittest.AsyncTestCase
                         update_project=commands_pb2.UpdateProject(
                             set_bpm=i))]))
 
-            p.undo()
+            p.undo(*(await p.fetch_undo()))
             self.assertEqual(p.bpm, old_bpm)
 
-            p.redo()
+            p.redo(*(await p.fetch_redo()))
             self.assertEqual(p.bpm, old_bpm + 9)
 
         finally:
-            p.close()
+            await p.close()
 
 
 class ProjectPropertiesTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):

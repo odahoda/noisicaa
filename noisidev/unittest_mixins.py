@@ -253,3 +253,20 @@ class ProcessManagerMixin(object):
         self.process_manager.server['main'].add_handler(
             'CREATE_PROJECT_PROCESS', wrap,
             editor_main_pb2.CreateProjectProcessRequest, editor_main_pb2.CreateProcessResponse)
+
+    async def __create_writer_process(self, inline, request, response):
+        if inline:
+            proc = await self.process_manager.start_inline_process(
+                name='writer',
+                entry='noisicaa.music.writer_process.WriterProcess')
+            response.address = proc.address
+        else:
+            raise NotImplementedError
+
+    def setup_writer_process(self, *, inline):
+        async def wrap(request, response):
+            return await self.__create_writer_process(inline, request, response)
+
+        self.process_manager.server['main'].add_handler(
+            'CREATE_WRITER_PROCESS', wrap,
+            empty_message_pb2.EmptyMessage, editor_main_pb2.CreateProcessResponse)

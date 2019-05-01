@@ -97,6 +97,10 @@ class Editor(object):
                     editor_main_pb2.CreateProjectProcessRequest,
                     editor_main_pb2.CreateProcessResponse)
                 self.manager.server['main'].add_handler(
+                    'CREATE_WRITER_PROCESS', self.handle_create_writer_process,
+                    empty_message_pb2.EmptyMessage,
+                    editor_main_pb2.CreateProcessResponse)
+                self.manager.server['main'].add_handler(
                     'CREATE_AUDIOPROC_PROCESS', self.handle_create_audioproc_process,
                     editor_main_pb2.CreateAudioProcProcessRequest,
                     editor_main_pb2.CreateProcessResponse)
@@ -198,6 +202,15 @@ class Editor(object):
                 proc = self.project_processes[request.uri] = await self.manager.start_subprocess(
                     'project', 'noisicaa.music.project_process.ProjectSubprocess')
 
+        response.address = proc.address
+
+    async def handle_create_writer_process(
+            self,
+            request: empty_message_pb2.EmptyMessage,
+            response: editor_main_pb2.CreateProcessResponse
+    ) -> None:
+        proc = await self.manager.start_subprocess(
+            'writer', 'noisicaa.music.writer_process.WriterSubprocess')
         response.address = proc.address
 
     async def handle_create_audioproc_process(

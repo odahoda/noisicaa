@@ -25,7 +25,7 @@ import copy
 import logging
 import traceback
 import typing
-from typing import Any, Dict, Type, Iterable, TypeVar
+from typing import Any, Dict, Iterable, TypeVar
 
 from noisicaa import core
 from noisicaa.core import empty_message_pb2
@@ -46,6 +46,7 @@ from . import commands_pb2
 from . import player as player_lib
 from . import render
 from . import session_value_store
+from . import writer_client
 
 if typing.TYPE_CHECKING:
     from . import pmodel
@@ -127,6 +128,8 @@ class ProjectProcess(core.ProcessBase):
 
         self.__main_endpoint = None  # type: ipc.ServerEndpointWithSessions[Session]
         self.__ctxt = project_process_context.ProjectProcessContext()
+        self.__writer_client = None  # type: writer_client.WriterClient
+        self.__writer_address = None  # type: str
         self.__pending_mutations = mutations_pb2.MutationList()
         self.__mutation_collector = None  # type: mutations_lib.MutationCollector
 
@@ -263,10 +266,18 @@ class ProjectProcess(core.ProcessBase):
         if self.__ctxt.project is not None:
             response.project_id = self.__ctxt.project.id
 
-    def _create_blank_project(self, project_cls: Type[PROJECT]) -> PROJECT:
-        project = self.__ctxt.pool.create(project_cls, node_db=self.__ctxt.node_db)
-        self.__ctxt.pool.set_root(project)
-        return project
+    async def __create_writer(self) -> None:
+        logger.info("Creating writer process...")
+        create_writer_response = editor_main_pb2.CreateProcessResponse()
+        await self.manager.call(
+            'CREATE_WRITER_PROCESS', None, create_writer_response)
+        self.__writer_address = create_writer_response.address
+
+        logger.info("Connecting to writer process %r...", self.__writer_address)
+        self.__writer_client = writer_client.WriterClient(
+            event_loop=self.event_loop)
+        await self.__writer_client.setup()
+        await self.__writer_client.connect(self.__writer_address)
 
     async def __close_project(self) -> None:
         assert self.__ctxt.project is not None
@@ -288,10 +299,22 @@ class ProjectProcess(core.ProcessBase):
             self.__mutation_collector.stop()
             self.__mutation_collector = None
 
-        self.__ctxt.project.close()
+        await self.__ctxt.project.close()
 
         self.__ctxt.project = None
         self.__ctxt.pool = None
+
+        if self.__writer_client is not None:
+            await self.__writer_client.close()
+            await self.__writer_client.cleanup()
+            self.__writer_client = None
+
+        if self.__writer_address is not None:
+            await self.manager.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.__writer_address))
+            self.__writer_address = None
 
     async def __handle_create(
             self,
@@ -301,10 +324,13 @@ class ProjectProcess(core.ProcessBase):
     ) -> None:
         assert self.__ctxt.project is None
 
+        await self.__create_writer()
+
         self.__ctxt.pool = project_lib.Pool(project_cls=project_lib.Project)
-        self.__ctxt.project = project_lib.Project.create_blank(
+        self.__ctxt.project = await project_lib.Project.create_blank(
             path=request.path,
             pool=self.__ctxt.pool,
+            writer=self.__writer_client,
             node_db=self.__ctxt.node_db)
         await self.send_initial_mutations()
         self.__mutation_collector = mutations_lib.MutationCollector(
@@ -322,7 +348,9 @@ class ProjectProcess(core.ProcessBase):
         assert self.__ctxt.project is None
 
         self.__ctxt.pool = project_lib.Pool()
-        self.__ctxt.project = self._create_blank_project(project_lib.BaseProject)
+        self.__ctxt.project = self.__ctxt.pool.create(
+            project_lib.BaseProject, node_db=self.__ctxt.node_db)
+        self.__ctxt.pool.set_root(self.__ctxt.project)
         await self.send_initial_mutations()
         self.__mutation_collector = mutations_lib.MutationCollector(
             self.__ctxt.pool, self.__pending_mutations)
@@ -338,10 +366,13 @@ class ProjectProcess(core.ProcessBase):
     ) -> None:
         assert self.__ctxt.project is None
 
+        await self.__create_writer()
+
         self.__ctxt.pool = project_lib.Pool(project_cls=project_lib.Project)
-        self.__ctxt.project = project_lib.Project.open(
+        self.__ctxt.project = await project_lib.Project.open(
             path=request.path,
             pool=self.__ctxt.pool,
+            writer=self.__writer_client,
             node_db=self.__ctxt.node_db)
         await self.send_initial_mutations()
         self.__mutation_collector = mutations_lib.MutationCollector(
@@ -391,13 +422,17 @@ class ProjectProcess(core.ProcessBase):
     ) -> None:
         assert isinstance(self.__ctxt.project, project_lib.Project)
 
-        # This block must be atomic, no 'awaits'!
-        assert self.__mutation_collector.num_ops == 0
-        self.__ctxt.project.undo()
-        mutations = copy.deepcopy(self.__pending_mutations)
-        self.__mutation_collector.clear()
+        undo_response = await self.__ctxt.project.fetch_undo()
+        if undo_response is not None:
+            action, sequence_data = undo_response
 
-        await self.publish_mutations(mutations)
+            # This block must be atomic, no 'awaits'!
+            assert self.__mutation_collector.num_ops == 0
+            self.__ctxt.project.undo(action, sequence_data)
+            mutations = copy.deepcopy(self.__pending_mutations)
+            self.__mutation_collector.clear()
+
+            await self.publish_mutations(mutations)
 
     async def __handle_redo(
             self,
@@ -407,13 +442,17 @@ class ProjectProcess(core.ProcessBase):
     ) -> None:
         assert isinstance(self.__ctxt.project, project_lib.Project)
 
-        # This block must be atomic, no 'awaits'!
-        assert self.__mutation_collector.num_ops == 0
-        self.__ctxt.project.redo()
-        mutations = copy.deepcopy(self.__pending_mutations)
-        self.__mutation_collector.clear()
+        redo_response = await self.__ctxt.project.fetch_redo()
+        if redo_response is not None:
+            action, sequence_data = redo_response
 
-        await self.publish_mutations(mutations)
+            # This block must be atomic, no 'awaits'!
+            assert self.__mutation_collector.num_ops == 0
+            self.__ctxt.project.redo(action, sequence_data)
+            mutations = copy.deepcopy(self.__pending_mutations)
+            self.__mutation_collector.clear()
+
+            await self.publish_mutations(mutations)
 
     async def __handle_create_player(
             self,

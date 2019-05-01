@@ -45,11 +45,15 @@ add_python_package(
   rms.pyi
   samples.py
   session_value_store.py
+  writer_client.py
+  writer_client_test.py
+  writer_process.py
 )
 
 add_cython_module(rms CXX)
 
 py_proto(project_process.proto)
+py_proto(writer_process.proto)
 py_proto(render_settings.proto)
 py_proto(mutations.proto)
 py_proto(commands.proto)
