@@ -25,13 +25,13 @@ from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import music
 from noisicaa.music import base_track_test
-from . import client_impl
+from . import server_impl
 from . import commands
 
 
 class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://beat-track'
-    track_cls = client_impl.BeatTrack
+    track_cls = server_impl.BeatTrack
 
     async def test_create_measure(self):
         track = await self._add_track()

@@ -26,20 +26,20 @@ from noisidev import unittest
 from noisicaa.music import commands_test
 from noisicaa import music
 from . import model_pb2
-from . import client_impl
+from . import server_impl
 from . import commands
 
 
 class StepSequencerTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
 
-    async def _add_node(self) -> client_impl.StepSequencer:
+    async def _add_node(self) -> server_impl.StepSequencer:
         await self.client.send_command(music.create_node(
             'builtin://step-sequencer'))
-        return cast(client_impl.StepSequencer, self.project.nodes[-1])
+        return cast(server_impl.StepSequencer, self.project.nodes[-1])
 
     async def test_add_node(self):
         node = await self._add_node()
-        self.assertIsInstance(node, client_impl.StepSequencer)
+        self.assertIsInstance(node, server_impl.StepSequencer)
         self.assertFalse(node.time_synched)
         self.assertEqual(len(node.channels), 1)
         self.assertEqual(len(node.channels[0].steps), node.num_steps)

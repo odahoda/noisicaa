@@ -26,7 +26,7 @@ import functools
 import signal
 import sys
 import time
-from typing import Dict, List
+from typing import List
 
 from .constants import EXIT_SUCCESS, EXIT_RESTART, EXIT_RESTART_CLEAN
 from .runtime_settings import RuntimeSettings
@@ -66,9 +66,6 @@ class Editor(object):
         self.urid_mapper_process = None  # type: process_manager.ProcessHandle
         self.urid_mapper_process_lock = asyncio.Lock(loop=self.event_loop)
 
-        self.project_processes = {}  # type: Dict[str, process_manager.ProcessHandle]
-        self.project_processes_lock = asyncio.Lock(loop=self.event_loop)
-
     def run(self) -> int:
         for sig in (signal.SIGINT, signal.SIGTERM):
             self.event_loop.add_signal_handler(
@@ -92,10 +89,6 @@ class Editor(object):
                 await dbg.setup()
 
             try:
-                self.manager.server['main'].add_handler(
-                    'CREATE_PROJECT_PROCESS', self.handle_create_project_process,
-                    editor_main_pb2.CreateProjectProcessRequest,
-                    editor_main_pb2.CreateProcessResponse)
                 self.manager.server['main'].add_handler(
                     'CREATE_WRITER_PROCESS', self.handle_create_writer_process,
                     empty_message_pb2.EmptyMessage,
@@ -126,9 +119,6 @@ class Editor(object):
                 self.logger.info("Shutting down...")
 
             finally:
-                for project_process in self.project_processes.values():
-                    await project_process.shutdown()
-
                 if self.node_db_process is not None:
                     await self.node_db_process.shutdown()
 
@@ -189,20 +179,6 @@ class Editor(object):
         else:
             self.returncode = task.result()
         self.stop_event.set()
-
-    async def handle_create_project_process(
-            self,
-            request: editor_main_pb2.CreateProjectProcessRequest,
-            response: editor_main_pb2.CreateProcessResponse
-    ) -> None:
-        async with self.project_processes_lock:
-            try:
-                proc = self.project_processes[request.uri]
-            except KeyError:
-                proc = self.project_processes[request.uri] = await self.manager.start_subprocess(
-                    'project', 'noisicaa.music.project_process.ProjectSubprocess')
-
-        response.address = proc.address
 
     async def handle_create_writer_process(
             self,
@@ -289,12 +265,6 @@ class Editor(object):
             response: empty_message_pb2.EmptyMessage
     ) -> None:
         await self.manager.shutdown_process(request.address)
-
-        async with self.project_processes_lock:
-            for uri, proc in self.project_processes.items():
-                if proc.address == request.address:
-                    del self.project_processes[uri]
-                    break
 
 
 class Main(object):

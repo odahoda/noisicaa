@@ -68,6 +68,9 @@ class SessionValueStore(object):
     def values(self) -> List[session_data_pb2.SessionValue]:
         return list(self.__session_data.values())
 
+    def get_value(self, name: str) -> session_data_pb2.SessionValue:
+        return self.__session_data[name]
+
     async def set_values(
             self, session_values: Iterable[session_data_pb2.SessionValue],
     ) -> None:

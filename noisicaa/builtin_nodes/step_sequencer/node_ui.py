@@ -40,7 +40,7 @@ from noisicaa.ui import control_value_dial
 from noisicaa.ui import slots
 from noisicaa.ui.graph import base_node
 from . import model_pb2
-from . import client_impl
+from . import server_impl
 from . import commands
 
 logger = logging.getLogger(__name__)
@@ -128,7 +128,7 @@ def width_for(widget: QtWidgets.QWidget, text: str) -> int:
 
 
 class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
-    def __init__(self, node: client_impl.StepSequencer, **kwargs: Any) -> None:
+    def __init__(self, node: server_impl.StepSequencer, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
@@ -372,7 +372,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __numChannelsChanged(
             self,
-            change: model.PropertyListChange[client_impl.StepSequencerChannel]
+            change: model.PropertyListChange[server_impl.StepSequencerChannel]
     ) -> None:
         self.__num_channels.setValue(len(self.__node.channels))
         self.__updateStepMatrix()
@@ -393,7 +393,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelTypeChanged(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: server_impl.StepSequencerChannel,
             widget: QtWidgets.QComboBox,
             change: model.PropertyValueChange[int]
     ) -> None:
@@ -401,7 +401,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelTypeEdited(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: server_impl.StepSequencerChannel,
             widget: QtWidgets.QComboBox,
     ) -> None:
         value = widget.currentData()
@@ -411,7 +411,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelMinValueChanged(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: server_impl.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
             change: model.PropertyValueChange[float]
     ) -> None:
@@ -419,7 +419,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelMinValueEdited(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: server_impl.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
     ) -> None:
         state, _, _ = widget.validator().validate(widget.text(), 0)
@@ -431,7 +431,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelMaxValueChanged(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: server_impl.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
             change: model.PropertyValueChange[float]
     ) -> None:
@@ -439,7 +439,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelMaxValueEdited(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: server_impl.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
     ) -> None:
         state, _, _ = widget.validator().validate(widget.text(), 0)
@@ -451,7 +451,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelLogScaleChanged(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: server_impl.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
             change: model.PropertyValueChange[bool]
     ) -> None:
@@ -459,7 +459,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelLogScaleEdited(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: server_impl.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
             value: bool
     ) -> None:
@@ -469,7 +469,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __stepValueText(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: server_impl.StepSequencerChannel,
             value: float
     ) -> str:
         if channel.log_scale:
@@ -485,7 +485,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __stepValueChanged(
             self,
-            step: client_impl.StepSequencerStep,
+            step: server_impl.StepSequencerStep,
             widget: control_value_dial.ControlValueDial,
             change: model.PropertyValueChange[float]
     ) -> None:
@@ -493,7 +493,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __stepValueEdited(
             self,
-            step: client_impl.StepSequencerStep,
+            step: server_impl.StepSequencerStep,
             widget: control_value_dial.ControlValueDial,
             value: float
     ) -> None:
@@ -503,7 +503,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __stepEnabledChanged(
             self,
-            step: client_impl.StepSequencerStep,
+            step: server_impl.StepSequencerStep,
             widget: StepToggle,
             change: model.PropertyValueChange[bool]
     ) -> None:
@@ -511,7 +511,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __stepEnabledEdited(
             self,
-            step: client_impl.StepSequencerStep,
+            step: server_impl.StepSequencerStep,
             widget: StepToggle,
             value: bool
     ) -> None:
@@ -536,9 +536,9 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
 class StepSequencerNode(base_node.Node):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, client_impl.StepSequencer), type(node).__name__
+        assert isinstance(node, server_impl.StepSequencer), type(node).__name__
         self.__widget = None  # type: StepSequencerNodeWidget
-        self.__node = node  # type: client_impl.StepSequencer
+        self.__node = node  # type: server_impl.StepSequencer
 
         super().__init__(node=node, **kwargs)
 

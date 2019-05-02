@@ -36,7 +36,6 @@ add_python_package(
   project_client_model.py
   project_client_test.py
   project_integration_test.py
-  project_process.py
   project_process_context.py
   project.py
   project_test.py
@@ -52,8 +51,7 @@ add_python_package(
 
 add_cython_module(rms CXX)
 
-py_proto(project_process.proto)
 py_proto(writer_process.proto)
-py_proto(render_settings.proto)
+py_proto(render.proto)
 py_proto(mutations.proto)
 py_proto(commands.proto)

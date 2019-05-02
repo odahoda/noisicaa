@@ -35,6 +35,7 @@ from noisicaa.constants import TEST_OPTS
 from noisicaa import runtime_settings as runtime_settings_lib
 from noisicaa import audioproc
 from noisicaa import core
+from noisicaa import lv2
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa import editor_main_pb2
@@ -245,26 +246,32 @@ class ProjectMixin(unittest_mixins.ServerMixin, UITestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.project_address = None
+        self.urid_mapper_address = None  # type: str
+        self.urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.project_client = None
         self.project = None
 
     async def setup_testcase(self):
         self.setup_writer_process(inline=True)
-        self.setup_project_process(inline=True)
 
-        create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(
-            uri='test-project')
-        create_project_process_response = editor_main_pb2.CreateProcessResponse()
+        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
         await self.process_manager_client.call(
-            'CREATE_PROJECT_PROCESS',
-            create_project_process_request, create_project_process_response)
-        self.project_address = create_project_process_response.address
+            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
+        self.urid_mapper_address = create_urid_mapper_response.address
+
+        self.urid_mapper = lv2.ProxyURIDMapper(
+            server_address=self.urid_mapper_address,
+            tmp_dir=TEST_OPTS.TMP_DIR)
+        await self.urid_mapper.setup(self.loop)
 
         self.project_client = music.ProjectClient(
-            event_loop=self.loop, server=self.server, node_db=self.node_db_client)
+            event_loop=self.loop,
+            server=self.server,
+            node_db=self.node_db_client,
+            urid_mapper=self.urid_mapper,
+            manager=self.process_manager_client,
+            tmp_dir=TEST_OPTS.TMP_DIR)
         await self.project_client.setup()
-        await self.project_client.connect(self.project_address)
 
         path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
         await self.project_client.create(path)
@@ -273,11 +280,13 @@ class ProjectMixin(unittest_mixins.ServerMixin, UITestCase):
 
     async def cleanup_testcase(self):
         if self.project_client is not None:
-            await self.project_client.disconnect()
             await self.project_client.cleanup()
 
-        if self.project_address is not None:
+        if self.urid_mapper is not None:
+            await self.urid_mapper.cleanup(self.loop)
+
+        if self.urid_mapper_address is not None:
             await self.process_manager_client.call(
                 'SHUTDOWN_PROCESS',
                 editor_main_pb2.ShutdownProcessRequest(
-                    address=self.project_address))
+                    address=self.urid_mapper_address))

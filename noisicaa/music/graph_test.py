@@ -24,7 +24,6 @@ import logging
 from typing import List
 
 from noisidev import unittest
-from noisicaa.core import ipc
 from noisicaa import audioproc
 from noisicaa import model
 from . import commands_test
@@ -149,7 +148,7 @@ class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
             set_port_properties=model.NodePortProperties('mix', exposed=False)))
         self.assertFalse(node.get_port_properties('mix').exposed)
 
-        with self.assertRaises(ipc.RemoteException):
+        with self.assertRaises(Exception):
             await self.client.send_command(project_client.update_node(
                 node,
                 set_port_properties=model.NodePortProperties('holla')))

@@ -49,8 +49,13 @@ from .project_client_model import (
     Metadata,
     Project,
 )
-from .render_settings_pb2 import (
+from .render_pb2 import (
     RenderSettings,
+    RenderProgressRequest,
+    RenderProgressResponse,
+    RenderStateRequest,
+    RenderDataRequest,
+    RenderDataResponse,
 )
 from .mutations_pb2 import (
     MutationList,
@@ -58,13 +63,6 @@ from .mutations_pb2 import (
 from .commands_pb2 import (
     CommandSequence,
     Command,
-)
-from .project_process_pb2 import (
-    RenderProgressRequest,
-    RenderProgressResponse,
-    RenderStateRequest,
-    RenderDataRequest,
-    RenderDataResponse,
 )
 from .session_value_store import (
     SessionValueStore,

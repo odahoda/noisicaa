@@ -27,73 +27,82 @@ import uuid
 
 from noisidev import unittest
 from noisidev import unittest_mixins
-from noisicaa import editor_main_pb2
 from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
+from noisicaa import lv2
+from noisicaa import editor_main_pb2
 from . import project_client
-from . import project_client_model
-from . import project_process_pb2
-from . import render_settings_pb2
+from . import render_pb2
+from . import project as project_lib
 
 logger = logging.getLogger(__name__)
 
 
 class ProjectClientTestBase(
+        unittest_mixins.NodeDBMixin,
         unittest_mixins.ServerMixin,
         unittest_mixins.ProcessManagerMixin,
         unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.project_address = None
+        self.urid_mapper_address = None  # type: str
+        self.urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.client = None
 
     async def setup_testcase(self):
         self.setup_node_db_process(inline=True)
         self.setup_urid_mapper_process(inline=True)
         self.setup_writer_process(inline=True)
-        self.setup_project_process(inline=True)
-        await self.connect_project_client()
+
+        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
+        self.urid_mapper_address = create_urid_mapper_response.address
+
+        self.urid_mapper = lv2.ProxyURIDMapper(
+            server_address=self.urid_mapper_address,
+            tmp_dir=TEST_OPTS.TMP_DIR)
+        await self.urid_mapper.setup(self.loop)
+
+        await self.create_project_client()
 
     def get_project_path(self):
         return os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
 
-    async def connect_project_client(self):
+    async def create_project_client(self):
         if self.client is not None:
-            await self.client.disconnect()
             await self.client.cleanup()
 
-        create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(
-            uri='test-project')
-        create_project_process_response = editor_main_pb2.CreateProcessResponse()
-        await self.process_manager_client.call(
-            'CREATE_PROJECT_PROCESS',
-            create_project_process_request, create_project_process_response)
-        project_address = create_project_process_response.address
-
         self.client = project_client.ProjectClient(
-            event_loop=self.loop, server=self.server)
+            event_loop=self.loop,
+            server=self.server,
+            tmp_dir=TEST_OPTS.TMP_DIR,
+            manager=self.process_manager_client,
+            node_db=self.node_db,
+            urid_mapper=self.urid_mapper)
         await self.client.setup()
-        await self.client.connect(project_address)
 
     async def cleanup_testcase(self):
         if self.client is not None:
-            await self.client.disconnect()
             await self.client.cleanup()
 
-        if self.project_address is not None:
+        if self.urid_mapper is not None:
+            await self.urid_mapper.cleanup(self.loop)
+
+        if self.urid_mapper_address is not None:
             await self.process_manager_client.call(
                 'SHUTDOWN_PROCESS',
                 editor_main_pb2.ShutdownProcessRequest(
-                    address=self.project_address))
+                    address=self.urid_mapper_address))
 
 
 class ProjectClientTest(ProjectClientTestBase):
     async def test_basic(self):
         await self.client.create_inmemory()
         project = self.client.project
-        self.assertIsInstance(project.metadata, project_client_model.Metadata)
+        self.assertIsInstance(project.metadata, project_lib.Metadata)
 
     async def test_create_close_open(self):
         path = self.get_project_path()
@@ -101,7 +110,7 @@ class ProjectClientTest(ProjectClientTestBase):
         # TODO: set some property
         await self.client.close()
 
-        await self.connect_project_client()
+        await self.create_project_client()
         await self.client.open(path)
         # TODO: check property
         await self.client.close()
@@ -113,17 +122,6 @@ class ProjectClientTest(ProjectClientTestBase):
         await self.client.send_command(project_client.create_node(
             'builtin://score-track'))
         self.assertEqual(len(project.nodes), num_nodes + 1)
-
-    async def test_client_error(self):
-        await self.client.create_inmemory()
-        with self.assertRaises(ipc.RemoteException):
-            await self.client.send_command(project_client.create_node(
-                'does-not-exist'))
-
-    async def test_server_error(self):
-        await self.client.create_inmemory()
-        with self.assertRaises(ipc.ConnectionClosed):
-            await self.client.send_command(project_client.crash())
 
 
 class RenderTest(ProjectClientTestBase):
@@ -163,13 +161,13 @@ class RenderTest(ProjectClientTestBase):
         cb_endpoint = ipc.ServerEndpoint('render_cb')
         cb_endpoint.add_handler(
             'STATE', lambda request, response: self.handle_state(request, response),
-            project_process_pb2.RenderStateRequest, empty_message_pb2.EmptyMessage)
+            render_pb2.RenderStateRequest, empty_message_pb2.EmptyMessage)
         cb_endpoint.add_handler(
             'PROGRESS', lambda request, response: self.handle_progress(request, response),
-            project_process_pb2.RenderProgressRequest, project_process_pb2.RenderProgressResponse)
+            render_pb2.RenderProgressRequest, render_pb2.RenderProgressResponse)
         cb_endpoint.add_handler(
             'DATA', lambda request, response: self.handle_data(request, response),
-            project_process_pb2.RenderDataRequest, project_process_pb2.RenderDataResponse)
+            render_pb2.RenderDataRequest, render_pb2.RenderDataResponse)
         self.cb_endpoint_address = await self.server.add_endpoint(cb_endpoint)
 
     async def cleanup_testcase(self):
@@ -185,7 +183,7 @@ class RenderTest(ProjectClientTestBase):
             self._handle_data(request, response)
         self.handle_data = handle_data
 
-        await self.client.render(self.cb_endpoint_address, render_settings_pb2.RenderSettings())
+        await self.client.render(self.cb_endpoint_address, render_pb2.RenderSettings())
 
         logger.info("Received %d encoded bytes", self.bytes_received)
 
@@ -195,8 +193,8 @@ class RenderTest(ProjectClientTestBase):
         self.assertEqual(header[:4], b'fLaC')
 
     async def test_encoder_fails(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.FAIL__TEST_ONLY__
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.FAIL__TEST_ONLY__
 
         await self.client.render(self.cb_endpoint_address, settings)
 
@@ -213,7 +211,7 @@ class RenderTest(ProjectClientTestBase):
                 return
         self.handle_data = handle_data
 
-        await self.client.render(self.cb_endpoint_address, render_settings_pb2.RenderSettings())
+        await self.client.render(self.cb_endpoint_address, render_pb2.RenderSettings())
 
         logger.info("Received %d encoded bytes", self.bytes_received)
 
@@ -226,6 +224,6 @@ class RenderTest(ProjectClientTestBase):
             response.abort = (progress > 0)
         self.handle_progress = handle_progress
 
-        await self.client.render(self.cb_endpoint_address, render_settings_pb2.RenderSettings())
+        await self.client.render(self.cb_endpoint_address, render_pb2.RenderSettings())
 
         self.assertEqual(self.current_state, 'failed')

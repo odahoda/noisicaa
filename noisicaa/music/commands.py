@@ -37,10 +37,6 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class ClientError(Exception):
-    pass
-
-
 class CommandRegistry(object):
     def __init__(self) -> None:
         self.__classes = {}  # type: Dict[str, Type[Command]]
@@ -201,12 +197,8 @@ class CommandSequence(object):
             try:
                 commands = [registry.create(cmd_proto, pool) for cmd_proto in self.proto.commands]
 
-                try:
-                    for cmd in commands:
-                        cmd.validate()
-
-                except Exception as exc:
-                    raise ClientError(exc)
+                for cmd in commands:
+                    cmd.validate()
 
                 for cmd in commands:
                     cmd.run()

@@ -125,6 +125,10 @@ class CustomCSoundPort(model.CustomCSoundPort, graph.Port):
         self.csound_name = csound_name
 
     @property
+    def node(self) -> 'CustomCSound':
+        return down_cast(CustomCSound, self.parent)
+
+    @property
     def csound_name(self) -> str:
         return self.get_property_value('csound_name')
 

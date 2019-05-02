@@ -33,6 +33,7 @@ from noisidev import unittest
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
 from noisicaa import model
+from noisicaa import lv2
 from noisicaa import editor_main_pb2
 from noisicaa.model import model_base_pb2
 from . import project_client
@@ -44,11 +45,14 @@ logger = logging.getLogger(__name__)
 
 class ProjectIntegrationTest(
         unittest_mixins.ServerMixin,
+        unittest_mixins.NodeDBMixin,
         unittest_mixins.ProcessManagerMixin,
         unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.urid_mapper_address = None  # type: str
+        self.urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.project = None  # type: project_client_model.Project
         self.pool = None  # type: model.Pool
 
@@ -56,7 +60,26 @@ class ProjectIntegrationTest(
         self.setup_node_db_process(inline=True)
         self.setup_urid_mapper_process(inline=True)
         self.setup_writer_process(inline=True)
-        self.setup_project_process(inline=True)
+
+        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
+        self.urid_mapper_address = create_urid_mapper_response.address
+
+        self.urid_mapper = lv2.ProxyURIDMapper(
+            server_address=self.urid_mapper_address,
+            tmp_dir=TEST_OPTS.TMP_DIR)
+        await self.urid_mapper.setup(self.loop)
+
+    async def cleanup_testcase(self):
+        if self.urid_mapper is not None:
+            await self.urid_mapper.cleanup(self.loop)
+
+        if self.urid_mapper_address is not None:
+            await self.process_manager_client.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.urid_mapper_address))
 
     def create_pool_snapshot(self, pool):
         snapshot = {}  # type: Dict[int, model_base_pb2.ObjectBase]
@@ -111,32 +134,19 @@ class ProjectIntegrationTest(
 
     @async_generator.asynccontextmanager
     @async_generator.async_generator
-    async def create_client(self, create_process=True, process_address=None, shutdown=True):
-        if create_process:
-            create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(
-                uri='test-project')
-            create_project_process_response = editor_main_pb2.CreateProcessResponse()
-            await self.process_manager_client.call(
-                'CREATE_PROJECT_PROCESS',
-                create_project_process_request, create_project_process_response)
-            process_address = create_project_process_response.address
-
+    async def create_client(self):
         client = project_client.ProjectClient(
-            event_loop=self.loop, server=self.server)
+            event_loop=self.loop,
+            server=self.server,
+            tmp_dir=TEST_OPTS.TMP_DIR,
+            manager=self.process_manager_client,
+            node_db=self.node_db,
+            urid_mapper=self.urid_mapper)
         try:
             await client.setup()
-            await client.connect(process_address)
-
             await async_generator.yield_(client)
         finally:
-            await client.disconnect()
             await client.cleanup()
-
-            if shutdown:
-                await self.process_manager_client.call(
-                    'SHUTDOWN_PROCESS',
-                    editor_main_pb2.ShutdownProcessRequest(
-                        address=process_address))
 
     async def create_project(
             self, client) -> Tuple[project_client_model.Project, project_client.Pool, str]:

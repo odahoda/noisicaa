@@ -35,7 +35,7 @@ from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import control_value_dial
 from noisicaa.ui.graph import base_node
-from . import client_impl
+from . import server_impl
 from . import commands
 from . import processor_messages
 
@@ -92,11 +92,11 @@ class LearnButton(QtWidgets.QToolButton):
 
 
 class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
-    def __init__(self, channel: client_impl.MidiCCtoCVChannel, **kwargs: Any) -> None:
+    def __init__(self, channel: server_impl.MidiCCtoCVChannel, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__channel = channel
-        self.__node = cast(client_impl.MidiCCtoCV, channel.parent)
+        self.__node = cast(server_impl.MidiCCtoCV, channel.parent)
 
         self.__listeners = {}  # type: Dict[str, core.Listener]
         self.__learning = False
@@ -262,7 +262,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
 
 
 class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
-    def __init__(self, node: client_impl.MidiCCtoCV, **kwargs: Any) -> None:
+    def __init__(self, node: server_impl.MidiCCtoCV, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
@@ -344,7 +344,7 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelsChanged(
             self,
-            change: model.PropertyListChange[client_impl.MidiCCtoCVChannel]
+            change: model.PropertyListChange[server_impl.MidiCCtoCVChannel]
     ) -> None:
         if isinstance(change, model.PropertyListInsert):
             self.__addChannel(change.new_value, change.index)
@@ -358,7 +358,7 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.__num_channels.setValue(len(self.__node.channels))
         self.__updateChannels()
 
-    def __addChannel(self, channel: client_impl.MidiCCtoCVChannel, index: int) -> None:
+    def __addChannel(self, channel: server_impl.MidiCCtoCVChannel, index: int) -> None:
         channel_ui = ChannelUI(channel=channel, context=self.context)
         self.__channels.insert(index, channel_ui)
 
@@ -383,9 +383,9 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
 class MidiCCtoCVNode(base_node.Node):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, client_impl.MidiCCtoCV), type(node).__name__
+        assert isinstance(node, server_impl.MidiCCtoCV), type(node).__name__
         self.__widget = None  # type: MidiCCtoCVNodeWidget
-        self.__node = node  # type: client_impl.MidiCCtoCV
+        self.__node = node  # type: server_impl.MidiCCtoCV
 
         super().__init__(node=node, **kwargs)
 

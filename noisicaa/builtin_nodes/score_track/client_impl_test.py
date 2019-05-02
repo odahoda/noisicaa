@@ -25,13 +25,13 @@ from noisicaa import audioproc
 from noisicaa import model
 from noisicaa import music
 from noisicaa.music import base_track_test
-from . import client_impl
+from . import server_impl
 from . import commands
 
 
 class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://score-track'
-    track_cls = client_impl.ScoreTrack
+    track_cls = server_impl.ScoreTrack
 
     async def _fill_measure(self, measure):
         await self.client.send_command(commands.create_note(

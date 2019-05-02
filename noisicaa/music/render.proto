@@ -22,7 +22,7 @@
 
 syntax = "proto2";
 
-package noisicaa.pb;
+package noisicaa.music.pb;
 
 message RenderSettings {
   optional uint32 block_size = 1 [default=256];
@@ -85,4 +85,26 @@ message RenderSettings {
     optional uint32 compression_level = 3 [default=5];
   };
   optional Mp3Settings mp3_settings = 7;
+}
+
+message RenderProgressRequest {
+  required uint32 numerator = 1;
+  required uint32 denominator = 2;
+}
+
+message RenderProgressResponse {
+  required bool abort = 1;
+}
+
+message RenderStateRequest {
+  required string state = 1;
+}
+
+message RenderDataRequest {
+  required bytes data = 1;
+}
+
+message RenderDataResponse {
+  required bool status = 1;
+  optional string msg = 2;
 }

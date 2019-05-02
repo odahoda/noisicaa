@@ -103,6 +103,9 @@ class BaseProject(pmodel.Project):
 
         server_registry.register_commands(self.command_registry)
 
+    @property
+    def data_dir(self) -> Optional[str]:
+        return None
 
     def create(
             self, *,
