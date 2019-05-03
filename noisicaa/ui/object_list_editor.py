@@ -30,12 +30,12 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model as model_lib
+from noisicaa import music
 
 logger = logging.getLogger(__name__)
 
 
-OBJECT = TypeVar('OBJECT', bound=model_lib.ObjectBase)
+OBJECT = TypeVar('OBJECT', bound=music.ObjectBase)
 VALUE = TypeVar('VALUE')
 
 
@@ -106,9 +106,9 @@ class ObjectListModel(QtCore.QAbstractTableModel):
 
         self.__listeners = {}  # type: Dict[int, List[core.Listener]]
 
-        self.__objects = []  # type: List[model_lib.ObjectBase]
+        self.__objects = []  # type: List[music.ObjectBase]
 
-    def objectAdded(self, obj: model_lib.ObjectBase, row: int) -> None:
+    def objectAdded(self, obj: music.ObjectBase, row: int) -> None:
         self.beginInsertRows(QtCore.QModelIndex(), row, row)
         self.__objects.insert(row, obj)
         self.endInsertRows()
@@ -127,13 +127,13 @@ class ObjectListModel(QtCore.QAbstractTableModel):
         for listener in listeners:
             listener.remove()
 
-    def __valueChanged(self, obj: model_lib.ObjectBase, column: int) -> None:
+    def __valueChanged(self, obj: music.ObjectBase, column: int) -> None:
         for row, robj in enumerate(self.__objects):
             if robj.id == obj.id:
                 self.dataChanged.emit(self.index(row, column), self.index(row, column))
                 break
 
-    def object(self, row: int) -> model_lib.ObjectBase:
+    def object(self, row: int) -> music.ObjectBase:
         return self.__objects[row]
 
     def columnCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
@@ -292,7 +292,7 @@ class ObjectListEditor(QtWidgets.QWidget):
         self.__list.setModel(self.__model)
         self.__list.setItemDelegate(self.__delegate)
 
-    def objectAdded(self, obj: model_lib.ObjectBase, row: int) -> None:
+    def objectAdded(self, obj: music.ObjectBase, row: int) -> None:
         self.__model.objectAdded(obj, row)
 
     def objectRemoved(self, row: int) -> None:
@@ -301,7 +301,7 @@ class ObjectListEditor(QtWidgets.QWidget):
     def selectedRows(self) -> Set[int]:
         return self.__list.selectedRows()
 
-    def selectedObjects(self) -> Sequence[model_lib.ObjectBase]:
+    def selectedObjects(self) -> Sequence[music.ObjectBase]:
         return [
             self.__model.object(row) for row in self.__list.selectedRows()
         ]

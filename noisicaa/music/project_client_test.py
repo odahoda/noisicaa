@@ -34,7 +34,7 @@ from noisicaa import lv2
 from noisicaa import editor_main_pb2
 from . import project_client
 from . import render_pb2
-from . import project as project_lib
+from . import metadata
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ class ProjectClientTest(ProjectClientTestBase):
     async def test_basic(self):
         await self.client.create_inmemory()
         project = self.client.project
-        self.assertIsInstance(project.metadata, project_lib.Metadata)
+        self.assertIsInstance(project.metadata, metadata.Metadata)
 
     async def test_create_close_open(self):
         path = self.get_project_path()

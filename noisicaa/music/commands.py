@@ -29,10 +29,10 @@ from google.protobuf import message as protobuf
 
 from . import commands_pb2
 from . import mutations
-from . import pmodel
 
 if typing.TYPE_CHECKING:
     from google.protobuf import descriptor as protobuf_descriptor
+    from . import project
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class CommandRegistry(object):
         assert cls.proto_type not in self.__classes
         self.__classes[cls.proto_type] = cls
 
-    def create(self, proto: commands_pb2.Command, pool: pmodel.Pool) -> 'Command':
+    def create(self, proto: commands_pb2.Command, pool: 'project.Pool') -> 'Command':
         assert proto.command in self.__classes, proto
         cls = self.__classes[proto.command]
         return cls(proto, pool)
@@ -55,7 +55,7 @@ class Command(object):
     proto_type = None  # type: str
     proto_ext = None  # type: protobuf_descriptor.FieldDescriptor
 
-    def __init__(self, proto: commands_pb2.Command, pool: pmodel.Pool) -> None:
+    def __init__(self, proto: commands_pb2.Command, pool: 'project.Pool') -> None:
         self.__proto = proto
         self.pool = pool
 
@@ -189,7 +189,7 @@ class CommandSequence(object):
     def num_log_ops(self) -> int:
         return len(self.proto.log.ops)
 
-    def apply(self, registry: CommandRegistry, pool: pmodel.Pool) -> None:
+    def apply(self, registry: CommandRegistry, pool: 'project.Pool') -> None:
         assert self.proto.status == commands_pb2.ExecutedCommand.NOT_APPLIED
 
         collector = mutations.MutationCollector(pool, self.proto.log)
@@ -209,13 +209,13 @@ class CommandSequence(object):
 
         self.proto.status = commands_pb2.ExecutedCommand.APPLIED
 
-    def redo(self, pool: pmodel.Pool) -> None:
+    def redo(self, pool: 'project.Pool') -> None:
         assert self.proto.status == commands_pb2.ExecutedCommand.APPLIED
 
         mutation_list = mutations.MutationList(pool, self.proto.log)
         mutation_list.apply_forward()
 
-    def undo(self, pool: pmodel.Pool) -> None:
+    def undo(self, pool: 'project.Pool') -> None:
         assert self.proto.status == commands_pb2.ExecutedCommand.APPLIED
 
         mutation_list = mutations.MutationList(pool, self.proto.log)

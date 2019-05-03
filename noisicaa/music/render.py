@@ -39,7 +39,7 @@ from noisicaa import lv2
 from noisicaa import editor_main_pb2
 from . import player
 from . import render_pb2
-from . import pmodel
+from . import project as project_lib
 from . import session_value_store
 
 logger = logging.getLogger(__name__)
@@ -359,7 +359,7 @@ class FailingEncoder(SubprocessEncoder):
 class Renderer(object):
     def __init__(
             self, *,
-            project: pmodel.Project,
+            project: project_lib.BaseProject,
             callback_address: str,
             render_settings: render_pb2.RenderSettings,
             tmp_dir: str,

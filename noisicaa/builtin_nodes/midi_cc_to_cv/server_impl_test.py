@@ -20,14 +20,14 @@
 #
 # @end:license
 
-from noisicaa.music import pmodel_test
-from . import server_impl
+# from noisicaa.music import pmodel_test
+# from . import server_impl
 
 
-class MidiCCtoCVTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
-    cls = server_impl.MidiCCtoCV
-    create_args = {'name': 'test'}
+# class MidiCCtoCVTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
+#     cls = server_impl.MidiCCtoCV
+#     create_args = {'name': 'test'}
 
-    def test_create(self):
-        node = self.pool.create(self.cls, **self.create_args)
-        self.assertEqual(len(node.channels), 1)
+#     def test_create(self):
+#         node = self.pool.create(self.cls, **self.create_args)
+#         self.assertEqual(len(node.channels), 1)

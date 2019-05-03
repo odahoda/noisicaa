@@ -27,27 +27,28 @@ import getpass
 import logging
 import random
 import socket
-from typing import cast, Any, Dict, List, Tuple, Sequence, Callable, TypeVar
+from typing import Any, Dict, List, Tuple, Sequence, Callable, TypeVar
 
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import model
+from noisicaa import model_base
+from noisicaa import value_types
 from noisicaa import lv2
 from noisicaa import node_db as node_db_lib
 from noisicaa import editor_main_pb2
 from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.core import session_data_pb2
-from noisicaa.builtin_nodes import client_registry
 from . import render_pb2
 from . import commands_pb2
-from . import project_client_model
 from . import project_process_context
 from . import project as project_lib
 from . import writer_client
 from . import render
 from . import player as player_lib
 from . import session_value_store
+from . import graph
+from . import base_track
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +73,9 @@ def create_node(
         uri: str,
         *,
         name: str = None,
-        graph_pos: model.Pos2F = None,
-        graph_size: model.SizeF = None,
-        graph_color: model.Color = None,
+        graph_pos: value_types.Pos2F = None,
+        graph_size: value_types.SizeF = None,
+        graph_color: value_types.Color = None,
 ) -> commands_pb2.Command:
     return commands_pb2.Command(
         command='create_node',
@@ -87,15 +88,15 @@ def create_node(
 
 
 def update_node(
-        node: project_client_model.BaseNode,
+        node: graph.BaseNode,
         *,
         set_name: str = None,
-        set_graph_pos: model.Pos2F = None,
-        set_graph_size: model.SizeF = None,
-        set_graph_color: model.Color = None,
-        set_control_value: model.ControlValue = None,
+        set_graph_pos: value_types.Pos2F = None,
+        set_graph_size: value_types.SizeF = None,
+        set_graph_color: value_types.Color = None,
+        set_control_value: value_types.ControlValue = None,
         set_plugin_state: audioproc.PluginState = None,
-        set_port_properties: model.NodePortProperties = None,
+        set_port_properties: value_types.NodePortProperties = None,
 ) -> commands_pb2.Command:
     return commands_pb2.Command(
         command='update_node',
@@ -114,7 +115,7 @@ def update_node(
 
 
 def delete_node(
-        node: project_client_model.BaseNode,
+        node: graph.BaseNode,
 ) -> commands_pb2.Command:
     return commands_pb2.Command(
         command='delete_node',
@@ -123,7 +124,7 @@ def delete_node(
 
 
 def update_port(
-        port: project_client_model.Port,
+        port: graph.Port,
         *,
         set_name: str = None,
         set_display_name: str = None,
@@ -143,9 +144,9 @@ def update_port(
 
 def create_node_connection(
         *,
-        source_node: project_client_model.BaseNode,
+        source_node: graph.BaseNode,
         source_port: str,
-        dest_node: project_client_model.BaseNode,
+        dest_node: graph.BaseNode,
         dest_port: str,
 ) -> commands_pb2.Command:
     return commands_pb2.Command(
@@ -158,7 +159,7 @@ def create_node_connection(
 
 
 def delete_node_connection(
-        conn: project_client_model.NodeConnection,
+        conn: graph.NodeConnection,
 ) -> commands_pb2.Command:
     return commands_pb2.Command(
         command='delete_node_connection',
@@ -166,7 +167,7 @@ def delete_node_connection(
             connection_id=conn.id))
 
 def update_track(
-        track: project_client_model.Track,
+        track: base_track.Track,
         *,
         set_visible: bool = None,
         set_list_position: int = None,
@@ -181,7 +182,7 @@ def update_track(
 
 
 def create_measure(
-        track: project_client_model.MeasuredTrack,
+        track: base_track.MeasuredTrack,
         pos: int,
 ) -> commands_pb2.Command:
     return commands_pb2.Command(
@@ -193,10 +194,10 @@ def create_measure(
 
 
 def update_measure(
-        measure: project_client_model.MeasureReference,
+        measure: base_track.MeasureReference,
         *,
         clear: bool = None,
-        set_time_signature: model.TimeSignature = None,
+        set_time_signature: value_types.TimeSignature = None,
 ) -> commands_pb2.Command:
     return commands_pb2.Command(
         command='update_measure',
@@ -209,7 +210,7 @@ def update_measure(
 
 
 def delete_measure(
-        measure: project_client_model.MeasureReference,
+        measure: base_track.MeasureReference,
 ) -> commands_pb2.Command:
     return commands_pb2.Command(
         command='delete_measure',
@@ -219,7 +220,7 @@ def delete_measure(
 
 def paste_measures(
         mode: str,
-        src_objs: Sequence[model.ObjectTree],
+        src_objs: Sequence[model_base.ObjectTree],
         target_ids: Sequence[int],
 ) -> commands_pb2.Command:
     return commands_pb2.Command(
@@ -228,20 +229,6 @@ def paste_measures(
             mode=mode,
             src_objs=src_objs,
             target_ids=target_ids))
-
-
-class Pool(model.Pool[project_client_model.ObjectBase]):
-    def __init__(self) -> None:
-        super().__init__()
-
-        self.register_class(project_client_model.Project)
-        self.register_class(project_client_model.MeasureReference)
-        self.register_class(project_client_model.Metadata)
-        self.register_class(project_client_model.Sample)
-        self.register_class(project_client_model.NodeConnection)
-        self.register_class(project_client_model.Node)
-        self.register_class(project_client_model.SystemOutNode)
-        client_registry.register_classes(self)
 
 
 class ProjectClient(object):
@@ -271,8 +258,8 @@ class ProjectClient(object):
         self.__cb_endpoint_address = None  # type: str
 
     @property
-    def project(self) -> project_client_model.Project:
-        return cast(project_client_model.Project, self.__ctxt.project)
+    def project(self) -> project_lib.BaseProject:
+        return self.__ctxt.project
 
     async def setup(self) -> None:
         cb_endpoint = ipc.ServerEndpoint(self.__cb_endpoint_name)
@@ -320,7 +307,7 @@ class ProjectClient(object):
             self.__session_data_listeners.call(
                 session_value.name, self.__session_proto_to_py(session_value))
 
-    # def get_object(self, obj_id: int) -> project_client_model.ObjectBase:
+    # def get_object(self, obj_id: int) -> model_base.ObjectBase:
     #     return self.__pool[obj_id]
 
     async def __handle_control_value_change(

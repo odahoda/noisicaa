@@ -24,8 +24,8 @@ from typing import Tuple
 
 from google.protobuf import message as protobuf
 
-from . import project_pb2
-from . import model_base
+from noisicaa import model_base
+from . import value_types_pb2
 
 
 class TimeSignature(model_base.ProtoValue):
@@ -38,12 +38,12 @@ class TimeSignature(model_base.ProtoValue):
         self._upper = upper
         self._lower = lower
 
-    def to_proto(self) -> project_pb2.TimeSignature:
-        return project_pb2.TimeSignature(upper=self._upper, lower=self._lower)
+    def to_proto(self) -> value_types_pb2.TimeSignature:
+        return value_types_pb2.TimeSignature(upper=self._upper, lower=self._lower)
 
     @classmethod
     def from_proto(cls, pb: protobuf.Message) -> 'TimeSignature':
-        if not isinstance(pb, project_pb2.TimeSignature):
+        if not isinstance(pb, value_types_pb2.TimeSignature):
             raise TypeError(type(pb).__name__)
         return TimeSignature(pb.upper, pb.lower)
 

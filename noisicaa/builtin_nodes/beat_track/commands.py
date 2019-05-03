@@ -21,14 +21,14 @@
 # @end:license
 
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
-from . import client_impl
+from . import model
 
 
 def update(
-        track: client_impl.BeatTrack, *, set_pitch: model.Pitch = None) -> music.Command:
+        track: model.BeatTrack, *, set_pitch: value_types.Pitch = None) -> music.Command:
     cmd = music.Command(command='update_beat_track')
     pb = cmd.Extensions[commands_registry_pb2.update_beat_track]
     pb.track_id = track.id
@@ -37,7 +37,7 @@ def update(
     return cmd
 
 def create_beat(
-        measure: client_impl.BeatMeasure, *,
+        measure: model.BeatMeasure, *,
         time: audioproc.MusicalTime,
         velocity: int = None
 ) -> music.Command:
@@ -50,7 +50,7 @@ def create_beat(
     return cmd
 
 def update_beat(
-        beat: client_impl.Beat, *, set_velocity: int = None) -> music.Command:
+        beat: model.Beat, *, set_velocity: int = None) -> music.Command:
     cmd = music.Command(command='update_beat')
     pb = cmd.Extensions[commands_registry_pb2.update_beat]
     pb.beat_id = beat.id
@@ -58,7 +58,7 @@ def update_beat(
         pb.set_velocity = set_velocity
     return cmd
 
-def delete_beat(beat: client_impl.Beat) -> music.Command:
+def delete_beat(beat: model.Beat) -> music.Command:
     cmd = music.Command(command='delete_beat')
     pb = cmd.Extensions[commands_registry_pb2.delete_beat]
     pb.beat_id = beat.id

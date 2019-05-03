@@ -25,8 +25,8 @@ from typing import Optional, Union, Dict, List, Set, Tuple
 
 from google.protobuf import message as protobuf
 
-from . import project_pb2
-from . import model_base
+from noisicaa import model_base
+from . import value_types_pb2
 from . import key_signature as key_signature_lib
 
 NOTE_TO_MIDI = {}  # type: Dict[str, int]
@@ -94,12 +94,12 @@ class Pitch(model_base.ProtoValue):
                 raise ValueError('Bad octave %s' % octave)
             self._octave = octave
 
-    def to_proto(self) -> project_pb2.Pitch:
-        return project_pb2.Pitch(name=self.name)
+    def to_proto(self) -> value_types_pb2.Pitch:
+        return value_types_pb2.Pitch(name=self.name)
 
     @classmethod
     def from_proto(cls, pb: protobuf.Message) -> 'Pitch':
-        if not isinstance(pb, project_pb2.Pitch):
+        if not isinstance(pb, value_types_pb2.Pitch):
             raise TypeError(type(pb).__name__)
         return Pitch(pb.name)
 

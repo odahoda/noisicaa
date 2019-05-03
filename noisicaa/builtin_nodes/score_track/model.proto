@@ -23,7 +23,8 @@
 syntax = "proto2";
 
 import "noisicaa/audioproc/public/musical_time.proto";
-import "noisicaa/model/project.proto";
+import "noisicaa/value_types/value_types.proto";
+import "noisicaa/music/model.proto";
 
 package noisicaa.pb;
 

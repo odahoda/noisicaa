@@ -23,11 +23,11 @@
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
-from . import client_impl
+from . import model
 
 
 def create_control_point(
-        track: client_impl.ControlTrack, *,
+        track: model.ControlTrack, *,
         time: audioproc.MusicalTime,
         value: float
 ) -> music.Command:
@@ -39,7 +39,7 @@ def create_control_point(
     return cmd
 
 def update_control_point(
-        point: client_impl.ControlPoint, *,
+        point: model.ControlPoint, *,
         set_time: audioproc.MusicalTime = None,
         set_value: float = None
 ) -> music.Command:
@@ -52,7 +52,7 @@ def update_control_point(
         pb.set_value = set_value
     return cmd
 
-def delete_control_point(point: client_impl.ControlPoint) -> music.Command:
+def delete_control_point(point: model.ControlPoint) -> music.Command:
     cmd = music.Command(command='delete_control_point')
     pb = cmd.Extensions[commands_registry_pb2.delete_control_point]
     pb.point_id = point.id

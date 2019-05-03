@@ -23,11 +23,11 @@
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
 from . import model_pb2
-from . import client_impl
+from . import model
 
 
 def update(
-        node: client_impl.StepSequencer,
+        node: model.StepSequencer,
         set_num_steps: int = None,
         set_time_synched: bool = None,
         add_channel: int = None,
@@ -45,7 +45,7 @@ def update(
 
 
 def update_channel(
-        channel: client_impl.StepSequencerChannel,
+        channel: model.StepSequencerChannel,
         set_type: model_pb2.StepSequencerChannel.Type = None,
         set_min_value: float = None,
         set_max_value: float = None,
@@ -66,7 +66,7 @@ def update_channel(
 
 
 def delete_channel(
-        channel: client_impl.StepSequencerChannel,
+        channel: model.StepSequencerChannel,
 ) -> music.Command:
     cmd = music.Command(command='delete_step_sequencer_channel')
     pb = cmd.Extensions[commands_registry_pb2.delete_step_sequencer_channel]
@@ -75,7 +75,7 @@ def delete_channel(
 
 
 def update_step(
-        step: client_impl.StepSequencerStep,
+        step: model.StepSequencerStep,
         set_enabled: bool = None,
         set_value: float = None,
 ) -> music.Command:

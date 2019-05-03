@@ -25,14 +25,14 @@ from typing import cast, Type
 
 from . import commands_test
 from . import project_client
-from . import project_client_model
+from . import base_track
 
 logger = logging.getLogger(__name__)
 
 
 class TrackTestMixin(commands_test.CommandsTestMixin):
     node_uri = None  # type: str
-    track_cls = None  # type: Type[project_client_model.Track]
+    track_cls = None  # type: Type[base_track.Track]
 
     async def test_add_remove(self) -> None:
         await self.client.send_command(project_client.create_node(
@@ -42,15 +42,15 @@ class TrackTestMixin(commands_test.CommandsTestMixin):
 
         await self.client.send_command(project_client.delete_node(node))
 
-    async def _add_track(self) -> project_client_model.Track:
+    async def _add_track(self) -> base_track.Track:
         await self.client.send_command(project_client.create_node(
             self.node_uri))
-        return cast(project_client_model.Track, self.project.nodes[-1])
+        return cast(base_track.Track, self.project.nodes[-1])
 
 
 # class BaseTrackTest(TrackTestMixin, unittest.AsyncTestCase):
 #     node_uri = 'builtin://score-track'
-#     track_cls = project_client_model.ScoreTrack
+#     track_cls = base_track.ScoreTrack
 
 #     async def test_update_track_visible(self):
 #         track = await self._add_track()

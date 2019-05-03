@@ -29,11 +29,11 @@ from PyQt5 import QtGui
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa.ui.track_list import measured_track_editor
 from noisicaa.ui.track_list import tools
 from . import commands
-from . import client_impl
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -122,12 +122,12 @@ class BeatMeasureEditor(measured_track_editor.MeasureEditor):
         self.__ghost_time = None  # type: audioproc.MusicalDuration
 
     @property
-    def track(self) -> client_impl.BeatTrack:
-        return down_cast(client_impl.BeatTrack, super().track)
+    def track(self) -> model.BeatTrack:
+        return down_cast(model.BeatTrack, super().track)
 
     @property
-    def measure(self) -> client_impl.BeatMeasure:
-        return down_cast(client_impl.BeatMeasure, super().measure)
+    def measure(self) -> model.BeatMeasure:
+        return down_cast(model.BeatMeasure, super().measure)
 
     def xToTime(self, x: int) -> audioproc.MusicalTime:
         return audioproc.MusicalDuration(
@@ -234,15 +234,15 @@ class BeatTrackEditor(measured_track_editor.MeasuredTrackEditor):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__play_last_pitch = None  # type: model.Pitch
+        self.__play_last_pitch = None  # type: value_types.Pitch
 
         self.setHeight(60)
 
     @property
-    def track(self) -> client_impl.BeatTrack:
-        return down_cast(client_impl.BeatTrack, super().track)
+    def track(self) -> model.BeatTrack:
+        return down_cast(model.BeatTrack, super().track)
 
-    def playNoteOn(self, pitch: model.Pitch) -> None:
+    def playNoteOn(self, pitch: value_types.Pitch) -> None:
         self.playNoteOff()
 
         # TODO: use messages instead

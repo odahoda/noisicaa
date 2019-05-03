@@ -32,15 +32,14 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
-from noisicaa.core import proto_types_pb2
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import model
+from noisicaa import model_base
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
 from . import ipc_pb2
-from . import client_impl
+from . import model
 from . import commands
 
 logger = logging.getLogger(__name__)
@@ -137,7 +136,7 @@ class SampleTrackToolBox(tools.ToolBox):
 
 
 class SampleItem(object):
-    def __init__(self, track_editor: 'SampleTrackEditor', sample: client_impl.SampleRef) -> None:
+    def __init__(self, track_editor: 'SampleTrackEditor', sample: model.SampleRef) -> None:
         self.__track_editor = track_editor
         self.__sample = sample
 
@@ -158,7 +157,7 @@ class SampleItem(object):
         self.__listeners.clear()
 
     @property
-    def sample(self) -> client_impl.SampleRef:
+    def sample(self) -> model.SampleRef:
         return self.__sample
 
     @property
@@ -186,7 +185,7 @@ class SampleItem(object):
     def rect(self) -> QtCore.QRect:
         return QtCore.QRect(self.pos(), self.size())
 
-    def onTimeChanged(self, change: model.PropertyValueChange[audioproc.MusicalTime]) -> None:
+    def onTimeChanged(self, change: model_base.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
             self.__track_editor.timeToX(change.new_value), 0)
         self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
@@ -197,8 +196,8 @@ class SampleItem(object):
             self.__track_editor.rectChanged.emit(
                 self.rect().translated(self.__track_editor.viewTopLeft()))
 
-    def renderSample(self, response: ipc_pb2.RenderSampleResponse, task: asyncio.Task) -> None:
-        task.result()
+    def renderSample(self, task: asyncio.Task) -> None:
+        response = down_cast(ipc_pb2.RenderSampleResponse, task.result())
 
         if response.broken:
             self.__width = 50
@@ -221,18 +220,9 @@ class SampleItem(object):
 
         if status in ('init', 'waiting'):
             if status == 'init':
-                scale_x = self.scaleX()
-
-                request = ipc_pb2.RenderSampleRequest(
-                    sample_id=self.__sample.id,
-                    scale_x=proto_types_pb2.Fraction(
-                        numerator=scale_x.numerator,
-                        denominator=scale_x.denominator))
-                response = ipc_pb2.RenderSampleResponse()
                 task = self.__track_editor.event_loop.create_task(
-                    self.__track_editor.project_client.call(
-                        'SAMPLE_TRACK_RENDER_SAMPLE', request, response))
-                task.add_done_callback(functools.partial(self.renderSample, response))
+                    model.render_sample(self.__sample, self.scaleX()))
+                task.add_done_callback(self.renderSample)
 
                 self.__render_result = ('waiting', )
 
@@ -292,8 +282,8 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         self.setHeight(120)
 
     @property
-    def track(self) -> client_impl.SampleTrack:
-        return down_cast(client_impl.SampleTrack, super().track)
+    def track(self) -> model.SampleTrack:
+        return down_cast(model.SampleTrack, super().track)
 
     def close(self) -> None:
         for item in self.__samples:
@@ -306,22 +296,22 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
 
         super().close()
 
-    def onSamplesChanged(self, change: model.PropertyListChange[client_impl.SampleRef]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+    def onSamplesChanged(self, change: model_base.PropertyListChange[model.SampleRef]) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
             self.addSample(change.index, change.new_value)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, model_base.PropertyListDelete):
             self.removeSample(change.index, change.old_value)
 
         else:
             raise TypeError(type(change))
 
-    def addSample(self, insert_index: int, sample: client_impl.SampleRef) -> None:
+    def addSample(self, insert_index: int, sample: model.SampleRef) -> None:
         item = SampleItem(track_editor=self, sample=sample)
         self.__samples.insert(insert_index, item)
         self.rectChanged.emit(self.viewRect())
 
-    def removeSample(self, remove_index: int, sample: client_impl.SampleRef) -> None:
+    def removeSample(self, remove_index: int, sample: model.SampleRef) -> None:
         item = self.__samples.pop(remove_index)
         item.close()
         self.rectChanged.emit(self.viewRect())

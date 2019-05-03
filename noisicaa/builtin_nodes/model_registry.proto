@@ -24,7 +24,7 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
-import "noisicaa/model/model_base.proto";
+import "noisicaa/model_base/model_base.proto";
 import "noisicaa/builtin_nodes/score_track/model.proto";
 import "noisicaa/builtin_nodes/beat_track/model.proto";
 import "noisicaa/builtin_nodes/control_track/model.proto";

@@ -20,28 +20,118 @@
 #
 # @end:license
 
-from typing import Any
+import logging
+from typing import Any, Optional, Dict, Callable
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import node_db
-from noisicaa import model
+from noisicaa import model_base
+from noisicaa import audioproc
+from noisicaa.music import graph
+from noisicaa.music import node_connector
+from noisicaa.music import commands
+from noisicaa.builtin_nodes import commands_registry_pb2
 from noisicaa.builtin_nodes import model_registry_pb2
+from . import commands_pb2
+from . import processor_messages
 from . import node_description
 
+logger = logging.getLogger(__name__)
 
-class MidiSource(model.BaseNode):
-    class MidiSourceSpec(model.ObjectSpec):
-        proto_type = 'midi_source'
-        proto_ext = model_registry_pb2.midi_source
+class UpdateMidiSource(commands.Command):
+    proto_type = 'update_midi_source'
+    proto_ext = commands_registry_pb2.update_midi_source
 
-        device_uri = model.Property(str, default='')
-        channel_filter = model.Property(int, default=-1)
+    def run(self) -> None:
+        pb = down_cast(commands_pb2.UpdateMidiSource, self.pb)
+        node = down_cast(MidiSource, self.pool[pb.node_id])
+
+        if pb.HasField('set_device_uri'):
+            node.device_uri = pb.set_device_uri
+
+        if pb.HasField('set_channel_filter'):
+            node.channel_filter = pb.set_channel_filter
+
+
+class Connector(node_connector.NodeConnector):
+    _node = None  # type: MidiSource
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.device_uri_changed = core.Callback[model.PropertyChange[str]]()
-        self.channel_filter_changed = core.Callback[model.PropertyChange[int]]()
+        self.__node_id = self._node.pipeline_node_id
+        self.__listeners = {}  # type: Dict[str, core.Listener]
+
+    def _init_internal(self) -> None:
+        self._emit_message(processor_messages.update(
+            self.__node_id,
+            device_uri=self._node.device_uri,
+            channel_filter=self._node.channel_filter))
+
+        self.__listeners['device_uri'] = self._node.device_uri_changed.add(
+            lambda change: self._emit_message(processor_messages.update(
+                self.__node_id,
+                device_uri=change.new_value)))
+        self.__listeners['channel_filter'] = self._node.channel_filter_changed.add(
+            lambda change: self._emit_message(processor_messages.update(
+                self.__node_id,
+                channel_filter=change.new_value)))
+
+    def close(self) -> None:
+        for listener in self.__listeners.values():
+            listener.remove()
+        self.__listeners.clear()
+
+        super().close()
+
+
+class MidiSource(graph.BaseNode):
+    class MidiSourceSpec(model_base.ObjectSpec):
+        proto_type = 'midi_source'
+        proto_ext = model_registry_pb2.midi_source
+
+        device_uri = model_base.Property(str, default='')
+        channel_filter = model_base.Property(int, default=-1)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.device_uri_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.channel_filter_changed = core.Callback[model_base.PropertyChange[int]]()
+
+    def create(
+            self, *,
+            device_uri: Optional[str] = '',
+            channel_filter: Optional[int] = -1,
+            **kwargs: Any
+    ) -> None:
+        super().create(**kwargs)
+
+        self.device_uri = device_uri
+
+    @property
+    def device_uri(self) -> str:
+        return self.get_property_value('device_uri')
+
+    @device_uri.setter
+    def device_uri(self, value: str) -> None:
+        self.set_property_value('device_uri', value)
+
+    @property
+    def channel_filter(self) -> int:
+        return self.get_property_value('channel_filter')
+
+    @channel_filter.setter
+    def channel_filter(self, value: int) -> None:
+        self.set_property_value('channel_filter', value)
+
+    def create_node_connector(
+            self, message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
+    ) -> Connector:
+        return Connector(
+            node=self, message_cb=message_cb, audioproc_client=audioproc_client)
 
     @property
     def description(self) -> node_db.NodeDescription:

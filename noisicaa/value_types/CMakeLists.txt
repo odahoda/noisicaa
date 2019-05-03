@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -20,18 +18,19 @@
 #
 # @end:license
 
-from noisicaa.music import project_client_model
-from . import model
+add_python_package(
+  clef.py
+  color.py
+  control_value.py
+  key_signature.py
+  key_signature_test.py
+  node_port_properties.py
+  pitch.py
+  pitch_test.py
+  pos2f.py
+  sizef.py
+  time_signature.py
+  time_signature_test.py
+)
 
-
-class MidiSource(
-        project_client_model.BaseNode,
-        model.MidiSource,
-        project_client_model.ObjectBase):
-    @property
-    def device_uri(self) -> str:
-        return self.get_property_value('device_uri')
-
-    @property
-    def channel_filter(self) -> int:
-        return self.get_property_value('channel_filter')
+py_proto(value_types.proto)

@@ -25,12 +25,11 @@ import typing
 if typing.TYPE_CHECKING:
     from noisicaa import lv2
     from noisicaa import node_db
-    from . import pmodel
     from . import project
 
 class ProjectProcessContext(object):
     def __init__(self) -> None:
         self.node_db = None  # type: node_db.NodeDBClient
         self.urid_mapper = None  # type: lv2.ProxyURIDMapper
-        self.pool = None  # type: pmodel.Pool
+        self.pool = None  # type: project.Pool
         self.project = None  # type: project.BaseProject

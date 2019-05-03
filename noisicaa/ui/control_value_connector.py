@@ -26,7 +26,8 @@ from typing import Any, List, Callable
 from PyQt5 import QtCore
 
 from noisicaa import core
-from noisicaa import model
+from noisicaa import model_base
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import slots
@@ -66,13 +67,13 @@ class ControlValueConnector(ui_base.ProjectMixin, slots.SlotContainer, QtCore.QO
             self.__generation += 1
             self.send_command_async(music.update_node(
                 self.__node,
-                set_control_value=model.ControlValue(
+                set_control_value=value_types.ControlValue(
                     name=self.__name,
                     value=value,
                     generation=self.__generation)))
 
     def __onValueChanged(
-            self, change: model.PropertyValueChange[model.ControlValue]) -> None:
+            self, change: model_base.PropertyValueChange[value_types.ControlValue]) -> None:
         if change.new_value.generation < self.__generation:
             return
 

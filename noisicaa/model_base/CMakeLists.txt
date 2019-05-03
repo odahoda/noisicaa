@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -20,22 +18,10 @@
 #
 # @end:license
 
-from noisicaa.core.typing_extra import down_cast
-from noisicaa.music import project_client_model
-from . import model
+add_python_package(
+  model_base.py
+  model_base_test.py
+)
 
-
-class CustomCSoundPort(
-        project_client_model.Port,
-        model.CustomCSoundPort,
-        project_client_model.ObjectBase):
-    @property
-    def node(self) -> 'CustomCSound':
-        return down_cast(CustomCSound, self.parent)
-
-
-class CustomCSound(
-        project_client_model.BaseNode,
-        model.CustomCSound,
-        project_client_model.ObjectBase):
-    pass
+py_proto(model_base.proto)
+py_proto(model_base_test.proto)

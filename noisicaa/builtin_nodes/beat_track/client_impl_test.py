@@ -22,16 +22,16 @@
 
 from noisidev import unittest
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa.music import base_track_test
-from . import server_impl
+from . import model
 from . import commands
 
 
 class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://beat-track'
-    track_cls = server_impl.BeatTrack
+    track_cls = model.BeatTrack
 
     async def test_create_measure(self):
         track = await self._add_track()
@@ -64,8 +64,8 @@ class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
         await self.client.send_command(commands.update(
             track,
-            set_pitch=model.Pitch('C2')))
-        self.assertEqual(track.pitch, model.Pitch('C2'))
+            set_pitch=value_types.Pitch('C2')))
+        self.assertEqual(track.pitch, value_types.Pitch('C2'))
 
     async def test_add_beat(self):
         track = await self._add_track()

@@ -27,7 +27,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 
 from noisidev import uitest
-from noisicaa import model
+from noisicaa import value_types
 from . import piano
 
 
@@ -50,7 +50,7 @@ class PianoTest(uitest.UITestCase):
         p.event(evt)
         self.assertEqual(
             on_listener.call_args_list,
-            [mock.call(model.Pitch('C5'))])
+            [mock.call(value_types.Pitch('C5'))])
 
         evt = QtGui.QKeyEvent(
             QtCore.QEvent.KeyRelease, Qt.Key_R, Qt.NoModifier, 0x1b, 0, 0, "r")
@@ -58,7 +58,7 @@ class PianoTest(uitest.UITestCase):
 
         self.assertEqual(
             off_listener.call_args_list,
-            [mock.call(model.Pitch('C5'))])
+            [mock.call(value_types.Pitch('C5'))])
 
         self.assertTrue(p.close())
 

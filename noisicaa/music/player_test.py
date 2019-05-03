@@ -29,7 +29,7 @@ from noisicaa.constants import TEST_OPTS
 from noisicaa import audioproc
 from noisicaa.core import ipc
 from noisicaa.core import session_data_pb2
-from noisicaa.builtin_nodes.score_track import server_impl as score_track
+from noisicaa.builtin_nodes.score_track import model as score_track
 from . import project
 from . import player
 from . import session_value_store

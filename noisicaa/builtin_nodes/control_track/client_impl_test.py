@@ -23,13 +23,13 @@
 from noisidev import unittest
 from noisicaa import audioproc
 from noisicaa.music import base_track_test
-from . import server_impl
+from . import model
 from . import commands
 
 
 class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://control-track'
-    track_cls = server_impl.ControlTrack
+    track_cls = model.ControlTrack
 
     async def test_add_control_point(self):
         track = await self._add_track()

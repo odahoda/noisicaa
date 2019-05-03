@@ -30,7 +30,8 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import constants
-from noisicaa import model
+from noisicaa import model_base
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
@@ -281,11 +282,11 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         self.__layoutContent()
 
     def __nodesChange(
-            self, change: model.PropertyListChange[music.BaseNode]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+            self, change: model_base.PropertyListChange[music.BaseNode]) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
             self.__addNode(change.new_value, change.index)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, model_base.PropertyListDelete):
             self.__removeNode(change.old_value, change.index)
 
         else:  # pragma: no cover
@@ -312,11 +313,11 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         self.removeItem(item)
 
     def __nodeConnectionsChange(
-            self, change: model.PropertyListChange[music.NodeConnection]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+            self, change: model_base.PropertyListChange[music.NodeConnection]) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
             self.__addConnection(change.new_value, change.index)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, model_base.PropertyListDelete):
             self.__removeConnection(change.old_value, change.index)
 
         else:  # pragma: no cover
@@ -479,9 +480,9 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
     def insertNode(self, uri: str, pos: QtCore.QPointF) -> None:
         self.send_command_async(music.create_node(
             uri,
-            graph_pos=model.Pos2F(pos.x(), pos.y()),
-            graph_size=model.SizeF(200, 100),
-            graph_color=model.Color(0.8, 0.8, 0.8)))
+            graph_pos=value_types.Pos2F(pos.x(), pos.y()),
+            graph_size=value_types.SizeF(200, 100),
+            graph_color=value_types.Color(0.8, 0.8, 0.8)))
 
 
 class Zoom(object):
@@ -1140,7 +1141,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                 commands = []
                 for node in state.nodes:
                     content_pos = self.__scene.sceneToContentPoint(node.canvasTopLeft())
-                    new_graph_pos = model.Pos2F(content_pos.x(), content_pos.y())
+                    new_graph_pos = value_types.Pos2F(content_pos.x(), content_pos.y())
                     if new_graph_pos != node.graph_pos():
                         commands.append(music.update_node(
                             node.node(),
@@ -1204,8 +1205,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
 
             if mevent.button() == Qt.LeftButton:
                 content_rect = self.__scene.sceneToContentRect(state.node.canvasRect())
-                new_graph_pos = model.Pos2F(content_rect.x(), content_rect.y())
-                new_graph_size = model.SizeF(content_rect.width(), content_rect.height())
+                new_graph_pos = value_types.Pos2F(content_rect.x(), content_rect.y())
+                new_graph_size = value_types.SizeF(content_rect.width(), content_rect.height())
                 if (new_graph_pos != state.node.graph_pos()
                         or new_graph_size != state.node.graph_size()):
                     self.send_command_async(music.update_node(

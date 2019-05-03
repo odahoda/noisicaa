@@ -23,11 +23,11 @@
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
-from . import client_impl
+from . import model
 
 
 def create_sample(
-        track: client_impl.SampleTrack, *, time: audioproc.MusicalTime, path: str) -> music.Command:
+        track: model.SampleTrack, *, time: audioproc.MusicalTime, path: str) -> music.Command:
     cmd = music.Command(command='create_sample')
     pb = cmd.Extensions[commands_registry_pb2.create_sample]
     pb.track_id = track.id
@@ -36,7 +36,7 @@ def create_sample(
     return cmd
 
 def update_sample(
-        sample: client_impl.SampleRef, set_time: audioproc.MusicalTime
+        sample: model.SampleRef, set_time: audioproc.MusicalTime
 ) -> music.Command:
     cmd = music.Command(command='update_sample')
     pb = cmd.Extensions[commands_registry_pb2.update_sample]
@@ -46,7 +46,7 @@ def update_sample(
     return cmd
 
 def delete_sample(
-        sample: client_impl.SampleRef) -> music.Command:
+        sample: model.SampleRef) -> music.Command:
     cmd = music.Command(command='delete_sample')
     pb = cmd.Extensions[commands_registry_pb2.delete_sample]
     pb.sample_id = sample.id

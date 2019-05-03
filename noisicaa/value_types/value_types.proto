@@ -45,3 +45,32 @@ message Fraction {
   optional int64 numerator = 1;
   optional int64 denominator = 2;
 }
+
+message Pitch {
+  optional string name = 1;
+}
+
+message KeySignature {
+  optional string name = 1;
+}
+
+message TimeSignature {
+  optional uint32 upper = 1;
+  optional uint32 lower = 2;
+}
+
+message Clef {
+  enum Type {
+    FrenchViolin = 1;
+    Treble = 2;
+    Soprano = 3;
+    MezzoSoprano = 4;
+    Alto = 5;
+    Tenor = 6;
+    Baritone = 7;
+    Bass = 8;
+    Subbass = 9;
+  }
+
+  optional Type type = 1;
+}

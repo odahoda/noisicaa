@@ -22,22 +22,22 @@
 
 from noisidev import unittest
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa.music import base_track_test
-from . import server_impl
+from . import model
 from . import commands
 
 
 class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://score-track'
-    track_cls = server_impl.ScoreTrack
+    track_cls = model.ScoreTrack
 
     async def _fill_measure(self, measure):
         await self.client.send_command(commands.create_note(
             measure,
             idx=0,
-            pitch=model.Pitch('F2'),
+            pitch=value_types.Pitch('F2'),
             duration=audioproc.MusicalDuration(1, 4)))
         self.assertEqual(len(measure.notes), 1)
 
@@ -81,8 +81,8 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
         await self.client.send_command(commands.update_measure(
             measure,
-            set_clef=model.Clef.Tenor))
-        self.assertEqual(measure.clef, model.Clef.Tenor)
+            set_clef=value_types.Clef.Tenor))
+        self.assertEqual(measure.clef, value_types.Clef.Tenor)
 
     async def test_measure_set_key_signature(self):
         track = await self._add_track()
@@ -90,8 +90,8 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
         await self.client.send_command(commands.update_measure(
             measure,
-            set_key_signature=model.KeySignature('D minor')))
-        self.assertEqual(measure.key_signature, model.KeySignature('D minor'))
+            set_key_signature=value_types.KeySignature('D minor')))
+        self.assertEqual(measure.key_signature, value_types.KeySignature('D minor'))
 
     async def test_create_note(self):
         track = await self._add_track()
@@ -101,10 +101,10 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         await self.client.send_command(commands.create_note(
             measure,
             idx=0,
-            pitch=model.Pitch('F2'),
+            pitch=value_types.Pitch('F2'),
             duration=audioproc.MusicalDuration(1, 4)))
         self.assertEqual(len(measure.notes), 1)
-        self.assertEqual(measure.notes[0].pitches[0], model.Pitch('F2'))
+        self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('F2'))
         self.assertEqual(measure.notes[0].base_duration, audioproc.MusicalDuration(1, 4))
 
     async def test_delete_note(self):
@@ -123,8 +123,8 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
         await self.client.send_command(commands.update_note(
             measure.notes[0],
-            set_pitch=model.Pitch('C2')))
-        self.assertEqual(measure.notes[0].pitches[0], model.Pitch('C2'))
+            set_pitch=value_types.Pitch('C2')))
+        self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('C2'))
 
     async def test_note_add_pitch(self):
         track = await self._add_track()
@@ -133,9 +133,9 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
         await self.client.send_command(commands.update_note(
             measure.notes[0],
-            add_pitch=model.Pitch('C2')))
+            add_pitch=value_types.Pitch('C2')))
         self.assertEqual(len(measure.notes[0].pitches), 2)
-        self.assertEqual(measure.notes[0].pitches[1], model.Pitch('C2'))
+        self.assertEqual(measure.notes[0].pitches[1], value_types.Pitch('C2'))
 
     async def test_note_remove_pitch(self):
         track = await self._add_track()
@@ -143,14 +143,14 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         await self._fill_measure(measure)
         await self.client.send_command(commands.update_note(
             measure.notes[0],
-            add_pitch=model.Pitch('C2')))
+            add_pitch=value_types.Pitch('C2')))
         self.assertEqual(len(measure.notes[0].pitches), 2)
 
         await self.client.send_command(commands.update_note(
             measure.notes[0],
             remove_pitch=0))
         self.assertEqual(len(measure.notes[0].pitches), 1)
-        self.assertEqual(measure.notes[0].pitches[0], model.Pitch('C2'))
+        self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('C2'))
 
     async def test_note_set_duration(self):
         track = await self._add_track()
@@ -190,7 +190,7 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         await self.client.send_command(commands.update_note(
             measure.notes[0],
             set_accidental=(0, '#')))
-        self.assertEqual(measure.notes[0].pitches[0], model.Pitch('F#2'))
+        self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('F#2'))
 
     async def test_note_transpose(self):
         track = await self._add_track()
@@ -200,7 +200,7 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         await self.client.send_command(commands.update_note(
             measure.notes[0],
             transpose=2))
-        self.assertEqual(measure.notes[0].pitches[0], model.Pitch('G2'))
+        self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('G2'))
 
     async def test_paste_overwrite(self):
         track = await self._add_track()
@@ -215,7 +215,7 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
             target_ids=[track.measure_list[0].id]))
         new_measure = track.measure_list[0].measure
         self.assertNotEqual(new_measure.id, measure.id)
-        self.assertEqual(new_measure.notes[0].pitches[0], model.Pitch('F2'))
+        self.assertEqual(new_measure.notes[0].pitches[0], value_types.Pitch('F2'))
 
     async def test_paste_link(self):
         track = await self._add_track()

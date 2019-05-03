@@ -20,119 +20,119 @@
 #
 # @end:license
 
-from typing import List
+# from typing import List
 
-from noisidev import unittest
-from noisidev import unittest_mixins
-from noisidev import demo_project
-from noisicaa import audioproc
-from noisicaa.music import pmodel_test
-from noisicaa.music import project
-from noisicaa.builtin_nodes import processor_message_registry_pb2
-from . import server_impl
-
-
-class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
-    async def setup_testcase(self):
-        self.pool = project.Pool()
-
-        self.project = demo_project.empty(self.pool, project.BaseProject, node_db=self.node_db)
-        self.track = self.pool.create(server_impl.ControlTrack, name='test')
-        self.project.nodes.append(self.track)
-
-        self.messages = []  # type: List[str]
-
-    def WhichOneof(self, msg):
-        if msg.HasExtension(processor_message_registry_pb2.cvgenerator_add_control_point):
-            return 'cvgenerator_add_control_point'
-        if msg.HasExtension(processor_message_registry_pb2.cvgenerator_remove_control_point):
-            return 'cvgenerator_remove_control_point'
-        raise ValueError(msg)
-
-    def message_cb(self, msg):
-        self.assertEqual(int(msg.node_id, 16), self.track.id)
-        # TODO: track the messages themselves and inspect their contents as well.
-        self.messages.append(self.WhichOneof(msg))
-
-    def test_messages_on_mutations(self):
-        connector = self.track.create_node_connector(
-            message_cb=self.message_cb, audioproc_client=None)
-        try:
-            self.assertEqual(connector.init(), [])
-
-            self.messages.clear()
-            self.track.points.insert(
-                0,
-                self.pool.create(
-                    server_impl.ControlPoint, time=audioproc.MusicalTime(1, 4), value=0.5))
-            self.assertEqual(
-                self.messages,
-                ['cvgenerator_add_control_point'])
-
-            self.messages.clear()
-            self.track.points.insert(
-                1,
-                self.pool.create(
-                    server_impl.ControlPoint, time=audioproc.MusicalTime(2, 4), value=0.8))
-            self.assertEqual(
-                self.messages,
-                ['cvgenerator_add_control_point'])
-
-            self.messages.clear()
-            del self.track.points[0]
-            self.assertEqual(
-                self.messages,
-                ['cvgenerator_remove_control_point'])
-
-            self.messages.clear()
-            self.track.points[0].value = 0.2
-            self.assertEqual(
-                self.messages,
-                ['cvgenerator_remove_control_point',
-                 'cvgenerator_add_control_point'])
-
-            self.messages.clear()
-            self.track.points[0].time = audioproc.MusicalTime(3, 4)
-            self.assertEqual(
-                self.messages,
-                ['cvgenerator_remove_control_point',
-                 'cvgenerator_add_control_point'])
-
-        finally:
-            connector.close()
-
-    def test_messages_on_init(self):
-        self.track.points.insert(
-            0,
-            self.pool.create(
-                server_impl.ControlPoint, time=audioproc.MusicalTime(1, 4), value=0.5))
-        self.track.points.insert(
-            1,
-            self.pool.create(
-                server_impl.ControlPoint, time=audioproc.MusicalTime(2, 4), value=0.8))
-
-        connector = self.track.create_node_connector(
-            message_cb=self.message_cb, audioproc_client=None)
-        try:
-            messages = connector.init()
-
-            self.assertEqual(
-                [self.WhichOneof(msg) for msg in messages],
-                ['cvgenerator_add_control_point',
-                 'cvgenerator_add_control_point'])
-
-        finally:
-            connector.close()
+# from noisidev import unittest
+# from noisidev import unittest_mixins
+# from noisidev import demo_project
+# from noisicaa import audioproc
+# from noisicaa.music import pmodel_test
+# from noisicaa.music import project
+# from noisicaa.builtin_nodes import processor_message_registry_pb2
+# from . import server_impl
 
 
-class ControlTrackTest(pmodel_test.TrackMixin, pmodel_test.ModelTest):
-    cls = server_impl.ControlTrack
-    create_args = {'name': 'test'}
+# class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
+#     async def setup_testcase(self):
+#         self.pool = project.Pool()
 
-    def test_points(self):
-        track = self.pool.create(self.cls, **self.create_args)
+#         self.project = demo_project.empty(self.pool, project.BaseProject, node_db=self.node_db)
+#         self.track = self.pool.create(server_impl.ControlTrack, name='test')
+#         self.project.nodes.append(self.track)
 
-        pnt = self.pool.create(
-            server_impl.ControlPoint, time=audioproc.MusicalTime(2, 4), value=0.8)
-        track.points.append(pnt)
-        self.assertIs(track.points[0], pnt)
+#         self.messages = []  # type: List[str]
+
+#     def WhichOneof(self, msg):
+#         if msg.HasExtension(processor_message_registry_pb2.cvgenerator_add_control_point):
+#             return 'cvgenerator_add_control_point'
+#         if msg.HasExtension(processor_message_registry_pb2.cvgenerator_remove_control_point):
+#             return 'cvgenerator_remove_control_point'
+#         raise ValueError(msg)
+
+#     def message_cb(self, msg):
+#         self.assertEqual(int(msg.node_id, 16), self.track.id)
+#         # TODO: track the messages themselves and inspect their contents as well.
+#         self.messages.append(self.WhichOneof(msg))
+
+#     def test_messages_on_mutations(self):
+#         connector = self.track.create_node_connector(
+#             message_cb=self.message_cb, audioproc_client=None)
+#         try:
+#             self.assertEqual(connector.init(), [])
+
+#             self.messages.clear()
+#             self.track.points.insert(
+#                 0,
+#                 self.pool.create(
+#                     server_impl.ControlPoint, time=audioproc.MusicalTime(1, 4), value=0.5))
+#             self.assertEqual(
+#                 self.messages,
+#                 ['cvgenerator_add_control_point'])
+
+#             self.messages.clear()
+#             self.track.points.insert(
+#                 1,
+#                 self.pool.create(
+#                     server_impl.ControlPoint, time=audioproc.MusicalTime(2, 4), value=0.8))
+#             self.assertEqual(
+#                 self.messages,
+#                 ['cvgenerator_add_control_point'])
+
+#             self.messages.clear()
+#             del self.track.points[0]
+#             self.assertEqual(
+#                 self.messages,
+#                 ['cvgenerator_remove_control_point'])
+
+#             self.messages.clear()
+#             self.track.points[0].value = 0.2
+#             self.assertEqual(
+#                 self.messages,
+#                 ['cvgenerator_remove_control_point',
+#                  'cvgenerator_add_control_point'])
+
+#             self.messages.clear()
+#             self.track.points[0].time = audioproc.MusicalTime(3, 4)
+#             self.assertEqual(
+#                 self.messages,
+#                 ['cvgenerator_remove_control_point',
+#                  'cvgenerator_add_control_point'])
+
+#         finally:
+#             connector.close()
+
+#     def test_messages_on_init(self):
+#         self.track.points.insert(
+#             0,
+#             self.pool.create(
+#                 server_impl.ControlPoint, time=audioproc.MusicalTime(1, 4), value=0.5))
+#         self.track.points.insert(
+#             1,
+#             self.pool.create(
+#                 server_impl.ControlPoint, time=audioproc.MusicalTime(2, 4), value=0.8))
+
+#         connector = self.track.create_node_connector(
+#             message_cb=self.message_cb, audioproc_client=None)
+#         try:
+#             messages = connector.init()
+
+#             self.assertEqual(
+#                 [self.WhichOneof(msg) for msg in messages],
+#                 ['cvgenerator_add_control_point',
+#                  'cvgenerator_add_control_point'])
+
+#         finally:
+#             connector.close()
+
+
+# class ControlTrackTest(pmodel_test.TrackMixin, pmodel_test.ModelTest):
+#     cls = server_impl.ControlTrack
+#     create_args = {'name': 'test'}
+
+#     def test_points(self):
+#         track = self.pool.create(self.cls, **self.create_args)
+
+#         pnt = self.pool.create(
+#             server_impl.ControlPoint, time=audioproc.MusicalTime(2, 4), value=0.8)
+#         track.points.append(pnt)
+#         self.assertIs(track.points[0], pnt)

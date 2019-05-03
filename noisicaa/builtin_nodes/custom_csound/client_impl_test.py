@@ -25,20 +25,20 @@ from typing import cast
 from noisidev import unittest
 from noisicaa.music import commands_test
 from noisicaa import music
-from . import server_impl
+from . import model
 from . import commands
 
 
 class CustomCSoundTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
 
-    async def _add_node(self) -> server_impl.CustomCSound:
+    async def _add_node(self) -> model.CustomCSound:
         await self.client.send_command(music.create_node(
             'builtin://custom-csound'))
-        return cast(server_impl.CustomCSound, self.project.nodes[-1])
+        return cast(model.CustomCSound, self.project.nodes[-1])
 
     async def test_add_node(self):
         node = await self._add_node()
-        self.assertIsInstance(node, server_impl.CustomCSound)
+        self.assertIsInstance(node, model.CustomCSound)
 
     async def test_update_orchestra(self):
         node = await self._add_node()

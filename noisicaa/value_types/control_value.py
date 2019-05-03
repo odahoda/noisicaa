@@ -23,7 +23,7 @@
 from google.protobuf import message as protobuf
 
 from noisicaa import audioproc
-from . import model_base
+from noisicaa import model_base
 
 
 class ControlValue(model_base.ProtoValue):
@@ -36,7 +36,7 @@ class ControlValue(model_base.ProtoValue):
         return '<%s %f %d>' % (self.__name, self.__value, self.__generation)
     __repr__ = __str__
 
-    def to_proto(self) -> audioproc.ControlValue:
+    def to_proto(self) -> 'audioproc.ControlValue':
         return audioproc.ControlValue(
             name=self.__name,
             value=self.__value,

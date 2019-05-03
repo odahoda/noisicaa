@@ -30,18 +30,19 @@ from PyQt5 import QtSvg
 
 from noisicaa.constants import DATA_DIR
 from noisicaa import core
-from noisicaa import model
+from noisicaa import value_types
+from noisicaa import model_base
 from noisicaa import music
 from noisicaa.ui.graph import track_node
 from noisicaa.ui import ui_base
 from . import commands
-from . import client_impl
+from . import model
 
 logger = logging.getLogger(__name__)
 
 
 class BeatTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
-    def __init__(self, track: client_impl.BeatTrack, **kwargs: Any) -> None:
+    def __init__(self, track: model.BeatTrack, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__track = track
@@ -73,12 +74,12 @@ class BeatTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             listener.remove()
         self.__listeners.clear()
 
-    def __pitchChanged(self, change: model.PropertyValueChange[str]) -> None:
+    def __pitchChanged(self, change: model_base.PropertyValueChange[str]) -> None:
         self.__pitch.setText(str(change.new_value))
 
     def __pitchEdited(self) -> None:
         try:
-            pitch = model.Pitch(self.__pitch.text())
+            pitch = value_types.Pitch(self.__pitch.text())
         except ValueError:
             self.__pitch.setText(str(self.__track.pitch))
         else:
@@ -90,9 +91,9 @@ class BeatTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
 class BeatTrackNode(track_node.TrackNode):
     def __init__(self, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, client_impl.BeatTrack)
+        assert isinstance(node, model.BeatTrack)
         self.__widget = None  # type: BeatTrackWidget
-        self.__track = node  # type: client_impl.BeatTrack
+        self.__track = node  # type: model.BeatTrack
 
         super().__init__(
             node=node,

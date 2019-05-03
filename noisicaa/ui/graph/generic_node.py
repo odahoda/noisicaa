@@ -26,7 +26,8 @@ from typing import Any, Optional, List
 from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
-from noisicaa import model
+from noisicaa import model_base
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
@@ -139,7 +140,7 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
                 if conn.dest_port == self.__port.name or conn.source_port == self.__port.name:
                     commands.append(music.delete_node_connection(conn))
 
-        port_properties = model.NodePortProperties(
+        port_properties = value_types.NodePortProperties(
             name=self.__port.name,
             exposed=exposed)
         commands.append(music.update_node(
@@ -150,7 +151,7 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
 
         self.__dial.setDisabled(exposed)
 
-    def __portPropertiesChanged(self, change: model.PropertyListChange) -> None:
+    def __portPropertiesChanged(self, change: model_base.PropertyListChange) -> None:
         if self.__port.WhichOneof('value') == 'float_value':
             port_properties = self.__node.get_port_properties(self.__port.name)
             self.__exposed.setChecked(port_properties.exposed)

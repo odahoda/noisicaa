@@ -22,14 +22,14 @@
 
 syntax = "proto2";
 
-import "noisicaa/core/proto_types.proto";
+import "noisicaa/value_types/value_types.proto";
 import "noisicaa/audioproc/public/musical_time.proto";
 import "noisicaa/audioproc/public/control_value.proto";
 import "noisicaa/audioproc/public/node_port_properties.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
 import "noisicaa/node_db/node_description.proto";
-import "noisicaa/model/model_base.proto";
-import "noisicaa/model/project.proto";
+import "noisicaa/model_base/model_base.proto";
+import "noisicaa/music/model.proto";
 
 package noisicaa.pb;
 

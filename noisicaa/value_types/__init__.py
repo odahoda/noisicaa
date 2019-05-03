@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -20,25 +18,12 @@
 #
 # @end:license
 
-from typing import Sequence
-
-from noisicaa import audioproc
-from noisicaa.music import project_client_model
-from . import model
-
-
-class SampleRef(
-        project_client_model.ProjectChild, model.SampleRef, project_client_model.ObjectBase):
-    @property
-    def time(self) -> audioproc.MusicalTime:
-        return self.get_property_value('time')
-
-    @property
-    def sample(self) -> project_client_model.Sample:
-        return self.get_property_value('sample')
-
-
-class SampleTrack(project_client_model.Track, model.SampleTrack, project_client_model.ObjectBase):
-    @property
-    def samples(self) -> Sequence[SampleRef]:
-        return self.get_property_value('samples')
+from .key_signature import KeySignature
+from .time_signature import TimeSignature
+from .clef import Clef
+from .pitch import Pitch, NOTE_TO_MIDI
+from .pos2f import Pos2F
+from .sizef import SizeF
+from .color import Color
+from .control_value import ControlValue
+from .node_port_properties import NodePortProperties

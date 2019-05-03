@@ -21,18 +21,21 @@
 # @end:license
 
 import logging
+import typing
 from typing import Callable, List
 
 from noisicaa import audioproc
-from . import pmodel
+
+if typing.TYPE_CHECKING:
+    from . import graph
 
 logger = logging.getLogger(__name__)
 
 
-class NodeConnector(pmodel.NodeConnector):
+class NodeConnector(object):
     def __init__(
             self, *,
-            node: pmodel.BaseNode,
+            node: 'graph.BaseNode',
             message_cb: Callable[[audioproc.ProcessorMessage], None],
             audioproc_client: audioproc.AbstractAudioProcClient,
     ) -> None:

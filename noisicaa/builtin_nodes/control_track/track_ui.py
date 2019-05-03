@@ -31,12 +31,12 @@ from PyQt5 import QtGui
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import model
+from noisicaa import model_base
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
 from . import commands
-from . import client_impl
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +209,7 @@ class ControlTrackToolBox(tools.ToolBox):
 
 
 class ControlPoint(object):
-    def __init__(self, track_editor: 'ControlTrackEditor', point: client_impl.ControlPoint) -> None:
+    def __init__(self, track_editor: 'ControlTrackEditor', point: model.ControlPoint) -> None:
         self.__track_editor = track_editor
         self.__point = point
 
@@ -227,13 +227,13 @@ class ControlPoint(object):
             listener.remove()
         self.__listeners.clear()
 
-    def onTimeChanged(self, change: model.PropertyValueChange[audioproc.MusicalTime]) -> None:
+    def onTimeChanged(self, change: model_base.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
             self.__track_editor.timeToX(change.new_value),
             self.__pos.y())
         self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
 
-    def onValueChanged(self, change: model.PropertyValueChange[float]) -> None:
+    def onValueChanged(self, change: model_base.PropertyValueChange[float]) -> None:
         self.__pos = QtCore.QPoint(
             self.__pos.x(),
             self.__track_editor.valueToY(change.new_value))
@@ -244,7 +244,7 @@ class ControlPoint(object):
         return self.__point.index
 
     @property
-    def point(self) -> client_impl.ControlPoint:
+    def point(self) -> model.ControlPoint:
         return self.__point
 
     @property
@@ -306,8 +306,8 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         self.rectChanged.emit(self.viewRect())
 
     @property
-    def track(self) -> client_impl.ControlTrack:
-        return down_cast(client_impl.ControlTrack, super().track)
+    def track(self) -> model.ControlTrack:
+        return down_cast(model.ControlTrack, super().track)
 
     def setHighlightedPoint(self, cpoint: ControlPoint) -> None:
         if cpoint is not self.__highlighted_point:
@@ -337,7 +337,7 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         cpoint.setPos(pos)
         self.rectChanged.emit(self.viewRect())
 
-    def addPoint(self, insert_index: int, point: client_impl.ControlPoint) -> None:
+    def addPoint(self, insert_index: int, point: model.ControlPoint) -> None:
         cpoint = ControlPoint(track_editor=self, point=point)
         self.points.insert(insert_index, cpoint)
         self.rectChanged.emit(self.viewRect())
@@ -347,12 +347,12 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         cpoint.close()
         self.rectChanged.emit(self.viewRect())
 
-    def onPointsChanged(self, change: model.PropertyListChange[client_impl.ControlPoint]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+    def onPointsChanged(self, change: model_base.PropertyListChange[model.ControlPoint]) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
             self.addPoint(change.index, change.new_value)
             self.updateHighlightedPoint()
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, model_base.PropertyListDelete):
             self.removePoint(change.index, change.old_value)
             self.updateHighlightedPoint()
 

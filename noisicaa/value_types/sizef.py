@@ -22,8 +22,8 @@
 
 from google.protobuf import message as protobuf
 
-from noisicaa.core import proto_types_pb2
-from . import model_base
+from noisicaa import model_base
+from . import value_types_pb2
 
 
 class SizeF(model_base.ProtoValue):
@@ -31,12 +31,12 @@ class SizeF(model_base.ProtoValue):
         self.__width = float(width)
         self.__height = float(height)
 
-    def to_proto(self) -> proto_types_pb2.SizeF:
-        return proto_types_pb2.SizeF(width=self.__width, height=self.__height)
+    def to_proto(self) -> value_types_pb2.SizeF:
+        return value_types_pb2.SizeF(width=self.__width, height=self.__height)
 
     @classmethod
     def from_proto(cls, pb: protobuf.Message) -> 'SizeF':
-        if not isinstance(pb, proto_types_pb2.SizeF):
+        if not isinstance(pb, value_types_pb2.SizeF):
             raise TypeError(type(pb).__name__)
         return SizeF(pb.width, pb.height)
 

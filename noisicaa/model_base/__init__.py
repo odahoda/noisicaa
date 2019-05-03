@@ -19,6 +19,7 @@
 # @end:license
 
 from .model_base import (
+    ObjectBase,
     ObjectSpec,
 
     PropertyBase,
@@ -37,31 +38,8 @@ from .model_base import (
     PropertyListInsert, PropertyListDelete, PropertyListSet,
 
     AbstractPool, Pool,
-)
-from .key_signature import KeySignature
-from .time_signature import TimeSignature
-from .clef import Clef
-from .pitch import Pitch, NOTE_TO_MIDI
-from .pos2f import Pos2F
-from .sizef import SizeF
-from .color import Color
-from .control_value import ControlValue
-from .node_port_properties import NodePortProperties
-from .project import (
-    ObjectBase,
-    ProjectChild,
-    SystemOutNode,
-    BaseNode,
-    Port,
-    Measure,
-    MeasureReference,
-    MeasuredTrack,
-    Metadata,
-    NodeConnection,
-    Node,
-    Project,
-    Sample,
-    Track,
+
+    ProtoValue,
 )
 from .model_base_pb2 import (
     ObjectTree,

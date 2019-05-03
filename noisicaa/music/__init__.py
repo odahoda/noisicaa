@@ -33,20 +33,24 @@ from .project_client import (
     delete_measure,
     paste_measures,
 )
-from .project_client_model import (
+from .model import (
     ObjectBase,
     ProjectChild,
-    Track,
-    Measure,
-    MeasureReference,
-    MeasuredTrack,
-    BaseNode,
-    Port,
-    Node,
-    SystemOutNode,
-    NodeConnection,
-    Sample,
+)
+from .metadata import (
     Metadata,
+)
+from .graph import (
+    BaseNode,
+    NodeConnection,
+)
+from .base_track import (
+    Track,
+    MeasuredTrack,
+    MeasureReference,
+    Measure,
+)
+from .project import (
     Project,
 )
 from .render_pb2 import (

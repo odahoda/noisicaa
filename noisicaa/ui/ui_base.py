@@ -29,6 +29,7 @@ from typing import Any, Optional, Dict, Tuple, Callable, Awaitable
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa import core
@@ -153,7 +154,7 @@ class ProjectContext(CommonContext):
 
     @property
     def project(self) -> music.Project:
-        return self.__project_connection.client.project
+        return down_cast(music.Project, self.__project_connection.client.project)
 
     @property
     def project_client(self) -> music.ProjectClient:

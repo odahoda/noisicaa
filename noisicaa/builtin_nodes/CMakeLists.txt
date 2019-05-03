@@ -21,8 +21,7 @@
 add_python_package(
   node_description_registry.py
   ui_registry.py
-  client_registry.py
-  server_registry.py
+  model_registry.py
 )
 
 py_proto(model_registry.proto)

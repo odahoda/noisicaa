@@ -24,12 +24,12 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
-import "noisicaa/core/proto_types.proto";
+import "noisicaa/value_types/value_types.proto";
 import "noisicaa/node_db/node_description.proto";
 import "noisicaa/audioproc/public/control_value.proto";
 import "noisicaa/audioproc/public/node_port_properties.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
-import "noisicaa/model/model_base.proto";
+import "noisicaa/model_base/model_base.proto";
 
 message Track {
   optional bool visible = 1;
@@ -119,33 +119,4 @@ extend ObjectBase {
   optional MeasuredTrack measured_track = 400100;
   optional Measure measure = 400101;
   optional MeasureReference measure_reference = 400102;
-}
-
-message Pitch {
-  optional string name = 1;
-}
-
-message KeySignature {
-  optional string name = 1;
-}
-
-message TimeSignature {
-  optional uint32 upper = 1;
-  optional uint32 lower = 2;
-}
-
-message Clef {
-  enum Type {
-    FrenchViolin = 1;
-    Treble = 2;
-    Soprano = 3;
-    MezzoSoprano = 4;
-    Alto = 5;
-    Tenor = 6;
-    Baritone = 7;
-    Bass = 8;
-    Subbass = 9;
-  }
-
-  optional Type type = 1;
 }

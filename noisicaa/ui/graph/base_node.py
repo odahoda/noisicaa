@@ -32,7 +32,7 @@ from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
@@ -53,7 +53,7 @@ port_colors = {
 
 
 class SelectColorAction(QtWidgets.QWidgetAction):
-    colorSelected = QtCore.pyqtSignal(model.Color)
+    colorSelected = QtCore.pyqtSignal(value_types.Color)
 
     def __init__(self, parent: QtCore.QObject) -> None:
         super().__init__(parent)
@@ -64,7 +64,7 @@ class SelectColorAction(QtWidgets.QWidgetAction):
 class ColorBox(QtWidgets.QWidget):
     clicked = QtCore.pyqtSignal()
 
-    def __init__(self, color: model.Color, parent: QtWidgets.QWidget) -> None:
+    def __init__(self, color: value_types.Color, parent: QtWidgets.QWidget) -> None:
         super().__init__(parent)
 
         self.__color = color
@@ -94,45 +94,45 @@ class ColorBox(QtWidgets.QWidget):
 
 class SelectColorWidget(QtWidgets.QWidget):
     colors = [
-        model.Color(0.7, 0.7, 0.7),
-        model.Color(0.8, 0.8, 0.8),
-        model.Color(0.9, 0.9, 0.9),
-        model.Color(1.0, 1.0, 1.0),
+        value_types.Color(0.7, 0.7, 0.7),
+        value_types.Color(0.8, 0.8, 0.8),
+        value_types.Color(0.9, 0.9, 0.9),
+        value_types.Color(1.0, 1.0, 1.0),
 
-        model.Color(1.0, 0.6, 0.6),
-        model.Color(1.0, 0.7, 0.7),
-        model.Color(1.0, 0.8, 0.8),
-        model.Color(1.0, 0.9, 0.9),
+        value_types.Color(1.0, 0.6, 0.6),
+        value_types.Color(1.0, 0.7, 0.7),
+        value_types.Color(1.0, 0.8, 0.8),
+        value_types.Color(1.0, 0.9, 0.9),
 
-        model.Color(1.0, 0.6, 0.1),
-        model.Color(1.0, 0.7, 0.3),
-        model.Color(1.0, 0.8, 0.6),
-        model.Color(1.0, 0.9, 0.8),
+        value_types.Color(1.0, 0.6, 0.1),
+        value_types.Color(1.0, 0.7, 0.3),
+        value_types.Color(1.0, 0.8, 0.6),
+        value_types.Color(1.0, 0.9, 0.8),
 
-        model.Color(0.6, 1.0, 0.6),
-        model.Color(0.7, 1.0, 0.7),
-        model.Color(0.8, 1.0, 0.8),
-        model.Color(0.9, 1.0, 0.9),
+        value_types.Color(0.6, 1.0, 0.6),
+        value_types.Color(0.7, 1.0, 0.7),
+        value_types.Color(0.8, 1.0, 0.8),
+        value_types.Color(0.9, 1.0, 0.9),
 
-        model.Color(0.6, 0.6, 1.0),
-        model.Color(0.7, 0.7, 1.0),
-        model.Color(0.8, 0.8, 1.0),
-        model.Color(0.9, 0.9, 1.0),
+        value_types.Color(0.6, 0.6, 1.0),
+        value_types.Color(0.7, 0.7, 1.0),
+        value_types.Color(0.8, 0.8, 1.0),
+        value_types.Color(0.9, 0.9, 1.0),
 
-        model.Color(1.0, 0.6, 1.0),
-        model.Color(1.0, 0.7, 1.0),
-        model.Color(1.0, 0.8, 1.0),
-        model.Color(1.0, 0.9, 1.0),
+        value_types.Color(1.0, 0.6, 1.0),
+        value_types.Color(1.0, 0.7, 1.0),
+        value_types.Color(1.0, 0.8, 1.0),
+        value_types.Color(1.0, 0.9, 1.0),
 
-        model.Color(1.0, 1.0, 0.6),
-        model.Color(1.0, 1.0, 0.7),
-        model.Color(1.0, 1.0, 0.8),
-        model.Color(1.0, 1.0, 0.9),
+        value_types.Color(1.0, 1.0, 0.6),
+        value_types.Color(1.0, 1.0, 0.7),
+        value_types.Color(1.0, 1.0, 0.8),
+        value_types.Color(1.0, 1.0, 0.9),
 
-        model.Color(0.6, 1.0, 1.0),
-        model.Color(0.7, 1.0, 1.0),
-        model.Color(0.8, 1.0, 1.0),
-        model.Color(0.9, 1.0, 1.0),
+        value_types.Color(0.6, 1.0, 1.0),
+        value_types.Color(0.7, 1.0, 1.0),
+        value_types.Color(0.8, 1.0, 1.0),
+        value_types.Color(0.9, 1.0, 1.0),
     ]
 
     def __init__(self, *, action: SelectColorAction, **kwargs: Any) -> None:
@@ -556,13 +556,13 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
     def name(self) -> str:
         return self.__node.name
 
-    def graph_pos(self) -> model.Pos2F:
+    def graph_pos(self) -> value_types.Pos2F:
         return self.__node.graph_pos
 
-    def graph_size(self) -> model.SizeF:
+    def graph_size(self) -> value_types.SizeF:
         return self.__node.graph_size
 
-    def upstream_nodes(self) -> List[model.BaseNode]:
+    def upstream_nodes(self) -> List[music.BaseNode]:
         return self.__node.upstream_nodes()
 
     def selected(self) -> bool:
@@ -846,7 +846,7 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         commands.append(music.delete_node(self.__node))
         self.send_commands_async(*commands)
 
-    def onSetColor(self, color: model.Color) -> None:
+    def onSetColor(self, color: value_types.Color) -> None:
         if color != self.__node.graph_color:
             self.send_command_async(music.update_node(
                 self.__node,

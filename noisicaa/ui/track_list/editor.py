@@ -33,7 +33,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
-from noisicaa import model
+from noisicaa import model_base
 from noisicaa.ui import ui_base
 from noisicaa.ui import player_state as player_state_lib
 from noisicaa.builtin_nodes import ui_registry
@@ -177,11 +177,11 @@ class Editor(
             self.updateTracks()
 
     def __onNodesChanged(
-            self, change: model.PropertyListChange[music.BaseNode]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+            self, change: model_base.PropertyListChange[music.BaseNode]) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
             self.__addNode(change.new_value)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, model_base.PropertyListDelete):
             self.__removeNode(change.old_value)
 
         else:  # pragma: no cover

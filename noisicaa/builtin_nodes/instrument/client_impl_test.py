@@ -25,20 +25,20 @@ from typing import cast
 from noisidev import unittest
 from noisicaa.music import commands_test
 from noisicaa import music
-from . import server_impl
+from . import model
 from . import commands
 
 
 class InstrumentTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
 
-    async def _add_node(self) -> server_impl.Instrument:
+    async def _add_node(self) -> model.Instrument:
         await self.client.send_command(music.create_node(
             'builtin://instrument'))
-        return cast(server_impl.Instrument, self.project.nodes[-1])
+        return cast(model.Instrument, self.project.nodes[-1])
 
     async def test_add_node(self):
         node = await self._add_node()
-        self.assertIsInstance(node, server_impl.Instrument)
+        self.assertIsInstance(node, model.Instrument)
 
     async def test_change_instrument_uri(self):
         node = await self._add_node()

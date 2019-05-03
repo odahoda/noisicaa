@@ -20,22 +20,22 @@
 #
 # @end:license
 
-from noisicaa.music import pmodel_test
-from . import server_impl
+# from noisicaa.music import pmodel_test
+# from . import server_impl
 
 
-class CustomCSoundTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
-    cls = server_impl.CustomCSound
-    create_args = {'name': 'test'}
+# class CustomCSoundTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
+#     cls = server_impl.CustomCSound
+#     create_args = {'name': 'test'}
 
-    def test_orchestra(self):
-        node = self.pool.create(self.cls, **self.create_args)
+#     def test_orchestra(self):
+#         node = self.pool.create(self.cls, **self.create_args)
 
-        node.orchestra = 'blabla'
-        self.assertEqual(node.orchestra, 'blabla')
+#         node.orchestra = 'blabla'
+#         self.assertEqual(node.orchestra, 'blabla')
 
-    def test_score(self):
-        node = self.pool.create(self.cls, **self.create_args)
+#     def test_score(self):
+#         node = self.pool.create(self.cls, **self.create_args)
 
-        node.score = 'blabla'
-        self.assertEqual(node.score, 'blabla')
+#         node.score = 'blabla'
+#         self.assertEqual(node.score, 'blabla')

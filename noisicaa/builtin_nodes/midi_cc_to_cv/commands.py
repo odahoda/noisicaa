@@ -23,11 +23,11 @@
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
 from . import model_pb2
-from . import client_impl
+from . import model
 
 
 def update(
-        node: client_impl.MidiCCtoCV,
+        node: model.MidiCCtoCV,
 ) -> music.Command:
     cmd = music.Command(command='update_midi_cc_to_cv')
     pb = cmd.Extensions[commands_registry_pb2.update_midi_cc_to_cv]
@@ -36,7 +36,7 @@ def update(
 
 
 def create_channel(
-        node: client_impl.MidiCCtoCV,
+        node: model.MidiCCtoCV,
         index: int = None,
 ) -> music.Command:
     cmd = music.Command(command='create_midi_cc_to_cv_channel')
@@ -48,7 +48,7 @@ def create_channel(
 
 
 def update_channel(
-        channel: client_impl.MidiCCtoCVChannel,
+        channel: model.MidiCCtoCVChannel,
         set_type: model_pb2.MidiCCtoCVChannel.Type = None,
         set_midi_channel: int = None,
         set_midi_controller: int = None,
@@ -75,7 +75,7 @@ def update_channel(
 
 
 def delete_channel(
-        channel: client_impl.MidiCCtoCVChannel,
+        channel: model.MidiCCtoCVChannel,
 ) -> music.Command:
     cmd = music.Command(command='delete_midi_cc_to_cv_channel')
     pb = cmd.Extensions[commands_registry_pb2.delete_midi_cc_to_cv_channel]

@@ -27,13 +27,13 @@ from noisicaa import audioproc
 #from noisicaa.core import proto_types_pb2
 from noisicaa.music import base_track_test
 #from . import ipc_pb2
-from . import server_impl
+from . import model
 from . import commands
 
 
 class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     node_uri = 'builtin://sample-track'
-    track_cls = server_impl.SampleTrack
+    track_cls = model.SampleTrack
 
     async def test_create_sample(self):
         track = await self._add_track()

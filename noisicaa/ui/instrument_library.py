@@ -36,7 +36,7 @@ from PyQt5 import QtWidgets
 from noisicaa import instrument_db
 from noisicaa import core
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa.builtin_nodes.instrument import processor_messages as instrument
 from noisicaa.builtin_nodes.midi_source import processor_messages as midi_source
 from . import piano
@@ -649,13 +649,13 @@ class InstrumentLibraryDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         await self.audioproc_client.send_node_messages(
             'root', audioproc.ProcessorMessageList(messages=[msg]))
 
-    def onNoteOn(self, pitch: model.Pitch) -> None:
+    def onNoteOn(self, pitch: value_types.Pitch) -> None:
         if self.__midi_source_id is not None:
             self.call_async(self.sendNodeMessage(
                 midi_source.note_on_event(
                     self.__midi_source_id, 0, pitch.midi_note, 100)))
 
-    def onNoteOff(self, pitch: model.Pitch) -> None:
+    def onNoteOff(self, pitch: value_types.Pitch) -> None:
         if self.__midi_source_id is not None:
             self.call_async(self.sendNodeMessage(
                 midi_source.note_off_event(

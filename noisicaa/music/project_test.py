@@ -31,8 +31,8 @@ from noisidev import unittest_mixins
 from noisicaa.core import fileutil
 from noisicaa.core import storage
 from noisicaa import editor_main_pb2
-from noisicaa import model
-from noisicaa.builtin_nodes.score_track import server_impl as score_track
+from noisicaa import model_base
+from noisicaa.builtin_nodes.score_track import model as score_track
 from . import project
 from . import commands_pb2
 from . import commands_test
@@ -51,7 +51,7 @@ class BaseProjectTest(
     def test_serialize(self):
         p = self.pool.create(project.BaseProject, node_db=self.node_db)
         serialized = p.serialize()
-        self.assertIsInstance(serialized, model.ObjectTree)
+        self.assertIsInstance(serialized, model_base.ObjectTree)
         self.assertGreater(len(serialized.objects), 0)
         self.assertEqual(serialized.root, p.id)
 

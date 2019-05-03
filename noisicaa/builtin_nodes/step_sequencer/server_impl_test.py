@@ -19,15 +19,3 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # @end:license
-
-from noisicaa.music import pmodel_test
-from . import server_impl
-
-
-class StepSequencerTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
-    cls = server_impl.StepSequencer
-    create_args = {'name': 'test'}
-
-    def test_create(self):
-        node = self.pool.create(self.cls, **self.create_args)
-        self.assertEqual(len(node.channels), 1)

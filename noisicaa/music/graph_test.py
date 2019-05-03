@@ -25,7 +25,8 @@ from typing import List
 
 from noisidev import unittest
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import model_base
+from noisicaa import value_types
 from . import commands_test
 from . import project_client
 
@@ -83,27 +84,27 @@ class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
     async def test_set_graph_pos(self):
         await self.client.send_command(project_client.create_node(
             'builtin://csound/reverb',
-            graph_pos=model.Pos2F(200, 100)))
+            graph_pos=value_types.Pos2F(200, 100)))
         node = self.project.nodes[-1]
 
         await self.client.send_command(project_client.update_node(
             node,
-            set_graph_pos=model.Pos2F(100, 300)))
-        self.assertEqual(node.graph_pos, model.Pos2F(100, 300))
+            set_graph_pos=value_types.Pos2F(100, 300)))
+        self.assertEqual(node.graph_pos, value_types.Pos2F(100, 300))
 
     async def test_set_control_value(self):
         await self.client.send_command(project_client.create_node(
             'builtin://mixer'))
         node = self.project.nodes[-1]
 
-        changes = []  # type: List[model.PropertyValueChange]
+        changes = []  # type: List[model_base.PropertyValueChange]
         node.control_value_map.init()
         node.control_value_map.control_value_changed.add('gain', changes.append)
         self.assertEqual(node.control_value_map.value('gain'), 0.0)
 
         await self.client.send_command(project_client.update_node(
             node,
-            set_control_value=model.ControlValue(
+            set_control_value=value_types.ControlValue(
                 name='gain',
                 value=1.0,
                 generation=12)))
@@ -112,12 +113,12 @@ class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
         self.assertEqual(node.control_value_map.generation('gain'), 12)
 
         self.assertEqual(len(changes), 1)
-        self.assertEqual(changes[0].new_value, model.ControlValue('gain', 1.0, 12))
+        self.assertEqual(changes[0].new_value, value_types.ControlValue('gain', 1.0, 12))
 
     async def test_set_plugin_state(self):
         await self.client.send_command(project_client.create_node(
             'builtin://csound/reverb',
-            graph_pos=model.Pos2F(200, 100)))
+            graph_pos=value_types.Pos2F(200, 100)))
         node = self.project.nodes[-1]
 
         plugin_state = audioproc.PluginState(
@@ -135,52 +136,20 @@ class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
     async def test_set_port_properties(self):
         await self.client.send_command(project_client.create_node(
             'builtin://csound/reverb',
-            graph_pos=model.Pos2F(200, 100)))
+            graph_pos=value_types.Pos2F(200, 100)))
         node = self.project.nodes[-1]
 
         await self.client.send_command(project_client.update_node(
             node,
-            set_port_properties=model.NodePortProperties('mix', exposed=True)))
+            set_port_properties=value_types.NodePortProperties('mix', exposed=True)))
         self.assertTrue(node.get_port_properties('mix').exposed)
 
         await self.client.send_command(project_client.update_node(
             node,
-            set_port_properties=model.NodePortProperties('mix', exposed=False)))
+            set_port_properties=value_types.NodePortProperties('mix', exposed=False)))
         self.assertFalse(node.get_port_properties('mix').exposed)
 
         with self.assertRaises(Exception):
             await self.client.send_command(project_client.update_node(
                 node,
-                set_port_properties=model.NodePortProperties('holla')))
-
-    # @unittest.skip("Implementation broken")
-    # async def test_node_to_preset(self):
-    #     await self.client.send_command(commands_pb2.Command(
-    #         command='create_node',
-    #         create_node=commands_pb2.CreateNode(
-    #             uri='builtin://csound/reverb',
-    #             graph_pos=model.Pos2F(200, 100).to_proto())))
-
-    #     preset = await self.client.send_command(commands_pb2.Command(
-    #         command='node_to_preset',
-    #         node_to_preset=commands_pb2.NodeToPreset()))
-    #     self.assertIsInstance(preset, bytes)
-
-    # @unittest.skip("Implementation broken")
-    # async def test_node_from_preset(self):
-    #     node_id = await self.client.send_command(commands_pb2.Command(
-    #         command='create_node',
-    #         create_node=commands_pb2.CreateNode(
-    #             uri='builtin://csound/reverb',
-    #             graph_pos=model.Pos2F(200, 100).to_proto())))
-    #     node = self.pool[node_id]
-
-    #     preset = await self.client.send_command(commands_pb2.Command(
-    #         command='node_to_preset',
-    #         node_to_preset=commands_pb2.NodeToPreset()))
-
-    #     await self.client.send_command(commands_pb2.Command(
-    #         command='node_from_preset',
-    #         node_from_preset=commands_pb2.NodeFromPreset(
-    #             node_id=node.id,
-    #             preset=preset)))
+                set_port_properties=value_types.NodePortProperties('holla')))

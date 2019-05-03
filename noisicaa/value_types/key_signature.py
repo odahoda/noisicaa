@@ -24,8 +24,8 @@ from typing import Dict, List
 
 from google.protobuf import message as protobuf
 
-from . import project_pb2
-from . import model_base
+from noisicaa import model_base
+from . import value_types_pb2
 
 
 class KeySignature(model_base.ProtoValue):
@@ -66,12 +66,12 @@ class KeySignature(model_base.ProtoValue):
         assert name in self._signatures, name
         self._name = name
 
-    def to_proto(self) -> project_pb2.KeySignature:
-        return project_pb2.KeySignature(name=self.name)
+    def to_proto(self) -> value_types_pb2.KeySignature:
+        return value_types_pb2.KeySignature(name=self.name)
 
     @classmethod
     def from_proto(cls, pb: protobuf.Message) -> 'KeySignature':
-        if not isinstance(pb, project_pb2.KeySignature):
+        if not isinstance(pb, value_types_pb2.KeySignature):
             raise TypeError(type(pb).__name__)
         return KeySignature(pb.name)
 

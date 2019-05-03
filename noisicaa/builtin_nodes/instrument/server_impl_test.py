@@ -20,16 +20,16 @@
 #
 # @end:license
 
-from noisicaa.music import pmodel_test
-from . import server_impl
+# from noisicaa.music import pmodel_test
+# from . import server_impl
 
 
-class InstrumentTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
-    cls = server_impl.Instrument
-    create_args = {'name': 'test'}
+# class InstrumentTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
+#     cls = server_impl.Instrument
+#     create_args = {'name': 'test'}
 
-    def test_instrument(self):
-        node = self.pool.create(self.cls, **self.create_args)
+#     def test_instrument(self):
+#         node = self.pool.create(self.cls, **self.create_args)
 
-        node.instrument_uri = 'sf2:/path.sf2?bank=1&preset=3'
-        self.assertEqual(node.instrument_uri, 'sf2:/path.sf2?bank=1&preset=3')
+#         node.instrument_uri = 'sf2:/path.sf2?bank=1&preset=3'
+#         self.assertEqual(node.instrument_uri, 'sf2:/path.sf2?bank=1&preset=3')

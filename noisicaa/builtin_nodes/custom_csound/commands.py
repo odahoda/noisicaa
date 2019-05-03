@@ -22,11 +22,11 @@
 
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
-from . import client_impl
+from . import model
 
 
 def update(
-        node: client_impl.CustomCSound, *,
+        node: model.CustomCSound, *,
         set_orchestra: str = None,
         set_score: str = None
 ) -> music.Command:
@@ -41,7 +41,7 @@ def update(
 
 
 def create_port(
-        node: client_impl.CustomCSound,
+        node: model.CustomCSound,
         name: str,
         index: int = None,
 ) -> music.Command:
@@ -55,7 +55,7 @@ def create_port(
 
 
 def update_port(
-        port: client_impl.CustomCSoundPort, *,
+        port: model.CustomCSoundPort, *,
         set_csound_name: str = None,
 ) -> music.Command:
     cmd = music.Command(command='update_custom_csound_port')
@@ -67,7 +67,7 @@ def update_port(
 
 
 def delete_port(
-        port: client_impl.CustomCSoundPort,
+        port: model.CustomCSoundPort,
 ) -> music.Command:
     cmd = music.Command(command='delete_custom_csound_port')
     pb = cmd.Extensions[commands_registry_pb2.delete_custom_csound_port]

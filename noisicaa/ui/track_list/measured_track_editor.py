@@ -34,7 +34,8 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
-from noisicaa import model
+from noisicaa import model_base
+from noisicaa import value_types
 from noisicaa.ui import ui_base
 from noisicaa.ui import selection_set
 from . import base_track_editor
@@ -200,7 +201,7 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
     def addMeasureListeners(self) -> None:
         raise NotImplementedError
 
-    def __measureChanged(self, change: model.PropertyValueChange[music.Measure]) -> None:
+    def __measureChanged(self, change: model_base.PropertyValueChange[music.Measure]) -> None:
         for listener in self.measure_listeners:
             listener.remove()
         self.measure_listeners.clear()
@@ -607,11 +608,11 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         return self.__measure_editors
 
     def onMeasureListChanged(
-            self, change: model.PropertyListChange[music.MeasureReference]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+            self, change: model_base.PropertyListChange[music.MeasureReference]) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
             self.addMeasure(change.index, change.new_value)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, model_base.PropertyListDelete):
             self.removeMeasure(change.index)
 
         else:
@@ -686,8 +687,8 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
 
         time_signature_menu = menu.addMenu("Set time signature")
         time_signatures = [
-            model.TimeSignature(4, 4),
-            model.TimeSignature(3, 4),
+            value_types.TimeSignature(4, 4),
+            value_types.TimeSignature(3, 4),
         ]
         for time_signature in time_signatures:
             time_signature_action = QtWidgets.QAction(
@@ -705,7 +706,9 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
                 menu, pos - measure_editor.topLeft())
 
     def onSetTimeSignature(
-            self, affected_measure_editors: List[MeasureEditor], time_signature: model.TimeSignature
+            self,
+            affected_measure_editors: List[MeasureEditor],
+            time_signature: value_types.TimeSignature
     ) -> None:
         seq = []
         for meditor in affected_measure_editors:

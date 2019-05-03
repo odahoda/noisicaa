@@ -20,44 +20,44 @@
 #
 # @end:license
 
-from noisicaa import audioproc
-from noisicaa import model
-from noisicaa.music import pmodel_test
-from . import server_impl
+# from noisicaa import audioproc
+# from noisicaa import value_types
+# from noisicaa.music import pmodel_test
+# from . import model
 
-T0 = audioproc.MusicalDuration(0, 4)
-
-
-class BeatTrackTest(pmodel_test.MeasuredTrackMixin, pmodel_test.ModelTest):
-    cls = server_impl.BeatTrack
-    create_args = {'name': 'test'}
-    measure_cls = server_impl.BeatMeasure
-
-    def test_pitch(self):
-        track = self.pool.create(self.cls, **self.create_args)
-
-        track.pitch = model.Pitch('F4')
-        self.assertEqual(track.pitch, model.Pitch('F4'))
+# T0 = audioproc.MusicalDuration(0, 4)
 
 
-class BeatMeasureTest(pmodel_test.ModelTest):
-    def test_beats(self):
-        measure = self.pool.create(server_impl.BeatMeasure)
+# class BeatTrackTest(pmodel_test.MeasuredTrackMixin, pmodel_test.ModelTest):
+#     cls = model.BeatTrack
+#     create_args = {'name': 'test'}
+#     measure_cls = model.BeatMeasure
 
-        beat = self.pool.create(server_impl.Beat, time=T0, velocity=100)
-        measure.beats.append(beat)
-        self.assertIs(measure.beats[0], beat)
+#     def test_pitch(self):
+#         track = self.pool.create(self.cls, **self.create_args)
+
+#         track.pitch = value_types.Pitch('F4')
+#         self.assertEqual(track.pitch, value_types.Pitch('F4'))
 
 
-class BeatTest(pmodel_test.ModelTest):
-    def test_time(self):
-        beat = self.pool.create(server_impl.Beat, time=T0, velocity=100)
+# class BeatMeasureTest(pmodel_test.ModelTest):
+#     def test_beats(self):
+#         measure = self.pool.create(model.BeatMeasure)
 
-        beat.time = audioproc.MusicalDuration(1, 4)
-        self.assertEqual(beat.time, audioproc.MusicalDuration(1, 4))
+#         beat = self.pool.create(model.Beat, time=T0, velocity=100)
+#         measure.beats.append(beat)
+#         self.assertIs(measure.beats[0], beat)
 
-    def test_velocity(self):
-        beat = self.pool.create(server_impl.Beat, time=T0, velocity=100)
 
-        beat.velocity = 120
-        self.assertEqual(beat.velocity, 120)
+# class BeatTest(pmodel_test.ModelTest):
+#     def test_time(self):
+#         beat = self.pool.create(model.Beat, time=T0, velocity=100)
+
+#         beat.time = audioproc.MusicalDuration(1, 4)
+#         self.assertEqual(beat.time, audioproc.MusicalDuration(1, 4))
+
+#     def test_velocity(self):
+#         beat = self.pool.create(model.Beat, time=T0, velocity=100)
+
+#         beat.velocity = 120
+#         self.assertEqual(beat.velocity, 120)

@@ -23,7 +23,7 @@
 from google.protobuf import message as protobuf
 
 from noisicaa import audioproc
-from . import model_base
+from noisicaa import model_base
 
 
 class NodePortProperties(model_base.ProtoValue):
@@ -35,7 +35,7 @@ class NodePortProperties(model_base.ProtoValue):
         return '<%s exposed=%s>' % (self.__name, self.__exposed)
     __repr__ = __str__
 
-    def to_proto(self) -> audioproc.NodePortProperties:
+    def to_proto(self) -> 'audioproc.NodePortProperties':
         return audioproc.NodePortProperties(
             name=self.__name,
             exposed=self.__exposed)

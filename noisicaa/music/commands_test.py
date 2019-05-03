@@ -28,12 +28,11 @@ import uuid
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
 from noisicaa import lv2
-from noisicaa import model
 from noisicaa import editor_main_pb2
 from . import project_client
 
 if typing.TYPE_CHECKING:
-    from . import project_client_model
+    from . import project as project_lib
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +47,8 @@ class CommandsTestMixin(
         self.urid_mapper_address = None  # type: str
         self.urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.client = None  # type: project_client.ProjectClient
-        self.project = None  # type: project_client_model.Project
-        self.pool = None  # type: model.Pool
+        self.project = None  # type: project_lib.Project
+        self.pool = None  # type: project_lib.Pool
 
     async def setup_testcase(self):
         self.setup_node_db_process(inline=True)

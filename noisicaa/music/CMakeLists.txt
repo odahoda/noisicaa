@@ -23,21 +23,20 @@ add_python_package(
   base_track_test.py
   commands.py
   commands_test.py
-  mutations.py
-  node_connector.py
   graph.py
   graph_test.py
+  metadata.py
+  model.py
+  mutations.py
+  node_connector.py
   player.py
   player_integration_test.py
   player_test.py
-  pmodel.py
-  pmodel_test.py
+  project.py
   project_client.py
-  project_client_model.py
   project_client_test.py
   project_integration_test.py
   project_process_context.py
-  project.py
   project_test.py
   render.py
   render_test.py
@@ -51,6 +50,7 @@ add_python_package(
 
 add_cython_module(rms CXX)
 
+py_proto(model.proto)
 py_proto(writer_process.proto)
 py_proto(render.proto)
 py_proto(mutations.proto)

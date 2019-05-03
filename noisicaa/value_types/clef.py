@@ -24,8 +24,8 @@ import enum
 
 from google.protobuf import message as protobuf
 
-from . import project_pb2
-from . import model_base
+from noisicaa import model_base
+from . import value_types_pb2
 from . import pitch
 
 
@@ -41,33 +41,33 @@ class Clef(model_base.ProtoValue, enum.Enum):
     Bass = 'bass'
     Subbass = 'subbass'
 
-    def to_proto(self) -> project_pb2.Clef:
-        return project_pb2.Clef(type={
-            Clef.FrenchViolin: project_pb2.Clef.FrenchViolin,
-            Clef.Treble: project_pb2.Clef.Treble,
-            Clef.Soprano: project_pb2.Clef.Soprano,
-            Clef.MezzoSoprano: project_pb2.Clef.MezzoSoprano,
-            Clef.Alto: project_pb2.Clef.Alto,
-            Clef.Tenor: project_pb2.Clef.Tenor,
-            Clef.Baritone: project_pb2.Clef.Baritone,
-            Clef.Bass: project_pb2.Clef.Bass,
-            Clef.Subbass: project_pb2.Clef.Subbass,
+    def to_proto(self) -> value_types_pb2.Clef:
+        return value_types_pb2.Clef(type={
+            Clef.FrenchViolin: value_types_pb2.Clef.FrenchViolin,
+            Clef.Treble: value_types_pb2.Clef.Treble,
+            Clef.Soprano: value_types_pb2.Clef.Soprano,
+            Clef.MezzoSoprano: value_types_pb2.Clef.MezzoSoprano,
+            Clef.Alto: value_types_pb2.Clef.Alto,
+            Clef.Tenor: value_types_pb2.Clef.Tenor,
+            Clef.Baritone: value_types_pb2.Clef.Baritone,
+            Clef.Bass: value_types_pb2.Clef.Bass,
+            Clef.Subbass: value_types_pb2.Clef.Subbass,
         }[self])
 
     @classmethod
     def from_proto(cls, pb: protobuf.Message) -> 'Clef':
-        if not isinstance(pb, project_pb2.Clef):
+        if not isinstance(pb, value_types_pb2.Clef):
             raise TypeError(type(pb).__name__)
         return Clef({
-            project_pb2.Clef.FrenchViolin: Clef.FrenchViolin,
-            project_pb2.Clef.Treble: Clef.Treble,
-            project_pb2.Clef.Soprano: Clef.Soprano,
-            project_pb2.Clef.MezzoSoprano: Clef.MezzoSoprano,
-            project_pb2.Clef.Alto: Clef.Alto,
-            project_pb2.Clef.Tenor: Clef.Tenor,
-            project_pb2.Clef.Baritone: Clef.Baritone,
-            project_pb2.Clef.Bass: Clef.Bass,
-            project_pb2.Clef.Subbass: Clef.Subbass,
+            value_types_pb2.Clef.FrenchViolin: Clef.FrenchViolin,
+            value_types_pb2.Clef.Treble: Clef.Treble,
+            value_types_pb2.Clef.Soprano: Clef.Soprano,
+            value_types_pb2.Clef.MezzoSoprano: Clef.MezzoSoprano,
+            value_types_pb2.Clef.Alto: Clef.Alto,
+            value_types_pb2.Clef.Tenor: Clef.Tenor,
+            value_types_pb2.Clef.Baritone: Clef.Baritone,
+            value_types_pb2.Clef.Bass: Clef.Bass,
+            value_types_pb2.Clef.Subbass: Clef.Subbass,
         }[pb.type])
 
     @property

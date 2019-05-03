@@ -22,21 +22,25 @@
 
 import logging
 import time
-from typing import cast, Any, Optional, Tuple, Iterator, Type
+from typing import cast, Any, Optional, Tuple, MutableSequence, Iterator, Type
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa.core import storage
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import core
+from noisicaa import model_base
+from noisicaa import value_types
 from noisicaa import node_db as node_db_lib
-from noisicaa.builtin_nodes import server_registry
-from . import pmodel
+from noisicaa.builtin_nodes import model_registry
 from . import graph
 from . import commands
 from . import commands_pb2
 from . import base_track
-from . import samples
+from . import samples as samples_lib
+from . import metadata as metadata_lib
 from . import writer_client
+from . import model
+from . import model_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -77,13 +81,20 @@ class UpdateProject(commands.Command):
 #         #         track.remove_measure(len(track.measure_list) - 1)
 
 
-class Metadata(pmodel.Metadata):
-    pass
+class BaseProject(model.ObjectBase):
+    class ProjectSpec(model_base.ObjectSpec):
+        proto_type = 'project'
+        proto_ext = model_pb2.project
 
+        metadata = model_base.ObjectProperty(metadata_lib.Metadata)
+        nodes = model_base.ObjectListProperty(graph.BaseNode)
+        node_connections = model_base.ObjectListProperty(graph.NodeConnection)
+        samples = model_base.ObjectListProperty(samples_lib.Sample)
+        bpm = model_base.Property(int, default=120)
 
-class BaseProject(pmodel.Project):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+
         self.node_db = None  # type: node_db_lib.NodeDBClient
 
         self.command_registry = commands.CommandRegistry()
@@ -101,7 +112,76 @@ class BaseProject(pmodel.Project):
         self.command_registry.register(base_track.DeleteMeasure)
         self.command_registry.register(base_track.PasteMeasures)
 
-        server_registry.register_commands(self.command_registry)
+        model_registry.register_commands(self.command_registry)
+
+        self.metadata_changed = core.Callback[model_base.PropertyChange[metadata_lib.Metadata]]()
+        self.nodes_changed = core.Callback[model_base.PropertyListChange[graph.BaseNode]]()
+        self.node_connections_changed = \
+            core.Callback[model_base.PropertyListChange[graph.NodeConnection]]()
+        self.samples_changed = core.Callback[model_base.PropertyListChange[samples_lib.Sample]]()
+        self.bpm_changed = core.Callback[model_base.PropertyChange[int]]()
+
+        self.duration_changed = \
+            core.Callback[model_base.PropertyChange[audioproc.MusicalDuration]]()
+        self.pipeline_mutation = core.Callback[audioproc.Mutation]()
+
+        self.__time_mapper = audioproc.TimeMapper(44100)
+        self.__time_mapper.setup(self)
+
+    @property
+    def time_mapper(self) -> audioproc.TimeMapper:
+        return self.__time_mapper
+
+    @property
+    def metadata(self) -> metadata_lib.Metadata:
+        return self.get_property_value('metadata')
+
+    @metadata.setter
+    def metadata(self, value: metadata_lib.Metadata) -> None:
+        self.set_property_value('metadata', value)
+
+    @property
+    def nodes(self) -> MutableSequence[graph.BaseNode]:
+        return self.get_property_value('nodes')
+
+    @property
+    def node_connections(self) -> MutableSequence[graph.NodeConnection]:
+        return self.get_property_value('node_connections')
+
+    @property
+    def samples(self) -> MutableSequence[samples_lib.Sample]:
+        return self.get_property_value('samples')
+
+    @property
+    def bpm(self) -> int:
+        return self.get_property_value('bpm')
+
+    @bpm.setter
+    def bpm(self, value: int) -> None:
+        self.set_property_value('bpm', value)
+
+    @property
+    def project(self) -> 'Project':
+        return down_cast(Project, super().project)
+
+    @property
+    def system_out_node(self) -> graph.SystemOutNode:
+        for node in self.get_property_value('nodes'):
+            if isinstance(node, graph.SystemOutNode):
+                return node
+
+        raise ValueError("No system out node found.")
+
+    @property
+    def duration(self) -> audioproc.MusicalDuration:
+        return audioproc.MusicalDuration(2 * 120, 4)  # 2min * 120bpm
+
+    @property
+    def attached_to_project(self) -> bool:
+        return True
+
+    def get_bpm(self, measure_idx: int, tick: int) -> int:  # pylint: disable=unused-argument
+        return self.bpm
 
     @property
     def data_dir(self) -> Optional[str]:
@@ -115,11 +195,11 @@ class BaseProject(pmodel.Project):
         super().create(**kwargs)
         self.node_db = node_db
 
-        self.metadata = self._pool.create(Metadata)
+        self.metadata = self._pool.create(metadata_lib.Metadata)
 
         system_out_node = self._pool.create(
             graph.SystemOutNode,
-            name="System Out", graph_pos=model.Pos2F(200, 0))
+            name="System Out", graph_pos=value_types.Pos2F(200, 0))
         self.add_node(system_out_node)
 
     async def close(self) -> None:
@@ -141,12 +221,12 @@ class BaseProject(pmodel.Project):
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.pipeline_mutation.call(mutation)
 
-    def add_node(self, node: pmodel.BaseNode) -> None:
+    def add_node(self, node: graph.BaseNode) -> None:
         for mutation in node.get_add_mutations():
             self.handle_pipeline_mutation(mutation)
         self.nodes.append(node)
 
-    def remove_node(self, node: pmodel.BaseNode) -> None:
+    def remove_node(self, node: graph.BaseNode) -> None:
         delete_connections = set()
         for cidx, connection in enumerate(self.node_connections):
             if connection.source_node is node:
@@ -161,12 +241,12 @@ class BaseProject(pmodel.Project):
 
         del self.nodes[node.index]
 
-    def add_node_connection(self, connection: pmodel.NodeConnection) -> None:
+    def add_node_connection(self, connection: graph.NodeConnection) -> None:
         self.node_connections.append(connection)
         for mutation in connection.get_add_mutations():
             self.handle_pipeline_mutation(mutation)
 
-    def remove_node_connection(self, connection: pmodel.NodeConnection) -> None:
+    def remove_node_connection(self, connection: graph.NodeConnection) -> None:
         for mutation in connection.get_remove_mutations():
             self.handle_pipeline_mutation(mutation)
         del self.node_connections[connection.index]
@@ -220,13 +300,13 @@ class Project(BaseProject):
     async def open(
             cls, *,
             path: str,
-            pool: pmodel.Pool,
+            pool: 'Pool',
             writer: writer_client.WriterClient,
             node_db: node_db_lib.NodeDBClient,
     ) -> 'Project':
         checkpoint_serialized, actions = await writer.open(path)
 
-        checkpoint = model.ObjectTree()
+        checkpoint = model_base.ObjectTree()
         checkpoint.MergeFromString(checkpoint_serialized)
 
         project = pool.deserialize_tree(checkpoint)
@@ -235,12 +315,12 @@ class Project(BaseProject):
         project.node_db = node_db
         project.__writer = writer
 
-        def validate_node(parent: Optional[pmodel.ObjectBase], node: pmodel.ObjectBase) -> None:
+        def validate_node(parent: Optional[model.ObjectBase], node: model.ObjectBase) -> None:
             assert node.parent is parent
             assert node.project is project
 
             for c in node.list_children():
-                validate_node(node, cast(pmodel.ObjectBase, c))
+                validate_node(node, cast(model.ObjectBase, c))
 
         validate_node(None, project)
 
@@ -266,7 +346,7 @@ class Project(BaseProject):
     async def create_blank(
             cls, *,
             path: str,
-            pool: pmodel.Pool,
+            pool: 'Pool',
             node_db: node_db_lib.NodeDBClient,
             writer: writer_client.WriterClient,
     ) -> 'Project':
@@ -365,7 +445,7 @@ class Project(BaseProject):
             raise ValueError("Unsupported action %s" % action)
 
 
-class Pool(pmodel.Pool):
+class Pool(model_base.Pool[model.ObjectBase]):
     def __init__(self, project_cls: Type[Project] = None) -> None:
         super().__init__()
 
@@ -374,11 +454,23 @@ class Pool(pmodel.Pool):
         else:
             self.register_class(Project)
 
-        self.register_class(Metadata)
-        self.register_class(samples.Sample)
+        self.register_class(metadata_lib.Metadata)
+        self.register_class(samples_lib.Sample)
         self.register_class(base_track.MeasureReference)
         self.register_class(graph.SystemOutNode)
         self.register_class(graph.NodeConnection)
         self.register_class(graph.Node)
 
-        server_registry.register_classes(self)
+        model_registry.register_classes(self)
+
+        self.model_changed = core.Callback[model_base.Mutation]()
+
+    @property
+    def project(self) -> Project:
+        return down_cast(Project, self.root)
+
+    def object_added(self, obj: model.ObjectBase) -> None:
+        self.model_changed.call(model_base.ObjectAdded(obj))
+
+    def object_removed(self, obj: model.ObjectBase) -> None:
+        self.model_changed.call(model_base.ObjectRemoved(obj))

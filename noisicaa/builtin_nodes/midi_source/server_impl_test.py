@@ -20,62 +20,62 @@
 #
 # @end:license
 
-from typing import List
+# from typing import List
 
-from noisidev import unittest
-from noisidev import unittest_mixins
-from noisicaa import audioproc
-from noisicaa.music import project
-from noisicaa.music import pmodel_test
-from . import server_impl
-from . import processor_messages
-
-
-class ConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
-    async def setup_testcase(self):
-        self.pool = project.Pool()
-        self.node = self.pool.create(server_impl.MidiSource, name='test')
-        self.messages = []  # type: List[audioproc.ProcessorMessage]
-
-    def message_cb(self, msg):
-        self.messages.append(msg)
-
-    def test_messages_on_mutations(self):
-        connector = self.node.create_node_connector(
-            message_cb=self.message_cb, audioproc_client=None)
-        try:
-            self.assertEqual(
-                connector.init(),
-                [processor_messages.update(self.node.pipeline_node_id, '', -1)])
-
-            self.messages.clear()
-            self.node.device_uri = 'foo'
-            self.assertEqual(
-                self.messages,
-                [processor_messages.update(self.node.pipeline_node_id, device_uri='foo')])
-
-            self.messages.clear()
-            self.node.channel_filter = 2
-            self.assertEqual(
-                self.messages,
-                [processor_messages.update(self.node.pipeline_node_id, channel_filter=2)])
-
-        finally:
-            connector.close()
+# from noisidev import unittest
+# from noisidev import unittest_mixins
+# from noisicaa import audioproc
+# from noisicaa.music import project
+# from noisicaa.music import pmodel_test
+# from . import server_impl
+# from . import processor_messages
 
 
-class MidiSourceTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
-    cls = server_impl.MidiSource
-    create_args = {'name': 'test'}
+# class ConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
+#     async def setup_testcase(self):
+#         self.pool = project.Pool()
+#         self.node = self.pool.create(server_impl.MidiSource, name='test')
+#         self.messages = []  # type: List[audioproc.ProcessorMessage]
 
-    def test_device_uri(self):
-        node = self.pool.create(self.cls, **self.create_args)
+#     def message_cb(self, msg):
+#         self.messages.append(msg)
 
-        node.device_uri = 'foo'
-        self.assertEqual(node.device_uri, 'foo')
+#     def test_messages_on_mutations(self):
+#         connector = self.node.create_node_connector(
+#             message_cb=self.message_cb, audioproc_client=None)
+#         try:
+#             self.assertEqual(
+#                 connector.init(),
+#                 [processor_messages.update(self.node.pipeline_node_id, '', -1)])
 
-    def test_channel_filter(self):
-        node = self.pool.create(self.cls, **self.create_args)
+#             self.messages.clear()
+#             self.node.device_uri = 'foo'
+#             self.assertEqual(
+#                 self.messages,
+#                 [processor_messages.update(self.node.pipeline_node_id, device_uri='foo')])
 
-        node.channel_filter = 2
-        self.assertEqual(node.channel_filter, 2)
+#             self.messages.clear()
+#             self.node.channel_filter = 2
+#             self.assertEqual(
+#                 self.messages,
+#                 [processor_messages.update(self.node.pipeline_node_id, channel_filter=2)])
+
+#         finally:
+#             connector.close()
+
+
+# class MidiSourceTest(pmodel_test.BaseNodeMixin, pmodel_test.ModelTest):
+#     cls = server_impl.MidiSource
+#     create_args = {'name': 'test'}
+
+#     def test_device_uri(self):
+#         node = self.pool.create(self.cls, **self.create_args)
+
+#         node.device_uri = 'foo'
+#         self.assertEqual(node.device_uri, 'foo')
+
+#     def test_channel_filter(self):
+#         node = self.pool.create(self.cls, **self.create_args)
+
+#         node.channel_filter = 2
+#         self.assertEqual(node.channel_filter, 2)

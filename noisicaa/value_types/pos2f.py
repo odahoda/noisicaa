@@ -22,8 +22,8 @@
 
 from google.protobuf import message as protobuf
 
-from noisicaa.core import proto_types_pb2
-from . import model_base
+from noisicaa import model_base
+from . import value_types_pb2
 
 
 class Pos2F(model_base.ProtoValue):
@@ -31,12 +31,12 @@ class Pos2F(model_base.ProtoValue):
         self.__x = float(x)
         self.__y = float(y)
 
-    def to_proto(self) -> proto_types_pb2.Pos2F:
-        return proto_types_pb2.Pos2F(x=self.__x, y=self.__y)
+    def to_proto(self) -> value_types_pb2.Pos2F:
+        return value_types_pb2.Pos2F(x=self.__x, y=self.__y)
 
     @classmethod
     def from_proto(cls, pb: protobuf.Message) -> 'Pos2F':
-        if not isinstance(pb, proto_types_pb2.Pos2F):
+        if not isinstance(pb, value_types_pb2.Pos2F):
             raise TypeError(type(pb).__name__)
         return Pos2F(pb.x, pb.y)
 

@@ -28,7 +28,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisicaa import model
+from noisicaa import value_types
 
 
 class PianoKey(QtWidgets.QGraphicsRectItem):
@@ -55,14 +55,14 @@ class PianoKey(QtWidgets.QGraphicsRectItem):
 
     def press(self) -> None:
         self.setBrush(QtGui.QBrush(QtGui.QColor(0, 120, 255)))
-        self._piano.noteOn.emit(model.Pitch(self._name))
+        self._piano.noteOn.emit(value_types.Pitch(self._name))
 
     def release(self) -> None:
         if self._type == self.WHITE:
             self.setBrush(QtGui.QBrush(Qt.white))
         else:
             self.setBrush(QtGui.QBrush(Qt.black))
-        self._piano.noteOff.emit(model.Pitch(self._name))
+        self._piano.noteOff.emit(value_types.Pitch(self._name))
 
     def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent) -> None:
         self.press()
@@ -72,8 +72,8 @@ class PianoKey(QtWidgets.QGraphicsRectItem):
 
 
 class PianoWidget(QtWidgets.QGraphicsView):
-    noteOn = QtCore.pyqtSignal(model.Pitch)
-    noteOff = QtCore.pyqtSignal(model.Pitch)
+    noteOn = QtCore.pyqtSignal(value_types.Pitch)
+    noteOff = QtCore.pyqtSignal(value_types.Pitch)
 
     def __init__(self, parent: QtWidgets.QWidget) -> None:
         super().__init__(parent)
@@ -97,7 +97,7 @@ class PianoWidget(QtWidgets.QGraphicsView):
                     pitch_name,
                     PianoKey.WHITE)
                 self._keys[pitch_name] = key
-                self._midi_to_key[model.NOTE_TO_MIDI[pitch_name]] = key
+                self._midi_to_key[value_types.NOTE_TO_MIDI[pitch_name]] = key
                 self._scene.addItem(key)
 
             for idx, note in enumerate(['C#', 'D#', '', 'F#', 'G#', 'A#', '']):
@@ -110,7 +110,7 @@ class PianoWidget(QtWidgets.QGraphicsView):
                     pitch_name,
                     PianoKey.BLACK)
                 self._keys[pitch_name] = key
-                self._midi_to_key[model.NOTE_TO_MIDI[pitch_name]] = key
+                self._midi_to_key[value_types.NOTE_TO_MIDI[pitch_name]] = key
                 self._scene.addItem(key)
 
 

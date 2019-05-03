@@ -25,20 +25,20 @@ from typing import cast
 from noisidev import unittest
 from noisicaa.music import commands_test
 from noisicaa import music
-from . import server_impl
+from . import model
 from . import commands
 
 
 class MidiCCtoCVTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
 
-    async def _add_node(self) -> server_impl.MidiCCtoCV:
+    async def _add_node(self) -> model.MidiCCtoCV:
         await self.client.send_command(music.create_node(
             'builtin://midi-cc-to-cv'))
-        return cast(server_impl.MidiCCtoCV, self.project.nodes[-1])
+        return cast(model.MidiCCtoCV, self.project.nodes[-1])
 
     async def test_add_node(self):
         node = await self._add_node()
-        self.assertIsInstance(node, server_impl.MidiCCtoCV)
+        self.assertIsInstance(node, model.MidiCCtoCV)
 
     async def test_create_channel(self):
         node = await self._add_node()

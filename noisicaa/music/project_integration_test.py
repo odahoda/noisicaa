@@ -32,13 +32,12 @@ from google.protobuf import message as protobuf
 from noisidev import unittest
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
-from noisicaa import model
 from noisicaa import lv2
 from noisicaa import editor_main_pb2
-from noisicaa.model import model_base_pb2
+from noisicaa.model_base import model_base_pb2
 from . import project_client
-from . import project_client_model
 from . import commands_pb2
+from . import project as project_lib
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +52,8 @@ class ProjectIntegrationTest(
 
         self.urid_mapper_address = None  # type: str
         self.urid_mapper = None  # type: lv2.ProxyURIDMapper
-        self.project = None  # type: project_client_model.Project
-        self.pool = None  # type: model.Pool
+        self.project = None  # type: project_lib.Project
+        self.pool = None  # type: project_lib.Pool
 
     async def setup_testcase(self):
         self.setup_node_db_process(inline=True)
@@ -149,14 +148,14 @@ class ProjectIntegrationTest(
             await client.cleanup()
 
     async def create_project(
-            self, client) -> Tuple[project_client_model.Project, project_client.Pool, str]:
+            self, client) -> Tuple[project_lib.Project, project_lib.Pool, str]:
         path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
         await client.create(path)
         project = client.project
         return project, project._pool, path
 
     async def open_project(
-            self, client, path) -> Tuple[project_client_model.Project, project_client.Pool]:
+            self, client, path) -> Tuple[project_lib.Project, project_lib.Pool]:
         await client.open(path)
         project = client.project
         return project, project._pool

@@ -23,7 +23,7 @@
 from PyQt5 import QtCore
 
 from noisidev import uitest
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa import music
 from . import base_node
 
@@ -38,8 +38,8 @@ class NoteTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
         await self.project_client.send_command(music.create_node(
             'ladspa://passthru.so/passthru',
-            graph_pos=model.Pos2F(200, 100),
-            graph_size=model.SizeF(140, 65)))
+            graph_pos=value_types.Pos2F(200, 100),
+            graph_size=value_types.SizeF(140, 65)))
         self.node = self.project.nodes[-1]
 
         self.nitem = base_node.Node(node=self.node, context=self.context)

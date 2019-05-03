@@ -22,9 +22,7 @@ add_python_package(
   node_description.py
   model.py
   commands.py
-  client_impl.py
   client_impl_test.py
-  server_impl.py
   server_impl_test.py
   node_ui.py
   track_ui.py

@@ -28,19 +28,19 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model
+from noisicaa import model_base
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import instrument_library
 from noisicaa.ui.graph import base_node
-from . import client_impl
+from . import model
 from . import commands
 
 logger = logging.getLogger(__name__)
 
 
 class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
-    def __init__(self, node: client_impl.Instrument, **kwargs: Any) -> None:
+    def __init__(self, node: model.Instrument, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
@@ -86,7 +86,7 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             listener.remove()
         self.__listeners.clear()
 
-    def __instrumentURIChanged(self, change: model.PropertyValueChange[str]) -> None:
+    def __instrumentURIChanged(self, change: model_base.PropertyValueChange[str]) -> None:
         if change.new_value is not None:
             self.__instrument.setText(change.new_value)
         else:
@@ -119,9 +119,9 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
 class InstrumentNode(base_node.Node):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, client_impl.Instrument), type(node).__name__
+        assert isinstance(node, model.Instrument), type(node).__name__
         self.__widget = None  # type: InstrumentNodeWidget
-        self.__node = node  # type: client_impl.Instrument
+        self.__node = node  # type: model.Instrument
 
         super().__init__(node=node, **kwargs)
 

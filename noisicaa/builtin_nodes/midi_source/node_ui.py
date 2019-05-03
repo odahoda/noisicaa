@@ -27,14 +27,15 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model
+from noisicaa import model_base
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa.ui import device_list
 from noisicaa.ui import dynamic_layout
 from noisicaa.ui import piano
 from noisicaa.ui import ui_base
 from noisicaa.ui.graph import base_node
-from . import client_impl
+from . import model
 from . import commands
 from . import processor_messages
 
@@ -42,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 
 class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
-    def __init__(self, node: client_impl.MidiSource, **kwargs: Any) -> None:
+    def __init__(self, node: model.MidiSource, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
@@ -99,7 +100,7 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
             self.send_command_async(commands.update(
                 self.__node, set_device_uri=uri))
 
-    def __channelFilterChanged(self, change: model.PropertyValueChange[int]) -> None:
+    def __channelFilterChanged(self, change: model_base.PropertyValueChange[int]) -> None:
         for idx in range(self.__channel_filter.count()):
             if self.__channel_filter.itemData(idx) == change.new_value:
                 self.__channel_filter.setCurrentIndex(idx)
@@ -110,7 +111,7 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
             self.send_command_async(commands.update(
                 self.__node, set_channel_filter=channel_filter))
 
-    def __noteOn(self, pitch: model.Pitch) -> None:
+    def __noteOn(self, pitch: value_types.Pitch) -> None:
         if self.__node.channel_filter >= 0:
             channel = self.__node.channel_filter
         else:
@@ -120,7 +121,7 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
             processor_messages.note_on_event(
                 self.__node.pipeline_node_id, channel, pitch.midi_note, 100)))
 
-    def __noteOff(self, pitch: model.Pitch) -> None:
+    def __noteOff(self, pitch: value_types.Pitch) -> None:
         if self.__node.channel_filter >= 0:
             channel = self.__node.channel_filter
         else:
@@ -133,9 +134,9 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
 
 class MidiSourceNode(base_node.Node):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, client_impl.MidiSource), type(node).__name__
+        assert isinstance(node, model.MidiSource), type(node).__name__
         self.__widget = None  # type: MidiSourceNodeWidget
-        self.__node = node  # type: client_impl.MidiSource
+        self.__node = node  # type: model.MidiSource
 
         super().__init__(node=node, **kwargs)
 

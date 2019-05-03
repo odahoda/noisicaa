@@ -22,11 +22,11 @@
 
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
-from . import client_impl
+from . import model
 
 
 def update(
-        node: client_impl.MidiSource, *,
+        node: model.MidiSource, *,
         set_device_uri: str = None,
         set_channel_filter: int = None
 ) -> music.Command:

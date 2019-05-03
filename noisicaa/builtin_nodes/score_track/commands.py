@@ -23,14 +23,14 @@
 from typing import Tuple
 
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa.builtin_nodes import commands_registry_pb2
-from . import client_impl
+from . import model
 
 
 def update(
-        track: client_impl.ScoreTrack, *,
+        track: model.ScoreTrack, *,
         set_transpose_octaves: int = None
 ) -> music.Command:
     cmd = music.Command(command='update_score_track')
@@ -41,9 +41,9 @@ def update(
     return cmd
 
 def update_measure(
-        measure: client_impl.ScoreMeasure, *,
-        set_clef: model.Clef = None,
-        set_key_signature: model.KeySignature = None
+        measure: model.ScoreMeasure, *,
+        set_clef: value_types.Clef = None,
+        set_key_signature: value_types.KeySignature = None
 ) -> music.Command:
     cmd = music.Command(command='update_score_measure')
     pb = cmd.Extensions[commands_registry_pb2.update_score_measure]
@@ -55,9 +55,9 @@ def update_measure(
     return cmd
 
 def create_note(
-        measure: client_impl.ScoreMeasure, *,
+        measure: model.ScoreMeasure, *,
         idx: int,
-        pitch: model.Pitch,
+        pitch: value_types.Pitch,
         duration: audioproc.MusicalDuration
 ) -> music.Command:
     cmd = music.Command(command='create_note')
@@ -69,9 +69,9 @@ def create_note(
     return cmd
 
 def update_note(
-        note: client_impl.Note, *,
-        set_pitch: model.Pitch = None,
-        add_pitch: model.Pitch = None,
+        note: model.Note, *,
+        set_pitch: value_types.Pitch = None,
+        add_pitch: value_types.Pitch = None,
         remove_pitch: int = None,
         set_duration: audioproc.MusicalDuration = None,
         set_dots: int = None,
@@ -101,7 +101,7 @@ def update_note(
         pb.transpose = transpose
     return cmd
 
-def delete_note(note: client_impl.Note) -> music.Command:
+def delete_note(note: model.Note) -> music.Command:
     cmd = music.Command(command='delete_note')
     pb = cmd.Extensions[commands_registry_pb2.delete_note]
     pb.note_id = note.id
