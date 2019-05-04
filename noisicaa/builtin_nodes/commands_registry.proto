@@ -27,7 +27,6 @@ import "noisicaa/builtin_nodes/score_track/commands.proto";
 import "noisicaa/builtin_nodes/beat_track/commands.proto";
 import "noisicaa/builtin_nodes/control_track/commands.proto";
 import "noisicaa/builtin_nodes/sample_track/commands.proto";
-import "noisicaa/builtin_nodes/instrument/commands.proto";
 import "noisicaa/builtin_nodes/custom_csound/commands.proto";
 import "noisicaa/builtin_nodes/midi_source/commands.proto";
 import "noisicaa/builtin_nodes/step_sequencer/commands.proto";
@@ -58,9 +57,6 @@ extend Command {
   optional CreateSample create_sample = 404000;
   optional UpdateSample update_sample = 404001;
   optional DeleteSample delete_sample = 404002;
-
-  // Instrument (405xxx)
-  optional UpdateInstrument update_instrument = 405000;
 
   // Custom CSound (407xxx)
   optional UpdateCustomCSound update_custom_csound = 407000;

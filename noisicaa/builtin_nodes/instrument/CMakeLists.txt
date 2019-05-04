@@ -22,14 +22,12 @@ add_python_package(
   node_description.py
   model.py
   model_test.py
-  commands.py
   node_ui.py
   processor_test.py
   processor_messages.py
 )
 
 py_proto(model.proto)
-py_proto(commands.proto)
 py_proto(processor_messages.proto)
 cpp_proto(processor_messages.proto)
 

@@ -34,7 +34,6 @@ from noisicaa.ui import ui_base
 from noisicaa.ui import instrument_library
 from noisicaa.ui.graph import base_node
 from . import model
-from . import commands
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +93,8 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __instrumentURIEdited(self, instrument_uri: str) -> None:
         if instrument_uri != self.__node.instrument_uri:
-            self.send_command_async(commands.update(
-                self.__node, set_instrument_uri=instrument_uri))
+            with self.project.apply_mutations():
+                self.__node.instrument_uri = instrument_uri
 
     async def __selectInstrument(self) -> None:
         dialog = instrument_library.InstrumentLibraryDialog(

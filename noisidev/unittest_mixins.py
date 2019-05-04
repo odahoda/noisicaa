@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import contextlib
 import asyncio
 import logging
 import urllib.parse
@@ -292,3 +293,18 @@ class URIDMapperMixin(ProcessManagerMixin):
                 'SHUTDOWN_PROCESS',
                 editor_main_pb2.ShutdownProcessRequest(
                     address=self.urid_mapper_address))
+
+
+class NodeConnectorMixin(object):
+    async def setup_testcase(self):
+        self.messages = []
+
+    @contextlib.contextmanager
+    def connector(self, node):
+        connector = node.create_node_connector(
+            message_cb=self.messages.append, audioproc_client=None)
+        try:
+            yield connector.init()
+
+        finally:
+            connector.close()

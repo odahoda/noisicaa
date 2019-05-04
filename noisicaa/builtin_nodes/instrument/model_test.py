@@ -23,14 +23,18 @@
 from typing import cast
 
 from noisidev import unittest
+from noisidev import unittest_mixins
 from noisicaa.music import commands_test
 from noisicaa import music
+from noisicaa.audioproc.public import instrument_spec_pb2
 from . import model
-from . import commands
+from . import processor_messages
 
 
-class InstrumentTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
-
+class InstrumentTest(
+        unittest_mixins.NodeConnectorMixin,
+        commands_test.CommandsTestMixin,
+        unittest.AsyncTestCase):
     async def _add_node(self) -> model.Instrument:
         await self.client.send_command(music.create_node(
             'builtin://instrument'))
@@ -40,9 +44,23 @@ class InstrumentTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
         node = await self._add_node()
         self.assertIsInstance(node, model.Instrument)
 
+    async def test_connector_init(self):
+        node = await self._add_node()
+        with self.connector(node) as initial_messages:
+            self.assertEqual(initial_messages, [])
+
     async def test_change_instrument_uri(self):
         node = await self._add_node()
+        with self.connector(node):
+            with self.project.apply_mutations():
+                node.instrument_uri = 'sf2:/test.sf2?bank=2&preset=4'
 
-        await self.client.send_command(commands.update(
-            node, set_instrument_uri='blabla'))
-        self.assertEqual(node.instrument_uri, 'blabla')
+            self.assertEqual(
+                self.messages,
+                [processor_messages.change_instrument(
+                    node.pipeline_node_id,
+                    instrument_spec_pb2.InstrumentSpec(
+                        sf2=instrument_spec_pb2.SF2InstrumentSpec(
+                            path='/test.sf2',
+                            bank=2,
+                            preset=4)))])

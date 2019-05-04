@@ -23,37 +23,21 @@
 import logging
 from typing import Any, Optional, Dict, Callable
 
-from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import instrument_db
 from noisicaa import model_base
 from noisicaa.music import graph
-from noisicaa.music import commands
 from noisicaa.music import node_connector
 from noisicaa.builtin_nodes import model_registry_pb2
-from noisicaa.builtin_nodes import commands_registry_pb2
 from . import node_description
-from . import commands_pb2
 from . import processor_messages
 
 logger = logging.getLogger(__name__)
 
 
-class UpdateInstrument(commands.Command):
-    proto_type = 'update_instrument'
-    proto_ext = commands_registry_pb2.update_instrument
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateInstrument, self.pb)
-        node = down_cast(Instrument, self.pool[pb.node_id])
-
-        if pb.HasField('set_instrument_uri'):
-            node.instrument_uri = pb.set_instrument_uri
-
-
-class InstrumentConnector(node_connector.NodeConnector):
+class Connector(node_connector.NodeConnector):
     _node = None  # type: Instrument
 
     def __init__(self, **kwargs: Any) -> None:
@@ -114,9 +98,10 @@ class Instrument(graph.BaseNode):
     def create_node_connector(
             self, message_cb: Callable[[audioproc.ProcessorMessage], None],
             audioproc_client: audioproc.AbstractAudioProcClient,
-    ) -> InstrumentConnector:
-        return InstrumentConnector(
+    ) -> Connector:
+        return Connector(
             node=self, message_cb=message_cb, audioproc_client=audioproc_client)
+
     @property
     def description(self) -> node_db.NodeDescription:
         return node_description.InstrumentDescription
