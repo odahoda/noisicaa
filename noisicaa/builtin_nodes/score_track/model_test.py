@@ -20,13 +20,43 @@
 #
 # @end:license
 
+from typing import List
+
 from noisidev import unittest
+from noisidev import unittest_mixins
+from noisidev import demo_project
 from noisicaa import audioproc
 from noisicaa import value_types
 from noisicaa import music
 from noisicaa.music import base_track_test
+from noisicaa.music import project
 from . import model
 from . import commands
+
+
+class ScoreTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
+    async def setup_testcase(self):
+        self.pool = project.Pool()
+
+    def test_foo(self):
+        pr = demo_project.basic(self.pool, project.BaseProject, node_db=self.node_db)
+        tr = pr.nodes[-1]
+
+        messages = []  # type: List[str]
+
+        connector = tr.create_node_connector(
+            message_cb=messages.append, audioproc_client=None)
+        try:
+            messages.extend(connector.init())
+
+            tr.insert_measure(1)
+            m = tr.measure_list[1].measure
+            m.notes.append(self.pool.create(model.Note, pitches=[value_types.Pitch('D#4')]))
+
+            self.assertTrue(len(messages) > 0)
+
+        finally:
+            connector.close()
 
 
 class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):

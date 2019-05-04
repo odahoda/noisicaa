@@ -21,9 +21,8 @@
 add_python_package(
   node_description.py
   model.py
+  model_test.py
   commands.py
-  client_impl_test.py
-  server_impl_test.py
   node_ui.py
   track_ui.py
   track_ui_test.py

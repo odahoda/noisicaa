@@ -19,11 +19,10 @@
 # @end:license
 
 add_python_package(
+  commands.py
   node_description.py
   model.py
-  commands.py
-  client_impl_test.py
-  server_impl_test.py
+  model_test.py
   node_ui.py
   track_ui.py
   track_ui_test.py

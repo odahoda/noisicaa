@@ -20,13 +20,50 @@
 #
 # @end:license
 
-from typing import cast
+from typing import cast, List
 
 from noisidev import unittest
+from noisidev import unittest_mixins
+from noisicaa import audioproc
 from noisicaa.music import commands_test
+from noisicaa.music import project
 from noisicaa import music
 from . import model
 from . import commands
+from . import processor_messages
+
+
+class ConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
+    async def setup_testcase(self):
+        self.pool = project.Pool()
+        self.node = self.pool.create(model.MidiSource, name='test')
+        self.messages = []  # type: List[audioproc.ProcessorMessage]
+
+    def message_cb(self, msg):
+        self.messages.append(msg)
+
+    def test_messages_on_mutations(self):
+        connector = self.node.create_node_connector(
+            message_cb=self.message_cb, audioproc_client=None)
+        try:
+            self.assertEqual(
+                connector.init(),
+                [processor_messages.update(self.node.pipeline_node_id, '', -1)])
+
+            self.messages.clear()
+            self.node.device_uri = 'foo'
+            self.assertEqual(
+                self.messages,
+                [processor_messages.update(self.node.pipeline_node_id, device_uri='foo')])
+
+            self.messages.clear()
+            self.node.channel_filter = 2
+            self.assertEqual(
+                self.messages,
+                [processor_messages.update(self.node.pipeline_node_id, channel_filter=2)])
+
+        finally:
+            connector.close()
 
 
 class MidiSourceTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
