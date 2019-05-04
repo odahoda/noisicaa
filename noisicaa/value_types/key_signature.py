@@ -24,11 +24,11 @@ from typing import Dict, List
 
 from google.protobuf import message as protobuf
 
-from noisicaa import model_base
+from . import proto_value
 from . import value_types_pb2
 
 
-class KeySignature(model_base.ProtoValue):
+class KeySignature(proto_value.ProtoValue):
     _signatures = {
         'C major':  [],
         'A minor':  [],

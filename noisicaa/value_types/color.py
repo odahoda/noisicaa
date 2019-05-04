@@ -23,11 +23,11 @@
 import decimal
 from google.protobuf import message as protobuf
 
-from noisicaa import model_base
+from . import proto_value
 from . import value_types_pb2
 
 
-class Color(model_base.ProtoValue):
+class Color(proto_value.ProtoValue):
     def __init__(self, r: float, g: float, b: float, a: float = 1.0) -> None:
         self.__context = decimal.Context(prec=4)
         self.__r = self.__context.create_decimal_from_float(r)

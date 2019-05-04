@@ -23,10 +23,10 @@
 from google.protobuf import message as protobuf
 
 from noisicaa import audioproc
-from noisicaa import model_base
+from . import proto_value
 
 
-class ControlValue(model_base.ProtoValue):
+class ControlValue(proto_value.ProtoValue):
     def __init__(self, name: str, value: float, generation: int) -> None:
         self.__name = name
         self.__value = value

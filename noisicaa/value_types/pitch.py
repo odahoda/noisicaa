@@ -25,7 +25,7 @@ from typing import Optional, Union, Dict, List, Set, Tuple
 
 from google.protobuf import message as protobuf
 
-from noisicaa import model_base
+from . import proto_value
 from . import value_types_pb2
 from . import key_signature as key_signature_lib
 
@@ -60,7 +60,7 @@ def _fill_midi_maps(note_to_midi: Dict[str, int], midi_to_note: Dict[int, str]) 
 _fill_midi_maps(NOTE_TO_MIDI, MIDI_TO_NOTE)
 
 
-class Pitch(model_base.ProtoValue):
+class Pitch(proto_value.ProtoValue):
     _values = ['C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G',
                'G#', 'Ab', 'A', 'A#', 'Bb', 'B']
 

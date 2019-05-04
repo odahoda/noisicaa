@@ -25,6 +25,7 @@ from typing import cast, Any, Optional, Type, Iterator, List, Tuple
 
 from noisidev import unittest
 from noisicaa import core
+from noisicaa import value_types
 from . import model_base
 from . import model_base_pb2
 from . import model_base_test_pb2
@@ -41,7 +42,7 @@ class Pool(collections.UserDict, model_base.AbstractPool[model_base.ObjectBase])
         raise NotImplementedError
 
 
-class Proto(model_base.ProtoValue):
+class Proto(value_types.ProtoValue):
     def __init__(self, a, b):
         self.a = a
         self.b = b

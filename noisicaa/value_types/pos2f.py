@@ -22,11 +22,11 @@
 
 from google.protobuf import message as protobuf
 
-from noisicaa import model_base
+from . import proto_value
 from . import value_types_pb2
 
 
-class Pos2F(model_base.ProtoValue):
+class Pos2F(proto_value.ProtoValue):
     def __init__(self, x: float, y: float) -> None:
         self.__x = float(x)
         self.__y = float(y)

@@ -22,11 +22,11 @@
 
 from google.protobuf import message as protobuf
 
-from noisicaa import model_base
+from . import proto_value
 from . import value_types_pb2
 
 
-class SizeF(model_base.ProtoValue):
+class SizeF(proto_value.ProtoValue):
     def __init__(self, width: float, height: float) -> None:
         self.__width = float(width)
         self.__height = float(height)

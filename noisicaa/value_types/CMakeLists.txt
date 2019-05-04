@@ -28,6 +28,7 @@ add_python_package(
   pitch.py
   pitch_test.py
   pos2f.py
+  proto_value.py
   sizef.py
   time_signature.py
   time_signature_test.py

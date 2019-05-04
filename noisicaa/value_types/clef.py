@@ -24,13 +24,13 @@ import enum
 
 from google.protobuf import message as protobuf
 
-from noisicaa import model_base
+from . import proto_value
 from . import value_types_pb2
 from . import pitch
 
 
 @enum.unique
-class Clef(model_base.ProtoValue, enum.Enum):
+class Clef(proto_value.ProtoValue, enum.Enum):
     FrenchViolin = 'french-violin'
     Treble = 'treble'
     Soprano = 'soprano'

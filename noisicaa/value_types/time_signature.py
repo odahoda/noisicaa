@@ -24,11 +24,11 @@ from typing import Tuple
 
 from google.protobuf import message as protobuf
 
-from noisicaa import model_base
+from . import proto_value
 from . import value_types_pb2
 
 
-class TimeSignature(model_base.ProtoValue):
+class TimeSignature(proto_value.ProtoValue):
     def __init__(self, upper: int = 4, lower: int = 4) -> None:
         if upper < 1 or upper > 99:
             raise ValueError("Bad time signature %r/%r" % (upper, lower))

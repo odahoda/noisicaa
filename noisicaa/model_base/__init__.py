@@ -38,8 +38,6 @@ from .model_base import (
     PropertyListInsert, PropertyListDelete, PropertyListSet,
 
     AbstractPool, Pool,
-
-    ProtoValue,
 )
 from .model_base_pb2 import (
     ObjectTree,

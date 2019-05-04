@@ -32,10 +32,11 @@ from typing import (
 from google.protobuf import message as protobuf
 from google.protobuf.internal import containers as protobuf_containers
 
+from noisicaa import value_types
 from . import model_base_pb2
 
 if typing.TYPE_CHECKING:
-    from google.protobuf import descriptor as protobuf_descriptor
+    from google.protobuf import descriptor as protobuf_descriptor  # pylint: disable=ungrouped-imports
 
 
 def _checktype(o: Any, t: Type) -> None:
@@ -45,7 +46,7 @@ def _checktype(o: Any, t: Type) -> None:
 
 VALUE = TypeVar('VALUE')
 PROTO = TypeVar('PROTO', bound=protobuf.Message)
-PROTOVAL = TypeVar('PROTOVAL', bound='ProtoValue')
+PROTOVAL = TypeVar('PROTOVAL', bound=value_types.ProtoValue)
 OBJECT = TypeVar('OBJECT', bound='ObjectBase')
 POOLOBJECTBASE = TypeVar('POOLOBJECTBASE', bound='ObjectBase')
 
@@ -162,17 +163,6 @@ class PropertyListSet(Generic[VALUE], PropertyListChange[VALUE]):
 
     def __str__(self) -> str:
         return self._fmt(index=self.index, old=self.old_value, new=self.new_value)
-
-
-# TODO: use a protocol instead of a base class
-#   Then I can use MusicalTime without hassle
-class ProtoValue(object):
-    def to_proto(self) -> protobuf.Message:
-        raise NotImplementedError  # pragma: no coverage
-
-    @classmethod
-    def from_proto(cls, pb: protobuf.Message) -> 'ProtoValue':
-        raise NotImplementedError  # pragma: no coverage
 
 
 class BaseList(Generic[VALUE], MutableSequence[VALUE]):
