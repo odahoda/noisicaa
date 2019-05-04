@@ -23,35 +23,17 @@
 import logging
 from typing import Any, Optional, Dict, Callable
 
-from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import node_db
 from noisicaa import model_base
 from noisicaa import audioproc
 from noisicaa.music import graph
 from noisicaa.music import node_connector
-from noisicaa.music import commands
-from noisicaa.builtin_nodes import commands_registry_pb2
 from noisicaa.builtin_nodes import model_registry_pb2
-from . import commands_pb2
 from . import processor_messages
 from . import node_description
 
 logger = logging.getLogger(__name__)
-
-class UpdateMidiSource(commands.Command):
-    proto_type = 'update_midi_source'
-    proto_ext = commands_registry_pb2.update_midi_source
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateMidiSource, self.pb)
-        node = down_cast(MidiSource, self.pool[pb.node_id])
-
-        if pb.HasField('set_device_uri'):
-            node.device_uri = pb.set_device_uri
-
-        if pb.HasField('set_channel_filter'):
-            node.channel_filter = pb.set_channel_filter
 
 
 class Connector(node_connector.NodeConnector):

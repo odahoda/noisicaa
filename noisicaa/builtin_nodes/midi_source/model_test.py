@@ -20,54 +20,20 @@
 #
 # @end:license
 
-from typing import cast, List
+from typing import cast
 
 from noisidev import unittest
 from noisidev import unittest_mixins
-from noisicaa import audioproc
 from noisicaa.music import commands_test
-from noisicaa.music import project
 from noisicaa import music
 from . import model
-from . import commands
 from . import processor_messages
 
 
-class ConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
-    async def setup_testcase(self):
-        self.pool = project.Pool()
-        self.node = self.pool.create(model.MidiSource, name='test')
-        self.messages = []  # type: List[audioproc.ProcessorMessage]
-
-    def message_cb(self, msg):
-        self.messages.append(msg)
-
-    def test_messages_on_mutations(self):
-        connector = self.node.create_node_connector(
-            message_cb=self.message_cb, audioproc_client=None)
-        try:
-            self.assertEqual(
-                connector.init(),
-                [processor_messages.update(self.node.pipeline_node_id, '', -1)])
-
-            self.messages.clear()
-            self.node.device_uri = 'foo'
-            self.assertEqual(
-                self.messages,
-                [processor_messages.update(self.node.pipeline_node_id, device_uri='foo')])
-
-            self.messages.clear()
-            self.node.channel_filter = 2
-            self.assertEqual(
-                self.messages,
-                [processor_messages.update(self.node.pipeline_node_id, channel_filter=2)])
-
-        finally:
-            connector.close()
-
-
-class MidiSourceTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
-
+class MidiSourceTest(
+        unittest_mixins.NodeConnectorMixin,
+        commands_test.CommandsTestMixin,
+        unittest.AsyncTestCase):
     async def _add_node(self) -> model.MidiSource:
         await self.client.send_command(music.create_node(
             'builtin://midi-source'))
@@ -77,16 +43,27 @@ class MidiSourceTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
         node = await self._add_node()
         self.assertIsInstance(node, model.MidiSource)
 
+    async def test_connector_init(self):
+        node = await self._add_node()
+        with self.connector(node) as initial_messages:
+            self.assertEqual(
+                initial_messages,
+                [processor_messages.update(node.pipeline_node_id, '', -1)])
+
     async def test_set_device_uri(self):
         node = await self._add_node()
-
-        await self.client.send_command(commands.update(
-            node, set_device_uri='blabla'))
-        self.assertEqual(node.device_uri, 'blabla')
+        with self.connector(node):
+            with self.project.apply_mutations():
+                node.device_uri = 'foo'
+            self.assertEqual(
+                self.messages,
+                [processor_messages.update(node.pipeline_node_id, device_uri='foo')])
 
     async def test_set_channel_filter(self):
         node = await self._add_node()
-
-        await self.client.send_command(commands.update(
-            node, set_channel_filter=2))
-        self.assertEqual(node.channel_filter, 2)
+        with self.connector(node):
+            with self.project.apply_mutations():
+                node.channel_filter = 2
+            self.assertEqual(
+                self.messages,
+                [processor_messages.update(node.pipeline_node_id, channel_filter=2)])

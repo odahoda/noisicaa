@@ -36,7 +36,6 @@ from noisicaa.ui import piano
 from noisicaa.ui import ui_base
 from noisicaa.ui.graph import base_node
 from . import model
-from . import commands
 from . import processor_messages
 
 logger = logging.getLogger(__name__)
@@ -97,8 +96,8 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
 
     def __deviceURIEdited(self, uri: str) -> None:
         if uri != self.__node.device_uri:
-            self.send_command_async(commands.update(
-                self.__node, set_device_uri=uri))
+            with self.project.apply_mutations():
+                self.__node.device_uri = uri
 
     def __channelFilterChanged(self, change: model_base.PropertyValueChange[int]) -> None:
         for idx in range(self.__channel_filter.count()):
@@ -108,8 +107,8 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
     def __channelFilterEdited(self) -> None:
         channel_filter = self.__channel_filter.currentData()
         if channel_filter != self.__node.channel_filter:
-            self.send_command_async(commands.update(
-                self.__node, set_channel_filter=channel_filter))
+            with self.project.apply_mutations():
+                self.__node.channel_filter = channel_filter
 
     def __noteOn(self, pitch: value_types.Pitch) -> None:
         if self.__node.channel_filter >= 0:
