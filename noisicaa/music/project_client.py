@@ -41,7 +41,6 @@ from noisicaa.core import ipc
 from noisicaa.core import session_data_pb2
 from . import render_pb2
 from . import commands_pb2
-from . import project_process_context
 from . import project as project_lib
 from . import writer_client
 from . import render
@@ -246,9 +245,10 @@ class ProjectClient(object):
         self.__tmp_dir = tmp_dir
         self.__manager = manager
 
-        self.__ctxt = project_process_context.ProjectProcessContext()
-        self.__ctxt.node_db = node_db
-        self.__ctxt.urid_mapper = urid_mapper
+        self.__node_db = node_db
+        self.__urid_mapper = urid_mapper
+        self.__pool = None  # type: project_lib.Pool
+        self.__project = None  # type: project_lib.BaseProject
         self.__writer_client = None  # type: writer_client.WriterClient
         self.__writer_address = None  # type: str
         self.__session_values = None  # type: session_value_store.SessionValueStore
@@ -259,7 +259,7 @@ class ProjectClient(object):
 
     @property
     def project(self) -> project_lib.BaseProject:
-        return self.__ctxt.project
+        return self.__project
 
     async def setup(self) -> None:
         cb_endpoint = ipc.ServerEndpoint(self.__cb_endpoint_name)
@@ -301,7 +301,7 @@ class ProjectClient(object):
         session_name = '%s.%s' % (getpass.getuser(), socket.getfqdn())
         self.__session_values = session_value_store.SessionValueStore(
             self.__event_loop, session_name)
-        await self.__session_values.init(self.__ctxt.project.data_dir)
+        await self.__session_values.init(self.__project.data_dir)
 
         for session_value in self.__session_values.values():
             self.__session_data_listeners.call(
@@ -315,7 +315,7 @@ class ProjectClient(object):
             request: audioproc.ControlValueChange,
             response: empty_message_pb2.EmptyMessage
     ) -> None:
-        assert self.__ctxt.project is not None
+        assert self.__project is not None
 
         logger.info(
             "control_value_change(%s, %s, %s, %f, %d)",
@@ -323,7 +323,7 @@ class ProjectClient(object):
             request.value.name, request.value.value, request.value.generation)
 
         node = None
-        for node in self.__ctxt.project.nodes:
+        for node in self.__project.nodes:
             if node.pipeline_node_id == request.node_id:
                 break
 
@@ -337,17 +337,17 @@ class ProjectClient(object):
                     node_id=node.id,
                     set_control_value=request.value))])
 
-        self.__ctxt.project.dispatch_command_sequence_proto(seq)
+        self.__project.dispatch_command_sequence_proto(seq)
 
     async def __handle_plugin_state_change(
             self,
             request: audioproc.PluginStateChange,
             response: empty_message_pb2.EmptyMessage
     ) -> None:
-        assert self.__ctxt.project is not None
+        assert self.__project is not None
 
         node = None
-        for node in self.__ctxt.project.nodes:
+        for node in self.__project.nodes:
             if node.pipeline_node_id == request.node_id:
                 break
         else:
@@ -360,48 +360,48 @@ class ProjectClient(object):
                     node_id=node.id,
                     set_plugin_state=request.state))])
 
-        self.__ctxt.project.dispatch_command_sequence_proto(seq)
+        self.__project.dispatch_command_sequence_proto(seq)
 
     async def create(self, path: str) -> None:
-        assert self.__ctxt.project is None
+        assert self.__project is None
 
         await self.__create_writer()
 
-        self.__ctxt.pool = project_lib.Pool(project_cls=project_lib.Project)
-        self.__ctxt.project = await project_lib.Project.create_blank(
+        self.__pool = project_lib.Pool(project_cls=project_lib.Project)
+        self.__project = await project_lib.Project.create_blank(
             path=path,
-            pool=self.__ctxt.pool,
+            pool=self.__pool,
             writer=self.__writer_client,
-            node_db=self.__ctxt.node_db)
+            node_db=self.__node_db)
         await self.__init_session_data()
 
     async def create_inmemory(self) -> None:
-        assert self.__ctxt.project is None
+        assert self.__project is None
 
-        self.__ctxt.pool = project_lib.Pool()
-        self.__ctxt.project = self.__ctxt.pool.create(
-            project_lib.BaseProject, node_db=self.__ctxt.node_db)
-        self.__ctxt.pool.set_root(self.__ctxt.project)
+        self.__pool = project_lib.Pool()
+        self.__project = self.__pool.create(
+            project_lib.BaseProject, node_db=self.__node_db)
+        self.__pool.set_root(self.__project)
         await self.__init_session_data()
 
     async def open(self, path: str) -> None:
-        assert self.__ctxt.project is None
+        assert self.__project is None
 
         await self.__create_writer()
 
-        self.__ctxt.pool = project_lib.Pool(project_cls=project_lib.Project)
-        self.__ctxt.project = await project_lib.Project.open(
+        self.__pool = project_lib.Pool(project_cls=project_lib.Project)
+        self.__project = await project_lib.Project.open(
             path=path,
-            pool=self.__ctxt.pool,
+            pool=self.__pool,
             writer=self.__writer_client,
-            node_db=self.__ctxt.node_db)
+            node_db=self.__node_db)
         await self.__init_session_data()
 
     async def close(self) -> None:
-        if self.__ctxt.project is not None:
-            await self.__ctxt.project.close()
-            self.__ctxt.project = None
-            self.__ctxt.pool = None
+        if self.__project is not None:
+            await self.__project.close()
+            self.__project = None
+            self.__pool = None
 
         if self.__writer_client is not None:
             await self.__writer_client.close()
@@ -425,41 +425,41 @@ class ProjectClient(object):
 
     # TODO: make this sync
     async def send_command_sequence(self, sequence: commands_pb2.CommandSequence) -> None:
-        assert self.__ctxt.project is not None
-        self.__ctxt.project.dispatch_command_sequence_proto(sequence)
+        assert self.__project is not None
+        self.__project.dispatch_command_sequence_proto(sequence)
 
     async def undo(self) -> None:
-        assert self.__ctxt.project is not None
-        assert isinstance(self.__ctxt.project, project_lib.Project)
+        assert self.__project is not None
+        assert isinstance(self.__project, project_lib.Project)
 
         # TODO: merge fetch_unddo/undo again.
-        undo_response = await self.__ctxt.project.fetch_undo()
+        undo_response = await self.__project.fetch_undo()
         if undo_response is not None:
             action, sequence_data = undo_response
-            self.__ctxt.project.undo(action, sequence_data)
+            self.__project.undo(action, sequence_data)
 
     async def redo(self) -> None:
-        assert self.__ctxt.project is not None
-        assert isinstance(self.__ctxt.project, project_lib.Project)
+        assert self.__project is not None
+        assert isinstance(self.__project, project_lib.Project)
 
         # TODO: merge fetch_redo/redo again.
-        redo_response = await self.__ctxt.project.fetch_redo()
+        redo_response = await self.__project.fetch_redo()
         if redo_response is not None:
             action, sequence_data = redo_response
-            self.__ctxt.project.redo(action, sequence_data)
+            self.__project.redo(action, sequence_data)
 
     async def create_player(self, *, audioproc_address: str) -> Tuple[str, str]:
-        assert self.__ctxt.project is not None
+        assert self.__project is not None
 
         logger.info("Creating audioproc client...")
         audioproc_client = audioproc.AudioProcClient(
-            self.__event_loop, self.__server, self.__ctxt.urid_mapper)
+            self.__event_loop, self.__server, self.__urid_mapper)
         await audioproc_client.setup()
 
         logger.info("Connecting audioproc client...")
         await audioproc_client.connect(audioproc_address)
 
-        realm_name = 'project:%s' % self.__ctxt.project.id
+        realm_name = 'project:%s' % self.__project.id
         logger.info("Creating realm '%s'...", realm_name)
         await audioproc_client.create_realm(
             name=realm_name,
@@ -468,7 +468,7 @@ class ProjectClient(object):
             callback_address=self.__cb_endpoint_address)
 
         player = player_lib.Player(
-            project=self.__ctxt.project,
+            project=self.__project,
             callback_address=self.__cb_endpoint_address,
             event_loop=self.__event_loop,
             audioproc_client=audioproc_client,
@@ -510,17 +510,17 @@ class ProjectClient(object):
     async def render(
             self, callback_address: str, render_settings: render_pb2.RenderSettings
     ) -> None:
-        assert self.__ctxt.project is not None
+        assert self.__project is not None
 
         renderer = render.Renderer(
-            project=self.__ctxt.project,
+            project=self.__project,
             tmp_dir=self.__tmp_dir,
             server=self.__server,
             manager=self.__manager,
             event_loop=self.__event_loop,
             callback_address=callback_address,
             render_settings=render_settings,
-            urid_mapper=self.__ctxt.urid_mapper,
+            urid_mapper=self.__urid_mapper,
         )
         await renderer.run()
 

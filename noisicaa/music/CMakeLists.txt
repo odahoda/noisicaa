@@ -36,7 +36,6 @@ add_python_package(
   project_client.py
   project_client_test.py
   project_integration_test.py
-  project_process_context.py
   project_test.py
   render.py
   render_test.py
