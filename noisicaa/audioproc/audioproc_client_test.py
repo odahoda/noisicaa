@@ -27,10 +27,7 @@ import async_generator
 
 from noisidev import unittest
 from noisidev import unittest_mixins
-from noisicaa.constants import TEST_OPTS
-from noisicaa import lv2
 from noisicaa import node_db
-from noisicaa import editor_main_pb2
 from . import audioproc_client
 from .public import engine_notification_pb2
 
@@ -40,6 +37,7 @@ logger = logging.getLogger(__name__)
 class AudioProcClientTest(
         unittest_mixins.ServerMixin,
         unittest_mixins.NodeDBMixin,
+        unittest_mixins.URIDMapperMixin,
         unittest_mixins.ProcessManagerMixin,
         unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
@@ -78,7 +76,6 @@ class AudioProcClientTest(
     @async_generator.asynccontextmanager
     @async_generator.async_generator
     async def create_process(self, *, inline_plugin_host=True, inline_audioproc=True):
-        self.setup_urid_mapper_process(inline=True)
         self.setup_plugin_host_process(inline=inline_plugin_host)
 
         if inline_audioproc:
@@ -90,17 +87,7 @@ class AudioProcClientTest(
                 name='audioproc',
                 entry='noisicaa.audioproc.audioproc_process.AudioProcSubprocess')
 
-        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
-        await self.process_manager_client.call(
-            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
-        urid_mapper_address = create_urid_mapper_response.address
-
-        urid_mapper = lv2.ProxyURIDMapper(
-            server_address=urid_mapper_address,
-            tmp_dir=TEST_OPTS.TMP_DIR)
-        await urid_mapper.setup(self.loop)
-
-        client = audioproc_client.AudioProcClient(self.loop, self.server, urid_mapper)
+        client = audioproc_client.AudioProcClient(self.loop, self.server, self.urid_mapper)
         await client.setup()
         await client.connect(proc.address)
         try:
@@ -110,8 +97,6 @@ class AudioProcClientTest(
         finally:
             await client.disconnect()
             await client.cleanup()
-
-            await urid_mapper.cleanup(self.loop)
 
             await proc.shutdown()
 

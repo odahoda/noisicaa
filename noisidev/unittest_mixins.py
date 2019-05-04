@@ -26,6 +26,7 @@ import urllib.parse
 
 from noisicaa import core
 from noisicaa import editor_main_pb2
+from noisicaa import lv2
 from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
@@ -79,6 +80,7 @@ class ProcessManagerMixin(object):
 
         self.__urid_mapper_address = None
         self.__urid_mapper_lock = None
+        self.__urid_mapper_created = None
 
     async def setup_testcase(self):
         self.process_manager = core.ProcessManager(event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
@@ -185,12 +187,18 @@ class ProcessManagerMixin(object):
         response.address = self.__urid_mapper_address
 
     def setup_urid_mapper_process(self, *, inline):
+        if self.__urid_mapper_created is not None:
+            assert self.__urid_mapper_created == inline
+            return
+
         async def wrap(request, response):
             await self.__create_urid_mapper_process(inline, request, response)
 
         self.process_manager.server['main'].add_handler(
             'CREATE_URID_MAPPER_PROCESS', wrap,
             empty_message_pb2.EmptyMessage, editor_main_pb2.CreateProcessResponse)
+
+        self.__urid_mapper_created = inline
 
     async def __create_audioproc_process(self, inline, request, response):
         if inline:
@@ -253,3 +261,34 @@ class ProcessManagerMixin(object):
         self.process_manager.server['main'].add_handler(
             'CREATE_WRITER_PROCESS', wrap,
             empty_message_pb2.EmptyMessage, editor_main_pb2.CreateProcessResponse)
+
+
+class URIDMapperMixin(ProcessManagerMixin):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.urid_mapper_address = None  # type: str
+        self.urid_mapper = None  # type: lv2.ProxyURIDMapper
+
+    async def setup_testcase(self):
+        self.setup_urid_mapper_process(inline=True)
+
+        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
+        self.urid_mapper_address = create_urid_mapper_response.address
+
+        self.urid_mapper = lv2.ProxyURIDMapper(
+            server_address=self.urid_mapper_address,
+            tmp_dir=TEST_OPTS.TMP_DIR)
+        await self.urid_mapper.setup(self.loop)
+
+    async def cleanup_testcase(self):
+        if self.urid_mapper is not None:
+            await self.urid_mapper.cleanup(self.loop)
+
+        if self.urid_mapper_address is not None:
+            await self.process_manager_client.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.urid_mapper_address))

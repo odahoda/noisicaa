@@ -242,27 +242,18 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
             await self.process.cleanup()
 
 
-class ProjectMixin(unittest_mixins.ServerMixin, UITestCase):
+class ProjectMixin(
+        unittest_mixins.ServerMixin,
+        unittest_mixins.URIDMapperMixin,
+        UITestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.urid_mapper_address = None  # type: str
-        self.urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.project_client = None
         self.project = None
 
     async def setup_testcase(self):
         self.setup_writer_process(inline=True)
-
-        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
-        await self.process_manager_client.call(
-            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
-        self.urid_mapper_address = create_urid_mapper_response.address
-
-        self.urid_mapper = lv2.ProxyURIDMapper(
-            server_address=self.urid_mapper_address,
-            tmp_dir=TEST_OPTS.TMP_DIR)
-        await self.urid_mapper.setup(self.loop)
 
         self.project_client = music.ProjectClient(
             event_loop=self.loop,
@@ -281,12 +272,3 @@ class ProjectMixin(unittest_mixins.ServerMixin, UITestCase):
     async def cleanup_testcase(self):
         if self.project_client is not None:
             await self.project_client.cleanup()
-
-        if self.urid_mapper is not None:
-            await self.urid_mapper.cleanup(self.loop)
-
-        if self.urid_mapper_address is not None:
-            await self.process_manager_client.call(
-                'SHUTDOWN_PROCESS',
-                editor_main_pb2.ShutdownProcessRequest(
-                    address=self.urid_mapper_address))
