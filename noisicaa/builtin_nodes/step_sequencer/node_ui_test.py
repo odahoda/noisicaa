@@ -21,16 +21,14 @@
 # @end:license
 
 from noisidev import uitest
-from noisicaa import music
 from . import node_ui
 from . import commands
 
 
 class StepSequencerNodeTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        await self.project_client.send_command(music.create_node(
-            uri='builtin://step-sequencer'))
-        self.node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            self.node = self.project.create_node('builtin://step-sequencer')
 
     async def test_init(self):
         widget = node_ui.StepSequencerNode(node=self.node, context=self.context)
@@ -39,9 +37,8 @@ class StepSequencerNodeTest(uitest.ProjectMixin, uitest.UITestCase):
 
 class StepSequencerNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        await self.project_client.send_command(music.create_node(
-            uri='builtin://step-sequencer'))
-        self.node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            self.node = self.project.create_node('builtin://step-sequencer')
 
     async def test_init(self):
         widget = node_ui.StepSequencerNodeWidget(node=self.node, context=self.context)

@@ -136,11 +136,8 @@ class ProjectTest(
             writer=self.writer_client,
             node_db=self.node_db)
         try:
-            p.dispatch_command_sequence_proto(commands_pb2.CommandSequence(
-                commands=[commands_pb2.Command(
-                    command='create_node',
-                    create_node=commands_pb2.CreateNode(
-                        uri='builtin://score-track'))]))
+            with p.apply_mutations():
+                p.create_node('builtin://score-track')
             num_nodes = len(p.nodes)
             track_id = p.nodes[-1].id
         finally:

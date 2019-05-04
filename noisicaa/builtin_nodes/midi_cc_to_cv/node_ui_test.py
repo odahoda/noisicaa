@@ -24,16 +24,14 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
 from noisidev import uitest
-from noisicaa import music
 from . import node_ui
 from . import commands
 
 
 class MidiCCtoCVNodeTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        await self.project_client.send_command(music.create_node(
-            uri='builtin://midi-cc-to-cv'))
-        self.node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            self.node = self.project.create_node('builtin://midi-cc-to-cv')
 
     async def test_init(self):
         widget = node_ui.MidiCCtoCVNode(node=self.node, context=self.context)
@@ -47,9 +45,8 @@ class MidiCCtoCVNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
         self.widget = None
 
     async def setup_testcase(self):
-        await self.project_client.send_command(music.create_node(
-            uri='builtin://midi-cc-to-cv'))
-        self.node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            self.node = self.project.create_node('builtin://midi-cc-to-cv')
 
         self.widget = node_ui.MidiCCtoCVNodeWidget(node=self.node, context=self.context)
 

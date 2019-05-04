@@ -478,11 +478,12 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
             node.setSelected(False)
 
     def insertNode(self, uri: str, pos: QtCore.QPointF) -> None:
-        self.send_command_async(music.create_node(
-            uri,
-            graph_pos=value_types.Pos2F(pos.x(), pos.y()),
-            graph_size=value_types.SizeF(200, 100),
-            graph_color=value_types.Color(0.8, 0.8, 0.8)))
+        with self.project.apply_mutations():
+            self.project.create_node(
+                uri,
+                graph_pos=value_types.Pos2F(pos.x(), pos.y()),
+                graph_size=value_types.SizeF(200, 100),
+                graph_color=value_types.Color(0.8, 0.8, 0.8))
 
 
 class Zoom(object):

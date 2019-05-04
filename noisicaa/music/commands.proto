@@ -124,7 +124,6 @@ message Command {
   optional EmptyMessage crash = 100001;
 
   // Pipeline graph (3xxxxx)
-  optional CreateNode create_node = 300000;
   optional UpdateNode update_node = 300001;
   optional DeleteNode delete_node = 300002;
 

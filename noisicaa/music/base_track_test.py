@@ -35,17 +35,15 @@ class TrackTestMixin(commands_test.CommandsTestMixin):
     track_cls = None  # type: Type[base_track.Track]
 
     async def test_add_remove(self) -> None:
-        await self.client.send_command(project_client.create_node(
-            self.node_uri))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            node = self.project.create_node(self.node_uri)
         assert isinstance(node, self.track_cls)
 
         await self.client.send_command(project_client.delete_node(node))
 
     async def _add_track(self) -> base_track.Track:
-        await self.client.send_command(project_client.create_node(
-            self.node_uri))
-        return cast(base_track.Track, self.project.nodes[-1])
+        with self.project.apply_mutations():
+            return cast(base_track.Track, self.project.create_node(self.node_uri))
 
 
 # class BaseTrackTest(TrackTestMixin, unittest.AsyncTestCase):

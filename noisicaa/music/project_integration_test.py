@@ -34,7 +34,6 @@ from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
 from noisicaa.model_base import model_base_pb2
 from . import project_client
-from . import commands_pb2
 from . import project as project_lib
 
 logger = logging.getLogger(__name__)
@@ -136,11 +135,14 @@ class ProjectIntegrationTest(
         project = client.project
         return project, project._pool
 
-    async def send_command(self, client, pool, **kwargs):
+    @async_generator.asynccontextmanager
+    @async_generator.async_generator
+    async def apply_mutations(self, project, client, pool):
         snapshot_before = self.create_pool_snapshot(pool)
 
-        cmd = commands_pb2.Command(**kwargs)
-        result = await client.send_command(cmd)
+        with project.apply_mutations():
+            await async_generator.yield_()
+
         snapshot_after = self.create_pool_snapshot(pool)
 
         # Undo and redo this command, and check that project states remain correct.
@@ -149,22 +151,15 @@ class ProjectIntegrationTest(
         await client.redo()
         self.assertSnapshotsEqual(self.create_pool_snapshot(pool), snapshot_after)
 
-        return result
-
     async def test_script1(self):
         # Create a new process, connect to it and create a blank project.
         async with self.create_client() as client:
-            _, pool, path = await self.create_project(client)
+            project, pool, path = await self.create_project(client)
             #snapshot_blank = self.create_pool_snapshot(pool)
 
             # Create track1 (ScoreTrack)
-            #insert_index =
-            await self.send_command(
-                client, pool,
-                command='create_node',
-                create_node=commands_pb2.CreateNode(
-                    uri='builtin://score-track'))
-            #track1 = project.master_group.tracks[insert_index]
+            async with self.apply_mutations(project, client, pool):
+                project.create_node('builtin://score-track')
 
             # Disconnect from and shutdown process, without calling close().
             snapshot_before_disconnect = self.create_pool_snapshot(pool)

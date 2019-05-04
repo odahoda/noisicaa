@@ -68,24 +68,6 @@ def update_project(
             set_bpm=set_bpm))
 
 
-def create_node(
-        uri: str,
-        *,
-        name: str = None,
-        graph_pos: value_types.Pos2F = None,
-        graph_size: value_types.SizeF = None,
-        graph_color: value_types.Color = None,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='create_node',
-        create_node=commands_pb2.CreateNode(
-            uri=uri,
-            name=name,
-            graph_pos=graph_pos.to_proto() if graph_pos is not None else None,
-            graph_size=graph_size.to_proto() if graph_size is not None else None,
-            graph_color=graph_color.to_proto() if graph_color is not None else None))
-
-
 def update_node(
         node: graph.BaseNode,
         *,

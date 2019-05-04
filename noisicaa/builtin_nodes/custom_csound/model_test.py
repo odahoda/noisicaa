@@ -24,7 +24,6 @@ from typing import cast
 
 from noisidev import unittest
 from noisicaa.music import commands_test
-from noisicaa import music
 from . import model
 from . import commands
 
@@ -32,9 +31,10 @@ from . import commands
 class CustomCSoundTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
 
     async def _add_node(self) -> model.CustomCSound:
-        await self.client.send_command(music.create_node(
-            'builtin://custom-csound'))
-        return cast(model.CustomCSound, self.project.nodes[-1])
+        with self.project.apply_mutations():
+            return cast(
+                model.CustomCSound,
+                self.project.create_node('builtin://custom-csound'))
 
     async def test_add_node(self):
         node = await self._add_node()

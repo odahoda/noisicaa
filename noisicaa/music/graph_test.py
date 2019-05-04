@@ -35,27 +35,23 @@ logger = logging.getLogger(__name__)
 
 class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
     async def test_create_node(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://midi-source',
-            name='test_node'))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            node = self.project.create_node(
+                'builtin://midi-source',
+                name='test_node')
         self.assertEqual(node.name, 'test_node')
 
     async def test_delete_node(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://midi-source'))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            node = self.project.create_node('builtin://midi-source')
 
         await self.client.send_command(project_client.delete_node(node))
         self.assertNotIn(node.id, [n.id for n in self.project.nodes])
 
     async def test_create_node_connection(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://midi-source'))
-        node1 = self.project.nodes[-1]
-        await self.client.send_command(project_client.create_node(
-            'builtin://instrument'))
-        node2 = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            node1 = self.project.create_node('builtin://midi-source')
+            node2 = self.project.create_node('builtin://instrument')
 
         await self.client.send_command(project_client.create_node_connection(
             source_node=node1, source_port='out',
@@ -67,12 +63,9 @@ class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
         self.assertEqual(conn.dest_port, 'in')
 
     async def test_delete_node_connection(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://midi-source'))
-        node1 = self.project.nodes[-1]
-        await self.client.send_command(project_client.create_node(
-            'builtin://instrument'))
-        node2 = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            node1 = self.project.create_node('builtin://midi-source')
+            node2 = self.project.create_node('builtin://instrument')
         await self.client.send_command(project_client.create_node_connection(
             source_node=node1, source_port='out',
             dest_node=node2, dest_port='in'))
@@ -82,10 +75,10 @@ class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
         self.assertNotIn(conn.id, [c.id for c in self.project.node_connections])
 
     async def test_set_graph_pos(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://csound/reverb',
-            graph_pos=value_types.Pos2F(200, 100)))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            node = self.project.create_node(
+                'builtin://csound/reverb',
+                graph_pos=value_types.Pos2F(200, 100))
 
         await self.client.send_command(project_client.update_node(
             node,
@@ -93,9 +86,8 @@ class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
         self.assertEqual(node.graph_pos, value_types.Pos2F(100, 300))
 
     async def test_set_control_value(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://mixer'))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            node = self.project.create_node('builtin://mixer')
 
         changes = []  # type: List[model_base.PropertyValueChange]
         node.control_value_map.init()
@@ -116,10 +108,8 @@ class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
         self.assertEqual(changes[0].new_value, value_types.ControlValue('gain', 1.0, 12))
 
     async def test_set_plugin_state(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://csound/reverb',
-            graph_pos=value_types.Pos2F(200, 100)))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            node = self.project.create_node('builtin://csound/reverb')
 
         plugin_state = audioproc.PluginState(
             lv2=audioproc.PluginStateLV2(
@@ -134,10 +124,8 @@ class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase)
         self.assertEqual(node.plugin_state, plugin_state)
 
     async def test_set_port_properties(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://csound/reverb',
-            graph_pos=value_types.Pos2F(200, 100)))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            node = self.project.create_node('builtin://csound/reverb')
 
         await self.client.send_command(project_client.update_node(
             node,

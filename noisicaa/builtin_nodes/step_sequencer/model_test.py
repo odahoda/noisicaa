@@ -24,7 +24,6 @@ from typing import cast
 
 from noisidev import unittest
 from noisicaa.music import commands_test
-from noisicaa import music
 from . import model_pb2
 from . import model
 from . import commands
@@ -33,9 +32,10 @@ from . import commands
 class StepSequencerTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
 
     async def _add_node(self) -> model.StepSequencer:
-        await self.client.send_command(music.create_node(
-            'builtin://step-sequencer'))
-        return cast(model.StepSequencer, self.project.nodes[-1])
+        with self.project.apply_mutations():
+            return cast(
+                model.StepSequencer,
+                self.project.create_node('builtin://step-sequencer'))
 
     async def test_add_node(self):
         node = await self._add_node()

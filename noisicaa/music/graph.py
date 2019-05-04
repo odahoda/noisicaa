@@ -39,39 +39,6 @@ from . import commands_pb2
 logger = logging.getLogger(__name__)
 
 
-class CreateNode(commands.Command):
-    proto_type = 'create_node'
-
-    def validate(self) -> None:
-        pb = down_cast(commands_pb2.CreateNode, self.pb)
-
-        # Ensure the requested URI is valid.
-        self.pool.project.get_node_description(pb.uri)
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateNode, self.pb)
-
-        node_desc = self.pool.project.get_node_description(pb.uri)
-
-        kwargs = {
-            'name': pb.name or node_desc.display_name,
-            'graph_pos': value_types.Pos2F.from_proto(pb.graph_pos),
-            'graph_size': value_types.SizeF.from_proto(pb.graph_size),
-            'graph_color': value_types.Color.from_proto(pb.graph_color),
-        }
-
-        # Defered import to work around cyclic import.
-        from noisicaa.builtin_nodes import model_registry
-        try:
-            node_cls = model_registry.node_cls_map[pb.uri]
-        except KeyError:
-            node_cls = Node
-            kwargs['node_uri'] = pb.uri
-
-        node = self.pool.create(node_cls, id=None, **kwargs)
-        self.pool.project.add_node(node)
-
-
 class DeleteNode(commands.Command):
     proto_type = 'delete_node'
 

@@ -21,7 +21,6 @@
 from .project_client import (
     ProjectClient,
     update_project,
-    create_node,
     update_node,
     delete_node,
     update_port,

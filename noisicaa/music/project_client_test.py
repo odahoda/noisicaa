@@ -96,8 +96,8 @@ class ProjectClientTest(ProjectClientTestBase):
         await self.client.create_inmemory()
         project = self.client.project
         num_nodes = len(project.nodes)
-        await self.client.send_command(project_client.create_node(
-            'builtin://score-track'))
+        with project.apply_mutations():
+            project.create_node('builtin://score-track')
         self.assertEqual(len(project.nodes), num_nodes + 1)
 
 

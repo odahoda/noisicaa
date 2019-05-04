@@ -33,9 +33,8 @@ from . import commands
 
 class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        await self.project_client.send_command(music.create_node(
-            uri='builtin://custom-csound'))
-        self.node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            self.node = self.project.create_node('builtin://custom-csound')
 
         await self.project_client.send_command(commands.create_port(
             self.node, 'port1', 0))
@@ -242,9 +241,8 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
 
 class EditorTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        await self.project_client.send_command(music.create_node(
-            uri='builtin://custom-csound'))
-        self.node = self.project.nodes[-1]
+        with self.project.apply_mutations():
+            self.node = self.project.create_node('builtin://custom-csound')
 
     async def test_init(self):
         node_ui.Editor(node=self.node, context=self.context)

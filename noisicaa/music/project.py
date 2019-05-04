@@ -102,7 +102,6 @@ class BaseProject(model.ObjectBase):
         self.command_registry = commands.CommandRegistry()
         self.command_registry.register(Crash)
         self.command_registry.register(UpdateProject)
-        self.command_registry.register(graph.CreateNode)
         self.command_registry.register(graph.DeleteNode)
         self.command_registry.register(graph.CreateNodeConnection)
         self.command_registry.register(graph.DeleteNodeConnection)
@@ -232,6 +231,35 @@ class BaseProject(model.ObjectBase):
 
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.pipeline_mutation.call(mutation)
+
+    def create_node(
+            self,
+            uri: str,
+            name: str = None,
+            graph_pos: value_types.Pos2F = value_types.Pos2F(0, 0),
+            graph_size: value_types.SizeF = value_types.SizeF(200, 100),
+            graph_color: value_types.Color = value_types.Color(0.8, 0.8, 0.8),
+    ) -> graph.BaseNode:
+        node_desc = self.get_node_description(uri)
+
+        kwargs = {
+            'name': name or node_desc.display_name,
+            'graph_pos': graph_pos,
+            'graph_size': graph_size,
+            'graph_color': graph_color,
+        }
+
+        # Defered import to work around cyclic import.
+        from noisicaa.builtin_nodes import model_registry
+        try:
+            node_cls = model_registry.node_cls_map[uri]
+        except KeyError:
+            node_cls = graph.Node
+            kwargs['node_uri'] = uri
+
+        node = self._pool.create(node_cls, id=None, **kwargs)
+        self.add_node(node)
+        return node
 
     def add_node(self, node: graph.BaseNode) -> None:
         for mutation in node.get_add_mutations():
