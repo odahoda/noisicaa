@@ -20,9 +20,10 @@
 #
 # @end:license
 
+import contextlib
 import logging
 import time
-from typing import cast, Any, Optional, Tuple, MutableSequence, Iterator, Type
+from typing import cast, Any, Optional, Dict, Tuple, MutableSequence, Iterator, Generator, Type
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa.core import storage
@@ -31,7 +32,6 @@ from noisicaa import core
 from noisicaa import model_base
 from noisicaa import value_types
 from noisicaa import node_db as node_db_lib
-from noisicaa.builtin_nodes import model_registry
 from . import graph
 from . import commands
 from . import commands_pb2
@@ -41,6 +41,8 @@ from . import metadata as metadata_lib
 from . import writer_client
 from . import model
 from . import model_pb2
+from . import mutations
+from . import mutations_pb2
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +114,7 @@ class BaseProject(model.ObjectBase):
         self.command_registry.register(base_track.DeleteMeasure)
         self.command_registry.register(base_track.PasteMeasures)
 
+        from noisicaa.builtin_nodes import model_registry
         model_registry.register_commands(self.command_registry)
 
         self.metadata_changed = core.Callback[model_base.PropertyChange[metadata_lib.Metadata]]()
@@ -214,9 +217,18 @@ class BaseProject(model.ObjectBase):
     def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> None:
         logger.info("Executing command sequence:\n%s", sequence)
         sequence.apply(self.command_registry, self._pool)
-        logger.info(
-            "Executed command sequence %s (%d operations)",
-            sequence.command_names, sequence.num_log_ops)
+
+    @contextlib.contextmanager
+    def apply_mutations(self) -> Generator:
+        mutation_list = mutations_pb2.MutationList()
+        collector = mutations.MutationCollector(self._pool, mutation_list)
+        with collector.collect():
+            yield
+
+        self._mutation_list_applied(mutation_list)
+
+    def _mutation_list_applied(self, mutation_list: mutations_pb2.MutationList) -> None:
+        logger.info(str(mutation_list))
 
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.pipeline_mutation.call(mutation)
@@ -270,8 +282,8 @@ class Project(BaseProject):
 
         self.__writer = None  # type: writer_client.WriterClient
         self.__logs_since_last_checkpoint = None  # type: int
-        self.__latest_command_sequence = None  # type: commands.CommandSequence
-        self.__latest_command_time = None  # type: float
+        self.__latest_mutation_list = None  # type: mutations_pb2.MutationList
+        self.__latest_mutation_time = None  # type: float
 
     def create(
             self, *, writer: Optional[writer_client.WriterClient] = None, **kwargs: Any
@@ -326,18 +338,10 @@ class Project(BaseProject):
 
         project.__logs_since_last_checkpoint = 0
         for action, sequence_data in actions:
-            sequence = commands.CommandSequence.deserialize(sequence_data)
-            logger.info(
-                "Replay action %s of command sequence %s (%d operations)",
-                action.name, sequence.command_names, sequence.num_log_ops)
-
-            if action == storage.ACTION_FORWARD:
-                sequence.redo(pool)
-            elif action == storage.ACTION_BACKWARD:
-                sequence.undo(pool)
-            else:
-                raise ValueError("Unsupported action %s" % action)
-
+            mutation_list = mutations_pb2.MutationList()
+            parsed_bytes = mutation_list.ParseFromString(sequence_data)  # type: ignore
+            assert parsed_bytes == len(sequence_data)
+            project.__apply_mutation_list(action, mutation_list)
             project.__logs_since_last_checkpoint += 1
 
         return project
@@ -381,68 +385,110 @@ class Project(BaseProject):
         return proto.SerializeToString()
 
     def __flush_commands(self) -> None:
-        if self.__latest_command_sequence is not None:
-            self.__writer.write_log(self.__latest_command_sequence.serialize())
+        if self.__latest_mutation_list is not None:
+            self.__writer.write_log(self.__latest_mutation_list.SerializeToString())
             self.__logs_since_last_checkpoint += 1
-            self.__latest_command_sequence = None
+            self.__latest_mutation_list = None
 
         if self.__logs_since_last_checkpoint > 1000:
             self.create_checkpoint()
 
-    def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> None:
-        if self.closed:
-            raise RuntimeError(
-                "Command sequence %s executed on closed project." % sequence.command_names)
+    def __try_merge_mutation_list(self, mutation_list: mutations_pb2.MutationList) -> bool:
+        assert self.__latest_mutation_list is not None
 
-        super().dispatch_command_sequence(sequence)
+        k = None  # type: Tuple[Any, ...]
 
-        if not sequence.is_noop:
-            if (self.__latest_command_sequence is None
-                    or time.time() - self.__latest_command_time > 4
-                    or not self.__latest_command_sequence.try_merge_with(sequence)):
+        property_changes_a = {}  # type: Dict[Tuple[Any, ...], int]
+        for op in self.__latest_mutation_list.ops:
+            if op.WhichOneof('op') == 'set_property':
+                k = (op.set_property.obj_id, op.set_property.prop_name)
+                property_changes_a[k] = op.set_property.new_slot
+            elif op.WhichOneof('op') == 'list_set':
+                k = (op.list_set.obj_id, op.list_set.prop_name, op.list_set.index)
+                property_changes_a[k] = op.list_set.new_slot
+            else:
+                return False
+
+        property_changes_b = {}  # type: Dict[Tuple[Any, ...], int]
+        for op in mutation_list.ops:
+            if op.WhichOneof('op') == 'set_property':
+                k = (op.set_property.obj_id, op.set_property.prop_name)
+                property_changes_b[k] = op.set_property.new_slot
+            elif op.WhichOneof('op') == 'list_set':
+                k = (op.list_set.obj_id, op.list_set.prop_name, op.list_set.index)
+                property_changes_b[k] = op.list_set.new_slot
+            else:
+                return False
+
+        if set(property_changes_a.keys()) != set(property_changes_b.keys()):
+            return False
+
+        for k, slot_idx_a in property_changes_b.items():
+            slot_a = self.__latest_mutation_list.slots[slot_idx_a]
+            slot_b = mutation_list.slots[property_changes_b[k]]
+            assert slot_a.WhichOneof('value') == slot_b.WhichOneof('value'), (slot_a, slot_b)
+            self.__latest_mutation_list.slots[slot_idx_a].CopyFrom(slot_b)
+
+        return True
+
+    def _mutation_list_applied(self, mutation_list: mutations_pb2.MutationList) -> None:
+        if len(mutation_list.ops) != 0:
+            if (self.__latest_mutation_list is None
+                    or time.time() - self.__latest_mutation_time > 4
+                    or not self.__try_merge_mutation_list(mutation_list)):
                 self.__flush_commands()
-                self.__latest_command_sequence = sequence
-                self.__latest_command_time = time.time()
+                self.__latest_mutation_list = mutation_list
+                self.__latest_mutation_time = time.time()
+
+    def __apply_mutation_list(
+            self,
+            action: storage.Action,
+            mutation_list: mutations_pb2.MutationList
+    ) -> None:
+        logger.info(
+            "Apply %d operations %s", len(mutation_list.ops), action.name)
+
+        if action == storage.ACTION_FORWARD:
+            self.__apply_mutation_list_forward(mutation_list)
+        elif action == storage.ACTION_BACKWARD:
+            self.__apply_mutation_list_backward(mutation_list)
+        else:
+            raise ValueError("Unsupported action %s" % action)
+
+    def __apply_mutation_list_forward(self, mutation_list_pb: mutations_pb2.MutationList) -> None:
+        mutation_list = mutations.MutationList(self._pool, mutation_list_pb)
+        mutation_list.apply_forward()
+
+    def __apply_mutation_list_backward(self, mutation_list_pb: mutations_pb2.MutationList) -> None:
+        mutation_list = mutations.MutationList(self._pool, mutation_list_pb)
+        mutation_list.apply_backward()
+
+    def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> None:
+        assert not self.closed
+        super().dispatch_command_sequence(sequence)
+        self._mutation_list_applied(sequence.proto.log)
 
     async def fetch_undo(self) -> Optional[Tuple[storage.Action, bytes]]:
-        if self.closed:
-            raise RuntimeError("Undo executed on closed project.")
-
+        assert not self.closed
         self.__flush_commands()
         return await self.__writer.undo()
 
     def undo(self, action: storage.Action, sequence_data: bytes) -> None:
-        sequence = commands.CommandSequence.deserialize(sequence_data)
-        logger.info(
-            "Undo command sequence %s (%d operations)",
-            sequence.command_names, sequence.num_log_ops)
-
-        if action == storage.ACTION_FORWARD:
-            sequence.redo(self._pool)
-        elif action == storage.ACTION_BACKWARD:
-            sequence.undo(self._pool)
-        else:
-            raise ValueError("Unsupported action %s" % action)
+        mutation_list = mutations_pb2.MutationList()
+        parsed_bytes = mutation_list.ParseFromString(sequence_data)  # type: ignore
+        assert parsed_bytes == len(sequence_data)
+        self.__apply_mutation_list(action, mutation_list)
 
     async def fetch_redo(self) -> Optional[Tuple[storage.Action, bytes]]:
-        if self.closed:
-            raise RuntimeError("Redo executed on closed project.")
-
+        assert not self.closed
         self.__flush_commands()
         return await self.__writer.redo()
 
     def redo(self, action: storage.Action, sequence_data: bytes) -> None:
-        sequence = commands.CommandSequence.deserialize(sequence_data)
-        logger.info(
-            "Redo command sequence %s (%d operations)",
-            sequence.command_names, sequence.num_log_ops)
-
-        if action == storage.ACTION_FORWARD:
-            sequence.redo(self._pool)
-        elif action == storage.ACTION_BACKWARD:
-            sequence.undo(self._pool)
-        else:
-            raise ValueError("Unsupported action %s" % action)
+        mutation_list = mutations_pb2.MutationList()
+        parsed_bytes = mutation_list.ParseFromString(sequence_data)  # type: ignore
+        assert parsed_bytes == len(sequence_data)
+        self.__apply_mutation_list(action, mutation_list)
 
 
 class Pool(model_base.Pool[model.ObjectBase]):
@@ -461,6 +507,7 @@ class Pool(model_base.Pool[model.ObjectBase]):
         self.register_class(graph.NodeConnection)
         self.register_class(graph.Node)
 
+        from noisicaa.builtin_nodes import model_registry
         model_registry.register_classes(self)
 
         self.model_changed = core.Callback[model_base.Mutation]()

@@ -200,8 +200,5 @@ class ProjectTest(
 
 class ProjectPropertiesTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
     async def test_set_bpm(self):
-        await self.client.send_command(commands_pb2.Command(
-            command='update_project',
-            update_project=commands_pb2.UpdateProject(
-                set_bpm=97)))
-        self.assertEqual(self.project.bpm, 97)
+        with self.project.apply_mutations():
+            self.project.bpm = self.project.bpm + 1
