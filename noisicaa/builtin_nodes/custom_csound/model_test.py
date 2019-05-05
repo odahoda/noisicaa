@@ -25,7 +25,6 @@ from typing import cast
 from noisidev import unittest
 from noisicaa.music import commands_test
 from . import model
-from . import commands
 
 
 class CustomCSoundTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
@@ -40,30 +39,18 @@ class CustomCSoundTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
         node = await self._add_node()
         self.assertIsInstance(node, model.CustomCSound)
 
-    async def test_update_orchestra(self):
-        node = await self._add_node()
-
-        await self.client.send_command(commands.update(
-            node, set_orchestra='blabla'))
-        self.assertEqual(node.orchestra, 'blabla')
-
-    async def test_update_score(self):
-        node = await self._add_node()
-
-        await self.client.send_command(commands.update(
-            node, set_score='blabla'))
-        self.assertEqual(node.score, 'blabla')
-
     async def test_create_port(self):
         node = await self._add_node()
 
-        await self.client.send_command(commands.create_port(node, name='foo'))
+        with self.project.apply_mutations():
+            node.create_port(0, 'foo')
         self.assertEqual(len(node.ports), 1)
 
     async def test_delete_port(self):
         node = await self._add_node()
-        await self.client.send_command(commands.create_port(node, name='foo'))
-        port = node.ports[-1]
+        with self.project.apply_mutations():
+            port = node.create_port(0, 'foo')
 
-        await self.client.send_command(commands.delete_port(port))
+        with self.project.apply_mutations():
+            node.delete_port(port)
         self.assertEqual(len(node.ports), 0)

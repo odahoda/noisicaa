@@ -29,76 +29,11 @@ from noisicaa import node_db
 from noisicaa import audioproc
 from noisicaa import model_base
 from noisicaa.music import graph
-from noisicaa.music import commands
 from noisicaa.builtin_nodes import model_registry_pb2
-from noisicaa.builtin_nodes import commands_registry_pb2
 from . import node_description
-from . import commands_pb2
 from . import processor_pb2
 
 logger = logging.getLogger(__name__)
-
-
-class UpdateCustomCSound(commands.Command):
-    proto_type = 'update_custom_csound'
-    proto_ext = commands_registry_pb2.update_custom_csound
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateCustomCSound, self.pb)
-        node = down_cast(CustomCSound, self.pool[pb.node_id])
-
-        if pb.HasField('set_orchestra'):
-            node.orchestra = pb.set_orchestra
-
-        if pb.HasField('set_score'):
-            node.score = pb.set_score
-
-
-class CreateCustomCSoundPort(commands.Command):
-    proto_type = 'create_custom_csound_port'
-    proto_ext = commands_registry_pb2.create_custom_csound_port
-
-    def validate(self) -> None:
-        pb = down_cast(commands_pb2.CreateCustomCSoundPort, self.pb)
-
-        if pb.node_id not in self.pool:
-            raise ValueError("Unknown node %016x" % pb.node_id)
-
-        node = down_cast(CustomCSound, self.pool[pb.node_id])
-
-        if pb.HasField('index'):
-            if not 0 <= pb.index <= len(node.ports):
-                raise ValueError("index %d out of bounds [0, %d]" % (pb.index, len(node.ports)))
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateCustomCSoundPort, self.pb)
-        node = down_cast(CustomCSound, self.pool[pb.node_id])
-
-        if pb.HasField('index'):
-            index = pb.index
-        else:
-            index = len(node.ports)
-
-        port = self.pool.create(
-            CustomCSoundPort,
-            name=pb.name,
-            csound_name='ga' + pb.name.capitalize(),
-            type=node_db.PortDescription.AUDIO,
-            direction=node_db.PortDescription.OUTPUT)
-        node.ports.insert(index, port)
-
-
-class DeleteCustomCSoundPort(commands.Command):
-    proto_type = 'delete_custom_csound_port'
-    proto_ext = commands_registry_pb2.delete_custom_csound_port
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteCustomCSoundPort, self.pb)
-        port = down_cast(CustomCSoundPort, self.pool[pb.port_id])
-        node = down_cast(CustomCSound, port.parent)
-
-        port.remove_connections()
-        del node.ports[port.index]
 
 
 class CustomCSoundPort(graph.Port):
@@ -318,3 +253,17 @@ class CustomCSound(graph.BaseNode):
                 port_desc.float_value.default = 0.0
 
         return desc
+
+    def create_port(self, index: int, name: str) -> CustomCSoundPort:
+        port = self._pool.create(
+            CustomCSoundPort,
+            name=name,
+            csound_name='ga' + name.capitalize(),
+            type=node_db.PortDescription.AUDIO,
+            direction=node_db.PortDescription.OUTPUT)
+        self.ports.insert(index, port)
+        return port
+
+    def delete_port(self, port: CustomCSoundPort) -> None:
+        port.remove_connections()
+        del self.ports[port.index]

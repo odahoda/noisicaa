@@ -23,17 +23,11 @@
 syntax = "proto2";
 
 import "noisicaa/music/commands.proto";
-import "noisicaa/builtin_nodes/custom_csound/commands.proto";
 import "noisicaa/builtin_nodes/midi_cc_to_cv/commands.proto";
 
 package noisicaa.pb;
 
 extend Command {
-  // Custom CSound (407xxx)
-  optional UpdateCustomCSound update_custom_csound = 407000;
-  optional CreateCustomCSoundPort create_custom_csound_port = 407001;
-  optional DeleteCustomCSoundPort delete_custom_csound_port = 407003;
-
   // MIDI CC to CV (410xxx)
   optional UpdateMidiCCtoCV update_midi_cc_to_cv = 410000;
   optional CreateMidiCCtoCVChannel create_midi_cc_to_cv_channel = 410001;

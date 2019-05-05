@@ -25,9 +25,7 @@ from PyQt5 import QtWidgets
 
 from noisidev import uitest
 from noisicaa import node_db
-from noisicaa.builtin_nodes import commands_registry_pb2
 from . import node_ui
-from . import commands
 
 
 class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
@@ -35,12 +33,10 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
         with self.project.apply_mutations():
             self.node = self.project.create_node('builtin://custom-csound')
 
-        await self.project_client.send_command(commands.create_port(
-            self.node, 'port1', 0))
-        await self.project_client.send_command(commands.create_port(
-            self.node, 'port2', 1))
-        await self.project_client.send_command(commands.create_port(
-            self.node, 'port3', 2))
+        with self.project.apply_mutations():
+            self.node.create_port(0, 'port1')
+            self.node.create_port(1, 'port2')
+            self.node.create_port(2, 'port3')
 
         self.port_list_editor = node_ui.PortListEditor(
             node=self.node, context=self.context)
@@ -73,15 +69,14 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
             QtWidgets.QAction, "remove_objects", Qt.FindChildrenRecursively)
 
     async def test_port_added(self):
-        await self.project_client.send_command(commands.create_port(
-            self.node, 'port4', 2))
-        port = self.node.ports[2]
+        with self.project.apply_mutations():
+            port = self.node.create_port(2, 'port4')
         self.assertIs(self.model.object(2), port)
         self.assertIs(self.model.object(3), self.node.ports[3])
 
     async def test_port_removed(self):
-        await self.project_client.send_command(commands.delete_port(
-            self.node.ports[1]))
+        with self.project.apply_mutations():
+            self.node.delete_port(self.node.ports[1])
         self.assertIs(self.model.object(0), self.node.ports[0])
         self.assertIs(self.model.object(1), self.node.ports[1])
 
@@ -112,25 +107,13 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
 
     async def test_add_port(self):
         self._addAction().trigger()
-        self.assertEqual(len(self.commands), 1)
-        self.assertEqual(self.commands[0].command, 'create_custom_csound_port')
+        self.assertEqual(len(self.node.ports), 4)
 
     async def test_remove_ports(self):
-        await self.project_client.send_command(commands.create_port(
-            self.node, 'port1', 0))
-        await self.project_client.send_command(commands.create_port(
-            self.node, 'port2', 1))
-        await self.project_client.send_command(commands.create_port(
-            self.node, 'port3', 2))
         self.table.selectRow(1)
 
         self._removeAction().trigger()
-        self.assertEqual(len(self.commands), 1)
-        cmd = self.commands[0]
-        self.assertEqual(cmd.command, 'delete_custom_csound_port')
-        self.assertEqual(
-            cmd.Extensions[commands_registry_pb2.delete_custom_csound_port].port_id,
-            self.node.ports[1].id)
+        self.assertEqual(len(self.node.ports), 2)
 
     async def test_edit_name(self):
         self.table.edit(self.model.index(0, 0))

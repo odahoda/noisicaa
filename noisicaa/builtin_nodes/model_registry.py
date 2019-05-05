@@ -72,9 +72,6 @@ def register_classes(pool: model_base.AbstractPool) -> None:
 
 
 def register_commands(registry: commands.CommandRegistry) -> None:
-    registry.register(custom_csound.UpdateCustomCSound)
-    registry.register(custom_csound.CreateCustomCSoundPort)
-    registry.register(custom_csound.DeleteCustomCSoundPort)
     registry.register(midi_cc_to_cv.UpdateMidiCCtoCV)
     registry.register(midi_cc_to_cv.CreateMidiCCtoCVChannel)
     registry.register(midi_cc_to_cv.UpdateMidiCCtoCVChannel)

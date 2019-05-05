@@ -20,8 +20,6 @@
 #
 # @end:license
 
-import asyncio
-import functools
 import logging
 from typing import cast, Any, Dict, Iterator, Callable
 
@@ -38,7 +36,6 @@ from noisicaa.ui import object_list_editor
 from noisicaa.ui import ui_base
 from noisicaa.ui.graph import generic_node
 from . import model
-from . import commands
 
 logger = logging.getLogger(__name__)
 
@@ -310,28 +307,17 @@ class PortListEditor(ui_base.ProjectMixin, object_list_editor.ObjectListEditor):
         if selected_rows:
             index = max(selected_rows) + 1
         else:
-            index = None
+            index = len(self.__node.ports)
 
-        add_port_task = self.send_command_async(commands.create_port(
-            self.__node, name=port_name, index=index))
-        add_port_task.add_done_callback(functools.partial(
-            self.__createPortComplete, port_name))
-
-    def __createPortComplete(self, port_name: str, task: asyncio.Task) -> None:
-        for row, port in enumerate(self.__node.ports):
-            if port.name == port_name:
-                self.rowAdded(row)
-                break
-
-        else:
-            logger.error("Port '%s' not found", port_name)
+        with self.project.apply_mutations():
+            port = self.__node.create_port(index, port_name)
+        self.rowAdded(port.index)
 
     def onRemove(self) -> None:
-        cmds = []
-        for port in self.selectedObjects():
-            assert isinstance(port, model.CustomCSoundPort)
-            cmds.append(commands.delete_port(port))
-        self.send_commands_async(*cmds)
+        with self.project.apply_mutations():
+            for port in self.selectedObjects():
+                assert isinstance(port, model.CustomCSoundPort)
+                self.__node.delete_port(port)
 
 
 class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
@@ -413,11 +399,9 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.__orchestra = self.__orchestra_editor.toPlainText()
         self.__score = self.__score_editor.toPlainText()
 
-        self.send_command_async(
-            commands.update(
-                self.__node,
-                set_orchestra=self.__orchestra,
-                set_score=self.__score))
+        with self.project.apply_mutations():
+            self.__node.orchestra = self.__orchestra
+            self.__node.score = self.__score
         self.__apply_action.setEnabled(False)
 
     def __scriptEdited(self) -> None:
