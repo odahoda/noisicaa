@@ -40,7 +40,6 @@ from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
 from . import ipc_pb2
 from . import model
-from . import commands
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +74,8 @@ class EditSamplesTool(tools.ToolBase):
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
                 and target.highlightedSample() is not None):
-            self.send_command_async(commands.delete_sample(
-                target.highlightedSample().sample))
+            with self.project.apply_mutations():
+                target.track.delete_sample(target.highlightedSample().sample)
 
             evt.accept()
             return
@@ -118,9 +117,8 @@ class EditSamplesTool(tools.ToolBase):
             pos = self.__moving_sample.pos()
             self.__moving_sample = None
 
-            self.send_command_async(commands.update_sample(
-                target.highlightedSample().sample,
-                set_time=target.xToTime(pos.x())))
+            with self.project.apply_mutations():
+                target.highlightedSample().sample.time = target.xToTime(pos.x())
 
             evt.accept()
             return
@@ -392,8 +390,8 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         if not path:
             return
 
-        self.send_command_async(commands.create_sample(
-            self.track, time=time, path=path))
+        with self.project.apply_mutations():
+            self.track.create_sample(time, path)
 
     def leaveEvent(self, evt: QtCore.QEvent) -> None:
         self.__mouse_pos = None

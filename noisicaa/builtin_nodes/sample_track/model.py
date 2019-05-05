@@ -31,62 +31,17 @@ from noisicaa import model_base
 from noisicaa import core
 from noisicaa import node_db
 from noisicaa.bindings import sndfile
-from noisicaa.music import commands
 from noisicaa.music import node_connector
 from noisicaa.music import model
 from noisicaa.music import base_track
 from noisicaa.music import rms
 from noisicaa.music import samples as samples_lib
 from noisicaa.builtin_nodes import model_registry_pb2
-from noisicaa.builtin_nodes import commands_registry_pb2
-from . import commands_pb2
 from . import ipc_pb2
 from . import processor_messages
 from . import node_description
 
 logger = logging.getLogger(__name__)
-
-
-class CreateSample(commands.Command):
-    proto_type = 'create_sample'
-    proto_ext = commands_registry_pb2.create_sample
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateSample, self.pb)
-        track = down_cast(SampleTrack, self.pool[pb.track_id])
-
-        smpl = self.pool.create(samples_lib.Sample, path=pb.path)
-        self.pool.project.samples.append(smpl)
-
-        smpl_ref = self.pool.create(
-            SampleRef,
-            time=audioproc.MusicalTime.from_proto(pb.time),
-            sample=smpl)
-        track.samples.append(smpl_ref)
-
-
-class DeleteSample(commands.Command):
-    proto_type = 'delete_sample'
-    proto_ext = commands_registry_pb2.delete_sample
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteSample, self.pb)
-        smpl_ref = down_cast(SampleRef, self.pool[pb.sample_id])
-        track = down_cast(SampleTrack, smpl_ref.parent)
-
-        del track.samples[smpl_ref.index]
-
-
-class UpdateSample(commands.Command):
-    proto_type = 'update_sample'
-    proto_ext = commands_registry_pb2.update_sample
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateSample, self.pb)
-        smpl_ref = down_cast(SampleRef, self.pool[pb.sample_id])
-
-        if pb.HasField('set_time'):
-            smpl_ref.time = audioproc.MusicalTime.from_proto(pb.set_time)
 
 
 async def render_sample(
@@ -272,3 +227,17 @@ class SampleTrack(base_track.Track):
     @property
     def description(self) -> node_db.NodeDescription:
         return node_description.SampleTrackDescription
+
+    def create_sample(self, time: audioproc.MusicalTime, path: str) -> SampleRef:
+        smpl = self._pool.create(samples_lib.Sample, path=path)
+        self.project.samples.append(smpl)
+
+        smpl_ref = self._pool.create(
+            SampleRef,
+            time=time,
+            sample=smpl)
+        self.samples.append(smpl_ref)
+        return smpl_ref
+
+    def delete_sample(self, smpl_ref: SampleRef) -> None:
+        del self.samples[smpl_ref.index]

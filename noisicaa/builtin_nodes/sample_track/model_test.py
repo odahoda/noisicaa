@@ -33,7 +33,6 @@ from noisicaa.music import project
 from noisicaa.music import samples
 from noisicaa.builtin_nodes import processor_message_registry_pb2
 from . import model
-from . import commands
 
 
 class SampleTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
@@ -149,42 +148,30 @@ class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     async def test_create_sample(self):
         track = await self._add_track()
 
-        await self.client.send_command(commands.create_sample(
-            track,
-            time=audioproc.MusicalTime(1, 4),
-            path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')))
+        with self.project.apply_mutations():
+            track.create_sample(
+                audioproc.MusicalTime(1, 4),
+                os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
         self.assertEqual(track.samples[0].time, audioproc.MusicalTime(1, 4))
 
     async def test_delete_sample(self):
         track = await self._add_track()
-        await self.client.send_command(commands.create_sample(
-            track,
-            time=audioproc.MusicalTime(1, 4),
-            path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')))
+        with self.project.apply_mutations():
+            sample = track.create_sample(
+                audioproc.MusicalTime(1, 4),
+                os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
 
-        await self.client.send_command(commands.delete_sample(
-            track.samples[0]))
+        with self.project.apply_mutations():
+            track.delete_sample(sample)
         self.assertEqual(len(track.samples), 0)
-
-    async def test_sample_set_time(self):
-        track = await self._add_track()
-        await self.client.send_command(commands.create_sample(
-            track,
-            time=audioproc.MusicalTime(1, 4),
-            path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')))
-
-        await self.client.send_command(commands.update_sample(
-            track.samples[0],
-            set_time=audioproc.MusicalTime(3, 4)))
-        self.assertEqual(track.samples[0].time, audioproc.MusicalTime(3, 4))
 
     async def test_render_sample(self):
         track = await self._add_track()
-        await self.client.send_command(commands.create_sample(
-            track,
-            time=audioproc.MusicalTime(1, 4),
-            path=os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav')))
+        with self.project.apply_mutations():
+            sample = track.create_sample(
+                audioproc.MusicalTime(1, 4),
+                os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
 
-        response = await model.render_sample(track.samples[0], fractions.Fraction(100, 1))
+        response = await model.render_sample(sample, fractions.Fraction(100, 1))
         self.assertFalse(response.broken)
         self.assertGreater(len(response.rms), 0)
