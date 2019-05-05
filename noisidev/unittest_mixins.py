@@ -23,11 +23,14 @@
 import contextlib
 import asyncio
 import logging
+import os.path
+import uuid
 import urllib.parse
 
 from noisicaa import core
 from noisicaa import editor_main_pb2
 from noisicaa import lv2
+from noisicaa import music
 from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
@@ -308,3 +311,43 @@ class NodeConnectorMixin(object):
 
         finally:
             connector.close()
+
+
+class ProjectMixin(
+        ServerMixin,
+        NodeDBMixin,
+        URIDMapperMixin,
+        ProcessManagerMixin):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.client = None  # type: music.ProjectClient
+        self.project = None  # type: music.Project
+        self.pool = None  # type: music.Pool
+
+    async def setup_testcase(self):
+        self.setup_node_db_process(inline=True)
+        self.setup_writer_process(inline=True)
+
+        self.client = music.ProjectClient(
+            event_loop=self.loop,
+            server=self.server,
+            tmp_dir=TEST_OPTS.TMP_DIR,
+            node_db=self.node_db,
+            urid_mapper=self.urid_mapper,
+            manager=self.process_manager_client)
+        await self.client.setup()
+
+        path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
+        await self.client.create(path)
+        self.project = self.client.project
+        self.pool = self.project._pool
+
+        logger.info("Testcase setup complete")
+
+    async def cleanup_testcase(self):
+        logger.info("Testcase finished.")
+
+        if self.client is not None:
+            await self.client.close()
+            await self.client.cleanup()

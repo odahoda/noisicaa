@@ -34,7 +34,6 @@ from noisicaa import editor_main_pb2
 from noisicaa import model_base
 from noisicaa.builtin_nodes.score_track import model as score_track
 from . import project
-from . import commands_test
 from . import writer_client
 
 
@@ -168,7 +167,7 @@ class ProjectTest(
         self.assertTrue(
             self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
 
-    async def test_merge_commands(self):
+    async def test_merge_mutations(self):
         p = await project.Project.create_blank(
             path='/foo.noise',
             pool=self.pool,
@@ -191,7 +190,7 @@ class ProjectTest(
             await p.close()
 
 
-class ProjectPropertiesTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
+class ProjectPropertiesTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
     async def test_set_bpm(self):
         with self.project.apply_mutations():
             self.project.bpm = self.project.bpm + 1

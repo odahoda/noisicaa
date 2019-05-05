@@ -24,14 +24,14 @@ import logging
 from typing import List
 
 from noisidev import unittest
+from noisidev import unittest_mixins
 from noisicaa import model_base
 from noisicaa import value_types
-from . import commands_test
 
 logger = logging.getLogger(__name__)
 
 
-class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
+class GraphCommandsTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
     async def test_create_node(self):
         with self.project.apply_mutations():
             node = self.project.create_node(

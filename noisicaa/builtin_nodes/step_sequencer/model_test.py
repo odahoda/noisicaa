@@ -23,11 +23,11 @@
 from typing import cast
 
 from noisidev import unittest
-from noisicaa.music import commands_test
+from noisidev import unittest_mixins
 from . import model
 
 
-class StepSequencerTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
+class StepSequencerTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
 
     async def _add_node(self) -> model.StepSequencer:
         with self.project.apply_mutations():

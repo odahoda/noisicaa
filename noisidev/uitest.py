@@ -94,18 +94,6 @@ class TestContext(object):
         if callback is not None:
             callback(task.result())
 
-    def send_command_async(self, cmd):
-        self.__testcase.commands.append(cmd)
-        task = asyncio.Future(loop=self.__testcase.loop)
-        task.set_result(None)
-        return task
-
-    def send_commands_async(self, *cmd):
-        self.__testcase.commands.extend(cmd)
-        task = asyncio.Future(loop=self.__testcase.loop)
-        task.set_result(None)
-        return task
-
     def set_session_value(self, key, value):
         self.__testcase.session_data[key] = value
 
@@ -222,8 +210,6 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
         self.app.node_messages = core.CallbackMap()
 
         self.session_data = {}  # type: Dict[str, Any]
-
-        self.commands = []  # type: List[music.Command]
 
         self.context = TestContext(testcase=self)
 

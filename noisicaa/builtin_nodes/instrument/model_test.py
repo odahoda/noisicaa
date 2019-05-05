@@ -24,7 +24,6 @@ from typing import cast
 
 from noisidev import unittest
 from noisidev import unittest_mixins
-from noisicaa.music import commands_test
 from noisicaa.audioproc.public import instrument_spec_pb2
 from . import model
 from . import processor_messages
@@ -32,7 +31,7 @@ from . import processor_messages
 
 class InstrumentTest(
         unittest_mixins.NodeConnectorMixin,
-        commands_test.CommandsTestMixin,
+        unittest_mixins.ProjectMixin,
         unittest.AsyncTestCase):
     async def _add_node(self) -> model.Instrument:
         with self.project.apply_mutations():

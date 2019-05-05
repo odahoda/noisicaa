@@ -23,13 +23,13 @@
 import logging
 from typing import cast, Type
 
-from . import commands_test
+from noisidev import unittest_mixins
 from . import base_track
 
 logger = logging.getLogger(__name__)
 
 
-class TrackTestMixin(commands_test.CommandsTestMixin):
+class TrackTestMixin(unittest_mixins.ProjectMixin):
     node_uri = None  # type: str
     track_cls = None  # type: Type[base_track.Track]
 

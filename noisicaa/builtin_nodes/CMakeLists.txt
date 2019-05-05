@@ -25,7 +25,6 @@ add_python_package(
 )
 
 py_proto(model_registry.proto)
-py_proto(commands_registry.proto)
 py_proto(processor_message_registry.proto)
 cpp_proto(processor_message_registry.proto)
 

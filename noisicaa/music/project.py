@@ -35,8 +35,6 @@ from noisicaa import model_base
 from noisicaa import value_types
 from noisicaa import node_db as node_db_lib
 from . import graph
-from . import commands
-from . import commands_pb2
 from . import base_track
 from . import samples as samples_lib
 from . import metadata as metadata_lib
@@ -64,11 +62,6 @@ class BaseProject(model.ObjectBase):
         super().__init__(**kwargs)
 
         self.node_db = None  # type: node_db_lib.NodeDBClient
-
-        self.command_registry = commands.CommandRegistry()
-
-        from noisicaa.builtin_nodes import model_registry
-        model_registry.register_commands(self.command_registry)
 
         self.metadata_changed = core.Callback[model_base.PropertyChange[metadata_lib.Metadata]]()
         self.nodes_changed = core.Callback[model_base.PropertyListChange[graph.BaseNode]]()
@@ -163,13 +156,6 @@ class BaseProject(model.ObjectBase):
 
     def get_node_description(self, uri: str) -> node_db_lib.NodeDescription:
         return self.node_db.get_node_description(uri)
-
-    def dispatch_command_sequence_proto(self, proto: commands_pb2.CommandSequence) -> None:
-        self.dispatch_command_sequence(commands.CommandSequence.create(proto))
-
-    def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> None:
-        logger.info("Executing command sequence:\n%s", sequence)
-        sequence.apply(self.command_registry, self._pool)
 
     @contextlib.contextmanager
     def apply_mutations(self) -> Generator:
@@ -393,7 +379,7 @@ class Project(BaseProject):
         return project
 
     async def close(self) -> None:
-        self.__flush_commands()
+        self.__flush_mutations()
 
         if self.__writer is not None:
             await self.__writer.close()
@@ -413,7 +399,7 @@ class Project(BaseProject):
         proto = obj.serialize()
         return proto.SerializeToString()
 
-    def __flush_commands(self) -> None:
+    def __flush_mutations(self) -> None:
         if self.__latest_mutation_list is not None:
             self.__writer.write_log(self.__latest_mutation_list.SerializeToString())
             self.__logs_since_last_checkpoint += 1
@@ -465,7 +451,7 @@ class Project(BaseProject):
             if (self.__latest_mutation_list is None
                     or time.time() - self.__latest_mutation_time > 4
                     or not self.__try_merge_mutation_list(mutation_list)):
-                self.__flush_commands()
+                self.__flush_mutations()
                 self.__latest_mutation_list = mutation_list
                 self.__latest_mutation_time = time.time()
 
@@ -492,14 +478,9 @@ class Project(BaseProject):
         mutation_list = mutations.MutationList(self._pool, mutation_list_pb)
         mutation_list.apply_backward()
 
-    def dispatch_command_sequence(self, sequence: commands.CommandSequence) -> None:
-        assert not self.closed
-        super().dispatch_command_sequence(sequence)
-        self._mutation_list_applied(sequence.proto.log)
-
     async def fetch_undo(self) -> Optional[Tuple[storage.Action, bytes]]:
         assert not self.closed
-        self.__flush_commands()
+        self.__flush_mutations()
         return await self.__writer.undo()
 
     def undo(self, action: storage.Action, sequence_data: bytes) -> None:
@@ -510,7 +491,7 @@ class Project(BaseProject):
 
     async def fetch_redo(self) -> Optional[Tuple[storage.Action, bytes]]:
         assert not self.closed
-        self.__flush_commands()
+        self.__flush_mutations()
         return await self.__writer.redo()
 
     def redo(self, action: storage.Action, sequence_data: bytes) -> None:

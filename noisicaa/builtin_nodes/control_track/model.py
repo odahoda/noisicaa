@@ -139,16 +139,17 @@ class ControlPoint(model.ProjectChild):
 
     @time.setter
     def time(self, value: audioproc.MusicalTime) -> None:
-        if not self.is_first:
-            if value <= cast(ControlPoint, self.prev_sibling).time:
-                raise ValueError("Control point out of order.")
-        else:
-            if value < audioproc.MusicalTime(0, 4):
-                raise ValueError("Control point out of order.")
+        if self.parent is not None:
+            if not self.is_first:
+                if value <= cast(ControlPoint, self.prev_sibling).time:
+                    raise ValueError("Control point out of order.")
+            else:
+                if value < audioproc.MusicalTime(0, 4):
+                    raise ValueError("Control point out of order.")
 
-        if not self.is_last:
-            if value >= cast(ControlPoint, self.next_sibling).time:
-                raise ValueError("Control point out of order.")
+            if not self.is_last:
+                if value >= cast(ControlPoint, self.next_sibling).time:
+                    raise ValueError("Control point out of order.")
 
         self.set_property_value('time', value)
 

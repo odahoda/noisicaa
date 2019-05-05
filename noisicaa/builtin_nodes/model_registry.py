@@ -23,7 +23,6 @@
 from typing import Dict, Type
 
 from noisicaa import model_base
-from noisicaa.music import commands
 from noisicaa.music import graph
 from .score_track import model as score_track
 from .beat_track import model as beat_track
@@ -69,7 +68,3 @@ def register_classes(pool: model_base.AbstractPool) -> None:
     pool.register_class(step_sequencer.StepSequencerStep)
     pool.register_class(midi_cc_to_cv.MidiCCtoCV)
     pool.register_class(midi_cc_to_cv.MidiCCtoCVChannel)
-
-
-def register_commands(registry: commands.CommandRegistry) -> None:
-    pass

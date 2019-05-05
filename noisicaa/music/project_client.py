@@ -38,7 +38,6 @@ from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.core import session_data_pb2
 from . import render_pb2
-from . import commands_pb2
 from . import project as project_lib
 from . import writer_client
 from . import render
@@ -221,19 +220,6 @@ class ProjectClient(object):
                 editor_main_pb2.ShutdownProcessRequest(
                     address=self.__writer_address))
             self.__writer_address = None
-
-    async def send_command(self, command: commands_pb2.Command) -> None:
-        await self.send_command_sequence(
-            commands_pb2.CommandSequence(commands=[command]))
-
-    async def send_commands(self, *commands: commands_pb2.Command) -> None:
-        await self.send_command_sequence(
-            commands_pb2.CommandSequence(commands=commands))
-
-    # TODO: make this sync
-    async def send_command_sequence(self, sequence: commands_pb2.CommandSequence) -> None:
-        assert self.__project is not None
-        self.__project.dispatch_command_sequence_proto(sequence)
 
     async def undo(self) -> None:
         assert self.__project is not None

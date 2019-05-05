@@ -21,8 +21,6 @@
 add_python_package(
   base_track.py
   base_track_test.py
-  commands.py
-  commands_test.py
   graph.py
   graph_test.py
   metadata.py
@@ -53,4 +51,3 @@ py_proto(model.proto)
 py_proto(writer_process.proto)
 py_proto(render.proto)
 py_proto(mutations.proto)
-py_proto(commands.proto)

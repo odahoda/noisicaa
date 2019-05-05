@@ -160,12 +160,6 @@ class ProjectContext(CommonContext):
     def project_client(self) -> music.ProjectClient:
         return self.__project_connection.client
 
-    def send_command_async(self, cmd: music.Command) -> asyncio.Task:
-        return self.call_async(self.project_client.send_command(cmd))
-
-    def send_commands_async(self, *cmd: music.Command) -> asyncio.Task:
-        return self.call_async(self.project_client.send_commands(*cmd))
-
     def set_session_value(self, key: str, value: Any) -> None:
         self.project_client.set_session_values({key: value})
 
@@ -205,12 +199,6 @@ class ProjectMixin(CommonMixin):
     @property
     def project_client(self) -> music.ProjectClient:
         return self._context.project_client
-
-    def send_command_async(self, command: music.Command) -> asyncio.Task:
-        return self._context.send_command_async(command)
-
-    def send_commands_async(self, *commands: music.Command) -> asyncio.Task:
-        return self._context.send_commands_async(*commands)
 
     def set_session_value(self, key: str, value: Any) -> None:
         self._context.set_session_value(key, value)
