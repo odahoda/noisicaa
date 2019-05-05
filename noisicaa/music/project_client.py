@@ -27,12 +27,10 @@ import getpass
 import logging
 import random
 import socket
-from typing import Any, Dict, List, Tuple, Sequence, Callable, TypeVar
+from typing import Any, Dict, List, Tuple, Callable, TypeVar
 
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import model_base
-from noisicaa import value_types
 from noisicaa import lv2
 from noisicaa import node_db as node_db_lib
 from noisicaa import editor_main_pb2
@@ -46,74 +44,8 @@ from . import writer_client
 from . import render
 from . import player as player_lib
 from . import session_value_store
-from . import base_track
 
 logger = logging.getLogger(__name__)
-
-
-def update_track(
-        track: base_track.Track,
-        *,
-        set_visible: bool = None,
-        set_list_position: int = None,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='update_track',
-        update_track=commands_pb2.UpdateTrack(
-            track_id=track.id,
-            set_visible=set_visible,
-            set_list_position=set_list_position,
-        ))
-
-
-def create_measure(
-        track: base_track.MeasuredTrack,
-        pos: int,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='create_measure',
-        create_measure=commands_pb2.CreateMeasure(
-            track_id=track.id,
-            pos=pos,
-        ))
-
-
-def update_measure(
-        measure: base_track.MeasureReference,
-        *,
-        clear: bool = None,
-        set_time_signature: value_types.TimeSignature = None,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='update_measure',
-        update_measure=commands_pb2.UpdateMeasure(
-            measure_id=measure.id,
-            clear=clear,
-            set_time_signature=(
-                set_time_signature.to_proto() if set_time_signature is not None else None),
-        ))
-
-
-def delete_measure(
-        measure: base_track.MeasureReference,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='delete_measure',
-        delete_measure=commands_pb2.DeleteMeasure(
-            measure_id=measure.id))
-
-
-def paste_measures(
-        mode: str,
-        src_objs: Sequence[model_base.ObjectTree],
-        target_ids: Sequence[int],
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='paste_measures',
-        paste_measures=commands_pb2.PasteMeasures(
-            mode=mode,
-            src_objs=src_objs,
-            target_ids=target_ids))
 
 
 class ProjectClient(object):

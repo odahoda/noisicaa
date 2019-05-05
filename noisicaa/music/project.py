@@ -21,9 +21,11 @@
 # @end:license
 
 import contextlib
+import itertools
 import logging
 import time
-from typing import cast, Any, Optional, Dict, Tuple, MutableSequence, Iterator, Generator, Type
+from typing import (
+    cast, Any, Optional, Dict, Tuple, MutableSequence, Iterator, Sequence, Generator, Type)
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa.core import storage
@@ -47,25 +49,6 @@ from . import mutations_pb2
 logger = logging.getLogger(__name__)
 
 
-# class SetNumMeasures(commands.Command):
-#     proto_type = 'set_num_measures'
-
-#     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-#         pb = down_cast(commands_pb2.SetNumMeasures, pb)
-
-#         raise NotImplementedError
-#         # for track in project.all_tracks:
-#         #     if not isinstance(track, pmodel.MeasuredTrack):
-#         #         continue
-#         #     track = cast(base_track.MeasuredTrack, track)
-
-#         #     while len(track.measure_list) < pb.num_measures:
-#         #         track.append_measure()
-
-#         #     while len(track.measure_list) > pb.num_measures:
-#         #         track.remove_measure(len(track.measure_list) - 1)
-
-
 class BaseProject(model.ObjectBase):
     class ProjectSpec(model_base.ObjectSpec):
         proto_type = 'project'
@@ -83,11 +66,6 @@ class BaseProject(model.ObjectBase):
         self.node_db = None  # type: node_db_lib.NodeDBClient
 
         self.command_registry = commands.CommandRegistry()
-        self.command_registry.register(base_track.UpdateTrack)
-        self.command_registry.register(base_track.CreateMeasure)
-        self.command_registry.register(base_track.UpdateMeasure)
-        self.command_registry.register(base_track.DeleteMeasure)
-        self.command_registry.register(base_track.PasteMeasures)
 
         from noisicaa.builtin_nodes import model_registry
         model_registry.register_commands(self.command_registry)
@@ -280,6 +258,39 @@ class BaseProject(model.ObjectBase):
         for mutation in connection.get_remove_mutations():
             self.handle_pipeline_mutation(mutation)
         del self.node_connections[connection.index]
+
+    def paste_measures(
+            self, *,
+            mode: str,
+            src_objs: Sequence[model_base.ObjectTree],
+            targets: Sequence[base_track.MeasureReference],
+    ) -> None:
+        affected_track_ids = set(obj.track.id for obj in targets)
+        assert len(affected_track_ids) == 1
+
+        if mode == 'link':
+            for target, src_proto in zip(targets, itertools.cycle(src_objs)):
+                src = down_cast(base_track.Measure, self._pool[src_proto.root])
+                assert src.is_child_of(target.track)
+                target.measure = src
+
+        elif mode == 'overwrite':
+            measure_map = {}  # type: Dict[int, base_track.Measure]
+            for target, src_proto in zip(targets, itertools.cycle(src_objs)):
+                try:
+                    measure = measure_map[src_proto.root]
+                except KeyError:
+                    measure = down_cast(base_track.Measure, self._pool.clone_tree(src_proto))
+                    measure_map[src_proto.root] = measure
+                    cast(base_track.MeasuredTrack, target.track).measure_heap.append(measure)
+
+                target.measure = measure
+
+        else:
+            raise ValueError(mode)
+
+        for track_id in affected_track_ids:
+            cast(base_track.MeasuredTrack, self._pool[track_id]).garbage_collect_measures()
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         for node in self.nodes:

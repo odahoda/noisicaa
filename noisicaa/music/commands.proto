@@ -34,49 +34,13 @@ import "noisicaa/music/mutations.proto";
 
 package noisicaa.pb;
 
-message UpdateTrack {
-  required uint64 track_id = 1;
-  optional bool set_visible = 2;
-  optional uint32 set_list_position = 3;
-}
-
-message UpdateMeasuredTrack {
-  required uint64 track_id = 1;
-}
-
 message CreateMeasure {
   required uint64 track_id = 1;
   optional int32 pos = 2;
 }
 
-message UpdateMeasure {
-  required uint64 measure_id = 1;
-
-  optional bool clear = 2;
-  optional TimeSignature set_time_signature = 3;
-}
-
-message DeleteMeasure {
-  required uint64 measure_id = 1;
-}
-
-message PasteMeasures {
-  optional string mode = 1;
-  repeated ObjectTree src_objs = 2;
-  repeated uint64 target_ids = 3;
-}
-
 message Command {
   required string command = 1;
-
-  // Tracks (400xxx)
-  optional UpdateTrack update_track = 400000;
-
-  optional UpdateMeasuredTrack update_measured_track = 400100;
-  optional CreateMeasure create_measure = 400200;
-  optional UpdateMeasure update_measure = 400201;
-  optional DeleteMeasure delete_measure = 400202;
-  optional PasteMeasures paste_measures = 400203;
 
   extensions 401000 to max;
 }

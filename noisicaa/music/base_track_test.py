@@ -44,30 +44,3 @@ class TrackTestMixin(commands_test.CommandsTestMixin):
     async def _add_track(self) -> base_track.Track:
         with self.project.apply_mutations():
             return cast(base_track.Track, self.project.create_node(self.node_uri))
-
-
-# class BaseTrackTest(TrackTestMixin, unittest.AsyncTestCase):
-#     node_uri = 'builtin://score-track'
-#     track_cls = base_track.ScoreTrack
-
-#     async def test_update_track_visible(self):
-#         track = await self._add_track()
-
-#         self.assertTrue(track.visible)
-#         await self.client.send_command(commands_pb2.Command(
-#             target=track.id,
-#             command='update_track',
-#             update_track=commands_pb2.UpdateTrack(
-#                 visible=False)))
-#         self.assertFalse(track.visible)
-
-#     async def test_update_track_list_position(self):
-#         track = await self._add_track()
-
-#         self.assertEqual(track.list_position, 0)
-#         await self.client.send_command(commands_pb2.Command(
-#             target=track.id,
-#             command='update_track',
-#             update_track=commands_pb2.UpdateTrack(
-#                 list_position=2)))
-#         self.assertEqual(track.list_position, 2)

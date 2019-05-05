@@ -1097,24 +1097,18 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
             affected_measure_editors: List[ScoreMeasureEditor],
             clef: value_types.Clef
     ) -> None:
-        seq = []
-        for meditor in affected_measure_editors:
-            seq.append(commands.update_measure(
-                meditor.measure,
-                set_clef=clef))
-        self.send_commands_async(*seq)
+        with self.project.apply_mutations():
+            for meditor in affected_measure_editors:
+                meditor.measure.clef = clef
 
     def onSetKeySignature(
             self,
             affected_measure_editors: List[ScoreMeasureEditor],
             key_signature: value_types.KeySignature
     ) -> None:
-        seq = []
-        for meditor in affected_measure_editors:
-            seq.append(commands.update_measure(
-                meditor.measure,
-                set_key_signature=key_signature))
-        self.send_commands_async(*seq)
+        with self.project.apply_mutations():
+            for meditor in affected_measure_editors:
+                meditor.measure.key_signature = key_signature
 
     def onTranspose(
             self,

@@ -227,11 +227,12 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
         menu.addAction(remove_measure_action)
 
     def onInsertMeasure(self) -> None:
-        self.send_command_async(music.create_measure(
-            self.track, pos=self.measure_reference.index))
+        with self.project.apply_mutations():
+            self.track.insert_measure(self.measure_reference.index)
 
     def onRemoveMeasure(self) -> None:
-        self.send_command_async(music.delete_measure(self.measure_reference))
+        with self.project.apply_mutations():
+            self.track.remove_measure(self.measure_reference.index)
 
     def setSelected(self, selected: bool) -> None:
         if selected != self.__selected:
@@ -391,8 +392,8 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
 
         elif isinstance(measure_editor, Appendix):
             if measure_editor.clickRect().contains(evt.pos() - measure_editor.topLeft()):
-                self.send_command_async(music.create_measure(
-                    target.track, pos=-1))
+                with self.project.apply_mutations():
+                    target.track.insert_measure(-1)
                 evt.accept()
                 return
 
@@ -710,20 +711,17 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
             affected_measure_editors: List[MeasureEditor],
             time_signature: value_types.TimeSignature
     ) -> None:
-        seq = []
-        for meditor in affected_measure_editors:
-            seq.append(music.update_measure(
-                meditor.measure_reference,
-                set_time_signature=time_signature))
-
-        self.send_commands_async(*seq)
+        with self.project.apply_mutations():
+            for meditor in affected_measure_editors:
+                meditor.measure.time_signature = time_signature
 
     def onInsertMeasure(self) -> None:
-        self.send_command_async(music.create_measure(
-            self.track, pos=self.measure_reference.index))
+        with self.project.apply_mutations():
+            self.track.insert_measure(self.measure_reference.index)
 
     def onRemoveMeasure(self) -> None:
-        self.send_command_async(music.delete_measure(self.measure_reference))
+        with self.project.apply_mutations():
+            self.track.remove_measure(self.measure_reference.index)
 
     def setHoverMeasureEditor(
             self, measure_editor: Optional[BaseMeasureEditor],

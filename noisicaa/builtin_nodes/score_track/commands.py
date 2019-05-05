@@ -40,20 +40,6 @@ def update(
         pb.set_transpose_octaves = set_transpose_octaves
     return cmd
 
-def update_measure(
-        measure: model.ScoreMeasure, *,
-        set_clef: value_types.Clef = None,
-        set_key_signature: value_types.KeySignature = None
-) -> music.Command:
-    cmd = music.Command(command='update_score_measure')
-    pb = cmd.Extensions[commands_registry_pb2.update_score_measure]
-    pb.measure_id = measure.id
-    if set_clef is not None:
-        pb.set_clef.CopyFrom(set_clef.to_proto())
-    if set_key_signature is not None:
-        pb.set_key_signature.CopyFrom(set_key_signature.to_proto())
-    return cmd
-
 def create_note(
         measure: model.ScoreMeasure, *,
         idx: int,

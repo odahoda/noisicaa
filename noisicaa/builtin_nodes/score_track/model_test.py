@@ -27,7 +27,6 @@ from noisidev import unittest_mixins
 from noisidev import demo_project
 from noisicaa import audioproc
 from noisicaa import value_types
-from noisicaa import music
 from noisicaa.music import base_track_test
 from noisicaa.music import project
 from . import model
@@ -75,16 +74,16 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         track = await self._add_track()
         self.assertEqual(len(track.measure_list), 1)
 
-        await self.client.send_command(music.create_measure(
-            track, pos=0))
+        with self.project.apply_mutations():
+            track.insert_measure(0)
         self.assertEqual(len(track.measure_list), 2)
 
     async def test_delete_measure(self):
         track = await self._add_track()
         self.assertEqual(len(track.measure_list), 1)
 
-        await self.client.send_command(music.delete_measure(
-            track.measure_list[0]))
+        with self.project.apply_mutations():
+            track.remove_measure(0)
         self.assertEqual(len(track.measure_list), 0)
 
     async def test_clear_measures(self):
@@ -92,36 +91,9 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         self.assertEqual(len(track.measure_list), 1)
         old_measure = track.measure_list[0].measure
 
-        await self.client.send_command(music.update_measure(
-            track.measure_list[0],
-            clear=True))
+        with self.project.apply_mutations():
+            track.measure_list[0].clear_measure()
         self.assertIsNot(old_measure, track.measure_list[0].measure)
-
-    async def test_set_transpose_octaves(self):
-        track = await self._add_track()
-
-        await self.client.send_command(commands.update(
-            track,
-            set_transpose_octaves=1))
-        self.assertEqual(track.transpose_octaves, 1)
-
-    async def test_measure_set_clef(self):
-        track = await self._add_track()
-        measure = track.measure_list[0].measure
-
-        await self.client.send_command(commands.update_measure(
-            measure,
-            set_clef=value_types.Clef.Tenor))
-        self.assertEqual(measure.clef, value_types.Clef.Tenor)
-
-    async def test_measure_set_key_signature(self):
-        track = await self._add_track()
-        measure = track.measure_list[0].measure
-
-        await self.client.send_command(commands.update_measure(
-            measure,
-            set_key_signature=value_types.KeySignature('D minor')))
-        self.assertEqual(measure.key_signature, value_types.KeySignature('D minor'))
 
     async def test_create_note(self):
         track = await self._add_track()
@@ -239,10 +211,11 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
         clipboard = measure.serialize()
 
-        await self.client.send_command(music.paste_measures(
-            mode='overwrite',
-            src_objs=[clipboard],
-            target_ids=[track.measure_list[0].id]))
+        with self.project.apply_mutations():
+            self.project.paste_measures(
+                mode='overwrite',
+                src_objs=[clipboard],
+                targets=[track.measure_list[0]])
         new_measure = track.measure_list[0].measure
         self.assertNotEqual(new_measure.id, measure.id)
         self.assertEqual(new_measure.notes[0].pitches[0], value_types.Pitch('F2'))
@@ -250,17 +223,18 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     async def test_paste_link(self):
         track = await self._add_track()
         while len(track.measure_list) < 3:
-            await self.client.send_command(music.create_measure(
-                track, pos=-1))
+            with self.project.apply_mutations():
+                track.insert_measure(-1)
 
         measure = track.measure_list[0].measure
         await self._fill_measure(measure)
 
         clipboard = measure.serialize()
 
-        await self.client.send_command(music.paste_measures(
-            mode='link',
-            src_objs=[clipboard],
-            target_ids=[track.measure_list[1].id, track.measure_list[2].id]))
+        with self.project.apply_mutations():
+            self.project.paste_measures(
+                mode='link',
+                src_objs=[clipboard],
+                targets=[track.measure_list[1], track.measure_list[2]])
         self.assertIs(track.measure_list[1].measure, measure)
         self.assertIs(track.measure_list[2].measure, measure)

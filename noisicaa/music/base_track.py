@@ -20,7 +20,6 @@
 #
 # @end:license
 
-import itertools
 import logging
 import random
 from typing import cast, Any, Optional, Iterator, Dict, List, Type, MutableSequence
@@ -35,103 +34,8 @@ from . import model
 from . import model_pb2
 from . import node_connector
 from . import graph
-from . import commands
-from . import commands_pb2
 
 logger = logging.getLogger(__name__)
-
-
-class UpdateTrack(commands.Command):
-    proto_type = 'update_track'
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateTrack, self.pb)
-        track = down_cast(Track, self.pool[pb.track_id])
-
-        if pb.HasField('set_visible'):
-            track.visible = pb.set_visible
-
-        if pb.HasField('set_list_position'):
-            track.list_position = pb.set_list_position
-
-
-class CreateMeasure(commands.Command):
-    proto_type = 'create_measure'
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateMeasure, self.pb)
-        track = down_cast(MeasuredTrack, self.pool[pb.track_id])
-
-        track.insert_measure(pb.pos)
-
-
-class UpdateMeasure(commands.Command):
-    proto_type = 'update_measure'
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateMeasure, self.pb)
-        mref = down_cast(MeasureReference, self.pool[pb.measure_id])
-        track = cast(MeasuredTrack, mref.track)
-
-        if pb.HasField('clear'):
-            measure = track.create_empty_measure(mref.measure)
-            track.measure_heap.append(measure)
-            mref.measure = measure
-
-        if pb.HasField('set_time_signature'):
-            mref.measure.time_signature = value_types.TimeSignature.from_proto(
-                pb.set_time_signature)
-
-        track.garbage_collect_measures()
-
-
-class DeleteMeasure(commands.Command):
-    proto_type = 'delete_measure'
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteMeasure, self.pb)
-        mref = down_cast(MeasureReference, self.pool[pb.measure_id])
-        track = mref.track
-        track.remove_measure(mref.index)
-
-
-class PasteMeasures(commands.Command):
-    proto_type = 'paste_measures'
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.PasteMeasures, self.pb)
-
-        target_measures = [
-            cast(MeasureReference, self.pool[obj_id])
-            for obj_id in pb.target_ids]
-        assert all(isinstance(obj, MeasureReference) for obj in target_measures)
-
-        affected_track_ids = set(obj.track.id for obj in target_measures)
-        assert len(affected_track_ids) == 1
-
-        if pb.mode == 'link':
-            for target, src_proto in zip(target_measures, itertools.cycle(pb.src_objs)):
-                src = down_cast(Measure, self.pool[src_proto.root])
-                assert src.is_child_of(target.track)
-                target.measure = src
-
-        elif pb.mode == 'overwrite':
-            measure_map = {}  # type: Dict[int, Measure]
-            for target, src_proto in zip(target_measures, itertools.cycle(pb.src_objs)):
-                try:
-                    measure = measure_map[src_proto.root]
-                except KeyError:
-                    measure = down_cast(Measure, self.pool.clone_tree(src_proto))
-                    measure_map[src_proto.root] = measure
-                    cast(MeasuredTrack, target.track).measure_heap.append(measure)
-
-                target.measure = measure
-
-        else:
-            raise ValueError(pb.mode)
-
-        for track_id in affected_track_ids:
-            cast(MeasuredTrack, self.pool[track_id]).garbage_collect_measures()
 
 
 class Track(graph.BaseNode):  # pylint: disable=abstract-method
@@ -241,6 +145,13 @@ class MeasureReference(model.ProjectChild):
     @property
     def next_sibling(self) -> 'MeasureReference':
         return down_cast(MeasureReference, super().next_sibling)
+
+    def clear_measure(self) -> None:
+        track = self.track
+        measure = track.create_empty_measure(self.measure)
+        track.measure_heap.append(measure)
+        self.measure = measure
+        track.garbage_collect_measures()
 
 
 class PianoRollInterval(object):

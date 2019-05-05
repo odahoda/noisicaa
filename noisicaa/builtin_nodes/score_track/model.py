@@ -53,21 +53,6 @@ class UpdateScoreTrack(commands.Command):
             track.transpose_octaves = pb.set_transpose_octaves
 
 
-class UpdateScoreMeasure(commands.Command):
-    proto_type = 'update_score_measure'
-    proto_ext = commands_registry_pb2.update_score_measure
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateScoreMeasure, self.pb)
-        measure = down_cast(ScoreMeasure, self.pool[pb.measure_id])
-
-        if pb.HasField('set_clef'):
-            measure.clef = value_types.Clef.from_proto(pb.set_clef)
-
-        if pb.HasField('set_key_signature'):
-            measure.key_signature = value_types.KeySignature.from_proto(pb.set_key_signature)
-
-
 class CreateNote(commands.Command):
     proto_type = 'create_note'
     proto_ext = commands_registry_pb2.create_note

@@ -23,7 +23,6 @@
 from noisidev import unittest
 from noisicaa import audioproc
 from noisicaa import value_types
-from noisicaa import music
 from noisicaa.music import base_track_test
 from . import model
 from . import commands
@@ -37,16 +36,16 @@ class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         track = await self._add_track()
         self.assertEqual(len(track.measure_list), 1)
 
-        await self.client.send_command(music.create_measure(
-            track, pos=0))
+        with self.project.apply_mutations():
+            track.insert_measure(0)
         self.assertEqual(len(track.measure_list), 2)
 
     async def test_delete_measure(self):
         track = await self._add_track()
         self.assertEqual(len(track.measure_list), 1)
 
-        await self.client.send_command(music.delete_measure(
-            track.measure_list[0]))
+        with self.project.apply_mutations():
+            track.remove_measure(0)
         self.assertEqual(len(track.measure_list), 0)
 
     async def test_clear_measures(self):
@@ -54,9 +53,8 @@ class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         self.assertEqual(len(track.measure_list), 1)
         old_measure = track.measure_list[0].measure
 
-        await self.client.send_command(music.update_measure(
-            measure=track.measure_list[0],
-            clear=True))
+        with self.project.apply_mutations():
+            track.measure_list[0].clear_measure()
         self.assertIsNot(old_measure, track.measure_list[0].measure)
 
     async def test_set_pitch(self):

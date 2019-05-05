@@ -36,7 +36,6 @@ package noisicaa.pb;
 extend Command {
   // Score track (401xxx)
   optional UpdateScoreTrack update_score_track = 401000;
-  optional UpdateScoreMeasure update_score_measure = 401001;
   optional CreateNote create_note = 401002;
   optional UpdateNote update_note = 401003;
   optional DeleteNote delete_note = 401004;

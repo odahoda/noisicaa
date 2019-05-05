@@ -304,14 +304,12 @@ class Editor(
         if self.selection_set.empty():
             return
 
-        commands = [
-            music.update_measure(mref, clear=True)
+        with self.project.apply_mutations():
             for mref in sorted(
-                (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
-                 for measure_editor in self.selection_set),
-                key=lambda mref: mref.index)
-        ]
-        self.send_commands_async(*commands)
+                    (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
+                     for measure_editor in self.selection_set),
+                    key=lambda mref: mref.index):
+                mref.clear_measure()
 
     def onPaste(self, *, mode: str) -> None:
         assert mode in ('overwrite', 'link')
@@ -321,15 +319,14 @@ class Editor(
 
         clipboard = self.app.clipboardContent()
         if clipboard['type'] == 'measures':
-            target_ids = [
-                mref.id for mref in sorted(
-                    (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
-                     for measure_editor in self.selection_set),
-                    key=lambda mref: mref.index)]
-            self.send_command_async(music.paste_measures(
-                mode=mode,
-                src_objs=[copy['data'] for copy in clipboard['data']],
-                target_ids=target_ids))
+            with self.project.apply_mutations():
+                self.project.paste_measures(
+                    mode=mode,
+                    src_objs=[copy['data'] for copy in clipboard['data']],
+                    targets=sorted(
+                        (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
+                         for measure_editor in self.selection_set),
+                        key=lambda mref: mref.index))
 
         else:
             raise ValueError(clipboard['type'])

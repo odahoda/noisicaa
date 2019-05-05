@@ -50,6 +50,5 @@ class TrackNode(base_node.Node):
         if visible == self.__track.visible:
             return
 
-        self.send_command_async(music.update_track(
-            self.__track,
-            set_visible=visible))
+        with self.project.apply_mutations():
+            self.__track.visible = visible
