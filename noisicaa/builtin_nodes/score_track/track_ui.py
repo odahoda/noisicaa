@@ -37,7 +37,6 @@ from noisicaa.ui import svg_symbol
 from noisicaa.ui.track_list import tools
 from noisicaa.ui.track_list import measured_track_editor
 from . import model
-from . import commands
 
 logger = logging.getLogger(__name__)
 
@@ -156,41 +155,40 @@ class InsertNoteTool(ScoreToolBase):
 
             idx, overwrite, _ = target.getEditArea(evt.pos().x())
             if idx >= 0:
-                cmd = None
                 if evt.modifiers() == Qt.ShiftModifier:
                     if overwrite:
                         if len(target.measure.notes[idx].pitches) > 1:
                             for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                                 if p.stave_line == stave_line:
-                                    cmd = commands.update_note(
-                                        target.measure.notes[idx],
-                                        remove_pitch=pitch_idx)
-                                    break
+                                    with self.project.apply_mutations():
+                                        target.measure.notes[idx].remove_pitch(pitch_idx)
+                                    evt.accept()
+                                    return
+
                         else:
-                            cmd = commands.delete_note(
-                                target.measure.notes[idx])
+                            with self.project.apply_mutations():
+                                target.measure.delete_note(target.measure.notes[idx])
+                            evt.accept()
+                            return
+
                 else:
                     if overwrite:
                         for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                             if p.stave_line == stave_line:
                                 break
                         else:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                add_pitch=value_types.Pitch(pitch))
+                            with self.project.apply_mutations():
+                                target.measure.notes[idx].add_pitch(value_types.Pitch(pitch))
                             target.track_editor.playNoteOn(value_types.Pitch(pitch))
-                    else:
-                        cmd = commands.create_note(
-                            target.measure,
-                            idx=idx,
-                            pitch=value_types.Pitch(pitch),
-                            duration=duration)
-                        target.track_editor.playNoteOn(value_types.Pitch(pitch))
+                            evt.accept()
+                            return
 
-                if cmd is not None:
-                    self.send_command_async(cmd)
-                    evt.accept()
-                    return
+                    else:
+                        with self.project.apply_mutations():
+                            target.measure.create_note(idx, value_types.Pitch(pitch), duration)
+                        target.track_editor.playNoteOn(value_types.Pitch(pitch))
+                        evt.accept()
+                        return
 
         super().mousePressEvent(target, evt)
 
@@ -267,9 +265,8 @@ class ModifyNoteTool(ScoreToolBase):
                 for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                     if accidental in p.valid_accidentals:
                         if p.stave_line == stave_line:
-                            self.send_command_async(commands.update_note(
-                                target.measure.notes[idx],
-                                set_accidental=(pitch_idx, accidental)))
+                            with self.project.apply_mutations():
+                                target.measure.notes[idx].set_accidental(pitch_idx, accidental)
                             evt.accept()
                             return
 
@@ -280,47 +277,50 @@ class ModifyNoteTool(ScoreToolBase):
             idx, overwrite, _ = target.getEditArea(evt.pos().x())
             if idx >= 0 and overwrite:
                 note = target.measure.notes[idx]
-                cmd = None
                 if self.type == tools.ToolType.DURATION_DOT:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.dots > 0:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_dots=note.dots - 1)
+                            with self.project.apply_mutations():
+                                target.measure.notes[idx].dots = note.dots - 1
+                            evt.accept()
+                            return
+
                     else:
                         if note.dots < note.max_allowed_dots:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_dots=note.dots + 1)
+                            with self.project.apply_mutations():
+                                target.measure.notes[idx].dots = note.dots + 1
+                            evt.accept()
+                            return
 
                 elif self.type == tools.ToolType.DURATION_TRIPLET:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_tuplet=0)
+                            with self.project.apply_mutations():
+                                target.measure.notes[idx].tuplet = 0
+                            evt.accept()
+                            return
+
                     else:
                         if note.tuplet != 3:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_tuplet=3)
+                            with self.project.apply_mutations():
+                                target.measure.notes[idx].tuplet = 3
+                            evt.accept()
+                            return
 
                 elif self.type == tools.ToolType.DURATION_QUINTUPLET:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_tuplet=0)
+                            with self.project.apply_mutations():
+                                target.measure.notes[idx].tuplet = 0
+                            evt.accept()
+                            return
+
                     else:
                         if note.tuplet != 5:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_tuplet=5)
-
-                if cmd is not None:
-                    self.send_command_async(cmd)
-                    evt.accept()
-                    return
+                            with self.project.apply_mutations():
+                                target.measure.notes[idx].tuplet = 5
+                            evt.accept()
+                            return
 
         return super().mousePressEvent(target, evt)
 
@@ -1115,13 +1115,10 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
             affected_measure_editors: List[ScoreMeasureEditor],
             half_notes: int
     ) -> None:
-        seq = []
-        for meditor in affected_measure_editors:
-            for note in meditor.measure.notes:
-                seq.append(commands.update_note(
-                    note,
-                    transpose=half_notes))
-        self.send_commands_async(*seq)
+        with self.project.apply_mutations():
+            for meditor in affected_measure_editors:
+                for note in meditor.measure.notes:
+                    note.transpose(half_notes)
 
     def playNoteOn(self, pitch: value_types.Pitch) -> None:
         self.playNoteOff()

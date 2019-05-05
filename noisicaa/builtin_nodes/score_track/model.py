@@ -30,100 +30,12 @@ from noisicaa import audioproc
 from noisicaa import value_types
 from noisicaa import node_db
 from noisicaa import model_base
-from noisicaa.music import commands
 from noisicaa.music import model
 from noisicaa.music import base_track
-from noisicaa.builtin_nodes import commands_registry_pb2
 from noisicaa.builtin_nodes import model_registry_pb2
-from . import commands_pb2
 from . import node_description
 
 logger = logging.getLogger(__name__)
-
-
-class UpdateScoreTrack(commands.Command):
-    proto_type = 'update_score_track'
-    proto_ext = commands_registry_pb2.update_score_track
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateScoreTrack, self.pb)
-        track = down_cast(ScoreTrack, self.pool[pb.track_id])
-
-        if pb.HasField('set_transpose_octaves'):
-            track.transpose_octaves = pb.set_transpose_octaves
-
-
-class CreateNote(commands.Command):
-    proto_type = 'create_note'
-    proto_ext = commands_registry_pb2.create_note
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateNote, self.pb)
-        measure = down_cast(ScoreMeasure, self.pool[pb.measure_id])
-
-        assert 0 <= pb.idx <= len(measure.notes)
-        note = self.pool.create(
-            Note,
-            pitches=[value_types.Pitch.from_proto(pb.pitch)],
-            base_duration=audioproc.MusicalDuration.from_proto(pb.duration))
-        measure.notes.insert(pb.idx, note)
-
-
-class UpdateNote(commands.Command):
-    proto_type = 'update_note'
-    proto_ext = commands_registry_pb2.update_note
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateNote, self.pb)
-        note = down_cast(Note, self.pool[pb.note_id])
-
-        if pb.HasField('set_pitch'):
-            note.pitches[0] = value_types.Pitch.from_proto(pb.set_pitch)
-
-        if pb.HasField('add_pitch'):
-            pitch = value_types.Pitch.from_proto(pb.add_pitch)
-            if pitch not in note.pitches:
-                note.pitches.append(pitch)
-
-        if pb.HasField('remove_pitch'):
-            assert 0 <= pb.remove_pitch < len(note.pitches)
-            del note.pitches[pb.remove_pitch]
-
-        if pb.HasField('set_duration'):
-            note.base_duration = audioproc.MusicalDuration.from_proto(pb.set_duration)
-
-        if pb.HasField('set_dots'):
-            if pb.set_dots > note.max_allowed_dots:
-                raise ValueError("Too many dots on note")
-            note.dots = pb.set_dots
-
-        if pb.HasField('set_tuplet'):
-            if pb.set_tuplet not in (0, 3, 5):
-                raise ValueError("Invalid tuplet type")
-            note.tuplet = pb.set_tuplet
-
-        if pb.HasField('set_accidental'):
-            assert 0 <= pb.set_accidental.pitch_idx < len(note.pitches)
-            note.pitches[pb.set_accidental.pitch_idx] = (
-                note.pitches[pb.set_accidental.pitch_idx].add_accidental(
-                    pb.set_accidental.accidental))
-
-        if pb.HasField('transpose'):
-            for pidx, pitch in enumerate(note.pitches):
-                note.pitches[pidx] = pitch.transposed(
-                    half_notes=pb.transpose % 12,
-                    octaves=pb.transpose // 12)
-
-
-class DeleteNote(commands.Command):
-    proto_type = 'delete_note'
-    proto_ext = commands_registry_pb2.delete_note
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteNote, self.pb)
-        note = down_cast(Note, self.pool[pb.note_id])
-        measure = note.measure
-        del measure.notes[note.index]
 
 
 class ScoreTrackConnector(base_track.MeasuredTrackConnector):
@@ -238,6 +150,8 @@ class Note(model.ProjectChild):
 
     @dots.setter
     def dots(self, value: int) -> None:
+        if value > self.max_allowed_dots:
+            raise ValueError("Too many dots on note")
         self.set_property_value('dots', value)
 
     @property
@@ -246,6 +160,8 @@ class Note(model.ProjectChild):
 
     @tuplet.setter
     def tuplet(self, value: int) -> None:
+        if value not in (0, 3, 5):
+            raise ValueError("Invalid tuplet type")
         self.set_property_value('tuplet', value)
 
     @property
@@ -285,6 +201,27 @@ class Note(model.ProjectChild):
         super().property_changed(change)
         if self.measure is not None:
             self.measure.content_changed.call()
+
+    def set_pitch(self, pitch: value_types.Pitch) -> None:
+        self.pitches[0] = pitch
+
+    def add_pitch(self, pitch: value_types.Pitch) -> None:
+        if pitch not in self.pitches:
+            self.pitches.append(pitch)
+
+    def remove_pitch(self, index: int) -> None:
+        assert 0 <= index < len(self.pitches)
+        del self.pitches[index]
+
+    def set_accidental(self, index: int, accidental: str) -> None:
+        assert 0 <= index < len(self.pitches)
+        self.pitches[index] = self.pitches[index].add_accidental(accidental)
+
+    def transpose(self, half_notes: int) -> None:
+        for pidx, pitch in enumerate(self.pitches):
+            self.pitches[pidx] = pitch.transposed(
+                half_notes=half_notes % 12,
+                octaves=half_notes // 12)
 
 
 class ScoreMeasure(base_track.Measure):
@@ -340,6 +277,23 @@ class ScoreMeasure(base_track.Measure):
     @property
     def empty(self) -> bool:
         return len(self.notes) == 0
+
+    def create_note(
+            self,
+            index: int,
+            pitch: value_types.Pitch,
+            duration: audioproc.MusicalDuration
+    ) -> Note:
+        assert 0 <= index <= len(self.notes)
+        note = self._pool.create(
+            Note,
+            pitches=[pitch],
+            base_duration=duration)
+        self.notes.insert(index, note)
+        return note
+
+    def delete_note(self, note: Note) -> None:
+        del self.notes[note.index]
 
 
 class ScoreTrack(base_track.MeasuredTrack):

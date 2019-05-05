@@ -72,10 +72,6 @@ def register_classes(pool: model_base.AbstractPool) -> None:
 
 
 def register_commands(registry: commands.CommandRegistry) -> None:
-    registry.register(score_track.UpdateScoreTrack)
-    registry.register(score_track.CreateNote)
-    registry.register(score_track.UpdateNote)
-    registry.register(score_track.DeleteNote)
     registry.register(custom_csound.UpdateCustomCSound)
     registry.register(custom_csound.CreateCustomCSoundPort)
     registry.register(custom_csound.DeleteCustomCSoundPort)

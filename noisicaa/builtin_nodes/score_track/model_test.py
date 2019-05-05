@@ -30,7 +30,6 @@ from noisicaa import value_types
 from noisicaa.music import base_track_test
 from noisicaa.music import project
 from . import model
-from . import commands
 
 
 class ScoreTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
@@ -63,11 +62,8 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     track_cls = model.ScoreTrack
 
     async def _fill_measure(self, measure):
-        await self.client.send_command(commands.create_note(
-            measure,
-            idx=0,
-            pitch=value_types.Pitch('F2'),
-            duration=audioproc.MusicalDuration(1, 4)))
+        with self.project.apply_mutations():
+            measure.create_note(0, value_types.Pitch('F2'), audioproc.MusicalDuration(1, 4))
         self.assertEqual(len(measure.notes), 1)
 
     async def test_create_measure(self):
@@ -100,11 +96,8 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         measure = track.measure_list[0].measure
         self.assertEqual(len(measure.notes), 0)
 
-        await self.client.send_command(commands.create_note(
-            measure,
-            idx=0,
-            pitch=value_types.Pitch('F2'),
-            duration=audioproc.MusicalDuration(1, 4)))
+        with self.project.apply_mutations():
+            measure.create_note(0, value_types.Pitch('F2'), audioproc.MusicalDuration(1, 4))
         self.assertEqual(len(measure.notes), 1)
         self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('F2'))
         self.assertEqual(measure.notes[0].base_duration, audioproc.MusicalDuration(1, 4))
@@ -114,8 +107,8 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         measure = track.measure_list[0].measure
         await self._fill_measure(measure)
 
-        await self.client.send_command(commands.delete_note(
-            measure.notes[0]))
+        with self.project.apply_mutations():
+            measure.delete_note(measure.notes[0])
         self.assertEqual(len(measure.notes), 0)
 
     async def test_note_set_pitch(self):
@@ -123,9 +116,8 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         measure = track.measure_list[0].measure
         await self._fill_measure(measure)
 
-        await self.client.send_command(commands.update_note(
-            measure.notes[0],
-            set_pitch=value_types.Pitch('C2')))
+        with self.project.apply_mutations():
+            measure.notes[0].set_pitch(value_types.Pitch('C2'))
         self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('C2'))
 
     async def test_note_add_pitch(self):
@@ -133,9 +125,8 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         measure = track.measure_list[0].measure
         await self._fill_measure(measure)
 
-        await self.client.send_command(commands.update_note(
-            measure.notes[0],
-            add_pitch=value_types.Pitch('C2')))
+        with self.project.apply_mutations():
+            measure.notes[0].add_pitch(value_types.Pitch('C2'))
         self.assertEqual(len(measure.notes[0].pitches), 2)
         self.assertEqual(measure.notes[0].pitches[1], value_types.Pitch('C2'))
 
@@ -143,55 +134,22 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         track = await self._add_track()
         measure = track.measure_list[0].measure
         await self._fill_measure(measure)
-        await self.client.send_command(commands.update_note(
-            measure.notes[0],
-            add_pitch=value_types.Pitch('C2')))
+        with self.project.apply_mutations():
+            measure.notes[0].add_pitch(value_types.Pitch('C2'))
         self.assertEqual(len(measure.notes[0].pitches), 2)
 
-        await self.client.send_command(commands.update_note(
-            measure.notes[0],
-            remove_pitch=0))
+        with self.project.apply_mutations():
+            measure.notes[0].remove_pitch(0)
         self.assertEqual(len(measure.notes[0].pitches), 1)
         self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('C2'))
-
-    async def test_note_set_duration(self):
-        track = await self._add_track()
-        measure = track.measure_list[0].measure
-        await self._fill_measure(measure)
-
-        await self.client.send_command(commands.update_note(
-            measure.notes[0],
-            set_duration=audioproc.MusicalDuration(1, 2)))
-        self.assertEqual(measure.notes[0].base_duration, audioproc.MusicalDuration(1, 2))
-
-    async def test_note_set_dots(self):
-        track = await self._add_track()
-        measure = track.measure_list[0].measure
-        await self._fill_measure(measure)
-
-        await self.client.send_command(commands.update_note(
-            measure.notes[0],
-            set_dots=1))
-        self.assertEqual(measure.notes[0].dots, 1)
-
-    async def test_note_set_tuplet(self):
-        track = await self._add_track()
-        measure = track.measure_list[0].measure
-        await self._fill_measure(measure)
-
-        await self.client.send_command(commands.update_note(
-            measure.notes[0],
-            set_tuplet=3))
-        self.assertEqual(measure.notes[0].tuplet, 3)
 
     async def test_note_set_accidental(self):
         track = await self._add_track()
         measure = track.measure_list[0].measure
         await self._fill_measure(measure)
 
-        await self.client.send_command(commands.update_note(
-            measure.notes[0],
-            set_accidental=(0, '#')))
+        with self.project.apply_mutations():
+            measure.notes[0].set_accidental(0, '#')
         self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('F#2'))
 
     async def test_note_transpose(self):
@@ -199,9 +157,8 @@ class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         measure = track.measure_list[0].measure
         await self._fill_measure(measure)
 
-        await self.client.send_command(commands.update_note(
-            measure.notes[0],
-            transpose=2))
+        with self.project.apply_mutations():
+            measure.notes[0].transpose(2)
         self.assertEqual(measure.notes[0].pitches[0], value_types.Pitch('G2'))
 
     async def test_paste_overwrite(self):

@@ -35,7 +35,6 @@ from noisicaa.constants import DATA_DIR
 from noisicaa.ui import ui_base
 from noisicaa.ui.graph import track_node
 from . import model
-from . import commands
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +81,8 @@ class ScoreTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def onTransposeOctavesEdited(self, transpose_octaves: int) -> None:
         if transpose_octaves != self.__track.transpose_octaves:
-            self.send_command_async(commands.update(
-                self.__track,
-                set_transpose_octaves=transpose_octaves))
+            with self.project.apply_mutations():
+                self.__track.transpose_octaves = transpose_octaves
 
 
 class ScoreTrackNode(track_node.TrackNode):
