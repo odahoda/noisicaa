@@ -22,10 +22,8 @@
 
 from noisidev import unittest
 from noisicaa import audioproc
-from noisicaa import value_types
 from noisicaa.music import base_track_test
 from . import model
-from . import commands
 
 
 class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
@@ -57,51 +55,26 @@ class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
             track.measure_list[0].clear_measure()
         self.assertIsNot(old_measure, track.measure_list[0].measure)
 
-    async def test_set_pitch(self):
-        track = await self._add_track()
-
-        await self.client.send_command(commands.update(
-            track,
-            set_pitch=value_types.Pitch('C2')))
-        self.assertEqual(track.pitch, value_types.Pitch('C2'))
-
     async def test_add_beat(self):
         track = await self._add_track()
         measure = track.measure_list[0].measure
 
-        await self.client.send_command(commands.create_beat(
-            measure,
-            time=audioproc.MusicalDuration(1, 4)))
+        with self.project.apply_mutations():
+            measure.create_beat(audioproc.MusicalDuration(1, 4))
         self.assertEqual(measure.beats[0].time, audioproc.MusicalDuration(1, 4))
         self.assertEqual(measure.beats[0].velocity, 100)
 
-        await self.client.send_command(commands.create_beat(
-            measure,
-            time=audioproc.MusicalDuration(2, 4),
-            velocity=120))
+        with self.project.apply_mutations():
+            measure.create_beat(audioproc.MusicalDuration(2, 4), 120)
         self.assertEqual(measure.beats[1].time, audioproc.MusicalDuration(2, 4))
         self.assertEqual(measure.beats[1].velocity, 120)
 
     async def test_delete_beat(self):
         track = await self._add_track()
         measure = track.measure_list[0].measure
-        await self.client.send_command(commands.create_beat(
-            measure,
-            time=audioproc.MusicalDuration(1, 4)))
+        with self.project.apply_mutations():
+            measure.create_beat(audioproc.MusicalDuration(1, 4))
 
-        await self.client.send_command(commands.delete_beat(
-            measure.beats[0]))
+        with self.project.apply_mutations():
+            measure.delete_beat(measure.beats[0])
         self.assertEqual(len(measure.beats), 0)
-
-    async def test_beat_set_velocity(self):
-        track = await self._add_track()
-        measure = track.measure_list[0].measure
-        await self.client.send_command(commands.create_beat(
-            measure,
-            time=audioproc.MusicalDuration(1, 4)))
-        beat = measure.beats[0]
-
-        await self.client.send_command(commands.update_beat(
-            beat,
-            set_velocity=57))
-        self.assertEqual(beat.velocity, 57)

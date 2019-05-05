@@ -24,7 +24,6 @@ syntax = "proto2";
 
 import "noisicaa/music/commands.proto";
 import "noisicaa/builtin_nodes/score_track/commands.proto";
-import "noisicaa/builtin_nodes/beat_track/commands.proto";
 import "noisicaa/builtin_nodes/control_track/commands.proto";
 import "noisicaa/builtin_nodes/sample_track/commands.proto";
 import "noisicaa/builtin_nodes/custom_csound/commands.proto";
@@ -38,12 +37,6 @@ extend Command {
   optional CreateNote create_note = 401002;
   optional UpdateNote update_note = 401003;
   optional DeleteNote delete_note = 401004;
-
-  // Beat track (402xxx)
-  optional UpdateBeatTrack update_beat_track = 402000;
-  optional CreateBeat create_beat = 402001;
-  optional UpdateBeat update_beat = 402002;
-  optional DeleteBeat delete_beat = 402003;
 
   // Control track (403xxx)
   optional CreateControlPoint create_control_point = 403000;

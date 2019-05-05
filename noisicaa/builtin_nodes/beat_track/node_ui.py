@@ -35,7 +35,6 @@ from noisicaa import model_base
 from noisicaa import music
 from noisicaa.ui.graph import track_node
 from noisicaa.ui import ui_base
-from . import commands
 from . import model
 
 logger = logging.getLogger(__name__)
@@ -84,9 +83,8 @@ class BeatTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             self.__pitch.setText(str(self.__track.pitch))
         else:
             if pitch != self.__track.pitch:
-                self.send_command_async(commands.update(
-                    self.__track,
-                    set_pitch=pitch))
+                with self.project.apply_mutations():
+                    self.__track.pitch = pitch
 
 
 class BeatTrackNode(track_node.TrackNode):

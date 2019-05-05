@@ -32,7 +32,6 @@ from noisicaa import audioproc
 from noisicaa import value_types
 from noisicaa.ui.track_list import measured_track_editor
 from noisicaa.ui.track_list import tools
-from . import commands
 from . import model
 
 logger = logging.getLogger(__name__)
@@ -61,13 +60,13 @@ class EditBeatsTool(measured_track_editor.MeasuredToolBase):
 
             for beat in target.measure.beats:
                 if beat.time == click_time:
-                    self.send_command_async(commands.delete_beat(beat))
+                    with self.project.apply_mutations():
+                        target.measure.delete_beat(beat)
                     evt.accept()
                     return
 
-            self.send_command_async(commands.create_beat(
-                target.measure,
-                time=click_time))
+            with self.project.apply_mutations():
+                target.measure.create_beat(click_time)
             target.track_editor.playNoteOn(target.track.pitch)
             evt.accept()
             return
@@ -87,9 +86,8 @@ class EditBeatsTool(measured_track_editor.MeasuredToolBase):
 
             for beat in target.measure.beats:
                 if beat.time == click_time:
-                    self.send_command_async(commands.update_beat(
-                        beat,
-                        set_velocity=max(0, min(127, beat.velocity + vel_delta))))
+                    with self.project.apply_mutations():
+                        beat.velocity = max(0, min(127, beat.velocity + vel_delta))
                     evt.accept()
                     return
 

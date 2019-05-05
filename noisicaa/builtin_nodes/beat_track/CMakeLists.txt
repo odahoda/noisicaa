@@ -19,7 +19,6 @@
 # @end:license
 
 add_python_package(
-  commands.py
   node_description.py
   model.py
   model_test.py
@@ -29,4 +28,3 @@ add_python_package(
 )
 
 py_proto(model.proto)
-py_proto(commands.proto)

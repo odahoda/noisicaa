@@ -30,71 +30,9 @@ from noisicaa import model_base
 from noisicaa import value_types
 from noisicaa.music import base_track
 from noisicaa.music import model
-from noisicaa.music import commands
 from noisicaa.audioproc.public import musical_time_pb2
-from noisicaa.builtin_nodes import commands_registry_pb2
 from noisicaa.builtin_nodes import model_registry_pb2
 from . import node_description
-from . import commands_pb2
-
-
-class UpdateBeatTrack(commands.Command):
-    proto_type = 'update_beat_track'
-    proto_ext = commands_registry_pb2.update_beat_track
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateBeatTrack, self.pb)
-        track = down_cast(BeatTrack, self.pool[pb.track_id])
-
-        if pb.HasField('set_pitch'):
-            track.pitch = value_types.Pitch.from_proto(pb.set_pitch)
-
-
-class CreateBeat(commands.Command):
-    proto_type = 'create_beat'
-    proto_ext = commands_registry_pb2.create_beat
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateBeat, self.pb)
-        measure = down_cast(BeatMeasure, self.pool[pb.measure_id])
-
-        time = audioproc.MusicalDuration.from_proto(pb.time)
-        assert audioproc.MusicalDuration(0, 1) <= time < measure.duration
-
-        if pb.HasField('velocity'):
-            velocity = pb.velocity
-        else:
-            velocity = 100
-
-        beat = self.pool.create(
-            Beat,
-            time=time,
-            velocity=velocity)
-        measure.beats.append(beat)
-
-
-class UpdateBeat(commands.Command):
-    proto_type = 'update_beat'
-    proto_ext = commands_registry_pb2.update_beat
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateBeat, self.pb)
-        beat = down_cast(Beat, self.pool[pb.beat_id])
-
-        if pb.HasField('set_velocity'):
-            beat.velocity = pb.set_velocity
-
-
-class DeleteBeat(commands.Command):
-    proto_type = 'delete_beat'
-    proto_ext = commands_registry_pb2.delete_beat
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteBeat, self.pb)
-        beat = down_cast(Beat, self.pool[pb.beat_id])
-
-        measure = beat.measure
-        del measure.beats[beat.index]
 
 
 class BeatTrackConnector(base_track.MeasuredTrackConnector):
@@ -205,6 +143,19 @@ class BeatMeasure(base_track.Measure):
     @property
     def empty(self) -> bool:
         return len(self.beats) == 0
+
+    def create_beat(self, time: audioproc.MusicalDuration, velocity: int = 100) -> Beat:
+        assert audioproc.MusicalDuration(0, 1) <= time < self.duration
+        assert 0 <= velocity <= 127
+        beat = self._pool.create(
+            Beat,
+            time=time,
+            velocity=velocity)
+        self.beats.append(beat)
+        return beat
+
+    def delete_beat(self, beat: Beat) -> None:
+        del self.beats[beat.index]
 
 
 class BeatTrack(base_track.MeasuredTrack):
