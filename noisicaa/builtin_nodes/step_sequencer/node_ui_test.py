@@ -22,7 +22,6 @@
 
 from noisidev import uitest
 from . import node_ui
-from . import commands
 
 
 class StepSequencerNodeTest(uitest.ProjectMixin, uitest.UITestCase):
@@ -47,7 +46,7 @@ class StepSequencerNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
     async def test_num_steps_changed(self):
         widget = node_ui.StepSequencerNodeWidget(node=self.node, context=self.context)
         try:
-            await self.project_client.send_command(commands.update(
-                self.node, set_num_steps=4))
+            with self.project.apply_mutations():
+                self.node.set_num_steps(4)
         finally:
             widget.cleanup()

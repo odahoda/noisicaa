@@ -30,112 +30,12 @@ from noisicaa import node_db
 from noisicaa import model_base
 from noisicaa.music import graph
 from noisicaa.music import model
-from noisicaa.music import commands
-from noisicaa.builtin_nodes import commands_registry_pb2
 from noisicaa.builtin_nodes import model_registry_pb2
 from . import node_description
 from . import model_pb2
-from . import commands_pb2
 from . import processor_pb2
 
 logger = logging.getLogger(__name__)
-
-
-class UpdateStepSequencer(commands.Command):
-    proto_type = 'update_step_sequencer'
-    proto_ext = commands_registry_pb2.update_step_sequencer
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateStepSequencer, self.pb)
-        node = down_cast(StepSequencer, self.pool[pb.node_id])
-
-        if pb.HasField('set_time_synched'):
-            node.time_synched = pb.set_time_synched
-
-        if pb.HasField('add_channel'):
-            channel = self.pool.create(
-                StepSequencerChannel,
-                type=model_pb2.StepSequencerChannel.VALUE,
-                num_steps=node.num_steps)
-            node.channels.insert(pb.add_channel, channel)
-
-        if pb.HasField('set_num_steps'):
-            for channel in node.channels:
-                while len(channel.steps) < pb.set_num_steps:
-                    channel.steps.append(self.pool.create(StepSequencerStep))
-
-            node.num_steps = pb.set_num_steps
-
-            for channel in node.channels:
-                while len(channel.steps) > pb.set_num_steps:
-                    del channel.steps[len(channel.steps) - 1]
-
-
-class UpdateStepSequencerChannel(commands.Command):
-    proto_type = 'update_step_sequencer_channel'
-    proto_ext = commands_registry_pb2.update_step_sequencer_channel
-
-    def validate(self) -> None:
-        pb = down_cast(commands_pb2.UpdateStepSequencerChannel, self.pb)
-        channel = down_cast(StepSequencerChannel, self.pool[pb.channel_id])
-
-        if pb.HasField('set_min_value') and channel.type != model_pb2.StepSequencerChannel.VALUE:
-            raise ValueError(
-                "Can't set min_value on %s channel"
-                % model_pb2.StepSequencerChannel.Type.Name(channel.type))
-
-        if pb.HasField('set_max_value') and channel.type != model_pb2.StepSequencerChannel.VALUE:
-            raise ValueError(
-                "Can't set max_value on %s channel"
-                % model_pb2.StepSequencerChannel.Type.Name(channel.type))
-
-        if pb.HasField('set_log_scale') and channel.type != model_pb2.StepSequencerChannel.VALUE:
-            raise ValueError(
-                "Can't set log_scale on %s channel"
-                % model_pb2.StepSequencerChannel.Type.Name(channel.type))
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateStepSequencerChannel, self.pb)
-        channel = down_cast(StepSequencerChannel, self.pool[pb.channel_id])
-
-        if pb.HasField('set_type'):
-            channel.type = pb.set_type
-
-        if pb.HasField('set_min_value'):
-            channel.min_value = pb.set_min_value
-
-        if pb.HasField('set_max_value'):
-            channel.max_value = pb.set_max_value
-
-        if pb.HasField('set_log_scale'):
-            channel.log_scale = pb.set_log_scale
-
-
-class DeleteStepSequencerChannel(commands.Command):
-    proto_type = 'delete_step_sequencer_channel'
-    proto_ext = commands_registry_pb2.delete_step_sequencer_channel
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteStepSequencerChannel, self.pb)
-        channel = down_cast(StepSequencerChannel, self.pool[pb.channel_id])
-        node = down_cast(StepSequencer, channel.parent)
-
-        del node.channels[channel.index]
-
-
-class UpdateStepSequencerStep(commands.Command):
-    proto_type = 'update_step_sequencer_step'
-    proto_ext = commands_registry_pb2.update_step_sequencer_step
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateStepSequencerStep, self.pb)
-        step = down_cast(StepSequencerStep, self.pool[pb.step_id])
-
-        if pb.HasField('set_value'):
-            step.value = pb.set_value
-
-        if pb.HasField('set_enabled'):
-            step.enabled = pb.set_enabled
 
 
 class StepSequencerStep(model.ProjectChild):
@@ -240,6 +140,7 @@ class StepSequencerChannel(model.ProjectChild):
 
     @min_value.setter
     def min_value(self, value: float) -> None:
+        assert self.type == model_pb2.StepSequencerChannel.VALUE
         self.set_property_value('min_value', value)
 
     @property
@@ -248,6 +149,7 @@ class StepSequencerChannel(model.ProjectChild):
 
     @max_value.setter
     def max_value(self, value: float) -> None:
+        assert self.type == model_pb2.StepSequencerChannel.VALUE
         self.set_property_value('max_value', value)
 
     @property
@@ -256,6 +158,7 @@ class StepSequencerChannel(model.ProjectChild):
 
     @log_scale.setter
     def log_scale(self, value: bool) -> None:
+        assert self.type == model_pb2.StepSequencerChannel.VALUE
         self.set_property_value('log_scale', value)
 
 
@@ -357,3 +260,25 @@ class StepSequencer(graph.BaseNode):
             )
 
         return node_desc
+
+    def create_channel(self, index: int) -> StepSequencerChannel:
+        channel = self._pool.create(
+            StepSequencerChannel,
+            type=model_pb2.StepSequencerChannel.VALUE,
+            num_steps=self.num_steps)
+        self.channels.insert(index, channel)
+        return channel
+
+    def delete_channel(self, channel: StepSequencerChannel) -> None:
+        del self.channels[channel.index]
+
+    def set_num_steps(self, num_steps: int) -> None:
+        for channel in self.channels:
+            while len(channel.steps) < num_steps:
+                channel.steps.append(self._pool.create(StepSequencerStep))
+
+        self.num_steps = num_steps
+
+        for channel in self.channels:
+            while len(channel.steps) > num_steps:
+                del channel.steps[len(channel.steps) - 1]
