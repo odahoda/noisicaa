@@ -77,6 +77,23 @@ class BaseProject(model.ObjectBase):
         self.__time_mapper = audioproc.TimeMapper(44100)
         self.__time_mapper.setup(self)
 
+        self._in_mutation = False
+
+    def create(
+            self, *,
+            node_db: Optional[node_db_lib.NodeDBClient] = None,
+            **kwargs: Any
+    ) -> None:
+        super().create(**kwargs)
+        self.node_db = node_db
+
+        self.metadata = self._pool.create(metadata_lib.Metadata)
+
+        system_out_node = self._pool.create(
+            graph.SystemOutNode,
+            name="System Out", graph_pos=value_types.Pos2F(200, 0))
+        self.add_node(system_out_node)
+
     @property
     def time_mapper(self) -> audioproc.TimeMapper:
         return self.__time_mapper
@@ -136,35 +153,32 @@ class BaseProject(model.ObjectBase):
     def data_dir(self) -> Optional[str]:
         return None
 
-    def create(
-            self, *,
-            node_db: Optional[node_db_lib.NodeDBClient] = None,
-            **kwargs: Any
-    ) -> None:
-        super().create(**kwargs)
-        self.node_db = node_db
-
-        self.metadata = self._pool.create(metadata_lib.Metadata)
-
-        system_out_node = self._pool.create(
-            graph.SystemOutNode,
-            name="System Out", graph_pos=value_types.Pos2F(200, 0))
-        self.add_node(system_out_node)
-
     async def close(self) -> None:
         pass
 
     def get_node_description(self, uri: str) -> node_db_lib.NodeDescription:
         return self.node_db.get_node_description(uri)
 
+    def monitor_model_changes(self) -> None:
+        self._pool.model_changed.add(self.__model_changed)
+
+    def __model_changed(self, change: model_base.PropertyChange) -> None:
+        assert self._in_mutation
+
     @contextlib.contextmanager
     def apply_mutations(self) -> Generator:
-        mutation_list = mutations_pb2.MutationList()
-        collector = mutations.MutationCollector(self._pool, mutation_list)
-        with collector.collect():
-            yield
+        assert not self._in_mutation
+        self._in_mutation = True
+        try:
+            mutation_list = mutations_pb2.MutationList()
+            collector = mutations.MutationCollector(self._pool, mutation_list)
+            with collector.collect():
+                yield
 
-        self._mutation_list_applied(mutation_list)
+            self._mutation_list_applied(mutation_list)
+
+        finally:
+            self._in_mutation = False
 
     def _mutation_list_applied(self, mutation_list: mutations_pb2.MutationList) -> None:
         logger.info(str(mutation_list))
@@ -458,25 +472,21 @@ class Project(BaseProject):
     def __apply_mutation_list(
             self,
             action: storage.Action,
-            mutation_list: mutations_pb2.MutationList
+            mutation_list_pb: mutations_pb2.MutationList
     ) -> None:
-        logger.info(
-            "Apply %d operations %s", len(mutation_list.ops), action.name)
+        logger.info("Apply %d operations %s", len(mutation_list_pb.ops), action.name)
 
-        if action == storage.ACTION_FORWARD:
-            self.__apply_mutation_list_forward(mutation_list)
-        elif action == storage.ACTION_BACKWARD:
-            self.__apply_mutation_list_backward(mutation_list)
-        else:
-            raise ValueError("Unsupported action %s" % action)
-
-    def __apply_mutation_list_forward(self, mutation_list_pb: mutations_pb2.MutationList) -> None:
         mutation_list = mutations.MutationList(self._pool, mutation_list_pb)
-        mutation_list.apply_forward()
+        try:
+            self._in_mutation = True
+            if action == storage.ACTION_FORWARD:
+                mutation_list.apply_forward()
+            else:
+                assert action == storage.ACTION_BACKWARD
+                mutation_list.apply_backward()
 
-    def __apply_mutation_list_backward(self, mutation_list_pb: mutations_pb2.MutationList) -> None:
-        mutation_list = mutations.MutationList(self._pool, mutation_list_pb)
-        mutation_list.apply_backward()
+        finally:
+            self._in_mutation = False
 
     async def fetch_undo(self) -> Optional[Tuple[storage.Action, bytes]]:
         assert not self.closed

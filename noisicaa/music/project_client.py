@@ -179,6 +179,7 @@ class ProjectClient(object):
             pool=self.__pool,
             writer=self.__writer_client,
             node_db=self.__node_db)
+        self.__project.monitor_model_changes()
         await self.__init_session_data()
 
     async def create_inmemory(self) -> None:
@@ -188,6 +189,7 @@ class ProjectClient(object):
         self.__project = self.__pool.create(
             project_lib.BaseProject, node_db=self.__node_db)
         self.__pool.set_root(self.__project)
+        self.__project.monitor_model_changes()
         await self.__init_session_data()
 
     async def open(self, path: str) -> None:
@@ -201,6 +203,7 @@ class ProjectClient(object):
             pool=self.__pool,
             writer=self.__writer_client,
             node_db=self.__node_db)
+        self.__project.monitor_model_changes()
         await self.__init_session_data()
 
     async def close(self) -> None:

@@ -366,12 +366,13 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         channel_ui.cleanup()
 
     def __numChannelsEdited(self, value: int) -> None:
-        with self.project.apply_mutations():
-            for idx in range(len(self.__node.channels), value):
-                self.__node.create_channel(idx)
+        if value != len(self.__node.channels):
+            with self.project.apply_mutations():
+                for idx in range(len(self.__node.channels), value):
+                    self.__node.create_channel(idx)
 
-            for idx in reversed(range(value, len(self.__node.channels))):
-                self.__node.delete_channel(self.__node.channels[idx])
+                for idx in reversed(range(value, len(self.__node.channels))):
+                    self.__node.delete_channel(self.__node.channels[idx])
 
 
 class MidiCCtoCVNode(base_node.Node):
