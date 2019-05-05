@@ -88,18 +88,6 @@ class CreateCustomCSoundPort(commands.Command):
         node.ports.insert(index, port)
 
 
-class UpdateCustomCSoundPort(commands.Command):
-    proto_type = 'update_custom_csound_port'
-    proto_ext = commands_registry_pb2.update_custom_csound_port
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateCustomCSoundPort, self.pb)
-        port = down_cast(CustomCSoundPort, self.pool[pb.port_id])
-
-        if pb.HasField('set_csound_name'):
-            port.csound_name = pb.set_csound_name
-
-
 class DeleteCustomCSoundPort(commands.Command):
     proto_type = 'delete_custom_csound_port'
     proto_ext = commands_registry_pb2.delete_custom_csound_port

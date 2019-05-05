@@ -65,12 +65,8 @@ class ControlValueConnector(ui_base.ProjectMixin, slots.SlotContainer, QtCore.QO
     def __onValueEdited(self, value: float) -> None:
         if value != self.__node.control_value_map.value(self.__name):
             self.__generation += 1
-            self.send_command_async(music.update_node(
-                self.__node,
-                set_control_value=value_types.ControlValue(
-                    name=self.__name,
-                    value=value,
-                    generation=self.__generation)))
+            with self.project.apply_mutations():
+                self.__node.set_control_value(self.__name, value, self.__generation)
 
     def __onValueChanged(
             self, change: model_base.PropertyValueChange[value_types.ControlValue]) -> None:

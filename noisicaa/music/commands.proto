@@ -34,56 +34,6 @@ import "noisicaa/music/mutations.proto";
 
 package noisicaa.pb;
 
-message UpdateProject {
-  optional uint32 set_bpm = 1;
-}
-
-message CreateNode {
-  optional string uri = 1;
-  optional string name = 2;
-  optional Pos2F graph_pos = 3;
-  optional SizeF graph_size = 4;
-  optional Color graph_color = 5;
-}
-
-message UpdateNode {
-  required uint64 node_id = 1;
-
-  optional string set_name = 2;
-  optional Pos2F set_graph_pos = 3;
-  optional SizeF set_graph_size = 4;
-  optional Color set_graph_color = 5;
-
-  optional ControlValue set_control_value = 6;
-  optional PluginState set_plugin_state = 7;
-  optional bytes load_from_preset = 8;
-  optional NodePortProperties set_port_properties = 9;
-}
-
-message DeleteNode {
-  required uint64 node_id = 1;
-}
-
-message UpdatePort {
-  required uint64 port_id = 1;
-
-  optional string set_name = 2;
-  optional string set_display_name = 3;
-  optional PortDescription.Type set_type = 4;
-  optional PortDescription.Direction set_direction = 5;
-}
-
-message CreateNodeConnection {
-  optional uint64 source_node_id = 1;
-  optional string source_port_name = 2;
-  optional uint64 dest_node_id = 3;
-  optional string dest_port_name = 4;
-}
-
-message DeleteNodeConnection {
-  required uint64 connection_id = 1;
-}
-
 message UpdateTrack {
   required uint64 track_id = 1;
   optional bool set_visible = 2;
@@ -118,19 +68,6 @@ message PasteMeasures {
 
 message Command {
   required string command = 1;
-
-  // Project (1xxxxx)
-  optional UpdateProject update_project = 100000;
-  optional EmptyMessage crash = 100001;
-
-  // Pipeline graph (3xxxxx)
-  optional UpdateNode update_node = 300001;
-  optional DeleteNode delete_node = 300002;
-
-  optional CreateNodeConnection create_node_connection = 301000;
-  optional DeleteNodeConnection delete_node_connection = 301001;
-
-  optional UpdatePort update_port = 304000;
 
   // Tracks (400xxx)
   optional UpdateTrack update_track = 400000;

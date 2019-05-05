@@ -34,7 +34,6 @@ from noisicaa import editor_main_pb2
 from noisicaa import model_base
 from noisicaa.builtin_nodes.score_track import model as score_track
 from . import project
-from . import commands_pb2
 from . import commands_test
 from . import writer_client
 
@@ -179,11 +178,8 @@ class ProjectTest(
             old_bpm = p.bpm
 
             for i in range(old_bpm + 1, old_bpm + 10):
-                p.dispatch_command_sequence_proto(commands_pb2.CommandSequence(
-                    commands=[commands_pb2.Command(
-                        command='update_project',
-                        update_project=commands_pb2.UpdateProject(
-                            set_bpm=i))]))
+                with p.apply_mutations():
+                    p.bpm = i
 
             p.undo(*(await p.fetch_undo()))
             self.assertEqual(p.bpm, old_bpm)

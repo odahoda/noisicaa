@@ -53,19 +53,6 @@ def create_port(
         pb.index = index
     return cmd
 
-
-def update_port(
-        port: model.CustomCSoundPort, *,
-        set_csound_name: str = None,
-) -> music.Command:
-    cmd = music.Command(command='update_custom_csound_port')
-    pb = cmd.Extensions[commands_registry_pb2.update_custom_csound_port]
-    pb.port_id = port.id
-    if set_csound_name is not None:
-        pb.set_csound_name = set_csound_name
-    return cmd
-
-
 def delete_port(
         port: model.CustomCSoundPort,
 ) -> music.Command:

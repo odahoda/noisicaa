@@ -46,106 +46,10 @@ from . import writer_client
 from . import render
 from . import player as player_lib
 from . import session_value_store
-from . import graph
 from . import base_track
 
 logger = logging.getLogger(__name__)
 
-
-def crash() -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='crash',
-        crash=empty_message_pb2.EmptyMessage())
-
-
-def update_project(
-        *,
-        set_bpm: int = None
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='update_project',
-        update_project=commands_pb2.UpdateProject(
-            set_bpm=set_bpm))
-
-
-def update_node(
-        node: graph.BaseNode,
-        *,
-        set_name: str = None,
-        set_graph_pos: value_types.Pos2F = None,
-        set_graph_size: value_types.SizeF = None,
-        set_graph_color: value_types.Color = None,
-        set_control_value: value_types.ControlValue = None,
-        set_plugin_state: audioproc.PluginState = None,
-        set_port_properties: value_types.NodePortProperties = None,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='update_node',
-        update_node=commands_pb2.UpdateNode(
-            node_id=node.id,
-            set_name=set_name,
-            set_graph_pos=set_graph_pos.to_proto() if set_graph_pos is not None else None,
-            set_graph_size=set_graph_size.to_proto() if set_graph_size is not None else None,
-            set_graph_color=set_graph_color.to_proto() if set_graph_color is not None else None,
-            set_control_value=(
-                set_control_value.to_proto() if set_control_value is not None else None),
-            set_plugin_state=set_plugin_state,
-            set_port_properties=(
-                set_port_properties.to_proto() if set_port_properties is not None else None),
-        ))
-
-
-def delete_node(
-        node: graph.BaseNode,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='delete_node',
-        delete_node=commands_pb2.DeleteNode(
-            node_id=node.id))
-
-
-def update_port(
-        port: graph.Port,
-        *,
-        set_name: str = None,
-        set_display_name: str = None,
-        set_type: node_db_lib.PortDescription.Type = None,
-        set_direction: node_db_lib.PortDescription.Direction = None,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='update_port',
-        update_port=commands_pb2.UpdatePort(
-            port_id=port.id,
-            set_name=set_name,
-            set_display_name=set_display_name,
-            set_type=set_type,
-            set_direction=set_direction,
-        ))
-
-
-def create_node_connection(
-        *,
-        source_node: graph.BaseNode,
-        source_port: str,
-        dest_node: graph.BaseNode,
-        dest_port: str,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='create_node_connection',
-        create_node_connection=commands_pb2.CreateNodeConnection(
-            source_node_id=source_node.id,
-            source_port_name=source_port,
-            dest_node_id=dest_node.id,
-            dest_port_name=dest_port))
-
-
-def delete_node_connection(
-        conn: graph.NodeConnection,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='delete_node_connection',
-        delete_node_connection=commands_pb2.DeleteNodeConnection(
-            connection_id=conn.id))
 
 def update_track(
         track: base_track.Track,
@@ -312,14 +216,9 @@ class ProjectClient(object):
         else:
             raise ValueError("Invalid node_id '%s'" % request.node_id)
 
-        seq = commands_pb2.CommandSequence(
-            commands=[commands_pb2.Command(
-                command='update_node',
-                update_node=commands_pb2.UpdateNode(
-                    node_id=node.id,
-                    set_control_value=request.value))])
-
-        self.__project.dispatch_command_sequence_proto(seq)
+        with self.__project.apply_mutations():
+            node.set_control_value(
+                request.value.name, request.value.value, request.value.generation)
 
     async def __handle_plugin_state_change(
             self,
@@ -335,14 +234,8 @@ class ProjectClient(object):
         else:
             raise ValueError("Invalid node_id '%s'" % request.node_id)
 
-        seq = commands_pb2.CommandSequence(
-            commands=[commands_pb2.Command(
-                command='update_node',
-                update_node=commands_pb2.UpdateNode(
-                    node_id=node.id,
-                    set_plugin_state=request.state))])
-
-        self.__project.dispatch_command_sequence_proto(seq)
+        with self.__project.apply_mutations():
+            node.set_plugin_state(request.state)
 
     async def create(self, path: str) -> None:
         assert self.__project is None

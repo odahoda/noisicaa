@@ -840,17 +840,15 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         color_menu.addAction(color_action)
 
     def onRemove(self) -> None:
-        commands = []
-        for conn in self.__node.connections:
-            commands.append(music.delete_node_connection(conn))
-        commands.append(music.delete_node(self.__node))
-        self.send_commands_async(*commands)
+        with self.project.apply_mutations():
+            for conn in self.__node.connections:
+                self.project.remove_node_connection(conn)
+            self.project.remove_node(self.__node)
 
     def onSetColor(self, color: value_types.Color) -> None:
         if color != self.__node.graph_color:
-            self.send_command_async(music.update_node(
-                self.__node,
-                set_graph_color=color))
+            with self.project.apply_mutations():
+                self.__node.graph_color = color
 
     def renameNode(self) -> None:
         self.__rename_node = True
@@ -861,9 +859,8 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         new_name = self.__title_edit.text()
         if new_name != self.__node.name:
             self.__title.setText(self.__node.name)
-            self.send_command_async(music.update_node(
-                self.__node,
-                set_name=new_name))
+            with self.project.apply_mutations():
+                self.__node.name = new_name
 
         self.__rename_node = False
         self.__layout()

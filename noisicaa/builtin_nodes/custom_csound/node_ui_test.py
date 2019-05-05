@@ -24,7 +24,6 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
 from noisidev import uitest
-from noisicaa import music
 from noisicaa import node_db
 from noisicaa.builtin_nodes import commands_registry_pb2
 from . import node_ui
@@ -59,8 +58,11 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
             QtWidgets.QWidget, "attribute_editor", Qt.FindChildrenRecursively)
 
     def _closeEditor(self):
-        self.delegate.commitData.emit(self._activeEditor())
-        self.delegate.closeEditor.emit(self._activeEditor())
+        editor = self._activeEditor()
+        assert editor is not None
+        self.delegate.commitData.emit(editor)
+        self.delegate.closeEditor.emit(editor)
+        editor.setParent(None)
 
     def _addAction(self):
         return self.port_list_editor.findChild(
@@ -84,28 +86,28 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
         self.assertIs(self.model.object(1), self.node.ports[1])
 
     async def test_port_name_changed(self):
-        await self.project_client.send_command(music.update_port(
-            self.node.ports[0], set_name='foo'))
+        with self.project.apply_mutations():
+            self.node.ports[0].name = 'foo'
         self.assertEqual(self._getCell(0, 0), 'foo')
 
     async def test_port_display_name_changed(self):
-        await self.project_client.send_command(music.update_port(
-            self.node.ports[0], set_display_name='Foo Bar'))
+        with self.project.apply_mutations():
+            self.node.ports[0].display_name = 'Foo Bar'
         self.assertEqual(self._getCell(0, 2), 'Foo Bar')
 
     async def test_port_direction_changed(self):
-        await self.project_client.send_command(music.update_port(
-            self.node.ports[0], set_direction=node_db.PortDescription.OUTPUT))
+        with self.project.apply_mutations():
+            self.node.ports[0].direction = node_db.PortDescription.OUTPUT
         self.assertEqual(self._getCell(0, 4), 'output')
 
     async def test_port_type_changed(self):
-        await self.project_client.send_command(music.update_port(
-            self.node.ports[0], set_type=node_db.PortDescription.KRATE_CONTROL))
+        with self.project.apply_mutations():
+            self.node.ports[0].type = node_db.PortDescription.KRATE_CONTROL
         self.assertEqual(self._getCell(0, 3), 'control (k-rate)')
 
     async def test_port_csound_name_changed(self):
-        await self.project_client.send_command(commands.update_port(
-            self.node.ports[0], set_csound_name='gafoo'))
+        with self.project.apply_mutations():
+            self.node.ports[0].csound_name = 'gafoo'
         self.assertEqual(self._getCell(0, 1), 'gafoo')
 
     async def test_add_port(self):
@@ -136,19 +138,8 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
         self.assertIsInstance(editor, QtWidgets.QLineEdit)
         editor.setText('foo')
         self._closeEditor()
-        self.assertEqual(len(self.commands), 2)
-        cmd = self.commands[0]
-        self.assertEqual(cmd.command, 'update_port')
-        self.assertEqual(cmd.update_port.port_id, self.node.ports[0].id)
-        self.assertEqual(cmd.update_port.set_name, 'foo')
-        cmd = self.commands[1]
-        self.assertEqual(cmd.command, 'update_custom_csound_port')
-        self.assertEqual(
-            cmd.Extensions[commands_registry_pb2.update_custom_csound_port].port_id,
-            self.node.ports[0].id)
-        self.assertEqual(
-            cmd.Extensions[commands_registry_pb2.update_custom_csound_port].set_csound_name,
-            'gaFoo')
+        self.assertEqual(self.node.ports[0].name, 'foo')
+        self.assertEqual(self.node.ports[0].csound_name, 'gaFoo')
 
     async def test_edit_display_name(self):
         self.table.edit(self.model.index(0, 2))
@@ -156,11 +147,7 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
         self.assertIsInstance(editor, QtWidgets.QLineEdit)
         editor.setText('Foo Bar')
         self._closeEditor()
-        self.assertEqual(len(self.commands), 1)
-        cmd = self.commands[0]
-        self.assertEqual(cmd.command, 'update_port')
-        self.assertEqual(cmd.update_port.port_id, self.node.ports[0].id)
-        self.assertEqual(cmd.update_port.set_display_name, 'Foo Bar')
+        self.assertEqual(self.node.ports[0].display_name, 'Foo Bar')
 
     async def test_edit_direction(self):
         self.table.edit(self.model.index(0, 4))
@@ -168,59 +155,34 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
         self.assertIsInstance(editor, QtWidgets.QComboBox)
         editor.setCurrentIndex(0)
         self._closeEditor()
-        self.assertEqual(len(self.commands), 1)
-        cmd = self.commands[0]
-        self.assertEqual(cmd.command, 'update_port')
-        self.assertEqual(cmd.update_port.port_id, self.node.ports[0].id)
-        self.assertEqual(cmd.update_port.set_direction, node_db.PortDescription.INPUT)
+        self.assertEqual(self.node.ports[0].direction, node_db.PortDescription.INPUT)
 
     async def test_edit_type(self):
         tests = [
             (node_db.PortDescription.AUDIO, 'gaPort1',
              1, node_db.PortDescription.KRATE_CONTROL, 'gkPort1'),
-            # TODO: make those work again.
-            # (node_db.PortDescription.AUDIO, 'gaPort1',
-            #  2, node_db.PortDescription.ARATE_CONTROL, 'gaPort1'),
-            # (node_db.PortDescription.KRATE_CONTROL, 'gkPort1',
-            #  0, node_db.PortDescription.AUDIO, 'gaPort1'),
-            # (node_db.PortDescription.EVENTS, '1',
-            #  1, node_db.PortDescription.KRATE_CONTROL, 'gkPort1'),
+            (node_db.PortDescription.AUDIO, 'gaPort1',
+             2, node_db.PortDescription.ARATE_CONTROL, 'gaPort1'),
+            (node_db.PortDescription.KRATE_CONTROL, 'gkPort1',
+             0, node_db.PortDescription.AUDIO, 'gaPort1'),
+            (node_db.PortDescription.EVENTS, '1',
+             1, node_db.PortDescription.KRATE_CONTROL, 'gkPort1'),
         ]
         for initial_type, initial_csound_name, index, new_type, new_csound_name in tests:
             with self.subTest(
                     "%s -> %s" % (node_db.PortDescription.Type.Name(initial_type),
                                   node_db.PortDescription.Type.Name(new_type))):
-                await self.project_client.send_commands(
-                    music.update_port(
-                        self.node.ports[0], set_type=initial_type),
-                    commands.update_port(
-                        self.node.ports[0], set_csound_name=initial_csound_name))
-                self.commands.clear()
+                with self.project.apply_mutations():
+                    self.node.ports[0].type = initial_type
+                    self.node.ports[0].csound_name = initial_csound_name
 
                 self.table.edit(self.model.index(0, 3))
                 editor = self._activeEditor()
                 self.assertIsInstance(editor, QtWidgets.QComboBox)
                 editor.setCurrentIndex(index)
                 self._closeEditor()
-                self.assertGreaterEqual(len(self.commands), 1, self.commands)
-                cmd = self.commands[0]
-                self.assertEqual(cmd.command, 'update_port')
-                self.assertEqual(cmd.update_port.port_id, self.node.ports[0].id)
-                self.assertEqual(cmd.update_port.set_type, new_type)
-                if new_csound_name != initial_csound_name:
-                    self.assertEqual(len(self.commands), 2, self.commands)
-                    cmd = self.commands[1]
-                    self.assertEqual(cmd.command, 'update_custom_csound_port')
-                    self.assertEqual(
-                        cmd.Extensions[
-                            commands_registry_pb2.update_custom_csound_port].port_id,
-                        self.node.ports[0].id)
-                    self.assertEqual(
-                        cmd.Extensions[
-                            commands_registry_pb2.update_custom_csound_port].set_csound_name,
-                        new_csound_name)
-                else:
-                    self.assertEqual(len(self.commands), 1, self.commands)
+                self.assertEqual(self.node.ports[0].type, new_type)
+                self.assertEqual(self.node.ports[0].csound_name, new_csound_name)
 
     async def test_edit_csound_name(self):
         self.table.edit(self.model.index(0, 1))
@@ -228,15 +190,7 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
         self.assertIsInstance(editor, QtWidgets.QLineEdit)
         editor.setText('gaFoo')
         self._closeEditor()
-        self.assertEqual(len(self.commands), 1)
-        cmd = self.commands[0]
-        self.assertEqual(cmd.command, 'update_custom_csound_port')
-        self.assertEqual(
-            cmd.Extensions[commands_registry_pb2.update_custom_csound_port].port_id,
-            self.node.ports[0].id)
-        self.assertEqual(
-            cmd.Extensions[commands_registry_pb2.update_custom_csound_port].set_csound_name,
-            'gaFoo')
+        self.assertEqual(self.node.ports[0].csound_name, 'gaFoo')
 
 
 class EditorTest(uitest.ProjectMixin, uitest.UITestCase):

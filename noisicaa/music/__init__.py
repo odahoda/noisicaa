@@ -20,12 +20,6 @@
 
 from .project_client import (
     ProjectClient,
-    update_project,
-    update_node,
-    delete_node,
-    update_port,
-    create_node_connection,
-    delete_node_connection,
     update_track,
     create_measure,
     update_measure,

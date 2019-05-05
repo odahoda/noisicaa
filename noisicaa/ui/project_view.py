@@ -20,6 +20,7 @@
 #
 # @end:license
 
+import functools
 import logging
 import uuid
 from typing import Any, Tuple
@@ -32,7 +33,6 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import node_db
-from noisicaa import music
 from .graph import view as graph_view
 from . import ui_base
 from . import render_dialog
@@ -272,6 +272,10 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
         dialog.setIntValue(self.project.bpm)
         dialog.setLabelText("BPM:")
         dialog.setWindowTitle("noisicaa - Set BPM")
-        dialog.accepted.connect(lambda: self.send_command_async(music.update_project(
-            set_bpm=dialog.intValue())))
+        dialog.accepted.connect(
+            functools.partial(self.__onSetBPMDone, dialog))
         dialog.show()
+
+    def __onSetBPMDone(self, dialog: QtWidgets.QInputDialog) -> None:
+        with self.project.apply_mutations():
+            self.project.bpm = dialog.intValue()

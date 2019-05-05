@@ -33,131 +33,8 @@ from noisicaa import value_types
 from . import model
 from . import model_pb2
 from . import node_connector
-from . import commands
-from . import commands_pb2
 
 logger = logging.getLogger(__name__)
-
-
-class DeleteNode(commands.Command):
-    proto_type = 'delete_node'
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteNode, self.pb)
-
-        node = down_cast(BaseNode, self.pool[pb.node_id])
-        assert node.is_child_of(self.pool.project)
-
-        self.pool.project.remove_node(node)
-
-
-class CreateNodeConnection(commands.Command):
-    proto_type = 'create_node_connection'
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateNodeConnection, self.pb)
-
-        source_node = down_cast(BaseNode, self.pool[pb.source_node_id])
-        assert source_node.is_child_of(self.pool.project)
-        dest_node = down_cast(BaseNode, self.pool[pb.dest_node_id])
-        assert dest_node.is_child_of(self.pool.project)
-
-        connection = self.pool.create(
-            NodeConnection,
-            source_node=source_node, source_port=pb.source_port_name,
-            dest_node=dest_node, dest_port=pb.dest_port_name)
-        self.pool.project.add_node_connection(connection)
-
-
-class DeleteNodeConnection(commands.Command):
-    proto_type = 'delete_node_connection'
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteNodeConnection, self.pb)
-
-        connection = cast(NodeConnection, self.pool[pb.connection_id])
-        assert connection.is_child_of(self.pool.project)
-
-        self.pool.project.remove_node_connection(connection)
-
-
-class UpdateNode(commands.Command):
-    proto_type = 'update_node'
-
-    def validate(self) -> None:
-        pb = down_cast(commands_pb2.UpdateNode, self.pb)
-
-        if pb.node_id not in self.pool:
-            raise ValueError("Unknown node %016x" % pb.node_id)
-
-        node = down_cast(BaseNode, self.pool[pb.node_id])
-
-        if pb.HasField('set_port_properties'):
-            if not any(
-                    port_desc.name == pb.set_port_properties.name
-                    for port_desc in node.description.ports):
-                raise ValueError("Invalid port name '%s'" % pb.set_port_properties.name)
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateNode, self.pb)
-        node = down_cast(BaseNode, self.pool[pb.node_id])
-
-        if pb.HasField('set_graph_pos'):
-            node.graph_pos = value_types.Pos2F.from_proto(pb.set_graph_pos)
-
-        if pb.HasField('set_graph_size'):
-            node.graph_size = value_types.SizeF.from_proto(pb.set_graph_size)
-
-        if pb.HasField('set_graph_color'):
-            node.graph_color = value_types.Color.from_proto(pb.set_graph_color)
-
-        if pb.HasField('set_name'):
-            node.name = pb.set_name
-
-        if pb.HasField('set_plugin_state'):
-            node.set_plugin_state(pb.set_plugin_state)
-
-        if pb.HasField('set_control_value'):
-            node.set_control_value(
-                pb.set_control_value.name,
-                pb.set_control_value.value,
-                pb.set_control_value.generation)
-
-        if pb.HasField('set_port_properties'):
-            node.set_port_properties(pb.set_port_properties)
-
-
-class UpdatePort(commands.Command):
-    proto_type = 'update_port'
-
-    def validate(self) -> None:
-        pb = down_cast(commands_pb2.UpdatePort, self.pb)
-
-        if pb.port_id not in self.pool:
-            raise ValueError("Unknown port %016x" % pb.port_id)
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdatePort, self.pb)
-        port = down_cast(Port, self.pool[pb.port_id])
-
-        remove_connections = (
-            pb.HasField('set_name')
-            or pb.HasField('set_type')
-            or pb.HasField('set_direction'))
-        if remove_connections:
-            port.remove_connections()
-
-        if pb.HasField('set_name'):
-            port.name = pb.set_name
-
-        if pb.HasField('set_display_name'):
-            port.display_name = pb.set_display_name
-
-        if pb.HasField('set_type'):
-            port.type = pb.set_type
-
-        if pb.HasField('set_direction'):
-            port.direction = pb.set_direction
 
 
 class ControlValueMap(object):
@@ -436,19 +313,20 @@ class BaseNode(model.ProjectChild):
                         node_id=self.pipeline_node_id,
                         state=plugin_state)))
 
-    def set_port_properties(self, port_properties: audioproc.NodePortProperties) -> None:
+    def set_port_properties(self, port_properties: value_types.NodePortProperties) -> None:
+        assert any(port_desc.name == port_properties.name for port_desc in self.description.ports)
+
         new_props = None  # type: audioproc.NodePortProperties
 
         for idx, props in enumerate(self.port_properties):
             if props.name == port_properties.name:
                 new_props = props.to_proto()
-                new_props.MergeFrom(port_properties)
+                new_props.MergeFrom(port_properties.to_proto())
                 self.port_properties[idx] = value_types.NodePortProperties.from_proto(new_props)
                 break
         else:
-            new_props = port_properties
-            self.port_properties.append(
-                value_types.NodePortProperties.from_proto(port_properties))
+            new_props = port_properties.to_proto()
+            self.port_properties.append(port_properties)
 
         if self.attached_to_project:
             self.project.handle_pipeline_mutation(
@@ -509,6 +387,8 @@ class Port(model.ProjectChild):
 
     @name.setter
     def name(self, value: str) -> None:
+        if value != self.get_property_value('name', allow_unset=True):
+            self.remove_connections()
         self.set_property_value('name', value)
 
     @property
@@ -525,6 +405,8 @@ class Port(model.ProjectChild):
 
     @type.setter
     def type(self, value: node_db.PortDescription.Type) -> None:
+        if value != self.get_property_value('type', allow_unset=True):
+            self.remove_connections()
         self.set_property_value('type', value)
 
     @property
@@ -533,15 +415,17 @@ class Port(model.ProjectChild):
 
     @direction.setter
     def direction(self, value: node_db.PortDescription.Direction) -> None:
+        if value != self.get_property_value('direction', allow_unset=True):
+            self.remove_connections()
         self.set_property_value('direction', value)
 
     def remove_connections(self) -> None:
         node = down_cast(BaseNode, self.parent)
-
-        for conn in node.connections:
-            if (conn.source_node is node and conn.source_port == self.name
-                    or conn.dest_node is node and conn.dest_port == self.name):
-                self.project.remove_node_connection(conn)
+        if node is not None:
+            for conn in node.connections:
+                if (conn.source_node is node and conn.source_port == self.name
+                        or conn.dest_node is node and conn.dest_port == self.name):
+                    self.project.remove_node_connection(conn)
 
 
 class Node(BaseNode):

@@ -60,15 +60,13 @@ class NameColumnSpec(
                 logger.warning("Refusing to use duplicate name '%s'", value)
                 return
 
-        cmds = []
-        cmds.append(music.update_port(obj, set_name=value))
+        with self.project.apply_mutations():
+            if obj.csound_name == obj.csound_name_default():
+                csound_name = obj.csound_name_default(name=value)
+                if csound_name != obj.csound_name:
+                    obj.csound_name = csound_name
 
-        if obj.csound_name == obj.csound_name_default():
-            csound_name = obj.csound_name_default(name=value)
-            if csound_name != obj.csound_name:
-                cmds.append(commands.update_port(obj, set_csound_name=csound_name))
-
-        self.send_commands_async(*cmds)
+            obj.name = value
 
     def addChangeListeners(
             self, obj: model.CustomCSoundPort, callback: Callable[[], None]
@@ -101,7 +99,8 @@ class DisplayNameColumnSpec(
         return obj.display_name
 
     def setValue(self, obj: model.CustomCSoundPort, value: str) -> None:
-        self.send_command_async(music.update_port(obj, set_display_name=value))
+        with self.project.apply_mutations():
+            obj.display_name = value
 
     def addChangeListeners(
             self, obj: model.CustomCSoundPort, callback: Callable[[], None]
@@ -118,17 +117,14 @@ class TypeColumnSpec(
         return obj.type
 
     def setValue(self, obj: model.CustomCSoundPort, value: int) -> None:
-        cmds = []
-        cmds.append(music.update_port(
-            obj, set_type=cast(node_db.PortDescription.Type, value)))
+        with self.project.apply_mutations():
+            if obj.csound_name == obj.csound_name_default():
+                csound_name = obj.csound_name_default(
+                    type=cast(node_db.PortDescription.Type, value))
+                if csound_name != obj.csound_name:
+                    obj.csound_name = csound_name
 
-        if obj.csound_name == obj.csound_name_default():
-            csound_name = obj.csound_name_default(
-                type=cast(node_db.PortDescription.Type, value))
-            if csound_name != obj.csound_name:
-                cmds.append(commands.update_port(obj, set_csound_name=csound_name))
-
-        self.send_commands_async(*cmds)
+            obj.type = cast(node_db.PortDescription.Type, value)
 
     def addChangeListeners(
             self, obj: model.CustomCSoundPort, callback: Callable[[], None]
@@ -187,8 +183,8 @@ class DirectionColumnSpec(
         return obj.direction
 
     def setValue(self, obj: model.CustomCSoundPort, value: int) -> None:
-        self.send_command_async(music.update_port(
-            obj, set_direction=cast(node_db.PortDescription.Direction, value)))
+        with self.project.apply_mutations():
+            obj.direction = cast(node_db.PortDescription.Direction, value)
 
     def addChangeListeners(
             self, obj: model.CustomCSoundPort, callback: Callable[[], None]
@@ -243,7 +239,8 @@ class CSoundNameColumnSpec(
         return obj.csound_name
 
     def setValue(self, obj: model.CustomCSoundPort, value: str) -> None:
-        self.send_command_async(commands.update_port(obj, set_csound_name=value))
+        with self.project.apply_mutations():
+            obj.csound_name = value
 
     def addChangeListeners(
             self, obj: model.CustomCSoundPort, callback: Callable[[], None]

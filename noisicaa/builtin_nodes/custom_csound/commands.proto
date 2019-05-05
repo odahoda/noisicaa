@@ -36,11 +36,6 @@ message CreateCustomCSoundPort {
   optional uint32 index = 3;
 }
 
-message UpdateCustomCSoundPort {
-  required uint64 port_id = 1;
-  optional string set_csound_name = 2;
-}
-
 message DeleteCustomCSoundPort {
   required uint64 port_id = 1;
 }

@@ -89,7 +89,6 @@ def register_commands(registry: commands.CommandRegistry) -> None:
     registry.register(sample_track.UpdateSample)
     registry.register(custom_csound.UpdateCustomCSound)
     registry.register(custom_csound.CreateCustomCSoundPort)
-    registry.register(custom_csound.UpdateCustomCSoundPort)
     registry.register(custom_csound.DeleteCustomCSoundPort)
     registry.register(step_sequencer.UpdateStepSequencer)
     registry.register(step_sequencer.UpdateStepSequencerChannel)

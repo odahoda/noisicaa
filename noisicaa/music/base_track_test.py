@@ -24,7 +24,6 @@ import logging
 from typing import cast, Type
 
 from . import commands_test
-from . import project_client
 from . import base_track
 
 logger = logging.getLogger(__name__)
@@ -39,7 +38,8 @@ class TrackTestMixin(commands_test.CommandsTestMixin):
             node = self.project.create_node(self.node_uri)
         assert isinstance(node, self.track_cls)
 
-        await self.client.send_command(project_client.delete_node(node))
+        with self.project.apply_mutations():
+            self.project.remove_node(node)
 
     async def _add_track(self) -> base_track.Track:
         with self.project.apply_mutations():

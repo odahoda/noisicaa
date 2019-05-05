@@ -744,9 +744,14 @@ class ObjectBase(object):
     def proto(self) -> model_base_pb2.ObjectBase:
         return self.__proto
 
-    def get_property_value(self, prop_name: str) -> Any:
+    def get_property_value(self, prop_name: str, *, allow_unset: bool = False) -> Any:
         prop = self.__properties[prop_name]
-        return prop.get_value(self, self.__proto.Extensions[prop.spec.proto_ext], self._pool)
+        try:
+            return prop.get_value(self, self.__proto.Extensions[prop.spec.proto_ext], self._pool)
+        except ValueNotSetError:
+            if allow_unset:
+                return None
+            raise
 
     def set_property_value(self, prop_name: str, value: Any) -> None:
         prop = self.__properties[prop_name]

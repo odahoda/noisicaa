@@ -463,11 +463,12 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
             for conn in self.project.node_connections)
 
         if not already_exists:
-            self.send_command_async(music.create_node_connection(
-                source_node=src_node.node(),
-                source_port=src_port.name(),
-                dest_node=dest_node.node(),
-                dest_port=dest_port.name()))
+            with self.project.apply_mutations():
+                self.project.create_node_connection(
+                    source_node=src_node.node(),
+                    source_port=src_port.name(),
+                    dest_node=dest_node.node(),
+                    dest_port=dest_port.name())
 
     def selectAllNodes(self) -> None:
         for node in self.__nodes:
@@ -1139,16 +1140,13 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             mevent = cast(QtGui.QMouseEvent, event)
 
             if mevent.button() == Qt.LeftButton:
-                commands = []
-                for node in state.nodes:
-                    content_pos = self.__scene.sceneToContentPoint(node.canvasTopLeft())
-                    new_graph_pos = value_types.Pos2F(content_pos.x(), content_pos.y())
-                    if new_graph_pos != node.graph_pos():
-                        commands.append(music.update_node(
-                            node.node(),
-                            set_graph_pos=new_graph_pos))
+                with self.project.apply_mutations():
+                    for node in state.nodes:
+                        content_pos = self.__scene.sceneToContentPoint(node.canvasTopLeft())
+                        new_graph_pos = value_types.Pos2F(content_pos.x(), content_pos.y())
+                        if new_graph_pos != node.graph_pos():
+                            node.node().graph_pos = new_graph_pos
 
-                self.send_commands_async(*commands)
                 self.__current_state = None
                 event.accept()
                 return
@@ -1210,10 +1208,9 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                 new_graph_size = value_types.SizeF(content_rect.width(), content_rect.height())
                 if (new_graph_pos != state.node.graph_pos()
                         or new_graph_size != state.node.graph_size()):
-                    self.send_command_async(music.update_node(
-                        state.node.node(),
-                        set_graph_pos=new_graph_pos,
-                        set_graph_size=new_graph_size))
+                    with self.project.apply_mutations():
+                        state.node.node().graph_pos = new_graph_pos
+                        state.node.node().graph_size = new_graph_size
 
                 self.__current_state = None
                 event.accept()
@@ -1361,8 +1358,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             if mevent.button() == Qt.LeftButton:
                 if state.dest_port is None:
                     # drop connection
-                    self.send_command_async(music.delete_node_connection(
-                        state.orig_connection.connection()))
+                    with self.project.apply_mutations():
+                        self.project.remove_node_connection(state.orig_connection.connection())
 
                 elif (state.dest_port is state.orig_connection.dest_port()
                       or state.dest_port is state.orig_connection.src_port()):
@@ -1372,8 +1369,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                 elif state.dest_port is not None:
                     # change
                     # TODO: this should be a sequence [delete, create]
-                    self.send_command_async(music.delete_node_connection(
-                        state.orig_connection.connection()))
+                    with self.project.apply_mutations():
+                        self.project.remove_node_connection(state.orig_connection.connection())
 
                     self.__scene.connectPorts(state.src_port, state.dest_port)
 

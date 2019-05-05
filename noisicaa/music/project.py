@@ -47,23 +47,6 @@ from . import mutations_pb2
 logger = logging.getLogger(__name__)
 
 
-class Crash(commands.Command):
-    proto_type = 'crash'
-
-    def run(self) -> None:
-        raise RuntimeError('Boom')
-
-
-class UpdateProject(commands.Command):
-    proto_type = 'update_project'
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateProject, self.pb)
-
-        if pb.HasField('set_bpm'):
-            self.pool.project.bpm = pb.set_bpm
-
-
 # class SetNumMeasures(commands.Command):
 #     proto_type = 'set_num_measures'
 
@@ -100,13 +83,6 @@ class BaseProject(model.ObjectBase):
         self.node_db = None  # type: node_db_lib.NodeDBClient
 
         self.command_registry = commands.CommandRegistry()
-        self.command_registry.register(Crash)
-        self.command_registry.register(UpdateProject)
-        self.command_registry.register(graph.DeleteNode)
-        self.command_registry.register(graph.CreateNodeConnection)
-        self.command_registry.register(graph.DeleteNodeConnection)
-        self.command_registry.register(graph.UpdateNode)
-        self.command_registry.register(graph.UpdatePort)
         self.command_registry.register(base_track.UpdateTrack)
         self.command_registry.register(base_track.CreateMeasure)
         self.command_registry.register(base_track.UpdateMeasure)
@@ -281,6 +257,20 @@ class BaseProject(model.ObjectBase):
 
         del self.nodes[node.index]
 
+    def create_node_connection(
+            self,
+            source_node: graph.BaseNode,
+            source_port: str,
+            dest_node: graph.BaseNode,
+            dest_port: str,
+    ) -> graph.NodeConnection:
+        connection = self._pool.create(
+            graph.NodeConnection,
+            source_node=source_node, source_port=source_port,
+            dest_node=dest_node, dest_port=dest_port)
+        self.add_node_connection(connection)
+        return connection
+
     def add_node_connection(self, connection: graph.NodeConnection) -> None:
         self.node_connections.append(connection)
         for mutation in connection.get_add_mutations():
@@ -451,7 +441,7 @@ class Project(BaseProject):
         if set(property_changes_a.keys()) != set(property_changes_b.keys()):
             return False
 
-        for k, slot_idx_a in property_changes_b.items():
+        for k, slot_idx_a in property_changes_a.items():
             slot_a = self.__latest_mutation_list.slots[slot_idx_a]
             slot_b = mutation_list.slots[property_changes_b[k]]
             assert slot_a.WhichOneof('value') == slot_b.WhichOneof('value'), (slot_a, slot_b)
