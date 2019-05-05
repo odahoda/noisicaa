@@ -72,7 +72,4 @@ def register_classes(pool: model_base.AbstractPool) -> None:
 
 
 def register_commands(registry: commands.CommandRegistry) -> None:
-    registry.register(midi_cc_to_cv.UpdateMidiCCtoCV)
-    registry.register(midi_cc_to_cv.CreateMidiCCtoCVChannel)
-    registry.register(midi_cc_to_cv.UpdateMidiCCtoCVChannel)
-    registry.register(midi_cc_to_cv.DeleteMidiCCtoCVChannel)
+    pass

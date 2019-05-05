@@ -30,83 +30,13 @@ from noisicaa import node_db
 from noisicaa import model_base
 from noisicaa.music import graph
 from noisicaa.music import node_connector
-from noisicaa.music import commands
 from noisicaa.music import model
 from noisicaa.builtin_nodes import model_registry_pb2
-from noisicaa.builtin_nodes import commands_registry_pb2
 from . import node_description
 from . import model_pb2
-from . import commands_pb2
 from . import processor_pb2
 
 logger = logging.getLogger(__name__)
-
-
-class UpdateMidiCCtoCV(commands.Command):
-    proto_type = 'update_midi_cc_to_cv'
-    proto_ext = commands_registry_pb2.update_midi_cc_to_cv
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateMidiCCtoCV, self.pb)
-        down_cast(MidiCCtoCV, self.pool[pb.node_id])
-
-
-class CreateMidiCCtoCVChannel(commands.Command):
-    proto_type = 'create_midi_cc_to_cv_channel'
-    proto_ext = commands_registry_pb2.create_midi_cc_to_cv_channel
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateMidiCCtoCVChannel, self.pb)
-        node = down_cast(MidiCCtoCV, self.pool[pb.node_id])
-
-        if pb.HasField('index'):
-            index = pb.index
-        else:
-            index = len(node.channels)
-
-        channel = self.pool.create(
-            MidiCCtoCVChannel,
-            type=model_pb2.MidiCCtoCVChannel.CONTROLLER)
-        node.channels.insert(index, channel)
-
-
-class UpdateMidiCCtoCVChannel(commands.Command):
-    proto_type = 'update_midi_cc_to_cv_channel'
-    proto_ext = commands_registry_pb2.update_midi_cc_to_cv_channel
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateMidiCCtoCVChannel, self.pb)
-        channel = down_cast(MidiCCtoCVChannel, self.pool[pb.channel_id])
-
-        if pb.HasField('set_type'):
-            channel.type = pb.set_type
-
-        if pb.HasField('set_midi_channel'):
-            channel.midi_channel = pb.set_midi_channel
-
-        if pb.HasField('set_midi_controller'):
-            channel.midi_controller = pb.set_midi_controller
-
-        if pb.HasField('set_min_value'):
-            channel.min_value = pb.set_min_value
-
-        if pb.HasField('set_max_value'):
-            channel.max_value = pb.set_max_value
-
-        if pb.HasField('set_log_scale'):
-            channel.log_scale = pb.set_log_scale
-
-
-class DeleteMidiCCtoCVChannel(commands.Command):
-    proto_type = 'delete_midi_cc_to_cv_channel'
-    proto_ext = commands_registry_pb2.delete_midi_cc_to_cv_channel
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteMidiCCtoCVChannel, self.pb)
-        channel = down_cast(MidiCCtoCVChannel, self.pool[pb.channel_id])
-        node = down_cast(MidiCCtoCV, channel.parent)
-
-        del node.channels[channel.index]
 
 
 class Connector(node_connector.NodeConnector):
@@ -314,3 +244,13 @@ class MidiCCtoCV(graph.BaseNode):
             )
 
         return node_desc
+
+    def create_channel(self, index: int) -> MidiCCtoCVChannel:
+        channel = self._pool.create(
+            MidiCCtoCVChannel,
+            type=model_pb2.MidiCCtoCVChannel.CONTROLLER)
+        self.channels.insert(index, channel)
+        return channel
+
+    def delete_channel(self, channel: MidiCCtoCVChannel) -> None:
+        del self.channels[channel.index]

@@ -22,7 +22,6 @@ add_python_package(
   node_description.py
   model.py
   model_test.py
-  commands.py
   node_ui.py
   node_ui_test.py
   processor_test.py
@@ -31,7 +30,6 @@ add_python_package(
 
 py_proto(model.proto)
 cpp_proto(model.proto)
-py_proto(commands.proto)
 py_proto(processor.proto)
 cpp_proto(processor.proto)
 py_proto(processor_messages.proto)

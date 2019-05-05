@@ -36,7 +36,6 @@ from noisicaa.ui import ui_base
 from noisicaa.ui import control_value_dial
 from noisicaa.ui.graph import base_node
 from . import model
-from . import commands
 from . import processor_messages
 
 logger = logging.getLogger(__name__)
@@ -219,16 +218,16 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
     def __midiChannelEdited(self, value: int) -> None:
         value -= 1
         if value != self.__channel.midi_channel:
-            self.send_command_async(commands.update_channel(
-                self.__channel, set_midi_channel=value))
+            with self.project.apply_mutations():
+                self.__channel.midi_channel = value
 
     def __midiControllerChanged(self, change: model_base.PropertyValueChange[int]) -> None:
         self.__midi_controller.setValue(change.new_value)
 
     def __midiControllerEdited(self, value: int) -> None:
         if value != self.__channel.midi_controller:
-            self.send_command_async(commands.update_channel(
-                self.__channel, set_midi_controller=value))
+            with self.project.apply_mutations():
+                self.__channel.midi_controller = value
 
     def __minValueChanged(self, change: model_base.PropertyValueChange[float]) -> None:
         self.__min_value.setText(fmt_value(self.__channel.min_value))
@@ -238,8 +237,8 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         if state == QtGui.QValidator.Acceptable:
             value = float(self.__min_value.text())
             if value != self.__channel.min_value:
-                self.send_command_async(commands.update_channel(
-                    self.__channel, set_min_value=value))
+                with self.project.apply_mutations():
+                    self.__channel.min_value = value
 
     def __maxValueChanged(self, change: model_base.PropertyValueChange[float]) -> None:
         self.__max_value.setText(fmt_value(self.__channel.max_value))
@@ -249,16 +248,16 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         if state == QtGui.QValidator.Acceptable:
             value = float(self.__max_value.text())
             if value != self.__channel.max_value:
-                self.send_command_async(commands.update_channel(
-                    self.__channel, set_max_value=value))
+                with self.project.apply_mutations():
+                    self.__channel.max_value = value
 
     def __logScaleChanged(self, change: model_base.PropertyValueChange[bool]) -> None:
         self.__log_scale.setChecked(self.__channel.log_scale)
 
     def __logScaleEdited(self, value: bool) -> None:
         if value != self.__channel.log_scale:
-            self.send_command_async(commands.update_channel(
-                self.__channel, set_log_scale=value))
+            with self.project.apply_mutations():
+                self.__channel.log_scale = value
 
 
 class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
@@ -367,18 +366,12 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         channel_ui.cleanup()
 
     def __numChannelsEdited(self, value: int) -> None:
-        cmds = []
+        with self.project.apply_mutations():
+            for idx in range(len(self.__node.channels), value):
+                self.__node.create_channel(idx)
 
-        for idx in range(len(self.__node.channels), value):
-            cmds.append(commands.create_channel(
-                self.__node, index=idx))
-
-        for idx in range(value, len(self.__node.channels)):
-            cmds.append(commands.delete_channel(
-                self.__node.channels[idx]))
-
-        if cmds:
-            self.send_commands_async(*cmds)
+            for idx in reversed(range(value, len(self.__node.channels))):
+                self.__node.delete_channel(self.__node.channels[idx])
 
 
 class MidiCCtoCVNode(base_node.Node):
