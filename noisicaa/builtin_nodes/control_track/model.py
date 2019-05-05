@@ -24,83 +24,18 @@ import logging
 import random
 from typing import cast, Any, Dict, MutableSequence, Optional, Callable
 
-from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import model_base
 from noisicaa.music import base_track
 from noisicaa.music import node_connector
-from noisicaa.music import commands
 from noisicaa.music import model
 from noisicaa.builtin_nodes import model_registry_pb2
-from noisicaa.builtin_nodes import commands_registry_pb2
-from . import commands_pb2
 from . import node_description
 from . import processor_messages
 
 logger = logging.getLogger(__name__)
-
-
-class CreateControlPoint(commands.Command):
-    proto_type = 'create_control_point'
-    proto_ext = commands_registry_pb2.create_control_point
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateControlPoint, self.pb)
-        track = down_cast(ControlTrack, self.pool[pb.track_id])
-
-        insert_time = audioproc.MusicalTime.from_proto(pb.time)
-        for insert_index, point in enumerate(track.points):
-            if point.time == insert_time:
-                raise ValueError("Duplicate control point")
-            if point.time > insert_time:
-                break
-        else:
-            insert_index = len(track.points)
-
-        control_point = self.pool.create(ControlPoint, time=insert_time, value=pb.value)
-        track.points.insert(insert_index, control_point)
-
-
-class UpdateControlPoint(commands.Command):
-    proto_type = 'update_control_point'
-    proto_ext = commands_registry_pb2.update_control_point
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateControlPoint, self.pb)
-        point = down_cast(ControlPoint, self.pool[pb.point_id])
-
-        if pb.HasField('set_time'):
-            new_time = audioproc.MusicalTime.from_proto(pb.set_time)
-            if not point.is_first:
-                if new_time <= cast(ControlPoint, point.prev_sibling).time:
-                    raise ValueError("Control point out of order.")
-            else:
-                if new_time < audioproc.MusicalTime(0, 4):
-                    raise ValueError("Control point out of order.")
-
-            if not point.is_last:
-                if new_time >= cast(ControlPoint, point.next_sibling).time:
-                    raise ValueError("Control point out of order.")
-
-            point.time = new_time
-
-        if pb.HasField('set_value'):
-            # TODO: check that value is in valid range.
-            point.value = pb.set_value
-
-
-class DeleteControlPoint(commands.Command):
-    proto_type = 'delete_control_point'
-    proto_ext = commands_registry_pb2.delete_control_point
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteControlPoint, self.pb)
-        point = down_cast(ControlPoint, self.pool[pb.point_id])
-        track = down_cast(ControlTrack, point.parent)
-
-        del track.points[point.index]
 
 
 class ControlTrackConnector(node_connector.NodeConnector):
@@ -204,6 +139,17 @@ class ControlPoint(model.ProjectChild):
 
     @time.setter
     def time(self, value: audioproc.MusicalTime) -> None:
+        if not self.is_first:
+            if value <= cast(ControlPoint, self.prev_sibling).time:
+                raise ValueError("Control point out of order.")
+        else:
+            if value < audioproc.MusicalTime(0, 4):
+                raise ValueError("Control point out of order.")
+
+        if not self.is_last:
+            if value >= cast(ControlPoint, self.next_sibling).time:
+                raise ValueError("Control point out of order.")
+
         self.set_property_value('time', value)
 
     @property
@@ -242,3 +188,19 @@ class ControlTrack(base_track.Track):
     ) -> ControlTrackConnector:
         return ControlTrackConnector(
             node=self, message_cb=message_cb, audioproc_client=audioproc_client)
+
+    def create_control_point(self, time: audioproc.MusicalTime, value: float) -> ControlPoint:
+        for insert_index, point in enumerate(self.points):
+            if point.time == time:
+                raise ValueError("Duplicate control point")
+            if point.time > time:
+                break
+        else:
+            insert_index = len(self.points)
+
+        control_point = self._pool.create(ControlPoint, time=time, value=value)
+        self.points.insert(insert_index, control_point)
+        return control_point
+
+    def delete_control_point(self, point: ControlPoint) -> None:
+        del self.points[point.index]

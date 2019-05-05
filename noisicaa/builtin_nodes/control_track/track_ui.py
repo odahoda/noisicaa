@@ -35,7 +35,6 @@ from noisicaa import model_base
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
-from . import commands
 from . import model
 
 logger = logging.getLogger(__name__)
@@ -90,8 +89,8 @@ class EditControlPointsTool(tools.ToolBase):
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
                 and target.highlightedPoint() is not None):
-            self.send_command_async(commands.delete_control_point(
-                target.highlightedPoint().point))
+            with self.project.apply_mutations():
+                target.track.delete_control_point(target.highlightedPoint().point)
 
             evt.accept()
             return
@@ -162,10 +161,9 @@ class EditControlPointsTool(tools.ToolBase):
             else:
                 new_value = None
 
-            self.send_command_async(commands.update_control_point(
-                target.highlightedPoint().point,
-                set_time=new_time,
-                set_value=new_value))
+            with self.project.apply_mutations():
+                target.highlightedPoint().point.time = new_time
+                target.highlightedPoint().point.value = new_value
 
             evt.accept()
             return
@@ -185,15 +183,14 @@ class EditControlPointsTool(tools.ToolBase):
             time = target.xToTime(evt.pos().x())
             for point in target.track.points:
                 if point.time == time:
-                    self.send_command_async(commands.update_control_point(
-                        point,
-                        set_value=target.yToValue(evt.pos().y())))
+                    with self.project.apply_mutations():
+                        point.value = target.yToValue(evt.pos().y())
                     break
             else:
-                self.send_command_async(commands.create_control_point(
-                    target.track,
-                    time=target.xToTime(evt.pos().x()),
-                    value=target.yToValue(evt.pos().y())))
+                with self.project.apply_mutations():
+                    target.track.create_control_point(
+                        target.xToTime(evt.pos().x()),
+                        target.yToValue(evt.pos().y()))
 
             evt.accept()
             return

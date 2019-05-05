@@ -30,7 +30,6 @@ from noisicaa.music import base_track_test
 from noisicaa.music import project
 from noisicaa.builtin_nodes import processor_message_registry_pb2
 from . import model
-from . import commands
 
 
 class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCase):
@@ -133,11 +132,8 @@ class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     async def test_add_control_point(self):
         track = await self._add_track()
 
-        await self.client.send_command(commands.create_control_point(
-            track,
-            time=audioproc.MusicalTime(1, 4),
-            value=0.7))
-        point = track.points[-1]
+        with self.project.apply_mutations():
+            point = track.create_control_point(audioproc.MusicalTime(1, 4), 0.7)
         self.assertEqual(len(track.points), 1)
         self.assertIs(track.points[0], point)
         self.assertEqual(point.time, audioproc.MusicalTime(1, 4))
@@ -145,37 +141,17 @@ class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
     async def test_delete_control_point(self):
         track = await self._add_track()
-        await self.client.send_command(commands.create_control_point(
-            track,
-            time=audioproc.MusicalTime(1, 4),
-            value=0.7))
-        point = track.points[-1]
+        with self.project.apply_mutations():
+            point = track.create_control_point(audioproc.MusicalTime(1, 4), 0.7)
 
-        await self.client.send_command(commands.delete_control_point(point))
+        with self.project.apply_mutations():
+            track.delete_control_point(point)
         self.assertEqual(len(track.points), 0)
 
     async def test_control_point_set_time(self):
         track = await self._add_track()
-        await self.client.send_command(commands.create_control_point(
-            track,
-            time=audioproc.MusicalTime(1, 4),
-            value=0.7))
-        point = track.points[-1]
+        with self.project.apply_mutations():
+            point = track.create_control_point(audioproc.MusicalTime(1, 4), 0.7)
 
-        await self.client.send_command(commands.update_control_point(
-            point,
-            set_time=audioproc.MusicalTime(3, 4)))
-        self.assertEqual(point.time, audioproc.MusicalTime(3, 4))
-
-    async def test_control_point_set_value(self):
-        track = await self._add_track()
-        await self.client.send_command(commands.create_control_point(
-            track,
-            time=audioproc.MusicalTime(1, 4),
-            value=0.7))
-        point = track.points[-1]
-
-        await self.client.send_command(commands.update_control_point(
-            point,
-            set_value=0.6))
-        self.assertAlmostEqual(point.value, 0.6)
+        with self.project.apply_mutations():
+            point.time = audioproc.MusicalTime(3, 4)
