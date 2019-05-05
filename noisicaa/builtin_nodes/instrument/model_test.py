@@ -34,7 +34,7 @@ class InstrumentTest(
         unittest_mixins.ProjectMixin,
         unittest.AsyncTestCase):
     async def _add_node(self) -> model.Instrument:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             return cast(
                 model.Instrument,
                 self.project.create_node('builtin://instrument'))
@@ -51,7 +51,7 @@ class InstrumentTest(
     async def test_change_instrument_uri(self):
         node = await self._add_node()
         with self.connector(node):
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('test'):
                 node.instrument_uri = 'sf2:/test.sf2?bank=2&preset=4'
 
             self.assertEqual(

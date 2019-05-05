@@ -227,11 +227,11 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
         menu.addAction(remove_measure_action)
 
     def onInsertMeasure(self) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Insert measure' % self.track.name):
             self.track.insert_measure(self.measure_reference.index)
 
     def onRemoveMeasure(self) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Remove measure' % self.track.name):
             self.track.remove_measure(self.measure_reference.index)
 
     def setSelected(self, selected: bool) -> None:
@@ -392,7 +392,7 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
 
         elif isinstance(measure_editor, Appendix):
             if measure_editor.clickRect().contains(evt.pos() - measure_editor.topLeft()):
-                with self.project.apply_mutations():
+                with self.project.apply_mutations('%s: Insert measure' % self.track.name):
                     target.track.insert_measure(-1)
                 evt.accept()
                 return
@@ -711,16 +711,16 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
             affected_measure_editors: List[MeasureEditor],
             time_signature: value_types.TimeSignature
     ) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Change time signature' % self.track.name):
             for meditor in affected_measure_editors:
                 meditor.measure.time_signature = time_signature
 
     def onInsertMeasure(self) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Insert measure' % self.track.name):
             self.track.insert_measure(self.measure_reference.index)
 
     def onRemoveMeasure(self) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Remove measure' % self.track.name):
             self.track.remove_measure(self.measure_reference.index)
 
     def setHoverMeasureEditor(

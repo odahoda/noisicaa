@@ -148,7 +148,7 @@ class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     async def test_create_sample(self):
         track = await self._add_track()
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             track.create_sample(
                 audioproc.MusicalTime(1, 4),
                 os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
@@ -156,18 +156,18 @@ class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
     async def test_delete_sample(self):
         track = await self._add_track()
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             sample = track.create_sample(
                 audioproc.MusicalTime(1, 4),
                 os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             track.delete_sample(sample)
         self.assertEqual(len(track.samples), 0)
 
     async def test_render_sample(self):
         track = await self._add_track()
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             sample = track.create_sample(
                 audioproc.MusicalTime(1, 4),
                 os.path.join(unittest.TESTDATA_DIR, 'future-thunder1.wav'))

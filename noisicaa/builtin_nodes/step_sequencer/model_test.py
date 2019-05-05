@@ -30,7 +30,7 @@ from . import model
 class StepSequencerTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
 
     async def _add_node(self) -> model.StepSequencer:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             return cast(
                 model.StepSequencer,
                 self.project.create_node('builtin://step-sequencer'))
@@ -44,14 +44,14 @@ class StepSequencerTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
 
     async def test_set_num_steps_increase(self):
         node = await self._add_node()
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             node.set_num_steps(13)
         self.assertEqual(node.num_steps, 13)
         self.assertEqual(len(node.channels[0].steps), 13)
 
     async def test_set_num_steps_decrease(self):
         node = await self._add_node()
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             node.set_num_steps(5)
         self.assertEqual(node.num_steps, 5)
         self.assertEqual(len(node.channels[0].steps), 5)
@@ -59,7 +59,7 @@ class StepSequencerTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
     async def test_add_channel(self):
         node = await self._add_node()
         old_channel = node.channels[0]
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             node.create_channel(0)
         self.assertIs(node.channels[1], old_channel)
         self.assertEqual(len(node.channels), 2)
@@ -68,9 +68,9 @@ class StepSequencerTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
     async def test_delete_channel(self):
         node = await self._add_node()
         old_channel = node.channels[0]
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             channel = node.create_channel(0)
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             node.delete_channel(channel)
         self.assertEqual(len(node.channels), 1)
         self.assertIs(node.channels[0], old_channel)

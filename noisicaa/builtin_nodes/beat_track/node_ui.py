@@ -83,7 +83,7 @@ class BeatTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             self.__pitch.setText(str(self.__track.pitch))
         else:
             if pitch != self.__track.pitch:
-                with self.project.apply_mutations():
+                with self.project.apply_mutations('%s: Change pitch' % self.__track.name):
                     self.__track.pitch = pitch
 
 

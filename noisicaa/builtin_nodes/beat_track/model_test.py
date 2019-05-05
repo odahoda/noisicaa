@@ -34,7 +34,7 @@ class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         track = await self._add_track()
         self.assertEqual(len(track.measure_list), 1)
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             track.insert_measure(0)
         self.assertEqual(len(track.measure_list), 2)
 
@@ -42,7 +42,7 @@ class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         track = await self._add_track()
         self.assertEqual(len(track.measure_list), 1)
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             track.remove_measure(0)
         self.assertEqual(len(track.measure_list), 0)
 
@@ -51,7 +51,7 @@ class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         self.assertEqual(len(track.measure_list), 1)
         old_measure = track.measure_list[0].measure
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             track.measure_list[0].clear_measure()
         self.assertIsNot(old_measure, track.measure_list[0].measure)
 
@@ -59,12 +59,12 @@ class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
         track = await self._add_track()
         measure = track.measure_list[0].measure
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             measure.create_beat(audioproc.MusicalDuration(1, 4))
         self.assertEqual(measure.beats[0].time, audioproc.MusicalDuration(1, 4))
         self.assertEqual(measure.beats[0].velocity, 100)
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             measure.create_beat(audioproc.MusicalDuration(2, 4), 120)
         self.assertEqual(measure.beats[1].time, audioproc.MusicalDuration(2, 4))
         self.assertEqual(measure.beats[1].velocity, 120)
@@ -72,9 +72,9 @@ class BeatTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     async def test_delete_beat(self):
         track = await self._add_track()
         measure = track.measure_list[0].measure
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             measure.create_beat(audioproc.MusicalDuration(1, 4))
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             measure.delete_beat(measure.beats[0])
         self.assertEqual(len(measure.beats), 0)

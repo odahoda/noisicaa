@@ -35,7 +35,7 @@ class NoteTest(uitest.ProjectMixin, uitest.UITestCase):
         self.nitem = None
 
     async def setup_testcase(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node = self.project.create_node(
                 'ladspa://passthru.so/passthru',
                 graph_pos=value_types.Pos2F(200, 100),

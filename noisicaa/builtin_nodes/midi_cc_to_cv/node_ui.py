@@ -218,7 +218,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
     def __midiChannelEdited(self, value: int) -> None:
         value -= 1
         if value != self.__channel.midi_channel:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change MIDI channel' % self.__node.name):
                 self.__channel.midi_channel = value
 
     def __midiControllerChanged(self, change: model_base.PropertyValueChange[int]) -> None:
@@ -226,7 +226,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
 
     def __midiControllerEdited(self, value: int) -> None:
         if value != self.__channel.midi_controller:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change MIDI controller' % self.__node.name):
                 self.__channel.midi_controller = value
 
     def __minValueChanged(self, change: model_base.PropertyValueChange[float]) -> None:
@@ -237,7 +237,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         if state == QtGui.QValidator.Acceptable:
             value = float(self.__min_value.text())
             if value != self.__channel.min_value:
-                with self.project.apply_mutations():
+                with self.project.apply_mutations('%s: Change min. value' % self.__node.name):
                     self.__channel.min_value = value
 
     def __maxValueChanged(self, change: model_base.PropertyValueChange[float]) -> None:
@@ -248,7 +248,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         if state == QtGui.QValidator.Acceptable:
             value = float(self.__max_value.text())
             if value != self.__channel.max_value:
-                with self.project.apply_mutations():
+                with self.project.apply_mutations('%s: Change max. value' % self.__node.name):
                     self.__channel.max_value = value
 
     def __logScaleChanged(self, change: model_base.PropertyValueChange[bool]) -> None:
@@ -256,7 +256,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
 
     def __logScaleEdited(self, value: bool) -> None:
         if value != self.__channel.log_scale:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change log scale' % self.__node.name):
                 self.__channel.log_scale = value
 
 
@@ -367,7 +367,7 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __numChannelsEdited(self, value: int) -> None:
         if value != len(self.__node.channels):
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change channel count' % self.__node.name):
                 for idx in range(len(self.__node.channels), value):
                     self.__node.create_channel(idx)
 

@@ -134,7 +134,7 @@ class ProjectTest(
             writer=self.writer_client,
             node_db=self.node_db)
         try:
-            with p.apply_mutations():
+            with p.apply_mutations('test'):
                 p.create_node('builtin://score-track')
             num_nodes = len(p.nodes)
             track_id = p.nodes[-1].id
@@ -177,7 +177,7 @@ class ProjectTest(
             old_bpm = p.bpm
 
             for i in range(old_bpm + 1, old_bpm + 10):
-                with p.apply_mutations():
+                with p.apply_mutations('test'):
                     p.bpm = i
 
             p.undo(*(await p.fetch_undo()))
@@ -192,5 +192,5 @@ class ProjectTest(
 
 class ProjectPropertiesTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
     async def test_set_bpm(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.project.bpm = self.project.bpm + 1

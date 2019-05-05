@@ -30,10 +30,10 @@ from . import node_ui
 
 class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node = self.project.create_node('builtin://custom-csound')
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.create_port(0, 'port1')
             self.node.create_port(1, 'port2')
             self.node.create_port(2, 'port3')
@@ -69,39 +69,39 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
             QtWidgets.QAction, "remove_objects", Qt.FindChildrenRecursively)
 
     async def test_port_added(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             port = self.node.create_port(2, 'port4')
         self.assertIs(self.model.object(2), port)
         self.assertIs(self.model.object(3), self.node.ports[3])
 
     async def test_port_removed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.delete_port(self.node.ports[1])
         self.assertIs(self.model.object(0), self.node.ports[0])
         self.assertIs(self.model.object(1), self.node.ports[1])
 
     async def test_port_name_changed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.ports[0].name = 'foo'
         self.assertEqual(self._getCell(0, 0), 'foo')
 
     async def test_port_display_name_changed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.ports[0].display_name = 'Foo Bar'
         self.assertEqual(self._getCell(0, 2), 'Foo Bar')
 
     async def test_port_direction_changed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.ports[0].direction = node_db.PortDescription.OUTPUT
         self.assertEqual(self._getCell(0, 4), 'output')
 
     async def test_port_type_changed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.ports[0].type = node_db.PortDescription.KRATE_CONTROL
         self.assertEqual(self._getCell(0, 3), 'control (k-rate)')
 
     async def test_port_csound_name_changed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.ports[0].csound_name = 'gafoo'
         self.assertEqual(self._getCell(0, 1), 'gafoo')
 
@@ -155,7 +155,7 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
             with self.subTest(
                     "%s -> %s" % (node_db.PortDescription.Type.Name(initial_type),
                                   node_db.PortDescription.Type.Name(new_type))):
-                with self.project.apply_mutations():
+                with self.project.apply_mutations('test'):
                     self.node.ports[0].type = initial_type
                     self.node.ports[0].csound_name = initial_csound_name
 
@@ -178,7 +178,7 @@ class PortListEditorTest(uitest.ProjectMixin, uitest.UITestCase):
 
 class EditorTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node = self.project.create_node('builtin://custom-csound')
 
     async def test_init(self):

@@ -89,7 +89,7 @@ class EditControlPointsTool(tools.ToolBase):
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
                 and target.highlightedPoint() is not None):
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Remove control point' % target.track.name):
                 target.track.delete_control_point(target.highlightedPoint().point)
 
             evt.accept()
@@ -161,7 +161,7 @@ class EditControlPointsTool(tools.ToolBase):
             else:
                 new_value = None
 
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change control point' % target.track.name):
                 target.highlightedPoint().point.time = new_time
                 target.highlightedPoint().point.value = new_value
 
@@ -183,11 +183,12 @@ class EditControlPointsTool(tools.ToolBase):
             time = target.xToTime(evt.pos().x())
             for point in target.track.points:
                 if point.time == time:
-                    with self.project.apply_mutations():
+                    with self.project.apply_mutations(
+                            '%s: Change control point' % target.track.name):
                         point.value = target.yToValue(evt.pos().y())
                     break
             else:
-                with self.project.apply_mutations():
+                with self.project.apply_mutations('%s: Insert control point' % target.track.name):
                     target.track.create_control_point(
                         target.xToTime(evt.pos().x()),
                         target.yToValue(evt.pos().y()))

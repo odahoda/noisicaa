@@ -34,6 +34,10 @@ import "noisicaa/music/model.proto";
 package noisicaa.pb;
 
 message MutationList {
+  required int32 version = 1;
+  required string name = 2;
+  required float timestamp = 3;
+
   message SetProperty {
     optional uint64 obj_id = 1;
     optional string prop_name = 2;
@@ -81,7 +85,7 @@ message MutationList {
       RemoveObject remove_object = 5;
     }
   }
-  repeated Op ops = 1;
+  repeated Op ops = 4;
 
   message Slot {
     oneof value {
@@ -109,5 +113,5 @@ message MutationList {
       PortDescription port_description = 112;
     }
   }
-  repeated Slot slots = 2;
+  repeated Slot slots = 5;
 }

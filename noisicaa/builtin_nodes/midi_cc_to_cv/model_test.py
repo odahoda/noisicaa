@@ -30,7 +30,7 @@ from . import model
 class MidiCCtoCVTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
 
     async def _add_node(self) -> model.MidiCCtoCV:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             return cast(
                 model.MidiCCtoCV,
                 self.project.create_node('builtin://midi-cc-to-cv'))
@@ -42,7 +42,7 @@ class MidiCCtoCVTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
     async def test_create_channel(self):
         node = await self._add_node()
         old_channel = node.channels[0]
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             node.create_channel(0)
         self.assertIs(node.channels[1], old_channel)
         self.assertEqual(len(node.channels), 2)
@@ -50,9 +50,9 @@ class MidiCCtoCVTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
     async def test_delete_channel(self):
         node = await self._add_node()
         old_channel = node.channels[0]
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             channel = node.create_channel(0)
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             node.delete_channel(channel)
         self.assertEqual(len(node.channels), 1)
         self.assertIs(node.channels[0], old_channel)

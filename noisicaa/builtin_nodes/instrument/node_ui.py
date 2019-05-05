@@ -93,7 +93,7 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __instrumentURIEdited(self, instrument_uri: str) -> None:
         if instrument_uri != self.__node.instrument_uri:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change instrument' % self.__node.name):
                 self.__node.instrument_uri = instrument_uri
 
     async def __selectInstrument(self) -> None:

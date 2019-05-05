@@ -65,7 +65,8 @@ class ControlValueConnector(ui_base.ProjectMixin, slots.SlotContainer, QtCore.QO
     def __onValueEdited(self, value: float) -> None:
         if value != self.__node.control_value_map.value(self.__name):
             self.__generation += 1
-            with self.project.apply_mutations():
+            with self.project.apply_mutations(
+                    '%s: Change control value "%s"' % (self.__node.name, self.__name)):
                 self.__node.set_control_value(self.__name, value, self.__generation)
 
     def __onValueChanged(

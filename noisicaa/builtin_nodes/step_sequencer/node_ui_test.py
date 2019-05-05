@@ -26,7 +26,7 @@ from . import node_ui
 
 class StepSequencerNodeTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node = self.project.create_node('builtin://step-sequencer')
 
     async def test_init(self):
@@ -36,7 +36,7 @@ class StepSequencerNodeTest(uitest.ProjectMixin, uitest.UITestCase):
 
 class StepSequencerNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node = self.project.create_node('builtin://step-sequencer')
 
     async def test_init(self):
@@ -46,7 +46,7 @@ class StepSequencerNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
     async def test_num_steps_changed(self):
         widget = node_ui.StepSequencerNodeWidget(node=self.node, context=self.context)
         try:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('test'):
                 self.node.set_num_steps(4)
         finally:
             widget.cleanup()

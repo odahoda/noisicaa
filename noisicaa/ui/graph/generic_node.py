@@ -133,15 +133,20 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
         if port_properties.exposed == exposed:
             return
 
-        with self.project.apply_mutations():
-            if not exposed:
+        if not exposed:
+            with self.project.apply_mutations(
+                    '%s: Unexpose port "%s"' % (self.__node.name, self.__port.name)):
+                self.node.set_port_properties(value_types.NodePortProperties(
+                    name=self.__port.name,
+                    exposed=False))
+
+        else:
+            with self.project.apply_mutations(
+                    '%s: Expose port "%s"' % (self.__node.name, self.__port.name)):
                 for conn in self.__node.connections:
                     if conn.dest_port == self.__port.name or conn.source_port == self.__port.name:
                         self.project.remove_node_connection(conn)
 
-            self.node.set_port_properties(value_types.NodePortProperties(
-                name=self.__port.name,
-                exposed=exposed))
 
         self.__dial.setDisabled(exposed)
 

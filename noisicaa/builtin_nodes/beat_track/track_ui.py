@@ -60,12 +60,12 @@ class EditBeatsTool(measured_track_editor.MeasuredToolBase):
 
             for beat in target.measure.beats:
                 if beat.time == click_time:
-                    with self.project.apply_mutations():
+                    with self.project.apply_mutations('%s: Remove beat' % target.track.name):
                         target.measure.delete_beat(beat)
                     evt.accept()
                     return
 
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Insert beat' % target.track.name):
                 target.measure.create_beat(click_time)
             target.track_editor.playNoteOn(target.track.pitch)
             evt.accept()
@@ -86,7 +86,8 @@ class EditBeatsTool(measured_track_editor.MeasuredToolBase):
 
             for beat in target.measure.beats:
                 if beat.time == click_time:
-                    with self.project.apply_mutations():
+                    with self.project.apply_mutations(
+                            '%s: Change beat velocity' % target.track.name):
                         beat.velocity = max(0, min(127, beat.velocity + vel_delta))
                     evt.accept()
                     return

@@ -147,7 +147,7 @@ class ProjectClient(object):
         else:
             raise ValueError("Invalid node_id '%s'" % request.node_id)
 
-        with self.__project.apply_mutations():
+        with self.__project.apply_mutations('Change control value "%s"' % request.value.name):
             node.set_control_value(
                 request.value.name, request.value.value, request.value.generation)
 
@@ -165,7 +165,7 @@ class ProjectClient(object):
         else:
             raise ValueError("Invalid node_id '%s'" % request.node_id)
 
-        with self.__project.apply_mutations():
+        with self.__project.apply_mutations('Change plugin state'):
             node.set_plugin_state(request.state)
 
     async def create(self, path: str) -> None:

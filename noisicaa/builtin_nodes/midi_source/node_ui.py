@@ -96,7 +96,7 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
 
     def __deviceURIEdited(self, uri: str) -> None:
         if uri != self.__node.device_uri:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change device' % self.__node.name):
                 self.__node.device_uri = uri
 
     def __channelFilterChanged(self, change: model_base.PropertyValueChange[int]) -> None:
@@ -107,7 +107,7 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
     def __channelFilterEdited(self) -> None:
         channel_filter = self.__channel_filter.currentData()
         if channel_filter != self.__node.channel_filter:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change MIDI channel filter' % self.__node.name):
                 self.__node.channel_filter = channel_filter
 
     def __noteOn(self, pitch: value_types.Pitch) -> None:

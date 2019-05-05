@@ -57,7 +57,7 @@ class NameColumnSpec(
                 logger.warning("Refusing to use duplicate name '%s'", value)
                 return
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Change port name' % obj.node.name):
             if obj.csound_name == obj.csound_name_default():
                 csound_name = obj.csound_name_default(name=value)
                 if csound_name != obj.csound_name:
@@ -96,7 +96,7 @@ class DisplayNameColumnSpec(
         return obj.display_name
 
     def setValue(self, obj: model.CustomCSoundPort, value: str) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Change port display name' % obj.node.name):
             obj.display_name = value
 
     def addChangeListeners(
@@ -114,7 +114,7 @@ class TypeColumnSpec(
         return obj.type
 
     def setValue(self, obj: model.CustomCSoundPort, value: int) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Change port type' % obj.node.name):
             if obj.csound_name == obj.csound_name_default():
                 csound_name = obj.csound_name_default(
                     type=cast(node_db.PortDescription.Type, value))
@@ -180,7 +180,7 @@ class DirectionColumnSpec(
         return obj.direction
 
     def setValue(self, obj: model.CustomCSoundPort, value: int) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Change port direction' % obj.node.name):
             obj.direction = cast(node_db.PortDescription.Direction, value)
 
     def addChangeListeners(
@@ -236,7 +236,7 @@ class CSoundNameColumnSpec(
         return obj.csound_name
 
     def setValue(self, obj: model.CustomCSoundPort, value: str) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Change port variable' % obj.node.name):
             obj.csound_name = value
 
     def addChangeListeners(
@@ -309,12 +309,12 @@ class PortListEditor(ui_base.ProjectMixin, object_list_editor.ObjectListEditor):
         else:
             index = len(self.__node.ports)
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Add port' % self.__node.name):
             port = self.__node.create_port(index, port_name)
         self.rowAdded(port.index)
 
     def onRemove(self) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Delete port(s)' % self.__node.name):
             for port in self.selectedObjects():
                 assert isinstance(port, model.CustomCSoundPort)
                 self.__node.delete_port(port)
@@ -399,7 +399,7 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.__orchestra = self.__orchestra_editor.toPlainText()
         self.__score = self.__score_editor.toPlainText()
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Change code' % self.__node.name):
             self.__node.orchestra = self.__orchestra
             self.__node.score = self.__score
         self.__apply_action.setEnabled(False)

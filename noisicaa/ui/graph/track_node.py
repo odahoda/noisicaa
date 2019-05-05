@@ -50,5 +50,5 @@ class TrackNode(base_node.Node):
         if visible == self.__track.visible:
             return
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Change track visibility' % self.__track.name):
             self.__track.visible = visible

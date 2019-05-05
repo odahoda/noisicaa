@@ -277,5 +277,5 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
         dialog.show()
 
     def __onSetBPMDone(self, dialog: QtWidgets.QInputDialog) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('Change BPM'):
             self.project.bpm = dialog.intValue()

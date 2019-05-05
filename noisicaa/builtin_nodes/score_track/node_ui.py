@@ -81,7 +81,7 @@ class ScoreTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def onTransposeOctavesEdited(self, transpose_octaves: int) -> None:
         if transpose_octaves != self.__track.transpose_octaves:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change transpose' % self.__track.name):
                 self.__track.transpose_octaves = transpose_octaves
 
 

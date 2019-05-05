@@ -366,7 +366,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __numStepsEdited(self, value: int) -> None:
         if value != self.__node.num_steps:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change step count' % self.__node.name):
                 self.__node.set_num_steps(value)
 
     def __numChannelsChanged(
@@ -377,12 +377,13 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.__updateStepMatrix()
 
     def __numChannelsEdited(self, value: int) -> None:
-        with self.project.apply_mutations():
-            for idx in range(len(self.__node.channels), value):
-                self.__node.create_channel(idx)
+        if value != len(self.__node.channels):
+            with self.project.apply_mutations('%s: Change channel count' % self.__node.name):
+                for idx in range(len(self.__node.channels), value):
+                    self.__node.create_channel(idx)
 
-            for idx in reversed(range(value, len(self.__node.channels))):
-                self.__node.delete_channel(self.__node.channels[idx])
+                for idx in reversed(range(value, len(self.__node.channels))):
+                    self.__node.delete_channel(self.__node.channels[idx])
 
     def __channelTypeChanged(
             self,
@@ -399,7 +400,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
     ) -> None:
         value = widget.currentData()
         if value != channel.type:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change channel type' % self.__node.name):
                 channel.type = value
 
     def __channelMinValueChanged(
@@ -419,7 +420,8 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         if state == QtGui.QValidator.Acceptable:
             value = float(widget.text())
             if value != channel.min_value:
-                with self.project.apply_mutations():
+                with self.project.apply_mutations(
+                        '%s: Change channel min. value' % self.__node.name):
                     channel.min_value = value
 
     def __channelMaxValueChanged(
@@ -439,7 +441,8 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         if state == QtGui.QValidator.Acceptable:
             value = float(widget.text())
             if value != channel.max_value:
-                with self.project.apply_mutations():
+                with self.project.apply_mutations(
+                        '%s: Change channel max. value' % self.__node.name):
                     channel.max_value = value
 
     def __channelLogScaleChanged(
@@ -457,7 +460,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             value: bool
     ) -> None:
         if value != channel.log_scale:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change log scale' % self.__node.name):
                 channel.log_scale = value
 
     def __stepValueText(
@@ -491,7 +494,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             value: float
     ) -> None:
         if value != step.value:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Change step value' % self.__node.name):
                 step.value = value
 
     def __stepEnabledChanged(
@@ -509,7 +512,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             value: bool
     ) -> None:
         if value != step.enabled:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Toggle step' % self.__node.name):
                 step.enabled = value
 
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:

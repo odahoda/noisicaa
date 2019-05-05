@@ -304,7 +304,7 @@ class Editor(
         if self.selection_set.empty():
             return
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('Clear selection'):
             for mref in sorted(
                     (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
                      for measure_editor in self.selection_set),
@@ -319,7 +319,7 @@ class Editor(
 
         clipboard = self.app.clipboardContent()
         if clipboard['type'] == 'measures':
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('Paste measures'):
                 self.project.paste_measures(
                     mode=mode,
                     src_objs=[copy['data'] for copy in clipboard['data']],

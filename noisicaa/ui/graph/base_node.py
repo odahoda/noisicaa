@@ -840,14 +840,14 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         color_menu.addAction(color_action)
 
     def onRemove(self) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('Remove node %s' % self.__node.name):
             for conn in self.__node.connections:
                 self.project.remove_node_connection(conn)
             self.project.remove_node(self.__node)
 
     def onSetColor(self, color: value_types.Color) -> None:
         if color != self.__node.graph_color:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Set color' % self.__node.name):
                 self.__node.graph_color = color
 
     def renameNode(self) -> None:
@@ -859,7 +859,7 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         new_name = self.__title_edit.text()
         if new_name != self.__node.name:
             self.__title.setText(self.__node.name)
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Rename to "%s"' % (self.__node.name, new_name)):
                 self.__node.name = new_name
 
         self.__rename_node = False

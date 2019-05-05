@@ -160,13 +160,15 @@ class InsertNoteTool(ScoreToolBase):
                         if len(target.measure.notes[idx].pitches) > 1:
                             for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                                 if p.stave_line == stave_line:
-                                    with self.project.apply_mutations():
+                                    with self.project.apply_mutations(
+                                            '%s: Change note' % target.track.name):
                                         target.measure.notes[idx].remove_pitch(pitch_idx)
                                     evt.accept()
                                     return
 
                         else:
-                            with self.project.apply_mutations():
+                            with self.project.apply_mutations(
+                                    '%s: Delete note' % target.track.name):
                                 target.measure.delete_note(target.measure.notes[idx])
                             evt.accept()
                             return
@@ -177,14 +179,15 @@ class InsertNoteTool(ScoreToolBase):
                             if p.stave_line == stave_line:
                                 break
                         else:
-                            with self.project.apply_mutations():
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
                                 target.measure.notes[idx].add_pitch(value_types.Pitch(pitch))
                             target.track_editor.playNoteOn(value_types.Pitch(pitch))
                             evt.accept()
                             return
 
                     else:
-                        with self.project.apply_mutations():
+                        with self.project.apply_mutations('%s: Create note' % target.track.name):
                             target.measure.create_note(idx, value_types.Pitch(pitch), duration)
                         target.track_editor.playNoteOn(value_types.Pitch(pitch))
                         evt.accept()
@@ -265,7 +268,8 @@ class ModifyNoteTool(ScoreToolBase):
                 for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                     if accidental in p.valid_accidentals:
                         if p.stave_line == stave_line:
-                            with self.project.apply_mutations():
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
                                 target.measure.notes[idx].set_accidental(pitch_idx, accidental)
                             evt.accept()
                             return
@@ -280,14 +284,16 @@ class ModifyNoteTool(ScoreToolBase):
                 if self.type == tools.ToolType.DURATION_DOT:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.dots > 0:
-                            with self.project.apply_mutations():
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
                                 target.measure.notes[idx].dots = note.dots - 1
                             evt.accept()
                             return
 
                     else:
                         if note.dots < note.max_allowed_dots:
-                            with self.project.apply_mutations():
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
                                 target.measure.notes[idx].dots = note.dots + 1
                             evt.accept()
                             return
@@ -295,14 +301,16 @@ class ModifyNoteTool(ScoreToolBase):
                 elif self.type == tools.ToolType.DURATION_TRIPLET:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            with self.project.apply_mutations():
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
                                 target.measure.notes[idx].tuplet = 0
                             evt.accept()
                             return
 
                     else:
                         if note.tuplet != 3:
-                            with self.project.apply_mutations():
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
                                 target.measure.notes[idx].tuplet = 3
                             evt.accept()
                             return
@@ -310,14 +318,16 @@ class ModifyNoteTool(ScoreToolBase):
                 elif self.type == tools.ToolType.DURATION_QUINTUPLET:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            with self.project.apply_mutations():
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
                                 target.measure.notes[idx].tuplet = 0
                             evt.accept()
                             return
 
                     else:
                         if note.tuplet != 5:
-                            with self.project.apply_mutations():
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
                                 target.measure.notes[idx].tuplet = 5
                             evt.accept()
                             return
@@ -1097,7 +1107,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
             affected_measure_editors: List[ScoreMeasureEditor],
             clef: value_types.Clef
     ) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Change clef' % self.__track.name):
             for meditor in affected_measure_editors:
                 meditor.measure.clef = clef
 
@@ -1106,7 +1116,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
             affected_measure_editors: List[ScoreMeasureEditor],
             key_signature: value_types.KeySignature
     ) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Change key signature' % self.__track.name):
             for meditor in affected_measure_editors:
                 meditor.measure.key_signature = key_signature
 
@@ -1115,7 +1125,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
             affected_measure_editors: List[ScoreMeasureEditor],
             half_notes: int
     ) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Transpose notes' % self.__track.name):
             for meditor in affected_measure_editors:
                 for note in meditor.measure.notes:
                     note.transpose(half_notes)

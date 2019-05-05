@@ -33,7 +33,7 @@ class MidiSourceTest(
         unittest_mixins.ProjectMixin,
         unittest.AsyncTestCase):
     async def _add_node(self) -> model.MidiSource:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             return cast(
                 model.MidiSource,
                 self.project.create_node('builtin://midi-source'))
@@ -52,7 +52,7 @@ class MidiSourceTest(
     async def test_set_device_uri(self):
         node = await self._add_node()
         with self.connector(node):
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('test'):
                 node.device_uri = 'foo'
             self.assertEqual(
                 self.messages,
@@ -61,7 +61,7 @@ class MidiSourceTest(
     async def test_set_channel_filter(self):
         node = await self._add_node()
         with self.connector(node):
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('test'):
                 node.channel_filter = 2
             self.assertEqual(
                 self.messages,

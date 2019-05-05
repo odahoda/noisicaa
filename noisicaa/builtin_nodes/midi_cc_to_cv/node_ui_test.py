@@ -29,7 +29,7 @@ from . import node_ui
 
 class MidiCCtoCVNodeTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node = self.project.create_node('builtin://midi-cc-to-cv')
 
     async def test_init(self):
@@ -44,7 +44,7 @@ class MidiCCtoCVNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
         self.widget = None
 
     async def setup_testcase(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node = self.project.create_node('builtin://midi-cc-to-cv')
 
         self.widget = node_ui.MidiCCtoCVNodeWidget(node=self.node, context=self.context)
@@ -54,7 +54,7 @@ class MidiCCtoCVNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
             self.widget.cleanup()
 
     async def test_channel_added(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.create_channel(1)
         self.assertIsNotNone(self.widget.findChild(
             QtWidgets.QWidget,
@@ -62,10 +62,10 @@ class MidiCCtoCVNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
             Qt.FindChildrenRecursively))
 
     async def test_channel_removed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             channel = self.node.create_channel(1)
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.delete_channel(channel)
         self.assertIsNone(self.widget.findChild(
             QtWidgets.QWidget,
@@ -79,28 +79,28 @@ class MidiCCtoCVNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
         return editor
 
     async def test_channel_midi_channel_changed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.channels[0]. midi_channel = 12
 
         editor = self._getEditor(QtWidgets.QSpinBox, self.node.channels[0], 'midi_channel')
         self.assertEqual(editor.value(), 13)
 
     async def test_channel_midi_controller_changed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.channels[0].midi_controller = 63
 
         editor = self._getEditor(QtWidgets.QSpinBox, self.node.channels[0], 'midi_controller')
         self.assertEqual(editor.value(), 63)
 
     async def test_channel_min_value_changed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.channels[0].min_value = 440.0
 
         editor = self._getEditor(QtWidgets.QLineEdit, self.node.channels[0], 'min_value')
         self.assertEqual(editor.text(), '440.0')
 
     async def test_channel_max_value_changed(self):
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.node.channels[0].max_value = 880.0
 
         editor = self._getEditor(QtWidgets.QLineEdit, self.node.channels[0], 'max_value')

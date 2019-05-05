@@ -30,7 +30,7 @@ from . import model
 class CustomCSoundTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
 
     async def _add_node(self) -> model.CustomCSound:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             return cast(
                 model.CustomCSound,
                 self.project.create_node('builtin://custom-csound'))
@@ -42,15 +42,15 @@ class CustomCSoundTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
     async def test_create_port(self):
         node = await self._add_node()
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             node.create_port(0, 'foo')
         self.assertEqual(len(node.ports), 1)
 
     async def test_delete_port(self):
         node = await self._add_node()
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             port = node.create_port(0, 'foo')
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             node.delete_port(port)
         self.assertEqual(len(node.ports), 0)

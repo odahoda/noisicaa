@@ -74,7 +74,7 @@ class EditSamplesTool(tools.ToolBase):
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
                 and target.highlightedSample() is not None):
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Remove sample' % target.track.name):
                 target.track.delete_sample(target.highlightedSample().sample)
 
             evt.accept()
@@ -117,7 +117,7 @@ class EditSamplesTool(tools.ToolBase):
             pos = self.__moving_sample.pos()
             self.__moving_sample = None
 
-            with self.project.apply_mutations():
+            with self.project.apply_mutations('%s: Move sample' % target.track.name):
                 target.highlightedSample().sample.time = target.xToTime(pos.x())
 
             evt.accept()
@@ -390,7 +390,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         if not path:
             return
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('%s: Create sample' % self.track.name):
             self.track.create_sample(time, path)
 
     def leaveEvent(self, evt: QtCore.QEvent) -> None:

@@ -46,6 +46,8 @@ from . import mutations_pb2
 
 logger = logging.getLogger(__name__)
 
+LOG_VERSION = 1
+
 
 class BaseProject(model.ObjectBase):
     class ProjectSpec(model_base.ObjectSpec):
@@ -166,11 +168,16 @@ class BaseProject(model.ObjectBase):
         assert self._in_mutation
 
     @contextlib.contextmanager
-    def apply_mutations(self) -> Generator:
+    def apply_mutations(self, name: str) -> Generator:
         assert not self._in_mutation
         self._in_mutation = True
         try:
-            mutation_list = mutations_pb2.MutationList()
+            mutation_list = mutations_pb2.MutationList(
+                version=LOG_VERSION,
+                name=name,
+                timestamp=time.time(),
+            )
+
             collector = mutations.MutationCollector(self._pool, mutation_list)
             with collector.collect():
                 yield
@@ -366,11 +373,10 @@ class Project(BaseProject):
         validate_node(None, project)
 
         project.__logs_since_last_checkpoint = 0
-        for action, sequence_data in actions:
-            mutation_list = mutations_pb2.MutationList()
-            parsed_bytes = mutation_list.ParseFromString(sequence_data)  # type: ignore
-            assert parsed_bytes == len(sequence_data)
-            project.__apply_mutation_list(action, mutation_list)
+        for action, mutation_list_serialized in actions:
+            project.__apply_mutation_list(
+                action,
+                project.deserialize_mutation_list(mutation_list_serialized))
             project.__logs_since_last_checkpoint += 1
 
         return project
@@ -412,6 +418,14 @@ class Project(BaseProject):
     def serialize_object(self, obj: model.ObjectBase) -> bytes:
         proto = obj.serialize()
         return proto.SerializeToString()
+
+    def deserialize_mutation_list(
+            self, mutation_list_serialized: bytes) -> mutations_pb2.MutationList:
+        mutation_list = mutations_pb2.MutationList()
+        parsed_bytes = mutation_list.ParseFromString(mutation_list_serialized)  # type: ignore
+        assert parsed_bytes == len(mutation_list_serialized)
+        assert mutation_list.version == LOG_VERSION
+        return mutation_list
 
     def __flush_mutations(self) -> None:
         if self.__latest_mutation_list is not None:
@@ -474,7 +488,9 @@ class Project(BaseProject):
             action: storage.Action,
             mutation_list_pb: mutations_pb2.MutationList
     ) -> None:
-        logger.info("Apply %d operations %s", len(mutation_list_pb.ops), action.name)
+        logger.info(
+            "Apply '%s' (%d operations) %s",
+            mutation_list_pb.name, len(mutation_list_pb.ops), action.name)
 
         mutation_list = mutations.MutationList(self._pool, mutation_list_pb)
         try:
@@ -493,22 +509,20 @@ class Project(BaseProject):
         self.__flush_mutations()
         return await self.__writer.undo()
 
-    def undo(self, action: storage.Action, sequence_data: bytes) -> None:
-        mutation_list = mutations_pb2.MutationList()
-        parsed_bytes = mutation_list.ParseFromString(sequence_data)  # type: ignore
-        assert parsed_bytes == len(sequence_data)
-        self.__apply_mutation_list(action, mutation_list)
+    def undo(self, action: storage.Action, mutation_list_serialized: bytes) -> None:
+        self.__apply_mutation_list(
+            action,
+            self.deserialize_mutation_list(mutation_list_serialized))
 
     async def fetch_redo(self) -> Optional[Tuple[storage.Action, bytes]]:
         assert not self.closed
         self.__flush_mutations()
         return await self.__writer.redo()
 
-    def redo(self, action: storage.Action, sequence_data: bytes) -> None:
-        mutation_list = mutations_pb2.MutationList()
-        parsed_bytes = mutation_list.ParseFromString(sequence_data)  # type: ignore
-        assert parsed_bytes == len(sequence_data)
-        self.__apply_mutation_list(action, mutation_list)
+    def redo(self, action: storage.Action, mutation_list_serialized: bytes) -> None:
+        self.__apply_mutation_list(
+            action,
+            self.deserialize_mutation_list(mutation_list_serialized))
 
 
 class Pool(model_base.Pool[model.ObjectBase]):

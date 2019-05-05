@@ -463,7 +463,8 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
             for conn in self.project.node_connections)
 
         if not already_exists:
-            with self.project.apply_mutations():
+            with self.project.apply_mutations(
+                    'Connect nodes "%s" and "%s"' % (src_node.node().name, dest_node.node().name)):
                 self.project.create_node_connection(
                     source_node=src_node.node(),
                     source_port=src_port.name(),
@@ -479,7 +480,8 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
             node.setSelected(False)
 
     def insertNode(self, uri: str, pos: QtCore.QPointF) -> None:
-        with self.project.apply_mutations():
+        node_desc = self.project.get_node_description(uri)
+        with self.project.apply_mutations('Create node "%s"' % node_desc.display_name):
             self.project.create_node(
                 uri,
                 graph_pos=value_types.Pos2F(pos.x(), pos.y()),
@@ -1140,7 +1142,8 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             mevent = cast(QtGui.QMouseEvent, event)
 
             if mevent.button() == Qt.LeftButton:
-                with self.project.apply_mutations():
+                with self.project.apply_mutations(
+                        'Move node%s' % ('s' if len(state.nodes) != 1 else '')):
                     for node in state.nodes:
                         content_pos = self.__scene.sceneToContentPoint(node.canvasTopLeft())
                         new_graph_pos = value_types.Pos2F(content_pos.x(), content_pos.y())
@@ -1208,7 +1211,7 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                 new_graph_size = value_types.SizeF(content_rect.width(), content_rect.height())
                 if (new_graph_pos != state.node.graph_pos()
                         or new_graph_size != state.node.graph_size()):
-                    with self.project.apply_mutations():
+                    with self.project.apply_mutations('%s: Resize node' % state.node.node().name):
                         state.node.node().graph_pos = new_graph_pos
                         state.node.node().graph_size = new_graph_size
 
@@ -1358,7 +1361,10 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             if mevent.button() == Qt.LeftButton:
                 if state.dest_port is None:
                     # drop connection
-                    with self.project.apply_mutations():
+                    with self.project.apply_mutations(
+                            'Disconnect nodes %s and %s' % (
+                                state.orig_connection.connection().source_node.name,
+                                state.orig_connection.connection().dest_node.name)):
                         self.project.remove_node_connection(state.orig_connection.connection())
 
                 elif (state.dest_port is state.orig_connection.dest_port()
@@ -1369,7 +1375,10 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                 elif state.dest_port is not None:
                     # change
                     # TODO: this should be a sequence [delete, create]
-                    with self.project.apply_mutations():
+                    with self.project.apply_mutations(
+                            'Disconnect nodes %s and %s' % (
+                                state.orig_connection.connection().source_node.name,
+                                state.orig_connection.connection().dest_node.name)):
                         self.project.remove_node_connection(state.orig_connection.connection())
 
                     self.__scene.connectPorts(state.src_port, state.dest_port)

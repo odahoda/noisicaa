@@ -34,13 +34,13 @@ class TrackTestMixin(unittest_mixins.ProjectMixin):
     track_cls = None  # type: Type[base_track.Track]
 
     async def test_add_remove(self) -> None:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             node = self.project.create_node(self.node_uri)
         assert isinstance(node, self.track_cls)
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             self.project.remove_node(node)
 
     async def _add_track(self) -> base_track.Track:
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             return cast(base_track.Track, self.project.create_node(self.node_uri))

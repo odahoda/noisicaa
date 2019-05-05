@@ -132,7 +132,7 @@ class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
     async def test_add_control_point(self):
         track = await self._add_track()
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             point = track.create_control_point(audioproc.MusicalTime(1, 4), 0.7)
         self.assertEqual(len(track.points), 1)
         self.assertIs(track.points[0], point)
@@ -141,17 +141,17 @@ class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):
 
     async def test_delete_control_point(self):
         track = await self._add_track()
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             point = track.create_control_point(audioproc.MusicalTime(1, 4), 0.7)
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             track.delete_control_point(point)
         self.assertEqual(len(track.points), 0)
 
     async def test_control_point_set_time(self):
         track = await self._add_track()
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             point = track.create_control_point(audioproc.MusicalTime(1, 4), 0.7)
 
-        with self.project.apply_mutations():
+        with self.project.apply_mutations('test'):
             point.time = audioproc.MusicalTime(3, 4)

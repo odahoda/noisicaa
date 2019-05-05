@@ -140,7 +140,7 @@ class ProjectIntegrationTest(
     async def apply_mutations(self, project, client, pool):
         snapshot_before = self.create_pool_snapshot(pool)
 
-        with project.apply_mutations():
+        with project.apply_mutations('test'):
             await async_generator.yield_()
 
         snapshot_after = self.create_pool_snapshot(pool)
