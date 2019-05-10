@@ -28,7 +28,10 @@ add_python_package(
   unittest_engine_utils.pyi
   uitest.py
   demo_project.py
+  build_model.py
 )
+
+py_proto(model_desc.proto)
 
 add_cython_module(unittest_engine_mixins CXX)
 target_link_libraries(${unittest_engine_mixins.so} PRIVATE noisicaa-audioproc-engine)

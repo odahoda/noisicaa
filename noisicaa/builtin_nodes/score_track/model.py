@@ -22,7 +22,7 @@
 
 import fractions
 import logging
-from typing import cast, Any, MutableSequence, Optional, Iterator, Iterable, Callable
+from typing import cast, Any, Optional, Iterator, Iterable, Callable
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
@@ -30,10 +30,9 @@ from noisicaa import audioproc
 from noisicaa import value_types
 from noisicaa import node_db
 from noisicaa import model_base
-from noisicaa.music import model
 from noisicaa.music import base_track
-from noisicaa.builtin_nodes import model_registry_pb2
 from . import node_description
+from . import _model
 
 logger = logging.getLogger(__name__)
 
@@ -74,27 +73,7 @@ class ScoreTrackConnector(base_track.MeasuredTrackConnector):
         self._update_measure_range(mref.index, mref.index + 1)
 
 
-class Note(model.ProjectChild):
-    class NoteSpec(model_base.ObjectSpec):
-        proto_type = 'note'
-        proto_ext = model_registry_pb2.note
-
-        pitches = model_base.WrappedProtoListProperty(value_types.Pitch)
-        base_duration = model_base.WrappedProtoProperty(
-            audioproc.MusicalDuration,
-            default=audioproc.MusicalDuration(1, 4))
-        dots = model_base.Property(int, default=0)
-        tuplet = model_base.Property(int, default=0)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.pitches_changed = core.Callback[model_base.PropertyListChange[value_types.Pitch]]()
-        self.base_duration_changed = \
-            core.Callback[model_base.PropertyChange[audioproc.MusicalDuration]]()
-        self.dots_changed = core.Callback[model_base.PropertyChange[int]]()
-        self.tuplet_changed = core.Callback[model_base.PropertyChange[int]]()
-
+class Note(_model.Note):
     def __str__(self) -> str:
         n = ''
         if len(self.pitches) == 1:
@@ -132,37 +111,13 @@ class Note(model.ProjectChild):
                 and self.base_duration.denominator in (1, 2, 4, 8, 16, 32)), \
             self.base_duration
 
-    @property
-    def pitches(self) -> MutableSequence[value_types.Pitch]:
-        return self.get_property_value('pitches')
-
-    @property
-    def base_duration(self) -> audioproc.MusicalDuration:
-        return self.get_property_value('base_duration')
-
-    @base_duration.setter
-    def base_duration(self, value: audioproc.MusicalDuration) -> None:
-        self.set_property_value('base_duration', value)
-
-    @property
-    def dots(self) -> int:
-        return self.get_property_value('dots')
-
-    @dots.setter
-    def dots(self, value: int) -> None:
+    def _validate_dots(self, value: int) -> None:
         if value > self.max_allowed_dots:
             raise ValueError("Too many dots on note")
-        self.set_property_value('dots', value)
 
-    @property
-    def tuplet(self) -> int:
-        return self.get_property_value('tuplet')
-
-    @tuplet.setter
-    def tuplet(self, value: int) -> None:
+    def _validate_tuplet(self, value: int) -> None:
         if value not in (0, 3, 5):
             raise ValueError("Invalid tuplet type")
-        self.set_property_value('tuplet', value)
 
     @property
     def measure(self) -> 'ScoreMeasure':
@@ -224,24 +179,9 @@ class Note(model.ProjectChild):
                 octaves=half_notes // 12)
 
 
-class ScoreMeasure(base_track.Measure):
-    class ScoreMeasureSpec(model_base.ObjectSpec):
-        proto_type = 'score_measure'
-        proto_ext = model_registry_pb2.score_measure
-
-        clef = model_base.WrappedProtoProperty(value_types.Clef, default=value_types.Clef.Treble)
-        key_signature = model_base.WrappedProtoProperty(
-            value_types.KeySignature,
-            default=value_types.KeySignature('C major'))
-        notes = model_base.ObjectListProperty(Note)
-
+class ScoreMeasure(_model.ScoreMeasure):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-
-        self.clef_changed = core.Callback[model_base.PropertyChange[value_types.Clef]]()
-        self.key_signature_changed = \
-            core.Callback[model_base.PropertyChange[value_types.KeySignature]]()
-        self.notes_changed = core.Callback[model_base.PropertyListChange[Note]]()
 
         self.content_changed = core.Callback[None]()
 
@@ -249,26 +189,6 @@ class ScoreMeasure(base_track.Measure):
         super().setup()
 
         self.notes_changed.add(lambda _: self.content_changed.call())
-
-    @property
-    def clef(self) -> value_types.Clef:
-        return self.get_property_value('clef')
-
-    @clef.setter
-    def clef(self, value: value_types.Clef) -> None:
-        self.set_property_value('clef', value)
-
-    @property
-    def key_signature(self) -> value_types.KeySignature:
-        return self.get_property_value('key_signature')
-
-    @key_signature.setter
-    def key_signature(self, value: value_types.KeySignature) -> None:
-        self.set_property_value('key_signature', value)
-
-    @property
-    def notes(self) -> MutableSequence[Note]:
-        return self.get_property_value('notes')
 
     @property
     def track(self) -> 'ScoreTrack':
@@ -296,33 +216,14 @@ class ScoreMeasure(base_track.Measure):
         del self.notes[note.index]
 
 
-class ScoreTrack(base_track.MeasuredTrack):
-    class ScoreTrackSpec(model_base.ObjectSpec):
-        proto_type = 'score_track'
-        proto_ext = model_registry_pb2.score_track
-
-        transpose_octaves = model_base.Property(int, default=0)
-
+class ScoreTrack(_model.ScoreTrack):
     measure_cls = ScoreMeasure
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.transpose_octaves_changed = core.Callback[model_base.PropertyChange[int]]()
 
     def create(self, *, num_measures: int = 1, **kwargs: Any) -> None:
         super().create(**kwargs)
 
         for _ in range(num_measures):
             self.append_measure()
-
-    @property
-    def transpose_octaves(self) -> int:
-        return self.get_property_value('transpose_octaves')
-
-    @transpose_octaves.setter
-    def transpose_octaves(self, value: int) -> None:
-        self.set_property_value('transpose_octaves', value)
 
     def create_empty_measure(self, ref: Optional[base_track.Measure]) -> ScoreMeasure:
         measure = down_cast(ScoreMeasure, super().create_empty_measure(ref))

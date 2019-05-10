@@ -22,18 +22,16 @@
 
 import logging
 import random
-from typing import cast, Any, Dict, MutableSequence, Optional, Callable
+from typing import cast, Any, Dict, Optional, Callable
 
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import model_base
-from noisicaa.music import base_track
 from noisicaa.music import node_connector
-from noisicaa.music import model
-from noisicaa.builtin_nodes import model_registry_pb2
 from . import node_description
 from . import processor_messages
+from . import _model
 
 logger = logging.getLogger(__name__)
 
@@ -110,20 +108,7 @@ class ControlTrackConnector(node_connector.NodeConnector):
             value=point.value))
 
 
-class ControlPoint(model.ProjectChild):
-    class ControlPointSpec(model_base.ObjectSpec):
-        proto_type = 'control_point'
-        proto_ext = model_registry_pb2.control_point
-
-        time = model_base.WrappedProtoProperty(audioproc.MusicalTime)
-        value = model_base.Property(float)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.time_changed = core.Callback[model_base.PropertyChange[audioproc.MusicalTime]]()
-        self.value_changed = core.Callback[model_base.PropertyChange[float]]()
-
+class ControlPoint(_model.ControlPoint):
     def create(
             self, *,
             time: Optional[audioproc.MusicalTime] = None, value: float = None,
@@ -133,12 +118,7 @@ class ControlPoint(model.ProjectChild):
         self.time = time
         self.value = value
 
-    @property
-    def time(self) -> audioproc.MusicalTime:
-        return self.get_property_value('time')
-
-    @time.setter
-    def time(self, value: audioproc.MusicalTime) -> None:
+    def _validate_time(self, value: audioproc.MusicalTime) -> None:
         if self.parent is not None:
             if not self.is_first:
                 if value <= cast(ControlPoint, self.prev_sibling).time:
@@ -151,36 +131,11 @@ class ControlPoint(model.ProjectChild):
                 if value >= cast(ControlPoint, self.next_sibling).time:
                     raise ValueError("Control point out of order.")
 
-        self.set_property_value('time', value)
 
-    @property
-    def value(self) -> float:
-        return self.get_property_value('value')
-
-    @value.setter
-    def value(self, value: float) -> None:
-        self.set_property_value('value', value)
-
-
-class ControlTrack(base_track.Track):
-    class ControlTrackSpec(model_base.ObjectSpec):
-        proto_type = 'control_track'
-        proto_ext = model_registry_pb2.control_track
-
-        points = model_base.ObjectListProperty(ControlPoint)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.points_changed = core.Callback[model_base.PropertyListChange[ControlPoint]]()
-
+class ControlTrack(_model.ControlTrack):
     @property
     def description(self) -> node_db.NodeDescription:
         return node_description.ControlTrackDescription
-
-    @property
-    def points(self) -> MutableSequence[ControlPoint]:
-        return self.get_property_value('points')
 
     def create_node_connector(
             self,

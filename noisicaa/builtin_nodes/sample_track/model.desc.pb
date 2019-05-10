@@ -18,16 +18,34 @@
 #
 # @end:license
 
-add_python_package(
-  node_description.py
-  model.py
-  model_test.py
-  node_ui.py
-  track_ui.py
-  track_ui_test.py
-)
+template: "noisicaa/builtin_nodes/model.tmpl.py"
 
-build_model(model.desc.pb)
+classes {
+  name: "SampleRef"
+  super_class: "noisicaa.music.model.ProjectChild"
+  proto_ext_name: "sample_ref"
+  properties {
+    name: "time"
+    type: WRAPPED_PROTO
+    wrapped_type: "noisicaa.audioproc.MusicalTime"
+    proto_id: 1
+  }
+  properties {
+    name: "sample"
+    type: OBJECT_REF
+    obj_type: "noisicaa.music.samples.Sample"
+    proto_id: 2
+  }
+}
 
-py_proto(model.proto)
-add_dependencies(noisicaa.builtin_nodes.score_track.model.proto model-noisicaa.builtin_nodes.score_track)
+classes {
+  name: "SampleTrack"
+  super_class: "noisicaa.music.base_track.Track"
+  proto_ext_name: "sample_track"
+  properties {
+    name: "samples"
+    type: OBJECT_LIST
+    obj_type: "SampleRef"
+    proto_id: 1
+  }
+}

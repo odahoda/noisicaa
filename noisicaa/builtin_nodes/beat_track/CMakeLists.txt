@@ -27,4 +27,6 @@ add_python_package(
   track_ui_test.py
 )
 
+build_model(model.desc.pb)
+
 py_proto(model.proto)

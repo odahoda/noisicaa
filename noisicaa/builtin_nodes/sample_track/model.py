@@ -23,7 +23,7 @@
 import fractions
 import logging
 import random
-from typing import Any, Dict, MutableSequence, Optional, Callable
+from typing import Any, Dict, Optional, Callable
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
@@ -32,14 +32,12 @@ from noisicaa import core
 from noisicaa import node_db
 from noisicaa.bindings import sndfile
 from noisicaa.music import node_connector
-from noisicaa.music import model
-from noisicaa.music import base_track
 from noisicaa.music import rms
 from noisicaa.music import samples as samples_lib
-from noisicaa.builtin_nodes import model_registry_pb2
 from . import ipc_pb2
 from . import processor_messages
 from . import node_description
+from . import _model
 
 logger = logging.getLogger(__name__)
 
@@ -160,20 +158,7 @@ class SampleTrackConnector(node_connector.NodeConnector):
             sample_path=sample_ref.sample.path))
 
 
-class SampleRef(model.ProjectChild):
-    class SampleRefSpec(model_base.ObjectSpec):
-        proto_type = 'sample_ref'
-        proto_ext = model_registry_pb2.sample_ref
-
-        time = model_base.WrappedProtoProperty(audioproc.MusicalTime)
-        sample = model_base.ObjectReferenceProperty(samples_lib.Sample)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.time_changed = core.Callback[model_base.PropertyChange[audioproc.MusicalTime]]()
-        self.sample_changed = core.Callback[model_base.PropertyChange[samples_lib.Sample]]()
-
+class SampleRef(_model.SampleRef):
     def create(
             self, *,
             time: Optional[audioproc.MusicalTime] = None,
@@ -184,39 +169,8 @@ class SampleRef(model.ProjectChild):
         self.time = time
         self.sample = sample
 
-    @property
-    def time(self) -> audioproc.MusicalTime:
-        return self.get_property_value('time')
 
-    @time.setter
-    def time(self, value: audioproc.MusicalTime) -> None:
-        self.set_property_value('time', value)
-
-    @property
-    def sample(self) -> samples_lib.Sample:
-        return self.get_property_value('sample')
-
-    @sample.setter
-    def sample(self, value: samples_lib.Sample) -> None:
-        self.set_property_value('sample', value)
-
-
-class SampleTrack(base_track.Track):
-    class SampleTrackSpec(model_base.ObjectSpec):
-        proto_type = 'sample_track'
-        proto_ext = model_registry_pb2.sample_track
-
-        samples = model_base.ObjectListProperty(SampleRef)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.samples_changed = core.Callback[model_base.PropertyListChange[SampleRef]]()
-
-    @property
-    def samples(self) -> MutableSequence[SampleRef]:
-        return self.get_property_value('samples')
-
+class SampleTrack(_model.SampleTrack):
     def create_node_connector(
             self, message_cb: Callable[[audioproc.ProcessorMessage], None],
             audioproc_client: audioproc.AbstractAudioProcClient,

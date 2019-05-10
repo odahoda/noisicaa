@@ -21,33 +21,21 @@
 # @end:license
 
 import logging
-from typing import Any, Optional, Dict, Iterator, MutableSequence
+from typing import Any, Optional, Dict, Iterator
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import node_db
 from noisicaa import audioproc
 from noisicaa import model_base
-from noisicaa.music import graph
-from noisicaa.builtin_nodes import model_registry_pb2
 from . import node_description
 from . import processor_pb2
+from . import _model
 
 logger = logging.getLogger(__name__)
 
 
-class CustomCSoundPort(graph.Port):
-    class CustomCSoundPortSpec(model_base.ObjectSpec):
-        proto_type = 'custom_csound_port'
-        proto_ext = model_registry_pb2.custom_csound_port
-
-        csound_name = model_base.Property(str, allow_none=True)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.csound_name_changed = core.Callback[model_base.PropertyChange[str]]()
-
+class CustomCSoundPort(_model.CustomCSoundPort):
     def create(
             self, *,
             csound_name: Optional[str] = None,
@@ -60,14 +48,6 @@ class CustomCSoundPort(graph.Port):
     @property
     def node(self) -> 'CustomCSound':
         return down_cast(CustomCSound, self.parent)
-
-    @property
-    def csound_name(self) -> str:
-        return self.get_property_value('csound_name')
-
-    @csound_name.setter
-    def csound_name(self, value: str) -> None:
-        self.set_property_value('csound_name', value)
 
     def csound_name_prefix(self, *, type: node_db.PortDescription.Type = None) -> str:  # pylint: disable=redefined-builtin
         if type is None:
@@ -96,21 +76,9 @@ class CustomCSoundPort(graph.Port):
             return self.csound_name_prefix(type=type) + name.capitalize()
 
 
-class CustomCSound(graph.BaseNode):
-    class CustomCSoundSpec(model_base.ObjectSpec):
-        proto_type = 'custom_csound'
-        proto_ext = model_registry_pb2.custom_csound
-
-        orchestra = model_base.Property(str, allow_none=True)
-        score = model_base.Property(str, allow_none=True)
-        ports = model_base.ObjectListProperty(CustomCSoundPort)
-
+class CustomCSound(_model.CustomCSound):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-
-        self.orchestra_changed = core.Callback[model_base.PropertyChange[str]]()
-        self.score_changed = core.Callback[model_base.PropertyChange[str]]()
-        self.ports_changed = core.Callback[model_base.PropertyListChange[CustomCSoundPort]]()
 
         self.__listeners = {}  # type: Dict[int, core.Listener]
 
@@ -178,26 +146,6 @@ class CustomCSound(graph.BaseNode):
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
         yield from super().get_initial_parameter_mutations()
         yield self.__get_code_mutation()
-
-    @property
-    def orchestra(self) -> str:
-        return self.get_property_value('orchestra')
-
-    @orchestra.setter
-    def orchestra(self, value: str) -> None:
-        self.set_property_value('orchestra', value)
-
-    @property
-    def score(self) -> str:
-        return self.get_property_value('score')
-
-    @score.setter
-    def score(self, value: str) -> None:
-        self.set_property_value('score', value)
-
-    @property
-    def ports(self) -> MutableSequence[CustomCSoundPort]:
-        return self.get_property_value('ports')
 
     @property
     def full_orchestra(self) -> str:

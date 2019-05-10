@@ -21,20 +21,17 @@
 # @end:license
 
 import logging
-from typing import Any, Iterator, MutableSequence, Callable, Dict
+from typing import Any, Iterator, Callable, Dict
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
-from noisicaa import model_base
-from noisicaa.music import graph
 from noisicaa.music import node_connector
-from noisicaa.music import model
-from noisicaa.builtin_nodes import model_registry_pb2
 from . import node_description
 from . import model_pb2
 from . import processor_pb2
+from . import _model
 
 logger = logging.getLogger(__name__)
 
@@ -66,28 +63,7 @@ class Connector(node_connector.NodeConnector):
             self._node.set_controller_value(channel_idx, value)
 
 
-class MidiCCtoCVChannel(model.ProjectChild):
-    class MidiCCtoCVChannelSpec(model_base.ObjectSpec):
-        proto_type = 'midi_cc_to_cv_channel'
-        proto_ext = model_registry_pb2.midi_cc_to_cv_channel
-
-        type = model_base.Property(model_pb2.MidiCCtoCVChannel.Type)
-        midi_channel = model_base.Property(int, default=0)
-        midi_controller = model_base.Property(int, default=0)
-        min_value = model_base.Property(float, default=0.0)
-        max_value = model_base.Property(float, default=1.0)
-        log_scale = model_base.Property(bool, default=False)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.type_changed = core.Callback[model_base.PropertyChange[int]]()
-        self.midi_channel_changed = core.Callback[model_base.PropertyChange[int]]()
-        self.midi_controller_changed = core.Callback[model_base.PropertyChange[int]]()
-        self.min_value_changed = core.Callback[model_base.PropertyChange[float]]()
-        self.max_value_changed = core.Callback[model_base.PropertyChange[float]]()
-        self.log_scale_changed = core.Callback[model_base.PropertyChange[bool]]()
-
+class MidiCCtoCVChannel(_model.MidiCCtoCVChannel):
     def create(
             self, *,
             type: model_pb2.MidiCCtoCVChannel.Type = model_pb2.MidiCCtoCVChannel.CONTROLLER,  # pylint: disable=redefined-builtin
@@ -109,71 +85,15 @@ class MidiCCtoCVChannel(model.ProjectChild):
         self.log_scale_changed.add(lambda _: self.midi_cc_to_cv.update_spec())
 
     @property
-    def type(self) -> model_pb2.MidiCCtoCVChannel.Type:
-        return self.get_property_value('type')
-
-    @type.setter
-    def type(self, value: model_pb2.MidiCCtoCVChannel.Type) -> None:
-        self.set_property_value('type', value)
-
-    @property
-    def midi_channel(self) -> int:
-        return self.get_property_value('midi_channel')
-
-    @midi_channel.setter
-    def midi_channel(self, value: int) -> None:
-        self.set_property_value('midi_channel', value)
-
-    @property
-    def midi_controller(self) -> int:
-        return self.get_property_value('midi_controller')
-
-    @midi_controller.setter
-    def midi_controller(self, value: int) -> None:
-        self.set_property_value('midi_controller', value)
-
-    @property
-    def min_value(self) -> float:
-        return self.get_property_value('min_value')
-
-    @min_value.setter
-    def min_value(self, value: float) -> None:
-        self.set_property_value('min_value', value)
-
-    @property
-    def max_value(self) -> float:
-        return self.get_property_value('max_value')
-
-    @max_value.setter
-    def max_value(self, value: float) -> None:
-        self.set_property_value('max_value', value)
-
-    @property
-    def log_scale(self) -> bool:
-        return self.get_property_value('log_scale')
-
-    @log_scale.setter
-    def log_scale(self, value: bool) -> None:
-        self.set_property_value('log_scale', value)
-
-    @property
     def midi_cc_to_cv(self) -> 'MidiCCtoCV':
         return down_cast(MidiCCtoCV, self.parent)
 
 
-class MidiCCtoCV(graph.BaseNode):
-    class MidiCCtoCVSpec(model_base.ObjectSpec):
-        proto_type = 'midi_cc_to_cv'
-        proto_ext = model_registry_pb2.midi_cc_to_cv
-
-        channels = model_base.ObjectListProperty(MidiCCtoCVChannel)
-
+class MidiCCtoCV(_model.MidiCCtoCV):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__controller_values = {}  # type: Dict[int, int]
-
-        self.channels_changed = core.Callback[model_base.PropertyListChange[MidiCCtoCVChannel]]()
 
     def create(self, **kwargs: Any) -> None:
         super().create(**kwargs)
@@ -188,10 +108,6 @@ class MidiCCtoCV(graph.BaseNode):
 
         self.channels_changed.add(self.description_changed.call)
         self.channels_changed.add(lambda _: self.update_spec())
-
-    @property
-    def channels(self) -> MutableSequence[MidiCCtoCVChannel]:
-        return self.get_property_value('channels')
 
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
         yield from super().get_initial_parameter_mutations()

@@ -25,6 +25,9 @@ add_python_package(
 )
 
 py_proto(model_registry.proto)
+add_dependencies(noisicaa.builtin_nodes.model_registry.proto noisicaa.builtin_nodes.midi_source.model.proto)
+add_dependencies(noisicaa.builtin_nodes.model_registry.proto noisicaa.builtin_nodes.beat_track.model.proto)
+
 py_proto(processor_message_registry.proto)
 cpp_proto(processor_message_registry.proto)
 

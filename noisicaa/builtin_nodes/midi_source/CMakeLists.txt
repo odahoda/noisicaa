@@ -27,6 +27,8 @@ add_python_package(
   processor_messages.py
 )
 
+build_model(model.desc.pb)
+
 py_proto(model.proto)
 py_proto(processor_messages.proto)
 cpp_proto(processor_messages.proto)

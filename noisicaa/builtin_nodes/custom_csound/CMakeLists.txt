@@ -27,7 +27,10 @@ add_python_package(
   processor_test.py
 )
 
+build_model(model.desc.pb)
+
 py_proto(model.proto)
+add_dependencies(noisicaa.builtin_nodes.custom_csound.model.proto model-noisicaa.builtin_nodes.custom_csound)
 py_proto(processor.proto)
 cpp_proto(processor.proto)
 

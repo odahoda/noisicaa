@@ -1,0 +1,68 @@
+/*
+ * @begin:license
+ *
+ * Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * @end:license
+ */
+
+syntax = "proto2";
+
+package noisidev;
+
+message ModelDescription {
+  required string template = 1;
+  repeated ClassDescription classes = 2;
+}
+
+message ClassDescription {
+  required string name = 1;
+  repeated string super_class = 2;
+  required string proto_ext_name = 3;
+  repeated PropertyDescription properties = 4;
+}
+
+message PropertyDescription {
+  required string name = 1;
+
+  enum Type {
+    STRING = 1;
+    INT32 = 2;
+    UINT32 = 3;
+    FLOAT = 4;
+    BOOL = 5;
+    WRAPPED_PROTO = 6;
+    WRAPPED_PROTO_LIST = 7;
+    PROTO_ENUM = 8;
+    OBJECT_REF = 9;
+    OBJECT_LIST = 10;
+  }
+  required Type type = 2;
+  optional string obj_type = 3;
+  optional string wrapped_type = 4;
+  optional bool allow_none = 5;
+  optional string default = 6;
+  optional uint32 proto_id = 7;
+  optional string wrapped_proto_type = 8;
+  optional string proto_enum_name = 9;
+  repeated ProtoEnumDescription proto_enum_fields = 10;
+}
+
+message ProtoEnumDescription {
+  required string name = 1;
+  required int32 value = 2;
+}

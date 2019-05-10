@@ -18,16 +18,22 @@
 #
 # @end:license
 
-add_python_package(
-  node_description.py
-  model.py
-  model_test.py
-  node_ui.py
-  track_ui.py
-  track_ui_test.py
-)
+template: "noisicaa/builtin_nodes/model.tmpl.py"
 
-build_model(model.desc.pb)
-
-py_proto(model.proto)
-add_dependencies(noisicaa.builtin_nodes.score_track.model.proto model-noisicaa.builtin_nodes.score_track)
+classes {
+  name: "MidiSource"
+  super_class: "noisicaa.music.graph.BaseNode"
+  proto_ext_name: "midi_source"
+  properties {
+    name: "device_uri"
+    proto_id: 1
+    type: STRING
+    default: "''"
+  }
+  properties {
+    name: "channel_filter"
+    proto_id: 2
+    type: INT32
+    default: "-1"
+  }
+}

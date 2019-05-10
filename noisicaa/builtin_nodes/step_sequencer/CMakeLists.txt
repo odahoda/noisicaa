@@ -27,10 +27,14 @@ add_python_package(
   processor_test.py
 )
 
+build_model(model.desc.pb)
+
 py_proto(model.proto)
+add_dependencies(noisicaa.builtin_nodes.step_sequencer.model.proto model-noisicaa.builtin_nodes.step_sequencer)
 cpp_proto(model.proto)
 py_proto(processor.proto)
 cpp_proto(processor.proto)
+add_dependencies(noisicaa.builtin_nodes.step_sequencer.processor.proto model-noisicaa.builtin_nodes.step_sequencer)
 
 add_library(noisicaa-builtin_nodes-step_sequencer-processor SHARED processor.cpp processor.pb.cc model.pb.cc)
 target_compile_options(noisicaa-builtin_nodes-step_sequencer-processor PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)

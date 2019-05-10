@@ -27,12 +27,10 @@ from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
 from noisicaa import instrument_db
-from noisicaa import model_base
-from noisicaa.music import graph
 from noisicaa.music import node_connector
-from noisicaa.builtin_nodes import model_registry_pb2
 from . import node_description
 from . import processor_messages
+from . import _model
 
 logger = logging.getLogger(__name__)
 
@@ -70,30 +68,11 @@ class Connector(node_connector.NodeConnector):
             self.__node_id, instrument_spec))
 
 
-class Instrument(graph.BaseNode):
-    class InstrumentNodeSpec(model_base.ObjectSpec):
-        proto_type = 'instrument'
-        proto_ext = model_registry_pb2.instrument
-
-        instrument_uri = model_base.Property(str, allow_none=True)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.instrument_uri_changed = core.Callback[model_base.PropertyChange[str]]()
-
+class Instrument(_model.Instrument):
     def create(self, *, instrument_uri: Optional[str] = None, **kwargs: Any) -> None:
         super().create(**kwargs)
 
         self.instrument_uri = instrument_uri
-
-    @property
-    def instrument_uri(self) -> str:
-        return self.get_property_value('instrument_uri')
-
-    @instrument_uri.setter
-    def instrument_uri(self, value: str) -> None:
-        self.set_property_value('instrument_uri', value)
 
     def create_node_connector(
             self, message_cb: Callable[[audioproc.ProcessorMessage], None],

@@ -29,7 +29,10 @@ add_python_package(
   processor_messages.py
 )
 
+build_model(model.desc.pb)
+
 py_proto(model.proto)
+add_dependencies(noisicaa.builtin_nodes.control_track.model.proto model-noisicaa.builtin_nodes.control_track)
 py_proto(processor_messages.proto)
 cpp_proto(processor_messages.proto)
 

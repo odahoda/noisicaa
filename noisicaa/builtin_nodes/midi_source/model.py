@@ -25,13 +25,11 @@ from typing import Any, Optional, Dict, Callable
 
 from noisicaa import core
 from noisicaa import node_db
-from noisicaa import model_base
 from noisicaa import audioproc
-from noisicaa.music import graph
 from noisicaa.music import node_connector
-from noisicaa.builtin_nodes import model_registry_pb2
 from . import processor_messages
 from . import node_description
+from . import _model
 
 logger = logging.getLogger(__name__)
 
@@ -68,20 +66,7 @@ class Connector(node_connector.NodeConnector):
         super().close()
 
 
-class MidiSource(graph.BaseNode):
-    class MidiSourceSpec(model_base.ObjectSpec):
-        proto_type = 'midi_source'
-        proto_ext = model_registry_pb2.midi_source
-
-        device_uri = model_base.Property(str, default='')
-        channel_filter = model_base.Property(int, default=-1)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.device_uri_changed = core.Callback[model_base.PropertyChange[str]]()
-        self.channel_filter_changed = core.Callback[model_base.PropertyChange[int]]()
-
+class MidiSource(_model.MidiSource):
     def create(
             self, *,
             device_uri: Optional[str] = '',
@@ -91,22 +76,6 @@ class MidiSource(graph.BaseNode):
         super().create(**kwargs)
 
         self.device_uri = device_uri
-
-    @property
-    def device_uri(self) -> str:
-        return self.get_property_value('device_uri')
-
-    @device_uri.setter
-    def device_uri(self, value: str) -> None:
-        self.set_property_value('device_uri', value)
-
-    @property
-    def channel_filter(self) -> int:
-        return self.get_property_value('channel_filter')
-
-    @channel_filter.setter
-    def channel_filter(self, value: int) -> None:
-        self.set_property_value('channel_filter', value)
 
     def create_node_connector(
             self, message_cb: Callable[[audioproc.ProcessorMessage], None],

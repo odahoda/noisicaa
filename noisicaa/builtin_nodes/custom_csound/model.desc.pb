@@ -18,16 +18,40 @@
 #
 # @end:license
 
-add_python_package(
-  node_description.py
-  model.py
-  model_test.py
-  node_ui.py
-  track_ui.py
-  track_ui_test.py
-)
+template: "noisicaa/builtin_nodes/model.tmpl.py"
 
-build_model(model.desc.pb)
+classes {
+  name: "CustomCSoundPort"
+  super_class: "noisicaa.music.graph.Port"
+  proto_ext_name: "custom_csound_port"
+  properties {
+    name: "csound_name"
+    type: STRING
+    allow_none: true
+    proto_id: 1
+  }
+}
 
-py_proto(model.proto)
-add_dependencies(noisicaa.builtin_nodes.score_track.model.proto model-noisicaa.builtin_nodes.score_track)
+classes {
+  name: "CustomCSound"
+  super_class: "noisicaa.music.graph.BaseNode"
+  proto_ext_name: "custom_csound"
+  properties {
+    name: "orchestra"
+    type: STRING
+    allow_none: true
+    proto_id: 1
+  }
+  properties {
+    name: "score"
+    type: STRING
+    allow_none: true
+    proto_id: 2
+  }
+  properties {
+    name: "ports"
+    type: OBJECT_LIST
+    obj_type: "CustomCSoundPort"
+    proto_id: 3
+  }
+}

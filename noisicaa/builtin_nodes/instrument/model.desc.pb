@@ -18,16 +18,16 @@
 #
 # @end:license
 
-add_python_package(
-  node_description.py
-  model.py
-  model_test.py
-  node_ui.py
-  track_ui.py
-  track_ui_test.py
-)
+template: "noisicaa/builtin_nodes/model.tmpl.py"
 
-build_model(model.desc.pb)
-
-py_proto(model.proto)
-add_dependencies(noisicaa.builtin_nodes.score_track.model.proto model-noisicaa.builtin_nodes.score_track)
+classes {
+  name: "Instrument"
+  super_class: "noisicaa.music.graph.BaseNode"
+  proto_ext_name: "instrument"
+  properties {
+    name: "instrument_uri"
+    type: STRING
+    allow_none: True
+    proto_id: 1
+  }
+}
