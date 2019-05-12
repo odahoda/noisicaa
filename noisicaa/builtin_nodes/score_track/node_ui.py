@@ -29,7 +29,6 @@ from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model_base
 from noisicaa import music
 from noisicaa.constants import DATA_DIR
 from noisicaa.ui import ui_base
@@ -76,7 +75,7 @@ class ScoreTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             listener.remove()
         self.__listeners.clear()
 
-    def onTransposeOctavesChanged(self, change: model_base.PropertyValueChange[int]) -> None:
+    def onTransposeOctavesChanged(self, change: music.PropertyValueChange[int]) -> None:
         self.__transpose_octaves.setValue(change.new_value)
 
     def onTransposeOctavesEdited(self, transpose_octaves: int) -> None:

@@ -31,7 +31,7 @@ from PyQt5 import QtGui
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import model_base
+from noisicaa import music
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
@@ -225,13 +225,13 @@ class ControlPoint(object):
             listener.remove()
         self.__listeners.clear()
 
-    def onTimeChanged(self, change: model_base.PropertyValueChange[audioproc.MusicalTime]) -> None:
+    def onTimeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
             self.__track_editor.timeToX(change.new_value),
             self.__pos.y())
         self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
 
-    def onValueChanged(self, change: model_base.PropertyValueChange[float]) -> None:
+    def onValueChanged(self, change: music.PropertyValueChange[float]) -> None:
         self.__pos = QtCore.QPoint(
             self.__pos.x(),
             self.__track_editor.valueToY(change.new_value))
@@ -345,12 +345,12 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         cpoint.close()
         self.rectChanged.emit(self.viewRect())
 
-    def onPointsChanged(self, change: model_base.PropertyListChange[model.ControlPoint]) -> None:
-        if isinstance(change, model_base.PropertyListInsert):
+    def onPointsChanged(self, change: music.PropertyListChange[model.ControlPoint]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.addPoint(change.index, change.new_value)
             self.updateHighlightedPoint()
 
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.removePoint(change.index, change.old_value)
             self.updateHighlightedPoint()
 

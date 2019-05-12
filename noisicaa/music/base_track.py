@@ -22,79 +22,33 @@
 
 import logging
 import random
-from typing import cast, Any, Optional, Iterator, Dict, List, Type, MutableSequence
+from typing import cast, Any, Optional, Iterator, Dict, List, Type
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa import model_base
 from noisicaa import value_types
 from noisicaa import core
 from noisicaa.builtin_nodes.pianoroll import processor_messages as pianoroll
-from . import model
-from . import model_pb2
+from . import model_base
+from . import _model
 from . import node_connector
 from . import graph
 
 logger = logging.getLogger(__name__)
 
 
-class Track(graph.BaseNode):  # pylint: disable=abstract-method
-    class TrackSpec(model_base.ObjectSpec):
-        proto_ext = model_pb2.track
-
-        visible = model_base.Property(bool, default=True)
-        list_position = model_base.Property(int, default=0)
-
+class Track(_model.Track, graph.BaseNode):  # pylint: disable=abstract-method
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.visible_changed = core.Callback[model_base.PropertyChange[bool]]()
-        self.list_position_changed = core.Callback[model_base.PropertyChange[int]]()
         self.duration_changed = core.Callback[None]()
-
-    @property
-    def visible(self) -> bool:
-        return self.get_property_value('visible')
-
-    @visible.setter
-    def visible(self, value: bool) -> None:
-        self.set_property_value('visible', value)
-
-    @property
-    def list_position(self) -> int:
-        return self.get_property_value('list_position')
-
-    @list_position.setter
-    def list_position(self, value: int) -> None:
-        self.set_property_value('list_position', value)
 
     @property
     def duration(self) -> audioproc.MusicalDuration:
         return audioproc.MusicalDuration(1, 1)
 
 
-class Measure(model.ProjectChild):
-    class MeasureSpec(model_base.ObjectSpec):
-        proto_ext = model_pb2.measure
-
-        time_signature = model_base.WrappedProtoProperty(
-            value_types.TimeSignature,
-            default=value_types.TimeSignature(4, 4))
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.time_signature_changed = \
-            core.Callback[model_base.PropertyChange[value_types.TimeSignature]]()
-
-    @property
-    def time_signature(self) -> value_types.TimeSignature:
-        return self.get_property_value('time_signature')
-
-    @time_signature.setter
-    def time_signature(self, value: value_types.TimeSignature) -> None:
-        self.set_property_value('time_signature', value)
-
+class Measure(_model.Measure, model_base.ProjectChild):
     @property
     def track(self) -> 'MeasuredTrack':
         return cast(MeasuredTrack, self.parent)
@@ -109,30 +63,11 @@ class Measure(model.ProjectChild):
         return False
 
 
-class MeasureReference(model.ProjectChild):
-    class MeasureReferenceSpec(model_base.ObjectSpec):
-        proto_type = 'measure_reference'
-        proto_ext = model_pb2.measure_reference
-
-        measure = model_base.ObjectReferenceProperty(Measure)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.measure_changed = core.Callback[model_base.PropertyChange[Measure]]()
-
+class MeasureReference(_model.MeasureReference, model_base.ProjectChild):
     def create(self, *, measure: Optional[Measure] = None, **kwargs: Any) -> None:
         super().create(**kwargs)
 
         self.measure = measure
-
-    @property
-    def measure(self) -> Measure:
-        return self.get_property_value('measure')
-
-    @measure.setter
-    def measure(self, value: Measure) -> None:
-        self.set_property_value('measure', value)
 
     @property
     def track(self) -> 'MeasuredTrack':
@@ -302,22 +237,13 @@ class MeasuredTrackConnector(node_connector.NodeConnector):
         self._update_measure_range(mref.index, mref.index + 1)
 
 
-class MeasuredTrack(Track):  # pylint: disable=abstract-method
-    class MeasuredSpec(model_base.ObjectSpec):
-        proto_ext = model_pb2.measured_track
-
-        measure_list = model_base.ObjectListProperty(MeasureReference)
-        measure_heap = model_base.ObjectListProperty(Measure)
-
+class MeasuredTrack(_model.MeasuredTrack, Track):  # pylint: disable=abstract-method
     measure_cls = None  # type: Type[Measure]
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__listeners = {}  # type: Dict[str, core.Listener]
-
-        self.measure_list_changed = core.Callback[model_base.PropertyListChange[MeasureReference]]()
-        self.measure_heap_changed = core.Callback[model_base.PropertyListChange[Measure]]()
 
     def setup(self) -> None:
         super().setup()
@@ -346,14 +272,6 @@ class MeasuredTrack(Track):  # pylint: disable=abstract-method
 
     def __measure_changed(self, mref: MeasureReference) -> None:
         self.duration_changed.call()
-
-    @property
-    def measure_list(self) -> MutableSequence[MeasureReference]:
-        return self.get_property_value('measure_list')
-
-    @property
-    def measure_heap(self) -> MutableSequence[Measure]:
-        return self.get_property_value('measure_heap')
 
     @property
     def duration(self) -> audioproc.MusicalDuration:

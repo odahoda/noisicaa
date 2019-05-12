@@ -21,12 +21,15 @@
 # @end:license
 
 import logging
+import typing
 from typing import List
 
 from noisidev import unittest
 from noisidev import unittest_mixins
-from noisicaa import model_base
 from noisicaa import value_types
+
+if typing.TYPE_CHECKING:
+    from . import model_base
 
 logger = logging.getLogger(__name__)
 

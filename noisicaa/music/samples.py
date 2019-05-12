@@ -24,40 +24,22 @@ import logging
 from typing import Any, Optional
 
 from noisicaa.bindings import sndfile
-from noisicaa import core
-from noisicaa import model_base
-from . import model
-from . import model_pb2
+from . import model_base
+from . import _model
 
 logger = logging.getLogger(__name__)
 
 
-class Sample(model.ProjectChild):
-    class SampleSpec(model_base.ObjectSpec):
-        proto_type = 'sample'
-        proto_ext = model_pb2.sample
-
-        path = model_base.Property(str)
-
+class Sample(_model.Sample, model_base.ProjectChild):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__samples = None  # type: memoryview
 
-        self.path_changed = core.Callback[model_base.PropertyChange[str]]()
-
     def create(self, *, path: Optional[str] = None, **kwargs: Any) -> None:
         super().create(**kwargs)
 
         self.path = path
-
-    @property
-    def path(self) -> str:
-        return self.get_property_value('path')
-
-    @path.setter
-    def path(self, value: str) -> None:
-        self.set_property_value('path', value)
 
     @property
     def samples(self) -> memoryview:

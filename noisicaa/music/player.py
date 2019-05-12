@@ -30,7 +30,7 @@ from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa.core import session_data_pb2
 from noisicaa import audioproc
-from noisicaa import model_base
+from . import model_base
 from . import project as project_lib
 from . import graph
 from . import node_connector

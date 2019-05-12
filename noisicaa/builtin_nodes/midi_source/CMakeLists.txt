@@ -27,7 +27,7 @@ add_python_package(
   processor_messages.py
 )
 
-build_model(model.desc.pb)
+build_model(model.desc.pb _model.py noisicaa/builtin_nodes/model.tmpl.py)
 
 py_proto(model.proto)
 py_proto(processor_messages.proto)

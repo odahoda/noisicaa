@@ -21,17 +21,15 @@
 # @end:license
 
 import logging
-from typing import (
-    cast, Any, Optional, List, Dict, Set, Iterator, Callable, Sequence, MutableSequence)
+from typing import cast, Any, Optional, List, Dict, Set, Iterator, Callable, Sequence
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
-from noisicaa import model_base
 from noisicaa import value_types
-from . import model
-from . import model_pb2
+from . import model_base
+from . import _model
 from . import node_connector
 
 logger = logging.getLogger(__name__)
@@ -113,33 +111,9 @@ class ControlValueMap(object):
             raise TypeError(type(change))
 
 
-class BaseNode(model.ProjectChild):
-    class BaseNodeSpec(model_base.ObjectSpec):
-        proto_ext = model_pb2.base_node
-
-        name = model_base.Property(str)
-        graph_pos = model_base.WrappedProtoProperty(value_types.Pos2F)
-        graph_size = model_base.WrappedProtoProperty(value_types.SizeF)
-        graph_color = model_base.WrappedProtoProperty(
-            value_types.Color, default=value_types.Color(0.8, 0.8, 0.8, 1.0))
-        control_values = model_base.WrappedProtoListProperty(value_types.ControlValue)
-        plugin_state = model_base.ProtoProperty(audioproc.PluginState, allow_none=True)
-        port_properties = model_base.WrappedProtoListProperty(
-            value_types.NodePortProperties)
-
+class BaseNode(_model.BaseNode, model_base.ProjectChild):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-
-        self.name_changed = core.Callback[model_base.PropertyChange[str]]()
-        self.graph_pos_changed = core.Callback[model_base.PropertyChange[value_types.Pos2F]]()
-        self.graph_size_changed = core.Callback[model_base.PropertyChange[value_types.SizeF]]()
-        self.graph_color_changed = core.Callback[model_base.PropertyChange[value_types.Color]]()
-        self.control_values_changed = \
-            core.Callback[model_base.PropertyListChange[value_types.ControlValue]]()
-        self.plugin_state_changed = \
-            core.Callback[model_base.PropertyChange[audioproc.PluginState]]()
-        self.port_properties_changed = \
-            core.Callback[model_base.PropertyListChange[value_types.NodePortProperties]]()
 
         self.description_changed = core.Callback[model_base.PropertyChange]()
 
@@ -162,54 +136,6 @@ class BaseNode(model.ProjectChild):
     def setup(self) -> None:
         super().setup()
         self.description_changed.add(self.__description_changed)
-
-    @property
-    def name(self) -> str:
-        return self.get_property_value('name')
-
-    @name.setter
-    def name(self, value: str) -> None:
-        self.set_property_value('name', value)
-
-    @property
-    def graph_pos(self) -> value_types.Pos2F:
-        return self.get_property_value('graph_pos')
-
-    @graph_pos.setter
-    def graph_pos(self, value: value_types.Pos2F) -> None:
-        self.set_property_value('graph_pos', value)
-
-    @property
-    def graph_size(self) -> value_types.SizeF:
-        return self.get_property_value('graph_size')
-
-    @graph_size.setter
-    def graph_size(self, value: value_types.SizeF) -> None:
-        self.set_property_value('graph_size', value)
-
-    @property
-    def graph_color(self) -> value_types.Color:
-        return self.get_property_value('graph_color')
-
-    @graph_color.setter
-    def graph_color(self, value: value_types.Color) -> None:
-        self.set_property_value('graph_color', value)
-
-    @property
-    def control_values(self) -> MutableSequence[value_types.ControlValue]:
-        return self.get_property_value('control_values')
-
-    @property
-    def plugin_state(self) -> audioproc.PluginState:
-        return self.get_property_value('plugin_state')
-
-    @plugin_state.setter
-    def plugin_state(self, value: audioproc.PluginState) -> None:
-        self.set_property_value('plugin_state', value)
-
-    @property
-    def port_properties(self) -> MutableSequence[value_types.NodePortProperties]:
-        return self.get_property_value('port_properties')
 
     def get_port_properties(self, port_name: str) -> value_types.NodePortProperties:
         for np in self.port_properties:
@@ -350,23 +276,7 @@ class BaseNode(model.ProjectChild):
         return None
 
 
-class Port(model.ProjectChild):
-    class PortSpec(model_base.ObjectSpec):
-        proto_ext = model_pb2.port
-
-        name = model_base.Property(str)
-        display_name = model_base.Property(str, allow_none=True)
-        type = model_base.Property(node_db.PortDescription.Type)
-        direction = model_base.Property(node_db.PortDescription.Direction)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.name_changed = core.Callback[model_base.PropertyChange[str]]()
-        self.display_name_changed = core.Callback[model_base.PropertyChange[str]]()
-        self.type_changed = core.Callback[model_base.PropertyChange[int]]()
-        self.direction_changed = core.Callback[model_base.PropertyChange[int]]()
-
+class Port(_model.Port, model_base.ProjectChild):
     def create(
             self, *,
             name: Optional[str] = None,
@@ -381,43 +291,17 @@ class Port(model.ProjectChild):
         self.type = cast(node_db.PortDescription.Type, type)
         self.direction = cast(node_db.PortDescription.Direction, direction)
 
-    @property
-    def name(self) -> str:
-        return self.get_property_value('name')
-
-    @name.setter
-    def name(self, value: str) -> None:
+    def _validate_name(self, value: str) -> None:
         if value != self.get_property_value('name', allow_unset=True):
             self.remove_connections()
-        self.set_property_value('name', value)
 
-    @property
-    def display_name(self) -> str:
-        return self.get_property_value('display_name')
-
-    @display_name.setter
-    def display_name(self, value: str) -> None:
-        self.set_property_value('display_name', value)
-
-    @property
-    def type(self) -> node_db.PortDescription.Type:
-        return self.get_property_value('type')
-
-    @type.setter
-    def type(self, value: node_db.PortDescription.Type) -> None:
+    def _validate_type(self, value: int) -> None:
         if value != self.get_property_value('type', allow_unset=True):
             self.remove_connections()
-        self.set_property_value('type', value)
 
-    @property
-    def direction(self) -> node_db.PortDescription.Direction:
-        return self.get_property_value('direction')
-
-    @direction.setter
-    def direction(self, value: node_db.PortDescription.Direction) -> None:
+    def _validate_direction(self, value: int) -> None:
         if value != self.get_property_value('direction', allow_unset=True):
             self.remove_connections()
-        self.set_property_value('direction', value)
 
     def remove_connections(self) -> None:
         node = down_cast(BaseNode, self.parent)
@@ -428,40 +312,18 @@ class Port(model.ProjectChild):
                     self.project.remove_node_connection(conn)
 
 
-class Node(BaseNode):
-    class NodeSpec(model_base.ObjectSpec):
-        proto_type = 'node'
-        proto_ext = model_pb2.node
-
-        node_uri = model_base.Property(str)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.node_uri_changed = core.Callback[model_base.PropertyChange[str]]()
-
+class Node(_model.Node, BaseNode):
     def create(self, *, node_uri: Optional[str] = None, **kwargs: Any) -> None:
         super().create(**kwargs)
 
         self.node_uri = node_uri
 
     @property
-    def node_uri(self) -> str:
-        return self.get_property_value('node_uri')
-
-    @node_uri.setter
-    def node_uri(self, value: str) -> None:
-        self.set_property_value('node_uri', value)
-
-    @property
     def description(self) -> node_db.NodeDescription:
         return self.project.get_node_description(self.node_uri)
 
 
-class SystemOutNode(BaseNode):
-    class SystemOutNodeSpec(model_base.ObjectSpec):
-        proto_type = 'system_out_node'
-
+class SystemOutNode(_model.SystemOutNode, BaseNode):
     @property
     def pipeline_node_id(self) -> str:
         return 'sink'
@@ -483,24 +345,7 @@ class SystemOutNode(BaseNode):
         yield from []
 
 
-class NodeConnection(model.ProjectChild):
-    class NodeConnectionSpec(model_base.ObjectSpec):
-        proto_type = 'node_connection'
-        proto_ext = model_pb2.node_connection
-
-        source_node = model_base.ObjectReferenceProperty(BaseNode)
-        source_port = model_base.Property(str)
-        dest_node = model_base.ObjectReferenceProperty(BaseNode)
-        dest_port = model_base.Property(str)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.source_node_changed = core.Callback[model_base.PropertyChange[BaseNode]]()
-        self.source_port_changed = core.Callback[model_base.PropertyChange[str]]()
-        self.dest_node_changed = core.Callback[model_base.PropertyChange[BaseNode]]()
-        self.dest_port_changed = core.Callback[model_base.PropertyChange[str]]()
-
+class NodeConnection(_model.NodeConnection, model_base.ProjectChild):
     def create(
             self, *,
             source_node: Optional[BaseNode] = None,
@@ -514,38 +359,6 @@ class NodeConnection(model.ProjectChild):
         self.source_port = source_port
         self.dest_node = dest_node
         self.dest_port = dest_port
-
-    @property
-    def source_node(self) -> BaseNode:
-        return self.get_property_value('source_node')
-
-    @source_node.setter
-    def source_node(self, value: BaseNode) -> None:
-        self.set_property_value('source_node', value)
-
-    @property
-    def source_port(self) -> str:
-        return self.get_property_value('source_port')
-
-    @source_port.setter
-    def source_port(self, value: str) -> None:
-        self.set_property_value('source_port', value)
-
-    @property
-    def dest_node(self) -> BaseNode:
-        return self.get_property_value('dest_node')
-
-    @dest_node.setter
-    def dest_node(self, value: BaseNode) -> None:
-        self.set_property_value('dest_node', value)
-
-    @property
-    def dest_port(self) -> str:
-        return self.get_property_value('dest_port')
-
-    @dest_port.setter
-    def dest_port(self, value: str) -> None:
-        self.set_property_value('dest_port', value)
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.Mutation(

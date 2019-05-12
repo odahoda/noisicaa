@@ -21,6 +21,7 @@
 # @end:license
 
 import copy
+import logging
 import random
 import sys
 import typing
@@ -32,11 +33,15 @@ from typing import (
 from google.protobuf import message as protobuf
 from google.protobuf.internal import containers as protobuf_containers
 
+from noisicaa import core
 from noisicaa import value_types
 from . import model_base_pb2
 
 if typing.TYPE_CHECKING:
+    from . import project as project_lib
     from google.protobuf import descriptor as protobuf_descriptor  # pylint: disable=ungrouped-imports
+
+logger = logging.getLogger(__name__)
 
 
 def _checktype(o: Any, t: Type) -> None:
@@ -48,30 +53,6 @@ VALUE = TypeVar('VALUE')
 PROTO = TypeVar('PROTO', bound=protobuf.Message)
 PROTOVAL = TypeVar('PROTOVAL', bound=value_types.ProtoValue)
 OBJECT = TypeVar('OBJECT', bound='ObjectBase')
-POOLOBJECTBASE = TypeVar('POOLOBJECTBASE', bound='ObjectBase')
-
-
-class AbstractPool(Generic[POOLOBJECTBASE], MutableMapping[int, POOLOBJECTBASE]):
-    def register_class(self, cls: Type[POOLOBJECTBASE]) -> None:
-        raise NotImplementedError  # pragma: no coverage
-
-    def set_root(self, obj: POOLOBJECTBASE) -> None:
-        raise NotImplementedError  # pragma: no coverage
-
-    @property
-    def root(self) -> POOLOBJECTBASE:
-        raise NotImplementedError  # pragma: no coverage
-
-    @property
-    def objects(self) -> Iterator[POOLOBJECTBASE]:
-        raise NotImplementedError  # pragma: no coverage
-
-    def create(  # pylint: disable=redefined-builtin
-            self, cls: Type[OBJECT], id: Optional[int] = None, **kwargs: Any) -> OBJECT:
-        raise NotImplementedError  # pragma: no coverage
-
-    def deserialize(self, pb: model_base_pb2.ObjectBase) -> POOLOBJECTBASE:
-        raise NotImplementedError  # pragma: no coverage
 
 
 class ValueNotSetError(ValueError):
@@ -362,7 +343,7 @@ class ObjectList(Generic[OBJECT], BaseList[OBJECT]):
     def __init__(
             self, instance: 'ObjectBase', prop_name: str,
             pb: protobuf_containers.RepeatedScalarFieldContainer,
-            otype: Type[OBJECT], pool: AbstractPool) -> None:
+            otype: Type[OBJECT], pool: 'Pool') -> None:
         super().__init__(instance, prop_name, pb)
         self.__otype = otype
         self.__pool = pool
@@ -410,11 +391,11 @@ class PropertyBase(object):
         self.name = None  # type: str
         self.spec = None  # type: ObjectSpec
 
-    def get_value(self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool) -> Any:
+    def get_value(self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool') -> Any:
         raise NotImplementedError(type(self).__name__)  # pragma: no coverage
 
     def set_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool, value: Any
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool', value: Any
     ) -> None:
         raise NotImplementedError(type(self).__name__)  # pragma: no coverage
 
@@ -428,7 +409,7 @@ class Property(Generic[VALUE], PropertyBase):
         self.allow_none = allow_none
         self.default = default
 
-    def get_value(self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool) -> VALUE:
+    def get_value(self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool') -> VALUE:
         if pb.HasField(self.name):
             return getattr(pb, self.name)
         if self.default is not None:
@@ -438,7 +419,7 @@ class Property(Generic[VALUE], PropertyBase):
         raise ValueNotSetError("Value '%s' has not been set." % self.name)
 
     def set_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool, value: VALUE
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool', value: VALUE
     ) -> None:
         if pb.HasField(self.name):
             old_value = getattr(pb, self.name)
@@ -467,7 +448,7 @@ class ProtoProperty(Generic[PROTO], PropertyBase):
         self.allow_none = allow_none
         self.default = default
 
-    def get_value(self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool) -> PROTO:
+    def get_value(self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool') -> PROTO:
         if pb.HasField(self.name):
             return getattr(pb, self.name)
         if self.default is not None:
@@ -477,7 +458,7 @@ class ProtoProperty(Generic[PROTO], PropertyBase):
         raise ValueNotSetError("Value '%s' has not been set." % self.name)
 
     def set_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool, value: PROTO
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool', value: PROTO
     ) -> None:
         if pb.HasField(self.name):
             old_value = copy.deepcopy(getattr(pb, self.name))
@@ -508,7 +489,7 @@ class WrappedProtoProperty(Generic[PROTOVAL], PropertyBase):
         self.default = default
 
     def get_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool) -> PROTOVAL:
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool') -> PROTOVAL:
         if pb.HasField(self.name):
             return cast(PROTOVAL, self.ptype.from_proto(getattr(pb, self.name)))
         if self.default is not None:
@@ -518,7 +499,7 @@ class WrappedProtoProperty(Generic[PROTOVAL], PropertyBase):
         raise ValueNotSetError("Value '%s' has not been set." % self.name)
 
     def set_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool, value: PROTOVAL
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool', value: PROTOVAL
     ) -> None:
         if pb.HasField(self.name):
             old_value = self.ptype.from_proto(getattr(pb, self.name))
@@ -544,12 +525,12 @@ class ListProperty(Generic[VALUE], PropertyBase):
         self.ptype = ptype
 
     def get_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool'
     ) -> MutableSequence[VALUE]:
         return SimpleList[VALUE](instance, self.name, getattr(pb, self.name), self.ptype)
 
     def set_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool, value: VALUE
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool', value: VALUE
     ) -> None:
         raise TypeError("%s cannot be assigned." % self.name)
 
@@ -560,12 +541,12 @@ class WrappedProtoListProperty(Generic[PROTOVAL], PropertyBase):
         self.ptype = ptype
 
     def get_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool'
     ) -> MutableSequence[PROTOVAL]:
         return WrappedProtoList[PROTOVAL](instance, self.name, getattr(pb, self.name), self.ptype)
 
     def set_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool, value: PROTOVAL
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool', value: PROTOVAL
     ) -> None:
         raise TypeError("%s cannot be assigned." % self.name)
 
@@ -576,7 +557,7 @@ class ObjectProperty(Generic[OBJECT], PropertyBase):
         self.otype = otype
         self.allow_none = allow_none
 
-    def get_value(self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool) -> OBJECT:
+    def get_value(self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool') -> OBJECT:
         if pb.HasField(self.name):
             obj_id = getattr(pb, self.name)
             try:
@@ -588,7 +569,7 @@ class ObjectProperty(Generic[OBJECT], PropertyBase):
         raise ValueNotSetError("Value '%s' has not been set." % self.name)
 
     def set_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool, value: OBJECT
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool', value: OBJECT
     ) -> None:
         if value is not None:
             _checktype(value, self.otype)
@@ -624,7 +605,7 @@ class ObjectReferenceProperty(Generic[OBJECT], PropertyBase):
         self.otype = otype
         self.allow_none = allow_none
 
-    def get_value(self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool) -> OBJECT:
+    def get_value(self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool') -> OBJECT:
         if pb.HasField(self.name):
             obj_id = getattr(pb, self.name)
             try:
@@ -636,7 +617,7 @@ class ObjectReferenceProperty(Generic[OBJECT], PropertyBase):
         raise ValueNotSetError("Value '%s' has not been set." % self.name)
 
     def set_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool, value: OBJECT
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool', value: OBJECT
     ) -> None:
         if value is not None:
             _checktype(value, self.otype)
@@ -668,12 +649,12 @@ class ObjectListProperty(Generic[OBJECT], PropertyBase):
         self.otype = otype
 
     def get_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool'
     ) -> MutableSequence[OBJECT]:
         return ObjectList(instance, self.name, getattr(pb, self.name), self.otype, pool)
 
     def set_value(
-            self, instance: 'ObjectBase', pb: protobuf.Message, pool: AbstractPool, value: OBJECT
+            self, instance: 'ObjectBase', pb: protobuf.Message, pool: 'Pool', value: OBJECT
     ) -> None:
         raise TypeError("%s cannot be assigned." % self.name)
 
@@ -709,7 +690,7 @@ class ObjectBase(object):
 
         return None
 
-    def __init__(self, *, pb: model_base_pb2.ObjectBase, pool: AbstractPool) -> None:
+    def __init__(self, *, pb: model_base_pb2.ObjectBase, pool: 'Pool') -> None:
         self.__proto = pb
         self._pool = pool
 
@@ -730,6 +711,8 @@ class ObjectBase(object):
         self.__parent_container = None  # type: ObjectList
         self.__index = None  # type: int
         self.in_setup = True
+
+        self.object_changed = core.Callback[PropertyChange]()
 
     def create(self, **kwargs: Any) -> None:
         assert not kwargs, kwargs
@@ -774,6 +757,14 @@ class ObjectBase(object):
     @property
     def parent(self) -> Optional['ObjectBase']:
         return self.__parent
+
+    @property
+    def project(self) -> 'project_lib.Project':
+        return cast('project_lib.Project', self._pool.root)
+
+    @property
+    def attached_to_project(self) -> bool:
+        raise NotImplementedError
 
     @property
     def is_attached(self) -> bool:
@@ -852,7 +843,10 @@ class ObjectBase(object):
             yield prop.name
 
     def property_changed(self, change: PropertyChange) -> None:
-        pass  # pragma: no coverage
+        callback = getattr(self, change.prop_name + '_changed')
+        callback.call(change)
+        self.object_changed.call(change)
+        self._pool.model_changed.call(change)
 
     def list_children(self) -> Iterator['ObjectBase']:
         for prop in self.list_properties():
@@ -901,16 +895,26 @@ class ObjectBase(object):
             type=self.__proto.type)
 
 
-class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
+class ProjectChild(ObjectBase):
+    @property
+    def attached_to_project(self) -> bool:
+        if not self.is_attached:
+            return None
+        return self.parent.attached_to_project
+
+
+class Pool(MutableMapping[int, ObjectBase]):
     # Do not complain about redefining builtin name 'id'
     # pylint: disable=redefined-builtin
 
     def __init__(self) -> None:
         super().__init__()
 
-        self.__obj_map = {}  # type: Dict[int, POOLOBJECTBASE]
-        self.__class_map = {}  # type: Dict[str, Type[POOLOBJECTBASE]]
-        self.__root_obj = None  # type: POOLOBJECTBASE
+        self.__obj_map = {}  # type: Dict[int, 'ObjectBase']
+        self.__class_map = {}  # type: Dict[str, Type['ObjectBase']]
+        self.__root_obj = None  # type: 'ObjectBase'
+
+        self.model_changed = core.Callback[Mutation]()
 
     def __get_proto_type(self, cls: Type) -> str:
         proto_type = None
@@ -928,34 +932,34 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
 
         return proto_type
 
-    def register_class(self, cls: Type[POOLOBJECTBASE]) -> None:
+    def register_class(self, cls: Type['ObjectBase']) -> None:
         proto_type = self.__get_proto_type(cls)
         assert proto_type is not None, cls.__name__
         assert proto_type not in self.__class_map
         self.__class_map[proto_type] = cls
 
-    def set_root(self, obj: POOLOBJECTBASE) -> None:
+    def set_root(self, obj: 'ObjectBase') -> None:
         assert self.__root_obj is None
         self.__root_obj = obj
 
     @property
-    def root(self) -> POOLOBJECTBASE:
+    def root(self) -> 'ObjectBase':
         assert self.__root_obj is not None
         return self.__root_obj
 
-    def object_added(self, obj: POOLOBJECTBASE) -> None:
-        pass
+    def object_added(self, obj: 'ObjectBase') -> None:
+        self.model_changed.call(ObjectAdded(obj))
 
-    def object_removed(self, obj: POOLOBJECTBASE) -> None:
-        pass
+    def object_removed(self, obj: 'ObjectBase') -> None:
+        self.model_changed.call(ObjectRemoved(obj))
 
-    def __getitem__(self, id: int) -> POOLOBJECTBASE:
+    def __getitem__(self, id: int) -> 'ObjectBase':
         try:
             return self.__obj_map[id]
         except KeyError:
             raise KeyError("%016x" % id).with_traceback(sys.exc_info()[2]) from None
 
-    def __setitem__(self, id: int, obj: POOLOBJECTBASE) -> None:
+    def __setitem__(self, id: int, obj: 'ObjectBase') -> None:
         raise RuntimeError("Not allowed.")
 
     def __delitem__(self, id: int) -> None:
@@ -968,7 +972,7 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
         yield from self.__obj_map
 
     @property
-    def objects(self) -> Iterator[POOLOBJECTBASE]:
+    def objects(self) -> Iterator['ObjectBase']:
         yield from self.__obj_map.values()
 
     def __attach_children(self, obj: ObjectBase) -> None:
@@ -994,7 +998,7 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
         if id is None:
             id = random.getrandbits(64)
         pb = model_base_pb2.ObjectBase(id=id, type=proto_type)
-        obj = cast(POOLOBJECTBASE, cls(pb=pb, pool=self))
+        obj = cls(pb=pb, pool=self)
         self.__obj_map[id] = obj
         obj.create(**kwargs)  # type: ignore
         obj.setup()
@@ -1002,7 +1006,7 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
         self.object_added(obj)
         return cast(OBJECT, obj)
 
-    def deserialize(self, pb: model_base_pb2.ObjectBase) -> POOLOBJECTBASE:
+    def deserialize(self, pb: model_base_pb2.ObjectBase) -> 'ObjectBase':
         assert pb.id not in self.__obj_map, str(pb)
         cls = self.__class_map[pb.type]
         obj = cls(pb=pb, pool=self)
@@ -1026,13 +1030,13 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
         del self.__obj_map[id]
         self.object_removed(obj)
 
-    def deserialize_tree(self, objtree: model_base_pb2.ObjectTree) -> POOLOBJECTBASE:
+    def deserialize_tree(self, objtree: model_base_pb2.ObjectTree) -> 'ObjectBase':
         for oproto in objtree.objects:
             self.deserialize(oproto)
         self.set_root(self.__obj_map[objtree.root])
         return self.__obj_map[objtree.root]
 
-    def clone_tree(self, objtree: model_base_pb2.ObjectTree) -> POOLOBJECTBASE:
+    def clone_tree(self, objtree: model_base_pb2.ObjectTree) -> 'ObjectBase':
         idmap = {}  # type: Dict[int, int]
         for oproto in objtree.objects:
             idmap[oproto.id] = random.getrandbits(64)
@@ -1042,7 +1046,7 @@ class Pool(Generic[POOLOBJECTBASE], AbstractPool[POOLOBJECTBASE]):
             oproto.id = idmap[oproto.id]
 
             cls = self.__class_map[oproto.type]
-            obj = cast(POOLOBJECTBASE, cls(pb=oproto, pool=self))
+            obj = cls(pb=oproto, pool=self)
             self.__obj_map[oproto.id] = obj
 
             # Rewrite all IDs directly in the proto.

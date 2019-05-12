@@ -32,7 +32,7 @@ from google.protobuf import message as protobuf
 from noisidev import unittest
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
-from noisicaa.model_base import model_base_pb2
+from noisicaa.music import model_base_pb2
 from . import project_client
 from . import project as project_lib
 

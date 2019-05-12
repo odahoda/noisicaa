@@ -18,11 +18,9 @@
 #
 # @end:license
 
-template: "noisicaa/builtin_nodes/model.tmpl.py"
-
 classes {
   name: "MidiCCtoCVChannel"
-  super_class: "noisicaa.music.model.ProjectChild"
+  super_class: "noisicaa.music.model_base.ProjectChild"
   proto_ext_name: "midi_cc_to_cv_channel"
   properties {
     name: "type"

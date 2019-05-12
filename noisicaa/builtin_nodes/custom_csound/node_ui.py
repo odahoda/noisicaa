@@ -29,7 +29,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model_base
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import object_list_editor
@@ -285,11 +284,11 @@ class PortListEditor(ui_base.ProjectMixin, object_list_editor.ObjectListEditor):
         self.__ports_listener = self.__node.ports_changed.add(self.__portsChanged)
 
     def __portsChanged(
-            self, change: model_base.PropertyListChange[model.CustomCSoundPort]) -> None:
-        if isinstance(change, model_base.PropertyListInsert):
+            self, change: music.PropertyListChange[model.CustomCSoundPort]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.objectAdded(change.new_value, change.index)
 
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.objectRemoved(change.index)
 
         else:
@@ -409,11 +408,11 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
             self.__orchestra_editor.toPlainText() != self.__node.orchestra
             or self.__score_editor.toPlainText() != self.__node.score)
 
-    def __orchestraChanged(self, change: model_base.PropertyValueChange[str]) -> None:
+    def __orchestraChanged(self, change: music.PropertyValueChange[str]) -> None:
         if change.new_value != self.__orchestra:
             logger.error("oops")
 
-    def __scoreChanged(self, change: model_base.PropertyValueChange[str]) -> None:
+    def __scoreChanged(self, change: music.PropertyValueChange[str]) -> None:
         if change.new_value != self.__score:
             logger.error("oops")
 

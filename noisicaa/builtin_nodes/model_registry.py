@@ -22,7 +22,7 @@
 
 from typing import Dict, Type
 
-from noisicaa import model_base
+from noisicaa import music
 from noisicaa.music import graph
 from .score_track import model as score_track
 from .beat_track import model as beat_track
@@ -48,7 +48,7 @@ node_cls_map = {
 }  # type: Dict[str, Type[graph.BaseNode]]
 
 
-def register_classes(pool: model_base.AbstractPool) -> None:
+def register_classes(pool: music.Pool) -> None:
     pool.register_class(score_track.Note)
     pool.register_class(score_track.ScoreMeasure)
     pool.register_class(score_track.ScoreTrack)

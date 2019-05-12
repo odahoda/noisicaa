@@ -34,7 +34,7 @@ from PyQt5 import QtWidgets
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import model_base
+from noisicaa import music
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
@@ -183,7 +183,7 @@ class SampleItem(object):
     def rect(self) -> QtCore.QRect:
         return QtCore.QRect(self.pos(), self.size())
 
-    def onTimeChanged(self, change: model_base.PropertyValueChange[audioproc.MusicalTime]) -> None:
+    def onTimeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
             self.__track_editor.timeToX(change.new_value), 0)
         self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
@@ -294,11 +294,11 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
 
         super().close()
 
-    def onSamplesChanged(self, change: model_base.PropertyListChange[model.SampleRef]) -> None:
-        if isinstance(change, model_base.PropertyListInsert):
+    def onSamplesChanged(self, change: music.PropertyListChange[model.SampleRef]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.addSample(change.index, change.new_value)
 
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.removeSample(change.index, change.old_value)
 
         else:

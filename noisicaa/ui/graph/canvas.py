@@ -30,7 +30,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import constants
-from noisicaa import model_base
 from noisicaa import value_types
 from noisicaa import music
 from noisicaa import node_db
@@ -282,11 +281,11 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         self.__layoutContent()
 
     def __nodesChange(
-            self, change: model_base.PropertyListChange[music.BaseNode]) -> None:
-        if isinstance(change, model_base.PropertyListInsert):
+            self, change: music.PropertyListChange[music.BaseNode]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.__addNode(change.new_value, change.index)
 
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__removeNode(change.old_value, change.index)
 
         else:  # pragma: no cover
@@ -313,11 +312,11 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         self.removeItem(item)
 
     def __nodeConnectionsChange(
-            self, change: model_base.PropertyListChange[music.NodeConnection]) -> None:
-        if isinstance(change, model_base.PropertyListInsert):
+            self, change: music.PropertyListChange[music.NodeConnection]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.__addConnection(change.new_value, change.index)
 
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__removeConnection(change.old_value, change.index)
 
         else:  # pragma: no cover

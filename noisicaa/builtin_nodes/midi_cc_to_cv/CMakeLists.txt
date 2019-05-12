@@ -28,7 +28,7 @@ add_python_package(
   processor_messages.py
 )
 
-build_model(model.desc.pb)
+build_model(model.desc.pb _model.py noisicaa/builtin_nodes/model.tmpl.py)
 
 py_proto(model.proto)
 add_dependencies(noisicaa.builtin_nodes.midi_cc_to_cv.model.proto model-noisicaa.builtin_nodes.midi_cc_to_cv)

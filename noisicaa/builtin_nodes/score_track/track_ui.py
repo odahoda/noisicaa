@@ -31,7 +31,7 @@ from PyQt5 import QtSvg
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa import model_base
+from noisicaa import music
 from noisicaa import value_types
 from noisicaa.ui import svg_symbol
 from noisicaa.ui.track_list import tools
@@ -577,12 +577,12 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
         self.measure_listeners.append(self.measure.key_signature_changed.add(
             self.onKeySignatureChanged))
 
-    def onClefChanged(self, change: model_base.PropertyValueChange[value_types.Clef]) -> None:
+    def onClefChanged(self, change: music.PropertyValueChange[value_types.Clef]) -> None:
         self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
         self.next_sibling.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
 
     def onKeySignatureChanged(
-            self, change: model_base.PropertyValueChange[value_types.KeySignature]) -> None:
+            self, change: music.PropertyValueChange[value_types.KeySignature]) -> None:
         self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
         self.next_sibling.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
 

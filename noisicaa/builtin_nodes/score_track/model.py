@@ -29,7 +29,7 @@ from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import value_types
 from noisicaa import node_db
-from noisicaa import model_base
+from noisicaa import music
 from noisicaa.music import base_track
 from . import node_description
 from . import _model
@@ -66,7 +66,7 @@ class ScoreTrackConnector(base_track.MeasuredTrackConnector):
 
             time += note.duration
 
-    def __transpose_octaves_changed(self, change: model_base.PropertyChange) -> None:
+    def __transpose_octaves_changed(self, change: music.PropertyChange) -> None:
         self._update_measure_range(0, len(self._node.measure_list))
 
     def __measure_notes_changed(self, mref: base_track.MeasureReference) -> None:
@@ -152,7 +152,7 @@ class Note(_model.Note):
             duration *= fractions.Fraction(4, 5)
         return audioproc.MusicalDuration(duration)
 
-    def property_changed(self, change: model_base.PropertyChange) -> None:
+    def property_changed(self, change: music.PropertyChange) -> None:
         super().property_changed(change)
         if self.measure is not None:
             self.measure.content_changed.call()

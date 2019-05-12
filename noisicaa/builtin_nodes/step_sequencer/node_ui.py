@@ -31,7 +31,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model_base
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
@@ -360,7 +359,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         for col in range(self.__node.num_steps):
             self.__step_layout.setColumnStretch(col + 2, 2)
 
-    def __numStepsChanged(self, change: model_base.PropertyValueChange[int]) -> None:
+    def __numStepsChanged(self, change: music.PropertyValueChange[int]) -> None:
         self.__num_steps.setValue(self.__node.num_steps)
         self.__updateStepMatrix()
 
@@ -371,7 +370,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __numChannelsChanged(
             self,
-            change: model_base.PropertyListChange[model.StepSequencerChannel]
+            change: music.PropertyListChange[model.StepSequencerChannel]
     ) -> None:
         self.__num_channels.setValue(len(self.__node.channels))
         self.__updateStepMatrix()
@@ -389,7 +388,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             self,
             channel: model.StepSequencerChannel,
             widget: QtWidgets.QComboBox,
-            change: model_base.PropertyValueChange[int]
+            change: music.PropertyValueChange[int]
     ) -> None:
         self.__updateStepMatrix()
 
@@ -407,7 +406,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             self,
             channel: model.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
-            change: model_base.PropertyValueChange[float]
+            change: music.PropertyValueChange[float]
     ) -> None:
         widget.setText(fmt_value(channel.min_value))
 
@@ -428,7 +427,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             self,
             channel: model.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
-            change: model_base.PropertyValueChange[float]
+            change: music.PropertyValueChange[float]
     ) -> None:
         widget.setText(fmt_value(channel.max_value))
 
@@ -449,7 +448,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             self,
             channel: model.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
-            change: model_base.PropertyValueChange[bool]
+            change: music.PropertyValueChange[bool]
     ) -> None:
         widget.setChecked(channel.log_scale)
 
@@ -483,7 +482,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             self,
             step: model.StepSequencerStep,
             widget: control_value_dial.ControlValueDial,
-            change: model_base.PropertyValueChange[float]
+            change: music.PropertyValueChange[float]
     ) -> None:
         widget.setValue(step.value)
 
@@ -501,7 +500,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             self,
             step: model.StepSequencerStep,
             widget: StepToggle,
-            change: model_base.PropertyValueChange[bool]
+            change: music.PropertyValueChange[bool]
     ) -> None:
         widget.setChecked(step.enabled)
 

@@ -27,7 +27,7 @@ from typing import cast, Any, Dict, Optional, Callable
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
-from noisicaa import model_base
+from noisicaa import music
 from noisicaa.music import node_connector
 from . import node_description
 from . import processor_messages
@@ -60,11 +60,11 @@ class ControlTrackConnector(node_connector.NodeConnector):
 
         super().close()
 
-    def __points_list_changed(self, change: model_base.PropertyChange) -> None:
-        if isinstance(change, model_base.PropertyListInsert):
+    def __points_list_changed(self, change: music.PropertyChange) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.__add_point(change.new_value)
 
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__remove_point(change.old_value)
 
         else:

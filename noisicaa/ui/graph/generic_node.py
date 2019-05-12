@@ -26,7 +26,6 @@ from typing import Any, Optional, List
 from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
-from noisicaa import model_base
 from noisicaa import value_types
 from noisicaa import music
 from noisicaa import node_db
@@ -150,7 +149,7 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
 
         self.__dial.setDisabled(exposed)
 
-    def __portPropertiesChanged(self, change: model_base.PropertyListChange) -> None:
+    def __portPropertiesChanged(self, change: music.PropertyListChange) -> None:
         if self.__port.WhichOneof('value') == 'float_value':
             port_properties = self.__node.get_port_properties(self.__port.name)
             self.__exposed.setChecked(port_properties.exposed)

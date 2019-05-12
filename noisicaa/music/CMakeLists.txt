@@ -24,7 +24,8 @@ add_python_package(
   graph.py
   graph_test.py
   metadata.py
-  model.py
+  model_base.py
+  model_base_test.py
   mutations.py
   node_connector.py
   player.py
@@ -47,7 +48,15 @@ add_python_package(
 
 add_cython_module(rms CXX)
 
+build_model(model.desc.pb _model.py noisicaa/music/model.py)
+
 py_proto(model.proto)
+add_dependencies(noisicaa.music.model.proto model-noisicaa.music)
+py_proto(project.proto)
+add_dependencies(noisicaa.music.project.proto noisicaa.music.model.proto)
+py_proto(model_base.proto)
+py_proto(model_base_test.proto)
 py_proto(writer_process.proto)
 py_proto(render.proto)
 py_proto(mutations.proto)
+add_dependencies(noisicaa.music.mutations.proto noisicaa.music.model.proto)

@@ -20,50 +20,63 @@
 #
 # @end:license
 
-import logging
+# Be less picky for generated code:
+# pylint: disable=trailing-newlines
+# pylint: disable=line-too-long
+# pylint: disable=reimported
+# pylint: disable=wrong-import-order
+
 import typing
-from typing import cast, Any
 
 from noisicaa import core
-from noisicaa import model_base
+from . import model_base
+from . import project_pb2
+{%- for mod in imports %}
+import {{mod}}
+{%- endfor %}
 
+{% if typing_imports %}
 if typing.TYPE_CHECKING:
-    from . import project as project_lib
+{%- for mod in typing_imports %}
+    import {{mod}}
+{% endfor %}
+{% endif %}
 
-logger = logging.getLogger(__name__)
+ObjectBase = model_base.ObjectBase
 
+{% for cls in desc.classes %}
+class {{cls.name}}({{cls.super_class|join(', ')}}):  # pylint: disable=abstract-method
+    class {{cls.name}}Spec(model_base.ObjectSpec):
+{%- if not cls.is_abstract %}
+        proto_type = '{{cls.proto_ext_name}}'
+{%- endif %}
+        proto_ext = project_pb2.{{cls.proto_ext_name}}
+{% for prop in cls.properties %}
+        {{prop.name}} = model_base.{{prop|prop_cls}}({{prop|prop_cls_type}}{% if prop.HasField("allow_none") %}, allow_none={{prop.allow_none}}{% endif %}{% if prop.HasField("default") %}, default={{prop.default}}{% endif %})
+{%- endfor %}
 
-class ObjectBase(model_base.ObjectBase):
-    _pool = None  # type: project_lib.Pool
-
-    def __init__(self, **kwargs: Any) -> None:
+{% if cls.properties %}
+    def __init__(self, **kwargs: typing.Any) -> None:
         super().__init__(**kwargs)
+{% for prop in cls.properties %}
+        self.{{prop.name}}_changed = core.Callback[model_base.{{prop|change_cls}}]()
+{%- endfor %}
+{% endif %}
 
-        self.object_changed = core.Callback[model_base.PropertyChange]()
-
-    def property_changed(self, change: model_base.PropertyChange) -> None:
-        super().property_changed(change)
-        callback = getattr(self, change.prop_name + '_changed')
-        callback.call(change)
-        self.object_changed.call(change)
-        self._pool.model_changed.call(change)
-
+{% for prop in cls.properties %}
     @property
-    def parent(self) -> 'ObjectBase':
-        return cast(ObjectBase, super().parent)
+    def {{prop.name}}(self) -> {{prop|py_type}}:
+        return self.get_property_value('{{prop.name}}')
+{% if prop|has_setter %}
 
-    @property
-    def project(self) -> 'project_lib.Project':
-        return cast('project_lib.Project', self._pool.root)
+    @{{prop.name}}.setter
+    def {{prop.name}}(self, value: {{prop|py_type}}) -> None:
+        self._validate_{{prop.name}}(value)
+        self.set_property_value('{{prop.name}}', value)
 
-    @property
-    def attached_to_project(self) -> bool:
-        raise NotImplementedError
+    def _validate_{{prop.name}}(self, value: {{prop|py_type}}) -> None:
+        pass
+{% endif -%}
+{% endfor %}
 
-
-class ProjectChild(ObjectBase):
-    @property
-    def attached_to_project(self) -> bool:
-        if not self.is_attached:
-            return None
-        return self.parent.attached_to_project
+{% endfor %}

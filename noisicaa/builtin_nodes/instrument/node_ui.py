@@ -28,7 +28,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model_base
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import instrument_library
@@ -85,7 +84,7 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             listener.remove()
         self.__listeners.clear()
 
-    def __instrumentURIChanged(self, change: model_base.PropertyValueChange[str]) -> None:
+    def __instrumentURIChanged(self, change: music.PropertyValueChange[str]) -> None:
         if change.new_value is not None:
             self.__instrument.setText(change.new_value)
         else:

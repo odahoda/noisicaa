@@ -26,7 +26,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import node_db
 from noisicaa import audioproc
-from noisicaa import model_base
+from noisicaa import music
 from noisicaa import value_types
 from noisicaa.music import base_track
 from . import node_description
@@ -58,7 +58,7 @@ class BeatTrackConnector(base_track.MeasuredTrackConnector):
                 self._node.pitch, 127)
             yield event
 
-    def __pitch_changed(self, change: model_base.PropertyChange) -> None:
+    def __pitch_changed(self, change: music.PropertyChange) -> None:
         self._update_measure_range(0, len(self._node.measure_list))
 
     def __measure_beats_changed(self, mref: base_track.MeasureReference) -> None:
@@ -80,7 +80,7 @@ class Beat(_model.Beat):
     def measure(self) -> 'BeatMeasure':
         return cast(BeatMeasure, self.parent)
 
-    def property_changed(self, change: model_base.PropertyChange) -> None:
+    def property_changed(self, change: music.PropertyChange) -> None:
         super().property_changed(change)
         if self.measure is not None:
             self.measure.content_changed.call()

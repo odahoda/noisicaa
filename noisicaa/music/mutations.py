@@ -27,10 +27,10 @@ import typing
 from typing import Any, Generator
 
 from noisicaa import audioproc
-from noisicaa import model_base
 from noisicaa import value_types
 from noisicaa import node_db
 from noisicaa import core
+from . import model_base
 from . import mutations_pb2
 
 if typing.TYPE_CHECKING:
@@ -48,7 +48,9 @@ def _assert_equal(a: Any, b: Any) -> None:
 
 
 class MutationList(object):
-    def __init__(self, pool: 'project.Pool', mutation_list: mutations_pb2.MutationList) -> None:
+    def __init__(
+            self, pool: model_base.Pool, mutation_list: mutations_pb2.MutationList
+    ) -> None:
         self.__pool = pool
         self.__proto = mutation_list
 
@@ -198,7 +200,9 @@ class MutationList(object):
 
 
 class MutationCollector(object):
-    def __init__(self, pool: 'project.Pool', mutation_list: mutations_pb2.MutationList) -> None:
+    def __init__(
+            self, pool: model_base.Pool, mutation_list: mutations_pb2.MutationList
+    ) -> None:
         self.__pool = pool
         self.__proto = mutation_list
         self.__listener = None  # type: core.Listener

@@ -27,7 +27,7 @@ add_python_package(
   track_ui_test.py
 )
 
-build_model(model.desc.pb)
+build_model(model.desc.pb _model.py noisicaa/builtin_nodes/model.tmpl.py)
 
 py_proto(model.proto)
 add_dependencies(noisicaa.builtin_nodes.score_track.model.proto model-noisicaa.builtin_nodes.score_track)

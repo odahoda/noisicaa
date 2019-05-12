@@ -27,7 +27,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import node_db
 from noisicaa import audioproc
-from noisicaa import model_base
+from noisicaa import music
 from . import node_description
 from . import processor_pb2
 from . import _model
@@ -49,7 +49,7 @@ class CustomCSoundPort(_model.CustomCSoundPort):
     def node(self) -> 'CustomCSound':
         return down_cast(CustomCSound, self.parent)
 
-    def csound_name_prefix(self, *, type: node_db.PortDescription.Type = None) -> str:  # pylint: disable=redefined-builtin
+    def csound_name_prefix(self, *, type: int = None) -> str:  # pylint: disable=redefined-builtin
         if type is None:
             type = self.type
 
@@ -63,7 +63,7 @@ class CustomCSoundPort(_model.CustomCSoundPort):
             return ''
 
     def csound_name_default(
-            self, *, name: str = None, type: node_db.PortDescription.Type = None) -> str:  # pylint: disable=redefined-builtin
+            self, *, name: str = None, type: int = None) -> str:  # pylint: disable=redefined-builtin
         if name is None:
             name = self.name
 
@@ -83,7 +83,7 @@ class CustomCSound(_model.CustomCSound):
         self.__listeners = {}  # type: Dict[int, core.Listener]
 
         self.__orchestra_preamble = None  # type: str
-        self.orchestra_preamble_changed = core.Callback[model_base.PropertyChange[str]]()
+        self.orchestra_preamble_changed = core.Callback[music.PropertyChange[str]]()
 
     def create(
             self, *,
@@ -110,21 +110,21 @@ class CustomCSound(_model.CustomCSound):
             self.__add_port(None, port)
         self.ports_changed.add(self.__ports_changed)
 
-    def __ports_changed(self, change: model_base.PropertyChange) -> None:
-        if isinstance(change, model_base.PropertyListInsert):
+    def __ports_changed(self, change: music.PropertyChange) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.__add_port(change, change.new_value)
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__remove_port(change, change.old_value)
         else:
             raise TypeError("Unsupported change type %s" % type(change))
 
         self.description_changed.call(change)
 
-    def __add_port(self, change: model_base.PropertyChange, port: CustomCSoundPort) -> None:
+    def __add_port(self, change: music.PropertyChange, port: CustomCSoundPort) -> None:
         self.__listeners[port.id] = port.object_changed.add(self.description_changed.call)
         self.description_changed.call(change)
 
-    def __remove_port(self, change: model_base.PropertyChange, port: CustomCSoundPort) -> None:
+    def __remove_port(self, change: music.PropertyChange, port: CustomCSoundPort) -> None:
         self.__listeners.pop(port.id).remove()
         self.description_changed.call(change)
 
@@ -179,7 +179,7 @@ class CustomCSound(_model.CustomCSound):
         if preamble != old_preamble:
             self.__orchestra_preamble = preamble
             self.orchestra_preamble_changed.call(
-                model_base.PropertyValueChange(self, 'orchestra_preamble', old_preamble, preamble))
+                music.PropertyValueChange(self, 'orchestra_preamble', old_preamble, preamble))
 
     @property
     def description(self) -> node_db.NodeDescription:

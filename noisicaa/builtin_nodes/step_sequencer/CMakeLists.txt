@@ -27,7 +27,7 @@ add_python_package(
   processor_test.py
 )
 
-build_model(model.desc.pb)
+build_model(model.desc.pb _model.py noisicaa/builtin_nodes/model.tmpl.py)
 
 py_proto(model.proto)
 add_dependencies(noisicaa.builtin_nodes.step_sequencer.model.proto model-noisicaa.builtin_nodes.step_sequencer)

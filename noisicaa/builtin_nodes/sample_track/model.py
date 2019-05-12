@@ -27,7 +27,7 @@ from typing import Any, Dict, Optional, Callable
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa import model_base
+from noisicaa import music
 from noisicaa import core
 from noisicaa import node_db
 from noisicaa.bindings import sndfile
@@ -110,11 +110,11 @@ class SampleTrackConnector(node_connector.NodeConnector):
 
         super().close()
 
-    def __samples_list_changed(self, change: model_base.PropertyChange) -> None:
-        if isinstance(change, model_base.PropertyListInsert):
+    def __samples_list_changed(self, change: music.PropertyChange) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.__add_sample(change.new_value)
 
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__remove_sample(change.old_value)
 
         else:  # pragma: no coverage

@@ -31,7 +31,6 @@ from PyQt5 import QtSvg
 from noisicaa.constants import DATA_DIR
 from noisicaa import core
 from noisicaa import value_types
-from noisicaa import model_base
 from noisicaa import music
 from noisicaa.ui.graph import track_node
 from noisicaa.ui import ui_base
@@ -73,7 +72,7 @@ class BeatTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             listener.remove()
         self.__listeners.clear()
 
-    def __pitchChanged(self, change: model_base.PropertyValueChange[str]) -> None:
+    def __pitchChanged(self, change: music.PropertyValueChange[str]) -> None:
         self.__pitch.setText(str(change.new_value))
 
     def __pitchEdited(self) -> None:

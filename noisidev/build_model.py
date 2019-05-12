@@ -42,7 +42,8 @@ class ModelBuilder(object):
     def __init__(self, argv):
         parser = argparse.ArgumentParser()
         parser.add_argument('model_desc', type=str)
-        parser.add_argument('--output', '-o', type=str)
+        parser.add_argument('--output', type=str)
+        parser.add_argument('--template', type=str)
         parser.add_argument(
             '--log-level',
             choices=['debug', 'info', 'warning', 'error', 'critical'],
@@ -76,12 +77,19 @@ class ModelBuilder(object):
                 'critical': logging.CRITICAL,
             }[self.args.log_level])
 
-        wrapped_proto_map = {
+        self.wrapped_proto_map = {
             'noisicaa.value_types.Pitch': 'noisicaa/value_types/value_types.proto:noisicaa.pb.Pitch',
             'noisicaa.value_types.Clef': 'noisicaa/value_types/value_types.proto:noisicaa.pb.Clef',
             'noisicaa.value_types.KeySignature': 'noisicaa/value_types/value_types.proto:noisicaa.pb.KeySignature',
+            'noisicaa.value_types.TimeSignature': 'noisicaa/value_types/value_types.proto:noisicaa.pb.TimeSignature',
+            'noisicaa.value_types.Pos2F': 'noisicaa/value_types/value_types.proto:noisicaa.pb.Pos2F',
+            'noisicaa.value_types.SizeF': 'noisicaa/value_types/value_types.proto:noisicaa.pb.SizeF',
+            'noisicaa.value_types.Color': 'noisicaa/value_types/value_types.proto:noisicaa.pb.Color',
+            'noisicaa.value_types.ControlValue': 'noisicaa/audioproc/public/control_value.proto:noisicaa.pb.ControlValue',
+            'noisicaa.value_types.NodePortProperties': 'noisicaa/audioproc/public/node_port_properties.proto:noisicaa.pb.NodePortProperties',
             'noisicaa.audioproc.MusicalDuration': "noisicaa/audioproc/public/musical_time.proto:noisicaa.pb.MusicalDuration",
-            'noisicaa.audioproc.MusicalTime': "noisicaa/audioproc/public/musical_time.proto:noisicaa.pb.MusicalTime"
+            'noisicaa.audioproc.MusicalTime': "noisicaa/audioproc/public/musical_time.proto:noisicaa.pb.MusicalTime",
+            'noisicaa.audioproc.PluginState': "noisicaa/audioproc/public/plugin_state.proto:noisicaa.pb.PluginState",
         }
 
         for cls in self.model_desc.classes:
@@ -94,14 +102,21 @@ class ModelBuilder(object):
                         model_desc_pb2.PropertyDescription.WRAPPED_PROTO,
                         model_desc_pb2.PropertyDescription.WRAPPED_PROTO_LIST,
                 }:
-                    prop.wrapped_proto_type = wrapped_proto_map[prop.wrapped_type]
+                    prop.wrapped_proto_type = self.wrapped_proto_map[prop.wrapped_type]
                 if prop.HasField('wrapped_type') and '.' in prop.wrapped_type:
                     self.imports.add('.'.join(prop.wrapped_type.split('.')[:-1]))
                 if prop.HasField('wrapped_proto_type') and ':' in prop.wrapped_proto_type:
                     self.proto_imports.add(prop.wrapped_proto_type.split(':')[0])
-                if prop.type == model_desc_pb2.PropertyDescription.OBJECT_LIST:
-                    self.typing_imports.add(self.model_mod)
-                if prop.type == model_desc_pb2.PropertyDescription.OBJECT_REF:
+                if prop.type == model_desc_pb2.PropertyDescription.PROTO:
+                    self.imports.add('.'.join(prop.proto_type.split('.')[:-1]))
+                    self.proto_imports.add(self.wrapped_proto_map[prop.proto_type].split(':')[0])
+                if prop.type in {
+                        model_desc_pb2.PropertyDescription.OBJECT_LIST,
+                        model_desc_pb2.PropertyDescription.OBJECT_REF,
+                        model_desc_pb2.PropertyDescription.OBJECT,
+                }:
+                    self.typing_imports.add(prop.obj_mod or self.model_mod)
+                if prop.type == model_desc_pb2.PropertyDescription.OBJECT_REF and '.' in prop.obj_type:
                     self.imports.add('.'.join(prop.obj_type.split('.')[:-1]))
 
         env = jinja2.Environment()
@@ -113,7 +128,7 @@ class ModelBuilder(object):
         env.filters['prop_cls_type'] = self.prop_cls_type
         env.filters['change_cls'] = self.change_cls
 
-        with open(self.model_desc.template, 'r', encoding='utf-8') as fp:
+        with open(self.args.template, 'r', encoding='utf-8') as fp:
             model_py_tmpl = env.from_string(fp.read())
         model_py_output = model_py_tmpl.render(
             desc=self.model_desc,
@@ -164,6 +179,8 @@ class ModelBuilder(object):
             return 'ObjectListProperty'
         if prop.type == model_desc_pb2.PropertyDescription.OBJECT_REF:
             return 'ObjectReferenceProperty'
+        if prop.type == model_desc_pb2.PropertyDescription.OBJECT:
+            return 'ObjectProperty'
         if prop.type == model_desc_pb2.PropertyDescription.WRAPPED_PROTO:
             return 'WrappedProtoProperty'
         if prop.type == model_desc_pb2.PropertyDescription.WRAPPED_PROTO_LIST:
@@ -174,6 +191,8 @@ class ModelBuilder(object):
         if prop.type == model_desc_pb2.PropertyDescription.OBJECT_LIST:
             return prop.obj_type
         if prop.type == model_desc_pb2.PropertyDescription.OBJECT_REF:
+            return prop.obj_type
+        if prop.type == model_desc_pb2.PropertyDescription.OBJECT:
             return prop.obj_type
         if prop.type == model_desc_pb2.PropertyDescription.WRAPPED_PROTO_LIST:
             return prop.wrapped_type
@@ -188,10 +207,25 @@ class ModelBuilder(object):
 
     def py_type(self, prop):
         if prop.type == model_desc_pb2.PropertyDescription.OBJECT_LIST:
-            return 'typing.MutableSequence[%r]' % (self.model_mod + '.' + prop.obj_type)
+            obj_type = prop.obj_type
+            if '.' not in obj_type or prop.obj_mod:
+                obj_type = (prop.obj_mod or self.model_mod) + '.' + obj_type
+            return 'typing.MutableSequence[%r]' % obj_type
 
         if prop.type == model_desc_pb2.PropertyDescription.OBJECT_REF:
-            return repr(prop.obj_type)
+            obj_type = prop.obj_type
+            if '.' not in obj_type or prop.obj_mod:
+                obj_type = (prop.obj_mod or self.model_mod) + '.' + obj_type
+            return repr(obj_type)
+
+        if prop.type == model_desc_pb2.PropertyDescription.OBJECT:
+            obj_type = prop.obj_type
+            if '.' not in obj_type or prop.obj_mod:
+                obj_type = (prop.obj_mod or self.model_mod) + '.' + obj_type
+            return repr(obj_type)
+
+        if prop.type == model_desc_pb2.PropertyDescription.PROTO:
+            return prop.proto_type
 
         if prop.type == model_desc_pb2.PropertyDescription.WRAPPED_PROTO:
             return prop.wrapped_type
@@ -226,12 +260,16 @@ class ModelBuilder(object):
         if prop.type == model_desc_pb2.PropertyDescription.PROTO_ENUM:
             return prop.proto_enum_name
 
+        if prop.type == model_desc_pb2.PropertyDescription.PROTO:
+            return self.wrapped_proto_map[prop.proto_type].split(':')[1]
+
         return {
             model_desc_pb2.PropertyDescription.STRING: 'string',
             model_desc_pb2.PropertyDescription.FLOAT: 'float',
             model_desc_pb2.PropertyDescription.INT32: 'int32',
             model_desc_pb2.PropertyDescription.UINT32: 'uint32',
             model_desc_pb2.PropertyDescription.BOOL: 'bool',
+            model_desc_pb2.PropertyDescription.OBJECT: 'uint64',
             model_desc_pb2.PropertyDescription.OBJECT_REF: 'uint64',
             model_desc_pb2.PropertyDescription.OBJECT_LIST: 'uint64',
         }[prop.type]

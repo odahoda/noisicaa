@@ -25,15 +25,15 @@ syntax = "proto2";
 package noisidev;
 
 message ModelDescription {
-  required string template = 1;
-  repeated ClassDescription classes = 2;
+  repeated ClassDescription classes = 1;
 }
 
 message ClassDescription {
   required string name = 1;
   repeated string super_class = 2;
   required string proto_ext_name = 3;
-  repeated PropertyDescription properties = 4;
+  optional bool is_abstract = 4 [default = false];
+  repeated PropertyDescription properties = 5;
 }
 
 message PropertyDescription {
@@ -45,21 +45,25 @@ message PropertyDescription {
     UINT32 = 3;
     FLOAT = 4;
     BOOL = 5;
-    WRAPPED_PROTO = 6;
-    WRAPPED_PROTO_LIST = 7;
-    PROTO_ENUM = 8;
-    OBJECT_REF = 9;
-    OBJECT_LIST = 10;
+    PROTO = 6;
+    WRAPPED_PROTO = 7;
+    WRAPPED_PROTO_LIST = 8;
+    PROTO_ENUM = 9;
+    OBJECT = 10;
+    OBJECT_REF = 11;
+    OBJECT_LIST = 12;
   }
   required Type type = 2;
   optional string obj_type = 3;
-  optional string wrapped_type = 4;
-  optional bool allow_none = 5;
-  optional string default = 6;
-  optional uint32 proto_id = 7;
-  optional string wrapped_proto_type = 8;
-  optional string proto_enum_name = 9;
-  repeated ProtoEnumDescription proto_enum_fields = 10;
+  optional string obj_mod = 4;
+  optional string proto_type = 5;
+  optional string wrapped_type = 6;
+  optional bool allow_none = 7;
+  optional string default = 8;
+  optional uint32 proto_id = 9;
+  optional string wrapped_proto_type = 10;
+  optional string proto_enum_name = 11;
+  repeated ProtoEnumDescription proto_enum_fields = 12;
 }
 
 message ProtoEnumDescription {

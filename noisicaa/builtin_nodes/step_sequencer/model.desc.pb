@@ -18,11 +18,9 @@
 #
 # @end:license
 
-template: "noisicaa/builtin_nodes/model.tmpl.py"
-
 classes {
   name: "StepSequencerStep"
-  super_class: "noisicaa.music.model.ProjectChild"
+  super_class: "noisicaa.music.model_base.ProjectChild"
   proto_ext_name: "step_sequencer_step"
   properties {
     name: "enabled"
@@ -40,7 +38,7 @@ classes {
 
 classes {
   name: "StepSequencerChannel"
-  super_class: "noisicaa.music.model.ProjectChild"
+  super_class: "noisicaa.music.model_base.ProjectChild"
   proto_ext_name: "step_sequencer_channel"
   properties {
     name: "type"

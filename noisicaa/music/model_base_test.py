@@ -20,8 +20,7 @@
 #
 # @end:license
 
-import collections
-from typing import cast, Any, Optional, Type, Iterator, List, Tuple
+from typing import cast, Any, List, Tuple
 
 from noisidev import unittest
 from noisicaa import core
@@ -31,15 +30,13 @@ from . import model_base_pb2
 from . import model_base_test_pb2
 
 
-class Pool(collections.UserDict, model_base.AbstractPool[model_base.ObjectBase]):
-    @property
-    def objects(self) -> Iterator[model_base.ObjectBase]:
-        raise NotImplementedError
+class Pool(model_base.Pool):
+    def __init__(self) -> None:
+        super().__init__()
 
-    def create(  # pylint: disable=redefined-builtin
-            self, cls: Type[model_base.OBJECT], id: Optional[int] = None, **kwargs: Any
-    ) -> model_base.OBJECT:
-        raise NotImplementedError
+        self.register_class(Root)
+        self.register_class(Child)
+        self.register_class(GrandChild)
 
 
 class Proto(value_types.ProtoValue):
@@ -64,17 +61,29 @@ class Proto(value_types.ProtoValue):
         return Proto(pb.a, pb.b)
 
 
-class GrandChild(model_base.ObjectBase):
+class ObjectBase(model_base.ObjectBase):
+    @property
+    def attached_to_project(self):
+        return False
+
+
+class GrandChild(ObjectBase):
     class GrandChildSpec(model_base.ObjectSpec):
         proto_type = 'grand_child'
 
 
-class Child(model_base.ObjectBase):
+class Child(ObjectBase):
     class ChildSpec(model_base.ObjectSpec):
         proto_type = 'child'
         proto_ext = model_base_test_pb2.child
         child = model_base.ObjectProperty(GrandChild)
         value = model_base.Property(str, allow_none=True)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.child_changed = core.Callback[model_base.PropertyChange]()
+        self.value_changed = core.Callback[model_base.PropertyChange]()
 
     def __repr__(self):
         return 'Child(%d)' % self.id
@@ -101,7 +110,7 @@ class Child(model_base.ObjectBase):
         self.set_property_value('value', value)
 
 
-class Root(model_base.ObjectBase):
+class Root(ObjectBase):
     class RootSpec(model_base.ObjectSpec):
         proto_type = 'root'
         proto_ext = model_base_test_pb2.root
@@ -315,11 +324,7 @@ class ObjectTest(unittest.TestCase):
 
     def test_list_children(self):
         for i in range(3):
-            c = Child(pb=model_base_pb2.ObjectBase(id=100 + i), pool=self.pool)
-            c.create()
-            c.setup()
-            c.setup_complete()
-            self.pool[c.id] = c
+            self.pool.create(Child, id=100 + i)
 
         obj = Root(pb=model_base_pb2.ObjectBase(id=124), pool=self.pool)
         obj.create()
@@ -336,11 +341,7 @@ class ObjectTest(unittest.TestCase):
 
     def test_list_children_unset_value(self):
         for i in range(3):
-            c = Child(pb=model_base_pb2.ObjectBase(id=100 + i), pool=self.pool)
-            c.create()
-            c.setup()
-            c.setup_complete()
-            self.pool[c.id] = c
+            self.pool.create(Child, id=100 + i)
 
         obj = Root(pb=model_base_pb2.ObjectBase(id=124), pool=self.pool)
         obj.create()
@@ -356,11 +357,7 @@ class ObjectTest(unittest.TestCase):
 
     def test_object_list(self):
         for i in range(4):
-            c = Child(pb=model_base_pb2.ObjectBase(id=100 + i), pool=self.pool)
-            c.create()
-            c.setup()
-            c.setup_complete()
-            self.pool[c.id] = c
+            self.pool.create(Child, id=100 + i)
 
         obj = Root(pb=model_base_pb2.ObjectBase(id=124), pool=self.pool)
         obj.create()
@@ -449,18 +446,10 @@ class ObjectTest(unittest.TestCase):
         obj.setup_complete()
 
         for i in range(3):
-            c = Child(pb=model_base_pb2.ObjectBase(id=110 + i), pool=self.pool)
-            c.create()
-            c.setup()
-            c.setup_complete()
-            self.pool[c.id] = c
+            self.pool.create(Child, id=110 + i)
 
         for i in range(2):
-            gc = GrandChild(pb=model_base_pb2.ObjectBase(id=120 + i), pool=self.pool)
-            gc.create()
-            gc.setup()
-            gc.setup_complete()
-            self.pool[gc.id] = gc
+            self.pool.create(GrandChild, id=120 + i)
 
         obj.child_value = self.pool[110]
         obj.child_value.child = self.pool[121]
@@ -710,23 +699,9 @@ class ObjectPropertyTest(unittest.TestCase):
         self.obj.setup_complete()
         self.pb = self.obj.proto.Extensions[model_base_test_pb2.root]
 
-        self.child = Child(pb=model_base_pb2.ObjectBase(id=123), pool=self.pool)
-        self.child.create()
-        self.child.setup()
-        self.child.setup_complete()
-        self.pool[self.child.id] = self.child
-
-        self.child2 = Child(pb=model_base_pb2.ObjectBase(id=124), pool=self.pool)
-        self.child2.create()
-        self.child2.setup()
-        self.child2.setup_complete()
-        self.pool[self.child2.id] = self.child2
-
-        self.grandchild = GrandChild(pb=model_base_pb2.ObjectBase(id=125), pool=self.pool)
-        self.grandchild.create()
-        self.grandchild.setup()
-        self.grandchild.setup_complete()
-        self.pool[self.grandchild.id] = self.grandchild
+        self.child = self.pool.create(Child, id=123)
+        self.child2 = self.pool.create(Child, id=124)
+        self.grandchild = self.pool.create(GrandChild, id=125)
 
     def test_changes(self):
         changes = PropertyChangeCollector(self.obj, 'child_value')
@@ -864,23 +839,9 @@ class ObjectListPropertyTest(unittest.TestCase):
         prop.name = 'child_list'
         lst = prop.get_value(self.obj, self.pb, self.pool)
 
-        child1 = Child(pb=model_base_pb2.ObjectBase(id=123), pool=self.pool)
-        child1.create()
-        child1.setup()
-        child1.setup_complete()
-        self.pool[child1.id] = child1
-
-        child2 = Child(pb=model_base_pb2.ObjectBase(id=124), pool=self.pool)
-        child2.create()
-        child2.setup()
-        child2.setup_complete()
-        self.pool[child2.id] = child2
-
-        grandchild = GrandChild(pb=model_base_pb2.ObjectBase(id=125), pool=self.pool)
-        grandchild.create()
-        grandchild.setup()
-        grandchild.setup_complete()
-        self.pool[grandchild.id] = grandchild
+        child1 = self.pool.create(Child, id=123)
+        child2 = self.pool.create(Child, id=124)
+        grandchild = self.pool.create(GrandChild, id=125)
 
         child2.child = grandchild
         self.assertFalse(grandchild.is_child_of(self.obj))
@@ -1112,17 +1073,10 @@ class ObjectListTest(ListMixin, unittest.TestCase):
     def setup_testcase(self):
         self.pool = Pool()
         for i in range(5):
-            child = Child(pb=model_base_pb2.ObjectBase(id=100 + i), pool=self.pool)
-            child.create()
-            child.setup()
-            child.setup_complete()
-            self.pool[child.id] = child
+            self.pool.create(Child, id=100 + i)
 
     def create_list(self):
-        obj = Root(pb=model_base_pb2.ObjectBase(), pool=self.pool)
-        obj.create()
-        obj.setup()
-        obj.setup_complete()
+        obj = self.pool.create(Root)
         pb = obj.proto.Extensions[model_base_test_pb2.root]
         return model_base.ObjectList(obj, 'child_list', pb.child_list, Child, self.pool)
 
@@ -1144,7 +1098,7 @@ class ObjectListTest(ListMixin, unittest.TestCase):
 
 class PoolTest(unittest.TestCase):
     def test_register_class(self):
-        pool = model_base.Pool[model_base.ObjectBase]()
+        pool = model_base.Pool()
         pool.register_class(Root)
         pool.register_class(Child)
 
@@ -1152,7 +1106,7 @@ class PoolTest(unittest.TestCase):
             pool.register_class(Root)
 
     def test_create(self):
-        pool = model_base.Pool[model_base.ObjectBase]()
+        pool = model_base.Pool()
         pool.register_class(Root)
 
         obj = pool.create(Root)
@@ -1160,28 +1114,28 @@ class PoolTest(unittest.TestCase):
         self.assertIsNotNone(obj.id)
 
     def test_create_with_id(self):
-        pool = model_base.Pool[model_base.ObjectBase]()
+        pool = model_base.Pool()
         pool.register_class(Root)
 
         obj = pool.create(Root, id=100)
         self.assertEqual(obj.id, 100)
 
     def test_create_with_args(self):
-        pool = model_base.Pool[model_base.ObjectBase]()
+        pool = model_base.Pool()
         pool.register_class(Root)
 
         obj = pool.create(Root, id=100, string_value='foo')
         self.assertEqual(obj.string_value, 'foo')
 
     def test_get(self):
-        pool = model_base.Pool[model_base.ObjectBase]()
+        pool = model_base.Pool()
         pool.register_class(Root)
 
         obj = pool.create(Root, id=100)
         self.assertIs(pool[100], obj)
 
     def test_del(self):
-        pool = model_base.Pool[model_base.ObjectBase]()
+        pool = model_base.Pool()
         pool.register_class(Root)
 
         pool.create(Root, id=100)
@@ -1190,7 +1144,7 @@ class PoolTest(unittest.TestCase):
             pool[100]  # pylint: disable=pointless-statement
 
     def test_deserialize(self):
-        pool = model_base.Pool[model_base.ObjectBase]()
+        pool = model_base.Pool()
         pool.register_class(Child)
 
         obj1 = pool.create(Child, id=100, value='foo')
@@ -1207,7 +1161,7 @@ class PoolTest(unittest.TestCase):
         self.assertEqual(obj2.value, 'foo')
 
     def test_deserialize_tree(self):
-        pool1 = model_base.Pool[model_base.ObjectBase]()
+        pool1 = model_base.Pool()
         pool1.register_class(Root)
         pool1.register_class(Child)
 
@@ -1218,7 +1172,7 @@ class PoolTest(unittest.TestCase):
 
         serialized = root1.serialize()
 
-        pool2 = model_base.Pool[model_base.ObjectBase]()
+        pool2 = model_base.Pool()
         pool2.register_class(Root)
         pool2.register_class(Child)
 
@@ -1234,7 +1188,7 @@ class PoolTest(unittest.TestCase):
         self.assertEqual(root2.child_list[1].id, 112)
 
     def test_clone_tree(self):
-        pool = model_base.Pool[model_base.ObjectBase]()
+        pool = model_base.Pool()
         pool.register_class(Root)
         pool.register_class(Child)
 
@@ -1257,7 +1211,7 @@ class PoolTest(unittest.TestCase):
         self.assertIs(root2.child_list[1].parent, root2)
 
     def test_iter(self):
-        pool = model_base.Pool[model_base.ObjectBase]()
+        pool = model_base.Pool()
         pool.register_class(Root)
 
         pool.create(Root, id=100, string_value='foo')

@@ -34,7 +34,6 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
-from noisicaa import model_base
 from noisicaa import value_types
 from noisicaa.ui import ui_base
 from noisicaa.ui import selection_set
@@ -201,7 +200,7 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
     def addMeasureListeners(self) -> None:
         raise NotImplementedError
 
-    def __measureChanged(self, change: model_base.PropertyValueChange[music.Measure]) -> None:
+    def __measureChanged(self, change: music.PropertyValueChange[music.Measure]) -> None:
         for listener in self.measure_listeners:
             listener.remove()
         self.measure_listeners.clear()
@@ -609,11 +608,11 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         return self.__measure_editors
 
     def onMeasureListChanged(
-            self, change: model_base.PropertyListChange[music.MeasureReference]) -> None:
-        if isinstance(change, model_base.PropertyListInsert):
+            self, change: music.PropertyListChange[music.MeasureReference]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.addMeasure(change.index, change.new_value)
 
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.removeMeasure(change.index)
 
         else:

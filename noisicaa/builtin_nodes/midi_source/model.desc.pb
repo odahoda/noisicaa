@@ -18,8 +18,6 @@
 #
 # @end:license
 
-template: "noisicaa/builtin_nodes/model.tmpl.py"
-
 classes {
   name: "MidiSource"
   super_class: "noisicaa.music.graph.BaseNode"

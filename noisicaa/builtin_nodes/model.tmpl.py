@@ -27,7 +27,7 @@
 import typing
 
 from noisicaa import core
-from noisicaa import model_base
+from noisicaa import music
 from noisicaa.builtin_nodes import model_registry_pb2
 {%- for mod in imports %}
 import {{mod}}
@@ -42,17 +42,17 @@ if typing.TYPE_CHECKING:
 
 {% for cls in desc.classes %}
 class {{cls.name}}({{cls.super_class|join(', ')}}):  # pylint: disable=abstract-method
-    class {{cls.name}}Spec(model_base.ObjectSpec):
+    class {{cls.name}}Spec(music.ObjectSpec):
         proto_type = '{{cls.proto_ext_name}}'
         proto_ext = model_registry_pb2.{{cls.proto_ext_name}}
 {% for prop in cls.properties %}
-        {{prop.name}} = model_base.{{prop|prop_cls}}({{prop|prop_cls_type}}{% if prop.HasField("allow_none") %}, allow_none={{prop.allow_none}}{% endif %}{% if prop.HasField("default") %}, default={{prop.default}}{% endif %})
+        {{prop.name}} = music.{{prop|prop_cls}}({{prop|prop_cls_type}}{% if prop.HasField("allow_none") %}, allow_none={{prop.allow_none}}{% endif %}{% if prop.HasField("default") %}, default={{prop.default}}{% endif %})
 {%- endfor %}
 
     def __init__(self, **kwargs: typing.Any) -> None:
         super().__init__(**kwargs)
 {% for prop in cls.properties %}
-        self.{{prop.name}}_changed = core.Callback[model_base.{{prop|change_cls}}]()
+        self.{{prop.name}}_changed = core.Callback[music.{{prop|change_cls}}]()
 {%- endfor %}
 
 {% for prop in cls.properties %}

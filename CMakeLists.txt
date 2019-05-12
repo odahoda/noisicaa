@@ -148,21 +148,20 @@ macro(faust_dsp clsName src)
   )
 endmacro(faust_dsp)
 
-macro(build_model src)
-string(REGEX REPLACE "\.desc.pb" ".py" out ${src})
+macro(build_model src out template)
 file(RELATIVE_PATH pkg_path ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
 add_custom_command(
-  OUTPUT _model.py model.proto
-  COMMAND python noisidev/build_model.py -o ${CMAKE_BINARY_DIR} ${pkg_path}/${src}
+  OUTPUT ${out} model.proto
+  COMMAND python noisidev/build_model.py --output ${CMAKE_BINARY_DIR} --template ${CMAKE_SOURCE_DIR}/${template} ${pkg_path}/${src}
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   DEPENDS
     ${CMAKE_CURRENT_LIST_DIR}/${src}
     ${CMAKE_SOURCE_DIR}/noisidev/build_model.py
     noisidev.model_desc.proto
-    ${CMAKE_SOURCE_DIR}/noisicaa/builtin_nodes/model.tmpl.py
+    ${CMAKE_SOURCE_DIR}/${template}
 )
 string(REGEX REPLACE "/" "." pkg_target ${pkg_path})
-add_custom_target("model-${pkg_target}" ALL DEPENDS _${out})
+add_custom_target("model-${pkg_target}" ALL DEPENDS ${out})
 endmacro(build_model)
 
 add_subdirectory(noisicaa)

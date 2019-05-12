@@ -27,7 +27,6 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model_base
 from noisicaa import value_types
 from noisicaa import music
 from noisicaa.ui import device_list
@@ -99,7 +98,7 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
             with self.project.apply_mutations('%s: Change device' % self.__node.name):
                 self.__node.device_uri = uri
 
-    def __channelFilterChanged(self, change: model_base.PropertyValueChange[int]) -> None:
+    def __channelFilterChanged(self, change: music.PropertyValueChange[int]) -> None:
         for idx in range(self.__channel_filter.count()):
             if self.__channel_filter.itemData(idx) == change.new_value:
                 self.__channel_filter.setCurrentIndex(idx)

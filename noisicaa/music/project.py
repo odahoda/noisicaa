@@ -24,14 +24,12 @@ import contextlib
 import itertools
 import logging
 import time
-from typing import (
-    cast, Any, Optional, Dict, Tuple, MutableSequence, Iterator, Sequence, Generator, Type)
+from typing import cast, Any, Optional, Dict, Tuple, Iterator, Sequence, Generator, Type
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa.core import storage
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import model_base
 from noisicaa import value_types
 from noisicaa import node_db as node_db_lib
 from . import graph
@@ -39,8 +37,9 @@ from . import base_track
 from . import samples as samples_lib
 from . import metadata as metadata_lib
 from . import writer_client
-from . import model
-from . import model_pb2
+from . import model_base
+from . import model_base_pb2
+from . import _model
 from . import mutations
 from . import mutations_pb2
 
@@ -49,28 +48,11 @@ logger = logging.getLogger(__name__)
 LOG_VERSION = 1
 
 
-class BaseProject(model.ObjectBase):
-    class ProjectSpec(model_base.ObjectSpec):
-        proto_type = 'project'
-        proto_ext = model_pb2.project
-
-        metadata = model_base.ObjectProperty(metadata_lib.Metadata)
-        nodes = model_base.ObjectListProperty(graph.BaseNode)
-        node_connections = model_base.ObjectListProperty(graph.NodeConnection)
-        samples = model_base.ObjectListProperty(samples_lib.Sample)
-        bpm = model_base.Property(int, default=120)
-
+class BaseProject(_model.Project, model_base.ObjectBase):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.node_db = None  # type: node_db_lib.NodeDBClient
-
-        self.metadata_changed = core.Callback[model_base.PropertyChange[metadata_lib.Metadata]]()
-        self.nodes_changed = core.Callback[model_base.PropertyListChange[graph.BaseNode]]()
-        self.node_connections_changed = \
-            core.Callback[model_base.PropertyListChange[graph.NodeConnection]]()
-        self.samples_changed = core.Callback[model_base.PropertyListChange[samples_lib.Sample]]()
-        self.bpm_changed = core.Callback[model_base.PropertyChange[int]]()
 
         self.duration_changed = \
             core.Callback[model_base.PropertyChange[audioproc.MusicalDuration]]()
@@ -99,34 +81,6 @@ class BaseProject(model.ObjectBase):
     @property
     def time_mapper(self) -> audioproc.TimeMapper:
         return self.__time_mapper
-
-    @property
-    def metadata(self) -> metadata_lib.Metadata:
-        return self.get_property_value('metadata')
-
-    @metadata.setter
-    def metadata(self, value: metadata_lib.Metadata) -> None:
-        self.set_property_value('metadata', value)
-
-    @property
-    def nodes(self) -> MutableSequence[graph.BaseNode]:
-        return self.get_property_value('nodes')
-
-    @property
-    def node_connections(self) -> MutableSequence[graph.NodeConnection]:
-        return self.get_property_value('node_connections')
-
-    @property
-    def samples(self) -> MutableSequence[samples_lib.Sample]:
-        return self.get_property_value('samples')
-
-    @property
-    def bpm(self) -> int:
-        return self.get_property_value('bpm')
-
-    @bpm.setter
-    def bpm(self, value: int) -> None:
-        self.set_property_value('bpm', value)
 
     @property
     def project(self) -> 'Project':
@@ -269,7 +223,7 @@ class BaseProject(model.ObjectBase):
     def paste_measures(
             self, *,
             mode: str,
-            src_objs: Sequence[model_base.ObjectTree],
+            src_objs: Sequence[model_base_pb2.ObjectTree],
             targets: Sequence[base_track.MeasureReference],
     ) -> None:
         affected_track_ids = set(obj.track.id for obj in targets)
@@ -354,7 +308,7 @@ class Project(BaseProject):
     ) -> 'Project':
         checkpoint_serialized, actions = await writer.open(path)
 
-        checkpoint = model_base.ObjectTree()
+        checkpoint = model_base_pb2.ObjectTree()
         checkpoint.MergeFromString(checkpoint_serialized)
 
         project = pool.deserialize_tree(checkpoint)
@@ -363,12 +317,13 @@ class Project(BaseProject):
         project.node_db = node_db
         project.__writer = writer
 
-        def validate_node(parent: Optional[model.ObjectBase], node: model.ObjectBase) -> None:
+        def validate_node(
+                parent: Optional[model_base.ObjectBase], node: model_base.ObjectBase) -> None:
             assert node.parent is parent
             assert node.project is project
 
             for c in node.list_children():
-                validate_node(node, cast(model.ObjectBase, c))
+                validate_node(node, cast(model_base.ObjectBase, c))
 
         validate_node(None, project)
 
@@ -415,7 +370,7 @@ class Project(BaseProject):
         self.__writer.write_checkpoint(checkpoint_serialized)
         self.__logs_since_last_checkpoint = 0
 
-    def serialize_object(self, obj: model.ObjectBase) -> bytes:
+    def serialize_object(self, obj: model_base.ObjectBase) -> bytes:
         proto = obj.serialize()
         return proto.SerializeToString()
 
@@ -525,7 +480,7 @@ class Project(BaseProject):
             self.deserialize_mutation_list(mutation_list_serialized))
 
 
-class Pool(model_base.Pool[model.ObjectBase]):
+class Pool(model_base.Pool):
     def __init__(self, project_cls: Type[Project] = None) -> None:
         super().__init__()
 
@@ -544,14 +499,6 @@ class Pool(model_base.Pool[model.ObjectBase]):
         from noisicaa.builtin_nodes import model_registry
         model_registry.register_classes(self)
 
-        self.model_changed = core.Callback[model_base.Mutation]()
-
     @property
     def project(self) -> Project:
         return down_cast(Project, self.root)
-
-    def object_added(self, obj: model.ObjectBase) -> None:
-        self.model_changed.call(model_base.ObjectAdded(obj))
-
-    def object_removed(self, obj: model.ObjectBase) -> None:
-        self.model_changed.call(model_base.ObjectRemoved(obj))

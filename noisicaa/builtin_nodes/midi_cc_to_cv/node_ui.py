@@ -30,7 +30,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model_base
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import control_value_dial
@@ -212,7 +211,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         else:
             self.__learnStop()
 
-    def __midiChannelChanged(self, change: model_base.PropertyValueChange[int]) -> None:
+    def __midiChannelChanged(self, change: music.PropertyValueChange[int]) -> None:
         self.__midi_channel.setValue(change.new_value + 1)
 
     def __midiChannelEdited(self, value: int) -> None:
@@ -221,7 +220,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
             with self.project.apply_mutations('%s: Change MIDI channel' % self.__node.name):
                 self.__channel.midi_channel = value
 
-    def __midiControllerChanged(self, change: model_base.PropertyValueChange[int]) -> None:
+    def __midiControllerChanged(self, change: music.PropertyValueChange[int]) -> None:
         self.__midi_controller.setValue(change.new_value)
 
     def __midiControllerEdited(self, value: int) -> None:
@@ -229,7 +228,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
             with self.project.apply_mutations('%s: Change MIDI controller' % self.__node.name):
                 self.__channel.midi_controller = value
 
-    def __minValueChanged(self, change: model_base.PropertyValueChange[float]) -> None:
+    def __minValueChanged(self, change: music.PropertyValueChange[float]) -> None:
         self.__min_value.setText(fmt_value(self.__channel.min_value))
 
     def __minValueEdited(self) -> None:
@@ -240,7 +239,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
                 with self.project.apply_mutations('%s: Change min. value' % self.__node.name):
                     self.__channel.min_value = value
 
-    def __maxValueChanged(self, change: model_base.PropertyValueChange[float]) -> None:
+    def __maxValueChanged(self, change: music.PropertyValueChange[float]) -> None:
         self.__max_value.setText(fmt_value(self.__channel.max_value))
 
     def __maxValueEdited(self) -> None:
@@ -251,7 +250,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
                 with self.project.apply_mutations('%s: Change max. value' % self.__node.name):
                     self.__channel.max_value = value
 
-    def __logScaleChanged(self, change: model_base.PropertyValueChange[bool]) -> None:
+    def __logScaleChanged(self, change: music.PropertyValueChange[bool]) -> None:
         self.__log_scale.setChecked(self.__channel.log_scale)
 
     def __logScaleEdited(self, value: bool) -> None:
@@ -343,12 +342,12 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelsChanged(
             self,
-            change: model_base.PropertyListChange[model.MidiCCtoCVChannel]
+            change: music.PropertyListChange[model.MidiCCtoCVChannel]
     ) -> None:
-        if isinstance(change, model_base.PropertyListInsert):
+        if isinstance(change, music.PropertyListInsert):
             self.__addChannel(change.new_value, change.index)
 
-        elif isinstance(change, model_base.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__removeChannel(change.index)
 
         else:

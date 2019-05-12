@@ -18,12 +18,30 @@
 #
 # @end:license
 
-from .project_client import (
-    ProjectClient,
-)
-from .model import (
+from .model_base import (
     ObjectBase,
+    ObjectSpec,
     ProjectChild,
+
+    PropertyBase,
+    Property, ListProperty,
+    ProtoProperty,
+    WrappedProtoProperty, WrappedProtoListProperty,
+    ObjectProperty, ObjectReferenceProperty, ObjectListProperty,
+
+    Mutation,
+    ObjectChange,
+    ObjectAdded,
+    ObjectRemoved,
+    PropertyChange,
+    PropertyValueChange,
+    PropertyListChange,
+    PropertyListInsert, PropertyListDelete, PropertyListSet,
+
+    Pool,
+)
+from .model_base_pb2 import (
+    ObjectTree,
 )
 from .metadata import (
     Metadata,
@@ -54,4 +72,7 @@ from .mutations_pb2 import (
 )
 from .session_value_store import (
     SessionValueStore,
+)
+from .project_client import (
+    ProjectClient,
 )

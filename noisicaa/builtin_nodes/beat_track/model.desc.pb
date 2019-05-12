@@ -18,11 +18,9 @@
 #
 # @end:license
 
-template: "noisicaa/builtin_nodes/model.tmpl.py"
-
 classes {
   name: "Beat"
-  super_class: "noisicaa.music.model.ProjectChild"
+  super_class: "noisicaa.music.model_base.ProjectChild"
   proto_ext_name: "beat"
   properties {
     name: "time"
