@@ -59,7 +59,7 @@ class {{cls.name}}({{cls.super_class|join(', ')}}):  # pylint: disable=abstract-
     def __init__(self, **kwargs: typing.Any) -> None:
         super().__init__(**kwargs)
 {% for prop in cls.properties %}
-        self.{{prop.name}}_changed = core.Callback[model_base.{{prop|change_cls}}]()
+        self.change_callbacks['{{prop.name}}'] = core.Callback[model_base.{{prop|change_cls}}]()
 {%- endfor %}
 {% endif %}
 
@@ -76,7 +76,11 @@ class {{cls.name}}({{cls.super_class|join(', ')}}):  # pylint: disable=abstract-
 
     def _validate_{{prop.name}}(self, value: {{prop|py_type}}) -> None:
         pass
-{% endif -%}
+{% endif %}
+
+    @property
+    def {{prop.name}}_changed(self) -> core.Callback[model_base.{{prop|change_cls}}]:
+        return self.change_callbacks['{{prop.name}}']
 {% endfor %}
 
 {% endfor %}

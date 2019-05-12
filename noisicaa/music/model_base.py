@@ -694,6 +694,8 @@ class ObjectBase(object):
         self.__proto = pb
         self._pool = pool
 
+        self.change_callbacks = {}  # type: Dict[str, core.Callback]
+
         self.__properties = {}  # type: Dict[str, PropertyBase]
         for cls in self.__class__.__mro__:
             if not issubclass(cls, ObjectBase):
@@ -843,8 +845,7 @@ class ObjectBase(object):
             yield prop.name
 
     def property_changed(self, change: PropertyChange) -> None:
-        callback = getattr(self, change.prop_name + '_changed')
-        callback.call(change)
+        self.change_callbacks[change.prop_name].call(change)
         self.object_changed.call(change)
         self._pool.model_changed.call(change)
 

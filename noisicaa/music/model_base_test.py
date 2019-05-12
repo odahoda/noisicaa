@@ -82,8 +82,8 @@ class Child(ObjectBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.child_changed = core.Callback[model_base.PropertyChange]()
-        self.value_changed = core.Callback[model_base.PropertyChange]()
+        self.change_callbacks['child'] = core.Callback[model_base.PropertyChange]()
+        self.change_callbacks['value'] = core.Callback[model_base.PropertyChange]()
 
     def __repr__(self):
         return 'Child(%d)' % self.id
