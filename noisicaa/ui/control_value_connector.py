@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, List, Callable
+from typing import Any, Callable
 
 from PyQt5 import QtCore
 
@@ -34,7 +34,12 @@ from noisicaa.ui import slots
 logger = logging.getLogger(__name__)
 
 
-class ControlValueConnector(ui_base.ProjectMixin, slots.SlotContainer, QtCore.QObject):
+class ControlValueConnector(
+        ui_base.ProjectMixin,
+        slots.SlotContainer,
+        core.AutoCleanupMixin,
+        QtCore.QObject
+):
     value, setValue, valueChanged = slots.slot(float, 'value')
 
     def __init__(
@@ -47,19 +52,15 @@ class ControlValueConnector(ui_base.ProjectMixin, slots.SlotContainer, QtCore.QO
         self.__node = node
         self.__name = name
 
-        self.__listeners = []  # type: List[core.Listener]
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
         self.__generation = self.__node.control_value_map.generation(self.__name)
 
         self.setValue(self.__node.control_value_map.value(self.__name))
 
         self.valueChanged.connect(self.__onValueEdited)
-        self.__listeners.append(self.__node.control_value_map.control_value_changed.add(
+        self.__listeners.add(self.__node.control_value_map.control_value_changed.add(
             self.__name, self.__onValueChanged))
-
-    def cleanup(self) -> None:
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
 
     def __onValueEdited(self, value: float) -> None:
         if value != self.__node.control_value_map.value(self.__name):

@@ -99,7 +99,7 @@ class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestC
                  'cvgenerator_add_control_point'])
 
         finally:
-            connector.close()
+            connector.cleanup()
 
     def test_messages_on_init(self):
         self.track.points.insert(
@@ -122,7 +122,7 @@ class ControlTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestC
                  'cvgenerator_add_control_point'])
 
         finally:
-            connector.close()
+            connector.cleanup()
 
 
 class ControlTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):

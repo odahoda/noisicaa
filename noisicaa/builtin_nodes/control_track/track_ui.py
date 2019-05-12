@@ -206,8 +206,10 @@ class ControlTrackToolBox(tools.ToolBox):
         self.addTool(EditControlPointsTool(context=self.context))
 
 
-class ControlPoint(object):
+class ControlPoint(core.AutoCleanupMixin, object):
     def __init__(self, track_editor: 'ControlTrackEditor', point: model.ControlPoint) -> None:
+        super().__init__()
+
         self.__track_editor = track_editor
         self.__point = point
 
@@ -215,15 +217,10 @@ class ControlPoint(object):
             self.__track_editor.timeToX(self.__point.time),
             self.__track_editor.valueToY(self.__point.value))
 
-        self.__listeners = [
-            self.__point.time_changed.add(self.onTimeChanged),
-            self.__point.value_changed.add(self.onValueChanged),
-        ]
-
-    def close(self) -> None:
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
+        self.__listeners.add(self.__point.time_changed.add(self.onTimeChanged))
+        self.__listeners.add(self.__point.value_changed.add(self.onValueChanged))
 
     def onTimeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
@@ -280,23 +277,23 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         self.__highlighted_point = None  # type: ControlPoint
         self.__playback_time = None  # type: audioproc.MusicalTime
 
-        self.__listeners = []  # type: List[core.Listener]
+        self.__listeners = core.ListenerList()
         self.points = []  # type: List[ControlPoint]
 
         for point in self.track.points:
             self.addPoint(len(self.points), point)
 
-        self.__listeners.append(self.track.points_changed.add(self.onPointsChanged))
+        self.__listeners.add(self.track.points_changed.add(self.onPointsChanged))
 
         self.setHeight(120)
 
         self.scaleXChanged.connect(self.__onScaleXChanged)
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         for points in self.points:
-            points.close()
+            points.cleanup()
         self.points.clear()
-        super().close()
+        super().cleanup()
 
     def __onScaleXChanged(self, scale_x: fractions.Fraction) -> None:
         for cpoint in self.points:
@@ -342,7 +339,7 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
 
     def removePoint(self, remove_index: int, point: QtCore.QPoint) -> None:
         cpoint = self.points.pop(remove_index)
-        cpoint.close()
+        cpoint.cleanup()
         self.rectChanged.emit(self.viewRect())
 
     def onPointsChanged(self, change: music.PropertyListChange[model.ControlPoint]) -> None:

@@ -25,6 +25,7 @@ import typing
 from typing import Callable, List
 
 from noisicaa import audioproc
+from noisicaa import core
 
 if typing.TYPE_CHECKING:
     from . import graph
@@ -32,7 +33,7 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class NodeConnector(object):
+class NodeConnector(core.AutoCleanupMixin, object):
     def __init__(
             self, *,
             node: 'graph.BaseNode',
@@ -64,6 +65,3 @@ class NodeConnector(object):
             self.__initial_messages.append(msg)
         else:
             self.__message_cb(msg)
-
-    def close(self) -> None:
-        pass

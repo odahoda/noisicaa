@@ -80,7 +80,7 @@ class Editor(
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMinimumHeight(0)
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
 
         self.__current_track = None  # type: music.Track
         self.__tracks = []  # type: List[base_track_editor.BaseTrackEditor]
@@ -111,9 +111,7 @@ class Editor(
         for track_editor in list(self.__tracks):
             self.__removeNode(track_editor.track)
 
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
+        self.__listeners.cleanup()
 
         await super().cleanup()
 
@@ -164,7 +162,7 @@ class Editor(
 
     def __removeNode(self, node: music.BaseNode) -> None:
         if isinstance(node, music.Track):
-            self.__listeners.pop('track:%s:visible' % node.id).remove()
+            del self.__listeners['track:%s:visible' % node.id]
 
             track_editor = self.__track_map.pop(node.id)
             for idx in range(len(self.__tracks)):
@@ -172,7 +170,7 @@ class Editor(
                     del self.__tracks[idx]
                     break
 
-            track_editor.close()
+            track_editor.cleanup()
             self.updateTracks()
 
     def __onNodesChanged(

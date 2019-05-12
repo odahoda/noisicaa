@@ -113,7 +113,7 @@ class SampleTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCa
                  'sample_script_add_sample'])
 
         finally:
-            connector.close()
+            connector.cleanup()
 
     def test_messages_on_init(self):
         self.track.samples.insert(
@@ -138,7 +138,7 @@ class SampleTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCa
                  'sample_script_add_sample'])
 
         finally:
-            connector.close()
+            connector.cleanup()
 
 
 class SampleTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):

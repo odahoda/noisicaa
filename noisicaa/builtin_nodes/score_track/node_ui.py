@@ -22,7 +22,7 @@
 
 import logging
 import os.path
-from typing import Any, Dict
+from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtSvg
@@ -38,13 +38,14 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
-class ScoreTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
+class ScoreTrackWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
     def __init__(self, track: model.ScoreTrack, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__track = track
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         body = QtWidgets.QWidget(self)
         body.setAutoFillBackground(False)
@@ -70,11 +71,6 @@ class ScoreTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setWidget(body)
 
-    def cleanup(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
     def onTransposeOctavesChanged(self, change: music.PropertyValueChange[int]) -> None:
         self.__transpose_octaves.setValue(change.new_value)
 
@@ -95,12 +91,8 @@ class ScoreTrackNode(track_node.TrackNode):
             icon=QtSvg.QSvgRenderer(os.path.join(DATA_DIR, 'icons', 'track-type-score.svg')),
             **kwargs)
 
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-        super().cleanup()
-
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
         self.__widget = ScoreTrackWidget(track=self.__track, context=self.context)
+        self.add_cleanup_function(self.__widget.cleanup)
         return self.__widget

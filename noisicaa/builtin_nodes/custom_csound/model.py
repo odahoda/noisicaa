@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, Optional, Dict, Iterator
+from typing import Any, Optional, Iterator
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
@@ -80,7 +80,7 @@ class CustomCSound(_model.CustomCSound):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__listeners = {}  # type: Dict[int, core.Listener]
+        self.__listeners = core.ListenerMap[int]()
 
         self.__orchestra_preamble = None  # type: str
         self.orchestra_preamble_changed = core.Callback[music.PropertyChange[str]]()
@@ -125,7 +125,7 @@ class CustomCSound(_model.CustomCSound):
         self.description_changed.call(change)
 
     def __remove_port(self, change: music.PropertyChange, port: CustomCSoundPort) -> None:
-        self.__listeners.pop(port.id).remove()
+        del self.__listeners[port.id]
         self.description_changed.call(change)
 
     def __get_code_mutation(self) -> audioproc.Mutation:

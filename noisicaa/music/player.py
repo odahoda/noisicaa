@@ -116,7 +116,7 @@ class Player(object):
             self.callback_stub = None
 
         for connector in self.__node_connectors.values():
-            connector.close()
+            connector.cleanup()
         self.__node_connectors.clear()
 
         logger.info("Player instance %s cleanup complete.", self.id)
@@ -172,7 +172,7 @@ class Player(object):
 
     def remove_node(self, node: graph.BaseNode) -> None:
         if node.id in self.__node_connectors:
-            self.__node_connectors.pop(node.id).close()
+            self.__node_connectors.pop(node.id).cleanup()
 
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.event_loop.create_task(self.publish_pipeline_mutation(mutation))

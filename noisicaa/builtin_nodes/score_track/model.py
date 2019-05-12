@@ -50,7 +50,7 @@ class ScoreTrackConnector(base_track.MeasuredTrackConnector):
             lambda _=None: self.__measure_notes_changed(mref))  # type: ignore
 
     def _remove_measure_listeners(self, mref: base_track.MeasureReference) -> None:
-        self._listeners.pop('measure:%s:notes' % mref.id).remove()
+        del self._listeners['measure:%s:notes' % mref.id]
 
     def _create_events(
             self, time: audioproc.MusicalTime, measure: base_track.Measure

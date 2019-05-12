@@ -133,7 +133,7 @@ class LibraryModel(ui_base.CommonMixin, QtCore.QAbstractItemModel):
 
         self.__root_item = Root(path='/')
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         self.__root_item = None
 
     def clear(self) -> None:

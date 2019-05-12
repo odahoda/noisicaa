@@ -54,7 +54,7 @@ class ScoreTrackConnectorTest(unittest_mixins.NodeDBMixin, unittest.AsyncTestCas
             self.assertTrue(len(messages) > 0)
 
         finally:
-            connector.close()
+            connector.cleanup()
 
 
 class ScoreTrackTest(base_track_test.TrackTestMixin, unittest.AsyncTestCase):

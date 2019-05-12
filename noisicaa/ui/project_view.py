@@ -141,7 +141,7 @@ class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
             self.__player_id = None
             self.__player_realm = None
 
-        self.__track_list.close()
+        self.__track_list.cleanup()
 
     def playing(self) -> bool:
         return self.__player_state.playing()

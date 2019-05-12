@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
@@ -40,13 +40,14 @@ from . import processor_messages
 logger = logging.getLogger(__name__)
 
 
-class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
+class MidiSourceNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QWidget):
     def __init__(self, node: model.MidiSource, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         form = QtWidgets.QWidget(self)
         form.setAutoFillBackground(False)
@@ -87,11 +88,6 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
             )
         )
         self.setLayout(layout)
-
-    def cleanup(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
 
     def __deviceURIEdited(self, uri: str) -> None:
         if uri != self.__node.device_uri:
@@ -138,12 +134,8 @@ class MidiSourceNode(base_node.Node):
 
         super().__init__(node=node, **kwargs)
 
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-        super().cleanup()
-
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
         self.__widget = MidiSourceNodeWidget(node=self.__node, context=self.context)
+        self.add_cleanup_function(self.__widget.cleanup)
         return self.__widget

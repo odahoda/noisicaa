@@ -125,7 +125,8 @@ class MeasuredTrackConnector(node_connector.NodeConnector):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self._listeners = {}  # type: Dict[str, core.Listener]
+        self._listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self._listeners.cleanup)
 
         self.__node_id = self._node.pipeline_node_id
         self.__measure_events = {}  # type: Dict[int, List[PianoRollInterval]]
@@ -139,13 +140,6 @@ class MeasuredTrackConnector(node_connector.NodeConnector):
         self._listeners['measure_list'] = self._node.measure_list_changed.add(
             self.__measure_list_changed)
         self._add_track_listeners()
-
-    def close(self) -> None:
-        for listener in self._listeners.values():
-            listener.remove()
-        self._listeners.clear()
-
-        super().close()
 
     def __add_event(self, event: PianoRollInterval) -> None:
         self._emit_message(event.create_add_message(self.__node_id))
@@ -221,14 +215,14 @@ class MeasuredTrackConnector(node_connector.NodeConnector):
 
     def __remove_measure(self, mref: MeasureReference) -> None:
         self._remove_measure_listeners(mref)
-        self._listeners.pop('measure:%s:ref' % mref.id).remove()
+        del self._listeners['measure:%s:ref' % mref.id]
 
         for event in self.__measure_events.pop(mref.id):
             self.__remove_event(event)
 
     def __measure_changed(self, mref: MeasureReference) -> None:
         self._remove_measure_listeners(mref)
-        self._listeners.pop('measure:%s:ref' % mref.id).remove()
+        del self._listeners['measure:%s:ref' % mref.id]
 
         self._listeners['measure:%s:ref' % mref.id] = mref.measure_changed.add(
             lambda _: self.__measure_changed(mref))

@@ -57,7 +57,7 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         self.__playback_time = None  # type: audioproc.MusicalTime
         self.__track_editor = track_editor
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         pass
 
     @property
@@ -135,7 +135,7 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         pass
 
 
-class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
+class MeasureEditor(selection_set.Selectable, core.AutoCleanupMixin, BaseMeasureEditor):
     selection_class = 'measure'
 
     PLAYBACK_POS = 'playback_pos'
@@ -157,24 +157,21 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
         self.__selected = False
         self.__hovered = False
 
-        self.measure_listeners = []  # type: List[core.Listener]
+        self._measure_listeners = core.ListenerList()
+        self.add_cleanup_function(self._measure_listeners.cleanup)
 
         if self.__measure is not None:
             self.addMeasureListeners()
 
         self.track_editor.hoveredMeasureChanged.connect(self.__onHoveredMeasureChanged)
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         if self.selected():
             self.selection_set.remove(self, update_object=False)
 
-        for listener in self.measure_listeners:
-            listener.remove()
-        self.measure_listeners.clear()
-
         self.track_editor.hoveredMeasureChanged.disconnect(self.__onHoveredMeasureChanged)
 
-        super().close()
+        super().cleanup()
 
     @property
     def duration(self) -> audioproc.MusicalDuration:
@@ -201,9 +198,7 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
         raise NotImplementedError
 
     def __measureChanged(self, change: music.PropertyValueChange[music.Measure]) -> None:
-        for listener in self.measure_listeners:
-            listener.remove()
-        self.measure_listeners.clear()
+        self._measure_listeners.cleanup()
 
         self.purgePaintCaches()
 
@@ -572,7 +567,9 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         super().__init__(**kwargs)
 
         self.__closing = False
-        self.__listeners = []  # type: List[core.Listener]
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
+
         self.__measure_editor_at_playback_pos = None  # type: BaseMeasureEditor
         self.__hover_measure_editor = None  # type: BaseMeasureEditor
 
@@ -584,21 +581,17 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         appendix_editor.rectChanged.connect(self.rectChanged)
         self.__measure_editors.append(appendix_editor)
 
-        self.__listeners.append(self.track.measure_list_changed.add(self.onMeasureListChanged))
+        self.__listeners.add(self.track.measure_list_changed.add(self.onMeasureListChanged))
 
         self.updateMeasures()
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         self.__closing = True
-
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
 
         while len(self.__measure_editors) > 0:
             self.removeMeasure(0)
 
-        super().close()
+        super().cleanup()
 
     @property
     def track(self) -> music.MeasuredTrack:
@@ -628,7 +621,7 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
 
     def removeMeasure(self, idx: int) -> None:
         measure_editor = self.__measure_editors.pop(idx)
-        measure_editor.close()
+        measure_editor.cleanup()
         measure_editor.rectChanged.disconnect(self.rectChanged)
         self.updateMeasures()
         self.rectChanged.emit(self.viewRect())

@@ -43,18 +43,12 @@ class Connector(node_connector.NodeConnector):
         super().__init__(**kwargs)
 
         self.__node_id = self._node.pipeline_node_id
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
     def _init_internal(self) -> None:
         self.__listeners['node_messages'] = self._audioproc_client.node_messages.add(
             self.__node_id, self.__node_message)
-
-    def close(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
-        super().close()
 
     def __node_message(self, msg: Dict[str, Any]) -> None:
         cc_urid = 'http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#cc'

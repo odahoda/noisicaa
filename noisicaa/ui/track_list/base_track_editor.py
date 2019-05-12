@@ -30,6 +30,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
+from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import player_state as player_state_lib
@@ -44,7 +45,11 @@ logger = logging.getLogger(__name__)
 
 
 # TODO: fold into BaseTrackEditor
-class _Base(time_view_mixin.ScaledTimeMixin, ui_base.ProjectMixin, QtCore.QObject):
+class _Base(
+        time_view_mixin.ScaledTimeMixin,
+        ui_base.ProjectMixin,
+        core.AutoCleanupMixin,
+        QtCore.QObject):
     rectChanged = QtCore.pyqtSignal(QtCore.QRect)
     sizeChanged = QtCore.pyqtSignal(QtCore.QSize)
 
@@ -59,9 +64,6 @@ class _Base(time_view_mixin.ScaledTimeMixin, ui_base.ProjectMixin, QtCore.QObjec
 
         self.scaleXChanged.connect(self.__scaleXChanged)
         self.contentWidthChanged.connect(self.setWidth)
-
-    def close(self) -> None:
-        pass
 
     @property
     def track(self) -> music.Track:

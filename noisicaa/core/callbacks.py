@@ -24,7 +24,7 @@ import collections
 import logging
 import random
 import threading
-from typing import Any, Dict, Callable, Awaitable, Generic, TypeVar
+from typing import Any, Dict, List, Iterable, Callable, Awaitable, Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -170,3 +170,40 @@ class CallbackMap(Generic[K, T]):
             return
 
         callback.call(*args, **kwargs)
+
+
+class ListenerMap(Generic[K]):
+    def __init__(self) -> None:
+        self.__listeners = {}  # type: Dict[K, BaseListener]
+
+    def cleanup(self) -> None:
+        for listener in self.__listeners.values():
+            listener.remove()
+        self.__listeners.clear()
+
+    def __getitem__(self, key: K) -> BaseListener:
+        return self.__listeners[key]
+
+    def __setitem__(self, key: K, listener: BaseListener) -> None:
+        assert key not in self.__listeners
+        self.__listeners[key] = listener
+
+    def __delitem__(self, key: K) -> None:
+        listener = self.__listeners.pop(key)
+        listener.remove()
+
+
+class ListenerList(object):
+    def __init__(self) -> None:
+        self.__listeners = []  # type: List[BaseListener]
+
+    def cleanup(self) -> None:
+        for listener in self.__listeners:
+            listener.remove()
+        self.__listeners.clear()
+
+    def add(self, listener: BaseListener) -> None:
+        self.__listeners.append(listener)
+
+    def extend(self, listeners: Iterable[BaseListener]) -> None:
+        self.__listeners.extend(listeners)

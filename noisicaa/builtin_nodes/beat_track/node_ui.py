@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import Any, Dict
+from typing import Any
 import logging
 import os.path
 
@@ -39,13 +39,14 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
-class BeatTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
+class BeatTrackWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
     def __init__(self, track: model.BeatTrack, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__track = track
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         body = QtWidgets.QWidget(self)
         body.setAutoFillBackground(False)
@@ -66,11 +67,6 @@ class BeatTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.setWidgetResizable(True)
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setWidget(body)
-
-    def cleanup(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
 
     def __pitchChanged(self, change: music.PropertyValueChange[str]) -> None:
         self.__pitch.setText(str(change.new_value))
@@ -97,12 +93,8 @@ class BeatTrackNode(track_node.TrackNode):
             icon=QtSvg.QSvgRenderer(os.path.join(DATA_DIR, 'icons', 'track-type-beat.svg')),
             **kwargs)
 
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-        super().cleanup()
-
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
         self.__widget = BeatTrackWidget(track=self.__track, context=self.context)
+        self.add_cleanup_function(self.__widget.cleanup)
         return self.__widget

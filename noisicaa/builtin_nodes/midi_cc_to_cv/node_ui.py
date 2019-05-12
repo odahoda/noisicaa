@@ -89,14 +89,15 @@ class LearnButton(QtWidgets.QToolButton):
             self.setPalette(palette)
 
 
-class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
+class ChannelUI(ui_base.ProjectMixin, core.AutoCleanupMixin, QtCore.QObject):
     def __init__(self, channel: model.MidiCCtoCVChannel, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__channel = channel
         self.__node = cast(model.MidiCCtoCV, channel.parent)
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
         self.__learning = False
 
         self.__midi_channel = QtWidgets.QSpinBox()
@@ -165,9 +166,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
 
     def cleanup(self) -> None:
         self.__learnStop()
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
+        super().cleanup()
 
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:
         learn_urid = 'http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#learn'
@@ -203,7 +202,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         self.call_async(self.project_view.sendNodeMessage(
             processor_messages.learn(self.__node, False)))
 
-        self.__listeners.pop('node-messages').remove()
+        del self.__listeners['node-messages']
 
     def __learnClicked(self, checked: bool) -> None:
         if checked:
@@ -259,13 +258,13 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
                 self.__channel.log_scale = value
 
 
-class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
+class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
     def __init__(self, node: model.MidiCCtoCV, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
 
         self.__channels = []  # type: List[ChannelUI]
         for idx, channel in enumerate(self.__node.channels):
@@ -311,13 +310,10 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         body.setLayout(body_layout)
 
     def cleanup(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
         for channel in self.__channels:
             channel.cleanup()
         self.__channels.clear()
+        super().cleanup()
 
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:
         cc_urid = 'http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#cc'
@@ -382,12 +378,8 @@ class MidiCCtoCVNode(base_node.Node):
 
         super().__init__(node=node, **kwargs)
 
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-        super().cleanup()
-
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
         self.__widget = MidiCCtoCVNodeWidget(node=self.__node, context=self.context)
+        self.__widget.add_cleanup_function(self.__widget.cleanup)
         return self.__widget

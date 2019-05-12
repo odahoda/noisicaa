@@ -43,7 +43,8 @@ class ControlTrackConnector(node_connector.NodeConnector):
         super().__init__(**kwargs)
 
         self.__node_id = self._node.pipeline_node_id
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
         self.__point_ids = {}  # type: Dict[int, int]
 
     def _init_internal(self) -> None:
@@ -52,13 +53,6 @@ class ControlTrackConnector(node_connector.NodeConnector):
 
         self.__listeners['points'] = self._node.points_changed.add(
             self.__points_list_changed)
-
-    def close(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
-        super().close()
 
     def __points_list_changed(self, change: music.PropertyChange) -> None:
         if isinstance(change, music.PropertyListInsert):
@@ -92,8 +86,8 @@ class ControlTrackConnector(node_connector.NodeConnector):
             node_id=self.__node_id,
             id=point_id))
 
-        self.__listeners.pop('cp:%s:time' % point.id).remove()
-        self.__listeners.pop('cp:%s:value' % point.id).remove()
+        del self.__listeners['cp:%s:time' % point.id]
+        del self.__listeners['cp:%s:value' % point.id]
 
     def __point_changed(self, point: 'ControlPoint') -> None:
         point_id = self.__point_ids[point.id]

@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, Optional, Dict, Callable
+from typing import Any, Optional, Callable
 
 from noisicaa import core
 from noisicaa import audioproc
@@ -42,20 +42,14 @@ class Connector(node_connector.NodeConnector):
         super().__init__(**kwargs)
 
         self.__node_id = self._node.pipeline_node_id
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
     def _init_internal(self) -> None:
         self.__change_instrument(self._node.instrument_uri)
 
         self.__listeners['instrument_uri'] = self._node.instrument_uri_changed.add(
             lambda change: self.__change_instrument(change.new_value))
-
-    def close(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
-        super().close()
 
     def __change_instrument(self, instrument_uri: str) -> None:
         try:

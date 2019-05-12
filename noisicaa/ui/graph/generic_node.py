@@ -26,6 +26,7 @@ from typing import Any, Optional, List
 from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
+from noisicaa import core
 from noisicaa import value_types
 from noisicaa import music
 from noisicaa import node_db
@@ -76,8 +77,9 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
         self.__node = node
         self.__port = port
 
-        self.__port_properties_listener = self.__node.port_properties_changed.add(
+        listener = self.__node.port_properties_changed.add(
             self.__portPropertiesChanged)
+        self.add_cleanup_function(listener.remove)
 
         layout = QtWidgets.QHBoxLayout()
         layout.setSpacing(0)
@@ -114,13 +116,6 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
         self.__widget = QtWidgets.QWidget(parent)
         self.__widget.setLayout(layout)
 
-    def cleanup(self) -> None:
-        if self.__port_properties_listener is not None:
-            self.__port_properties_listener.remove()
-            self.__port_properties_listener = None
-
-        super().cleanup()
-
     def label(self) -> str:
         return self.__port.display_name + ":"
 
@@ -156,7 +151,7 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
             self.__dial.setDisabled(port_properties.exposed)
 
 
-class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
+class GenericNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QWidget):
     def __init__(self, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
@@ -172,15 +167,11 @@ class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.setLayout(self.__main_layout)
 
         self.__setupControlValueForm()
-        self.__description_listener = self.__node.description_changed.add(
+        listener = self.__node.description_changed.add(
             lambda *_: self.__setupControlValueForm())
+        self.add_cleanup_function(listener.remove)
 
-    def cleanup(self) -> None:
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
-
-        self.__cleanupControlValueForm()
+        self.add_cleanup_function(self.__cleanupControlValueForm)
 
     def __cleanupControlValueForm(self) -> None:
         if self.__control_value_form is not None:
@@ -232,4 +223,6 @@ class GenericNode(base_node.Node):
         super().__init__(node=node, **kwargs)
 
     def createBodyWidget(self) -> QtWidgets.QWidget:
-        return GenericNodeWidget(node=self.node(), context=self.context)
+        widget = GenericNodeWidget(node=self.node(), context=self.context)
+        self.add_cleanup_function(widget.cleanup)
+        return widget

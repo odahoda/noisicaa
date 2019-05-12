@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -18,46 +20,19 @@
 #
 # @end:license
 
-from .process_manager import (
-    ProcessManager,
-    ProcessBase,
-    SubprocessMixin,
-)
-from .ipc_pb2 import (
-    StartSessionRequest,
-)
-from .callbacks import (
-    CallbackMap,
-    AsyncCallback,
-    Callback,
-    BaseListener,
-    Listener,
-    AsyncListener,
-    ListenerList,
-    ListenerMap,
-)
-from .perf_stats import (
-    PyPerfStats as PerfStats,
-)
-from .logging import (
-    init_pylogging,
-    RTSafeLogging,
-)
-from .status import (
-    Error,
-    ConnectionClosed,
-    Timeout,
-)
-from .threads import (
-    Thread,
-)
-from .backend_manager import (
-    BackendManager,
-    ManagedBackend,
-)
-from .typing_extra import (
-    down_cast,
-)
-from .auto_cleanup_mixin import (
-    AutoCleanupMixin,
-)
+from typing import Any, List, Callable
+
+
+class AutoCleanupMixin(object):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)  # type: ignore
+
+        self.__cleanup_functions = []  # type: List[Callable[[], None]]
+
+    def add_cleanup_function(self, func: Callable[[], None]) -> None:
+        self.__cleanup_functions.append(func)
+
+    def cleanup(self) -> None:
+        while self.__cleanup_functions:
+            func = self.__cleanup_functions.pop(0)
+            func()

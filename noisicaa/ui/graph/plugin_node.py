@@ -193,12 +193,6 @@ class PluginNode(generic_node.GenericNode):
 
         self.__plugin_ui = None  # type: Optional[PluginUI]
 
-    def cleanup(self) -> None:
-        if self.__plugin_ui is not None:
-            self.__plugin_ui.cleanup()
-
-        super().cleanup()
-
     def buildContextMenu(self, menu: QtWidgets.QMenu) -> None:
         if self.node().description.has_ui:
             show_ui = menu.addAction("Show UI")
@@ -213,3 +207,4 @@ class PluginNode(generic_node.GenericNode):
             self.__plugin_ui.activateWindow()
         else:
             self.__plugin_ui = PluginUI(node=self.node(), context=self.context)
+            self.add_cleanup_function(self.__plugin_ui.cleanup)

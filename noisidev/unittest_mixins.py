@@ -310,7 +310,7 @@ class NodeConnectorMixin(object):
             yield connector.init()
 
         finally:
-            connector.close()
+            connector.cleanup()
 
 
 class ProjectMixin(

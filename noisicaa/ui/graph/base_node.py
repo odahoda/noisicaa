@@ -22,7 +22,6 @@
 
 import functools
 import logging
-import typing
 from typing import cast, Any, Optional, Dict, List, Iterable
 
 from PyQt5.QtCore import Qt
@@ -32,14 +31,12 @@ from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
+from noisicaa import core
 from noisicaa import value_types
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
 from noisicaa.ui import mute_button
-
-if typing.TYPE_CHECKING:
-    from noisicaa import core
 
 logger = logging.getLogger(__name__)
 
@@ -388,7 +385,7 @@ class Port(QtWidgets.QGraphicsPathItem):
         self.setPath(path)
 
 
-class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
+class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem):
     __next_zvalue = 2.0
 
     def __init__(
@@ -406,7 +403,8 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         self.props = NodeProps()
 
         self.__session_prefix = 'node/%016x/' % node.id
-        self.__listeners = []  # type: List[core.Listener]
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         self.__node = node
 
@@ -465,22 +463,22 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
         self.__drag_rect = QtCore.QRectF()
 
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.name_changed.add(self.__nameChanged))
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.graph_pos_changed.add(self.__graphRectChanged))
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.graph_size_changed.add(self.__graphRectChanged))
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.graph_color_changed.add(lambda *_: self.__updateState()))
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.port_properties_changed.add(lambda *_: self.__layout()))
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.description_changed.add(lambda *_: self.__descriptionChanged()))
 
         self.__state = None  # type: audioproc.NodeStateChange.State
 
-        self.__listeners.append(
+        self.__listeners.add(
             self.audioproc_client.node_state_changed.add(
                 '%08x' % self.__node.id, self.__stateChanged))
 
@@ -539,13 +537,10 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             port.setup()
 
     def cleanup(self) -> None:
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
-
         for port in self.__ports.values():
             port.cleanup()
         self.__ports.clear()
+        super().cleanup()
 
     def node(self) -> music.BaseNode:
         return self.__node

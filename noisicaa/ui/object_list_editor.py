@@ -103,17 +103,20 @@ class ObjectListModel(QtCore.QAbstractTableModel):
         super().__init__(**kwargs)
 
         self.__columns = columns
-
-        self.__listeners = {}  # type: Dict[int, List[core.Listener]]
-
+        self.__listeners = {}  # type: Dict[int, core.ListenerList]
         self.__objects = []  # type: List[music.ObjectBase]
+
+    def cleanup(self) -> None:
+        for listeners in self.__listeners.values():
+            listeners.cleanup()
+        self.__listeners.clear()
 
     def objectAdded(self, obj: music.ObjectBase, row: int) -> None:
         self.beginInsertRows(QtCore.QModelIndex(), row, row)
         self.__objects.insert(row, obj)
         self.endInsertRows()
 
-        listeners = self.__listeners[obj.id] = []
+        listeners = self.__listeners[obj.id] = core.ListenerList()
         for column, col_spec in enumerate(self.__columns):
             listeners.extend(col_spec.addChangeListeners(
                 obj, functools.partial(self.__valueChanged, obj, column)))
@@ -123,9 +126,7 @@ class ObjectListModel(QtCore.QAbstractTableModel):
         obj = self.__objects.pop(row)
         self.endRemoveRows()
 
-        listeners = self.__listeners.pop(obj.id)
-        for listener in listeners:
-            listener.remove()
+        self.__listeners.pop(obj.id).cleanup()
 
     def __valueChanged(self, obj: music.ObjectBase, column: int) -> None:
         for row, robj in enumerate(self.__objects):
@@ -240,7 +241,7 @@ class ObjectListView(QtWidgets.QTableView):
         }
 
 
-class ObjectListEditor(QtWidgets.QWidget):
+class ObjectListEditor(core.AutoCleanupMixin, QtWidgets.QWidget):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
@@ -286,8 +287,10 @@ class ObjectListEditor(QtWidgets.QWidget):
         self.setLayout(l6)
 
     def setColumns(self, *columns: ColumnSpec) -> None:
+        assert self.__columns is None
         self.__columns = list(columns)
         self.__model = ObjectListModel(columns=self.__columns)
+        self.add_cleanup_function(self.__model.cleanup)
         self.__delegate = ObjectListDelegate(columns=self.__columns)
         self.__list.setModel(self.__model)
         self.__list.setItemDelegate(self.__delegate)

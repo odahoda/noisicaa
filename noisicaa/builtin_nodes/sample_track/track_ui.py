@@ -133,8 +133,10 @@ class SampleTrackToolBox(tools.ToolBox):
         self.addTool(EditSamplesTool(context=self.context))
 
 
-class SampleItem(object):
+class SampleItem(core.AutoCleanupMixin, object):
     def __init__(self, track_editor: 'SampleTrackEditor', sample: model.SampleRef) -> None:
+        super().__init__()
+
         self.__track_editor = track_editor
         self.__sample = sample
 
@@ -145,14 +147,9 @@ class SampleItem(object):
             self.__track_editor.timeToX(self.__sample.time), 0)
         self.__width = 50
 
-        self.__listeners = [
-            self.__sample.time_changed.add(self.onTimeChanged),
-        ]
-
-    def close(self) -> None:
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
+        self.__listeners.add(self.__sample.time_changed.add(self.onTimeChanged))
 
     @property
     def sample(self) -> model.SampleRef:
@@ -266,7 +263,8 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         super().__init__(**kwargs)
 
         self.__samples = []  # type: List[SampleItem]
-        self.__listeners = []  # type: List[core.Listener]
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         self.__playback_time = None  # type: audioproc.MusicalTime
         self.__highlighted_sample = None  # type: SampleItem
@@ -275,7 +273,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         for sample in self.track.samples:
             self.addSample(len(self.__samples), sample)
 
-        self.__listeners.append(self.track.samples_changed.add(self.onSamplesChanged))
+        self.__listeners.add(self.track.samples_changed.add(self.onSamplesChanged))
 
         self.setHeight(120)
 
@@ -283,16 +281,12 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
     def track(self) -> model.SampleTrack:
         return down_cast(model.SampleTrack, super().track)
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         for item in self.__samples:
-            item.close()
+            item.cleanup()
         self.__samples.clear()
 
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
-
-        super().close()
+        super().cleanup()
 
     def onSamplesChanged(self, change: music.PropertyListChange[model.SampleRef]) -> None:
         if isinstance(change, music.PropertyListInsert):
@@ -311,7 +305,7 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
 
     def removeSample(self, remove_index: int, sample: model.SampleRef) -> None:
         item = self.__samples.pop(remove_index)
-        item.close()
+        item.cleanup()
         self.rectChanged.emit(self.viewRect())
 
     def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:

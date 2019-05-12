@@ -19,6 +19,7 @@
 # @end:license
 
 add_python_package(
+  auto_cleanup_mixin.py
   backend_manager.py
   backend_manager_test.py
   callbacks.py

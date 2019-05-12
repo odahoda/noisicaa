@@ -179,8 +179,8 @@ class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitt
     def setPlayerID(self, player_id: str) -> None:
         self.__time_line.setPlayerID(player_id)
 
-    def close(self) -> None:
-        self.__editor.close()
+    def cleanup(self) -> None:
+        self.__editor.cleanup()
 
     def onPaste(self, *, mode: str) -> None:
         self.__editor.onPaste(mode=mode)

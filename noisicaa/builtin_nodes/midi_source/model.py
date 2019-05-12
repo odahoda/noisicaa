@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, Optional, Dict, Callable
+from typing import Any, Optional, Callable
 
 from noisicaa import core
 from noisicaa import node_db
@@ -41,7 +41,8 @@ class Connector(node_connector.NodeConnector):
         super().__init__(**kwargs)
 
         self.__node_id = self._node.pipeline_node_id
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
     def _init_internal(self) -> None:
         self._emit_message(processor_messages.update(
@@ -57,13 +58,6 @@ class Connector(node_connector.NodeConnector):
             lambda change: self._emit_message(processor_messages.update(
                 self.__node_id,
                 channel_filter=change.new_value)))
-
-    def close(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
-        super().close()
 
 
 class MidiSource(_model.MidiSource):

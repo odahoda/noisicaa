@@ -319,12 +319,13 @@ class PortListEditor(ui_base.ProjectMixin, object_list_editor.ObjectListEditor):
                 self.__node.delete_port(port)
 
 
-class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
+class Editor(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QDialog):
     def __init__(self, node: model.CustomCSound, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         self.__orchestra = self.__node.orchestra
         self.__score = self.__node.score
@@ -384,6 +385,7 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
         code_tab.setLayout(l4)
 
         ports_tab = PortListEditor(node=self.__node, context=self.context)
+        self.add_cleanup_function(ports_tab.cleanup)
 
         self.__tabs = QtWidgets.QTabWidget(self)
         self.__tabs.addTab(code_tab, "Code")
@@ -435,6 +437,7 @@ class CustomCSoundNode(generic_node.GenericNode):
     def cleanup(self) -> None:
         if self.__editor is not None:
             self.__editor.close()
+            self.__editor.cleanup()
             self.__editor = None
 
         super().cleanup()

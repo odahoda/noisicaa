@@ -570,11 +570,11 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
     }
 
     def addMeasureListeners(self) -> None:
-        self.measure_listeners.append(self.measure.content_changed.add(
+        self._measure_listeners.add(self.measure.content_changed.add(
             lambda _=None: self.invalidatePaintCache(self.FOREGROUND)))  # type: ignore
-        self.measure_listeners.append(self.measure.clef_changed.add(
+        self._measure_listeners.add(self.measure.clef_changed.add(
             self.onClefChanged))
-        self.measure_listeners.append(self.measure.key_signature_changed.add(
+        self._measure_listeners.add(self.measure.key_signature_changed.add(
             self.onKeySignatureChanged))
 
     def onClefChanged(self, change: music.PropertyValueChange[value_types.Clef]) -> None:

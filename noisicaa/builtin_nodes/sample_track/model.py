@@ -93,7 +93,8 @@ class SampleTrackConnector(node_connector.NodeConnector):
         super().__init__(**kwargs)
 
         self.__node_id = self._node.pipeline_node_id
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
         self.__sample_ids = {}  # type: Dict[int, int]
 
     def _init_internal(self) -> None:
@@ -102,13 +103,6 @@ class SampleTrackConnector(node_connector.NodeConnector):
 
         self.__listeners['samples'] = self._node.samples_changed.add(
             self.__samples_list_changed)
-
-    def close(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
-        super().close()
 
     def __samples_list_changed(self, change: music.PropertyChange) -> None:
         if isinstance(change, music.PropertyListInsert):
@@ -142,8 +136,8 @@ class SampleTrackConnector(node_connector.NodeConnector):
             node_id=self.__node_id,
             id=sample_id))
 
-        self.__listeners.pop('cp:%s:time' % sample_ref.id).remove()
-        self.__listeners.pop('cp:%s:sample' % sample_ref.id).remove()
+        del self.__listeners['cp:%s:time' % sample_ref.id]
+        del self.__listeners['cp:%s:sample' % sample_ref.id]
 
     def __sample_changed(self, sample_ref: 'SampleRef') -> None:
         sample_id = self.__sample_ids[sample_ref.id]

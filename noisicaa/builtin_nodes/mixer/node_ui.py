@@ -28,6 +28,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import vumeter
@@ -40,7 +41,7 @@ from noisicaa.ui.graph import base_node
 logger = logging.getLogger(__name__)
 
 
-class MixerNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
+class MixerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QWidget):
     def __init__(self, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
@@ -135,17 +136,13 @@ class MixerNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__float_urid = self.app.urid_mapper.map(
             'http://lv2plug.in/ns/ext/atom#Float')
 
-        self.__node_msg_listener = self.audioproc_client.node_messages.add(
+        listener = self.audioproc_client.node_messages.add(
             '%016x' % self.__node.id, self.__nodeMessage)
+        self.add_cleanup_function(listener.remove)
 
         self.setMinimumSize(QtCore.QSize(10, 10))
 
         self.__current_orientation = None  # type: Qt.Orientation
-
-    def cleanup(self) -> None:
-        if self.__node_msg_listener is not None:
-            self.__node_msg_listener.remove()
-            self.__node_msg_listener = None
 
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:
         meter = 'http://noisicaa.odahoda.de/lv2/processor_mixer#meter'
@@ -248,18 +245,7 @@ class MixerNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
 
 
 class MixerNode(base_node.Node):
-    def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
-        self.__widget = None  # type: MixerNodeWidget
-
-        super().__init__(node=node, **kwargs)
-
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-            self.__widget = None
-        super().cleanup()
-
     def createBodyWidget(self) -> QtWidgets.QWidget:
-        assert self.__widget is None
-        self.__widget = MixerNodeWidget(node=self.node(), context=self.context)
-        return self.__widget
+        widget = MixerNodeWidget(node=self.node(), context=self.context)
+        self.add_cleanup_function(widget.cleanup)
+        return widget

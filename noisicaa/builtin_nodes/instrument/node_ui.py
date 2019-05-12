@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
@@ -37,13 +37,14 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
-class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
+class InstrumentNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
     def __init__(self, node: model.Instrument, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         body = QtWidgets.QWidget(self)
         body.setAutoFillBackground(False)
@@ -78,11 +79,6 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.setWidgetResizable(True)
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setWidget(body)
-
-    def cleanup(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
 
     def __instrumentURIChanged(self, change: music.PropertyValueChange[str]) -> None:
         if change.new_value is not None:
@@ -123,12 +119,8 @@ class InstrumentNode(base_node.Node):
 
         super().__init__(node=node, **kwargs)
 
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-        super().cleanup()
-
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
         self.__widget = InstrumentNodeWidget(node=self.__node, context=self.context)
+        self.add_cleanup_function(self.__widget.cleanup)
         return self.__widget

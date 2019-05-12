@@ -134,9 +134,9 @@ class BeatMeasureEditor(measured_track_editor.MeasureEditor):
             8 * self.measure.time_signature.upper)
 
     def addMeasureListeners(self) -> None:
-        self.measure_listeners.append(self.measure.content_changed.add(
+        self._measure_listeners.add(self.measure.content_changed.add(
             lambda _=None: self.invalidatePaintCache(self.FOREGROUND)))  # type: ignore
-        self.measure_listeners.append(self.measure.beats_changed.add(
+        self._measure_listeners.add(self.measure.beats_changed.add(
             lambda _: self.invalidatePaintCache(self.FOREGROUND)))
 
     def setGhostTime(self, time: audioproc.MusicalDuration) -> None:
