@@ -33,6 +33,7 @@ from noisicaa.ui import device_list
 from noisicaa.ui import dynamic_layout
 from noisicaa.ui import piano
 from noisicaa.ui import ui_base
+from noisicaa.ui import property_connector
 from noisicaa.ui.graph import base_node
 from . import model
 from . import processor_messages
@@ -46,28 +47,26 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
 
         self.__node = node
 
-        self.__listeners = core.ListenerMap[str]()
-        self.add_cleanup_function(self.__listeners.cleanup)
-
         form = QtWidgets.QWidget(self)
         form.setAutoFillBackground(False)
         form.setAttribute(Qt.WA_NoSystemBackground, True)
 
         self.__device_uri = device_list.PortSelector(self.app.devices, form)
-        self.__device_uri.setSelectedPort(self.__node.device_uri)
-        self.__device_uri.selectedPortChanged.connect(self.__deviceURIEdited)
-        self.__listeners['device_uri'] = self.__node.device_uri_changed.add(
-            lambda change: self.__device_uri.setSelectedPort(change.new_value))
+        self.__device_uri_connector = property_connector.PortSelectorConnector(
+            self.__device_uri, self.__node, 'device_uri',
+            mutation_name='%s: Change device' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__device_uri_connector.cleanup)
 
         self.__channel_filter = QtWidgets.QComboBox(form)
         for value, text in [
                 (-1, "All channels")] + [(value, "%d" % (value + 1)) for value in range(0, 16)]:
             self.__channel_filter.addItem(text, value)
-            if value == self.__node.channel_filter:
-                self.__channel_filter.setCurrentIndex(self.__channel_filter.count() - 1)
-        self.__channel_filter.currentIndexChanged.connect(self.__channelFilterEdited)
-        self.__listeners['channel_filter'] = (
-            self.__node.channel_filter_changed.add(self.__channelFilterChanged))
+        self.__channel_filter_connector = property_connector.QComboBoxConnector[int](
+            self.__channel_filter, self.__node, 'channel_filter',
+            mutation_name='%s: Change MIDI channel filter' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__channel_filter_connector.cleanup)
 
         form_layout = QtWidgets.QFormLayout()
         form_layout.setVerticalSpacing(1)
@@ -88,22 +87,6 @@ class MidiSourceNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
             )
         )
         self.setLayout(layout)
-
-    def __deviceURIEdited(self, uri: str) -> None:
-        if uri != self.__node.device_uri:
-            with self.project.apply_mutations('%s: Change device' % self.__node.name):
-                self.__node.device_uri = uri
-
-    def __channelFilterChanged(self, change: music.PropertyValueChange[int]) -> None:
-        for idx in range(self.__channel_filter.count()):
-            if self.__channel_filter.itemData(idx) == change.new_value:
-                self.__channel_filter.setCurrentIndex(idx)
-
-    def __channelFilterEdited(self) -> None:
-        channel_filter = self.__channel_filter.currentData()
-        if channel_filter != self.__node.channel_filter:
-            with self.project.apply_mutations('%s: Change MIDI channel filter' % self.__node.name):
-                self.__node.channel_filter = channel_filter
 
     def __noteOn(self, pitch: value_types.Pitch) -> None:
         if self.__node.channel_filter >= 0:

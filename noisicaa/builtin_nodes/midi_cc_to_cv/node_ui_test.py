@@ -83,7 +83,7 @@ class MidiCCtoCVNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
             self.node.channels[0]. midi_channel = 12
 
         editor = self._getEditor(QtWidgets.QSpinBox, self.node.channels[0], 'midi_channel')
-        self.assertEqual(editor.value(), 13)
+        self.assertEqual(editor.value(), 12)
 
     async def test_channel_midi_controller_changed(self):
         with self.project.apply_mutations('test'):

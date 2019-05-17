@@ -22,7 +22,7 @@
 
 import logging
 import math
-from typing import cast, Any, Dict, List
+from typing import cast, Any, Dict, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -33,6 +33,7 @@ from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import control_value_dial
+from noisicaa.ui import property_connector
 from noisicaa.ui.graph import base_node
 from . import model
 from . import processor_messages
@@ -89,6 +90,29 @@ class LearnButton(QtWidgets.QToolButton):
             self.setPalette(palette)
 
 
+class MidiChannelSpinBox(QtWidgets.QSpinBox):
+    def textFromValue(self, value: int) -> str:
+        return super().textFromValue(value + 1)
+
+    def valueFromText(self, text: str) -> int:
+        return super().valueFromText(text) - 1
+
+    def validate(self, text: str, pos: int) -> Tuple[QtGui.QValidator.State, str, int]:
+        text = text.strip()
+        if not text:
+            return (QtGui.QValidator.Intermediate, text, pos)
+
+        try:
+            value = int(text) - 1
+        except ValueError:
+            return (QtGui.QValidator.Invalid, text, pos)
+
+        if self.minimum() <= value <= self.maximum():
+            return (QtGui.QValidator.Acceptable, text, pos)
+
+        return (QtGui.QValidator.Invalid, text, pos)
+
+
 class ChannelUI(ui_base.ProjectMixin, core.AutoCleanupMixin, QtCore.QObject):
     def __init__(self, channel: model.MidiCCtoCVChannel, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -100,21 +124,24 @@ class ChannelUI(ui_base.ProjectMixin, core.AutoCleanupMixin, QtCore.QObject):
         self.add_cleanup_function(self.__listeners.cleanup)
         self.__learning = False
 
-        self.__midi_channel = QtWidgets.QSpinBox()
+        self.__midi_channel = MidiChannelSpinBox()
         self.__midi_channel.setObjectName('channel[%016x]:midi_channel' % channel.id)
-        self.__midi_channel.setRange(1, 16)
-        self.__midi_channel.setValue(self.__channel.midi_channel + 1)
-        self.__midi_channel.valueChanged.connect(self.__midiChannelEdited)
-        self.__listeners['midi_channel'] = self.__channel.midi_channel_changed.add(
-            self.__midiChannelChanged)
+        self.__midi_channel.setKeyboardTracking(False)
+        self.__midi_channel.setRange(0, 15)
+        self.__midi_channel_connector = property_connector.QSpinBoxConnector(
+            self.__midi_channel, self.__channel, 'midi_channel',
+            mutation_name='%s: Change MIDI channel' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__midi_channel_connector.cleanup)
 
         self.__midi_controller = QtWidgets.QSpinBox()
         self.__midi_controller.setObjectName('channel[%016x]:midi_controller' % channel.id)
         self.__midi_controller.setRange(0, 127)
-        self.__midi_controller.setValue(self.__channel.midi_controller)
-        self.__midi_controller.valueChanged.connect(self.__midiControllerEdited)
-        self.__listeners['midi_controller'] = self.__channel.midi_controller_changed.add(
-            self.__midiControllerChanged)
+        self.__midi_controller_connector = property_connector.QSpinBoxConnector(
+            self.__midi_controller, self.__channel, 'midi_controller',
+            mutation_name='%s: Change MIDI controller' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__midi_controller_connector.cleanup)
 
         self.__learn_timeout = QtCore.QTimer()
         self.__learn_timeout.setInterval(5000)
@@ -130,24 +157,34 @@ class ChannelUI(ui_base.ProjectMixin, core.AutoCleanupMixin, QtCore.QObject):
         min_value_validator = QtGui.QDoubleValidator()
         min_value_validator.setRange(-100000, 100000, 3)
         self.__min_value.setValidator(min_value_validator)
-        self.__min_value.setText(fmt_value(self.__channel.min_value))
-        self.__min_value.editingFinished.connect(self.__minValueEdited)
-        self.__listeners['min_value'] = self.__channel.min_value_changed.add(self.__minValueChanged)
+        self.__min_value_connector = property_connector.QLineEditConnector[float](
+            self.__min_value, self.__channel, 'min_value',
+            mutation_name='%s: Change min. value' % self.__node.name,
+            parse_func=float,
+            display_func=fmt_value,
+            context=self.context)
+        self.add_cleanup_function(self.__min_value_connector.cleanup)
 
         self.__max_value = QtWidgets.QLineEdit()
         self.__max_value.setObjectName('channel[%016x]:max_value' % channel.id)
         max_value_validator = QtGui.QDoubleValidator()
         max_value_validator.setRange(-100000, 100000, 3)
         self.__max_value.setValidator(max_value_validator)
-        self.__max_value.setText(fmt_value(self.__channel.max_value))
-        self.__max_value.editingFinished.connect(self.__maxValueEdited)
-        self.__listeners['max_value'] = self.__channel.max_value_changed.add(self.__maxValueChanged)
+        self.__max_value_connector = property_connector.QLineEditConnector[float](
+            self.__max_value, self.__channel, 'max_value',
+            mutation_name='%s: Change max. value' % self.__node.name,
+            parse_func=float,
+            display_func=fmt_value,
+            context=self.context)
+        self.add_cleanup_function(self.__max_value_connector.cleanup)
 
         self.__log_scale = QtWidgets.QCheckBox()
         self.__log_scale.setObjectName('channel[%016x]:log_scale' % channel.id)
-        self.__log_scale.setChecked(self.__channel.log_scale)
-        self.__log_scale.stateChanged.connect(self.__logScaleEdited)
-        self.__listeners['log_scale'] = channel.log_scale_changed.add(self.__logScaleChanged)
+        self.__log_scale_connector = property_connector.QCheckBoxConnector(
+            self.__log_scale, self.__channel, 'log_scale',
+            mutation_name='%s: Change log scale' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__log_scale_connector.cleanup)
 
         self.__current_value = control_value_dial.ControlValueDial()
         self.__current_value.setRange(0.0, 1.0)
@@ -209,53 +246,6 @@ class ChannelUI(ui_base.ProjectMixin, core.AutoCleanupMixin, QtCore.QObject):
             self.__learnStart()
         else:
             self.__learnStop()
-
-    def __midiChannelChanged(self, change: music.PropertyValueChange[int]) -> None:
-        self.__midi_channel.setValue(change.new_value + 1)
-
-    def __midiChannelEdited(self, value: int) -> None:
-        value -= 1
-        if value != self.__channel.midi_channel:
-            with self.project.apply_mutations('%s: Change MIDI channel' % self.__node.name):
-                self.__channel.midi_channel = value
-
-    def __midiControllerChanged(self, change: music.PropertyValueChange[int]) -> None:
-        self.__midi_controller.setValue(change.new_value)
-
-    def __midiControllerEdited(self, value: int) -> None:
-        if value != self.__channel.midi_controller:
-            with self.project.apply_mutations('%s: Change MIDI controller' % self.__node.name):
-                self.__channel.midi_controller = value
-
-    def __minValueChanged(self, change: music.PropertyValueChange[float]) -> None:
-        self.__min_value.setText(fmt_value(self.__channel.min_value))
-
-    def __minValueEdited(self) -> None:
-        state, _, _ = self.__min_value.validator().validate(self.__min_value.text(), 0)
-        if state == QtGui.QValidator.Acceptable:
-            value = float(self.__min_value.text())
-            if value != self.__channel.min_value:
-                with self.project.apply_mutations('%s: Change min. value' % self.__node.name):
-                    self.__channel.min_value = value
-
-    def __maxValueChanged(self, change: music.PropertyValueChange[float]) -> None:
-        self.__max_value.setText(fmt_value(self.__channel.max_value))
-
-    def __maxValueEdited(self) -> None:
-        state, _, _ = self.__max_value.validator().validate(self.__max_value.text(), 0)
-        if state == QtGui.QValidator.Acceptable:
-            value = float(self.__max_value.text())
-            if value != self.__channel.max_value:
-                with self.project.apply_mutations('%s: Change max. value' % self.__node.name):
-                    self.__channel.max_value = value
-
-    def __logScaleChanged(self, change: music.PropertyValueChange[bool]) -> None:
-        self.__log_scale.setChecked(self.__channel.log_scale)
-
-    def __logScaleEdited(self, value: bool) -> None:
-        if value != self.__channel.log_scale:
-            with self.project.apply_mutations('%s: Change log scale' % self.__node.name):
-                self.__channel.log_scale = value
 
 
 class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):

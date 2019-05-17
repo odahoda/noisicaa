@@ -32,6 +32,7 @@ from noisicaa import core
 from noisicaa import music
 from noisicaa.constants import DATA_DIR
 from noisicaa.ui import ui_base
+from noisicaa.ui import property_connector
 from noisicaa.ui.graph import track_node
 from . import model
 
@@ -44,22 +45,21 @@ class ScoreTrackWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QS
 
         self.__track = track
 
-        self.__listeners = core.ListenerMap[str]()
-        self.add_cleanup_function(self.__listeners.cleanup)
-
         body = QtWidgets.QWidget(self)
         body.setAutoFillBackground(False)
         body.setAttribute(Qt.WA_NoSystemBackground, True)
 
         self.__transpose_octaves = QtWidgets.QSpinBox(body)
+        self.__transpose_octaves.setVisible(True)
+        self.__transpose_octaves.setKeyboardTracking(False)
         self.__transpose_octaves.setSuffix(' octaves')
         self.__transpose_octaves.setRange(-4, 4)
         self.__transpose_octaves.setSingleStep(1)
-        self.__transpose_octaves.valueChanged.connect(self.onTransposeOctavesEdited)
-        self.__transpose_octaves.setVisible(True)
-        self.__transpose_octaves.setValue(self.__track.transpose_octaves)
-        self.__listeners['track:transpose_octaves'] = (
-            self.__track.transpose_octaves_changed.add(self.onTransposeOctavesChanged))
+        connector = property_connector.QSpinBoxConnector(
+            self.__transpose_octaves, self.__track, 'transpose_octaves',
+            mutation_name='%s: Change transpose' % self.__track.name,
+            context=self.context)
+        self.add_cleanup_function(connector.cleanup)
 
         layout = QtWidgets.QFormLayout()
         layout.setVerticalSpacing(1)
@@ -70,14 +70,6 @@ class ScoreTrackWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QS
         self.setWidgetResizable(True)
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setWidget(body)
-
-    def onTransposeOctavesChanged(self, change: music.PropertyValueChange[int]) -> None:
-        self.__transpose_octaves.setValue(change.new_value)
-
-    def onTransposeOctavesEdited(self, transpose_octaves: int) -> None:
-        if transpose_octaves != self.__track.transpose_octaves:
-            with self.project.apply_mutations('%s: Change transpose' % self.__track.name):
-                self.__track.transpose_octaves = transpose_octaves
 
 
 class ScoreTrackNode(track_node.TrackNode):
