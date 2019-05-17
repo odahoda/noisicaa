@@ -56,18 +56,19 @@ class {{cls.name}}({{cls.super_class|join(', ')}}):  # pylint: disable=abstract-
 {%- endfor %}
 
 {% for prop in cls.properties %}
-    @property
-    def {{prop.name}}(self) -> {{prop|py_type}}:
+    def _get_{{prop.name}}(self) -> {{prop|py_type}}:
         return self.get_property_value('{{prop.name}}')
-{% if prop|has_setter %}
+{% if not prop|has_setter %}
 
-    @{{prop.name}}.setter
-    def {{prop.name}}(self, value: {{prop|py_type}}) -> None:
-        self._validate_{{prop.name}}(value)
+    {{prop.name}} = property(_get_{{prop.name}})
+
+{% else %}
+
+    def _set_{{prop.name}}(self, value: {{prop|py_type}}) -> None:
         self.set_property_value('{{prop.name}}', value)
 
-    def _validate_{{prop.name}}(self, value: {{prop|py_type}}) -> None:
-        pass
+    {{prop.name}} = property(_get_{{prop.name}}, _set_{{prop.name}})
+
 {% endif %}
 
     @property

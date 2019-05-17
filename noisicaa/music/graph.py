@@ -291,17 +291,20 @@ class Port(_model.Port, model_base.ProjectChild):
         self.type = cast(node_db.PortDescription.Type, type)
         self.direction = cast(node_db.PortDescription.Direction, direction)
 
-    def _validate_name(self, value: str) -> None:
+    def _set_name(self, value: str) -> None:
         if value != self.get_property_value('name', allow_unset=True):
             self.remove_connections()
+        super()._set_name(value)
 
-    def _validate_type(self, value: int) -> None:
+    def _set_type(self, value: int) -> None:
         if value != self.get_property_value('type', allow_unset=True):
             self.remove_connections()
+        super()._set_type(value)
 
-    def _validate_direction(self, value: int) -> None:
+    def _set_direction(self, value: int) -> None:
         if value != self.get_property_value('direction', allow_unset=True):
             self.remove_connections()
+        super()._set_direction(value)
 
     def remove_connections(self) -> None:
         node = down_cast(BaseNode, self.parent)

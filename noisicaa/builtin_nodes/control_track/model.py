@@ -112,7 +112,7 @@ class ControlPoint(_model.ControlPoint):
         self.time = time
         self.value = value
 
-    def _validate_time(self, value: audioproc.MusicalTime) -> None:
+    def _set_time(self, value: audioproc.MusicalTime) -> None:
         if self.parent is not None:
             if not self.is_first:
                 if value <= cast(ControlPoint, self.prev_sibling).time:
@@ -124,6 +124,8 @@ class ControlPoint(_model.ControlPoint):
             if not self.is_last:
                 if value >= cast(ControlPoint, self.next_sibling).time:
                     raise ValueError("Control point out of order.")
+
+        super()._set_time(value)
 
 
 class ControlTrack(_model.ControlTrack):

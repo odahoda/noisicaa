@@ -111,13 +111,17 @@ class Note(_model.Note):
                 and self.base_duration.denominator in (1, 2, 4, 8, 16, 32)), \
             self.base_duration
 
-    def _validate_dots(self, value: int) -> None:
+    def _set_dots(self, value: int) -> None:
         if value > self.max_allowed_dots:
             raise ValueError("Too many dots on note")
 
-    def _validate_tuplet(self, value: int) -> None:
+        super()._set_dots(value)
+
+    def _set_tuplet(self, value: int) -> None:
         if value not in (0, 3, 5):
             raise ValueError("Invalid tuplet type")
+
+        super()._set_tuplet(value)
 
     @property
     def measure(self) -> 'ScoreMeasure':
