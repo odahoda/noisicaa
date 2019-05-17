@@ -126,6 +126,8 @@ class BaseProject(_model.Project, model_base.ObjectBase):
         assert not self._in_mutation
         self._in_mutation = True
         try:
+            logger.info("Beginning mutation '%s'...", name)
+
             mutation_list = mutations_pb2.MutationList(
                 version=LOG_VERSION,
                 name=name,
@@ -136,6 +138,7 @@ class BaseProject(_model.Project, model_base.ObjectBase):
             with collector.collect():
                 yield
 
+            logger.info("Mutation '%s' finished:\n%s", name, mutation_list)
             self._mutation_list_applied(mutation_list)
 
         finally:
