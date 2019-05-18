@@ -87,12 +87,11 @@ class ControlValueMap(object):
         if isinstance(change, model_base.PropertyListInsert):
             new_value = change.new_value
             old_value = self.__get(new_value.name)
-
+            self.__control_values[new_value.name] = new_value
             self.control_value_changed.call(
                 new_value.name,
                 model_base.PropertyValueChange(
                     self.__node, new_value.name, old_value, new_value))
-            self.__control_values[new_value.name] = new_value
 
         elif isinstance(change, model_base.PropertyListDelete):
             pass
@@ -100,12 +99,11 @@ class ControlValueMap(object):
         elif isinstance(change, model_base.PropertyListSet):
             new_value = change.new_value
             old_value = self.__get(new_value.name)
-
+            self.__control_values[new_value.name] = new_value
             self.control_value_changed.call(
                 new_value.name,
                 model_base.PropertyValueChange(
                     self.__node, new_value.name, old_value, new_value))
-            self.__control_values[new_value.name] = new_value
 
         else:
             raise TypeError(type(change))
