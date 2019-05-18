@@ -574,11 +574,11 @@ class EditorWindow(ui_base.AbstractEditorWindow):
 
     def onUndo(self) -> None:
         project_view = self.getCurrentProjectView()
-        self.call_async(project_view.project_client.undo())
+        self.call_async(project_view.project.undo())
 
     def onRedo(self) -> None:
         project_view = self.getCurrentProjectView()
-        self.call_async(project_view.project_client.redo())
+        self.call_async(project_view.project.redo())
 
     def onClearSelection(self) -> None:
         view = self._project_tabs.currentWidget()

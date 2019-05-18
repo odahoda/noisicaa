@@ -224,26 +224,6 @@ class ProjectClient(object):
                     address=self.__writer_address))
             self.__writer_address = None
 
-    async def undo(self) -> None:
-        assert self.__project is not None
-        assert isinstance(self.__project, project_lib.Project)
-
-        # TODO: merge fetch_unddo/undo again.
-        undo_response = await self.__project.fetch_undo()
-        if undo_response is not None:
-            action, sequence_data = undo_response
-            self.__project.undo(action, sequence_data)
-
-    async def redo(self) -> None:
-        assert self.__project is not None
-        assert isinstance(self.__project, project_lib.Project)
-
-        # TODO: merge fetch_redo/redo again.
-        redo_response = await self.__project.fetch_redo()
-        if redo_response is not None:
-            action, sequence_data = redo_response
-            self.__project.redo(action, sequence_data)
-
     async def create_player(self, *, audioproc_address: str) -> Tuple[str, str]:
         assert self.__project is not None
 

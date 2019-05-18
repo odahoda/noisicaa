@@ -146,9 +146,9 @@ class ProjectIntegrationTest(
         snapshot_after = self.create_pool_snapshot(pool)
 
         # Undo and redo this command, and check that project states remain correct.
-        await client.undo()
+        await project.undo()
         self.assertSnapshotsEqual(self.create_pool_snapshot(pool), snapshot_before)
-        await client.redo()
+        await project.redo()
         self.assertSnapshotsEqual(self.create_pool_snapshot(pool), snapshot_after)
 
     async def test_script1(self):

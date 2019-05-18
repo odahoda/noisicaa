@@ -462,25 +462,25 @@ class Project(BaseProject):
         finally:
             self._in_mutation = False
 
-    async def fetch_undo(self) -> Optional[Tuple[storage.Action, bytes]]:
+    async def undo(self) -> None:
         assert not self.closed
         self.__flush_mutations()
-        return await self.__writer.undo()
+        response = await self.__writer.undo()
+        if response is not None:
+            action, mutation_list_serialized = response
+            self.__apply_mutation_list(
+                action,
+                self.deserialize_mutation_list(mutation_list_serialized))
 
-    def undo(self, action: storage.Action, mutation_list_serialized: bytes) -> None:
-        self.__apply_mutation_list(
-            action,
-            self.deserialize_mutation_list(mutation_list_serialized))
-
-    async def fetch_redo(self) -> Optional[Tuple[storage.Action, bytes]]:
+    async def redo(self) -> None:
         assert not self.closed
         self.__flush_mutations()
-        return await self.__writer.redo()
-
-    def redo(self, action: storage.Action, mutation_list_serialized: bytes) -> None:
-        self.__apply_mutation_list(
-            action,
-            self.deserialize_mutation_list(mutation_list_serialized))
+        response = await self.__writer.redo()
+        if response is not None:
+            action, mutation_list_serialized = response
+            self.__apply_mutation_list(
+                action,
+                self.deserialize_mutation_list(mutation_list_serialized))
 
 
 class Pool(model_base.Pool):

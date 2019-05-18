@@ -180,10 +180,10 @@ class ProjectTest(
                 with p.apply_mutations('test'):
                     p.bpm = i
 
-            p.undo(*(await p.fetch_undo()))
+            await p.undo()
             self.assertEqual(p.bpm, old_bpm)
 
-            p.redo(*(await p.fetch_redo()))
+            await p.redo()
             self.assertEqual(p.bpm, old_bpm + 9)
 
         finally:
