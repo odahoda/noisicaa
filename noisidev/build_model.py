@@ -185,6 +185,8 @@ class ModelBuilder(object):
             return 'WrappedProtoProperty'
         if prop.type == model_desc_pb2.PropertyDescription.WRAPPED_PROTO_LIST:
             return 'WrappedProtoListProperty'
+        if prop.type == model_desc_pb2.PropertyDescription.PROTO:
+            return 'ProtoProperty'
         return 'Property'
 
     def prop_cls_type(self, prop):
