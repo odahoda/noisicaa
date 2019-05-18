@@ -357,6 +357,8 @@ class ProjectClient(object):
             else:
                 raise ValueError("%s: %s" % (key, type(value)))
 
+            session_values.append(session_value)
+
         task = self.__event_loop.create_task(self.__session_values.set_values(session_values))
         task.add_done_callback(functools.partial(self.__set_session_values_done, data))
 
