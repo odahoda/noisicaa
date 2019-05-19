@@ -21,31 +21,30 @@
 # @end:license
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import instrument_library
 from noisicaa.ui.graph import base_node
-from . import client_impl
-from . import commands
+from . import model
 
 logger = logging.getLogger(__name__)
 
 
-class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
-    def __init__(self, node: client_impl.Instrument, **kwargs: Any) -> None:
+class InstrumentNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
+    def __init__(self, node: model.Instrument, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         body = QtWidgets.QWidget(self)
         body.setAutoFillBackground(False)
@@ -81,12 +80,7 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setWidget(body)
 
-    def cleanup(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
-    def __instrumentURIChanged(self, change: model.PropertyValueChange[str]) -> None:
+    def __instrumentURIChanged(self, change: music.PropertyValueChange[str]) -> None:
         if change.new_value is not None:
             self.__instrument.setText(change.new_value)
         else:
@@ -94,8 +88,8 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __instrumentURIEdited(self, instrument_uri: str) -> None:
         if instrument_uri != self.__node.instrument_uri:
-            self.send_command_async(commands.update(
-                self.__node, set_instrument_uri=instrument_uri))
+            with self.project.apply_mutations('%s: Change instrument' % self.__node.name):
+                self.__node.instrument_uri = instrument_uri
 
     async def __selectInstrument(self) -> None:
         dialog = instrument_library.InstrumentLibraryDialog(
@@ -119,18 +113,14 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
 class InstrumentNode(base_node.Node):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, client_impl.Instrument), type(node).__name__
+        assert isinstance(node, model.Instrument), type(node).__name__
         self.__widget = None  # type: InstrumentNodeWidget
-        self.__node = node  # type: client_impl.Instrument
+        self.__node = node  # type: model.Instrument
 
         super().__init__(node=node, **kwargs)
-
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-        super().cleanup()
 
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
         self.__widget = InstrumentNodeWidget(node=self.__node, context=self.context)
+        self.add_cleanup_function(self.__widget.cleanup)
         return self.__widget

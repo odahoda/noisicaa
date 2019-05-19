@@ -31,7 +31,6 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
@@ -40,8 +39,7 @@ from noisicaa.ui import control_value_dial
 from noisicaa.ui import slots
 from noisicaa.ui.graph import base_node
 from . import model_pb2
-from . import client_impl
-from . import commands
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -127,14 +125,15 @@ def width_for(widget: QtWidgets.QWidget, text: str) -> int:
     return fm.width(text)
 
 
-class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
-    def __init__(self, node: client_impl.StepSequencer, **kwargs: Any) -> None:
+class StepSequencerNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
+    def __init__(self, node: model.StepSequencer, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
         self.__node.control_value_map.init()
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         self.__listeners['node-messages'] = self.audioproc_client.node_messages.add(
             '%016x' % self.__node.id, self.__nodeMessage)
@@ -155,6 +154,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
             self.__tempo.setLogScale(True)
         self.__tempo_connector = control_value_connector.ControlValueConnector(
             node=self.__node, name='tempo', context=self.context)
+        self.add_cleanup_function(self.__tempo_connector.cleanup)
         self.__tempo_connector.connect(self.__tempo.valueChanged, self.__tempo.setValue)
 
         self.__num_steps = QtWidgets.QSpinBox()
@@ -181,7 +181,8 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.__step_layout.setSizeConstraint(QtWidgets.QLayout.SetMinAndMaxSize)
         self.__current_step = None  # type: QtWidgets.QLabel
         self.__step_labels = []  # type: List[QtWidgets.QLabel]
-        self.__matrix_listeners = []  # type: List[core.Listener]
+        self.__matrix_listeners = core.ListenerList()
+        self.add_cleanup_function(self.__matrix_listeners.cleanup)
         self.__updateStepMatrix()
 
         body_layout = QtWidgets.QVBoxLayout()
@@ -196,26 +197,14 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         body.setLayout(body_layout)
 
     def cleanup(self) -> None:
-        if self.__tempo_connector is not None:
-            self.__tempo_connector.cleanup()
-            self.__tempo_connector = None
-
-        for listener in self.__matrix_listeners:
-            listener.remove()
-        self.__matrix_listeners.clear()
+        self.__tempo_connector = None
         clearLayout(self.__step_layout)
-
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
+        super().cleanup()
 
     def __updateStepMatrix(self) -> None:
         self.__step_labels.clear()
         self.__current_step = None
-
-        for listener in self.__matrix_listeners:
-            listener.remove()
-        self.__matrix_listeners.clear()
+        self.__matrix_listeners.cleanup()
 
         clearLayout(self.__step_layout)
 
@@ -245,7 +234,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
                     channel_type.setCurrentIndex(channel_type.count() - 1)
             channel_type.currentIndexChanged.connect(
                 functools.partial(self.__channelTypeEdited, channel, channel_type))
-            self.__matrix_listeners.append(channel.type_changed.add(
+            self.__matrix_listeners.add(channel.type_changed.add(
                 functools.partial(self.__channelTypeChanged, channel, channel_type)))
             channel_layout.addWidget(channel_type)
 
@@ -264,7 +253,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
                 min_value.setText(fmt_value(channel.min_value))
                 min_value.editingFinished.connect(
                     functools.partial(self.__channelMinValueEdited, channel, min_value))
-                self.__matrix_listeners.append(channel.min_value_changed.add(
+                self.__matrix_listeners.add(channel.min_value_changed.add(
                     functools.partial(self.__channelMinValueChanged, channel, min_value)))
 
                 max_value = QtWidgets.QLineEdit()
@@ -275,14 +264,14 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
                 max_value.setText(fmt_value(channel.max_value))
                 max_value.editingFinished.connect(
                     functools.partial(self.__channelMaxValueEdited, channel, max_value))
-                self.__matrix_listeners.append(channel.max_value_changed.add(
+                self.__matrix_listeners.add(channel.max_value_changed.add(
                     functools.partial(self.__channelMaxValueChanged, channel, max_value)))
 
                 log_scale = QtWidgets.QCheckBox()
                 log_scale.setChecked(channel.log_scale)
                 log_scale.stateChanged.connect(
                     functools.partial(self.__channelLogScaleEdited, channel, log_scale))
-                self.__matrix_listeners.append(channel.log_scale_changed.add(
+                self.__matrix_listeners.add(channel.log_scale_changed.add(
                     functools.partial(self.__channelLogScaleChanged, channel, log_scale)))
 
                 l1 = QtWidgets.QHBoxLayout()
@@ -330,7 +319,7 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
                     step_enabled.setChecked(step.enabled)
                     step_enabled.checkedChanged.connect(
                         functools.partial(self.__stepEnabledEdited, step, step_enabled))
-                    self.__matrix_listeners.append(step.enabled_changed.add(
+                    self.__matrix_listeners.add(step.enabled_changed.add(
                         functools.partial(self.__stepEnabledChanged, step, step_enabled)))
                     self.__step_layout.addWidget(step_enabled, row, col + 2)
 
@@ -343,15 +332,15 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
                     step_value.setDisplayFunc(functools.partial(self.__stepValueText, channel))
                     step_value.valueChanged.connect(
                         functools.partial(self.__stepValueEdited, step, step_value))
-                    self.__matrix_listeners.append(step.value_changed.add(
+                    self.__matrix_listeners.add(step.value_changed.add(
                         functools.partial(self.__stepValueChanged, step, step_value)))
                     self.__step_layout.addWidget(step_value, row + 1, col + 2)
                     # mypy fails to infer the type of the lambdas.
-                    self.__matrix_listeners.append(channel.min_value_changed.add(
+                    self.__matrix_listeners.add(channel.min_value_changed.add(
                         lambda _, w=step_value: w.update()))  # type: ignore
-                    self.__matrix_listeners.append(channel.max_value_changed.add(
+                    self.__matrix_listeners.add(channel.max_value_changed.add(
                         lambda _, w=step_value: w.update()))  # type: ignore
-                    self.__matrix_listeners.append(channel.log_scale_changed.add(
+                    self.__matrix_listeners.add(channel.log_scale_changed.add(
                         lambda _, w=step_value: w.update()))  # type: ignore
 
             row += 2
@@ -361,115 +350,112 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         for col in range(self.__node.num_steps):
             self.__step_layout.setColumnStretch(col + 2, 2)
 
-    def __numStepsChanged(self, change: model.PropertyValueChange[int]) -> None:
+    def __numStepsChanged(self, change: music.PropertyValueChange[int]) -> None:
         self.__num_steps.setValue(self.__node.num_steps)
         self.__updateStepMatrix()
 
     def __numStepsEdited(self, value: int) -> None:
         if value != self.__node.num_steps:
-            self.send_command_async(commands.update(
-                self.__node, set_num_steps=value))
+            with self.project.apply_mutations('%s: Change step count' % self.__node.name):
+                self.__node.set_num_steps(value)
 
     def __numChannelsChanged(
             self,
-            change: model.PropertyListChange[client_impl.StepSequencerChannel]
+            change: music.PropertyListChange[model.StepSequencerChannel]
     ) -> None:
         self.__num_channels.setValue(len(self.__node.channels))
         self.__updateStepMatrix()
 
     def __numChannelsEdited(self, value: int) -> None:
-        cmds = []
+        if value != len(self.__node.channels):
+            with self.project.apply_mutations('%s: Change channel count' % self.__node.name):
+                for idx in range(len(self.__node.channels), value):
+                    self.__node.create_channel(idx)
 
-        for idx in range(len(self.__node.channels), value):
-            cmds.append(commands.update(
-                self.__node, add_channel=idx))
-
-        for idx in range(value, len(self.__node.channels)):
-            cmds.append(commands.delete_channel(
-                self.__node.channels[idx]))
-
-        if cmds:
-            self.send_commands_async(*cmds)
+                for idx in reversed(range(value, len(self.__node.channels))):
+                    self.__node.delete_channel(self.__node.channels[idx])
 
     def __channelTypeChanged(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: model.StepSequencerChannel,
             widget: QtWidgets.QComboBox,
-            change: model.PropertyValueChange[int]
+            change: music.PropertyValueChange[int]
     ) -> None:
         self.__updateStepMatrix()
 
     def __channelTypeEdited(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: model.StepSequencerChannel,
             widget: QtWidgets.QComboBox,
     ) -> None:
         value = widget.currentData()
         if value != channel.type:
-            self.send_command_async(commands.update_channel(
-                channel, set_type=value))
+            with self.project.apply_mutations('%s: Change channel type' % self.__node.name):
+                channel.type = value
 
     def __channelMinValueChanged(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: model.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
-            change: model.PropertyValueChange[float]
+            change: music.PropertyValueChange[float]
     ) -> None:
         widget.setText(fmt_value(channel.min_value))
 
     def __channelMinValueEdited(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: model.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
     ) -> None:
         state, _, _ = widget.validator().validate(widget.text(), 0)
         if state == QtGui.QValidator.Acceptable:
             value = float(widget.text())
             if value != channel.min_value:
-                self.send_command_async(commands.update_channel(
-                    channel, set_min_value=value))
+                with self.project.apply_mutations(
+                        '%s: Change channel min. value' % self.__node.name):
+                    channel.min_value = value
 
     def __channelMaxValueChanged(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: model.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
-            change: model.PropertyValueChange[float]
+            change: music.PropertyValueChange[float]
     ) -> None:
         widget.setText(fmt_value(channel.max_value))
 
     def __channelMaxValueEdited(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: model.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
     ) -> None:
         state, _, _ = widget.validator().validate(widget.text(), 0)
         if state == QtGui.QValidator.Acceptable:
             value = float(widget.text())
             if value != channel.max_value:
-                self.send_command_async(commands.update_channel(
-                    channel, set_max_value=value))
+                with self.project.apply_mutations(
+                        '%s: Change channel max. value' % self.__node.name):
+                    channel.max_value = value
 
     def __channelLogScaleChanged(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: model.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
-            change: model.PropertyValueChange[bool]
+            change: music.PropertyValueChange[bool]
     ) -> None:
         widget.setChecked(channel.log_scale)
 
     def __channelLogScaleEdited(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: model.StepSequencerChannel,
             widget: control_value_dial.ControlValueDial,
             value: bool
     ) -> None:
         if value != channel.log_scale:
-            self.send_command_async(commands.update_channel(
-                channel, set_log_scale=value))
+            with self.project.apply_mutations('%s: Change log scale' % self.__node.name):
+                channel.log_scale = value
 
     def __stepValueText(
             self,
-            channel: client_impl.StepSequencerChannel,
+            channel: model.StepSequencerChannel,
             value: float
     ) -> str:
         if channel.log_scale:
@@ -485,39 +471,39 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __stepValueChanged(
             self,
-            step: client_impl.StepSequencerStep,
+            step: model.StepSequencerStep,
             widget: control_value_dial.ControlValueDial,
-            change: model.PropertyValueChange[float]
+            change: music.PropertyValueChange[float]
     ) -> None:
         widget.setValue(step.value)
 
     def __stepValueEdited(
             self,
-            step: client_impl.StepSequencerStep,
+            step: model.StepSequencerStep,
             widget: control_value_dial.ControlValueDial,
             value: float
     ) -> None:
         if value != step.value:
-            self.send_command_async(commands.update_step(
-                step, set_value=value))
+            with self.project.apply_mutations('%s: Change step value' % self.__node.name):
+                step.value = value
 
     def __stepEnabledChanged(
             self,
-            step: client_impl.StepSequencerStep,
+            step: model.StepSequencerStep,
             widget: StepToggle,
-            change: model.PropertyValueChange[bool]
+            change: music.PropertyValueChange[bool]
     ) -> None:
         widget.setChecked(step.enabled)
 
     def __stepEnabledEdited(
             self,
-            step: client_impl.StepSequencerStep,
+            step: model.StepSequencerStep,
             widget: StepToggle,
             value: bool
     ) -> None:
         if value != step.enabled:
-            self.send_command_async(commands.update_step(
-                step, set_enabled=value))
+            with self.project.apply_mutations('%s: Toggle step' % self.__node.name):
+                step.enabled = value
 
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:
         current_step_uri = 'http://noisicaa.odahoda.de/lv2/processor_step_sequencer#current_step'
@@ -536,18 +522,14 @@ class StepSequencerNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
 class StepSequencerNode(base_node.Node):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, client_impl.StepSequencer), type(node).__name__
+        assert isinstance(node, model.StepSequencer), type(node).__name__
         self.__widget = None  # type: StepSequencerNodeWidget
-        self.__node = node  # type: client_impl.StepSequencer
+        self.__node = node  # type: model.StepSequencer
 
         super().__init__(node=node, **kwargs)
-
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-        super().cleanup()
 
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
         self.__widget = StepSequencerNodeWidget(node=self.__node, context=self.context)
+        self.add_cleanup_function(self.__widget.cleanup)
         return self.__widget

@@ -21,167 +21,94 @@
 # @end:license
 
 import logging
+import typing
 from typing import List
 
 from noisidev import unittest
-from noisicaa.core import ipc
-from noisicaa import audioproc
-from noisicaa import model
-from . import commands_test
-from . import project_client
+from noisidev import unittest_mixins
+from noisicaa import value_types
+
+if typing.TYPE_CHECKING:
+    from . import model_base
 
 logger = logging.getLogger(__name__)
 
 
-class GraphCommandsTest(commands_test.CommandsTestMixin, unittest.AsyncTestCase):
+class GraphCommandsTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
     async def test_create_node(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://midi-source',
-            name='test_node'))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations('test'):
+            node = self.project.create_node(
+                'builtin://midi-source',
+                name='test_node')
         self.assertEqual(node.name, 'test_node')
 
     async def test_delete_node(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://midi-source'))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations('test'):
+            node = self.project.create_node('builtin://midi-source')
 
-        await self.client.send_command(project_client.delete_node(node))
+        with self.project.apply_mutations('test'):
+            self.project.remove_node(node)
         self.assertNotIn(node.id, [n.id for n in self.project.nodes])
 
     async def test_create_node_connection(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://midi-source'))
-        node1 = self.project.nodes[-1]
-        await self.client.send_command(project_client.create_node(
-            'builtin://instrument'))
-        node2 = self.project.nodes[-1]
+        with self.project.apply_mutations('test'):
+            node1 = self.project.create_node('builtin://midi-source')
+            node2 = self.project.create_node('builtin://instrument')
 
-        await self.client.send_command(project_client.create_node_connection(
-            source_node=node1, source_port='out',
-            dest_node=node2, dest_port='in'))
-        conn = self.project.node_connections[-1]
+        with self.project.apply_mutations('test'):
+            conn = self.project.create_node_connection(
+                source_node=node1, source_port='out',
+                dest_node=node2, dest_port='in')
         self.assertIs(conn.source_node, node1)
         self.assertEqual(conn.source_port, 'out')
         self.assertIs(conn.dest_node, node2)
         self.assertEqual(conn.dest_port, 'in')
 
     async def test_delete_node_connection(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://midi-source'))
-        node1 = self.project.nodes[-1]
-        await self.client.send_command(project_client.create_node(
-            'builtin://instrument'))
-        node2 = self.project.nodes[-1]
-        await self.client.send_command(project_client.create_node_connection(
-            source_node=node1, source_port='out',
-            dest_node=node2, dest_port='in'))
-        conn = self.project.node_connections[-1]
+        with self.project.apply_mutations('test'):
+            node1 = self.project.create_node('builtin://midi-source')
+            node2 = self.project.create_node('builtin://instrument')
+            conn = self.project.create_node_connection(
+                source_node=node1, source_port='out',
+                dest_node=node2, dest_port='in')
 
-        await self.client.send_command(project_client.delete_node_connection(conn))
+        with self.project.apply_mutations('test'):
+            self.project.remove_node_connection(conn)
         self.assertNotIn(conn.id, [c.id for c in self.project.node_connections])
 
-    async def test_set_graph_pos(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://csound/reverb',
-            graph_pos=model.Pos2F(200, 100)))
-        node = self.project.nodes[-1]
-
-        await self.client.send_command(project_client.update_node(
-            node,
-            set_graph_pos=model.Pos2F(100, 300)))
-        self.assertEqual(node.graph_pos, model.Pos2F(100, 300))
-
     async def test_set_control_value(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://mixer'))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations('test'):
+            node = self.project.create_node('builtin://mixer')
 
-        changes = []  # type: List[model.PropertyValueChange]
+        changes = []  # type: List[model_base.PropertyValueChange]
         node.control_value_map.init()
         node.control_value_map.control_value_changed.add('gain', changes.append)
         self.assertEqual(node.control_value_map.value('gain'), 0.0)
 
-        await self.client.send_command(project_client.update_node(
-            node,
-            set_control_value=model.ControlValue(
-                name='gain',
-                value=1.0,
-                generation=12)))
+        with self.project.apply_mutations('test'):
+            node.set_control_value('gain', 1.0, 12)
 
         self.assertEqual(node.control_value_map.value('gain'), 1.0)
         self.assertEqual(node.control_value_map.generation('gain'), 12)
 
         self.assertEqual(len(changes), 1)
-        self.assertEqual(changes[0].new_value, model.ControlValue('gain', 1.0, 12))
-
-    async def test_set_plugin_state(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://csound/reverb',
-            graph_pos=model.Pos2F(200, 100)))
-        node = self.project.nodes[-1]
-
-        plugin_state = audioproc.PluginState(
-            lv2=audioproc.PluginStateLV2(
-                properties=[
-                    audioproc.PluginStateLV2Property(
-                        key='k1',
-                        type='string',
-                        value='lalila'.encode('utf-8'))]))
-        await self.client.send_command(project_client.update_node(
-            node,
-            set_plugin_state=plugin_state))
-        self.assertEqual(node.plugin_state, plugin_state)
+        self.assertEqual(changes[0].new_value, value_types.ControlValue('gain', 1.0, 12))
 
     async def test_set_port_properties(self):
-        await self.client.send_command(project_client.create_node(
-            'builtin://csound/reverb',
-            graph_pos=model.Pos2F(200, 100)))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations('test'):
+            node = self.project.create_node('builtin://csound/reverb')
 
-        await self.client.send_command(project_client.update_node(
-            node,
-            set_port_properties=model.NodePortProperties('mix', exposed=True)))
+        with self.project.apply_mutations('test'):
+            node.set_port_properties(
+                value_types.NodePortProperties('mix', exposed=True))
         self.assertTrue(node.get_port_properties('mix').exposed)
 
-        await self.client.send_command(project_client.update_node(
-            node,
-            set_port_properties=model.NodePortProperties('mix', exposed=False)))
+        with self.project.apply_mutations('test'):
+            node.set_port_properties(
+                value_types.NodePortProperties('mix', exposed=False))
         self.assertFalse(node.get_port_properties('mix').exposed)
 
-        with self.assertRaises(ipc.RemoteException):
-            await self.client.send_command(project_client.update_node(
-                node,
-                set_port_properties=model.NodePortProperties('holla')))
-
-    # @unittest.skip("Implementation broken")
-    # async def test_node_to_preset(self):
-    #     await self.client.send_command(commands_pb2.Command(
-    #         command='create_node',
-    #         create_node=commands_pb2.CreateNode(
-    #             uri='builtin://csound/reverb',
-    #             graph_pos=model.Pos2F(200, 100).to_proto())))
-
-    #     preset = await self.client.send_command(commands_pb2.Command(
-    #         command='node_to_preset',
-    #         node_to_preset=commands_pb2.NodeToPreset()))
-    #     self.assertIsInstance(preset, bytes)
-
-    # @unittest.skip("Implementation broken")
-    # async def test_node_from_preset(self):
-    #     node_id = await self.client.send_command(commands_pb2.Command(
-    #         command='create_node',
-    #         create_node=commands_pb2.CreateNode(
-    #             uri='builtin://csound/reverb',
-    #             graph_pos=model.Pos2F(200, 100).to_proto())))
-    #     node = self.pool[node_id]
-
-    #     preset = await self.client.send_command(commands_pb2.Command(
-    #         command='node_to_preset',
-    #         node_to_preset=commands_pb2.NodeToPreset()))
-
-    #     await self.client.send_command(commands_pb2.Command(
-    #         command='node_from_preset',
-    #         node_from_preset=commands_pb2.NodeFromPreset(
-    #             node_id=node.id,
-    #             preset=preset)))
+        with self.assertRaises(Exception):
+            with self.project.apply_mutations('test'):
+                node.set_port_properties(
+                    value_types.NodePortProperties('holla'))

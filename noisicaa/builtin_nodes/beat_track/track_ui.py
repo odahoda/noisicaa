@@ -29,11 +29,10 @@ from PyQt5 import QtGui
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa.ui.track_list import measured_track_editor
 from noisicaa.ui.track_list import tools
-from . import commands
-from . import client_impl
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +60,13 @@ class EditBeatsTool(measured_track_editor.MeasuredToolBase):
 
             for beat in target.measure.beats:
                 if beat.time == click_time:
-                    self.send_command_async(commands.delete_beat(beat))
+                    with self.project.apply_mutations('%s: Remove beat' % target.track.name):
+                        target.measure.delete_beat(beat)
                     evt.accept()
                     return
 
-            self.send_command_async(commands.create_beat(
-                target.measure,
-                time=click_time))
+            with self.project.apply_mutations('%s: Insert beat' % target.track.name):
+                target.measure.create_beat(click_time)
             target.track_editor.playNoteOn(target.track.pitch)
             evt.accept()
             return
@@ -87,9 +86,9 @@ class EditBeatsTool(measured_track_editor.MeasuredToolBase):
 
             for beat in target.measure.beats:
                 if beat.time == click_time:
-                    self.send_command_async(commands.update_beat(
-                        beat,
-                        set_velocity=max(0, min(127, beat.velocity + vel_delta))))
+                    with self.project.apply_mutations(
+                            '%s: Change beat velocity' % target.track.name):
+                        beat.velocity = max(0, min(127, beat.velocity + vel_delta))
                     evt.accept()
                     return
 
@@ -122,12 +121,12 @@ class BeatMeasureEditor(measured_track_editor.MeasureEditor):
         self.__ghost_time = None  # type: audioproc.MusicalDuration
 
     @property
-    def track(self) -> client_impl.BeatTrack:
-        return down_cast(client_impl.BeatTrack, super().track)
+    def track(self) -> model.BeatTrack:
+        return down_cast(model.BeatTrack, super().track)
 
     @property
-    def measure(self) -> client_impl.BeatMeasure:
-        return down_cast(client_impl.BeatMeasure, super().measure)
+    def measure(self) -> model.BeatMeasure:
+        return down_cast(model.BeatMeasure, super().measure)
 
     def xToTime(self, x: int) -> audioproc.MusicalTime:
         return audioproc.MusicalDuration(
@@ -135,9 +134,9 @@ class BeatMeasureEditor(measured_track_editor.MeasureEditor):
             8 * self.measure.time_signature.upper)
 
     def addMeasureListeners(self) -> None:
-        self.measure_listeners.append(self.measure.content_changed.add(
+        self._measure_listeners.add(self.measure.content_changed.add(
             lambda _=None: self.invalidatePaintCache(self.FOREGROUND)))  # type: ignore
-        self.measure_listeners.append(self.measure.beats_changed.add(
+        self._measure_listeners.add(self.measure.beats_changed.add(
             lambda _: self.invalidatePaintCache(self.FOREGROUND)))
 
     def setGhostTime(self, time: audioproc.MusicalDuration) -> None:
@@ -234,15 +233,15 @@ class BeatTrackEditor(measured_track_editor.MeasuredTrackEditor):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__play_last_pitch = None  # type: model.Pitch
+        self.__play_last_pitch = None  # type: value_types.Pitch
 
         self.setHeight(60)
 
     @property
-    def track(self) -> client_impl.BeatTrack:
-        return down_cast(client_impl.BeatTrack, super().track)
+    def track(self) -> model.BeatTrack:
+        return down_cast(model.BeatTrack, super().track)
 
-    def playNoteOn(self, pitch: model.Pitch) -> None:
+    def playNoteOn(self, pitch: value_types.Pitch) -> None:
         self.playNoteOff()
 
         # TODO: use messages instead

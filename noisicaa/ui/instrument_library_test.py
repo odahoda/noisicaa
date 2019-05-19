@@ -58,7 +58,7 @@ class TracksModelTest(uitest.UITestCase):
             self.assertEqual(model.parent(instr1_index), folder1_index)
 
         finally:
-            model.close()
+            model.cleanup()
 
     async def test_addInstrument_long_path(self):
         model = instrument_library.LibraryModel(context=self.context)
@@ -98,4 +98,4 @@ class TracksModelTest(uitest.UITestCase):
                  ['/some', 'path2', 'test4']])
 
         finally:
-            model.close()
+            model.cleanup()

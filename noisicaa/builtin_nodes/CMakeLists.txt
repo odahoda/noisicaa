@@ -21,12 +21,13 @@
 add_python_package(
   node_description_registry.py
   ui_registry.py
-  client_registry.py
-  server_registry.py
+  model_registry.py
 )
 
 py_proto(model_registry.proto)
-py_proto(commands_registry.proto)
+add_dependencies(noisicaa.builtin_nodes.model_registry.proto noisicaa.builtin_nodes.midi_source.model.proto)
+add_dependencies(noisicaa.builtin_nodes.model_registry.proto noisicaa.builtin_nodes.beat_track.model.proto)
+
 py_proto(processor_message_registry.proto)
 cpp_proto(processor_message_registry.proto)
 

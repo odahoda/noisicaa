@@ -20,7 +20,7 @@
 #
 # @end:license
 
-from typing import Any, Dict
+from typing import Any
 import logging
 import os.path
 
@@ -30,23 +30,23 @@ from PyQt5 import QtSvg
 
 from noisicaa.constants import DATA_DIR
 from noisicaa import core
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa.ui.graph import track_node
 from noisicaa.ui import ui_base
-from . import commands
-from . import client_impl
+from . import model
 
 logger = logging.getLogger(__name__)
 
 
-class BeatTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
-    def __init__(self, track: client_impl.BeatTrack, **kwargs: Any) -> None:
+class BeatTrackWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
+    def __init__(self, track: model.BeatTrack, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__track = track
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         body = QtWidgets.QWidget(self)
         body.setAutoFillBackground(False)
@@ -68,43 +68,33 @@ class BeatTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setWidget(body)
 
-    def cleanup(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
-    def __pitchChanged(self, change: model.PropertyValueChange[str]) -> None:
+    def __pitchChanged(self, change: music.PropertyValueChange[str]) -> None:
         self.__pitch.setText(str(change.new_value))
 
     def __pitchEdited(self) -> None:
         try:
-            pitch = model.Pitch(self.__pitch.text())
+            pitch = value_types.Pitch(self.__pitch.text())
         except ValueError:
             self.__pitch.setText(str(self.__track.pitch))
         else:
             if pitch != self.__track.pitch:
-                self.send_command_async(commands.update(
-                    self.__track,
-                    set_pitch=pitch))
+                with self.project.apply_mutations('%s: Change pitch' % self.__track.name):
+                    self.__track.pitch = pitch
 
 
 class BeatTrackNode(track_node.TrackNode):
     def __init__(self, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, client_impl.BeatTrack)
+        assert isinstance(node, model.BeatTrack)
         self.__widget = None  # type: BeatTrackWidget
-        self.__track = node  # type: client_impl.BeatTrack
+        self.__track = node  # type: model.BeatTrack
 
         super().__init__(
             node=node,
             icon=QtSvg.QSvgRenderer(os.path.join(DATA_DIR, 'icons', 'track-type-beat.svg')),
             **kwargs)
 
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-        super().cleanup()
-
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
         self.__widget = BeatTrackWidget(track=self.__track, context=self.context)
+        self.add_cleanup_function(self.__widget.cleanup)
         return self.__widget

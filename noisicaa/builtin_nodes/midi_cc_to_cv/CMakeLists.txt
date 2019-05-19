@@ -21,20 +21,18 @@
 add_python_package(
   node_description.py
   model.py
-  commands.py
-  client_impl.py
-  client_impl_test.py
-  server_impl.py
-  server_impl_test.py
+  model_test.py
   node_ui.py
   node_ui_test.py
   processor_test.py
   processor_messages.py
 )
 
+build_model(model.desc.pb _model.py noisicaa/builtin_nodes/model.tmpl.py)
+
 py_proto(model.proto)
+add_dependencies(noisicaa.builtin_nodes.midi_cc_to_cv.model.proto model-noisicaa.builtin_nodes.midi_cc_to_cv)
 cpp_proto(model.proto)
-py_proto(commands.proto)
 py_proto(processor.proto)
 cpp_proto(processor.proto)
 py_proto(processor_messages.proto)

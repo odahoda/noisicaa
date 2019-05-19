@@ -23,53 +23,24 @@
 import logging
 from typing import cast, Type
 
-from . import commands_test
-from . import project_client
-from . import project_client_model
+from noisidev import unittest_mixins
+from . import base_track
 
 logger = logging.getLogger(__name__)
 
 
-class TrackTestMixin(commands_test.CommandsTestMixin):
+class TrackTestMixin(unittest_mixins.ProjectMixin):
     node_uri = None  # type: str
-    track_cls = None  # type: Type[project_client_model.Track]
+    track_cls = None  # type: Type[base_track.Track]
 
     async def test_add_remove(self) -> None:
-        await self.client.send_command(project_client.create_node(
-            self.node_uri))
-        node = self.project.nodes[-1]
+        with self.project.apply_mutations('test'):
+            node = self.project.create_node(self.node_uri)
         assert isinstance(node, self.track_cls)
 
-        await self.client.send_command(project_client.delete_node(node))
+        with self.project.apply_mutations('test'):
+            self.project.remove_node(node)
 
-    async def _add_track(self) -> project_client_model.Track:
-        await self.client.send_command(project_client.create_node(
-            self.node_uri))
-        return cast(project_client_model.Track, self.project.nodes[-1])
-
-
-# class BaseTrackTest(TrackTestMixin, unittest.AsyncTestCase):
-#     node_uri = 'builtin://score-track'
-#     track_cls = project_client_model.ScoreTrack
-
-#     async def test_update_track_visible(self):
-#         track = await self._add_track()
-
-#         self.assertTrue(track.visible)
-#         await self.client.send_command(commands_pb2.Command(
-#             target=track.id,
-#             command='update_track',
-#             update_track=commands_pb2.UpdateTrack(
-#                 visible=False)))
-#         self.assertFalse(track.visible)
-
-#     async def test_update_track_list_position(self):
-#         track = await self._add_track()
-
-#         self.assertEqual(track.list_position, 0)
-#         await self.client.send_command(commands_pb2.Command(
-#             target=track.id,
-#             command='update_track',
-#             update_track=commands_pb2.UpdateTrack(
-#                 list_position=2)))
-#         self.assertEqual(track.list_position, 2)
+    async def _add_track(self) -> base_track.Track:
+        with self.project.apply_mutations('test'):
+            return cast(base_track.Track, self.project.create_node(self.node_uri))

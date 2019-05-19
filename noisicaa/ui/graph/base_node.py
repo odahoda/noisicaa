@@ -22,7 +22,6 @@
 
 import functools
 import logging
-import typing
 from typing import cast, Any, Optional, Dict, List, Iterable
 
 from PyQt5.QtCore import Qt
@@ -32,14 +31,12 @@ from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import core
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
 from noisicaa.ui import mute_button
-
-if typing.TYPE_CHECKING:
-    from noisicaa import core
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +50,7 @@ port_colors = {
 
 
 class SelectColorAction(QtWidgets.QWidgetAction):
-    colorSelected = QtCore.pyqtSignal(model.Color)
+    colorSelected = QtCore.pyqtSignal(value_types.Color)
 
     def __init__(self, parent: QtCore.QObject) -> None:
         super().__init__(parent)
@@ -64,7 +61,7 @@ class SelectColorAction(QtWidgets.QWidgetAction):
 class ColorBox(QtWidgets.QWidget):
     clicked = QtCore.pyqtSignal()
 
-    def __init__(self, color: model.Color, parent: QtWidgets.QWidget) -> None:
+    def __init__(self, color: value_types.Color, parent: QtWidgets.QWidget) -> None:
         super().__init__(parent)
 
         self.__color = color
@@ -94,45 +91,45 @@ class ColorBox(QtWidgets.QWidget):
 
 class SelectColorWidget(QtWidgets.QWidget):
     colors = [
-        model.Color(0.7, 0.7, 0.7),
-        model.Color(0.8, 0.8, 0.8),
-        model.Color(0.9, 0.9, 0.9),
-        model.Color(1.0, 1.0, 1.0),
+        value_types.Color(0.7, 0.7, 0.7),
+        value_types.Color(0.8, 0.8, 0.8),
+        value_types.Color(0.9, 0.9, 0.9),
+        value_types.Color(1.0, 1.0, 1.0),
 
-        model.Color(1.0, 0.6, 0.6),
-        model.Color(1.0, 0.7, 0.7),
-        model.Color(1.0, 0.8, 0.8),
-        model.Color(1.0, 0.9, 0.9),
+        value_types.Color(1.0, 0.6, 0.6),
+        value_types.Color(1.0, 0.7, 0.7),
+        value_types.Color(1.0, 0.8, 0.8),
+        value_types.Color(1.0, 0.9, 0.9),
 
-        model.Color(1.0, 0.6, 0.1),
-        model.Color(1.0, 0.7, 0.3),
-        model.Color(1.0, 0.8, 0.6),
-        model.Color(1.0, 0.9, 0.8),
+        value_types.Color(1.0, 0.6, 0.1),
+        value_types.Color(1.0, 0.7, 0.3),
+        value_types.Color(1.0, 0.8, 0.6),
+        value_types.Color(1.0, 0.9, 0.8),
 
-        model.Color(0.6, 1.0, 0.6),
-        model.Color(0.7, 1.0, 0.7),
-        model.Color(0.8, 1.0, 0.8),
-        model.Color(0.9, 1.0, 0.9),
+        value_types.Color(0.6, 1.0, 0.6),
+        value_types.Color(0.7, 1.0, 0.7),
+        value_types.Color(0.8, 1.0, 0.8),
+        value_types.Color(0.9, 1.0, 0.9),
 
-        model.Color(0.6, 0.6, 1.0),
-        model.Color(0.7, 0.7, 1.0),
-        model.Color(0.8, 0.8, 1.0),
-        model.Color(0.9, 0.9, 1.0),
+        value_types.Color(0.6, 0.6, 1.0),
+        value_types.Color(0.7, 0.7, 1.0),
+        value_types.Color(0.8, 0.8, 1.0),
+        value_types.Color(0.9, 0.9, 1.0),
 
-        model.Color(1.0, 0.6, 1.0),
-        model.Color(1.0, 0.7, 1.0),
-        model.Color(1.0, 0.8, 1.0),
-        model.Color(1.0, 0.9, 1.0),
+        value_types.Color(1.0, 0.6, 1.0),
+        value_types.Color(1.0, 0.7, 1.0),
+        value_types.Color(1.0, 0.8, 1.0),
+        value_types.Color(1.0, 0.9, 1.0),
 
-        model.Color(1.0, 1.0, 0.6),
-        model.Color(1.0, 1.0, 0.7),
-        model.Color(1.0, 1.0, 0.8),
-        model.Color(1.0, 1.0, 0.9),
+        value_types.Color(1.0, 1.0, 0.6),
+        value_types.Color(1.0, 1.0, 0.7),
+        value_types.Color(1.0, 1.0, 0.8),
+        value_types.Color(1.0, 1.0, 0.9),
 
-        model.Color(0.6, 1.0, 1.0),
-        model.Color(0.7, 1.0, 1.0),
-        model.Color(0.8, 1.0, 1.0),
-        model.Color(0.9, 1.0, 1.0),
+        value_types.Color(0.6, 1.0, 1.0),
+        value_types.Color(0.7, 1.0, 1.0),
+        value_types.Color(0.8, 1.0, 1.0),
+        value_types.Color(0.9, 1.0, 1.0),
     ]
 
     def __init__(self, *, action: SelectColorAction, **kwargs: Any) -> None:
@@ -388,7 +385,7 @@ class Port(QtWidgets.QGraphicsPathItem):
         self.setPath(path)
 
 
-class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
+class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem):
     __next_zvalue = 2.0
 
     def __init__(
@@ -406,7 +403,8 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         self.props = NodeProps()
 
         self.__session_prefix = 'node/%016x/' % node.id
-        self.__listeners = []  # type: List[core.Listener]
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         self.__node = node
 
@@ -465,22 +463,22 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
 
         self.__drag_rect = QtCore.QRectF()
 
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.name_changed.add(self.__nameChanged))
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.graph_pos_changed.add(self.__graphRectChanged))
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.graph_size_changed.add(self.__graphRectChanged))
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.graph_color_changed.add(lambda *_: self.__updateState()))
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.port_properties_changed.add(lambda *_: self.__layout()))
-        self.__listeners.append(
+        self.__listeners.add(
             self.__node.description_changed.add(lambda *_: self.__descriptionChanged()))
 
         self.__state = None  # type: audioproc.NodeStateChange.State
 
-        self.__listeners.append(
+        self.__listeners.add(
             self.audioproc_client.node_state_changed.add(
                 '%08x' % self.__node.id, self.__stateChanged))
 
@@ -539,13 +537,10 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
             port.setup()
 
     def cleanup(self) -> None:
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
-
         for port in self.__ports.values():
             port.cleanup()
         self.__ports.clear()
+        super().cleanup()
 
     def node(self) -> music.BaseNode:
         return self.__node
@@ -556,13 +551,13 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
     def name(self) -> str:
         return self.__node.name
 
-    def graph_pos(self) -> model.Pos2F:
+    def graph_pos(self) -> value_types.Pos2F:
         return self.__node.graph_pos
 
-    def graph_size(self) -> model.SizeF:
+    def graph_size(self) -> value_types.SizeF:
         return self.__node.graph_size
 
-    def upstream_nodes(self) -> List[model.BaseNode]:
+    def upstream_nodes(self) -> List[music.BaseNode]:
         return self.__node.upstream_nodes()
 
     def selected(self) -> bool:
@@ -840,17 +835,15 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         color_menu.addAction(color_action)
 
     def onRemove(self) -> None:
-        commands = []
-        for conn in self.__node.connections:
-            commands.append(music.delete_node_connection(conn))
-        commands.append(music.delete_node(self.__node))
-        self.send_commands_async(*commands)
+        with self.project.apply_mutations('Remove node %s' % self.__node.name):
+            for conn in self.__node.connections:
+                self.project.remove_node_connection(conn)
+            self.project.remove_node(self.__node)
 
-    def onSetColor(self, color: model.Color) -> None:
+    def onSetColor(self, color: value_types.Color) -> None:
         if color != self.__node.graph_color:
-            self.send_command_async(music.update_node(
-                self.__node,
-                set_graph_color=color))
+            with self.project.apply_mutations('%s: Set color' % self.__node.name):
+                self.__node.graph_color = color
 
     def renameNode(self) -> None:
         self.__rename_node = True
@@ -861,9 +854,8 @@ class Node(ui_base.ProjectMixin, QtWidgets.QGraphicsItem):
         new_name = self.__title_edit.text()
         if new_name != self.__node.name:
             self.__title.setText(self.__node.name)
-            self.send_command_async(music.update_node(
-                self.__node,
-                set_name=new_name))
+            with self.project.apply_mutations('%s: Rename to "%s"' % (self.__node.name, new_name)):
+                self.__node.name = new_name
 
         self.__rename_node = False
         self.__layout()

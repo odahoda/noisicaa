@@ -35,6 +35,7 @@ from noisicaa.constants import TEST_OPTS
 from noisicaa import runtime_settings as runtime_settings_lib
 from noisicaa import audioproc
 from noisicaa import core
+from noisicaa import lv2
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa import editor_main_pb2
@@ -92,18 +93,6 @@ class TestContext(object):
             raise task.exception()
         if callback is not None:
             callback(task.result())
-
-    def send_command_async(self, cmd):
-        self.__testcase.commands.append(cmd)
-        task = asyncio.Future(loop=self.__testcase.loop)
-        task.set_result(None)
-        return task
-
-    def send_commands_async(self, *cmd):
-        self.__testcase.commands.extend(cmd)
-        task = asyncio.Future(loop=self.__testcase.loop)
-        task.set_result(None)
-        return task
 
     def set_session_value(self, key, value):
         self.__testcase.session_data[key] = value
@@ -222,8 +211,6 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
 
         self.session_data = {}  # type: Dict[str, Any]
 
-        self.commands = []  # type: List[music.Command]
-
         self.context = TestContext(testcase=self)
 
     async def cleanup_testcase(self):
@@ -241,29 +228,27 @@ class UITestCase(unittest_mixins.ProcessManagerMixin, qttest.QtTestCase):
             await self.process.cleanup()
 
 
-class ProjectMixin(unittest_mixins.ServerMixin, UITestCase):
+class ProjectMixin(
+        unittest_mixins.ServerMixin,
+        unittest_mixins.URIDMapperMixin,
+        UITestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.project_address = None
         self.project_client = None
         self.project = None
 
     async def setup_testcase(self):
-        self.setup_project_process(inline=True)
-
-        create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(
-            uri='test-project')
-        create_project_process_response = editor_main_pb2.CreateProcessResponse()
-        await self.process_manager_client.call(
-            'CREATE_PROJECT_PROCESS',
-            create_project_process_request, create_project_process_response)
-        self.project_address = create_project_process_response.address
+        self.setup_writer_process(inline=True)
 
         self.project_client = music.ProjectClient(
-            event_loop=self.loop, server=self.server, node_db=self.node_db_client)
+            event_loop=self.loop,
+            server=self.server,
+            node_db=self.node_db_client,
+            urid_mapper=self.urid_mapper,
+            manager=self.process_manager_client,
+            tmp_dir=TEST_OPTS.TMP_DIR)
         await self.project_client.setup()
-        await self.project_client.connect(self.project_address)
 
         path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
         await self.project_client.create(path)
@@ -272,11 +257,4 @@ class ProjectMixin(unittest_mixins.ServerMixin, UITestCase):
 
     async def cleanup_testcase(self):
         if self.project_client is not None:
-            await self.project_client.disconnect()
             await self.project_client.cleanup()
-
-        if self.project_address is not None:
-            await self.process_manager_client.call(
-                'SHUTDOWN_PROCESS',
-                editor_main_pb2.ShutdownProcessRequest(
-                    address=self.project_address))

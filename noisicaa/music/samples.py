@@ -24,16 +24,17 @@ import logging
 from typing import Any, Optional
 
 from noisicaa.bindings import sndfile
-from . import pmodel
+from . import model_base
+from . import _model
 
 logger = logging.getLogger(__name__)
 
 
-class Sample(pmodel.Sample):
+class Sample(_model.Sample, model_base.ProjectChild):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self._samples = None  # type: memoryview
+        self.__samples = None  # type: memoryview
 
     def create(self, *, path: Optional[str] = None, **kwargs: Any) -> None:
         super().create(**kwargs)
@@ -42,7 +43,7 @@ class Sample(pmodel.Sample):
 
     @property
     def samples(self) -> memoryview:
-        if self._samples is None:
+        if self.__samples is None:
             with sndfile.SndFile(self.path) as sf:
-                self._samples = sf.get_samples()
-        return self._samples
+                self.__samples = sf.get_samples()
+        return self.__samples

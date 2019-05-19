@@ -38,9 +38,8 @@ from noisicaa import audioproc
 from noisicaa import lv2
 from noisicaa import editor_main_pb2
 from . import player
-from . import render_settings_pb2
-from . import pmodel
-from . import project_process_pb2
+from . import render_pb2
+from . import project as project_lib
 from . import session_value_store
 
 logger = logging.getLogger(__name__)
@@ -135,7 +134,7 @@ class Encoder(object):
             data_handler: Callable[[bytes], None],
             error_handler: Callable[[str], None],
             event_loop: asyncio.AbstractEventLoop,
-            settings: render_settings_pb2.RenderSettings
+            settings: render_pb2.RenderSettings
     ) -> None:
         self.event_loop = event_loop
         self.data_handler = data_handler
@@ -143,13 +142,13 @@ class Encoder(object):
         self.settings = settings
 
     @classmethod
-    def create(cls, *, settings: render_settings_pb2.RenderSettings, **kwargs: Any) -> 'Encoder':
+    def create(cls, *, settings: render_pb2.RenderSettings, **kwargs: Any) -> 'Encoder':
         cls_map = {
-            render_settings_pb2.RenderSettings.FLAC: FlacEncoder,
-            render_settings_pb2.RenderSettings.OGG: OggEncoder,
-            render_settings_pb2.RenderSettings.WAVE: WaveEncoder,
-            render_settings_pb2.RenderSettings.MP3: Mp3Encoder,
-            render_settings_pb2.RenderSettings.FAIL__TEST_ONLY__: FailingEncoder,
+            render_pb2.RenderSettings.FLAC: FlacEncoder,
+            render_pb2.RenderSettings.OGG: OggEncoder,
+            render_pb2.RenderSettings.WAVE: WaveEncoder,
+            render_pb2.RenderSettings.MP3: Mp3Encoder,
+            render_pb2.RenderSettings.FAIL__TEST_ONLY__: FailingEncoder,
         }
         encoder_cls = cls_map[settings.output_format]
         return encoder_cls(settings=settings, **kwargs)
@@ -291,14 +290,14 @@ class OggEncoder(FfmpegEncoder):
         ]
 
         encode_mode = self.settings.ogg_settings.encode_mode
-        if encode_mode == render_settings_pb2.RenderSettings.OggSettings.VBR:
+        if encode_mode == render_pb2.RenderSettings.OggSettings.VBR:
             quality = self.settings.ogg_settings.quality
             if not -1.0 <= quality <= 10.0:
                 raise ValueError("Invalid ogg_settings.quality %f" % quality)
 
             flags += ['-q', '%.1f' % quality]
 
-        elif encode_mode == render_settings_pb2.RenderSettings.OggSettings.CBR:
+        elif encode_mode == render_pb2.RenderSettings.OggSettings.CBR:
             bitrate = self.settings.ogg_settings.bitrate
             if not 45 <= bitrate <= 500:
                 raise ValueError("Invalid ogg_settings.bitrate %d" % bitrate)
@@ -333,14 +332,14 @@ class Mp3Encoder(FfmpegEncoder):
         ]
 
         encode_mode = self.settings.mp3_settings.encode_mode
-        if encode_mode == render_settings_pb2.RenderSettings.Mp3Settings.VBR:
+        if encode_mode == render_pb2.RenderSettings.Mp3Settings.VBR:
             compression_level = self.settings.mp3_settings.compression_level
             if not 0 <= compression_level <= 9:
                 raise ValueError("Invalid mp3_settings.compression_level %d" % compression_level)
 
             flags += ['-compression_level', '%d' % compression_level]
 
-        elif encode_mode == render_settings_pb2.RenderSettings.Mp3Settings.CBR:
+        elif encode_mode == render_pb2.RenderSettings.Mp3Settings.CBR:
             bitrate = self.settings.mp3_settings.bitrate
             if not 32 <= bitrate <= 320:
                 raise ValueError("Invalid mp3_settings.bitrate %d" % bitrate)
@@ -360,9 +359,9 @@ class FailingEncoder(SubprocessEncoder):
 class Renderer(object):
     def __init__(
             self, *,
-            project: pmodel.Project,
+            project: project_lib.BaseProject,
             callback_address: str,
-            render_settings: render_settings_pb2.RenderSettings,
+            render_settings: render_pb2.RenderSettings,
             tmp_dir: str,
             server: ipc.Server,
             manager: ipc.Stub,
@@ -432,9 +431,9 @@ class Renderer(object):
                 if data is None:
                     logger.info("Shutting down data pump.")
                     break
-                response = project_process_pb2.RenderDataResponse()
+                response = render_pb2.RenderDataResponse()
                 await self.__callback.call(
-                    'DATA', project_process_pb2.RenderDataRequest(data=data), response)
+                    'DATA', render_pb2.RenderDataRequest(data=data), response)
                 if not response.status:
                     self.__fail(response.msg)
 
@@ -507,10 +506,10 @@ class Renderer(object):
                 now = time.time()
                 if (progress >= self.__next_progress_update[0]
                         or now >= self.__next_progress_update[1]):
-                    response = project_process_pb2.RenderProgressResponse()
+                    response = render_pb2.RenderProgressResponse()
                     await self.__callback.call(
                         'PROGRESS',
-                        project_process_pb2.RenderProgressRequest(
+                        render_pb2.RenderProgressRequest(
                             numerator=progress.numerator,
                             denominator=progress.denominator),
                         response)
@@ -566,7 +565,7 @@ class Renderer(object):
         try:
             await self.__setup_callback_stub()
             await self.__callback.call(
-                'STATE', project_process_pb2.RenderStateRequest(state='setup'))
+                'STATE', render_pb2.RenderStateRequest(state='setup'))
 
             await self.__setup_data_pump()
             await self.__setup_encoder_process()
@@ -574,12 +573,12 @@ class Renderer(object):
             await self.__setup_player()
 
             await self.__callback.call(
-                'STATE', project_process_pb2.RenderStateRequest(state='render'))
+                'STATE', render_pb2.RenderStateRequest(state='render'))
 
-            response = project_process_pb2.RenderProgressResponse()
+            response = render_pb2.RenderProgressResponse()
             await self.__callback.call(
                 'PROGRESS',
-                project_process_pb2.RenderProgressRequest(numerator=0, denominator=1),
+                render_pb2.RenderProgressRequest(numerator=0, denominator=1),
                 response)
             if response.abort:
                 self.__fail("Aborted.")
@@ -608,20 +607,20 @@ class Renderer(object):
 
             await self.__callback.call(
                 'PROGRESS',
-                project_process_pb2.RenderProgressRequest(numerator=1, denominator=1),
-                project_process_pb2.RenderProgressResponse())
+                render_pb2.RenderProgressRequest(numerator=1, denominator=1),
+                render_pb2.RenderProgressResponse())
             await self.__callback.call(
-                'STATE', project_process_pb2.RenderStateRequest(state='cleanup'))
+                'STATE', render_pb2.RenderStateRequest(state='cleanup'))
 
             await self.__player.cleanup()
             self.__player = None
 
             await self.__callback.call(
-                'STATE', project_process_pb2.RenderStateRequest(state='complete'))
+                'STATE', render_pb2.RenderStateRequest(state='complete'))
 
         except RendererFailed:
             await self.__callback.call(
-                'STATE', project_process_pb2.RenderStateRequest(state='failed'))
+                'STATE', render_pb2.RenderStateRequest(state='failed'))
 
         finally:
             await self.__cleanup()

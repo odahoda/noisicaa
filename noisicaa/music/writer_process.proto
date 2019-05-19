@@ -1,0 +1,83 @@
+/*
+ * @begin:license
+ *
+ * Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * @end:license
+ */
+
+syntax = "proto2";
+
+package noisicaa.music.writer.pb;
+
+message Action {
+  enum Direction {
+    FORWARD = 1;
+    BACKWARD = 2;
+  }
+
+  required Direction direction = 1;
+  required bytes data = 2;
+}
+
+message StorageState {
+  required bool can_undo = 1;
+  required bool can_redo = 2;
+}
+
+message CreateRequest {
+  required string path = 1;
+  required bytes initial_checkpoint = 2;
+}
+
+message CreateResponse {
+  required StorageState storage_state = 1;
+  required string data_dir = 2;
+}
+
+message OpenRequest {
+  required string path = 1;
+}
+
+message OpenResponse {
+  required StorageState storage_state = 1;
+  required string data_dir = 2;
+  required bytes checkpoint = 3;
+  repeated Action actions = 4;
+}
+
+message WriteLogRequest {
+  required bytes log = 1;
+}
+
+message WriteCheckpointRequest {
+  required bytes checkpoint = 1;
+}
+
+message WriteResponse {
+  required StorageState storage_state = 1;
+}
+
+message UndoResponse {
+  required StorageState storage_state = 1;
+  optional Action action = 2;
+}
+
+message RedoResponse {
+  required StorageState storage_state = 1;
+  optional Action action = 2;
+}

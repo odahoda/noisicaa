@@ -32,16 +32,14 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa.core.typing_extra import down_cast
-from noisicaa.core import proto_types_pb2
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import model
+from noisicaa import music
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
 from . import ipc_pb2
-from . import client_impl
-from . import commands
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +74,8 @@ class EditSamplesTool(tools.ToolBase):
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
                 and target.highlightedSample() is not None):
-            self.send_command_async(commands.delete_sample(
-                target.highlightedSample().sample))
+            with self.project.apply_mutations('%s: Remove sample' % target.track.name):
+                target.track.delete_sample(target.highlightedSample().sample)
 
             evt.accept()
             return
@@ -119,9 +117,8 @@ class EditSamplesTool(tools.ToolBase):
             pos = self.__moving_sample.pos()
             self.__moving_sample = None
 
-            self.send_command_async(commands.update_sample(
-                target.highlightedSample().sample,
-                set_time=target.xToTime(pos.x())))
+            with self.project.apply_mutations('%s: Move sample' % target.track.name):
+                target.highlightedSample().sample.time = target.xToTime(pos.x())
 
             evt.accept()
             return
@@ -136,8 +133,10 @@ class SampleTrackToolBox(tools.ToolBox):
         self.addTool(EditSamplesTool(context=self.context))
 
 
-class SampleItem(object):
-    def __init__(self, track_editor: 'SampleTrackEditor', sample: client_impl.SampleRef) -> None:
+class SampleItem(core.AutoCleanupMixin, object):
+    def __init__(self, track_editor: 'SampleTrackEditor', sample: model.SampleRef) -> None:
+        super().__init__()
+
         self.__track_editor = track_editor
         self.__sample = sample
 
@@ -148,17 +147,12 @@ class SampleItem(object):
             self.__track_editor.timeToX(self.__sample.time), 0)
         self.__width = 50
 
-        self.__listeners = [
-            self.__sample.time_changed.add(self.onTimeChanged),
-        ]
-
-    def close(self) -> None:
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
+        self.__listeners.add(self.__sample.time_changed.add(self.onTimeChanged))
 
     @property
-    def sample(self) -> client_impl.SampleRef:
+    def sample(self) -> model.SampleRef:
         return self.__sample
 
     @property
@@ -186,7 +180,7 @@ class SampleItem(object):
     def rect(self) -> QtCore.QRect:
         return QtCore.QRect(self.pos(), self.size())
 
-    def onTimeChanged(self, change: model.PropertyValueChange[audioproc.MusicalTime]) -> None:
+    def onTimeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
             self.__track_editor.timeToX(change.new_value), 0)
         self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
@@ -197,8 +191,8 @@ class SampleItem(object):
             self.__track_editor.rectChanged.emit(
                 self.rect().translated(self.__track_editor.viewTopLeft()))
 
-    def renderSample(self, response: ipc_pb2.RenderSampleResponse, task: asyncio.Task) -> None:
-        task.result()
+    def renderSample(self, task: asyncio.Task) -> None:
+        response = down_cast(ipc_pb2.RenderSampleResponse, task.result())
 
         if response.broken:
             self.__width = 50
@@ -221,18 +215,9 @@ class SampleItem(object):
 
         if status in ('init', 'waiting'):
             if status == 'init':
-                scale_x = self.scaleX()
-
-                request = ipc_pb2.RenderSampleRequest(
-                    sample_id=self.__sample.id,
-                    scale_x=proto_types_pb2.Fraction(
-                        numerator=scale_x.numerator,
-                        denominator=scale_x.denominator))
-                response = ipc_pb2.RenderSampleResponse()
                 task = self.__track_editor.event_loop.create_task(
-                    self.__track_editor.project_client.call(
-                        'SAMPLE_TRACK_RENDER_SAMPLE', request, response))
-                task.add_done_callback(functools.partial(self.renderSample, response))
+                    model.render_sample(self.__sample, self.scaleX()))
+                task.add_done_callback(self.renderSample)
 
                 self.__render_result = ('waiting', )
 
@@ -278,7 +263,8 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         super().__init__(**kwargs)
 
         self.__samples = []  # type: List[SampleItem]
-        self.__listeners = []  # type: List[core.Listener]
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         self.__playback_time = None  # type: audioproc.MusicalTime
         self.__highlighted_sample = None  # type: SampleItem
@@ -287,43 +273,39 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         for sample in self.track.samples:
             self.addSample(len(self.__samples), sample)
 
-        self.__listeners.append(self.track.samples_changed.add(self.onSamplesChanged))
+        self.__listeners.add(self.track.samples_changed.add(self.onSamplesChanged))
 
         self.setHeight(120)
 
     @property
-    def track(self) -> client_impl.SampleTrack:
-        return down_cast(client_impl.SampleTrack, super().track)
+    def track(self) -> model.SampleTrack:
+        return down_cast(model.SampleTrack, super().track)
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         for item in self.__samples:
-            item.close()
+            item.cleanup()
         self.__samples.clear()
 
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
+        super().cleanup()
 
-        super().close()
-
-    def onSamplesChanged(self, change: model.PropertyListChange[client_impl.SampleRef]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+    def onSamplesChanged(self, change: music.PropertyListChange[model.SampleRef]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.addSample(change.index, change.new_value)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.removeSample(change.index, change.old_value)
 
         else:
             raise TypeError(type(change))
 
-    def addSample(self, insert_index: int, sample: client_impl.SampleRef) -> None:
+    def addSample(self, insert_index: int, sample: model.SampleRef) -> None:
         item = SampleItem(track_editor=self, sample=sample)
         self.__samples.insert(insert_index, item)
         self.rectChanged.emit(self.viewRect())
 
-    def removeSample(self, remove_index: int, sample: client_impl.SampleRef) -> None:
+    def removeSample(self, remove_index: int, sample: model.SampleRef) -> None:
         item = self.__samples.pop(remove_index)
-        item.close()
+        item.cleanup()
         self.rectChanged.emit(self.viewRect())
 
     def setPlaybackPos(self, time: audioproc.MusicalTime) -> None:
@@ -402,8 +384,8 @@ class SampleTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.B
         if not path:
             return
 
-        self.send_command_async(commands.create_sample(
-            self.track, time=time, path=path))
+        with self.project.apply_mutations('%s: Create sample' % self.track.name):
+            self.track.create_sample(time, path)
 
     def leaveEvent(self, evt: QtCore.QEvent) -> None:
         self.__mouse_pos = None

@@ -34,7 +34,7 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa.ui import ui_base
 from noisicaa.ui import selection_set
 from . import base_track_editor
@@ -57,7 +57,7 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         self.__playback_time = None  # type: audioproc.MusicalTime
         self.__track_editor = track_editor
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         pass
 
     @property
@@ -135,7 +135,7 @@ class BaseMeasureEditor(ui_base.ProjectMixin, QtCore.QObject):
         pass
 
 
-class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
+class MeasureEditor(selection_set.Selectable, core.AutoCleanupMixin, BaseMeasureEditor):
     selection_class = 'measure'
 
     PLAYBACK_POS = 'playback_pos'
@@ -157,24 +157,21 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
         self.__selected = False
         self.__hovered = False
 
-        self.measure_listeners = []  # type: List[core.Listener]
+        self._measure_listeners = core.ListenerList()
+        self.add_cleanup_function(self._measure_listeners.cleanup)
 
         if self.__measure is not None:
             self.addMeasureListeners()
 
         self.track_editor.hoveredMeasureChanged.connect(self.__onHoveredMeasureChanged)
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         if self.selected():
             self.selection_set.remove(self, update_object=False)
 
-        for listener in self.measure_listeners:
-            listener.remove()
-        self.measure_listeners.clear()
-
         self.track_editor.hoveredMeasureChanged.disconnect(self.__onHoveredMeasureChanged)
 
-        super().close()
+        super().cleanup()
 
     @property
     def duration(self) -> audioproc.MusicalDuration:
@@ -200,10 +197,8 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
     def addMeasureListeners(self) -> None:
         raise NotImplementedError
 
-    def __measureChanged(self, change: model.PropertyValueChange[music.Measure]) -> None:
-        for listener in self.measure_listeners:
-            listener.remove()
-        self.measure_listeners.clear()
+    def __measureChanged(self, change: music.PropertyValueChange[music.Measure]) -> None:
+        self._measure_listeners.cleanup()
 
         self.purgePaintCaches()
 
@@ -226,11 +221,12 @@ class MeasureEditor(selection_set.Selectable, BaseMeasureEditor):
         menu.addAction(remove_measure_action)
 
     def onInsertMeasure(self) -> None:
-        self.send_command_async(music.create_measure(
-            self.track, pos=self.measure_reference.index))
+        with self.project.apply_mutations('%s: Insert measure' % self.track.name):
+            self.track.insert_measure(self.measure_reference.index)
 
     def onRemoveMeasure(self) -> None:
-        self.send_command_async(music.delete_measure(self.measure_reference))
+        with self.project.apply_mutations('%s: Remove measure' % self.track.name):
+            self.track.remove_measure(self.measure_reference.index)
 
     def setSelected(self, selected: bool) -> None:
         if selected != self.__selected:
@@ -390,8 +386,8 @@ class MeasuredToolBase(tools.ToolBase):  # pylint: disable=abstract-method
 
         elif isinstance(measure_editor, Appendix):
             if measure_editor.clickRect().contains(evt.pos() - measure_editor.topLeft()):
-                self.send_command_async(music.create_measure(
-                    target.track, pos=-1))
+                with self.project.apply_mutations('%s: Insert measure' % self.track.name):
+                    target.track.insert_measure(-1)
                 evt.accept()
                 return
 
@@ -571,7 +567,9 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         super().__init__(**kwargs)
 
         self.__closing = False
-        self.__listeners = []  # type: List[core.Listener]
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
+
         self.__measure_editor_at_playback_pos = None  # type: BaseMeasureEditor
         self.__hover_measure_editor = None  # type: BaseMeasureEditor
 
@@ -583,21 +581,17 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         appendix_editor.rectChanged.connect(self.rectChanged)
         self.__measure_editors.append(appendix_editor)
 
-        self.__listeners.append(self.track.measure_list_changed.add(self.onMeasureListChanged))
+        self.__listeners.add(self.track.measure_list_changed.add(self.onMeasureListChanged))
 
         self.updateMeasures()
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         self.__closing = True
-
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
 
         while len(self.__measure_editors) > 0:
             self.removeMeasure(0)
 
-        super().close()
+        super().cleanup()
 
     @property
     def track(self) -> music.MeasuredTrack:
@@ -607,11 +601,11 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         return self.__measure_editors
 
     def onMeasureListChanged(
-            self, change: model.PropertyListChange[music.MeasureReference]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+            self, change: music.PropertyListChange[music.MeasureReference]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.addMeasure(change.index, change.new_value)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.removeMeasure(change.index)
 
         else:
@@ -627,7 +621,7 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
 
     def removeMeasure(self, idx: int) -> None:
         measure_editor = self.__measure_editors.pop(idx)
-        measure_editor.close()
+        measure_editor.cleanup()
         measure_editor.rectChanged.disconnect(self.rectChanged)
         self.updateMeasures()
         self.rectChanged.emit(self.viewRect())
@@ -686,8 +680,8 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
 
         time_signature_menu = menu.addMenu("Set time signature")
         time_signatures = [
-            model.TimeSignature(4, 4),
-            model.TimeSignature(3, 4),
+            value_types.TimeSignature(4, 4),
+            value_types.TimeSignature(3, 4),
         ]
         for time_signature in time_signatures:
             time_signature_action = QtWidgets.QAction(
@@ -705,22 +699,21 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
                 menu, pos - measure_editor.topLeft())
 
     def onSetTimeSignature(
-            self, affected_measure_editors: List[MeasureEditor], time_signature: model.TimeSignature
+            self,
+            affected_measure_editors: List[MeasureEditor],
+            time_signature: value_types.TimeSignature
     ) -> None:
-        seq = []
-        for meditor in affected_measure_editors:
-            seq.append(music.update_measure(
-                meditor.measure_reference,
-                set_time_signature=time_signature))
-
-        self.send_commands_async(*seq)
+        with self.project.apply_mutations('%s: Change time signature' % self.track.name):
+            for meditor in affected_measure_editors:
+                meditor.measure.time_signature = time_signature
 
     def onInsertMeasure(self) -> None:
-        self.send_command_async(music.create_measure(
-            self.track, pos=self.measure_reference.index))
+        with self.project.apply_mutations('%s: Insert measure' % self.track.name):
+            self.track.insert_measure(self.measure_reference.index)
 
     def onRemoveMeasure(self) -> None:
-        self.send_command_async(music.delete_measure(self.measure_reference))
+        with self.project.apply_mutations('%s: Remove measure' % self.track.name):
+            self.track.remove_measure(self.measure_reference.index)
 
     def setHoverMeasureEditor(
             self, measure_editor: Optional[BaseMeasureEditor],

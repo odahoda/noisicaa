@@ -103,12 +103,12 @@ endmacro(add_cython_module)
 
 macro(py_proto src)
   string(REGEX REPLACE "\\.proto$" "" base ${src})
+  file(RELATIVE_PATH pkg_path ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
   add_custom_command(
     OUTPUT ${base}_pb2.py
-    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib $ENV{VIRTUAL_ENV}/bin/protoc --python_out=${CMAKE_BINARY_DIR} --mypy_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
+    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib $ENV{VIRTUAL_ENV}/bin/protoc --python_out=${CMAKE_BINARY_DIR} --mypy_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} --proto_path=${CMAKE_BINARY_DIR} ${pkg_path}/${src}
+    DEPENDS ${src}
   )
-  file(RELATIVE_PATH pkg_path ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
   string(REGEX REPLACE "/" "." pkg_target ${pkg_path})
   add_custom_target(${pkg_target}.${src} ALL DEPENDS ${base}_pb2.py)
 endmacro(py_proto)
@@ -117,8 +117,8 @@ macro(cpp_proto src)
   string(REGEX REPLACE "\\.proto$" "" base ${src})
   add_custom_command(
     OUTPUT ${base}.pb.cc ${base}.pb.h
-    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib $ENV{VIRTUAL_ENV}/bin/protoc --cpp_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR}/${src}
-    DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
+    COMMAND LD_LIBRARY_PATH=$ENV{VIRTUAL_ENV}/lib $ENV{VIRTUAL_ENV}/bin/protoc --cpp_out=${CMAKE_BINARY_DIR} --proto_path=${CMAKE_SOURCE_DIR} --proto_path=${CMAKE_BINARY_DIR} ${pkg_path}/${src}
+    DEPENDS ${src}
   )
 endmacro(cpp_proto)
 
@@ -147,6 +147,22 @@ macro(faust_dsp clsName src)
     DEPENDS ${CMAKE_CURRENT_LIST_DIR}/${src}
   )
 endmacro(faust_dsp)
+
+macro(build_model src out template)
+file(RELATIVE_PATH pkg_path ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_LIST_DIR})
+add_custom_command(
+  OUTPUT ${out} model.proto
+  COMMAND python noisidev/build_model.py --output ${CMAKE_BINARY_DIR} --template ${CMAKE_SOURCE_DIR}/${template} ${pkg_path}/${src}
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  DEPENDS
+    ${CMAKE_CURRENT_LIST_DIR}/${src}
+    ${CMAKE_SOURCE_DIR}/noisidev/build_model.py
+    noisidev.model_desc.proto
+    ${CMAKE_SOURCE_DIR}/${template}
+)
+string(REGEX REPLACE "/" "." pkg_target ${pkg_path})
+add_custom_target("model-${pkg_target}" ALL DEPENDS ${out})
+endmacro(build_model)
 
 add_subdirectory(noisicaa)
 add_subdirectory(noisidev)

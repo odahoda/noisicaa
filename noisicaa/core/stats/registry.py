@@ -59,50 +59,56 @@ class Registry(object):
 
     def collect(self) -> List[Tuple[stats.StatName, timeseries.Value]]:
         data = []  # type: List[Tuple[stats.StatName, timeseries.Value]]
-        proc_info = psutil.Process()
+
+        try:
+            proc_info = psutil.Process()
+        except FileNotFoundError:
+            # Happens under unittests with pyfakefs installed.
+            proc_info = None
 
         with self.__lock:
             now = time.time()
             for name, stat in self.__stats.items():
                 data.append((name, timeseries.Value(now, stat.value)))
 
-            with proc_info.oneshot():
-                cpu_times = proc_info.cpu_times()
-                data.append((
-                    stats.StatName(name='cpu_time', type='user'),
-                    timeseries.Value(now, cpu_times.user)))
-                data.append((
-                    stats.StatName(name='cpu_time', type='system'),
-                    timeseries.Value(now, cpu_times.system)))
+            if proc_info is not None:
+                with proc_info.oneshot():
+                    cpu_times = proc_info.cpu_times()
+                    data.append((
+                        stats.StatName(name='cpu_time', type='user'),
+                        timeseries.Value(now, cpu_times.user)))
+                    data.append((
+                        stats.StatName(name='cpu_time', type='system'),
+                        timeseries.Value(now, cpu_times.system)))
 
-                memory_info = proc_info.memory_info()
-                data.append((
-                    stats.StatName(name='memory', type='rss'),
-                    timeseries.Value(now, memory_info.rss)))
-                data.append((
-                    stats.StatName(name='memory', type='vms'),
-                    timeseries.Value(now, memory_info.vms)))
+                    memory_info = proc_info.memory_info()
+                    data.append((
+                        stats.StatName(name='memory', type='rss'),
+                        timeseries.Value(now, memory_info.rss)))
+                    data.append((
+                        stats.StatName(name='memory', type='vms'),
+                        timeseries.Value(now, memory_info.vms)))
 
-                io_counters = proc_info.io_counters()
-                data.append((
-                    stats.StatName(name='io', type='read_count'),
-                    timeseries.Value(now, io_counters.read_count)))
-                data.append((
-                    stats.StatName(name='io', type='write_count'),
-                    timeseries.Value(now, io_counters.write_count)))
-                data.append((
-                    stats.StatName(name='io', type='read_bytes'),
-                    timeseries.Value(now, io_counters.read_bytes)))
-                data.append((
-                    stats.StatName(name='io', type='write_bytes'),
-                    timeseries.Value(now, io_counters.write_bytes)))
+                    io_counters = proc_info.io_counters()
+                    data.append((
+                        stats.StatName(name='io', type='read_count'),
+                        timeseries.Value(now, io_counters.read_count)))
+                    data.append((
+                        stats.StatName(name='io', type='write_count'),
+                        timeseries.Value(now, io_counters.write_count)))
+                    data.append((
+                        stats.StatName(name='io', type='read_bytes'),
+                        timeseries.Value(now, io_counters.read_bytes)))
+                    data.append((
+                        stats.StatName(name='io', type='write_bytes'),
+                        timeseries.Value(now, io_counters.write_bytes)))
 
-                ctx_switches = proc_info.num_ctx_switches()
-                data.append((
-                    stats.StatName(name='ctx_switches', type='voluntary'),
-                    timeseries.Value(now, ctx_switches.voluntary)))
-                data.append((
-                    stats.StatName(name='ctx_switches', type='involuntary'),
-                    timeseries.Value(now, ctx_switches.involuntary)))
+                    ctx_switches = proc_info.num_ctx_switches()
+                    data.append((
+                        stats.StatName(name='ctx_switches', type='voluntary'),
+                        timeseries.Value(now, ctx_switches.voluntary)))
+                    data.append((
+                        stats.StatName(name='ctx_switches', type='involuntary'),
+                        timeseries.Value(now, ctx_switches.involuntary)))
 
         return data

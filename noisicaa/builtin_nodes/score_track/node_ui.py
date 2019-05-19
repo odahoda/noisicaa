@@ -22,45 +22,44 @@
 
 import logging
 import os.path
-from typing import Any, Dict
+from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtSvg
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model
 from noisicaa import music
 from noisicaa.constants import DATA_DIR
 from noisicaa.ui import ui_base
+from noisicaa.ui import property_connector
 from noisicaa.ui.graph import track_node
-from . import client_impl
-from . import commands
+from . import model
 
 logger = logging.getLogger(__name__)
 
 
-class ScoreTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
-    def __init__(self, track: client_impl.ScoreTrack, **kwargs: Any) -> None:
+class ScoreTrackWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
+    def __init__(self, track: model.ScoreTrack, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__track = track
-
-        self.__listeners = {}  # type: Dict[str, core.Listener]
 
         body = QtWidgets.QWidget(self)
         body.setAutoFillBackground(False)
         body.setAttribute(Qt.WA_NoSystemBackground, True)
 
         self.__transpose_octaves = QtWidgets.QSpinBox(body)
+        self.__transpose_octaves.setVisible(True)
+        self.__transpose_octaves.setKeyboardTracking(False)
         self.__transpose_octaves.setSuffix(' octaves')
         self.__transpose_octaves.setRange(-4, 4)
         self.__transpose_octaves.setSingleStep(1)
-        self.__transpose_octaves.valueChanged.connect(self.onTransposeOctavesEdited)
-        self.__transpose_octaves.setVisible(True)
-        self.__transpose_octaves.setValue(self.__track.transpose_octaves)
-        self.__listeners['track:transpose_octaves'] = (
-            self.__track.transpose_octaves_changed.add(self.onTransposeOctavesChanged))
+        connector = property_connector.QSpinBoxConnector(
+            self.__transpose_octaves, self.__track, 'transpose_octaves',
+            mutation_name='%s: Change transpose' % self.__track.name,
+            context=self.context)
+        self.add_cleanup_function(connector.cleanup)
 
         layout = QtWidgets.QFormLayout()
         layout.setVerticalSpacing(1)
@@ -72,38 +71,20 @@ class ScoreTrackWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setWidget(body)
 
-    def cleanup(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
-    def onTransposeOctavesChanged(self, change: model.PropertyValueChange[int]) -> None:
-        self.__transpose_octaves.setValue(change.new_value)
-
-    def onTransposeOctavesEdited(self, transpose_octaves: int) -> None:
-        if transpose_octaves != self.__track.transpose_octaves:
-            self.send_command_async(commands.update(
-                self.__track,
-                set_transpose_octaves=transpose_octaves))
-
 
 class ScoreTrackNode(track_node.TrackNode):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, client_impl.ScoreTrack)
+        assert isinstance(node, model.ScoreTrack)
         self.__widget = None  # type: ScoreTrackWidget
-        self.__track = node  # type: client_impl.ScoreTrack
+        self.__track = node  # type: model.ScoreTrack
 
         super().__init__(
             node=node,
             icon=QtSvg.QSvgRenderer(os.path.join(DATA_DIR, 'icons', 'track-type-score.svg')),
             **kwargs)
 
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-        super().cleanup()
-
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
         self.__widget = ScoreTrackWidget(track=self.__track, context=self.context)
+        self.add_cleanup_function(self.__widget.cleanup)
         return self.__widget

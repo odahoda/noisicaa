@@ -31,12 +31,11 @@ from PyQt5 import QtGui
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import model
+from noisicaa import music
 from noisicaa.ui.track_list import base_track_editor
 from noisicaa.ui.track_list import time_view_mixin
 from noisicaa.ui.track_list import tools
-from . import commands
-from . import client_impl
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +89,8 @@ class EditControlPointsTool(tools.ToolBase):
         if (evt.button() == Qt.LeftButton
                 and evt.modifiers() == Qt.ShiftModifier
                 and target.highlightedPoint() is not None):
-            self.send_command_async(commands.delete_control_point(
-                target.highlightedPoint().point))
+            with self.project.apply_mutations('%s: Remove control point' % target.track.name):
+                target.track.delete_control_point(target.highlightedPoint().point)
 
             evt.accept()
             return
@@ -162,10 +161,9 @@ class EditControlPointsTool(tools.ToolBase):
             else:
                 new_value = None
 
-            self.send_command_async(commands.update_control_point(
-                target.highlightedPoint().point,
-                set_time=new_time,
-                set_value=new_value))
+            with self.project.apply_mutations('%s: Change control point' % target.track.name):
+                target.highlightedPoint().point.time = new_time
+                target.highlightedPoint().point.value = new_value
 
             evt.accept()
             return
@@ -185,15 +183,15 @@ class EditControlPointsTool(tools.ToolBase):
             time = target.xToTime(evt.pos().x())
             for point in target.track.points:
                 if point.time == time:
-                    self.send_command_async(commands.update_control_point(
-                        point,
-                        set_value=target.yToValue(evt.pos().y())))
+                    with self.project.apply_mutations(
+                            '%s: Change control point' % target.track.name):
+                        point.value = target.yToValue(evt.pos().y())
                     break
             else:
-                self.send_command_async(commands.create_control_point(
-                    target.track,
-                    time=target.xToTime(evt.pos().x()),
-                    value=target.yToValue(evt.pos().y())))
+                with self.project.apply_mutations('%s: Insert control point' % target.track.name):
+                    target.track.create_control_point(
+                        target.xToTime(evt.pos().x()),
+                        target.yToValue(evt.pos().y()))
 
             evt.accept()
             return
@@ -208,8 +206,10 @@ class ControlTrackToolBox(tools.ToolBox):
         self.addTool(EditControlPointsTool(context=self.context))
 
 
-class ControlPoint(object):
-    def __init__(self, track_editor: 'ControlTrackEditor', point: client_impl.ControlPoint) -> None:
+class ControlPoint(core.AutoCleanupMixin, object):
+    def __init__(self, track_editor: 'ControlTrackEditor', point: model.ControlPoint) -> None:
+        super().__init__()
+
         self.__track_editor = track_editor
         self.__point = point
 
@@ -217,23 +217,18 @@ class ControlPoint(object):
             self.__track_editor.timeToX(self.__point.time),
             self.__track_editor.valueToY(self.__point.value))
 
-        self.__listeners = [
-            self.__point.time_changed.add(self.onTimeChanged),
-            self.__point.value_changed.add(self.onValueChanged),
-        ]
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
+        self.__listeners.add(self.__point.time_changed.add(self.onTimeChanged))
+        self.__listeners.add(self.__point.value_changed.add(self.onValueChanged))
 
-    def close(self) -> None:
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
-
-    def onTimeChanged(self, change: model.PropertyValueChange[audioproc.MusicalTime]) -> None:
+    def onTimeChanged(self, change: music.PropertyValueChange[audioproc.MusicalTime]) -> None:
         self.__pos = QtCore.QPoint(
             self.__track_editor.timeToX(change.new_value),
             self.__pos.y())
         self.__track_editor.rectChanged.emit(self.__track_editor.viewRect())
 
-    def onValueChanged(self, change: model.PropertyValueChange[float]) -> None:
+    def onValueChanged(self, change: music.PropertyValueChange[float]) -> None:
         self.__pos = QtCore.QPoint(
             self.__pos.x(),
             self.__track_editor.valueToY(change.new_value))
@@ -244,7 +239,7 @@ class ControlPoint(object):
         return self.__point.index
 
     @property
-    def point(self) -> client_impl.ControlPoint:
+    def point(self) -> model.ControlPoint:
         return self.__point
 
     @property
@@ -282,23 +277,23 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         self.__highlighted_point = None  # type: ControlPoint
         self.__playback_time = None  # type: audioproc.MusicalTime
 
-        self.__listeners = []  # type: List[core.Listener]
+        self.__listeners = core.ListenerList()
         self.points = []  # type: List[ControlPoint]
 
         for point in self.track.points:
             self.addPoint(len(self.points), point)
 
-        self.__listeners.append(self.track.points_changed.add(self.onPointsChanged))
+        self.__listeners.add(self.track.points_changed.add(self.onPointsChanged))
 
         self.setHeight(120)
 
         self.scaleXChanged.connect(self.__onScaleXChanged)
 
-    def close(self) -> None:
+    def cleanup(self) -> None:
         for points in self.points:
-            points.close()
+            points.cleanup()
         self.points.clear()
-        super().close()
+        super().cleanup()
 
     def __onScaleXChanged(self, scale_x: fractions.Fraction) -> None:
         for cpoint in self.points:
@@ -306,8 +301,8 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         self.rectChanged.emit(self.viewRect())
 
     @property
-    def track(self) -> client_impl.ControlTrack:
-        return down_cast(client_impl.ControlTrack, super().track)
+    def track(self) -> model.ControlTrack:
+        return down_cast(model.ControlTrack, super().track)
 
     def setHighlightedPoint(self, cpoint: ControlPoint) -> None:
         if cpoint is not self.__highlighted_point:
@@ -337,22 +332,22 @@ class ControlTrackEditor(time_view_mixin.ContinuousTimeMixin, base_track_editor.
         cpoint.setPos(pos)
         self.rectChanged.emit(self.viewRect())
 
-    def addPoint(self, insert_index: int, point: client_impl.ControlPoint) -> None:
+    def addPoint(self, insert_index: int, point: model.ControlPoint) -> None:
         cpoint = ControlPoint(track_editor=self, point=point)
         self.points.insert(insert_index, cpoint)
         self.rectChanged.emit(self.viewRect())
 
     def removePoint(self, remove_index: int, point: QtCore.QPoint) -> None:
         cpoint = self.points.pop(remove_index)
-        cpoint.close()
+        cpoint.cleanup()
         self.rectChanged.emit(self.viewRect())
 
-    def onPointsChanged(self, change: model.PropertyListChange[client_impl.ControlPoint]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+    def onPointsChanged(self, change: music.PropertyListChange[model.ControlPoint]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.addPoint(change.index, change.new_value)
             self.updateHighlightedPoint()
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.removePoint(change.index, change.old_value)
             self.updateHighlightedPoint()
 

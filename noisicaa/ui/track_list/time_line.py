@@ -29,7 +29,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import player_state as player_state_lib
 from . import time_view_mixin
@@ -102,7 +102,7 @@ class TimeLine(
 
         self.update()
 
-    def onDurationChanged(self, change: model.PropertyValueChange[float]) -> None:
+    def onDurationChanged(self, change: music.PropertyValueChange[float]) -> None:
         self.update()
 
     def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:

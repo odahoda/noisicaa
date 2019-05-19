@@ -22,18 +22,22 @@
 
 syntax = "proto2";
 
-import "noisicaa/core/proto_types.proto";
+import "noisicaa/value_types/value_types.proto";
 import "noisicaa/audioproc/public/musical_time.proto";
 import "noisicaa/audioproc/public/control_value.proto";
 import "noisicaa/audioproc/public/node_port_properties.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
 import "noisicaa/node_db/node_description.proto";
-import "noisicaa/model/model_base.proto";
-import "noisicaa/model/project.proto";
+import "noisicaa/music/model_base.proto";
+import "noisicaa/music/model.proto";
 
 package noisicaa.pb;
 
 message MutationList {
+  required int32 version = 1;
+  required string name = 2;
+  required float timestamp = 3;
+
   message SetProperty {
     optional uint64 obj_id = 1;
     optional string prop_name = 2;
@@ -81,7 +85,7 @@ message MutationList {
       RemoveObject remove_object = 5;
     }
   }
-  repeated Op ops = 1;
+  repeated Op ops = 4;
 
   message Slot {
     oneof value {
@@ -109,5 +113,5 @@ message MutationList {
       PortDescription port_description = 112;
     }
   }
-  repeated Slot slots = 2;
+  repeated Slot slots = 5;
 }

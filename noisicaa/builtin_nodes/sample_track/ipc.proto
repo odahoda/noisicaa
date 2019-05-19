@@ -22,7 +22,7 @@
 
 syntax = "proto2";
 
-import "noisicaa/core/proto_types.proto";
+import "noisicaa/value_types/value_types.proto";
 
 package noisicaa.pb;
 

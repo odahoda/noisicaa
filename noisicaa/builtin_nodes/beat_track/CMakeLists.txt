@@ -21,15 +21,12 @@
 add_python_package(
   node_description.py
   model.py
-  commands.py
-  client_impl.py
-  client_impl_test.py
-  server_impl.py
-  server_impl_test.py
+  model_test.py
   node_ui.py
   track_ui.py
   track_ui_test.py
 )
 
+build_model(model.desc.pb _model.py noisicaa/builtin_nodes/model.tmpl.py)
+
 py_proto(model.proto)
-py_proto(commands.proto)

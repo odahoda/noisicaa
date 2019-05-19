@@ -173,7 +173,7 @@ class BuiltinPyTests(unittest.TestCase):
         return '%s (%s)' % (self.__method_name, self.__modname)
 
     def test_pylint(self):
-        src_path = os.path.join(SRCDIR, os.path.join(*self.__modname.split('.')) + '.py')
+        src_path = os.path.join(LIBDIR, os.path.join(*self.__modname.split('.')) + '.py')
         src = open(src_path, 'r').read()
 
         for lineno, line in enumerate(src.splitlines(), 1):
@@ -199,7 +199,7 @@ class BuiltinPyTests(unittest.TestCase):
         if self.__modname.split('.')[-1] == '__init__':
             self.skipTest('mypy disabled for this file')
 
-        src_path = os.path.join(SRCDIR, os.path.join(*self.__modname.split('.')) + '.py')
+        src_path = os.path.join(LIBDIR, os.path.join(*self.__modname.split('.')) + '.py')
         src = open(src_path, 'r').read()
 
         be_strict = not self.__modname.endswith('_test')

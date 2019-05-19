@@ -19,6 +19,7 @@
 # @end:license
 
 add_python_package(
+  auto_cleanup_mixin.py
   backend_manager.py
   backend_manager_test.py
   callbacks.py
@@ -50,7 +51,6 @@ py_proto(storage.proto)
 py_proto(ipc.proto)
 py_proto(process_manager.proto)
 py_proto(ipc_test.proto)
-py_proto(proto_types.proto)
 py_proto(session_data.proto)
 
 set(LIB_SRCS

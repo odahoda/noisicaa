@@ -254,7 +254,7 @@ class TrackEditorItemTestMixin(uitest.ProjectMixin, uitest.UITestCase):
         try:
             yield ti
         finally:
-            ti.close()
+            ti.cleanup()
 
     def _replay_events(self, widget, events):
         for event in events:

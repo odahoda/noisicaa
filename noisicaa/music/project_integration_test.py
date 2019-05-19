@@ -32,30 +32,28 @@ from google.protobuf import message as protobuf
 from noisidev import unittest
 from noisidev import unittest_mixins
 from noisicaa.constants import TEST_OPTS
-from noisicaa import model
-from noisicaa import editor_main_pb2
-from noisicaa.model import model_base_pb2
+from noisicaa.music import model_base_pb2
 from . import project_client
-from . import project_client_model
-from . import commands_pb2
+from . import project as project_lib
 
 logger = logging.getLogger(__name__)
 
 
 class ProjectIntegrationTest(
         unittest_mixins.ServerMixin,
+        unittest_mixins.NodeDBMixin,
+        unittest_mixins.URIDMapperMixin,
         unittest_mixins.ProcessManagerMixin,
         unittest.AsyncTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.project = None  # type: project_client_model.Project
-        self.pool = None  # type: model.Pool
+        self.project = None  # type: project_lib.Project
+        self.pool = None  # type: project_lib.Pool
 
     async def setup_testcase(self):
         self.setup_node_db_process(inline=True)
-        self.setup_urid_mapper_process(inline=True)
-        self.setup_project_process(inline=True)
+        self.setup_writer_process(inline=True)
 
     def create_pool_snapshot(self, pool):
         snapshot = {}  # type: Dict[int, model_base_pb2.ObjectBase]
@@ -110,75 +108,58 @@ class ProjectIntegrationTest(
 
     @async_generator.asynccontextmanager
     @async_generator.async_generator
-    async def create_client(self, create_process=True, process_address=None, shutdown=True):
-        if create_process:
-            create_project_process_request = editor_main_pb2.CreateProjectProcessRequest(
-                uri='test-project')
-            create_project_process_response = editor_main_pb2.CreateProcessResponse()
-            await self.process_manager_client.call(
-                'CREATE_PROJECT_PROCESS',
-                create_project_process_request, create_project_process_response)
-            process_address = create_project_process_response.address
-
+    async def create_client(self):
         client = project_client.ProjectClient(
-            event_loop=self.loop, server=self.server)
+            event_loop=self.loop,
+            server=self.server,
+            tmp_dir=TEST_OPTS.TMP_DIR,
+            manager=self.process_manager_client,
+            node_db=self.node_db,
+            urid_mapper=self.urid_mapper)
         try:
             await client.setup()
-            await client.connect(process_address)
-
             await async_generator.yield_(client)
         finally:
-            await client.disconnect()
             await client.cleanup()
 
-            if shutdown:
-                await self.process_manager_client.call(
-                    'SHUTDOWN_PROCESS',
-                    editor_main_pb2.ShutdownProcessRequest(
-                        address=process_address))
-
     async def create_project(
-            self, client) -> Tuple[project_client_model.Project, project_client.Pool, str]:
+            self, client) -> Tuple[project_lib.Project, project_lib.Pool, str]:
         path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
         await client.create(path)
         project = client.project
         return project, project._pool, path
 
     async def open_project(
-            self, client, path) -> Tuple[project_client_model.Project, project_client.Pool]:
+            self, client, path) -> Tuple[project_lib.Project, project_lib.Pool]:
         await client.open(path)
         project = client.project
         return project, project._pool
 
-    async def send_command(self, client, pool, **kwargs):
+    @async_generator.asynccontextmanager
+    @async_generator.async_generator
+    async def apply_mutations(self, project, client, pool):
         snapshot_before = self.create_pool_snapshot(pool)
 
-        cmd = commands_pb2.Command(**kwargs)
-        result = await client.send_command(cmd)
+        with project.apply_mutations('test'):
+            await async_generator.yield_()
+
         snapshot_after = self.create_pool_snapshot(pool)
 
         # Undo and redo this command, and check that project states remain correct.
-        await client.undo()
+        await project.undo()
         self.assertSnapshotsEqual(self.create_pool_snapshot(pool), snapshot_before)
-        await client.redo()
+        await project.redo()
         self.assertSnapshotsEqual(self.create_pool_snapshot(pool), snapshot_after)
-
-        return result
 
     async def test_script1(self):
         # Create a new process, connect to it and create a blank project.
         async with self.create_client() as client:
-            _, pool, path = await self.create_project(client)
+            project, pool, path = await self.create_project(client)
             #snapshot_blank = self.create_pool_snapshot(pool)
 
             # Create track1 (ScoreTrack)
-            #insert_index =
-            await self.send_command(
-                client, pool,
-                command='create_node',
-                create_node=commands_pb2.CreateNode(
-                    uri='builtin://score-track'))
-            #track1 = project.master_group.tracks[insert_index]
+            async with self.apply_mutations(project, client, pool):
+                project.create_node('builtin://score-track')
 
             # Disconnect from and shutdown process, without calling close().
             snapshot_before_disconnect = self.create_pool_snapshot(pool)

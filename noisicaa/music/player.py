@@ -30,8 +30,9 @@ from noisicaa import core
 from noisicaa.core import ipc
 from noisicaa.core import session_data_pb2
 from noisicaa import audioproc
-from noisicaa import model
-from . import pmodel
+from . import model_base
+from . import project as project_lib
+from . import graph
 from . import node_connector
 from . import session_value_store
 
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
 class Player(object):
     def __init__(
             self, *,
-            project: pmodel.Project,
+            project: project_lib.BaseProject,
             event_loop: asyncio.AbstractEventLoop,
             audioproc_client: audioproc.AbstractAudioProcClient,
             realm: str,
@@ -115,12 +116,12 @@ class Player(object):
             self.callback_stub = None
 
         for connector in self.__node_connectors.values():
-            connector.close()
+            connector.cleanup()
         self.__node_connectors.clear()
 
         logger.info("Player instance %s cleanup complete.", self.id)
 
-    def __on_project_bpm_changed(self, change: model.PropertyValueChange) -> None:
+    def __on_project_bpm_changed(self, change: model_base.PropertyValueChange) -> None:
         if self.audioproc_client is None:
             return
 
@@ -130,7 +131,7 @@ class Player(object):
             self.event_loop)
         callback_task.add_done_callback(self.__update_project_properties_done)
 
-    def __on_project_duration_changed(self, change: model.PropertyValueChange) -> None:
+    def __on_project_duration_changed(self, change: model_base.PropertyValueChange) -> None:
         if self.audioproc_client is None:
             return
 
@@ -146,13 +147,13 @@ class Player(object):
         if exc is not None:
             logger.error("UPDATE_PROJECT_PROPERTIES failed with exception: %s", exc)
 
-    def __on_project_nodes_changed(self, change: model.PropertyChange) -> None:
-        if isinstance(change, model.PropertyListInsert):
+    def __on_project_nodes_changed(self, change: model_base.PropertyChange) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
             messages = audioproc.ProcessorMessageList()
             messages.messages.extend(self.add_node(change.new_value))
             self.send_node_messages(messages)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, model_base.PropertyListDelete):
             self.remove_node(change.old_value)
         else:
             raise TypeError("Unsupported change type %s" % type(change))
@@ -160,7 +161,7 @@ class Player(object):
     async def set_session_values(self, values: Iterable[session_data_pb2.SessionValue]) -> None:
         await self.audioproc_client.set_session_values(self.realm, values)
 
-    def add_node(self, node: pmodel.BaseNode) -> Iterator[audioproc.ProcessorMessage]:
+    def add_node(self, node: graph.BaseNode) -> Iterator[audioproc.ProcessorMessage]:
         connector = cast(
             node_connector.NodeConnector,
             node.create_node_connector(
@@ -169,9 +170,9 @@ class Player(object):
             yield from connector.init()
             self.__node_connectors[node.id] = connector
 
-    def remove_node(self, node: pmodel.BaseNode) -> None:
+    def remove_node(self, node: graph.BaseNode) -> None:
         if node.id in self.__node_connectors:
-            self.__node_connectors.pop(node.id).close()
+            self.__node_connectors.pop(node.id).cleanup()
 
     def handle_pipeline_mutation(self, mutation: audioproc.Mutation) -> None:
         self.event_loop.create_task(self.publish_pipeline_mutation(mutation))

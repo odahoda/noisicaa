@@ -26,7 +26,8 @@ from typing import Any, Optional, List
 from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
-from noisicaa import model
+from noisicaa import core
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
@@ -76,8 +77,9 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
         self.__node = node
         self.__port = port
 
-        self.__port_properties_listener = self.__node.port_properties_changed.add(
+        listener = self.__node.port_properties_changed.add(
             self.__portPropertiesChanged)
+        self.add_cleanup_function(listener.remove)
 
         layout = QtWidgets.QHBoxLayout()
         layout.setSpacing(0)
@@ -114,13 +116,6 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
         self.__widget = QtWidgets.QWidget(parent)
         self.__widget.setLayout(layout)
 
-    def cleanup(self) -> None:
-        if self.__port_properties_listener is not None:
-            self.__port_properties_listener.remove()
-            self.__port_properties_listener = None
-
-        super().cleanup()
-
     def label(self) -> str:
         return self.__port.display_name + ":"
 
@@ -132,32 +127,34 @@ class ControlValueWidget(control_value_connector.ControlValueConnector):
         if port_properties.exposed == exposed:
             return
 
-        commands = []  # type: List[music.Command]
-
         if not exposed:
-            for conn in self.__node.connections:
-                if conn.dest_port == self.__port.name or conn.source_port == self.__port.name:
-                    commands.append(music.delete_node_connection(conn))
+            with self.project.apply_mutations(
+                    '%s: Unexpose port "%s"' % (self.__node.name, self.__port.name)):
+                self.__node.set_port_properties(value_types.NodePortProperties(
+                    name=self.__port.name,
+                    exposed=False))
 
-        port_properties = model.NodePortProperties(
-            name=self.__port.name,
-            exposed=exposed)
-        commands.append(music.update_node(
-            self.__node,
-            set_port_properties=port_properties))
+        else:
+            with self.project.apply_mutations(
+                    '%s: Expose port "%s"' % (self.__node.name, self.__port.name)):
+                for conn in self.__node.connections:
+                    if conn.dest_port == self.__port.name or conn.source_port == self.__port.name:
+                        self.project.remove_node_connection(conn)
 
-        self.send_commands_async(*commands)
+                self.__node.set_port_properties(value_types.NodePortProperties(
+                    name=self.__port.name,
+                    exposed=True))
 
         self.__dial.setDisabled(exposed)
 
-    def __portPropertiesChanged(self, change: model.PropertyListChange) -> None:
+    def __portPropertiesChanged(self, change: music.PropertyListChange) -> None:
         if self.__port.WhichOneof('value') == 'float_value':
             port_properties = self.__node.get_port_properties(self.__port.name)
             self.__exposed.setChecked(port_properties.exposed)
             self.__dial.setDisabled(port_properties.exposed)
 
 
-class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
+class GenericNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QWidget):
     def __init__(self, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
@@ -173,15 +170,11 @@ class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.setLayout(self.__main_layout)
 
         self.__setupControlValueForm()
-        self.__description_listener = self.__node.description_changed.add(
+        listener = self.__node.description_changed.add(
             lambda *_: self.__setupControlValueForm())
+        self.add_cleanup_function(listener.remove)
 
-    def cleanup(self) -> None:
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
-
-        self.__cleanupControlValueForm()
+        self.add_cleanup_function(self.__cleanupControlValueForm)
 
     def __cleanupControlValueForm(self) -> None:
         if self.__control_value_form is not None:
@@ -226,76 +219,6 @@ class GenericNodeWidget(ui_base.ProjectMixin, QtWidgets.QWidget):
         self.__control_value_form = scroll
         self.__main_layout.addWidget(self.__control_value_form)
 
-    # def onPresetEditMetadata(self) -> None:
-    #     pass
-
-    # def onPresetLoad(self) -> None:
-    #     pass
-
-    # def onPresetRevert(self) -> None:
-    #     pass
-
-    # def onPresetSave(self) -> None:
-    #     self.send_command_async(
-    #         music.Command(
-    #             target=self.__node.id,
-    #             node_to_preset=music.NodeToPreset()),
-    #         callback=self.onPresetSaveDone)
-
-    # def onPresetSaveDone(self, preset: bytes) -> None:
-    #     print(preset)
-
-    # def onPresetSaveAs(self) -> None:
-    #     pass
-
-    # def onPresetImport(self) -> None:
-    #     path, _ = QtWidgets.QFileDialog.getOpenFileName(
-    #         parent=self,
-    #         caption="Import preset",
-    #         #directory=self.ui_state.get(
-    #         #'instruments_add_dialog_path', ''),
-    #         filter="All Files (*);;noisicaä Presets (*.preset)",
-    #         initialFilter='noisicaä Presets (*.preset)',
-    #     )
-    #     if not path:
-    #         return
-
-    #     self.call_async(self.onPresetImportAsync(path))
-
-    # async def onPresetImportAsync(self, path: str) -> None:
-    #     logger.info("Importing preset from %s...", path)
-
-    #     with open(path, 'rb') as fp:
-    #         preset = fp.read()
-
-    #     await self.project_client.send_command(music.Command(
-    #         target=self.__node.id,
-    #         node_from_preset=music.NodeFromPreset(
-    #             preset=preset)))
-
-    # def onPresetExport(self) -> None:
-    #     path, _ = QtWidgets.QFileDialog.getSaveFileName(
-    #         parent=self,
-    #         caption="Export preset",
-    #         #directory=self.ui_state.get(
-    #         #'instruments_add_dialog_path', ''),
-    #         filter="All Files (*);;noisicaä Presets (*.preset)",
-    #         initialFilter='noisicaä Presets (*.preset)',
-    #     )
-    #     if not path:
-    #         return
-
-    #     self.call_async(self.onPresetExportAsync(path))
-
-    # async def onPresetExportAsync(self, path: str) -> None:
-    #     logger.info("Exporting preset to %s...", path)
-
-    #     preset = await self.project_client.send_command(music.Command(
-    #         target=self.__node.id,
-    #         node_to_preset=music.NodeToPreset()))
-
-    #     with open(path, 'wb') as fp:
-    #         fp.write(preset)
 
 
 class GenericNode(base_node.Node):
@@ -303,4 +226,6 @@ class GenericNode(base_node.Node):
         super().__init__(node=node, **kwargs)
 
     def createBodyWidget(self) -> QtWidgets.QWidget:
-        return GenericNodeWidget(node=self.node(), context=self.context)
+        widget = GenericNodeWidget(node=self.node(), context=self.context)
+        self.add_cleanup_function(widget.cleanup)
+        return widget

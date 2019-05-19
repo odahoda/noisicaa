@@ -20,53 +20,108 @@
 #
 # @end:license
 
-from typing import cast, Any, Sequence
 import fractions
+import logging
+from typing import cast, Any, Optional, Iterator, Iterable, Callable
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import audioproc
+from noisicaa import value_types
 from noisicaa import node_db
-from noisicaa import model
-from noisicaa.builtin_nodes import model_registry_pb2
+from noisicaa import music
+from noisicaa.music import base_track
 from . import node_description
+from . import _model
+
+logger = logging.getLogger(__name__)
 
 
-class Note(model.ProjectChild):
-    class NoteSpec(model.ObjectSpec):
-        proto_type = 'note'
-        proto_ext = model_registry_pb2.note
+class ScoreTrackConnector(base_track.MeasuredTrackConnector):
+    _node = None  # type: ScoreTrack
 
-        pitches = model.WrappedProtoListProperty(model.Pitch)
-        base_duration = model.WrappedProtoProperty(
-            audioproc.MusicalDuration,
-            default=audioproc.MusicalDuration(1, 4))
-        dots = model.Property(int, default=0)
-        tuplet = model.Property(int, default=0)
+    def _add_track_listeners(self) -> None:
+        self._listeners['transpose_octaves'] = self._node.transpose_octaves_changed.add(
+            self.__transpose_octaves_changed)
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def _add_measure_listeners(self, mref: base_track.MeasureReference) -> None:
+        measure = down_cast(ScoreMeasure, mref.measure)
+        self._listeners['measure:%s:notes' % mref.id] = measure.content_changed.add(
+            lambda _=None: self.__measure_notes_changed(mref))  # type: ignore
 
-        self.pitches_changed = core.Callback[model.PropertyListChange[model.Pitch]]()
-        self.base_duration_changed = \
-            core.Callback[model.PropertyChange[audioproc.MusicalDuration]]()
-        self.dots_changed = core.Callback[model.PropertyChange[int]]()
-        self.tuplet_changed = core.Callback[model.PropertyChange[int]]()
+    def _remove_measure_listeners(self, mref: base_track.MeasureReference) -> None:
+        del self._listeners['measure:%s:notes' % mref.id]
 
-    @property
-    def pitches(self) -> Sequence[model.Pitch]:
-        return self.get_property_value('pitches')
+    def _create_events(
+            self, time: audioproc.MusicalTime, measure: base_track.Measure
+    ) -> Iterator[base_track.PianoRollInterval]:
+        measure = down_cast(ScoreMeasure, measure)
+        for note in measure.notes:
+            if not note.is_rest:
+                for pitch in note.pitches:
+                    pitch = pitch.transposed(octaves=self._node.transpose_octaves)
+                    event = base_track.PianoRollInterval(
+                        time, time + note.duration, pitch, 127)
+                    yield event
 
-    @property
-    def base_duration(self) -> audioproc.MusicalDuration:
-        return self.get_property_value('base_duration')
+            time += note.duration
 
-    @property
-    def dots(self) -> int:
-        return self.get_property_value('dots')
+    def __transpose_octaves_changed(self, change: music.PropertyChange) -> None:
+        self._update_measure_range(0, len(self._node.measure_list))
 
-    @property
-    def tuplet(self) -> int:
-        return self.get_property_value('tuplet')
+    def __measure_notes_changed(self, mref: base_track.MeasureReference) -> None:
+        self._update_measure_range(mref.index, mref.index + 1)
+
+
+class Note(_model.Note):
+    def __str__(self) -> str:
+        n = ''
+        if len(self.pitches) == 1:
+            n += str(self.pitches[0])
+        else:
+            n += '[' + ''.join(str(p) for p in self.pitches) + ']'
+
+        duration = self.duration
+        if duration.numerator == 1:
+            n += '/%d' % duration.denominator
+        elif duration.denominator == 1:
+            n += ';%d' % duration.numerator
+        else:
+            n += ';%d/%d' % (duration.numerator, duration.denominator)
+
+        return n
+
+    def create(
+            self, *,
+            pitches: Optional[Iterable[value_types.Pitch]] = None,
+            base_duration: Optional[audioproc.MusicalDuration] = None,
+            dots: int = 0, tuplet: int = 0,
+            **kwargs: Any) -> None:
+        super().create(**kwargs)
+
+        if pitches is not None:
+            self.pitches.extend(pitches)
+        if base_duration is None:
+            base_duration = audioproc.MusicalDuration(1, 4)
+        self.base_duration = base_duration
+        self.dots = dots
+        self.tuplet = tuplet
+
+        assert (self.base_duration.numerator == 1
+                and self.base_duration.denominator in (1, 2, 4, 8, 16, 32)), \
+            self.base_duration
+
+    def _set_dots(self, value: int) -> None:
+        if value > self.max_allowed_dots:
+            raise ValueError("Too many dots on note")
+
+        super()._set_dots(value)
+
+    def _set_tuplet(self, value: int) -> None:
+        if value not in (0, 3, 5):
+            raise ValueError("Invalid tuplet type")
+
+        super()._set_tuplet(value)
 
     @property
     def measure(self) -> 'ScoreMeasure':
@@ -101,30 +156,36 @@ class Note(model.ProjectChild):
             duration *= fractions.Fraction(4, 5)
         return audioproc.MusicalDuration(duration)
 
-    def property_changed(self, change: model.PropertyChange) -> None:
+    def property_changed(self, change: music.PropertyChange) -> None:
         super().property_changed(change)
         if self.measure is not None:
             self.measure.content_changed.call()
 
+    def set_pitch(self, pitch: value_types.Pitch) -> None:
+        self.pitches[0] = pitch
 
-class ScoreMeasure(model.Measure):
-    class ScoreMeasureSpec(model.ObjectSpec):
-        proto_type = 'score_measure'
-        proto_ext = model_registry_pb2.score_measure
+    def add_pitch(self, pitch: value_types.Pitch) -> None:
+        if pitch not in self.pitches:
+            self.pitches.append(pitch)
 
-        clef = model.WrappedProtoProperty(model.Clef, default=model.Clef.Treble)
-        key_signature = model.WrappedProtoProperty(
-            model.KeySignature,
-            default=model.KeySignature('C major'))
-        notes = model.ObjectListProperty(Note)
+    def remove_pitch(self, index: int) -> None:
+        assert 0 <= index < len(self.pitches)
+        del self.pitches[index]
 
+    def set_accidental(self, index: int, accidental: str) -> None:
+        assert 0 <= index < len(self.pitches)
+        self.pitches[index] = self.pitches[index].add_accidental(accidental)
+
+    def transpose(self, half_notes: int) -> None:
+        for pidx, pitch in enumerate(self.pitches):
+            self.pitches[pidx] = pitch.transposed(
+                half_notes=half_notes % 12,
+                octaves=half_notes // 12)
+
+
+class ScoreMeasure(_model.ScoreMeasure):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-
-        self.clef_changed = core.Callback[model.PropertyChange[model.Clef]]()
-        self.key_signature_changed = \
-            core.Callback[model.PropertyChange[model.KeySignature]]()
-        self.notes_changed = core.Callback[model.PropertyListChange[Note]]()
 
         self.content_changed = core.Callback[None]()
 
@@ -133,18 +194,58 @@ class ScoreMeasure(model.Measure):
 
         self.notes_changed.add(lambda _: self.content_changed.call())
 
+    @property
+    def track(self) -> 'ScoreTrack':
+        return down_cast(ScoreTrack, super().track)
 
-class ScoreTrack(model.MeasuredTrack):
-    class ScoreTrackSpec(model.ObjectSpec):
-        proto_type = 'score_track'
-        proto_ext = model_registry_pb2.score_track
+    @property
+    def empty(self) -> bool:
+        return len(self.notes) == 0
 
-        transpose_octaves = model.Property(int, default=0)
+    def create_note(
+            self,
+            index: int,
+            pitch: value_types.Pitch,
+            duration: audioproc.MusicalDuration
+    ) -> Note:
+        assert 0 <= index <= len(self.notes)
+        note = self._pool.create(
+            Note,
+            pitches=[pitch],
+            base_duration=duration)
+        self.notes.insert(index, note)
+        return note
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def delete_note(self, note: Note) -> None:
+        del self.notes[note.index]
 
-        self.transpose_octaves_changed = core.Callback[model.PropertyChange[int]]()
+
+class ScoreTrack(_model.ScoreTrack):
+    measure_cls = ScoreMeasure
+
+    def create(self, *, num_measures: int = 1, **kwargs: Any) -> None:
+        super().create(**kwargs)
+
+        for _ in range(num_measures):
+            self.append_measure()
+
+    def create_empty_measure(self, ref: Optional[base_track.Measure]) -> ScoreMeasure:
+        measure = down_cast(ScoreMeasure, super().create_empty_measure(ref))
+
+        if ref is not None:
+            ref = down_cast(ScoreMeasure, ref)
+            measure.key_signature = ref.key_signature
+            measure.clef = ref.clef
+
+        return measure
+
+    def create_node_connector(
+            self,
+            message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
+    ) -> ScoreTrackConnector:
+        return ScoreTrackConnector(
+            node=self, message_cb=message_cb, audioproc_client=audioproc_client)
 
     @property
     def description(self) -> node_db.NodeDescription:

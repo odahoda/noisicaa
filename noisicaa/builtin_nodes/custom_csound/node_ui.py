@@ -20,8 +20,6 @@
 #
 # @end:license
 
-import asyncio
-import functools
 import logging
 from typing import cast, Any, Dict, Iterator, Callable
 
@@ -31,27 +29,25 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import object_list_editor
 from noisicaa.ui import ui_base
 from noisicaa.ui.graph import generic_node
-from . import client_impl
-from . import commands
+from . import model
 
 logger = logging.getLogger(__name__)
 
 
 class NameColumnSpec(
-        ui_base.ProjectMixin, object_list_editor.StringColumnSpec[client_impl.CustomCSoundPort]):
+        ui_base.ProjectMixin, object_list_editor.StringColumnSpec[model.CustomCSoundPort]):
     def header(self) -> str:
         return "ID"
 
-    def value(self, obj: client_impl.CustomCSoundPort) -> str:
+    def value(self, obj: model.CustomCSoundPort) -> str:
         return obj.name
 
-    def setValue(self, obj: client_impl.CustomCSoundPort, value: str) -> None:
+    def setValue(self, obj: model.CustomCSoundPort, value: str) -> None:
         for port in obj.node.ports:
             if port is obj:
                 continue
@@ -60,24 +56,22 @@ class NameColumnSpec(
                 logger.warning("Refusing to use duplicate name '%s'", value)
                 return
 
-        cmds = []
-        cmds.append(music.update_port(obj, set_name=value))
+        with self.project.apply_mutations('%s: Change port name' % obj.node.name):
+            if obj.csound_name == obj.csound_name_default():
+                csound_name = obj.csound_name_default(name=value)
+                if csound_name != obj.csound_name:
+                    obj.csound_name = csound_name
 
-        if obj.csound_name == obj.csound_name_default():
-            csound_name = obj.csound_name_default(name=value)
-            if csound_name != obj.csound_name:
-                cmds.append(commands.update_port(obj, set_csound_name=csound_name))
-
-        self.send_commands_async(*cmds)
+            obj.name = value
 
     def addChangeListeners(
-            self, obj: client_impl.CustomCSoundPort, callback: Callable[[], None]
+            self, obj: model.CustomCSoundPort, callback: Callable[[], None]
     ) -> Iterator[core.Listener]:
         yield obj.name_changed.add(lambda _: callback())
 
     def createEditor(
             self,
-            obj: client_impl.CustomCSoundPort,
+            obj: model.CustomCSoundPort,
             delegate: QtWidgets.QAbstractItemDelegate,
             parent: QtWidgets.QWidget,
             option: QtWidgets.QStyleOptionViewItem,
@@ -93,45 +87,43 @@ class NameColumnSpec(
 
 
 class DisplayNameColumnSpec(
-        ui_base.ProjectMixin, object_list_editor.StringColumnSpec[client_impl.CustomCSoundPort]):
+        ui_base.ProjectMixin, object_list_editor.StringColumnSpec[model.CustomCSoundPort]):
     def header(self) -> str:
         return "Name"
 
-    def value(self, obj: client_impl.CustomCSoundPort) -> str:
+    def value(self, obj: model.CustomCSoundPort) -> str:
         return obj.display_name
 
-    def setValue(self, obj: client_impl.CustomCSoundPort, value: str) -> None:
-        self.send_command_async(music.update_port(obj, set_display_name=value))
+    def setValue(self, obj: model.CustomCSoundPort, value: str) -> None:
+        with self.project.apply_mutations('%s: Change port display name' % obj.node.name):
+            obj.display_name = value
 
     def addChangeListeners(
-            self, obj: client_impl.CustomCSoundPort, callback: Callable[[], None]
+            self, obj: model.CustomCSoundPort, callback: Callable[[], None]
     ) -> Iterator[core.Listener]:
         yield obj.display_name_changed.add(lambda _: callback())
 
 
 class TypeColumnSpec(
-        ui_base.ProjectMixin, object_list_editor.ColumnSpec[client_impl.CustomCSoundPort, int]):
+        ui_base.ProjectMixin, object_list_editor.ColumnSpec[model.CustomCSoundPort, int]):
     def header(self) -> str:
         return "Type"
 
-    def value(self, obj: client_impl.CustomCSoundPort) -> int:
+    def value(self, obj: model.CustomCSoundPort) -> int:
         return obj.type
 
-    def setValue(self, obj: client_impl.CustomCSoundPort, value: int) -> None:
-        cmds = []
-        cmds.append(music.update_port(
-            obj, set_type=cast(node_db.PortDescription.Type, value)))
+    def setValue(self, obj: model.CustomCSoundPort, value: int) -> None:
+        with self.project.apply_mutations('%s: Change port type' % obj.node.name):
+            if obj.csound_name == obj.csound_name_default():
+                csound_name = obj.csound_name_default(
+                    type=cast(node_db.PortDescription.Type, value))
+                if csound_name != obj.csound_name:
+                    obj.csound_name = csound_name
 
-        if obj.csound_name == obj.csound_name_default():
-            csound_name = obj.csound_name_default(
-                type=cast(node_db.PortDescription.Type, value))
-            if csound_name != obj.csound_name:
-                cmds.append(commands.update_port(obj, set_csound_name=csound_name))
-
-        self.send_commands_async(*cmds)
+            obj.type = cast(node_db.PortDescription.Type, value)
 
     def addChangeListeners(
-            self, obj: client_impl.CustomCSoundPort, callback: Callable[[], None]
+            self, obj: model.CustomCSoundPort, callback: Callable[[], None]
     ) -> Iterator[core.Listener]:
         yield obj.type_changed.add(lambda _: callback())
 
@@ -145,7 +137,7 @@ class TypeColumnSpec(
 
     def createEditor(
             self,
-            obj: client_impl.CustomCSoundPort,
+            obj: model.CustomCSoundPort,
             delegate: QtWidgets.QAbstractItemDelegate,
             parent: QtWidgets.QWidget,
             option: QtWidgets.QStyleOptionViewItem,
@@ -165,7 +157,7 @@ class TypeColumnSpec(
 
         return editor
 
-    def updateEditor(self, obj: client_impl.CustomCSoundPort, editor: QtWidgets.QWidget) -> None:
+    def updateEditor(self, obj: model.CustomCSoundPort, editor: QtWidgets.QWidget) -> None:
         assert isinstance(editor, QtWidgets.QComboBox)
         port_type = self.value(obj)
         for idx in range(editor.count()):
@@ -173,25 +165,25 @@ class TypeColumnSpec(
                 editor.setCurrentIndex(idx)
                 break
 
-    def editorValue(self, obj: client_impl.CustomCSoundPort, editor: QtWidgets.QWidget) -> int:
+    def editorValue(self, obj: model.CustomCSoundPort, editor: QtWidgets.QWidget) -> int:
         assert isinstance(editor, QtWidgets.QComboBox)
         return editor.currentData()
 
 
 class DirectionColumnSpec(
-        ui_base.ProjectMixin, object_list_editor.ColumnSpec[client_impl.CustomCSoundPort, int]):
+        ui_base.ProjectMixin, object_list_editor.ColumnSpec[model.CustomCSoundPort, int]):
     def header(self) -> str:
         return "Direction"
 
-    def value(self, obj: client_impl.CustomCSoundPort) -> int:
+    def value(self, obj: model.CustomCSoundPort) -> int:
         return obj.direction
 
-    def setValue(self, obj: client_impl.CustomCSoundPort, value: int) -> None:
-        self.send_command_async(music.update_port(
-            obj, set_direction=cast(node_db.PortDescription.Direction, value)))
+    def setValue(self, obj: model.CustomCSoundPort, value: int) -> None:
+        with self.project.apply_mutations('%s: Change port direction' % obj.node.name):
+            obj.direction = cast(node_db.PortDescription.Direction, value)
 
     def addChangeListeners(
-            self, obj: client_impl.CustomCSoundPort, callback: Callable[[], None]
+            self, obj: model.CustomCSoundPort, callback: Callable[[], None]
     ) -> Iterator[core.Listener]:
         yield obj.direction_changed.add(lambda _: callback())
 
@@ -203,7 +195,7 @@ class DirectionColumnSpec(
 
     def createEditor(
             self,
-            obj: client_impl.CustomCSoundPort,
+            obj: model.CustomCSoundPort,
             delegate: QtWidgets.QAbstractItemDelegate,
             parent: QtWidgets.QWidget,
             option: QtWidgets.QStyleOptionViewItem,
@@ -221,7 +213,7 @@ class DirectionColumnSpec(
 
         return editor
 
-    def updateEditor(self, obj: client_impl.CustomCSoundPort, editor: QtWidgets.QWidget) -> None:
+    def updateEditor(self, obj: model.CustomCSoundPort, editor: QtWidgets.QWidget) -> None:
         assert isinstance(editor, QtWidgets.QComboBox)
         direction = self.value(obj)
         for idx in range(editor.count()):
@@ -229,30 +221,31 @@ class DirectionColumnSpec(
                 editor.setCurrentIndex(idx)
                 break
 
-    def editorValue(self, obj: client_impl.CustomCSoundPort, editor: QtWidgets.QWidget) -> int:
+    def editorValue(self, obj: model.CustomCSoundPort, editor: QtWidgets.QWidget) -> int:
         assert isinstance(editor, QtWidgets.QComboBox)
         return editor.currentData()
 
 
 class CSoundNameColumnSpec(
-        ui_base.ProjectMixin, object_list_editor.StringColumnSpec[client_impl.CustomCSoundPort]):
+        ui_base.ProjectMixin, object_list_editor.StringColumnSpec[model.CustomCSoundPort]):
     def header(self) -> str:
         return "Variable"
 
-    def value(self, obj: client_impl.CustomCSoundPort) -> str:
+    def value(self, obj: model.CustomCSoundPort) -> str:
         return obj.csound_name
 
-    def setValue(self, obj: client_impl.CustomCSoundPort, value: str) -> None:
-        self.send_command_async(commands.update_port(obj, set_csound_name=value))
+    def setValue(self, obj: model.CustomCSoundPort, value: str) -> None:
+        with self.project.apply_mutations('%s: Change port variable' % obj.node.name):
+            obj.csound_name = value
 
     def addChangeListeners(
-            self, obj: client_impl.CustomCSoundPort, callback: Callable[[], None]
+            self, obj: model.CustomCSoundPort, callback: Callable[[], None]
     ) -> Iterator[core.Listener]:
         yield obj.csound_name_changed.add(lambda _: callback())
 
     def createEditor(
             self,
-            obj: client_impl.CustomCSoundPort,
+            obj: model.CustomCSoundPort,
             delegate: QtWidgets.QAbstractItemDelegate,
             parent: QtWidgets.QWidget,
             option: QtWidgets.QStyleOptionViewItem,
@@ -272,7 +265,7 @@ class CSoundNameColumnSpec(
 
 
 class PortListEditor(ui_base.ProjectMixin, object_list_editor.ObjectListEditor):
-    def __init__(self, *, node: client_impl.CustomCSound, **kwargs: Any) -> None:
+    def __init__(self, *, node: model.CustomCSound, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.setColumns(
@@ -291,11 +284,11 @@ class PortListEditor(ui_base.ProjectMixin, object_list_editor.ObjectListEditor):
         self.__ports_listener = self.__node.ports_changed.add(self.__portsChanged)
 
     def __portsChanged(
-            self, change: model.PropertyListChange[client_impl.CustomCSoundPort]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+            self, change: music.PropertyListChange[model.CustomCSoundPort]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.objectAdded(change.new_value, change.index)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.objectRemoved(change.index)
 
         else:
@@ -313,36 +306,26 @@ class PortListEditor(ui_base.ProjectMixin, object_list_editor.ObjectListEditor):
         if selected_rows:
             index = max(selected_rows) + 1
         else:
-            index = None
+            index = len(self.__node.ports)
 
-        add_port_task = self.send_command_async(commands.create_port(
-            self.__node, name=port_name, index=index))
-        add_port_task.add_done_callback(functools.partial(
-            self.__createPortComplete, port_name))
-
-    def __createPortComplete(self, port_name: str, task: asyncio.Task) -> None:
-        for row, port in enumerate(self.__node.ports):
-            if port.name == port_name:
-                self.rowAdded(row)
-                break
-
-        else:
-            logger.error("Port '%s' not found", port_name)
+        with self.project.apply_mutations('%s: Add port' % self.__node.name):
+            port = self.__node.create_port(index, port_name)
+        self.rowAdded(port.index)
 
     def onRemove(self) -> None:
-        cmds = []
-        for port in self.selectedObjects():
-            assert isinstance(port, client_impl.CustomCSoundPort)
-            cmds.append(commands.delete_port(port))
-        self.send_commands_async(*cmds)
+        with self.project.apply_mutations('%s: Delete port(s)' % self.__node.name):
+            for port in self.selectedObjects():
+                assert isinstance(port, model.CustomCSoundPort)
+                self.__node.delete_port(port)
 
 
-class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
-    def __init__(self, node: client_impl.CustomCSound, **kwargs: Any) -> None:
+class Editor(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QDialog):
+    def __init__(self, node: model.CustomCSound, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
 
         self.__orchestra = self.__node.orchestra
         self.__score = self.__node.score
@@ -402,6 +385,7 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
         code_tab.setLayout(l4)
 
         ports_tab = PortListEditor(node=self.__node, context=self.context)
+        self.add_cleanup_function(ports_tab.cleanup)
 
         self.__tabs = QtWidgets.QTabWidget(self)
         self.__tabs.addTab(code_tab, "Code")
@@ -416,11 +400,9 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
         self.__orchestra = self.__orchestra_editor.toPlainText()
         self.__score = self.__score_editor.toPlainText()
 
-        self.send_command_async(
-            commands.update(
-                self.__node,
-                set_orchestra=self.__orchestra,
-                set_score=self.__score))
+        with self.project.apply_mutations('%s: Change code' % self.__node.name):
+            self.__node.orchestra = self.__orchestra
+            self.__node.score = self.__score
         self.__apply_action.setEnabled(False)
 
     def __scriptEdited(self) -> None:
@@ -428,11 +410,11 @@ class Editor(ui_base.ProjectMixin, QtWidgets.QDialog):
             self.__orchestra_editor.toPlainText() != self.__node.orchestra
             or self.__score_editor.toPlainText() != self.__node.score)
 
-    def __orchestraChanged(self, change: model.PropertyValueChange[str]) -> None:
+    def __orchestraChanged(self, change: music.PropertyValueChange[str]) -> None:
         if change.new_value != self.__orchestra:
             logger.error("oops")
 
-    def __scoreChanged(self, change: model.PropertyValueChange[str]) -> None:
+    def __scoreChanged(self, change: music.PropertyValueChange[str]) -> None:
         if change.new_value != self.__score:
             logger.error("oops")
 
@@ -447,14 +429,15 @@ class CustomCSoundNode(generic_node.GenericNode):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(node=node, **kwargs)
 
-        assert isinstance(node, client_impl.CustomCSound), type(node).__name__
-        self.__node = node  # type: client_impl.CustomCSound
+        assert isinstance(node, model.CustomCSound), type(node).__name__
+        self.__node = node  # type: model.CustomCSound
 
         self.__editor = None  # type: Editor
 
     def cleanup(self) -> None:
         if self.__editor is not None:
             self.__editor.close()
+            self.__editor.cleanup()
             self.__editor = None
 
         super().cleanup()

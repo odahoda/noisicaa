@@ -33,7 +33,6 @@ from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
 from noisicaa import core
 from noisicaa import music
-from noisicaa import model
 from noisicaa.ui import ui_base
 from noisicaa.ui import player_state as player_state_lib
 from noisicaa.builtin_nodes import ui_registry
@@ -81,7 +80,7 @@ class Editor(
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMinimumHeight(0)
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
 
         self.__current_track = None  # type: music.Track
         self.__tracks = []  # type: List[base_track_editor.BaseTrackEditor]
@@ -112,9 +111,7 @@ class Editor(
         for track_editor in list(self.__tracks):
             self.__removeNode(track_editor.track)
 
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
+        self.__listeners.cleanup()
 
         await super().cleanup()
 
@@ -165,7 +162,7 @@ class Editor(
 
     def __removeNode(self, node: music.BaseNode) -> None:
         if isinstance(node, music.Track):
-            self.__listeners.pop('track:%s:visible' % node.id).remove()
+            del self.__listeners['track:%s:visible' % node.id]
 
             track_editor = self.__track_map.pop(node.id)
             for idx in range(len(self.__tracks)):
@@ -173,15 +170,15 @@ class Editor(
                     del self.__tracks[idx]
                     break
 
-            track_editor.close()
+            track_editor.cleanup()
             self.updateTracks()
 
     def __onNodesChanged(
-            self, change: model.PropertyListChange[music.BaseNode]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+            self, change: music.PropertyListChange[music.BaseNode]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.__addNode(change.new_value)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__removeNode(change.old_value)
 
         else:  # pragma: no cover
@@ -304,14 +301,12 @@ class Editor(
         if self.selection_set.empty():
             return
 
-        commands = [
-            music.update_measure(mref, clear=True)
+        with self.project.apply_mutations('Clear selection'):
             for mref in sorted(
-                (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
-                 for measure_editor in self.selection_set),
-                key=lambda mref: mref.index)
-        ]
-        self.send_commands_async(*commands)
+                    (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
+                     for measure_editor in self.selection_set),
+                    key=lambda mref: mref.index):
+                mref.clear_measure()
 
     def onPaste(self, *, mode: str) -> None:
         assert mode in ('overwrite', 'link')
@@ -321,15 +316,14 @@ class Editor(
 
         clipboard = self.app.clipboardContent()
         if clipboard['type'] == 'measures':
-            target_ids = [
-                mref.id for mref in sorted(
-                    (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
-                     for measure_editor in self.selection_set),
-                    key=lambda mref: mref.index)]
-            self.send_command_async(music.paste_measures(
-                mode=mode,
-                src_objs=[copy['data'] for copy in clipboard['data']],
-                target_ids=target_ids))
+            with self.project.apply_mutations('Paste measures'):
+                self.project.paste_measures(
+                    mode=mode,
+                    src_objs=[copy['data'] for copy in clipboard['data']],
+                    targets=sorted(
+                        (cast(measured_track_editor.MeasureEditor, measure_editor).measure_reference
+                         for measure_editor in self.selection_set),
+                        key=lambda mref: mref.index))
 
         else:
             raise ValueError(clipboard['type'])

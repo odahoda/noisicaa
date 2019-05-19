@@ -20,52 +20,75 @@
 #
 # @end:license
 
-from typing import cast, Any
+from typing import cast, Any, Optional, Callable, Iterator
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import node_db
-from noisicaa import model
-from noisicaa.audioproc.public import musical_time_pb2
-from noisicaa.builtin_nodes import model_registry_pb2
+from noisicaa import audioproc
+from noisicaa import music
+from noisicaa import value_types
+from noisicaa.music import base_track
 from . import node_description
+from . import _model
 
 
-class Beat(model.ProjectChild):
-    class BeatSpec(model.ObjectSpec):
-        proto_type = 'beat'
-        proto_ext = model_registry_pb2.beat
+class BeatTrackConnector(base_track.MeasuredTrackConnector):
+    _node = None  # type: BeatTrack
 
-        time = model.ProtoProperty(musical_time_pb2.MusicalDuration)
-        velocity = model.Property(int)
+    def _add_track_listeners(self) -> None:
+        self._listeners['pitch'] = self._node.pitch_changed.add(self.__pitch_changed)
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def _add_measure_listeners(self, mref: base_track.MeasureReference) -> None:
+        measure = down_cast(BeatMeasure, mref.measure)
+        self._listeners['measure:%s:beats' % mref.id] = measure.content_changed.add(
+            lambda _=None: self.__measure_beats_changed(mref))  # type: ignore
 
-        self.time_changed = \
-            core.Callback[model.PropertyChange[musical_time_pb2.MusicalDuration]]()
-        self.velocity_changed = core.Callback[model.PropertyChange[int]]()
+    def _remove_measure_listeners(self, mref: base_track.MeasureReference) -> None:
+        del self._listeners['measure:%s:beats' % mref.id]
+
+    def _create_events(
+            self, time: audioproc.MusicalTime, measure: base_track.Measure
+    ) -> Iterator[base_track.PianoRollInterval]:
+        measure = down_cast(BeatMeasure, measure)
+        for beat in measure.beats:
+            beat_time = time + beat.time
+            event = base_track.PianoRollInterval(
+                beat_time, beat_time + audioproc.MusicalDuration(1, 4),
+                self._node.pitch, 127)
+            yield event
+
+    def __pitch_changed(self, change: music.PropertyChange) -> None:
+        self._update_measure_range(0, len(self._node.measure_list))
+
+    def __measure_beats_changed(self, mref: base_track.MeasureReference) -> None:
+        self._update_measure_range(mref.index, mref.index + 1)
+
+
+class Beat(_model.Beat):
+    def create(
+            self, *,
+            time: Optional[audioproc.MusicalDuration] = None,
+            velocity: Optional[int] = None,
+            **kwargs: Any) -> None:
+        super().create(**kwargs)
+
+        self.time = time
+        self.velocity = velocity
 
     @property
     def measure(self) -> 'BeatMeasure':
         return cast(BeatMeasure, self.parent)
 
-    def property_changed(self, change: model.PropertyChange) -> None:
+    def property_changed(self, change: music.PropertyChange) -> None:
         super().property_changed(change)
         if self.measure is not None:
             self.measure.content_changed.call()
 
 
-class BeatMeasure(model.Measure):
-    class BeatMeasureSpec(model.ObjectSpec):
-        proto_type = 'beat_measure'
-        proto_ext = model_registry_pb2.beat_measure
-
-        beats = model.ObjectListProperty(Beat)
-
+class BeatMeasure(_model.BeatMeasure):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-
-        self.beats_changed = core.Callback[model.PropertyListChange[Beat]]()
 
         self.content_changed = core.Callback[None]()
 
@@ -73,19 +96,49 @@ class BeatMeasure(model.Measure):
         super().setup()
         self.beats_changed.add(lambda _: self.content_changed.call())
 
+    @property
+    def empty(self) -> bool:
+        return len(self.beats) == 0
 
-class BeatTrack(model.MeasuredTrack):
-    class BeatTrackSpec(model.ObjectSpec):
-        proto_type = 'beat_track'
-        proto_ext = model_registry_pb2.beat_track
+    def create_beat(self, time: audioproc.MusicalDuration, velocity: int = 100) -> Beat:
+        assert audioproc.MusicalDuration(0, 1) <= time < self.duration
+        assert 0 <= velocity <= 127
+        beat = self._pool.create(
+            Beat,
+            time=time,
+            velocity=velocity)
+        self.beats.append(beat)
+        return beat
 
-        pitch = model.WrappedProtoProperty(model.Pitch)
+    def delete_beat(self, beat: Beat) -> None:
+        del self.beats[beat.index]
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
 
-        self.pitch_changed = core.Callback[model.PropertyChange[model.Pitch]]()
+class BeatTrack(_model.BeatTrack):
+    measure_cls = BeatMeasure
+
+    def create(
+            self, *,
+            pitch: Optional[value_types.Pitch] = None,
+            num_measures: int = 1, **kwargs: Any) -> None:
+        super().create(**kwargs)
+
+        if pitch is None:
+            self.pitch = value_types.Pitch('B2')
+        else:
+            self.pitch = pitch
+
+        for _ in range(num_measures):
+            self.append_measure()
 
     @property
     def description(self) -> node_db.NodeDescription:
         return node_description.BeatTrackDescription
+
+    def create_node_connector(
+            self,
+            message_cb: Callable[[audioproc.ProcessorMessage], None],
+            audioproc_client: audioproc.AbstractAudioProcClient,
+    ) -> BeatTrackConnector:
+        return BeatTrackConnector(
+            node=self, message_cb=message_cb, audioproc_client=audioproc_client)

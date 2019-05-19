@@ -21,34 +21,35 @@
 # @end:license
 
 import logging
-from typing import Any, Dict, Sequence
+from typing import Any, Optional, Iterator
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import core
 from noisicaa import node_db
-from noisicaa import model
-from noisicaa.builtin_nodes import model_registry_pb2
+from noisicaa import audioproc
+from noisicaa import music
 from . import node_description
+from . import processor_pb2
+from . import _model
 
 logger = logging.getLogger(__name__)
 
 
-class CustomCSoundPort(model.Port):
-    class CustomCSoundPortSpec(model.ObjectSpec):
-        proto_type = 'custom_csound_port'
-        proto_ext = model_registry_pb2.custom_csound_port
+class CustomCSoundPort(_model.CustomCSoundPort):
+    def create(
+            self, *,
+            csound_name: Optional[str] = None,
+            **kwargs: Any
+        ) -> None:
+        super().create(**kwargs)
 
-        csound_name = model.Property(str, allow_none=True)
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-
-        self.csound_name_changed = core.Callback[model.PropertyChange[str]]()
+        self.csound_name = csound_name
 
     @property
-    def csound_name(self) -> str:
-        return self.get_property_value('csound_name')
+    def node(self) -> 'CustomCSound':
+        return down_cast(CustomCSound, self.parent)
 
-    def csound_name_prefix(self, *, type: node_db.PortDescription.Type = None) -> str:  # pylint: disable=redefined-builtin
+    def csound_name_prefix(self, *, type: int = None) -> str:  # pylint: disable=redefined-builtin
         if type is None:
             type = self.type
 
@@ -62,7 +63,7 @@ class CustomCSoundPort(model.Port):
             return ''
 
     def csound_name_default(
-            self, *, name: str = None, type: node_db.PortDescription.Type = None) -> str:  # pylint: disable=redefined-builtin
+            self, *, name: str = None, type: int = None) -> str:  # pylint: disable=redefined-builtin
         if name is None:
             name = self.name
 
@@ -75,29 +76,31 @@ class CustomCSoundPort(model.Port):
             return self.csound_name_prefix(type=type) + name.capitalize()
 
 
-class CustomCSound(model.BaseNode):
-    class CustomCSoundSpec(model.ObjectSpec):
-        proto_type = 'custom_csound'
-        proto_ext = model_registry_pb2.custom_csound
-
-        orchestra = model.Property(str, allow_none=True)
-        score = model.Property(str, allow_none=True)
-        ports = model.ObjectListProperty(CustomCSoundPort)
-
+class CustomCSound(_model.CustomCSound):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.orchestra_changed = core.Callback[model.PropertyChange[str]]()
-        self.score_changed = core.Callback[model.PropertyChange[str]]()
-        self.ports_changed = core.Callback[model.PropertyListChange[CustomCSoundPort]]()
-
-        self.__listeners = {}  # type: Dict[int, core.Listener]
+        self.__listeners = core.ListenerMap[int]()
 
         self.__orchestra_preamble = None  # type: str
-        self.orchestra_preamble_changed = core.Callback[model.PropertyChange[str]]()
+        self.orchestra_preamble_changed = core.Callback[music.PropertyChange[str]]()
+
+    def create(
+            self, *,
+            orchestra: Optional[str] = None,
+            score: Optional[str] = None,
+            **kwargs: Any
+        ) -> None:
+        super().create(**kwargs)
+
+        self.orchestra = orchestra
+        self.score = score
 
     def setup(self) -> None:
         super().setup()
+        self.orchestra_preamble_changed.add(lambda _: self.__code_changed())
+        self.orchestra_changed.add(lambda _: self.__code_changed())
+        self.score_changed.add(lambda _: self.__code_changed())
 
         self.__update_orchestra_preamble()
 
@@ -107,35 +110,42 @@ class CustomCSound(model.BaseNode):
             self.__add_port(None, port)
         self.ports_changed.add(self.__ports_changed)
 
-    def __ports_changed(self, change: model.PropertyChange) -> None:
-        if isinstance(change, model.PropertyListInsert):
+    def __ports_changed(self, change: music.PropertyChange) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.__add_port(change, change.new_value)
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__remove_port(change, change.old_value)
         else:
             raise TypeError("Unsupported change type %s" % type(change))
 
         self.description_changed.call(change)
 
-    def __add_port(self, change: model.PropertyChange, port: CustomCSoundPort) -> None:
+    def __add_port(self, change: music.PropertyChange, port: CustomCSoundPort) -> None:
         self.__listeners[port.id] = port.object_changed.add(self.description_changed.call)
         self.description_changed.call(change)
 
-    def __remove_port(self, change: model.PropertyChange, port: CustomCSoundPort) -> None:
-        self.__listeners.pop(port.id).remove()
+    def __remove_port(self, change: music.PropertyChange, port: CustomCSoundPort) -> None:
+        del self.__listeners[port.id]
         self.description_changed.call(change)
 
-    @property
-    def orchestra(self) -> str:
-        return self.get_property_value('orchestra')
+    def __get_code_mutation(self) -> audioproc.Mutation:
+        params = audioproc.NodeParameters()
+        csound_params = params.Extensions[processor_pb2.custom_csound_parameters]
+        csound_params.orchestra = self.full_orchestra
+        csound_params.score = self.score or ''
+        return audioproc.Mutation(
+            set_node_parameters=audioproc.SetNodeParameters(
+                node_id=self.pipeline_node_id,
+                parameters=params))
 
-    @property
-    def score(self) -> str:
-        return self.get_property_value('score')
+    def __code_changed(self) -> None:
+        if self.attached_to_project:
+            self.project.handle_pipeline_mutation(
+                self.__get_code_mutation())
 
-    @property
-    def ports(self) -> Sequence[CustomCSoundPort]:
-        return self.get_property_value('ports')
+    def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
+        yield from super().get_initial_parameter_mutations()
+        yield self.__get_code_mutation()
 
     @property
     def full_orchestra(self) -> str:
@@ -169,7 +179,7 @@ class CustomCSound(model.BaseNode):
         if preamble != old_preamble:
             self.__orchestra_preamble = preamble
             self.orchestra_preamble_changed.call(
-                model.PropertyValueChange(self, 'orchestra_preamble', old_preamble, preamble))
+                music.PropertyValueChange(self, 'orchestra_preamble', old_preamble, preamble))
 
     @property
     def description(self) -> node_db.NodeDescription:
@@ -191,3 +201,17 @@ class CustomCSound(model.BaseNode):
                 port_desc.float_value.default = 0.0
 
         return desc
+
+    def create_port(self, index: int, name: str) -> CustomCSoundPort:
+        port = self._pool.create(
+            CustomCSoundPort,
+            name=name,
+            csound_name='ga' + name.capitalize(),
+            type=node_db.PortDescription.AUDIO,
+            direction=node_db.PortDescription.OUTPUT)
+        self.ports.insert(index, port)
+        return port
+
+    def delete_port(self, port: CustomCSoundPort) -> None:
+        port.remove_connections()
+        del self.ports[port.index]

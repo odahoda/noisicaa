@@ -31,12 +31,12 @@ from PyQt5 import QtSvg
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import music
+from noisicaa import value_types
 from noisicaa.ui import svg_symbol
 from noisicaa.ui.track_list import tools
 from noisicaa.ui.track_list import measured_track_editor
-from . import client_impl
-from . import commands
+from . import model
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class ScoreToolBase(measured_track_editor.MeasuredToolBase):
         if idx < 0:
             self.editor_window.setInfoMessage('')
         else:
-            pitch = model.Pitch.name_from_stave_line(
+            pitch = value_types.Pitch.name_from_stave_line(
                 stave_line, target.measure.key_signature)
             self.editor_window.setInfoMessage(pitch)
 
@@ -146,7 +146,7 @@ class InsertNoteTool(ScoreToolBase):
 
         if evt.button() == Qt.LeftButton and (evt.modifiers() & ~Qt.ShiftModifier) == Qt.NoModifier:
             if self.type.is_note:
-                pitch = model.Pitch.name_from_stave_line(
+                pitch = value_types.Pitch.name_from_stave_line(
                     stave_line, target.measure.key_signature)
             else:
                 pitch = 'r'
@@ -155,41 +155,43 @@ class InsertNoteTool(ScoreToolBase):
 
             idx, overwrite, _ = target.getEditArea(evt.pos().x())
             if idx >= 0:
-                cmd = None
                 if evt.modifiers() == Qt.ShiftModifier:
                     if overwrite:
                         if len(target.measure.notes[idx].pitches) > 1:
                             for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                                 if p.stave_line == stave_line:
-                                    cmd = commands.update_note(
-                                        target.measure.notes[idx],
-                                        remove_pitch=pitch_idx)
-                                    break
+                                    with self.project.apply_mutations(
+                                            '%s: Change note' % target.track.name):
+                                        target.measure.notes[idx].remove_pitch(pitch_idx)
+                                    evt.accept()
+                                    return
+
                         else:
-                            cmd = commands.delete_note(
-                                target.measure.notes[idx])
+                            with self.project.apply_mutations(
+                                    '%s: Delete note' % target.track.name):
+                                target.measure.delete_note(target.measure.notes[idx])
+                            evt.accept()
+                            return
+
                 else:
                     if overwrite:
                         for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                             if p.stave_line == stave_line:
                                 break
                         else:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                add_pitch=model.Pitch(pitch))
-                            target.track_editor.playNoteOn(model.Pitch(pitch))
-                    else:
-                        cmd = commands.create_note(
-                            target.measure,
-                            idx=idx,
-                            pitch=model.Pitch(pitch),
-                            duration=duration)
-                        target.track_editor.playNoteOn(model.Pitch(pitch))
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
+                                target.measure.notes[idx].add_pitch(value_types.Pitch(pitch))
+                            target.track_editor.playNoteOn(value_types.Pitch(pitch))
+                            evt.accept()
+                            return
 
-                if cmd is not None:
-                    self.send_command_async(cmd)
-                    evt.accept()
-                    return
+                    else:
+                        with self.project.apply_mutations('%s: Create note' % target.track.name):
+                            target.measure.create_note(idx, value_types.Pitch(pitch), duration)
+                        target.track_editor.playNoteOn(value_types.Pitch(pitch))
+                        evt.accept()
+                        return
 
         super().mousePressEvent(target, evt)
 
@@ -266,9 +268,9 @@ class ModifyNoteTool(ScoreToolBase):
                 for pitch_idx, p in enumerate(target.measure.notes[idx].pitches):
                     if accidental in p.valid_accidentals:
                         if p.stave_line == stave_line:
-                            self.send_command_async(commands.update_note(
-                                target.measure.notes[idx],
-                                set_accidental=(pitch_idx, accidental)))
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
+                                target.measure.notes[idx].set_accidental(pitch_idx, accidental)
                             evt.accept()
                             return
 
@@ -279,47 +281,56 @@ class ModifyNoteTool(ScoreToolBase):
             idx, overwrite, _ = target.getEditArea(evt.pos().x())
             if idx >= 0 and overwrite:
                 note = target.measure.notes[idx]
-                cmd = None
                 if self.type == tools.ToolType.DURATION_DOT:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.dots > 0:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_dots=note.dots - 1)
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
+                                target.measure.notes[idx].dots = note.dots - 1
+                            evt.accept()
+                            return
+
                     else:
                         if note.dots < note.max_allowed_dots:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_dots=note.dots + 1)
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
+                                target.measure.notes[idx].dots = note.dots + 1
+                            evt.accept()
+                            return
 
                 elif self.type == tools.ToolType.DURATION_TRIPLET:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_tuplet=0)
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
+                                target.measure.notes[idx].tuplet = 0
+                            evt.accept()
+                            return
+
                     else:
                         if note.tuplet != 3:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_tuplet=3)
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
+                                target.measure.notes[idx].tuplet = 3
+                            evt.accept()
+                            return
 
                 elif self.type == tools.ToolType.DURATION_QUINTUPLET:
                     if evt.modifiers() & Qt.ShiftModifier:
                         if note.tuplet != 0:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_tuplet=0)
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
+                                target.measure.notes[idx].tuplet = 0
+                            evt.accept()
+                            return
+
                     else:
                         if note.tuplet != 5:
-                            cmd = commands.update_note(
-                                target.measure.notes[idx],
-                                set_tuplet=5)
-
-                if cmd is not None:
-                    self.send_command_async(cmd)
-                    evt.accept()
-                    return
+                            with self.project.apply_mutations(
+                                    '%s: Change note' % target.track.name):
+                                target.measure.notes[idx].tuplet = 5
+                            evt.accept()
+                            return
 
         return super().mousePressEvent(target, evt)
 
@@ -543,12 +554,12 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
             lambda _: self.updateGhost(self.__mouse_pos))
 
     @property
-    def track(self) -> client_impl.ScoreTrack:
-        return down_cast(client_impl.ScoreTrack, super().track)
+    def track(self) -> model.ScoreTrack:
+        return down_cast(model.ScoreTrack, super().track)
 
     @property
-    def measure(self) -> client_impl.ScoreMeasure:
-        return down_cast(client_impl.ScoreMeasure, super().measure)
+    def measure(self) -> model.ScoreMeasure:
+        return down_cast(model.ScoreMeasure, super().measure)
 
     _accidental_map = {
         '': 'accidental-natural',
@@ -559,19 +570,19 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
     }
 
     def addMeasureListeners(self) -> None:
-        self.measure_listeners.append(self.measure.content_changed.add(
+        self._measure_listeners.add(self.measure.content_changed.add(
             lambda _=None: self.invalidatePaintCache(self.FOREGROUND)))  # type: ignore
-        self.measure_listeners.append(self.measure.clef_changed.add(
+        self._measure_listeners.add(self.measure.clef_changed.add(
             self.onClefChanged))
-        self.measure_listeners.append(self.measure.key_signature_changed.add(
+        self._measure_listeners.add(self.measure.key_signature_changed.add(
             self.onKeySignatureChanged))
 
-    def onClefChanged(self, change: model.PropertyValueChange[model.Clef]) -> None:
+    def onClefChanged(self, change: music.PropertyValueChange[value_types.Clef]) -> None:
         self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
         self.next_sibling.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
 
     def onKeySignatureChanged(
-            self, change: model.PropertyValueChange[model.KeySignature]) -> None:
+            self, change: music.PropertyValueChange[value_types.KeySignature]) -> None:
         self.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
         self.next_sibling.invalidatePaintCache(self.BACKGROUND, self.FOREGROUND)
 
@@ -599,7 +610,7 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
 
         if not self.measure_reference.is_first:
             prev_sibling = down_cast(
-                client_impl.ScoreMeasure, self.measure_reference.prev_sibling.measure)
+                model.ScoreMeasure, self.measure_reference.prev_sibling.measure)
         else:
             prev_sibling = None
 
@@ -642,7 +653,7 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
         if paint_key_signature and self.width() - x > 200:
             for acc in self.measure.key_signature.accidentals:
                 value = acc_map[acc]
-                stave_line = model.Pitch(value).stave_line - base_stave_line
+                stave_line = value_types.Pitch(value).stave_line - base_stave_line
 
                 svg_symbol.paintSymbol(
                     painter,
@@ -991,7 +1002,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.__play_last_pitch = None  # type: model.Pitch
+        self.__play_last_pitch = None  # type: value_types.Pitch
 
         self.setHeight(240)
 
@@ -1010,7 +1021,7 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
         enable_measure_actions = bool(affected_measure_editors)
 
         clef_menu = menu.addMenu("Set clef")
-        for clef in model.Clef:
+        for clef in value_types.Clef:
             clef_action = QtWidgets.QAction(clef.value, menu)
             clef_action.setEnabled(enable_measure_actions)
             clef_action.triggered.connect(
@@ -1019,36 +1030,36 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
 
         key_signature_menu = menu.addMenu("Set key signature")
         key_signatures = [
-            model.KeySignature('C major'),
-            model.KeySignature('A minor'),
-            model.KeySignature('G major'),
-            model.KeySignature('E minor'),
-            model.KeySignature('D major'),
-            model.KeySignature('B minor'),
-            model.KeySignature('A major'),
-            model.KeySignature('F# minor'),
-            model.KeySignature('E major'),
-            model.KeySignature('C# minor'),
-            model.KeySignature('B major'),
-            model.KeySignature('G# minor'),
-            model.KeySignature('F# major'),
-            model.KeySignature('D# minor'),
-            model.KeySignature('C# major'),
-            model.KeySignature('A# minor'),
-            model.KeySignature('F major'),
-            model.KeySignature('D minor'),
-            model.KeySignature('Bb major'),
-            model.KeySignature('G minor'),
-            model.KeySignature('Eb major'),
-            model.KeySignature('C minor'),
-            model.KeySignature('Ab major'),
-            model.KeySignature('F minor'),
-            model.KeySignature('Db major'),
-            model.KeySignature('Bb minor'),
-            model.KeySignature('Gb major'),
-            model.KeySignature('Eb minor'),
-            model.KeySignature('Cb major'),
-            model.KeySignature('Ab minor'),
+            value_types.KeySignature('C major'),
+            value_types.KeySignature('A minor'),
+            value_types.KeySignature('G major'),
+            value_types.KeySignature('E minor'),
+            value_types.KeySignature('D major'),
+            value_types.KeySignature('B minor'),
+            value_types.KeySignature('A major'),
+            value_types.KeySignature('F# minor'),
+            value_types.KeySignature('E major'),
+            value_types.KeySignature('C# minor'),
+            value_types.KeySignature('B major'),
+            value_types.KeySignature('G# minor'),
+            value_types.KeySignature('F# major'),
+            value_types.KeySignature('D# minor'),
+            value_types.KeySignature('C# major'),
+            value_types.KeySignature('A# minor'),
+            value_types.KeySignature('F major'),
+            value_types.KeySignature('D minor'),
+            value_types.KeySignature('Bb major'),
+            value_types.KeySignature('G minor'),
+            value_types.KeySignature('Eb major'),
+            value_types.KeySignature('C minor'),
+            value_types.KeySignature('Ab major'),
+            value_types.KeySignature('F minor'),
+            value_types.KeySignature('Db major'),
+            value_types.KeySignature('Bb minor'),
+            value_types.KeySignature('Gb major'),
+            value_types.KeySignature('Eb minor'),
+            value_types.KeySignature('Cb major'),
+            value_types.KeySignature('Ab minor'),
         ]
         for key_signature in key_signatures:
             key_signature_action = QtWidgets.QAction(key_signature.name, menu)
@@ -1092,35 +1103,34 @@ class ScoreTrackEditor(measured_track_editor.MeasuredTrackEditor):
         transpose_menu.addAction(octave_down_action)
 
     def onSetClef(
-            self, affected_measure_editors: List[ScoreMeasureEditor], clef: model.Clef) -> None:
-        seq = []
-        for meditor in affected_measure_editors:
-            seq.append(commands.update_measure(
-                meditor.measure,
-                set_clef=clef))
-        self.send_commands_async(*seq)
+            self,
+            affected_measure_editors: List[ScoreMeasureEditor],
+            clef: value_types.Clef
+    ) -> None:
+        with self.project.apply_mutations('%s: Change clef' % self.__track.name):
+            for meditor in affected_measure_editors:
+                meditor.measure.clef = clef
 
     def onSetKeySignature(
-            self, affected_measure_editors: List[ScoreMeasureEditor],
-            key_signature: model.KeySignature) -> None:
-        seq = []
-        for meditor in affected_measure_editors:
-            seq.append(commands.update_measure(
-                meditor.measure,
-                set_key_signature=key_signature))
-        self.send_commands_async(*seq)
+            self,
+            affected_measure_editors: List[ScoreMeasureEditor],
+            key_signature: value_types.KeySignature
+    ) -> None:
+        with self.project.apply_mutations('%s: Change key signature' % self.__track.name):
+            for meditor in affected_measure_editors:
+                meditor.measure.key_signature = key_signature
 
     def onTranspose(
-            self, affected_measure_editors: List[ScoreMeasureEditor], half_notes: int) -> None:
-        seq = []
-        for meditor in affected_measure_editors:
-            for note in meditor.measure.notes:
-                seq.append(commands.update_note(
-                    note,
-                    transpose=half_notes))
-        self.send_commands_async(*seq)
+            self,
+            affected_measure_editors: List[ScoreMeasureEditor],
+            half_notes: int
+    ) -> None:
+        with self.project.apply_mutations('%s: Transpose notes' % self.__track.name):
+            for meditor in affected_measure_editors:
+                for note in meditor.measure.notes:
+                    note.transpose(half_notes)
 
-    def playNoteOn(self, pitch: model.Pitch) -> None:
+    def playNoteOn(self, pitch: value_types.Pitch) -> None:
         self.playNoteOff()
 
         if self.playerState().playerID():

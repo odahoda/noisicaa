@@ -23,28 +23,34 @@
 import contextlib
 import copy
 import logging
+import typing
 from typing import Any, Generator
 
 from noisicaa import audioproc
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa import node_db
 from noisicaa import core
-from . import pmodel
+from . import model_base
 from . import mutations_pb2
+
+if typing.TYPE_CHECKING:
+    from . import project
 
 logger = logging.getLogger(__name__)
 
 
 def _assert_equal(a: Any, b: Any) -> None:
-    if isinstance(a, model.ObjectBase):
+    if isinstance(a, model_base.ObjectBase):
         a = 'obj:%016x' % a.id
-    if isinstance(b, model.ObjectBase):
+    if isinstance(b, model_base.ObjectBase):
         b = 'obj:%016x' % b.id
     assert a == b, '%r != %r' % (a, b)
 
 
 class MutationList(object):
-    def __init__(self, pool: model.Pool, mutation_list: mutations_pb2.MutationList) -> None:
+    def __init__(
+            self, pool: model_base.Pool, mutation_list: mutations_pb2.MutationList
+    ) -> None:
         self.__pool = pool
         self.__proto = mutation_list
 
@@ -75,23 +81,23 @@ class MutationList(object):
         elif vtype == 'plugin_state':
             return copy.deepcopy(slot.plugin_state)
         elif vtype == 'pitch':
-            return model.Pitch.from_proto(slot.pitch)
+            return value_types.Pitch.from_proto(slot.pitch)
         elif vtype == 'key_signature':
-            return model.KeySignature.from_proto(slot.key_signature)
+            return value_types.KeySignature.from_proto(slot.key_signature)
         elif vtype == 'time_signature':
-            return model.TimeSignature.from_proto(slot.time_signature)
+            return value_types.TimeSignature.from_proto(slot.time_signature)
         elif vtype == 'clef':
-            return model.Clef.from_proto(slot.clef)
+            return value_types.Clef.from_proto(slot.clef)
         elif vtype == 'pos2f':
-            return model.Pos2F.from_proto(slot.pos2f)
+            return value_types.Pos2F.from_proto(slot.pos2f)
         elif vtype == 'sizef':
-            return model.SizeF.from_proto(slot.sizef)
+            return value_types.SizeF.from_proto(slot.sizef)
         elif vtype == 'color':
-            return model.Color.from_proto(slot.color)
+            return value_types.Color.from_proto(slot.color)
         elif vtype == 'control_value':
-            return model.ControlValue.from_proto(slot.control_value)
+            return value_types.ControlValue.from_proto(slot.control_value)
         elif vtype == 'node_port_properties':
-            return model.NodePortProperties.from_proto(slot.node_port_properties)
+            return value_types.NodePortProperties.from_proto(slot.node_port_properties)
         elif vtype == 'port_description':
             return copy.deepcopy(slot.port_description)
 
@@ -194,7 +200,9 @@ class MutationList(object):
 
 
 class MutationCollector(object):
-    def __init__(self, pool: pmodel.Pool, mutation_list: mutations_pb2.MutationList) -> None:
+    def __init__(
+            self, pool: model_base.Pool, mutation_list: mutations_pb2.MutationList
+    ) -> None:
         self.__pool = pool
         self.__proto = mutation_list
         self.__listener = None  # type: core.Listener
@@ -223,8 +231,8 @@ class MutationCollector(object):
     def clear(self) -> None:
         self.__proto.Clear()
 
-    def __handle_model_change(self, change: model.PropertyChange) -> None:
-        if isinstance(change, model.PropertyValueChange):
+    def __handle_model_change(self, change: model_base.PropertyChange) -> None:
+        if isinstance(change, model_base.PropertyValueChange):
             old_slot_id = self.__add_slot(change.old_value)
             new_slot_id = self.__add_slot(change.new_value)
 
@@ -235,7 +243,7 @@ class MutationCollector(object):
                     old_slot=old_slot_id,
                     new_slot=new_slot_id)))
 
-        elif isinstance(change, model.PropertyListInsert):
+        elif isinstance(change, model_base.PropertyListInsert):
             slot_id = self.__add_slot(change.new_value)
             self.__add_operation(mutations_pb2.MutationList.Op(
                 list_insert=mutations_pb2.MutationList.ListInsert(
@@ -244,7 +252,7 @@ class MutationCollector(object):
                     index=change.index,
                     slot=slot_id)))
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, model_base.PropertyListDelete):
             slot_id = self.__add_slot(change.old_value)
             self.__add_operation(mutations_pb2.MutationList.Op(
                 list_delete=mutations_pb2.MutationList.ListDelete(
@@ -253,7 +261,7 @@ class MutationCollector(object):
                     index=change.index,
                     slot=slot_id)))
 
-        elif isinstance(change, model.PropertyListSet):
+        elif isinstance(change, model_base.PropertyListSet):
             old_slot_id = self.__add_slot(change.old_value)
             new_slot_id = self.__add_slot(change.new_value)
             self.__add_operation(mutations_pb2.MutationList.Op(
@@ -264,12 +272,12 @@ class MutationCollector(object):
                     old_slot=old_slot_id,
                     new_slot=new_slot_id)))
 
-        elif isinstance(change, model.ObjectAdded):
+        elif isinstance(change, model_base.ObjectAdded):
             self.__add_operation(mutations_pb2.MutationList.Op(
                 add_object=mutations_pb2.MutationList.AddObject(
                     object=change.obj.proto)))
 
-        elif isinstance(change, model.ObjectRemoved):
+        elif isinstance(change, model_base.ObjectRemoved):
             self.__add_operation(mutations_pb2.MutationList.Op(
                 remove_object=mutations_pb2.MutationList.RemoveObject(
                     object=change.obj.proto)))
@@ -281,7 +289,7 @@ class MutationCollector(object):
         slot = self.__proto.slots.add()
         if value is None:
             slot.none = True
-        elif isinstance(value, model.ObjectBase):
+        elif isinstance(value, model_base.ObjectBase):
             slot.obj_id = value.id
 
         elif isinstance(value, str):
@@ -301,23 +309,23 @@ class MutationCollector(object):
             slot.musical_duration.CopyFrom(value.to_proto())
         elif isinstance(value, audioproc.PluginState):
             slot.plugin_state.CopyFrom(value)
-        elif isinstance(value, model.Pitch):
+        elif isinstance(value, value_types.Pitch):
             slot.pitch.CopyFrom(value.to_proto())
-        elif isinstance(value, model.KeySignature):
+        elif isinstance(value, value_types.KeySignature):
             slot.key_signature.CopyFrom(value.to_proto())
-        elif isinstance(value, model.TimeSignature):
+        elif isinstance(value, value_types.TimeSignature):
             slot.time_signature.CopyFrom(value.to_proto())
-        elif isinstance(value, model.Clef):
+        elif isinstance(value, value_types.Clef):
             slot.clef.CopyFrom(value.to_proto())
-        elif isinstance(value, model.Pos2F):
+        elif isinstance(value, value_types.Pos2F):
             slot.pos2f.CopyFrom(value.to_proto())
-        elif isinstance(value, model.SizeF):
+        elif isinstance(value, value_types.SizeF):
             slot.sizef.CopyFrom(value.to_proto())
-        elif isinstance(value, model.Color):
+        elif isinstance(value, value_types.Color):
             slot.color.CopyFrom(value.to_proto())
-        elif isinstance(value, model.ControlValue):
+        elif isinstance(value, value_types.ControlValue):
             slot.control_value.CopyFrom(value.to_proto())
-        elif isinstance(value, model.NodePortProperties):
+        elif isinstance(value, value_types.NodePortProperties):
             slot.node_port_properties.CopyFrom(value.to_proto())
         elif isinstance(value, node_db.PortDescription):
             slot.port_description.CopyFrom(value)

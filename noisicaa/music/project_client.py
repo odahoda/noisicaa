@@ -22,221 +22,29 @@
 
 import asyncio
 from fractions import Fraction
+import functools
 import getpass
 import logging
 import random
 import socket
-from typing import cast, Any, Dict, Tuple, Sequence, Callable, TypeVar
-
-from google.protobuf import message as protobuf
+from typing import Any, Dict, List, Tuple, Callable, TypeVar
 
 from noisicaa import audioproc
 from noisicaa import core
-from noisicaa import model
+from noisicaa import lv2
 from noisicaa import node_db as node_db_lib
+from noisicaa import editor_main_pb2
 from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
-from noisicaa.builtin_nodes import client_registry
-from . import project_process_pb2
-from . import mutations as mutations_lib
-from . import mutations_pb2
-from . import render_settings_pb2
-from . import commands_pb2
-from . import project_client_model
+from noisicaa.core import session_data_pb2
+from . import render_pb2
+from . import project as project_lib
+from . import writer_client
+from . import render
+from . import player as player_lib
+from . import session_value_store
 
 logger = logging.getLogger(__name__)
-
-
-def crash() -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='crash',
-        crash=empty_message_pb2.EmptyMessage())
-
-
-def update_project(
-        *,
-        set_bpm: int = None
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='update_project',
-        update_project=commands_pb2.UpdateProject(
-            set_bpm=set_bpm))
-
-
-def create_node(
-        uri: str,
-        *,
-        name: str = None,
-        graph_pos: model.Pos2F = None,
-        graph_size: model.SizeF = None,
-        graph_color: model.Color = None,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='create_node',
-        create_node=commands_pb2.CreateNode(
-            uri=uri,
-            name=name,
-            graph_pos=graph_pos.to_proto() if graph_pos is not None else None,
-            graph_size=graph_size.to_proto() if graph_size is not None else None,
-            graph_color=graph_color.to_proto() if graph_color is not None else None))
-
-
-def update_node(
-        node: project_client_model.BaseNode,
-        *,
-        set_name: str = None,
-        set_graph_pos: model.Pos2F = None,
-        set_graph_size: model.SizeF = None,
-        set_graph_color: model.Color = None,
-        set_control_value: model.ControlValue = None,
-        set_plugin_state: audioproc.PluginState = None,
-        set_port_properties: model.NodePortProperties = None,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='update_node',
-        update_node=commands_pb2.UpdateNode(
-            node_id=node.id,
-            set_name=set_name,
-            set_graph_pos=set_graph_pos.to_proto() if set_graph_pos is not None else None,
-            set_graph_size=set_graph_size.to_proto() if set_graph_size is not None else None,
-            set_graph_color=set_graph_color.to_proto() if set_graph_color is not None else None,
-            set_control_value=(
-                set_control_value.to_proto() if set_control_value is not None else None),
-            set_plugin_state=set_plugin_state,
-            set_port_properties=(
-                set_port_properties.to_proto() if set_port_properties is not None else None),
-        ))
-
-
-def delete_node(
-        node: project_client_model.BaseNode,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='delete_node',
-        delete_node=commands_pb2.DeleteNode(
-            node_id=node.id))
-
-
-def update_port(
-        port: project_client_model.Port,
-        *,
-        set_name: str = None,
-        set_display_name: str = None,
-        set_type: node_db_lib.PortDescription.Type = None,
-        set_direction: node_db_lib.PortDescription.Direction = None,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='update_port',
-        update_port=commands_pb2.UpdatePort(
-            port_id=port.id,
-            set_name=set_name,
-            set_display_name=set_display_name,
-            set_type=set_type,
-            set_direction=set_direction,
-        ))
-
-
-def create_node_connection(
-        *,
-        source_node: project_client_model.BaseNode,
-        source_port: str,
-        dest_node: project_client_model.BaseNode,
-        dest_port: str,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='create_node_connection',
-        create_node_connection=commands_pb2.CreateNodeConnection(
-            source_node_id=source_node.id,
-            source_port_name=source_port,
-            dest_node_id=dest_node.id,
-            dest_port_name=dest_port))
-
-
-def delete_node_connection(
-        conn: project_client_model.NodeConnection,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='delete_node_connection',
-        delete_node_connection=commands_pb2.DeleteNodeConnection(
-            connection_id=conn.id))
-
-def update_track(
-        track: project_client_model.Track,
-        *,
-        set_visible: bool = None,
-        set_list_position: int = None,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='update_track',
-        update_track=commands_pb2.UpdateTrack(
-            track_id=track.id,
-            set_visible=set_visible,
-            set_list_position=set_list_position,
-        ))
-
-
-def create_measure(
-        track: project_client_model.MeasuredTrack,
-        pos: int,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='create_measure',
-        create_measure=commands_pb2.CreateMeasure(
-            track_id=track.id,
-            pos=pos,
-        ))
-
-
-def update_measure(
-        measure: project_client_model.MeasureReference,
-        *,
-        clear: bool = None,
-        set_time_signature: model.TimeSignature = None,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='update_measure',
-        update_measure=commands_pb2.UpdateMeasure(
-            measure_id=measure.id,
-            clear=clear,
-            set_time_signature=(
-                set_time_signature.to_proto() if set_time_signature is not None else None),
-        ))
-
-
-def delete_measure(
-        measure: project_client_model.MeasureReference,
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='delete_measure',
-        delete_measure=commands_pb2.DeleteMeasure(
-            measure_id=measure.id))
-
-
-def paste_measures(
-        mode: str,
-        src_objs: Sequence[model.ObjectTree],
-        target_ids: Sequence[int],
-) -> commands_pb2.Command:
-    return commands_pb2.Command(
-        command='paste_measures',
-        paste_measures=commands_pb2.PasteMeasures(
-            mode=mode,
-            src_objs=src_objs,
-            target_ids=target_ids))
-
-
-class Pool(model.Pool[project_client_model.ObjectBase]):
-    def __init__(self) -> None:
-        super().__init__()
-
-        self.register_class(project_client_model.Project)
-        self.register_class(project_client_model.MeasureReference)
-        self.register_class(project_client_model.Metadata)
-        self.register_class(project_client_model.Sample)
-        self.register_class(project_client_model.NodeConnection)
-        self.register_class(project_client_model.Node)
-        self.register_class(project_client_model.SystemOutNode)
-        client_registry.register_classes(self)
 
 
 class ProjectClient(object):
@@ -244,251 +52,288 @@ class ProjectClient(object):
             self, *,
             event_loop: asyncio.AbstractEventLoop,
             server: ipc.Server,
-            node_db: node_db_lib.NodeDBClient = None) -> None:
-        super().__init__()
-        self.event_loop = event_loop
+            manager: ipc.Stub,
+            tmp_dir: str,
+            node_db: node_db_lib.NodeDBClient,
+            urid_mapper: lv2.ProxyURIDMapper,
+    ) -> None:
+        self.__event_loop = event_loop
         self.__server = server
-        self._node_db = node_db
+        self.__tmp_dir = tmp_dir
+        self.__manager = manager
 
-        self._stub = None  # type: ipc.Stub
-        self._session_data = None  # type: Dict[str, Any]
-        self.__pool = None  # type: Pool
+        self.__node_db = node_db
+        self.__urid_mapper = urid_mapper
+        self.__pool = None  # type: project_lib.Pool
+        self.__project = None  # type: project_lib.BaseProject
+        self.__writer_client = None  # type: writer_client.WriterClient
+        self.__writer_address = None  # type: str
+        self.__session_values = None  # type: session_value_store.SessionValueStore
         self.__session_data_listeners = core.CallbackMap[str, Any]()
-        self.__closed = None  # type: bool
-
+        self.__players = {}  # type: Dict[str, player_lib.Player]
         self.__cb_endpoint_name = 'project-%016x' % random.getrandbits(63)
         self.__cb_endpoint_address = None  # type: str
 
     @property
-    def project(self) -> project_client_model.Project:
-        return cast(project_client_model.Project, self.__pool.root)
-
-    def __set_project(self, root_id: int) -> None:
-        project = cast(project_client_model.Project, self.__pool[root_id])
-        self.__pool.set_root(project)
-        project.init(self._node_db)
+    def project(self) -> project_lib.BaseProject:
+        return self.__project
 
     async def setup(self) -> None:
         cb_endpoint = ipc.ServerEndpoint(self.__cb_endpoint_name)
         cb_endpoint.add_handler(
-            'PROJECT_MUTATIONS', self.handle_project_mutations,
-            mutations_pb2.MutationList, empty_message_pb2.EmptyMessage)
+            'CONTROL_VALUE_CHANGE', self.__handle_control_value_change,
+            audioproc.ControlValueChange, empty_message_pb2.EmptyMessage)
         cb_endpoint.add_handler(
-            'PROJECT_CLOSED', self.handle_project_closed,
-            empty_message_pb2.EmptyMessage, empty_message_pb2.EmptyMessage)
-        cb_endpoint.add_handler(
-            'SESSION_DATA_MUTATION', self.handle_session_data_mutation,
-            project_process_pb2.SessionDataMutation, empty_message_pb2.EmptyMessage)
-
+            'PLUGIN_STATE_CHANGE', self.__handle_plugin_state_change,
+            audioproc.PluginStateChange, empty_message_pb2.EmptyMessage)
         self.__cb_endpoint_address = await self.__server.add_endpoint(cb_endpoint)
 
     async def cleanup(self) -> None:
-        await self.disconnect()
+        players = list(self.__players.values())
+        self.__players.clear()
+
+        for player in players:
+            await player.cleanup()
 
         if self.__cb_endpoint_address is not None:
             await self.__server.remove_endpoint(self.__cb_endpoint_name)
             self.__cb_endpoint_address = None
 
-    async def connect(self, address: str) -> None:
-        assert self._stub is None
+        await self.close()
 
-        self.__pool = Pool()
-        self._session_data = {}
-        self.__closed = False
+    async def __create_writer(self) -> None:
+        logger.info("Creating writer process...")
+        create_writer_response = editor_main_pb2.CreateProcessResponse()
+        await self.__manager.call(
+            'CREATE_WRITER_PROCESS', None, create_writer_response)
+        self.__writer_address = create_writer_response.address
 
-        self._stub = ipc.Stub(self.event_loop, address)
-        await self._stub.connect(core.StartSessionRequest(
-            callback_address=self.__cb_endpoint_address,
-            session_name='%s.%s' % (getpass.getuser(), socket.getfqdn())))
+        logger.info("Connecting to writer process %r...", self.__writer_address)
+        self.__writer_client = writer_client.WriterClient(
+            event_loop=self.__event_loop)
+        await self.__writer_client.setup()
+        await self.__writer_client.connect(self.__writer_address)
 
-        get_root_id_response = project_process_pb2.ProjectId()
-        await self._stub.call('GET_ROOT_ID', None, get_root_id_response)
-        if get_root_id_response.HasField('project_id'):
-            # Connected to a loaded project.
-            self.__set_project(get_root_id_response.project_id)
+    async def __init_session_data(self) -> None:
+        session_name = '%s.%s' % (getpass.getuser(), socket.getfqdn())
+        self.__session_values = session_value_store.SessionValueStore(
+            self.__event_loop, session_name)
+        await self.__session_values.init(self.__project.data_dir)
 
-    async def disconnect(self) -> None:
-        if self._stub is not None:
-            await self._stub.close()
-            self._stub = None
+        for session_value in self.__session_values.values():
+            self.__session_data_listeners.call(
+                session_value.name, self.__session_proto_to_py(session_value))
 
-    def get_object(self, obj_id: int) -> project_client_model.ObjectBase:
-        return self.__pool[obj_id]
+    # def get_object(self, obj_id: int) -> model_base.ObjectBase:
+    #     return self.__pool[obj_id]
 
-    def handle_project_mutations(
+    async def __handle_control_value_change(
             self,
-            request: mutations_pb2.MutationList,
+            request: audioproc.ControlValueChange,
             response: empty_message_pb2.EmptyMessage
     ) -> None:
-        logger.debug("Received project mutations:\n%s", request)
-        mutation_list = mutations_lib.MutationList(self.__pool, request)
-        mutation_list.apply_forward()
+        assert self.__project is not None
 
-    def handle_project_closed(
+        logger.info(
+            "control_value_change(%s, %s, %s, %f, %d)",
+            request.realm, request.node_id,
+            request.value.name, request.value.value, request.value.generation)
+
+        node = None
+        for node in self.__project.nodes:
+            if node.pipeline_node_id == request.node_id:
+                break
+
+        else:
+            raise ValueError("Invalid node_id '%s'" % request.node_id)
+
+        with self.__project.apply_mutations('Change control value "%s"' % request.value.name):
+            node.set_control_value(
+                request.value.name, request.value.value, request.value.generation)
+
+    async def __handle_plugin_state_change(
             self,
-            request: empty_message_pb2.EmptyMessage,
+            request: audioproc.PluginStateChange,
             response: empty_message_pb2.EmptyMessage
     ) -> None:
-        logger.info("Project closed received.")
-        self.__closed = True
+        assert self.__project is not None
 
-    async def call(
-            self, cmd: str, request: protobuf.Message = None, response: protobuf.Message = None
-    ) -> None:
-        await self._stub.call(cmd, request, response)
+        node = None
+        for node in self.__project.nodes:
+            if node.pipeline_node_id == request.node_id:
+                break
+        else:
+            raise ValueError("Invalid node_id '%s'" % request.node_id)
+
+        with self.__project.apply_mutations('Change plugin state'):
+            node.set_plugin_state(request.state)
 
     async def create(self, path: str) -> None:
-        request = project_process_pb2.CreateRequest(
-            path=path)
-        response = project_process_pb2.ProjectId()
-        await self._stub.call('CREATE', request, response)
-        assert response.HasField('project_id')
-        self.__set_project(response.project_id)
+        assert self.__project is None
+
+        await self.__create_writer()
+
+        self.__pool = project_lib.Pool(project_cls=project_lib.Project)
+        self.__project = await project_lib.Project.create_blank(
+            path=path,
+            pool=self.__pool,
+            writer=self.__writer_client,
+            node_db=self.__node_db)
+        self.__project.monitor_model_changes()
+        await self.__init_session_data()
 
     async def create_inmemory(self) -> None:
-        response = project_process_pb2.ProjectId()
-        await self._stub.call('CREATE_INMEMORY', None, response)
-        assert response.HasField('project_id')
-        self.__set_project(response.project_id)
+        assert self.__project is None
+
+        self.__pool = project_lib.Pool()
+        self.__project = self.__pool.create(
+            project_lib.BaseProject, node_db=self.__node_db)
+        self.__pool.set_root(self.__project)
+        self.__project.monitor_model_changes()
+        await self.__init_session_data()
 
     async def open(self, path: str) -> None:
-        request = project_process_pb2.OpenRequest(
-            path=path)
-        response = project_process_pb2.ProjectId()
-        await self._stub.call('OPEN', request, response)
-        assert response.HasField('project_id')
-        self.__set_project(response.project_id)
+        assert self.__project is None
+
+        await self.__create_writer()
+
+        self.__pool = project_lib.Pool(project_cls=project_lib.Project)
+        self.__project = await project_lib.Project.open(
+            path=path,
+            pool=self.__pool,
+            writer=self.__writer_client,
+            node_db=self.__node_db)
+        self.__project.monitor_model_changes()
+        await self.__init_session_data()
 
     async def close(self) -> None:
-        assert self.__pool is not None
-        await self._stub.call('CLOSE')
-        self.__pool = None
+        if self.__project is not None:
+            await self.__project.close()
+            self.__project = None
+            self.__pool = None
 
-    async def send_command(self, command: commands_pb2.Command) -> None:
-        assert self.project is not None
-        await self.send_command_sequence(
-            commands_pb2.CommandSequence(commands=[command]))
+        if self.__writer_client is not None:
+            await self.__writer_client.close()
+            await self.__writer_client.cleanup()
+            self.__writer_client = None
 
-    async def send_commands(self, *commands: commands_pb2.Command) -> None:
-        await self.send_command_sequence(
-            commands_pb2.CommandSequence(commands=commands))
-
-    async def send_command_sequence(self, sequence: commands_pb2.CommandSequence) -> None:
-        assert self.project is not None
-        try:
-            await self._stub.call('COMMAND_SEQUENCE', sequence)
-        except ipc.RemoteException:
-            if self.__closed:
-                raise ipc.ConnectionClosed("Project closed while executing command.")
-            raise
-
-    async def undo(self) -> None:
-        assert self.project is not None
-        await self._stub.call('UNDO')
-
-    async def redo(self) -> None:
-        assert self.project is not None
-        await self._stub.call('REDO')
+        if self.__writer_address is not None:
+            await self.__manager.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.__writer_address))
+            self.__writer_address = None
 
     async def create_player(self, *, audioproc_address: str) -> Tuple[str, str]:
-        response = project_process_pb2.CreatePlayerResponse()
-        await self._stub.call(
-            'CREATE_PLAYER',
-            project_process_pb2.CreatePlayerRequest(
-                client_address=self.__cb_endpoint_address,
-                audioproc_address=audioproc_address),
-            response)
-        return (response.id, response.realm)
+        assert self.__project is not None
+
+        logger.info("Creating audioproc client...")
+        audioproc_client = audioproc.AudioProcClient(
+            self.__event_loop, self.__server, self.__urid_mapper)
+        await audioproc_client.setup()
+
+        logger.info("Connecting audioproc client...")
+        await audioproc_client.connect(audioproc_address)
+
+        realm_name = 'project:%s' % self.__project.id
+        logger.info("Creating realm '%s'...", realm_name)
+        await audioproc_client.create_realm(
+            name=realm_name,
+            parent='root',
+            enable_player=True,
+            callback_address=self.__cb_endpoint_address)
+
+        player = player_lib.Player(
+            project=self.__project,
+            callback_address=self.__cb_endpoint_address,
+            event_loop=self.__event_loop,
+            audioproc_client=audioproc_client,
+            realm=realm_name,
+            session_values=self.__session_values)
+        await player.setup()
+
+        self.__players[player.id] = player
+
+        return (player.id, player.realm)
 
     async def delete_player(self, player_id: str) -> None:
-        await self._stub.call(
-            'DELETE_PLAYER',
-            project_process_pb2.DeletePlayerRequest(
-                player_id=player_id))
+        player = self.__players.pop(player_id)
+        await player.cleanup()
+
+        if player.audioproc_client is not None:
+            if player.realm is not None:
+                logger.info("Deleting realm '%s'...", player.realm)
+                await player.audioproc_client.delete_realm(name=player.realm)
+            await player.audioproc_client.disconnect()
+            await player.audioproc_client.cleanup()
 
     async def create_plugin_ui(self, player_id: str, node_id: str) -> Tuple[int, Tuple[int, int]]:
-        response = project_process_pb2.CreatePluginUIResponse()
-        await self._stub.call(
-            'CREATE_PLUGIN_UI',
-            project_process_pb2.CreatePluginUIRequest(
-                player_id=player_id,
-                node_id=node_id),
-            response)
-        return (response.wid, (response.width, response.height))
+        player = self.__players[player_id]
+        return await player.create_plugin_ui(node_id)
 
     async def delete_plugin_ui(self, player_id: str, node_id: str) -> None:
-        await self._stub.call(
-            'DELETE_PLUGIN_UI',
-            project_process_pb2.DeletePluginUIRequest(
-                player_id=player_id,
-                node_id=node_id))
+        player = self.__players[player_id]
+        await player.delete_plugin_ui(node_id)
 
     async def update_player_state(self, player_id: str, state: audioproc.PlayerState) -> None:
-        await self._stub.call(
-            'UPDATE_PLAYER_STATE',
-            project_process_pb2.UpdatePlayerStateRequest(
-                player_id=player_id,
-                state=state))
+        player = self.__players[player_id]
+        await player.update_state(state)
 
     async def dump(self) -> None:
-        await self._stub.call('DUMP')
+        raise NotImplementedError
+    #     await self._stub.call('DUMP')
 
     async def render(
-            self, callback_address: str, render_settings: render_settings_pb2.RenderSettings
+            self, callback_address: str, render_settings: render_pb2.RenderSettings
     ) -> None:
-        await self._stub.call(
-            'RENDER',
-            project_process_pb2.RenderRequest(
-                callback_address=callback_address,
-                settings=render_settings))
+        assert self.__project is not None
+
+        renderer = render.Renderer(
+            project=self.__project,
+            tmp_dir=self.__tmp_dir,
+            server=self.__server,
+            manager=self.__manager,
+            event_loop=self.__event_loop,
+            callback_address=callback_address,
+            render_settings=render_settings,
+            urid_mapper=self.__urid_mapper,
+        )
+        await renderer.run()
 
     def add_session_data_listener(
             self, key: str, func: Callable[[Any], None]) -> core.Listener:
         return self.__session_data_listeners.add(key, func)
 
-    async def handle_session_data_mutation(
-            self,
-            request: project_process_pb2.SessionDataMutation,
-            response: empty_message_pb2.EmptyMessage
-    ) -> None:
-        for session_value in request.session_values:
-            key = session_value.name
-            value = None  # type: Any
-
-            value_type = session_value.WhichOneof('type')
-            if value_type == 'string_value':
-                value = session_value.string_value
-            elif value_type == 'bytes_value':
-                value = session_value.bytes_value
-            elif value_type == 'bool_value':
-                value = session_value.bool_value
-            elif value_type == 'int_value':
-                value = session_value.int_value
-            elif value_type == 'double_value':
-                value = session_value.double_value
-            elif value_type == 'fraction_value':
-                value = Fraction(
-                    session_value.fraction_value.numerator,
-                    session_value.fraction_value.denominator)
-            elif value_type == 'musical_time_value':
-                value = audioproc.MusicalTime.from_proto(session_value.musical_time_value)
-            elif value_type == 'musical_duration_value':
-                value = audioproc.MusicalDuration.from_proto(session_value.musical_time_value)
-            else:
-                raise ValueError(session_value)
-
-            if key not in self._session_data or self._session_data[key] != value:
-                self._session_data[key] = value
-                self.__session_data_listeners.call(key, value)
+    def __session_proto_to_py(self, session_value: session_data_pb2.SessionValue) -> Any:
+        value_type = session_value.WhichOneof('type')
+        if value_type == 'string_value':
+            return session_value.string_value
+        elif value_type == 'bytes_value':
+            return session_value.bytes_value
+        elif value_type == 'bool_value':
+            return session_value.bool_value
+        elif value_type == 'int_value':
+            return session_value.int_value
+        elif value_type == 'double_value':
+            return session_value.double_value
+        elif value_type == 'fraction_value':
+            return Fraction(
+                session_value.fraction_value.numerator,
+                session_value.fraction_value.denominator)
+        elif value_type == 'musical_time_value':
+            return audioproc.MusicalTime.from_proto(session_value.musical_time_value)
+        elif value_type == 'musical_duration_value':
+            return audioproc.MusicalDuration.from_proto(session_value.musical_time_value)
+        else:
+            raise ValueError(session_value)
 
     def set_session_value(self, key: str, value: Any) -> None:
         self.set_session_values({key: value})
 
     def set_session_values(self, data: Dict[str, Any]) -> None:
-        request = project_process_pb2.SetSessionValuesRequest()
-        assert isinstance(data, dict), data
+        session_values = []  # type: List[session_data_pb2.SessionValue]
         for key, value in data.items():
-            session_value = request.session_values.add()
+            session_value = session_data_pb2.SessionValue()
             session_value.name = key
             if isinstance(value, str):
                 session_value.string_value = value
@@ -512,9 +357,20 @@ class ProjectClient(object):
             else:
                 raise ValueError("%s: %s" % (key, type(value)))
 
-        self._session_data.update(data)
-        self.event_loop.create_task(self._stub.call('SET_SESSION_VALUES', request))
+            session_values.append(session_value)
+
+        task = self.__event_loop.create_task(self.__session_values.set_values(session_values))
+        task.add_done_callback(functools.partial(self.__set_session_values_done, data))
+
+    def __set_session_values_done(self, data: Dict[str, Any], task: asyncio.Task) -> None:
+        for key, value in data.items():
+            self.__session_data_listeners.call(key, value)
 
     T = TypeVar('T')
     def get_session_value(self, key: str, default: T) -> T:  # pylint: disable=undefined-variable
-        return self._session_data.get(key, default)
+        try:
+            session_value = self.__session_values.get_value(key)
+        except KeyError:
+            return default
+        else:
+            return self.__session_proto_to_py(session_value)

@@ -24,16 +24,13 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
 from noisidev import uitest
-from noisicaa import music
 from . import node_ui
-from . import commands
 
 
 class MidiCCtoCVNodeTest(uitest.ProjectMixin, uitest.UITestCase):
     async def setup_testcase(self):
-        await self.project_client.send_command(music.create_node(
-            uri='builtin://midi-cc-to-cv'))
-        self.node = self.project.nodes[-1]
+        with self.project.apply_mutations('test'):
+            self.node = self.project.create_node('builtin://midi-cc-to-cv')
 
     async def test_init(self):
         widget = node_ui.MidiCCtoCVNode(node=self.node, context=self.context)
@@ -47,9 +44,8 @@ class MidiCCtoCVNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
         self.widget = None
 
     async def setup_testcase(self):
-        await self.project_client.send_command(music.create_node(
-            uri='builtin://midi-cc-to-cv'))
-        self.node = self.project.nodes[-1]
+        with self.project.apply_mutations('test'):
+            self.node = self.project.create_node('builtin://midi-cc-to-cv')
 
         self.widget = node_ui.MidiCCtoCVNodeWidget(node=self.node, context=self.context)
 
@@ -58,20 +54,19 @@ class MidiCCtoCVNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
             self.widget.cleanup()
 
     async def test_channel_added(self):
-        await self.project_client.send_command(commands.create_channel(
-            self.node, index=1))
+        with self.project.apply_mutations('test'):
+            self.node.create_channel(1)
         self.assertIsNotNone(self.widget.findChild(
             QtWidgets.QWidget,
             "channel[%016x]:min_value" % self.node.channels[1].id,
             Qt.FindChildrenRecursively))
 
     async def test_channel_removed(self):
-        await self.project_client.send_command(commands.create_channel(
-            self.node, index=1))
-        channel = self.node.channels[1]
+        with self.project.apply_mutations('test'):
+            channel = self.node.create_channel(1)
 
-        await self.project_client.send_command(commands.delete_channel(
-            channel))
+        with self.project.apply_mutations('test'):
+            self.node.delete_channel(channel)
         self.assertIsNone(self.widget.findChild(
             QtWidgets.QWidget,
             "channel[%016x]:min_value" % channel.id,
@@ -84,29 +79,29 @@ class MidiCCtoCVNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
         return editor
 
     async def test_channel_midi_channel_changed(self):
-        await self.project_client.send_command(commands.update_channel(
-            self.node.channels[0], set_midi_channel=12))
+        with self.project.apply_mutations('test'):
+            self.node.channels[0]. midi_channel = 12
 
         editor = self._getEditor(QtWidgets.QSpinBox, self.node.channels[0], 'midi_channel')
-        self.assertEqual(editor.value(), 13)
+        self.assertEqual(editor.value(), 12)
 
     async def test_channel_midi_controller_changed(self):
-        await self.project_client.send_command(commands.update_channel(
-            self.node.channels[0], set_midi_controller=63))
+        with self.project.apply_mutations('test'):
+            self.node.channels[0].midi_controller = 63
 
         editor = self._getEditor(QtWidgets.QSpinBox, self.node.channels[0], 'midi_controller')
         self.assertEqual(editor.value(), 63)
 
     async def test_channel_min_value_changed(self):
-        await self.project_client.send_command(commands.update_channel(
-            self.node.channels[0], set_min_value=440.0))
+        with self.project.apply_mutations('test'):
+            self.node.channels[0].min_value = 440.0
 
         editor = self._getEditor(QtWidgets.QLineEdit, self.node.channels[0], 'min_value')
         self.assertEqual(editor.text(), '440.0')
 
     async def test_channel_max_value_changed(self):
-        await self.project_client.send_command(commands.update_channel(
-            self.node.channels[0], set_max_value=880.0))
+        with self.project.apply_mutations('test'):
+            self.node.channels[0].max_value = 880.0
 
         editor = self._getEditor(QtWidgets.QLineEdit, self.node.channels[0], 'max_value')
         self.assertEqual(editor.text(), '880.0')

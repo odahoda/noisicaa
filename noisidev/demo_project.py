@@ -28,17 +28,17 @@ from noisicaa.audioproc import (
     MusicalTime,
     MusicalDuration,
 )
-from noisicaa.model import (
+from noisicaa.value_types import (
     Pitch,
 )
 from noisicaa.music import (
     graph,
 )
-from noisicaa.builtin_nodes.score_track import server_impl as score_track
-from noisicaa.builtin_nodes.beat_track import server_impl as beat_track
-from noisicaa.builtin_nodes.control_track import server_impl as control_track
-from noisicaa.builtin_nodes.sample_track import server_impl as sample_track
-from noisicaa.builtin_nodes.instrument import server_impl as instrument
+from noisicaa.builtin_nodes.score_track import model as score_track
+from noisicaa.builtin_nodes.beat_track import model as beat_track
+from noisicaa.builtin_nodes.control_track import model as control_track
+from noisicaa.builtin_nodes.sample_track import model as sample_track
+from noisicaa.builtin_nodes.instrument import model as instrument
 from noisicaa import instrument_db
 
 Note = score_track.Note

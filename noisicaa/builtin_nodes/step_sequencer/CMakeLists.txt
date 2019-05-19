@@ -21,21 +21,20 @@
 add_python_package(
   node_description.py
   model.py
-  commands.py
-  client_impl.py
-  client_impl_test.py
-  server_impl.py
-  server_impl_test.py
+  model_test.py
   node_ui.py
   node_ui_test.py
   processor_test.py
 )
 
+build_model(model.desc.pb _model.py noisicaa/builtin_nodes/model.tmpl.py)
+
 py_proto(model.proto)
+add_dependencies(noisicaa.builtin_nodes.step_sequencer.model.proto model-noisicaa.builtin_nodes.step_sequencer)
 cpp_proto(model.proto)
-py_proto(commands.proto)
 py_proto(processor.proto)
 cpp_proto(processor.proto)
+add_dependencies(noisicaa.builtin_nodes.step_sequencer.processor.proto model-noisicaa.builtin_nodes.step_sequencer)
 
 add_library(noisicaa-builtin_nodes-step_sequencer-processor SHARED processor.cpp processor.pb.cc model.pb.cc)
 target_compile_options(noisicaa-builtin_nodes-step_sequencer-processor PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)

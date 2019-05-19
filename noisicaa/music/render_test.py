@@ -25,7 +25,7 @@ import random
 import struct
 
 from noisidev import unittest
-from . import render_settings_pb2
+from . import render_pb2
 from . import render
 
 
@@ -86,29 +86,29 @@ class EncoderTest(unittest.AsyncTestCase):
         # TODO: check that output duration matches input
 
     async def test_flac_16bit(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.FLAC
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.FLAC
         settings.flac_settings.bits_per_sample = 16
         await self.run_encoder(settings)
         self.assertValidFlac()
 
     async def test_flac_24bit(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.FLAC
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.FLAC
         settings.flac_settings.bits_per_sample = 24
         await self.run_encoder(settings)
         self.assertValidFlac()
 
     async def test_flac_min_compression(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.FLAC
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.FLAC
         settings.flac_settings.compression_level = 0
         await self.run_encoder(settings)
         self.assertValidFlac()
 
     async def test_flac_max_compression(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.FLAC
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.FLAC
         settings.flac_settings.compression_level = 12
         await self.run_encoder(settings)
         self.assertValidFlac()
@@ -120,17 +120,17 @@ class EncoderTest(unittest.AsyncTestCase):
         # TODO: check that output duration matches input
 
     async def test_ogg_vbr(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.OGG
-        settings.ogg_settings.encode_mode = render_settings_pb2.RenderSettings.OggSettings.VBR
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.OGG
+        settings.ogg_settings.encode_mode = render_pb2.RenderSettings.OggSettings.VBR
         settings.ogg_settings.quality = 5.0
         await self.run_encoder(settings)
         self.assertValidOgg()
 
     async def test_ogg_cbr(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.OGG
-        settings.ogg_settings.encode_mode = render_settings_pb2.RenderSettings.OggSettings.CBR
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.OGG
+        settings.ogg_settings.encode_mode = render_pb2.RenderSettings.OggSettings.CBR
         settings.ogg_settings.bitrate = 128
         await self.run_encoder(settings)
         self.assertValidOgg()
@@ -143,22 +143,22 @@ class EncoderTest(unittest.AsyncTestCase):
         # TODO: check that output duration matches input
 
     async def test_wave_16bit(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.WAVE
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.WAVE
         settings.wave_settings.bits_per_sample = 16
         await self.run_encoder(settings)
         self.assertValidWave()
 
     async def test_wave_24bit(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.WAVE
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.WAVE
         settings.wave_settings.bits_per_sample = 24
         await self.run_encoder(settings)
         self.assertValidWave()
 
     async def test_wave_32bit(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.WAVE
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.WAVE
         settings.wave_settings.bits_per_sample = 32
         await self.run_encoder(settings)
         self.assertValidWave()
@@ -170,17 +170,17 @@ class EncoderTest(unittest.AsyncTestCase):
         # TODO: check that output duration matches input
 
     async def test_mp3_vbr(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.MP3
-        settings.mp3_settings.encode_mode = render_settings_pb2.RenderSettings.Mp3Settings.VBR
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.MP3
+        settings.mp3_settings.encode_mode = render_pb2.RenderSettings.Mp3Settings.VBR
         settings.mp3_settings.compression_level = 0
         await self.run_encoder(settings)
         self.assertValidMp3()
 
     async def test_mp3_cbr(self):
-        settings = render_settings_pb2.RenderSettings()
-        settings.output_format = render_settings_pb2.RenderSettings.MP3
-        settings.mp3_settings.encode_mode = render_settings_pb2.RenderSettings.Mp3Settings.CBR
+        settings = render_pb2.RenderSettings()
+        settings.output_format = render_pb2.RenderSettings.MP3
+        settings.mp3_settings.encode_mode = render_pb2.RenderSettings.Mp3Settings.CBR
         settings.mp3_settings.bitrate = 128
         await self.run_encoder(settings)
         self.assertValidMp3()

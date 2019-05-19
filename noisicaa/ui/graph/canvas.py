@@ -30,7 +30,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import constants
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa import node_db
 from noisicaa.ui import ui_base
@@ -281,11 +281,11 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         self.__layoutContent()
 
     def __nodesChange(
-            self, change: model.PropertyListChange[music.BaseNode]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+            self, change: music.PropertyListChange[music.BaseNode]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.__addNode(change.new_value, change.index)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__removeNode(change.old_value, change.index)
 
         else:  # pragma: no cover
@@ -312,11 +312,11 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
         self.removeItem(item)
 
     def __nodeConnectionsChange(
-            self, change: model.PropertyListChange[music.NodeConnection]) -> None:
-        if isinstance(change, model.PropertyListInsert):
+            self, change: music.PropertyListChange[music.NodeConnection]) -> None:
+        if isinstance(change, music.PropertyListInsert):
             self.__addConnection(change.new_value, change.index)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__removeConnection(change.old_value, change.index)
 
         else:  # pragma: no cover
@@ -462,11 +462,13 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
             for conn in self.project.node_connections)
 
         if not already_exists:
-            self.send_command_async(music.create_node_connection(
-                source_node=src_node.node(),
-                source_port=src_port.name(),
-                dest_node=dest_node.node(),
-                dest_port=dest_port.name()))
+            with self.project.apply_mutations(
+                    'Connect nodes "%s" and "%s"' % (src_node.node().name, dest_node.node().name)):
+                self.project.create_node_connection(
+                    source_node=src_node.node(),
+                    source_port=src_port.name(),
+                    dest_node=dest_node.node(),
+                    dest_port=dest_port.name())
 
     def selectAllNodes(self) -> None:
         for node in self.__nodes:
@@ -477,11 +479,13 @@ class Scene(slots.SlotContainer, ui_base.ProjectMixin, QtWidgets.QGraphicsScene)
             node.setSelected(False)
 
     def insertNode(self, uri: str, pos: QtCore.QPointF) -> None:
-        self.send_command_async(music.create_node(
-            uri,
-            graph_pos=model.Pos2F(pos.x(), pos.y()),
-            graph_size=model.SizeF(200, 100),
-            graph_color=model.Color(0.8, 0.8, 0.8)))
+        node_desc = self.project.get_node_description(uri)
+        with self.project.apply_mutations('Create node "%s"' % node_desc.display_name):
+            self.project.create_node(
+                uri,
+                graph_pos=value_types.Pos2F(pos.x(), pos.y()),
+                graph_size=value_types.SizeF(200, 100),
+                graph_color=value_types.Color(0.8, 0.8, 0.8))
 
 
 class Zoom(object):
@@ -1137,16 +1141,14 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             mevent = cast(QtGui.QMouseEvent, event)
 
             if mevent.button() == Qt.LeftButton:
-                commands = []
-                for node in state.nodes:
-                    content_pos = self.__scene.sceneToContentPoint(node.canvasTopLeft())
-                    new_graph_pos = model.Pos2F(content_pos.x(), content_pos.y())
-                    if new_graph_pos != node.graph_pos():
-                        commands.append(music.update_node(
-                            node.node(),
-                            set_graph_pos=new_graph_pos))
+                with self.project.apply_mutations(
+                        'Move node%s' % ('s' if len(state.nodes) != 1 else '')):
+                    for node in state.nodes:
+                        content_pos = self.__scene.sceneToContentPoint(node.canvasTopLeft())
+                        new_graph_pos = value_types.Pos2F(content_pos.x(), content_pos.y())
+                        if new_graph_pos != node.graph_pos():
+                            node.node().graph_pos = new_graph_pos
 
-                self.send_commands_async(*commands)
                 self.__current_state = None
                 event.accept()
                 return
@@ -1204,14 +1206,13 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
 
             if mevent.button() == Qt.LeftButton:
                 content_rect = self.__scene.sceneToContentRect(state.node.canvasRect())
-                new_graph_pos = model.Pos2F(content_rect.x(), content_rect.y())
-                new_graph_size = model.SizeF(content_rect.width(), content_rect.height())
+                new_graph_pos = value_types.Pos2F(content_rect.x(), content_rect.y())
+                new_graph_size = value_types.SizeF(content_rect.width(), content_rect.height())
                 if (new_graph_pos != state.node.graph_pos()
                         or new_graph_size != state.node.graph_size()):
-                    self.send_command_async(music.update_node(
-                        state.node.node(),
-                        set_graph_pos=new_graph_pos,
-                        set_graph_size=new_graph_size))
+                    with self.project.apply_mutations('%s: Resize node' % state.node.node().name):
+                        state.node.node().graph_pos = new_graph_pos
+                        state.node.node().graph_size = new_graph_size
 
                 self.__current_state = None
                 event.accept()
@@ -1359,8 +1360,11 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
             if mevent.button() == Qt.LeftButton:
                 if state.dest_port is None:
                     # drop connection
-                    self.send_command_async(music.delete_node_connection(
-                        state.orig_connection.connection()))
+                    with self.project.apply_mutations(
+                            'Disconnect nodes %s and %s' % (
+                                state.orig_connection.connection().source_node.name,
+                                state.orig_connection.connection().dest_node.name)):
+                        self.project.remove_node_connection(state.orig_connection.connection())
 
                 elif (state.dest_port is state.orig_connection.dest_port()
                       or state.dest_port is state.orig_connection.src_port()):
@@ -1370,8 +1374,11 @@ class Canvas(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QGraphicsView)
                 elif state.dest_port is not None:
                     # change
                     # TODO: this should be a sequence [delete, create]
-                    self.send_command_async(music.delete_node_connection(
-                        state.orig_connection.connection()))
+                    with self.project.apply_mutations(
+                            'Disconnect nodes %s and %s' % (
+                                state.orig_connection.connection().source_node.name,
+                                state.orig_connection.connection().dest_node.name)):
+                        self.project.remove_node_connection(state.orig_connection.connection())
 
                     self.__scene.connectPorts(state.src_port, state.dest_port)
 

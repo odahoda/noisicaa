@@ -56,8 +56,6 @@ class StorageTest(unittest.TestCase):
                 (storage.ACTION_BACKWARD, b'bla1'))
             self.assertFalse(ps.can_redo)
 
-            pause_evt = ps.pause()
-
             ps.append_log_entry(b'bla2')
             self.assertTrue(ps.can_undo)
             self.assertEqual(
@@ -81,8 +79,6 @@ class StorageTest(unittest.TestCase):
                 ps.get_log_entry_to_redo(),
                 (storage.ACTION_FORWARD, b'bla1'))
 
-            pause_evt.set()
-            ps.flush()
             ps.flush_cache(0)
 
             ps.redo()
@@ -95,7 +91,6 @@ class StorageTest(unittest.TestCase):
                 ps.get_log_entry_to_redo(),
                 (storage.ACTION_FORWARD, b'bla2'))
 
-            ps.flush()
             ps.flush_cache(0)
             ps.redo()
             self.assertTrue(ps.can_undo)
@@ -104,7 +99,6 @@ class StorageTest(unittest.TestCase):
                 (storage.ACTION_BACKWARD, b'bla2'))
             self.assertFalse(ps.can_redo)
 
-            ps.flush()
             ps.flush_cache(0)
             ps.append_log_entry(b'bla3')
             self.assertTrue(ps.can_undo)
@@ -114,8 +108,6 @@ class StorageTest(unittest.TestCase):
             self.assertFalse(ps.can_redo)
 
             self.assertEqual(ps.next_sequence_number, 7)
-
-            ps.flush()
 
             entries = list(ps.log_history_formatter.iter_unpack(ps.log_history))
             self.assertEqual(
@@ -228,12 +220,8 @@ class StorageTest(unittest.TestCase):
             self.assertEqual(ps.logs_since_last_checkpoint, 1)
             ps.undo()
             self.assertEqual(ps.logs_since_last_checkpoint, 2)
-            unpause_evt = ps.pause()
             ps.add_checkpoint(b'blurp2')
             self.assertEqual(ps.logs_since_last_checkpoint, 0)
-
-            unpause_evt.set()
-            ps.flush()
 
             entries = list(
                 ps.checkpoint_index_formatter.iter_unpack(

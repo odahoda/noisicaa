@@ -20,12 +20,17 @@
 #
 # @end:license
 
+import contextlib
 import asyncio
 import logging
+import os.path
+import uuid
 import urllib.parse
 
 from noisicaa import core
 from noisicaa import editor_main_pb2
+from noisicaa import lv2
+from noisicaa import music
 from noisicaa.core import empty_message_pb2
 from noisicaa.core import ipc
 from noisicaa.constants import TEST_OPTS
@@ -79,6 +84,7 @@ class ProcessManagerMixin(object):
 
         self.__urid_mapper_address = None
         self.__urid_mapper_lock = None
+        self.__urid_mapper_created = None
 
     async def setup_testcase(self):
         self.process_manager = core.ProcessManager(event_loop=self.loop, tmp_dir=TEST_OPTS.TMP_DIR)
@@ -185,12 +191,18 @@ class ProcessManagerMixin(object):
         response.address = self.__urid_mapper_address
 
     def setup_urid_mapper_process(self, *, inline):
+        if self.__urid_mapper_created is not None:
+            assert self.__urid_mapper_created == inline
+            return
+
         async def wrap(request, response):
             await self.__create_urid_mapper_process(inline, request, response)
 
         self.process_manager.server['main'].add_handler(
             'CREATE_URID_MAPPER_PROCESS', wrap,
             empty_message_pb2.EmptyMessage, editor_main_pb2.CreateProcessResponse)
+
+        self.__urid_mapper_created = inline
 
     async def __create_audioproc_process(self, inline, request, response):
         if inline:
@@ -237,19 +249,105 @@ class ProcessManagerMixin(object):
             'CREATE_PLUGIN_HOST_PROCESS', wrap,
             empty_message_pb2.EmptyMessage, editor_main_pb2.CreateProcessResponse)
 
-    async def __create_project_process(self, inline, request, response):
+    async def __create_writer_process(self, inline, request, response):
         if inline:
             proc = await self.process_manager.start_inline_process(
-                name=request.uri,
-                entry='noisicaa.music.project_process.ProjectProcess')
+                name='writer',
+                entry='noisicaa.music.writer_process.WriterProcess')
             response.address = proc.address
         else:
             raise NotImplementedError
 
-    def setup_project_process(self, *, inline):
+    def setup_writer_process(self, *, inline):
         async def wrap(request, response):
-            return await self.__create_project_process(inline, request, response)
+            return await self.__create_writer_process(inline, request, response)
 
         self.process_manager.server['main'].add_handler(
-            'CREATE_PROJECT_PROCESS', wrap,
-            editor_main_pb2.CreateProjectProcessRequest, editor_main_pb2.CreateProcessResponse)
+            'CREATE_WRITER_PROCESS', wrap,
+            empty_message_pb2.EmptyMessage, editor_main_pb2.CreateProcessResponse)
+
+
+class URIDMapperMixin(ProcessManagerMixin):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.urid_mapper_address = None  # type: str
+        self.urid_mapper = None  # type: lv2.ProxyURIDMapper
+
+    async def setup_testcase(self):
+        self.setup_urid_mapper_process(inline=True)
+
+        create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
+        await self.process_manager_client.call(
+            'CREATE_URID_MAPPER_PROCESS', None, create_urid_mapper_response)
+        self.urid_mapper_address = create_urid_mapper_response.address
+
+        self.urid_mapper = lv2.ProxyURIDMapper(
+            server_address=self.urid_mapper_address,
+            tmp_dir=TEST_OPTS.TMP_DIR)
+        await self.urid_mapper.setup(self.loop)
+
+    async def cleanup_testcase(self):
+        if self.urid_mapper is not None:
+            await self.urid_mapper.cleanup(self.loop)
+
+        if self.urid_mapper_address is not None:
+            await self.process_manager_client.call(
+                'SHUTDOWN_PROCESS',
+                editor_main_pb2.ShutdownProcessRequest(
+                    address=self.urid_mapper_address))
+
+
+class NodeConnectorMixin(object):
+    async def setup_testcase(self):
+        self.messages = []
+
+    @contextlib.contextmanager
+    def connector(self, node):
+        connector = node.create_node_connector(
+            message_cb=self.messages.append, audioproc_client=None)
+        try:
+            yield connector.init()
+
+        finally:
+            connector.cleanup()
+
+
+class ProjectMixin(
+        ServerMixin,
+        NodeDBMixin,
+        URIDMapperMixin,
+        ProcessManagerMixin):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.client = None  # type: music.ProjectClient
+        self.project = None  # type: music.Project
+        self.pool = None  # type: music.Pool
+
+    async def setup_testcase(self):
+        self.setup_node_db_process(inline=True)
+        self.setup_writer_process(inline=True)
+
+        self.client = music.ProjectClient(
+            event_loop=self.loop,
+            server=self.server,
+            tmp_dir=TEST_OPTS.TMP_DIR,
+            node_db=self.node_db,
+            urid_mapper=self.urid_mapper,
+            manager=self.process_manager_client)
+        await self.client.setup()
+
+        path = os.path.join(TEST_OPTS.TMP_DIR, 'test-project-%s' % uuid.uuid4().hex)
+        await self.client.create(path)
+        self.project = self.client.project
+        self.pool = self.project._pool
+
+        logger.info("Testcase setup complete")
+
+    async def cleanup_testcase(self):
+        logger.info("Testcase finished.")
+
+        if self.client is not None:
+            await self.client.close()
+            await self.client.cleanup()

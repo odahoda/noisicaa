@@ -21,207 +21,108 @@
 # @end:license
 
 import logging
-from typing import cast, Any, Optional, Iterator, Callable
+from typing import cast, Any, Optional, List, Dict, Set, Iterator, Callable, Sequence
 
 from noisicaa.core.typing_extra import down_cast
+from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import node_db
-from noisicaa import model
-from . import pmodel
+from noisicaa import value_types
+from . import model_base
+from . import _model
 from . import node_connector
-from . import commands
-from . import commands_pb2
 
 logger = logging.getLogger(__name__)
 
 
-class CreateNode(commands.Command):
-    proto_type = 'create_node'
+class ControlValueMap(object):
+    def __init__(self, node: 'BaseNode') -> None:
+        self.__node = node
 
-    def validate(self) -> None:
-        pb = down_cast(commands_pb2.CreateNode, self.pb)
+        self.__initialized = False
+        self.__control_values = {}  # type: Dict[str, value_types.ControlValue]
+        self.__control_values_listener = None # type: core.Listener
 
-        # Ensure the requested URI is valid.
-        self.pool.project.get_node_description(pb.uri)
+        self.control_value_changed = core.CallbackMap[str, model_base.PropertyValueChange]()
 
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateNode, self.pb)
-
-        node_desc = self.pool.project.get_node_description(pb.uri)
-
-        kwargs = {
-            'name': pb.name or node_desc.display_name,
-            'graph_pos': model.Pos2F.from_proto(pb.graph_pos),
-            'graph_size': model.SizeF.from_proto(pb.graph_size),
-            'graph_color': model.Color.from_proto(pb.graph_color),
-        }
-
-        # Defered import to work around cyclic import.
-        from noisicaa.builtin_nodes import server_registry
+    def __get(self, name: str) -> value_types.ControlValue:
         try:
-            node_cls = server_registry.node_cls_map[pb.uri]
+            return self.__control_values[name]
         except KeyError:
-            node_cls = Node
-            kwargs['node_uri'] = pb.uri
+            for port in self.__node.description.ports:
+                if (port.name == name
+                        and port.direction == node_db.PortDescription.INPUT
+                        and port.type in (node_db.PortDescription.KRATE_CONTROL,
+                                          node_db.PortDescription.ARATE_CONTROL)):
+                    return value_types.ControlValue(
+                        name=port.name, value=port.float_value.default, generation=1)
 
-        node = self.pool.create(node_cls, id=None, **kwargs)
-        self.pool.project.add_node(node)
+            raise
 
+    def value(self, name: str) -> float:
+        return self.__get(name).value
 
-class DeleteNode(commands.Command):
-    proto_type = 'delete_node'
+    def generation(self, name: str) -> int:
+        return self.__get(name).generation
 
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteNode, self.pb)
+    def init(self) -> None:
+        if self.__initialized:
+            return
 
-        node = down_cast(pmodel.BaseNode, self.pool[pb.node_id])
-        assert node.is_child_of(self.pool.project)
+        for cv in self.__node.control_values:
+            self.__control_values[cv.name] = cv
 
-        self.pool.project.remove_node(node)
+        self.__control_values_listener = self.__node.control_values_changed.add(
+            self.__control_values_changed)
 
+        self.__initialized = True
 
-class CreateNodeConnection(commands.Command):
-    proto_type = 'create_node_connection'
+    def cleanup(self) -> None:
+        if self.__control_values_listener is not None:
+            self.__control_values_listener.remove()
+            self.__control_values_listener = None
 
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.CreateNodeConnection, self.pb)
+    def __control_values_changed(
+            self, change: model_base.PropertyListChange[value_types.ControlValue]) -> None:
+        if isinstance(change, model_base.PropertyListInsert):
+            new_value = change.new_value
+            old_value = self.__get(new_value.name)
+            self.__control_values[new_value.name] = new_value
+            self.control_value_changed.call(
+                new_value.name,
+                model_base.PropertyValueChange(
+                    self.__node, new_value.name, old_value, new_value))
 
-        source_node = down_cast(pmodel.BaseNode, self.pool[pb.source_node_id])
-        assert source_node.is_child_of(self.pool.project)
-        dest_node = down_cast(pmodel.BaseNode, self.pool[pb.dest_node_id])
-        assert dest_node.is_child_of(self.pool.project)
+        elif isinstance(change, model_base.PropertyListDelete):
+            pass
 
-        connection = self.pool.create(
-            NodeConnection,
-            source_node=source_node, source_port=pb.source_port_name,
-            dest_node=dest_node, dest_port=pb.dest_port_name)
-        self.pool.project.add_node_connection(connection)
+        elif isinstance(change, model_base.PropertyListSet):
+            new_value = change.new_value
+            old_value = self.__get(new_value.name)
+            self.__control_values[new_value.name] = new_value
+            self.control_value_changed.call(
+                new_value.name,
+                model_base.PropertyValueChange(
+                    self.__node, new_value.name, old_value, new_value))
 
-
-class DeleteNodeConnection(commands.Command):
-    proto_type = 'delete_node_connection'
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.DeleteNodeConnection, self.pb)
-
-        connection = cast(pmodel.NodeConnection, self.pool[pb.connection_id])
-        assert connection.is_child_of(self.pool.project)
-
-        self.pool.project.remove_node_connection(connection)
-
-
-class UpdateNode(commands.Command):
-    proto_type = 'update_node'
-
-    def validate(self) -> None:
-        pb = down_cast(commands_pb2.UpdateNode, self.pb)
-
-        if pb.node_id not in self.pool:
-            raise ValueError("Unknown node %016x" % pb.node_id)
-
-        node = down_cast(pmodel.BaseNode, self.pool[pb.node_id])
-
-        if pb.HasField('set_port_properties'):
-            if not any(
-                    port_desc.name == pb.set_port_properties.name
-                    for port_desc in node.description.ports):
-                raise ValueError("Invalid port name '%s'" % pb.set_port_properties.name)
-
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdateNode, self.pb)
-        node = down_cast(pmodel.BaseNode, self.pool[pb.node_id])
-
-        if pb.HasField('set_graph_pos'):
-            node.graph_pos = model.Pos2F.from_proto(pb.set_graph_pos)
-
-        if pb.HasField('set_graph_size'):
-            node.graph_size = model.SizeF.from_proto(pb.set_graph_size)
-
-        if pb.HasField('set_graph_color'):
-            node.graph_color = model.Color.from_proto(pb.set_graph_color)
-
-        if pb.HasField('set_name'):
-            node.name = pb.set_name
-
-        if pb.HasField('set_plugin_state'):
-            node.set_plugin_state(pb.set_plugin_state)
-
-        if pb.HasField('set_control_value'):
-            node.set_control_value(
-                pb.set_control_value.name,
-                pb.set_control_value.value,
-                pb.set_control_value.generation)
-
-        if pb.HasField('set_port_properties'):
-            node.set_port_properties(pb.set_port_properties)
+        else:
+            raise TypeError(type(change))
 
 
-class UpdatePort(commands.Command):
-    proto_type = 'update_port'
+class BaseNode(_model.BaseNode, model_base.ProjectChild):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
 
-    def validate(self) -> None:
-        pb = down_cast(commands_pb2.UpdatePort, self.pb)
+        self.description_changed = core.Callback[model_base.PropertyChange]()
 
-        if pb.port_id not in self.pool:
-            raise ValueError("Unknown port %016x" % pb.port_id)
+        self.control_value_map = ControlValueMap(self)
 
-    def run(self) -> None:
-        pb = down_cast(commands_pb2.UpdatePort, self.pb)
-        port = down_cast(pmodel.Port, self.pool[pb.port_id])
-
-        remove_connections = (
-            pb.HasField('set_name')
-            or pb.HasField('set_type')
-            or pb.HasField('set_direction'))
-        if remove_connections:
-            port.remove_connections()
-
-        if pb.HasField('set_name'):
-            port.name = pb.set_name
-
-        if pb.HasField('set_display_name'):
-            port.display_name = pb.set_display_name
-
-        if pb.HasField('set_type'):
-            port.type = pb.set_type
-
-        if pb.HasField('set_direction'):
-            port.direction = pb.set_direction
-
-# class NodeToPreset(commands.Command):
-#     proto_type = 'node_to_preset'
-
-#     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> bytes:
-#         pb = down_cast(commands_pb2.NodeToPreset, pb)
-#         node = down_cast(pmodel.Node, pool[self.proto.command.target])
-
-#         return node.to_preset()
-
-
-# class NodeFromPreset(commands.Command):
-#     proto_type = 'node_from_preset'
-
-#     def run(self, project: pmodel.Project, pool: pmodel.Pool, pb: protobuf.Message) -> None:
-#         pb = down_cast(commands_pb2.NodeFromPreset, pb)
-#         node = down_cast(pmodel.Node, pool[self.proto.command.target])
-
-#         node.from_preset(pb.preset)
-
-
-class PresetLoadError(Exception):
-    pass
-
-class NotAPresetError(PresetLoadError):
-    pass
-
-
-class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
     def create(
             self, *,
             name: Optional[str] = None,
-            graph_pos: model.Pos2F = model.Pos2F(0, 0),
-            graph_size: model.SizeF = model.SizeF(140, 100),
-            graph_color: model.Color = model.Color(0.8, 0.8, 0.8),
+            graph_pos: value_types.Pos2F = value_types.Pos2F(0, 0),
+            graph_size: value_types.SizeF = value_types.SizeF(140, 100),
+            graph_color: value_types.Color = value_types.Color(0.8, 0.8, 0.8),
             **kwargs: Any) -> None:
         super().create(**kwargs)
 
@@ -233,6 +134,45 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
     def setup(self) -> None:
         super().setup()
         self.description_changed.add(self.__description_changed)
+
+    def get_port_properties(self, port_name: str) -> value_types.NodePortProperties:
+        for np in self.port_properties:
+            if np.name == port_name:
+                return np
+
+        return value_types.NodePortProperties(port_name)
+
+    @property
+    def pipeline_node_id(self) -> str:
+        return '%016x' % self.id
+
+    @property
+    def removable(self) -> bool:
+        return True
+
+    @property
+    def description(self) -> node_db.NodeDescription:
+        raise NotImplementedError
+
+    @property
+    def connections(self) -> Sequence['NodeConnection']:
+        result = []
+        for conn in self.project.get_property_value('node_connections'):
+            if conn.source_node is self or conn.dest_node is self:
+                result.append(conn)
+
+        return result
+
+    def upstream_nodes(self) -> List['BaseNode']:
+        node_ids = set()  # type: Set[int]
+        self.__upstream_nodes(node_ids)
+        return [cast(BaseNode, self._pool[node_id]) for node_id in sorted(node_ids)]
+
+    def __upstream_nodes(self, seen: Set[int]) -> None:
+        for connection in self.project.get_property_value('node_connections'):
+            if connection.dest_node is self and connection.source_node.id not in seen:
+                seen.add(connection.source_node.id)
+                connection.source_node.__upstream_nodes(seen)
 
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         yield audioproc.Mutation(
@@ -272,11 +212,11 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
             if control_value.name == name:
                 if generation < control_value.generation:
                     return
-                self.control_values[idx] = model.ControlValue(
+                self.control_values[idx] = value_types.ControlValue(
                     name=name, value=value, generation=generation)
                 break
         else:
-            self.control_values.append(model.ControlValue(
+            self.control_values.append(value_types.ControlValue(
                 name=name, value=value, generation=generation))
 
         if self.attached_to_project:
@@ -297,19 +237,20 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
                         node_id=self.pipeline_node_id,
                         state=plugin_state)))
 
-    def set_port_properties(self, port_properties: audioproc.NodePortProperties) -> None:
+    def set_port_properties(self, port_properties: value_types.NodePortProperties) -> None:
+        assert any(port_desc.name == port_properties.name for port_desc in self.description.ports)
+
         new_props = None  # type: audioproc.NodePortProperties
 
         for idx, props in enumerate(self.port_properties):
             if props.name == port_properties.name:
                 new_props = props.to_proto()
-                new_props.MergeFrom(port_properties)
-                self.port_properties[idx] = model.NodePortProperties.from_proto(new_props)
+                new_props.MergeFrom(port_properties.to_proto())
+                self.port_properties[idx] = value_types.NodePortProperties.from_proto(new_props)
                 break
         else:
-            new_props = port_properties
-            self.port_properties.append(
-                model.NodePortProperties.from_proto(port_properties))
+            new_props = port_properties.to_proto()
+            self.port_properties.append(port_properties)
 
         if self.attached_to_project:
             self.project.handle_pipeline_mutation(
@@ -318,7 +259,7 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
                         node_id=self.pipeline_node_id,
                         port_properties=new_props)))
 
-    def __description_changed(self, change: model.PropertyChange) -> None:
+    def __description_changed(self, change: model_base.PropertyChange) -> None:
         if self.attached_to_project:
             self.project.handle_pipeline_mutation(audioproc.Mutation(
                 set_node_description=audioproc.SetNodeDescription(
@@ -333,7 +274,7 @@ class BaseNode(pmodel.BaseNode):  # pylint: disable=abstract-method
         return None
 
 
-class Port(pmodel.Port):  # pylint: disable=abstract-method
+class Port(_model.Port, model_base.ProjectChild):
     def create(
             self, *,
             name: Optional[str] = None,
@@ -348,50 +289,54 @@ class Port(pmodel.Port):  # pylint: disable=abstract-method
         self.type = cast(node_db.PortDescription.Type, type)
         self.direction = cast(node_db.PortDescription.Direction, direction)
 
+    def _set_name(self, value: str) -> None:
+        if value != self.get_property_value('name', allow_unset=True):
+            self.remove_connections()
+        super()._set_name(value)
+
+    def _set_type(self, value: int) -> None:
+        if value != self.get_property_value('type', allow_unset=True):
+            self.remove_connections()
+        super()._set_type(value)
+
+    def _set_direction(self, value: int) -> None:
+        if value != self.get_property_value('direction', allow_unset=True):
+            self.remove_connections()
+        super()._set_direction(value)
+
     def remove_connections(self) -> None:
         node = down_cast(BaseNode, self.parent)
+        if node is not None:
+            for conn in node.connections:
+                if (conn.source_node is node and conn.source_port == self.name
+                        or conn.dest_node is node and conn.dest_port == self.name):
+                    self.project.remove_node_connection(conn)
 
-        for conn in node.connections:
-            if (conn.source_node is node and conn.source_port == self.name
-                    or conn.dest_node is node and conn.dest_port == self.name):
-                self.project.remove_node_connection(conn)
 
-
-class Node(pmodel.Node, BaseNode):
+class Node(_model.Node, BaseNode):
     def create(self, *, node_uri: Optional[str] = None, **kwargs: Any) -> None:
         super().create(**kwargs)
 
         self.node_uri = node_uri
 
-    def to_preset(self) -> bytes:
-        raise NotImplementedError
-        # doc = ElementTree.Element('preset', version='1')  # type: ignore
-        # doc.text = '\n'
-        # doc.tail = '\n'
-
-        # display_name_elem = ElementTree.SubElement(doc, 'display-name')
-        # display_name_elem.text = "User preset"
-        # display_name_elem.tail = '\n'
-
-        # node_uri_elem = ElementTree.SubElement(doc, 'node', uri=self.node_uri)
-        # node_uri_elem.tail = '\n'
-
-        # tree = ElementTree.ElementTree(doc)
-        # buf = io.BytesIO()
-        # tree.write(buf, encoding='utf-8', xml_declaration=True)
-        # return buf.getvalue()
-
-    def from_preset(self, xml: bytes) -> None:
-        raise NotImplementedError
-        # preset = node_db.Preset.parse(io.BytesIO(xml), self.project.get_node_description)
-
-        # if preset.node_uri != self.node_uri:
-        #     raise node_db.PresetLoadError(
-        #         "Mismatching node_uri (Expected %s, got %s)."
-        #         % (self.node_uri, preset.node_uri))
+    @property
+    def description(self) -> node_db.NodeDescription:
+        return self.project.get_node_description(self.node_uri)
 
 
-class SystemOutNode(pmodel.SystemOutNode, BaseNode):
+class SystemOutNode(_model.SystemOutNode, BaseNode):
+    @property
+    def pipeline_node_id(self) -> str:
+        return 'sink'
+
+    @property
+    def removable(self) -> bool:
+        return False
+
+    @property
+    def description(self) -> node_db.NodeDescription:
+        return node_db.Builtins.RealmSinkDescription
+
     def get_add_mutations(self) -> Iterator[audioproc.Mutation]:
         # Nothing to do, predefined node of the pipeline.
         yield from []
@@ -401,7 +346,7 @@ class SystemOutNode(pmodel.SystemOutNode, BaseNode):
         yield from []
 
 
-class NodeConnection(pmodel.NodeConnection):
+class NodeConnection(_model.NodeConnection, model_base.ProjectChild):
     def create(
             self, *,
             source_node: Optional[BaseNode] = None,

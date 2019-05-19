@@ -21,35 +21,42 @@
 add_python_package(
   base_track.py
   base_track_test.py
-  commands.py
-  commands_test.py
-  mutations.py
-  node_connector.py
   graph.py
   graph_test.py
+  metadata.py
+  model_base.py
+  model_base_test.py
+  mutations.py
+  node_connector.py
   player.py
   player_integration_test.py
   player_test.py
-  pmodel.py
-  pmodel_test.py
+  project.py
   project_client.py
-  project_client_model.py
   project_client_test.py
   project_integration_test.py
-  project_process.py
-  project_process_context.py
-  project.py
   project_test.py
   render.py
   render_test.py
   rms.pyi
   samples.py
   session_value_store.py
+  writer_client.py
+  writer_client_test.py
+  writer_process.py
 )
 
 add_cython_module(rms CXX)
 
-py_proto(project_process.proto)
-py_proto(render_settings.proto)
+build_model(model.desc.pb _model.py noisicaa/music/model.py)
+
+py_proto(model.proto)
+add_dependencies(noisicaa.music.model.proto model-noisicaa.music)
+py_proto(project.proto)
+add_dependencies(noisicaa.music.project.proto noisicaa.music.model.proto)
+py_proto(model_base.proto)
+py_proto(model_base_test.proto)
+py_proto(writer_process.proto)
+py_proto(render.proto)
 py_proto(mutations.proto)
-py_proto(commands.proto)
+add_dependencies(noisicaa.music.mutations.proto noisicaa.music.model.proto)

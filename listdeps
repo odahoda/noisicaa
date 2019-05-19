@@ -71,6 +71,7 @@ PIP_DEPS = {
         PKG('./3rdparty/faustlibraries/'),
         PKG('cssutils'),
         PKG('cython==0.29.6'),
+        PKG('jinja2'),
         PKG('pkgconfig'),
         PKG('pyyaml'),
         # TODO: get my changes upstream and use regular mypy-protobuf package from pip.

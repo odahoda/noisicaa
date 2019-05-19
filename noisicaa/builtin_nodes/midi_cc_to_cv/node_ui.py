@@ -22,7 +22,7 @@
 
 import logging
 import math
-from typing import cast, Any, Dict, List
+from typing import cast, Any, Dict, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -30,13 +30,12 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
-from noisicaa import model
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import control_value_dial
+from noisicaa.ui import property_connector
 from noisicaa.ui.graph import base_node
-from . import client_impl
-from . import commands
+from . import model
 from . import processor_messages
 
 logger = logging.getLogger(__name__)
@@ -91,31 +90,58 @@ class LearnButton(QtWidgets.QToolButton):
             self.setPalette(palette)
 
 
-class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
-    def __init__(self, channel: client_impl.MidiCCtoCVChannel, **kwargs: Any) -> None:
+class MidiChannelSpinBox(QtWidgets.QSpinBox):
+    def textFromValue(self, value: int) -> str:
+        return super().textFromValue(value + 1)
+
+    def valueFromText(self, text: str) -> int:
+        return super().valueFromText(text) - 1
+
+    def validate(self, text: str, pos: int) -> Tuple[QtGui.QValidator.State, str, int]:
+        text = text.strip()
+        if not text:
+            return (QtGui.QValidator.Intermediate, text, pos)
+
+        try:
+            value = int(text) - 1
+        except ValueError:
+            return (QtGui.QValidator.Invalid, text, pos)
+
+        if self.minimum() <= value <= self.maximum():
+            return (QtGui.QValidator.Acceptable, text, pos)
+
+        return (QtGui.QValidator.Invalid, text, pos)
+
+
+class ChannelUI(ui_base.ProjectMixin, core.AutoCleanupMixin, QtCore.QObject):
+    def __init__(self, channel: model.MidiCCtoCVChannel, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__channel = channel
-        self.__node = cast(client_impl.MidiCCtoCV, channel.parent)
+        self.__node = cast(model.MidiCCtoCV, channel.parent)
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
+        self.add_cleanup_function(self.__listeners.cleanup)
         self.__learning = False
 
-        self.__midi_channel = QtWidgets.QSpinBox()
+        self.__midi_channel = MidiChannelSpinBox()
         self.__midi_channel.setObjectName('channel[%016x]:midi_channel' % channel.id)
-        self.__midi_channel.setRange(1, 16)
-        self.__midi_channel.setValue(self.__channel.midi_channel + 1)
-        self.__midi_channel.valueChanged.connect(self.__midiChannelEdited)
-        self.__listeners['midi_channel'] = self.__channel.midi_channel_changed.add(
-            self.__midiChannelChanged)
+        self.__midi_channel.setKeyboardTracking(False)
+        self.__midi_channel.setRange(0, 15)
+        self.__midi_channel_connector = property_connector.QSpinBoxConnector(
+            self.__midi_channel, self.__channel, 'midi_channel',
+            mutation_name='%s: Change MIDI channel' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__midi_channel_connector.cleanup)
 
         self.__midi_controller = QtWidgets.QSpinBox()
         self.__midi_controller.setObjectName('channel[%016x]:midi_controller' % channel.id)
         self.__midi_controller.setRange(0, 127)
-        self.__midi_controller.setValue(self.__channel.midi_controller)
-        self.__midi_controller.valueChanged.connect(self.__midiControllerEdited)
-        self.__listeners['midi_controller'] = self.__channel.midi_controller_changed.add(
-            self.__midiControllerChanged)
+        self.__midi_controller_connector = property_connector.QSpinBoxConnector(
+            self.__midi_controller, self.__channel, 'midi_controller',
+            mutation_name='%s: Change MIDI controller' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__midi_controller_connector.cleanup)
 
         self.__learn_timeout = QtCore.QTimer()
         self.__learn_timeout.setInterval(5000)
@@ -131,24 +157,34 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         min_value_validator = QtGui.QDoubleValidator()
         min_value_validator.setRange(-100000, 100000, 3)
         self.__min_value.setValidator(min_value_validator)
-        self.__min_value.setText(fmt_value(self.__channel.min_value))
-        self.__min_value.editingFinished.connect(self.__minValueEdited)
-        self.__listeners['min_value'] = self.__channel.min_value_changed.add(self.__minValueChanged)
+        self.__min_value_connector = property_connector.QLineEditConnector[float](
+            self.__min_value, self.__channel, 'min_value',
+            mutation_name='%s: Change min. value' % self.__node.name,
+            parse_func=float,
+            display_func=fmt_value,
+            context=self.context)
+        self.add_cleanup_function(self.__min_value_connector.cleanup)
 
         self.__max_value = QtWidgets.QLineEdit()
         self.__max_value.setObjectName('channel[%016x]:max_value' % channel.id)
         max_value_validator = QtGui.QDoubleValidator()
         max_value_validator.setRange(-100000, 100000, 3)
         self.__max_value.setValidator(max_value_validator)
-        self.__max_value.setText(fmt_value(self.__channel.max_value))
-        self.__max_value.editingFinished.connect(self.__maxValueEdited)
-        self.__listeners['max_value'] = self.__channel.max_value_changed.add(self.__maxValueChanged)
+        self.__max_value_connector = property_connector.QLineEditConnector[float](
+            self.__max_value, self.__channel, 'max_value',
+            mutation_name='%s: Change max. value' % self.__node.name,
+            parse_func=float,
+            display_func=fmt_value,
+            context=self.context)
+        self.add_cleanup_function(self.__max_value_connector.cleanup)
 
         self.__log_scale = QtWidgets.QCheckBox()
         self.__log_scale.setObjectName('channel[%016x]:log_scale' % channel.id)
-        self.__log_scale.setChecked(self.__channel.log_scale)
-        self.__log_scale.stateChanged.connect(self.__logScaleEdited)
-        self.__listeners['log_scale'] = channel.log_scale_changed.add(self.__logScaleChanged)
+        self.__log_scale_connector = property_connector.QCheckBoxConnector(
+            self.__log_scale, self.__channel, 'log_scale',
+            mutation_name='%s: Change log scale' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__log_scale_connector.cleanup)
 
         self.__current_value = control_value_dial.ControlValueDial()
         self.__current_value.setRange(0.0, 1.0)
@@ -167,9 +203,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
 
     def cleanup(self) -> None:
         self.__learnStop()
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
+        super().cleanup()
 
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:
         learn_urid = 'http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#learn'
@@ -205,7 +239,7 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         self.call_async(self.project_view.sendNodeMessage(
             processor_messages.learn(self.__node, False)))
 
-        self.__listeners.pop('node-messages').remove()
+        del self.__listeners['node-messages']
 
     def __learnClicked(self, checked: bool) -> None:
         if checked:
@@ -213,61 +247,14 @@ class ChannelUI(ui_base.ProjectMixin, QtCore.QObject):
         else:
             self.__learnStop()
 
-    def __midiChannelChanged(self, change: model.PropertyValueChange[int]) -> None:
-        self.__midi_channel.setValue(change.new_value + 1)
 
-    def __midiChannelEdited(self, value: int) -> None:
-        value -= 1
-        if value != self.__channel.midi_channel:
-            self.send_command_async(commands.update_channel(
-                self.__channel, set_midi_channel=value))
-
-    def __midiControllerChanged(self, change: model.PropertyValueChange[int]) -> None:
-        self.__midi_controller.setValue(change.new_value)
-
-    def __midiControllerEdited(self, value: int) -> None:
-        if value != self.__channel.midi_controller:
-            self.send_command_async(commands.update_channel(
-                self.__channel, set_midi_controller=value))
-
-    def __minValueChanged(self, change: model.PropertyValueChange[float]) -> None:
-        self.__min_value.setText(fmt_value(self.__channel.min_value))
-
-    def __minValueEdited(self) -> None:
-        state, _, _ = self.__min_value.validator().validate(self.__min_value.text(), 0)
-        if state == QtGui.QValidator.Acceptable:
-            value = float(self.__min_value.text())
-            if value != self.__channel.min_value:
-                self.send_command_async(commands.update_channel(
-                    self.__channel, set_min_value=value))
-
-    def __maxValueChanged(self, change: model.PropertyValueChange[float]) -> None:
-        self.__max_value.setText(fmt_value(self.__channel.max_value))
-
-    def __maxValueEdited(self) -> None:
-        state, _, _ = self.__max_value.validator().validate(self.__max_value.text(), 0)
-        if state == QtGui.QValidator.Acceptable:
-            value = float(self.__max_value.text())
-            if value != self.__channel.max_value:
-                self.send_command_async(commands.update_channel(
-                    self.__channel, set_max_value=value))
-
-    def __logScaleChanged(self, change: model.PropertyValueChange[bool]) -> None:
-        self.__log_scale.setChecked(self.__channel.log_scale)
-
-    def __logScaleEdited(self, value: bool) -> None:
-        if value != self.__channel.log_scale:
-            self.send_command_async(commands.update_channel(
-                self.__channel, set_log_scale=value))
-
-
-class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
-    def __init__(self, node: client_impl.MidiCCtoCV, **kwargs: Any) -> None:
+class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
+    def __init__(self, node: model.MidiCCtoCV, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
 
-        self.__listeners = {}  # type: Dict[str, core.Listener]
+        self.__listeners = core.ListenerMap[str]()
 
         self.__channels = []  # type: List[ChannelUI]
         for idx, channel in enumerate(self.__node.channels):
@@ -313,13 +300,10 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         body.setLayout(body_layout)
 
     def cleanup(self) -> None:
-        for listener in self.__listeners.values():
-            listener.remove()
-        self.__listeners.clear()
-
         for channel in self.__channels:
             channel.cleanup()
         self.__channels.clear()
+        super().cleanup()
 
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:
         cc_urid = 'http://noisicaa.odahoda.de/lv2/processor_cc_to_cv#cc'
@@ -344,12 +328,12 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
 
     def __channelsChanged(
             self,
-            change: model.PropertyListChange[client_impl.MidiCCtoCVChannel]
+            change: music.PropertyListChange[model.MidiCCtoCVChannel]
     ) -> None:
-        if isinstance(change, model.PropertyListInsert):
+        if isinstance(change, music.PropertyListInsert):
             self.__addChannel(change.new_value, change.index)
 
-        elif isinstance(change, model.PropertyListDelete):
+        elif isinstance(change, music.PropertyListDelete):
             self.__removeChannel(change.index)
 
         else:
@@ -358,7 +342,7 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         self.__num_channels.setValue(len(self.__node.channels))
         self.__updateChannels()
 
-    def __addChannel(self, channel: client_impl.MidiCCtoCVChannel, index: int) -> None:
+    def __addChannel(self, channel: model.MidiCCtoCVChannel, index: int) -> None:
         channel_ui = ChannelUI(channel=channel, context=self.context)
         self.__channels.insert(index, channel_ui)
 
@@ -367,34 +351,25 @@ class MidiCCtoCVNodeWidget(ui_base.ProjectMixin, QtWidgets.QScrollArea):
         channel_ui.cleanup()
 
     def __numChannelsEdited(self, value: int) -> None:
-        cmds = []
+        if value != len(self.__node.channels):
+            with self.project.apply_mutations('%s: Change channel count' % self.__node.name):
+                for idx in range(len(self.__node.channels), value):
+                    self.__node.create_channel(idx)
 
-        for idx in range(len(self.__node.channels), value):
-            cmds.append(commands.create_channel(
-                self.__node, index=idx))
-
-        for idx in range(value, len(self.__node.channels)):
-            cmds.append(commands.delete_channel(
-                self.__node.channels[idx]))
-
-        if cmds:
-            self.send_commands_async(*cmds)
+                for idx in reversed(range(value, len(self.__node.channels))):
+                    self.__node.delete_channel(self.__node.channels[idx])
 
 
 class MidiCCtoCVNode(base_node.Node):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, client_impl.MidiCCtoCV), type(node).__name__
+        assert isinstance(node, model.MidiCCtoCV), type(node).__name__
         self.__widget = None  # type: MidiCCtoCVNodeWidget
-        self.__node = node  # type: client_impl.MidiCCtoCV
+        self.__node = node  # type: model.MidiCCtoCV
 
         super().__init__(node=node, **kwargs)
-
-    def cleanup(self) -> None:
-        if self.__widget is not None:
-            self.__widget.cleanup()
-        super().cleanup()
 
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
         self.__widget = MidiCCtoCVNodeWidget(node=self.__node, context=self.context)
+        self.__widget.add_cleanup_function(self.__widget.cleanup)
         return self.__widget

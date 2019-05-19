@@ -364,7 +364,10 @@ class PluginHostProcess(core.ProcessBase):
         task.add_done_callback(self.__control_value_change_done)
 
     def __control_value_change_done(self, task: concurrent.futures.Future) -> None:
-        task.result()
+        try:
+            task.result()
+        except:  # pylint: disable=bare-except
+            logger.error("Exception in CONTROL_VALUE_CHANGE call:\n%s", traceback.format_exc())
 
 
 class PluginHostSubprocess(core.SubprocessMixin, PluginHostProcess):

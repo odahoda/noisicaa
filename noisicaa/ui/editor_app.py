@@ -139,7 +139,12 @@ class EditorApp(ui_base.AbstractEditorApp):
         await self.createURIDMapper()
 
         self.project_registry = project_registry.ProjectRegistry(
-            self.process.event_loop, self.process.server, self.process.manager, self.node_db)
+            self.process.event_loop,
+            self.process.server,
+            self.process.manager,
+            self.node_db,
+            self.urid_mapper,
+            self.process.tmp_dir)
 
         self.devices = device_list.DeviceList()
 

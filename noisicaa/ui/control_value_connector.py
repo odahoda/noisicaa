@@ -21,12 +21,12 @@
 # @end:license
 
 import logging
-from typing import Any, List, Callable
+from typing import Any, Callable
 
 from PyQt5 import QtCore
 
 from noisicaa import core
-from noisicaa import model
+from noisicaa import value_types
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import slots
@@ -34,7 +34,12 @@ from noisicaa.ui import slots
 logger = logging.getLogger(__name__)
 
 
-class ControlValueConnector(ui_base.ProjectMixin, slots.SlotContainer, QtCore.QObject):
+class ControlValueConnector(
+        ui_base.ProjectMixin,
+        slots.SlotContainer,
+        core.AutoCleanupMixin,
+        QtCore.QObject
+):
     value, setValue, valueChanged = slots.slot(float, 'value')
 
     def __init__(
@@ -47,32 +52,25 @@ class ControlValueConnector(ui_base.ProjectMixin, slots.SlotContainer, QtCore.QO
         self.__node = node
         self.__name = name
 
-        self.__listeners = []  # type: List[core.Listener]
+        self.__listeners = core.ListenerList()
+        self.add_cleanup_function(self.__listeners.cleanup)
         self.__generation = self.__node.control_value_map.generation(self.__name)
 
         self.setValue(self.__node.control_value_map.value(self.__name))
 
         self.valueChanged.connect(self.__onValueEdited)
-        self.__listeners.append(self.__node.control_value_map.control_value_changed.add(
+        self.__listeners.add(self.__node.control_value_map.control_value_changed.add(
             self.__name, self.__onValueChanged))
-
-    def cleanup(self) -> None:
-        for listener in self.__listeners:
-            listener.remove()
-        self.__listeners.clear()
 
     def __onValueEdited(self, value: float) -> None:
         if value != self.__node.control_value_map.value(self.__name):
             self.__generation += 1
-            self.send_command_async(music.update_node(
-                self.__node,
-                set_control_value=model.ControlValue(
-                    name=self.__name,
-                    value=value,
-                    generation=self.__generation)))
+            with self.project.apply_mutations(
+                    '%s: Change control value "%s"' % (self.__node.name, self.__name)):
+                self.__node.set_control_value(self.__name, value, self.__generation)
 
     def __onValueChanged(
-            self, change: model.PropertyValueChange[model.ControlValue]) -> None:
+            self, change: music.PropertyValueChange[value_types.ControlValue]) -> None:
         if change.new_value.generation < self.__generation:
             return
 

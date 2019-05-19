@@ -21,11 +21,7 @@
 add_python_package(
   node_description.py
   model.py
-  commands.py
-  client_impl.py
-  client_impl_test.py
-  server_impl.py
-  server_impl_test.py
+  model_test.py
   node_ui.py
   track_ui.py
   track_ui_test.py
@@ -33,8 +29,10 @@ add_python_package(
   processor_messages.py
 )
 
+build_model(model.desc.pb _model.py noisicaa/builtin_nodes/model.tmpl.py)
+
 py_proto(model.proto)
-py_proto(commands.proto)
+add_dependencies(noisicaa.builtin_nodes.sample_track.model.proto model-noisicaa.builtin_nodes.sample_track)
 py_proto(ipc.proto)
 py_proto(processor_messages.proto)
 cpp_proto(processor_messages.proto)
