@@ -135,7 +135,8 @@ class InstallFaustLibraries(FaustLibrariesMixin, core.Command):
             return
 
         print("Copy files...")
-        shutil.rmtree(self.install_dir)
+        if os.path.isdir(self.install_dir):
+            shutil.rmtree(self.install_dir)
         shutil.copytree(self.src_dir, self.install_dir)
         open(self.sentinel_path, 'w').close()
 
