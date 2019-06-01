@@ -34,11 +34,14 @@ add_python_package(
   misc.py
   mute_button.py
   object_list_editor.py
+  open_project_dialog.py
+  open_project_dialog_test.py
   piano.py
   piano_test.py
   pipeline_perf_monitor.py
   player_state.py
   project_registry.py
+  project_registry_test.py
   project_view.py
   project_view_test.py
   property_connector.py

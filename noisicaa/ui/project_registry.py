@@ -23,7 +23,7 @@
 import asyncio
 import logging
 import os.path
-from typing import Dict
+from typing import Dict, List, Iterable
 
 from PyQt5 import QtCore
 
@@ -39,6 +39,16 @@ class Project(object):
     def __init__(
             self,
             path: str,
+    ) -> None:
+        self.path = path
+        self.client = None  # type: music.ProjectClient
+
+    @property
+    def name(self) -> str:
+        return os.path.splitext(os.path.basename(self.path))[0]
+
+    async def __create_process(
+            self, *,
             event_loop: asyncio.AbstractEventLoop,
             server: ipc.Server,
             process_manager: ipc.Stub,
@@ -46,37 +56,52 @@ class Project(object):
             urid_mapper: lv2.ProxyURIDMapper,
             tmp_dir: str
     ) -> None:
-        self.path = path
-        self.event_loop = event_loop
-        self.server = server
-        self.process_manager = process_manager
-        self.node_db = node_db
-        self.urid_mapper = urid_mapper
-        self.tmp_dir = tmp_dir
-
-        self.client = None  # type: music.ProjectClient
-
-    @property
-    def name(self) -> str:
-        return os.path.basename(self.path)
-
-    async def create_process(self) -> None:
         self.client = music.ProjectClient(
-            event_loop=self.event_loop,
-            server=self.server,
-            node_db=self.node_db,
-            urid_mapper=self.urid_mapper,
-            manager=self.process_manager,
-            tmp_dir=self.tmp_dir,
+            event_loop=event_loop,
+            server=server,
+            node_db=node_db,
+            urid_mapper=urid_mapper,
+            manager=process_manager,
+            tmp_dir=tmp_dir,
         )
         await self.client.setup()
 
-    async def open(self) -> None:
-        await self.create_process()
+    async def open(
+            self, *,
+            event_loop: asyncio.AbstractEventLoop,
+            server: ipc.Server,
+            process_manager: ipc.Stub,
+            node_db: node_db_lib.NodeDBClient,
+            urid_mapper: lv2.ProxyURIDMapper,
+            tmp_dir: str
+    ) -> None:
+        await self.__create_process(
+            event_loop=event_loop,
+            server=server,
+            node_db=node_db,
+            urid_mapper=urid_mapper,
+            process_manager=process_manager,
+            tmp_dir=tmp_dir,
+        )
         await self.client.open(self.path)
 
-    async def create(self) -> None:
-        await self.create_process()
+    async def create(
+            self, *,
+            event_loop: asyncio.AbstractEventLoop,
+            server: ipc.Server,
+            process_manager: ipc.Stub,
+            node_db: node_db_lib.NodeDBClient,
+            urid_mapper: lv2.ProxyURIDMapper,
+            tmp_dir: str
+    ) -> None:
+        await self.create_process(
+            event_loop=event_loop,
+            server=server,
+            node_db=node_db,
+            urid_mapper=urid_mapper,
+            process_manager=process_manager,
+            tmp_dir=tmp_dir,
+        )
         await self.client.create(self.path)
 
     async def close(self) -> None:
@@ -87,45 +112,61 @@ class Project(object):
 
 
 class ProjectRegistry(QtCore.QObject):
-    projectListChanged = QtCore.pyqtSignal()
-
-    def __init__(
-            self,
-            event_loop: asyncio.AbstractEventLoop,
-            server: ipc.Server,
-            process_manager: ipc.Stub,
-            node_db: node_db_lib.NodeDBClient,
-            urid_mapper: lv2.ProxyURIDMapper,
-            tmp_dir: str) -> None:
+    def __init__(self, event_loop: asyncio.AbstractEventLoop) -> None:
         super().__init__()
 
-        self.event_loop = event_loop
-        self.server = server
-        self.process_manager = process_manager
-        self.node_db = node_db
-        self.urid_mapper = urid_mapper
-        self.tmp_dir = tmp_dir
-        self.projects = {}  # type: Dict[str, Project]
+        self.__event_loop = event_loop
+        self.__projects = {}  # type: Dict[str, Project]
 
-    def add_project(self, path: str) -> Project:
-        project = Project(
-            path,
-            self.event_loop,
-            self.server,
-            self.process_manager,
-            self.node_db,
-            self.urid_mapper,
-            self.tmp_dir)
-        self.projects[path] = project
-        self.projectListChanged.emit()
-        return project
+    @property
+    def projects(self) -> List[Project]:
+        return list(self.__projects.values())
 
-    async def close_project(self, project: Project) -> None:
-        await project.close()
-        del self.projects[project.path]
-        self.projectListChanged.emit()
+    async def setup(self) -> None:
+        # TODO: get list of directories from settings
+        directories = ['~/Music/Noisicaä', '/lala']
 
-    async def close_all(self) -> None:
-        for project in list(self.projects.values()):
-            await self.close_project(project)
-        self.projectListChanged.emit()
+        projects = await self.__event_loop.run_in_executor(None, self.__scan_projects, directories)
+        self.__projects = {project.path: project for project in projects}
+
+    async def cleanup(self) -> None:
+        while self.__projects:
+            _, project = self.__projects.popitem()
+            await project.close()
+
+    def __scan_projects(self, directories: Iterable[str]) -> List[Project]:
+        projects = []  # type: List[Project]
+        for directory in directories:
+            directory = os.path.expanduser(directory)
+            directory = os.path.abspath(directory)
+            for dirpath, dirnames, filenames in os.walk(directory):
+                for filename in filenames:
+                    if filename.endswith('.noise'):
+                        data_dir_name = filename[:-6] + '.data'
+                        if data_dir_name in dirnames:
+                            dirnames.remove(data_dir_name)
+
+                    filepath = os.path.join(dirpath, filename)
+                    projects.append(Project(filepath))
+
+        return projects
+
+    # def add_project(self, path: str) -> Project:
+    #     project = Project(
+    #         path,
+    #         self.event_loop,
+    #         self.server,
+    #         self.process_manager,
+    #         self.node_db,
+    #         self.urid_mapper,
+    #         self.tmp_dir)
+    #     self.projects[path] = project
+    #     return project
+
+    # async def close_project(self, project: Project) -> None:
+    #     await project.close()
+    #     del self.projects[project.path]
+
+    # async def close_all(self) -> None:
+    #     for project in list(self.projects.values()):
+    #         await self.close_project(project)

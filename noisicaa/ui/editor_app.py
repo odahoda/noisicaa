@@ -20,15 +20,17 @@
 #
 # @end:license
 
+import asyncio
 import logging
 import os
 import pprint
 import sys
 import traceback
 import types
-from typing import Any, Optional, Callable, Sequence, Type
+from typing import Any, Optional, Callable, Sequence, List, Type
 
 from PyQt5 import QtCore
+from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
@@ -40,8 +42,7 @@ from noisicaa import editor_main_pb2
 from noisicaa import runtime_settings as runtime_settings_lib
 from ..exceptions import RestartAppException, RestartAppCleanException
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
-from .editor_window import EditorWindow
-
+from . import editor_window
 from . import audio_thread_profiler
 from . import device_list
 from . import project_registry
@@ -115,13 +116,12 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.__clipboard = None  # type: Any
         self.__old_excepthook = None  # type: Callable[[Type[BaseException], BaseException, types.TracebackType], None]
-        self.win = None  # type: EditorWindow
+        self.__windows = []  # type: List[editor_window.EditorWindow]
         self.pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
         self.stat_monitor = None  # type: stat_monitor.StatMonitor
         self.default_style = None  # type: str
-
         self.devices = None  # type: device_list.DeviceList
-
+        self.setup_complete = None  # type: asyncio.Event
         self.__player_state_listeners = core.CallbackMap[str, audioproc.EngineNotification]()
 
     @property
@@ -133,31 +133,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.__old_excepthook = sys.excepthook
         sys.excepthook = ExceptHook(self)  # type: ignore
 
-        await self.createNodeDB()
-        await self.createInstrumentDB()
-        await self.createURIDMapper()
-
-        self.project_registry = project_registry.ProjectRegistry(
-            self.process.event_loop,
-            self.process.server,
-            self.process.manager,
-            self.node_db,
-            self.urid_mapper,
-            self.process.tmp_dir)
-
-        self.devices = device_list.DeviceList()
-
-        # TODO: 'self' is not a QObject in this context.
-        self.__audio_thread_profiler = audio_thread_profiler.AudioThreadProfiler(
-            context=self.context)
-        self.profile_audio_thread_action = QtWidgets.QAction("Profile Audio Thread", self.qt_app)
-        self.profile_audio_thread_action.triggered.connect(self.onProfileAudioThread)
-
-        self.dump_audioproc = QtWidgets.QAction("Dump AudioProc", self.qt_app)
-        self.dump_audioproc.triggered.connect(self.onDumpAudioProc)
-
-        await self.createAudioProcProcess()
-
+        self.setup_complete = asyncio.Event(loop=self.process.event_loop)
         self.default_style = self.qt_app.style().objectName()
 
         style_name = self.settings.value('appearance/qtStyle', '')
@@ -165,51 +141,89 @@ class EditorApp(ui_base.AbstractEditorApp):
             # TODO: something's wrong with the QtWidgets stubs...
             self.qt_app.setStyle(QtWidgets.QStyleFactory.create(style_name))  # type: ignore
 
-        logger.info("Creating PipelinePerfMonitor.")
-        self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(context=self.context)
+        logger.info("Creating initial window...")
+        win = await self.createWindow()
+        tab_page = win.addProjectTab("Open project")
 
-        logger.info("Creating StatMonitor.")
-        self.stat_monitor = stat_monitor.StatMonitor(context=self.context)
+        progress = win.createSetupProgress()
+        try:
+            progress.setNumSteps(4)
 
-        await self.createEditorWindow()
+            with progress.step("Scanning projects..."):
+                self.project_registry = project_registry.ProjectRegistry(self.process.event_loop)
+                await self.project_registry.setup()
+                tab_page.showOpenDialog(self.project_registry)
 
-        if self.paths:
-            logger.info("Starting with projects from cmdline.")
-            for path in self.paths:
-                if path.startswith('+'):
-                    await self.createProject(path[1:])
-                else:
-                    await self.openProject(path)
-        else:
-            reopen_projects = self.settings.value('opened_projects', [])
-            for path in reopen_projects or []:
-                await self.openProject(path)
+            with progress.step("Scanning nodes and plugins..."):
+                await self.createNodeDB()
+
+            with progress.step("Scanning instruments..."):
+                await self.createInstrumentDB()
+
+            with progress.step("Creating URID mapper..."):
+                await self.createURIDMapper()
+
+            with progress.step("Setting up audio engine..."):
+                self.devices = device_list.DeviceList()
+                await self.createAudioProcProcess()
+
+        finally:
+            win.deleteSetupProgress()
+
+        self.setup_complete.set()
+
+        # self.__audio_thread_profiler = audio_thread_profiler.AudioThreadProfiler(
+        #     context=self.context)
+        # self.profile_audio_thread_action = QtWidgets.QAction("Profile Audio Thread", self.qt_app)
+        # self.profile_audio_thread_action.triggered.connect(self.onProfileAudioThread)
+
+        # self.dump_audioproc = QtWidgets.QAction("Dump AudioProc", self.qt_app)
+        # self.dump_audioproc.triggered.connect(self.onDumpAudioProc)
+
+
+        # logger.info("Creating PipelinePerfMonitor.")
+        # self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(context=self.context)
+
+        # logger.info("Creating StatMonitor.")
+        # self.stat_monitor = stat_monitor.StatMonitor(context=self.context)
+
+        # if self.paths:
+        #     logger.info("Starting with projects from cmdline.")
+        #     for path in self.paths:
+        #         if path.startswith('+'):
+        #             await self.createProject(path[1:])
+        #         else:
+        #             await self.openProject(path)
+        # else:
+        #     reopen_projects = self.settings.value('opened_projects', [])
+        #     for path in reopen_projects or []:
+        #         await self.openProject(path)
 
     async def cleanup(self) -> None:
         logger.info("Cleanup app...")
 
-        if self.stat_monitor is not None:
-            self.stat_monitor.storeState()
-            self.stat_monitor = None
+        # if self.stat_monitor is not None:
+        #     self.stat_monitor.storeState()
+        #     self.stat_monitor = None
 
-        if self.pipeline_perf_monitor is not None:
-            self.pipeline_perf_monitor.storeState()
-            self.pipeline_perf_monitor = None
+        # if self.pipeline_perf_monitor is not None:
+        #     self.pipeline_perf_monitor.storeState()
+        #     self.pipeline_perf_monitor = None
 
-        if self.__audio_thread_profiler is not None:
-            self.__audio_thread_profiler.hide()
-            self.__audio_thread_profiler = None
+        # if self.__audio_thread_profiler is not None:
+        #     self.__audio_thread_profiler.hide()
+        #     self.__audio_thread_profiler = None
 
-        if self.win is not None:
-            self.win.storeState()
-            await self.win.cleanup()
-            self.win = None
+        while self.__windows:
+            win = self.__windows.pop(0)
+            win.storeState()
+            await win.cleanup()
 
-        self.settings.sync()
-        self.dumpSettings()
+        # self.settings.sync()
+        # self.dumpSettings()
 
         if self.project_registry is not None:
-            await self.project_registry.close_all()
+            await self.project_registry.cleanup()
             self.project_registry = None
 
         if self.audioproc_client is not None:
@@ -240,6 +254,13 @@ class EditorApp(ui_base.AbstractEditorApp):
 
         logger.info("Remove custom excepthook.")
         sys.excepthook = self.__old_excepthook  # type: ignore
+
+    async def createWindow(self) -> editor_window.EditorWindow:
+        win = editor_window.EditorWindow(context=self.context)
+        await win.setup()
+        win.show()
+        self.__windows.append(win)
+        return win
 
     def quit(self, exit_code: int = 0) -> None:
         # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
@@ -301,12 +322,6 @@ class EditorApp(ui_base.AbstractEditorApp):
             server_address=urid_mapper_address,
             tmp_dir=self.process.tmp_dir)
         await self.urid_mapper.setup(self.process.event_loop)
-
-    async def createEditorWindow(self) -> None:
-        logger.info("Creating EditorWindow.")
-        self.win = EditorWindow(context=self.context)
-        await self.win.setup()
-        self.win.show()
 
     def dumpSettings(self) -> None:
         for key in self.settings.allKeys():
@@ -374,32 +389,32 @@ class EditorApp(ui_base.AbstractEditorApp):
     def clipboardContent(self) -> Any:
         return self.__clipboard
 
-    async def createProject(self, path: str) -> None:
-        project_connection = self.project_registry.add_project(path)
-        idx = self.win.addProjectSetupView(project_connection)
-        await project_connection.create()
-        await self.win.activateProjectView(idx, project_connection)
-        self._updateOpenedProjects()
+    # async def createProject(self, path: str) -> None:
+    #     project_connection = self.project_registry.add_project(path)
+    #     idx = self.win.addProjectSetupView(project_connection)
+    #     await project_connection.create()
+    #     await self.win.activateProjectView(idx, project_connection)
+    #     self._updateOpenedProjects()
 
-    async def openProject(self, path: str) -> None:
-        project_connection = self.project_registry.add_project(path)
-        idx = self.win.addProjectSetupView(project_connection)
-        await project_connection.open()
-        await self.win.activateProjectView(idx, project_connection)
-        self._updateOpenedProjects()
+    # async def openProject(self, path: str) -> None:
+    #     project_connection = self.project_registry.add_project(path)
+    #     idx = self.win.addProjectSetupView(project_connection)
+    #     await project_connection.open()
+    #     await self.win.activateProjectView(idx, project_connection)
+    #     self._updateOpenedProjects()
 
-    def _updateOpenedProjects(self) -> None:
-        self.settings.setValue(
-            'opened_projects',
-            sorted(
-                project.path
-                for project in self.project_registry.projects.values()
-                if project.path))
+    # def _updateOpenedProjects(self) -> None:
+    #     self.settings.setValue(
+    #         'opened_projects',
+    #         sorted(
+    #             project.path
+    #             for project in self.project_registry.projects.values()
+    #             if project.path))
 
-    async def removeProject(self, project_connection: project_registry.Project) -> None:
-        await self.win.removeProjectView(project_connection)
-        await self.project_registry.close_project(project_connection)
-        self._updateOpenedProjects()
+    # async def removeProject(self, project_connection: project_registry.Project) -> None:
+    #     await self.win.removeProjectView(project_connection)
+    #     await self.project_registry.close_project(project_connection)
+    #     self._updateOpenedProjects()
 
     def crashWithMessage(self, title: str, msg: str) -> None:
         logger.error('%s: %s', title, msg)
