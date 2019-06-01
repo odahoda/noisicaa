@@ -22,6 +22,7 @@
 
 import asyncio
 import base64
+import concurrent.futures
 import enum
 import errno
 import functools
@@ -808,6 +809,7 @@ class SubprocessMixin(ProcessBase):
 
         self.manager_address = manager_address
         self.pid = os.getpid()
+        self.executor = None
 
     @staticmethod
     def entry(argv: List[str]) -> None:
@@ -907,6 +909,9 @@ class SubprocessMixin(ProcessBase):
         self.event_loop = self.create_event_loop()
         self.event_loop.set_exception_handler(self.error_handler)
 
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+        self.event_loop.set_default_executor(self.executor)
+
         # mypy doesn't know about asyncio.SafeChildWatcher.
         child_watcher = asyncio.SafeChildWatcher()  # type: ignore
         child_watcher.attach_loop(self.event_loop)
@@ -916,6 +921,9 @@ class SubprocessMixin(ProcessBase):
             return self.event_loop.run_until_complete(
                 self.main_async(child_connection, *args, **kwargs))
         finally:
+            logger.info("Closing executor...")
+            self.executor.shutdown()
+
             logger.info("Closing event loop...")
             pending_tasks = asyncio.Task.all_tasks(self.event_loop)
             if pending_tasks:
