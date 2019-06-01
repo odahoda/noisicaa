@@ -160,7 +160,6 @@ class MockApp(ui_base.AbstractEditorApp):
         self.pipeline_perf_monitor = None  # type: AbstractPipelinePerfMonitor
         self.stat_monitor = None  # type: AbstractStatMonitor
         self.runtime_settings = None  # type: runtime_settings_lib.RuntimeSettings
-        self.show_edit_areas_action = None  # type: QtWidgets.QAction
         self.node_db = None  # type: node_db_lib.NodeDBClient
         self.instrument_db = None  # type: instrument_db_lib.InstrumentDBClient
         self.default_style = None  # type: str

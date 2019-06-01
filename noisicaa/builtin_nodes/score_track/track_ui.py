@@ -831,12 +831,6 @@ class ScoreMeasureEditor(measured_track_editor.MeasureEditor):
                     # if overflow:
                     #     n.setOpacity(0.4)
 
-                    # if self.app.showEditAreas:
-                    #     info = QtWidgets.QGraphicsSimpleTextItem(self)
-                    #     info.setText(
-                    #         '%d/%d' % (min_stave_line, max_stave_line))
-                    #     info.setPos(x - 10, 0)
-
                 x1 = max(x - 12, px)
                 x2 = max(x + 13, x1)
                 if x1 > px:

@@ -244,7 +244,6 @@ class AbstractEditorApp(object):
     pipeline_perf_monitor = None  # type: AbstractPipelinePerfMonitor
     stat_monitor = None  # type: AbstractStatMonitor
     runtime_settings = None  # type: runtime_settings_lib.RuntimeSettings
-    show_edit_areas_action = None  # type: QtWidgets.QAction
     profile_audio_thread_action = None  # type: QtWidgets.QAction
     dump_audioproc = None  # type: QtWidgets.QAction
     node_db = None  # type: node_db_lib.NodeDBClient

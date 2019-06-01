@@ -105,7 +105,6 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.dumpSettings()
 
         self.project_registry = None  # type: project_registry.ProjectRegistry
-        self.show_edit_areas_action = None  # type: QtWidgets.QAction
         self.__audio_thread_profiler = None  # type: audio_thread_profiler.AudioThreadProfiler
         self.profile_audio_thread_action = None  # type: QtWidgets.QAction
         self.dump_audioproc = None  # type: QtWidgets.QAction
@@ -149,12 +148,6 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.devices = device_list.DeviceList()
 
         # TODO: 'self' is not a QObject in this context.
-        self.show_edit_areas_action = QtWidgets.QAction("Show Edit Areas", self.qt_app)
-        self.show_edit_areas_action.setCheckable(True)
-        self.show_edit_areas_action.triggered.connect(self.onShowEditAreasChanged)
-        self.show_edit_areas_action.setChecked(
-            bool(self.settings.value('dev/show_edit_areas', '0')))
-
         self.__audio_thread_profiler = audio_thread_profiler.AudioThreadProfiler(
             context=self.context)
         self.profile_audio_thread_action = QtWidgets.QAction("Profile Audio Thread", self.qt_app)
@@ -321,15 +314,6 @@ class EditorApp(ui_base.AbstractEditorApp):
             if isinstance(value, (bytes, QtCore.QByteArray)):
                 value = '[%d bytes]' % len(value)
             logger.info('%s: %s', key, value)
-
-    def onShowEditAreasChanged(self) -> None:
-        self.settings.setValue(
-            'dev/show_edit_areas', int(self.show_edit_areas_action.isChecked()))
-
-    @property
-    def showEditAreas(self) -> bool:
-        return (self.runtime_settings.dev_mode
-                and self.show_edit_areas_action.isChecked())
 
     def onProfileAudioThread(self) -> None:
         self.__audio_thread_profiler.show()
