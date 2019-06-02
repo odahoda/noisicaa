@@ -212,9 +212,11 @@ class EditorWindow(ui_base.AbstractEditorWindow):
             self.app.settings.value('mainwindow/state', b''))
 
     async def setup(self) -> None:
-        pass
+        self.show()
 
     async def cleanup(self) -> None:
+        self.hide()
+
         if self.__setup_progress_fade_task is not None:
             self.__setup_progress_fade_task.cancel()
             try:
@@ -227,16 +229,12 @@ class EditorWindow(ui_base.AbstractEditorWindow):
             self.__engine_state_listener.remove()
             self.__engine_state_listener = None
 
-        self.hide()
-
         while self.__project_tabs.count() > 0:
             tab = cast(ProjectTabPage, self.__project_tabs.widget(0))
             view = tab.projectView()
             if view is not None:
                 await view.cleanup()
             self.__project_tabs.removeTab(0)
-
-        self.close()
 
     def audioprocReady(self) -> None:
         self.__engine_state_listener = self.audioproc_client.engine_state_changed.add(
@@ -476,8 +474,8 @@ class EditorWindow(ui_base.AbstractEditorWindow):
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         logger.info("CloseEvent received")
-        event.accept()
-        self.app.quit()
+        event.ignore()
+        self.call_async(self.app.deleteWindow(self))
 
     def setCurrentProjectView(self, view: Optional[project_view.ProjectView]) -> None:
         if view == self.__current_project_view:

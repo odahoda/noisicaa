@@ -395,9 +395,15 @@ class EditorApp(ui_base.AbstractEditorApp):
     async def createWindow(self) -> editor_window.EditorWindow:
         win = editor_window.EditorWindow(context=self.context)
         await win.setup()
-        win.show()
         self.__windows.append(win)
         return win
+
+    async def deleteWindow(self, win: editor_window.EditorWindow) -> None:
+        self.__windows.remove(win)
+        await win.cleanup()
+
+        if not self.__windows:
+            self.quit()
 
     def quit(self, exit_code: int = 0) -> None:
         # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
