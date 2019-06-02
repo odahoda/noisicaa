@@ -150,7 +150,7 @@ class EditorApp(ui_base.AbstractEditorApp):
             progress.setNumSteps(4)
 
             with progress.step("Scanning projects..."):
-                self.project_registry = project_registry.ProjectRegistry(self.process.event_loop)
+                self.project_registry = project_registry.ProjectRegistry(context=self.context)
                 await self.project_registry.setup()
                 tab_page.showOpenDialog(self.project_registry)
 

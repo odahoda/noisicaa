@@ -20,26 +20,22 @@
 #
 # @end:license
 
-import asyncio
 import logging
 import os.path
-from typing import Dict, List, Iterable
+from typing import Any, Dict, List, Iterable
 
 from PyQt5 import QtCore
 
-from noisicaa import lv2
 from noisicaa import music
-from noisicaa.core import ipc
-from noisicaa import node_db as node_db_lib
+from . import ui_base
 
 logger = logging.getLogger(__name__)
 
 
-class Project(object):
-    def __init__(
-            self,
-            path: str,
-    ) -> None:
+class Project(ui_base.CommonMixin, object):
+    def __init__(self, *, path: str, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
         self.path = path
         self.client = None  # type: music.ProjectClient
 
@@ -47,61 +43,23 @@ class Project(object):
     def name(self) -> str:
         return os.path.splitext(os.path.basename(self.path))[0]
 
-    async def __create_process(
-            self, *,
-            event_loop: asyncio.AbstractEventLoop,
-            server: ipc.Server,
-            process_manager: ipc.Stub,
-            node_db: node_db_lib.NodeDBClient,
-            urid_mapper: lv2.ProxyURIDMapper,
-            tmp_dir: str
-    ) -> None:
+    async def __create_process(self) -> None:
         self.client = music.ProjectClient(
-            event_loop=event_loop,
-            server=server,
-            node_db=node_db,
-            urid_mapper=urid_mapper,
-            manager=process_manager,
-            tmp_dir=tmp_dir,
+            event_loop=self.event_loop,
+            server=self.app.process.server,
+            node_db=self.app.node_db,
+            urid_mapper=self.app.urid_mapper,
+            manager=self.app.process.manager,
+            tmp_dir=self.app.process.tmp_dir,
         )
         await self.client.setup()
 
-    async def open(
-            self, *,
-            event_loop: asyncio.AbstractEventLoop,
-            server: ipc.Server,
-            process_manager: ipc.Stub,
-            node_db: node_db_lib.NodeDBClient,
-            urid_mapper: lv2.ProxyURIDMapper,
-            tmp_dir: str
-    ) -> None:
-        await self.__create_process(
-            event_loop=event_loop,
-            server=server,
-            node_db=node_db,
-            urid_mapper=urid_mapper,
-            process_manager=process_manager,
-            tmp_dir=tmp_dir,
-        )
+    async def open(self) -> None:
+        await self.__create_process()
         await self.client.open(self.path)
 
-    async def create(
-            self, *,
-            event_loop: asyncio.AbstractEventLoop,
-            server: ipc.Server,
-            process_manager: ipc.Stub,
-            node_db: node_db_lib.NodeDBClient,
-            urid_mapper: lv2.ProxyURIDMapper,
-            tmp_dir: str
-    ) -> None:
-        await self.create_process(
-            event_loop=event_loop,
-            server=server,
-            node_db=node_db,
-            urid_mapper=urid_mapper,
-            process_manager=process_manager,
-            tmp_dir=tmp_dir,
-        )
+    async def create(self) -> None:
+        await self.__create_process()
         await self.client.create(self.path)
 
     async def close(self) -> None:
@@ -111,11 +69,10 @@ class Project(object):
             self.client = None
 
 
-class ProjectRegistry(QtCore.QObject):
-    def __init__(self, event_loop: asyncio.AbstractEventLoop) -> None:
-        super().__init__()
+class ProjectRegistry(ui_base.CommonMixin, QtCore.QObject):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
 
-        self.__event_loop = event_loop
         self.__projects = {}  # type: Dict[str, Project]
 
     @property
@@ -126,7 +83,7 @@ class ProjectRegistry(QtCore.QObject):
         # TODO: get list of directories from settings
         directories = ['~/Music/Noisicaä', '/lala']
 
-        projects = await self.__event_loop.run_in_executor(None, self.__scan_projects, directories)
+        projects = await self.event_loop.run_in_executor(None, self.__scan_projects, directories)
         self.__projects = {project.path: project for project in projects}
 
     async def cleanup(self) -> None:
@@ -147,7 +104,7 @@ class ProjectRegistry(QtCore.QObject):
                             dirnames.remove(data_dir_name)
 
                     filepath = os.path.join(dirpath, filename)
-                    projects.append(Project(filepath))
+                    projects.append(Project(path=filepath, context=self.context))
 
         return projects
 

@@ -133,13 +133,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
     async def __projectSelected(self, project: project_registry_lib.Project) -> None:
         self.showLoadSpinner("Loading project \"%s\"..." % project.name)
         await self.app.setup_complete.wait()
-        await project.open(
-            event_loop=self.event_loop,
-            server=self.app.process.server,
-            process_manager=self.app.process.manager,
-            node_db=self.app.node_db,
-            urid_mapper=self.app.urid_mapper,
-            tmp_dir=self.app.process.tmp_dir)
+        await project.open()
         view = project_view.ProjectView(project_connection=project, context=self.context)
         await view.setup()
         self.__setPage(view)

@@ -20,30 +20,12 @@
 #
 # @end:license
 
-import os.path
-
-from PyQt5.QtCore import Qt
-from PyQt5 import QtCore
-
 from noisidev import uitest
-from noisidev import unittest_mixins
-from noisicaa.constants import TEST_OPTS
 from . import project_registry
 
 
-class ProjectRegistryTest(
-        unittest_mixins.NodeDBMixin,
-        unittest_mixins.URIDMapperMixin,
-        unittest_mixins.ServerMixin,
-        uitest.UITestCase):
-    async def test_foo(self):
-        registry = project_registry.ProjectRegistry(
-            event_loop=self.loop,
-            tmp_dir=TEST_OPTS.TMP_DIR,
-            server=self.server,
-            process_manager=self.process_manager_client,
-            node_db=self.node_db,
-            urid_mapper=self.urid_mapper,
-        )
+class ProjectRegistryTest(uitest.UITestCase):
+    async def test_setup(self):
+        registry = project_registry.ProjectRegistry(context=self.context)
         await registry.setup()
         await registry.cleanup()

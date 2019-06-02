@@ -21,29 +21,18 @@
 # @end:license
 
 from noisidev import uitest
-from noisidev import unittest_mixins
-from noisicaa.constants import TEST_OPTS
 from . import open_project_dialog
 from . import project_registry
 
-class OpenProjectDialogTest(
-        unittest_mixins.NodeDBMixin,
-        unittest_mixins.URIDMapperMixin,
-        unittest_mixins.ServerMixin,
-        uitest.UITestCase):
-    async def test_foo(self):
-        registry = project_registry.ProjectRegistry(
-            event_loop=self.loop,
-            tmp_dir=TEST_OPTS.TMP_DIR,
-            server=self.server,
-            process_manager=self.process_manager_client,
-            node_db=self.node_db,
-            urid_mapper=self.urid_mapper,
-        )
+
+class OpenProjectDialogTest(uitest.UITestCase):
+    async def test_show(self):
+        registry = project_registry.ProjectRegistry(context=self.context)
         await registry.setup()
         try:
-            open_project_dialog.OpenProjectDialog(
+            dialog = open_project_dialog.OpenProjectDialog(
                 project_registry=registry)
+            dialog.show()
 
         finally:
             await registry.cleanup()
