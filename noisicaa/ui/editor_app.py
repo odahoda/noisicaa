@@ -50,6 +50,7 @@ from . import project_registry
 from . import pipeline_perf_monitor
 from . import stat_monitor
 from . import settings_dialog
+from . import instrument_library
 from . import ui_base
 
 logger = logging.getLogger('ui.editor_app')
@@ -125,6 +126,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.devices = None  # type: device_list.DeviceList
         self.setup_complete = None  # type: asyncio.Event
         self.__settings_dialog = None  # type: settings_dialog.SettingsDialog
+        self.__instrument_library_dialog = None  # type: instrument_library.InstrumentLibraryDialog
 
         self.__player_state_listeners = core.CallbackMap[str, audioproc.EngineNotification]()
 
@@ -150,6 +152,11 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.show_settings_dialog_action.setEnabled(False)
         self.show_settings_dialog_action.triggered.connect(self.__showSettingsDialog)
 
+        self.show_instrument_library_action = QtWidgets.QAction("Instrument Library", self.qt_app)
+        self.show_instrument_library_action.setStatusTip("Open the instrument library dialog.")
+        self.show_instrument_library_action.setEnabled(False)
+        self.show_instrument_library_action.triggered.connect(self.__showInstrumentLibrary)
+
         self.quit_action = QtWidgets.QAction("Quit", self.qt_app)
         self.quit_action.setShortcut(QtGui.QKeySequence.Quit)
         self.quit_action.setShortcutContext(Qt.ApplicationShortcut)
@@ -172,9 +179,6 @@ class EditorApp(ui_base.AbstractEditorApp):
             with progress.step("Scanning nodes and plugins..."):
                 await self.createNodeDB()
 
-            with progress.step("Scanning instruments..."):
-                await self.createInstrumentDB()
-
             with progress.step("Creating URID mapper..."):
                 await self.createURIDMapper()
 
@@ -182,10 +186,17 @@ class EditorApp(ui_base.AbstractEditorApp):
                 self.devices = device_list.DeviceList()
                 await self.createAudioProcProcess()
 
+            with progress.step("Scanning instruments..."):
+                await self.createInstrumentDB()
+                self.__instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
+                    context=self.context)
+                await self.__instrument_library_dialog.setup()
+
         finally:
             win.deleteSetupProgress()
 
         self.show_settings_dialog_action.setEnabled(True)
+        self.show_instrument_library_action.setEnabled(True)
         self.setup_complete.set()
 
         # self.__audio_thread_profiler = audio_thread_profiler.AudioThreadProfiler(
@@ -229,6 +240,10 @@ class EditorApp(ui_base.AbstractEditorApp):
         # if self.__audio_thread_profiler is not None:
         #     self.__audio_thread_profiler.hide()
         #     self.__audio_thread_profiler = None
+
+        if self.__instrument_library_dialog is not None:
+            await self.__instrument_library_dialog.cleanup()
+            self.__instrument_library_dialog = None
 
         if self.__settings_dialog is not None:
             self.__settings_dialog.storeState()
@@ -368,6 +383,10 @@ class EditorApp(ui_base.AbstractEditorApp):
                 self.devices.removeDevice(device_manager_message.removed)
             else:
                 raise ValueError(action)
+
+    def __showInstrumentLibrary(self) -> None:
+        self.__instrument_library_dialog.show()
+        self.__instrument_library_dialog.activateWindow()
 
     def __showSettingsDialog(self) -> None:
         if self.__settings_dialog is None:

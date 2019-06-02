@@ -39,7 +39,6 @@ from noisicaa import music
 from ..exceptions import RestartAppException, RestartAppCleanException
 from . import project_view
 from . import ui_base
-from . import instrument_library
 from . import qprogressindicator
 from . import project_registry as project_registry_lib
 from . import load_history
@@ -173,9 +172,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
 
     #     self.__engine_state_listener = None  # type: core.Listener[audioproc.EngineStateChange]
 
-    #     self._instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
-    #         context=self.context, parent=self)
-
     #     self._current_project_view = None  # type: Optional[ProjectView]
 
         self.setWindowTitle("noisicaä")
@@ -227,7 +223,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         # self.__engine_state_listener = self.audioproc_client.engine_state_changed.add(
         #     self.__engineStateChanged)
 
-        # await self._instrument_library_dialog.setup()
         pass
 
     async def cleanup(self) -> None:
@@ -238,8 +233,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
             except asyncio.CancelledError:
                 pass
             self.__setup_progress_fade_task = None
-
-    #     await self._instrument_library_dialog.cleanup()
 
     #     if self.__engine_state_listener is not None:
     #         self.__engine_state_listener.remove()
@@ -395,10 +388,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     #     self._aboutqt_action.setStatusTip("Show the Qt library's About box")
     #     self._aboutqt_action.triggered.connect(self.qt_app.aboutQt)
 
-    #     self._open_instrument_library_action = QtWidgets.QAction("Instrument Library", self)
-    #     self._open_instrument_library_action.setStatusTip("Open the instrument library dialog.")
-    #     self._open_instrument_library_action.triggered.connect(self.openInstrumentLibrary)
-
     #     self._player_move_to_start_action = QtWidgets.QAction("Move to start", self)
     #     self._player_move_to_start_action.setIcon(QtGui.QIcon.fromTheme('media-skip-backward'))
     #     self._player_move_to_start_action.setShortcut(QtGui.QKeySequence('Home'))
@@ -461,8 +450,8 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     #     self._project_menu.addAction(self._close_current_project_action)
     #     self._project_menu.addSeparator()
     #     self._project_menu.addAction(self._render_action)
-    #     self._project_menu.addSeparator()
-    #     self._project_menu.addAction(self._open_instrument_library_action)
+        self._project_menu.addSeparator()
+        self._project_menu.addAction(self.app.show_instrument_library_action)
         self._project_menu.addSeparator()
         self._project_menu.addAction(self.app.show_settings_dialog_action)
         self._project_menu.addSeparator()
@@ -574,10 +563,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
 
     # def restart_clean(self) -> None:
     #     raise RestartAppCleanException("Clean restart requested by user.")
-
-    # def openInstrumentLibrary(self) -> None:
-    #     self._instrument_library_dialog.show()
-    #     self._instrument_library_dialog.activateWindow()
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         logger.info("CloseEvent received")
