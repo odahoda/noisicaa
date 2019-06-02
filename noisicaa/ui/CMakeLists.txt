@@ -51,7 +51,7 @@ add_python_package(
   render_dialog_test.py
   selection_set.py
   session_helpers.py
-  settings.py
+  settings_dialog.py
   slots.py
   stat_monitor.py
   svg_symbol_filetest.py

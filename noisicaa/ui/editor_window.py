@@ -37,7 +37,6 @@ from noisicaa import constants
 from noisicaa import audioproc
 from noisicaa import music
 from ..exceptions import RestartAppException, RestartAppCleanException
-from .settings import SettingsDialog
 from . import project_view
 from . import ui_base
 from . import instrument_library
@@ -174,8 +173,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
 
     #     self.__engine_state_listener = None  # type: core.Listener[audioproc.EngineStateChange]
 
-    #     self._settings_dialog = SettingsDialog(parent=self, context=self.context)
-
     #     self._instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
     #         context=self.context, parent=self)
 
@@ -188,7 +185,7 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         self.__setup_progress_fade_task = None  # type: asyncio.Task
 
     #     self.createActions()
-    #     self.createMenus()
+        self.createMenus()
     #     self.createToolBar()
     #     self.createStatusBar()
 
@@ -255,7 +252,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     #         if isinstance(view, ProjectView):
     #             await view.cleanup()
     #         self._project_tabs.removeTab(0)
-    #     self._settings_dialog.close()
         self.close()
 
     def createSetupProgress(self) -> SetupProgressWidget:
@@ -385,12 +381,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     #     self._restart_clean_action.setStatusTip("Restart the application in a clean state")
     #     self._restart_clean_action.triggered.connect(self.restart_clean)
 
-    #     self._quit_action = QtWidgets.QAction("Quit", self)
-    #     self._quit_action.setShortcut(QtGui.QKeySequence.Quit)
-    #     self._quit_action.setShortcutContext(Qt.ApplicationShortcut)
-    #     self._quit_action.setStatusTip("Quit the application")
-    #     self._quit_action.triggered.connect(self.quit)
-
     #     self._crash_action = QtWidgets.QAction("Crash", self)
     #     self._crash_action.triggered.connect(self.crash)
 
@@ -404,10 +394,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     #     self._aboutqt_action = QtWidgets.QAction("About Qt", self)
     #     self._aboutqt_action.setStatusTip("Show the Qt library's About box")
     #     self._aboutqt_action.triggered.connect(self.qt_app.aboutQt)
-
-    #     self._open_settings_action = QtWidgets.QAction("Settings", self)
-    #     self._open_settings_action.setStatusTip("Open the settings dialog.")
-    #     self._open_settings_action.triggered.connect(self.openSettings)
 
     #     self._open_instrument_library_action = QtWidgets.QAction("Instrument Library", self)
     #     self._open_instrument_library_action.setStatusTip("Open the instrument library dialog.")
@@ -466,10 +452,10 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     #     # self.app.stat_monitor.visibilityChanged.connect(
     #     #     self._show_stat_monitor_action.setChecked)
 
-    # def createMenus(self) -> None:
-    #     menu_bar = self.menuBar()
+    def createMenus(self) -> None:
+        menu_bar = self.menuBar()
 
-    #     self._project_menu = menu_bar.addMenu("Project")
+        self._project_menu = menu_bar.addMenu("Project")
     #     self._project_menu.addAction(self._new_project_action)
     #     self._project_menu.addAction(self._open_project_action)
     #     self._project_menu.addAction(self._close_current_project_action)
@@ -477,12 +463,12 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     #     self._project_menu.addAction(self._render_action)
     #     self._project_menu.addSeparator()
     #     self._project_menu.addAction(self._open_instrument_library_action)
-    #     self._project_menu.addSeparator()
-    #     self._project_menu.addAction(self._open_settings_action)
-    #     self._project_menu.addSeparator()
-    #     self._project_menu.addAction(self._quit_action)
+        self._project_menu.addSeparator()
+        self._project_menu.addAction(self.app.show_settings_dialog_action)
+        self._project_menu.addSeparator()
+        self._project_menu.addAction(self.app.quit_action)
 
-    #     self._edit_menu = menu_bar.addMenu("Edit")
+        self._edit_menu = menu_bar.addMenu("Edit")
     #     self._edit_menu.addAction(self._undo_action)
     #     self._edit_menu.addAction(self._redo_action)
     #     self._project_menu.addSeparator()
@@ -494,11 +480,11 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     #     #self._edit_menu.addAction(self._set_num_measures_action)
     #     self._edit_menu.addAction(self._set_bpm_action)
 
-    #     self._view_menu = menu_bar.addMenu("View")
+        self._view_menu = menu_bar.addMenu("View")
 
-    #     if self.app.runtime_settings.dev_mode:
-    #         menu_bar.addSeparator()
-    #         self._dev_menu = menu_bar.addMenu("Dev")
+        if self.app.runtime_settings.dev_mode:
+            menu_bar.addSeparator()
+            self._dev_menu = menu_bar.addMenu("Dev")
     #         self._dev_menu.addAction(self._dump_project_action)
     #         self._dev_menu.addAction(self._restart_action)
     #         self._dev_menu.addAction(self._restart_clean_action)
@@ -508,11 +494,11 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     #         #self._dev_menu.addAction(self.app.profile_audio_thread_action)
     #         #self._dev_menu.addAction(self.app.dump_audioproc)
 
-    #     menu_bar.addSeparator()
+        menu_bar.addSeparator()
 
-    #     self._help_menu = menu_bar.addMenu("Help")
-    #     self._help_menu.addAction(self._about_action)
-    #     self._help_menu.addAction(self._aboutqt_action)
+        self._help_menu = menu_bar.addMenu("Help")
+        # self._help_menu.addAction(self._about_action)
+        # self._help_menu.addAction(self._aboutqt_action)
 
     # def createToolBar(self) -> None:
     #     self.toolbar = QtWidgets.QToolBar()
@@ -543,8 +529,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         logger.info("Saving current EditorWindow geometry.")
         self.app.settings.setValue('mainwindow/geometry', self.saveGeometry())
         self.app.settings.setValue('mainwindow/state', self.saveState())
-
-    #     self._settings_dialog.storeState()
 
     # def __engineStateChanged(self, engine_state: audioproc.EngineStateChange) -> None:
     #     show_status, show_load = False, False
@@ -590,13 +574,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
 
     # def restart_clean(self) -> None:
     #     raise RestartAppCleanException("Clean restart requested by user.")
-
-    # def quit(self) -> None:
-    #     self.app.quit()
-
-    # def openSettings(self) -> None:
-    #     self._settings_dialog.show()
-    #     self._settings_dialog.activateWindow()
 
     # def openInstrumentLibrary(self) -> None:
     #     self._instrument_library_dialog.show()

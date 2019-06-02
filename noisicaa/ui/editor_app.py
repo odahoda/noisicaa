@@ -29,6 +29,7 @@ import traceback
 import types
 from typing import Any, Optional, Callable, Sequence, List, Type
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
@@ -48,6 +49,7 @@ from . import device_list
 from . import project_registry
 from . import pipeline_perf_monitor
 from . import stat_monitor
+from . import settings_dialog
 from . import ui_base
 
 logger = logging.getLogger('ui.editor_app')
@@ -122,6 +124,8 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.default_style = None  # type: str
         self.devices = None  # type: device_list.DeviceList
         self.setup_complete = None  # type: asyncio.Event
+        self.__settings_dialog = None  # type: settings_dialog.SettingsDialog
+
         self.__player_state_listeners = core.CallbackMap[str, audioproc.EngineNotification]()
 
     @property
@@ -134,12 +138,23 @@ class EditorApp(ui_base.AbstractEditorApp):
         sys.excepthook = ExceptHook(self)  # type: ignore
 
         self.setup_complete = asyncio.Event(loop=self.process.event_loop)
-        self.default_style = self.qt_app.style().objectName()
 
+        self.default_style = self.qt_app.style().objectName()
         style_name = self.settings.value('appearance/qtStyle', '')
         if style_name:
             # TODO: something's wrong with the QtWidgets stubs...
             self.qt_app.setStyle(QtWidgets.QStyleFactory.create(style_name))  # type: ignore
+
+        self.show_settings_dialog_action = QtWidgets.QAction("Settings", self.qt_app)
+        self.show_settings_dialog_action.setStatusTip("Open the settings dialog.")
+        self.show_settings_dialog_action.setEnabled(False)
+        self.show_settings_dialog_action.triggered.connect(self.__showSettingsDialog)
+
+        self.quit_action = QtWidgets.QAction("Quit", self.qt_app)
+        self.quit_action.setShortcut(QtGui.QKeySequence.Quit)
+        self.quit_action.setShortcutContext(Qt.ApplicationShortcut)
+        self.quit_action.setStatusTip("Quit the application")
+        self.quit_action.triggered.connect(self.quit)
 
         logger.info("Creating initial window...")
         win = await self.createWindow()
@@ -170,6 +185,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         finally:
             win.deleteSetupProgress()
 
+        self.show_settings_dialog_action.setEnabled(True)
         self.setup_complete.set()
 
         # self.__audio_thread_profiler = audio_thread_profiler.AudioThreadProfiler(
@@ -213,6 +229,11 @@ class EditorApp(ui_base.AbstractEditorApp):
         # if self.__audio_thread_profiler is not None:
         #     self.__audio_thread_profiler.hide()
         #     self.__audio_thread_profiler = None
+
+        if self.__settings_dialog is not None:
+            self.__settings_dialog.storeState()
+            self.__settings_dialog.close()
+            self.__settings_dialog = None
 
         while self.__windows:
             win = self.__windows.pop(0)
@@ -347,6 +368,13 @@ class EditorApp(ui_base.AbstractEditorApp):
                 self.devices.removeDevice(device_manager_message.removed)
             else:
                 raise ValueError(action)
+
+    def __showSettingsDialog(self) -> None:
+        if self.__settings_dialog is None:
+            # TODO: use current window as parent?
+            self.__settings_dialog = settings_dialog.SettingsDialog(context=self.context)
+        self.__settings_dialog.show()
+        self.__settings_dialog.activateWindow()
 
     # pylint: disable=line-too-long
     # def onPlayerStatus(self, player_state: audioproc.PlayerState):
