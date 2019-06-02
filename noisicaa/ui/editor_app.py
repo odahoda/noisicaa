@@ -247,6 +247,9 @@ class EditorApp(ui_base.AbstractEditorApp):
             self.__stat_monitor.visibilityChanged.connect(
                 self.show_stat_monitor_action.setChecked)
 
+            logger.info("Creating SettingsDialog...")
+            self.__settings_dialog = settings_dialog.SettingsDialog(context=self.context)
+
             with progress.step("Scanning projects..."):
                 self.__project_registry = project_registry.ProjectRegistry(context=self.context)
                 await self.__project_registry.setup()
@@ -490,9 +493,6 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.__instrument_library_dialog.activateWindow()
 
     def __showSettingsDialog(self) -> None:
-        if self.__settings_dialog is None:
-            # TODO: use current window as parent?
-            self.__settings_dialog = settings_dialog.SettingsDialog(context=self.context)
         self.__settings_dialog.show()
         self.__settings_dialog.activateWindow()
 
