@@ -237,15 +237,26 @@ class AbstractStatMonitor(CommonMixin, QtWidgets.QMainWindow):
 
 
 class AbstractEditorApp(object):
+    new_project_action = None  # type: QtWidgets.QAction
+    open_project_action = None  # type: QtWidgets.QAction
+    restart_action = None  # type: QtWidgets.QAction
+    restart_clean_action = None  # type: QtWidgets.QAction
+    crash_action = None  # type: QtWidgets.QAction
+    about_action = None  # type: QtWidgets.QAction
+    aboutqt_action = None  # type: QtWidgets.QAction
+    show_settings_dialog_action = None  # type: QtWidgets.QAction
+    show_instrument_library_action = None  # type: QtWidgets.QAction
+    profile_audio_thread_action = None  # type: QtWidgets.QAction
+    dump_audioproc_action = None  # type: QtWidgets.QAction
+    show_pipeline_perf_monitor_action = None  # type: QtWidgets.QAction
+    show_stat_monitor_action = None  # type: QtWidgets.QAction
+    quit_action = None  # type: QtWidgets.QAction
+
     win = None  # type: AbstractEditorWindow
     audioproc_client = None  # type: audioproc.AbstractAudioProcClient
     process = None  # type: core.ProcessBase
     settings = None  # type: QtCore.QSettings
-    pipeline_perf_monitor = None  # type: AbstractPipelinePerfMonitor
-    stat_monitor = None  # type: AbstractStatMonitor
     runtime_settings = None  # type: runtime_settings_lib.RuntimeSettings
-    profile_audio_thread_action = None  # type: QtWidgets.QAction
-    dump_audioproc = None  # type: QtWidgets.QAction
     node_db = None  # type: node_db_lib.NodeDBClient
     instrument_db = None  # type: instrument_db_lib.InstrumentDBClient
     urid_mapper = None  # type: lv2.ProxyURIDMapper
@@ -254,15 +265,6 @@ class AbstractEditorApp(object):
     devices = None  # type: device_list.DeviceList
 
     def quit(self, exit_code: int = 0) -> None:
-        raise NotImplementedError
-
-    async def createProject(self, path: str) -> None:
-        raise NotImplementedError
-
-    async def openProject(self, path: str) -> None:
-        raise NotImplementedError
-
-    async def removeProject(self, project_connection: 'project_registry.Project') -> None:
         raise NotImplementedError
 
     def crashWithMessage(self, title: str, msg: str) -> None:
