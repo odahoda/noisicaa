@@ -41,6 +41,7 @@ if typing.TYPE_CHECKING:
     from noisicaa import node_db as node_db_lib
     from noisicaa import runtime_settings as runtime_settings_lib
     from noisicaa import lv2
+    from . import instrument_list as instrument_list_lib
     from . import project_registry
 
 
@@ -263,6 +264,7 @@ class AbstractEditorApp(object):
     default_style = None  # type: str
     qt_app = None  # type: QtWidgets.QApplication
     devices = None  # type: device_list.DeviceList
+    instrument_list = None  # type: instrument_list_lib.InstrumentList
 
     def quit(self, exit_code: int = 0) -> None:
         raise NotImplementedError

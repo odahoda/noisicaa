@@ -27,10 +27,10 @@ from PyQt5 import QtCore
 
 from noisidev import uitest
 from noisicaa import instrument_db
-from . import instrument_library
+from . import instrument_list
 
 
-class TracksModelTest(uitest.UITestCase):
+class InstrumentListTest(uitest.UITestCase):
     def __mkinstr(self, path):
         return instrument_db.InstrumentDescription(
             uri='wav:' + path,
@@ -38,7 +38,7 @@ class TracksModelTest(uitest.UITestCase):
             display_name=os.path.splitext(os.path.basename(path))[0])
 
     async def test_addInstrument(self):
-        model = instrument_library.LibraryModel(context=self.context)
+        model = instrument_list.InstrumentList(context=self.context)
         try:
             root_index = QtCore.QModelIndex()
             self.assertEqual(model.rowCount(root_index), 0)
@@ -61,7 +61,7 @@ class TracksModelTest(uitest.UITestCase):
             model.cleanup()
 
     async def test_addInstrument_long_path(self):
-        model = instrument_library.LibraryModel(context=self.context)
+        model = instrument_list.InstrumentList(context=self.context)
         try:
             model.addInstrument(self.__mkinstr('/some/path/test1.wav'))
             self.assertEqual(

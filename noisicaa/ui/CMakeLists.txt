@@ -29,7 +29,8 @@ add_python_package(
   flowlayout.py
   gain_slider.py
   instrument_library.py
-  instrument_library_test.py
+  instrument_list.py
+  instrument_list_test.py
   load_history.py
   misc.py
   mute_button.py

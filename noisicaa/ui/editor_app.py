@@ -51,6 +51,7 @@ from . import project_registry
 from . import pipeline_perf_monitor
 from . import stat_monitor
 from . import settings_dialog
+from . import instrument_list
 from . import instrument_library
 from . import ui_base
 
@@ -137,6 +138,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.__pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
         self.__stat_monitor = None  # type: stat_monitor.StatMonitor
         self.default_style = None  # type: str
+        self.instrument_list = None  # type: instrument_list.InstrumentList
         self.devices = None  # type: device_list.DeviceList
         self.setup_complete = None  # type: asyncio.Event
         self.__settings_dialog = None  # type: settings_dialog.SettingsDialog
@@ -235,7 +237,7 @@ class EditorApp(ui_base.AbstractEditorApp):
 
         progress = win.createSetupProgress()
         try:
-            progress.setNumSteps(4)
+            progress.setNumSteps(5)
 
             logger.info("Creating StatMonitor.")
             self.__stat_monitor = stat_monitor.StatMonitor(context=self.context)
@@ -277,7 +279,18 @@ class EditorApp(ui_base.AbstractEditorApp):
                     self.show_pipeline_perf_monitor_action.setChecked)
 
             with progress.step("Scanning instruments..."):
-                await self.createInstrumentDB()
+                create_instrument_db_response = editor_main_pb2.CreateProcessResponse()
+                await self.process.manager.call(
+                    'CREATE_INSTRUMENT_DB_PROCESS', None, create_instrument_db_response)
+                instrument_db_address = create_instrument_db_response.address
+
+                self.instrument_db = instrument_db.InstrumentDBClient(
+                    self.process.event_loop, self.process.server)
+                self.instrument_list = instrument_list.InstrumentList(context=self.context)
+                self.instrument_list.setup()
+                await self.instrument_db.setup()
+                await self.instrument_db.connect(instrument_db_address)
+
                 self.__instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
                     context=self.context)
                 await self.__instrument_library_dialog.setup()
@@ -356,6 +369,10 @@ class EditorApp(ui_base.AbstractEditorApp):
             await self.urid_mapper.cleanup(self.process.event_loop)
             self.urid_mapper = None
 
+        if self.instrument_list is not None:
+            self.instrument_list.cleanup()
+            self.instrument_list = None
+
         if self.instrument_db is not None:
             await self.instrument_db.disconnect()
             await self.instrument_db.cleanup()
@@ -417,17 +434,6 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.node_db = node_db.NodeDBClient(self.process.event_loop, self.process.server)
         await self.node_db.setup()
         await self.node_db.connect(node_db_address)
-
-    async def createInstrumentDB(self) -> None:
-        create_instrument_db_response = editor_main_pb2.CreateProcessResponse()
-        await self.process.manager.call(
-            'CREATE_INSTRUMENT_DB_PROCESS', None, create_instrument_db_response)
-        instrument_db_address = create_instrument_db_response.address
-
-        self.instrument_db = instrument_db.InstrumentDBClient(
-            self.process.event_loop, self.process.server)
-        await self.instrument_db.setup()
-        await self.instrument_db.connect(instrument_db_address)
 
     async def createURIDMapper(self) -> None:
         create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()

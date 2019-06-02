@@ -82,16 +82,17 @@ class InstrumentDBClient(object):
     async def start_scan(self) -> None:
         await self.__stub.call('START_SCAN')
 
-    def __handle_mutation(
+    async def __handle_mutation(
             self,
             request: instrument_db_pb2.Mutations,
             response: empty_message_pb2.EmptyMessage,
     ) -> None:
-        for mutation in request.mutations:
-            logger.info("Mutation received: %s", mutation)
+        for idx, mutation in enumerate(request.mutations):
             if mutation.WhichOneof('type') == 'add_instrument':
                 self.__instruments[mutation.add_instrument.uri] = mutation.add_instrument
             else:
                 raise ValueError(mutation)
 
             self.mutation_handlers.call(mutation)
+            if idx % 10 == 0:
+                await asyncio.sleep(0, loop=self.event_loop)
