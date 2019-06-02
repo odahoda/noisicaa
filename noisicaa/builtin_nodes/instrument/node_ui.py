@@ -93,7 +93,7 @@ class InstrumentNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
 
     async def __selectInstrument(self) -> None:
         dialog = instrument_library.InstrumentLibraryDialog(
-            context=self.context, selectButton=True, parent=self.editor_window)
+            context=self.context, selectButton=True, parent=self.project_view)
         dialog.setWindowTitle("Select instrument")
         dialog.setModal(True)
         dialog.finished.connect(lambda _: self.__selectInstrumentClosed(dialog))

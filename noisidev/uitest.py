@@ -153,7 +153,6 @@ class MockProcess(core.ProcessBase):
 
 class MockApp(ui_base.AbstractEditorApp):
     def __init__(self):
-        self.win = None  # type: AbstractEditorWindow
         self.audioproc_client = None  # type: audioproc.AbstractAudioProcClient
         self.process = None  # type: core.ProcessBase
         self.settings = None  # type: QtCore.QSettings

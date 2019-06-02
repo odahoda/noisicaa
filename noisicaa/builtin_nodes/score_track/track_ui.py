@@ -73,13 +73,13 @@ class ScoreToolBase(measured_track_editor.MeasuredToolBase):
         stave_line = (
             int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line)
 
-        idx, _, _ = target.getEditArea(evt.pos().x())
-        if idx < 0:
-            self.editor_window.setInfoMessage('')
-        else:
-            pitch = value_types.Pitch.name_from_stave_line(
-                stave_line, target.measure.key_signature)
-            self.editor_window.setInfoMessage(pitch)
+        # idx, _, _ = target.getEditArea(evt.pos().x())
+        # if idx < 0:
+        #     self.editor_window.setInfoMessage('')
+        # else:
+        #     pitch = value_types.Pitch.name_from_stave_line(
+        #         stave_line, target.measure.key_signature)
+        #     self.editor_window.setInfoMessage(pitch)
 
         super().mouseMoveEvent(target, evt)
 

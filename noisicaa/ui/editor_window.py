@@ -161,7 +161,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__setPage(page)
 
 
-class EditorWindow(ui_base.AbstractEditorWindow):
+class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     # Could not figure out how to define a signal that takes either an instance
     # of a specific class or None.
     currentProjectChanged = QtCore.pyqtSignal(object)

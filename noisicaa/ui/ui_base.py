@@ -58,10 +58,6 @@ class CommonContext(object):
         return self.__app
 
     @property
-    def editor_window(self) -> 'AbstractEditorWindow':
-        return self.__app.win
-
-    @property
     def audioproc_client(self) -> audioproc.AbstractAudioProcClient:
         return self.__app.audioproc_client
 
@@ -110,10 +106,6 @@ class CommonMixin(object):
     @property
     def app(self) -> 'AbstractEditorApp':
         return self._context.app
-
-    @property
-    def editor_window(self) -> 'AbstractEditorWindow':
-        return self._context.editor_window
 
     @property
     def audioproc_client(self) -> audioproc.AbstractAudioProcClient:
@@ -225,10 +217,6 @@ class AbstractProjectView(ProjectMixin):
         raise NotImplementedError
 
 
-class AbstractEditorWindow(CommonMixin, QtWidgets.QMainWindow):
-    pipeline_status = None  # type: QtWidgets.QLabel
-
-
 class AbstractPipelinePerfMonitor(CommonMixin, QtWidgets.QMainWindow):
     visibilityChanged = None  # type: QtCore.pyqtSignal
 
@@ -253,7 +241,6 @@ class AbstractEditorApp(object):
     show_stat_monitor_action = None  # type: QtWidgets.QAction
     quit_action = None  # type: QtWidgets.QAction
 
-    win = None  # type: AbstractEditorWindow
     audioproc_client = None  # type: audioproc.AbstractAudioProcClient
     process = None  # type: core.ProcessBase
     settings = None  # type: QtCore.QSettings
