@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import List
+from typing import Any, Dict
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -34,23 +34,11 @@ from . import slots
 logger = logging.getLogger(__name__)
 
 
-class ProjectListItem(slots.SlotContainer, QtWidgets.QWidget):
-    selected, setSelected, selectedChanged = slots.slot(bool, 'selected')
-
-    def __init__(
-            self,
-            project: project_registry_lib.Project,
-            dialog: 'OpenProjectDialog',
-            parent: QtWidgets.QWidget = None
-    ) -> None:
-        super().__init__(parent=parent)
+class ProjectItem(slots.SlotContainer, QtWidgets.QWidget):
+    def __init__(self, project: project_registry_lib.Project) -> None:
+        super().__init__()
 
         self.__project = project
-        self.__dialog = dialog
-        self.__hovered = False
-
-        self.setBackgroundRole(QtGui.QPalette.Base)
-        self.setAutoFillBackground(True)
 
         name = QtWidgets.QLabel(self)
         name.setText(self.__project.name)
@@ -70,45 +58,96 @@ class ProjectListItem(slots.SlotContainer, QtWidgets.QWidget):
         l1.addWidget(path)
         self.setLayout(l1)
 
-        self.selectedChanged.connect(lambda _: self.__updateBackgound())
 
-    def project(self) -> project_registry_lib.Project:
-        return self.__project
+class ItemDelegate(QtWidgets.QAbstractItemDelegate):
+    def __init__(self) -> None:
+        super().__init__()
 
-    def enterEvent(self, evt: QtCore.QEvent) -> None:
-        self.__hovered = True
-        self.__updateBackgound()
-        super().enterEvent(evt)
+        self.__widgets = {}  # type: Dict[QtCore.QModelIndex, QtWidgets.QWidget]
 
-    def leaveEvent(self, evt: QtCore.QEvent) -> None:
-        self.__hovered = False
-        self.__updateBackgound()
-        super().leaveEvent(evt)
-
-    def __updateBackgound(self) -> None:
-        if self.selected():
-            self.setBackgroundRole(QtGui.QPalette.Highlight)
-        elif self.__hovered:
-            self.setBackgroundRole(QtGui.QPalette.AlternateBase)
-        else:
-            self.setBackgroundRole(QtGui.QPalette.Base)
-
-    def mousePressEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if evt.button() == Qt.LeftButton:
-            if self.selected():
-                self.__dialog.selectProject(None)
+    def __getWidget(self, index: QtCore.QModelIndex) -> QtWidgets.QWidget:
+        if index not in self.__widgets:
+            item = index.model().item(index)
+            if isinstance(item, project_registry_lib.Project):
+                widget = ProjectItem(item)
+                widget.setAutoFillBackground(True)
             else:
-                self.__dialog.selectProject(self)
-            return
+                raise TypeError(type(item))
+            self.__widgets[index] = widget
 
-        super().mousePressEvent(evt)
+        return self.__widgets[index]
 
-    def mouseDoubleClickEvent(self, evt: QtGui.QMouseEvent) -> None:
-        if evt.button() == Qt.LeftButton:
-            self.__dialog.openProject(self)
-            return
+    def paint(
+            self,
+            painter: QtGui.QPainter,
+            option: QtWidgets.QStyleOptionViewItem,
+            index: QtCore.QModelIndex
+    ) -> None:
+        widget = self.__getWidget(index)
+        widget.resize(option.rect.size())
+        if option.state & QtWidgets.QStyle.State_Selected:
+            widget.setBackgroundRole(QtGui.QPalette.Highlight)
+        else:
+            widget.setBackgroundRole(QtGui.QPalette.Base)
 
-        super().mouseDoubleClickEvent(evt)
+        # Why do I have to render to a pixmap first? QWidget.render() should be able to directly
+        # render into a QPainter...
+        pixmap = QtGui.QPixmap(option.rect.size())
+        widget.render(pixmap)
+        painter.drawPixmap(option.rect, pixmap)
+
+    def sizeHint(
+            self,
+            option: QtWidgets.QStyleOptionViewItem,
+            index: QtCore.QModelIndex
+    ) -> QtCore.QSize:
+        widget = self.__getWidget(index)
+        return widget.sizeHint()
+
+
+class ProjectListView(QtWidgets.QListView):
+    numProjectsSelected = QtCore.pyqtSignal(int)
+    itemDoubleClicked = QtCore.pyqtSignal(project_registry_lib.Item)
+
+    def __init__(self, parent: QtWidgets.QWidget) -> None:
+        super().__init__(parent)
+
+        self.__delegate = ItemDelegate()
+        self.setItemDelegate(self.__delegate)
+
+        self.doubleClicked.connect(self.__doubleClicked)
+
+    def __doubleClicked(self, index: QtCore.QModelIndex) -> None:
+        self.itemDoubleClicked.emit(index.model().item(index))
+
+    def selectionChanged(
+            self, selected: QtCore.QItemSelection, deselected: QtCore.QItemSelection) -> None:
+        self.numProjectsSelected.emit(len(self.selectedIndexes()))
+
+
+class FlatProjectListModel(QtCore.QAbstractListModel):
+    def __init__(self, project_registry: project_registry_lib.ProjectRegistry) -> None:
+        super().__init__()
+
+        self.__registry = project_registry
+        self.__root = QtCore.QModelIndex()
+
+    def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> project_registry_lib.Item:
+        return self.__registry.item(
+            self.__registry.index(index.row(), index.column(), self.__root))
+
+    def rowCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
+        return self.__registry.rowCount(self.__root)
+
+    def data(self, index: QtCore.QModelIndex, role: int = Qt.DisplayRole) -> Any:
+        return self.__registry.data(
+            self.__registry.index(index.row(), index.column(), self.__root),
+            role)
+
+    def headerData(
+            self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole
+    ) -> Any:  # pragma: no coverage
+        return self.__registry.headerData(section, orientation, role)
 
 
 class OpenProjectDialog(QtWidgets.QWidget):
@@ -142,18 +181,10 @@ class OpenProjectDialog(QtWidgets.QWidget):
         self.__more_button.setMenu(self.__more_menu)
         self.__more_button.setDisabled(True)
 
-        self.__list = QtWidgets.QWidget(self)
-        self.__list.setBackgroundRole(QtGui.QPalette.Base)
-        self.__list_items = []  # type: List[ProjectListItem]
-        self.__list_layout = QtWidgets.QVBoxLayout()
-        self.__list_layout.setContentsMargins(4, 2, 4, 2)
-        self.__list_layout.setSpacing(4)
-        self.__list_layout.addStretch(1)
-        self.__list.setLayout(self.__list_layout)
-        self.__list_view = QtWidgets.QScrollArea(self)
-        self.__list_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.__list_view.setWidgetResizable(True)
-        self.__list_view.setWidget(self.__list)
+        self.__list = ProjectListView(self)
+        self.__list.setModel(FlatProjectListModel(self.__project_registry))
+        self.__list.numProjectsSelected.connect(lambda count: self.__updateButtons(count == 1))
+        self.__list.itemDoubleClicked.connect(self.openProject)
 
         l1 = QtWidgets.QVBoxLayout()
         l1.setContentsMargins(0, 0, 0, 0)
@@ -163,7 +194,7 @@ class OpenProjectDialog(QtWidgets.QWidget):
 
         l2 = QtWidgets.QHBoxLayout()
         l2.setContentsMargins(0, 0, 0, 0)
-        l2.addWidget(self.__list_view)
+        l2.addWidget(self.__list)
         l2.addLayout(l1)
 
         l3 = QtWidgets.QVBoxLayout()
@@ -172,38 +203,12 @@ class OpenProjectDialog(QtWidgets.QWidget):
         l3.addLayout(l2)
         self.setLayout(l3)
 
-        for project in self.__project_registry.projects:
-            self.__addProject(project)
-
     def cleanup(self) -> None:
         pass
 
-    def selectProject(self, item: ProjectListItem) -> None:
-        if item is not None:
-            self.__open_button.setDisabled(False)
-            self.__more_button.setDisabled(False)
-        else:
-            self.__open_button.setDisabled(True)
-            self.__more_button.setDisabled(True)
+    def __updateButtons(self, enable: bool) -> None:
+        self.__open_button.setDisabled(not enable)
+        self.__more_button.setDisabled(not enable)
 
-        for pitem in self.__list_items:
-            if pitem is item:
-                pitem.setSelected(True)
-            else:
-                pitem.setSelected(False)
-
-    def openProject(self, item: ProjectListItem) -> None:
-        self.projectSelected.emit(item.project())
-
-    def __addProject(self, project: project_registry_lib.Project) -> None:
-        item = ProjectListItem(project, self, self.__list)
-
-        self.__list_items.append(item)
-
-        if self.__list_layout.count() > 1:
-            sep = QtWidgets.QFrame()
-            sep.setFrameShape(QtWidgets.QFrame.HLine)
-            sep.setFrameShadow(QtWidgets.QFrame.Plain)
-            self.__list_layout.insertWidget(self.__list_layout.count() - 1, sep)
-
-        self.__list_layout.insertWidget(self.__list_layout.count() - 1, item)
+    def openProject(self, project: project_registry_lib.Project) -> None:
+        self.projectSelected.emit(project)

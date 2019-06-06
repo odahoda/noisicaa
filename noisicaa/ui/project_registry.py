@@ -22,22 +22,62 @@
 
 import logging
 import os.path
-from typing import Any, Dict, List, Iterable
+from typing import cast, Any, List, Iterable, Iterator
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 
+from noisicaa.core.typing_extra import down_cast
 from noisicaa import music
 from . import ui_base
 
 logger = logging.getLogger(__name__)
 
 
-class Project(ui_base.CommonMixin, object):
-    def __init__(self, *, path: str, **kwargs: Any) -> None:
+class Item(object):
+    def __init__(self, *, path: str) -> None:
+        self.path = path
+        self.parent = None  # type: Item
+        self.index = 0
+        self.children = []  # type: List[Item]
+
+    def projects(self) -> Iterator['Project']:
+        for child in self.children:
+            yield from child.projects()
+
+    def data(self, role: int) -> Any:
+        return None
+
+    def flags(self) -> Qt.ItemFlags:
+        return cast(Qt.ItemFlags, Qt.NoItemFlags)
+
+
+class Root(Item):
+    def __init__(self) -> None:
+        super().__init__(path='<root>')
+
+
+class Project(ui_base.CommonMixin, Item):
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.path = path
         self.client = None  # type: music.ProjectClient
+
+    def projects(self) -> Iterator['Project']:
+        yield self
+        yield from super().projects()
+
+    def flags(self) -> Qt.ItemFlags:
+        return cast(Qt.ItemFlags, Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+
+    def data(self, role: int) -> Any:
+        if role == Qt.UserRole:
+            return self.path
+
+        elif role == Qt.DisplayRole:
+            return os.path.splitext(os.path.basename(self.path))[0]
+
+        return None
 
     @property
     def name(self) -> str:
@@ -69,27 +109,28 @@ class Project(ui_base.CommonMixin, object):
             self.client = None
 
 
-class ProjectRegistry(ui_base.CommonMixin, QtCore.QObject):
+class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__projects = {}  # type: Dict[str, Project]
-
-    @property
-    def projects(self) -> List[Project]:
-        return list(self.__projects.values())
+        self.__root = None  # type: Root
 
     async def setup(self) -> None:
         # TODO: get list of directories from settings
         directories = ['~/Music/Noisicaä', '/lala']
 
         projects = await self.event_loop.run_in_executor(None, self.__scan_projects, directories)
-        self.__projects = {project.path: project for project in projects}
+
+        self.__root = Root()
+        for idx, project in enumerate(sorted(projects, key=lambda p: p.path)):
+            project.parent = self.__root
+            project.index = idx
+            self.__root.children.append(project)
 
     async def cleanup(self) -> None:
-        while self.__projects:
-            _, project = self.__projects.popitem()
+        for project in self.__root.projects():
             await project.close()
+        self.__root = None
 
     def __scan_projects(self, directories: Iterable[str]) -> List[Project]:
         projects = []  # type: List[Project]
@@ -107,6 +148,54 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QObject):
                     projects.append(Project(path=filepath, context=self.context))
 
         return projects
+
+    def projects(self) -> List[Project]:
+        return list(self.__root.projects())
+
+    def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> Item:
+        if not index.isValid():
+            return self.__root
+        else:
+            return down_cast(Item, index.internalPointer())
+
+    def index(
+            self, row: int, column: int = 0, parent: QtCore.QModelIndex = QtCore.QModelIndex()
+    ) -> QtCore.QModelIndex:
+        if not self.hasIndex(row, column, parent):  # pragma: no coverage
+            return QtCore.QModelIndex()
+
+        parent_item = self.item(parent)
+        return self.createIndex(row, column, parent_item.children[row])
+
+    def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore
+        if not index.isValid():
+            return QtCore.QModelIndex()
+
+        item = down_cast(Item, index.internalPointer())
+        if item is self.__root:
+            return QtCore.QModelIndex()
+
+        return self.createIndex(item.parent.index, 0, item.parent)
+
+    def columnCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
+        return 1
+
+    def rowCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
+        parent_item = self.item(parent)
+        if parent_item is None:
+            return 0
+        return len(parent_item.children)
+
+    def flags(self, index: QtCore.QModelIndex) -> Qt.ItemFlags:
+        return self.item(index).flags()
+
+    def data(self, index: QtCore.QModelIndex, role: int = Qt.DisplayRole) -> Any:
+        return self.item(index).data(role)
+
+    def headerData(
+            self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole
+    ) -> Any:  # pragma: no coverage
+        return None
 
     # def add_project(self, path: str) -> Project:
     #     project = Project(
