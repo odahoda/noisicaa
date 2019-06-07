@@ -110,9 +110,14 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__page_cleanup_func = cleanup_func
 
     def showOpenDialog(self, project_registry: project_registry_lib.ProjectRegistry) -> None:
-        dialog = open_project_dialog.OpenProjectDialog(self, project_registry=project_registry)
+        dialog = open_project_dialog.OpenProjectDialog(
+            parent=self,
+            project_registry=project_registry,
+            context=self.context)
         dialog.projectSelected.connect(
             lambda project: self.call_async(self.__projectSelected(project)))
+        dialog.createProject.connect(
+            lambda path: self.call_async(self.__createProject(path)))
 
         l1 = QtWidgets.QVBoxLayout()
         l1.addSpacing(32)
@@ -133,6 +138,17 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         self.showLoadSpinner("Loading project \"%s\"..." % project.name)
         await self.app.setup_complete.wait()
         await project.open()
+        view = project_view.ProjectView(project_connection=project, context=self.context)
+        await view.setup()
+        self.__project_view = view
+        self.__setPage(view)
+
+    async def __createProject(self, path: str) -> None:
+        project = project_registry_lib.Project(
+            path=path, context=self.context)
+        self.showLoadSpinner("Creating project \"%s\"..." % project.name)
+        await self.app.setup_complete.wait()
+        await project.create()
         view = project_view.ProjectView(project_connection=project, context=self.context)
         await view.setup()
         self.__project_view = view

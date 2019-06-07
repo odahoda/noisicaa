@@ -31,7 +31,8 @@ class OpenProjectDialogTest(uitest.UITestCase):
         await registry.setup()
         try:
             dialog = open_project_dialog.OpenProjectDialog(
-                project_registry=registry)
+                project_registry=registry,
+                context=self.context)
             dialog.show()
 
         finally:

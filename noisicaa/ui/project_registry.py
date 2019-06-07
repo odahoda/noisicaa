@@ -22,6 +22,7 @@
 
 import logging
 import os.path
+import urllib.parse
 from typing import cast, Any, List, Iterable, Iterator
 
 from PyQt5.QtCore import Qt
@@ -81,7 +82,7 @@ class Project(ui_base.CommonMixin, Item):
 
     @property
     def name(self) -> str:
-        return os.path.splitext(os.path.basename(self.path))[0]
+        return urllib.parse.unquote(os.path.splitext(os.path.basename(self.path))[0])
 
     async def __create_process(self) -> None:
         self.client = music.ProjectClient(
@@ -143,9 +144,8 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
                         data_dir_name = filename[:-6] + '.data'
                         if data_dir_name in dirnames:
                             dirnames.remove(data_dir_name)
-
-                    filepath = os.path.join(dirpath, filename)
-                    projects.append(Project(path=filepath, context=self.context))
+                            filepath = os.path.join(dirpath, filename)
+                            projects.append(Project(path=filepath, context=self.context))
 
         return projects
 
@@ -196,23 +196,3 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
             self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole
     ) -> Any:  # pragma: no coverage
         return None
-
-    # def add_project(self, path: str) -> Project:
-    #     project = Project(
-    #         path,
-    #         self.event_loop,
-    #         self.server,
-    #         self.process_manager,
-    #         self.node_db,
-    #         self.urid_mapper,
-    #         self.tmp_dir)
-    #     self.projects[path] = project
-    #     return project
-
-    # async def close_project(self, project: Project) -> None:
-    #     await project.close()
-    #     del self.projects[project.path]
-
-    # async def close_all(self) -> None:
-    #     for project in list(self.projects.values()):
-    #         await self.close_project(project)
