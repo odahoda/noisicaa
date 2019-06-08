@@ -84,6 +84,8 @@ class FilterModel(QtCore.QSortFilterProxyModel):
 
         if isinstance(item, instrument_list.AbstractFolder):
             # Urgh... this is O(n^2)
+            # TODO: recursiveFilteringEnabled might do the trick:
+            # https://doc.qt.io/qt-5/qsortfilterproxymodel.html#recursiveFilteringEnabled-prop
             folder_index = self.__source.index(row, 0, parent)
             return any(
                 self.filterAcceptsRow(subrow, folder_index)
