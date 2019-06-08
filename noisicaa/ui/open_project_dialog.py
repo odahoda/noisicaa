@@ -251,6 +251,8 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         self.__error.setVisible(True)
         if not text:
             self.__error.setText("Enter a valid project name.")
+        elif os.path.exists(self.projectPath()):
+            self.__error.setText("A project of this name already exists.")
         else:
             self.__create_button.setEnabled(True)
             self.__error.setVisible(False)
