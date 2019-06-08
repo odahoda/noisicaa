@@ -54,6 +54,7 @@ PIP_DEPS = {
         PKG('PyQt5'),
         PKG('eventfd'),
         PKG('gbulb'),
+        PKG('lucky-humanize'),
         PKG('numpy'),
         PKG('portalocker'),
         PKG('posix_ipc'),

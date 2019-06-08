@@ -38,6 +38,8 @@ logger = logging.getLogger(__name__)
 
 
 class Item(object):
+    PathRole = 0x0100
+
     def __init__(self, *, path: str) -> None:
         self.path = path
         self.parent = None  # type: Item
@@ -49,6 +51,9 @@ class Item(object):
             yield from child.projects()
 
     def data(self, role: int) -> Any:
+        if role == Item.PathRole:
+            return self.path
+
         return None
 
     def flags(self) -> Qt.ItemFlags:
@@ -61,10 +66,14 @@ class Root(Item):
 
 
 class Project(ui_base.CommonMixin, Item):
+    NameRole = 0x0101
+    MTimeRole = 0x0102
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.client = None  # type: music.ProjectClient
+        self.__mtime = os.path.getmtime(self.path)
 
     def projects(self) -> Iterator['Project']:
         yield self
@@ -74,17 +83,21 @@ class Project(ui_base.CommonMixin, Item):
         return cast(Qt.ItemFlags, Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
     def data(self, role: int) -> Any:
-        if role == Qt.UserRole:
-            return self.path
+        if role == Project.NameRole:
+            return self.name
 
-        elif role == Qt.DisplayRole:
-            return os.path.splitext(os.path.basename(self.path))[0]
+        if role == Project.MTimeRole:
+            return self.mtime
 
-        return None
+        return super().data(role)
 
     @property
     def name(self) -> str:
         return urllib.parse.unquote(os.path.splitext(os.path.basename(self.path))[0])
+
+    @property
+    def mtime(self) -> float:
+        return self.__mtime
 
     async def __create_process(self) -> None:
         self.client = music.ProjectClient(

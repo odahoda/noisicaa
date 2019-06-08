@@ -180,6 +180,8 @@ class ProjectStorage(object):
                 self.next_checkpoint_number * self.checkpoint_index_formatter.size):
             raise CorruptedProjectError("Malformed checkpoint.index file.")
 
+        os.utime(self.path)
+
     def get_restore_info(self) -> Tuple[int, List[Tuple[Action, int]]]:
         assert self.next_checkpoint_number > 0
 
@@ -223,6 +225,8 @@ class ProjectStorage(object):
 
     def close(self) -> None:
         assert self.path is not None, "Project already closed."
+
+        os.utime(self.path)
         self.path = None
 
         if self.log_index_fp is not None:

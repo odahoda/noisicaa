@@ -20,16 +20,19 @@
 #
 # @end:license
 
+import datetime
 import functools
 import logging
 import os.path
 import random
+import time
 from typing import Any, Dict, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
+import humanize
 
 from . import project_registry as project_registry_lib
 from . import slots
@@ -58,10 +61,14 @@ class ProjectItem(slots.SlotContainer, QtWidgets.QWidget):
         path_font = QtGui.QFont(path.font())
         path.setFont(path_font)
 
+        mtime = QtWidgets.QLabel(self)
+        mtime.setText('Last usage: %s' % humanize.naturaltime(datetime.datetime.fromtimestamp(self.__project.mtime)))
+
         l1 = QtWidgets.QVBoxLayout()
         l1.setContentsMargins(0, 0, 0, 0)
         l1.addWidget(name)
         l1.addWidget(path)
+        l1.addWidget(mtime)
         self.setLayout(l1)
 
 
@@ -119,6 +126,8 @@ class ProjectListView(QtWidgets.QListView):
 
         self.__delegate = ItemDelegate()
         self.setItemDelegate(self.__delegate)
+
+        self.setSpacing(4)
 
         self.doubleClicked.connect(self.__doubleClicked)
 
@@ -311,6 +320,16 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         clear_action.triggered.connect(self.__search.clear)
         self.__search.addAction(clear_action, QtWidgets.QLineEdit.TrailingPosition)
 
+        self.__sort_mode = QtWidgets.QComboBox(self)
+        self.__sort_mode.addItem("Name", 'name')
+        self.__sort_mode.addItem("Last usage", 'mtime')
+        self.__sort_mode.currentIndexChanged.connect(self.__updateSort)
+
+        self.__sort_dir = QtWidgets.QComboBox(self)
+        self.__sort_dir.addItem("Ascending", 'asc')
+        self.__sort_dir.addItem("Descending", 'desc')
+        self.__sort_dir.currentIndexChanged.connect(self.__updateSort)
+
         self.__open_button = QtWidgets.QPushButton(self)
         self.__open_button.setIcon(QtGui.QIcon.fromTheme('document-open'))
         self.__open_button.setText("Open")
@@ -348,11 +367,11 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
 
         self.__filter_model = FilterModel()
         self.__filter_model.setSourceModel(FlatProjectListModel(self.__project_registry))
-        self.__filter_model.setSortRole(Qt.DisplayRole)
+        self.__filter_model.setSortRole(project_registry_lib.Project.NameRole)
         self.__filter_model.setSortCaseSensitivity(Qt.CaseInsensitive)
         self.__filter_model.sort(0, Qt.AscendingOrder)
         self.__filter_model.setFilterKeyColumn(0)
-        self.__filter_model.setFilterRole(Qt.DisplayRole)
+        self.__filter_model.setFilterRole(project_registry_lib.Project.NameRole)
         self.__search.textChanged.connect(self.__filter_model.setFilterWords)
 
         self.__list = ProjectListView(self)
@@ -360,24 +379,30 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__list.numProjectsSelected.connect(lambda count: self.__updateButtons(count == 1))
         self.__list.itemDoubleClicked.connect(self.openProject)
 
-        l1 = QtWidgets.QVBoxLayout()
-        l1.setContentsMargins(0, 0, 0, 0)
-        l1.addWidget(self.__open_button)
-        l1.addWidget(self.__new_project_button)
-        l1.addWidget(self.__new_folder_button)
-        l1.addWidget(self.__more_button)
-        l1.addStretch(1)
+        l4 = QtWidgets.QHBoxLayout()
+        l4.setContentsMargins(0, 0, 0, 0)
+        l4.addWidget(self.__search)
+        l4.addWidget(self.__sort_mode)
+        l4.addWidget(self.__sort_dir)
+
+        l3 = QtWidgets.QVBoxLayout()
+        l3.setContentsMargins(0, 0, 0, 0)
+        l3.addWidget(self.__open_button)
+        l3.addWidget(self.__new_project_button)
+        l3.addWidget(self.__new_folder_button)
+        l3.addWidget(self.__more_button)
+        l3.addStretch(1)
 
         l2 = QtWidgets.QHBoxLayout()
         l2.setContentsMargins(0, 0, 0, 0)
         l2.addWidget(self.__list)
-        l2.addLayout(l1)
+        l2.addLayout(l3)
 
-        l3 = QtWidgets.QVBoxLayout()
-        l3.setContentsMargins(0, 0, 0, 0)
-        l3.addWidget(self.__search)
-        l3.addLayout(l2)
-        self.setLayout(l3)
+        l1 = QtWidgets.QVBoxLayout()
+        l1.setContentsMargins(0, 0, 0, 0)
+        l1.addLayout(l4)
+        l1.addLayout(l2)
+        self.setLayout(l1)
 
     def cleanup(self) -> None:
         pass
@@ -386,6 +411,21 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__open_button.setDisabled(not enable)
         self.__more_button.setDisabled(not enable)
         self.__delete_action.setEnabled(enable)
+
+    def __updateSort(self) -> None:
+        sort_mode = self.__sort_mode.currentData()
+        if sort_mode == 'name':
+            self.__filter_model.setSortRole(project_registry_lib.Project.NameRole)
+        else:
+            assert sort_mode == 'mtime'
+            self.__filter_model.setSortRole(project_registry_lib.Project.MTimeRole)
+
+        sort_dir = self.__sort_dir.currentData()
+        if sort_dir == 'asc':
+            self.__filter_model.sort(0, Qt.AscendingOrder)
+        else:
+            assert sort_dir == 'desc'
+            self.__filter_model.sort(0, Qt.DescendingOrder)
 
     def __openClicked(self) -> None:
         selected_projects = self.__list.selectedProjects()
