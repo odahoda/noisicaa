@@ -166,9 +166,32 @@ class FlatProjectListModel(QtCore.QAbstractListModel):
 
 
 class FilterModel(QtCore.QSortFilterProxyModel):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.__filter = []  # type: List[str]
+
     def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> project_registry_lib.Item:
         source_model = self.sourceModel()
         return source_model.item(self.mapToSource(index))
+
+    def setFilterWords(self, text: str) -> None:
+        words = text.split()
+        words = [word.strip() for word in words]
+        words = [word for word in words if word]
+        words = [word.lower() for word in words]
+        self.__filter = words
+        self.invalidateFilter()
+
+    def filterAcceptsRow(self, row: int, parent: QtCore.QModelIndex) -> bool:
+        if not self.__filter:
+            return True
+
+        model = self.sourceModel()
+        parent_item = model.item(parent)
+        item = parent_item.children[row]
+
+        return all(word in item.name.lower() for word in self.__filter)
 
 
 class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
@@ -280,6 +303,13 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__project_registry = project_registry
 
         self.__search = QtWidgets.QLineEdit(self)
+        search_action = QtWidgets.QAction(self.__search)
+        search_action.setIcon(QtGui.QIcon.fromTheme('edit-find'))
+        self.__search.addAction(search_action, QtWidgets.QLineEdit.LeadingPosition)
+        clear_action = QtWidgets.QAction("Clear search string", self.__search)
+        clear_action.setIcon(QtGui.QIcon.fromTheme('edit-clear'))
+        clear_action.triggered.connect(self.__search.clear)
+        self.__search.addAction(clear_action, QtWidgets.QLineEdit.TrailingPosition)
 
         self.__open_button = QtWidgets.QPushButton(self)
         self.__open_button.setIcon(QtGui.QIcon.fromTheme('document-open'))
@@ -323,7 +353,7 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__filter_model.sort(0, Qt.AscendingOrder)
         self.__filter_model.setFilterKeyColumn(0)
         self.__filter_model.setFilterRole(Qt.DisplayRole)
-        self.__search.textChanged.connect(self.__filter_model.setFilterRegularExpression)
+        self.__search.textChanged.connect(self.__filter_model.setFilterWords)
 
         self.__list = ProjectListView(self)
         self.__list.setModel(self.__filter_model)
