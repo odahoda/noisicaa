@@ -21,7 +21,9 @@
 # @end:license
 
 import logging
+import os
 import os.path
+import shutil
 import urllib.parse
 from typing import cast, Any, List, Iterable, Iterator
 
@@ -109,48 +111,84 @@ class Project(ui_base.CommonMixin, Item):
             await self.client.cleanup()
             self.client = None
 
+    async def delete(self) -> None:
+        os.unlink(self.path)
+        data_dir = os.path.join(
+            os.path.dirname(self.path),
+            os.path.basename(self.path)[:-6] + '.data')
+        shutil.rmtree(data_dir)
+
 
 class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__root = None  # type: Root
+        self.__root = Root()
 
     async def setup(self) -> None:
-        # TODO: get list of directories from settings
-        directories = ['~/Music/Noisicaä', '/lala']
-
-        projects = await self.event_loop.run_in_executor(None, self.__scan_projects, directories)
-
-        self.__root = Root()
-        for idx, project in enumerate(sorted(projects, key=lambda p: p.path)):
-            project.parent = self.__root
-            project.index = idx
-            self.__root.children.append(project)
+        await self.refresh()
 
     async def cleanup(self) -> None:
         for project in self.__root.projects():
             await project.close()
         self.__root = None
 
-    def __scan_projects(self, directories: Iterable[str]) -> List[Project]:
-        projects = []  # type: List[Project]
+    def __scan_projects(self, directories: Iterable[str]) -> List[str]:
+        paths = []  # type: List[str]
         for directory in directories:
             directory = os.path.expanduser(directory)
             directory = os.path.abspath(directory)
+            logger.info("Scanning project directory %s...", directory)
             for dirpath, dirnames, filenames in os.walk(directory):
                 for filename in filenames:
                     if filename.endswith('.noise'):
                         data_dir_name = filename[:-6] + '.data'
                         if data_dir_name in dirnames:
                             dirnames.remove(data_dir_name)
-                            filepath = os.path.join(dirpath, filename)
-                            projects.append(Project(path=filepath, context=self.context))
+                            paths.append(os.path.join(dirpath, filename))
 
-        return projects
+        return paths
 
     def projects(self) -> List[Project]:
         return list(self.__root.projects())
+
+    async def refresh(self) -> None:
+        # TODO: get list of directories from settings
+        directories = ['~/Music/Noisicaä', '/lala']
+
+        paths = await self.event_loop.run_in_executor(None, self.__scan_projects, directories)
+
+        old_paths = {project.path for project in self.__root.projects()}
+        new_paths = set(paths)
+
+        for path in old_paths - new_paths:
+            logger.info("Removing project at %s...", path)
+
+            for idx, project in enumerate(self.__root.children):
+                if project.path == path:
+                    self.beginRemoveRows(QtCore.QModelIndex(), idx, idx)
+                    del self.__root.children[idx]
+                    for idx, item in enumerate(self.__root.children[idx:], idx):
+                        item.index = idx
+                    self.endRemoveRows()
+                    await project.close()
+                    break
+
+        for path in new_paths - old_paths:
+            logger.error("Adding project at %s...", path)
+
+            idx = 0
+            while idx < len(self.__root.children) and path > self.__root.children[idx].path:
+                idx += 1
+
+            project = Project(path=path, context=self.context)
+            project.parent = self.__root
+
+            self.beginInsertRows(QtCore.QModelIndex(), idx, idx)
+            self.__root.children.insert(idx, project)
+            for idx, item in enumerate(self.__root.children[idx:], idx):
+                item.index = idx
+            self.endInsertRows()
 
     def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> Item:
         if not index.isValid():

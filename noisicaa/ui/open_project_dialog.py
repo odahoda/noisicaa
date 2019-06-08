@@ -70,16 +70,16 @@ class ItemDelegate(QtWidgets.QAbstractItemDelegate):
         self.__widgets = {}  # type: Dict[QtCore.QModelIndex, QtWidgets.QWidget]
 
     def __getWidget(self, index: QtCore.QModelIndex) -> QtWidgets.QWidget:
-        if index not in self.__widgets:
-            item = index.model().item(index)
+        item = index.model().item(index)
+        if item.path not in self.__widgets:
             if isinstance(item, project_registry_lib.Project):
                 widget = ProjectItem(item)
                 widget.setAutoFillBackground(True)
             else:
                 raise TypeError(type(item))
-            self.__widgets[index] = widget
+            self.__widgets[item.path] = widget
 
-        return self.__widgets[index]
+        return self.__widgets[item.path]
 
     def paint(
             self,
@@ -336,6 +336,7 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
     def __updateButtons(self, enable: bool) -> None:
         self.__open_button.setDisabled(not enable)
         self.__more_button.setDisabled(not enable)
+        self.__delete_action.setEnabled(enable)
 
     def __openClicked(self) -> None:
         selected_projects = self.__list.selectedProjects()
@@ -358,7 +359,35 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         raise NotImplementedError
 
     def __deleteClicked(self) -> None:
-        raise NotImplementedError
+        selected_projects = self.__list.selectedProjects()
+        if len(selected_projects) == 1:
+            project = selected_projects[0]
+
+            dialog = QtWidgets.QMessageBox(self)
+            dialog.setWindowTitle("noisicaä - Delete Project")
+            dialog.setIcon(QtWidgets.QMessageBox.Warning)
+            dialog.setText("Delete project \"%s\"?" % project.name)
+            dialog.setInformativeText("All data will be irrevocably removed.")
+            buttons = QtWidgets.QMessageBox.StandardButtons()
+            buttons |= QtWidgets.QMessageBox.Ok
+            buttons |= QtWidgets.QMessageBox.Cancel
+            dialog.setStandardButtons(buttons)
+            dialog.setModal(True)
+            dialog.finished.connect(
+                lambda result: self.call_async(
+                    self.__deleteDialogDone(project, result)))
+            dialog.show()
+
+    async def __deleteDialogDone(
+            self, project: project_registry_lib.Project, result: int
+    ) -> None:
+        if result != QtWidgets.QMessageBox.Ok:
+            return
+
+        self.setDisabled(True)
+        await project.delete()
+        await self.__project_registry.refresh()
+        self.setDisabled(False)
 
     def __archiveClicked(self) -> None:
         raise NotImplementedError
