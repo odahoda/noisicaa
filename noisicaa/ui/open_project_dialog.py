@@ -44,6 +44,8 @@ class ProjectItem(slots.SlotContainer, QtWidgets.QWidget):
 
         self.__project = project
 
+        self.setAutoFillBackground(True)
+
         name = QtWidgets.QLabel(self)
         name.setText(self.__project.name)
         name_font = QtGui.QFont(name.font())
@@ -74,7 +76,6 @@ class ItemDelegate(QtWidgets.QAbstractItemDelegate):
         if item.path not in self.__widgets:
             if isinstance(item, project_registry_lib.Project):
                 widget = ProjectItem(item)
-                widget.setAutoFillBackground(True)
             else:
                 raise TypeError(type(item))
             self.__widgets[item.path] = widget
@@ -122,7 +123,8 @@ class ProjectListView(QtWidgets.QListView):
         self.doubleClicked.connect(self.__doubleClicked)
 
     def __doubleClicked(self, index: QtCore.QModelIndex) -> None:
-        self.itemDoubleClicked.emit(index.model().item(index))
+        item = self.model().item(index)
+        self.itemDoubleClicked.emit(item)
 
     def selectionChanged(
             self, selected: QtCore.QItemSelection, deselected: QtCore.QItemSelection) -> None:
@@ -131,7 +133,7 @@ class ProjectListView(QtWidgets.QListView):
     def selectedProjects(self) -> List[project_registry_lib.Project]:
         projects = []
         for index in self.selectedIndexes():
-            item = index.model().item(index)
+            item = self.model().item(index)
             if isinstance(item, project_registry_lib.Project):
                 projects.append(item)
 
@@ -161,6 +163,12 @@ class FlatProjectListModel(QtCore.QAbstractListModel):
             self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole
     ) -> Any:  # pragma: no coverage
         return self.__registry.headerData(section, orientation, role)
+
+
+class FilterModel(QtCore.QSortFilterProxyModel):
+    def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> project_registry_lib.Item:
+        source_model = self.sourceModel()
+        return source_model.item(self.mapToSource(index))
 
 
 class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
@@ -308,8 +316,17 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__more_button.setMenu(self.__more_menu)
         self.__more_button.setDisabled(True)
 
+        self.__filter_model = FilterModel()
+        self.__filter_model.setSourceModel(FlatProjectListModel(self.__project_registry))
+        self.__filter_model.setSortRole(Qt.DisplayRole)
+        self.__filter_model.setSortCaseSensitivity(Qt.CaseInsensitive)
+        self.__filter_model.sort(0, Qt.AscendingOrder)
+        self.__filter_model.setFilterKeyColumn(0)
+        self.__filter_model.setFilterRole(Qt.DisplayRole)
+        self.__search.textChanged.connect(self.__filter_model.setFilterRegularExpression)
+
         self.__list = ProjectListView(self)
-        self.__list.setModel(FlatProjectListModel(self.__project_registry))
+        self.__list.setModel(self.__filter_model)
         self.__list.numProjectsSelected.connect(lambda count: self.__updateButtons(count == 1))
         self.__list.itemDoubleClicked.connect(self.openProject)
 
