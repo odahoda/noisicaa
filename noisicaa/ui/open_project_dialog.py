@@ -150,29 +150,37 @@ class ProjectListView(QtWidgets.QListView):
         return projects
 
 
-class FlatProjectListModel(QtCore.QAbstractListModel):
+class FlatProjectListModel(QtCore.QAbstractProxyModel):
     def __init__(self, project_registry: project_registry_lib.ProjectRegistry) -> None:
         super().__init__()
 
         self.__registry = project_registry
+        self.setSourceModel(self.__registry)
+
         self.__root = QtCore.QModelIndex()
 
     def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> project_registry_lib.Item:
-        return self.__registry.item(
-            self.__registry.index(index.row(), index.column(), self.__root))
+        return self.__registry.item(self.mapToSource(index))
+
+    def mapFromSource(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:
+        return self.createIndex(index.row(), index.column(), QtCore.QModelIndex())
+
+    def mapToSource(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:
+        return self.__registry.index(index.row(), index.column(), self.__root)
 
     def rowCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
         return self.__registry.rowCount(self.__root)
 
-    def data(self, index: QtCore.QModelIndex, role: int = Qt.DisplayRole) -> Any:
-        return self.__registry.data(
-            self.__registry.index(index.row(), index.column(), self.__root),
-            role)
+    def columnCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
+        return self.__registry.columnCount(self.__root)
 
-    def headerData(
-            self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole
-    ) -> Any:  # pragma: no coverage
-        return self.__registry.headerData(section, orientation, role)
+    def index(
+            self, row: int, column: int = 0, parent: QtCore.QModelIndex = QtCore.QModelIndex()
+    ) -> QtCore.QModelIndex:
+        return self.createIndex(row, column, None)
+
+    def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore
+        return QtCore.QModelIndex()
 
 
 class FilterModel(QtCore.QSortFilterProxyModel):
