@@ -86,7 +86,7 @@ class WriterProcess(core.ProcessBase):
         assert self.__storage is None
 
         self.__storage = storage.ProjectStorage.create(request.path)
-        response.data_dir = self.__storage.data_dir
+        response.data_dir = self.__storage.path
         self.__storage.add_checkpoint(request.initial_checkpoint)
 
         response.storage_state.CopyFrom(self.__get_storage_state())
@@ -100,7 +100,7 @@ class WriterProcess(core.ProcessBase):
 
         self.__storage = storage.ProjectStorage()
         self.__storage.open(request.path)
-        response.data_dir = self.__storage.data_dir
+        response.data_dir = self.__storage.path
 
         checkpoint_number, actions = self.__storage.get_restore_info()
 

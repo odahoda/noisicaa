@@ -277,7 +277,7 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         return self.__name.text()
 
     def projectPath(self) -> str:
-        filename = self.projectName() + '.noise'
+        filename = self.projectName()
         filename = filename.replace('%', '%25')
         filename = filename.replace('/', '%2F')
         return os.path.join(self.projectDir(), filename)

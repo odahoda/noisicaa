@@ -125,11 +125,7 @@ class Project(ui_base.CommonMixin, Item):
             self.client = None
 
     async def delete(self) -> None:
-        os.unlink(self.path)
-        data_dir = os.path.join(
-            os.path.dirname(self.path),
-            os.path.basename(self.path)[:-6] + '.data')
-        shutil.rmtree(data_dir)
+        shutil.rmtree(self.path)
 
 
 class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
@@ -153,12 +149,10 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
             directory = os.path.abspath(directory)
             logger.info("Scanning project directory %s...", directory)
             for dirpath, dirnames, filenames in os.walk(directory):
-                for filename in filenames:
-                    if filename.endswith('.noise'):
-                        data_dir_name = filename[:-6] + '.data'
-                        if data_dir_name in dirnames:
-                            dirnames.remove(data_dir_name)
-                            paths.append(os.path.join(dirpath, filename))
+                for dirname in list(dirnames):
+                    if os.path.isfile(os.path.join(dirpath, dirname, 'project.noise')):
+                        dirnames.remove(dirname)
+                        paths.append(os.path.join(dirpath, dirname))
 
         return paths
 

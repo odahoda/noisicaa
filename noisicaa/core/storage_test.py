@@ -123,17 +123,19 @@ class StorageTest(unittest.TestCase):
             ps.close()
 
         self.assertTrue(
-            self.fake_os.path.isfile('/foo.data/log.index'))
+            self.fake_os.path.isfile('/foo/project.noise'))
+        self.assertTrue(
+            self.fake_os.path.isfile('/foo/log.index'))
         self.assertEqual(
-            self.fake_os.path.getsize('/foo.data/log.index'),
+            self.fake_os.path.getsize('/foo/log.index'),
             3 * ps.log_index_formatter.size)
         self.assertTrue(
-            self.fake_os.path.isfile('/foo.data/log.history'))
+            self.fake_os.path.isfile('/foo/log.history'))
         self.assertEqual(
-            self.fake_os.path.getsize('/foo.data/log.history'),
+            self.fake_os.path.getsize('/foo/log.history'),
             7 * ps.log_history_formatter.size)
         self.assertTrue(
-            self.fake_os.path.isfile('/foo.data/log.000000'))
+            self.fake_os.path.isfile('/foo/log.000000'))
 
     def test_undo_the_undone(self):
         ps = storage.ProjectStorage.create('/foo')
@@ -235,11 +237,11 @@ class StorageTest(unittest.TestCase):
             ps.close()
 
         self.assertTrue(
-            self.fake_os.path.isfile('/foo.data/checkpoint.index'))
+            self.fake_os.path.isfile('/foo/checkpoint.index'))
         self.assertEqual(
-            self.fake_os.path.getsize('/foo.data/checkpoint.index'),
+            self.fake_os.path.getsize('/foo/checkpoint.index'),
             2 * ps.checkpoint_index_formatter.size)
         self.assertTrue(
-            self.fake_os.path.isfile('/foo.data/checkpoint.000000'))
+            self.fake_os.path.isfile('/foo/checkpoint.000000'))
         self.assertTrue(
-            self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
+            self.fake_os.path.isfile('/foo/checkpoint.000001'))
