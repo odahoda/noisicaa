@@ -24,6 +24,7 @@ import logging
 import os
 import os.path
 import shutil
+import time
 import urllib.parse
 from typing import cast, Any, List, Iterable, Iterator
 
@@ -73,7 +74,10 @@ class Project(ui_base.CommonMixin, Item):
         super().__init__(**kwargs)
 
         self.client = None  # type: music.ProjectClient
-        self.__mtime = os.path.getmtime(self.path)
+        if os.path.isfile(os.path.join(self.path, 'project.noise')):
+            self.__mtime = os.path.getmtime(os.path.join(self.path, 'project.noise'))
+        else:
+            self.__mtime = time.time()
 
     def projects(self) -> Iterator['Project']:
         yield self
@@ -161,7 +165,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
 
     async def refresh(self) -> None:
         # TODO: get list of directories from settings
-        directories = ['~/Music/Noisicaä', '/lala']
+        directories = ['~/Music/Noisicaä']
 
         paths = await self.event_loop.run_in_executor(None, self.__scan_projects, directories)
 
@@ -182,7 +186,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
                     break
 
         for path in new_paths - old_paths:
-            logger.error("Adding project at %s...", path)
+            logger.info("Adding project at %s...", path)
 
             idx = 0
             while idx < len(self.__root.children) and path > self.__root.children[idx].path:

@@ -84,8 +84,10 @@ class ItemDelegate(QtWidgets.QAbstractItemDelegate):
         if item.path not in self.__widgets:
             if isinstance(item, project_registry_lib.Project):
                 widget = ProjectItem(item)
+            elif isinstance(item, project_registry_lib.Root):
+                widget = QtWidgets.QWidget()
             else:
-                raise TypeError(type(item))
+                raise TypeError("%s: %s" % (item.path, type(item)))
             self.__widgets[item.path] = widget
 
         return self.__widgets[item.path]

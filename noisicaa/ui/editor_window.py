@@ -149,6 +149,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         self.showLoadSpinner("Creating project \"%s\"..." % project.name)
         await self.app.setup_complete.wait()
         await project.create()
+        await self.app.project_registry.refresh()
         view = project_view.ProjectView(project_connection=project, context=self.context)
         await view.setup()
         self.__project_view = view
@@ -181,6 +182,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         project = self.__project_view.project_connection
         self.showLoadSpinner("Closing project \"%s\"..." % project.name)
         await self.__project_view.cleanup()
+        self.__project_view = None
         await project.close()
         self.showOpenDialog()
 
