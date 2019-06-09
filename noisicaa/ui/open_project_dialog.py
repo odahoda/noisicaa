@@ -330,6 +330,14 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
 
         self.__project_registry = project_registry
 
+        self.__filter_model = FilterModel()
+        self.__filter_model.setSourceModel(FlatProjectListModel(self.__project_registry))
+        self.__filter_model.setSortRole(project_registry_lib.Project.NameRole)
+        self.__filter_model.setSortCaseSensitivity(Qt.CaseInsensitive)
+        self.__filter_model.sort(0, Qt.AscendingOrder)
+        self.__filter_model.setFilterKeyColumn(0)
+        self.__filter_model.setFilterRole(project_registry_lib.Project.NameRole)
+
         self.__search = QtWidgets.QLineEdit(self)
         search_action = QtWidgets.QAction(self.__search)
         search_action.setIcon(QtGui.QIcon.fromTheme('edit-find'))
@@ -338,16 +346,27 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         clear_action.setIcon(QtGui.QIcon.fromTheme('edit-clear'))
         clear_action.triggered.connect(self.__search.clear)
         self.__search.addAction(clear_action, QtWidgets.QLineEdit.TrailingPosition)
+        self.__search.textChanged.connect(self.__filter_model.setFilterWords)
+        self.__search.setText(
+            self.app.settings.value('open-project-dialog/search-text', ''))
+        self.__search.textChanged.connect(
+            lambda text: self.app.settings.setValue('open-project-dialog/search-text', text))
 
         self.__sort_mode = QtWidgets.QComboBox(self)
         self.__sort_mode.addItem("Name", 'name')
         self.__sort_mode.addItem("Last usage", 'mtime')
+        self.__sort_mode.setCurrentIndex(self.__sort_mode.findData(
+            self.app.settings.value('open-project-dialog/sort-mode', 'name')))
         self.__sort_mode.currentIndexChanged.connect(self.__updateSort)
 
         self.__sort_dir = QtWidgets.QComboBox(self)
         self.__sort_dir.addItem("Ascending", 'asc')
         self.__sort_dir.addItem("Descending", 'desc')
+        self.__sort_dir.setCurrentIndex(self.__sort_dir.findData(
+            self.app.settings.value('open-project-dialog/sort-dir', 'asc')))
         self.__sort_dir.currentIndexChanged.connect(self.__updateSort)
+
+        self.__updateSort()
 
         self.__open_button = QtWidgets.QPushButton(self)
         self.__open_button.setIcon(QtGui.QIcon.fromTheme('document-open'))
@@ -383,15 +402,6 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__more_button.setText("More")
         self.__more_button.setMenu(self.__more_menu)
         self.__more_button.setDisabled(True)
-
-        self.__filter_model = FilterModel()
-        self.__filter_model.setSourceModel(FlatProjectListModel(self.__project_registry))
-        self.__filter_model.setSortRole(project_registry_lib.Project.NameRole)
-        self.__filter_model.setSortCaseSensitivity(Qt.CaseInsensitive)
-        self.__filter_model.sort(0, Qt.AscendingOrder)
-        self.__filter_model.setFilterKeyColumn(0)
-        self.__filter_model.setFilterRole(project_registry_lib.Project.NameRole)
-        self.__search.textChanged.connect(self.__filter_model.setFilterWords)
 
         self.__list = ProjectListView(self)
         self.__list.setModel(self.__filter_model)
@@ -438,6 +448,7 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         else:
             assert sort_mode == 'mtime'
             self.__filter_model.setSortRole(project_registry_lib.Project.MTimeRole)
+        self.app.settings.setValue('open-project-dialog/sort-mode', sort_mode)
 
         sort_dir = self.__sort_dir.currentData()
         if sort_dir == 'asc':
@@ -445,6 +456,7 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         else:
             assert sort_dir == 'desc'
             self.__filter_model.sort(0, Qt.DescendingOrder)
+        self.app.settings.setValue('open-project-dialog/sort-dir', sort_dir)
 
     def __openClicked(self) -> None:
         selected_projects = self.__list.selectedProjects()
