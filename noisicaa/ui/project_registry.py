@@ -103,8 +103,8 @@ class Project(ui_base.CommonMixin, Item):
     def mtime(self) -> float:
         return self.__mtime
 
-    async def __create_process(self) -> None:
-        self.client = music.ProjectClient(
+    async def __create_process(self) -> music.ProjectClient:
+        client = music.ProjectClient(
             event_loop=self.event_loop,
             server=self.app.process.server,
             node_db=self.app.node_db,
@@ -112,15 +112,26 @@ class Project(ui_base.CommonMixin, Item):
             manager=self.app.process.manager,
             tmp_dir=self.app.process.tmp_dir,
         )
-        await self.client.setup()
+        await client.setup()
+        return client
 
     async def open(self) -> None:
-        await self.__create_process()
-        await self.client.open(self.path)
+        client = await self.__create_process()
+        try:
+            await client.open(self.path)
+        except:  # pylint: disable=bare-except
+            await client.cleanup()
+            raise
+        self.client = client
 
     async def create(self) -> None:
-        await self.__create_process()
-        await self.client.create(self.path)
+        client = await self.__create_process()
+        try:
+            await client.create(self.path)
+        except:  # pylint: disable=bare-except
+            await client.cleanup()
+            raise
+        self.client = client
 
     async def close(self) -> None:
         if self.client is not None:

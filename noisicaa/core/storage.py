@@ -126,7 +126,8 @@ class ProjectStorage(object):
             raise FileOpenError("Not a project file")
 
         if file_info.version not in self.SUPPORTED_VERSIONS:
-            raise UnsupportedFileVersionError()
+            raise UnsupportedFileVersionError(
+                "File version %d not supported" % file_info.version)
 
         self.file_lock = self.acquire_file_lock(
             os.path.join(self.path, "lock"))

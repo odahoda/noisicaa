@@ -24,6 +24,7 @@ import asyncio
 import contextlib
 import logging
 import time
+import traceback
 import typing
 from typing import cast, Any, Optional, Callable
 
@@ -32,6 +33,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from noisicaa.core import storage
 from noisicaa import audioproc
 from . import project_view
 from . import ui_base
@@ -134,26 +136,58 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
 
         self.__setPage(page, dialog.cleanup)
 
+    def __projectErrorDialog(self, exc: Exception, message: str) -> None:
+        logger.error(traceback.format_exc())
+
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setWindowTitle("noisicaä - Error")
+        dialog.setIcon(QtWidgets.QMessageBox.Critical)
+        dialog.setText(message)
+        if isinstance(exc, storage.Error):
+            dialog.setInformativeText(str(exc))
+        else:
+            dialog.setInformativeText("Internal error: %s" % type(exc).__name__)
+        dialog.setDetailedText(traceback.format_exc())
+        buttons = QtWidgets.QMessageBox.StandardButtons()
+        buttons |= QtWidgets.QMessageBox.Close
+        dialog.setStandardButtons(buttons)
+        dialog.setModal(True)
+        dialog.finished.connect(lambda result: self.showOpenDialog())
+        dialog.show()
+
     async def __projectSelected(self, project: project_registry_lib.Project) -> None:
         self.showLoadSpinner("Loading project \"%s\"..." % project.name)
         await self.app.setup_complete.wait()
-        await project.open()
-        view = project_view.ProjectView(project_connection=project, context=self.context)
-        await view.setup()
-        self.__project_view = view
-        self.__setPage(view)
+        try:
+            await project.open()
+        except Exception as exc:  # pylint: disable=bare-except
+            self.__projectErrorDialog(
+                exc, "Failed to open project \"%s\"." % project.name)
+
+        else:
+            view = project_view.ProjectView(project_connection=project, context=self.context)
+            await view.setup()
+            self.__project_view = view
+            self.__setPage(view)
 
     async def __createProject(self, path: str) -> None:
         project = project_registry_lib.Project(
             path=path, context=self.context)
         self.showLoadSpinner("Creating project \"%s\"..." % project.name)
         await self.app.setup_complete.wait()
-        await project.create()
-        await self.app.project_registry.refresh()
-        view = project_view.ProjectView(project_connection=project, context=self.context)
-        await view.setup()
-        self.__project_view = view
-        self.__setPage(view)
+        try:
+            await project.create()
+
+        except:  # pylint: disable=bare-except
+            self.__projectErrorDialog(
+                exc, "Failed to create project \"%s\"." % project.name)
+
+        else:
+            await self.app.project_registry.refresh()
+            view = project_view.ProjectView(project_connection=project, context=self.context)
+            await view.setup()
+            self.__project_view = view
+            self.__setPage(view)
 
     def showLoadSpinner(self, message: str) -> None:
         page = QtWidgets.QWidget(self)
