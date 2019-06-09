@@ -18,29 +18,33 @@
 #
 # @end:license
 
-add_python_package(
-  constants.py
-  debug_console.py
-  editor_main.py
-  exceptions.py
-  logging.py
-  pdb.py
-  runtime_settings.py
-  utils.py
-)
+import random
+import re
+from typing import List
 
-py_proto(editor_main.proto)
+from . import data
 
-add_subdirectory(audioproc)
-add_subdirectory(bindings)
-add_subdirectory(core)
-add_subdirectory(host_system)
-add_subdirectory(instr)
-add_subdirectory(instrument_db)
-add_subdirectory(lv2)
-add_subdirectory(value_types)
-add_subdirectory(music)
-add_subdirectory(node_db)
-add_subdirectory(ui)
-add_subdirectory(builtin_nodes)
-add_subdirectory(title_generator)
+
+class TitleGenerator(object):
+    def __init__(self, seed: int = None) -> None:
+        self.__rnd = random.Random(seed)
+
+    def __pick(self, lst: List[str]) -> str:
+        return self.__rnd.choice(lst)
+
+    def generate(self) -> str:
+        sentence = self.__pick(data.sentence)
+
+        while True:
+            n_sentence = re.sub(
+                r'\${([^}]+)}',
+                lambda m: self.__pick(data.word_sets[m.group(1)]),
+                sentence)
+            if n_sentence == sentence:
+                break
+            sentence = n_sentence
+
+        sentence = sentence.replace("**", "The ")
+        sentence = sentence.replace("*", "")
+
+        return sentence

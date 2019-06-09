@@ -34,6 +34,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 import humanize
 
+from noisicaa import title_generator
 from . import project_registry as project_registry_lib
 from . import slots
 from . import ui_base
@@ -274,9 +275,8 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
         return os.path.join(self.projectDir(), filename)
 
     def __generateName(self) -> None:
-        rnd = random.Random(self.__name_seed)
-        name = "Song #%d" % rnd.randint(0, 1000)
-        self.__name.setText(name)
+        gen = title_generator.TitleGenerator(self.__name_seed)
+        self.__name.setText(gen.generate())
 
     def __nextNameClicked(self) -> None:
         self.__name_seed = (self.__name_seed + 1) % 1000000
