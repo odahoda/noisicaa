@@ -159,12 +159,21 @@ class FlatProjectListModel(QtCore.QAbstractProxyModel):
         self.__registry = project_registry
         self.setSourceModel(self.__registry)
 
+        self.__registry.rowsAboutToBeInserted.connect(
+            lambda parent, r1, r2: self.beginInsertRows(self.mapFromSource(parent), r1, r2))
+        self.__registry.rowsInserted.connect(self.endInsertRows)
+        self.__registry.rowsAboutToBeRemoved.connect(
+            lambda parent, r1, r2: self.beginRemoveRows(self.mapFromSource(parent), r1, r2))
+        self.__registry.rowsRemoved.connect(self.endRemoveRows)
+
         self.__root = QtCore.QModelIndex()
 
     def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> project_registry_lib.Item:
         return self.__registry.item(self.mapToSource(index))
 
     def mapFromSource(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:
+        if not index.isValid():
+            return QtCore.QModelIndex()
         return self.createIndex(index.row(), index.column(), QtCore.QModelIndex())
 
     def mapToSource(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:
