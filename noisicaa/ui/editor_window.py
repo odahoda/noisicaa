@@ -109,10 +109,10 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__page = page
         self.__page_cleanup_func = cleanup_func
 
-    def showOpenDialog(self, project_registry: project_registry_lib.ProjectRegistry) -> None:
+    def showOpenDialog(self) -> None:
         dialog = open_project_dialog.OpenProjectDialog(
             parent=self,
-            project_registry=project_registry,
+            project_registry=self.app.project_registry,
             context=self.context)
         dialog.projectSelected.connect(
             lambda project: self.call_async(self.__projectSelected(project)))
@@ -176,6 +176,14 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
 
         self.__setPage(page)
 
+    async def closeProject(self) -> None:
+        assert self.__project_view
+        project = self.__project_view.project_connection
+        self.showLoadSpinner("Closing project \"%s\"..." % project.name)
+        await self.__project_view.cleanup()
+        await project.close()
+        self.showOpenDialog()
+
 
 class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     # Could not figure out how to define a signal that takes either an instance
@@ -211,7 +219,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.__project_tabs.setTabsClosable(True)
         self.__project_tabs.setMovable(True)
         self.__project_tabs.setDocumentMode(True)
-        self.__project_tabs.tabCloseRequested.connect(self.onCloseProjectTab)
+        self.__project_tabs.tabCloseRequested.connect(
+            lambda idx: self.call_async(self.onCloseProjectTab(idx)))
         self.__project_tabs.currentChanged.connect(self.onCurrentProjectTabChanged)
 
         self.__main_layout = QtWidgets.QVBoxLayout()
@@ -303,8 +312,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._close_current_project_action = QtWidgets.QAction("Close", self)
         self._close_current_project_action.setShortcut(QtGui.QKeySequence.Close)
         self._close_current_project_action.setStatusTip("Close the current project")
-        self._close_current_project_action.triggered.connect(self.onCloseCurrentProjectTab)
-        self._close_current_project_action.setEnabled(False)
+        self._close_current_project_action.triggered.connect(self.onCloseCurrentProject)
 
         self._undo_action = QtWidgets.QAction("Undo", self)
         self._undo_action.setShortcut(QtGui.QKeySequence.Undo)
@@ -514,76 +522,20 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         else:
             self.currentProjectChanged.emit(None)
 
-    # def addProjectSetupView(self, project_connection: project_registry_lib.Project) -> int:
-    #     widget = QtWidgets.QWidget()
-
-    #     label = QtWidgets.QLabel(widget)
-    #     label.setText("Opening project '%s'..." % project_connection.path)
-
-    #     wheel = qprogressindicator.QProgressIndicator(widget)
-    #     wheel.setMinimumSize(48, 48)
-    #     wheel.setMaximumSize(48, 48)
-    #     wheel.setAnimationDelay(100)
-    #     wheel.startAnimation()
-
-    #     layout = QtWidgets.QVBoxLayout()
-    #     layout.addStretch(2)
-    #     layout.addWidget(label, 0, Qt.AlignHCenter)
-    #     layout.addSpacing(10)
-    #     layout.addWidget(wheel, 0, Qt.AlignHCenter)
-    #     layout.addStretch(3)
-    #     widget.setLayout(layout)
-
-    #     idx = self.__project_tabs.addTab(widget, project_connection.name)
-    #     self.__project_tabs.setCurrentIndex(idx)
-    #     self._main_area.setCurrentIndex(0)
-    #     return idx
-
-    # async def activateProjectView(
-    #         self, idx: int, project_connection: project_registry_lib.Project) -> None:
-    #     context = ui_base.CommonContext(app=self.app)
-    #     view = ProjectView(project_connection=project_connection, context=context)
-    #     await view.setup()
-
-    #     self.__project_tabs.insertTab(idx, view, project_connection.name)
-    #     self.__project_tabs.removeTab(idx + 1)
-
-    #     self.__project_tabs.setCurrentIndex(idx)
-    #     self._close_current_project_action.setEnabled(True)
-
-    # async def removeProjectView(self, project_connection: project_registry_lib.Project) -> None:
-    #     for idx in range(self.__project_tabs.count()):
-    #         view = self.__project_tabs.widget(idx)
-    #         if isinstance(view, ProjectView) and view.project_connection is project_connection:
-    #             self.__project_tabs.removeTab(idx)
-    #             if self.__project_tabs.count() == 0:
-    #                 self._main_area.setCurrentIndex(1)
-    #             self._close_current_project_action.setEnabled(
-    #                 self.__project_tabs.count() > 0)
-
-    #             await view.cleanup()
-    #             break
-    #     else:
-    #         raise ValueError("No view for project found.")
-
-    def onCloseCurrentProjectTab(self) -> None:
-        view = self.getCurrentProjectView()
-        if view is not None:
-            closed = view.close()
-            if closed:
-                self.call_async(self.app.removeProject(view.project_connection))
+    def onCloseCurrentProject(self) -> None:
+        tab = cast(ProjectTabPage, self.__project_tabs.currentWidget())
+        if tab.projectView() is not None:
+            self.call_async(tab.closeProject())
 
     def onCurrentProjectTabChanged(self, idx: int) -> None:
         tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
         self.setCurrentProjectView(tab.projectView() if tab is not None else None)
 
-    def onCloseProjectTab(self, idx: int) -> None:
+    async def onCloseProjectTab(self, idx: int) -> None:
         tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
-        view = tab.projectView()
-        if view is not None:
-            closed = view.close()
-            if closed:
-                self.call_async(self.app.removeProject(view.project_connection))
+        if tab.projectView() is not None:
+            await tab.projectView().cleanup()
+        tab.close()
 
     def getCurrentProjectView(self) -> Optional[project_view.ProjectView]:
         tab = cast(ProjectTabPage, self.__project_tabs.currentWidget())

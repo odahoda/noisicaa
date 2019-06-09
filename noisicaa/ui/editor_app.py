@@ -125,7 +125,7 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.show_stat_monitor_action = None  # type: QtWidgets.QAction
         self.quit_action = None  # type: QtWidgets.QAction
 
-        self.__project_registry = None  # type: project_registry.ProjectRegistry
+        self.project_registry = None  # type: project_registry.ProjectRegistry
         self.__audio_thread_profiler = None  # type: audio_thread_profiler.AudioThreadProfiler
         self.audioproc_client = None  # type: audioproc.AbstractAudioProcClient
         self.audioproc_process = None  # type: str
@@ -251,9 +251,9 @@ class EditorApp(ui_base.AbstractEditorApp):
             self.__settings_dialog = settings_dialog.SettingsDialog(context=self.context)
 
             with progress.step("Scanning projects..."):
-                self.__project_registry = project_registry.ProjectRegistry(context=self.context)
-                await self.__project_registry.setup()
-                tab_page.showOpenDialog(self.__project_registry)
+                self.project_registry = project_registry.ProjectRegistry(context=self.context)
+                await self.project_registry.setup()
+                tab_page.showOpenDialog()
 
             with progress.step("Scanning nodes and plugins..."):
                 await self.createNodeDB()
@@ -352,9 +352,9 @@ class EditorApp(ui_base.AbstractEditorApp):
             win.storeState()
             await win.cleanup()
 
-        if self.__project_registry is not None:
-            await self.__project_registry.cleanup()
-            self.__project_registry = None
+        if self.project_registry is not None:
+            await self.project_registry.cleanup()
+            self.project_registry = None
 
         if self.audioproc_client is not None:
             await self.audioproc_client.disconnect()
