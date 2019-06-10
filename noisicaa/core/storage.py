@@ -158,7 +158,7 @@ class ProjectStorage(object):
         self.written_sequence_number = self.next_sequence_number - 1
 
         if self.written_sequence_number >= 0:
-            self.undo_count, self.redo_count = self._get_history_entry(
+            self.undo_count, self.redo_count = self.get_history_entry(
                 self.written_sequence_number)[2:4]
         else:
             self.undo_count = 0
@@ -174,7 +174,7 @@ class ProjectStorage(object):
                 self.next_checkpoint_number * self.checkpoint_index_formatter.size):
             raise CorruptedProjectError("Malformed checkpoint.index file.")
 
-        os.utime(self.path)
+        os.utime(os.path.join(self.path, 'project.noise'))
 
     def get_restore_info(self) -> Tuple[int, List[Tuple[Action, int]]]:
         assert self.next_checkpoint_number > 0
@@ -184,7 +184,7 @@ class ProjectStorage(object):
 
         actions = []
         for snum in range(seq_number, self.next_sequence_number):
-            action, log_number = self._get_history_entry(snum)[0:2]
+            action, log_number = self.get_history_entry(snum)[0:2]
             actions.append((Action(action), log_number))
 
         return checkpoint_number, actions
@@ -218,7 +218,7 @@ class ProjectStorage(object):
     def close(self) -> None:
         assert self.path is not None, "Project already closed."
 
-        os.utime(self.path)
+        os.utime(os.path.join(self.path, 'project.noise'))
         self.path = None
 
         if self.log_index_fp is not None:
@@ -335,7 +335,7 @@ class ProjectStorage(object):
 
         return header
 
-    def _get_history_entry(self, seq_number: int) -> HistoryEntry:
+    def get_history_entry(self, seq_number: int) -> HistoryEntry:
         size = self.log_history_formatter.size
         offset = seq_number * size
         packed_entry = self.log_history[offset:offset+size]
@@ -436,7 +436,7 @@ class ProjectStorage(object):
 
         entry_to_undo = self.next_sequence_number - 2 * self.undo_count - 1
 
-        action, log_number = self._get_history_entry(entry_to_undo)[0:2]
+        action, log_number = self.get_history_entry(entry_to_undo)[0:2]
         return Action(_reverse_action(action)), self.get_log_entry(log_number)
 
     def get_log_entry_to_redo(self) -> Tuple[Action, LogEntry]:
@@ -444,7 +444,7 @@ class ProjectStorage(object):
 
         entry_to_redo = self.next_sequence_number - 2 * self.undo_count
 
-        action, log_number = self._get_history_entry(entry_to_redo)[0:2]
+        action, log_number = self.get_history_entry(entry_to_redo)[0:2]
         return Action(action), self.get_log_entry(log_number)
 
     def undo(self) -> None:
@@ -452,7 +452,7 @@ class ProjectStorage(object):
         assert self.can_undo
 
         entry_to_undo = self.next_sequence_number - 2 * self.undo_count - 1
-        action, log_number = self._get_history_entry(entry_to_undo)[0:2]
+        action, log_number = self.get_history_entry(entry_to_undo)[0:2]
 
         self.undo_count += 1
         history_entry = (_reverse_action(action), log_number, self.undo_count, self.redo_count)
@@ -467,7 +467,7 @@ class ProjectStorage(object):
         assert self.can_redo
 
         entry_to_redo = self.next_sequence_number - 2 * self.undo_count
-        action, log_number = self._get_history_entry(entry_to_redo)[0:2]
+        action, log_number = self.get_history_entry(entry_to_redo)[0:2]
 
         self.redo_count += 1
         history_entry = (action, log_number, self.undo_count, self.redo_count)

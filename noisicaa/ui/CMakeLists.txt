@@ -45,6 +45,7 @@ add_python_package(
   project_registry_test.py
   project_view.py
   project_view_test.py
+  project_debugger.py
   property_connector.py
   qled.py
   qprogressindicator.py

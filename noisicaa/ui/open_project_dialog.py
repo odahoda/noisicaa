@@ -320,6 +320,7 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
     projectSelected = QtCore.pyqtSignal(project_registry_lib.Project)
     createProject = QtCore.pyqtSignal(str)
+    debugProject = QtCore.pyqtSignal(project_registry_lib.Project)
 
     def __init__(
             self, *,
@@ -394,8 +395,13 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__archive_action.setEnabled(False)
         self.__archive_action.triggered.connect(self.__archiveClicked)
 
+        self.__debugger_action = QtWidgets.QAction("Open in debugger", self)
+        self.__debugger_action.setEnabled(False)
+        self.__debugger_action.triggered.connect(self.__debuggerClicked)
+
         self.__more_menu = QtWidgets.QMenu()
         self.__more_menu.addAction(self.__delete_action)
+        self.__more_menu.addAction(self.__debugger_action)
         self.__more_menu.addAction(self.__archive_action)
 
         self.__more_button = QtWidgets.QPushButton(self)
@@ -440,6 +446,7 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__open_button.setDisabled(not enable)
         self.__more_button.setDisabled(not enable)
         self.__delete_action.setEnabled(enable)
+        self.__debugger_action.setEnabled(enable)
 
     def __updateSort(self) -> None:
         sort_mode = self.__sort_mode.currentData()
@@ -508,6 +515,11 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         await project.delete()
         await self.__project_registry.refresh()
         self.setDisabled(False)
+
+    def __debuggerClicked(self) -> None:
+        selected_projects = self.__list.selectedProjects()
+        if len(selected_projects) == 1:
+            self.debugProject.emit(selected_projects[0])
 
     def __archiveClicked(self) -> None:
         raise NotImplementedError

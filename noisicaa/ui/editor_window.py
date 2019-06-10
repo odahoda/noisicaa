@@ -36,6 +36,7 @@ from PyQt5 import QtWidgets
 from noisicaa.core import storage
 from noisicaa import audioproc
 from . import project_view
+from . import project_debugger
 from . import ui_base
 from . import qprogressindicator
 from . import project_registry as project_registry_lib
@@ -90,6 +91,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__page_cleanup_func = None  # type: Callable[[], None]
 
         self.__project_view = None  # type: project_view.ProjectView
+        self.__project_debugger = None  # type: project_debugger.ProjectDebugger
 
         self.__layout = QtWidgets.QVBoxLayout()
         self.__layout.setContentsMargins(0, 0, 0, 0)
@@ -97,6 +99,9 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
 
     def projectView(self) -> Optional[project_view.ProjectView]:
         return self.__project_view
+
+    def projectDebugger(self) -> Optional[project_debugger.ProjectDebugger]:
+        return self.__project_debugger
 
     def __setPage(self, page: QtWidgets.QWidget, cleanup_func: Callable[[], None] = None) -> None:
         if self.__page is not None:
@@ -120,6 +125,8 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
             lambda project: self.call_async(self.__projectSelected(project)))
         dialog.createProject.connect(
             lambda path: self.call_async(self.__createProject(path)))
+        dialog.debugProject.connect(
+            lambda path: self.call_async(self.__debugProject(path)))
 
         l1 = QtWidgets.QVBoxLayout()
         l1.addSpacing(32)
@@ -189,6 +196,14 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
             self.__project_view = view
             self.__setPage(view)
 
+    async def __debugProject(self, project: project_registry_lib.Project) -> None:
+        self.showLoadSpinner("Loading project \"%s\"..." % project.name)
+        await self.app.setup_complete.wait()
+        debugger = project_debugger.ProjectDebugger(project=project, context=self.context)
+        await debugger.setup()
+        self.__project_debugger = debugger
+        self.__setPage(debugger)
+
     def showLoadSpinner(self, message: str) -> None:
         page = QtWidgets.QWidget(self)
 
@@ -218,6 +233,14 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         await self.__project_view.cleanup()
         self.__project_view = None
         await project.close()
+        self.showOpenDialog()
+
+    async def closeDebugger(self) -> None:
+        assert self.__project_debugger
+        project = self.__project_debugger.project
+        self.showLoadSpinner("Closing project \"%s\"..." % project.name)
+        await self.__project_debugger.cleanup()
+        self.__project_debugger = None
         self.showOpenDialog()
 
 
@@ -562,6 +585,8 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         tab = cast(ProjectTabPage, self.__project_tabs.currentWidget())
         if tab.projectView() is not None:
             self.call_async(tab.closeProject())
+        elif tab.projectDebugger() is not None:
+            self.call_async(tab.closeDebugger())
 
     def onCurrentProjectTabChanged(self, idx: int) -> None:
         tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
