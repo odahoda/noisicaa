@@ -50,27 +50,45 @@ class ProjectItem(slots.SlotContainer, QtWidgets.QWidget):
 
         self.setAutoFillBackground(True)
 
-        name = QtWidgets.QLabel(self)
-        name.setText(self.__project.name)
-        name_font = QtGui.QFont(name.font())
+        self.__opened = QtWidgets.QLabel(self)
+        self.__opened.setText("[open]")
+        opened_font = QtGui.QFont(self.__opened.font())
+        opened_font.setPointSizeF(1.4 * opened_font.pointSizeF())
+        opened_font.setBold(True)
+        self.__opened.setFont(opened_font)
+        opened_palette = QtGui.QPalette(self.__opened.palette())
+        opened_palette.setColor(QtGui.QPalette.Text, Qt.red)
+        opened_palette.setColor(QtGui.QPalette.HighlightedText, Qt.red)
+        self.__opened.setPalette(opened_palette)
+
+        self.__name = QtWidgets.QLabel(self)
+        name_font = QtGui.QFont(self.__name.font())
         name_font.setPointSizeF(1.4 * name_font.pointSizeF())
         name_font.setBold(True)
-        name.setFont(name_font)
+        self.__name.setFont(name_font)
 
-        path = QtWidgets.QLabel(self)
-        path.setText(self.__project.path)
-        path_font = QtGui.QFont(path.font())
-        path.setFont(path_font)
+        self.__path = QtWidgets.QLabel(self)
+        self.__mtime = QtWidgets.QLabel(self)
 
-        mtime = QtWidgets.QLabel(self)
-        mtime.setText('Last usage: %s' % humanize.naturaltime(datetime.datetime.fromtimestamp(self.__project.mtime)))
+        l2 = QtWidgets.QHBoxLayout()
+        l2.setContentsMargins(0, 0, 0, 0)
+        l2.addWidget(self.__opened)
+        l2.addWidget(self.__name, 1)
 
         l1 = QtWidgets.QVBoxLayout()
         l1.setContentsMargins(0, 0, 0, 0)
-        l1.addWidget(name)
-        l1.addWidget(path)
-        l1.addWidget(mtime)
+        l1.addLayout(l2)
+        l1.addWidget(self.__path)
+        l1.addWidget(self.__mtime)
         self.setLayout(l1)
+
+    def updateContents(self) -> None:
+        self.__opened.setVisible(self.__project.isOpened())
+        self.__name.setText(self.__project.name)
+        self.__path.setText(self.__project.path)
+        self.__mtime.setText(
+            'Last usage: %s' % humanize.naturaltime(
+                datetime.datetime.fromtimestamp(self.__project.mtime)))
 
 
 class ItemDelegate(QtWidgets.QAbstractItemDelegate):
@@ -98,8 +116,11 @@ class ItemDelegate(QtWidgets.QAbstractItemDelegate):
             option: QtWidgets.QStyleOptionViewItem,
             index: QtCore.QModelIndex
     ) -> None:
+        item = index.model().item(index)
+
         widget = self.__getWidget(index)
         widget.resize(option.rect.size())
+        widget.updateContents()
         if option.state & QtWidgets.QStyle.State_Selected:
             widget.setBackgroundRole(QtGui.QPalette.Highlight)
         else:
@@ -134,6 +155,11 @@ class ProjectListView(QtWidgets.QListView):
 
         self.doubleClicked.connect(self.__doubleClicked)
 
+        self.__update_timer = QtCore.QTimer(self)
+        self.__update_timer.timeout.connect(lambda: self.viewport().update())
+        self.__update_timer.setInterval(300)
+        self.__update_timer.start()
+
     def __doubleClicked(self, index: QtCore.QModelIndex) -> None:
         item = self.model().item(index)
         self.itemDoubleClicked.emit(item)
@@ -165,6 +191,9 @@ class FlatProjectListModel(QtCore.QAbstractProxyModel):
         self.__registry.rowsAboutToBeRemoved.connect(
             lambda parent, r1, r2: self.beginRemoveRows(self.mapFromSource(parent), r1, r2))
         self.__registry.rowsRemoved.connect(self.endRemoveRows)
+        self.__registry.dataChanged.connect(
+            lambda topLeft, bottomRight, roles: self.dataChanged.emit(
+                self.index(0), self.index(self.rowCount() - 1), roles))
 
         self.__root = QtCore.QModelIndex()
 
@@ -330,6 +359,7 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         super().__init__(**kwargs)
 
         self.__project_registry = project_registry
+        self.__project_registry.contentsChanged.connect(self.__updateButtons)
 
         self.__filter_model = FilterModel()
         self.__filter_model.setSourceModel(FlatProjectListModel(self.__project_registry))
@@ -372,7 +402,6 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__open_button = QtWidgets.QPushButton(self)
         self.__open_button.setIcon(QtGui.QIcon.fromTheme('document-open'))
         self.__open_button.setText("Open")
-        self.__open_button.setDisabled(True)
         self.__open_button.clicked.connect(self.__openClicked)
 
         self.__new_project_button = QtWidgets.QPushButton(self)
@@ -383,36 +412,29 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__new_folder_button = QtWidgets.QPushButton(self)
         self.__new_folder_button.setIcon(QtGui.QIcon.fromTheme('folder-new'))
         self.__new_folder_button.setText("New folder")
-        self.__new_folder_button.setDisabled(True)
         self.__new_folder_button.clicked.connect(self.__newFolderClicked)
 
         self.__delete_action = QtWidgets.QAction("Delete", self)
         self.__delete_action.setIcon(QtGui.QIcon.fromTheme('edit-delete'))
-        self.__delete_action.setEnabled(False)
         self.__delete_action.triggered.connect(self.__deleteClicked)
 
-        self.__archive_action = QtWidgets.QAction("Archive", self)
-        self.__archive_action.setEnabled(False)
-        self.__archive_action.triggered.connect(self.__archiveClicked)
-
         self.__debugger_action = QtWidgets.QAction("Open in debugger", self)
-        self.__debugger_action.setEnabled(False)
         self.__debugger_action.triggered.connect(self.__debuggerClicked)
 
         self.__more_menu = QtWidgets.QMenu()
         self.__more_menu.addAction(self.__delete_action)
         self.__more_menu.addAction(self.__debugger_action)
-        self.__more_menu.addAction(self.__archive_action)
 
         self.__more_button = QtWidgets.QPushButton(self)
         self.__more_button.setText("More")
         self.__more_button.setMenu(self.__more_menu)
-        self.__more_button.setDisabled(True)
 
         self.__list = ProjectListView(self)
         self.__list.setModel(self.__filter_model)
-        self.__list.numProjectsSelected.connect(lambda count: self.__updateButtons(count == 1))
-        self.__list.itemDoubleClicked.connect(self.openProject)
+        self.__list.numProjectsSelected.connect(lambda _: self.__updateButtons())
+        self.__list.itemDoubleClicked.connect(self.__itemDoubleClicked)
+
+        self.__updateButtons()
 
         l4 = QtWidgets.QHBoxLayout()
         l4.setContentsMargins(0, 0, 0, 0)
@@ -442,11 +464,15 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
     def cleanup(self) -> None:
         pass
 
-    def __updateButtons(self, enable: bool) -> None:
-        self.__open_button.setDisabled(not enable)
-        self.__more_button.setDisabled(not enable)
-        self.__delete_action.setEnabled(enable)
-        self.__debugger_action.setEnabled(enable)
+    def __updateButtons(self) -> None:
+        selected_projects = self.__list.selectedProjects()
+
+        self.__open_button.setEnabled(
+            len(selected_projects) == 1 and not selected_projects[0].isOpened())
+        self.__delete_action.setEnabled(
+            len(selected_projects) == 1 and not selected_projects[0].isOpened())
+        self.__debugger_action.setEnabled(
+            len(selected_projects) == 1 and not selected_projects[0].isOpened())
 
     def __updateSort(self) -> None:
         sort_mode = self.__sort_mode.currentData()
@@ -464,6 +490,10 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
             assert sort_dir == 'desc'
             self.__filter_model.sort(0, Qt.DescendingOrder)
         self.app.settings.setValue('open-project-dialog/sort-dir', sort_dir)
+
+    def __itemDoubleClicked(self, item: project_registry_lib.Item) -> None:
+        if isinstance(item, project_registry_lib.Project) and not item.isOpened():
+            self.openProject(item)
 
     def __openClicked(self) -> None:
         selected_projects = self.__list.selectedProjects()
@@ -520,9 +550,6 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         selected_projects = self.__list.selectedProjects()
         if len(selected_projects) == 1:
             self.debugProject.emit(selected_projects[0])
-
-    def __archiveClicked(self) -> None:
-        raise NotImplementedError
 
     def openProject(self, project: project_registry_lib.Project) -> None:
         self.projectSelected.emit(project)

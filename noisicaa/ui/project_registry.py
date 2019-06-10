@@ -30,6 +30,7 @@ from typing import cast, Any, List, Iterable, Iterator
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
+from PyQt5 import QtGui
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import music
@@ -38,14 +39,21 @@ from . import ui_base
 logger = logging.getLogger(__name__)
 
 
-class Item(object):
+class Item(QtCore.QObject):
+    contentsChanged = QtCore.pyqtSignal()
+
     PathRole = 0x0100
 
     def __init__(self, *, path: str) -> None:
+        super().__init__()
+
         self.path = path
         self.parent = None  # type: Item
         self.index = 0
         self.children = []  # type: List[Item]
+
+    def isOpened(self) -> bool:
+        return False
 
     def projects(self) -> Iterator['Project']:
         for child in self.children:
@@ -73,6 +81,8 @@ class Project(ui_base.CommonMixin, Item):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
+        self.__debuggerRunning = False
+
         self.client = None  # type: music.ProjectClient
         if os.path.isfile(os.path.join(self.path, 'project.noise')):
             self.__mtime = os.path.getmtime(os.path.join(self.path, 'project.noise'))
@@ -96,7 +106,7 @@ class Project(ui_base.CommonMixin, Item):
         return super().data(role)
 
     def isOpened(self) -> bool:
-        return self.client is not None
+        return self.client is not None or self.__debuggerRunning
 
     @property
     def name(self) -> str:
@@ -105,6 +115,14 @@ class Project(ui_base.CommonMixin, Item):
     @property
     def mtime(self) -> float:
         return self.__mtime
+
+    def startDebugger(self) -> None:
+        self.__debuggerRunning = True
+        self.contentsChanged.emit()
+
+    def endDebugger(self) -> None:
+        self.__debuggerRunning = False
+        self.contentsChanged.emit()
 
     async def __create_process(self) -> music.ProjectClient:
         client = music.ProjectClient(
@@ -128,6 +146,8 @@ class Project(ui_base.CommonMixin, Item):
             raise
         self.client = client
         self.app.project_registry.updateOpenedProjects()
+        self.__mtime = time.time()
+        self.contentsChanged.emit()
 
     async def create(self) -> None:
         assert not self.isOpened()
@@ -140,6 +160,8 @@ class Project(ui_base.CommonMixin, Item):
         self.client = client
         self.app.project_registry.addProject(self)
         self.app.project_registry.updateOpenedProjects()
+        self.__mtime = time.time()
+        self.contentsChanged.emit()
 
     async def close(self) -> None:
         if self.client is not None:
@@ -147,6 +169,8 @@ class Project(ui_base.CommonMixin, Item):
             await self.client.cleanup()
             self.client = None
             self.app.project_registry.updateOpenedProjects()
+            self.__mtime = time.time()
+            self.contentsChanged.emit()
 
     async def delete(self) -> None:
         assert not self.isOpened()
@@ -154,6 +178,8 @@ class Project(ui_base.CommonMixin, Item):
 
 
 class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
+    contentsChanged = QtCore.pyqtSignal()
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
@@ -206,6 +232,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
                         item.index = idx
                     self.endRemoveRows()
                     await project.close()
+                    self.contentsChanged.emit()
                     break
 
         for path in new_paths - old_paths:
@@ -234,6 +261,10 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
             item.index = idx
         self.endInsertRows()
 
+        project.contentsChanged.connect(lambda: self.__projectChanged(project))
+        project.contentsChanged.connect(self.contentsChanged.emit)
+        self.contentsChanged.emit()
+
     def updateOpenedProjects(self) -> None:
         if self.__in_cleanup:
             return
@@ -241,6 +272,10 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
             project.path for project in self.projects() if project.isOpened())
         logger.info("Currently opened projects:\n%s", '\n'.join(opened_project_paths))
         self.app.settings.setValue('opened_projects', opened_project_paths)
+
+    def __projectChanged(self, project: Project):
+        index = self.index(project.index)
+        self.dataChanged.emit(index, index)
 
     def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> Item:
         if not index.isValid():

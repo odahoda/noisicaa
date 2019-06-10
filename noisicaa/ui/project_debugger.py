@@ -212,6 +212,8 @@ class ProjectDebugger(ui_base.CommonMixin, QtWidgets.QWidget):
         return self.__project
 
     async def setup(self) -> None:
+        self.__project.startDebugger()
+
         self.__storage = storage.ProjectStorage()
         self.__storage.open(self.__project.path)
 
@@ -224,6 +226,8 @@ class ProjectDebugger(ui_base.CommonMixin, QtWidgets.QWidget):
 
         self.__mutations.setModel(None)
         self.__mutation_model = None
+
+        self.__project.endDebugger()
 
     def __initMutations(self) -> None:
         self.__mutation_model = MutationModel(self.__storage)
