@@ -84,8 +84,10 @@ class SetupProgressWidget(QtWidgets.QWidget):
 
 
 class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, parent: QtWidgets.QTabWidget, **kwargs: Any) -> None:
+        super().__init__(parent=parent, **kwargs)
+
+        self.__tab_widget = parent
 
         self.__page = None  # type: QtWidgets.QWidget
         self.__page_cleanup_func = None  # type: Callable[[], None]
@@ -103,7 +105,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
     def projectDebugger(self) -> Optional[project_debugger.ProjectDebugger]:
         return self.__project_debugger
 
-    def __setPage(self, page: QtWidgets.QWidget, cleanup_func: Callable[[], None] = None) -> None:
+    def __setPage(self, name: str, page: QtWidgets.QWidget, cleanup_func: Callable[[], None] = None) -> None:
         if self.__page is not None:
             self.__layout.removeWidget(self.__page)
             self.__page.setParent(None)
@@ -112,6 +114,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
                 self.__page_cleanup_func()
                 self.__page_cleanup_func = None
 
+        self.__tab_widget.setTabText(self.__tab_widget.indexOf(self), name)
         self.__layout.addWidget(page)
         self.__page = page
         self.__page_cleanup_func = cleanup_func
@@ -141,7 +144,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         page = QtWidgets.QWidget(self)
         page.setLayout(l2)
 
-        self.__setPage(page, dialog.cleanup)
+        self.__setPage("Open project...", page, dialog.cleanup)
 
     def __projectErrorDialog(self, exc: Exception, message: str) -> None:
         logger.error(traceback.format_exc())
@@ -163,7 +166,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         dialog.show()
 
     async def openProject(self, project: project_registry_lib.Project) -> None:
-        self.showLoadSpinner("Loading project \"%s\"..." % project.name)
+        self.showLoadSpinner(project.name, "Loading project \"%s\"..." % project.name)
         await self.app.setup_complete.wait()
         try:
             await project.open()
@@ -175,12 +178,12 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
             view = project_view.ProjectView(project_connection=project, context=self.context)
             await view.setup()
             self.__project_view = view
-            self.__setPage(view)
+            self.__setPage(project.name, view)
 
     async def createProject(self, path: str) -> None:
         project = project_registry_lib.Project(
             path=path, context=self.context)
-        self.showLoadSpinner("Creating project \"%s\"..." % project.name)
+        self.showLoadSpinner(project.name, "Creating project \"%s\"..." % project.name)
         await self.app.setup_complete.wait()
         try:
             await project.create()
@@ -194,17 +197,17 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
             view = project_view.ProjectView(project_connection=project, context=self.context)
             await view.setup()
             self.__project_view = view
-            self.__setPage(view)
+            self.__setPage(project.name, view)
 
     async def __debugProject(self, project: project_registry_lib.Project) -> None:
-        self.showLoadSpinner("Loading project \"%s\"..." % project.name)
+        self.showLoadSpinner(project.name, "Loading project \"%s\"..." % project.name)
         await self.app.setup_complete.wait()
         debugger = project_debugger.ProjectDebugger(project=project, context=self.context)
         await debugger.setup()
         self.__project_debugger = debugger
-        self.__setPage(debugger)
+        self.__setPage(project.name, debugger)
 
-    def showLoadSpinner(self, message: str) -> None:
+    def showLoadSpinner(self, name: str, message: str) -> None:
         page = QtWidgets.QWidget(self)
 
         label = QtWidgets.QLabel(page)
@@ -224,12 +227,12 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         layout.addStretch(3)
         page.setLayout(layout)
 
-        self.__setPage(page)
+        self.__setPage(name, page)
 
     async def closeProject(self) -> None:
         assert self.__project_view
         project = self.__project_view.project_connection
-        self.showLoadSpinner("Closing project \"%s\"..." % project.name)
+        self.showLoadSpinner(project.name, "Closing project \"%s\"..." % project.name)
         await self.__project_view.cleanup()
         self.__project_view = None
         await project.close()
@@ -238,7 +241,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
     async def closeDebugger(self) -> None:
         assert self.__project_debugger
         project = self.__project_debugger.project
-        self.showLoadSpinner("Closing project \"%s\"..." % project.name)
+        self.showLoadSpinner(project.name, "Closing project \"%s\"..." % project.name)
         await self.__project_debugger.cleanup()
         self.__project_debugger = None
         self.showOpenDialog()
@@ -357,9 +360,9 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             task.result()
         self.__setup_progress_fade_task = None
 
-    def addProjectTab(self, title: str) -> ProjectTabPage:
+    def addProjectTab(self) -> ProjectTabPage:
         page = ProjectTabPage(parent=self.__project_tabs, context=self.context)
-        idx = self.__project_tabs.addTab(page, title)
+        idx = self.__project_tabs.addTab(page, '')
         self.__project_tabs.setCurrentIndex(idx)
         return page
 
@@ -582,11 +585,14 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
             self.currentProjectChanged.emit(None)
 
     def onCloseCurrentProject(self) -> None:
-        tab = cast(ProjectTabPage, self.__project_tabs.currentWidget())
+        idx = self.__project_tabs.currentIndex()
+        tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
         if tab.projectView() is not None:
             self.call_async(tab.closeProject())
         elif tab.projectDebugger() is not None:
             self.call_async(tab.closeDebugger())
+        if self.__project_tabs.count() > 1:
+            self.__project_tabs.removeTab(idx)
 
     def onCurrentProjectTabChanged(self, idx: int) -> None:
         tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
@@ -595,8 +601,10 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     async def onCloseProjectTab(self, idx: int) -> None:
         tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
         if tab.projectView() is not None:
-            await tab.projectView().cleanup()
-        tab.close()
+            await tab.closeProject()
+        if tab.projectDebugger() is not None:
+            await tab.closeDebugger()
+        self.__project_tabs.removeTab(idx)
 
     def getCurrentProjectView(self) -> Optional[project_view.ProjectView]:
         tab = cast(ProjectTabPage, self.__project_tabs.currentWidget())

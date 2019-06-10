@@ -21,6 +21,7 @@
 # @end:license
 
 import asyncio
+import functools
 import logging
 import os
 import pprint
@@ -54,6 +55,7 @@ from . import settings_dialog
 from . import instrument_list
 from . import instrument_library
 from . import ui_base
+from . import open_project_dialog
 
 logger = logging.getLogger('ui.editor_app')
 
@@ -233,7 +235,7 @@ class EditorApp(ui_base.AbstractEditorApp):
 
         logger.info("Creating initial window...")
         win = await self.createWindow()
-        tab_page = win.addProjectTab("Open project")
+        tab_page = win.addProjectTab()
 
         progress = win.createSetupProgress()
         try:
@@ -275,7 +277,7 @@ class EditorApp(ui_base.AbstractEditorApp):
                     if idx == 0:
                         tab = tab_page
                     else:
-                        tab = win.addProjectTab(path)
+                        tab = win.addProjectTab()
                     if create:
                         self.process.event_loop.create_task(tab.createProject(path))
                         idx += 1
@@ -497,10 +499,24 @@ class EditorApp(ui_base.AbstractEditorApp):
                 raise ValueError(action)
 
     def __newProject(self) -> None:
-        pass
+        win = self.__windows[0]
+        dialog = open_project_dialog.NewProjectDialog(parent=win, context=self.context)
+        dialog.setModal(True)
+        dialog.finished.connect(functools.partial(self.__newProjectDialogDone, dialog, win))
+        dialog.show()
+
+    def __newProjectDialogDone(self, dialog: open_project_dialog.NewProjectDialog, win: editor_window.EditorWindow, result: int) -> None:
+        if result != QtWidgets.QDialog.Accepted:
+            return
+
+        path = dialog.projectPath()
+        tab = win.addProjectTab()
+        self.process.event_loop.create_task(tab.createProject(path))
 
     def __openProject(self) -> None:
-        pass
+        win = self.__windows[0]
+        tab = win.addProjectTab()
+        tab.showOpenDialog()
 
     def __about(self) -> None:
         QtWidgets.QMessageBox.about(
