@@ -253,7 +253,43 @@ class EditorApp(ui_base.AbstractEditorApp):
             with progress.step("Scanning projects..."):
                 self.project_registry = project_registry.ProjectRegistry(context=self.context)
                 await self.project_registry.setup()
-                tab_page.showOpenDialog()
+
+                initial_projects = []
+                if self.paths:
+                    for path in self.paths:
+                        if path.startswith('+'):
+                            initial_projects.append((True, path[1:]))
+                        else:
+                            initial_projects.append((False, path))
+                else:
+                    for path in self.settings.value('opened_projects', []) or []:
+                        initial_projects.append((False, path))
+
+                logger.info(
+                    "Starting with projects:\n%s",
+                    '\n'.join('%s%s' % ('+' if create else '', path)
+                              for create, path in initial_projects))
+
+                idx = 0
+                for create, path in initial_projects:
+                    if idx == 0:
+                        tab = tab_page
+                    else:
+                        tab = win.addProjectTab(path)
+                    if create:
+                        self.process.event_loop.create_task(tab.createProject(path))
+                        idx += 1
+                    else:
+                        try:
+                            project = self.project_registry.getProject(path)
+                        except KeyError:
+                            logging.error("There is no known project at %s", path)
+                        else:
+                            self.process.event_loop.create_task(tab.openProject(project))
+                            idx += 1
+
+                if idx == 0:
+                    tab_page.showOpenDialog()
 
             with progress.step("Scanning nodes and plugins..."):
                 await self.createNodeDB()
@@ -310,18 +346,6 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.show_pipeline_perf_monitor_action.setEnabled(True)
         self.show_stat_monitor_action.setEnabled(True)
         self.setup_complete.set()
-
-        # if self.paths:
-        #     logger.info("Starting with projects from cmdline.")
-        #     for path in self.paths:
-        #         if path.startswith('+'):
-        #             await self.createProject(path[1:])
-        #         else:
-        #             await self.openProject(path)
-        # else:
-        #     reopen_projects = self.settings.value('opened_projects', [])
-        #     for path in reopen_projects or []:
-        #         await self.openProject(path)
 
     async def cleanup(self) -> None:
         logger.info("Cleanup app...")
@@ -550,33 +574,6 @@ class EditorApp(ui_base.AbstractEditorApp):
 
     def clipboardContent(self) -> Any:
         return self.__clipboard
-
-    # async def createProject(self, path: str) -> None:
-    #     project_connection = self.project_registry.add_project(path)
-    #     idx = self.win.addProjectSetupView(project_connection)
-    #     await project_connection.create()
-    #     await self.win.activateProjectView(idx, project_connection)
-    #     self._updateOpenedProjects()
-
-    # async def openProject(self, path: str) -> None:
-    #     project_connection = self.project_registry.add_project(path)
-    #     idx = self.win.addProjectSetupView(project_connection)
-    #     await project_connection.open()
-    #     await self.win.activateProjectView(idx, project_connection)
-    #     self._updateOpenedProjects()
-
-    # def _updateOpenedProjects(self) -> None:
-    #     self.settings.setValue(
-    #         'opened_projects',
-    #         sorted(
-    #             project.path
-    #             for project in self.project_registry.projects.values()
-    #             if project.path))
-
-    # async def removeProject(self, project_connection: project_registry.Project) -> None:
-    #     await self.win.removeProjectView(project_connection)
-    #     await self.project_registry.close_project(project_connection)
-    #     self._updateOpenedProjects()
 
     def crashWithMessage(self, title: str, msg: str) -> None:
         logger.error('%s: %s', title, msg)

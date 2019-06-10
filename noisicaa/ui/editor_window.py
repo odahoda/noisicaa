@@ -122,9 +122,9 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
             project_registry=self.app.project_registry,
             context=self.context)
         dialog.projectSelected.connect(
-            lambda project: self.call_async(self.__projectSelected(project)))
+            lambda project: self.call_async(self.openProject(project)))
         dialog.createProject.connect(
-            lambda path: self.call_async(self.__createProject(path)))
+            lambda path: self.call_async(self.createProject(path)))
         dialog.debugProject.connect(
             lambda path: self.call_async(self.__debugProject(path)))
 
@@ -162,7 +162,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         dialog.finished.connect(lambda result: self.showOpenDialog())
         dialog.show()
 
-    async def __projectSelected(self, project: project_registry_lib.Project) -> None:
+    async def openProject(self, project: project_registry_lib.Project) -> None:
         self.showLoadSpinner("Loading project \"%s\"..." % project.name)
         await self.app.setup_complete.wait()
         try:
@@ -177,7 +177,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
             self.__project_view = view
             self.__setPage(view)
 
-    async def __createProject(self, path: str) -> None:
+    async def createProject(self, path: str) -> None:
         project = project_registry_lib.Project(
             path=path, context=self.context)
         self.showLoadSpinner("Creating project \"%s\"..." % project.name)

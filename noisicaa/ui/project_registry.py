@@ -95,6 +95,9 @@ class Project(ui_base.CommonMixin, Item):
 
         return super().data(role)
 
+    def isOpened(self) -> bool:
+        return self.client is not None
+
     @property
     def name(self) -> str:
         return urllib.parse.unquote(os.path.splitext(os.path.basename(self.path))[0])
@@ -116,6 +119,7 @@ class Project(ui_base.CommonMixin, Item):
         return client
 
     async def open(self) -> None:
+        assert not self.isOpened()
         client = await self.__create_process()
         try:
             await client.open(self.path)
@@ -123,8 +127,10 @@ class Project(ui_base.CommonMixin, Item):
             await client.cleanup()
             raise
         self.client = client
+        self.app.project_registry.updateOpenedProjects()
 
     async def create(self) -> None:
+        assert not self.isOpened()
         client = await self.__create_process()
         try:
             await client.create(self.path)
@@ -132,14 +138,18 @@ class Project(ui_base.CommonMixin, Item):
             await client.cleanup()
             raise
         self.client = client
+        self.app.project_registry.addProject(self)
+        self.app.project_registry.updateOpenedProjects()
 
     async def close(self) -> None:
         if self.client is not None:
             await self.client.close()
             await self.client.cleanup()
             self.client = None
+            self.app.project_registry.updateOpenedProjects()
 
     async def delete(self) -> None:
+        assert not self.isOpened()
         shutil.rmtree(self.path)
 
 
@@ -148,11 +158,13 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         super().__init__(**kwargs)
 
         self.__root = Root()
+        self.__in_cleanup = False
 
     async def setup(self) -> None:
         await self.refresh()
 
     async def cleanup(self) -> None:
+        self.__in_cleanup = True
         for project in self.__root.projects():
             await project.close()
         self.__root = None
@@ -198,19 +210,37 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
 
         for path in new_paths - old_paths:
             logger.info("Adding project at %s...", path)
-
-            idx = 0
-            while idx < len(self.__root.children) and path > self.__root.children[idx].path:
-                idx += 1
-
             project = Project(path=path, context=self.context)
-            project.parent = self.__root
+            self.addProject(project)
 
-            self.beginInsertRows(QtCore.QModelIndex(), idx, idx)
-            self.__root.children.insert(idx, project)
-            for idx, item in enumerate(self.__root.children[idx:], idx):
-                item.index = idx
-            self.endInsertRows()
+    def getProject(self, path: str) -> Project:
+        path = os.path.expanduser(path)
+        path = os.path.abspath(path)
+        for project in self.projects():
+            if project.path == path:
+                return project
+        raise KeyError("No known project at '%s'" % path)
+
+    def addProject(self, project: Project) -> None:
+        idx = 0
+        while idx < len(self.__root.children) and project.path > self.__root.children[idx].path:
+            idx += 1
+
+        project.parent = self.__root
+
+        self.beginInsertRows(QtCore.QModelIndex(), idx, idx)
+        self.__root.children.insert(idx, project)
+        for idx, item in enumerate(self.__root.children[idx:], idx):
+            item.index = idx
+        self.endInsertRows()
+
+    def updateOpenedProjects(self) -> None:
+        if self.__in_cleanup:
+            return
+        opened_project_paths = sorted(
+            project.path for project in self.projects() if project.isOpened())
+        logger.info("Currently opened projects:\n%s", '\n'.join(opened_project_paths))
+        self.app.settings.setValue('opened_projects', opened_project_paths)
 
     def item(self, index: QtCore.QModelIndex = QtCore.QModelIndex()) -> Item:
         if not index.isValid():
