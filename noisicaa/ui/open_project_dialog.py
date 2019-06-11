@@ -291,6 +291,8 @@ class NewProjectDialog(ui_base.CommonMixin, QtWidgets.QDialog):
 
         self.__name_seed = random.randint(0, 1000000)
         self.__generateName()
+        self.__name.setFocus()
+        self.__name.selectAll()
 
         l4 = QtWidgets.QHBoxLayout()
         l4.addWidget(self.__name, 1)

@@ -165,6 +165,9 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         buttons = QtWidgets.QMessageBox.StandardButtons()
         buttons |= QtWidgets.QMessageBox.Close
         dialog.setStandardButtons(buttons)
+        # TODO: Even with the size grip enabled, the dialog window is not resizable.
+        # Might be a bug in Qt: https://bugreports.qt.io/browse/QTBUG-41932
+        dialog.setSizeGripEnabled(True)
         dialog.setModal(True)
         dialog.finished.connect(lambda result: self.showOpenDialog())
         dialog.show()
