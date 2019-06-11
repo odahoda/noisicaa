@@ -809,7 +809,7 @@ class SubprocessMixin(ProcessBase):
 
         self.manager_address = manager_address
         self.pid = os.getpid()
-        self.executor = None
+        self.executor = None  # type: concurrent.futures.ThreadPoolExecutor
 
     @staticmethod
     def entry(argv: List[str]) -> None:

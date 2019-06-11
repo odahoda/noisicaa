@@ -30,7 +30,6 @@ from typing import cast, Any, List, Iterable, Iterator
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
-from PyQt5 import QtGui
 
 from noisicaa.core.typing_extra import down_cast
 from noisicaa import music
@@ -48,15 +47,14 @@ class Item(QtCore.QObject):
         super().__init__()
 
         self.path = path
-        self.parent = None  # type: Item
         self.index = 0
-        self.children = []  # type: List[Item]
+        self.childItems = []  # type: List[Item]
 
     def isOpened(self) -> bool:
         return False
 
     def projects(self) -> Iterator['Project']:
-        for child in self.children:
+        for child in self.childItems:
             yield from child.projects()
 
     def data(self, role: int) -> Any:
@@ -201,7 +199,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
             directory = os.path.expanduser(directory)
             directory = os.path.abspath(directory)
             logger.info("Scanning project directory %s...", directory)
-            for dirpath, dirnames, filenames in os.walk(directory):
+            for dirpath, dirnames, _ in os.walk(directory):
                 for dirname in list(dirnames):
                     if os.path.isfile(os.path.join(dirpath, dirname, 'project.noise')):
                         dirnames.remove(dirname)
@@ -224,12 +222,12 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         for path in old_paths - new_paths:
             logger.info("Removing project at %s...", path)
 
-            for idx, project in enumerate(self.__root.children):
+            for idx, project in enumerate(self.__root.childItems):
                 if project.path == path:
                     self.beginRemoveRows(QtCore.QModelIndex(), idx, idx)
-                    del self.__root.children[idx]
-                    for idx, item in enumerate(self.__root.children[idx:], idx):
-                        item.index = idx
+                    del self.__root.childItems[idx]
+                    for i, item in enumerate(self.__root.childItems[idx:], idx):
+                        item.index = i
                     self.endRemoveRows()
                     await project.close()
                     self.contentsChanged.emit()
@@ -250,14 +248,14 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
 
     def addProject(self, project: Project) -> None:
         idx = 0
-        while idx < len(self.__root.children) and project.path > self.__root.children[idx].path:
+        while idx < len(self.__root.childItems) and project.path > self.__root.childItems[idx].path:
             idx += 1
 
-        project.parent = self.__root
+        project.setParent(self.__root)
 
         self.beginInsertRows(QtCore.QModelIndex(), idx, idx)
-        self.__root.children.insert(idx, project)
-        for idx, item in enumerate(self.__root.children[idx:], idx):
+        self.__root.childItems.insert(idx, project)
+        for idx, item in enumerate(self.__root.childItems[idx:], idx):
             item.index = idx
         self.endInsertRows()
 
@@ -273,7 +271,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         logger.info("Currently opened projects:\n%s", '\n'.join(opened_project_paths))
         self.app.settings.setValue('opened_projects', opened_project_paths)
 
-    def __projectChanged(self, project: Project):
+    def __projectChanged(self, project: Project) -> None:
         index = self.index(project.index)
         self.dataChanged.emit(index, index)
 
@@ -290,7 +288,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
             return QtCore.QModelIndex()
 
         parent_item = self.item(parent)
-        return self.createIndex(row, column, parent_item.children[row])
+        return self.createIndex(row, column, parent_item.childItems[row])
 
     def parent(self, index: QtCore.QModelIndex) -> QtCore.QModelIndex:  # type: ignore
         if not index.isValid():
@@ -300,7 +298,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         if item is self.__root:
             return QtCore.QModelIndex()
 
-        return self.createIndex(item.parent.index, 0, item.parent)
+        return self.createIndex(item.parent().index, 0, item.parent())
 
     def columnCount(self, parent: QtCore.QModelIndex = QtCore.QModelIndex()) -> int:
         return 1
@@ -309,7 +307,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         parent_item = self.item(parent)
         if parent_item is None:
             return 0
-        return len(parent_item.children)
+        return len(parent_item.childItems)
 
     def flags(self, index: QtCore.QModelIndex) -> Qt.ItemFlags:
         return self.item(index).flags()

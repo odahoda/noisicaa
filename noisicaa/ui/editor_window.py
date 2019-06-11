@@ -26,7 +26,7 @@ import logging
 import time
 import traceback
 import typing
-from typing import cast, Any, Optional, Callable
+from typing import cast, Any, Optional, Callable, Generator
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -74,7 +74,7 @@ class SetupProgressWidget(QtWidgets.QWidget):
         self.__bar.setRange(0, num_steps)
 
     @contextlib.contextmanager
-    def step(self, message: str) -> None:
+    def step(self, message: str) -> Generator:
         self.__step += 1
         self.__bar.setValue(self.__step)
         self.__message.setText("Initializing noisicaä: %s" % message)
@@ -105,7 +105,12 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
     def projectDebugger(self) -> Optional[project_debugger.ProjectDebugger]:
         return self.__project_debugger
 
-    def __setPage(self, name: str, page: QtWidgets.QWidget, cleanup_func: Callable[[], None] = None) -> None:
+    def __setPage(
+            self,
+            name: str,
+            page: QtWidgets.QWidget,
+            cleanup_func: Callable[[], None] = None
+    ) -> None:
         if self.__page is not None:
             self.__layout.removeWidget(self.__page)
             self.__page.setParent(None)
@@ -122,7 +127,6 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
     def showOpenDialog(self) -> None:
         dialog = open_project_dialog.OpenProjectDialog(
             parent=self,
-            project_registry=self.app.project_registry,
             context=self.context)
         dialog.projectSelected.connect(
             lambda project: self.call_async(self.openProject(project)))
@@ -170,7 +174,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         await self.app.setup_complete.wait()
         try:
             await project.open()
-        except Exception as exc:  # pylint: disable=bare-except
+        except Exception as exc:  # pylint: disable=broad-except
             self.__projectErrorDialog(
                 exc, "Failed to open project \"%s\"." % project.name)
 
@@ -188,7 +192,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         try:
             await project.create()
 
-        except:  # pylint: disable=bare-except
+        except Exception as exc:  # pylint: disable=broad-except
             self.__projectErrorDialog(
                 exc, "Failed to create project \"%s\"." % project.name)
 

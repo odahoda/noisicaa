@@ -505,7 +505,12 @@ class EditorApp(ui_base.AbstractEditorApp):
         dialog.finished.connect(functools.partial(self.__newProjectDialogDone, dialog, win))
         dialog.show()
 
-    def __newProjectDialogDone(self, dialog: open_project_dialog.NewProjectDialog, win: editor_window.EditorWindow, result: int) -> None:
+    def __newProjectDialogDone(
+            self,
+            dialog: open_project_dialog.NewProjectDialog,
+            win: editor_window.EditorWindow,
+            result: int
+    ) -> None:
         if result != QtWidgets.QDialog.Accepted:
             return
 

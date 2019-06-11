@@ -27,13 +27,13 @@ from . import project_registry
 
 class OpenProjectDialogTest(uitest.UITestCase):
     async def test_show(self):
-        registry = project_registry.ProjectRegistry(context=self.context)
-        await registry.setup()
+        self.app.project_registry = project_registry.ProjectRegistry(context=self.context)
+        await self.app.project_registry.setup()
         try:
             dialog = open_project_dialog.OpenProjectDialog(
-                project_registry=registry,
                 context=self.context)
             dialog.show()
+            dialog.hide()
 
         finally:
-            await registry.cleanup()
+            await self.app.project_registry.cleanup()

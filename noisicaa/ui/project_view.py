@@ -45,7 +45,7 @@ from .track_list import measured_track_editor
 logger = logging.getLogger(__name__)
 
 
-class ProjectView(ui_base.AbstractProjectView, QtWidgets.QWidget):
+class ProjectView(ui_base.AbstractProjectView):
     playingChanged = QtCore.pyqtSignal(bool)
     loopEnabledChanged = QtCore.pyqtSignal(bool)
 

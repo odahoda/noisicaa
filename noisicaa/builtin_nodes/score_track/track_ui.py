@@ -69,9 +69,9 @@ class ScoreToolBase(measured_track_editor.MeasuredToolBase):
 
         self._updateGhost(target, evt.pos())
 
-        ymid = target.height() // 2
-        stave_line = (
-            int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line)
+        # ymid = target.height() // 2
+        # stave_line = (
+        #     int(ymid + 5 - evt.pos().y()) // 10 + target.measure.clef.center_pitch.stave_line)
 
         # idx, _, _ = target.getEditArea(evt.pos().x())
         # if idx < 0:

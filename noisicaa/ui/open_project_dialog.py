@@ -25,7 +25,6 @@ import functools
 import logging
 import os.path
 import random
-import time
 from typing import Any, Dict, List
 
 from PyQt5.QtCore import Qt
@@ -95,20 +94,27 @@ class ItemDelegate(QtWidgets.QAbstractItemDelegate):
     def __init__(self) -> None:
         super().__init__()
 
-        self.__widgets = {}  # type: Dict[QtCore.QModelIndex, QtWidgets.QWidget]
+        self.__widgets = {}  # type: Dict[str, QtWidgets.QWidget]
 
     def __getWidget(self, index: QtCore.QModelIndex) -> QtWidgets.QWidget:
         item = index.model().item(index)
-        if item.path not in self.__widgets:
+        if item is None:
+            logger.error("Index without item: %d,%d", index.row(), index.column())
+            path = '<invalid>'
+        else:
+            path = item.path
+
+        if path not in self.__widgets:
+            widget = None  # type: QtWidgets.QWidget
             if isinstance(item, project_registry_lib.Project):
                 widget = ProjectItem(item)
-            elif isinstance(item, project_registry_lib.Root):
+            elif isinstance(item, project_registry_lib.Root) or item is None:
                 widget = QtWidgets.QWidget()
             else:
-                raise TypeError("%s: %s" % (item.path, type(item)))
-            self.__widgets[item.path] = widget
+                raise TypeError("%s: %s" % (path, type(item)))
+            self.__widgets[path] = widget
 
-        return self.__widgets[item.path]
+        return self.__widgets[path]
 
     def paint(
             self,
@@ -116,8 +122,6 @@ class ItemDelegate(QtWidgets.QAbstractItemDelegate):
             option: QtWidgets.QStyleOptionViewItem,
             index: QtCore.QModelIndex
     ) -> None:
-        item = index.model().item(index)
-
         widget = self.__getWidget(index)
         widget.resize(option.rect.size())
         widget.updateContents()
@@ -351,18 +355,11 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
     createProject = QtCore.pyqtSignal(str)
     debugProject = QtCore.pyqtSignal(project_registry_lib.Project)
 
-    def __init__(
-            self, *,
-            project_registry: project_registry_lib.ProjectRegistry,
-            **kwargs: Any,
-    ) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__project_registry = project_registry
-        self.__project_registry.contentsChanged.connect(self.__updateButtons)
-
         self.__filter_model = FilterModel()
-        self.__filter_model.setSourceModel(FlatProjectListModel(self.__project_registry))
+        self.__filter_model.setSourceModel(FlatProjectListModel(self.app.project_registry))
         self.__filter_model.setSortRole(project_registry_lib.Project.NameRole)
         self.__filter_model.setSortCaseSensitivity(Qt.CaseInsensitive)
         self.__filter_model.sort(0, Qt.AscendingOrder)
@@ -435,6 +432,7 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__list.itemDoubleClicked.connect(self.__itemDoubleClicked)
 
         self.__updateButtons()
+        self.app.project_registry.contentsChanged.connect(self.__updateButtons)
 
         l4 = QtWidgets.QHBoxLayout()
         l4.setContentsMargins(0, 0, 0, 0)
@@ -543,7 +541,7 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
 
         self.setDisabled(True)
         await project.delete()
-        await self.__project_registry.refresh()
+        await self.app.project_registry.refresh()
         self.setDisabled(False)
 
     def __debuggerClicked(self) -> None:

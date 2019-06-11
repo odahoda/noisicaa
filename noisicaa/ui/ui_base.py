@@ -42,7 +42,8 @@ if typing.TYPE_CHECKING:
     from noisicaa import runtime_settings as runtime_settings_lib
     from noisicaa import lv2
     from . import instrument_list as instrument_list_lib
-    from . import project_registry
+    from . import project_registry as project_registry_lib
+    from . import editor_window
 
 
 class CommonContext(object):
@@ -124,7 +125,7 @@ class CommonMixin(object):
 class ProjectContext(CommonContext):
     def __init__(
             self, *,
-            project_connection: 'project_registry.Project',
+            project_connection: 'project_registry_lib.Project',
             selection_set: selection_set_lib.SelectionSet,
             project_view: 'AbstractProjectView',
             **kwargs: Any) -> None:
@@ -142,7 +143,7 @@ class ProjectContext(CommonContext):
         return self.__project_view
 
     @property
-    def project_connection(self) -> 'project_registry.Project':
+    def project_connection(self) -> 'project_registry_lib.Project':
         return self.__project_connection
 
     @property
@@ -174,7 +175,7 @@ class ProjectMixin(CommonMixin):
         return self._context.selection_set
 
     @property
-    def project_connection(self) -> 'project_registry.Project':
+    def project_connection(self) -> 'project_registry_lib.Project':
         return self._context.project_connection
 
     @property
@@ -206,7 +207,7 @@ class ProjectMixin(CommonMixin):
         return self._context.add_session_listener(key, listener)
 
 
-class AbstractProjectView(ProjectMixin):
+class AbstractProjectView(ProjectMixin, QtWidgets.QWidget):
     async def createPluginUI(self, node_id: str) -> Tuple[int, Tuple[int, int]]:
         raise NotImplementedError
 
@@ -252,6 +253,8 @@ class AbstractEditorApp(object):
     qt_app = None  # type: QtWidgets.QApplication
     devices = None  # type: device_list.DeviceList
     instrument_list = None  # type: instrument_list_lib.InstrumentList
+    project_registry = None  # type: project_registry_lib.ProjectRegistry
+    setup_complete = None  # type: asyncio.Event
 
     def quit(self, exit_code: int = 0) -> None:
         raise NotImplementedError
@@ -263,4 +266,7 @@ class AbstractEditorApp(object):
         raise NotImplementedError
 
     def clipboardContent(self) -> Any:
+        raise NotImplementedError
+
+    async def deleteWindow(self, win: 'editor_window.EditorWindow') -> None:
         raise NotImplementedError
