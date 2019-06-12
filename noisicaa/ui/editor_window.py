@@ -84,6 +84,8 @@ class SetupProgressWidget(QtWidgets.QWidget):
 
 
 class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
+    currentPageChanged = QtCore.pyqtSignal(QtWidgets.QWidget)
+
     def __init__(self, parent: QtWidgets.QTabWidget, **kwargs: Any) -> None:
         super().__init__(parent=parent, **kwargs)
 
@@ -105,6 +107,9 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
     def projectDebugger(self) -> Optional[project_debugger.ProjectDebugger]:
         return self.__project_debugger
 
+    def page(self) -> QtWidgets.QWidget:
+        return self.__page
+
     def __setPage(
             self,
             name: str,
@@ -123,6 +128,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__layout.addWidget(page)
         self.__page = page
         self.__page_cleanup_func = cleanup_func
+        self.currentPageChanged.emit(self.__page)
 
     def showOpenDialog(self) -> None:
         dialog = open_project_dialog.OpenProjectDialog(
@@ -146,6 +152,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         l2.addStretch(1)
 
         page = QtWidgets.QWidget(self)
+        page.setObjectName('open-project')
         page.setLayout(l2)
 
         self.__setPage("Open project...", page, dialog.cleanup)
@@ -154,6 +161,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         logger.error(traceback.format_exc())
 
         dialog = QtWidgets.QMessageBox(self)
+        dialog.setObjectName('project-open-error')
         dialog.setWindowTitle("noisicaä - Error")
         dialog.setIcon(QtWidgets.QMessageBox.Critical)
         dialog.setText(message)
@@ -183,6 +191,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
 
         else:
             view = project_view.ProjectView(project_connection=project, context=self.context)
+            view.setObjectName('project-view')
             await view.setup()
             self.__project_view = view
             self.__setPage(project.name, view)
@@ -202,6 +211,7 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         else:
             await self.app.project_registry.refresh()
             view = project_view.ProjectView(project_connection=project, context=self.context)
+            view.setObjectName('project-view')
             await view.setup()
             self.__project_view = view
             self.__setPage(project.name, view)
@@ -210,12 +220,14 @@ class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
         self.showLoadSpinner(project.name, "Loading project \"%s\"..." % project.name)
         await self.app.setup_complete.wait()
         debugger = project_debugger.ProjectDebugger(project=project, context=self.context)
+        debugger.setObjectName('project-debugger')
         await debugger.setup()
         self.__project_debugger = debugger
         self.__setPage(project.name, debugger)
 
     def showLoadSpinner(self, name: str, message: str) -> None:
         page = QtWidgets.QWidget(self)
+        page.setObjectName('load-spinner')
 
         label = QtWidgets.QLabel(page)
         label.setText(message)
@@ -283,6 +295,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self.loopEnabledChanged.connect(self.onLoopEnabledChanged)
 
         self.__project_tabs = QtWidgets.QTabWidget(self)
+        self.__project_tabs.setObjectName('project-tabs')
         self.__project_tabs.setTabBarAutoHide(True)
         self.__project_tabs.setUsesScrollButtons(True)
         self.__project_tabs.setTabsClosable(True)
@@ -379,6 +392,7 @@ class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
         self._render_action.triggered.connect(self.onRender)
 
         self._close_current_project_action = QtWidgets.QAction("Close", self)
+        self._close_current_project_action.setObjectName('close-project')
         self._close_current_project_action.setShortcut(QtGui.QKeySequence.Close)
         self._close_current_project_action.setStatusTip("Close the current project")
         self._close_current_project_action.triggered.connect(self.onCloseCurrentProject)

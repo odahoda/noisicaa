@@ -360,6 +360,8 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
+        self.setObjectName('open-project-dialog')
+
         self.__filter_model = FilterModel()
         self.__filter_model.setSourceModel(FlatProjectListModel(self.app.project_registry))
         self.__filter_model.setSortRole(project_registry_lib.Project.NameRole)
@@ -399,6 +401,7 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__updateSort()
 
         self.__open_button = QtWidgets.QPushButton(self)
+        self.__open_button.setObjectName('open')
         self.__open_button.setIcon(QtGui.QIcon.fromTheme('document-open'))
         self.__open_button.setText("Open")
         self.__open_button.clicked.connect(self.__openClicked)
@@ -429,6 +432,7 @@ class OpenProjectDialog(ui_base.CommonMixin, QtWidgets.QWidget):
         self.__more_button.setMenu(self.__more_menu)
 
         self.__list = ProjectListView(self)
+        self.__list.setObjectName('project-list')
         self.__list.setModel(self.__filter_model)
         self.__list.numProjectsSelected.connect(lambda _: self.__updateButtons())
         self.__list.itemDoubleClicked.connect(self.__itemDoubleClicked)

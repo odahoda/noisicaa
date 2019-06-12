@@ -431,6 +431,9 @@ class EditorApp(ui_base.AbstractEditorApp):
         if not self.__windows:
             self.quit()
 
+    def windows(self) -> List[editor_window.EditorWindow]:
+        return self.__windows
+
     def quit(self, exit_code: int = 0) -> None:
         # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
         #   fix that without a cyclic import.

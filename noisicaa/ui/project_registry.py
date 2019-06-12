@@ -211,8 +211,7 @@ class ProjectRegistry(ui_base.CommonMixin, QtCore.QAbstractItemModel):
         return list(self.__root.projects())
 
     async def refresh(self) -> None:
-        # TODO: get list of directories from settings
-        directories = ['~/Music/Noisicaä']
+        directories = self.app.settings.value('project_folders', ['~/Music/Noisicaä'])
 
         paths = await self.event_loop.run_in_executor(None, self.__scan_projects, directories)
 

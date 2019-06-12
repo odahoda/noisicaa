@@ -25,6 +25,7 @@ add_python_package(
   device_list.py
   dynamic_layout.py
   editor_app.py
+  editor_app_test.py
   editor_window.py
   flowlayout.py
   gain_slider.py
