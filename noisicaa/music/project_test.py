@@ -112,16 +112,16 @@ class ProjectTest(
 
     async def test_create(self):
         p = await project.Project.create_blank(
-            path='/foo.noise',
+            path='/foo',
             pool=self.pool,
             writer=self.writer_client,
             node_db=self.node_db)
         await p.close()
 
-        self.assertTrue(self.fake_os.path.isfile('/foo.noise'))
-        self.assertTrue(self.fake_os.path.isdir('/foo.data'))
+        self.assertTrue(self.fake_os.path.isdir('/foo'))
+        self.assertTrue(self.fake_os.path.isfile('/foo/project.noise'))
 
-        f = fileutil.File('/foo.noise')
+        f = fileutil.File('/foo/project.noise')
         file_info, contents = f.read_json()
         self.assertEqual(file_info.version, 1)
         self.assertEqual(file_info.filetype, 'project-header')
@@ -155,7 +155,7 @@ class ProjectTest(
 
     async def test_create_checkpoint(self):
         p = await project.Project.create_blank(
-            path='/foo.noise',
+            path='/foo',
             pool=self.pool,
             writer=self.writer_client,
             node_db=self.node_db)
@@ -165,7 +165,7 @@ class ProjectTest(
             await p.close()
 
         self.assertTrue(
-            self.fake_os.path.isfile('/foo.data/checkpoint.000001'))
+            self.fake_os.path.isfile('/foo/checkpoint.000001'))
 
     async def test_merge_mutations(self):
         p = await project.Project.create_blank(

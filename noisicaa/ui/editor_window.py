@@ -20,27 +20,28 @@
 #
 # @end:license
 
+import asyncio
+import contextlib
 import logging
-import textwrap
+import time
+import traceback
 import typing
-from typing import cast, Any, Optional, Iterator
+from typing import cast, Any, Optional, Callable, Generator
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
-from noisicaa import constants
+from noisicaa.core import storage
 from noisicaa import audioproc
-from noisicaa import music
-from ..exceptions import RestartAppException, RestartAppCleanException
-from .settings import SettingsDialog
-from .project_view import ProjectView
+from . import project_view
+from . import project_debugger
 from . import ui_base
-from . import instrument_library
 from . import qprogressindicator
-from . import project_registry
+from . import project_registry as project_registry_lib
 from . import load_history
+from . import open_project_dialog
 
 if typing.TYPE_CHECKING:
     from noisicaa import core
@@ -48,29 +49,242 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class EditorWindow(ui_base.AbstractEditorWindow):
+class SetupProgressWidget(QtWidgets.QWidget):
+    def __init__(self, parent: QtWidgets.QWidget) -> None:
+        super().__init__(parent)
+
+        self.__step = 0
+        self.__num_steps = 1
+
+        self.__message = QtWidgets.QLabel(self)
+        message_font = QtGui.QFont(self.__message.font())
+        message_font.setBold(True)
+        self.__message.setFont(message_font)
+        self.__message.setText("Initializing noisicaä...")
+        self.__bar = QtWidgets.QProgressBar(self)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(8, 4, 8, 4)
+        layout.addWidget(self.__message)
+        layout.addWidget(self.__bar)
+        self.setLayout(layout)
+
+    def setNumSteps(self, num_steps: int) -> None:
+        self.__num_steps = num_steps
+        self.__bar.setRange(0, num_steps)
+
+    @contextlib.contextmanager
+    def step(self, message: str) -> Generator:
+        self.__step += 1
+        self.__bar.setValue(self.__step)
+        self.__message.setText("Initializing noisicaä: %s" % message)
+        yield
+        if self.__step == self.__num_steps:
+            self.__message.setText("Initialization complete.")
+
+
+class ProjectTabPage(ui_base.CommonMixin, QtWidgets.QWidget):
+    currentPageChanged = QtCore.pyqtSignal(QtWidgets.QWidget)
+
+    def __init__(self, parent: QtWidgets.QTabWidget, **kwargs: Any) -> None:
+        super().__init__(parent=parent, **kwargs)
+
+        self.__tab_widget = parent
+
+        self.__page = None  # type: QtWidgets.QWidget
+        self.__page_cleanup_func = None  # type: Callable[[], None]
+
+        self.__project_view = None  # type: project_view.ProjectView
+        self.__project_debugger = None  # type: project_debugger.ProjectDebugger
+
+        self.__layout = QtWidgets.QVBoxLayout()
+        self.__layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(self.__layout)
+
+    def projectView(self) -> Optional[project_view.ProjectView]:
+        return self.__project_view
+
+    def projectDebugger(self) -> Optional[project_debugger.ProjectDebugger]:
+        return self.__project_debugger
+
+    def page(self) -> QtWidgets.QWidget:
+        return self.__page
+
+    def __setPage(
+            self,
+            name: str,
+            page: QtWidgets.QWidget,
+            cleanup_func: Callable[[], None] = None
+    ) -> None:
+        if self.__page is not None:
+            self.__layout.removeWidget(self.__page)
+            self.__page.setParent(None)
+            self.__page = None
+            if self.__page_cleanup_func is not None:
+                self.__page_cleanup_func()
+                self.__page_cleanup_func = None
+
+        self.__tab_widget.setTabText(self.__tab_widget.indexOf(self), name)
+        self.__layout.addWidget(page)
+        self.__page = page
+        self.__page_cleanup_func = cleanup_func
+        self.currentPageChanged.emit(self.__page)
+
+    def showOpenDialog(self) -> None:
+        dialog = open_project_dialog.OpenProjectDialog(
+            parent=self,
+            context=self.context)
+        dialog.projectSelected.connect(
+            lambda project: self.call_async(self.openProject(project)))
+        dialog.createProject.connect(
+            lambda path: self.call_async(self.createProject(path)))
+        dialog.debugProject.connect(
+            lambda path: self.call_async(self.__debugProject(path)))
+
+        l1 = QtWidgets.QVBoxLayout()
+        l1.addSpacing(32)
+        l1.addWidget(dialog, 6)
+        l1.addStretch(1)
+
+        l2 = QtWidgets.QHBoxLayout()
+        l2.addStretch(1)
+        l2.addLayout(l1, 3)
+        l2.addStretch(1)
+
+        page = QtWidgets.QWidget(self)
+        page.setObjectName('open-project')
+        page.setLayout(l2)
+
+        self.__setPage("Open project...", page, dialog.cleanup)
+
+    def __projectErrorDialog(self, exc: Exception, message: str) -> None:
+        logger.error(traceback.format_exc())
+
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setObjectName('project-open-error')
+        dialog.setWindowTitle("noisicaä - Error")
+        dialog.setIcon(QtWidgets.QMessageBox.Critical)
+        dialog.setText(message)
+        if isinstance(exc, storage.Error):
+            dialog.setInformativeText(str(exc))
+        else:
+            dialog.setInformativeText("Internal error: %s" % type(exc).__name__)
+        dialog.setDetailedText(traceback.format_exc())
+        buttons = QtWidgets.QMessageBox.StandardButtons()
+        buttons |= QtWidgets.QMessageBox.Close
+        dialog.setStandardButtons(buttons)
+        # TODO: Even with the size grip enabled, the dialog window is not resizable.
+        # Might be a bug in Qt: https://bugreports.qt.io/browse/QTBUG-41932
+        dialog.setSizeGripEnabled(True)
+        dialog.setModal(True)
+        dialog.finished.connect(lambda result: self.showOpenDialog())
+        dialog.show()
+
+    async def openProject(self, project: project_registry_lib.Project) -> None:
+        self.showLoadSpinner(project.name, "Loading project \"%s\"..." % project.name)
+        await self.app.setup_complete.wait()
+        try:
+            await project.open()
+        except Exception as exc:  # pylint: disable=broad-except
+            self.__projectErrorDialog(
+                exc, "Failed to open project \"%s\"." % project.name)
+
+        else:
+            view = project_view.ProjectView(project_connection=project, context=self.context)
+            view.setObjectName('project-view')
+            await view.setup()
+            self.__project_view = view
+            self.__setPage(project.name, view)
+
+    async def createProject(self, path: str) -> None:
+        project = project_registry_lib.Project(
+            path=path, context=self.context)
+        self.showLoadSpinner(project.name, "Creating project \"%s\"..." % project.name)
+        await self.app.setup_complete.wait()
+        try:
+            await project.create()
+
+        except Exception as exc:  # pylint: disable=broad-except
+            self.__projectErrorDialog(
+                exc, "Failed to create project \"%s\"." % project.name)
+
+        else:
+            await self.app.project_registry.refresh()
+            view = project_view.ProjectView(project_connection=project, context=self.context)
+            view.setObjectName('project-view')
+            await view.setup()
+            self.__project_view = view
+            self.__setPage(project.name, view)
+
+    async def __debugProject(self, project: project_registry_lib.Project) -> None:
+        self.showLoadSpinner(project.name, "Loading project \"%s\"..." % project.name)
+        await self.app.setup_complete.wait()
+        debugger = project_debugger.ProjectDebugger(project=project, context=self.context)
+        debugger.setObjectName('project-debugger')
+        await debugger.setup()
+        self.__project_debugger = debugger
+        self.__setPage(project.name, debugger)
+
+    def showLoadSpinner(self, name: str, message: str) -> None:
+        page = QtWidgets.QWidget(self)
+        page.setObjectName('load-spinner')
+
+        label = QtWidgets.QLabel(page)
+        label.setText(message)
+
+        wheel = qprogressindicator.QProgressIndicator(page)
+        wheel.setMinimumSize(48, 48)
+        wheel.setMaximumSize(48, 48)
+        wheel.setAnimationDelay(100)
+        wheel.startAnimation()
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.addStretch(2)
+        layout.addWidget(label, 0, Qt.AlignHCenter)
+        layout.addSpacing(10)
+        layout.addWidget(wheel, 0, Qt.AlignHCenter)
+        layout.addStretch(3)
+        page.setLayout(layout)
+
+        self.__setPage(name, page)
+
+    async def closeProject(self) -> None:
+        assert self.__project_view
+        project = self.__project_view.project_connection
+        self.showLoadSpinner(project.name, "Closing project \"%s\"..." % project.name)
+        await self.__project_view.cleanup()
+        self.__project_view = None
+        await project.close()
+        self.showOpenDialog()
+
+    async def closeDebugger(self) -> None:
+        assert self.__project_debugger
+        project = self.__project_debugger.project
+        self.showLoadSpinner(project.name, "Closing project \"%s\"..." % project.name)
+        await self.__project_debugger.cleanup()
+        self.__project_debugger = None
+        self.showOpenDialog()
+
+
+class EditorWindow(ui_base.CommonMixin, QtWidgets.QMainWindow):
     # Could not figure out how to define a signal that takes either an instance
     # of a specific class or None.
     currentProjectChanged = QtCore.pyqtSignal(object)
-    currentTrackChanged = QtCore.pyqtSignal(object)
     playingChanged = QtCore.pyqtSignal(bool)
     loopEnabledChanged = QtCore.pyqtSignal(bool)
-    projectListChanged = QtCore.pyqtSignal()
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__engine_state_listener = None  # type: core.Listener[audioproc.EngineStateChange]
 
-        self._settings_dialog = SettingsDialog(parent=self, context=self.context)
-
-        self._instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
-            context=self.context, parent=self)
-
-        self._current_project_view = None  # type: Optional[ProjectView]
+        self.__current_project_view = None  # type: Optional[project_view.ProjectView]
 
         self.setWindowTitle("noisicaä")
         self.resize(1200, 800)
+
+        self.__setup_progress = None  # type: SetupProgressWidget
+        self.__setup_progress_fade_task = None  # type: asyncio.Task
 
         self.createActions()
         self.createMenus()
@@ -80,22 +294,24 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         self.playingChanged.connect(self.onPlayingChanged)
         self.loopEnabledChanged.connect(self.onLoopEnabledChanged)
 
-        self._project_tabs = QtWidgets.QTabWidget(self)
-        self._project_tabs.setTabBarAutoHide(True)
-        self._project_tabs.setUsesScrollButtons(True)
-        self._project_tabs.setTabsClosable(True)
-        self._project_tabs.setMovable(True)
-        self._project_tabs.setDocumentMode(True)
-        self._project_tabs.tabCloseRequested.connect(self.onCloseProjectTab)
-        self._project_tabs.currentChanged.connect(self.onCurrentProjectTabChanged)
+        self.__project_tabs = QtWidgets.QTabWidget(self)
+        self.__project_tabs.setObjectName('project-tabs')
+        self.__project_tabs.setTabBarAutoHide(True)
+        self.__project_tabs.setUsesScrollButtons(True)
+        self.__project_tabs.setTabsClosable(True)
+        self.__project_tabs.setMovable(True)
+        self.__project_tabs.setDocumentMode(True)
+        self.__project_tabs.tabCloseRequested.connect(
+            lambda idx: self.call_async(self.onCloseProjectTab(idx)))
+        self.__project_tabs.currentChanged.connect(self.onCurrentProjectTabChanged)
 
-        self._start_view = self.createStartView()
+        self.__main_layout = QtWidgets.QVBoxLayout()
+        self.__main_layout.setContentsMargins(0, 0, 0, 0)
+        self.__main_layout.addWidget(self.__project_tabs)
 
-        self._main_area = QtWidgets.QStackedWidget(self)
-        self._main_area.addWidget(self._project_tabs)
-        self._main_area.addWidget(self._start_view)
-        self._main_area.setCurrentIndex(1)
-        self.setCentralWidget(self._main_area)
+        self.__main_area = QtWidgets.QWidget()
+        self.__main_area.setLayout(self.__main_layout)
+        self.setCentralWidget(self.__main_area)
 
         self.restoreGeometry(
             self.app.settings.value('mainwindow/geometry', b''))
@@ -103,66 +319,83 @@ class EditorWindow(ui_base.AbstractEditorWindow):
             self.app.settings.value('mainwindow/state', b''))
 
     async def setup(self) -> None:
-        self.__engine_state_listener = self.audioproc_client.engine_state_changed.add(
-            self.__engineStateChanged)
-
-        await self._instrument_library_dialog.setup()
+        self.show()
 
     async def cleanup(self) -> None:
-        await self._instrument_library_dialog.cleanup()
+        self.hide()
+
+        if self.__setup_progress_fade_task is not None:
+            self.__setup_progress_fade_task.cancel()
+            try:
+                await self.__setup_progress_fade_task
+            except asyncio.CancelledError:
+                pass
+            self.__setup_progress_fade_task = None
 
         if self.__engine_state_listener is not None:
             self.__engine_state_listener.remove()
             self.__engine_state_listener = None
 
-        self.hide()
-
-        while self._project_tabs.count() > 0:
-            view = self._project_tabs.widget(0)
-            if isinstance(view, ProjectView):
+        while self.__project_tabs.count() > 0:
+            tab = cast(ProjectTabPage, self.__project_tabs.widget(0))
+            view = tab.projectView()
+            if view is not None:
                 await view.cleanup()
-            self._project_tabs.removeTab(0)
-        self._settings_dialog.close()
-        self.close()
+            self.__project_tabs.removeTab(0)
 
-    def createStartView(self) -> QtWidgets.QWidget:
-        view = QtWidgets.QWidget(self)
+    def audioprocReady(self) -> None:
+        self.__engine_state_listener = self.audioproc_client.engine_state_changed.add(
+            self.__engineStateChanged)
 
-        gscene = QtWidgets.QGraphicsScene()
-        gscene.addText("Some fancy logo goes here")
+    def createSetupProgress(self) -> SetupProgressWidget:
+        assert self.__setup_progress is None
 
-        gview = QtWidgets.QGraphicsView(self)
-        gview.setBackgroundRole(QtGui.QPalette.Window)
-        gview.setFrameShape(QtWidgets.QFrame.NoFrame)
-        gview.setBackgroundBrush(QtGui.QBrush(Qt.NoBrush))
-        gview.setScene(gscene)
+        self.__setup_progress = SetupProgressWidget(self.__main_area)
+        self.__main_layout.addWidget(self.__setup_progress)
 
-        layout = QtWidgets.QVBoxLayout()
-        layout.addWidget(gview)
-        view.setLayout(layout)
+        return self.__setup_progress
 
-        return view
+    def deleteSetupProgress(self) -> None:
+        if self.__setup_progress is not None and self.__setup_progress_fade_task is None:
+            self.__setup_progress_fade_task = self.event_loop.create_task(
+                self.__fadeSetupProgress())
+            self.__setup_progress_fade_task.add_done_callback(self.__fadeSetupProgressDone)
+
+    async def __fadeSetupProgress(self) -> None:
+        eff = QtWidgets.QGraphicsOpacityEffect()
+        self.__setup_progress.setGraphicsEffect(eff)
+
+        eff.setOpacity(1.0)
+        t0 = time.time()
+        while eff.opacity() > 0.0:
+            await asyncio.sleep(0.05, loop=self.event_loop)
+            eff.setOpacity(1.0 - 2.0 * (time.time() - t0))
+
+        self.__main_layout.removeWidget(self.__setup_progress)
+        self.__setup_progress.setParent(None)
+        self.__setup_progress = None
+
+    def __fadeSetupProgressDone(self, task: asyncio.Task) -> None:
+        if not task.cancelled():
+            task.result()
+        self.__setup_progress_fade_task = None
+
+    def addProjectTab(self) -> ProjectTabPage:
+        page = ProjectTabPage(parent=self.__project_tabs, context=self.context)
+        idx = self.__project_tabs.addTab(page, '')
+        self.__project_tabs.setCurrentIndex(idx)
+        return page
 
     def createActions(self) -> None:
-        self._new_project_action = QtWidgets.QAction("New", self)
-        self._new_project_action.setShortcut(QtGui.QKeySequence.New)
-        self._new_project_action.setStatusTip("Create a new project")
-        self._new_project_action.triggered.connect(self.onNewProject)
-
-        self._open_project_action = QtWidgets.QAction("Open", self)
-        self._open_project_action.setShortcut(QtGui.QKeySequence.Open)
-        self._open_project_action.setStatusTip("Open an existing project")
-        self._open_project_action.triggered.connect(self.onOpenProject)
-
         self._render_action = QtWidgets.QAction("Render", self)
         self._render_action.setStatusTip("Render project into an audio file.")
         self._render_action.triggered.connect(self.onRender)
 
         self._close_current_project_action = QtWidgets.QAction("Close", self)
+        self._close_current_project_action.setObjectName('close-project')
         self._close_current_project_action.setShortcut(QtGui.QKeySequence.Close)
         self._close_current_project_action.setStatusTip("Close the current project")
-        self._close_current_project_action.triggered.connect(self.onCloseCurrentProjectTab)
-        self._close_current_project_action.setEnabled(False)
+        self._close_current_project_action.triggered.connect(self.onCloseCurrentProject)
 
         self._undo_action = QtWidgets.QAction("Undo", self)
         self._undo_action.setShortcut(QtGui.QKeySequence.Undo)
@@ -201,45 +434,8 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         self._set_bpm_action.setStatusTip("Set the project's beats per second")
         self._set_bpm_action.triggered.connect(self.onSetBPM)
 
-        self._restart_action = QtWidgets.QAction("Restart", self)
-        self._restart_action.setShortcut("F5")
-        self._restart_action.setShortcutContext(Qt.ApplicationShortcut)
-        self._restart_action.setStatusTip("Restart the application")
-        self._restart_action.triggered.connect(self.restart)
-
-        self._restart_clean_action = QtWidgets.QAction("Restart clean", self)
-        self._restart_clean_action.setShortcut("Ctrl+Shift+F5")
-        self._restart_clean_action.setShortcutContext(Qt.ApplicationShortcut)
-        self._restart_clean_action.setStatusTip("Restart the application in a clean state")
-        self._restart_clean_action.triggered.connect(self.restart_clean)
-
-        self._quit_action = QtWidgets.QAction("Quit", self)
-        self._quit_action.setShortcut(QtGui.QKeySequence.Quit)
-        self._quit_action.setShortcutContext(Qt.ApplicationShortcut)
-        self._quit_action.setStatusTip("Quit the application")
-        self._quit_action.triggered.connect(self.quit)
-
-        self._crash_action = QtWidgets.QAction("Crash", self)
-        self._crash_action.triggered.connect(self.crash)
-
         self._dump_project_action = QtWidgets.QAction("Dump Project", self)
         self._dump_project_action.triggered.connect(self.dumpProject)
-
-        self._about_action = QtWidgets.QAction("About", self)
-        self._about_action.setStatusTip("Show the application's About box")
-        self._about_action.triggered.connect(self.about)
-
-        self._aboutqt_action = QtWidgets.QAction("About Qt", self)
-        self._aboutqt_action.setStatusTip("Show the Qt library's About box")
-        self._aboutqt_action.triggered.connect(self.qt_app.aboutQt)
-
-        self._open_settings_action = QtWidgets.QAction("Settings", self)
-        self._open_settings_action.setStatusTip("Open the settings dialog.")
-        self._open_settings_action.triggered.connect(self.openSettings)
-
-        self._open_instrument_library_action = QtWidgets.QAction("Instrument Library", self)
-        self._open_instrument_library_action.setStatusTip("Open the instrument library dialog.")
-        self._open_instrument_library_action.triggered.connect(self.openInstrumentLibrary)
 
         self._player_move_to_start_action = QtWidgets.QAction("Move to start", self)
         self._player_move_to_start_action.setIcon(QtGui.QIcon.fromTheme('media-skip-backward'))
@@ -276,39 +472,21 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         self._player_loop_action.setCheckable(True)
         self._player_loop_action.toggled.connect(self.onPlayerLoop)
 
-        self._show_pipeline_perf_monitor_action = QtWidgets.QAction(
-            "Pipeline Performance Monitor", self)
-        self._show_pipeline_perf_monitor_action.setCheckable(True)
-        self._show_pipeline_perf_monitor_action.setChecked(
-            self.app.pipeline_perf_monitor.isVisible())
-        self._show_pipeline_perf_monitor_action.toggled.connect(
-            self.app.pipeline_perf_monitor.setVisible)
-        self.app.pipeline_perf_monitor.visibilityChanged.connect(
-            self._show_pipeline_perf_monitor_action.setChecked)
-
-        self._show_stat_monitor_action = QtWidgets.QAction("Stat Monitor", self)
-        self._show_stat_monitor_action.setCheckable(True)
-        self._show_stat_monitor_action.setChecked(self.app.stat_monitor.isVisible())
-        self._show_stat_monitor_action.toggled.connect(
-            self.app.stat_monitor.setVisible)
-        self.app.stat_monitor.visibilityChanged.connect(
-            self._show_stat_monitor_action.setChecked)
-
     def createMenus(self) -> None:
         menu_bar = self.menuBar()
 
         self._project_menu = menu_bar.addMenu("Project")
-        self._project_menu.addAction(self._new_project_action)
-        self._project_menu.addAction(self._open_project_action)
+        self._project_menu.addAction(self.app.new_project_action)
+        self._project_menu.addAction(self.app.open_project_action)
         self._project_menu.addAction(self._close_current_project_action)
         self._project_menu.addSeparator()
         self._project_menu.addAction(self._render_action)
         self._project_menu.addSeparator()
-        self._project_menu.addAction(self._open_instrument_library_action)
+        self._project_menu.addAction(self.app.show_instrument_library_action)
         self._project_menu.addSeparator()
-        self._project_menu.addAction(self._open_settings_action)
+        self._project_menu.addAction(self.app.show_settings_dialog_action)
         self._project_menu.addSeparator()
-        self._project_menu.addAction(self._quit_action)
+        self._project_menu.addAction(self.app.quit_action)
 
         self._edit_menu = menu_bar.addMenu("Edit")
         self._edit_menu.addAction(self._undo_action)
@@ -328,20 +506,19 @@ class EditorWindow(ui_base.AbstractEditorWindow):
             menu_bar.addSeparator()
             self._dev_menu = menu_bar.addMenu("Dev")
             self._dev_menu.addAction(self._dump_project_action)
-            self._dev_menu.addAction(self._restart_action)
-            self._dev_menu.addAction(self._restart_clean_action)
-            self._dev_menu.addAction(self._crash_action)
-            self._dev_menu.addAction(self.app.show_edit_areas_action)
-            self._dev_menu.addAction(self._show_pipeline_perf_monitor_action)
-            self._dev_menu.addAction(self._show_stat_monitor_action)
+            self._dev_menu.addAction(self.app.restart_action)
+            self._dev_menu.addAction(self.app.restart_clean_action)
+            self._dev_menu.addAction(self.app.crash_action)
+            self._dev_menu.addAction(self.app.show_pipeline_perf_monitor_action)
+            self._dev_menu.addAction(self.app.show_stat_monitor_action)
             self._dev_menu.addAction(self.app.profile_audio_thread_action)
-            self._dev_menu.addAction(self.app.dump_audioproc)
+            self._dev_menu.addAction(self.app.dump_audioproc_action)
 
         menu_bar.addSeparator()
 
         self._help_menu = menu_bar.addMenu("Help")
-        self._help_menu.addAction(self._about_action)
-        self._help_menu.addAction(self._aboutqt_action)
+        self._help_menu.addAction(self.app.about_action)
+        self._help_menu.addAction(self.app.aboutqt_action)
 
     def createToolBar(self) -> None:
         self.toolbar = QtWidgets.QToolBar()
@@ -373,8 +550,6 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         self.app.settings.setValue('mainwindow/geometry', self.saveGeometry())
         self.app.settings.setValue('mainwindow/state', self.saveState())
 
-        self._settings_dialog.storeState()
-
     def __engineStateChanged(self, engine_state: audioproc.EngineStateChange) -> None:
         show_status, show_load = False, False
         if engine_state.state == audioproc.EngineStateChange.SETUP:
@@ -400,209 +575,106 @@ class EditorWindow(ui_base.AbstractEditorWindow):
     def setInfoMessage(self, msg: str) -> None:
         self.statusbar.showMessage(msg)
 
-    def about(self) -> None:
-        QtWidgets.QMessageBox.about(
-            self, "About noisicaä",
-            textwrap.dedent("""\
-                Some text goes here...
-                """))
-
-    def crash(self) -> None:
-        raise RuntimeError("Something bad happened")
-
     def dumpProject(self) -> None:
-        view = self._project_tabs.currentWidget()
+        view = self.__project_tabs.currentWidget()
         self.call_async(view.project_client.dump())
-
-    def restart(self) -> None:
-        raise RestartAppException("Restart requested by user.")
-
-    def restart_clean(self) -> None:
-        raise RestartAppCleanException("Clean restart requested by user.")
-
-    def quit(self) -> None:
-        self.app.quit()
-
-    def openSettings(self) -> None:
-        self._settings_dialog.show()
-        self._settings_dialog.activateWindow()
-
-    def openInstrumentLibrary(self) -> None:
-        self._instrument_library_dialog.show()
-        self._instrument_library_dialog.activateWindow()
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         logger.info("CloseEvent received")
-        event.accept()
-        self.app.quit()
+        event.ignore()
+        self.call_async(self.app.deleteWindow(self))
 
-    def setCurrentProjectView(self, project_view: Optional[ProjectView]) -> None:
-        if project_view == self._current_project_view:
+    def setCurrentProjectView(self, view: Optional[project_view.ProjectView]) -> None:
+        if view == self.__current_project_view:
             return
 
-        if self._current_project_view is not None:
-            self._current_project_view.playingChanged.disconnect(self.playingChanged)
-            self._current_project_view.loopEnabledChanged.disconnect(self.loopEnabledChanged)
+        if self.__current_project_view is not None:
+            self.__current_project_view.playingChanged.disconnect(self.playingChanged)
+            self.__current_project_view.loopEnabledChanged.disconnect(self.loopEnabledChanged)
 
-        if project_view is not None:
-            project_view.playingChanged.connect(self.playingChanged)
-            self.playingChanged.emit(project_view.playing())
-            project_view.loopEnabledChanged.connect(self.loopEnabledChanged)
-            self.loopEnabledChanged.emit(project_view.loopEnabled())
+        if view is not None:
+            view.playingChanged.connect(self.playingChanged)
+            self.playingChanged.emit(view.playing())
+            view.loopEnabledChanged.connect(self.loopEnabledChanged)
+            self.loopEnabledChanged.emit(view.loopEnabled())
 
-        self._current_project_view = project_view
+        self.__current_project_view = view
 
-        if project_view is not None:
-            self.currentProjectChanged.emit(project_view.project)
+        if view is not None:
+            self.currentProjectChanged.emit(view.project)
         else:
             self.currentProjectChanged.emit(None)
 
-    def addProjectSetupView(self, project_connection: project_registry.Project) -> int:
-        widget = QtWidgets.QWidget()
-
-        label = QtWidgets.QLabel(widget)
-        label.setText("Opening project '%s'..." % project_connection.path)
-
-        wheel = qprogressindicator.QProgressIndicator(widget)
-        wheel.setMinimumSize(48, 48)
-        wheel.setMaximumSize(48, 48)
-        wheel.setAnimationDelay(100)
-        wheel.startAnimation()
-
-        layout = QtWidgets.QVBoxLayout()
-        layout.addStretch(2)
-        layout.addWidget(label, 0, Qt.AlignHCenter)
-        layout.addSpacing(10)
-        layout.addWidget(wheel, 0, Qt.AlignHCenter)
-        layout.addStretch(3)
-        widget.setLayout(layout)
-
-        idx = self._project_tabs.addTab(widget, project_connection.name)
-        self._project_tabs.setCurrentIndex(idx)
-        self._main_area.setCurrentIndex(0)
-        return idx
-
-    async def activateProjectView(
-            self, idx: int, project_connection: project_registry.Project) -> None:
-        context = ui_base.CommonContext(app=self.app)
-        view = ProjectView(project_connection=project_connection, context=context)
-        await view.setup()
-
-        self._project_tabs.insertTab(idx, view, project_connection.name)
-        self._project_tabs.removeTab(idx + 1)
-
-        self._project_tabs.setCurrentIndex(idx)
-        self._close_current_project_action.setEnabled(True)
-
-        self.projectListChanged.emit()
-
-    async def removeProjectView(self, project_connection: project_registry.Project) -> None:
-        for idx in range(self._project_tabs.count()):
-            view = self._project_tabs.widget(idx)
-            if isinstance(view, ProjectView) and view.project_connection is project_connection:
-                self._project_tabs.removeTab(idx)
-                if self._project_tabs.count() == 0:
-                    self._main_area.setCurrentIndex(1)
-                self._close_current_project_action.setEnabled(
-                    self._project_tabs.count() > 0)
-
-                await view.cleanup()
-                self.projectListChanged.emit()
-                break
-        else:
-            raise ValueError("No view for project found.")
-
-    def onCloseCurrentProjectTab(self) -> None:
-        view = self._project_tabs.currentWidget()
-        closed = view.close()
-        if closed:
-            self.call_async(self.app.removeProject(view.project_connection))
+    def onCloseCurrentProject(self) -> None:
+        idx = self.__project_tabs.currentIndex()
+        tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
+        if tab.projectView() is not None:
+            self.call_async(tab.closeProject())
+        elif tab.projectDebugger() is not None:
+            self.call_async(tab.closeDebugger())
+        if self.__project_tabs.count() > 1:
+            self.__project_tabs.removeTab(idx)
 
     def onCurrentProjectTabChanged(self, idx: int) -> None:
-        widget = self._project_tabs.widget(idx)
-        if isinstance(widget, ProjectView):
-            self.setCurrentProjectView(widget)
-        else:
-            self.setCurrentProjectView(None)
+        tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
+        self.setCurrentProjectView(tab.projectView() if tab is not None else None)
 
-    def onCloseProjectTab(self, idx: int) -> None:
-        view = self._project_tabs.widget(idx)
-        closed = view.close()
-        if closed:
-            self.call_async(self.app.removeProject(view.project_connection))
+    async def onCloseProjectTab(self, idx: int) -> None:
+        tab = cast(ProjectTabPage, self.__project_tabs.widget(idx))
+        if tab.projectView() is not None:
+            await tab.closeProject()
+        if tab.projectDebugger() is not None:
+            await tab.closeDebugger()
+        self.__project_tabs.removeTab(idx)
 
-    def getCurrentProjectView(self) -> ProjectView:
-        return cast(ProjectView, self._project_tabs.currentWidget())
-
-    def listProjectViews(self) -> Iterator[ProjectView]:
-        for idx in range(self._project_tabs.count()):
-            yield cast(ProjectView, self._project_tabs.widget(idx))
-
-    def getCurrentProject(self) -> music.Project:
-        view = self._project_tabs.currentWidget()
-        return view.project
-
-    def onNewProject(self) -> None:
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            parent=self,
-            caption="Select Project File",
-            directory=constants.PROJECT_DIR,
-            filter="All Files(*);;noisicaä Projects(*.noise)",
-            initialFilter='noisicaä Projects(*.noise)',
-        )
-        if not path:
-            return
-
-        self.call_async(self.app.createProject(path))
-
-    def onOpenProject(self) -> None:
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            parent=self,
-            caption="Open Project",
-            directory=constants.PROJECT_DIR,
-            filter="All Files(*);;noisicaä Projects(*.noise)",
-            initialFilter='noisicaä Projects(*.noise)',
-        )
-        if not path:
-            return
-
-        self.call_async(self.app.openProject(path))
+    def getCurrentProjectView(self) -> Optional[project_view.ProjectView]:
+        tab = cast(ProjectTabPage, self.__project_tabs.currentWidget())
+        return tab.projectView()
 
     def onRender(self) -> None:
-        view = self._project_tabs.currentWidget()
-        view.onRender()
+        view = self.getCurrentProjectView()
+        if view is not None:
+            view.onRender()
 
     def onUndo(self) -> None:
-        project_view = self.getCurrentProjectView()
-        self.call_async(project_view.project.undo())
+        view = self.getCurrentProjectView()
+        if view is not None:
+            self.call_async(view.project.undo())
 
     def onRedo(self) -> None:
-        project_view = self.getCurrentProjectView()
-        self.call_async(project_view.project.redo())
+        view = self.getCurrentProjectView()
+        if view is not None:
+            self.call_async(view.project.redo())
 
     def onClearSelection(self) -> None:
-        view = self._project_tabs.currentWidget()
-        view.onClearSelection()
+        view = self.getCurrentProjectView()
+        if view is not None:
+            view.onClearSelection()
 
     def onCopy(self) -> None:
-        view = self._project_tabs.currentWidget()
-        view.onCopy()
+        view = self.getCurrentProjectView()
+        if view is not None:
+            view.onCopy()
 
     def onPaste(self) -> None:
-        view = self._project_tabs.currentWidget()
-        view.onPaste(mode='overwrite')
+        view = self.getCurrentProjectView()
+        if view is not None:
+            view.onPaste(mode='overwrite')
 
     def onPasteAsLink(self) -> None:
-        view = self._project_tabs.currentWidget()
-        view.onPaste(mode='link')
+        view = self.getCurrentProjectView()
+        if view is not None:
+            view.onPaste(mode='link')
 
     def onSetNumMeasures(self) -> None:
-        view = self._project_tabs.currentWidget()
-        view.onSetNumMeasures()
+        view = self.getCurrentProjectView()
+        if view is not None:
+            view.onSetNumMeasures()
 
     def onSetBPM(self) -> None:
-        view = self._project_tabs.currentWidget()
-        view.onSetBPM()
+        view = self.getCurrentProjectView()
+        if view is not None:
+            view.onSetBPM()
 
     def onPlayingChanged(self, playing: bool) -> None:
         if playing:
@@ -616,13 +688,16 @@ class EditorWindow(ui_base.AbstractEditorWindow):
         self._player_loop_action.setChecked(loop_enabled)
 
     def onPlayerMoveTo(self, where: str) -> None:
-        view = self._project_tabs.currentWidget()
-        view.onPlayerMoveTo(where)
+        view = self.getCurrentProjectView()
+        if view is not None:
+            view.onPlayerMoveTo(where)
 
     def onPlayerToggle(self) -> None:
-        view = self._project_tabs.currentWidget()
-        view.onPlayerToggle()
+        view = self.getCurrentProjectView()
+        if view is not None:
+            view.onPlayerToggle()
 
     def onPlayerLoop(self, loop: bool) -> None:
-        view = self._project_tabs.currentWidget()
-        view.onPlayerLoop(loop)
+        view = self.getCurrentProjectView()
+        if view is not None:
+            view.onPlayerLoop(loop)

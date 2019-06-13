@@ -41,7 +41,7 @@ class PluginUI(ui_base.ProjectMixin, QtWidgets.QWidget):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.setParent(self.editor_window)
+        self.setParent(self.project_view)
         self.setWindowFlags(Qt.Tool)
         self.setAttribute(Qt.WA_DeleteOnClose, False)
         self.setWindowTitle(node.name)

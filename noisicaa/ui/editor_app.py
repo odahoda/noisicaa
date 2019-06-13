@@ -20,15 +20,20 @@
 #
 # @end:license
 
+import asyncio
+import functools
 import logging
 import os
 import pprint
 import sys
+import textwrap
 import traceback
 import types
-from typing import Any, Optional, Callable, Sequence, Type
+from typing import Any, Optional, Callable, Sequence, List, Type
 
+from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
+from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import audioproc
@@ -38,16 +43,19 @@ from noisicaa import core
 from noisicaa import lv2
 from noisicaa import editor_main_pb2
 from noisicaa import runtime_settings as runtime_settings_lib
-from ..exceptions import RestartAppException, RestartAppCleanException
+from noisicaa import exceptions
 from ..constants import EXIT_EXCEPTION, EXIT_RESTART, EXIT_RESTART_CLEAN
-from .editor_window import EditorWindow
-
+from . import editor_window
 from . import audio_thread_profiler
 from . import device_list
 from . import project_registry
 from . import pipeline_perf_monitor
 from . import stat_monitor
+from . import settings_dialog
+from . import instrument_list
+from . import instrument_library
 from . import ui_base
+from . import open_project_dialog
 
 logger = logging.getLogger('ui.editor_app')
 
@@ -59,10 +67,10 @@ class ExceptHook(object):
     def __call__(
             self, exc_type: Type[BaseException], exc_value: BaseException, tb: types.TracebackType
     ) -> None:
-        if issubclass(exc_type, RestartAppException):
+        if issubclass(exc_type, exceptions.RestartAppException):
             self.app.quit(EXIT_RESTART)
             return
-        if issubclass(exc_type, RestartAppCleanException):
+        if issubclass(exc_type, exceptions.RestartAppCleanException):
             self.app.quit(EXIT_RESTART_CLEAN)
             return
 
@@ -104,11 +112,23 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.settings = settings
         self.dumpSettings()
 
-        self.project_registry = None  # type: project_registry.ProjectRegistry
-        self.show_edit_areas_action = None  # type: QtWidgets.QAction
-        self.__audio_thread_profiler = None  # type: audio_thread_profiler.AudioThreadProfiler
+        self.new_project_action = None  # type: QtWidgets.QAction
+        self.open_project_action = None  # type: QtWidgets.QAction
+        self.restart_action = None  # type: QtWidgets.QAction
+        self.restart_clean_action = None  # type: QtWidgets.QAction
+        self.crash_action = None  # type: QtWidgets.QAction
+        self.about_action = None  # type: QtWidgets.QAction
+        self.aboutqt_action = None  # type: QtWidgets.QAction
+        self.show_settings_dialog_action = None  # type: QtWidgets.QAction
+        self.show_instrument_library_action = None  # type: QtWidgets.QAction
         self.profile_audio_thread_action = None  # type: QtWidgets.QAction
-        self.dump_audioproc = None  # type: QtWidgets.QAction
+        self.dump_audioproc_action = None  # type: QtWidgets.QAction
+        self.show_pipeline_perf_monitor_action = None  # type: QtWidgets.QAction
+        self.show_stat_monitor_action = None  # type: QtWidgets.QAction
+        self.quit_action = None  # type: QtWidgets.QAction
+
+        self.project_registry = None  # type: project_registry.ProjectRegistry
+        self.__audio_thread_profiler = None  # type: audio_thread_profiler.AudioThreadProfiler
         self.audioproc_client = None  # type: audioproc.AbstractAudioProcClient
         self.audioproc_process = None  # type: str
         self.node_db = None  # type: node_db.NodeDBClient
@@ -116,12 +136,15 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.urid_mapper = None  # type: lv2.ProxyURIDMapper
         self.__clipboard = None  # type: Any
         self.__old_excepthook = None  # type: Callable[[Type[BaseException], BaseException, types.TracebackType], None]
-        self.win = None  # type: EditorWindow
-        self.pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
-        self.stat_monitor = None  # type: stat_monitor.StatMonitor
+        self.__windows = []  # type: List[editor_window.EditorWindow]
+        self.__pipeline_perf_monitor = None  # type: pipeline_perf_monitor.PipelinePerfMonitor
+        self.__stat_monitor = None  # type: stat_monitor.StatMonitor
         self.default_style = None  # type: str
-
+        self.instrument_list = None  # type: instrument_list.InstrumentList
         self.devices = None  # type: device_list.DeviceList
+        self.setup_complete = None  # type: asyncio.Event
+        self.__settings_dialog = None  # type: settings_dialog.SettingsDialog
+        self.__instrument_library_dialog = None  # type: instrument_library.InstrumentLibraryDialog
 
         self.__player_state_listeners = core.CallbackMap[str, audioproc.EngineNotification]()
 
@@ -134,89 +157,229 @@ class EditorApp(ui_base.AbstractEditorApp):
         self.__old_excepthook = sys.excepthook
         sys.excepthook = ExceptHook(self)  # type: ignore
 
-        await self.createNodeDB()
-        await self.createInstrumentDB()
-        await self.createURIDMapper()
-
-        self.project_registry = project_registry.ProjectRegistry(
-            self.process.event_loop,
-            self.process.server,
-            self.process.manager,
-            self.node_db,
-            self.urid_mapper,
-            self.process.tmp_dir)
-
-        self.devices = device_list.DeviceList()
-
-        # TODO: 'self' is not a QObject in this context.
-        self.show_edit_areas_action = QtWidgets.QAction("Show Edit Areas", self.qt_app)
-        self.show_edit_areas_action.setCheckable(True)
-        self.show_edit_areas_action.triggered.connect(self.onShowEditAreasChanged)
-        self.show_edit_areas_action.setChecked(
-            bool(self.settings.value('dev/show_edit_areas', '0')))
-
-        self.__audio_thread_profiler = audio_thread_profiler.AudioThreadProfiler(
-            context=self.context)
-        self.profile_audio_thread_action = QtWidgets.QAction("Profile Audio Thread", self.qt_app)
-        self.profile_audio_thread_action.triggered.connect(self.onProfileAudioThread)
-
-        self.dump_audioproc = QtWidgets.QAction("Dump AudioProc", self.qt_app)
-        self.dump_audioproc.triggered.connect(self.onDumpAudioProc)
-
-        await self.createAudioProcProcess()
+        self.setup_complete = asyncio.Event(loop=self.process.event_loop)
 
         self.default_style = self.qt_app.style().objectName()
-
         style_name = self.settings.value('appearance/qtStyle', '')
         if style_name:
             # TODO: something's wrong with the QtWidgets stubs...
             self.qt_app.setStyle(QtWidgets.QStyleFactory.create(style_name))  # type: ignore
 
-        logger.info("Creating PipelinePerfMonitor.")
-        self.pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(context=self.context)
+        self.new_project_action = QtWidgets.QAction("New", self.qt_app)
+        self.new_project_action.setShortcut(QtGui.QKeySequence.New)
+        self.new_project_action.setStatusTip("Create a new project")
+        self.new_project_action.setEnabled(False)
+        self.new_project_action.triggered.connect(self.__newProject)
 
-        logger.info("Creating StatMonitor.")
-        self.stat_monitor = stat_monitor.StatMonitor(context=self.context)
+        self.open_project_action = QtWidgets.QAction("Open", self.qt_app)
+        self.open_project_action.setShortcut(QtGui.QKeySequence.Open)
+        self.open_project_action.setStatusTip("Open an existing project")
+        self.open_project_action.setEnabled(False)
+        self.open_project_action.triggered.connect(self.__openProject)
 
-        await self.createEditorWindow()
+        self.restart_action = QtWidgets.QAction("Restart", self.qt_app)
+        self.restart_action.setShortcut("F5")
+        self.restart_action.setShortcutContext(Qt.ApplicationShortcut)
+        self.restart_action.setStatusTip("Restart the application")
+        self.restart_action.triggered.connect(self.__restart)
 
-        if self.paths:
-            logger.info("Starting with projects from cmdline.")
-            for path in self.paths:
-                if path.startswith('+'):
-                    await self.createProject(path[1:])
+        self.restart_clean_action = QtWidgets.QAction("Restart clean", self.qt_app)
+        self.restart_clean_action.setShortcut("Ctrl+Shift+F5")
+        self.restart_clean_action.setShortcutContext(Qt.ApplicationShortcut)
+        self.restart_clean_action.setStatusTip("Restart the application in a clean state")
+        self.restart_clean_action.triggered.connect(self.__restartClean)
+
+        self.crash_action = QtWidgets.QAction("Crash", self.qt_app)
+        self.crash_action.triggered.connect(self.__crash)
+
+        self.about_action = QtWidgets.QAction("About", self.qt_app)
+        self.about_action.setStatusTip("Show the application's About box")
+        self.about_action.triggered.connect(self.__about)
+
+        self.aboutqt_action = QtWidgets.QAction("About Qt", self.qt_app)
+        self.aboutqt_action.setStatusTip("Show the Qt library's About box")
+        self.aboutqt_action.triggered.connect(self.qt_app.aboutQt)
+
+        self.show_settings_dialog_action = QtWidgets.QAction("Settings", self.qt_app)
+        self.show_settings_dialog_action.setStatusTip("Open the settings dialog.")
+        self.show_settings_dialog_action.setEnabled(False)
+        self.show_settings_dialog_action.triggered.connect(self.__showSettingsDialog)
+
+        self.show_instrument_library_action = QtWidgets.QAction("Instrument Library", self.qt_app)
+        self.show_instrument_library_action.setStatusTip("Open the instrument library dialog.")
+        self.show_instrument_library_action.setEnabled(False)
+        self.show_instrument_library_action.triggered.connect(self.__showInstrumentLibrary)
+
+        self.profile_audio_thread_action = QtWidgets.QAction("Profile Audio Thread", self.qt_app)
+        self.profile_audio_thread_action.setEnabled(False)
+        self.profile_audio_thread_action.triggered.connect(self.__profileAudioThread)
+
+        self.dump_audioproc_action = QtWidgets.QAction("Dump AudioProc", self.qt_app)
+        self.dump_audioproc_action.setEnabled(False)
+        self.dump_audioproc_action.triggered.connect(self.__dumpAudioProc)
+
+        self.show_pipeline_perf_monitor_action = QtWidgets.QAction(
+            "Pipeline Performance Monitor", self.qt_app)
+        self.show_pipeline_perf_monitor_action.setEnabled(False)
+        self.show_pipeline_perf_monitor_action.setCheckable(True)
+
+        self.show_stat_monitor_action = QtWidgets.QAction("Stat Monitor", self.qt_app)
+        self.show_stat_monitor_action.setEnabled(False)
+        self.show_stat_monitor_action.setCheckable(True)
+
+        self.quit_action = QtWidgets.QAction("Quit", self.qt_app)
+        self.quit_action.setShortcut(QtGui.QKeySequence.Quit)
+        self.quit_action.setShortcutContext(Qt.ApplicationShortcut)
+        self.quit_action.setStatusTip("Quit the application")
+        self.quit_action.triggered.connect(self.quit)
+
+        logger.info("Creating initial window...")
+        win = await self.createWindow()
+        tab_page = win.addProjectTab()
+
+        progress = win.createSetupProgress()
+        try:
+            progress.setNumSteps(5)
+
+            logger.info("Creating StatMonitor.")
+            self.__stat_monitor = stat_monitor.StatMonitor(context=self.context)
+            self.show_stat_monitor_action.setChecked(self.__stat_monitor.isVisible())
+            self.show_stat_monitor_action.toggled.connect(
+                self.__stat_monitor.setVisible)
+            self.__stat_monitor.visibilityChanged.connect(
+                self.show_stat_monitor_action.setChecked)
+
+            logger.info("Creating SettingsDialog...")
+            self.__settings_dialog = settings_dialog.SettingsDialog(context=self.context)
+
+            with progress.step("Scanning projects..."):
+                self.project_registry = project_registry.ProjectRegistry(context=self.context)
+                await self.project_registry.setup()
+
+                initial_projects = []
+                if self.paths:
+                    for path in self.paths:
+                        if path.startswith('+'):
+                            initial_projects.append((True, path[1:]))
+                        else:
+                            initial_projects.append((False, path))
                 else:
-                    await self.openProject(path)
-        else:
-            reopen_projects = self.settings.value('opened_projects', [])
-            for path in reopen_projects or []:
-                await self.openProject(path)
+                    for path in self.settings.value('opened_projects', []) or []:
+                        initial_projects.append((False, path))
+
+                logger.info(
+                    "Starting with projects:\n%s",
+                    '\n'.join('%s%s' % ('+' if create else '', path)
+                              for create, path in initial_projects))
+
+                idx = 0
+                for create, path in initial_projects:
+                    if idx == 0:
+                        tab = tab_page
+                    else:
+                        tab = win.addProjectTab()
+                    if create:
+                        self.process.event_loop.create_task(tab.createProject(path))
+                        idx += 1
+                    else:
+                        try:
+                            project = self.project_registry.getProject(path)
+                        except KeyError:
+                            logging.error("There is no known project at %s", path)
+                        else:
+                            self.process.event_loop.create_task(tab.openProject(project))
+                            idx += 1
+
+                if idx == 0:
+                    tab_page.showOpenDialog()
+
+            with progress.step("Scanning nodes and plugins..."):
+                await self.createNodeDB()
+
+            with progress.step("Creating URID mapper..."):
+                await self.createURIDMapper()
+
+            with progress.step("Setting up audio engine..."):
+                self.devices = device_list.DeviceList()
+                await self.createAudioProcProcess()
+
+                win.audioprocReady()
+
+                logger.info("Creating AudioThreadProfiler...")
+                self.__audio_thread_profiler = audio_thread_profiler.AudioThreadProfiler(
+                    context=self.context)
+
+                logger.info("Creating PipelinePerfMonitor...")
+                self.__pipeline_perf_monitor = pipeline_perf_monitor.PipelinePerfMonitor(
+                    context=self.context)
+                self.show_pipeline_perf_monitor_action.setChecked(
+                    self.__pipeline_perf_monitor.isVisible())
+                self.show_pipeline_perf_monitor_action.toggled.connect(
+                    self.__pipeline_perf_monitor.setVisible)
+                self.__pipeline_perf_monitor.visibilityChanged.connect(
+                    self.show_pipeline_perf_monitor_action.setChecked)
+
+            with progress.step("Scanning instruments..."):
+                create_instrument_db_response = editor_main_pb2.CreateProcessResponse()
+                await self.process.manager.call(
+                    'CREATE_INSTRUMENT_DB_PROCESS', None, create_instrument_db_response)
+                instrument_db_address = create_instrument_db_response.address
+
+                self.instrument_db = instrument_db.InstrumentDBClient(
+                    self.process.event_loop, self.process.server)
+                self.instrument_list = instrument_list.InstrumentList(context=self.context)
+                self.instrument_list.setup()
+                await self.instrument_db.setup()
+                await self.instrument_db.connect(instrument_db_address)
+
+                self.__instrument_library_dialog = instrument_library.InstrumentLibraryDialog(
+                    context=self.context)
+                await self.__instrument_library_dialog.setup()
+
+        finally:
+            win.deleteSetupProgress()
+
+        self.new_project_action.setEnabled(True)
+        self.open_project_action.setEnabled(True)
+        self.show_settings_dialog_action.setEnabled(True)
+        self.show_instrument_library_action.setEnabled(True)
+        self.profile_audio_thread_action.setEnabled(True)
+        self.dump_audioproc_action.setEnabled(True)
+        self.show_pipeline_perf_monitor_action.setEnabled(True)
+        self.show_stat_monitor_action.setEnabled(True)
+        self.setup_complete.set()
 
     async def cleanup(self) -> None:
         logger.info("Cleanup app...")
 
-        if self.stat_monitor is not None:
-            self.stat_monitor.storeState()
-            self.stat_monitor = None
+        if self.__stat_monitor is not None:
+            self.__stat_monitor.storeState()
+            self.__stat_monitor = None
 
-        if self.pipeline_perf_monitor is not None:
-            self.pipeline_perf_monitor.storeState()
-            self.pipeline_perf_monitor = None
+        if self.__pipeline_perf_monitor is not None:
+            self.__pipeline_perf_monitor.storeState()
+            self.__pipeline_perf_monitor = None
 
         if self.__audio_thread_profiler is not None:
             self.__audio_thread_profiler.hide()
             self.__audio_thread_profiler = None
 
-        if self.win is not None:
-            self.win.storeState()
-            await self.win.cleanup()
-            self.win = None
+        if self.__instrument_library_dialog is not None:
+            await self.__instrument_library_dialog.cleanup()
+            self.__instrument_library_dialog = None
 
-        self.settings.sync()
-        self.dumpSettings()
+        if self.__settings_dialog is not None:
+            self.__settings_dialog.storeState()
+            self.__settings_dialog.close()
+            self.__settings_dialog = None
+
+        while self.__windows:
+            win = self.__windows.pop(0)
+            win.storeState()
+            await win.cleanup()
 
         if self.project_registry is not None:
-            await self.project_registry.close_all()
+            await self.project_registry.cleanup()
             self.project_registry = None
 
         if self.audioproc_client is not None:
@@ -235,6 +398,10 @@ class EditorApp(ui_base.AbstractEditorApp):
             await self.urid_mapper.cleanup(self.process.event_loop)
             self.urid_mapper = None
 
+        if self.instrument_list is not None:
+            self.instrument_list.cleanup()
+            self.instrument_list = None
+
         if self.instrument_db is not None:
             await self.instrument_db.disconnect()
             await self.instrument_db.cleanup()
@@ -245,8 +412,27 @@ class EditorApp(ui_base.AbstractEditorApp):
             await self.node_db.cleanup()
             self.node_db = None
 
+        self.settings.sync()
+        self.dumpSettings()
+
         logger.info("Remove custom excepthook.")
         sys.excepthook = self.__old_excepthook  # type: ignore
+
+    async def createWindow(self) -> editor_window.EditorWindow:
+        win = editor_window.EditorWindow(context=self.context)
+        await win.setup()
+        self.__windows.append(win)
+        return win
+
+    async def deleteWindow(self, win: editor_window.EditorWindow) -> None:
+        self.__windows.remove(win)
+        await win.cleanup()
+
+        if not self.__windows:
+            self.quit()
+
+    def windows(self) -> List[editor_window.EditorWindow]:
+        return self.__windows
 
     def quit(self, exit_code: int = 0) -> None:
         # TODO: quit() is not a method of ProcessBase, only in UIProcess. Find some way to
@@ -287,17 +473,6 @@ class EditorApp(ui_base.AbstractEditorApp):
         await self.node_db.setup()
         await self.node_db.connect(node_db_address)
 
-    async def createInstrumentDB(self) -> None:
-        create_instrument_db_response = editor_main_pb2.CreateProcessResponse()
-        await self.process.manager.call(
-            'CREATE_INSTRUMENT_DB_PROCESS', None, create_instrument_db_response)
-        instrument_db_address = create_instrument_db_response.address
-
-        self.instrument_db = instrument_db.InstrumentDBClient(
-            self.process.event_loop, self.process.server)
-        await self.instrument_db.setup()
-        await self.instrument_db.connect(instrument_db_address)
-
     async def createURIDMapper(self) -> None:
         create_urid_mapper_response = editor_main_pb2.CreateProcessResponse()
         await self.process.manager.call(
@@ -309,35 +484,12 @@ class EditorApp(ui_base.AbstractEditorApp):
             tmp_dir=self.process.tmp_dir)
         await self.urid_mapper.setup(self.process.event_loop)
 
-    async def createEditorWindow(self) -> None:
-        logger.info("Creating EditorWindow.")
-        self.win = EditorWindow(context=self.context)
-        await self.win.setup()
-        self.win.show()
-
     def dumpSettings(self) -> None:
         for key in self.settings.allKeys():
             value = self.settings.value(key)
             if isinstance(value, (bytes, QtCore.QByteArray)):
                 value = '[%d bytes]' % len(value)
             logger.info('%s: %s', key, value)
-
-    def onShowEditAreasChanged(self) -> None:
-        self.settings.setValue(
-            'dev/show_edit_areas', int(self.show_edit_areas_action.isChecked()))
-
-    @property
-    def showEditAreas(self) -> bool:
-        return (self.runtime_settings.dev_mode
-                and self.show_edit_areas_action.isChecked())
-
-    def onProfileAudioThread(self) -> None:
-        self.__audio_thread_profiler.show()
-        self.__audio_thread_profiler.raise_()
-        self.__audio_thread_profiler.activateWindow()
-
-    def onDumpAudioProc(self) -> None:
-        self.process.event_loop.create_task(self.audioproc_client.dump())
 
     def __handleEngineNotification(self, msg: audioproc.EngineNotification) -> None:
         for device_manager_message in msg.device_manager_messages:
@@ -348,6 +500,63 @@ class EditorApp(ui_base.AbstractEditorApp):
                 self.devices.removeDevice(device_manager_message.removed)
             else:
                 raise ValueError(action)
+
+    def __newProject(self) -> None:
+        win = self.__windows[0]
+        dialog = open_project_dialog.NewProjectDialog(parent=win, context=self.context)
+        dialog.setModal(True)
+        dialog.finished.connect(functools.partial(self.__newProjectDialogDone, dialog, win))
+        dialog.show()
+
+    def __newProjectDialogDone(
+            self,
+            dialog: open_project_dialog.NewProjectDialog,
+            win: editor_window.EditorWindow,
+            result: int
+    ) -> None:
+        if result != QtWidgets.QDialog.Accepted:
+            return
+
+        path = dialog.projectPath()
+        tab = win.addProjectTab()
+        self.process.event_loop.create_task(tab.createProject(path))
+
+    def __openProject(self) -> None:
+        win = self.__windows[0]
+        tab = win.addProjectTab()
+        tab.showOpenDialog()
+
+    def __about(self) -> None:
+        QtWidgets.QMessageBox.about(
+            None, "About noisicaä",
+            textwrap.dedent("""\
+                Some text goes here...
+                """))
+
+    def __restart(self) -> None:
+        raise exceptions.RestartAppException("Restart requested by user.")
+
+    def __restartClean(self) -> None:
+        raise exceptions.RestartAppCleanException("Clean restart requested by user.")
+
+    def __crash(self) -> None:
+        raise RuntimeError("Something bad happened")
+
+    def __showInstrumentLibrary(self) -> None:
+        self.__instrument_library_dialog.show()
+        self.__instrument_library_dialog.activateWindow()
+
+    def __showSettingsDialog(self) -> None:
+        self.__settings_dialog.show()
+        self.__settings_dialog.activateWindow()
+
+    def __profileAudioThread(self) -> None:
+        self.__audio_thread_profiler.show()
+        self.__audio_thread_profiler.raise_()
+        self.__audio_thread_profiler.activateWindow()
+
+    def __dumpAudioProc(self) -> None:
+        self.process.event_loop.create_task(self.audioproc_client.dump())
 
     # pylint: disable=line-too-long
     # def onPlayerStatus(self, player_state: audioproc.PlayerState):
@@ -389,33 +598,6 @@ class EditorApp(ui_base.AbstractEditorApp):
 
     def clipboardContent(self) -> Any:
         return self.__clipboard
-
-    async def createProject(self, path: str) -> None:
-        project_connection = self.project_registry.add_project(path)
-        idx = self.win.addProjectSetupView(project_connection)
-        await project_connection.create()
-        await self.win.activateProjectView(idx, project_connection)
-        self._updateOpenedProjects()
-
-    async def openProject(self, path: str) -> None:
-        project_connection = self.project_registry.add_project(path)
-        idx = self.win.addProjectSetupView(project_connection)
-        await project_connection.open()
-        await self.win.activateProjectView(idx, project_connection)
-        self._updateOpenedProjects()
-
-    def _updateOpenedProjects(self) -> None:
-        self.settings.setValue(
-            'opened_projects',
-            sorted(
-                project.path
-                for project in self.project_registry.projects.values()
-                if project.path))
-
-    async def removeProject(self, project_connection: project_registry.Project) -> None:
-        await self.win.removeProjectView(project_connection)
-        await self.project_registry.close_project(project_connection)
-        self._updateOpenedProjects()
 
     def crashWithMessage(self, title: str, msg: str) -> None:
         logger.error('%s: %s', title, msg)

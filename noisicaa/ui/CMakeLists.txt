@@ -25,22 +25,28 @@ add_python_package(
   device_list.py
   dynamic_layout.py
   editor_app.py
+  editor_app_test.py
   editor_window.py
   flowlayout.py
   gain_slider.py
   instrument_library.py
-  instrument_library_test.py
+  instrument_list.py
+  instrument_list_test.py
   load_history.py
   misc.py
   mute_button.py
   object_list_editor.py
+  open_project_dialog.py
+  open_project_dialog_test.py
   piano.py
   piano_test.py
   pipeline_perf_monitor.py
   player_state.py
   project_registry.py
+  project_registry_test.py
   project_view.py
   project_view_test.py
+  project_debugger.py
   property_connector.py
   qled.py
   qprogressindicator.py
@@ -48,7 +54,7 @@ add_python_package(
   render_dialog_test.py
   selection_set.py
   session_helpers.py
-  settings.py
+  settings_dialog.py
   slots.py
   stat_monitor.py
   svg_symbol_filetest.py

@@ -34,7 +34,6 @@ from noisicaa import audioproc
 from noisicaa import music
 from noisicaa import core
 from . import selection_set as selection_set_lib
-from . import project_registry
 
 if typing.TYPE_CHECKING:
     from . import device_list
@@ -42,6 +41,9 @@ if typing.TYPE_CHECKING:
     from noisicaa import node_db as node_db_lib
     from noisicaa import runtime_settings as runtime_settings_lib
     from noisicaa import lv2
+    from . import instrument_list as instrument_list_lib
+    from . import project_registry as project_registry_lib
+    from . import editor_window
 
 
 class CommonContext(object):
@@ -55,10 +57,6 @@ class CommonContext(object):
     @property
     def app(self) -> 'AbstractEditorApp':
         return self.__app
-
-    @property
-    def editor_window(self) -> 'AbstractEditorWindow':
-        return self.__app.win
 
     @property
     def audioproc_client(self) -> audioproc.AbstractAudioProcClient:
@@ -111,10 +109,6 @@ class CommonMixin(object):
         return self._context.app
 
     @property
-    def editor_window(self) -> 'AbstractEditorWindow':
-        return self._context.editor_window
-
-    @property
     def audioproc_client(self) -> audioproc.AbstractAudioProcClient:
         return self._context.audioproc_client
 
@@ -131,7 +125,7 @@ class CommonMixin(object):
 class ProjectContext(CommonContext):
     def __init__(
             self, *,
-            project_connection: project_registry.Project,
+            project_connection: 'project_registry_lib.Project',
             selection_set: selection_set_lib.SelectionSet,
             project_view: 'AbstractProjectView',
             **kwargs: Any) -> None:
@@ -149,7 +143,7 @@ class ProjectContext(CommonContext):
         return self.__project_view
 
     @property
-    def project_connection(self) -> project_registry.Project:
+    def project_connection(self) -> 'project_registry_lib.Project':
         return self.__project_connection
 
     @property
@@ -181,7 +175,7 @@ class ProjectMixin(CommonMixin):
         return self._context.selection_set
 
     @property
-    def project_connection(self) -> project_registry.Project:
+    def project_connection(self) -> 'project_registry_lib.Project':
         return self._context.project_connection
 
     @property
@@ -213,7 +207,7 @@ class ProjectMixin(CommonMixin):
         return self._context.add_session_listener(key, listener)
 
 
-class AbstractProjectView(ProjectMixin):
+class AbstractProjectView(ProjectMixin, QtWidgets.QWidget):
     async def createPluginUI(self, node_id: str) -> Tuple[int, Tuple[int, int]]:
         raise NotImplementedError
 
@@ -222,10 +216,6 @@ class AbstractProjectView(ProjectMixin):
 
     async def sendNodeMessage(self, msg: audioproc.ProcessorMessage) -> None:
         raise NotImplementedError
-
-
-class AbstractEditorWindow(CommonMixin, QtWidgets.QMainWindow):
-    pipeline_status = None  # type: QtWidgets.QLabel
 
 
 class AbstractPipelinePerfMonitor(CommonMixin, QtWidgets.QMainWindow):
@@ -237,33 +227,36 @@ class AbstractStatMonitor(CommonMixin, QtWidgets.QMainWindow):
 
 
 class AbstractEditorApp(object):
-    win = None  # type: AbstractEditorWindow
+    new_project_action = None  # type: QtWidgets.QAction
+    open_project_action = None  # type: QtWidgets.QAction
+    restart_action = None  # type: QtWidgets.QAction
+    restart_clean_action = None  # type: QtWidgets.QAction
+    crash_action = None  # type: QtWidgets.QAction
+    about_action = None  # type: QtWidgets.QAction
+    aboutqt_action = None  # type: QtWidgets.QAction
+    show_settings_dialog_action = None  # type: QtWidgets.QAction
+    show_instrument_library_action = None  # type: QtWidgets.QAction
+    profile_audio_thread_action = None  # type: QtWidgets.QAction
+    dump_audioproc_action = None  # type: QtWidgets.QAction
+    show_pipeline_perf_monitor_action = None  # type: QtWidgets.QAction
+    show_stat_monitor_action = None  # type: QtWidgets.QAction
+    quit_action = None  # type: QtWidgets.QAction
+
     audioproc_client = None  # type: audioproc.AbstractAudioProcClient
     process = None  # type: core.ProcessBase
     settings = None  # type: QtCore.QSettings
-    pipeline_perf_monitor = None  # type: AbstractPipelinePerfMonitor
-    stat_monitor = None  # type: AbstractStatMonitor
     runtime_settings = None  # type: runtime_settings_lib.RuntimeSettings
-    show_edit_areas_action = None  # type: QtWidgets.QAction
-    profile_audio_thread_action = None  # type: QtWidgets.QAction
-    dump_audioproc = None  # type: QtWidgets.QAction
     node_db = None  # type: node_db_lib.NodeDBClient
     instrument_db = None  # type: instrument_db_lib.InstrumentDBClient
     urid_mapper = None  # type: lv2.ProxyURIDMapper
     default_style = None  # type: str
     qt_app = None  # type: QtWidgets.QApplication
     devices = None  # type: device_list.DeviceList
+    instrument_list = None  # type: instrument_list_lib.InstrumentList
+    project_registry = None  # type: project_registry_lib.ProjectRegistry
+    setup_complete = None  # type: asyncio.Event
 
     def quit(self, exit_code: int = 0) -> None:
-        raise NotImplementedError
-
-    async def createProject(self, path: str) -> None:
-        raise NotImplementedError
-
-    async def openProject(self, path: str) -> None:
-        raise NotImplementedError
-
-    async def removeProject(self, project_connection: project_registry.Project) -> None:
         raise NotImplementedError
 
     def crashWithMessage(self, title: str, msg: str) -> None:
@@ -273,4 +266,7 @@ class AbstractEditorApp(object):
         raise NotImplementedError
 
     def clipboardContent(self) -> Any:
+        raise NotImplementedError
+
+    async def deleteWindow(self, win: 'editor_window.EditorWindow') -> None:
         raise NotImplementedError

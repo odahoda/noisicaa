@@ -180,6 +180,7 @@ class TrackListView(ui_base.ProjectMixin, slots.SlotContainer, QtWidgets.QSplitt
         self.__time_line.setPlayerID(player_id)
 
     def cleanup(self) -> None:
+        # TODO: Editor.cleanup is async!
         self.__editor.cleanup()
 
     def onPaste(self, *, mode: str) -> None:

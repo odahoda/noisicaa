@@ -52,7 +52,7 @@ class CorruptedProjectError(Error):
     pass
 
 
-HeaderData = TypedDict('HeaderData', {'data_dir': str, 'created': int})
+HeaderData = TypedDict('HeaderData', {'created': int})
 
 LogEntry = bytes
 Checkpoint = bytes
@@ -81,7 +81,6 @@ class ProjectStorage(object):
 
     def __init__(self) -> None:
         self.path = None  # type: str
-        self.data_dir = None  # type: str
         self.header_data = None  # type: HeaderData
         self.file_lock = None  # type: IO
         self.log_index_fp = None  # type: IO[bytes]
@@ -118,7 +117,7 @@ class ProjectStorage(object):
         logger.info("Opening project at %s", self.path)
 
         try:
-            fp = fileutil.File(path)
+            fp = fileutil.File(os.path.join(path, 'project.noise'))
             file_info, self.header_data = fp.read_json()
         except fileutil.Error as exc:
             raise FileOpenError(str(exc))
@@ -127,18 +126,13 @@ class ProjectStorage(object):
             raise FileOpenError("Not a project file")
 
         if file_info.version not in self.SUPPORTED_VERSIONS:
-            raise UnsupportedFileVersionError()
-
-        self.data_dir = os.path.join(
-            os.path.dirname(self.path), self.header_data['data_dir'])
-        if not os.path.isdir(self.data_dir):
-            raise CorruptedProjectError(
-                "Directory %s missing" % self.data_dir)
+            raise UnsupportedFileVersionError(
+                "File version %d not supported" % file_info.version)
 
         self.file_lock = self.acquire_file_lock(
-            os.path.join(self.data_dir, "lock"))
+            os.path.join(self.path, "lock"))
 
-        log_path = os.path.join(self.data_dir, 'log.%06d' % self.log_file_number)
+        log_path = os.path.join(self.path, 'log.%06d' % self.log_file_number)
         if os.path.exists(log_path):
             mode = 'a+b'
         else:
@@ -146,7 +140,7 @@ class ProjectStorage(object):
         self.log_fp = open(log_path, mode=mode, buffering=0)
 
         self.log_index_fp = open(
-            os.path.join(self.data_dir, 'log.index'),
+            os.path.join(self.path, 'log.index'),
             mode='r+b', buffering=0)
         self.log_index = bytearray(self.log_index_fp.read())
         self.next_log_number = len(self.log_index) // self.log_index_formatter.size
@@ -155,7 +149,7 @@ class ProjectStorage(object):
         self.written_log_number = self.next_log_number - 1
 
         self.log_history_fp = open(
-            os.path.join(self.data_dir, 'log.history'),
+            os.path.join(self.path, 'log.history'),
             mode='r+b', buffering=0)
         self.log_history = bytearray(self.log_history_fp.read())
         self.next_sequence_number = len(self.log_history) // self.log_history_formatter.size
@@ -164,14 +158,14 @@ class ProjectStorage(object):
         self.written_sequence_number = self.next_sequence_number - 1
 
         if self.written_sequence_number >= 0:
-            self.undo_count, self.redo_count = self._get_history_entry(
+            self.undo_count, self.redo_count = self.get_history_entry(
                 self.written_sequence_number)[2:4]
         else:
             self.undo_count = 0
             self.redo_count = 0
 
         self.checkpoint_index_fp = open(
-            os.path.join(self.data_dir, 'checkpoint.index'),
+            os.path.join(self.path, 'checkpoint.index'),
             mode='r+b', buffering=0)
         self.checkpoint_index = bytearray(self.checkpoint_index_fp.read())
         self.next_checkpoint_number = (
@@ -179,6 +173,8 @@ class ProjectStorage(object):
         if len(self.checkpoint_index) != (
                 self.next_checkpoint_number * self.checkpoint_index_formatter.size):
             raise CorruptedProjectError("Malformed checkpoint.index file.")
+
+        os.utime(os.path.join(self.path, 'project.noise'))
 
     def get_restore_info(self) -> Tuple[int, List[Tuple[Action, int]]]:
         assert self.next_checkpoint_number > 0
@@ -188,7 +184,7 @@ class ProjectStorage(object):
 
         actions = []
         for snum in range(seq_number, self.next_sequence_number):
-            action, log_number = self._get_history_entry(snum)[0:2]
+            action, log_number = self.get_history_entry(snum)[0:2]
             actions.append((Action(action), log_number))
 
         return checkpoint_number, actions
@@ -197,17 +193,15 @@ class ProjectStorage(object):
     def create(cls, path: str) -> 'ProjectStorage':
         header_data = {
             'created': int(time.time()),
-            'data_dir': os.path.splitext(os.path.basename(path))[0] + '.data',
         }  # type: HeaderData
-        data_dir = os.path.join(os.path.dirname(path), header_data['data_dir'])
 
-        os.mkdir(data_dir)
+        os.mkdir(path)
 
         for fname in ('lock', 'log.index', 'log.history',
                       'checkpoint.index'):
-            open(os.path.join(data_dir, fname), 'wb').close()
+            open(os.path.join(path, fname), 'wb').close()
 
-        fp = fileutil.File(path)
+        fp = fileutil.File(os.path.join(path, 'project.noise'))
         fp.write_json(
             header_data,
             fileutil.FileInfo(
@@ -223,6 +217,8 @@ class ProjectStorage(object):
 
     def close(self) -> None:
         assert self.path is not None, "Project already closed."
+
+        os.utime(os.path.join(self.path, 'project.noise'))
         self.path = None
 
         if self.log_index_fp is not None:
@@ -295,7 +291,7 @@ class ProjectStorage(object):
     def _write_checkpoint(
             self, seq_number: int, checkpoint_number: int, checkpoint: Checkpoint) -> None:
         checkpoint_path = os.path.join(
-            self.data_dir,
+            self.path,
             'checkpoint.%06d' % checkpoint_number)
         logger.info("Writing checkpoint %s...", checkpoint_path)
         with open(checkpoint_path, mode='wb', buffering=0) as fp:
@@ -339,7 +335,7 @@ class ProjectStorage(object):
 
         return header
 
-    def _get_history_entry(self, seq_number: int) -> HistoryEntry:
+    def get_history_entry(self, seq_number: int) -> HistoryEntry:
         size = self.log_history_formatter.size
         offset = seq_number * size
         packed_entry = self.log_history[offset:offset+size]
@@ -355,7 +351,7 @@ class ProjectStorage(object):
         except KeyError:
             log_fp = open(
                 os.path.join(
-                    self.data_dir,
+                    self.path,
                     'log.%06d' % file_number),
                 mode='r+b', buffering=0)
             self.log_fp_map[self.log_file_number] = log_fp
@@ -440,7 +436,7 @@ class ProjectStorage(object):
 
         entry_to_undo = self.next_sequence_number - 2 * self.undo_count - 1
 
-        action, log_number = self._get_history_entry(entry_to_undo)[0:2]
+        action, log_number = self.get_history_entry(entry_to_undo)[0:2]
         return Action(_reverse_action(action)), self.get_log_entry(log_number)
 
     def get_log_entry_to_redo(self) -> Tuple[Action, LogEntry]:
@@ -448,7 +444,7 @@ class ProjectStorage(object):
 
         entry_to_redo = self.next_sequence_number - 2 * self.undo_count
 
-        action, log_number = self._get_history_entry(entry_to_redo)[0:2]
+        action, log_number = self.get_history_entry(entry_to_redo)[0:2]
         return Action(action), self.get_log_entry(log_number)
 
     def undo(self) -> None:
@@ -456,7 +452,7 @@ class ProjectStorage(object):
         assert self.can_undo
 
         entry_to_undo = self.next_sequence_number - 2 * self.undo_count - 1
-        action, log_number = self._get_history_entry(entry_to_undo)[0:2]
+        action, log_number = self.get_history_entry(entry_to_undo)[0:2]
 
         self.undo_count += 1
         history_entry = (_reverse_action(action), log_number, self.undo_count, self.redo_count)
@@ -471,7 +467,7 @@ class ProjectStorage(object):
         assert self.can_redo
 
         entry_to_redo = self.next_sequence_number - 2 * self.undo_count
-        action, log_number = self._get_history_entry(entry_to_redo)[0:2]
+        action, log_number = self.get_history_entry(entry_to_redo)[0:2]
 
         self.redo_count += 1
         history_entry = (action, log_number, self.undo_count, self.redo_count)
@@ -501,7 +497,7 @@ class ProjectStorage(object):
         checkpoint_number = self._get_checkpoint_entry(checkpoint_number)[1]
 
         checkpoint_path = os.path.join(
-            self.data_dir,
+            self.path,
             'checkpoint.%06d' % checkpoint_number)
         logger.info("Reading checkpoint %s...", checkpoint_path)
         with open(checkpoint_path, mode='rb') as fp:

@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -18,29 +20,20 @@
 #
 # @end:license
 
-add_python_package(
-  constants.py
-  debug_console.py
-  editor_main.py
-  exceptions.py
-  logging.py
-  pdb.py
-  runtime_settings.py
-  utils.py
-)
+from noisidev import uitest
+from . import open_project_dialog
+from . import project_registry
 
-py_proto(editor_main.proto)
 
-add_subdirectory(audioproc)
-add_subdirectory(bindings)
-add_subdirectory(core)
-add_subdirectory(host_system)
-add_subdirectory(instr)
-add_subdirectory(instrument_db)
-add_subdirectory(lv2)
-add_subdirectory(value_types)
-add_subdirectory(music)
-add_subdirectory(node_db)
-add_subdirectory(ui)
-add_subdirectory(builtin_nodes)
-add_subdirectory(title_generator)
+class OpenProjectDialogTest(uitest.UITestCase):
+    async def test_show(self):
+        self.app.project_registry = project_registry.ProjectRegistry(context=self.context)
+        await self.app.project_registry.setup()
+        try:
+            dialog = open_project_dialog.OpenProjectDialog(
+                context=self.context)
+            dialog.show()
+            dialog.hide()
+
+        finally:
+            await self.app.project_registry.cleanup()

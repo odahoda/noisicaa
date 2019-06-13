@@ -231,8 +231,12 @@ cdef class PyRealm(object):
             key = session_value.name
             if key.startswith('node/'):
                 _, node_id, node_key = key.split('/', 2)
-                node = self.__graph.find_node(node_id)
-                node.set_session_value(node_key, session_value)
+                try:
+                    node = self.__graph.find_node(node_id)
+                except KeyError:
+                    pass
+                else:
+                    node.set_session_value(node_key, session_value)
 
     def send_node_message(self, msg):
         node = self.__graph.find_node(msg.node_id)

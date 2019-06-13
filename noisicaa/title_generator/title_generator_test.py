@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -18,29 +20,11 @@
 #
 # @end:license
 
-add_python_package(
-  constants.py
-  debug_console.py
-  editor_main.py
-  exceptions.py
-  logging.py
-  pdb.py
-  runtime_settings.py
-  utils.py
-)
+from noisidev import unittest
+from . import title_generator
 
-py_proto(editor_main.proto)
-
-add_subdirectory(audioproc)
-add_subdirectory(bindings)
-add_subdirectory(core)
-add_subdirectory(host_system)
-add_subdirectory(instr)
-add_subdirectory(instrument_db)
-add_subdirectory(lv2)
-add_subdirectory(value_types)
-add_subdirectory(music)
-add_subdirectory(node_db)
-add_subdirectory(ui)
-add_subdirectory(builtin_nodes)
-add_subdirectory(title_generator)
+class TitleGeneratorTest(unittest.TestCase):
+    def test_generate(self):
+        gen = title_generator.TitleGenerator()
+        for _ in range(20000):
+            gen.generate()

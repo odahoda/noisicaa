@@ -451,7 +451,7 @@ class CustomCSoundNode(generic_node.GenericNode):
     def __showEditor(self) -> None:
         if self.__editor is None:
             self.__editor = Editor(
-                node=self.__node, parent=self.editor_window, context=self.context)
+                node=self.__node, parent=self.project_view, context=self.context)
 
         self.__editor.show()
         self.__editor.raise_()

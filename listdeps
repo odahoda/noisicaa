@@ -54,6 +54,7 @@ PIP_DEPS = {
         PKG('PyQt5'),
         PKG('eventfd'),
         PKG('gbulb'),
+        PKG('lucky-humanize'),
         PKG('numpy'),
         PKG('portalocker'),
         PKG('posix_ipc'),
@@ -61,7 +62,8 @@ PIP_DEPS = {
         PKG('psutil'),
         PKG('pyaudio'),
         PKG('pyparsing'),
-        PKG('quamash'),
+        # TODO: get my changes upstream and use regular quamash package from pip.
+        PKG('git+https://github.com/odahoda/quamash.git#egg=quamash'),
         PKG('toposort'),
         PKG('urwid'),
     ],
