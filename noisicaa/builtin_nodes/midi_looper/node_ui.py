@@ -27,6 +27,7 @@ from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
 
 from noisicaa import core
+from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui.graph import base_node
@@ -55,8 +56,50 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         self.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.setWidget(body)
 
+        self.__duration = QtWidgets.QSpinBox()
+        self.__duration.setObjectName('duration')
+        self.__duration.setSuffix(" beats")
+        self.__duration.setKeyboardTracking(False)
+        self.__duration.setRange(1, 100)
+        num_beats = self.__node.duration / audioproc.MusicalDuration(1, 4)
+        assert num_beats.denominator == 1
+        self.__duration.setValue(num_beats.numerator)
+        self.__duration.valueChanged.connect(self.__durationEdited)
+        self.__listeners['duration'] = self.__node.duration_changed.add(self.__durationChanged)
+
+        self.__current_position = QtWidgets.QLineEdit()
+        self.__current_position.setObjectName('current_position')
+        self.__current_position.setReadOnly(True)
+
+        l2 = QtWidgets.QHBoxLayout()
+        l2.addWidget(self.__duration)
+        l2.addStretch(1)
+
+        l1 = QtWidgets.QVBoxLayout()
+        l1.addLayout(l2)
+        l1.addWidget(self.__current_position)
+        l1.addStretch(1)
+        body.setLayout(l1)
+
+    def __durationChanged(self, change: music.PropertyValueChange[audioproc.MusicalDuration]) -> None:
+        num_beats = change.new_value / audioproc.MusicalDuration(1, 4)
+        assert num_beats.denominator == 1
+        self.__duration.setValue(num_beats.numerator)
+
+    def __durationEdited(self, beats: int) -> None:
+        duration = audioproc.MusicalDuration(beats, 4)
+        if duration == self.__node.duration:
+            return
+
+        with self.project.apply_mutations('%s: Change duration' % self.__node.name):
+            self.__node.set_duration(duration)
+
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:
-        pass
+        current_position_urid = 'http://noisicaa.odahoda.de/lv2/processor_midi_looper#current_position'
+        if current_position_urid in msg:
+            numerator, denominator = msg[current_position_urid]
+            current_position = audioproc.MusicalTime(numerator, denominator)
+            self.__current_position.setText('%d%%' % int(100 * (current_position / self.__node.duration).to_float()))
 
 
 class MidiLooperNode(base_node.Node):

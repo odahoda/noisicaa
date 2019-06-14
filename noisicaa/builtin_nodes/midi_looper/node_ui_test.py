@@ -20,7 +20,10 @@
 #
 # @end:license
 
+from PyQt5 import QtWidgets
+
 from noisidev import uitest
+from noisicaa import audioproc
 from . import node_ui
 
 
@@ -42,3 +45,20 @@ class MidiLooperNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
     async def test_init(self):
         widget = node_ui.MidiLooperNodeWidget(node=self.node, context=self.context)
         widget.cleanup()
+
+    async def test_duration(self):
+        widget = node_ui.MidiLooperNodeWidget(node=self.node, context=self.context)
+        try:
+            duration = widget.findChild(QtWidgets.QSpinBox, 'duration')
+            assert duration is not None
+            self.assertEqual(duration.value(), (self.node.duration / audioproc.MusicalDuration(1, 4)).numerator)
+
+            with self.project.apply_mutations('test'):
+                self.node.set_duration(audioproc.MusicalDuration(5, 4))
+            self.assertEqual(audioproc.MusicalDuration(duration.value(), 4), self.node.duration)
+
+            duration.setValue(7)
+            self.assertEqual(self.node.duration, audioproc.MusicalDuration(7, 4))
+
+        finally:
+            widget.cleanup()

@@ -24,6 +24,7 @@ from typing import cast
 
 from noisidev import unittest
 from noisidev import unittest_mixins
+from noisicaa import audioproc
 from . import model
 
 
@@ -38,3 +39,10 @@ class MidiLooperTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
     async def test_add_node(self):
         node = await self._add_node()
         self.assertIsInstance(node, model.MidiLooper)
+
+    async def test_duration(self):
+        node = await self._add_node()
+        self.assertEqual(node.duration, audioproc.MusicalDuration(8, 4))
+        with self.project.apply_mutations('test'):
+            node.set_duration(audioproc.MusicalDuration(4, 4))
+        self.assertEqual(node.duration, audioproc.MusicalDuration(4, 4))

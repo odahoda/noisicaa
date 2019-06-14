@@ -24,9 +24,11 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
+import "noisicaa/audioproc/public/musical_time.proto";
 import "noisicaa/audioproc/public/node_parameters.proto";
 
 message MidiLooperSpec {
+  required MusicalDuration duration = 1;
 }
 
 extend NodeParameters {

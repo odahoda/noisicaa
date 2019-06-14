@@ -21,17 +21,28 @@
 # @end:license
 
 import logging
-from typing import Iterator
+from typing import Any, Iterator
 
 from noisicaa import audioproc
 from noisicaa import node_db
 from . import node_description
+from . import processor_pb2
 from . import _model
 
 logger = logging.getLogger(__name__)
 
 
 class MidiLooper(_model.MidiLooper):
+    def create(self, **kwargs: Any) -> None:
+        super().create(**kwargs)
+
+        self.duration = audioproc.MusicalDuration(8, 4)
+
+    def setup(self) -> None:
+        super().setup()
+
+        self.duration_changed.add(lambda _: self.update_spec())
+
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
         yield from super().get_initial_parameter_mutations()
         yield self.__get_spec_mutation()
@@ -43,7 +54,8 @@ class MidiLooper(_model.MidiLooper):
 
     def __get_spec_mutation(self) -> audioproc.Mutation:
         params = audioproc.NodeParameters()
-        #spec = params.Extensions[processor_pb2.midi_looper_spec]
+        spec = params.Extensions[processor_pb2.midi_looper_spec]
+        spec.duration.CopyFrom(self.duration.to_proto())
 
         return audioproc.Mutation(
             set_node_parameters=audioproc.SetNodeParameters(
@@ -55,3 +67,6 @@ class MidiLooper(_model.MidiLooper):
         node_desc = node_db.NodeDescription()
         node_desc.CopyFrom(node_description.MidiLooperDescription)
         return node_desc
+
+    def set_duration(self, duration: audioproc.MusicalDuration) -> None:
+        self.duration = duration

@@ -23,6 +23,7 @@
 #include <math.h>
 
 #include "noisicaa/audioproc/engine/misc.h"
+#include "noisicaa/audioproc/public/musical_time.h"
 #include "noisicaa/audioproc/public/engine_notification.pb.h"
 #include "noisicaa/audioproc/engine/message_queue.h"
 #include "noisicaa/host_system/host_system.h"
@@ -40,6 +41,9 @@ ProcessorMidiLooper::ProcessorMidiLooper(
     _next_spec(nullptr),
     _current_spec(nullptr),
     _old_spec(nullptr) {
+  _current_position_urid = _host_system->lv2->map(
+      "http://noisicaa.odahoda.de/lv2/processor_midi_looper#current_position");
+  lv2_atom_forge_init(&_node_msg_forge, &_host_system->lv2->urid_map);
 }
 
 Status ProcessorMidiLooper::setup_internal() {
@@ -109,6 +113,33 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
     return Status::Ok();
   }
 
+  MusicalDuration duration = MusicalDuration(spec->duration());
+
+  SampleTime* stime = ctxt->time_map.get();
+  for (uint32_t pos = 0; pos < _host_system->block_size(); ++pos, ++stime) {
+    if (stime->start_time.numerator() < 0) {
+      continue;
+    }
+
+    MusicalTime current_position = stime->start_time % duration;
+
+    if (pos == 0) {
+      uint8_t atom[10000];
+      lv2_atom_forge_set_buffer(&_node_msg_forge, atom, sizeof(atom));
+
+      LV2_Atom_Forge_Frame frame;
+      lv2_atom_forge_object(&_node_msg_forge, &frame, _host_system->lv2->urid.core_nodemsg, 0);
+      lv2_atom_forge_key(&_node_msg_forge, _current_position_urid);
+      LV2_Atom_Forge_Frame tframe;
+      lv2_atom_forge_tuple(&_node_msg_forge, &tframe);
+      lv2_atom_forge_int(&_node_msg_forge, current_position.numerator());
+      lv2_atom_forge_int(&_node_msg_forge, current_position.denominator());
+      lv2_atom_forge_pop(&_node_msg_forge, &tframe);
+      lv2_atom_forge_pop(&_node_msg_forge, &frame);
+
+      NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)atom);
+    }
+  }
 
   clear_all_outputs();
   return Status::Ok();

@@ -59,6 +59,9 @@ protected:
 private:
   Status set_spec(const pb::MidiLooperSpec& spec);
 
+  LV2_URID _current_position_urid;
+  LV2_Atom_Forge _node_msg_forge;
+
   vector<BufferPtr> _buffers;
 
   atomic<pb::MidiLooperSpec*> _next_spec;

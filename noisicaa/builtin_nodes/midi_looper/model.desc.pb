@@ -22,4 +22,10 @@ classes {
   name: "MidiLooper"
   super_class: "noisicaa.music.graph.BaseNode"
   proto_ext_name: "midi_looper"
+  properties {
+    name: "duration"
+    type: WRAPPED_PROTO
+    wrapped_type: "noisicaa.audioproc.MusicalDuration"
+    proto_id: 1
+  }
 }
