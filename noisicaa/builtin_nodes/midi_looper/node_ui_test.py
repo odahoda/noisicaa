@@ -20,21 +20,25 @@
 #
 # @end:license
 
-from typing import cast
-
-from noisidev import unittest
-from noisidev import unittest_mixins
-from . import model
+from noisidev import uitest
+from . import node_ui
 
 
-class LooperTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
-
-    async def _add_node(self) -> model.Looper:
+class MidiLooperNodeTest(uitest.ProjectMixin, uitest.UITestCase):
+    async def setup_testcase(self):
         with self.project.apply_mutations('test'):
-            return cast(
-                model.Looper,
-                self.project.create_node('builtin://looper'))
+            self.node = self.project.create_node('builtin://midi-looper')
 
-    async def test_add_node(self):
-        node = await self._add_node()
-        self.assertIsInstance(node, model.Looper)
+    async def test_init(self):
+        widget = node_ui.MidiLooperNode(node=self.node, context=self.context)
+        widget.cleanup()
+
+
+class MidiLooperNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
+    async def setup_testcase(self):
+        with self.project.apply_mutations('test'):
+            self.node = self.project.create_node('builtin://midi-looper')
+
+    async def test_init(self):
+        widget = node_ui.MidiLooperNodeWidget(node=self.node, context=self.context)
+        widget.cleanup()

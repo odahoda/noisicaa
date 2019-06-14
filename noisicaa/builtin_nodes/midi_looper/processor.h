@@ -22,8 +22,8 @@
  * @end:license
  */
 
-#ifndef _NOISICAA_BUILTIN_NODES_LOOPER_PROCESSOR_H
-#define _NOISICAA_BUILTIN_NODES_LOOPER_PROCESSOR_H
+#ifndef _NOISICAA_BUILTIN_NODES_MIDI_LOOPER_PROCESSOR_H
+#define _NOISICAA_BUILTIN_NODES_MIDI_LOOPER_PROCESSOR_H
 
 #include <stdint.h>
 #include <atomic>
@@ -40,12 +40,12 @@ using namespace std;
 class HostSystem;
 
 namespace pb {
-class LooperSpec;
+class MidiLooperSpec;
 }
 
-class ProcessorLooper : public Processor {
+class ProcessorMidiLooper : public Processor {
 public:
-  ProcessorLooper(
+  ProcessorMidiLooper(
       const string& realm_name, const string& node_id, HostSystem* host_system,
       const pb::NodeDescription& desc);
 
@@ -57,13 +57,13 @@ protected:
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 private:
-  Status set_spec(const pb::LooperSpec& spec);
+  Status set_spec(const pb::MidiLooperSpec& spec);
 
   vector<BufferPtr> _buffers;
 
-  atomic<pb::LooperSpec*> _next_spec;
-  atomic<pb::LooperSpec*> _current_spec;
-  atomic<pb::LooperSpec*> _old_spec;
+  atomic<pb::MidiLooperSpec*> _next_spec;
+  atomic<pb::MidiLooperSpec*> _current_spec;
+  atomic<pb::MidiLooperSpec*> _old_spec;
 };
 
 }  // namespace noisicaa

@@ -26,9 +26,9 @@ package noisicaa.pb;
 
 import "noisicaa/audioproc/public/node_parameters.proto";
 
-message LooperSpec {
+message MidiLooperSpec {
 }
 
 extend NodeParameters {
-  optional LooperSpec looper_spec = 411000;
+  optional MidiLooperSpec midi_looper_spec = 411000;
 }

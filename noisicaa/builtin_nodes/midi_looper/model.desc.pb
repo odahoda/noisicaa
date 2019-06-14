@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -20,30 +18,8 @@
 #
 # @end:license
 
-from noisicaa import node_db
-
-
-LooperDescription = node_db.NodeDescription(
-    uri='builtin://looper',
-    display_name='Looper',
-    type=node_db.NodeDescription.PROCESSOR,
-    node_ui=node_db.NodeUIDescription(
-        type='builtin://looper',
-    ),
-    builtin_icon='node-type-builtin',
-    processor=node_db.ProcessorDescription(
-        type='builtin://looper',
-    ),
-    ports=[
-        node_db.PortDescription(
-            name='in',
-            direction=node_db.PortDescription.INPUT,
-            type=node_db.PortDescription.EVENTS,
-        ),
-        node_db.PortDescription(
-            name='out',
-            direction=node_db.PortDescription.OUTPUT,
-            type=node_db.PortDescription.EVENTS,
-        ),
-    ]
-)
+classes {
+  name: "MidiLooper"
+  super_class: "noisicaa.music.graph.BaseNode"
+  proto_ext_name: "midi_looper"
+}

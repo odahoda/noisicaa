@@ -37,7 +37,7 @@ from .custom_csound.node_ui import CustomCSoundNode
 from .midi_source.node_ui import MidiSourceNode
 from .step_sequencer.node_ui import StepSequencerNode
 from .midi_cc_to_cv.node_ui import MidiCCtoCVNode
-from .looper.node_ui import Looper
+from .midi_looper.node_ui import MidiLooper
 
 if typing.TYPE_CHECKING:
     from noisicaa.ui.graph import base_node
@@ -55,7 +55,7 @@ node_ui_cls_map = {
     'builtin://midi-source': MidiSourceNode,
     'builtin://step-sequencer': StepSequencerNode,
     'builtin://midi-cc-to-cv': MidiCCtoCVNode,
-    'builtin://looper': Looper,
+    'builtin://midi-looper': MidiLooper,
 }  # type: Dict[str, Type[base_node.Node]]
 
 track_editor_cls_map = {

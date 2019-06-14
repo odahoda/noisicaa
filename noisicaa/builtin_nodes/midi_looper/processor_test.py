@@ -30,13 +30,13 @@ from noisicaa.audioproc.engine import processor
 from . import processor_pb2
 
 
-class ProcessorLooperTestMixin(
+class ProcessorMidiLooperTestMixin(
         unittest_engine_mixins.HostSystemMixin,
         unittest_mixins.NodeDBMixin,
         unittest.TestCase):
 
     def test_value(self):
-        plugin_uri = 'builtin://looper'
+        plugin_uri = 'builtin://midi-looper'
 
         node_desc = self.node_db[plugin_uri]
 
@@ -44,7 +44,7 @@ class ProcessorLooperTestMixin(
         proc.setup()
 
         params = node_parameters_pb2.NodeParameters()
-        spec = params.Extensions[processor_pb2.looper_spec]
+        spec = params.Extensions[processor_pb2.midi_looper_spec]
         proc.set_parameters(params)
 
         buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)

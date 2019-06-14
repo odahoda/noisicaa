@@ -33,7 +33,7 @@ from .custom_csound import model as custom_csound
 from .midi_source import model as midi_source
 from .step_sequencer import model as step_sequencer
 from .midi_cc_to_cv import model as midi_cc_to_cv
-from .looper import model as looper
+from .midi_looper import model as midi_looper
 
 
 node_cls_map = {
@@ -46,7 +46,7 @@ node_cls_map = {
     'builtin://midi-source': midi_source.MidiSource,
     'builtin://step-sequencer': step_sequencer.StepSequencer,
     'builtin://midi-cc-to-cv': midi_cc_to_cv.MidiCCtoCV,
-    'builtin://looper': looper.Looper,
+    'builtin://midi-looper': midi_looper.MidiLooper,
 }  # type: Dict[str, Type[graph.BaseNode]]
 
 
@@ -70,4 +70,4 @@ def register_classes(pool: music.Pool) -> None:
     pool.register_class(step_sequencer.StepSequencerStep)
     pool.register_class(midi_cc_to_cv.MidiCCtoCV)
     pool.register_class(midi_cc_to_cv.MidiCCtoCVChannel)
-    pool.register_class(looper.Looper)
+    pool.register_class(midi_looper.MidiLooper)

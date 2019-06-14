@@ -31,7 +31,7 @@ from . import _model
 logger = logging.getLogger(__name__)
 
 
-class Looper(_model.Looper):
+class MidiLooper(_model.MidiLooper):
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
         yield from super().get_initial_parameter_mutations()
         yield self.__get_spec_mutation()
@@ -43,7 +43,7 @@ class Looper(_model.Looper):
 
     def __get_spec_mutation(self) -> audioproc.Mutation:
         params = audioproc.NodeParameters()
-        #spec = params.Extensions[processor_pb2.looper_spec]
+        #spec = params.Extensions[processor_pb2.midi_looper_spec]
 
         return audioproc.Mutation(
             set_node_parameters=audioproc.SetNodeParameters(
@@ -53,5 +53,5 @@ class Looper(_model.Looper):
     @property
     def description(self) -> node_db.NodeDescription:
         node_desc = node_db.NodeDescription()
-        node_desc.CopyFrom(node_description.LooperDescription)
+        node_desc.CopyFrom(node_description.MidiLooperDescription)
         return node_desc

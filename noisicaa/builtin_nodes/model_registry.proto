@@ -34,7 +34,7 @@ import "noisicaa/builtin_nodes/custom_csound/model.proto";
 import "noisicaa/builtin_nodes/midi_source/model.proto";
 import "noisicaa/builtin_nodes/step_sequencer/model.proto";
 import "noisicaa/builtin_nodes/midi_cc_to_cv/model.proto";
-import "noisicaa/builtin_nodes/looper/model.proto";
+import "noisicaa/builtin_nodes/midi_looper/model.proto";
 
 extend ObjectBase {
   // Score track (401xxx)
@@ -74,6 +74,6 @@ extend ObjectBase {
   optional MidiCCtoCV midi_cc_to_cv = 410000;
   optional MidiCCtoCVChannel midi_cc_to_cv_channel = 410001;
 
-  // Looper (411xxx)
-  optional Looper looper = 411000;
+  // MIDI Looper (411xxx)
+  optional MidiLooper midi_looper = 411000;
 }

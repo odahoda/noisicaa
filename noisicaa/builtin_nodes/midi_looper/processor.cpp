@@ -26,23 +26,23 @@
 #include "noisicaa/audioproc/public/engine_notification.pb.h"
 #include "noisicaa/audioproc/engine/message_queue.h"
 #include "noisicaa/host_system/host_system.h"
-#include "noisicaa/builtin_nodes/looper/processor.h"
-#include "noisicaa/builtin_nodes/looper/processor.pb.h"
-#include "noisicaa/builtin_nodes/looper/model.pb.h"
+#include "noisicaa/builtin_nodes/midi_looper/processor.h"
+#include "noisicaa/builtin_nodes/midi_looper/processor.pb.h"
+#include "noisicaa/builtin_nodes/midi_looper/model.pb.h"
 
 namespace noisicaa {
 
-ProcessorLooper::ProcessorLooper(
+ProcessorMidiLooper::ProcessorMidiLooper(
     const string& realm_name, const string& node_id, HostSystem *host_system,
     const pb::NodeDescription& desc)
   : Processor(
-      realm_name, node_id, "noisicaa.audioproc.engine.processor.looper", host_system, desc),
+      realm_name, node_id, "noisicaa.audioproc.engine.processor.midi_looper", host_system, desc),
     _next_spec(nullptr),
     _current_spec(nullptr),
     _old_spec(nullptr) {
 }
 
-Status ProcessorLooper::setup_internal() {
+Status ProcessorMidiLooper::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
   _buffers.resize(_desc.ports_size());
@@ -50,8 +50,8 @@ Status ProcessorLooper::setup_internal() {
   return Status::Ok();
 }
 
-void ProcessorLooper::cleanup_internal() {
-  pb::LooperSpec* spec = _next_spec.exchange(nullptr);
+void ProcessorMidiLooper::cleanup_internal() {
+  pb::MidiLooperSpec* spec = _next_spec.exchange(nullptr);
   if (spec != nullptr) {
     delete spec;
   }
@@ -69,9 +69,9 @@ void ProcessorLooper::cleanup_internal() {
   Processor::cleanup_internal();
 }
 
-Status ProcessorLooper::set_parameters_internal(const pb::NodeParameters& parameters) {
-  if (parameters.HasExtension(pb::looper_spec)) {
-    const auto& spec = parameters.GetExtension(pb::looper_spec);
+Status ProcessorMidiLooper::set_parameters_internal(const pb::NodeParameters& parameters) {
+  if (parameters.HasExtension(pb::midi_looper_spec)) {
+    const auto& spec = parameters.GetExtension(pb::midi_looper_spec);
 
     Status status = set_spec(spec);
     if (status.is_error()) {
@@ -82,7 +82,7 @@ Status ProcessorLooper::set_parameters_internal(const pb::NodeParameters& parame
   return Processor::set_parameters_internal(parameters);
 }
 
-Status ProcessorLooper::connect_port_internal(
+Status ProcessorMidiLooper::connect_port_internal(
     BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) {
   if (port_idx >= _buffers.size()) {
     return ERROR_STATUS("Invalid port index %d", port_idx);
@@ -91,13 +91,13 @@ Status ProcessorLooper::connect_port_internal(
   return Status::Ok();
 }
 
-Status ProcessorLooper::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
+Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
   // If there is a next spec, make it the current. The current spec becomes the old spec, which will
   // eventually be destroyed in the main thread.  It must not happen that a next spec is available,
   // before an old one has been disposed of.
-  pb::LooperSpec* spec = _next_spec.exchange(nullptr);
+  pb::MidiLooperSpec* spec = _next_spec.exchange(nullptr);
   if (spec != nullptr) {
-    pb::LooperSpec* old_spec = _current_spec.exchange(spec);
+    pb::MidiLooperSpec* old_spec = _current_spec.exchange(spec);
     old_spec = _old_spec.exchange(old_spec);
     assert(old_spec == nullptr);
   }
@@ -114,23 +114,23 @@ Status ProcessorLooper::process_block_internal(BlockContext* ctxt, TimeMapper* t
   return Status::Ok();
 }
 
-Status ProcessorLooper::set_spec(const pb::LooperSpec& spec) {
+Status ProcessorMidiLooper::set_spec(const pb::MidiLooperSpec& spec) {
   _logger->info("Setting spec:\n%s", spec.DebugString().c_str());
 
   // Discard any next spec, which hasn't been picked up by the audio thread.
-  pb::LooperSpec* prev_next_spec = _next_spec.exchange(nullptr);
+  pb::MidiLooperSpec* prev_next_spec = _next_spec.exchange(nullptr);
   if (prev_next_spec != nullptr) {
     delete prev_next_spec;
   }
 
   // Discard spec, which the audio thread doesn't use anymore.
-  pb::LooperSpec* old_spec = _old_spec.exchange(nullptr);
+  pb::MidiLooperSpec* old_spec = _old_spec.exchange(nullptr);
   if (old_spec != nullptr) {
     delete old_spec;
   }
 
   // Create the new spec.
-  unique_ptr<pb::LooperSpec> new_spec(new pb::LooperSpec());
+  unique_ptr<pb::MidiLooperSpec> new_spec(new pb::MidiLooperSpec());
   new_spec->CopyFrom(spec);
 
   // Make the new spec the next one for the audio thread.

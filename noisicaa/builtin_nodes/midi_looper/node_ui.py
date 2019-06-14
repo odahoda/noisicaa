@@ -35,8 +35,8 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
-class LooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
-    def __init__(self, node: model.Looper, **kwargs: Any) -> None:
+class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
+    def __init__(self, node: model.MidiLooper, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
@@ -59,16 +59,16 @@ class LooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QS
         pass
 
 
-class LooperNode(base_node.Node):
+class MidiLooperNode(base_node.Node):
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
-        assert isinstance(node, model.Looper), type(node).__name__
-        self.__widget = None  # type: LooperNodeWidget
-        self.__node = node  # type: model.Looper
+        assert isinstance(node, model.MidiLooper), type(node).__name__
+        self.__widget = None  # type: MidiLooperNodeWidget
+        self.__node = node  # type: model.MidiLooper
 
         super().__init__(node=node, **kwargs)
 
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
-        self.__widget = LooperNodeWidget(node=self.__node, context=self.context)
+        self.__widget = MidiLooperNodeWidget(node=self.__node, context=self.context)
         self.add_cleanup_function(self.__widget.cleanup)
         return self.__widget
