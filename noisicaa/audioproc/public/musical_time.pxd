@@ -69,6 +69,7 @@ cdef extern from "noisicaa/audioproc/public/musical_time.h" namespace "noisicaa"
         void sub(const MusicalDuration& t)
         void mul(const Fraction& t)
         void div(const Fraction& t)
+        void mod(const Fraction& t)
 
         # Actual implementation in C++ have different signatures, which
         # Cython does not understand. But it is sufficient that Cython
@@ -78,6 +79,7 @@ cdef extern from "noisicaa/audioproc/public/musical_time.h" namespace "noisicaa"
         MusicalDuration operator-(const MusicalTime& b)
         MusicalTime operator*(const Fraction& b)
         MusicalTime operator/(const Fraction& b)
+        MusicalTime operator%(const Fraction& b)
         bool operator==(const MusicalTime& b)
         bool operator!=(const MusicalTime& b)
         bool operator<(const MusicalTime& b)

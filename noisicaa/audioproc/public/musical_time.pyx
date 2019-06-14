@@ -245,6 +245,9 @@ cdef class PyMusicalTime(object):
         v /= _as_fraction(other)
         return PyMusicalTime.create(v)
 
+    def __mod__(PyMusicalTime self, other):
+        return PyMusicalTime.create(self._time % _as_fraction(other))
+
     @classmethod
     def from_proto(cls, pb):
         return cls(pb.numerator, pb.denominator)
