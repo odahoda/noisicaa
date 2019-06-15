@@ -60,18 +60,23 @@ protected:
 private:
   Status set_spec(const pb::MidiLooperSpec& spec);
   Status process_sample(uint32_t pos, const MusicalTime sstart, const MusicalTime send);
+  void post_record_state(BlockContext* ctxt);
 
   LV2_URID _current_position_urid;
+  LV2_URID _record_state_urid;
   LV2_Atom_Forge _node_msg_forge;
   LV2_Atom_Forge _out_forge;
 
   vector<BufferPtr> _buffers;
 
+  // Keep this in sync with RecordState in node_ui.py
   enum RecordState {
-    OFF,
-    WAITING,
-    RECORDING,
+    UNSET = 0,
+    OFF = 1,
+    WAITING = 2,
+    RECORDING = 3,
   };
+  atomic<RecordState> _next_record_state;
   RecordState _record_state;
 
   struct RecordedEvent {

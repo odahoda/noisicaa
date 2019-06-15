@@ -20,21 +20,74 @@
 #
 # @end:license
 
+import enum
 import logging
 from typing import Any, Dict
 
 from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
+from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.ui import ui_base
+from noisicaa.ui import slots
 from noisicaa.ui.graph import base_node
 from noisicaa.builtin_nodes import processor_message_registry_pb2
 from . import model
 
 logger = logging.getLogger(__name__)
+
+
+# Keep this in sync with ProcessorMidiLooper::RecordState in processor.h
+class RecordState(enum.IntEnum):
+    UNSET = 0
+    OFF = 1
+    WAITING = 2
+    RECORDING = 3
+
+
+class RecordButton(slots.SlotContainer, QtWidgets.QPushButton):
+    recordState, setRecordState, recordStateChanged = slots.slot(RecordState, 'recordState')
+
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.setText("Record")
+        self.setIcon(QtGui.QIcon.fromTheme('media-record'))
+
+        self.__default_bg = self.palette().color(QtGui.QPalette.Button)
+
+        self.recordStateChanged.connect(self.__recordStateChanged)
+
+        self.__timer = QtCore.QTimer()
+        self.__timer.setInterval(250)
+        self.__timer.timeout.connect(self.__blink)
+
+    def __recordStateChanged(self, state: RecordState) -> None:
+        palette = self.palette()
+        if state == RecordState.OFF:
+            self.__timer.stop()
+            palette.setColor(self.backgroundRole(), self.__default_bg)
+        elif state == RecordState.WAITING:
+            self.__timer.start()
+            self.__blink_state = True
+            palette.setColor(self.backgroundRole(), QtGui.QColor(0, 255, 0))
+        elif state == RecordState.RECORDING:
+            self.__timer.stop()
+            palette.setColor(self.backgroundRole(), QtGui.QColor(255, 0, 0))
+        self.setPalette(palette)
+
+    def __blink(self) -> None:
+        self.__blink_state = not self.__blink_state
+        palette = self.palette()
+        if self.__blink_state:
+            palette.setColor(self.backgroundRole(), QtGui.QColor(0, 255, 0))
+        else:
+            palette.setColor(self.backgroundRole(), self.__default_bg)
+        self.setPalette(palette)
 
 
 class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
@@ -68,8 +121,7 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         self.__duration.valueChanged.connect(self.__durationEdited)
         self.__listeners['duration'] = self.__node.duration_changed.add(self.__durationChanged)
 
-        self.__record = QtWidgets.QPushButton()
-        self.__record.setText("Record")
+        self.__record = RecordButton()
         self.__record.clicked.connect(self.__recordClicked)
 
         self.__current_position = QtWidgets.QLineEdit()
@@ -77,12 +129,12 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         self.__current_position.setReadOnly(True)
 
         l2 = QtWidgets.QHBoxLayout()
+        l2.addWidget(self.__record)
         l2.addWidget(self.__duration)
         l2.addStretch(1)
 
         l1 = QtWidgets.QVBoxLayout()
         l1.addLayout(l2)
-        l1.addWidget(self.__record)
         l1.addWidget(self.__current_position)
         l1.addStretch(1)
         body.setLayout(l1)
@@ -112,6 +164,11 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
             numerator, denominator = msg[current_position_urid]
             current_position = audioproc.MusicalTime(numerator, denominator)
             self.__current_position.setText('%d%%' % int(100 * (current_position / self.__node.duration).to_float()))
+
+        record_state_urid = 'http://noisicaa.odahoda.de/lv2/processor_midi_looper#record_state'
+        if record_state_urid in msg:
+            record_state = RecordState(msg[record_state_urid])
+            self.__record.setRecordState(record_state)
 
 
 class MidiLooperNode(base_node.Node):

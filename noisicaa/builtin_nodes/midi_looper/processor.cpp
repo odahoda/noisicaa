@@ -45,6 +45,8 @@ ProcessorMidiLooper::ProcessorMidiLooper(
     _old_spec(nullptr) {
   _current_position_urid = _host_system->lv2->map(
       "http://noisicaa.odahoda.de/lv2/processor_midi_looper#current_position");
+  _record_state_urid = _host_system->lv2->map(
+      "http://noisicaa.odahoda.de/lv2/processor_midi_looper#record_state");
   lv2_atom_forge_init(&_node_msg_forge, &_host_system->lv2->urid_map);
   lv2_atom_forge_init(&_out_forge, &_host_system->lv2->urid_map);
 }
@@ -53,6 +55,7 @@ Status ProcessorMidiLooper::setup_internal() {
   RETURN_IF_ERROR(Processor::setup_internal());
 
   _buffers.resize(_desc.ports_size());
+  _next_record_state.store(UNSET);
   _record_state = OFF;
   _recorded_count = 0;
   _playback_pos = MusicalTime(-1, 1);
@@ -85,9 +88,7 @@ Status ProcessorMidiLooper::handle_message_internal(pb::ProcessorMessage* msg) {
   if (msg->HasExtension(pb::midi_looper_record)) {
     const pb::MidiLooperRecord& m = msg->GetExtension(pb::midi_looper_record);
     if (m.start()) {
-      if (_record_state == OFF) {
-        _record_state = WAITING;
-      }
+      _next_record_state.store(WAITING);
     }
 
     return Status::Ok();
@@ -136,6 +137,12 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
     return Status::Ok();
   }
 
+  RecordState next_record_state = _next_record_state.exchange(UNSET);
+  if (next_record_state != UNSET) {
+    _record_state = next_record_state;
+    post_record_state(ctxt);
+  }
+
   MusicalDuration duration = MusicalDuration(spec->duration());
 
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
@@ -166,12 +173,12 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
       if (_record_state == WAITING) {
         _record_state = RECORDING;
         _recorded_count = 0;
-        _logger->error("Starting to record...");
+        post_record_state(ctxt);
       } else if (_record_state == RECORDING) {
         _record_state = OFF;
         _playback_pos = MusicalTime(-1, 1);
         _playback_index = 0;
-        _logger->error("Recording finished...");
+        post_record_state(ctxt);
       }
     }
 
@@ -218,7 +225,7 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
     }
 
     if (pos == 0) {
-      uint8_t atom[10000];
+      uint8_t atom[100];
       lv2_atom_forge_set_buffer(&_node_msg_forge, atom, sizeof(atom));
 
       LV2_Atom_Forge_Frame frame;
@@ -263,6 +270,19 @@ Status ProcessorMidiLooper::process_sample(uint32_t pos, const MusicalTime sstar
   _playback_pos = send;
 
   return Status::Ok();
+}
+
+void ProcessorMidiLooper::post_record_state(BlockContext* ctxt) {
+  uint8_t atom[100];
+  lv2_atom_forge_set_buffer(&_node_msg_forge, atom, sizeof(atom));
+
+  LV2_Atom_Forge_Frame frame;
+  lv2_atom_forge_object(&_node_msg_forge, &frame, _host_system->lv2->urid.core_nodemsg, 0);
+  lv2_atom_forge_key(&_node_msg_forge, _record_state_urid);
+  lv2_atom_forge_int(&_node_msg_forge, _record_state);
+  lv2_atom_forge_pop(&_node_msg_forge, &frame);
+
+  NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)atom);
 }
 
 Status ProcessorMidiLooper::set_spec(const pb::MidiLooperSpec& spec) {
