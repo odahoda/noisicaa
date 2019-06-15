@@ -29,6 +29,7 @@ import "noisicaa/builtin_nodes/instrument/processor_messages.proto";
 import "noisicaa/builtin_nodes/pianoroll/processor_messages.proto";
 import "noisicaa/builtin_nodes/midi_source/processor_messages.proto";
 import "noisicaa/builtin_nodes/midi_cc_to_cv/processor_messages.proto";
+import "noisicaa/builtin_nodes/midi_looper/processor.proto";
 
 package noisicaa.pb;
 
@@ -54,4 +55,7 @@ extend ProcessorMessage {
 
   // Midi CC to CV (410xxx)
   optional MidiCCtoCVLearn midi_cc_to_cv_learn = 410000;
+
+  // Midi Looper (411xxx)
+  optional MidiLooperRecord midi_looper_record = 411000;
 }

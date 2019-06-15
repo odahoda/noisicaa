@@ -52,17 +52,38 @@ public:
 protected:
   Status setup_internal() override;
   void cleanup_internal() override;
+  Status handle_message_internal(pb::ProcessorMessage* msg) override;
   Status set_parameters_internal(const pb::NodeParameters& parameters);
   Status connect_port_internal(BlockContext* ctxt, uint32_t port_idx, BufferPtr buf) override;
   Status process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) override;
 
 private:
   Status set_spec(const pb::MidiLooperSpec& spec);
+  Status process_sample(uint32_t pos, const MusicalTime sstart, const MusicalTime send);
 
   LV2_URID _current_position_urid;
   LV2_Atom_Forge _node_msg_forge;
+  LV2_Atom_Forge _out_forge;
 
   vector<BufferPtr> _buffers;
+
+  enum RecordState {
+    OFF,
+    WAITING,
+    RECORDING,
+  };
+  RecordState _record_state;
+
+  struct RecordedEvent {
+    MusicalTime time;
+    uint8_t midi[3];
+  };
+  static const uint32_t _recorded_max_count = 1000;
+  RecordedEvent _recorded_events[_recorded_max_count];
+  uint32_t _recorded_count;
+
+  MusicalTime _playback_pos;
+  uint32_t _playback_index;
 
   atomic<pb::MidiLooperSpec*> _next_spec;
   atomic<pb::MidiLooperSpec*> _current_spec;

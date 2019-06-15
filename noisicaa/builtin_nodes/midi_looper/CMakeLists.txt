@@ -36,8 +36,12 @@ py_proto(processor.proto)
 cpp_proto(processor.proto)
 add_dependencies(noisicaa.builtin_nodes.midi_looper.processor.proto model-noisicaa.builtin_nodes.midi_looper)
 
-add_library(noisicaa-builtin_nodes-midi_looper-processor SHARED processor.cpp processor.pb.cc model.pb.cc)
+add_library(noisicaa-builtin_nodes-midi_looper-processor_messages SHARED processor.pb.cc)
+target_link_libraries(noisicaa-builtin_nodes-midi_looper-processor_messages PRIVATE noisicaa-audioproc-public)
+
+add_library(noisicaa-builtin_nodes-midi_looper-processor SHARED processor.cpp model.pb.cc)
 target_compile_options(noisicaa-builtin_nodes-midi_looper-processor PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
 target_link_libraries(noisicaa-builtin_nodes-midi_looper-processor PRIVATE noisicaa-audioproc-public)
 target_link_libraries(noisicaa-builtin_nodes-midi_looper-processor PRIVATE noisicaa-host_system)
 target_link_libraries(noisicaa-builtin_nodes-midi_looper-processor PRIVATE noisicaa-builtin_nodes-processor_message_registry)
+target_link_libraries(noisicaa-builtin_nodes-midi_looper-processor PRIVATE noisicaa-builtin_nodes-midi_looper-processor_messages)

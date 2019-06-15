@@ -34,3 +34,7 @@ message MidiLooperSpec {
 extend NodeParameters {
   optional MidiLooperSpec midi_looper_spec = 411000;
 }
+
+message MidiLooperRecord {
+  optional bool start = 1;
+}

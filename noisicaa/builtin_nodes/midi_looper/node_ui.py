@@ -31,6 +31,7 @@ from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui.graph import base_node
+from noisicaa.builtin_nodes import processor_message_registry_pb2
 from . import model
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,10 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         self.__duration.valueChanged.connect(self.__durationEdited)
         self.__listeners['duration'] = self.__node.duration_changed.add(self.__durationChanged)
 
+        self.__record = QtWidgets.QPushButton()
+        self.__record.setText("Record")
+        self.__record.clicked.connect(self.__recordClicked)
+
         self.__current_position = QtWidgets.QLineEdit()
         self.__current_position.setObjectName('current_position')
         self.__current_position.setReadOnly(True)
@@ -77,6 +82,7 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
 
         l1 = QtWidgets.QVBoxLayout()
         l1.addLayout(l2)
+        l1.addWidget(self.__record)
         l1.addWidget(self.__current_position)
         l1.addStretch(1)
         body.setLayout(l1)
@@ -93,6 +99,12 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
 
         with self.project.apply_mutations('%s: Change duration' % self.__node.name):
             self.__node.set_duration(duration)
+
+    def __recordClicked(self) -> None:
+        msg = audioproc.ProcessorMessage(node_id=self.__node.pipeline_node_id)
+        pb = msg.Extensions[processor_message_registry_pb2.midi_looper_record]
+        pb.start = 1
+        self.call_async(self.project_view.sendNodeMessage(msg))
 
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:
         current_position_urid = 'http://noisicaa.odahoda.de/lv2/processor_midi_looper#current_position'
