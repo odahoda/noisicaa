@@ -97,6 +97,9 @@ cdef class Atom(object):
         elif type_uri == 'http://lv2plug.in/ns/ext/atom#String':
             return self.str
 
+        elif type_uri == 'http://lv2plug.in/ns/ext/midi#MidiEvent':
+            return self.data
+
         else:
             raise ValueError('%r (%r)' % (type_uri, self.type_urid))
 

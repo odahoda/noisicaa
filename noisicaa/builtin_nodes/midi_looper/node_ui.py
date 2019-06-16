@@ -33,6 +33,7 @@ from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.ui import ui_base
+from noisicaa.ui import pianoroll
 from noisicaa.ui import slots
 from noisicaa.ui.graph import base_node
 from noisicaa.builtin_nodes import processor_message_registry_pb2
@@ -128,6 +129,9 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         self.__current_position.setObjectName('current_position')
         self.__current_position.setReadOnly(True)
 
+        self.__pianoroll = pianoroll.PianoRoll()
+        self.__pianoroll.setDuration(self.__node.duration)
+
         l2 = QtWidgets.QHBoxLayout()
         l2.addWidget(self.__record)
         l2.addWidget(self.__duration)
@@ -136,13 +140,14 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         l1 = QtWidgets.QVBoxLayout()
         l1.addLayout(l2)
         l1.addWidget(self.__current_position)
-        l1.addStretch(1)
+        l1.addWidget(self.__pianoroll)
         body.setLayout(l1)
 
     def __durationChanged(self, change: music.PropertyValueChange[audioproc.MusicalDuration]) -> None:
         num_beats = change.new_value / audioproc.MusicalDuration(1, 4)
         assert num_beats.denominator == 1
         self.__duration.setValue(num_beats.numerator)
+        self.__pianoroll.setDuration(change.new_value)
 
     def __durationEdited(self, beats: int) -> None:
         duration = audioproc.MusicalDuration(beats, 4)
@@ -163,12 +168,23 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         if current_position_urid in msg:
             numerator, denominator = msg[current_position_urid]
             current_position = audioproc.MusicalTime(numerator, denominator)
+            self.__pianoroll.setPlaybackPosition(current_position)
             self.__current_position.setText('%d%%' % int(100 * (current_position / self.__node.duration).to_float()))
 
         record_state_urid = 'http://noisicaa.odahoda.de/lv2/processor_midi_looper#record_state'
         if record_state_urid in msg:
             record_state = RecordState(msg[record_state_urid])
             self.__record.setRecordState(record_state)
+            if record_state == RecordState.RECORDING:
+                self.__pianoroll.clearEvents()
+                self.__pianoroll.setUnfinishedNoteMode(pianoroll.UnfinishedNoteMode.ToPlaybackPosition)
+            else:
+                self.__pianoroll.setUnfinishedNoteMode(pianoroll.UnfinishedNoteMode.ToEnd)
+
+        recorded_event_urid = 'http://noisicaa.odahoda.de/lv2/processor_midi_looper#recorded_event'
+        if recorded_event_urid in msg:
+            time_numerator, time_denominator, midi = msg[recorded_event_urid]
+            self.__pianoroll.addEvent(audioproc.MusicalTime(time_numerator, time_denominator), midi)
 
 
 class MidiLooperNode(base_node.Node):

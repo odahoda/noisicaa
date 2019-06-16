@@ -40,6 +40,8 @@ add_python_package(
   open_project_dialog_test.py
   piano.py
   piano_test.py
+  pianoroll.py
+  pianoroll_test.py
   pipeline_perf_monitor.py
   player_state.py
   project_registry.py

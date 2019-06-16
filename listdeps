@@ -64,6 +64,7 @@ PIP_DEPS = {
         PKG('pyparsing'),
         # TODO: get my changes upstream and use regular quamash package from pip.
         PKG('git+https://github.com/odahoda/quamash.git#egg=quamash'),
+        PKG('sortedcontainers'),
         PKG('toposort'),
         PKG('urwid'),
     ],

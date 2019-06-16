@@ -64,6 +64,7 @@ private:
 
   LV2_URID _current_position_urid;
   LV2_URID _record_state_urid;
+  LV2_URID _recorded_event_urid;
   LV2_Atom_Forge _node_msg_forge;
   LV2_Atom_Forge _out_forge;
 

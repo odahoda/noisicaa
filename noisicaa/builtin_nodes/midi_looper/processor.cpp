@@ -47,6 +47,8 @@ ProcessorMidiLooper::ProcessorMidiLooper(
       "http://noisicaa.odahoda.de/lv2/processor_midi_looper#current_position");
   _record_state_urid = _host_system->lv2->map(
       "http://noisicaa.odahoda.de/lv2/processor_midi_looper#record_state");
+  _recorded_event_urid = _host_system->lv2->map(
+      "http://noisicaa.odahoda.de/lv2/processor_midi_looper#recorded_event");
   lv2_atom_forge_init(&_node_msg_forge, &_host_system->lv2->urid_map);
   lv2_atom_forge_init(&_out_forge, &_host_system->lv2->urid_map);
 }
@@ -195,6 +197,23 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
               revent.time = sstart;
               memcpy(revent.midi, midi, 3);
               ++_recorded_count;
+
+              uint8_t atom[100];
+              lv2_atom_forge_set_buffer(&_node_msg_forge, atom, sizeof(atom));
+
+              LV2_Atom_Forge_Frame frame;
+              lv2_atom_forge_object(&_node_msg_forge, &frame, _host_system->lv2->urid.core_nodemsg, 0);
+              lv2_atom_forge_key(&_node_msg_forge, _recorded_event_urid);
+              LV2_Atom_Forge_Frame tframe;
+              lv2_atom_forge_tuple(&_node_msg_forge, &tframe);
+              lv2_atom_forge_int(&_node_msg_forge, sstart.numerator());
+              lv2_atom_forge_int(&_node_msg_forge, sstart.denominator());
+              lv2_atom_forge_atom(&_node_msg_forge, 3, _host_system->lv2->urid.midi_event);
+              lv2_atom_forge_write(&_node_msg_forge, midi, 3);
+              lv2_atom_forge_pop(&_node_msg_forge, &tframe);
+              lv2_atom_forge_pop(&_node_msg_forge, &frame);
+
+              NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)atom);
             }
           }
 
