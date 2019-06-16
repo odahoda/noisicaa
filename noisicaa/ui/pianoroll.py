@@ -54,6 +54,8 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         UnfinishedNoteMode, 'unfinishedNoteMode', default=UnfinishedNoteMode.ToEnd)
     xOffset, setXOffset, xOffsetChanged = slots.slot(int, 'xOffset', default=0)
     yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
+    widthChanged = QtCore.pyqtSignal(int)
+    heightChanged = QtCore.pyqtSignal(int)
     gridWidthChanged = QtCore.pyqtSignal(int)
     gridHeightChanged = QtCore.pyqtSignal(int)
 
@@ -86,6 +88,13 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
     def gridHeight(self) -> int:
         return 128 * self.__grid_y_size + 1
+
+    def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
+        super().resizeEvent(evt)
+        if evt.size().width() != evt.oldSize().width():
+            self.widthChanged.emit(evt.size().width())
+        if evt.size().height() != evt.oldSize().height():
+            self.heightChanged.emit(evt.size().height())
 
     def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
         painter = QtGui.QPainter(self)
@@ -184,33 +193,31 @@ class PianoRoll(slots.SlotContainer, QtWidgets.QWidget):
         self.playbackPositionChanged.connect(self.__grid.setPlaybackPosition)
         self.unfinishedNoteModeChanged.connect(self.__grid.setUnfinishedNoteMode)
 
-        self.__hscrollbar.setPageStep(self.__grid.gridWidth())
-        self.__grid.gridWidthChanged.connect(self.__hscrollbar.setPageStep)
+        self.__grid.gridWidthChanged.connect(lambda _: self.__updateHScrollBar())
+        self.__grid.widthChanged.connect(lambda _: self.__updateHScrollBar())
         self.__hscrollbar.valueChanged.connect(self.__grid.setXOffset)
 
-        self.__vscrollbar.setPageStep(self.__grid.gridHeight())
-        self.__grid.gridHeightChanged.connect(self.__vscrollbar.setPageStep)
+        self.__grid.gridHeightChanged.connect(lambda _: self.__updateVScrollBar())
+        self.__grid.heightChanged.connect(lambda _: self.__updateVScrollBar())
         self.__vscrollbar.valueChanged.connect(self.__grid.setYOffset)
 
-        l2 = QtWidgets.QVBoxLayout()
-        l2.setContentsMargins(0, 0, 0, 0)
-        l2.setSpacing(0)
-        l2.addWidget(self.__grid)
-        l2.addWidget(self.__hscrollbar)
-
-        l1 = QtWidgets.QHBoxLayout()
+        l1 = QtWidgets.QGridLayout()
         l1.setContentsMargins(0, 0, 0, 0)
         l1.setSpacing(0)
-        l1.addWidget(self.__vscrollbar)
-        l1.addLayout(l2)
+        l1.addWidget(self.__vscrollbar, 0, 0, 1, 1)
+        l1.addWidget(self.__grid, 0, 1, 1, 1)
+        l1.addWidget(self.__hscrollbar, 1, 1, 1, 1)
         self.setLayout(l1)
 
-    def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
-        super().resizeEvent(evt)
-        self.__hscrollbar.setRange(
-            0, max(0, self.__grid.gridWidth() - self.__grid.size().width()))
-        self.__vscrollbar.setRange(
-            0, max(0, self.__grid.gridHeight() - self.__grid.size().height()))
+    def __updateHScrollBar(self) -> None:
+        self.__hscrollbar.setMaximum(
+            max(0, self.__grid.gridWidth() - self.__grid.width()))
+        self.__hscrollbar.setPageStep(self.__grid.gridWidth())
+
+    def __updateVScrollBar(self) -> None:
+        self.__vscrollbar.setMaximum(
+            max(0, self.__grid.gridHeight() - self.__grid.height()))
+        self.__vscrollbar.setPageStep(self.__grid.gridHeight())
 
     def clearEvents(self) -> None:
         self.__grid.clearEvents()
