@@ -94,6 +94,9 @@ cdef class Atom(object):
         elif type_uri == 'http://lv2plug.in/ns/ext/atom#Int':
             return self.int
 
+        elif type_uri == 'http://lv2plug.in/ns/ext/atom#Bool':
+            return self.bool
+
         elif type_uri == 'http://lv2plug.in/ns/ext/atom#String':
             return self.str
 
@@ -106,6 +109,10 @@ cdef class Atom(object):
     @property
     def int(self):
         return int((<LV2_Atom_Int*>self.atom).body)
+
+    @property
+    def bool(self):
+        return int((<LV2_Atom_Bool*>self.atom).body) != 0
 
     @property
     def float(self):

@@ -162,6 +162,19 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
   SampleTime* stime = ctxt->time_map.get();
   for (uint32_t pos = 0; pos < _host_system->block_size(); ++pos, ++stime) {
     if (stime->start_time.numerator() < 0) {
+      while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)
+             && event->time.frames <= pos) {
+        LV2_Atom& atom = event->body;
+        if (atom.type == _host_system->lv2->urid.midi_event) {
+          uint8_t* midi = (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &atom);
+          post_note(ctxt, MusicalTime(0, 1), midi, false);
+        } else {
+          _logger->warning("Ignoring event %d in sequence.", atom.type);
+        }
+
+        event = lv2_atom_sequence_next(event);
+      }
+
       continue;
     }
 
@@ -184,62 +197,45 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
       }
     }
 
-    if (_record_state == RECORDING || _record_state == WAITING) {
-      while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)
-             && event->time.frames <= pos) {
-        LV2_Atom& atom = event->body;
-        if (atom.type == _host_system->lv2->urid.midi_event) {
-          uint8_t* midi = (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &atom);
+    while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)
+           && event->time.frames <= pos) {
+      LV2_Atom& atom = event->body;
+      if (atom.type == _host_system->lv2->urid.midi_event) {
+        uint8_t* midi = (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &atom);
+        bool recorded = false;
 
-          if (_record_state == RECORDING) {
-            if (_recorded_count < _recorded_max_count) {
-              RecordedEvent& revent = _recorded_events[_recorded_count];
-              revent.time = sstart;
-              memcpy(revent.midi, midi, 3);
-              ++_recorded_count;
+        if (_record_state == RECORDING && _recorded_count < _recorded_max_count) {
+          RecordedEvent& revent = _recorded_events[_recorded_count];
+          revent.time = sstart;
+          memcpy(revent.midi, midi, 3);
+          ++_recorded_count;
+          recorded = true;
+        }
 
-              uint8_t atom[100];
-              lv2_atom_forge_set_buffer(&_node_msg_forge, atom, sizeof(atom));
-
-              LV2_Atom_Forge_Frame frame;
-              lv2_atom_forge_object(&_node_msg_forge, &frame, _host_system->lv2->urid.core_nodemsg, 0);
-              lv2_atom_forge_key(&_node_msg_forge, _recorded_event_urid);
-              LV2_Atom_Forge_Frame tframe;
-              lv2_atom_forge_tuple(&_node_msg_forge, &tframe);
-              lv2_atom_forge_int(&_node_msg_forge, sstart.numerator());
-              lv2_atom_forge_int(&_node_msg_forge, sstart.denominator());
-              lv2_atom_forge_atom(&_node_msg_forge, 3, _host_system->lv2->urid.midi_event);
-              lv2_atom_forge_write(&_node_msg_forge, midi, 3);
-              lv2_atom_forge_pop(&_node_msg_forge, &tframe);
-              lv2_atom_forge_pop(&_node_msg_forge, &frame);
-
-              NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)atom);
-            }
-          }
-
+        if (_record_state == RECORDING || _record_state == WAITING) {
           lv2_atom_forge_frame_time(&_out_forge, pos);
           lv2_atom_forge_atom(&_out_forge, 3, _host_system->lv2->urid.midi_event);
           lv2_atom_forge_write(&_out_forge, midi, 3);
-        } else {
-          _logger->warning("Ignoring event %d in sequence.", atom.type);
         }
 
-        event = lv2_atom_sequence_next(event);
+        post_note(ctxt, sstart, midi, recorded);
+      } else {
+        _logger->warning("Ignoring event %d in sequence.", atom.type);
       }
-    } else {
-      assert(_record_state == OFF);
 
-      if (_recorded_count > 0) {
-        if (send > sstart) {
-          RETURN_IF_ERROR(process_sample(pos, sstart, send));
-        } else if (send < sstart) {
-          RETURN_IF_ERROR(process_sample(pos, sstart, MusicalTime(0, 1) + duration));
-          RETURN_IF_ERROR(process_sample(pos, MusicalTime(0, 1), send));
-        } else {
-          return ERROR_STATUS(
-                              "Invalid sample times %lld/%lld %lld/%lld",
-                              sstart.numerator(), sstart.denominator(), send.numerator(), send.denominator());
-        }
+      event = lv2_atom_sequence_next(event);
+    }
+
+    if (_record_state == OFF && _recorded_count > 0) {
+      if (send > sstart) {
+        RETURN_IF_ERROR(process_sample(pos, sstart, send));
+      } else if (send < sstart) {
+        RETURN_IF_ERROR(process_sample(pos, sstart, MusicalTime(0, 1) + duration));
+        RETURN_IF_ERROR(process_sample(pos, MusicalTime(0, 1), send));
+      } else {
+        return ERROR_STATUS(
+            "Invalid sample times %lld/%lld %lld/%lld",
+            sstart.numerator(), sstart.denominator(), send.numerator(), send.denominator());
       }
     }
 
@@ -266,7 +262,7 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
   return Status::Ok();
 }
 
-Status ProcessorMidiLooper::process_sample(uint32_t pos, const MusicalTime sstart, const MusicalTime send) {
+Status ProcessorMidiLooper::process_sample(uint32_t pos, const MusicalTime& sstart, const MusicalTime& send) {
   if (_playback_pos != sstart) {
     _playback_index = 0;
     while (_playback_index < _recorded_count && _recorded_events[_playback_index].time < sstart) {
@@ -299,6 +295,26 @@ void ProcessorMidiLooper::post_record_state(BlockContext* ctxt) {
   lv2_atom_forge_object(&_node_msg_forge, &frame, _host_system->lv2->urid.core_nodemsg, 0);
   lv2_atom_forge_key(&_node_msg_forge, _record_state_urid);
   lv2_atom_forge_int(&_node_msg_forge, _record_state);
+  lv2_atom_forge_pop(&_node_msg_forge, &frame);
+
+  NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)atom);
+}
+
+void ProcessorMidiLooper::post_note(BlockContext* ctxt, const MusicalTime& time, uint8_t* midi, bool recorded) {
+  uint8_t atom[100];
+  lv2_atom_forge_set_buffer(&_node_msg_forge, atom, sizeof(atom));
+
+  LV2_Atom_Forge_Frame frame;
+  lv2_atom_forge_object(&_node_msg_forge, &frame, _host_system->lv2->urid.core_nodemsg, 0);
+  lv2_atom_forge_key(&_node_msg_forge, _recorded_event_urid);
+  LV2_Atom_Forge_Frame tframe;
+  lv2_atom_forge_tuple(&_node_msg_forge, &tframe);
+  lv2_atom_forge_int(&_node_msg_forge, time.numerator());
+  lv2_atom_forge_int(&_node_msg_forge, time.denominator());
+  lv2_atom_forge_atom(&_node_msg_forge, 3, _host_system->lv2->urid.midi_event);
+  lv2_atom_forge_write(&_node_msg_forge, midi, 3);
+  lv2_atom_forge_bool(&_node_msg_forge, recorded);
+  lv2_atom_forge_pop(&_node_msg_forge, &tframe);
   lv2_atom_forge_pop(&_node_msg_forge, &frame);
 
   NodeMessage::push(ctxt->out_messages, _node_id, (LV2_Atom*)atom);

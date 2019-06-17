@@ -125,10 +125,6 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         self.__record = RecordButton()
         self.__record.clicked.connect(self.__recordClicked)
 
-        self.__current_position = QtWidgets.QLineEdit()
-        self.__current_position.setObjectName('current_position')
-        self.__current_position.setReadOnly(True)
-
         self.__pianoroll = pianoroll.PianoRoll()
         self.__pianoroll.setDuration(self.__node.duration)
 
@@ -139,7 +135,6 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
 
         l1 = QtWidgets.QVBoxLayout()
         l1.addLayout(l2)
-        l1.addWidget(self.__current_position)
         l1.addWidget(self.__pianoroll)
         body.setLayout(l1)
 
@@ -169,7 +164,6 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
             numerator, denominator = msg[current_position_urid]
             current_position = audioproc.MusicalTime(numerator, denominator)
             self.__pianoroll.setPlaybackPosition(current_position)
-            self.__current_position.setText('%d%%' % int(100 * (current_position / self.__node.duration).to_float()))
 
         record_state_urid = 'http://noisicaa.odahoda.de/lv2/processor_midi_looper#record_state'
         if record_state_urid in msg:
@@ -183,8 +177,16 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
 
         recorded_event_urid = 'http://noisicaa.odahoda.de/lv2/processor_midi_looper#recorded_event'
         if recorded_event_urid in msg:
-            time_numerator, time_denominator, midi = msg[recorded_event_urid]
-            self.__pianoroll.addEvent(audioproc.MusicalTime(time_numerator, time_denominator), midi)
+            time_numerator, time_denominator, midi, recorded = msg[recorded_event_urid]
+            time = audioproc.MusicalTime(time_numerator, time_denominator)
+
+            if recorded:
+                self.__pianoroll.addEvent(time, midi)
+
+            if midi[0] & 0xf0 == 0x90:
+                self.__pianoroll.noteOn(midi[1])
+            elif midi[0] & 0xf0 == 0x80:
+                self.__pianoroll.noteOff(midi[1])
 
 
 class MidiLooperNode(base_node.Node):

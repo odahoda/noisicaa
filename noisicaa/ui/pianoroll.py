@@ -21,6 +21,7 @@
 # @end:license
 
 import enum
+import logging
 from typing import Any, Dict
 
 from PyQt5.QtCore import Qt
@@ -31,6 +32,123 @@ import sortedcontainers
 
 from noisicaa import audioproc
 from . import slots
+
+logger = logging.getLogger(__name__)
+
+
+class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
+    yOffset, setYOffset, yOffsetChanged = slots.slot(int, 'yOffset', default=0)
+    gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.setFixedWidth(40)
+
+        self.__bg_color = QtGui.QColor(255, 255, 255)
+        self.__sep_color = QtGui.QColor(0, 0, 0)
+        self.__label_color = QtGui.QColor(0, 0, 0)
+        self.__white_key_body_color = QtGui.QColor(230, 230, 230)
+        self.__white_key_edge1_color = QtGui.QColor(255, 255, 255)
+        self.__white_key_edge2_color = QtGui.QColor(160, 160, 160)
+        self.__black_key_body_color = QtGui.QColor(60, 60, 60)
+        self.__black_key_edge1_color = QtGui.QColor(120, 120, 120)
+        self.__black_key_edge2_color = QtGui.QColor(40, 40, 40)
+        self.__active_key_body_color = QtGui.QColor(160, 160, 255)
+        self.__active_key_edge1_color = QtGui.QColor(200, 200, 255)
+        self.__active_key_edge2_color = QtGui.QColor(100, 100, 160)
+
+        self.__active_keys = set()
+
+        self.yOffsetChanged.connect(lambda _: self.update())
+
+    def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        try:
+            painter.fillRect(evt.rect(), self.__bg_color)
+
+            grid_y_size = self.gridYSize()
+            width = self.width()
+            bkwidth = 5 * (width - 2) // 8
+            height = 128 * grid_y_size + 1
+
+            painter.translate(QtCore.QPoint(0, -self.yOffset()))
+
+            if grid_y_size > 3:
+                font = QtGui.QFont()
+                font.setPixelSize(max(6, min(grid_y_size - 4, 16)))
+                fmetrics = QtGui.QFontMetrics(font)
+                painter.setFont(font)
+                painter.setPen(self.__label_color)
+
+                for o in range(0, 12):
+                    y = (128 - 12 * o) * grid_y_size
+
+                    ky2 = y
+                    for kn, ky1 in (
+                            (0, y - 5 * grid_y_size // 3),
+                            (2, y - 10 * grid_y_size // 3),
+                            (4, y - 5 * grid_y_size),
+                            (5, y - 5 * grid_y_size - 7 * grid_y_size // 4),
+                            (7, y - 5 * grid_y_size - 14 * grid_y_size // 4),
+                            (9, y - 5 * grid_y_size - 21 * grid_y_size // 4),
+                            (11, y - 5 * grid_y_size - 28 * grid_y_size // 4)):
+                        n = 12 * o + kn
+                        if n in self.__active_keys:
+                            edge1_color = self.__active_key_edge1_color
+                            edge2_color = self.__active_key_edge2_color
+                            body_color = self.__active_key_body_color
+                        else:
+                            edge1_color = self.__white_key_edge1_color
+                            edge2_color = self.__white_key_edge2_color
+                            body_color = self.__white_key_body_color
+                        painter.fillRect(0, ky1, width, 1, self.__sep_color)
+                        painter.fillRect(1, ky1 + 1, width - 2, 1, edge1_color)
+                        painter.fillRect(1, ky1 + 2, 1, ky2 - ky1 - 2, edge1_color)
+                        painter.fillRect(width - 2, ky1 + 2, 1, ky2 - ky1 - 3, edge2_color)
+                        painter.fillRect(2, ky2 - 1, width - 3, 1, edge2_color)
+                        painter.fillRect(2, ky1 + 2, width - 4, ky2 - ky1 - 3, body_color)
+                        ky2 = ky1
+
+                    for kn, kt, kb in ((1, 2, 1), (3, 4, 3), (6, 7, 6), (8, 9, 8), (10, 11, 10)):
+                        n = 12 * o + kn
+                        ky1 = y - kt * grid_y_size
+                        ky2 = y - kb * grid_y_size
+                        if n in self.__active_keys:
+                            edge1_color = self.__active_key_edge1_color
+                            edge2_color = self.__active_key_edge2_color
+                            body_color = self.__active_key_body_color
+                        else:
+                            edge1_color = self.__black_key_edge1_color
+                            edge2_color = self.__black_key_edge2_color
+                            body_color = self.__black_key_body_color
+                        painter.fillRect(1, ky1, bkwidth + 1, 1, self.__sep_color)
+                        painter.fillRect(1, ky2, bkwidth + 1, 1, self.__sep_color)
+                        painter.fillRect(bkwidth + 1, ky1, 1, ky2 - ky1 + 1, self.__sep_color)
+                        painter.fillRect(1, ky1 + 1, bkwidth, 1, edge1_color)
+                        painter.fillRect(1, ky1 + 2, 1, ky2 - ky1 - 2, edge1_color)
+                        painter.fillRect(bkwidth, ky1 + 2, 1, ky2 - ky1 - 2, edge2_color)
+                        painter.fillRect(2, ky2 - 1, bkwidth - 1, 1, edge2_color)
+                        painter.fillRect(2, ky1 + 2, bkwidth - 2, ky2 - ky1 - 3, body_color)
+
+                    if grid_y_size > 10:
+                        painter.drawText(8, y - fmetrics.descent(), 'C%d' % (o - 2))
+
+            painter.fillRect(0, 0, width, 1, self.__sep_color)
+            painter.fillRect(0, height - 1, width, 1, self.__sep_color)
+            painter.fillRect(0, 0, 1, height, self.__sep_color)
+            painter.fillRect(width - 1, 0, 1, height, self.__sep_color)
+
+        finally:
+            painter.end()
+
+    def noteOn(self, note: int) -> None:
+        self.__active_keys.add(note)
+        self.update()
+
+    def noteOff(self, note: int) -> None:
+        self.__active_keys.discard(note)
+        self.update()
 
 
 class MidiEvent(object):
@@ -58,14 +176,14 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     heightChanged = QtCore.pyqtSignal(int)
     gridWidthChanged = QtCore.pyqtSignal(int)
     gridHeightChanged = QtCore.pyqtSignal(int)
+    gridXSize, setGridXSize, gridXSizeChanged = slots.slot(int, 'gridXSize', default=4*80)
+    gridYSize, setGridYSize, gridYSizeChanged = slots.slot(int, 'gridYSize', default=15)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.__grid_y_size = 15
-        self.__grid_x_size = 4 * 80
-
         self.__bg_color = QtGui.QColor(245, 245, 245)
+        self.__black_key_color = QtGui.QColor(230, 230, 230)
         self.__grid_color = QtGui.QColor(200, 200, 200)
         self.__note_color = QtGui.QColor(100, 100, 255)
         self.__playback_position_color = QtGui.QColor(0, 0, 0)
@@ -84,10 +202,10 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.durationChanged.connect(lambda _: self.gridWidthChanged.emit(self.gridWidth()))
 
     def gridWidth(self) -> int:
-        return int(self.duration() * self.__grid_x_size) + 1
+        return int(self.duration() * self.gridXSize()) + 1
 
     def gridHeight(self) -> int:
-        return 128 * self.__grid_y_size + 1
+        return 128 * self.gridYSize() + 1
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
@@ -103,27 +221,23 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
 
             width = self.gridWidth()
             height = self.gridHeight()
+            grid_x_size = self.gridXSize()
+            grid_y_size = self.gridYSize()
 
             painter.translate(QtCore.QPoint(-self.xOffset(), -self.yOffset()))
 
-            if self.__grid_y_size > 3:
-                font = QtGui.QFont()
-                font.setPixelSize(max(6, min(self.__grid_y_size - 4, 16)))
-                fmetrics = QtGui.QFontMetrics(font)
-                painter.setFont(font)
-                painter.setPen(Qt.black)
-
+            if grid_y_size > 3:
                 y = 0
                 for n in reversed(range(0, 128)):
                     painter.fillRect(0, y, width, 1, self.__grid_color)
-                    if self.__grid_y_size > 10:
-                        painter.drawText(2, y + fmetrics.ascent(), '%d' % n)
-                    y += self.__grid_y_size
+                    if n % 12 in {1, 3, 6, 8, 10}:
+                        painter.fillRect(0, y + 1, width, grid_y_size - 1, self.__black_key_color)
+                    y += grid_y_size
                 painter.fillRect(0, y, width, 1, self.__grid_color)
 
             t = audioproc.MusicalTime(0, 1)
             while t <= audioproc.MusicalTime(0, 1) + self.duration():
-                x = int(t * self.__grid_x_size)
+                x = int(t * grid_x_size)
                 painter.fillRect(x, 0, 1, height, self.__grid_color)
                 t += audioproc.MusicalDuration(1, 4)
 
@@ -132,11 +246,11 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 if event.midi[0] & 0xf0 in (0x80, 0x90):
                     pitch = event.midi[1]
                     if pitch in active_notes:
-                        y = (127 - pitch) * self.__grid_y_size
-                        x1 = int(active_notes[pitch] * self.__grid_x_size)
-                        x2 = int(event.time * self.__grid_x_size)
+                        y = (127 - pitch) * grid_y_size
+                        x1 = int(active_notes[pitch] * grid_x_size)
+                        x2 = int(event.time * grid_x_size)
                         painter.fillRect(
-                            x1, y + 1, x2 - x1, self.__grid_y_size - 1, self.__note_color)
+                            x1, y + 1, x2 - x1, grid_y_size - 1, self.__note_color)
                         del active_notes[pitch]
 
                     if event.midi[0] & 0xf0 == 0x90:
@@ -148,15 +262,15 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 else:
                     end_time = audioproc.MusicalTime(0, 1) + self.duration()
 
-                x2 = int(end_time * self.__grid_x_size)
+                x2 = int(end_time * grid_x_size)
                 for pitch, time in active_notes.items():
                     if time <= end_time:
-                        y = (127 - pitch) * self.__grid_y_size
-                        x1 = int(time * self.__grid_x_size)
+                        y = (127 - pitch) * grid_y_size
+                        x1 = int(time * grid_x_size)
                         painter.fillRect(
-                            x1, y + 1, x2 - x1, self.__grid_y_size - 1, self.__note_color)
+                            x1, y + 1, x2 - x1, grid_y_size - 1, self.__note_color)
 
-            x = int(self.playbackPosition() * self.__grid_x_size)
+            x = int(self.playbackPosition() * grid_x_size)
             painter.fillRect(x, 0, 1, height, self.__playback_position_color)
 
         finally:
@@ -188,6 +302,8 @@ class PianoRoll(slots.SlotContainer, QtWidgets.QWidget):
         self.__hscrollbar = QtWidgets.QScrollBar()
         self.__hscrollbar.setOrientation(Qt.Horizontal)
 
+        self.__keys = PianoKeys()
+
         self.__grid = PianoRollGrid()
         self.durationChanged.connect(self.__grid.setDuration)
         self.playbackPositionChanged.connect(self.__grid.setPlaybackPosition)
@@ -200,11 +316,13 @@ class PianoRoll(slots.SlotContainer, QtWidgets.QWidget):
         self.__grid.gridHeightChanged.connect(lambda _: self.__updateVScrollBar())
         self.__grid.heightChanged.connect(lambda _: self.__updateVScrollBar())
         self.__vscrollbar.valueChanged.connect(self.__grid.setYOffset)
+        self.__vscrollbar.valueChanged.connect(self.__keys.setYOffset)
 
         l1 = QtWidgets.QGridLayout()
         l1.setContentsMargins(0, 0, 0, 0)
-        l1.setSpacing(0)
-        l1.addWidget(self.__vscrollbar, 0, 0, 1, 1)
+        l1.setSpacing(1)
+        l1.addWidget(self.__vscrollbar, 0, 2, 1, 1)
+        l1.addWidget(self.__keys, 0, 0, 1, 1)
         l1.addWidget(self.__grid, 0, 1, 1, 1)
         l1.addWidget(self.__hscrollbar, 1, 1, 1, 1)
         self.setLayout(l1)
@@ -224,3 +342,9 @@ class PianoRoll(slots.SlotContainer, QtWidgets.QWidget):
 
     def addEvent(self, time: audioproc.MusicalTime, midi: bytes) -> None:
         self.__grid.addEvent(time, midi)
+
+    def noteOn(self, note: int) -> None:
+        self.__keys.noteOn(note)
+
+    def noteOff(self, note: int) -> None:
+        self.__keys.noteOff(note)

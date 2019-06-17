@@ -59,8 +59,9 @@ protected:
 
 private:
   Status set_spec(const pb::MidiLooperSpec& spec);
-  Status process_sample(uint32_t pos, const MusicalTime sstart, const MusicalTime send);
+  Status process_sample(uint32_t pos, const MusicalTime& sstart, const MusicalTime& send);
   void post_record_state(BlockContext* ctxt);
+  void post_note(BlockContext* ctxt, const MusicalTime& time, uint8_t* midi, bool recorded);
 
   LV2_URID _current_position_urid;
   LV2_URID _record_state_urid;
