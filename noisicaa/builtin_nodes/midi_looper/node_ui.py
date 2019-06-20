@@ -22,7 +22,7 @@
 
 import enum
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -32,6 +32,7 @@ from PyQt5 import QtWidgets
 from noisicaa import core
 from noisicaa import audioproc
 from noisicaa import music
+from noisicaa import value_types
 from noisicaa.ui import ui_base
 from noisicaa.ui import pianoroll
 from noisicaa.ui import slots
@@ -66,6 +67,7 @@ class RecordButton(slots.SlotContainer, QtWidgets.QPushButton):
         self.__timer = QtCore.QTimer()
         self.__timer.setInterval(250)
         self.__timer.timeout.connect(self.__blink)
+        self.__blink_state = False
 
     def __recordStateChanged(self, state: RecordState) -> None:
         palette = self.palette()
@@ -103,6 +105,9 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         self.__listeners['node-messages'] = self.audioproc_client.node_messages.add(
             '%016x' % self.__node.id, self.__nodeMessage)
 
+        self.__event_map = []  # type: List[int]
+        self.__recorded_events = []  # type: List[value_types.MidiEvent]
+
         body = QtWidgets.QWidget(self)
         body.setAutoFillBackground(False)
         body.setAttribute(Qt.WA_NoSystemBackground, True)
@@ -128,6 +133,11 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         self.__pianoroll = pianoroll.PianoRoll()
         self.__pianoroll.setDuration(self.__node.duration)
 
+        for event in self.__node.patches[0].events:
+            self.__event_map.append(self.__pianoroll.addEvent(event))
+        self.__listeners['events'] = self.__node.patches[0].events_changed.add(
+            self.__eventsChanged)
+
         l2 = QtWidgets.QHBoxLayout()
         l2.addWidget(self.__record)
         l2.addWidget(self.__duration)
@@ -137,6 +147,18 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         l1.addLayout(l2)
         l1.addWidget(self.__pianoroll)
         body.setLayout(l1)
+
+    def __eventsChanged(self, change: music.PropertyListChange[value_types.MidiEvent]) -> None:
+        if isinstance(change, music.PropertyListInsert):
+            event_id = self.__pianoroll.addEvent(change.new_value)
+            self.__event_map.insert(change.index, event_id)
+
+        elif isinstance(change, music.PropertyListDelete):
+            event_id = self.__event_map.pop(change.index)
+            self.__pianoroll.removeEvent(event_id)
+
+        else:
+            raise TypeError(type(change))
 
     def __durationChanged(self, change: music.PropertyValueChange[audioproc.MusicalDuration]) -> None:
         num_beats = change.new_value / audioproc.MusicalDuration(1, 4)
@@ -170,10 +192,27 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
             record_state = RecordState(msg[record_state_urid])
             self.__record.setRecordState(record_state)
             if record_state == RecordState.RECORDING:
+                self.__recorded_events.clear()
                 self.__pianoroll.clearEvents()
                 self.__pianoroll.setUnfinishedNoteMode(pianoroll.UnfinishedNoteMode.ToPlaybackPosition)
             else:
+                if record_state == RecordState.OFF:
+                    del self.__listeners['events']
+
+                    with self.project.apply_mutations('%s: Record patch' % self.__node.name):
+                        patch = self.__node.patches[0]
+                        patch.set_events(self.__recorded_events)
+                        self.__recorded_events.clear()
+
+                    self.__pianoroll.clearEvents()
+                    self.__event_map.clear()
+                    for event in self.__node.patches[0].events:
+                        self.__event_map.append(self.__pianoroll.addEvent(event))
+                    self.__listeners['events'] = self.__node.patches[0].events_changed.add(
+                        self.__eventsChanged)
+
                 self.__pianoroll.setUnfinishedNoteMode(pianoroll.UnfinishedNoteMode.ToEnd)
+
 
         recorded_event_urid = 'http://noisicaa.odahoda.de/lv2/processor_midi_looper#recorded_event'
         if recorded_event_urid in msg:
@@ -181,7 +220,9 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
             time = audioproc.MusicalTime(time_numerator, time_denominator)
 
             if recorded:
-                self.__pianoroll.addEvent(time, midi)
+                event = value_types.MidiEvent(time, midi)
+                self.__recorded_events.append(event)
+                self.__pianoroll.addEvent(event)
 
             if midi[0] & 0xf0 == 0x90:
                 self.__pianoroll.noteOn(midi[1])

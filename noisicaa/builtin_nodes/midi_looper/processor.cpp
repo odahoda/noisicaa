@@ -62,6 +62,7 @@ Status ProcessorMidiLooper::setup_internal() {
   _recorded_count = 0;
   _playback_pos = MusicalTime(-1, 1);
   _playback_index = 0;
+  _last_seen_spec = nullptr;
 
   return Status::Ok();
 }
@@ -137,6 +138,20 @@ Status ProcessorMidiLooper::process_block_internal(BlockContext* ctxt, TimeMappe
     // No spec yet, just clear my output ports.
     clear_all_outputs();
     return Status::Ok();
+  }
+
+  if (spec != _last_seen_spec) {
+    _recorded_count = 0;
+    for (const auto& event : spec->events()) {
+      RecordedEvent& revent = _recorded_events[_recorded_count];
+      revent.time = MusicalTime(event.time());
+      memcpy(revent.midi, event.midi().c_str(), 3);
+      ++_recorded_count;
+    }
+
+    _playback_pos = MusicalTime(-1, 1);
+    _playback_index = 0;
+    _last_seen_spec = spec;
   }
 
   RecordState next_record_state = _next_record_state.exchange(UNSET);

@@ -100,6 +100,8 @@ class MutationList(object):
             return value_types.NodePortProperties.from_proto(slot.node_port_properties)
         elif vtype == 'port_description':
             return copy.deepcopy(slot.port_description)
+        elif vtype == 'midi_event':
+            return value_types.MidiEvent.from_proto(slot.midi_event)
 
         else:
             raise TypeError(vtype)
@@ -329,6 +331,8 @@ class MutationCollector(object):
             slot.node_port_properties.CopyFrom(value.to_proto())
         elif isinstance(value, node_db.PortDescription):
             slot.port_description.CopyFrom(value)
+        elif isinstance(value, value_types.MidiEvent):
+            slot.midi_event.CopyFrom(value.to_proto())
 
         else:
             raise TypeError(type(value))

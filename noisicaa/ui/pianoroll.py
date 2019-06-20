@@ -31,6 +31,7 @@ from PyQt5 import QtWidgets
 import sortedcontainers
 
 from noisicaa import audioproc
+from noisicaa import value_types
 from . import slots
 
 logger = logging.getLogger(__name__)
@@ -151,12 +152,6 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
         self.update()
 
 
-class MidiEvent(object):
-    def __init__(self, time: audioproc.MusicalTime, midi: bytes) -> None:
-        self.time = time
-        self.midi = midi
-
-
 class UnfinishedNoteMode(enum.Enum):
     Hide = 1
     ToPlaybackPosition = 2
@@ -188,8 +183,9 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.__note_color = QtGui.QColor(100, 100, 255)
         self.__playback_position_color = QtGui.QColor(0, 0, 0)
 
-        self.__events = sortedcontainers.SortedList(
-            key=lambda event: (event.time, event.midi[0] & 0xf0))
+        self.__next_event_id = 0
+        self.__events = {}  # Dict[int, value_types.MidiEvent]
+        self.__sorted_events = sortedcontainers.SortedList()
 
         self.setMinimumSize(100, 50)
 
@@ -242,7 +238,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
                 t += audioproc.MusicalDuration(1, 4)
 
             active_notes = {}  # type: Dict[int, audioproc.MusicalTime]
-            for event in self.__events:
+            for event, _ in self.__sorted_events:
                 if event.midi[0] & 0xf0 in (0x80, 0x90):
                     pitch = event.midi[1]
                     if pitch in active_notes:
@@ -277,11 +273,21 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
             painter.end()
 
     def clearEvents(self) -> None:
+        self.__sorted_events.clear()
         self.__events.clear()
         self.update()
 
-    def addEvent(self, time: audioproc.MusicalTime, midi: bytes) -> None:
-        self.__events.add(MidiEvent(time, midi))
+    def addEvent(self, event: value_types.MidiEvent) -> int:
+        event_id = self.__next_event_id
+        self.__next_event_id += 1
+        self.__events[event_id] = event
+        self.__sorted_events.add((event, event_id))
+        self.update()
+        return event_id
+
+    def removeEvent(self, event_id: int) -> None:
+        event = self.__events.pop(event_id)
+        self.__sorted_events.remove((event, event_id))
         self.update()
 
 
@@ -340,8 +346,11 @@ class PianoRoll(slots.SlotContainer, QtWidgets.QWidget):
     def clearEvents(self) -> None:
         self.__grid.clearEvents()
 
-    def addEvent(self, time: audioproc.MusicalTime, midi: bytes) -> None:
-        self.__grid.addEvent(time, midi)
+    def addEvent(self, event: value_types.MidiEvent) -> int:
+        return self.__grid.addEvent(event)
+
+    def removeEvent(self, event_id: int) -> None:
+        self.__grid.removeEvent(event_id)
 
     def noteOn(self, note: int) -> None:
         self.__keys.noteOn(note)

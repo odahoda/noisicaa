@@ -87,6 +87,7 @@ class ModelBuilder(object):
             'noisicaa.value_types.Color': 'noisicaa/value_types/value_types.proto:noisicaa.pb.Color',
             'noisicaa.value_types.ControlValue': 'noisicaa/audioproc/public/control_value.proto:noisicaa.pb.ControlValue',
             'noisicaa.value_types.NodePortProperties': 'noisicaa/audioproc/public/node_port_properties.proto:noisicaa.pb.NodePortProperties',
+            'noisicaa.value_types.MidiEvent': "noisicaa/audioproc/public/midi_event.proto:noisicaa.pb.MidiEvent",
             'noisicaa.audioproc.MusicalDuration': "noisicaa/audioproc/public/musical_time.proto:noisicaa.pb.MusicalDuration",
             'noisicaa.audioproc.MusicalTime': "noisicaa/audioproc/public/musical_time.proto:noisicaa.pb.MusicalTime",
             'noisicaa.audioproc.PluginState': "noisicaa/audioproc/public/plugin_state.proto:noisicaa.pb.PluginState",
@@ -241,6 +242,7 @@ class ModelBuilder(object):
             model_desc_pb2.PropertyDescription.UINT32: 'int',
             model_desc_pb2.PropertyDescription.FLOAT: 'float',
             model_desc_pb2.PropertyDescription.BOOL: 'bool',
+            model_desc_pb2.PropertyDescription.BYTES: 'bytes',
             model_desc_pb2.PropertyDescription.PROTO_ENUM: 'int',
         }[prop.type]
 
@@ -271,6 +273,7 @@ class ModelBuilder(object):
             model_desc_pb2.PropertyDescription.INT32: 'int32',
             model_desc_pb2.PropertyDescription.UINT32: 'uint32',
             model_desc_pb2.PropertyDescription.BOOL: 'bool',
+            model_desc_pb2.PropertyDescription.BYTES: 'bytes',
             model_desc_pb2.PropertyDescription.OBJECT: 'uint64',
             model_desc_pb2.PropertyDescription.OBJECT_REF: 'uint64',
             model_desc_pb2.PropertyDescription.OBJECT_LIST: 'uint64',

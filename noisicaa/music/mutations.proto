@@ -27,6 +27,7 @@ import "noisicaa/audioproc/public/musical_time.proto";
 import "noisicaa/audioproc/public/control_value.proto";
 import "noisicaa/audioproc/public/node_port_properties.proto";
 import "noisicaa/audioproc/public/plugin_state.proto";
+import "noisicaa/audioproc/public/midi_event.proto";
 import "noisicaa/node_db/node_description.proto";
 import "noisicaa/music/model_base.proto";
 import "noisicaa/music/model.proto";
@@ -111,6 +112,7 @@ message MutationList {
       ControlValue control_value = 108;
       NodePortProperties node_port_properties = 111;
       PortDescription port_description = 112;
+      MidiEvent midi_event = 113;
     }
   }
   repeated Slot slots = 5;

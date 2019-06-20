@@ -76,4 +76,5 @@ extend ObjectBase {
 
   // MIDI Looper (411xxx)
   optional MidiLooper midi_looper = 411000;
+  optional MidiLooperPatch midi_looper_patch = 411001;
 }

@@ -95,6 +95,8 @@ private:
   atomic<pb::MidiLooperSpec*> _next_spec;
   atomic<pb::MidiLooperSpec*> _current_spec;
   atomic<pb::MidiLooperSpec*> _old_spec;
+
+  pb::MidiLooperSpec* _last_seen_spec;
 };
 
 }  // namespace noisicaa

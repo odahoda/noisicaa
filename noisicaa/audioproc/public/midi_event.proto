@@ -22,21 +22,11 @@
 
 syntax = "proto2";
 
+import "noisicaa/audioproc/public/musical_time.proto";
+
 package noisicaa.pb;
 
-import "noisicaa/audioproc/public/musical_time.proto";
-import "noisicaa/audioproc/public/node_parameters.proto";
-import "noisicaa/audioproc/public/midi_event.proto";
-
-message MidiLooperSpec {
-  required MusicalDuration duration = 1;
-  repeated MidiEvent events = 2;
-}
-
-extend NodeParameters {
-  optional MidiLooperSpec midi_looper_spec = 411000;
-}
-
-message MidiLooperRecord {
-  optional bool start = 1;
+message MidiEvent {
+  required MusicalTime time = 1;
+  required bytes midi = 2;
 }

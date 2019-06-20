@@ -45,13 +45,14 @@ message PropertyDescription {
     UINT32 = 3;
     FLOAT = 4;
     BOOL = 5;
-    PROTO = 6;
-    WRAPPED_PROTO = 7;
-    WRAPPED_PROTO_LIST = 8;
-    PROTO_ENUM = 9;
-    OBJECT = 10;
-    OBJECT_REF = 11;
-    OBJECT_LIST = 12;
+    BYTES = 6;
+    PROTO = 7;
+    WRAPPED_PROTO = 8;
+    WRAPPED_PROTO_LIST = 9;
+    PROTO_ENUM = 10;
+    OBJECT = 11;
+    OBJECT_REF = 12;
+    OBJECT_LIST = 13;
   }
   required Type type = 2;
   optional string obj_type = 3;

@@ -19,6 +19,18 @@
 # @end:license
 
 classes {
+  name: "MidiLooperPatch"
+  super_class: "noisicaa.music.model_base.ProjectChild"
+  proto_ext_name: "midi_looper_patch"
+  properties {
+    name: "events"
+    type: WRAPPED_PROTO_LIST
+    wrapped_type: "noisicaa.value_types.MidiEvent"
+    proto_id: 1
+  }
+}
+
+classes {
   name: "MidiLooper"
   super_class: "noisicaa.music.graph.BaseNode"
   proto_ext_name: "midi_looper"
@@ -27,5 +39,11 @@ classes {
     type: WRAPPED_PROTO
     wrapped_type: "noisicaa.audioproc.MusicalDuration"
     proto_id: 1
+  }
+  properties {
+    name: "patches"
+    type: OBJECT_LIST
+    obj_type: "MidiLooperPatch"
+    proto_id: 2
   }
 }

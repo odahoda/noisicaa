@@ -71,3 +71,4 @@ def register_classes(pool: music.Pool) -> None:
     pool.register_class(midi_cc_to_cv.MidiCCtoCV)
     pool.register_class(midi_cc_to_cv.MidiCCtoCVChannel)
     pool.register_class(midi_looper.MidiLooper)
+    pool.register_class(midi_looper.MidiLooperPatch)

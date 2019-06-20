@@ -28,3 +28,4 @@ from .sizef import SizeF
 from .color import Color
 from .control_value import ControlValue
 from .node_port_properties import NodePortProperties
+from .midi_event import MidiEvent
