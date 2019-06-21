@@ -55,6 +55,9 @@ class MidiLooper(_model.MidiLooper):
         super().setup()
 
         self.duration_changed.add(lambda _: self.update_spec())
+
+        # TODO: this causes a large number of spec updates when the patch is populated (one for each
+        # event added). It would be better to schedule a single update at the end of the mutation.
         self.patches[0].object_changed.add(lambda _: self.update_spec())
 
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
