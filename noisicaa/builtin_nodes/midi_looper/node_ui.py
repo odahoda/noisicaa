@@ -99,6 +99,11 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
 
         self.__node = node
 
+        self.__slot_connections = slots.SlotConnectionManager(
+            session_prefix='midi_looper:%016x' % self.__node.id,
+            context=self.context)
+        self.add_cleanup_function(self.__slot_connections.cleanup)
+
         self.__listeners = core.ListenerMap[str]()
         self.add_cleanup_function(self.__listeners.cleanup)
 
@@ -147,6 +152,14 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         l1.addLayout(l2)
         l1.addWidget(self.__pianoroll)
         body.setLayout(l1)
+
+    def showEvent(self, evt: QtGui.QShowEvent) -> None:
+        self.__pianoroll.connectSlots(self.__slot_connections, 'pianoroll')
+        super().showEvent(evt)
+
+    def hideEvent(self, evt: QtGui.QHideEvent) -> None:
+        self.__pianoroll.disconnectSlots(self.__slot_connections, 'pianoroll')
+        super().hideEvent(evt)  # type: ignore
 
     def __eventsChanged(self, change: music.PropertyListChange[value_types.MidiEvent]) -> None:
         if isinstance(change, music.PropertyListInsert):

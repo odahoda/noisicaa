@@ -343,6 +343,22 @@ class PianoRoll(slots.SlotContainer, QtWidgets.QWidget):
             max(0, self.__grid.gridHeight() - self.__grid.height()))
         self.__vscrollbar.setPageStep(self.__grid.gridHeight())
 
+    def connectSlots(self, slot_connections: slots.SlotConnectionManager, name: str) -> None:
+        slot_connections.connect(
+            name + ':xoffset',
+            self.__hscrollbar.value,
+            self.__hscrollbar.setValue,
+            self.__hscrollbar.valueChanged)
+        slot_connections.connect(
+            name + ':yoffset',
+            self.__vscrollbar.value,
+            self.__vscrollbar.setValue,
+            self.__vscrollbar.valueChanged)
+
+    def disconnectSlots(self, slot_connections: slots.SlotConnectionManager, name: str) -> None:
+        slot_connections.disconnect(name + ':xoffset')
+        slot_connections.disconnect(name + ':yoffset')
+
     def clearEvents(self) -> None:
         self.__grid.clearEvents()
 
