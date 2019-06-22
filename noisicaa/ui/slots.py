@@ -92,13 +92,12 @@ class SlotConnectionManager(ui_base.ProjectMixin, object):
     def connect(
             self,
             name: str,
-            getter: Callable[[], T],
             setter: Callable[[T], None],
-            signal: QtCore.pyqtSignal
+            signal: QtCore.pyqtSignal,
+            default: T = None,
     ) -> None:
-        value = self.get_session_value(self.__session_prefix + ':' + name, None)
+        value = self.get_session_value(self.__session_prefix + ':' + name, default)
         if value is not None:
-            logger.error("init %s = %r", self.__session_prefix + ':' + name, value)
             setter(value)
         connection = signal.connect(functools.partial(self.__valueChanged, name))
         self.__connections[name] = (signal, connection)
@@ -108,5 +107,4 @@ class SlotConnectionManager(ui_base.ProjectMixin, object):
         signal.disconnect(connection)
 
     def __valueChanged(self, name: str, value: T) -> None:
-        logger.error("set %s = %r", self.__session_prefix + ':' + name, value)
         self.set_session_value(self.__session_prefix + ':' + name, value)
