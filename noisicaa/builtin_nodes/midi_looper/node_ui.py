@@ -93,14 +93,16 @@ class RecordButton(slots.SlotContainer, QtWidgets.QPushButton):
         self.setPalette(palette)
 
 
-class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QScrollArea):
-    def __init__(self, node: model.MidiLooper, **kwargs: Any) -> None:
+class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QWidget):
+    def __init__(self, node: model.MidiLooper, session_prefix: str, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.__node = node
 
+        self.__visible = False
+
         self.__slot_connections = slots.SlotConnectionManager(
-            session_prefix='midi_looper:%016x' % self.__node.id,
+            session_prefix='midi_looper:%016x:%s' % (self.__node.id, session_prefix),
             context=self.context)
         self.add_cleanup_function(self.__slot_connections.cleanup)
 
@@ -112,14 +114,6 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
 
         self.__event_map = []  # type: List[int]
         self.__recorded_events = []  # type: List[value_types.MidiEvent]
-
-        body = QtWidgets.QWidget(self)
-        body.setAutoFillBackground(False)
-        body.setAttribute(Qt.WA_NoSystemBackground, True)
-
-        self.setWidgetResizable(True)
-        self.setFrameShape(QtWidgets.QFrame.NoFrame)
-        self.setWidget(body)
 
         self.__duration = QtWidgets.QSpinBox()
         self.__duration.setObjectName('duration')
@@ -144,21 +138,27 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
             self.__eventsChanged)
 
         l2 = QtWidgets.QHBoxLayout()
+        l2.setContentsMargins(0, 0, 0, 0)
         l2.addWidget(self.__record)
         l2.addWidget(self.__duration)
         l2.addStretch(1)
 
         l1 = QtWidgets.QVBoxLayout()
+        l1.setContentsMargins(0, 0, 0, 0)
         l1.addLayout(l2)
         l1.addWidget(self.__pianoroll)
-        body.setLayout(l1)
+        self.setLayout(l1)
 
     def showEvent(self, evt: QtGui.QShowEvent) -> None:
-        self.__pianoroll.connectSlots(self.__slot_connections, 'pianoroll')
+        if not self.__visible:
+            self.__pianoroll.connectSlots(self.__slot_connections, 'pianoroll')
+            self.__visible = True
         super().showEvent(evt)
 
     def hideEvent(self, evt: QtGui.QHideEvent) -> None:
-        self.__pianoroll.disconnectSlots(self.__slot_connections, 'pianoroll')
+        if self.__visible:
+            self.__pianoroll.disconnectSlots(self.__slot_connections, 'pianoroll')
+            self.__visible = False
         super().hideEvent(evt)  # type: ignore
 
     def __eventsChanged(self, change: music.PropertyListChange[value_types.MidiEvent]) -> None:
@@ -244,6 +244,8 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
 
 
 class MidiLooperNode(base_node.Node):
+    has_window = True
+
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         assert isinstance(node, model.MidiLooper), type(node).__name__
         self.__widget = None  # type: MidiLooperNodeWidget
@@ -253,6 +255,36 @@ class MidiLooperNode(base_node.Node):
 
     def createBodyWidget(self) -> QtWidgets.QWidget:
         assert self.__widget is None
-        self.__widget = MidiLooperNodeWidget(node=self.__node, context=self.context)
-        self.add_cleanup_function(self.__widget.cleanup)
+
+        body = MidiLooperNodeWidget(
+            node=self.__node,
+            session_prefix='inline',
+            context=self.context)
+        self.add_cleanup_function(body.cleanup)
+        body.setAutoFillBackground(False)
+        body.setAttribute(Qt.WA_NoSystemBackground, True)
+
+        self.__widget = QtWidgets.QScrollArea()
+        self.__widget.setWidgetResizable(True)
+        self.__widget.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.__widget.setWidget(body)
+
         return self.__widget
+
+    def createWindow(self, **kwargs: Any) -> QtWidgets.QWidget:
+        window = QtWidgets.QDialog(**kwargs)
+        window.setAttribute(Qt.WA_DeleteOnClose, False)
+        window.setWindowTitle("MIDI Looper")
+
+        body = MidiLooperNodeWidget(
+            node=self.__node,
+            session_prefix='window',
+            context=self.context)
+        self.add_cleanup_function(body.cleanup)
+
+        layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(body)
+        window.setLayout(layout)
+
+        return window

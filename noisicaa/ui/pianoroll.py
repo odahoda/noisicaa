@@ -203,6 +203,9 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
     def gridHeight(self) -> int:
         return 128 * self.gridYSize() + 1
 
+    def sizeHint(self) -> QtCore.QSize:
+        return QtCore.QSize(self.gridWidth(), 24 * self.gridYSize())
+
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
         super().resizeEvent(evt)
         if evt.size().width() != evt.oldSize().width():
