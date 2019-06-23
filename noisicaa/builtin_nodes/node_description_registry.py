@@ -38,6 +38,7 @@ from .step_sequencer.node_description import StepSequencerDescription
 from .midi_cc_to_cv.node_description import MidiCCtoCVDescription
 from .midi_looper.node_description import MidiLooperDescription
 from .midi_monitor.node_description import MidiMonitorDescription
+from .metronome.node_description import MetronomeDescription
 
 
 def node_descriptions() -> Iterator[node_db.NodeDescription]:
@@ -56,3 +57,4 @@ def node_descriptions() -> Iterator[node_db.NodeDescription]:
     yield MidiCCtoCVDescription
     yield MidiLooperDescription
     yield MidiMonitorDescription
+    yield MetronomeDescription

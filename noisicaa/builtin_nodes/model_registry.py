@@ -35,6 +35,7 @@ from .step_sequencer import model as step_sequencer
 from .midi_cc_to_cv import model as midi_cc_to_cv
 from .midi_looper import model as midi_looper
 from .midi_monitor import model as midi_monitor
+from .metronome import model as metronome
 
 
 node_cls_map = {
@@ -49,6 +50,7 @@ node_cls_map = {
     'builtin://midi-cc-to-cv': midi_cc_to_cv.MidiCCtoCV,
     'builtin://midi-looper': midi_looper.MidiLooper,
     'builtin://midi-monitor': midi_monitor.MidiMonitor,
+    'builtin://metronome': metronome.Metronome,
 }  # type: Dict[str, Type[graph.BaseNode]]
 
 
@@ -75,3 +77,4 @@ def register_classes(pool: music.Pool) -> None:
     pool.register_class(midi_looper.MidiLooper)
     pool.register_class(midi_looper.MidiLooperPatch)
     pool.register_class(midi_monitor.MidiMonitor)
+    pool.register_class(metronome.Metronome)
