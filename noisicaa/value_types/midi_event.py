@@ -34,7 +34,8 @@ class MidiEvent(proto_value.ProtoValue):
         self.__sortkey = (self.__time, self.__midi[0] & 0xf0, self.__midi)
 
     def __str__(self) -> str:
-        return '<MidiEvent %.3f [%s]>' % (self.__time.to_float(), ' '.join('%02x' % m for m in self.__midi))
+        return '<MidiEvent %.3f [%s]>' % (
+            self.__time.to_float(), ' '.join('%02x' % m for m in self.__midi))
     __repr__ = __str__
 
     def to_proto(self) -> 'audioproc.MidiEvent':

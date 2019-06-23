@@ -82,7 +82,7 @@ class SlotConnectionManager(ui_base.ProjectMixin, object):
         super().__init__(**kwargs)
 
         self.__session_prefix = session_prefix
-        self.__connections = {}  # type: Dict[str, Tuple[QtCore.pyqtSignal, QtCore.pyqtConnection]]
+        self.__connections = {}  # type: Dict[str, Tuple[QtCore.pyqtBoundSignal, QtCore.pyqtConnection]]
 
     def cleanup(self) -> None:
         while self.__connections:
@@ -93,7 +93,7 @@ class SlotConnectionManager(ui_base.ProjectMixin, object):
             self,
             name: str,
             setter: Callable[[T], None],
-            signal: QtCore.pyqtSignal,
+            signal: QtCore.pyqtBoundSignal,
             default: T = None,
     ) -> None:
         value = self.get_session_value(self.__session_prefix + ':' + name, default)

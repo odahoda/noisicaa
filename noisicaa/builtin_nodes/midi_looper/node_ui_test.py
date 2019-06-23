@@ -43,15 +43,18 @@ class MidiLooperNodeWidgetTest(uitest.ProjectMixin, uitest.UITestCase):
             self.node = self.project.create_node('builtin://midi-looper')
 
     async def test_init(self):
-        widget = node_ui.MidiLooperNodeWidget(node=self.node, context=self.context)
+        widget = node_ui.MidiLooperNodeWidget(
+            node=self.node, session_prefix='test', context=self.context)
         widget.cleanup()
 
     async def test_duration(self):
-        widget = node_ui.MidiLooperNodeWidget(node=self.node, context=self.context)
+        widget = node_ui.MidiLooperNodeWidget(
+            node=self.node, session_prefix='test', context=self.context)
         try:
             duration = widget.findChild(QtWidgets.QSpinBox, 'duration')
             assert duration is not None
-            self.assertEqual(duration.value(), (self.node.duration / audioproc.MusicalDuration(1, 4)).numerator)
+            self.assertEqual(
+                duration.value(), (self.node.duration / audioproc.MusicalDuration(1, 4)).numerator)
 
             with self.project.apply_mutations('test'):
                 self.node.set_duration(audioproc.MusicalDuration(5, 4))

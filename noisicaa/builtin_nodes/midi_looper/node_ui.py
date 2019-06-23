@@ -22,7 +22,7 @@
 
 import enum
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -173,7 +173,8 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         else:
             raise TypeError(type(change))
 
-    def __durationChanged(self, change: music.PropertyValueChange[audioproc.MusicalDuration]) -> None:
+    def __durationChanged(
+            self, change: music.PropertyValueChange[audioproc.MusicalDuration]) -> None:
         num_beats = change.new_value / audioproc.MusicalDuration(1, 4)
         assert num_beats.denominator == 1
         self.__duration.setValue(num_beats.numerator)
@@ -194,7 +195,8 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
         self.call_async(self.project_view.sendNodeMessage(msg))
 
     def __nodeMessage(self, msg: Dict[str, Any]) -> None:
-        current_position_urid = 'http://noisicaa.odahoda.de/lv2/processor_midi_looper#current_position'
+        current_position_urid = (
+            'http://noisicaa.odahoda.de/lv2/processor_midi_looper#current_position')
         if current_position_urid in msg:
             numerator, denominator = msg[current_position_urid]
             current_position = audioproc.MusicalTime(numerator, denominator)
@@ -207,7 +209,8 @@ class MidiLooperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidget
             if record_state == RecordState.RECORDING:
                 self.__recorded_events.clear()
                 self.__pianoroll.clearEvents()
-                self.__pianoroll.setUnfinishedNoteMode(pianoroll.UnfinishedNoteMode.ToPlaybackPosition)
+                self.__pianoroll.setUnfinishedNoteMode(
+                    pianoroll.UnfinishedNoteMode.ToPlaybackPosition)
             else:
                 if record_state == RecordState.OFF:
                     del self.__listeners['events']
@@ -248,7 +251,7 @@ class MidiLooperNode(base_node.Node):
 
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         assert isinstance(node, model.MidiLooper), type(node).__name__
-        self.__widget = None  # type: MidiLooperNodeWidget
+        self.__widget = None  # type: QtWidgets.QWidget
         self.__node = node  # type: model.MidiLooper
 
         super().__init__(node=node, **kwargs)

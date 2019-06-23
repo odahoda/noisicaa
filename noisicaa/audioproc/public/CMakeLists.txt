@@ -18,7 +18,10 @@
 #
 # @end:license
 
-add_python_package()
+add_python_package(
+  time_mapper.pyi
+  musical_time.pyi
+)
 
 set(LIB_SRCS
   backend_settings.pb.cc

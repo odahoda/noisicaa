@@ -128,7 +128,7 @@ class BeatMeasureEditor(measured_track_editor.MeasureEditor):
     def measure(self) -> model.BeatMeasure:
         return down_cast(model.BeatMeasure, super().measure)
 
-    def xToTime(self, x: int) -> audioproc.MusicalTime:
+    def xToTime(self, x: int) -> audioproc.MusicalDuration:
         return audioproc.MusicalDuration(
             int(8 * self.measure.time_signature.upper * x / self.width()),
             8 * self.measure.time_signature.upper)

@@ -24,6 +24,7 @@ from PyQt5 import QtGui
 
 from noisidev import uitest
 from noisicaa import audioproc
+from noisicaa import value_types
 from . import pianoroll
 
 
@@ -41,13 +42,17 @@ class PianoRollTest(uitest.UITestCase):
         self.assertTrue(self.roll.close())
 
     def test_addEvent(self):
-        self.roll.addEvent(audioproc.MusicalTime(1, 8), bytes([0x90, 60, 100]))
+        self.roll.addEvent(value_types.MidiEvent(
+            audioproc.MusicalTime(1, 8), bytes([0x90, 60, 100])))
         self.render()
-        self.roll.addEvent(audioproc.MusicalTime(2, 8), bytes([0x80, 60, 0]))
+        self.roll.addEvent(value_types.MidiEvent(
+            audioproc.MusicalTime(2, 8), bytes([0x80, 60, 0])))
         self.render()
 
     def test_clearEvents(self):
-        self.roll.addEvent(audioproc.MusicalTime(1, 8), bytes([0x90, 60, 100]))
-        self.roll.addEvent(audioproc.MusicalTime(2, 8), bytes([0x80, 60, 0]))
+        self.roll.addEvent(value_types.MidiEvent(
+            audioproc.MusicalTime(1, 8), bytes([0x90, 60, 100])))
+        self.roll.addEvent(value_types.MidiEvent(
+            audioproc.MusicalTime(2, 8), bytes([0x80, 60, 0])))
         self.roll.clearEvents()
         self.render()

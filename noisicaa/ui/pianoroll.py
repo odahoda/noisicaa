@@ -22,7 +22,7 @@
 
 import enum
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Set
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -59,7 +59,7 @@ class PianoKeys(slots.SlotContainer, QtWidgets.QWidget):
         self.__active_key_edge1_color = QtGui.QColor(200, 200, 255)
         self.__active_key_edge2_color = QtGui.QColor(100, 100, 160)
 
-        self.__active_keys = set()
+        self.__active_keys = set()  # type: Set[int]
 
         self.yOffsetChanged.connect(lambda _: self.update())
 
@@ -184,7 +184,7 @@ class PianoRollGrid(slots.SlotContainer, QtWidgets.QWidget):
         self.__playback_position_color = QtGui.QColor(0, 0, 0)
 
         self.__next_event_id = 0
-        self.__events = {}  # Dict[int, value_types.MidiEvent]
+        self.__events = {}  # type: Dict[int, value_types.MidiEvent]
         self.__sorted_events = sortedcontainers.SortedList()
 
         self.setMinimumSize(100, 50)

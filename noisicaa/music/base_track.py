@@ -170,8 +170,7 @@ class MeasuredTrackConnector(node_connector.NodeConnector):
             self.__add_event(event)
             events.append(event)
 
-    def _update_measure_range(
-            self, begin: audioproc.MusicalTime, end: audioproc.MusicalTime) -> None:
+    def _update_measure_range(self, begin: int, end: int) -> None:
         time = audioproc.MusicalTime()
         for mref in self._node.measure_list:
             if mref.index >= end:
