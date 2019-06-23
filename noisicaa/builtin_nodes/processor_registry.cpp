@@ -34,6 +34,7 @@
 #include "noisicaa/builtin_nodes/step_sequencer/processor.h"
 #include "noisicaa/builtin_nodes/midi_cc_to_cv/processor.h"
 #include "noisicaa/builtin_nodes/midi_looper/processor.h"
+#include "noisicaa/builtin_nodes/midi_monitor/processor.h"
 
 namespace noisicaa {
 
@@ -81,6 +82,9 @@ StatusOr<Processor*> create_processor(
   } else if (desc.processor().type() == "builtin://midi-looper") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorMidiLooper(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://midi-monitor") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorMidiMonitor(realm_name, node_id, host_system, desc);
   }
 
   return ERROR_STATUS("Invalid processor type %d", desc.processor().type());

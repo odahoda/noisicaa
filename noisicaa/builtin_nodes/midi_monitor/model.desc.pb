@@ -18,14 +18,8 @@
 #
 # @end:license
 
-from .proto_value import ProtoValue
-from .key_signature import KeySignature
-from .time_signature import TimeSignature
-from .clef import Clef
-from .pitch import Pitch, NOTE_TO_MIDI, MIDI_TO_NOTE
-from .pos2f import Pos2F
-from .sizef import SizeF
-from .color import Color
-from .control_value import ControlValue
-from .node_port_properties import NodePortProperties
-from .midi_event import MidiEvent
+classes {
+  name: "MidiMonitor"
+  super_class: "noisicaa.music.graph.BaseNode"
+  proto_ext_name: "midi_monitor"
+}

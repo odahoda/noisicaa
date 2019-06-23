@@ -55,6 +55,7 @@ target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-step_sequencer-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_cc_to_cv-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_looper-processor)
+target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_monitor-processor)
 
 add_subdirectory(score_track)
 add_subdirectory(beat_track)
@@ -71,3 +72,4 @@ add_subdirectory(noise)
 add_subdirectory(step_sequencer)
 add_subdirectory(midi_cc_to_cv)
 add_subdirectory(midi_looper)
+add_subdirectory(midi_monitor)

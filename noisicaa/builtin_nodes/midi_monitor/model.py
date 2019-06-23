@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -18,14 +20,18 @@
 #
 # @end:license
 
-from .proto_value import ProtoValue
-from .key_signature import KeySignature
-from .time_signature import TimeSignature
-from .clef import Clef
-from .pitch import Pitch, NOTE_TO_MIDI, MIDI_TO_NOTE
-from .pos2f import Pos2F
-from .sizef import SizeF
-from .color import Color
-from .control_value import ControlValue
-from .node_port_properties import NodePortProperties
-from .midi_event import MidiEvent
+import logging
+
+from noisicaa import node_db
+from . import node_description
+from . import _model
+
+logger = logging.getLogger(__name__)
+
+
+class MidiMonitor(_model.MidiMonitor):
+    @property
+    def description(self) -> node_db.NodeDescription:
+        node_desc = node_db.NodeDescription()
+        node_desc.CopyFrom(node_description.MidiMonitorDescription)
+        return node_desc

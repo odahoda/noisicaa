@@ -18,14 +18,22 @@
 #
 # @end:license
 
-from .proto_value import ProtoValue
-from .key_signature import KeySignature
-from .time_signature import TimeSignature
-from .clef import Clef
-from .pitch import Pitch, NOTE_TO_MIDI, MIDI_TO_NOTE
-from .pos2f import Pos2F
-from .sizef import SizeF
-from .color import Color
-from .control_value import ControlValue
-from .node_port_properties import NodePortProperties
-from .midi_event import MidiEvent
+add_python_package(
+  node_description.py
+  model.py
+  model_test.py
+  node_ui.py
+  node_ui_test.py
+  processor_test.py
+)
+
+build_model(model.desc.pb _model.py noisicaa/builtin_nodes/model.tmpl.py)
+
+py_proto(model.proto)
+cpp_proto(model.proto)
+
+add_library(noisicaa-builtin_nodes-midi_monitor-processor SHARED processor.cpp)
+target_compile_options(noisicaa-builtin_nodes-midi_monitor-processor PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)
+target_link_libraries(noisicaa-builtin_nodes-midi_monitor-processor PRIVATE noisicaa-audioproc-public)
+target_link_libraries(noisicaa-builtin_nodes-midi_monitor-processor PRIVATE noisicaa-host_system)
+target_link_libraries(noisicaa-builtin_nodes-midi_monitor-processor PRIVATE noisicaa-builtin_nodes-processor_message_registry)

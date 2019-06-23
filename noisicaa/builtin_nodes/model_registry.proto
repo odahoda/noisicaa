@@ -35,6 +35,7 @@ import "noisicaa/builtin_nodes/midi_source/model.proto";
 import "noisicaa/builtin_nodes/step_sequencer/model.proto";
 import "noisicaa/builtin_nodes/midi_cc_to_cv/model.proto";
 import "noisicaa/builtin_nodes/midi_looper/model.proto";
+import "noisicaa/builtin_nodes/midi_monitor/model.proto";
 
 extend ObjectBase {
   // Score track (401xxx)
@@ -77,4 +78,7 @@ extend ObjectBase {
   // MIDI Looper (411xxx)
   optional MidiLooper midi_looper = 411000;
   optional MidiLooperPatch midi_looper_patch = 411001;
+
+  // MIDI Monitor (412xxx)
+  optional MidiMonitor midi_monitor = 412000;
 }

@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -18,14 +20,21 @@
 #
 # @end:license
 
-from .proto_value import ProtoValue
-from .key_signature import KeySignature
-from .time_signature import TimeSignature
-from .clef import Clef
-from .pitch import Pitch, NOTE_TO_MIDI, MIDI_TO_NOTE
-from .pos2f import Pos2F
-from .sizef import SizeF
-from .color import Color
-from .control_value import ControlValue
-from .node_port_properties import NodePortProperties
-from .midi_event import MidiEvent
+from typing import cast
+
+from noisidev import unittest
+from noisidev import unittest_mixins
+from . import model
+
+
+class MidiMonitorTest(unittest_mixins.ProjectMixin, unittest.AsyncTestCase):
+
+    async def _add_node(self) -> model.MidiMonitor:
+        with self.project.apply_mutations('test'):
+            return cast(
+                model.MidiMonitor,
+                self.project.create_node('builtin://midi-monitor'))
+
+    async def test_add_node(self):
+        node = await self._add_node()
+        self.assertIsInstance(node, model.MidiMonitor)

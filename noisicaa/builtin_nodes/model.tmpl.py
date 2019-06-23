@@ -23,6 +23,8 @@
 # Be less picky for generated code:
 # pylint: disable=trailing-newlines
 # pylint: disable=line-too-long
+# pylint: disable=useless-super-delegation
+# pylint: disable=unused-import
 
 import typing
 
