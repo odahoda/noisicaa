@@ -57,6 +57,7 @@ from .base_track import (
     Measure,
 )
 from .project import (
+    BaseProject,
     Project,
 )
 from .render_pb2 import (

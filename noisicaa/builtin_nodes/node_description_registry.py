@@ -36,6 +36,7 @@ from .vca.node_description import VCADescription
 from .noise.node_description import NoiseDescription
 from .step_sequencer.node_description import StepSequencerDescription
 from .midi_cc_to_cv.node_description import MidiCCtoCVDescription
+from .midi_looper.node_description import MidiLooperDescription
 
 
 def node_descriptions() -> Iterator[node_db.NodeDescription]:
@@ -52,3 +53,4 @@ def node_descriptions() -> Iterator[node_db.NodeDescription]:
     yield NoiseDescription
     yield StepSequencerDescription
     yield MidiCCtoCVDescription
+    yield MidiLooperDescription

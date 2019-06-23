@@ -69,3 +69,6 @@ from .node_port_properties_pb2 import (
 from .node_parameters_pb2 import (
     NodeParameters,
 )
+from .midi_event_pb2 import (
+    MidiEvent,
+)

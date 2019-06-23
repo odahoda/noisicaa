@@ -649,7 +649,8 @@ class MeasuredTrackEditor(base_track_editor.BaseTrackEditor):
         measure_time = audioproc.MusicalTime()
         for measure_editor in self.measure_editors():
             if measure_time <= time < measure_time + measure_editor.duration:
-                measure_editor.setPlaybackPos(time - measure_time)
+                measure_editor.setPlaybackPos(
+                    audioproc.MusicalTime() + (time - measure_time))
                 self.__measure_editor_at_playback_pos = measure_editor
                 break
             measure_time += measure_editor.duration

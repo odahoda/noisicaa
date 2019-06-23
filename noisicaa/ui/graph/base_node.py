@@ -388,6 +388,8 @@ class Port(QtWidgets.QGraphicsPathItem):
 class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem):
     __next_zvalue = 2.0
 
+    has_window = False
+
     def __init__(
             self, *,
             node: music.BaseNode,
@@ -407,6 +409,8 @@ class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem)
         self.add_cleanup_function(self.__listeners.cleanup)
 
         self.__node = node
+
+        self.__window = None  # type: QtWidgets.QWidget
 
         self.__box = Box(self)
 
@@ -512,6 +516,9 @@ class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem)
     def createBodyWidget(self) -> QtWidgets.QWidget:
         return None
 
+    def createWindow(self, **kwargs: Any) -> QtWidgets.QWidget:
+        raise RuntimeError("Node %s does not support windows." % type(self).__name__)
+
     def titleWidgets(self) -> Iterable[QtWidgets.QWidget]:
         if self.__node.description.node_ui.muteable:
             muted_button = mute_button.MuteButton()
@@ -540,6 +547,11 @@ class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem)
         for port in self.__ports.values():
             port.cleanup()
         self.__ports.clear()
+
+        if self.__window is not None:
+            self.__window.close()
+            self.__window = None
+
         super().cleanup()
 
     def node(self) -> music.BaseNode:
@@ -825,6 +837,10 @@ class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem)
         return super().hoverLeaveEvent(event)
 
     def buildContextMenu(self, menu: QtWidgets.QMenu) -> None:
+        if self.has_window:
+            show_window = menu.addAction("Open in window")
+            show_window.triggered.connect(self.onShowWindow)
+
         if self.__node.removable:
             remove = menu.addAction("Remove")
             remove.triggered.connect(self.onRemove)
@@ -833,6 +849,14 @@ class Node(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QGraphicsItem)
         color_action = SelectColorAction(color_menu)
         color_action.colorSelected.connect(self.onSetColor)
         color_menu.addAction(color_action)
+
+    def onShowWindow(self) -> None:
+        if self.__window is None:
+            self.__window = self.createWindow(parent=self.project_view)
+
+        self.__window.show()
+        self.__window.raise_()
+        self.__window.activateWindow()
 
     def onRemove(self) -> None:
         with self.project.apply_mutations('Remove node %s' % self.__node.name):

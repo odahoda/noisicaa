@@ -426,33 +426,16 @@ class Editor(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QDialog):
 
 
 class CustomCSoundNode(generic_node.GenericNode):
+    has_window = True
+
     def __init__(self, *, node: music.BaseNode, **kwargs: Any) -> None:
         super().__init__(node=node, **kwargs)
 
         assert isinstance(node, model.CustomCSound), type(node).__name__
         self.__node = node  # type: model.CustomCSound
 
-        self.__editor = None  # type: Editor
-
-    def cleanup(self) -> None:
-        if self.__editor is not None:
-            self.__editor.close()
-            self.__editor.cleanup()
-            self.__editor = None
-
-        super().cleanup()
-
-    def buildContextMenu(self, menu: QtWidgets.QMenu) -> None:
-        show_editor = menu.addAction("CSound Editor")
-        show_editor.triggered.connect(self.__showEditor)
-
-        super().buildContextMenu(menu)
-
-    def __showEditor(self) -> None:
-        if self.__editor is None:
-            self.__editor = Editor(
-                node=self.__node, parent=self.project_view, context=self.context)
-
-        self.__editor.show()
-        self.__editor.raise_()
-        self.__editor.activateWindow()
+    def createWindow(self, **kwargs: Any) -> QtWidgets.QWidget:
+        window = Editor(
+            node=self.__node, context=self.context, **kwargs)
+        self.add_cleanup_function(window.cleanup)
+        return window

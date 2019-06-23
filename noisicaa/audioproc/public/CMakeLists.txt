@@ -18,7 +18,10 @@
 #
 # @end:license
 
-add_python_package()
+add_python_package(
+  time_mapper.pyi
+  musical_time.pyi
+)
 
 set(LIB_SRCS
   backend_settings.pb.cc
@@ -27,6 +30,7 @@ set(LIB_SRCS
   engine_notification.pb.cc
   host_parameters.pb.cc
   instrument_spec.pb.cc
+  midi_event.pb.cc
   musical_time.cpp
   musical_time.pb.cc
   node_parameters.pb.cc
@@ -69,6 +73,8 @@ cpp_proto(node_port_properties.proto)
 py_proto(node_port_properties.proto)
 cpp_proto(node_parameters.proto)
 py_proto(node_parameters.proto)
+cpp_proto(midi_event.proto)
+py_proto(midi_event.proto)
 
 add_library(noisicaa-audioproc-public SHARED ${LIB_SRCS})
 target_compile_options(noisicaa-audioproc-public PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)

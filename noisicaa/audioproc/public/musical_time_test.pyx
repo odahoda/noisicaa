@@ -222,6 +222,21 @@ class MusicalTimeTest(unittest.TestCase):
                 t = MusicalTime(2, 3) / MusicalTime(n, d)
                 self.assertEqual(fractions.Fraction(t.numerator(), t.denominator()), expected)
 
+    def test_mod(self):
+        cdef MusicalTime t
+        for n in range(-100, 100):
+            if n == 0:
+                continue
+            for d in range(1, 100):
+                expected = fractions.Fraction(2, 3) % fractions.Fraction(n, d)
+
+                t = MusicalTime(2, 3)
+                t.mod(MusicalTime(n, d))
+                self.assertEqual(fractions.Fraction(t.numerator(), t.denominator()), expected, "2/3 %% %d/%d" % (n, d))
+
+                t = MusicalTime(2, 3) % MusicalTime(n, d)
+                self.assertEqual(fractions.Fraction(t.numerator(), t.denominator()), expected)
+
     def test_cmp(self):
         self.assertTrue(MusicalTime(1, 2) == MusicalTime(2, 4))
         self.assertFalse(MusicalTime(1, 2) == MusicalTime(3, 4))

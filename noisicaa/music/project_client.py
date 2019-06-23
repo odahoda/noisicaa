@@ -323,7 +323,7 @@ class ProjectClient(object):
         elif value_type == 'musical_time_value':
             return audioproc.MusicalTime.from_proto(session_value.musical_time_value)
         elif value_type == 'musical_duration_value':
-            return audioproc.MusicalDuration.from_proto(session_value.musical_time_value)
+            return audioproc.MusicalDuration.from_proto(session_value.musical_duration_value)
         else:
             raise ValueError(session_value)
 

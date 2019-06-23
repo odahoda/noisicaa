@@ -60,4 +60,5 @@ from .public import (
     HostParameters,
     NodePortProperties,
     NodeParameters,
+    MidiEvent,
 )

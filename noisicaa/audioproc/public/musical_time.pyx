@@ -135,6 +135,12 @@ cdef class PyMusicalDuration(object):
         v /= _as_fraction(other)
         return PyMusicalDuration.create(v)
 
+    def __int__(self):
+        return int(self._duration.numerator() // self._duration.denominator())
+
+    def __float__(self):
+        return float(self._duration.to_double())
+
     @classmethod
     def from_proto(cls, pb):
         return cls(pb.numerator, pb.denominator)
@@ -244,6 +250,15 @@ cdef class PyMusicalTime(object):
         cdef MusicalTime v = self._time
         v /= _as_fraction(other)
         return PyMusicalTime.create(v)
+
+    def __mod__(PyMusicalTime self, other):
+        return PyMusicalTime.create(self._time % _as_fraction(other))
+
+    def __int__(self):
+        return int(self._time.numerator() // self._time.denominator())
+
+    def __float__(self):
+        return float(self._time.to_double())
 
     @classmethod
     def from_proto(cls, pb):

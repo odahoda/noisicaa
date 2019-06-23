@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # @begin:license
 #
 # Copyright (c) 2015-2019, Benjamin Niemann <pink@odahoda.de>
@@ -18,14 +20,30 @@
 #
 # @end:license
 
-from .proto_value import ProtoValue
-from .key_signature import KeySignature
-from .time_signature import TimeSignature
-from .clef import Clef
-from .pitch import Pitch, NOTE_TO_MIDI
-from .pos2f import Pos2F
-from .sizef import SizeF
-from .color import Color
-from .control_value import ControlValue
-from .node_port_properties import NodePortProperties
-from .midi_event import MidiEvent
+from noisicaa import node_db
+
+
+MidiLooperDescription = node_db.NodeDescription(
+    uri='builtin://midi-looper',
+    display_name='MIDI Looper',
+    type=node_db.NodeDescription.PROCESSOR,
+    node_ui=node_db.NodeUIDescription(
+        type='builtin://midi-looper',
+    ),
+    builtin_icon='node-type-builtin',
+    processor=node_db.ProcessorDescription(
+        type='builtin://midi-looper',
+    ),
+    ports=[
+        node_db.PortDescription(
+            name='in',
+            direction=node_db.PortDescription.INPUT,
+            type=node_db.PortDescription.EVENTS,
+        ),
+        node_db.PortDescription(
+            name='out',
+            direction=node_db.PortDescription.OUTPUT,
+            type=node_db.PortDescription.EVENTS,
+        ),
+    ]
+)

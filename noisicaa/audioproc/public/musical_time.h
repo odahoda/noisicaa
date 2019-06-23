@@ -64,6 +64,7 @@ protected:
   void sub(int64_t n, int64_t d);
   void mul(int64_t n, int64_t d);
   void div(int64_t n, int64_t d);
+  void mod(int64_t n, int64_t d);
 
 private:
   int64_t _numerator;
@@ -153,6 +154,7 @@ public:
   void sub(const MusicalDuration& t) { Fraction::sub(t.numerator(), t.denominator()); }
   void mul(const Fraction& t) { Fraction::mul(t.numerator(), t.denominator()); }
   void div(const Fraction& t) { Fraction::div(t.numerator(), t.denominator()); }
+  void mod(const Fraction& t) { Fraction::mod(t.numerator(), t.denominator()); }
 
   MusicalTime& operator+=(const MusicalDuration& t) { add(t); return *this; }
   MusicalTime& operator-=(const MusicalDuration& t) { sub(t); return *this; }
@@ -168,6 +170,7 @@ public:
   }
   friend MusicalTime operator*(MusicalTime a, const Fraction& b) { a.mul(b); return a; }
   friend MusicalTime operator/(MusicalTime a, const Fraction& b) { a.div(b); return a; }
+  friend MusicalTime operator%(MusicalTime a, const Fraction& b) { a.mod(b); return a; }
 
   friend bool operator==(const MusicalTime& a, const MusicalTime& b) { return a.cmp(b) == 0; }
   friend bool operator!=(const MusicalTime& a, const MusicalTime& b) { return a.cmp(b) != 0; }

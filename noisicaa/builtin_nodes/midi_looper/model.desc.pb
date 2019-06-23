@@ -18,14 +18,32 @@
 #
 # @end:license
 
-from .proto_value import ProtoValue
-from .key_signature import KeySignature
-from .time_signature import TimeSignature
-from .clef import Clef
-from .pitch import Pitch, NOTE_TO_MIDI
-from .pos2f import Pos2F
-from .sizef import SizeF
-from .color import Color
-from .control_value import ControlValue
-from .node_port_properties import NodePortProperties
-from .midi_event import MidiEvent
+classes {
+  name: "MidiLooperPatch"
+  super_class: "noisicaa.music.model_base.ProjectChild"
+  proto_ext_name: "midi_looper_patch"
+  properties {
+    name: "events"
+    type: WRAPPED_PROTO_LIST
+    wrapped_type: "noisicaa.value_types.MidiEvent"
+    proto_id: 1
+  }
+}
+
+classes {
+  name: "MidiLooper"
+  super_class: "noisicaa.music.graph.BaseNode"
+  proto_ext_name: "midi_looper"
+  properties {
+    name: "duration"
+    type: WRAPPED_PROTO
+    wrapped_type: "noisicaa.audioproc.MusicalDuration"
+    proto_id: 1
+  }
+  properties {
+    name: "patches"
+    type: OBJECT_LIST
+    obj_type: "MidiLooperPatch"
+    proto_id: 2
+  }
+}

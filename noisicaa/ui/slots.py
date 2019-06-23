@@ -20,11 +20,14 @@
 #
 # @end:license
 
+import functools
 import logging
 import operator
 from typing import cast, Any, Dict, Tuple, Type, Callable, TypeVar
 
 from PyQt5 import QtCore
+
+from . import ui_base
 
 logger = logging.getLogger(__name__)
 
@@ -72,3 +75,36 @@ def slot(
             sig_inst.emit(value)
 
     return getter, setter, signal
+
+
+class SlotConnectionManager(ui_base.ProjectMixin, object):
+    def __init__(self, *, session_prefix: str, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+        self.__session_prefix = session_prefix
+        self.__connections = {}  # type: Dict[str, Tuple[QtCore.pyqtBoundSignal, QtCore.pyqtConnection]]
+
+    def cleanup(self) -> None:
+        while self.__connections:
+            _, (signal, connection) = self.__connections.popitem()
+            signal.disconnect(connection)
+
+    def connect(
+            self,
+            name: str,
+            setter: Callable[[T], None],
+            signal: QtCore.pyqtBoundSignal,
+            default: T = None,
+    ) -> None:
+        value = self.get_session_value(self.__session_prefix + ':' + name, default)
+        if value is not None:
+            setter(value)
+        connection = signal.connect(functools.partial(self.__valueChanged, name))
+        self.__connections[name] = (signal, connection)
+
+    def disconnect(self, name: str) -> None:
+        signal, connection = self.__connections.pop(name)
+        signal.disconnect(connection)
+
+    def __valueChanged(self, name: str, value: T) -> None:
+        self.set_session_value(self.__session_prefix + ':' + name, value)

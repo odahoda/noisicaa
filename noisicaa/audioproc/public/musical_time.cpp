@@ -85,6 +85,15 @@ void Fraction::div(int64_t n, int64_t d) {
   reduce();
 }
 
+void Fraction::mod(int64_t n, int64_t d) {
+  assert(n != 0);
+  int64_t t = _denominator;
+  int64_t a = (n * _denominator);
+  _numerator = ((_numerator * d) % a + a) % a;
+  _denominator = t * d;
+  reduce();
+}
+
 int Fraction::cmp(int64_t n, int64_t d) const {
   assert(d > 0);
   int64_t c = _numerator * d - _denominator * n;

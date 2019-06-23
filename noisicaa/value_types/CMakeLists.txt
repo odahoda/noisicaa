@@ -24,6 +24,7 @@ add_python_package(
   control_value.py
   key_signature.py
   key_signature_test.py
+  midi_event.py
   node_port_properties.py
   pitch.py
   pitch_test.py
