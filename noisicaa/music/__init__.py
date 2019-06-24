@@ -43,6 +43,9 @@ from .model_base import (
 from .model_base_pb2 import (
     ObjectTree,
 )
+from .transfer_function import (
+    TransferFunction,
+)
 from .metadata import (
     Metadata,
 )

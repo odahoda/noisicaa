@@ -24,30 +24,13 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
-import "noisicaa/music/model_base.proto";
-import "noisicaa/music/model.proto";
+import "noisicaa/audioproc/public/node_parameters.proto";
+import "noisicaa/audioproc/public/transfer_function.proto";
 
-extend ObjectBase {
-  // Project (1xxxxx)
-  optional Project project = 100000;
-  optional Metadata metadata = 100001;
+message MidiVelocityMapperSpec {
+  required TransferFunctionSpec transfer_function = 1;
+}
 
-  // Samples (2xxxxx)
-  optional Sample sample = 200000;
-
-  // Pipeline graph (3xxxxx)
-  optional NodeConnection node_connection = 300000;
-  optional BaseNode base_node = 301000;
-  optional Node node = 302000;
-  optional SystemOutNode system_out_node = 303000;
-  optional Port port = 304000;
-
-  // Tracks (400xxx)
-  optional Track track = 400000;
-  optional MeasuredTrack measured_track = 400100;
-  optional Measure measure = 400101;
-  optional MeasureReference measure_reference = 400102;
-
-  // Transfer Function (500xxx)
-  optional TransferFunction transfer_function = 500000;
+extend NodeParameters {
+  optional MidiVelocityMapperSpec midi_velocity_mapper_spec = 414000;
 }

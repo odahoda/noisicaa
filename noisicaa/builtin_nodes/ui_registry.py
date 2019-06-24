@@ -40,6 +40,7 @@ from .midi_cc_to_cv.node_ui import MidiCCtoCVNode
 from .midi_looper.node_ui import MidiLooperNode
 from .midi_monitor.node_ui import MidiMonitorNode
 from .metronome.node_ui import MetronomeNode
+from .midi_velocity_mapper.node_ui import MidiVelocityMapperNode
 
 if typing.TYPE_CHECKING:
     from noisicaa.ui.graph import base_node
@@ -60,6 +61,7 @@ node_ui_cls_map = {
     'builtin://midi-looper': MidiLooperNode,
     'builtin://midi-monitor': MidiMonitorNode,
     'builtin://metronome': MetronomeNode,
+    'builtin://midi-velocity-mapper': MidiVelocityMapperNode,
 }  # type: Dict[str, Type[base_node.Node]]
 
 track_editor_cls_map = {

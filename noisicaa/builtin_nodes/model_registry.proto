@@ -37,6 +37,7 @@ import "noisicaa/builtin_nodes/midi_cc_to_cv/model.proto";
 import "noisicaa/builtin_nodes/midi_looper/model.proto";
 import "noisicaa/builtin_nodes/midi_monitor/model.proto";
 import "noisicaa/builtin_nodes/metronome/model.proto";
+import "noisicaa/builtin_nodes/midi_velocity_mapper/model.proto";
 
 extend ObjectBase {
   // Score track (401xxx)
@@ -85,4 +86,7 @@ extend ObjectBase {
 
   // Metronome (413xxx)
   optional Metronome metronome = 413000;
+
+  // MIDI Velocity Mapper (414xxx)
+  optional MidiVelocityMapper midi_velocity_mapper = 414000;
 }

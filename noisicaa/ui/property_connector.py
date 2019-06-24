@@ -109,6 +109,16 @@ class QSpinBoxConnector(PropertyConnector[int, QtWidgets.QSpinBox]):
         self._widget.setValue(change.new_value)
 
 
+class QDoubleSpinBoxConnector(PropertyConnector[float, QtWidgets.QDoubleSpinBox]):
+    def _connectToWidget(self) -> None:
+        self._widget.setValue(self.value())
+        connection = self._widget.valueChanged.connect(self.setValue)
+        self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(connection))
+
+    def _propertyChanged(self, change: music.PropertyValueChange) -> None:
+        self._widget.setValue(change.new_value)
+
+
 class QLineEditConnector(Generic[V], PropertyConnector[V, QtWidgets.QLineEdit]):
     def __init__(
             self,

@@ -36,6 +36,7 @@ from .midi_cc_to_cv import model as midi_cc_to_cv
 from .midi_looper import model as midi_looper
 from .midi_monitor import model as midi_monitor
 from .metronome import model as metronome
+from .midi_velocity_mapper import model as midi_velocity_mapper
 
 
 node_cls_map = {
@@ -51,6 +52,7 @@ node_cls_map = {
     'builtin://midi-looper': midi_looper.MidiLooper,
     'builtin://midi-monitor': midi_monitor.MidiMonitor,
     'builtin://metronome': metronome.Metronome,
+    'builtin://midi-velocity-mapper': midi_velocity_mapper.MidiVelocityMapper,
 }  # type: Dict[str, Type[graph.BaseNode]]
 
 
@@ -78,3 +80,4 @@ def register_classes(pool: music.Pool) -> None:
     pool.register_class(midi_looper.MidiLooperPatch)
     pool.register_class(midi_monitor.MidiMonitor)
     pool.register_class(metronome.Metronome)
+    pool.register_class(midi_velocity_mapper.MidiVelocityMapper)

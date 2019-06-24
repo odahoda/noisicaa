@@ -36,6 +36,7 @@ from . import graph
 from . import base_track
 from . import samples as samples_lib
 from . import metadata as metadata_lib
+from . import transfer_function
 from . import writer_client
 from . import model_base
 from . import model_base_pb2
@@ -498,6 +499,7 @@ class Pool(model_base.Pool):
         self.register_class(graph.SystemOutNode)
         self.register_class(graph.NodeConnection)
         self.register_class(graph.Node)
+        self.register_class(transfer_function.TransferFunction)
 
         from noisicaa.builtin_nodes import model_registry
         model_registry.register_classes(self)

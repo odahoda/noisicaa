@@ -24,30 +24,28 @@ syntax = "proto2";
 
 package noisicaa.pb;
 
-import "noisicaa/music/model_base.proto";
-import "noisicaa/music/model.proto";
+message TransferFunctionSpec {
+  required float input_min = 1;
+  required float input_max = 2;
+  required float output_min = 3;
+  required float output_max = 4;
 
-extend ObjectBase {
-  // Project (1xxxxx)
-  optional Project project = 100000;
-  optional Metadata metadata = 100001;
+  message Fixed {
+    required float value = 1;
+  }
 
-  // Samples (2xxxxx)
-  optional Sample sample = 200000;
+  message Linear {
+    required float left_value = 1;
+    required float right_value = 2;
+  }
 
-  // Pipeline graph (3xxxxx)
-  optional NodeConnection node_connection = 300000;
-  optional BaseNode base_node = 301000;
-  optional Node node = 302000;
-  optional SystemOutNode system_out_node = 303000;
-  optional Port port = 304000;
+  message Gamma {
+    required float value = 1;
+  }
 
-  // Tracks (400xxx)
-  optional Track track = 400000;
-  optional MeasuredTrack measured_track = 400100;
-  optional Measure measure = 400101;
-  optional MeasureReference measure_reference = 400102;
-
-  // Transfer Function (500xxx)
-  optional TransferFunction transfer_function = 500000;
+  oneof type {
+    Fixed fixed = 5;
+    Linear linear = 6;
+    Gamma gamma = 7;
+  }
 }

@@ -72,3 +72,6 @@ from .node_parameters_pb2 import (
 from .midi_event_pb2 import (
     MidiEvent,
 )
+from .transfer_function_pb2 import (
+    TransferFunctionSpec,
+)

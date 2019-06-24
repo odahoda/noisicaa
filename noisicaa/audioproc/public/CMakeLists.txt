@@ -40,6 +40,7 @@ set(LIB_SRCS
   processor_message.pb.cc
   project_properties.pb.cc
   time_mapper.cpp
+  transfer_function.pb.cc
 )
 
 set(TEST_SRCS
@@ -75,6 +76,8 @@ cpp_proto(node_parameters.proto)
 py_proto(node_parameters.proto)
 cpp_proto(midi_event.proto)
 py_proto(midi_event.proto)
+cpp_proto(transfer_function.proto)
+py_proto(transfer_function.proto)
 
 add_library(noisicaa-audioproc-public SHARED ${LIB_SRCS})
 target_compile_options(noisicaa-audioproc-public PRIVATE -fPIC -std=c++11 -Wall -Werror -pedantic -DHAVE_PTHREAD_SPIN_LOCK)

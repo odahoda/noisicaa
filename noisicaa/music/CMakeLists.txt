@@ -41,6 +41,8 @@ add_python_package(
   rms.pyi
   samples.py
   session_value_store.py
+  transfer_function.py
+  transfer_function_test.py
   writer_client.py
   writer_client_test.py
   writer_process.py

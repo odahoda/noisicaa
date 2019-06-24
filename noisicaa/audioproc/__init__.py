@@ -61,4 +61,5 @@ from .public import (
     NodePortProperties,
     NodeParameters,
     MidiEvent,
+    TransferFunctionSpec,
 )
