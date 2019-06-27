@@ -100,23 +100,59 @@ class QComboBoxConnector(Generic[V], PropertyConnector[V, QtWidgets.QComboBox]):
 
 
 class QSpinBoxConnector(PropertyConnector[int, QtWidgets.QSpinBox]):
+    def __init__(
+            self,
+            widget: QtWidgets.QSpinBox,
+            obj: music.ObjectBase,
+            prop: str,
+            **kwargs: Any) -> None:
+        self.__ignore_change = False
+        super().__init__(widget, obj, prop, **kwargs)
+
     def _connectToWidget(self) -> None:
         self._widget.setValue(self.value())
-        connection = self._widget.valueChanged.connect(self.setValue)
+        connection = self._widget.valueChanged.connect(self.__valueChanged)
         self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(connection))
 
+    def __valueChanged(self, value: int) -> None:
+        if self.__ignore_change:
+            return
+        self.setValue(value)
+
     def _propertyChanged(self, change: music.PropertyValueChange) -> None:
-        self._widget.setValue(change.new_value)
+        self.__ignore_change = True
+        try:
+            self._widget.setValue(change.new_value)
+        finally:
+            self.__ignore_change = False
 
 
 class QDoubleSpinBoxConnector(PropertyConnector[float, QtWidgets.QDoubleSpinBox]):
+    def __init__(
+            self,
+            widget: QtWidgets.QDoubleSpinBox,
+            obj: music.ObjectBase,
+            prop: str,
+            **kwargs: Any) -> None:
+        self.__ignore_change = False
+        super().__init__(widget, obj, prop, **kwargs)
+
     def _connectToWidget(self) -> None:
         self._widget.setValue(self.value())
-        connection = self._widget.valueChanged.connect(self.setValue)
+        connection = self._widget.valueChanged.connect(self.__valueChanged)
         self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(connection))
 
+    def __valueChanged(self, value: float) -> None:
+        if self.__ignore_change:
+            return
+        self.setValue(value)
+
     def _propertyChanged(self, change: music.PropertyValueChange) -> None:
-        self._widget.setValue(change.new_value)
+        self.__ignore_change = True
+        try:
+            self._widget.setValue(change.new_value)
+        finally:
+            self.__ignore_change = False
 
 
 class QLineEditConnector(Generic[V], PropertyConnector[V, QtWidgets.QLineEdit]):
