@@ -40,6 +40,7 @@ set(LIB_SRCS
   processor_message.pb.cc
   project_properties.pb.cc
   time_mapper.cpp
+  transfer_function.cpp
   transfer_function.pb.cc
 )
 

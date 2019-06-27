@@ -25,6 +25,7 @@
 #include "noisicaa/audioproc/engine/misc.h"
 #include "noisicaa/audioproc/public/musical_time.h"
 #include "noisicaa/audioproc/public/engine_notification.pb.h"
+#include "noisicaa/audioproc/public/transfer_function.h"
 #include "noisicaa/audioproc/engine/message_queue.h"
 #include "noisicaa/host_system/host_system.h"
 #include "noisicaa/builtin_nodes/midi_velocity_mapper/processor.h"
@@ -131,23 +132,7 @@ Status ProcessorMidiVelocityMapper::process_block_internal(BlockContext* ctxt, T
 
       if ((midi[0] & 0xf0) == 0x90) {
         float velocity = (float)midi[2];
-
-        const auto& tf = spec->transfer_function();
-        switch (tf.type_case()) {
-        case pb::TransferFunctionSpec::kFixed:
-          velocity = tf.fixed().value();
-          break;
-        case pb::TransferFunctionSpec::kLinear: {
-          velocity = (tf.linear().right_value() - tf.linear().left_value()) * (velocity  - tf.input_min()) / (tf.input_max() - tf.input_min()) + tf.linear().left_value();
-          break;
-        }
-        case pb::TransferFunctionSpec::kGamma:
-          velocity = (tf.output_max() - tf.output_min()) * powf((velocity  - tf.input_min()) / (tf.input_max() - tf.input_min()), tf.gamma().value()) + tf.output_min();
-          break;
-        default:
-          break;
-        }
-
+        velocity = apply_transfer_function(spec->transfer_function(), velocity);
         midi[2] = max(0, min(127, (int)roundf(velocity)));
       }
 
