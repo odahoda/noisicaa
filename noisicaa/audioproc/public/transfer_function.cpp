@@ -46,4 +46,10 @@ float apply_transfer_function(const pb::TransferFunctionSpec& spec, float value)
   return value;
 }
 
+float apply_transfer_function(const std::string& serialized_spec, float value) {
+  pb::TransferFunctionSpec spec;
+  assert(spec.ParseFromString(serialized_spec));
+  return apply_transfer_function(spec, value);
+}
+
 }

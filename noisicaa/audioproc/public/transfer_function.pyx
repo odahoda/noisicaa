@@ -20,30 +20,14 @@
 #
 # @end:license
 
-from PyQt5 import QtGui
-
-from noisidev import uitest
-from noisicaa import music
-from . import transfer_function_editor
+from . import transfer_function_pb2
 
 
-class TransferFunctionEditorTest(uitest.ProjectMixin, uitest.UITestCase):
-    async def setup_testcase(self):
-        with self.project.apply_mutations('test'):
-            self.tf = self.project._pool.create(music.TransferFunction)
+cdef class TransferFunction(object):
+    cdef bytes __serialized_spec
 
-        self.editor = transfer_function_editor.TransferFunctionEditor(
-            transfer_function=self.tf,
-            mutation_name_prefix='test',
-            context=self.context)
+    def __init__(self, spec: transfer_function_pb2.TransferFunctionSpec) -> None:
+        self.__serialized_spec = spec.SerializeToString()
 
-    async def cleanup_testcase(self):
-        self.editor.cleanup()
-
-    def render(self):
-        pixmap = QtGui.QPixmap(self.editor.size())
-        self.editor.render(pixmap)
-
-    async def test_render(self):
-        self.editor.resize(200, 200)
-        self.render()
+    def __call__(self, value: float) -> float:
+        return apply_transfer_function(self.__serialized_spec, value)

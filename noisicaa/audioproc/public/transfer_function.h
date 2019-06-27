@@ -25,6 +25,8 @@
 #ifndef _NOISICAA_AUDIOPROC_PUBLIC_TRANSFER_FUNCTION_H
 #define _NOISICAA_AUDIOPROC_PUBLIC_TRANSFER_FUNCTION_H
 
+#include <string>
+
 namespace noisicaa {
 
 namespace pb {
@@ -32,6 +34,7 @@ namespace pb {
 }
 
 float apply_transfer_function(const pb::TransferFunctionSpec& spec, float value);
+float apply_transfer_function(const std::string& serialized_spec, float value);
 
 }  // namespace noisicaa
 

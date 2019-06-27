@@ -23,14 +23,92 @@
 import logging
 from typing import Any, Dict
 
+from PyQt5 import QtCore
+from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from noisicaa import core
+from noisicaa import audioproc
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import property_connector
 
 logger = logging.getLogger(__name__)
+
+
+class TransferFunctionDisplay(core.AutoCleanupMixin, QtWidgets.QWidget):
+    def __init__(
+            self, *,
+            transfer_function: music.TransferFunction,
+            **kwargs: Any
+    ) -> None:
+        super().__init__(**kwargs)
+
+        self.__transfer_function = transfer_function
+
+        self.setMinimumSize(60, 60)
+
+        self.__bg_color = QtGui.QColor(0, 0, 0)
+        self.__border_color = QtGui.QColor(100, 200, 100)
+        self.__grid_color = QtGui.QColor(40, 60, 40)
+        self.__center_color = QtGui.QColor(60, 100, 60)
+        self.__plot_pen = QtGui.QPen(QtGui.QColor(255, 255, 255))
+        self.__plot_pen.setWidth(2)
+
+        self.__spec = self.__transfer_function.get_function_spec()
+
+        listener = self.__transfer_function.object_changed.add(
+            lambda _: self.__transferFunctionChanged())
+        self.add_cleanup_function(listener.remove)
+
+    def __transferFunctionChanged(self) -> None:
+        self.__spec = self.__transfer_function.get_function_spec()
+        self.update()
+
+    def sizeHint(self) -> QtCore.QSize:
+        return QtCore.QSize(100, 100)
+
+    def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        try:
+            painter.fillRect(evt.rect(), self.__bg_color)
+
+            w = self.width() - 10
+            h = self.height() - 10
+
+            for g in (1, 2, 3, 4, 6, 7, 8, 9, 5, 0, 10):
+                if g in (0, 10):
+                    color = self.__border_color
+                elif g == 5:
+                    color = self.__center_color
+                else:
+                    color = self.__grid_color
+
+                painter.fillRect(int(g * (w - 1) / 10) + 5, 5, 1, h, color)
+                painter.fillRect(5, int(g * (h - 1) / 10) + 5, w, 1, color)
+
+            path = QtGui.QPainterPath()
+            tfa = audioproc.TransferFunction(self.__spec)
+            for x in range(w):
+                value = (
+                    (self.__spec.input_max - self.__spec.input_min)
+                    * (x / (w - 1))
+                    + self.__spec.input_min)
+                value = tfa(value)
+                y = int(
+                    (h - 1)
+                    * (value - self.__spec.output_min)
+                    / (self.__spec.output_max - self.__spec.output_min))
+                if x == 0:
+                    path.moveTo(x + 5, h - y + 4)
+                else:
+                    path.lineTo(x + 5, h - y + 4)
+
+            painter.setPen(self.__plot_pen)
+            painter.drawPath(path)
+
+        finally:
+            painter.end()
 
 
 class TransferFunctionEditor(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidgets.QWidget):
@@ -121,9 +199,12 @@ class TransferFunctionEditor(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
             context=self.context)
         self.add_cleanup_function(self.__type_connector.cleanup)
 
+        self.__display = TransferFunctionDisplay(
+            transfer_function=self.__transfer_function)
+
         l1 = QtWidgets.QVBoxLayout()
         l1.setContentsMargins(0, 0, 0, 0)
         l1.addWidget(self.__type)
         l1.addWidget(self.__stack)
-        l1.addStretch(1)
+        l1.addWidget(self.__display, 1)
         self.setLayout(l1)

@@ -21,6 +21,7 @@
 add_python_package(
   time_mapper.pyi
   musical_time.pyi
+  transfer_function.pyi
 )
 
 set(LIB_SRCS
@@ -93,6 +94,9 @@ target_link_libraries(${musical_time.so} PRIVATE noisicaa-audioproc-public)
 
 add_cython_module(time_mapper CXX)
 target_link_libraries(${time_mapper.so} PRIVATE noisicaa-audioproc-public)
+
+add_cython_module(transfer_function CXX)
+target_link_libraries(${transfer_function.so} PRIVATE noisicaa-audioproc-public)
 
 foreach(TEST_SRC ${TEST_SRCS})
   string(REGEX REPLACE "\.pyx$" "" TEST_MOD ${TEST_SRC})
