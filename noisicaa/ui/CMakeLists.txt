@@ -62,6 +62,8 @@ add_python_package(
   svg_symbol_filetest.py
   svg_symbol.py
   svg_symbol_test.py
+  transfer_function_editor.py
+  transfer_function_editor_test.py
   ui_base.py
   ui_process.py
   vumeter.py

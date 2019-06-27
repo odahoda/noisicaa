@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtWidgets
@@ -29,8 +29,7 @@ from PyQt5 import QtWidgets
 from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import ui_base
-from noisicaa.ui import property_connector
-from noisicaa.ui import slots
+from noisicaa.ui import transfer_function_editor
 from noisicaa.ui.graph import base_node
 from . import model
 
@@ -43,95 +42,15 @@ class MidiVelocityMapperNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, 
 
         self.__node = node
 
-        self.__slot_connections = slots.SlotConnectionManager(
-            session_prefix='midi_velocity_mapper:%016x:%s' % (self.__node.id, session_prefix),
+        self.__transfer_function_editor = transfer_function_editor.TransferFunctionEditor(
+            transfer_function=self.__node.transfer_function,
+            mutation_name_prefix=self.__node.name,
             context=self.context)
-        self.add_cleanup_function(self.__slot_connections.cleanup)
-
-        self.__listeners = core.ListenerMap[str]()
-        self.add_cleanup_function(self.__listeners.cleanup)
-
-        self.__stack = QtWidgets.QStackedWidget()
-        type_to_stack_index = {}  # type: Dict[int, int]
-
-        self.__fixed_value = QtWidgets.QSpinBox()
-        self.__fixed_value.setRange(0, 127)
-        self.__fixed_value_connector = property_connector.QSpinBoxConnector(
-            self.__fixed_value, self.__node.transfer_function, 'fixed_value',
-            mutation_name='%s: Change fixed value' % self.__node.name,
-            context=self.context)
-        self.add_cleanup_function(self.__fixed_value_connector.cleanup)
-
-        self.__fixed_params = QtWidgets.QWidget()
-        l2 = QtWidgets.QVBoxLayout()
-        l2.setContentsMargins(0, 0, 0, 0)
-        l2.addWidget(self.__fixed_value)
-        self.__fixed_params.setLayout(l2)
-
-        type_to_stack_index[music.TransferFunction.FIXED] = self.__stack.addWidget(
-            self.__fixed_params)
-
-        self.__linear_left_value = QtWidgets.QSpinBox()
-        self.__linear_left_value.setRange(0, 127)
-        self.__linear_left_value_connector = property_connector.QSpinBoxConnector(
-            self.__linear_left_value, self.__node.transfer_function, 'linear_left_value',
-            mutation_name='%s: Change linear mapping' % self.__node.name,
-            context=self.context)
-        self.add_cleanup_function(self.__linear_left_value_connector.cleanup)
-
-        self.__linear_right_value = QtWidgets.QSpinBox()
-        self.__linear_right_value.setRange(0, 127)
-        self.__linear_right_value_connector = property_connector.QSpinBoxConnector(
-            self.__linear_right_value, self.__node.transfer_function, 'linear_right_value',
-            mutation_name='%s: Change linear mapping' % self.__node.name,
-            context=self.context)
-        self.add_cleanup_function(self.__linear_right_value_connector.cleanup)
-
-        self.__linear_params = QtWidgets.QWidget()
-        l3 = QtWidgets.QHBoxLayout()
-        l3.setContentsMargins(0, 0, 0, 0)
-        l3.addWidget(self.__linear_left_value)
-        l3.addWidget(self.__linear_right_value)
-        self.__linear_params.setLayout(l3)
-
-        type_to_stack_index[music.TransferFunction.LINEAR] = self.__stack.addWidget(
-            self.__linear_params)
-
-        self.__gamma_value = QtWidgets.QDoubleSpinBox()
-        self.__gamma_value.setRange(0.1, 10.0)
-        self.__gamma_value.setSingleStep(0.1)
-        self.__gamma_value_connector = property_connector.QDoubleSpinBoxConnector(
-            self.__gamma_value, self.__node.transfer_function, 'gamma_value',
-            mutation_name='%s: Change gamma value' % self.__node.name,
-            context=self.context)
-        self.add_cleanup_function(self.__gamma_value_connector.cleanup)
-
-        self.__gamma_params = QtWidgets.QWidget()
-        l2 = QtWidgets.QVBoxLayout()
-        l2.setContentsMargins(0, 0, 0, 0)
-        l2.addWidget(self.__gamma_value)
-        self.__gamma_params.setLayout(l2)
-
-        type_to_stack_index[music.TransferFunction.GAMMA] = self.__stack.addWidget(
-            self.__gamma_params)
-
-        self.__type = QtWidgets.QComboBox()
-        self.__type.addItem("Fixed", music.TransferFunction.FIXED)
-        self.__type.addItem("Linear", music.TransferFunction.LINEAR)
-        self.__type.addItem("Gamma", music.TransferFunction.GAMMA)
-        self.__type.currentIndexChanged.connect(
-            lambda _: self.__stack.setCurrentIndex(type_to_stack_index[self.__type.currentData()]))
-        self.__type_connector = property_connector.QComboBoxConnector[int](
-            self.__type, self.__node.transfer_function, 'type',
-            mutation_name='%s: Change function type' % self.__node.name,
-            context=self.context)
-        self.add_cleanup_function(self.__type_connector.cleanup)
+        self.add_cleanup_function(self.__transfer_function_editor.cleanup)
 
         l1 = QtWidgets.QVBoxLayout()
         l1.setContentsMargins(0, 0, 0, 0)
-        l1.addWidget(self.__type)
-        l1.addWidget(self.__stack)
-        l1.addStretch(1)
+        l1.addWidget(self.__transfer_function_editor)
         self.setLayout(l1)
 
 
