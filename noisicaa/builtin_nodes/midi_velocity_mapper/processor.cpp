@@ -112,58 +112,53 @@ Status ProcessorMidiVelocityMapper::process_block_internal(BlockContext* ctxt, T
     return Status::Ok();
   }
 
+  LV2_Atom_Forge_Frame frame;
+  lv2_atom_forge_set_buffer(&_out_forge, _buffers[1], 10240);
+
+  lv2_atom_forge_sequence_head(&_out_forge, &frame, _host_system->lv2->urid.atom_frame_time);
+
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_buffers[0];
   if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS(
         "Excepted sequence in port 'in', got %d.", seq->atom.type);
   }
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
+  while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)) {
+    LV2_Atom& atom = event->body;
+    if (atom.type == _host_system->lv2->urid.midi_event) {
+      uint8_t midi[3];
+      memmove(midi, (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &atom), 3);
 
-  LV2_Atom_Forge_Frame frame;
-  lv2_atom_forge_set_buffer(&_out_forge, _buffers[1], 10240);
+      if ((midi[0] & 0xf0) == 0x90) {
+        float velocity = (float)midi[2];
 
-  lv2_atom_forge_sequence_head(&_out_forge, &frame, _host_system->lv2->urid.atom_frame_time);
-
-  SampleTime* stime = ctxt->time_map.get();
-  for (uint32_t pos = 0; pos < _host_system->block_size(); ++pos, ++stime) {
-    while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)
-           && event->time.frames <= pos) {
-      LV2_Atom& atom = event->body;
-      if (atom.type == _host_system->lv2->urid.midi_event) {
-        uint8_t midi[3];
-        memmove(midi, (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &atom), 3);
-
-        if ((midi[0] & 0xf0) == 0x90) {
-          float velocity = (float)midi[2];
-
-          const auto& tf = spec->transfer_function();
-          switch (tf.type_case()) {
-          case pb::TransferFunctionSpec::kFixed:
-            velocity = tf.fixed().value();
-            break;
-          case pb::TransferFunctionSpec::kLinear: {
-            velocity = (tf.linear().right_value() - tf.linear().left_value()) * (velocity  - tf.input_min()) / (tf.input_max() - tf.input_min()) + tf.linear().left_value();
-            break;
-          }
-          case pb::TransferFunctionSpec::kGamma:
-            velocity = (tf.output_max() - tf.output_min()) * powf((velocity  - tf.input_min()) / (tf.input_max() - tf.input_min()), tf.gamma().value()) + tf.output_min();
-            break;
-          default:
-            break;
-          }
-
-          midi[2] = max(0, min(127, (int)roundf(velocity)));
+        const auto& tf = spec->transfer_function();
+        switch (tf.type_case()) {
+        case pb::TransferFunctionSpec::kFixed:
+          velocity = tf.fixed().value();
+          break;
+        case pb::TransferFunctionSpec::kLinear: {
+          velocity = (tf.linear().right_value() - tf.linear().left_value()) * (velocity  - tf.input_min()) / (tf.input_max() - tf.input_min()) + tf.linear().left_value();
+          break;
+        }
+        case pb::TransferFunctionSpec::kGamma:
+          velocity = (tf.output_max() - tf.output_min()) * powf((velocity  - tf.input_min()) / (tf.input_max() - tf.input_min()), tf.gamma().value()) + tf.output_min();
+          break;
+        default:
+          break;
         }
 
-        lv2_atom_forge_frame_time(&_out_forge, pos);
-        lv2_atom_forge_atom(&_out_forge, 3, _host_system->lv2->urid.midi_event);
-        lv2_atom_forge_write(&_out_forge, midi, 3);
-      } else {
-        _logger->warning("Ignoring event %d in sequence.", atom.type);
+        midi[2] = max(0, min(127, (int)roundf(velocity)));
       }
 
-      event = lv2_atom_sequence_next(event);
+      lv2_atom_forge_frame_time(&_out_forge, event->time.frames);
+      lv2_atom_forge_atom(&_out_forge, 3, _host_system->lv2->urid.midi_event);
+      lv2_atom_forge_write(&_out_forge, midi, 3);
+    } else {
+      _logger->warning("Ignoring event %d in sequence.", atom.type);
     }
+
+    event = lv2_atom_sequence_next(event);
   }
 
   lv2_atom_forge_pop(&_out_forge, &frame);

@@ -65,27 +65,25 @@ Status ProcessorMidiMonitor::connect_port_internal(
 }
 
 Status ProcessorMidiMonitor::process_block_internal(BlockContext* ctxt, TimeMapper* time_mapper) {
+  SampleTime* tmap = ctxt->time_map.get();
+
   LV2_Atom_Sequence* seq = (LV2_Atom_Sequence*)_in_buffer;
   if (seq->atom.type != _host_system->lv2->urid.atom_sequence) {
     return ERROR_STATUS(
         "Excepted sequence in port 'in', got %d.", seq->atom.type);
   }
   LV2_Atom_Event* event = lv2_atom_sequence_begin(&seq->body);
-
-  SampleTime* stime = ctxt->time_map.get();
-  for (uint32_t pos = 0; pos < _host_system->block_size(); ++pos, ++stime) {
-    while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)
-           && event->time.frames <= pos) {
-      LV2_Atom& atom = event->body;
-      if (atom.type == _host_system->lv2->urid.midi_event) {
-        uint8_t* midi = (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &atom);
-        post_event(ctxt, stime->start_time, midi);
-      } else {
-        _logger->warning("Ignoring event %d in sequence.", atom.type);
-      }
-
-      event = lv2_atom_sequence_next(event);
+  while (!lv2_atom_sequence_is_end(&seq->body, seq->atom.size, event)) {
+    assert(event->time.frames < _host_system->block_size());
+    LV2_Atom& atom = event->body;
+    if (atom.type == _host_system->lv2->urid.midi_event) {
+      uint8_t* midi = (uint8_t*)LV2_ATOM_CONTENTS(LV2_Atom, &atom);
+      post_event(ctxt, tmap[event->time.frames].start_time, midi);
+    } else {
+      _logger->warning("Ignoring event %d in sequence.", atom.type);
     }
+
+    event = lv2_atom_sequence_next(event);
   }
 
   return Status::Ok();
