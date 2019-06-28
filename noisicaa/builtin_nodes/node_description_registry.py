@@ -40,6 +40,7 @@ from .midi_looper.node_description import MidiLooperDescription
 from .midi_monitor.node_description import MidiMonitorDescription
 from .metronome.node_description import MetronomeDescription
 from .midi_velocity_mapper.node_description import MidiVelocityMapperDescription
+from .cv_mapper.node_description import CVMapperDescription
 
 
 def node_descriptions() -> Iterator[node_db.NodeDescription]:
@@ -60,3 +61,4 @@ def node_descriptions() -> Iterator[node_db.NodeDescription]:
     yield MidiMonitorDescription
     yield MetronomeDescription
     yield MidiVelocityMapperDescription
+    yield CVMapperDescription

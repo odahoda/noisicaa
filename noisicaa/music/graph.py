@@ -140,6 +140,9 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
             if np.name == port_name:
                 return np
 
+        return self.default_port_properties(port_name)
+
+    def default_port_properties(self, port_name: str) -> value_types.NodePortProperties:
         return value_types.NodePortProperties(port_name)
 
     @property
@@ -189,12 +192,6 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
             remove_node=audioproc.RemoveNode(id=self.pipeline_node_id))
 
     def get_initial_parameter_mutations(self) -> Iterator[audioproc.Mutation]:
-        for props in self.port_properties:
-            yield audioproc.Mutation(
-                set_node_port_properties=audioproc.SetNodePortProperties(
-                    node_id=self.pipeline_node_id,
-                    port_properties=props.to_proto()))
-
         for port in self.description.ports:
             if (port.direction == node_db.PortDescription.INPUT
                     and (port.type == node_db.PortDescription.KRATE_CONTROL,
@@ -206,6 +203,11 @@ class BaseNode(_model.BaseNode, model_base.ProjectChild):
                                 name='%s:%s' % (self.pipeline_node_id, cv.name),
                                 value=cv.value,
                                 generation=cv.generation))
+
+            yield audioproc.Mutation(
+                set_node_port_properties=audioproc.SetNodePortProperties(
+                    node_id=self.pipeline_node_id,
+                    port_properties=self.get_port_properties(port.name).to_proto()))
 
     def set_control_value(self, name: str, value: float, generation: int) -> None:
         for idx, control_value in enumerate(self.control_values):

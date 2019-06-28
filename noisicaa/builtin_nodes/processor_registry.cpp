@@ -37,6 +37,7 @@
 #include "noisicaa/builtin_nodes/midi_monitor/processor.h"
 #include "noisicaa/builtin_nodes/metronome/processor.h"
 #include "noisicaa/builtin_nodes/midi_velocity_mapper/processor.h"
+#include "noisicaa/builtin_nodes/cv_mapper/processor.h"
 
 namespace noisicaa {
 
@@ -93,6 +94,9 @@ StatusOr<Processor*> create_processor(
   } else if (desc.processor().type() == "builtin://midi-velocity-mapper") {
     assert(desc.type() == pb::NodeDescription::PROCESSOR);
     return new ProcessorMidiVelocityMapper(realm_name, node_id, host_system, desc);
+  } else if (desc.processor().type() == "builtin://cv-mapper") {
+    assert(desc.type() == pb::NodeDescription::PROCESSOR);
+    return new ProcessorCVMapper(realm_name, node_id, host_system, desc);
   }
 
   return ERROR_STATUS("Invalid processor type %d", desc.processor().type());
