@@ -39,6 +39,7 @@ import "noisicaa/builtin_nodes/midi_monitor/model.proto";
 import "noisicaa/builtin_nodes/metronome/model.proto";
 import "noisicaa/builtin_nodes/midi_velocity_mapper/model.proto";
 import "noisicaa/builtin_nodes/cv_mapper/model.proto";
+import "noisicaa/builtin_nodes/oscilloscope/model.proto";
 
 extend ObjectBase {
   // Score track (401xxx)
@@ -93,4 +94,7 @@ extend ObjectBase {
 
   // Control Value Mapper (415xxx)
   optional CVMapper cv_mapper = 415000;
+
+  // Oscilloscope (415xxx)
+  optional Oscilloscope oscilloscope = 416000;
 }

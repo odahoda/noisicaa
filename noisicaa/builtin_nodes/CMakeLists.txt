@@ -59,6 +59,7 @@ target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-metronome-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-midi_velocity_mapper-processor)
 target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-cv_mapper-processor)
+target_link_libraries(noisicaa-builtin_nodes-processors PRIVATE noisicaa-builtin_nodes-oscilloscope-processor)
 
 add_subdirectory(score_track)
 add_subdirectory(beat_track)
@@ -79,3 +80,4 @@ add_subdirectory(midi_monitor)
 add_subdirectory(metronome)
 add_subdirectory(midi_velocity_mapper)
 add_subdirectory(cv_mapper)
+add_subdirectory(oscilloscope)
