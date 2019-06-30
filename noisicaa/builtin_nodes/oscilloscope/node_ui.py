@@ -69,12 +69,18 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.__label_font.setPointSizeF(0.8 * self.__label_font.pointSizeF())
         self.__label_font_metrics = QtGui.QFontMetrics(self.__label_font)
 
+        self.__bg_cache = None  # type: QtGui.QPixmap
+
         self.__update_timer = QtCore.QTimer(self)
         self.__update_timer.timeout.connect(self.update)
         self.__update_timer.setInterval(1000 // 20)
 
         self.timeScaleChanged.connect(self.__timeScaleChanged)
         self.__timeScaleChanged(self.timeScale())
+
+        self.timeScaleChanged.connect(lambda _: self.__invalidateBGCache())
+        self.yScaleChanged.connect(lambda _: self.__invalidateBGCache())
+        self.yOffsetChanged.connect(lambda _: self.__invalidateBGCache())
 
     def __timeScaleChanged(self, value: int) -> None:
         w = self.width() - 10
@@ -133,21 +139,30 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
     def sizeHint(self) -> QtCore.QSize:
         return QtCore.QSize(100, 100)
 
+    def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
+        self.__invalidateBGCache()
+        super().resizeEvent(evt)
+
     def showEvent(self, evt: QtGui.QShowEvent) -> None:
         self.__update_timer.start()
         super().showEvent(evt)
 
     def hideEvent(self, evt: QtGui.QHideEvent) -> None:
         self.__update_timer.stop()
+        self.__invalidateBGCache()
         super().hideEvent(evt)
 
-    def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
-        painter = QtGui.QPainter(self)
-        try:
-            painter.fillRect(evt.rect(), self.__bg_color)
+    def __invalidateBGCache(self) -> None:
+        self.__bg_cache = None
 
-            w = self.width() - 10
-            h = self.height() - 10
+    def __renderBG(self) -> None:
+        w = self.width() - 10
+        h = self.height() - 10
+
+        self.__bg_cache = QtGui.QPixmap(self.size())
+        painter = QtGui.QPainter(self.__bg_cache)
+        try:
+            painter.fillRect(self.__bg_cache.rect(), self.__bg_color)
 
             for g in (1, 2, 3, 4, 6, 7, 8, 9, 5, 0, 10):
                 if g in (0, 10):
@@ -186,13 +201,28 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                 7 + self.__label_font_metrics.capHeight(),
                 y1)
 
+        finally:
+            painter.end()
+
+    def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        try:
+            w = self.width() - 10
+            h = self.height() - 10
+
+            if self.__bg_cache is None:
+                self.__renderBG()
+            painter.drawPixmap(0, 0, self.__bg_cache)
+
+            y_scale = [1, 2, 5][self.yScale() % 3] * 10.0 ** (self.yScale() // 3)
+            y_offset = self.yOffset()
             path = QtGui.QPolygon()
             for x, value in self.__signal:
                 if x >= w:
                     break
 
                 value /= y_scale
-                value += self.yOffset()
+                value += y_offset
                 y = h - int((h - 1) * (value + 1.0) / 2.0)
                 path.append(QtCore.QPoint(x + 5, y + 5))
 
