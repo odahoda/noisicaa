@@ -29,6 +29,7 @@ OscilloscopeDescription = node_db.NodeDescription(
     type=node_db.NodeDescription.PROCESSOR,
     node_ui=node_db.NodeUIDescription(
         type='builtin://oscilloscope',
+        muteable=False,
     ),
     builtin_icon='node-type-builtin',
     processor=node_db.ProcessorDescription(
