@@ -42,6 +42,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
     timeScale, setTimeScale, timeScaleChanged = slots.slot(int, 'timeScale', default=-2)
     yScale, setYScale, yScaleChanged = slots.slot(int, 'yScale', default=0)
     yOffset, setYOffset, yOffsetChanged = slots.slot(float, 'yOffset', default=0.0)
+    paused, setPaused, pausedChanged = slots.slot(bool, 'paused', default=False)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -102,7 +103,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
             return
 
         for value in values:
-            if self.__hold:
+            if self.__hold and not self.paused():
                 if self.__prev_sample < 0.0 and value >= 0.0:
                     self.__hold = False
                     self.__insert_pos = 0
@@ -144,6 +145,13 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
             if self.__screen_pos >= self.__plot_rect.width():
                 self.__hold = True
                 del self.__signal[self.__insert_pos:]
+
+    def step(self) -> None:
+        if self.paused():
+            self.__hold = False
+            self.__insert_pos = 0
+            self.__screen_pos = 0
+            self.__remainder = 0.0
 
     def sizeHint(self) -> QtCore.QSize:
         return QtCore.QSize(100, 100)
@@ -297,6 +305,17 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
 
         self.__plot = Oscilloscope()
 
+        self.__paused = QtWidgets.QPushButton()
+        self.__paused.setCheckable(True)
+        self.__paused.setText("Pause")
+        self.__paused.toggled.connect(self.__plot.setPaused)
+
+        self.__step = QtWidgets.QPushButton()
+        self.__step.setText("Step")
+        self.__step.setEnabled(False)
+        self.__step.clicked.connect(self.__plot.step)
+        self.__paused.toggled.connect(self.__step.setEnabled)
+
         self.__time_scale = QtWidgets.QSpinBox()
         self.__time_scale.setRange(-12, 3)
         self.__time_scale.valueChanged.connect(self.__plot.setTimeScale)
@@ -314,15 +333,26 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
         self.__y_offset.valueChanged.connect(self.__plot.setYOffset)
         self.__y_offset.setValue(0.0)
 
+        l3 = QtWidgets.QHBoxLayout()
+        l3.setContentsMargins(0, 0, 0, 0)
+        l3.addWidget(self.__paused)
+        l3.addWidget(self.__step)
+        l3.addStretch(1)
+
         l2 = QtWidgets.QFormLayout()
         l2.setContentsMargins(0, 0, 0, 0)
         l2.addRow('Time scale:', self.__time_scale)
         l2.addRow('Y scale:', self.__y_scale)
         l2.addRow('Y offset:', self.__y_offset)
 
+        l4 = QtWidgets.QVBoxLayout()
+        l4.setContentsMargins(0, 0, 0, 0)
+        l4.addLayout(l3)
+        l4.addLayout(l2)
+
         l1 = QtWidgets.QHBoxLayout()
         l1.setContentsMargins(0, 0, 0, 0)
-        l1.addLayout(l2)
+        l1.addLayout(l4)
         l1.addWidget(self.__plot, 1)
         self.setLayout(l1)
 
