@@ -56,7 +56,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
-        self.setMinimumSize(60, 60)
+        self.setMinimumSize(20, 20)
 
         self.__signal = []  # type: List[Tuple[int, float]]
         self.__state = State.WAIT_FOR_TRIGGER
@@ -80,8 +80,11 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.__label_font.setPointSizeF(0.8 * self.__label_font.pointSizeF())
         self.__label_font_metrics = QtGui.QFontMetrics(self.__label_font)
 
+        self.__show_minor_grid = False
+        self.__show_major_grid = False
         self.__show_y_labels = False
         self.__show_x_labels = False
+        self.__time_step_size = 100
         self.__plot_rect = None  # type: QtCore.QRect
 
         self.__bg_cache = None  # type: QtGui.QPixmap
@@ -113,14 +116,9 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         if self.__plot_rect is None:
             return
 
-        w = self.__plot_rect.width()
-        if w > 0:
-            self.__timePerPixel = self.absTimeScale() / w
-            if not self.paused():
-                self.__setState(State.WAIT_FOR_TRIGGER)
-
-        else:
-            self.__timePerPixel = 1.0
+        self.__timePerPixel = self.absTimeScale() / self.__time_step_size
+        if not self.paused():
+            self.__setState(State.WAIT_FOR_TRIGGER)
 
     def absTimeScale(self) -> float:
         time_scale = self.timeScale()
@@ -191,32 +189,51 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         return QtCore.QSize(100, 100)
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
-        if evt.size().width() >= 100 and evt.size().height() >= 60:
+        if evt.size().width() > 20 and evt.size().height() > 20:
+            self.__show_major_grid = True
+        else:
+            self.__show_major_grid = False
+
+        if evt.size().width() > 100 and evt.size().height() > 100:
+            self.__show_minor_grid = True
+        else:
+            self.__show_minor_grid = False
+
+        y_label_width = self.__label_font_metrics.boundingRect('500000').width()
+        if evt.size().width() >= y_label_width + 100 and evt.size().height() >= 60:
             self.__show_y_labels = True
         else:
             self.__show_y_labels = False
 
-        if evt.size().width() >= 100 and evt.size().height() >= 100:
+        x_label_height = self.__label_font_metrics.capHeight() + 2
+        if evt.size().width() >= 100 and evt.size().height() >= x_label_height + 100:
             self.__show_x_labels = True
         else:
             self.__show_x_labels = False
 
-        border_left = 2
-        border_right = 2
-        border_top = 2
-        border_bottom = 2
+        if evt.size().width() >= 60 and evt.size().height() >= 60:
+            margin = 2
+        else:
+            margin = 0
+
+        border_left = margin
+        border_right = margin
+        border_top = margin
+        border_bottom = margin
 
         if self.__show_y_labels:
-            lr = self.__label_font_metrics.boundingRect('500000')
-            border_left += lr.width()
+            border_left += y_label_width
 
         if self.__show_x_labels:
-            border_bottom += self.__label_font_metrics.capHeight() + 2
+            border_bottom += x_label_height
 
         if evt.size().width() >= border_left + border_right + 10 and evt.size().height() >= border_top + border_bottom + 10:
             self.__plot_rect = QtCore.QRect(
                 border_left, border_right,
                 evt.size().width() - border_left - border_right, evt.size().height() - border_top - border_bottom)
+
+            self.__time_step_size = self.__plot_rect.height() // 2
+
         else:
             self.__plot_rect = None
 
@@ -248,23 +265,35 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
             painter.save()
             painter.translate(self.__plot_rect.topLeft())
 
-            for g in (1, 2, 3, 4, 6, 7, 8, 9, 5, 0, 10):
-                if g in (0, 10):
-                    color = self.__border_color
-                elif g == 5:
-                    color = self.__center_color
-                else:
-                    color = self.__grid_color
+            if self.__show_minor_grid:
+                for g in (1, 2, 3, 4, 6, 7, 8, 9):
+                    painter.fillRect(0, int(g * (h - 1) / 10), w, 1, self.__grid_color)
 
-                painter.fillRect(int(g * (w - 1) / 10), 0, 1, h, color)
-                painter.fillRect(0, int(g * (h - 1) / 10), w, 1, color)
+                x = 0
+                while x < w:
+                    for g in (1, 2, 3, 4):
+                        painter.fillRect(x + int(g * self.__time_step_size / 5), 0, 1, h, self.__grid_color)
+                    x += self.__time_step_size
+
+            if self.__show_major_grid:
+                painter.fillRect(0, int(5 * (h - 1) / 10), w, 1, self.__center_color)
+
+                x = self.__time_step_size
+                while x < w:
+                    painter.fillRect(x, 0, 1, h, self.__center_color)
+                    x += self.__time_step_size
+
+            painter.fillRect(0, 0, w, 1, self.__border_color)
+            painter.fillRect(0, h - 1, w, 1, self.__border_color)
+            painter.fillRect(0, 0, 1, h, self.__border_color)
+            painter.fillRect(w - 1, 0, 1, h, self.__border_color)
 
             painter.restore()
 
             painter.setFont(self.__label_font)
             painter.setPen(self.__label_color)
 
-            if self.__show_x_labels:
+            if self.__show_x_labels and self.__time_step_size <= w:
                 time_scale = self.timeScale()
                 mul = [1, 2, 5][time_scale % 3]
                 time_scale //= 3
@@ -277,7 +306,8 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
 
                 t1r = self.__label_font_metrics.boundingRect(t1)
                 painter.drawText(
-                    self.__plot_rect.right() - t1r.width(),
+                    min(self.__plot_rect.left() + self.__time_step_size - t1r.width() // 2,
+                        self.__plot_rect.right() - t1r.width()),
                     self.__plot_rect.bottom() + self.__label_font_metrics.capHeight() + 2,
                     t1)
 
