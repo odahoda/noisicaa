@@ -64,10 +64,14 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.__center_color = QtGui.QColor(60, 100, 60)
         self.__plot_pen = QtGui.QPen(QtGui.QColor(255, 255, 255))
         self.__plot_pen.setWidth(1)
-        self.__label_color = QtGui.QColor(100, 160, 100)
+        self.__label_color = QtGui.QColor(100, 200, 100)
         self.__label_font = QtGui.QFont(self.font())
         self.__label_font.setPointSizeF(0.8 * self.__label_font.pointSizeF())
         self.__label_font_metrics = QtGui.QFontMetrics(self.__label_font)
+
+        self.__show_y_labels = False
+        self.__show_x_labels = False
+        self.__plot_rect = None  # type: QtCore.QRect
 
         self.__bg_cache = None  # type: QtGui.QPixmap
 
@@ -76,14 +80,16 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.__update_timer.setInterval(1000 // 20)
 
         self.timeScaleChanged.connect(self.__timeScaleChanged)
-        self.__timeScaleChanged(self.timeScale())
 
         self.timeScaleChanged.connect(lambda _: self.__invalidateBGCache())
         self.yScaleChanged.connect(lambda _: self.__invalidateBGCache())
         self.yOffsetChanged.connect(lambda _: self.__invalidateBGCache())
 
     def __timeScaleChanged(self, value: int) -> None:
-        w = self.width() - 10
+        if self.__plot_rect is None:
+            return
+
+        w = self.__plot_rect.width()
         if w > 0:
             self.__timePerPixel = [1, 2, 5][value % 3] * 10.0 ** (value // 3) / w
             self.__hold = True
@@ -92,6 +98,9 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
             self.__timePerPixel = 1.0
 
     def addValues(self, values: Iterable[float]) -> None:
+        if self.__plot_rect is None:
+            return
+
         for value in values:
             if self.__hold:
                 if self.__prev_sample < 0.0 and value >= 0.0:
@@ -132,7 +141,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                     self.__remainder -= self.__timePerPixel
                     self.__screen_pos += 1
 
-            if self.__screen_pos >= self.width() - 10:
+            if self.__screen_pos >= self.__plot_rect.width():
                 self.__hold = True
                 del self.__signal[self.__insert_pos:]
 
@@ -140,7 +149,37 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         return QtCore.QSize(100, 100)
 
     def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
+        if evt.size().width() >= 100 and evt.size().height() >= 60:
+            self.__show_y_labels = True
+        else:
+            self.__show_y_labels = False
+
+        if evt.size().width() >= 100 and evt.size().height() >= 100:
+            self.__show_x_labels = True
+        else:
+            self.__show_x_labels = False
+
+        border_left = 2
+        border_right = 2
+        border_top = 2
+        border_bottom = 2
+
+        if self.__show_y_labels:
+            lr = self.__label_font_metrics.boundingRect('500000')
+            border_left += lr.width()
+
+        if self.__show_x_labels:
+            border_bottom += self.__label_font_metrics.capHeight() + 2
+
+        if evt.size().width() >= border_left + border_right + 10 and evt.size().height() >= border_top + border_bottom + 10:
+            self.__plot_rect = QtCore.QRect(
+                border_left, border_right,
+                evt.size().width() - border_left - border_right, evt.size().height() - border_top - border_bottom)
+        else:
+            self.__plot_rect = None
+
         self.__invalidateBGCache()
+        self.__timeScaleChanged(self.timeScale())
         super().resizeEvent(evt)
 
     def showEvent(self, evt: QtGui.QShowEvent) -> None:
@@ -156,13 +195,16 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.__bg_cache = None
 
     def __renderBG(self) -> None:
-        w = self.width() - 10
-        h = self.height() - 10
+        w = self.__plot_rect.width()
+        h = self.__plot_rect.height()
 
         self.__bg_cache = QtGui.QPixmap(self.size())
         painter = QtGui.QPainter(self.__bg_cache)
         try:
             painter.fillRect(self.__bg_cache.rect(), self.__bg_color)
+
+            painter.save()
+            painter.translate(self.__plot_rect.topLeft())
 
             for g in (1, 2, 3, 4, 6, 7, 8, 9, 5, 0, 10):
                 if g in (0, 10):
@@ -172,34 +214,40 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                 else:
                     color = self.__grid_color
 
-                painter.fillRect(int(g * (w - 1) / 10) + 5, 5, 1, h, color)
-                painter.fillRect(5, int(g * (h - 1) / 10) + 5, w, 1, color)
+                painter.fillRect(int(g * (w - 1) / 10), 0, 1, h, color)
+                painter.fillRect(0, int(g * (h - 1) / 10), w, 1, color)
+
+            painter.restore()
 
             painter.setFont(self.__label_font)
             painter.setPen(self.__label_color)
 
-            time_scale = self.timeScale()
-            mul = [1, 2, 5][time_scale % 3]
-            time_scale //= 3
-            if time_scale <= -4:
-                t1 = '%dµs' % (mul * 10 ** (time_scale + 6))
-            elif time_scale <= -1:
-                t1 = '%dms' % (mul * 10 ** (time_scale + 3))
-            else:
-                t1 = '%ds' % (mul * 10 ** time_scale)
+            if self.__show_x_labels:
+                time_scale = self.timeScale()
+                mul = [1, 2, 5][time_scale % 3]
+                time_scale //= 3
+                if time_scale <= -4:
+                    t1 = '%dµs' % (mul * 10 ** (time_scale + 6))
+                elif time_scale <= -1:
+                    t1 = '%dms' % (mul * 10 ** (time_scale + 3))
+                else:
+                    t1 = '%ds' % (mul * 10 ** time_scale)
 
-            t1r = self.__label_font_metrics.boundingRect(t1)
-            painter.drawText(
-                w + 5 - t1r.width() - 2,
-                int(5 * (h - 1) / 10) + 5 + self.__label_font_metrics.capHeight() + 2,
-                t1)
+                t1r = self.__label_font_metrics.boundingRect(t1)
+                painter.drawText(
+                    self.__plot_rect.right() - t1r.width(),
+                    self.__plot_rect.bottom() + self.__label_font_metrics.capHeight() + 2,
+                    t1)
 
-            y_scale = [1, 2, 5][self.yScale() % 3] * 10.0 ** (self.yScale() // 3)
-            y1 = '%g' % y_scale
-            painter.drawText(
-                7,
-                7 + self.__label_font_metrics.capHeight(),
-                y1)
+            if self.__show_y_labels:
+                y_scale = [1, 2, 5][self.yScale() % 3] * 10.0 ** (self.yScale() // 3)
+                y1 = '%g' % y_scale
+
+                y1r = self.__label_font_metrics.boundingRect(y1)
+                painter.drawText(
+                    self.__plot_rect.left() - y1r.width() - 2,
+                    self.__plot_rect.top() + self.__label_font_metrics.capHeight(),
+                    y1)
 
         finally:
             painter.end()
@@ -207,12 +255,14 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
     def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
         painter = QtGui.QPainter(self)
         try:
-            w = self.width() - 10
-            h = self.height() - 10
-
             if self.__bg_cache is None:
                 self.__renderBG()
             painter.drawPixmap(0, 0, self.__bg_cache)
+
+            w = self.__plot_rect.width()
+            h = self.__plot_rect.height()
+            painter.setClipRect(self.__plot_rect)
+            painter.translate(self.__plot_rect.topLeft())
 
             y_scale = [1, 2, 5][self.yScale() % 3] * 10.0 ** (self.yScale() // 3)
             y_offset = self.yOffset()
@@ -224,7 +274,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                 value /= y_scale
                 value += y_offset
                 y = h - int((h - 1) * (value + 1.0) / 2.0)
-                path.append(QtCore.QPoint(x + 5, y + 5))
+                path.append(QtCore.QPoint(x, y))
 
             painter.setPen(self.__plot_pen)
             painter.drawPolyline(path)
