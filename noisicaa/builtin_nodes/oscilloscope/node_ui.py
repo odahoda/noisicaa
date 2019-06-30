@@ -20,7 +20,9 @@
 #
 # @end:license
 
+import enum
 import logging
+import time
 from typing import Any, Dict, List, Tuple, Iterable
 
 from PyQt5.QtCore import Qt
@@ -38,11 +40,18 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
+class State(enum.IntEnum):
+    WAIT_FOR_TRIGGER = 1
+    RECORDING = 2
+    HOLD = 3
+
+
 class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
     timeScale, setTimeScale, timeScaleChanged = slots.slot(int, 'timeScale', default=-2)
     yScale, setYScale, yScaleChanged = slots.slot(int, 'yScale', default=0)
     yOffset, setYOffset, yOffsetChanged = slots.slot(float, 'yOffset', default=0.0)
     paused, setPaused, pausedChanged = slots.slot(bool, 'paused', default=False)
+    holdTime, setHoldTime, holdTimeChanged = slots.slot(int, 'holdTime', default=0)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -50,11 +59,12 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.setMinimumSize(60, 60)
 
         self.__signal = []  # type: List[Tuple[int, float]]
+        self.__state = State.WAIT_FOR_TRIGGER
         self.__insert_pos = 0
         self.__screen_pos = 0
         self.__remainder = 0.0
-        self.__hold = False
         self.__prev_sample = 0.0
+        self.__hold_begin = 0.0
 
         self.__timePerPixel = 1.0
         self.__timePerSample = 1.0 / 44100
@@ -86,33 +96,60 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         self.yScaleChanged.connect(lambda _: self.__invalidateBGCache())
         self.yOffsetChanged.connect(lambda _: self.__invalidateBGCache())
 
+    def __setState(self, state: State) -> None:
+        if state == self.__state:
+            return
+
+        if state == State.RECORDING:
+            self.__insert_pos = 0
+            self.__screen_pos = 0
+            self.__remainder = 0.0
+        elif state == State.HOLD:
+            self.__hold_begin = time.time()
+
+        self.__state = state
+
     def __timeScaleChanged(self, value: int) -> None:
         if self.__plot_rect is None:
             return
 
         w = self.__plot_rect.width()
         if w > 0:
-            self.__timePerPixel = [1, 2, 5][value % 3] * 10.0 ** (value // 3) / w
-            self.__hold = True
+            self.__timePerPixel = self.absTimeScale() / w
+            if not self.paused():
+                self.__setState(State.WAIT_FOR_TRIGGER)
 
         else:
             self.__timePerPixel = 1.0
+
+    def absTimeScale(self) -> float:
+        time_scale = self.timeScale()
+        return [1, 2, 5][time_scale % 3] * 10.0 ** (time_scale // 3)
+
+    def absYScale(self) -> float:
+        y_scale = self.yScale()
+        return [1, 2, 5][y_scale % 3] * 10.0 ** (y_scale // 3)
+
+    def absHoldTime(self) -> float:
+        hold_time = self.holdTime()
+        return [1, 2, 5][hold_time % 3] * 10.0 ** (hold_time // 3)
 
     def addValues(self, values: Iterable[float]) -> None:
         if self.__plot_rect is None:
             return
 
         for value in values:
-            if self.__hold and not self.paused():
+            if self.__state == State.HOLD and not self.paused():
+                if time.time() - self.__hold_begin > self.absHoldTime():
+                    self.__state = State.WAIT_FOR_TRIGGER
+
+            if self.__state == State.WAIT_FOR_TRIGGER:
                 if self.__prev_sample < 0.0 and value >= 0.0:
-                    self.__hold = False
-                    self.__insert_pos = 0
-                    self.__screen_pos = 0
-                    self.__remainder = 0.0
+                    self.__setState(State.RECORDING)
 
             self.__prev_sample = value
 
-            if self.__hold:
+            if self.__state != State.RECORDING:
                 continue
 
             if self.__timePerPixel >= self.__timePerSample:
@@ -143,15 +180,12 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                     self.__screen_pos += 1
 
             if self.__screen_pos >= self.__plot_rect.width():
-                self.__hold = True
+                self.__setState(State.HOLD)
                 del self.__signal[self.__insert_pos:]
 
     def step(self) -> None:
-        if self.paused():
-            self.__hold = False
-            self.__insert_pos = 0
-            self.__screen_pos = 0
-            self.__remainder = 0.0
+        if self.paused() and self.__state == State.HOLD:
+            self.__setState(State.WAIT_FOR_TRIGGER)
 
     def sizeHint(self) -> QtCore.QSize:
         return QtCore.QSize(100, 100)
@@ -248,8 +282,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                     t1)
 
             if self.__show_y_labels:
-                y_scale = [1, 2, 5][self.yScale() % 3] * 10.0 ** (self.yScale() // 3)
-                y1 = '%g' % y_scale
+                y1 = '%g' % self.absYScale()
 
                 y1r = self.__label_font_metrics.boundingRect(y1)
                 painter.drawText(
@@ -272,7 +305,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
             painter.setClipRect(self.__plot_rect)
             painter.translate(self.__plot_rect.topLeft())
 
-            y_scale = [1, 2, 5][self.yScale() % 3] * 10.0 ** (self.yScale() // 3)
+            y_scale = self.absYScale()
             y_offset = self.yOffset()
             path = QtGui.QPolygon()
             for x, value in self.__signal:
@@ -321,6 +354,11 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
         self.__time_scale.valueChanged.connect(self.__plot.setTimeScale)
         self.__time_scale.setValue(-5)
 
+        self.__hold_time = QtWidgets.QSpinBox()
+        self.__hold_time.setRange(-6, 3)
+        self.__hold_time.valueChanged.connect(self.__plot.setHoldTime)
+        self.__hold_time.setValue(-3)
+
         self.__y_scale = QtWidgets.QSpinBox()
         self.__y_scale.setRange(-18, 18)
         self.__y_scale.valueChanged.connect(self.__plot.setYScale)
@@ -342,6 +380,7 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
         l2 = QtWidgets.QFormLayout()
         l2.setContentsMargins(0, 0, 0, 0)
         l2.addRow('Time scale:', self.__time_scale)
+        l2.addRow('Hold time:', self.__hold_time)
         l2.addRow('Y scale:', self.__y_scale)
         l2.addRow('Y offset:', self.__y_offset)
 
