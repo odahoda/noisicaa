@@ -146,7 +146,6 @@ cdef class Atom(object):
         num_elems = (vec.atom.size - sizeof(LV2_Atom_Vector_Body)) // vec.body.child_size
         assert num_elems * vec.body.child_size + sizeof(LV2_Atom_Vector_Body) == vec.atom.size
 
-        cdef float* float_vector
         if vec.body.child_type == self.mapper.map('http://lv2plug.in/ns/ext/atom#Float'):
             assert vec.body.child_size == sizeof(float)
             return [(<float*>body)[i] for i in range(num_elems)]

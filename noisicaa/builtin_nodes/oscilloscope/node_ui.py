@@ -21,7 +21,7 @@
 # @end:license
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple, Iterable
 
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore
@@ -30,6 +30,7 @@ from PyQt5 import QtWidgets
 
 from noisicaa import core
 from noisicaa import music
+from noisicaa.ui import slots
 from noisicaa.ui import ui_base
 from noisicaa.ui.graph import base_node
 from . import model
@@ -37,35 +38,96 @@ from . import model
 logger = logging.getLogger(__name__)
 
 
-class Oscilloscope(QtWidgets.QWidget):
+class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
+    timeScale, setTimeScale, timeScaleChanged = slots.slot(int, 'timeScale', default=-2)
+    yScale, setYScale, yScaleChanged = slots.slot(int, 'yScale', default=0)
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
 
         self.setMinimumSize(60, 60)
 
-        self.__signal = []  # type: List[float]
+        self.__signal = []  # type: List[Tuple[int, float]]
         self.__insert_pos = 0
+        self.__screen_pos = 0
+        self.__remainder = 0.0
+        self.__hold = False
+        self.__prev_sample = 0.0
+
+        self.__timePerPixel = 1.0
+        self.__timePerSample = 1.0 / 44100
 
         self.__bg_color = QtGui.QColor(0, 0, 0)
         self.__border_color = QtGui.QColor(100, 200, 100)
         self.__grid_color = QtGui.QColor(40, 60, 40)
         self.__center_color = QtGui.QColor(60, 100, 60)
         self.__plot_pen = QtGui.QPen(QtGui.QColor(255, 255, 255))
-        self.__plot_pen.setWidth(2)
+        self.__plot_pen.setWidth(1)
+        self.__label_color = QtGui.QColor(100, 160, 100)
+        self.__label_font = QtGui.QFont(self.font())
+        self.__label_font.setPointSizeF(0.8 * self.__label_font.pointSizeF())
+        self.__label_font_metrics = QtGui.QFontMetrics(self.__label_font)
 
         self.__update_timer = QtCore.QTimer(self)
-        self.__update_timer.timeout.connect(lambda: self.update())
+        self.__update_timer.timeout.connect(self.update)
         self.__update_timer.setInterval(1000 // 20)
 
-    def addValue(self, value: float) -> None:
-        if not self.__signal:
-            return
+        self.timeScaleChanged.connect(self.__timeScaleChanged)
+        self.__timeScaleChanged(self.timeScale())
 
-        if self.__insert_pos >= len(self.__signal):
-            self.__insert_pos = 0
+    def __timeScaleChanged(self, value: int) -> None:
+        w = self.width() - 10
+        if w > 0:
+            self.__timePerPixel = [1, 2, 5][value % 3] * 10.0 ** (value // 3) / w
+            self.__hold = True
 
-        self.__signal[self.__insert_pos] = value
-        self.__insert_pos += 1
+        else:
+            self.__timePerPixel = 1.0
+
+    def addValues(self, values: Iterable[float]) -> None:
+        for value in values:
+            if self.__hold:
+                if self.__prev_sample < 0.0 and value >= 0.0:
+                    self.__hold = False
+                    self.__insert_pos = 0
+                    self.__screen_pos = 0
+                    self.__remainder = 0.0
+
+            self.__prev_sample = value
+
+            if self.__hold:
+                continue
+
+            if self.__timePerPixel >= self.__timePerSample:
+                self.__remainder += self.__timePerSample
+                if self.__remainder >= 0.0:
+                    self.__remainder -= self.__timePerPixel
+
+                    self.__signal.insert(self.__insert_pos, (self.__screen_pos, value))
+                    self.__insert_pos += 1
+
+                    while (self.__insert_pos < len(self.__signal)
+                           and self.__signal[self.__insert_pos][0] <= self.__screen_pos):
+                        del self.__signal[self.__insert_pos]
+
+                    self.__screen_pos += 1
+
+            else:
+                self.__signal.insert(self.__insert_pos, (self.__screen_pos, value))
+                self.__insert_pos += 1
+
+                while (self.__insert_pos < len(self.__signal)
+                       and self.__signal[self.__insert_pos][0] <= self.__screen_pos):
+                    del self.__signal[self.__insert_pos]
+
+                self.__remainder += self.__timePerSample
+                while self.__remainder >= 0.0:
+                    self.__remainder -= self.__timePerPixel
+                    self.__screen_pos += 1
+
+            if self.__screen_pos >= self.width() - 10:
+                self.__hold = True
+                del self.__signal[self.__insert_pos:]
 
     def sizeHint(self) -> QtCore.QSize:
         return QtCore.QSize(100, 100)
@@ -78,16 +140,7 @@ class Oscilloscope(QtWidgets.QWidget):
         self.__update_timer.stop()
         super().hideEvent(evt)
 
-    def resizeEvent(self, evt: QtGui.QResizeEvent) -> None:
-        if evt.size().width() > len(self.__signal):
-            self.__signal = [0.0] * evt.size().width()
-
-        elif evt.size().width() < len(self.__signal):
-            del self.__signal[:len(self.__signal) - evt.size().width()]
-
     def paintEvent(self, evt: QtGui.QPaintEvent) -> None:
-        assert len(self.__signal) == self.size().width()
-
         painter = QtGui.QPainter(self)
         try:
             painter.fillRect(evt.rect(), self.__bg_color)
@@ -106,10 +159,43 @@ class Oscilloscope(QtWidgets.QWidget):
                 painter.fillRect(int(g * (w - 1) / 10) + 5, 5, 1, h, color)
                 painter.fillRect(5, int(g * (h - 1) / 10) + 5, w, 1, color)
 
+            painter.setFont(self.__label_font)
+            painter.setPen(self.__label_color)
+
+            time_scale = self.timeScale()
+            mul = [1, 2, 5][time_scale % 3]
+            time_scale //= 3
+            if time_scale <= -4:
+                t1 = '%dµs' % (mul * 10 ** (time_scale + 6))
+            elif time_scale <= -1:
+                t1 = '%dms' % (mul * 10 ** (time_scale + 3))
+            else:
+                t1 = '%ds' % (mul * 10 ** time_scale)
+
+            t1r = self.__label_font_metrics.boundingRect(t1)
+            painter.drawText(
+                w + 5 - t1r.width() - 2,
+                int(5 * (h - 1) / 10) + 5 + self.__label_font_metrics.capHeight() + 2,
+                t1)
+
+            y_scale = [1, 2, 5][self.yScale() % 3] * 10.0 ** (self.yScale() // 3)
+            y1 = '%g' % y_scale
+            painter.drawText(
+                7,
+                7 + self.__label_font_metrics.capHeight(),
+                y1)
+
+            path = QtGui.QPolygon()
+            for x, value in self.__signal:
+                if x >= w:
+                    break
+
+                value /= y_scale
+                y = h - int((h - 1) * (value + 1.0) / 2.0)
+                path.append(QtCore.QPoint(x + 5, y + 5))
+
             painter.setPen(self.__plot_pen)
-            for x, value in enumerate(self.__signal, 5):
-                y = h - int((h - 1) * (value + 1.0) / 2.0) + 5
-                painter.drawPoint(x, y)
+            painter.drawPolyline(path)
 
         finally:
             painter.end()
@@ -129,9 +215,25 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
 
         self.__plot = Oscilloscope()
 
-        l1 = QtWidgets.QVBoxLayout()
+        self.__time_scale = QtWidgets.QSpinBox()
+        self.__time_scale.setRange(-12, 3)
+        self.__time_scale.valueChanged.connect(self.__plot.setTimeScale)
+        self.__time_scale.setValue(-5)
+
+        self.__y_scale = QtWidgets.QSpinBox()
+        self.__y_scale.setRange(-18, 18)
+        self.__y_scale.valueChanged.connect(self.__plot.setYScale)
+        self.__y_scale.setValue(1)
+
+        l2 = QtWidgets.QFormLayout()
+        l2.setContentsMargins(0, 0, 0, 0)
+        l2.addRow('Time scale:', self.__time_scale)
+        l2.addRow('Y scale:', self.__y_scale)
+
+        l1 = QtWidgets.QHBoxLayout()
         l1.setContentsMargins(0, 0, 0, 0)
-        l1.addWidget(self.__plot)
+        l1.addLayout(l2)
+        l1.addWidget(self.__plot, 1)
         self.setLayout(l1)
 
 
@@ -139,8 +241,7 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
         signal_uri = 'http://noisicaa.odahoda.de/lv2/processor_oscilloscope#signal'
         if signal_uri in msg:
             signal = msg[signal_uri]
-            for value in signal:
-                self.__plot.addValue(value)
+            self.__plot.addValues(signal)
 
 
 class OscilloscopeNode(base_node.Node):
