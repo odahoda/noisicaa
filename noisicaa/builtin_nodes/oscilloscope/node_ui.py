@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
     timeScale, setTimeScale, timeScaleChanged = slots.slot(int, 'timeScale', default=-2)
     yScale, setYScale, yScaleChanged = slots.slot(int, 'yScale', default=0)
+    yOffset, setYOffset, yOffsetChanged = slots.slot(float, 'yOffset', default=0.0)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -191,6 +192,7 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
                     break
 
                 value /= y_scale
+                value += self.yOffset()
                 y = h - int((h - 1) * (value + 1.0) / 2.0)
                 path.append(QtCore.QPoint(x + 5, y + 5))
 
@@ -225,10 +227,18 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
         self.__y_scale.valueChanged.connect(self.__plot.setYScale)
         self.__y_scale.setValue(1)
 
+        self.__y_offset = QtWidgets.QDoubleSpinBox()
+        self.__y_offset.setRange(-1.0, 1.0)
+        self.__y_offset.setDecimals(2)
+        self.__y_offset.setSingleStep(0.05)
+        self.__y_offset.valueChanged.connect(self.__plot.setYOffset)
+        self.__y_offset.setValue(0.0)
+
         l2 = QtWidgets.QFormLayout()
         l2.setContentsMargins(0, 0, 0, 0)
         l2.addRow('Time scale:', self.__time_scale)
         l2.addRow('Y scale:', self.__y_scale)
+        l2.addRow('Y offset:', self.__y_offset)
 
         l1 = QtWidgets.QHBoxLayout()
         l1.setContentsMargins(0, 0, 0, 0)
