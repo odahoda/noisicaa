@@ -35,12 +35,11 @@ from . import base_dial
 logger = logging.getLogger(__name__)
 
 
-class ControlValueDial(base_dial.BaseDial):
-    value, setValue, valueChanged = slots.slot(float, 'value', default=0.0)
-    default, setDefault, defaultChanged = slots.slot(float, 'default', default=0.0)
-    logScale, setLogScale, logScaleChanged = slots.slot(bool, 'logScale', default=False)
-    minimum, setMinimum, minimumChanged = slots.slot(float, 'minimum', default=-1.0)
-    maximum, setMaximum, maximumChanged = slots.slot(float, 'maximum', default=1.0)
+class IntDial(base_dial.BaseDial):
+    value, setValue, valueChanged = slots.slot(int, 'value', default=0)
+    default, setDefault, defaultChanged = slots.slot(int, 'default', default=0)
+    minimum, setMinimum, minimumChanged = slots.slot(int, 'minimum', default=0)
+    maximum, setMaximum, maximumChanged = slots.slot(int, 'maximum', default=10)
 
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None) -> None:
         super().__init__(parent=parent)
@@ -48,40 +47,35 @@ class ControlValueDial(base_dial.BaseDial):
         self.valueChanged.connect(lambda _: self.update())
         self.maximumChanged.connect(lambda _: self.update())
         self.minimumChanged.connect(lambda _: self.update())
-        self.logScaleChanged.connect(lambda _: self.update())
 
-        self.setDisplayFunc(lambda value: '%.2f' % value)
+        self.setDisplayFunc(lambda value: '%d' % value)
 
         self.__dragging = False
         self.__drag_pos = None  # type: QtCore.QPoint
+        self.__drag_start_value = None  # type: int
 
-    def normalize(self, value: float) -> float:
+    def normalize(self, value: int) -> float:
         try:
             value = max(self.minimum(), min(value, self.maximum()))
-            if self.logScale():
-                return (
-                    math.log(value - self.minimum() + 1)
-                    / math.log(self.maximum() - self.minimum() + 1))
-            else:
-                return (value - self.minimum()) / (self.maximum() - self.minimum())
+            return (value - self.minimum()) / (self.maximum() - self.minimum())
         except ArithmeticError:
-            return self.minimum()
+            return 0.0
 
-    def denormalize(self, value: float) -> float:
-        try:
-            value = max(0.0, min(value, 1.0))
-            if self.logScale():
-                return (
-                    pow(math.e, value * math.log(self.maximum() - self.minimum() + 1))
-                    + self.minimum() - 1)
-            else:
-                return (self.maximum() - self.minimum()) * value + self.minimum()
-        except ArithmeticError:
-            return self.minimum()
+    def denormalize(self, value: float) -> int:
+        return round((self.maximum() - self.minimum()) * value + self.minimum())
 
     def _render(self, ctxt: base_dial.RenderContext) -> None:
         self._renderArc(ctxt)
-        self._renderTrail(ctxt, self.normalize(0.0))
+        self._renderTrail(ctxt, self.normalize(0))
+
+        for v in range(self.minimum(), self.maximum() + 1):
+            nv = self.normalize(v)
+            v_pos = QtCore.QPointF(
+                0.5 * ctxt.arc_size * math.cos(1.5 * math.pi * nv - 1.25 * math.pi),
+                0.5 * ctxt.arc_size * math.sin(1.5 * math.pi * nv - 1.25 * math.pi))
+            ctxt.painter.setPen(ctxt.dot_pen)
+            ctxt.painter.drawPoint(v_pos)
+
         self._renderKnob(ctxt)
         self._renderLabel(ctxt)
 
@@ -89,6 +83,7 @@ class ControlValueDial(base_dial.BaseDial):
         if evt.button() == Qt.LeftButton and not self.readOnly():
             self.__dragging = True
             self.__drag_pos = self.mapToGlobal(evt.pos())
+            self.__drag_start_value = self.value()
             evt.accept()
             return
 
@@ -97,13 +92,8 @@ class ControlValueDial(base_dial.BaseDial):
     def mouseMoveEvent(self, evt: QtGui.QMouseEvent) -> None:
         if self.__dragging:
             delta = (self.mapToGlobal(evt.pos()) - self.__drag_pos).x()
-            self.__drag_pos = self.mapToGlobal(evt.pos())
 
-            step_size = 0.005
-            if evt.modifiers() & Qt.ShiftModifier:
-                step_size /= 10
-
-            value = self.denormalize(self.normalizedValue() + delta * step_size)
+            value = self.__drag_start_value + delta // 20
             value = max(self.minimum(), min(value, self.maximum()))
             self.setValue(value)
 
@@ -112,7 +102,7 @@ class ControlValueDial(base_dial.BaseDial):
 
         super().mouseMoveEvent(evt)
 
-    def mouseReleaseEvent(self, evt: QtGui.QMouseEvent) -> None:
+    def mouseReleasEevent(self, evt: QtGui.QMouseEvent) -> None:
         if self.__dragging and evt.button() == Qt.LeftButton:
             self.__dragging = False
             evt.accept()

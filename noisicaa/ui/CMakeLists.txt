@@ -21,7 +21,9 @@
 add_python_package(
   audio_thread_profiler.py
   control_value_connector.py
+  base_dial.py
   control_value_dial.py
+  int_dial.py
   device_list.py
   dynamic_layout.py
   editor_app.py
