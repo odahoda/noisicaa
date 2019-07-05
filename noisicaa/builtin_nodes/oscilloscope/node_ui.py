@@ -166,13 +166,15 @@ class Oscilloscope(slots.SlotContainer, QtWidgets.QWidget):
         if self.__plot_rect is None:
             return
 
+        trigger_value = -self.yOffset() * self.absYScale()
+
         for value in values:
             if self.__state == State.HOLD and not self.paused():
                 if time.time() - self.__hold_begin > self.absHoldTime():
                     self.__state = State.WAIT_FOR_TRIGGER
 
             if self.__state == State.WAIT_FOR_TRIGGER:
-                if self.__prev_sample < 0.0 and value >= 0.0:
+                if self.__prev_sample < trigger_value and value >= trigger_value:
                     self.__setState(State.RECORDING)
 
             self.__prev_sample = value
