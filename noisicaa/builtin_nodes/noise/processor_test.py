@@ -18,49 +18,18 @@
 #
 # @end:license
 
-import os.path
-
 from noisidev import unittest
-from noisidev import unittest_mixins
-from noisidev import unittest_engine_mixins
-from noisidev import unittest_engine_utils
-from noisicaa import node_db
-from noisicaa.audioproc.engine import block_context
-from noisicaa.audioproc.engine import buffers
-from noisicaa.audioproc.engine import processor
+from noisidev import unittest_processor_mixins
 
 
-class ProcessorNoiseTestMixin(
-        unittest_engine_mixins.HostSystemMixin,
-        unittest_mixins.NodeDBMixin,
+class ProcessorVCATest(
+        unittest_processor_mixins.ProcessorTestMixin,
         unittest.TestCase):
-    def test_json(self):
-        node_db.faust_json_to_node_description(
-            os.path.join(os.path.dirname(__file__), 'processor.json'))
+    def setup_testcase(self):
+        self.node_description = self.node_db['builtin://noise']
 
-    def test_oscillator(self):
-        plugin_uri = 'builtin://noise'
-        node_description = self.node_db[plugin_uri]
-
-        proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_description)
-        proc.setup()
-
-        buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
-
-        out = buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
-        ntype = buffer_mgr.allocate('type', buffers.PyFloatControlValueBuffer())
-
-        ctxt = block_context.PyBlockContext()
-        ctxt.sample_pos = 1024
-
-        proc.connect_port(ctxt, 0, buffer_mgr.data('out'))
-        proc.connect_port(ctxt, 1, buffer_mgr.data('type'))
-
-        for i in range(self.host_system.block_size):
-            out[i] = 0.0
-        ntype[0] = 0.0
-
-        proc.process_block(ctxt, None)  # TODO: pass time_mapper
-        self.assertTrue(any(v != 0.0 for v in out))
-
-        proc.cleanup()
+    def test_process_block(self):
+        self.create_processor()
+        self.fill_buffer('type', 0.0)
+        self.process_block()
+        self.assertBufferIsNotQuiet('out')

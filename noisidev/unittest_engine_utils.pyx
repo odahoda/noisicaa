@@ -60,35 +60,35 @@ cdef class BufferManager(object):
 
     def allocate_from_node_description(self, node_description, prefix=''):
         for port in node_description.ports:
-            type = {
-                node_db.PortDescription.AUDIO: buffers.PyFloatAudioBlockBuffer(),
-                node_db.PortDescription.ARATE_CONTROL: buffers.PyFloatAudioBlockBuffer(),
-                node_db.PortDescription.KRATE_CONTROL: buffers.PyFloatControlValueBuffer(),
-                node_db.PortDescription.EVENTS: buffers.PyAtomDataBuffer(),
+            btype = {
+                node_db.PortDescription.AUDIO: buffers.PyFloatAudioBlockBuffer,
+                node_db.PortDescription.ARATE_CONTROL: buffers.PyFloatAudioBlockBuffer,
+                node_db.PortDescription.KRATE_CONTROL: buffers.PyFloatControlValueBuffer,
+                node_db.PortDescription.EVENTS: buffers.PyAtomDataBuffer,
             }[port.type]
-            self.allocate(prefix + port.name, type)
+            self.allocate(prefix + port.name, btype())
 
     def connect_ports(self, proc, ctxt, node_description, prefix=''):
         for idx, port in enumerate(node_description.ports):
             proc.connect_port(ctxt, idx, self.data(prefix + port.name))
 
-    def allocate(self, str name, buffers.PyBufferType type):
+    def allocate(self, str name, buffers.PyBufferType btype):
         cdef string c_name = name.encode('utf-8')
         assert self.__buffers.count(c_name) == 0, name
 
-        cdef uint32_t size = type.get().size(self.__host_system.get())
+        cdef uint32_t size = btype.get().size(self.__host_system.get())
         assert(self.__offset + size <= self.__size)
         cdef buffers.BufferPtr data = self.__buffer + self.__offset
 
         cdef unique_ptr[buffers.Buffer] buf
-        buf.reset(new buffers.Buffer(self.__host_system.get(), type.release(), data))
+        buf.reset(new buffers.Buffer(self.__host_system.get(), btype.release(), data))
         self.__offset += size
 
         check(buf.get().setup())
 
         self.__buffers[c_name] = unique_ptr[buffers.Buffer](buf.release())
         view = <uint8_t[:size]>data
-        self.__views[name] = (type, view, memoryview(view).cast(type.view_type))
+        self.__views[name] = (btype, view, memoryview(view).cast(btype.view_type))
 
         return self.__views[name][2]
 

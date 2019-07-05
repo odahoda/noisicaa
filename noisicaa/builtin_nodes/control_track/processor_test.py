@@ -21,123 +21,73 @@
 import math
 
 from noisidev import unittest
-from noisidev import unittest_mixins
-from noisidev import unittest_engine_mixins
-from noisidev import unittest_engine_utils
+from noisidev import unittest_processor_mixins
 from noisicaa.audioproc.public import musical_time
-from noisicaa.audioproc.engine import block_context
-from noisicaa.audioproc.engine import buffers
-from noisicaa.audioproc.engine import processor
 from . import processor_messages
 
 
 class ProcessorCVGeneratorTest(
-        unittest_engine_mixins.HostSystemMixin,
-        unittest_mixins.NodeDBMixin,
+        unittest_processor_mixins.ProcessorTestMixin,
         unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.proc = None
-        self.arena = None
-        self.buffer_mgr = None
-        self.ctxt = None
-        self.outbuf = None
-
     def setup_testcase(self):
+        self.node_description = self.node_db['builtin://control-track']
         self.host_system.set_block_size(4096)
-
-        plugin_uri = 'builtin://control-track'
-        node_description = self.node_db[plugin_uri]
-
-        self.proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_description)
-        self.proc.setup()
-
-        self.buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
-
-        self.outbuf = self.buffer_mgr.allocate('out', buffers.PyFloatAudioBlockBuffer())
-
-        self.ctxt = block_context.PyBlockContext()
-
-        self.ctxt.clear_time_map(self.host_system.block_size)
-        for s in range(self.host_system.block_size):
-            self.ctxt.set_sample_time(
-                s,
-                musical_time.PyMusicalTime(s, 44100),
-                musical_time.PyMusicalTime(s + 1, 44100))
-
-        self.proc.connect_port(self.ctxt, 0, self.buffer_mgr.data('out'))
-
-    def cleanup_testcase(self):
-        if self.proc is not None:
-            self.proc.cleanup()
+        self.create_processor()
 
     def test_empty(self):
-        self.proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
-
-        self.assertTrue(all(v == 0.0 for v in self.outbuf))
+        self.process_block()
+        self.assertBufferIsQuiet('out')
 
     def test_single_control_point(self):
-        msg = processor_messages.add_control_point(
+        self.processor.handle_message(processor_messages.add_control_point(
             node_id='123',
             id=0x0001,
-            time=musical_time.PyMusicalTime(1024, 44100),
-            value=0.5)
-        self.proc.handle_message(msg)
+            time=musical_time.PyMusicalTime(1024, self.host_system.sample_rate),
+            value=0.5))
 
-        self.proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
-
-        self.assertTrue(all(math.isclose(v, 0.5) for v in self.outbuf))
+        self.process_block()
+        self.assertBufferAllEqual('out', 0.5)
 
     def test_two_control_points(self):
-        msg = processor_messages.add_control_point(
+        self.processor.handle_message(processor_messages.add_control_point(
             node_id='123',
             id=0x0001,
-            time=musical_time.PyMusicalTime(1024, 44100),
-            value=0.2)
-        self.proc.handle_message(msg)
-
-        msg = processor_messages.add_control_point(
+            time=musical_time.PyMusicalTime(1024, self.host_system.sample_rate),
+            value=0.2))
+        self.processor.handle_message(processor_messages.add_control_point(
             node_id='123',
             id=0x0002,
-            time=musical_time.PyMusicalTime(3072, 44100),
-            value=0.8)
-        self.proc.handle_message(msg)
+            time=musical_time.PyMusicalTime(3072, self.host_system.sample_rate),
+            value=0.8))
 
-        self.proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
+        self.process_block()
 
         # Constant value before first control point.
-        self.assertTrue(all(math.isclose(v, 0.2, rel_tol=0.001) for v in self.outbuf[:1024]))
+        self.assertBufferRangeEqual('out', 0, 1024, 0.2)
 
         # Linear ramp up between first and second control points.
         self.assertTrue(all(math.isclose(v, e, rel_tol=0.001)
                             for v, e
-                            in zip(self.outbuf[1024:3072],
+                            in zip(self.buffers['out'][1024:3072],
                                    [0.2 + 0.6 * i / 2048 for i in range(2048)])))
 
         # Constant value after second control point.
-        self.assertTrue(all(math.isclose(v, 0.8, rel_tol=0.001) for v in self.outbuf[3072:]))
+        self.assertBufferRangeEqual('out', 3072, 4096, 0.8)
 
     def test_remove_control_point(self):
-        msg = processor_messages.add_control_point(
+        self.processor.handle_message(processor_messages.add_control_point(
             node_id='123',
             id=0x0001,
             time=musical_time.PyMusicalTime(1024, 44100),
-            value=0.5)
-        self.proc.handle_message(msg)
-
-        msg = processor_messages.add_control_point(
+            value=0.5))
+        self.processor.handle_message(processor_messages.add_control_point(
             node_id='123',
             id=0x0002,
             time=musical_time.PyMusicalTime(2048, 44100),
-            value=1.0)
-        self.proc.handle_message(msg)
-
-        msg = processor_messages.remove_control_point(
+            value=1.0))
+        self.processor.handle_message(processor_messages.remove_control_point(
             node_id='123',
-            id=0x0002)
-        self.proc.handle_message(msg)
+            id=0x0002))
 
-        self.proc.process_block(self.ctxt, None)  # TODO: pass time_mapper
-
-        self.assertTrue(all(math.isclose(v, 0.5) for v in self.outbuf))
+        self.process_block()
+        self.assertBufferAllEqual('out', 0.5)

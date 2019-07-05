@@ -19,72 +19,23 @@
 # @end:license
 
 from noisidev import unittest
-from noisidev import unittest_mixins
-from noisidev import unittest_engine_mixins
-from noisidev import unittest_engine_utils
-from noisicaa import lv2
+from noisidev import unittest_processor_mixins
 from noisicaa.audioproc.public import node_parameters_pb2
-from noisicaa.audioproc.public import time_mapper
-from noisicaa.audioproc.public import musical_time
-from noisicaa.audioproc.engine import block_context
-from noisicaa.audioproc.engine import buffers
-from noisicaa.audioproc.engine import processor
 from . import processor_pb2
 
 
-class ProcessorMidiLooperTestMixin(
-        unittest_engine_mixins.HostSystemMixin,
-        unittest_mixins.NodeDBMixin,
+class ProcessorMidiLooperTest(
+        unittest_processor_mixins.ProcessorTestMixin,
         unittest.TestCase):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.time_mapper = None
-
-    def setup_testcase(self):
-        self.time_mapper = time_mapper.PyTimeMapper(self.host_system.sample_rate)
-        self.time_mapper.setup()
-
-    def cleanup_testcase(self):
-        if self.time_mapper is not None:
-            self.time_mapper.cleanup()
-            self.time_mapper = None
-
-    def test_value(self):
-        plugin_uri = 'builtin://midi-looper'
-
-        node_desc = self.node_db[plugin_uri]
-
-        proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
-        proc.setup()
+    def test_process_block(self):
+        self.node_description = self.node_db['builtin://midi-looper']
+        self.create_processor()
 
         params = node_parameters_pb2.NodeParameters()
         spec = params.Extensions[processor_pb2.midi_looper_spec]
         spec.duration.numerator = 8
         spec.duration.denominator = 4
-        proc.set_parameters(params)
+        self.processor.set_parameters(params)
 
-        buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
-
-        buffer_mgr.allocate('in', buffers.PyAtomDataBuffer())
-        buffer_mgr.allocate('out', buffers.PyAtomDataBuffer())
-
-        ctxt = block_context.PyBlockContext()
-        ctxt.sample_pos = 0
-        ctxt.clear_time_map(self.host_system.block_size)
-        for s in range(self.host_system.block_size):
-            ctxt.set_sample_time(
-                s,
-                musical_time.PyMusicalTime(s, 44100),
-                musical_time.PyMusicalTime(s + 1, 44100))
-
-        proc.connect_port(ctxt, 0, buffer_mgr.data('in'))
-        proc.connect_port(ctxt, 1, buffer_mgr.data('out'))
-
-        forge = lv2.AtomForge(self.urid_mapper)
-        forge.set_buffer(buffer_mgr.data('in'), 10240)
-        with forge.sequence():
-            pass
-
-        proc.process_block(ctxt, self.time_mapper)
+        self.process_block()

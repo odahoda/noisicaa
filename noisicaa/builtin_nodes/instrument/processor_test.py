@@ -22,68 +22,35 @@ import os
 import os.path
 
 from noisidev import unittest
-from noisidev import unittest_mixins
-from noisidev import unittest_engine_mixins
-from noisidev import unittest_engine_utils
-from noisicaa import lv2
+from noisidev import unittest_processor_mixins
 from noisicaa.audioproc.public import instrument_spec_pb2
-from noisicaa.audioproc.engine import block_context
-from noisicaa.audioproc.engine import buffers
-from noisicaa.audioproc.engine import processor
 from . import processor_messages
 
 
-class ProcessorInstrumentTestMixin(
-        unittest_engine_mixins.HostSystemMixin,
-        unittest_mixins.NodeDBMixin,
+class ProcessorInstrumentTest(
+        unittest_processor_mixins.ProcessorTestMixin,
         unittest.TestCase):
 
     def playback_test(self, instrument_spec):
-        plugin_uri = 'builtin://instrument'
-        node_desc = self.node_db[plugin_uri]
+        self.node_description = self.node_db['builtin://instrument']
+        self.create_processor()
 
-        proc = processor.PyProcessor('realm', 'test_node', self.host_system, node_desc)
-        proc.setup()
-
-        proc.handle_message(processor_messages.change_instrument('test_node', instrument_spec))
-
-        buffer_mgr = unittest_engine_utils.BufferManager(self.host_system)
-
-        buffer_mgr.allocate('in', buffers.PyAtomDataBuffer())
-        audio_l_out = buffer_mgr.allocate('out:left', buffers.PyFloatAudioBlockBuffer())
-        audio_r_out = buffer_mgr.allocate('out:right', buffers.PyFloatAudioBlockBuffer())
-
-        ctxt = block_context.PyBlockContext()
-        ctxt.sample_pos = 1024
-
-        proc.connect_port(ctxt, 0, buffer_mgr.data('in'))
-        proc.connect_port(ctxt, 1, buffer_mgr.data('out:left'))
-        proc.connect_port(ctxt, 2, buffer_mgr.data('out:right'))
-
-        urid_mapper = lv2.DynamicURIDMapper()
+        self.processor.handle_message(processor_messages.change_instrument(
+            'test_node', instrument_spec))
 
         # run once empty to give csound some chance to initialize the ftable
-        forge = lv2.AtomForge(urid_mapper)
-        forge.set_buffer(buffer_mgr.data('in'), 10240)
-        with forge.sequence():
-            pass
+        self.process_block()
 
-        proc.process_block(ctxt, None)  # TODO: pass time_mapper
+        self.fill_midi_buffer(
+            'in',
+            [(0, [0x90, 60, 100]),
+             (64, [0x80, 60, 0])])
+        self.clear_buffer('out:left')
+        self.clear_buffer('out:right')
 
-        forge = lv2.AtomForge(urid_mapper)
-        forge.set_buffer(buffer_mgr.data('in'), 10240)
-        with forge.sequence():
-            forge.write_midi_event(0, bytes([0x90, 60, 100]), 3)
-            forge.write_midi_event(64, bytes([0x80, 60, 0]), 3)
-
-        for i in range(self.host_system.block_size):
-            audio_l_out[i] = 0.0
-            audio_r_out[i] = 0.0
-
-        proc.process_block(ctxt, None)  # TODO: pass time_mapper
-
-        self.assertTrue(any(v != 0.0 for v in audio_l_out))
-        self.assertTrue(any(v != 0.0 for v in audio_r_out))
+        self.process_block()
+        self.assertBufferIsNotQuiet('out:left')
+        self.assertBufferIsNotQuiet('out:right')
 
     def test_sample(self):
         self.playback_test(
