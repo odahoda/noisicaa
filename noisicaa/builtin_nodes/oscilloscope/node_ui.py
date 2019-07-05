@@ -36,6 +36,7 @@ from noisicaa.ui import slots
 from noisicaa.ui import dynamic_layout
 from noisicaa.ui import int_dial
 from noisicaa.ui import control_value_dial
+from noisicaa.ui import property_connector
 from noisicaa.ui import ui_base
 from noisicaa.ui.graph import base_node
 from . import model
@@ -414,7 +415,11 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
         self.__time_scale.setDefault(-5)
         self.__time_scale.setDisplayFunc(Oscilloscope.formatTimeScale)
         self.__time_scale.valueChanged.connect(self.__plot.setTimeScale)
-        self.__time_scale.setValue(-5)
+        self.__time_scale_connector = property_connector.IntDialConnector(
+            self.__time_scale, self.__node, 'time_scale',
+            mutation_name='%s: Change time scale' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__time_scale_connector.cleanup)
 
         self.__time_scale_label = QtWidgets.QLabel("Time", self)
         self.__time_scale_label.setFont(label_font)
@@ -426,7 +431,11 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
         self.__hold_time.setDefault(-3)
         self.__hold_time.setDisplayFunc(Oscilloscope.formatHoldTime)
         self.__hold_time.valueChanged.connect(self.__plot.setHoldTime)
-        self.__hold_time.setValue(-3)
+        self.__hold_time_connector = property_connector.IntDialConnector(
+            self.__hold_time, self.__node, 'hold_time',
+            mutation_name='%s: Change hold time' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__hold_time_connector.cleanup)
 
         self.__hold_time_label = QtWidgets.QLabel("Hold", self)
         self.__hold_time_label.setFont(label_font)
@@ -438,7 +447,11 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
         self.__y_scale.setDefault(1)
         self.__y_scale.setDisplayFunc(Oscilloscope.formatYScale)
         self.__y_scale.valueChanged.connect(self.__plot.setYScale)
-        self.__y_scale.setValue(1)
+        self.__y_scale_connector = property_connector.IntDialConnector(
+            self.__y_scale, self.__node, 'y_scale',
+            mutation_name='%s: Change Y scale' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__y_scale_connector.cleanup)
 
         self.__y_scale_label = QtWidgets.QLabel("Y Zoom", self)
         self.__y_scale_label.setFont(label_font)
@@ -449,7 +462,11 @@ class OscilloscopeNodeWidget(ui_base.ProjectMixin, core.AutoCleanupMixin, QtWidg
         self.__y_offset.setRange(-1.0, 1.0)
         self.__y_offset.setDefault(0.0)
         self.__y_offset.valueChanged.connect(self.__plot.setYOffset)
-        self.__y_offset.setValue(0.0)
+        self.__y_offset_connector = property_connector.ControlValueDialConnector(
+            self.__y_offset, self.__node, 'y_offset',
+            mutation_name='%s: Change Y offset' % self.__node.name,
+            context=self.context)
+        self.add_cleanup_function(self.__y_offset_connector.cleanup)
 
         self.__y_offset_label = QtWidgets.QLabel("Y Off", self)
         self.__y_offset_label.setFont(label_font)

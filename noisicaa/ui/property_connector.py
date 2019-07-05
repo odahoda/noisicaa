@@ -30,6 +30,8 @@ from noisicaa import core
 from noisicaa import music
 from noisicaa.ui import ui_base
 from noisicaa.ui import device_list
+from noisicaa.ui import int_dial
+from noisicaa.ui import control_value_dial
 
 logger = logging.getLogger(__name__)
 
@@ -197,3 +199,23 @@ class QCheckBoxConnector(PropertyConnector[bool, QtWidgets.QCheckBox]):
 
     def _propertyChanged(self, change: music.PropertyValueChange) -> None:
         self._widget.setChecked(change.new_value)
+
+
+class IntDialConnector(PropertyConnector[int, int_dial.IntDial]):
+    def _connectToWidget(self) -> None:
+        self._widget.setValue(self.value())
+        connection = self._widget.valueChanged.connect(self.setValue)
+        self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(connection))
+
+    def _propertyChanged(self, change: music.PropertyValueChange) -> None:
+        self._widget.setValue(change.new_value)
+
+
+class ControlValueDialConnector(PropertyConnector[float, control_value_dial.ControlValueDial]):
+    def _connectToWidget(self) -> None:
+        self._widget.setValue(self.value())
+        connection = self._widget.valueChanged.connect(self.setValue)
+        self.add_cleanup_function(lambda: self._widget.valueChanged.disconnect(connection))
+
+    def _propertyChanged(self, change: music.PropertyValueChange) -> None:
+        self._widget.setValue(change.new_value)

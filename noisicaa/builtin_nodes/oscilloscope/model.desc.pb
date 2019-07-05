@@ -22,4 +22,28 @@ classes {
   name: "Oscilloscope"
   super_class: "noisicaa.music.graph.BaseNode"
   proto_ext_name: "oscilloscope"
+  properties {
+    name: "time_scale"
+    type: INT32
+    default: "-5"
+    proto_id: 1
+  }
+  properties {
+    name: "hold_time"
+    type: INT32
+    default: "-3"
+    proto_id: 2
+  }
+  properties {
+    name: "y_scale"
+    type: INT32
+    default: "1"
+    proto_id: 3
+  }
+  properties {
+    name: "y_offset"
+    type: FLOAT
+    default: "0.0"
+    proto_id: 4
+  }
 }
